@@ -234,6 +234,7 @@ export async function appendProjectChat(
     problem: current.problem,
     criteria: current.criteria,
     frames: current.frames,
+    frameNotes: current.frameNotes,
     // 深度 S10（#3988）：上传的图（data URL）不进模型——一张就能吃掉大半上下文，模型也不该改它。
     prototype: current.prototype.map((r) => designPrototype.withoutImageSources(r)),
     ...focusFor(current, input.focusNodeId, input.focusRef),

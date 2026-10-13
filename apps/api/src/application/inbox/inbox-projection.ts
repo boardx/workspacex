@@ -304,7 +304,7 @@ export function buildDesignInboxItems(rows: readonly DesignProjectView[]): Inbox
       kind: "design",
       code: codes.get(row.id)!,
       title: row.name,
-      body: row.problem.trim() !== "" ? row.problem : null,
+      body: row.pushNote?.trim() ? row.pushNote : row.problem.trim() !== "" ? row.problem : null,
       design: { ...row, share: null },
       structured: null,
       feedbackKind: null,

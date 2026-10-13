@@ -69,6 +69,7 @@ const REPAIRABLE_FIELDS = new Set(["prototype", "patch"]);
 
 /** 模型看到的项目上下文：六个字段 + 本项目完整历史（**已含**这次的用户消息）。 */
 export type DesignChatContext = Pick<DesignProjectRow, "name" | "template" | "problem" | "criteria" | "frames" | "prototype" | "chat"> & {
+  readonly frameNotes?: readonly string[];
   /**
    * 迭代 13（delta §1.3）：这一轮要给模型看的参考图（字节已由调用方取好）。
    * **随每一轮发**，不是只发第一轮——「照着这张画」在第 4 页仍然成立（V53）。
@@ -344,6 +345,7 @@ function describeProject(ctx: DesignChatContext, html = false): string {
     `问题背景：${ctx.problem.trim() === "" ? "（还没写）" : ctx.problem}`,
     `验收标准：${JSON.stringify(ctx.criteria)}`,
     `画布页标签：${JSON.stringify(ctx.frames)}`,
+    `每页已有交互说明（按页同序，修改时保留未改变的交互）：${JSON.stringify(ctx.frameNotes ?? [])}`,
     `当前原型（按页，与标签同序；每个节点带 id 供 patch 寻址；空数组 = 还没生成）：${JSON.stringify(ctx.prototype.map(summarizeHtmlNodes))}`,
   ];
   if (ctx.focus !== undefined) {
@@ -1047,7 +1049,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
           ],
         },
         suggestions: [],
-        ...(notes === undefined ? {} : { pageNotes: [{ screen: index, notes }] }),
+        ...(notes === undefined || notes.trim() === "" ? {} : { pageNotes: [{ screen: index, notes }] }),
       };
     };
 
@@ -1334,7 +1336,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
         // Add every page before linking: new pages may link to later new pages.
         for (const [i, screen] of newScreens.entries()) patch.push({ op: "addScreen", at: ctx.frames.length + i, frame: screen.frame, root: screen.root });
         for (const [i, screen] of newScreens.entries()) patch.push({ op: "setLinks", screen: ctx.frames.length + i, links: [...(screen.links ?? [])] });
-        const expanded = { ...ctx, frames: [...ctx.frames, ...newScreens.map((screen) => screen.frame)], prototype: [...ctx.prototype, ...newScreens.map((screen) => screen.root ?? null)] };
+        const expanded = { ...ctx, frames: [...ctx.frames, ...newScreens.map((screen) => screen.frame)], prototype: [...ctx.prototype, ...newScreens.map((screen) => screen.root ?? null)], frameNotes: [...ctx.frames.map((_, i) => ctx.frameNotes?.[i] ?? ""), ...newScreens.map((screen) => screen.notes ?? "")] };
         for (const index of indices as number[]) {
           const root = ctx.prototype[index]!;
           if (root.type !== "html" || root.id === undefined) return fallbackWith("MODEL_BAD_JSON");

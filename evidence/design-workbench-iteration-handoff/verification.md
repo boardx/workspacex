@@ -7,14 +7,14 @@ The user reported that existing HTML designs refused new-page requests, asked to
 ## Result
 
 - The HTML planner can describe new pages without generating them, or generate additions using existing HTML as style anchors. `addScreen` appends only new pages; all additions precede link writeback so a new page can link to later additions. Failed batches return no patch. Existing pages are edited only when requested. Page caps are reported before drawing rather than silently truncating the plan.
-- HTML editor/generator interaction notes now accompany successful patches into storage.
+- HTML editor/generator interaction notes now accompany successful patches into storage. Existing interaction notes are included in edit context; an omitted/empty note does not clear an existing note.
 - Device selection and rotation are always visible in the canvas header, using the same device state and presets as before. Switching a device remains a preview operation, not a project write.
-- Organization inbox design items now include the full current project. Publishing tokens are explicitly excluded. The drawer previews pages and navigation, displays the complete design document, and exports the full design data, original HTML and component trees as JSON. Design issue drafts include the design document and a link back to the complete handoff. HTML page text is no longer clipped at 160 characters in design documents.
+- Organization inbox design items now include the full current project and the engineering push note. Publishing tokens are explicitly excluded. The drawer previews pages and navigation, displays the complete design document, and exports the full design data, original HTML and component trees as JSON. Design issue drafts include the design document and a link back to the complete handoff. HTML page text is no longer clipped at 160 characters in design documents.
 
 ## Validation
 
 - `./init.sh`: passed (pnpm 9.15.0, workspace-safe cache, unused desktop Electron download disabled).
-- API: 199 tests passed across HTML generation/editing, model behavior, project lifecycle, image preservation, retry, inbox projection, and design issue creation.
+- API: 200 tests passed across HTML generation/editing, model behavior, project lifecycle, image preservation, retry, inbox projection, and design issue creation.
 - Web: 271 tests passed across design-loop UI and design document exports.
 - Contracts: 109 tests passed for inbox and design workbench contracts.
 - API, web and contracts typecheck passed; API and web lint passed; `git diff --check` passed.

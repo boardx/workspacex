@@ -621,6 +621,8 @@ export const DesignProject = z
     frameLinks: z.array(z.array(PrototypeLink)).optional(),
     pushed: z.boolean(),
     pushedAt: z.string().nullable(),
+    /** Engineering handoff note submitted when pushing the design. */
+    pushNote: z.string().nullable().optional(),
     /** 本项目是否深化自某条反馈；见文件头「与 inbox.ts 的关系」 */
     linkedFeedbackId: z.string().nullable(),
     /**

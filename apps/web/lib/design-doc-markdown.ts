@@ -130,6 +130,7 @@ export function buildDesignDocMarkdown(project: DesignProject, now: Date = new D
    */
   lines.push(`- 导出时间：${localTimeStamp(now)}`, "");
   lines.push("## 问题与目标", "", project.problem.trim() === "" ? "（还没写）" : project.problem, "");
+  if (project.pushNote?.trim()) lines.push("## 开发交付备注", "", project.pushNote, "");
   lines.push("## 验收标准", "");
   if (project.criteria.length === 0) lines.push("（还没有）");
   for (const [i, c] of project.criteria.entries()) lines.push(`${i + 1}. ${c}`);

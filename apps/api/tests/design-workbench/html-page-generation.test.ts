@@ -292,6 +292,14 @@ describe("HTML 页局部修改", () => {
     expect(out.writeback).toEqual({});
   });
 
+  it("页面修改收到已有交互说明；模型未输出说明时不以空值覆盖原说明", async () => {
+    const { r, complete } = make(() => `<reply>标题已更新。</reply><page>${page0}</page>`);
+    const out = await r.reply({ ...editCtx(undefined, "改标题"), frameNotes: ["AR扫描失败保留重试入口", "返回首页"] });
+    expect(complete.mock.calls[0]![0].user).toContain("AR扫描失败保留重试入口");
+    expect(out.pageNotes).toBeUndefined();
+    expect(out.writeback.patch).toBeDefined();
+  });
+
   it("树形 prompt 里 HTML 页只留摘要，不塞整页 HTML", async () => {
     const complete = vi.fn(async (_i: { system: string; user: string }) => ({ text: '{"reply":"好的","screens":[]}' }));
     const r = new ModelDesignChatReplier({ model: { complete } as never, chatModel: { provider: "p", modelId: "m" }, log: vi.fn() });
