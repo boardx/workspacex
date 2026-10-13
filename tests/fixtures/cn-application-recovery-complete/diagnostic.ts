@@ -4,7 +4,7 @@ const stages=new Set(['module-load','initial-migrations','initial-catalog','back
 let stage='module-load';
 const categories=new Set(['database','namespaces','relations','columns','constraints','indexes','triggers','views','rules','inheritance','types','enumLabels','collations','sequences','functions','policies','defaultAcl','extensions','roles','memberships','agePresence','graphs','labels']);
 let catalogCategory:string|null=null;
-export function mark(value:string){stage=stages.has(value)?value:'unknown';}
+export function mark(value:string){stage=stages.has(value)?value:'unknown';catalogCategory=null;}
 export function markCatalog(value:string){catalogCategory=categories.has(value)?value:null;}
 export function diagnostic(error:unknown){
  const causes=[];let e:any=error;const seen=new Set();
