@@ -209,12 +209,12 @@ def main():
     domain_spec = importlib.util.spec_from_file_location('reap_owned_domain', ROOT / 'scripts/cn_release_simulation_domain.py')
     domain_module = importlib.util.module_from_spec(domain_spec)
     domain_spec.loader.exec_module(domain_module)
-    domain = domain_module.Domain()
-    process = None
-    cleanup = None
-    try:
-        rounds=[]
-        for round_index in range(3):
+    rounds=[]
+    for round_index in range(3):
+        domain=domain_module.Domain()
+        process=None
+        cleanup=None
+        try:
             process = domain.spawn([sys.executable, '-I', '-B', str(Path(__file__).resolve()), '--worker'],
                                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8'})
@@ -235,16 +235,15 @@ def main():
                 print(json.dumps(child_diagnostic('child-json', process.returncode, out, err)), flush=True)
                 raise
             need(result.get('verified') is True, 'COUNTEREXAMPLE_UNVERIFIED')
-            rounds.append(result)
-            process.stdout.close();process.stderr.close()
-    finally:
-        try:
-            cleanup = domain.close(process)
         finally:
-            if process is not None:
-                process.stdout.close()
-                process.stderr.close()
-    need(cleanup.get('verified') is True, 'SUPERVISOR_DOMAIN_CLEANUP_UNPROVEN')
+            try:
+                cleanup=domain.close(process)
+            finally:
+                if process is not None:
+                    process.stdout.close();process.stderr.close()
+        need(cleanup.get("verified")is True,"SUPERVISOR_DOMAIN_CLEANUP_UNPROVEN")
+        result["supervisorCleanup"]=cleanup
+        rounds.append(result)
     result={'verified':len(rounds)==3 and all(r['verified'] is True for r in rounds),'rounds':rounds,'roundCount':3,'supervisorCleanup':cleanup,'historicalCiCauseProven':False}
     print(json.dumps(result, sort_keys=True))
     return 0
