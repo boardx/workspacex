@@ -1,4 +1,5 @@
 import type {CoreModelRuntimeGuard} from "../model/core-model-runtime-guard";
+import {resolveReportFilePolicyProject} from '../report-files/pg-report-file-policy-project';
 import {coreModelScopedDb} from "../model/pg-org-core-model-repository";
 import {recoverAiReceiptSettlement,type AiReceiptRecoveryPort} from "../../application/agent-run/stage-two-receipt-recovery";
 import {withCommittedAiPolicyDecision} from "../../application/agent-run/committed-ai-policy-decision";
@@ -175,7 +176,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
 }
 
 export interface RuntimeModelOwner {
- readonly user_id:string;readonly project_id:string;readonly thread_id:string;readonly agent_id:string;
+ readonly user_id:string;readonly project_id:string|null;readonly thread_id:string;readonly agent_id:string;
  readonly root_run_id:string;readonly subtask_id:string|null;
 }
 /** Shared metadata-only authority for private accounting and admission. Caller content
@@ -197,7 +198,8 @@ export async function resolveRuntimeModelOwner(s:TenantSession,orgId:OrgId,runId
         WHERE c.org_id=$1 AND c.id=$2 AND c.status='running' AND c.cancel_requested_at IS NULL AND p.cancel_requested_at IS NULL
           AND c.lease_epoch=$3 AND c.execution_attempt_id=$4 FOR SHARE OF p,c`,[orgId,runId,leaseEpoch,attemptId])).rows[0];
       if(!owner?.user_id)return undefined;
-      return {user_id:owner.user_id,project_id:owner.project_id,thread_id:owner.thread_id,
+      const policyProjectId=await resolveReportFilePolicyProject(s,orgId,owner.root_run_id,owner.user_id,owner.thread_id,owner.project_id);
+      return {user_id:owner.user_id,project_id:policyProjectId,thread_id:owner.thread_id,
         agent_id:owner.agent_id,root_run_id:owner.root_run_id,subtask_id:owner.subtask_id};
 }
 

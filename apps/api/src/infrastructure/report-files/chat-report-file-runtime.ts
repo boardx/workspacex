@@ -55,7 +55,7 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
     const published = await this.deps.messages.publishedAgents.resolvePublished(actor.orgId, agentId);
     if (!published || published.skillScope !== 'general' || published.modelProvider !== 'deep-agent') throw new ReportFileError('SKILL_UNAVAILABLE');
     const threadId = record.threadId ?? (await mutateThread(this.deps.threads, {
-      ...actor, op: 'create', projectId: source.projectId, threadId: null, groupId: null,
+      ...actor, op: 'create', projectId: null, threadId: null, groupId: null,
       title: `报告文件 · ${source.title}`.slice(0, 200), visibilityScope: 'private', expectedVersion: null, reason: null,
     })).threadId;
     if (!record.threadId) await saveThread(threadId);
@@ -91,7 +91,9 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
     const selected = facts.filter(fact => fact.skillStableName === record.skill.stableName && fact.skillVersion === record.skill.versionId);
     if (!selected.some(fact => fact.stage === 'body_read') || !run.steps.some(step => step.toolName === 'execute' && step.status === 'succeeded')
       || !run.steps.some(step => step.toolName === 'wx_artifact_publish' && step.status === 'succeeded')) return { status: 'failed', execution };
-    const result = await listThreadAttachments(this.deps.attachments, { ...record.actor, threadId: record.threadId, projectId: record.projectId ?? null });
+    const threadFacts = await this.deps.messages.chat.findThreadFacts(record.actor.orgId, record.threadId);
+    if (!threadFacts) return { status: 'failed', execution };
+    const result = await listThreadAttachments(this.deps.attachments, { ...record.actor, threadId: record.threadId, projectId: threadFacts.projectId });
     const format = REPORT_FILE_FORMATS[record.job.format];
     const files = result.items.filter(item => item.messageId === run.resultMessageId && item.mime === format.mediaType && item.filename.toLowerCase().endsWith(format.extension));
     if (files.length !== 1) return { status: 'failed', execution };

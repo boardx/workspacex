@@ -662,8 +662,8 @@ it('server product selection cannot introduce an unauthorized version or overrid
   const rows = await asApp(ORG, c => c.query('SELECT id FROM agent_runs WHERE org_id=$1', [ORG]));
   expect(rows.rows).toEqual([]);
 });
-it('public message input cannot set the server-only product Skill selection', async () => {
+it.each(['requestedSkillVersionId', 'policyProjectId', 'projectId'])('public message input cannot set server-only context %s', async field => {
   const response = await fetch(`${BASE}/chat/threads/${THREAD}/messages`, { method: 'POST', headers: principal(),
-    body: JSON.stringify({ clientMessageId: randomUUID(), text: 'client-selected pin', agentId: AGENT, requestedSkillVersionId: SKILL_V1 }) });
+    body: JSON.stringify({ clientMessageId: randomUUID(), text: 'client-selected pin', agentId: AGENT, [field]: SKILL_V1 }) });
   expect(response.status).toBe(422);
 });
