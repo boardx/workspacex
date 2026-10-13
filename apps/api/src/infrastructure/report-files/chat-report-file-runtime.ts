@@ -49,8 +49,7 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
       title: `报告文件 · ${source.title}`.slice(0, 200), visibilityScope: null, expectedVersion: null, reason: null,
     })).threadId;
     if (!record.threadId) await saveThread(threadId);
-    const body = `# 文件生成披露\n\n报告版本：${source.reportVersion}\n内容哈希：${source.reportHash}\n\n${source.notices.join('\n\n')}\n\n# 报告正文\n\n${source.markdown}\n\n# 已授权来源附录\n\n${source.appendixMarkdown ?? ''}`;
-    const attachment = await uploadAttachment(this.deps.attachments, { ...actor, threadId, filename: 'saved-report.md', mime: 'text/markdown', bytes: Buffer.from(body) });
+    const attachment = await uploadAttachment(this.deps.attachments, { ...actor, threadId, filename: 'saved-report.md', mime: 'text/markdown', bytes: encodeSavedReportInput(source) });
     const accepted = await acceptHumanMessage(this.deps.messages, {
       ...actor, threadId, clientMessageId: record.requestId, agentId, requestedSkillVersionId: record.skill.versionId,
       attachmentIds: [attachment.id],
@@ -87,4 +86,9 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
     if (!record.threadId || !record.attachmentId) throw new ReportFileError('REPORT_UNAVAILABLE');
     return getAttachmentContent(this.deps.attachments, { ...record.actor, threadId: record.threadId, attachmentId: record.attachmentId });
   }
+}
+
+/** UTF-8 attachment bytes preserve real Markdown line breaks and the authorized input exactly. */
+export function encodeSavedReportInput(source: ReportFileSourceSnapshot): Uint8Array {
+  return Buffer.from(`# 文件生成披露\n\n报告版本：${source.reportVersion}\n内容哈希：${source.reportHash}\n\n${source.notices.join('\n\n')}\n\n# 报告正文\n\n${source.markdown}\n\n# 已授权来源附录\n\n${source.appendixMarkdown ?? ''}`);
 }
