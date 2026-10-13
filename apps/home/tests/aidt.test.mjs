@@ -25,7 +25,7 @@ try {
       assert.equal(await page.locator('html').getAttribute('lang'), language);
       assert.equal(await page.locator('h1').count(), 1);
       assert.ok(await page.locator('h1').isVisible());
-      assert.equal(await page.locator('.aidt-step').count(), 5);
+      assert.equal(await page.locator('.aidt-step').count(), 6);
       assert.equal(await page.locator('.aidt-mindset').count(), 7);
       assert.match(await page.locator('#contact .btn').getAttribute('href'), /^mailto:hello@boardx\.us\?subject=/);
       const other = page.locator('.langswitch__btn:not([aria-current])');
@@ -68,6 +68,7 @@ try {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
     await page.goto(base + route);
+    await page.locator('details').evaluateAll(items => items.forEach(item => { item.open = true; }));
     await page.evaluate(axe);
     const violations = await page.evaluate(async () => (await axe.run(document, {
       runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] },
