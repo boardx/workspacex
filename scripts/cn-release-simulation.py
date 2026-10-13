@@ -10,9 +10,16 @@ HEAVY_SUITES=frozenset(('linux-postgres','linux-postgres-lifecycle','linux-api-s
 DOCKER_SUITE_REGISTRIES={'linux-api-startup':'api-container-owner','linux-application-recovery':'application-recovery-owner','linux-application-recovery-complete':'application-recovery-complete-owner'}
 HEAVY_SLOT=threading.Semaphore(1)
 def scheduled_execute(name,*args,**kwargs):
+    def observed_execute():
+        # Runner termination can prevent artifact upload. Keep bounded metadata
+        # in the live job log without exposing command, environment or payload.
+        print(json.dumps({'simulationSuite':name,'phase':'started'}),flush=True)
+        result=execute(name,*args,**kwargs)
+        print(json.dumps({'simulationSuite':name,'phase':'finished','status':result['status']}),flush=True)
+        return result
     if name in HEAVY_SUITES:
-        with HEAVY_SLOT:return execute(name,*args,**kwargs)
-    return execute(name,*args,**kwargs)
+        with HEAVY_SLOT:return observed_execute()
+    return observed_execute()
 LOG_LIMIT=4*1024*1024
 GAPS=['External GitHub/OSS/ACR/ECS/RDS operations use fixtures; no live provider acceptance.',
       'No production image build, paid resource, production database, traffic switch or live business acceptance.',

@@ -37,7 +37,14 @@ class BrowserWrapperTests(unittest.TestCase):
    for pattern in patterns:
     for source in (ROOT/'tests').glob(pattern):
      self.assertNotIn(source,seen,(suite,seen.get(source),source.name));seen[source]=suite
-  self.assertEqual(len(runner.SUITES),26)
+  self.assertEqual(len(runner.SUITES),28)
+  # Both newly registered integration contracts must own their exact source;
+  # merely adding any two suites must not satisfy the inventory count.
+  for suite,filename in (
+   ('linux-application-recovery-complete','cn_release_application_recovery_complete_linux.py'),
+   ('linux-fsync-entry','cn_release_fsync_entry_linux.py')):
+   self.assertEqual(runner.SUITES.get(suite),[filename])
+   self.assertEqual(seen.get(ROOT/'tests'/filename),suite)
   for name in ('cn_release_boundary_reap_linux.py','cn_release_browser_linux.py','cn_release_cgroup_linux.py','test_cn_formal_budget_profile.py','test_aliyun_release_auth.py'):
    self.assertIn(ROOT/'tests'/name,seen)
 

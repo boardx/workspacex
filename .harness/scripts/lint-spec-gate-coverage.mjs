@@ -629,6 +629,9 @@ export function cnDiscoveryEnvironment(args, configPath, environment = process.e
     WORKSPACEX_REUSE_INFRA: "0",
     CN_SIX_REPORT_PATH: "",
     CN_SIX_OUTPUT_DIR: "",
+    // --list never launches Chromium. Use this already installed executable
+    // only for config import; the actual runtime still requires its owner path.
+    CN_TEST_CHROMIUM: process.execPath,
   };
 }
 

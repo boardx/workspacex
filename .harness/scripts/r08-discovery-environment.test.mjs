@@ -1,6 +1,8 @@
 import { test } from "vitest";
 import assert from "node:assert/strict";
-import { r08DiscoveryEnvironment, cnDiscoveryEnvironment } from "./lint-spec-gate-coverage.mjs";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { r08DiscoveryEnvironment, cnDiscoveryEnvironment, specsMatchedBy } from "./lint-spec-gate-coverage.mjs";
 
 test("R01 and R08 discovery placeholders are available only to explicit Playwright list", () => {
   const result = r08DiscoveryEnvironment(["exec", "playwright", "test", "--list"], {});
@@ -35,6 +37,33 @@ test("CN placeholders are isolated to the exact CN config and explicit list", ()
   assert.equal(cn.CN_RELEASE_FULLSTACK_FIXTURE, "1");
   assert.equal(cn.CN_SIX_REPORT_PATH, "");
   assert.equal(cn.CN_SIX_INFRA_RECEIPT, "spec-gate-discovery-only/no-runtime-receipt.json");
+  assert.equal(cn.CN_TEST_CHROMIUM, process.execPath);
   assert.deepEqual(environment, before);
   assert.throws(() => cnDiscoveryEnvironment(["--list=false"], "apps/web/playwright.cn-six-business.config.ts", environment), /require Playwright --list/);
+});
+
+test("actual CN list imports without a browser while runtime config still rejects missing owner executable", () => {
+  const previous = process.env.CN_TEST_CHROMIUM;
+  const configPath = "apps/web/playwright.cn-six-business.config.ts";
+  try {
+    delete process.env.CN_TEST_CHROMIUM;
+    assert.deepEqual(specsMatchedBy({ pkgDir: "apps/web", configPath }),
+      ["apps/web/e2e/cn-release-six-business.spec.ts"]);
+    assert.equal(process.env.CN_TEST_CHROMIUM, undefined);
+    // Import only: no Playwright execution or webServer startup in this negative.
+    const env = cnDiscoveryEnvironment(["--list"], configPath, process.env);
+    delete env.CN_TEST_CHROMIUM;
+    for (const [i, name] of ["API", "WEB", "MODEL_PROVIDER", "DEEP_AGENT_PROVIDER", "LOOPBACK_SANDBOX", "ASR_PROVIDER", "VISION_PROVIDER"].entries())
+      env["WORKSPACEX_" + name + "_PORT"] = String(39001 + i);
+    const root = fileURLToPath(new URL("../../", import.meta.url));
+    const result = spawnSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e",
+      `await import(${JSON.stringify("./" + configPath)})`],
+      { cwd: root, env, encoding: "utf8", timeout: 15000, maxBuffer: 65536 });
+    assert.equal(result.error, undefined);
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /EXPLICIT_INSTALLED_CHROMIUM_REQUIRED/);
+  } finally {
+    if (previous === undefined) delete process.env.CN_TEST_CHROMIUM;
+    else process.env.CN_TEST_CHROMIUM = previous;
+  }
 });
