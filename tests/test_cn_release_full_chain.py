@@ -136,7 +136,15 @@ class FullChain(unittest.TestCase):
    r.e.create(self.root/('provider-effect-'+stage+'.json'),body)
   command=('printf %s '+shlex.quote(body.decode())+'\n').encode()
   if not observing and self.fail==('lost-response',stage):command=b'exit 17\n'
-  if not observing and self.fail==('timeout',stage):command=b'sleep 2\n';timeout=.05
+  if not observing and self.fail==('timeout',stage):
+   command=b'sleep 2\n';timeout=.05
+   original_started=started
+   def fault_started(pid,isolation):
+    budget=original_started(pid,isolation)
+    # Preserve the original durable PID and deadline observation while the
+    # fixture deliberately substitutes a shorter execution budget.
+    return None if budget is None else {**budget,'remainingSeconds':min(timeout,budget['remainingSeconds'])}
+   started=fault_started
   return self.realrun(command,timeout,started)
  def provider_verify(self,code,raw,manifest,previous,mode):
   """Provider admission fixture; original generated verifier hash still pinned.
