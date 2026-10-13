@@ -69,6 +69,36 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
  await page.screenshot({path:testInfo.outputPath('survey-ai-import-step.png'),fullPage:true});
  await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
+ // Real browser capture + deterministic loopback ASR: this is not human/provider evidence.
+ const importUrl=page.url();
+ await page.evaluate(()=>{
+   const capture=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+   (window as unknown as {surveyMicTracks:MediaStreamTrack[]}).surveyMicTracks=[];
+   navigator.mediaDevices.getUserMedia=async constraints=>{
+     const stream=await capture(constraints);
+     (window as unknown as {surveyMicTracks:MediaStreamTrack[]}).surveyMicTracks.push(...stream.getTracks());
+     return stream;
+   };
+ });
+ await expect(page.getByRole('link',{name:'开始录音'})).toHaveCount(0);
+ await page.getByRole('button',{name:'语音输入',exact:true}).click();
+ await expect(page.getByRole('button',{name:'停止并追加文字'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'生成问卷',exact:true})).toBeDisabled();
+ await expect.poll(()=>page.getByLabel('问卷需求').inputValue()).toContain(FULLSTACK_E2E.asrTranscriptPrefix);
+ expect(page.url()).toBe(importUrl);
+ await page.screenshot({path:testInfo.outputPath('survey-inline-recording.png'),fullPage:true});
+ await page.getByRole('button',{name:'停止并追加文字'}).click();
+ await expect(page.getByRole('button',{name:'生成问卷',exact:true})).toBeEnabled({timeout:30000});
+ await expect.poll(()=>page.evaluate(()=>{
+   const tracks=(window as unknown as {surveyMicTracks:MediaStreamTrack[]}).surveyMicTracks;
+   return tracks.length>0&&tracks.every(track=>track.readyState==='ended');
+ })).toBe(true);
+ const settled=await page.getByLabel('问卷需求').inputValue();
+ expect(settled).toContain('调查客户最近一次使用体验');
+ expect(settled).toContain(FULLSTACK_E2E.asrTranscriptPrefix);
+ expect(page.url()).toBe(importUrl);
+ await page.getByLabel('问卷需求').fill(settled+'\n补充关注易用性');
+
  await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
  await expect(page.getByText(/研究目标.md/)).toBeVisible();
  await page.getByRole('button',{name:'生成问卷',exact:true}).click();
@@ -83,6 +113,23 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.screenshot({path:testInfo.outputPath('survey-ai-applied-designer.png'),fullPage:true});
  expect((await savedSource).ok()).toBeTruthy();
  await page.reload();await expect(page.getByRole('region',{name:'问卷设计画布'})).toContainText('请描述具体建议');
+});
+
+test('问卷 inline 语音权限拒绝与设备缺失保留原文可重试',async({page})=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ const draft=encodeURIComponent(JSON.stringify({name:'语音失败恢复',tags:[]}));
+ for(const failure of [{name:'NotAllowedError',message:'麦克风权限被拒绝'},{name:'NotFoundError',message:'没有找到可用的麦克风设备'}]){
+   await page.goto('/studio/survey/new/import?draft='+draft);
+   const url=page.url();await page.getByLabel('问卷需求').fill('保留手动输入');
+   // Explicit browser fault injection: not evidence of real denied hardware.
+   await page.evaluate(name=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('controlled capture failure',name);};},failure.name);
+   await page.getByRole('button',{name:'语音输入',exact:true}).click();
+   await expect(page.getByTestId('itv-voice-input').getByRole('alert')).toContainText(failure.message,{timeout:30000});
+   await expect(page.getByLabel('问卷需求')).toHaveValue('保留手动输入');
+   await expect(page.getByRole('button',{name:'生成问卷',exact:true})).toBeEnabled();
+   await expect(page.getByRole('button',{name:'语音输入',exact:true})).toBeEnabled();
+   expect(page.url()).toBe(url);
+ }
 });
 
 async function loginAsAdmin(page: Page) {
