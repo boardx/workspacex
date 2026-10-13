@@ -43,7 +43,9 @@ follow this section; it does not override the legacy script protocol above.
 Read /skills/${name}/references/editing-and-qa.md before creating or editing files.
 Write explicitly under /workspace. SKILL_SANDBOX_OUT_DIR and SKILL_SANDBOX_CJK_FONT
 in the legacy examples below are not guaranteed native environment variables.
-Do not repeatedly probe the environment or install packages. For embedded PDF CJK
+Use the declared preinstalled libraries and paths directly, without preliminary module,
+font or legacy-environment-variable probes. Diagnose only a specific actual execution
+failure; do not install packages. For embedded PDF CJK
 text, the installed font is /usr/share/fonts/workspacex/NotoSansSC-Common.otf.
 Render the ACTUAL source file with the existing helper:
 python3 /skills/${name}/scripts/render-office.py /workspace/actual-file /workspace/preview
