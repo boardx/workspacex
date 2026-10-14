@@ -7,6 +7,7 @@ export const BOARD_UNIFIED_REGRESSION_SPECS = [
   'board-library-thumbnail.spec.ts',
   'board-menu-layout.spec.ts',
   'board-multi-image-upload.spec.ts',
+  'board-native-mindmap.spec.ts',
   'board-viewport-persistence.spec.ts',
   'board-widget-keyboard.spec.ts',
 ] as const;
