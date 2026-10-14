@@ -87,11 +87,13 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
   // to their trigger. Dismiss them through their actual close control before
   // arming a canvas gesture; never pretend an obscured area is native paper.
   const openPopovers=page.getByTestId('board-tool-popover');
-  while(await openPopovers.count()){
+  for(let attempt=0;attempt<12&&await openPopovers.count();attempt++){
+    const previousCount=await openPopovers.count();
     const popup=openPopovers.last(),close=popup.getByRole('button',{name:/^关闭/});
     await close.focus();await expect(close).toBeFocused();await close.press('Enter');
-    await expect(popup).toBeHidden();
+    await expect.poll(()=>openPopovers.count()).toBeLessThan(previousCount);
   }
+  await expect(openPopovers).toHaveCount(0);
   const before=await canonicalRows(page);
   const armedSnapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),armedHead=await boardHead(proof.api,proof.token,proof.boardId),armedUpdates=proof.updates();
   const selected=page.locator('[data-testid="board-a11y-mirror"] button[aria-pressed="true"]');
