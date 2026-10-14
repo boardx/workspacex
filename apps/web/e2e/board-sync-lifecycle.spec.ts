@@ -1,3 +1,4 @@
+import {captureBoardLogin} from './support/board-login-capture.mjs';
 import {whiteboardSync} from '@repo/contracts';
 import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {test,expect,chromium,type Page,type Browser,type BrowserContext} from '@playwright/test';
@@ -126,6 +127,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await edit(peer,objectId,'Independent offline text');await expect.poll(()=>durableIds(peer,boardId)).not.toEqual([]);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(offlineBefore);
   failureStage='PEER_RECOVERY';await peerContext.setOffline(false);await expectBoardSynced(peer,45_000);await expect.poll(()=>canonicalRows(owner),{timeout:45_000}).toEqual(await canonicalRows(peer));
   const recovered=await canonicalBoardSnapshot(api,ownerToken,boardId);expect(recovered.objects).toEqual(offlineBefore.objects.map(object=>object.id===objectId?{...object,text:'Independent offline text'}:object));await expect.poll(()=>durableIds(peer,boardId)).toEqual([]);await peer.reload();await expectBoardSynced(peer);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(recovered);await cloud(peer,'synced','independent-peer-refreshed');
+  const revokedEvents=transport.snapshot().events.length;
   failureStage='VIEWER_UNMOUNT';await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.leadUserId,role:'viewer'});
   // Live role revocation intentionally clears and unmounts the old document.
   await expect(peer.getByTestId('denied')).toBeVisible();
@@ -135,25 +137,35 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   const viewerHead=await boardHead(api,peerToken,boardId);
   const rejectedWrite=await api.post(`${apiOrigin()}/whiteboards/${boardId}/commands`,{headers:{authorization:`Bearer ${peerToken}`},data:{requestId:randomUUID(),epoch:viewerHead.epoch,commands:[{type:'delete',id:objectId}]}});
   expect(rejectedWrite.status()).toBe(403);expect(await boardHead(api,ownerToken,boardId)).toEqual(viewerHead);
+  await expect.poll(()=>durableIds(peer,boardId)).toEqual([]);
+  expect(transport.snapshot().events.slice(revokedEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
   // A fresh actual viewer session has no revoked outbox from the former editor.
   failureStage='VIEWER_REAUTH';await peerContext.close();
   peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});peer=await peerContext.newPage();
-  transport.observe(peer,'peer');const viewerToken=await boardLogin(peer,F.leadEmail,F.leadPassword);privateSecrets.push(viewerToken);
+  const viewerTransport=createSpatialWsMetadataRecorder();viewerTransport.observe(peer,'peer');
+  const viewerChunks=observeRuntimeChunks(peer);
+  const viewerLogin=await captureBoardLogin(peer,()=>boardLogin(peer,F.leadEmail,F.leadPassword));
+  expect(viewerLogin.posts).toBe(1);expect(viewerLogin.status).toBe(200);expect((viewerLogin.body as {userId:string}).userId).toBe(F.leadUserId);
+  const viewerToken=viewerLogin.token;privateSecrets.push(viewerToken);
   expect(viewerToken).not.toBe(peerToken);expect((await (await boardApi(api,viewerToken,'GET',`/whiteboards/${boardId}`)).json()).role).toBe('viewer');
   await peer.goto(`/studio/board/${boardId}`);await expectBoardSynced(peer,30_000,true);
   await expect(peer.getByTestId('board-add-sticky')).toBeDisabled();
+  observations.push({phase:'viewer-runtime-before',...await verifyRuntimeIdentity(api,sourceSha,await viewerChunks())});
 
-  const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=transport.snapshot().events.length;
+  const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=viewerTransport.snapshot().events.length;
   const viewerOutline=peer.getByTestId(`board-a11y-object-${objectId}`);await viewerOutline.focus();await viewerOutline.press('Enter');await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
   const readonlyPoint=await objectPoint(peer,objectId);await peer.mouse.move(readonlyPoint.x,readonlyPoint.y);await peer.mouse.down();await peer.mouse.move(readonlyPoint.x+20*readonlyPoint.zoom,readonlyPoint.y+20*readonlyPoint.zoom,{steps:8});await peer.mouse.up();await peer.mouse.dblclick(readonlyPoint.x,readonlyPoint.y);await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
   await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await peer.keyboard.press('Delete');await peer.keyboard.press('ControlOrMeta+z');await peer.keyboard.press('n');
-  const peerSocket=transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='open').at(-1)?.socketId;expect(typeof peerSocket).toBe('number');
+  const peerSocket=viewerTransport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='open').at(-1)?.socketId;expect(typeof peerSocket).toBe('number');
   await peer.goto('/home');await expect(peer.getByTestId('collaborative-editor')).toHaveCount(0);
-  await expect.poll(()=>transport.snapshot().events.slice(readonlyEvents).some(event=>event.client==='peer'&&event.direction==='close'&&event.socketId===peerSocket)).toBe(true);
+  await expect.poll(()=>viewerTransport.snapshot().events.slice(readonlyEvents).some(event=>event.client==='peer'&&event.direction==='close'&&event.socketId===peerSocket)).toBe(true);
   // A real quiet interval catches detached timers; no mocked provider is involved.
   await peer.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(readonlyBefore);
-  expect(transport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
+  expect(viewerTransport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
   expect(bindings.every(Boolean)).toBe(true);observations.push({phase:'readonly-unmount',lateUpdates:0,before:readonlyBefore.revision,after:(await boardHead(api,ownerToken,boardId))});
+  expect(viewerTransport.snapshot().dropped).toBe(0);observations.push({phase:'viewer-transport',client:'viewer',...viewerTransport.snapshot()});
+  observations.push({phase:'viewer-runtime-after',...await verifyRuntimeIdentity(api,sourceSha,await viewerChunks())});
+  expect(transport.snapshot().events.slice(revokedEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
   failureStage='OWNER_UNMOUNT';const unmountBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await owner.context().setOffline(true);await cloud(owner,'offline','owner-before-unmount');
   await edit(owner,objectId,'Unsubmitted detached editor');const unmountEvents=transport.snapshot().events.length;
   await owner.goto('/home');await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);await owner.context().setOffline(false);
