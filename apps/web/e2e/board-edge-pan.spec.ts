@@ -13,7 +13,14 @@ for(const multiple of [false,true])for(const edge of ['left','right','top','bott
   await operate(request,token,board,createCommands([object('edge-a','sticky',200,200,'A',180,180),object('edge-b','sticky',440,200,'B',180,180)]));
   await openBoard(page,board,2);const runtimeBefore=await verifyRuntimeIdentity(request,source,await chunks());const baseline=await canonicalBoardSnapshot(request,token,board);
   const start=await objectPoint(page,'edge-a');
-  if(multiple){await page.keyboard.press('ControlOrMeta+a');await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 2 个对象');}
+  if(multiple){
+   // Opening the route does not own keyboard focus. A real Fabric canvas click
+   // focuses its surface before the board-scoped select-all shortcut.
+   await page.mouse.click(start.x,start.y);
+   await expect(page.getByTestId('board-fabric-surface')).toBeFocused();
+   await page.keyboard.press('ControlOrMeta+a');
+   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 2 个对象');
+  }
   const surface=page.getByTestId('board-fabric-surface'),bounds=(await surface.boundingBox())!;
   const pan=async()=>({x:Number(await surface.getAttribute('data-viewport-pan-x')),y:Number(await surface.getAttribute('data-viewport-pan-y'))});
   const before=await pan(),position={x:edge==='left'?bounds.x+8:edge==='right'?bounds.x+bounds.width-8:start.x,y:edge==='top'?bounds.y+8:edge==='bottom'?bounds.y+bounds.height-8:start.y};
@@ -30,6 +37,9 @@ for(const multiple of [false,true])for(const edge of ['left','right','top','bott
   await info.attach('edge-pan-local-viewport',{body:JSON.stringify({edge,multiple,before,held,released}),contentType:'application/json'});
   await page.getByRole('button',{name:'撤销',exact:true}).click();await expect.poll(async()=>(await canonicalBoardSnapshot(request,token,board)).objects).toEqual(baseline.objects);
   await expect.poll(()=>boardHead(request,token,board)).toEqual({epoch:baseline.revision.epoch,seq:baseline.revision.seq+2});
+  // Keep the one-operation undo assertion before reload clears local history.
+  await page.reload();await expectBoardSynced(page);
+  expect((await canonicalBoardSnapshot(request,token,board)).objects).toEqual(baseline.objects);
   const runtimeAfter=await verifyRuntimeIdentity(request,source,await chunks());
   await info.attach('edge-pan-runtime-proof',{body:JSON.stringify({runtimeBefore,runtimeAfter}),contentType:'application/json'});
  }catch(error){primary=error;}
