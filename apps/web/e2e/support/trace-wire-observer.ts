@@ -17,7 +17,7 @@ export function installTraceWireObserver(): void {
   scope.__traceWire = state;
   let active = true;
   let lastThread: string | null = null;
-  const readers = new Set<ReadableStreamDefaultReader<Uint8Array>>();
+  const restores: Array<() => void> = [];
   const record = (value: TraceWireRecord) => {
     if (!active) return;
     if (state.records.length >= 2048) { state.overflow = true; return; }
@@ -35,23 +35,19 @@ export function installTraceWireObserver(): void {
     if (!active || !matches) return response;
     const requestOrdinal = ++state.requests;
     record({ requestOrdinal, at: Date.now(), kind: 'response-headers' });
-    // Reading a clone leaves the original stream and application timing contract intact.
-    // Bounded diagnostics may be incomplete; overflow is explicitly not admissible evidence.
-    let reader: ReadableStreamDefaultReader<Uint8Array>;
-    try { reader = response.clone().body!.getReader(); }
-    catch { state.error = true; return response; }
-    readers.add(reader);
-    void (async () => {
-      let pending = ''; let bytes = 0;
-      const decoder = new TextDecoder();
+    // Observe only application-initiated reads: no clone, tee, pump or cancellation.
+    const body = response.body;
+    if (!body) { state.error = true; return response; }
+    let pending = ''; let bytes = 0;
+    const decoder = new TextDecoder();
+    const observe = (chunk: ReadableStreamReadResult<Uint8Array>) => {
+      if (!active || state.overflow) return;
       try {
-        while (active) {
-          const chunk = await reader.read();
-          if (chunk.done) { record({ requestOrdinal, at: Date.now(), kind: 'stream-end' }); break; }
-          bytes += chunk.value.byteLength;
-          if (bytes > 2 * 1024 * 1024) { state.overflow = true; break; }
-          pending += decoder.decode(chunk.value, { stream: true });
-          if (pending.length > 65536) { state.overflow = true; break; }
+        if (chunk.done) { record({ requestOrdinal, at: Date.now(), kind: 'stream-end' }); return; }
+        bytes += chunk.value.byteLength;
+        if (bytes > 2 * 1024 * 1024) { state.overflow = true; return; }
+        pending += decoder.decode(chunk.value, { stream: true });
+        if (pending.length > 65536) { state.overflow = true; return; }
           let end: number;
           while ((end = pending.indexOf('\n')) >= 0) {
             const line = pending.slice(0, end).replace(/\r$/, ''); pending = pending.slice(end + 1);
@@ -74,18 +70,30 @@ export function installTraceWireObserver(): void {
               record({ requestOrdinal, at: Date.now(), kind: event.type });
             }
           }
-        }
       } catch { if (active) state.error = true; }
-      finally { readers.delete(reader); void reader.cancel().catch(() => {}); }
-    })();
+    };
+    const originalGetReader = body.getReader;
+    const getReader: typeof body.getReader = ((options?: ReadableStreamGetReaderOptions) => {
+      const reader = originalGetReader.call(body, options as { mode: 'byob' });
+      const originalRead = reader.read;
+      const read = ((...args: Parameters<typeof originalRead>) => originalRead.apply(reader, args).then(chunk => {
+        observe(chunk as ReadableStreamReadResult<Uint8Array>);
+        return chunk;
+      }, error => { if (active) state.error = true; throw error; })) as typeof reader.read;
+      reader.read = read;
+      restores.push(() => { if (reader.read === read) reader.read = originalRead; });
+      return reader;
+    }) as typeof body.getReader;
+    body.getReader = getReader;
+    restores.push(() => { if (body.getReader === getReader) body.getReader = originalGetReader; });
     return response;
   };
   scope.fetch = wrapped;
   scope.__stopTraceWire = () => {
     active = false;
     if (scope.fetch === wrapped) scope.fetch = original;
-    for (const reader of readers) void reader.cancel().catch(() => {});
-    readers.clear();
+    for (const restore of restores) restore();
+    restores.length = 0;
   };
 }
 

@@ -19,7 +19,10 @@ function fixture(chunks: string[]) {
 afterEach(() => { (globalThis as unknown as { window?: { __stopTraceWire?: () => void } }).window?.__stopTraceWire?.(); vi.unstubAllGlobals(); });
 async function consume(scope: ReturnType<typeof fixture>['scope'], path = '/api/copilotkit/agent/default/run') {
   const response = await scope.fetch(path, { method: 'POST' });
-  const body = await response.text();
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder(); let body = '';
+  while (true) { const chunk = await reader.read(); if (chunk.done) break; body += decoder.decode(chunk.value, { stream: true }); }
+  reader.releaseLock();
   await vi.waitFor(() => expect(scope.__traceWire?.records.some(r => r.kind === 'stream-end') || scope.__traceWire?.overflow || scope.__traceWire?.error || scope.__traceWire?.requests === 0).toBe(true));
   return body;
 }
@@ -63,6 +66,38 @@ describe('exact response run metadata', () => {
     const samples = [{ at: 10, counts: { [OTHER]: 4 }, total: 4 }];
     expect(judgeLiveness(samples, {}, OTHER, 1, 20).live).toBe(true);
     expect(judgeLiveness(samples, {}, run, 1, 20).live).toBe(false);
+  });
+  it('does not advance a slow consumer and preserves response, cancel, release and restore', async () => {
+    let pulls = 0; const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({ pull(controller) {
+      pulls++; controller.enqueue(new TextEncoder().encode(encode(message())));
+    }, cancel }, { highWaterMark: 0 });
+    const response = new Response(body, { status: 201, headers: { 'x-fixture': 'yes' } });
+    const originalGetReader = body.getReader; const originalClone = response.clone;
+    const scope = { fetch: vi.fn(async () => response) as typeof fetch, location: { origin: 'https://fixture.invalid' }, __traceWire: undefined as TraceWireState | undefined, __stopTraceWire: undefined as (() => void) | undefined };
+    vi.stubGlobal('window', scope); installTraceWireObserver();
+    expect(await scope.fetch('/api/copilotkit/agent/default/run', { method: 'POST' })).toBe(response);
+    expect(response.status).toBe(201); expect(response.headers.get('x-fixture')).toBe('yes'); expect(response.clone).toBe(originalClone);
+    await new Promise(resolve => setTimeout(resolve, 10)); expect(pulls).toBe(0);
+    const reader = body.getReader();
+    await new Promise(resolve => setTimeout(resolve, 10)); expect(pulls).toBe(0);
+    await reader.read(); expect(pulls).toBe(1); expect(exactTraceRun(scope.__traceWire!)).toBe(RUN);
+    await new Promise(resolve => setTimeout(resolve, 10)); expect(pulls).toBe(1);
+    await reader.cancel('original-reason'); expect(cancel).toHaveBeenCalledTimes(1); expect(cancel).toHaveBeenCalledWith('original-reason');
+    reader.releaseLock(); expect(body.locked).toBe(false);
+    scope.__stopTraceWire!(); expect(body.getReader).toBe(originalGetReader);
+  });
+  it('passes BYOB mode and application read rejection through unchanged', async () => {
+    const failure = new Error('application-error-not-retained');
+    const body = new ReadableStream<Uint8Array>({ type: 'bytes', pull(controller) { controller.error(failure); } });
+    const response = new Response(body);
+    const scope = { fetch: vi.fn(async () => response) as typeof fetch, location: { origin: 'https://fixture.invalid' }, __traceWire: undefined as TraceWireState | undefined, __stopTraceWire: undefined as (() => void) | undefined };
+    vi.stubGlobal('window', scope); installTraceWireObserver();
+    await scope.fetch('/api/copilotkit/agent/default/run', { method: 'POST' });
+    const reader = body.getReader({ mode: 'byob' });
+    await expect(reader.read(new Uint8Array(1024))).rejects.toBe(failure);
+    expect(scope.__traceWire!.error).toBe(true); expect(JSON.stringify(scope.__traceWire)).not.toContain(failure.message);
+    reader.releaseLock();
   });
   it('never accepts multiple matching requests', () => {
     const f = fixture([]); const state = f.scope.__traceWire!;
