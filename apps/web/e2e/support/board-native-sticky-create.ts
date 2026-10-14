@@ -138,11 +138,16 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
       return {x:box.x+(g.x+g.width/2)*zoom+panX-width/2,y:box.y+(g.y+g.height/2)*zoom+panY-height/2,width,height};
     });
     if(occupied.length!==count)throw new Error('NATIVE_GEOMETRY_COUNT_MISMATCH');
-    const chrome=Array.from(document.querySelectorAll('[data-board-chrome], [data-testid="board-mindmap-controls"]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
+    const allowedChrome=new Set(['header','dock','tool-picker','draw-panel','frame-panel','zoom','minimap']);
+    const chrome=Array.from(document.querySelectorAll('[data-board-chrome], [data-testid="board-mindmap-controls"]')).map(node=>{
+      const rect=node.getBoundingClientRect(),candidate=node.getAttribute('data-board-chrome');
+      const kind=candidate&&allowedChrome.has(candidate)?candidate:node.getAttribute('data-testid')==='board-mindmap-controls'?'mindmap':'other';
+      return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,kind};
+    }).filter(rect=>rect.width>0&&rect.height>0);
     const selection=occupied.filter((_,index)=>nodes[index]?.querySelector('[aria-pressed="true"]'));
     return {canvas:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},occupied,selection,
       // This is viewport-visible clearance for native reflow placement, not proof of the full scaled paper footprint.
-      zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
+      zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height,kind:r.kind}))};
    },expectedCount);
    const candidates=await page.evaluate(nativeBlankCandidates,sample);
    return page.getByTestId('board-fabric-surface').evaluate(nativeBlankHitPoint,{points:candidates,geometry:sample,hitPolicy:diagnosticPolicy});
