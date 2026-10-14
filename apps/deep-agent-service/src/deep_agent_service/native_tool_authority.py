@@ -1,6 +1,8 @@
 """Dispatch-time authority check; never grants from model-supplied identity."""
 import asyncio
 import json
+from weakref import WeakValueDictionary
+from langchain_core.messages import ToolMessage
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote, urlsplit
@@ -19,6 +21,9 @@ _OUTPUT=Draft7Validator(_SCHEMA['output'],format_checker=FormatChecker())
 
 class ToolAuthorityError(RuntimeError):
     """Unknown or denied authorization: caller must not dispatch or retry."""
+
+class ReportOutputPublished(ToolAuthorityError):
+    """Host refused an unnecessary mutation after the report output was already staged."""
 
 class ToolAuthority(Protocol):
     def check(self, tool_call: dict) -> None: ...
@@ -50,7 +55,10 @@ class HttpNativeToolAuthority:
             if response.status_code != 200: raise ValueError()
             body=response.json(); _OUTPUT.validate(body)
             if body['allowed'] is not True:
+                if body.get('reason')=='report_output_published' and body.get('reportFile',{}).get('published') is True:
+                    raise ReportOutputPublished('Report output is already staged; no further mutation was executed')
                 raise ToolAuthorityError(f"Tool execution denied: {body['reason']}")
+            return body
         except ToolAuthorityError: raise
         except Exception: raise ToolAuthorityError('Invalid tool authority response') from None
 
@@ -66,7 +74,7 @@ class HttpNativeToolAuthority:
                             if len(chunks) + len(chunk) > AUTHORITY_MAX_RESPONSE_BYTES:
                                 raise ToolAuthorityError("Tool authority response exceeded limit")
                             chunks.extend(chunk)
-                        self._validate(httpx.Response(200, content=bytes(chunks)))
+                        return self._validate(httpx.Response(200, content=bytes(chunks)))
         except (httpx.HTTPError, TimeoutError):
             raise ToolAuthorityError('Tool authority unavailable; dispatch refused') from None
 
@@ -80,18 +88,46 @@ class HttpNativeToolAuthority:
         raise ToolAuthorityError("Use asynchronous authority checks inside an active event loop")
 
     async def acheck(self, tool_call):
-        await self._perform(*self._request(tool_call))
+        return await self._perform(*self._request(tool_call))
 
 class NativeToolAuthority(AgentMiddleware):
     def __init__(self, authority: ToolAuthority):
         if not callable(getattr(authority,'check',None)) or not callable(getattr(authority,'acheck',None)):
             raise TypeError('A trusted tool authority with sync and async checks is required')
         self._authority=authority
+        self._report_locks=WeakValueDictionary()
 
     def wrap_tool_call(self, request, handler):
-        self._authority.check(request.tool_call)
+        try:
+            decision=self._authority.check(request.tool_call)
+        except ReportOutputPublished:
+            return self._report_closed(request)
+        if isinstance(decision,dict) and decision.get('reportFile'):
+            # The native service dispatches asynchronously. Refuse an unsafe synchronous
+            # report path rather than execute parallel mutations without its run lock.
+            raise ToolAuthorityError('Report output dispatch requires asynchronous execution')
         return handler(request)
 
     async def awrap_tool_call(self, request, handler):
-        await self._authority.acheck(request.tool_call)
-        return await handler(request)
+        try:
+            decision=await self._authority.acheck(request.tool_call)
+            policy=decision.get('reportFile') if isinstance(decision,dict) else None
+            if not policy:
+                return await handler(request)
+            key=policy['jobId']
+            lock=self._report_locks.get(key)
+            if lock is None:
+                lock=asyncio.Lock()
+                self._report_locks[key]=lock
+            async with lock:
+                # The first check can precede a same-batch publisher. Recheck while
+                # serialized; approvals stay bound to the same call/attempt identity.
+                await self._authority.acheck(request.tool_call)
+                return await handler(request)
+        except ReportOutputPublished:
+            return self._report_closed(request)
+
+    @staticmethod
+    def _report_closed(request):
+        return ToolMessage(content=json.dumps({'error':'REPORT_OUTPUT_ALREADY_STAGED','detail':'No mutation was executed. Complete the final reply; normal run writeback publishes the staged attachment.'}),
+                           name=request.tool_call['name'],tool_call_id=request.tool_call['id'],status='error')

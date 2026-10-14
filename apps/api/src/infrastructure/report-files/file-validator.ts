@@ -47,12 +47,12 @@ export function normalizeReportText(text: string): string {
 export function validateReportContent(format: FileRequest['format'], extracted: string, source: ReportFileSourceSnapshot, relationUrls: readonly string[] = []): void {
   const text = normalizeReportText(extracted);
   const completeInput = `${source.markdown}\n\n${source.appendixMarkdown ?? ''}`;
-  const canonical = normalizeReportText(completeInput);
+  const required = reportFileContentRequirements(completeInput);
+  const canonical = normalizeReportText(required.visibleText);
   for (const match of extracted.matchAll(/(?:ENOENT|no such file or directory|读取失败|SKILL_SANDBOX_INPUT_DIR|\/work\/input)/gi)) {
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');
   }
   if (!text.includes(source.reportHash) || source.notices.some(note => !text.includes(normalizeReportText(note)))) throw new ReportFileError('INVALID_FILE');
-  const required = reportFileContentRequirements(completeInput);
   const urls = normalizeReportText(extracted + relationUrls.join(' '));
   if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
   const title = normalizeReportText(required.title ?? source.title);

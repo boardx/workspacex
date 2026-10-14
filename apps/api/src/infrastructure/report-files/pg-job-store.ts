@@ -1,4 +1,12 @@
+import {resolveVisibility} from '../../application/chat/resolve-visibility';
+import {guard,discloseDecided,isDisclosed} from '../../application/security/permission-filter';
+import {PgChatRepository} from '../chat/pg-chat-repository';
+import {PgIdentityRepository} from '../identity/pg-identity-repository';
 import { randomUUID } from 'node:crypto';
+import {ReportFileArtifactPolicy} from '@repo/contracts/native-artifact-publish';
+import {REPORT_FILE_FORMATS} from '@repo/contracts/report-files';
+import {reportFilePublication} from '../../application/report-files/publication';
+import type {ToolExecutionCheck} from '../../application/agent-run/tool-execution-authority';
 import { ReportFileJob } from '@repo/contracts/report-files';
 import type { DatabasePort } from '../../application/ports/database.port';
 import type { ReportFileActor } from '../../application/report-files/ports';
@@ -7,6 +15,32 @@ import type { ClaimedReportFileJob, ReportFileJobStore, StoredReportFileJob } fr
 export class PgReportFileJobStore implements ReportFileJobStore {
   constructor(private readonly db: DatabasePort) {}
   private parse(metadata: StoredReportFileJob): StoredReportFileJob { return { ...metadata, job: ReportFileJob.parse(metadata.job) }; }
+  /** Internal dispatch constraint only: derive identity from the accepted message, never model args. */
+  async artifactPolicyForRun(input:ToolExecutionCheck):Promise<ReportFileArtifactPolicy|null>{
+    return this.db.withTenant(input.orgId,async s=>{
+      const rows=await s.query<{metadata:StoredReportFileJob;actor_user_id:string;request_id:string;thread_id:string;skill_version_ids:string[];published:boolean}>(
+       `SELECT j.metadata,j.actor_user_id,j.request_id::text,r.thread_id,r.skill_version_ids,
+         EXISTS(SELECT 1 FROM native_output_staging n WHERE n.org_id=r.org_id AND n.run_id=r.id AND n.idempotency_key='report-file:'||j.request_id::text) AS published
+        FROM agent_runs r JOIN chat_messages m ON m.org_id=r.org_id AND m.id=r.input_message_id AND m.thread_id=r.thread_id AND m.author_kind='human'
+        JOIN report_skill_file_jobs j ON j.org_id=r.org_id AND j.actor_user_id=m.author_id AND j.request_id=m.client_message_id
+          AND j.metadata->>'threadId'=r.thread_id AND (j.metadata->>'runId'=r.id OR (j.metadata->>'runId' IS NULL AND j.lease_token IS NOT NULL AND j.lease_until>now()))
+        WHERE r.org_id=$1 AND r.id=$2 AND j.state='running' LIMIT 2`,[input.orgId,input.parentRunId]);
+      if(!rows.rows.length)return null;
+      if(rows.rows.length!==1)throw new Error('report_file_binding_ambiguous');
+      const row=rows.rows[0]!;
+      const scoped:DatabasePort={withTenant:async(tenant,work)=>{if(tenant!==input.orgId)throw new Error('report_file_binding_invalid');return work(s);},withoutTenant:async()=>{throw new Error('report_file_binding_invalid');},close:async()=>{}};
+      const visibility=await resolveVisibility({repo:new PgIdentityRepository(scoped),chat:new PgChatRepository(scoped),ids:{next:randomUUID}},
+        {orgId:input.orgId,userId:row.actor_user_id,threadId:row.thread_id,projectId:null});
+      if(visibility.kind!=='allow')throw new Error('report_file_binding_denied');
+      const disclosed=discloseDecided(guard({kind:'project',id:`personal:${row.thread_id}`},row.metadata),visibility.base);
+      if(!isDisclosed(disclosed))throw new Error('report_file_binding_denied');
+      const record=this.parse(disclosed.payload);
+      if(record.actor.orgId!==input.orgId||record.actor.userId!==row.actor_user_id||record.requestId!==row.request_id||record.threadId!==row.thread_id
+        ||(record.runId!==undefined&&record.runId!==input.parentRunId)||row.skill_version_ids.length!==1||row.skill_version_ids[0]!==record.skill.versionId
+        ||record.skill.stableName!==REPORT_FILE_FORMATS[record.job.format].skillStableName||!/^[a-f0-9]{64}$/.test(record.renderHash)||!record.bindingKey)throw new Error('report_file_binding_invalid');
+      return ReportFileArtifactPolicy.parse({jobId:record.job.id,publication:reportFilePublication(record),published:row.published});
+    });
+  }
   async findByRequest(actor: ReportFileActor, requestId: string) {
     return this.db.withTenant(actor.orgId, async session => {
       const rows = (await session.query<{ metadata: StoredReportFileJob }>(

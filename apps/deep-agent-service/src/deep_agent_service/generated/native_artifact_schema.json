@@ -1,5 +1,13 @@
 {
   "toolName": "wx_artifact_publish",
+  "postPublishTools": [
+    "read_file",
+    "ls",
+    "glob",
+    "grep",
+    "write_todos",
+    "wx_run_status"
+  ],
   "toolInput": {
     "type": "object",
     "properties": {
@@ -151,6 +159,24 @@
       "sizeBytes": {
         "type": "integer",
         "minimum": 0
+      },
+      "completion": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "report-file"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "kind",
+          "jobId"
+        ],
+        "additionalProperties": false
       }
     },
     "required": [

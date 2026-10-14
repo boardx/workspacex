@@ -1,3 +1,5 @@
+import {ReportFileArtifactPolicy,REPORT_FILE_POST_PUBLISH_TOOLS,NATIVE_ARTIFACT_TOOL} from "@repo/contracts/native-artifact-publish";
+import {toolArgumentsDigest} from "./tool-arguments-digest";
 import type { ToolExecutionCheckOutput } from "@repo/contracts/run-control";
 import type { OrgId } from "../../domain/org-id";
 import { classifyToolCallRisk, resolveSkillRiskLevels } from "../../domain/agent-run/skill-risk-level";
@@ -35,7 +37,8 @@ export interface ToolAuthorityReader {
  * This check authorizes dispatch now; it is not a reusable grant or exactly-once token. */
 export class ToolExecutionAuthority {
   constructor(private readonly reader: ToolAuthorityReader, private readonly runs: Pick<AgentRunStore, "readPinnedSkills">,
-    private readonly grants: ToolPermissionGrantStore) {}
+    private readonly grants: ToolPermissionGrantStore,
+    private readonly reportFilePolicy?: (input:ToolExecutionCheck)=>Promise<ReportFileArtifactPolicy|null>) {}
   check(input: ToolExecutionCheck): Promise<ToolExecutionDecision> {
     return this.reader.withSnapshot(input, async snapshot => {
       if (!snapshot || !snapshot.active) return { allowed: false, reason: "run_unavailable" };
@@ -43,6 +46,12 @@ export class ToolExecutionAuthority {
       if (!snapshot.leaseValid) return { allowed: false, reason: "lease_lost" };
       if (snapshot.attemptId !== input.attemptId) return { allowed: false, reason: "attempt_stale" };
       if (snapshot.allowedTools && !snapshot.allowedTools.includes(input.toolName)) return { allowed: false, reason: "run_unavailable" };
+      const rawPolicy=await this.reportFilePolicy?.(input);
+      const reportFile=rawPolicy?ReportFileArtifactPolicy.parse(rawPolicy):undefined;
+      if(reportFile){
+        if(reportFile.published&&!REPORT_FILE_POST_PUBLISH_TOOLS.some(name=>name===input.toolName))return {allowed:false,reason:"report_output_published",reportFile};
+        if(input.toolName===NATIVE_ARTIFACT_TOOL&&toolArgumentsDigest(input.toolArgs)!==toolArgumentsDigest(reportFile.publication))return {allowed:false,reason:"report_output_mismatch"};
+      }
       const skills = input.toolName === "call_skill" ? await this.runs.readPinnedSkills(input.orgId, snapshot.skillVersionIds) : [];
       const actualSkill = input.toolArgs && typeof input.toolArgs === "object" && !Array.isArray(input.toolArgs)
         ? (input.toolArgs as Record<string, unknown>).skill_stable_name : undefined;
@@ -57,7 +66,7 @@ export class ToolExecutionAuthority {
         && !await snapshot.authorizeOnce?.()) {
         return { allowed: false, reason: "approval_required" };
       }
-      return { allowed: true };
+      return { allowed: true,...(reportFile?{reportFile}:{}) };
     });
   }
 }

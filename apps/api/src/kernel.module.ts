@@ -1,3 +1,4 @@
+import {PgReportFileJobStore} from './infrastructure/report-files/pg-job-store';
 import { InterviewExpertLibraryController } from './interface/controllers/interview-expert-library.controller';
 import { INTERVIEW_CUSTOM_EXPERT_LIBRARY } from './application/interview/custom-expert-library';
 import { PgCustomExpertLibrary } from './infrastructure/interview/pg-custom-expert-library';
@@ -2725,7 +2726,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: TOOL_EXECUTION_AUTHORITY,
       useFactory: (db: DatabasePort, runs: AgentRunStore, grants: ToolPermissionGrantStore) =>
-        new ToolExecutionAuthority(new PgParentRunControlReader(db), runs, grants),
+        new ToolExecutionAuthority(new PgParentRunControlReader(db), runs, grants, input => new PgReportFileJobStore(db).artifactPolicyForRun(input)),
       inject: [DATABASE_PORT, AGENT_RUN_STORE, TOOL_PERMISSION_GRANT_STORE],
     },
     {
