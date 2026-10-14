@@ -15,6 +15,7 @@
  * ⚠ 本文件暂未从 index.ts 导出（导出由独立步骤负责）。
  */
 import { z } from "zod";
+import { DiscoveryArtifact } from "./discovery-execution";
 import { WORKFLOW_RUN_SOURCE_KIND } from "./board";
 import {
   WorkflowInstanceStatus,
@@ -193,7 +194,7 @@ export const DeferredProposal = z
   .object({ field: z.enum(["amount", "closeDate", "stage"]), proposedValue: z.string(), evidenceRefs: z.array(EvidenceRef) })
   .strict();
 
-export const WorkContentOutput = z.discriminatedUnion("kind", [ResearchBrief, DataNeedsStatement, PrdArtifact]);
+export const WorkContentOutput = z.discriminatedUnion("kind", [ResearchBrief, DataNeedsStatement, PrdArtifact, DiscoveryArtifact]);
 
 /* ── 决定卡（W011 G1 逐条 / W013 G1 三联）——在 runtime 门之上的逐条决定 ─── */
 
