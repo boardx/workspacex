@@ -46,6 +46,8 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
    expect(diagnostic.objectSchema&&diagnostic.actorString&&diagnostic.tokenString,'C06_LOGIN_JSON_SCHEMA').toBe(true);
    expect(diagnostic.actorMatches,'C06_LOGIN_FIXTURE_ACTOR').toBe(true);
    expect(diagnostic.tokenMatches,'C06_LOGIN_SESSION_TOKEN').toBe(true);
+   const navigationPath=new URL(page.url()).pathname;expect(navigationPath).toMatch(/^\/(?:home|projects)$/);
+   records.push({phase:'C06_LOGIN',actor:userId,posts,httpStatus:status,navigationPath,cookieCount:(await page.context().cookies()).length,...diagnostic});
    identities.set(page,userId);return token;
   };
   ownerToken=await login(owner,F.email,F.password,F.userId);const editorToken=await login(editor,F.adminEmail,F.adminPassword,F.adminUserId),viewerToken=await login(viewer,F.leadEmail,F.leadPassword,F.leadUserId),commenterToken=await login(commenter,F.memberEmail,F.memberPassword,F.memberUserId),outsiderToken=await login(outsider,foreign.email,foreign.password,foreign.userId);expect(new Set(identities.values()).size).toBe(5);
@@ -90,8 +92,19 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
    await editor.mouse.up();await editor.keyboard.press('Escape');
    await editor.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
    await capture(`released-${race}`);await editor.reload();
-   if(race==='archive'||race==='revoke')await expect(editor.getByTestId('denied')).toBeVisible();
-   else {
+   if(race==='revoke')await expect(editor.getByTestId('denied')).toBeVisible();
+   else if(race==='archive'){
+    // Archived boards are readable after a fresh handshake, but cannot mutate.
+    await synced(editor);await select(editor);
+    await expect(editor.getByTestId('board-connector-width-open')).toBeDisabled();
+    await expect(editor.getByTestId('board-connector-label-open')).toBeDisabled();
+    await expect(editor.getByTestId('board-connector-handle-curve-start')).toHaveCount(0);
+    const valid=request(id,F.adminUserId,F.orgId,'editor',{epoch:afterAuthority.document.epoch,seq:Number(afterAuthority.document.seq)});
+    const response=await api.post(`${apiOrigin()}/v1/whiteboards/${id}/operations`,{headers:{authorization:`Bearer ${editorToken}`},data:valid});
+    expect(response.status()).toBe(409);expect(await response.json()).toMatchObject({message:'ARCHIVED'});
+    expect(await connectorDurableState(F.orgId,id)).toEqual(afterAuthority);
+    records.push({phase:'archived-valid-payload-denied',status:409,reasonCode:'ARCHIVED'});
+   }else {
     await synced(editor);
     await expect.poll(()=>transport.snapshot().events.slice(frameOffset).some(event=>event.boardId===id&&event.client==='original'&&event.direction==='received'&&event.type==='sync'&&event.seq===Number(afterAuthority.document.seq))).toBe(true);
    }

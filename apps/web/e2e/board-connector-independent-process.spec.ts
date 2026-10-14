@@ -1,7 +1,8 @@
+import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect,chromium,type Page,type Browser} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardLogin,boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
+import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
@@ -56,10 +57,8 @@ test('C05 distinct browser processes converge on Connector style path and concur
   const accounts=[[F.email,F.password,F.userId],[F.adminEmail,F.adminPassword,F.adminUserId],[F.leadEmail,F.leadPassword,F.leadUserId]];
   const tokens:string[]=[],identities:string[]=[];
   for(let index=0;index<pages.length;index++){
-   const response=pages[index]!.waitForResponse(r=>new URL(r.url()).pathname.endsWith('/auth/login')&&r.request().method()==='POST');
-   tokens.push(await boardLogin(pages[index]!,accounts[index]![0],accounts[index]![1]));
-   const login=await response;expect(login.ok()).toBe(true);const authenticated=await login.json();
-   expect(authenticated.userId).toBe(accounts[index]![2]);expect(authenticated.sessionToken).toBe(tokens[index]);identities.push(authenticated.userId);
+   tokens.push(await connectorBoardLogin(pages[index]!,info,accounts[index]![0],accounts[index]![1],accounts[index]![2]));
+   identities.push(accounts[index]![2]!);
   }
   expect(new Set(identities).size).toBe(3);ownerToken=tokens[0]!;
   boardId=await createAcceptanceBoard(api,ownerToken,'C05 independent Connector processes');

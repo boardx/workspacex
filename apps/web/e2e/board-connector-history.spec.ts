@@ -1,7 +1,8 @@
+import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect,type Page,type BrowserContext} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardLogin,boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate,dragObject,canonicalRows} from './board-acceptance-support';
+import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate,dragObject,canonicalRows} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {connectorAuthorityTransport} from './support/connector-authority-transport';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
@@ -20,7 +21,7 @@ test('C07 UI deletion history restores complete Connector without overwriting pe
  try{
   manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
   context=await browser.newContext({baseURL,viewport:{width:1440,height:900}});editor=await context.newPage();const peers=[owner,editor],chunks=peers.map(observeRuntimeChunks);
-  const login=async(page:Page,email:string,password:string,userId:string)=>{const response=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST'),token=await boardLogin(page,email,password),authenticated=await response;expect(authenticated.ok()).toBe(true);const body=await authenticated.json();expect(body.userId).toBe(userId);expect(body.sessionToken).toBe(token);return token;};
+  const login=(page:Page,email:string,password:string,userId:string)=>connectorBoardLogin(page,info,email,password,userId);
   ownerToken=await login(owner,F.email,F.password,F.userId);const editorToken=await login(editor,F.adminEmail,F.adminPassword,F.adminUserId);transport.observe(owner,'original',()=>F.userId);transport.observe(editor,'peer',()=>F.adminUserId);
   boardId=await createAcceptanceBoard(api,ownerToken,title);await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.adminUserId,role:'editor'});
   const relationship={from:'c07-a',to:'c07-b',fromAnchor:'right' as const,toAnchor:'left' as const,type:'curve' as const,startStyle:'circle' as const,endStyle:'diamond' as const,lineStyle:'solid' as const,strokeWidth:8,label:'C07 preserved label',semanticRelation:'depends_on',route:{kind:'curve' as const,startOffset:{x:140,y:-60},endOffset:{x:-100,y:70}},labelPosition:{t:.7,normalOffset:-23}};

@@ -1,9 +1,10 @@
+import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {PortableExportResult,PortableImportResult} from '@repo/contracts/whiteboard-portable';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardLogin,boardApi,apiOrigin,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
+import {boardApi,apiOrigin,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {exactInterchangeObjects,portableExportProof,portableObjectExpectation} from './support/connector-c08-oracle.mjs';
@@ -23,7 +24,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08
  let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
   manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
-  const loginResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');token=await boardLogin(page);const login=await (await loginResponse).json();expect(login.userId).toBe(F.userId);expect(login.sessionToken).toBe(token);
+  token=await connectorBoardLogin(page,info);
   for(const type of ['straight','elbow','curve'] as const){
    const sourceId=await make(`C08 ${type} source`),sourceObjects=[object('c08-a','sticky',150,180,'A',140,100),object('c08-b','sticky',850,420,'B',140,100)];
    const route=type==='curve'?{kind:'curve' as const,startOffset:{x:100,y:-70},endOffset:{x:-80,y:25}}:type==='elbow'?{kind:'elbow' as const,waypoints:[{x:450,y:230},{x:450,y:470}]}:undefined;

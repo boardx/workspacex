@@ -1,9 +1,10 @@
+import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect} from '@playwright/test';
 import {createHash,randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {DuplicateBoardResult} from '@repo/contracts/whiteboard';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardLogin,boardApi,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate,selectAll} from './board-acceptance-support';
+import {boardApi,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate,selectAll} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {exactInterchangeObjects} from './support/connector-c08-oracle.mjs';
@@ -18,12 +19,12 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08
  let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
   manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
-  const loginResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');token=await boardLogin(page);const login=await (await loginResponse).json();expect(login.userId).toBe(F.userId);expect(login.sessionToken).toBe(token);
+  token=await connectorBoardLogin(page,info);
   const boardId=await make(`C08 UI copy ${viewport.width}`),seed=[object('c08-copy-a','sticky',120,180,'A',140,100),object('c08-copy-b','sticky',600,400,'B',140,100)];
   for(const type of ['straight','elbow','curve'] as const){const route=type==='curve'?{kind:'curve' as const,startOffset:{x:100,y:-70},endOffset:{x:-80,y:25}}:type==='elbow'?{kind:'elbow' as const,waypoints:[{x:420,y:230},{x:420,y:450}]}:undefined;seed.push({...object(`c08-copy-${type}`,'connector',260,230,`C08 ${type}`,340,220),style:{stroke:'#E11D48'},connector:{from:'c08-copy-a',to:'c08-copy-b',fromAnchor:'right',toAnchor:'left',type,route,strokeWidth:12,label:`C08 ${type}`,semanticRelation:'depends_on',labelPosition:{t:.73,normalOffset:-29},startStyle:'circle',endStyle:'diamond',lineStyle:'dotted'}});}
   seed.push({...object('c08-copy-free','connector',200,620,'free',500,0),style:{stroke:'#E11D48'},connector:{fromPoint:{x:200,y:620},toPoint:{x:700,y:620},fromAnchor:'right',toAnchor:'left',type:'elbow',route:{kind:'elbow',waypoints:[{x:420,y:650}]},strokeWidth:7,label:'C08 free',semanticRelation:'supports',labelPosition:{t:.3,normalOffset:40},startStyle:'diamond',endStyle:'circle',lineStyle:'dashed'}});
   await operate(api,token,boardId,createCommands(seed));await page.goto(`/studio/board/${boardId}`);await synced();const runtimeBefore=await verifyRuntimeIdentity(api,source,await chunks()),original=await canonicalBoardSnapshot(api,token,boardId);
-  await selectAll(page,original.objects.length);await page.getByRole('button',{name:'更多白板操作',exact:true}).click();await page.getByRole('button',{name:'复制',exact:true}).click();const unchanged=await canonicalBoardSnapshot(api,token,boardId);expect(unchanged).toEqual(original);await page.getByRole('button',{name:'粘贴',exact:true}).click();
+  await selectAll(page,original.objects.length);await page.getByTestId('board-fabric-surface').focus();await page.keyboard.press('ControlOrMeta+c');const unchanged=await canonicalBoardSnapshot(api,token,boardId);expect(unchanged).toEqual(original);await page.keyboard.press('ControlOrMeta+v');
   await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,boardId)).objects.length).toBe(original.objects.length*2);await synced();const pasted=await canonicalBoardSnapshot(api,token,boardId);expect(pasted.revision).toEqual({epoch:original.revision.epoch,seq:original.revision.seq+1});
   const originalIds=new Set(original.objects.map(item=>item.id)),copies=pasted.objects.filter(item=>!originalIds.has(item.id)),expectedCopies=copiedSubgraphProof(original.objects,copies);
   exactInterchangeObjects([...original.objects,...expectedCopies],pasted.objects);await capture('UI-pasted-full-subgraph');await page.reload();await synced();exactInterchangeObjects([...original.objects,...expectedCopies],(await canonicalBoardSnapshot(api,token,boardId)).objects);
