@@ -361,8 +361,10 @@ describe("BoardFabricSurface", () => {
     expect(onObjectTransform).toHaveBeenCalledWith(canonical.id, { x: 220, y: 280, width: 120, height: 100, rotation: 90 });
   });
 
+  const attachedPreviewArrow=():BoardFabricObject=>({ id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } });
+
   it("updates attached arrows in the local drag preview without committing per frame", () => {
-    const arrow: BoardFabricObject = { id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } };
+    const arrow=attachedPreviewArrow();
     const onObjectTransform = vi.fn(() => true);
     renderSurface({ objects: [...OBJECTS, arrow], onObjectTransform });
     const sticky = probe.objects.find(item => item.data?.boardObjectId === "s-1")!;
@@ -374,6 +376,13 @@ describe("BoardFabricSurface", () => {
     expect(movedArrow).not.toBe(originalArrow);
     expect(movedArrow.children?.[0]?.text).toBe("M 300 150 L 360 150");
     expect(onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it("retains a stationary independent endpoint guide while ignoring its incident moving connector", () => {
+    const onObjectTransform=vi.fn(()=>true);
+    renderSurface({objects:[...OBJECTS,attachedPreviewArrow()],onObjectTransform});
+    const sticky=probe.objects.find(item=>item.data?.boardObjectId==='s-1')!;
+    sticky.left+=40;
     // The independent endpoint object remains a guide: its rotated bottom is
     // 80 + 240*sin(5deg) + 140*cos(5deg) = 240.384636, not the stale edge y=150.
     probe.handlers.get("object:moving")?.({ target: sticky });
