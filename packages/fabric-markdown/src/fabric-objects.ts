@@ -311,6 +311,10 @@ function fitStickyText(tb: Textbox, cardW: number, cardH: number): void {
     Math.max(1, cardW - 12) / Math.max(1, tb.width + tb.strokeWidth),
   );
   tb.set({ scaleX: scale, scaleY: scale, left: 0, top: 0 });
+  // initDimensions refreshes aCoords before the last-resort scale is applied.
+  // Fabric reads cached aCoords for hit-testing and getBoundingRect, so refresh
+  // them after the final transform, not merely after measuring text.
+  tb.setCoords();
 }
 
 /**

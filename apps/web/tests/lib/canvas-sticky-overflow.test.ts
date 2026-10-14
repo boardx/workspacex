@@ -41,6 +41,12 @@ function contained(sticky: FlowNode, label: string) {
   expect(sticky.height).toBeCloseTo(card.getScaledHeight(), 6);
   expect(sticky.width).toBeCloseTo(card.getScaledWidth(), 6);
   expect(text.scaleX).toBe(text.scaleY);
+  const cardBounds = card.getBoundingRect();
+  const textBounds = text.getBoundingRect();
+  expect(textBounds.left).toBeGreaterThanOrEqual(cardBounds.left);
+  expect(textBounds.top).toBeGreaterThanOrEqual(cardBounds.top);
+  expect(textBounds.left + textBounds.width).toBeLessThanOrEqual(cardBounds.left + cardBounds.width);
+  expect(textBounds.top + textBounds.height).toBeLessThanOrEqual(cardBounds.top + cardBounds.height);
   return text;
 }
 describe('Chat fixed sticky text containment (#5688)', () => {
