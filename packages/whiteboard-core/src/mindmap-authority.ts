@@ -27,11 +27,18 @@ export class MindmapCommandPort {
     }
     if (mindmapStateVector(this.doc) !== command.expectedStateVector) throw new Error('MINDMAP_STALE_REVISION');
     const objects = new Map(readObjects(this.doc).map(object => [object.id, object]));
+    for (const primitive of command.commands) if (primitive.type === 'create') objects.set(primitive.object.id, primitive.object);
+    const deletedNodes = new Set(command.commands.filter(primitive => primitive.type === 'delete').map(primitive => primitive.id));
     for (const primitive of command.commands) {
       const object = primitive.type === 'create' ? primitive.object : objects.get(primitive.id);
       if (!object) throw new Error('OBJECT_NOT_FOUND');
       const metadata = object.extensionData?.mindmap as {treeId?:string} | undefined;
-      if (metadata?.treeId !== command.treeId) throw new Error('MINDMAP_CROSS_TREE_COMMAND');
+      if (metadata?.treeId !== command.treeId) {
+        const linkedCleanup = command.action === 'delete-subtree' && primitive.type === 'delete'
+          && metadata === undefined && object.kind === 'connector'
+          && [object.connector?.from,object.connector?.to].some(id => id && deletedNodes.has(id) && (objects.get(id)?.extensionData?.mindmap as {treeId?:string} | undefined)?.treeId === command.treeId);
+        if (!linkedCleanup) throw new Error('MINDMAP_CROSS_TREE_COMMAND');
+      }
     }
     const result = this.port.dispatch({ boardId: input.boardId, clientId: input.clientId, gestureId: input.gestureId, commands: command.commands });
     this.accepted.set(key,{payload,result:structuredClone(result)});

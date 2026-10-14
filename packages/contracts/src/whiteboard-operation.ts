@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BoardId, BoardRole } from './whiteboard';
-import { WhiteboardCommand, WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS } from './whiteboard-document';
+import { WhiteboardCommand, WhiteboardMindmapCommand, WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS } from './whiteboard-document';
 
 export const WHITEBOARD_OPERATION_LIMITS = {
   commands: 200,
@@ -59,6 +59,17 @@ export const WhiteboardOperationRequest = z.object({
   actor: WhiteboardOperationActor,
   commands: z.array(WhiteboardCommand).min(1).max(WHITEBOARD_OPERATION_LIMITS.commands),
   provenance: WhiteboardOperationProvenance,
+  mindmap: WhiteboardMindmapCommand.superRefine((command, ctx) => {
+    const allowed: Record<typeof command.action, readonly string[]> = {
+      'create-root':['create'], 'import-mermaid':['create','geometry'],
+      'add-child':['create','geometry','extension'], 'add-sibling':['create','geometry','extension'],
+      reparent:['connector','geometry','extension'], 'set-collapsed':['extension','geometry'],
+      layout:['geometry'], 'delete-subtree':['delete','geometry','extension'],
+    };
+    if (command.commands.some(primitive => !allowed[command.action].includes(primitive.type))) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Mindmap action cannot issue this primitive command'});
+    if (command.action === 'create-root' && (command.commands.length !== 1 || command.commands[0]?.type !== 'create' || command.commands[0].object.id !== command.treeId)) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Root creation must create its root identity exactly once'});
+    if (['add-child','add-sibling'].includes(command.action) && command.commands.filter(primitive => primitive.type === 'create').length !== 2) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Adding a topic must create one sticky and one tree edge'});
+  }).optional(),
 }).strict();
 export type WhiteboardOperationRequest = z.infer<typeof WhiteboardOperationRequest>;
 

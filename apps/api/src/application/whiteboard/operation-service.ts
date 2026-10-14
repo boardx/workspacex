@@ -13,7 +13,8 @@ import {artifactSourceMatchesLayout} from '../../domain/whiteboard/artifact-layo
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './collaboration-ports';
 import type {WhiteboardOperationUndoStore} from './operation-undo-ports';
 import type { RegisteredBoardActor, WhiteboardOperationAuditRepository } from './operation-ports';
-import {renderedLayoutToCommands} from '@repo/whiteboard-core';
+import {renderedLayoutToCommands, createWhiteboardDocument, MindmapCommandPort} from '@repo/whiteboard-core';
+import * as Y from 'yjs';
 
 export const WHITEBOARD_OPERATION_SERVICE = Symbol('WhiteboardOperationService');
 export class WhiteboardOperationError extends Error {
@@ -81,6 +82,19 @@ export class WhiteboardOperationService {
       if(head.epoch!==request.expectedRevision.epoch||head.seq!==request.expectedRevision.seq)throw new WhiteboardOperationError('STALE_REVISION');
       if(!this.undoStore)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
       const before=await this.undoStore.capture(session,principal,boardId);
+      if (request.mindmap) {
+        if (canonical(request.mindmap.commands) !== canonical(request.commands)) throw new WhiteboardOperationError('VALIDATION_FAILED');
+        const snapshot = await this.collaboration.loadInTransaction(session, principal, boardId);
+        if (snapshot.epoch !== head.epoch || snapshot.seq !== head.seq) throw new WhiteboardOperationError('STALE_REVISION');
+        const shadow = createWhiteboardDocument();
+        try {
+          Y.applyUpdate(shadow, snapshot.update);
+          new MindmapCommandPort(shadow).dispatch({boardId,clientId:actor.actorId,gestureId:request.requestId,command:request.mindmap});
+        } catch (error) {
+          throw new WhiteboardOperationError(error instanceof Error && error.message === 'MINDMAP_STALE_REVISION' ? 'STALE_REVISION' : 'VALIDATION_FAILED');
+        } finally { shadow.destroy(); }
+      }
+
       const ack=await this.collaboration.writeCommandsInTransaction(session,principal,boardId,{epoch:request.expectedRevision.epoch,requestId:request.requestId,commands:request.commands,actorId:actor.actorId,expectedSeq:request.expectedRevision.seq}).catch(error=>collaborationError(error));
       const operationId=randomUUID(),event:Event={eventId:randomUUID(),operationId,requestId:request.requestId,boardId,
         type:eventType(request.commands,request.provenance.source),actor:request.actor,objectIds:objectIds(request.commands),revision:{epoch:ack.epoch,seq:ack.seq},occurredAt:this.now().toISOString(),provenance:request.provenance};
@@ -115,6 +129,19 @@ export class WhiteboardOperationService {
       if(head.epoch!==stored.receipt.revision.epoch||head.seq!==stored.receipt.revision.seq)throw new WhiteboardOperationError('STALE_REVISION');
       const desired=await this.undoStore.readBefore(principal,boardId,stored.before);
       const before=await this.undoStore.capture(session,principal,boardId);
+      if (request.mindmap) {
+        if (canonical(request.mindmap.commands) !== canonical(request.commands)) throw new WhiteboardOperationError('VALIDATION_FAILED');
+        const snapshot = await this.collaboration.loadInTransaction(session, principal, boardId);
+        if (snapshot.epoch !== head.epoch || snapshot.seq !== head.seq) throw new WhiteboardOperationError('STALE_REVISION');
+        const shadow = createWhiteboardDocument();
+        try {
+          Y.applyUpdate(shadow, snapshot.update);
+          new MindmapCommandPort(shadow).dispatch({boardId,clientId:actor.actorId,gestureId:request.requestId,command:request.mindmap});
+        } catch (error) {
+          throw new WhiteboardOperationError(error instanceof Error && error.message === 'MINDMAP_STALE_REVISION' ? 'STALE_REVISION' : 'VALIDATION_FAILED');
+        } finally { shadow.destroy(); }
+      }
+
       await this.undoStore.checkComments(session,principal,boardId,stored.before);
       const ack=await this.collaboration.compensateInTransaction(session,principal,boardId,{epoch:head.epoch,requestId:stored.undoId,actorId:actor.actorId,before:desired}).catch(collaborationError);
       await this.undoStore.restoreComments(session,principal,boardId,stored.before);
