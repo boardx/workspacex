@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { assertConnectorFallbackUnchanged, decodeConnectorStorage } from './connector-storage';
+import { WhiteboardConnector } from '@repo/contracts/whiteboard-document';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { cloneDocument, objectMap, tombstones, validateDocument } from './document';
 
@@ -45,7 +46,8 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
       if (integrated instanceof Y.Item && integrated.parentSub === 'connector' && integrated.parent instanceof Y.Map) {
         const id = candidateIds.get(integrated.parent), previous = id ? objectMap(authority).get(id) : undefined;
         if (previous) for (const incoming of struct.content.getContent()) {
-          if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) assertConnectorFallbackUnchanged(previous, integrated.parent, incoming as Record<string, unknown>);
+          const parsed = WhiteboardConnector.parse(incoming);
+          assertConnectorFallbackUnchanged(previous, integrated.parent, parsed);
         }
       }
       if (integrated instanceof Y.Item && ['connectorFrom', 'connectorTo'].includes(integrated.parentSub ?? '')) {
