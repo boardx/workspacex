@@ -11,14 +11,14 @@ from unittest.mock import patch
 SPEC=importlib.util.spec_from_file_location('harden',Path(__file__).parents[1]/'scripts/harden-aliyun-action.py')
 h=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(h)
 MAIN="""const scenario = JSON.parse(process.argv[2] || '{}');
-const secret = 'SENSITIVE_TOKEN_BODY_STACK';
+const redactionCanary = 'SENSITIVE_TOKEN_BODY_STACK';
 const core = {
- getIDToken: async () => { if (scenario.tokenError) throw new Error(secret); return secret; },
+ getIDToken: async () => { if (scenario.tokenError) throw new Error(redactionCanary); return redactionCanary; },
  setFailed: () => { process.exitCode = 1; }
 };
 const fsx = {
- writeFile: async () => { if (scenario.writeError) throw new Error(secret); },
- unlink: async () => { if (scenario.cleanup) { const e = new Error(secret); e.code = scenario.cleanup; throw e; } }
+ writeFile: async () => { if (scenario.writeError) throw new Error(redactionCanary); },
+ unlink: async () => { if (scenario.cleanup) { const e = new Error(redactionCanary); e.code = scenario.cleanup; throw e; } }
 };
 class Config {}
 class CredentialClient {
@@ -27,10 +27,10 @@ class CredentialClient {
   if (response.statusCode !== 200) {
    throw new Error(`get sts token failed with OIDC: ${response.body.toString('utf8')}`);
   }
-  return {accessKeyId: secret, accessKeySecret: secret, securityToken: secret};
+  return {accessKeyId: redactionCanary, accessKeySecret: redactionCanary, securityToken: redactionCanary};
  }
 }
-function setOutput() { if (scenario.exportError) throw new Error(secret); }
+function setOutput() { if (scenario.exportError) throw new Error(redactionCanary); }
 async function run() {
   if (true) {
     const audience = 'test';

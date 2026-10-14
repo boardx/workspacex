@@ -36,16 +36,17 @@ describe("DebugRequestRecorder", () => {
   it("redacts public share bearer paths in live, stalled and aborted diagnostics", () => {
     const trace = fakeTrace();
     const rec = new DebugRequestRecorder(trace, { stallMs: 100 });
-    const secret = "secret-share-bearer";
-    const req = fakeReq("GET", "/chat/shares/" + secret);
+    // Synthetic bearer canary; never a credential.
+    const redactionCanary = "secret-share-bearer";
+    const req = fakeReq("GET", "/chat/shares/" + redactionCanary);
     (req as unknown as { traceId: string }).traceId = "trace-share";
     const res = fakeRes(404);
     rec.middleware(req, res, () => undefined);
-    expect(JSON.stringify(rec.inFlightRequests())).not.toContain(secret);
+    expect(JSON.stringify(rec.inFlightRequests())).not.toContain(redactionCanary);
     vi.advanceTimersByTime(100);
     res.emit("close");
     expect(trace.events).toHaveLength(2);
-    expect(JSON.stringify(trace.events)).not.toContain(secret);
+    expect(JSON.stringify(trace.events)).not.toContain(redactionCanary);
     expect(trace.events[0]?.data).toMatchObject({ path: "/chat/shares/:token" });
   });
 
