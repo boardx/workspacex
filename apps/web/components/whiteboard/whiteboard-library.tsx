@@ -34,7 +34,8 @@ function isDefiniteRejection(error: unknown) { return error instanceof ApiError 
 export function WhiteboardLibrary() {
   const router = useRouter();
   const session = useOptionalSession()?.session;
-  const thumbnailQueue = useMemo(() => session ? new BoardThumbnailQueue(JSON.stringify([session.currentOrgId, session.userId]), session.userId) : null, [session?.currentOrgId, session?.userId]);
+  const currentOrgId = session?.currentOrgId, userId = session?.userId;
+  const thumbnailQueue = useMemo(() => currentOrgId && userId ? new BoardThumbnailQueue(JSON.stringify([currentOrgId, userId]), userId) : null, [currentOrgId, userId]);
   const [items, setItems] = useState<api.Board[]>([]), [tags, setTags] = useState<api.BoardTag[]>([]);
   const [query, setQuery] = useState(''), [debouncedQuery, setDebouncedQuery] = useState(''), [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [untagged, setUntagged] = useState(false);

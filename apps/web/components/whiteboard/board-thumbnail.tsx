@@ -1,4 +1,5 @@
 'use client';
+import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { WhiteboardObjectsSnapshot } from '@repo/contracts/whiteboard-operation';
 import { apiRequest } from '@/lib/api-client';
@@ -76,6 +77,6 @@ export function BoardThumbnail({ boardId, name, revisionHint, queue }: {
   }, [boardId, queue, revisionHint, visible]);
   const current = visible && preview?.queue === queue && preview.boardId === boardId && preview.revisionHint === revisionHint ? preview.url : null;
   return <div ref={host} data-testid={`board-thumbnail-${boardId}`} className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-muted/50 text-12 text-muted-foreground">
-    {current ? <img src={current} alt={`${name}的白板预览`} className="h-full w-full object-contain" /> : <span data-testid={`board-thumbnail-empty-${boardId}`}>{!queue ? '预览尚未生成' : status === 'empty' ? '空白白板' : status === 'error' ? '预览暂时无法加载' : '正在生成预览…'}</span>}
+    {current ? <Image src={current} alt={`${name}的白板预览`} fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw" className="object-contain" /> : <span data-testid={`board-thumbnail-empty-${boardId}`}>{!queue ? '预览尚未生成' : status === 'empty' ? '空白白板' : status === 'error' ? '预览暂时无法加载' : '正在生成预览…'}</span>}
   </div>;
 }
