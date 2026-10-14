@@ -5,6 +5,7 @@ import type { WhiteboardObject } from "@repo/whiteboard-core";
 import { readBoardContent } from "./board-content-adapter";
 import { BoardDurableImageSession, durableBoardImageMetadata } from "./board-session-image-assets";
 import { toBoardFabricObjects } from "./whiteboard-fabric-projection";
+import { applyBoardParentClip } from "./fabric/board-projection-parent";
 import { applyCanonicalObject, createFabricObject } from "./fabric/board-fabric-surface";
 
 export interface BoardImageBounds { x: number; y: number; width: number; height: number }
@@ -25,7 +26,16 @@ export async function renderCanonicalBoardImage({ boardId, objects, maxWidth = 8
   const canvas = new StaticCanvas(document.createElement("canvas"), { enableRetinaScaling: false, renderOnAddRemove: false, backgroundColor: "#FFFFFF" });
   try {
     await document.fonts?.ready;
-    const visible = objects.filter(object => !object.hidden);
+    const byId = new Map(objects.map(object => [object.id, object]));
+    const visible = objects.filter(object => {
+      const seen = new Set<string>();
+      let current: WhiteboardObject | undefined = object;
+      while (current) {
+        if (current.hidden || seen.has(current.id)) return false;
+        seen.add(current.id); current = current.parentId ? byId.get(current.parentId) : undefined;
+      }
+      return true;
+    });
     await Promise.all(visible.map(async object => {
       const content = readBoardContent(object);
       if (content?.type !== "image") return;
@@ -37,9 +47,11 @@ export async function renderCanonicalBoardImage({ boardId, objects, maxWidth = 8
     const projected = toBoardFabricObjects(visible, assetId => assets.get(assetId)?.objectUrl);
     const kindOrder = (kind: string) => kind === "panel" ? 0 : kind === "connector" ? 3 : kind === "group" ? 2 : 1;
     projected.sort((left, right) => (left.zIndex ?? 0) - (right.zIndex ?? 0) || kindOrder(left.kind) - kindOrder(right.kind) || left.orderKey.localeCompare(right.orderKey));
+    const projectedById = new Map(projected.map(object => [object.id, object]));
     for (const object of projected) {
       const member = createFabricObject(object);
       applyCanonicalObject(member, object, true);
+      applyBoardParentClip(member, object.parentId ? projectedById.get(object.parentId) : undefined);
       canvas.add(member);
     }
     const decodeImages = async (object: FabricObject): Promise<void> => {
@@ -51,7 +63,18 @@ export async function renderCanonicalBoardImage({ boardId, objects, maxWidth = 8
     };
     await Promise.all(canvas.getObjects().map(decodeImages));
     signal?.throwIfAborted();
-    const rectangles = canvas.getObjects().filter(object => object.visible).map(object => object.getBoundingRect());
+    const envelope = (object: FabricObject) => {
+      const rect = object.getBoundingRect();
+      const shadows: FabricObject[] = [object];
+      if (object instanceof Group) shadows.push(...object.getObjects());
+      // Fabric bounding boxes include strokes, but exclude the shadow raster.
+      const extent = shadows.reduce((result, child) => {
+        const shadow = child.shadow;
+        return shadow ? Math.max(result, shadow.blur * 2 + Math.abs(shadow.offsetX) + Math.abs(shadow.offsetY)) : result;
+      }, 0);
+      return { left: rect.left - extent, top: rect.top - extent, width: rect.width + extent * 2, height: rect.height + extent * 2 };
+    };
+    const rectangles = canvas.getObjects().filter(object => object.visible).map(envelope);
     const left = rectangles.length ? Math.min(...rectangles.map(rect => rect.left)) : 0;
     const top = rectangles.length ? Math.min(...rectangles.map(rect => rect.top)) : 0;
     const right = rectangles.length ? Math.max(...rectangles.map(rect => rect.left + rect.width)) : 320;

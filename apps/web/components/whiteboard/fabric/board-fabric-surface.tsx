@@ -1,6 +1,7 @@
 "use client";
 
 import { createBoardEdgePan } from "./board-edge-pan";
+import { applyBoardParentClip } from "./board-projection-parent";
 import { boardObjectControlsVisible } from "../screen-control-visibility";
 import { databaseShapePath } from "./database-shape-path";
 import {beginBoardPinch,updateBoardPinch,type BoardPinchSession} from "./board-pinch-viewport";
@@ -1395,9 +1396,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
           // only change when the sorted ids change or a projection is replaced.
           if (stackingOrderDirty) canvas.moveObjectTo(projected, index);
           const parent = object.parentId ? incoming.get(object.parentId) : undefined;
-          if (parent?.kind === "panel" && parent.panel?.clipContent) {
-            projected.clipPath = new Rect({ left: parent.geometry.x, top: parent.geometry.y, width: parent.geometry.width, height: parent.geometry.height, angle: parent.geometry.rotation, originX: "left", originY: "top", absolutePositioned: true });
-          } else projected.clipPath = undefined;
+          applyBoardParentClip(projected, parent);
         }
       });
       stackingOrderRef.current = orderedIds;
