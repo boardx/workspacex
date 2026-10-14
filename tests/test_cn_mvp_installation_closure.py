@@ -14,6 +14,7 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class CloudWrappers(unittest.TestCase):
     def test_cloud_rebuild_pins_entire_canonical_package_without_workstation_path(self):
         files=m.inventory(ROOT)
+        self.assertIn('scripts/cn-release-mvp-private-input.py',files)
         for entry in ('release','evidence','prepare'):
             raw=m.fixed_wrapper(files,entry)
             self.assertEqual(raw,m.fixed_wrapper(dict(reversed(list(files.items()))),entry))
