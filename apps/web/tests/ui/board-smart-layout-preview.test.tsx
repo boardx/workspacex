@@ -57,7 +57,16 @@ it("blocks all other mutation controls while a preview is pending", () => {
   expect(screen.getByTestId("board-layout-preview")).toHaveTextContent("Timeline 预览");
   expect(screen.getByRole("button", { name: "撤销" })).toBeDisabled();
   fireEvent.click(screen.getByRole("button", { name: "更多白板操作" }));
-  expect(screen.getByRole("button", { name: "粘贴" })).toBeDisabled();
+  fireEvent.keyDown(document, { key: "Escape" });
+  const before = readObjects(doc);
+  let blockedTransactions = 0;
+  doc.on("afterTransaction", transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) blockedTransactions += 1; });
+  const board = screen.getByTestId("collaborative-editor"); board.focus();
+  fireEvent.paste(board, { clipboardData: { files: [], getData: () => "预览期间不能粘贴创建" } });
+  fireEvent.keyDown(board, { key: "Delete" });
+  expect(readObjects(doc)).toEqual(before);
+  expect(blockedTransactions).toBe(0);
+  expect(screen.getByTestId("board-layout-preview")).toHaveTextContent("Timeline 预览");
   expect(screen.queryByTestId("board-layout-row")).toBeNull();
   doc.destroy();
 });

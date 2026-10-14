@@ -64,16 +64,26 @@ it('returns a rejected transform result, reports it truthfully, and opens no Yjs
 });
 it('read-only disables mutation controls and does not alter the document', () => {
   const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: 'create', object: { id: 'readonly-note', schemaVersion: 1, kind: 'sticky', geometry: { x: 10, y: 20, width: 180, height: 140, rotation: 0 }, text: '保留只读对象', style: {}, parentId: null, orderKey: '' } }], 'seed');
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="只读白板" status="已连接" />);
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   expect(screen.getByTestId('board-add-draw')).toBeDisabled();
+  fireEvent.click(screen.getByTestId('fabric-select-all'));
   fireEvent.click(screen.getByLabelText('更多白板操作'));
-  expect(screen.getByRole('button', {name: '粘贴'})).toBeDisabled();
+  const before = readObjects(doc);
+  const blockedTransactions: Y.Transaction[] = [];
+  doc.on('afterTransaction', transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) blockedTransactions.push(transaction); });
+  fireEvent.keyDown(document,{key:'Escape'});
+  const board = screen.getByTestId('collaborative-editor'); board.focus();
+  fireEvent.paste(board, { clipboardData: { files: [], getData: () => '只读粘贴不应创建对象' } });
+  fireEvent.keyDown(board, { key: 'Delete' });
+  expect(readObjects(doc)).toEqual(before);
+  expect(blockedTransactions).toHaveLength(0);
   fireEvent.keyDown(document,{key:'Escape'});
   fireEvent.pointerDown(screen.getByTestId('board-title-menu'),{button:0,ctrlKey:false});
   expect(screen.getByLabelText('白板名称')).toBeDisabled();
   fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByTestId('fabric-place'));
-  expect(readObjects(doc)).toEqual([]); doc.destroy();
+  expect(readObjects(doc)).toEqual(before); expect(blockedTransactions).toHaveLength(0); doc.destroy();
 });
 it('undoes and redoes object creation as one local operation', () => {
   const doc = createWhiteboardDocument();
@@ -147,7 +157,13 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   expect(readObjects(doc)).toEqual(before);
   expect(screen.getByRole('button', {name: '撤销'})).toBeDisabled();
   fireEvent.click(screen.getByLabelText('更多白板操作'));
-  expect(screen.getByRole('button', {name: '删除选中'})).toBeDisabled();
+  fireEvent.keyDown(document,{key:'Escape'});
+  const board = screen.getByTestId('collaborative-editor'); board.focus();
+  const blockedTransactions: Y.Transaction[] = [];
+  doc.on('afterTransaction', transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) blockedTransactions.push(transaction); });
+  fireEvent.keyDown(board, { key: 'Delete' });
+  expect(readObjects(doc)).toEqual(before);
+  expect(blockedTransactions).toHaveLength(0);
   fireEvent.keyDown(document,{key:'Escape'});
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   fireEvent.click(screen.getByRole('button',{name:'布局'}));
