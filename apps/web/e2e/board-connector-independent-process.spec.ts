@@ -174,9 +174,11 @@ test('C05 distinct browser processes converge on Connector style path and concur
      const dx=3*u*u*route.startOffset.x+6*u*t*(end.x+route.endOffset.x-start.x-route.startOffset.x)-3*t*t*route.endOffset.x;
      const dy=3*u*u*route.startOffset.y+6*u*t*(end.y+route.endOffset.y-start.y-route.startOffset.y)-3*t*t*route.endOffset.y;
      const length=Math.hypot(dx,dy),normal={x:-dy/length,y:dx/length},point=input.sample;
-     let lineWidth=0;const visited=new Set<string>(),scan:Array<{offset:number;ink:boolean}>=[];
+     let lineWidth=0;const scan:Array<{offset:number;ink:boolean}>=[];
+     // Keep every 1px normal-distance sample. Rounded bitmap coordinates may
+     // repeat on a diagonal; deduplicating them undercounts physical thickness.
      for(let offset=-30;offset<=30;offset++){
-      const x=px(point.x)+Math.round(normal.x*offset),y=py(point.y)+Math.round(normal.y*offset),key=`${x}:${y}`;if(visited.has(key))continue;visited.add(key);
+      const x=px(point.x)+Math.round(normal.x*offset),y=py(point.y)+Math.round(normal.y*offset);
       const rgba=context.getImageData(x,y,1,1).data,ink=rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255;if(ink)lineWidth++;scan.push({offset,ink});
      }
      return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale,reference:{centerX,centerY,baselineY,ascent,descent,fontAscent:metrics.fontBoundingBoxAscent,fontDescent:metrics.fontBoundingBoxDescent}};

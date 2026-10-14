@@ -90,3 +90,16 @@ test('only explicit safe Next navigation prefetch aborts are classified separate
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known/board',knownProjectPath:'/projects/known/board'}),false);
  for(const patch of [{pathname:'/api/tasks'},{pathname:'/admin/api'},{pathname:'/brain/private-asset'},{pathname:'/whiteboards/board'},{pathname:'/studio/board/id'},{pathname:'/_next/static/app.js'},{prefetch:undefined},{prefetch:'0'},{method:'POST'},{errorText:'net::ERR_CONNECTION_RESET'},{errorText:'net::ERR_INTERNET_DISCONNECTED'},{errorText:'UNKNOWN'},{pathname:'/unknown'}])assert.equal(navigationPrefetchAbort({...cancelled,...patch}),false);
 });
+
+test('diagonal normal-distance samples must not be collapsed into unique bitmap pixels',async()=>{
+ const {strokeProof}=await import('./connector-c05-oracle.mjs');
+ const samples=Array.from({length:61},(_,index)=>{const offset=index-30;return {offset,ink:offset>=-5&&offset<=6};});
+ strokeProof(samples,12);
+ const visited=new Set(),deduplicated=samples.filter(({offset})=>{
+  const key=`${Math.round(offset/Math.sqrt(2))}:${Math.round(offset/Math.sqrt(2))}`;
+  if(visited.has(key))return false;visited.add(key);return true;
+ });
+ assert(deduplicated.filter(sample=>sample.ink).length<12-1.5);
+ assert.throws(()=>strokeProof(deduplicated,12));
+ assert.throws(()=>strokeProof(samples,8));
+});
