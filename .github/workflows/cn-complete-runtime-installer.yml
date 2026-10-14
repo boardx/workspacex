@@ -1,0 +1,22 @@
+name: Offline repository installer contracts
+on:
+  pull_request:
+    paths:
+      - 'scripts/install-cn-complete-runtime.py'
+      - 'scripts/install-cn-candidate-runtime.py'
+      - 'tests/test_install_cn_complete_runtime.py'
+      - '.github/workflows/cn-complete-runtime-installer.yml'
+permissions:
+  contents: read
+jobs:
+  installer-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify isolated installation contracts and Linux publication primitives
+        # Root is confined to this disposable GitHub runner. Tests use private
+        # temporary fixture directories; this job has no deployment credentials.
+        run: sudo /usr/bin/python3 -I -S -B -m unittest discover -s tests -p test_install_cn_complete_runtime.py -v
