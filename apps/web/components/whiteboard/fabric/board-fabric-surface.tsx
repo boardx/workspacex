@@ -795,7 +795,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       canvas.requestRenderAll();
     };
     clearTransformPreviewRef.current = clearTransformPreview;
-    const transformCompleted = (event: { target?: FabricObject }) => {
+    const transformCompleted = (event: { target?: FabricObject; action?: string; transform?: {action?: string} }) => {
       clearTransformPreview();
       setSnapPreview(null);
       const target = event.target as TaggedFabricObject | undefined;
@@ -844,7 +844,8 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         canvas.requestRenderAll();
       };
       try {
-        const duplicate = Boolean((event as { e?: MouseEvent }).e?.altKey) || Boolean(capturedDuplicate);
+        const action = event.action ?? event.transform?.action ?? canvas._currentTransform?.action ?? "drag";
+        const duplicate = action === "drag" && (Boolean((event as { e?: MouseEvent }).e?.altKey) || Boolean(capturedDuplicate));
         if (capturedDuplicate) capturedDuplicate.handled = true;
         const accepted = callbacksRef.current.onObjectsTransform
           ? callbacksRef.current.onObjectsTransform(transforms, { duplicate })
@@ -1132,7 +1133,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       activeInput = input.id;
       edgeEvent = event.e; edgePan.update(input);
       const ids = selectedObjectIdsRef.current.filter((id) => { const canonical = canonicalRef.current.get(id); return canonical && !canonical.locked && canonical.kind !== "placeholder"; });
-      duplicateGesture = (event.e as MouseEvent).altKey && ids.length ? { ids, start: { x: point.x, y: point.y }, current: { x: point.x, y: point.y }, handled: false } : null;
+      duplicateGesture = (canvas._currentTransform?.action ?? "drag") === "drag" && (event.e as MouseEvent).altKey && ids.length ? { ids, start: { x: point.x, y: point.y }, current: { x: point.x, y: point.y }, handled: false } : null;
       if ((stateRef.current.tool.startsWith("draw-") || stateRef.current.tool === "erase") && !stateRef.current.readOnly) {
         const pointer = canvas.getScenePoint(event.e);
         cancelDrawing();

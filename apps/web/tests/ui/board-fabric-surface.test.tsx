@@ -1078,6 +1078,21 @@ describe("BoardFabricSurface", () => {
     expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: true });
   });
 
+  it("uses Alt for centered scaling rather than duplicating or restoring the transformed object",()=>{
+    const onObjectsTransform=vi.fn(()=>true);
+    renderSurface({selectedObjectIds:['s-1'],onObjectsTransform});
+    const sticky=probe.objects.find(object=>object.data?.boardObjectId==='s-1')!;
+    probe.canvas!._currentTransform={target:sticky,action:'scale'};
+    probe.handlers.get('mouse:down')?.({target:sticky,e:new MouseEvent('mousedown',{altKey:true,clientX:100,clientY:120})});
+    sticky.scaleX*=1.2;sticky.scaleY*=1.2;
+    probe.handlers.get('object:modified')?.({target:sticky,action:'scale',e:new MouseEvent('mouseup',{altKey:true})} as never);
+    probe.handlers.get('mouse:up')?.({target:sticky,e:new MouseEvent('mouseup',{altKey:true,clientX:142,clientY:148})});
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({id:'s-1',geometry:expect.objectContaining({width:264,height:216})})],{duplicate:false});
+    expect(sticky.width*sticky.scaleX).toBeCloseTo(264,6);
+    expect(sticky.height*sticky.scaleY).toBeCloseTo(216,6);
+  });
+
   it("captures an Alt ActiveSelection at pointer-down and duplicates every member even when Fabric omits object:modified", () => {
     const onObjectsTransform = vi.fn(() => true);
     renderSurface({ selectedObjectIds: ["s-1", "r-1"], onObjectsTransform });
