@@ -66,10 +66,31 @@
    验证中国首页/隐私/手册在手机和关闭 JavaScript 时显示链接，
    验证美国 `/`、`/zh/`、隐私及手册没有备案号。没有实际回执不宣称发布完成。
 
-当前没有执行上传、发布或回退。控制台显示应用未连接 Git 仓库，
-新增构建不可用；官方 ESA CLI 文档支持仅设置 `assets.directory` 的静态 Pages，
-可通过 `aliyun esa-cli` 兼容入口核查。静态发布的认证与上传路径仍须验证，
-不能把函数代码上传接口直接当作静态官网发布接口。
+控制台显示应用未连接 Git 仓库，新增构建不可用；已核实官方
+`aliyun esa-cli` 兼容入口可用现有 OAuth，只读列出已有应用成功，未新建凭据。
+官方 CLI 1.0.13 支持仅设置 `assets.directory` 的静态 Pages；
+`commit` 只生成版本，不切换生产，`deploy --version ... --environment production --no-preview`
+才执行指定版本发布。
+
+对提交 `7b27357492e42ea099085bc6637854449763a57c` 的独立 CN 包执行一次 commit，
+在 `CreateRoutineWithAssetsCodeVersion` 步骤收到 InvalidParameter，
+RequestId `01A139DF-9511-5E24-9CFA-45EF4CD6471A`。
+随后查询确认没有新版本，仍为 5 个 Available 版本，生产仍是旧版本 100%，未执行 deploy 或回退。
+完整状态摘要见 `publication-attempt.json`。本次上传尝试被拒绝，不是发布回执。
+
+当前账号控制台明确为免费模式，[官方版本额度](https://help.aliyun.com/en/edge-security-acceleration/esa/user-guide/functions-and-pages-billing)
+为每应用 5 个，现有应用已占满。API 通用错误未明确写出额度原因；额度已满本身
+仍是继续发布前必须解决的条件，不能盲目重复调用或擅自扩大收费。
+可审阅的后续动作二选一，均等待用户确认：
+
+- 删除已有营销应用的最旧历史版本 `1791721267107804086`，释放一个名额；
+  当前生产及回退版本 `1791865525336254983` 保留。风险为失去该最旧平台制品，
+  本次未取得其完整源码/资产备份，不宣称可完整恢复。
+- 将函数和 Pages 账号从免费切换付费模式，版本额度升至每应用 20 个。
+  此操作是账号级，可能引入额外请求费用（官方函数请求价格为人民币 5 元/百万次），
+  不保证只影响营销站；不得未经用户确认执行。
+
+没有删除任何版本、切换收费模式、调整 DNS、安全配置或备案订单。
 
 官方依据：[ESA CLI 文档](https://help.aliyun.com/en/edge-security-acceleration/esa/user-guide/functions-and-pages-cli-tool)、
 [官方 CLI 配置与版本发布说明](https://github.com/aliyun/alibabacloud-esa-cli#configuration)。
@@ -119,6 +140,6 @@ flowchart LR
   class B done
   class C done
   class D doing
-  class E doing
+  class E blocked
   class F blocked
 ```
