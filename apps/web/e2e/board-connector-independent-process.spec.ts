@@ -174,6 +174,12 @@ test('C05 distinct browser processes converge on Connector style path and concur
      const dx=3*u*u*route.startOffset.x+6*u*t*(end.x+route.endOffset.x-start.x-route.startOffset.x)-3*t*t*route.endOffset.x;
      const dy=3*u*u*route.startOffset.y+6*u*t*(end.y+route.endOffset.y-start.y-route.startOffset.y)-3*t*t*route.endOffset.y;
      const length=Math.hypot(dx,dy),normal={x:-dy/length,y:dx/length},point=input.sample;
+     const strokeReference=document.createElement('canvas');strokeReference.width=element.width;strokeReference.height=element.height;
+     const strokeContext=strokeReference.getContext('2d')!;strokeContext.fillStyle='#FFFFFF';strokeContext.fillRect(0,0,strokeReference.width,strokeReference.height);
+     const physical=(point:{x:number;y:number})=>({x:(panX+zoom*point.x)*scale,y:(panY+zoom*point.y)*scale});
+     const p0=physical(start),p1=physical({x:start.x+route.startOffset.x,y:start.y+route.startOffset.y}),p2=physical({x:end.x+route.endOffset.x,y:end.y+route.endOffset.y}),p3=physical(end);
+     strokeContext.strokeStyle='#E11D48';strokeContext.lineWidth=input.width*zoom*scale;strokeContext.beginPath();strokeContext.moveTo(p0.x,p0.y);strokeContext.bezierCurveTo(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);strokeContext.stroke();
+     let referenceInkLength=0;const coverageScan:Array<{offset:number;rgba:number[];referenceRgba:number[]}>=[];
      let lineWidth=0;const bitmapSamples=new Set<string>();const scan:Array<{offset:number;ink:boolean}>=[];
      // Keep every 1px normal-distance sample. Rounded bitmap coordinates may
      // repeat on a diagonal; deduplicating them undercounts physical thickness.
@@ -181,12 +187,15 @@ test('C05 distinct browser processes converge on Connector style path and concur
       const x=px(point.x)+Math.round(normal.x*offset),y=py(point.y)+Math.round(normal.y*offset);
       bitmapSamples.add(`${x}:${y}`);
       const rgba=context.getImageData(x,y,1,1).data,ink=rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255;if(ink)lineWidth++;scan.push({offset,ink});
+      const referenceRgba=strokeContext.getImageData(x,y,1,1).data;
+      if(referenceRgba[0]===225&&referenceRgba[1]===29&&referenceRgba[2]===72&&referenceRgba[3]===255)referenceInkLength++;
+      coverageScan.push({offset,rgba:Array.from(rgba),referenceRgba:Array.from(referenceRgba)});
      }
-     return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale,normal,scalarSpacing:1,duplicateCount:scan.length-bitmapSamples.size,reference:{centerX,centerY,baselineY,ascent,descent,fontAscent:metrics.fontBoundingBoxAscent,fontDescent:metrics.fontBoundingBoxDescent}};
+     return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale,normal,referenceInkLength,coverageScan,scalarSpacing:1,duplicateCount:scan.length-bitmapSamples.size,reference:{centerX,centerY,baselineY,ascent,descent,fontAscent:metrics.fontBoundingBoxAscent,fontDescent:metrics.fontBoundingBoxDescent}};
     },{start,end,route,label,labelPoint,sample:samples[0]!,width:relation.strokeWidth!,textColor:authoritative.edge.style.color??'#29261E'});
     await info.attach(`${phase}-process-${pages.indexOf(page)}-glyph-metrics`,{body:JSON.stringify({reference:raster.reference,actual:glyphBounds(raster.label),expected:glyphBounds(raster.golden)}),contentType:'application/json'});
     glyphProof(raster.label,raster.golden);
-    const strokeDiagnostic={phase,process:pages.indexOf(page),inkLength:raster.lineWidth,expectedPixelWidth:raster.expectedWidth,delta:raster.lineWidth-raster.expectedWidth,zoom:raster.zoom,scale:raster.scale,canonicalWidth:relation.strokeWidth,normal:raster.normal,scalarSpacing:raster.scalarSpacing,duplicateCount:raster.duplicateCount,firstInkOffset:raster.scan.find(sample=>sample.ink)?.offset,lastInkOffset:raster.scan.findLast(sample=>sample.ink)?.offset,from:start,to:end};
+    const strokeDiagnostic={phase,process:pages.indexOf(page),inkLength:raster.lineWidth,expectedPixelWidth:raster.expectedWidth,delta:raster.lineWidth-raster.expectedWidth,zoom:raster.zoom,scale:raster.scale,canonicalWidth:relation.strokeWidth,normal:raster.normal,referenceInkLength:raster.referenceInkLength,coverageScan:raster.coverageScan,scalarSpacing:raster.scalarSpacing,duplicateCount:raster.duplicateCount,firstInkOffset:raster.scan.find(sample=>sample.ink)?.offset,lastInkOffset:raster.scan.findLast(sample=>sample.ink)?.offset,from:start,to:end};
     await info.attach(`${phase}-process-${pages.indexOf(page)}-stroke-metrics`,{body:JSON.stringify(strokeDiagnostic),contentType:'application/json'});
     strokeProof(raster.scan,raster.expectedWidth);
     localRaster.push({process:pages.indexOf(page),labelHash:sha256(Buffer.from(raster.label)),lineWidth:raster.lineWidth,expectedWidth:raster.expectedWidth});
