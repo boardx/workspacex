@@ -63,8 +63,9 @@ def installation_plan(probe_path):
     inventory=closure.inventory(ROOT)
     bundle_sha=e.digest(e.encode(inventory))
     bundle_root='/usr/local/lib/workspacex-cn/continuation-control/'+bundle_sha
-    driver_wrapper=('#!/bin/sh\nexec /usr/bin/python3 -I -B '+bundle_root+'/scripts/cn-release-fixed-driver.py \"$@\"\n').encode()
-    evidence_wrapper=('#!/bin/sh\nexec /usr/bin/python3 -I -B '+bundle_root+'/scripts/cn-release-mvp-evidence.py \"$@\"\n').encode()
+    driver_wrapper=closure.fixed_wrapper(inventory,'release')
+    evidence_wrapper=closure.fixed_wrapper(inventory,'evidence')
+    preparation_wrapper=closure.fixed_wrapper(inventory,'prepare')
     recovery_wrapper=('#!/bin/sh\nexec /usr/bin/python3 -I -B '+bundle_root+'/scripts/cn-release-recovery-driver.py \"$@\"\n').encode()
     return {'schemaVersion':1,'kind':'cn-continuation-installation-plan-v1',
             'oldStateObservation':{'rawSha256':e.digest(Path(probe_path).read_bytes()),'observedAt':probe.get('observedAt')},
@@ -77,6 +78,7 @@ def installation_plan(probe_path):
             'fixedDriver':{'target':'/usr/local/bin/workspacex-cn-fixed-release','sha256':e.digest(driver_wrapper),'bytesBase64':__import__('base64').b64encode(driver_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-fixed-release ^(run|status|reconcile) [a-f0-9]{64}$','rootApprovalRequired':True},
             'fixedRecoveryDriver':{'target':'/usr/local/bin/workspacex-cn-fixed-recovery','sha256':e.digest(recovery_wrapper),'bytesBase64':__import__('base64').b64encode(recovery_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':None,'rootApprovalRequired':True,'freshRecoveryApprovalRequired':True},
             'readOnlyEvidencePortal':{'target':'/usr/local/bin/workspacex-cn-mvp-evidence','sha256':e.digest(evidence_wrapper),'bytesBase64':__import__('base64').b64encode(evidence_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-mvp-evidence ^(approval|terminal) [a-f0-9]{64}$','rootApprovalRequired':True},
+            'approvedCloudPreparation':{'target':'/usr/local/bin/workspacex-cn-mvp-prepare-approved','sha256':e.digest(preparation_wrapper),'bytesBase64':__import__('base64').b64encode(preparation_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-mvp-prepare-approved ^(prepare|terminal) [a-f0-9]{64}$','rootApprovalRequired':True,'immutablePolicyApprovalRequired':True},
             'contentSourceFiles':closure.content_source_inventory(ROOT),
             'contentRuntimeClosure':closure.closure_status(),
             'externalClosures':{'rdsSdk':'Exact pinned private SDK and CreateBackup/DescribeBackups/DescribeBackupTasks capability approval required','businessRuntime':'Pinned Node, Python, Chromium, private Playwright tree and scoped test data/secret plan required','canonicalControlRepository':'Root-owned exact Git control checkout at /usr/local/lib/workspacex-cn/release-control required; no runner checkout import','approvalMaxBytes':65536,'finalPopulatedApprovalSizeVerified':False},

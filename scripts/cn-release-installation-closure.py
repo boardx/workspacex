@@ -104,6 +104,41 @@ def inventory(root):
 def digest(files):
     return hashlib.sha256((json.dumps(files,sort_keys=True,separators=(',', ':'))+'\n').encode()).hexdigest()
 
+def fixed_wrapper(files, entry):
+    """Reproduce approved wrapper bytes on a cloud executor; no local inputs."""
+    files = dict(sorted(files.items()))
+    entries = {
+        'release': (('run', 'status', 'reconcile'), 'cn-release-fixed-driver.py'),
+        'evidence': (('approval', 'terminal'), 'cn-release-mvp-evidence.py'),
+        'prepare': (('prepare', 'terminal'), 'cn-release-mvp-cloud-prepare.py'),
+    }
+    modes, leaf = entries[entry]
+    root = '/usr/local/lib/workspacex-cn/continuation-control/' + digest(files)
+    source = '''#!/usr/bin/python3 -IB
+import hashlib,os,re,stat,sys
+from pathlib import Path
+root=Path(ROOT_VALUE)
+pins=PINS_VALUE
+if os.geteuid()!=0 or len(sys.argv)!=3 or sys.argv[1]not in MODES_VALUE or not re.fullmatch('[a-f0-9]{64}',sys.argv[2]):raise SystemExit(20)
+for name,pin in pins.items():
+ path=root/name
+ for parent in path.parents:
+  st=parent.lstat()
+  if not stat.S_ISDIR(st.st_mode) or st.st_uid!=0 or st.st_mode&0o022:raise SystemExit(20)
+ fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+ with os.fdopen(fd,'rb')as stream:
+  st=os.fstat(stream.fileno())
+  if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_mode&0o077 or st.st_nlink!=1 or st.st_size>1048576:raise SystemExit(20)
+  if hashlib.sha256(stream.read(1048577)).hexdigest()!=pin:raise SystemExit(20)
+path=root/'scripts'/LEAF_VALUE
+source=path.read_bytes()
+if hashlib.sha256(source).hexdigest()!=pins['scripts/'+LEAF_VALUE]:raise SystemExit(20)
+exec(compile(source,str(path),'exec'),{'__file__':str(path),'__name__':'__main__'})
+'''
+    for key, value in {'ROOT_VALUE':repr(root),'PINS_VALUE':repr(files),'MODES_VALUE':repr(modes),'LEAF_VALUE':repr(leaf)}.items():
+        source = source.replace(key, value)
+    return source.encode()
+
 def content_source_inventory(root):
     return {name: hashlib.sha256((Path(root)/name).read_bytes()).hexdigest() for name in CONTENT_SOURCE_FILES}
 
