@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof,benignHomeNavigationCancellation,successfulHomeReplacement} from './connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof,benignHomeNavigationCancellation,successfulHomeReplacement,successfulHomeDocumentNavigation} from './connector-c05-oracle.mjs';
 test('distinct positive browser PIDs are required, not repeated contexts',()=>{
  assert.deepEqual(independentProcessIds([100,200,300]),[100,200,300]);
  for(const ids of [[100,100,300],[100,200],[-1,200,300],[NaN,200,300]])assert.throws(()=>independentProcessIds(ids));
@@ -143,4 +143,10 @@ test('login home replacement requires independent successful completed later req
  const proof={sourcePath:'/login',start:10,cancel:20,replacementStart:15,replacementFinish:25,replacementStatus:200,firstHomeObserved:26};
  assert.equal(successfulHomeReplacement(proof),true);
  for(const patch of [{sourcePath:'/home'},{replacementStart:10},{replacementFinish:undefined},{replacementFinish:19},{replacementStatus:500},{firstHomeObserved:0},{firstHomeObserved:18},{status:401}])assert.equal(successfulHomeReplacement({...proof,...patch}),false);
+});
+
+test('already active home document proves login RSC cancellation only with completed real navigation',()=>{
+ const proof={pathname:'/home',sourcePath:'/login',start:46,cancel:61,status:200,documentStart:45,documentFinish:69,documentStatus:200,documentSourcePath:'/login',document:true,firstHomeObserved:65,sameOriginMainFrame:true};
+ assert.equal(successfulHomeDocumentNavigation(proof),true);
+ for(const patch of [{document:false},{documentStatus:500},{documentFinish:undefined},{documentFinish:60},{documentStart:47},{firstHomeObserved:0},{firstHomeObserved:70},{sameOriginMainFrame:false},{sourcePath:'/home'},{documentSourcePath:'/projects'},{status:401},{pathname:'/api/home'},{pathname:'/unknown'}])assert.equal(successfulHomeDocumentNavigation({...proof,...patch}),false);
 });

@@ -148,3 +148,12 @@ export function successfulHomeReplacement({sourcePath,start,cancel,status,replac
   &&replacementStatus>=200&&replacementStatus<300
   &&Number.isSafeInteger(firstHomeObserved)&&firstHomeObserved>cancel&&firstHomeObserved>=replacementStart;
 }
+
+export function successfulHomeDocumentNavigation(proof){
+ const {sourcePath,start,cancel,status,documentStart,documentFinish,documentStatus,documentSourcePath,document,firstHomeObserved,sameOriginMainFrame,pathname}=proof;
+ return pathname==='/home'&&sourcePath==='/login'&&documentSourcePath==='/login'&&document===true&&sameOriginMainFrame===true
+  &&(status===undefined||(status>=200&&status<300))&&documentStatus>=200&&documentStatus<300
+  &&[start,cancel,documentStart,documentFinish,firstHomeObserved].every(Number.isSafeInteger)
+  &&documentStart<=start&&start<cancel&&cancel<documentFinish
+  &&start<firstHomeObserved&&documentStart<=firstHomeObserved&&firstHomeObserved<=documentFinish;
+}

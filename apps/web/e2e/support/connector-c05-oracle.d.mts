@@ -19,3 +19,5 @@ export type HomeNavigationProof={sourcePath:string;destinationPath:string;sameMa
 export function benignHomeNavigationCancellation(input:{method:string;pathname:string;errorText:string;rsc:boolean;prefetch:boolean;proof:HomeNavigationProof|undefined;boardPath:string}):boolean;
 
 export function successfulHomeReplacement(input:{sourcePath:string;start:number;cancel:number;status?:number;replacementStart:number;replacementFinish:number|undefined;replacementStatus:number|undefined;firstHomeObserved:number}):boolean;
+
+export function successfulHomeDocumentNavigation(proof:{sourcePath:string;start:number;cancel:number;status?:number;documentStart:number;documentFinish:number|undefined;documentStatus:number|undefined;documentSourcePath:string;document:boolean;firstHomeObserved:number;sameOriginMainFrame:boolean;pathname:string}):boolean;
