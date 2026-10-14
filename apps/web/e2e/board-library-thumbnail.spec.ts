@@ -76,7 +76,7 @@ test('Board library generates canonical thumbnails, updates after ACK, reloads a
       const viewerToken = await boardLogin(viewerPage, F.adminEmail, F.adminPassword);
       await viewerPage.goto('/studio/board'); await pixels(viewerPage, populated);
       await boardApi(request, token, 'DELETE', `/whiteboards/${populated}/members/${F.adminUserId}`);
-      const denied = await request.get(`${apiOrigin()}/v1/whiteboards/${populated}/objects?actorId=${F.adminUserId}`, { headers: { authorization: `Bearer ${viewerToken}` } });
+      const denied = await request.get(`${apiOrigin()}/v1/whiteboards/${populated}/head`, { headers: { authorization: `Bearer ${viewerToken}` } });
       expect([403, 404]).toContain(denied.status());
       // Focus revalidation exercises the SAME cached card, rather than clearing state by navigation.
       await page.bringToFront(); await viewerPage.bringToFront();

@@ -1,3 +1,4 @@
+import { createHash, webcrypto } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { BoardThumbnail, BoardThumbnailQueue } from '@/components/whiteboard/board-thumbnail';
@@ -13,9 +14,20 @@ function snapshot(seq = 1) {
   const objects = readObjects(doc); doc.destroy();
   return { boardId: id, revision: { epoch: 1, seq }, role: 'viewer', archived: false, objects };
 }
+function protocol(value = snapshot()) {
+  const payload = Buffer.from(JSON.stringify({ format: 'workspacex.board.v1', board: {id, ...value.revision}, objects: value.objects }));
+  const exportId = '8fa6acf8-83f8-4c5f-bcc4-d1c9d6d35140';
+  const metadata = { format: 'workspacex.board.v1', exportId, boardId: id, ...value.revision, sha256: createHash('sha256').update(payload).digest('hex'), sizeBytes: payload.length, fileName: 'board.json', objectKey: 'private/export.json', downloadPath: `/whiteboards/${id}/imports/standard-export/${exportId}` };
+  vi.mocked(apiRequest).mockImplementation(async (path) => {
+    if (path.endsWith('/head')) return value.revision;
+    if (path.endsWith('/standard-export')) return { ...metadata, replayed: false };
+    return { ...metadata, contentBase64: payload.toString('base64') };
+  });
+}
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.mocked(apiRequest).mockResolvedValue(snapshot());
+  vi.stubGlobal('crypto', webcrypto);
+  protocol();
   vi.mocked(renderCanonicalBoardImage).mockResolvedValue({ blob: new Blob(['pixels']), width: 640, height: 360, bounds: { x: 0, y: 0, width: 100, height: 100 } });
   vi.stubGlobal('IntersectionObserver', undefined);
   vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:thumbnail'), revokeObjectURL: vi.fn() }));
@@ -26,15 +38,15 @@ describe('authorized canonical Board thumbnails', () => {
     const queue = new BoardThumbnailQueue('org/user', 'user');
     const view = render(<BoardThumbnail boardId={id} name="团队" revisionHint="1" queue={queue} />);
     expect(await screen.findByRole('img', { name: '团队的白板预览' })).toHaveAttribute('src', 'blob:thumbnail');
-    expect(apiRequest).toHaveBeenCalledWith(`/v1/whiteboards/${id}/objects?actorId=user`, expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }));
+    expect(apiRequest).toHaveBeenCalledWith(`/whiteboards/${id}/head`, expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }));
     expect(renderCanonicalBoardImage).toHaveBeenCalledWith(expect.objectContaining({ boardId: id, objects: snapshot().objects, maxWidth: 640, maxHeight: 360, padding: 24 }));
     view.unmount(); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:thumbnail');
   });
   it('reauthorizes before cached pixels and rerenders when canonical revision changes', async () => {
     const queue = new BoardThumbnailQueue('org/user', 'user'), signal = new AbortController().signal;
     await queue.load(id, signal); await queue.load(id, signal);
-    expect(apiRequest).toHaveBeenCalledTimes(2); expect(renderCanonicalBoardImage).toHaveBeenCalledTimes(1);
-    vi.mocked(apiRequest).mockResolvedValue(snapshot(2)); await queue.load(id, signal);
+    expect(apiRequest).toHaveBeenCalledTimes(4); expect(renderCanonicalBoardImage).toHaveBeenCalledTimes(1);
+    protocol(snapshot(2)); await queue.load(id, signal);
     expect(renderCanonicalBoardImage).toHaveBeenCalledTimes(2);
     vi.mocked(apiRequest).mockRejectedValue(new Error('denied'));
     await expect(queue.load(id, signal)).rejects.toThrow('denied');
@@ -44,7 +56,7 @@ describe('authorized canonical Board thumbnails', () => {
     await new BoardThumbnailQueue('org/user', 'user').load(id, signal);
     await new BoardThumbnailQueue('org/other', 'other').load(id, signal);
     expect(renderCanonicalBoardImage).toHaveBeenCalledTimes(2);
-    vi.mocked(apiRequest).mockResolvedValue({ ...snapshot(), objects: [] });
+    protocol({ ...snapshot(), objects: [] });
     const view = render(<BoardThumbnail boardId={id} name="团队" revisionHint="1" queue={new BoardThumbnailQueue('org/user', 'user')} />);
     expect(await screen.findByText('空白白板')).toBeInTheDocument();
     vi.mocked(apiRequest).mockRejectedValue(new Error('secret permission detail'));
@@ -58,11 +70,12 @@ describe('authorized canonical Board thumbnails', () => {
     expect(apiRequest).not.toHaveBeenCalled();
     cleanup();
     const pending: Array<(value: unknown) => void> = [];
-    vi.mocked(apiRequest).mockImplementation(() => new Promise(resolve => pending.push(resolve)));
+    const realProtocol = vi.mocked(apiRequest).getMockImplementation()!;
+    vi.mocked(apiRequest).mockImplementation((path, opts) => path.endsWith('/head') ? new Promise(resolve => pending.push(resolve)) : realProtocol(path, opts));
     const queue = new BoardThumbnailQueue('org/user', 'user'), signal = new AbortController().signal;
     const loads = [queue.load(id, signal), queue.load(id, signal), queue.load(id, signal)];
     await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(2));
-    pending[0]!(snapshot()); await waitFor(() => expect(apiRequest).toHaveBeenCalledTimes(3));
-    pending[1]!(snapshot()); pending[2]!(snapshot()); await Promise.all(loads); expect(notify).toBeDefined();
+    pending[0]!(snapshot().revision); await waitFor(() => expect(pending).toHaveLength(3));
+    pending[1]!(snapshot().revision); pending[2]!(snapshot().revision); await Promise.all(loads); expect(notify).toBeDefined();
   });
 });
