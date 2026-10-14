@@ -99,11 +99,15 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
     await expect(editor.getByTestId('board-connector-width-open')).toBeDisabled();
     await expect(editor.getByTestId('board-connector-label-open')).toBeDisabled();
     await expect(editor.getByTestId('board-connector-handle-curve-start')).toHaveCount(0);
-    const valid=request(id,F.adminUserId,F.orgId,'editor',{epoch:afterAuthority.document.epoch,seq:Number(afterAuthority.document.seq)});
+    const archived=await (await boardApi(api,editorToken,'GET',`/whiteboards/${id}`)).json();expect(archived.archived).toBe(true);
+    const currentHead=await (await boardApi(api,editorToken,'GET',`/v1/whiteboards/${id}/head`)).json();
+    expect(currentHead).toMatchObject({epoch:afterAuthority.document.epoch,seq:Number(afterAuthority.document.seq),role:'editor'});
+    const valid=request(id,F.adminUserId,F.orgId,'editor',{epoch:currentHead.epoch,seq:currentHead.seq});
+    expect(valid.expectedRevision).toEqual({epoch:afterAuthority.document.epoch,seq:Number(afterAuthority.document.seq)});
     const response=await api.post(`${apiOrigin()}/v1/whiteboards/${id}/operations`,{headers:{authorization:`Bearer ${editorToken}`},data:valid});
-    expect(response.status()).toBe(409);expect(await response.json()).toMatchObject({message:'ARCHIVED'});
+    expect(response.status()).toBe(409);const rejection=await response.json();expect(rejection).toMatchObject({error:'conflict',traceId:expect.any(String)});expect(rejection.traceId.length).toBeGreaterThan(0);
     expect(await connectorDurableState(F.orgId,id)).toEqual(afterAuthority);
-    records.push({phase:'archived-valid-payload-denied',status:409,reasonCode:'ARCHIVED'});
+    records.push({phase:'archived-valid-payload-denied',status:409,error:'conflict',archived:true,role:currentHead.role,expectedRevision:valid.expectedRevision});
    }else {
     await synced(editor);
     await expect.poll(()=>transport.snapshot().events.slice(frameOffset).some(event=>event.boardId===id&&event.client==='original'&&event.direction==='received'&&event.type==='sync'&&event.seq===Number(afterAuthority.document.seq))).toBe(true);
