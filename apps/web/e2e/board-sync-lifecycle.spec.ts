@@ -7,7 +7,7 @@ import {dirname,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
-import {apiOrigin,boardApi,boardLogin,boardHead,createAcceptanceBoard,canonicalBoardSnapshot,canonicalRows,objectPoint} from './board-acceptance-support';
+import {apiOrigin,boardApi,boardLogin,boardHead,createAcceptanceBoard,canonicalBoardSnapshot,canonicalRows,objectPoint,settled} from './board-acceptance-support';
 import {expectBoardSynced} from './support/board-sync-status';
 import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
@@ -77,6 +77,23 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
     await owner.getByTestId('board-zoom-menu').click();
     await owner.getByRole('menuitem',{name:'实际大小 100%',exact:true}).click();
     await expect(owner.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom','1');
+    await settled(owner);
+    // Zoom preserves pan: a fitted pan can leave the note offscreen at 100%.
+    // Recenter through the actual Hand gesture before the measured write gesture.
+    const surface=owner.getByTestId('board-fabric-surface');
+    const pan=await surface.evaluate(el=>{
+     const r=el.getBoundingClientRect(),px=Number(el.getAttribute('data-viewport-pan-x')),py=Number(el.getAttribute('data-viewport-pan-y'));
+     const start={x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};
+     // Independent seeded world center (190,230); keep release away from edge pan.
+     return {start,dx:Math.round(r.width/2-px-190),dy:Math.round(r.height/2-py-230)};
+    });
+    await owner.getByTestId('board-tool-hand').click();
+    expect(await owner.evaluate(p=>document.elementFromPoint(p.x,p.y)?.tagName==='CANVAS',pan.start)).toBe(true);
+    await owner.mouse.move(pan.start.x,pan.start.y);await owner.mouse.down();
+    await owner.mouse.move(pan.start.x+pan.dx,pan.start.y+pan.dy,{steps:12});await owner.mouse.up();
+    await owner.getByTestId('board-tool-select').click();await settled(owner);
+    await expect(surface).toHaveAttribute('data-viewport-zoom','1');
+
    }
    const point=gesture==='drag'?await objectPoint(owner,objectId):null;
    if(point){
