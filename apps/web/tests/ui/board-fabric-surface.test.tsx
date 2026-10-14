@@ -361,6 +361,22 @@ describe("BoardFabricSurface", () => {
     expect(onObjectTransform).toHaveBeenCalledWith(canonical.id, { x: 220, y: 280, width: 120, height: 100, rotation: 90 });
   });
 
+  it.each([1,2])("cancels captured auxiliary mouse pan for button %s before compatibility mouseup",button=>{
+    const onViewportChange=vi.fn(),initial={...VIEWPORT,zoom:1,panX:24,panY:18};
+    const view=renderSurface({viewport:initial,onViewportChange});
+    const element=view.container.querySelector('canvas')!;
+    act(()=>{
+      element.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button,clientX:100,clientY:100}));
+      document.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:124,clientY:118}));
+      const cancelled=new Event('pointercancel',{bubbles:true});
+      Object.defineProperties(cancelled,{pointerId:{value:1},pointerType:{value:'mouse'},isPrimary:{value:true}});
+      element.dispatchEvent(cancelled);
+      document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,button,clientX:124,clientY:118}));
+    });
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    expect(onViewportChange).toHaveBeenLastCalledWith(initial,'pan');
+  });
+
   const attachedPreviewArrow=():BoardFabricObject=>({ id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } });
 
   it("updates attached arrows in the local drag preview without committing per frame", () => {

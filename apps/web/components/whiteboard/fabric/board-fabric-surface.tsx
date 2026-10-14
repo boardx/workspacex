@@ -1090,15 +1090,19 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     };
     const cancelAuxiliaryPan = () => {
       if (!auxiliaryPan) return;
-      canvas.setViewportTransform(auxiliaryPan.start);
+      const initial=auxiliaryPan.start;
+      canvas.setViewportTransform(initial);
       auxiliaryPan = null;
+      callbacksRef.current.onViewportChange({...stateRef.current.viewport,zoom:initial[0],panX:initial[4],panY:initial[5]},"pan");
       canvas.requestRenderAll();
     };
+    const cancelAuxiliaryPointer = (event: PointerEvent) => { if (event.isPrimary !== false && event.pointerType === "mouse") cancelAuxiliaryPan(); };
     const cancelAuxiliaryKey = (event: KeyboardEvent) => { if (event.key === "Escape") cancelAuxiliaryPan(); };
     const preventAuxiliaryMenu = (event: MouseEvent) => { if (event.target instanceof HTMLCanvasElement && host.contains(event.target)) event.preventDefault(); };
     for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.addEventListener(type, auxiliaryMouse, true);
     inputDocument.addEventListener("contextmenu", preventAuxiliaryMenu);
     inputDocument.addEventListener("keydown", cancelAuxiliaryKey, true);
+    inputDocument.addEventListener("pointercancel", cancelAuxiliaryPointer, true);
     inputDocument.defaultView?.addEventListener("blur", cancelAuxiliaryPan);
     for (const type of ["touchstart","touchmove","touchend","touchcancel"] as const) inputDocument.addEventListener(type,nativePinch,{capture:true,passive:false});
     inputDocument.addEventListener("pointerdown", observePen, true);
@@ -1270,6 +1274,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       for (const type of ["mousedown", "mousemove", "mouseup"] as const) inputDocument.removeEventListener(type, auxiliaryMouse, true);
       inputDocument.removeEventListener("contextmenu", preventAuxiliaryMenu);
       inputDocument.removeEventListener("keydown", cancelAuxiliaryKey, true);
+      inputDocument.removeEventListener("pointercancel", cancelAuxiliaryPointer, true);
       inputDocument.defaultView?.removeEventListener("blur", cancelAuxiliaryPan);
       clearTransformPreviewRef.current = () => undefined;
       cancelDrawingRef.current = () => undefined;
@@ -1493,7 +1498,11 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     const active = canvas.getActiveObject();
     if (active instanceof ActiveSelection) {
       const bounds = active.getBoundingRect();
-      active.set({ hasControls: boardObjectControlsVisible({ width: bounds.width, height: bounds.height }, zoom) });
+      const dense = !boardObjectControlsVisible({ width: bounds.width, height: bounds.height }, zoom);
+      // A multi-selection still needs one resize corner and its offset rotation
+      // handle. Hide redundant overlapping handles rather than disabling the gesture.
+      active.set({ hasControls: true });
+      active.setControlsVisibility({tl:!dense,tr:!dense,bl:!dense,ml:!dense,mt:!dense,mr:!dense,mb:!dense,br:true,mtr:true});
     }
     // Every dependency here already queues rendering through projection, selection,
     // or viewport effects. Update chrome before that frame instead of issuing a
