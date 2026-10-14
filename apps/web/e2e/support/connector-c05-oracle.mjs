@@ -139,3 +139,12 @@ export function benignHomeNavigationCancellation({method,pathname,errorText,rsc,
   &&typeof boardPath==='string'&&/^\/studio\/board\/[^/]+$/.test(boardPath)
   &&proof?.sourcePath==='/home'&&proof.destinationPath===boardPath&&proof.sameMainFrame===true&&proof.activeBeforeNavigation===true;
 }
+
+export function successfulHomeReplacement({sourcePath,start,cancel,status,replacementStart,replacementFinish,replacementStatus,firstHomeObserved}){
+ return sourcePath==='/login'&&Number.isSafeInteger(start)&&Number.isSafeInteger(cancel)&&cancel>start
+  &&(status===undefined||(status>=200&&status<300))
+  &&Number.isSafeInteger(replacementStart)&&replacementStart>start
+  &&Number.isSafeInteger(replacementFinish)&&replacementFinish>cancel&&replacementFinish>replacementStart
+  &&replacementStatus>=200&&replacementStatus<300
+  &&Number.isSafeInteger(firstHomeObserved)&&firstHomeObserved>cancel&&firstHomeObserved>=replacementStart;
+}

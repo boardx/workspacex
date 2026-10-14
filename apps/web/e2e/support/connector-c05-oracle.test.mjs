@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof,benignHomeNavigationCancellation} from './connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof,benignHomeNavigationCancellation,successfulHomeReplacement} from './connector-c05-oracle.mjs';
 test('distinct positive browser PIDs are required, not repeated contexts',()=>{
  assert.deepEqual(independentProcessIds([100,200,300]),[100,200,300]);
  for(const ids of [[100,100,300],[100,200],[-1,200,300],[NaN,200,300]])assert.throws(()=>independentProcessIds(ids));
@@ -137,4 +137,10 @@ test('home RSC cancellation requires observed active request followed by same-fr
  const input={method:'GET',pathname:'/home',errorText:'net::ERR_ABORTED',rsc:true,prefetch:false,proof,boardPath:'/studio/board/fixture'};
  assert.equal(benignHomeNavigationCancellation(input),true);
  for(const patch of [{pathname:'/api/home'},{pathname:'/studio/board/fixture'},{pathname:'/unknown'},{errorText:'net::ERR_INTERNET_DISCONNECTED'},{rsc:false},{proof:undefined},{proof:{...proof,sourcePath:'/projects'}},{proof:{...proof,destinationPath:'/studio/board/other'}},{proof:{...proof,sameMainFrame:false}},{proof:{...proof,activeBeforeNavigation:false}}])assert.equal(benignHomeNavigationCancellation({...input,...patch}),false);
+});
+
+test('login home replacement requires independent successful completed later request and actual home commit',()=>{
+ const proof={sourcePath:'/login',start:10,cancel:20,replacementStart:15,replacementFinish:25,replacementStatus:200,firstHomeObserved:26};
+ assert.equal(successfulHomeReplacement(proof),true);
+ for(const patch of [{sourcePath:'/home'},{replacementStart:10},{replacementFinish:undefined},{replacementFinish:19},{replacementStatus:500},{firstHomeObserved:0},{firstHomeObserved:18},{status:401}])assert.equal(successfulHomeReplacement({...proof,...patch}),false);
 });

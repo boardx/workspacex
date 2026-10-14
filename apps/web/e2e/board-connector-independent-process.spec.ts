@@ -7,7 +7,7 @@ import type {WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
-import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,navigationPrefetchAbort,benignHomeNavigationCancellation,type HomeNavigationProof,glyphBounds,glyphProof,strokeRasterProof} from './support/connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,navigationPrefetchAbort,benignHomeNavigationCancellation,successfulHomeReplacement,type HomeNavigationProof,glyphBounds,glyphProof,strokeRasterProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -36,6 +36,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
  const navigationPrefetchAborts:Array<{process:number;method:string;pathname:string;errorText:string;nextRouterPrefetch:true}>=[];
  const benignNavigationCancellations:Array<{process:number;method:string;pathname:string;errorText:string;proof:HomeNavigationProof}>=[];
  const navigationObservers:Array<{begin:()=>void;finish:()=>void}>=[];
+ const loginHomeReplacementProofs:unknown[]=[];
  const screenshots:Array<{phase:string;process:number;path:string;sha256:string}>=[];
  const traffic:Array<Array<{direction:'sent'|'received';type:string;updateId?:string;gestureId?:string;epoch?:number;seq?:number;code?:string}>>=[[],[],[]];
  // Private protocol replicas predict concurrent CRDT resolution independently of API projection.
@@ -68,22 +69,24 @@ test('C05 distinct browser processes converge on Connector style path and concur
    });
    page.on('pageerror',()=>browserErrors.push(`process-${index}:pageerror`));page.on('console',message=>{if(message.type()==='error')browserErrors.push(`process-${index}:console-error`);});
    let eventSequence=0,homeObserved=0,navigationIntent=0,boardDocument=0,boardCommitted=0;
-   const activeHomeRsc=new Map<Request,{start:number;cancel?:number;sourcePath:string}>();
-   const observeHome=()=>{if(new URL(page.url()).pathname==='/home')homeObserved=++eventSequence;};
+   const activeHomeRsc=new Map<Request,{start:number;cancel?:number;sourcePath:string;status?:number;finished?:number;rsc:boolean;document:boolean}>();
+   const observeHome=()=>{if(new URL(page.url()).pathname==='/home'&&!homeObserved)homeObserved=++eventSequence;};
    page.on('framenavigated',frame=>{
     if(frame!==page.mainFrame())return;
     const pathname=new URL(frame.url()).pathname;
-    if(pathname==='/home')homeObserved=++eventSequence;
+    if(pathname==='/home'&&!homeObserved)homeObserved=++eventSequence;
     if(boardId&&pathname===`/studio/board/${boardId}`&&!boardCommitted)boardCommitted=++eventSequence;
    });
    page.on('request',request=>{
     const sequence=++eventSequence,requestUrl=new URL(request.url()),sourceUrl=new URL(page.url()),pathname=requestUrl.pathname;
     if(requestUrl.origin!==sourceUrl.origin||request.frame()!==page.mainFrame())return;
-    if(request.method()==='GET'&&pathname==='/home'&&request.headers()['rsc']==='1')activeHomeRsc.set(request,{start:sequence,sourcePath:sourceUrl.pathname});
+    if(request.method()==='GET'&&pathname==='/home'&&(request.headers()['rsc']==='1'||request.isNavigationRequest()))activeHomeRsc.set(request,{start:sequence,sourcePath:sourceUrl.pathname,rsc:request.headers()['rsc']==='1',document:request.isNavigationRequest()});
     if(boardId&&request.isNavigationRequest()&&pathname===`/studio/board/${boardId}`&&!boardDocument)boardDocument=sequence;
    });
-   page.on('requestfinished',request=>activeHomeRsc.delete(request));
+   page.on('response',response=>{const pending=activeHomeRsc.get(response.request());if(pending)pending.status=response.status();});
+   page.on('requestfinished',request=>{const pending=activeHomeRsc.get(request);if(pending)pending.finished=++eventSequence;});
    navigationObservers.push({begin:()=>{observeHome();if(new URL(page.url()).pathname==='/home')navigationIntent=++eventSequence;},finish:()=>{
+    records.push({phase:'home-request-timeline',process:index,firstHomeObserved:homeObserved,requests:[...activeHomeRsc.values()]});
     for(const pending of activeHomeRsc.values()){
      if(pending.cancel===undefined)continue;
      const observedHome=homeObserved>0&&homeObserved<navigationIntent,activeBeforeNavigation=pending.start<navigationIntent;
@@ -92,7 +95,11 @@ test('C05 distinct browser processes converge on Connector style path and concur
      const proof:HomeNavigationProof|undefined=observedHome&&activeBeforeNavigation&&inNavigationWindow&&observedDocument?{sourcePath:'/home',destinationPath:`/studio/board/${boardId}`,sameMainFrame:true,activeBeforeNavigation:true}:undefined;
      records.push({phase:'home-navigation-cancellation-diagnostic',process:index,requestSourcePath:pending.sourcePath,requestStart:pending.start,homeObserved,navigationIntent,boardDocument,boardCommitted,cancel:pending.cancel,observedHome,activeBeforeNavigation,inNavigationWindow,observedDocument});
      if(benignHomeNavigationCancellation({method:'GET',pathname:'/home',errorText:'net::ERR_ABORTED',rsc:true,prefetch:false,proof,boardPath:`/studio/board/${boardId}`}))benignNavigationCancellations.push({process:index,method:'GET',pathname:'/home',errorText:'net::ERR_ABORTED',proof:proof!});
-     else browserErrors.push(`process-${index}:GET:/home:request-failed:net::ERR_ABORTED:missing-navigation-proof`);
+     else {
+      const replacement=[...activeHomeRsc.values()].find(candidate=>candidate!==pending&&successfulHomeReplacement({sourcePath:pending.sourcePath,start:pending.start,cancel:pending.cancel!,status:pending.status,replacementStart:candidate.start,replacementFinish:candidate.finished,replacementStatus:candidate.status,firstHomeObserved:homeObserved}));
+      if(replacement)loginHomeReplacementProofs.push({process:index,start:pending.start,cancel:pending.cancel,sourcePath:pending.sourcePath,firstHomeObserved:homeObserved,replacementStart:replacement.start,replacementFinish:replacement.finished,replacementStatus:replacement.status,replacementRsc:replacement.rsc,replacementDocument:replacement.document,sameOriginMainFrame:true});
+      else browserErrors.push(`process-${index}:GET:/home:request-failed:net::ERR_ABORTED:missing-navigation-or-replacement-proof`);
+     }
     }
    }});
    page.on('requestfailed',request=>{
@@ -377,6 +384,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   await expect(viewer.getByTestId('board-connector-width-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-label-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-handle-from')).toHaveCount(0);
   const runtimeAfter=await Promise.all(chunkReaders.map(async read=>verifyRuntimeIdentity(api,sha,await read())));
   for(const observer of navigationObservers)observer.finish();
+  records.push({phase:'successful-login-home-replacements',count:loginHomeReplacementProofs.length,proofs:loginHomeReplacementProofs});
   records.push({phase:'benign-home-navigation-cancellations',count:benignNavigationCancellations.length,proofs:benignNavigationCancellations});
   records.push({phase:'navigation-prefetch-aborts',count:navigationPrefetchAborts.length,requests:navigationPrefetchAborts});
   expect(browserErrors).toEqual([]);records.push({runtimeBefore,runtimeAfter,identities,processIds,traffic,independentBrowserLaunches:browsers.length,engines:browsers.map(browser=>browser.version())});
@@ -387,7 +395,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   for(const browser of browsers){try{await browser.close();}catch(error){cleanupErrors.push(error);}}
   try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector process execution/cleanup/provenance failures');
-  const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,benignNavigationCancellations,navigationPrefetchAbortCount:navigationPrefetchAborts.length,navigationPrefetchAborts,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
+  const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,loginHomeReplacementProofs,benignNavigationCancellations,navigationPrefetchAbortCount:navigationPrefetchAborts.length,navigationPrefetchAborts,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
  }
  if(failure)throw failure;
 });

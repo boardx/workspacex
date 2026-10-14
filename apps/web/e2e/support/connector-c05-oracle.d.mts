@@ -17,3 +17,5 @@ export function strokeRasterProof(actual:Array<{offset:number;ink:boolean;covera
 
 export type HomeNavigationProof={sourcePath:string;destinationPath:string;sameMainFrame:boolean;activeBeforeNavigation:boolean};
 export function benignHomeNavigationCancellation(input:{method:string;pathname:string;errorText:string;rsc:boolean;prefetch:boolean;proof:HomeNavigationProof|undefined;boardPath:string}):boolean;
+
+export function successfulHomeReplacement(input:{sourcePath:string;start:number;cancel:number;status?:number;replacementStart:number;replacementFinish:number|undefined;replacementStatus:number|undefined;firstHomeObserved:number}):boolean;
