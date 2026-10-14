@@ -618,7 +618,7 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
+          node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
       # #3205: reuse this lane's browser installation and retain independent output.
       - name: Execute trace disclosure geometry
         if: always() && steps.dedup.outputs.run == 'true'
