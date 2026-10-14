@@ -46,7 +46,9 @@ function resolvedStoredConnector(edge: WhiteboardObject, stored: Y.Map<unknown>,
 /** Read retained canonical content for trusted receipt checks, without changing its tombstone. */
 export function readStoredObject(doc: Y.Doc, id: string): WhiteboardObject | undefined {
   const value = objectMap(doc).get(id);
-  return value ? resolvedStoredConnector(decode(id, value), value, objectMap(doc)) : undefined;
+  // Tombstone receipt digests bind retained bytes, not a live peer's moved
+  // endpoint geometry. Live canonical reads derive the merged relationship.
+  return value ? (tombstones(doc).has(id) ? decode(id, value) : resolvedStoredConnector(decode(id, value), value, objectMap(doc))) : undefined;
 }
 export function readObjects(doc: Y.Doc): WhiteboardObject[] {
   const alive = [...objectMap(doc)].filter(([id]) => !tombstones(doc).has(id)).map(([id, value]) => resolvedStoredConnector(decode(id, value), value, objectMap(doc)));

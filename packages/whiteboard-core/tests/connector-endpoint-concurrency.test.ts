@@ -47,3 +47,17 @@ it('preserves a received peer endpoint when a held gesture releases with explici
  expect(readObjects(doc)[0]!.connector).toMatchObject({fromPoint:{x:20,y:30},toPoint:{x:180,y:140}});
  expect(readObjects(doc)[0]!.geometry).toEqual({x:20,y:30,width:160,height:110,rotation:0});doc.destroy();
 });
+
+it('keeps deletion receipt content stable when a surviving bound endpoint moves',()=>{
+ const doc=createWhiteboardDocument();
+ const node:WhiteboardObject={id:'node',schemaVersion:1,kind:'sticky',geometry:{x:300,y:100,width:100,height:80,rotation:0},text:'Node',style:{},parentId:null,orderKey:'b'};
+ executeCommands(doc,[{type:'create',object:node},{type:'create',object:{...edge,connector:{fromPoint:{x:10,y:20},to:'node',toAnchor:'left'}}}],{});
+ executeCommands(doc,[{type:'connector',id:'edge',connector:{fromPoint:{x:20,y:30},to:'node',toAnchor:'left'}}],{});
+ executeCommands(doc,[{type:'delete',id:'edge'}],{});
+ const retained=readStoredObject(doc,'edge');
+ executeCommands(doc,[{type:'geometry',id:'node',geometry:{...node.geometry,x:500}}],{});
+ expect(readStoredObject(doc,'edge')).toEqual(retained);
+ executeCommands(doc,[{type:'restore',id:'edge'}],{});
+ expect(readObjects(doc).find(value=>value.id==='edge')!.connector).toMatchObject({fromPoint:{x:20,y:30},to:'node'});
+ expect(readObjects(doc).find(value=>value.id==='edge')!.geometry).toEqual({x:20,y:30,width:480,height:110,rotation:0});doc.destroy();
+});
