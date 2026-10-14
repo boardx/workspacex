@@ -1,3 +1,4 @@
+import {observeNativeBrowserDiagnostics} from './support/native-runtime/native-browser-diagnostics';
 import {categoryEnabled,observationMode} from './support/board-observation-categories.mjs';
 const visualHeavy=()=>categoryEnabled('pixel-comparison');
 import {test,expect,type Page,type TestInfo,type APIRequestContext} from '@playwright/test';
@@ -43,6 +44,7 @@ async function shapeStrokePixels(page:Page,geometry:{x:number;y:number;width:num
 }
 async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(binding:{token:string;boardId:string;transport:ReturnType<typeof createSpatialWsMetadataRecorder>})=>Promise<void>){
  let boardId:string|undefined,token:string|undefined,serverActor:string|undefined,source:ReturnType<typeof runtimeSourceIdentity>|undefined,verify:(()=>Promise<unknown>)|undefined,beforeProof:unknown,afterProof:unknown,failure:unknown;
+ const diagnostics=observeNativeBrowserDiagnostics(page,`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`);
  const title=`R01 native matrix ${randomUUID()}`,transport=createSpatialWsMetadataRecorder(),chunks=observeRuntimeChunks(page);transport.observe(page,'original');
  try{
   source=runtimeSourceIdentity();
@@ -55,6 +57,7 @@ async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(bind
  }catch(error){failure=error;throw error;}
  finally{
   const errors:unknown[]=[];
+  try{await info.attach('native-browser-safe-diagnostics',{body:JSON.stringify(await diagnostics.snapshot()),contentType:'application/json'});}catch(error){errors.push(error);}finally{diagnostics.dispose();}
   let owned=false;if(boardId&&token)try{const board=await(await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();expect(board.ownerId).toBe(F.userId);expect(board.name).toBe(title);owned=true;}catch(error){errors.push(error);}
   try{afterProof=await verify?.();expect(afterProof).toEqual(beforeProof);}catch(error){errors.push(error);}
   try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,observationMode:observationMode(),visualEvidence:visualHeavy()?'executed-not-human-approved':'deferred-not-verified',status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending:owned,boardId:owned?boardId:null,title:owned?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
