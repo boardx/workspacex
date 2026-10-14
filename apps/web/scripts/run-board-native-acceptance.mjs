@@ -1,3 +1,4 @@
+import {parseNativeFailure} from '../e2e/support/board-native-failure-stage.mjs';
 import {parseFilesFailure} from '../e2e/support/board-files-failure-diagnostic.mjs';
 import {observationMode} from '../e2e/support/board-observation-categories.mjs';
 import {safeSyncLifecycleStageExport} from './sync-lifecycle-safe-export.mjs';
@@ -103,7 +104,7 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
   };
   const result=(phase,caseIndex,status,errors,connectorMarker=null)=>({phase,caseIndex,resultStatus:status,errorCount:Array.isArray(errors)?Math.min(errors.length,4096):0,...classify(errors?.[0],status,connectorMarker)});
   // Reporter JSON source fields only; never infer a location from stack/message.
-  const ownData=(object,key)=>object!==null&&typeof object==='object'?Object.getOwnPropertyDescriptor(object,key)?.value:undefined;
+  const ownData=(object,key)=>{try{return object!==null&&typeof object==='object'?Object.getOwnPropertyDescriptor(object,key)?.value:undefined;}catch{return undefined;}};
   const sourceLocation=(spec,error)=>{
     const file=ownData(spec,'file');
     if(typeof file!=='string'||file.length>4096)return null;
@@ -135,6 +136,8 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
         first={...result('CASE',known?index:null,failed.status,errors,marker),sourceLocation:location};
         const filesFailure = config === 'e2e/board-files-completion.config.ts' ? parseFilesFailure(ownData(errors[0], 'message'), location) : null;
         if (filesFailure) first.filesFailure = filesFailure;
+        const nativeFailure=known?parseNativeFailure(ownData(errors[0],'message'),basename(specFile)):null;
+        if(nativeFailure) first.nativeFailure=nativeFailure;
       }
     }
     for(const nested of suite.suites??[])visit(nested);
