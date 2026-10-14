@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { assertConnectorFallbackUnchanged, decodeConnectorStorage } from './connector-storage';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { cloneDocument, objectMap, tombstones, validateDocument } from './document';
 
@@ -34,11 +35,15 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
         const beforeField = item.get(key), afterField = next.get(key);
         if (!(beforeField instanceof Y.AbstractType) || !(afterField instanceof Y.AbstractType) || !sameItem(beforeField._item, afterField._item)) throw new Error('FIELD_IDENTITY_REPLACED');
       }
+      assertConnectorFallbackUnchanged(item, next);
       if (item.get('kind') !== next.get('kind') || item.get('schemaVersion') !== next.get('schemaVersion')) throw new Error('IMMUTABLE_FIELD_CHANGED');
     }
     for (const struct of decoded.structs) {
       if (!(struct instanceof Y.Item)) continue;
       const integrated = Y.getItem(candidate.store, struct.id);
+      if (integrated instanceof Y.Item && ['connectorFrom', 'connectorTo'].includes(integrated.parentSub ?? '')) {
+        for (const endpoint of struct.content.getContent()) decodeConnectorStorage({kind:'connector',connector:{fromPoint:{x:0,y:0},toPoint:{x:1,y:1}},[integrated.parentSub!]:endpoint});
+      }
       // A losing concurrent false value is hidden by the final map projection;
       // reject it as well instead of admitting non-monotonic tombstone history.
       if (integrated instanceof Y.Item && integrated.parent === tombstones(candidate) && struct.content.getContent().some(value => value !== true)) throw new Error('TOMBSTONE_CHANGED');

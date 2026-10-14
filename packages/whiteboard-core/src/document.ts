@@ -4,6 +4,7 @@ import { validateContentExtension } from './content-object-model';
 import { validateSpatialExtension } from './spatial-model';
 import { rotatedAnchorPoint } from './spatial-geometry';
 import { resolveConnectorPath } from './connector-path';
+import { decodeConnectorStorage, writeConnectorStorage } from './connector-storage';
 import { validateMindmapTrees } from './mindmap-validation';
 
 export function createWhiteboardDocument(): Y.Doc {
@@ -24,16 +25,31 @@ function decode(id: string, value: Y.Map<unknown>): WhiteboardObject {
   for (const delta of (value.get('text') as Y.Text).toDelta()) {
     if (typeof delta.insert !== 'string' || delta.attributes) throw new Error('UNSUPPORTED_TEXT_FORMAT');
   }
-  const json = value.toJSON();
+  const json = decodeConnectorStorage(value.toJSON());
   return WhiteboardObject.parse(structuredClone({ ...json, id, locked: json.locked ?? false, hidden: json.hidden ?? false, zIndex: json.zIndex ?? 0 }));
+}
+/** Endpoint-slot geometry is a read projection of the merged relationship.
+ * Never writes raw geometry or creates an extra collaboration operation. */
+function resolvedStoredConnector(edge: WhiteboardObject, stored: Y.Map<unknown>, objects: Y.Map<Y.Map<unknown>>): WhiteboardObject {
+  if (!edge.connector || (!stored.has('connectorFrom') && !stored.has('connectorTo'))) return edge;
+  const c = edge.connector;
+  const endpoint = (targetId: string | undefined, point: {x:number;y:number} | undefined, anchor: typeof c.fromAnchor, offset: typeof c.fromOffset) => {
+    if (!targetId) return point!;
+    const target = objects.get(targetId);
+    if (!target) throw new Error('INVALID_CONNECTOR');
+    return rotatedAnchorPoint(decode(targetId, target), anchor ?? 'center', offset);
+  };
+  const start = endpoint(c.from, c.fromPoint, c.fromAnchor, c.fromOffset), end = endpoint(c.to, c.toPoint, c.toAnchor, c.toOffset);
+  const bounds = c.route ? resolveConnectorPath({ start, end, type: c.type, route: c.route, fromAnchor: c.fromAnchor, toAnchor: c.toAnchor }).bounds : {x:Math.min(start.x,end.x),y:Math.min(start.y,end.y),width:Math.abs(end.x-start.x),height:Math.abs(end.y-start.y)};
+  return {...edge,geometry:WhiteboardGeometry.parse({...bounds,width:Math.max(1,bounds.width),height:Math.max(1,bounds.height),rotation:0})};
 }
 /** Read retained canonical content for trusted receipt checks, without changing its tombstone. */
 export function readStoredObject(doc: Y.Doc, id: string): WhiteboardObject | undefined {
   const value = objectMap(doc).get(id);
-  return value ? decode(id, value) : undefined;
+  return value ? resolvedStoredConnector(decode(id, value), value, objectMap(doc)) : undefined;
 }
 export function readObjects(doc: Y.Doc): WhiteboardObject[] {
-  const alive = [...objectMap(doc)].filter(([id]) => !tombstones(doc).has(id)).map(([id, value]) => decode(id, value));
+  const alive = [...objectMap(doc)].filter(([id]) => !tombstones(doc).has(id)).map(([id, value]) => resolvedStoredConnector(decode(id, value), value, objectMap(doc)));
   const ids = new Set(alive.map(value => value.id));
   return alive.filter(value => !value.connector || ((!value.connector.from || ids.has(value.connector.from)) && (!value.connector.to || ids.has(value.connector.to))))
     .sort((a, b) => a.orderKey < b.orderKey ? -1 : a.orderKey > b.orderKey ? 1 : (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
@@ -148,7 +164,7 @@ function apply(doc: Y.Doc, commands: WhiteboardCommand[]): void {
     }
     if (command.type === 'connector') {
       if (current.kind !== 'connector') throw new Error('CONNECTOR_KIND_REQUIRED');
-      item.set('connector', structuredClone(command.connector));
+      writeConnectorStorage(item, current.connector!, command.connector);
       if (current.connector?.route || command.connector.route) routeGeometryIds.add(command.id);
     }
     if (command.type === 'text') {
