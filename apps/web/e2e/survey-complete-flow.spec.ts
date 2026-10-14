@@ -75,6 +75,11 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await expect(page.getByText(/可直接在本页语音输入/)).toHaveCount(0);
  for(const width of [1440,375]){
    await page.setViewportSize({width,height:1000});
+   const input=composer.getByRole('textbox',{name:'问卷需求'});
+   await input.focus();
+   await expect(input).toBeFocused();
+   expect(await composer.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
+   expect(await input.evaluate(el=>getComputedStyle(el).boxShadow)).toMatch(/0px 0px 0px 0px/);
    const bounds=await composer.boundingBox();expect(bounds).not.toBeNull();
    for(const label of ['添加文件','语音输入','选择已保存录音']){
      const action=await composer.getByRole('button',{name:label,exact:true}).boundingBox();expect(action).not.toBeNull();
@@ -83,6 +88,12 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
    }
    expect(await page.locator('body').evaluate(element=>element.scrollWidth)).toBeLessThanOrEqual(width);
    await page.screenshot({path:testInfo.outputPath(`survey-intake-${width}.png`),fullPage:true});
+   const fileButton=composer.getByRole('button',{name:'添加文件',exact:true});
+   await fileButton.focus();await expect(fileButton).toBeFocused();
+   await page.screenshot({path:testInfo.outputPath(`survey-toolbar-focus-${width}.png`),fullPage:true});
+   await fileButton.evaluate(el=>(el as HTMLElement).blur());
+   await expect(input).not.toBeFocused();
+   await page.screenshot({path:testInfo.outputPath(`survey-blurred-${width}.png`),fullPage:true});
  }
  await page.setViewportSize({width:1440,height:1000});
  await composer.getByRole('button',{name:'添加文件',exact:true}).focus();
