@@ -2,6 +2,7 @@ import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect,chromium,type Page,type Browser} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import * as Y from 'yjs';
+import type {WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
@@ -205,11 +206,11 @@ test('C05 distinct browser processes converge on Connector style path and concur
    expect(sent).toHaveLength(1);
    const bytes=submittedUpdates.get(sent[0]!.updateId!);expect(bytes).toBeDefined();return bytes!;
   });
-  const predictConnector=(order:number[])=>{
+  const predictConnector=(order:number[],baseline=concurrentBaseline,updates=concurrentUpdates):WhiteboardConnector=>{
    const reference=new Y.Doc();try{
-    Y.applyUpdate(reference,concurrentBaseline);
-    for(const index of order)Y.applyUpdate(reference,concurrentUpdates[index]!);
-    const connector=reference.getMap<Y.Map<unknown>>('objects').get(edgeId)!.get('connector') as {strokeWidth:number};
+    Y.applyUpdate(reference,baseline);
+    for(const index of order)Y.applyUpdate(reference,updates[index]!);
+    const connector=reference.getMap<Y.Map<unknown>>('objects').get(edgeId)!.get('connector') as WhiteboardConnector;
     return structuredClone(connector);
    }finally{reference.destroy();}
   };
@@ -224,7 +225,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   expect(sameField.edge.connector!.strokeWidth,'Canonical width must match independently replayed CRDT winner').toBe(predictedWidth);
   records.push({phase:'same-field-independent-CRDT-proof',baselineSha256:sha256(Buffer.from(concurrentBaseline)),individualWidths:[4,12],predictedWidth,deliveryOrdersAgree:true});
   retainedConnector({...sameFieldBefore.edge.connector!,strokeWidth:predictedWidth},sameField.edge.connector!);
-  await select(owner);await select(editor);const beforeRace=await state(),raceOffsets=traffic.map(frames=>frames.length);
+  await select(owner);await select(editor);const beforeRace=await state(),raceOffsets=traffic.map(frames=>frames.length),endpointBaseline=Y.encodeStateAsUpdate(protocolDocs[0]!);
   const sceneDelta=async(page:Page,dx:number,dy:number)=>{const zoom=await page.getByTestId('board-fabric-surface').getAttribute('data-viewport-zoom');expect(Number(zoom)).toBeGreaterThan(0);return {x:dx/Number(zoom),y:dy/Number(zoom),zoom};};
   const fromDelta=await sceneDelta(owner,-30,60),toDelta=await sceneDelta(editor,30,-60);
   await owner.keyboard.down('Meta');await editor.keyboard.down('Meta');
@@ -245,6 +246,16 @@ test('C05 distinct browser processes converge on Connector style path and concur
   }));
   expect(accepted).toHaveLength(raced.head.seq-beforeRace.head.seq);expect(new Set(accepted.map(ack=>ack.seq)).size).toBe(accepted.length);
   records.push({phase:'concurrent-ACK-attribution',before:beforeRace.head,after:raced.head,accepted});
+  const endpointUpdates=[0,1].map(index=>{
+   const sent=traffic[index]!.slice(raceOffsets[index]).filter(frame=>frame.direction==='sent'&&frame.type==='update');
+   expect(sent).toHaveLength(1);const bytes=submittedUpdates.get(sent[0]!.updateId!);expect(bytes).toBeDefined();return bytes!;
+  });
+  const expectedFrom={x:290+fromDelta.x,y:270+fromDelta.y},expectedTo={x:1050+toDelta.x,y:470+toDelta.y};
+  const individualEndpoints=[predictConnector([0],endpointBaseline,endpointUpdates),predictConnector([1],endpointBaseline,endpointUpdates)];
+  retainedConnector({...beforeRace.edge.connector!,from:undefined,fromPoint:expectedFrom},individualEndpoints[0]!);
+  retainedConnector({...beforeRace.edge.connector!,to:undefined,toPoint:expectedTo},individualEndpoints[1]!);
+  records.push({phase:'concurrent-endpoint-intent-proof',baselineSha256:sha256(Buffer.from(endpointBaseline)),updateSha256:endpointUpdates.map(bytes=>sha256(Buffer.from(bytes))),individualEndpoints:individualEndpoints.map((connector,process)=>({process,from:connector.from,to:connector.to,fromPoint:connector.fromPoint,toPoint:connector.toPoint})),expectedFrom,expectedTo});
+
   await expect(owner.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom',fromDelta.zoom!);await expect(editor.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom',toDelta.zoom!);
   retainedConnector({...beforeRace.edge.connector!,from:undefined,to:undefined,fromPoint:{x:290+fromDelta.x,y:270+fromDelta.y},toPoint:{x:1050+toDelta.x,y:470+toDelta.y}},raced.edge.connector!);
   for(const page of pages)await page.reload();expect((await stable('all-processes-reloaded')).objects).toEqual(raced.objects);
