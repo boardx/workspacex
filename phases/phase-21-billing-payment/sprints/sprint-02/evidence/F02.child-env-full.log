@@ -1,0 +1,72 @@
+
+> @repo/local-runtime@0.1.0 test /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/packages/local-runtime
+> vitest run
+
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/packages/local-runtime
+
+ ✓ test/update-apply-rollback.test.ts (10 tests) 168ms
+ ✓ test/model-import.test.ts (15 tests) 101ms
+ ✓ test/update-package.test.ts (17 tests) 34ms
+ ✓ test/pglite-queue-ownership.test.ts (6 tests) 12469ms
+   ✓ SessionAwareQueryQueue ownership across an extended-protocol exchange > keeps the unnamed portal alive when another client's Query is queued between Bind and Execute (psycopg shape) 3144ms
+   ✓ SessionAwareQueryQueue ownership across an extended-protocol exchange > releases the backend after Sync so the other client is not starved 2291ms
+   ✓ SessionAwareQueryQueue ReadyForQuery detection on chunked output > releases the backend promptly after a large result set that PGlite streams in several chunks 1860ms
+   ✓ SessionAwareQueryQueue and Terminate > releases the backend when a client sends Terminate (pg-pool reaping an idle connection) 1903ms
+   ✓ SessionAwareQueryQueue and Flush > a lone Flush after a completed exchange does not hold the backend (psycopg after COMMIT) 1767ms
+   ✓ SessionAwareQueryQueue and Flush > a Flush in the middle of an extended exchange still keeps ownership until Sync 1500ms
+ ✓ test/migrations-apply-on-pglite.test.ts (3 tests) 42687ms
+   ✓ 全新安装的数据库 > **全部迁移在 PGlite 上从零跑通**，一条都不少 42624ms
+ ✓ test/config.test.ts (7 tests) 12ms
+ ✓ test/pglite-server.test.ts (3 tests) 5461ms
+   ✓ pglite two-phase server > owner phase migrates, app phase serves as app_rw with RLS and pooled connections 3361ms
+   ✓ known deviation: the login role is ignored > serves as app_rw while session_user stays postgres 1850ms
+ ✓ test/model-probe-is-deferred.test.ts (9 tests) 4ms
+ ✓ test/restore.test.ts (8 tests) 66ms
+ ✓ test/backup.test.ts (15 tests) 92ms
+ ✓ test/startup-failure.test.ts (9 tests) 7ms
+ ✓ test/releasable.test.ts (13 tests) 6ms
+ ✓ test/model-choice.test.ts (6 tests) 4ms
+ ✓ test/deferred-readiness.test.ts (7 tests) 4ms
+ ✓ test/crash-recovery.test.ts (1 test) 6931ms
+   ✓ 硬杀之后数据还在 > 写到一半被 kill -9：库能重新打开，已提交的行一条不少 6930ms
+ ✓ test/processes.test.ts (4 tests) 660ms
+   ✓ waitForHttpOrExit > returns when the child does come up 527ms
+ ✓ test/backup-restore-roundtrip.test.ts (1 test) 5882ms
+   ✓ 备份到恢复的真库往返 > 在 A 机器上备份，在 B 机器上读回来——行数一条不差 5881ms
+ ✓ test/pull-progress.test.ts (11 tests) 10ms
+ ✓ test/no-egress-endpoints.test.ts (3 tests) 7ms
+ ✓ test/capabilities.test.ts (5 tests) 31ms
+ ✓ test/model-memory-budget.test.ts (15 tests) 24ms
+ ✓ test/supervisor.test.ts (5 tests) 2382ms
+   ✓ 有人盯着的子进程 > 被杀掉之后真的会被拉起来，而且换了一个新进程 569ms
+   ✓ 有人盯着的子进程 > 一直起不来就停手，并给出说人话的说明 611ms
+   ✓ 有人盯着的子进程 > 崩溃现场写进日志——只说「退出了」是不可行动的 610ms
+   ✓ 有人盯着的子进程 > 我们自己停它的时候不当成崩溃，也不去重启 413ms
+ ✓ test/parity.test.ts (5 tests) 764ms
+   ✓ local/cloud env parity > classifies every environment variable the API reads 517ms
+ ✓ test/deployment-edition-env.test.ts (4 tests) 5ms
+ ✓ test/no-set-role.test.ts (3 tests) 574ms
+   ✓ the premise that keeps local RLS honest > never issues SET ROLE / RESET ROLE from the API 572ms
+ ✓ test/pull-list-derives-from-selection.test.ts (4 tests) 4ms
+ ✓ test/supervisor-policy.test.ts (8 tests) 9ms
+ ✓ test/child-ledger.test.ts (4 tests) 281ms
+ ✓ test/model-preflight.test.ts (4 tests) 63ms
+ ✓ test/deep-agent-launch.test.ts (4 tests) 13ms
+ ✓ test/web-build.test.ts (4 tests) 10ms
+ ✓ test/model-bundle.test.ts (3 tests) 19ms
+ ✓ test/inherited-parity-env.test.ts (4 tests) 149ms
+ ✓ test/thinking-off-is-configured.test.ts (3 tests) 5ms
+ ✓ test/internal-ports.test.ts (6 tests) 7ms
+ ✓ test/billing-child-env.test.ts (3 tests) 150ms
+ ✓ test/pglite-queue.test.ts (2 tests) 3ms
+ ✓ test/ollama-version.test.ts (2 tests) 4ms
+ ✓ test/data-dir-advice.test.ts (9 tests) 3ms
+ ✓ test/node-launch.test.ts (2 tests) 5ms
+ ✓ test/seeds.test.ts (3 tests) 3ms
+
+ Test Files  41 passed (41)
+      Tests  250 passed (250)
+   Start at  23:45:59
+   Duration  92.03s (transform 547ms, setup 0ms, collect 1.59s, tests 79.11s, environment 8ms, prepare 3.60s)
+
