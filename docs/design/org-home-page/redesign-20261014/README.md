@@ -1,6 +1,6 @@
 # 组织首页：数字人协作体验重设计
 
-基线：最新远端 main `98168015c`。既有首页追踪项：Refs #4634。
+基线：最新远端 main `98168015c`。既有首页追踪项：Refs #4634。草稿 PR：https://github.com/boardx/workspacex/pull/5699。
 
 ## 范围与证据
 

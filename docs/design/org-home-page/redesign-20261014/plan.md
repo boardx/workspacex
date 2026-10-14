@@ -31,13 +31,13 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G done
   class S1 done
   class S2 done
   class S3 done
   class S4 tested
   %% evidence S4: 69 tests, typecheck, full lint; evidence/ logs and browser-checks.json
-  class S5 todo
+  class S5 done
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
