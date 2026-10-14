@@ -118,7 +118,7 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       await expect(owner.locator('[data-testid^="peer-selection-"]')).toHaveAccessibleName(/正在编辑另一位成员的中文修改/);
       await owner.getByRole('button',{name:'更多白板操作'}).click();
       // Presentation is paused in Board chrome; ordinary member following remains available.
-      await expect(owner.getByTestId('board-present-viewport')).toHaveCount(0);
+      await expect(owner.getByTestId('board-present-viewport')).toHaveCount(0); // testid-gate: absent 用户暂时移除播放入口，断言其不再出现在白板 UI。
       await expect(owner.getByRole('button',{name:/开始演示|结束演示|演示视图|停止演示/})).toHaveCount(0);
       await owner.keyboard.press('Escape');
       await editor.getByRole('button',{name:'跟随Fullstack E2E admin（成员）',exact:true}).click();

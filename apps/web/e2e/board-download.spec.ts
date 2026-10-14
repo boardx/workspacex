@@ -22,7 +22,7 @@ test("Board operation menu downloads PNG and PDF without selection chrome", asyn
     await expectBoardSynced(page, 30_000);
     await page.getByRole("button", { name: "更多白板操作", exact: true }).click();
     await expect(page.getByTestId("board-download-png")).toBeVisible();
-    await expect(page.getByTestId("board-present-viewport")).toHaveCount(0);
+    await expect(page.getByTestId("board-present-viewport")).toHaveCount(0); // testid-gate: absent 用户暂时移除播放入口，断言其不再出现在白板 UI。
     const pngPending = page.waitForEvent("download");
     await page.getByTestId("board-download-png").click();
     const png = await pngPending;
