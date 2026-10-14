@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useLayoutEffect } from 'react';
+import { boardMindmapControlsLayout, BOARD_CHROME_SPACING } from './board-chrome-spacing';
 import { BoardSubmenuChevron } from './board-submenu-chevron';
 import { readMindmapMetadata, readMindmapTree, type WhiteboardObject } from '@repo/whiteboard-core';
 import { Button } from '@/components/ui/button';
@@ -16,9 +17,22 @@ export function BoardMindmapControls({objects,selectedId,position,disabled,busy,
   const selected=objects.find(object=>object.id===selectedId),meta=selected&&readMindmapMetadata(selected);
   const node=meta?.role==='node'?selected:undefined;
   const tree=node&&meta?readMindmapTree(objects,meta.treeId):null;
+  const [layout,setLayout]=useState({left:BOARD_CHROME_SPACING.edge,top:80,maxWidth:288});
+  useLayoutEffect(()=>{
+    const header=document.querySelector<HTMLElement>('[data-testid="board-editor-header"]');
+    const navigation=document.querySelector<HTMLElement>('[data-testid="board-navigation-controls"]');
+    const update=()=>{
+      const next=boardMindmapControlsLayout(window.innerWidth,header?.getBoundingClientRect().bottom??64,navigation?.getBoundingClientRect().bottom??0);
+      setLayout(previous=>previous.left===next.left&&previous.top===next.top&&previous.maxWidth===next.maxWidth?previous:next);
+    };
+    update();const observer=typeof ResizeObserver==='undefined'?null:new ResizeObserver(update);
+    if(header)observer?.observe(header);if(navigation)observer?.observe(navigation);
+    window.addEventListener('resize',update);
+    return()=>{observer?.disconnect();window.removeEventListener('resize',update);};
+  },[]);
   const blocked=disabled||busy||parsing;
   const add=(action:'add-child'|'add-sibling')=>{if(node)void onAction({action,nodeId:node.id,id:crypto.randomUUID(),edgeId:crypto.randomUUID(),text:'新主题'});};
-  return <div data-testid="board-mindmap-controls" className="absolute left-3 top-16 z-30 flex items-center gap-1 rounded-lg border border-border bg-card p-1 shadow-sm">
+  return <div data-testid="board-mindmap-controls" style={{...layout,padding:BOARD_CHROME_SPACING.padding,gap:BOARD_CHROME_SPACING.gap}} className="absolute z-30 flex flex-wrap items-center overflow-x-auto rounded-lg border border-border bg-card shadow-sm [&>button]:h-auto [&>button]:min-h-[44px] [&>button]:min-w-0 [&>button]:max-w-full [&>button]:whitespace-normal [&>button]:break-words [&>button]:px-[8px] [&>button]:py-[8px]">
     <BoardToolPopover label="思维导图" placement="right" trigger={<Button variant="ghost" data-testid="board-mindmap-menu">思维导图</Button>}>
       <div className="grid gap-1">
         <Button data-testid="board-mindmap-create-root" disabled={blocked} onClick={()=>void onAction({action:'create-root',id:crypto.randomUUID(),text:'中心主题',position})}>新建思维导图</Button>

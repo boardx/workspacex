@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { BOARD_CHROME_SPACING } from "./board-chrome-spacing";
 import { BoardSubmenuChevron } from "./board-submenu-chevron";
 import { BoardShapePicker } from "./board-shape-picker";
 import { Brush, Hand, ImagePlus, MousePointer2, Type, MoreHorizontal } from "lucide-react";
@@ -138,7 +139,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
         onCreationToolChange(null);
         onToolChange("select");
       }}
-      aria-label="白板工具" style={{left:16,right:16,bottom:20,maxWidth:"calc(100vw - 32px)"}} className={cn("absolute bottom-5 inset-x-4 z-30 mx-auto w-max max-w-[calc(100vw-2rem)]",editing&&"max-sm:hidden")}>
+      aria-label="白板工具" style={{left:BOARD_CHROME_SPACING.edge,right:BOARD_CHROME_SPACING.edge,bottom:BOARD_CHROME_SPACING.dockBottom,maxWidth:`calc(100vw - ${BOARD_CHROME_SPACING.edge*2}px)`}} className={cn("absolute bottom-5 inset-x-4 z-30 mx-auto w-max max-w-[calc(100vw-2rem)]",editing&&"max-sm:hidden")}>
       {pickerOpen && (stickyOpen || textOpen || shapeOpen || contentOpen || connectorOpen) && (
         <div data-testid="board-tool-picker" data-board-chrome="tool-picker" data-picker-anchor={creationTool?.kind} style={{ position: "fixed", bottom: pickerPosition.bottom, left: pickerPosition.left, width: pickerPosition.width, maxHeight: Math.min(320, pickerPosition.maxHeight) }} className="flex min-w-0 flex-wrap items-center justify-center gap-2 overflow-auto rounded-lg border border-border-subtle bg-card p-2 shadow-lg motion-safe:animate-in motion-safe:slide-in-from-bottom-2 motion-safe:fade-in">
           {stickyOpen ? <BoardStickyPicker color={stickyColor} variant={creationTool.variant} readOnly={readOnly} onColorChange={value=>onStickyColorChange?.(value)} onVariantChange={variant=>onCreationToolChange({kind:"sticky",variant})} onBulk={onBulkSticky}/> : textOpen ? TEXT_PRESETS.map(({ preset, label }) => (
@@ -158,7 +159,7 @@ export function BoardBottomDock({ editing=false,connectorEnabled=false,stickyCol
 
         </div>
       )}
-      <div style={{padding:4,gap:2,borderRadius:16}} className="flex w-max max-w-full items-end gap-0.5 overflow-x-auto rounded-2xl border border-border bg-card p-1 shadow-xl xl:gap-1 xl:p-1.5">
+      <div style={{padding:BOARD_CHROME_SPACING.padding,gap:BOARD_CHROME_SPACING.gap,borderRadius:16}} className="flex w-max max-w-full items-end gap-0.5 overflow-x-auto rounded-2xl border border-border bg-card p-1 shadow-xl xl:gap-1 xl:p-1.5">
         <DockButton testId="board-tool-select" label="选择" shortcut="V" pressed={activeTool === "select" && !creationTool} onClick={() => { onCreationToolChange(null); onToolChange("select"); }}><MousePointer2 className="h-5 w-5" /></DockButton>
         <DockButton testId="board-tool-hand" label="移动画布" shortcut="H" pressed={activeTool === "hand"} onClick={() => { onCreationToolChange(null); onToolChange("hand"); }}><Hand className="h-5 w-5" /></DockButton>
         <span aria-hidden="true" className="mx-1 h-10 w-px bg-border" />

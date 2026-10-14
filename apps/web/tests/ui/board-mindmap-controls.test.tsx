@@ -1,5 +1,6 @@
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {afterEach,expect,it,vi} from 'vitest';
+import {boardMindmapControlsLayout} from '@/components/whiteboard/board-chrome-spacing';
 import {BoardMindmapControls} from '@/components/whiteboard/board-mindmap-controls';
 import {planBoardMindmap} from '@/components/whiteboard/board-mindmap-planner';
 import type {WhiteboardObject} from '@repo/whiteboard-core';
@@ -22,4 +23,15 @@ it('keeps the parent popover and real target mounted while expanding reparent ch
  expect(onAction).toHaveBeenCalledTimes(1);expect(onAction).toHaveBeenCalledWith({action:'reparent',nodeId:'child',newParentId:'root'});
  await waitFor(()=>expect(screen.queryByTestId('board-mindmap-reparent-targets')).toBeNull());
  expect(screen.getByTestId('board-mindmap-create-root')).toBeVisible();
+});
+
+it('stacks visible mindmap controls below real narrow-screen navigation and retains viewport gutters',()=>{
+ expect(boardMindmapControlsLayout(320,64,170)).toEqual({left:16,top:182,maxWidth:288});
+ expect(boardMindmapControlsLayout(320,64,240)).toEqual({left:16,top:252,maxWidth:288});
+ expect(boardMindmapControlsLayout(1440,64,680)).toEqual({left:16,top:80,maxWidth:1408});
+ render(<BoardMindmapControls objects={[]} selectedId={null} position={{x:0,y:0}} disabled={false} busy={false} onAction={vi.fn().mockResolvedValue(true)}/>);
+ const controls=screen.getByTestId('board-mindmap-controls');
+ expect(controls.style.left).toBe('16px');expect(controls).toHaveClass('flex-wrap','overflow-x-auto');
+ expect(screen.getByTestId('board-mindmap-menu')).toBeVisible();
+ expect(screen.getByTestId('board-mindmap-menu')).not.toHaveStyle({fontSize:'14px'});
 });
