@@ -78,7 +78,10 @@ export function planBoardMindmap(objects: readonly WhiteboardObject[], input: Mi
       const removed = new Set<string>();
       const visit = (id: string) => { removed.add(id); for (const child of tree.children.get(id) ?? []) visit(child); }; visit(object.id);
       for (const item of byId.values()) if (item.connector && (removed.has(item.connector.from ?? '') || removed.has(item.connector.to ?? ''))) removed.add(item.id);
-      for (const id of removed) { if (byId.get(id)?.locked) throw new Error('MINDMAP_LOCKED'); commands.push({ type: 'delete', id }); byId.delete(id); }
+      // Native delete cascades attached connectors. Delete them explicitly
+      // first so a later primitive never targets an already-tombstoned edge.
+      const deleting=[...removed].sort((a,b)=>Number(byId.get(b)?.kind==='connector')-Number(byId.get(a)?.kind==='connector'));
+      for (const id of deleting) { if (byId.get(id)?.locked) throw new Error('MINDMAP_LOCKED'); commands.push({ type: 'delete', id }); byId.delete(id); }
       selectedId = tree.incoming.get(object.id)?.connector?.from ?? null;
     }
   }
