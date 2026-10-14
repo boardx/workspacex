@@ -368,10 +368,17 @@ describe("BoardFabricSurface", () => {
     const sticky = probe.objects.find(item => item.data?.boardObjectId === "s-1")!;
     const originalArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
     sticky.left += 40;
-    probe.handlers.get("object:moving")?.({ target: sticky });
+    // Alt requests a precise translation without guides; this case isolates attachment preview.
+    probe.handlers.get("object:moving")?.({ target: sticky, e: new MouseEvent("mousemove", { altKey: true }) });
     const movedArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
     expect(movedArrow).not.toBe(originalArrow);
     expect(movedArrow.children?.[0]?.text).toBe("M 300 150 L 360 150");
+    expect(onObjectTransform).not.toHaveBeenCalled();
+    // The independent endpoint object remains a guide: its rotated bottom is
+    // 80 + 240*sin(5deg) + 140*cos(5deg) = 240.384636, not the stale edge y=150.
+    probe.handlers.get("object:moving")?.({ target: sticky });
+    const snappedArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(snappedArrow.children?.[0]?.text).toBe("M 300 150.384636 L 360 150");
     expect(onObjectTransform).not.toHaveBeenCalled();
   });
 
