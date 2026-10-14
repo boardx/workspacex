@@ -58,7 +58,19 @@ export function useBoardConnectorGesture(props: Props) {
     if (blocked) return false;
     if (!gesture.creating) {
       const edge = objects.find(object => object.id === gesture.id);
-      if (!edge || edge.locked || edge.hidden || JSON.stringify(edge.connector) !== gesture.baseline) return false;
+      if (!edge || edge.locked || edge.hidden) return false;
+      if (gesture.kind === 'from' || gesture.kind === 'to') {
+        // A held endpoint owns only its own slots. A remote move of the other
+        // endpoint is allowed, while owned endpoint/route/appearance changes cancel.
+        const opposite = gesture.kind === 'from' ? 'to' : 'from';
+        const unchanged = (connector: WhiteboardObject['connector']) => {
+          const fields: Record<string, unknown> = { ...connector };
+          for (const key of [opposite, `${opposite}Point`, `${opposite}Anchor`, `${opposite}Offset`]) delete fields[key];
+          return JSON.stringify(fields);
+        };
+        if (unchanged(edge.connector) !== unchanged(gesture.originalConnector)) return false;
+      } else if (JSON.stringify(edge.connector) !== gesture.baseline) return false;
+      return [edge.connector?.from, edge.connector?.to].every(id => !id || objects.some(object => object.id === id && !object.locked && !object.hidden));
     }
     return [gesture.before.from, gesture.before.to].every(id => !id || objects.some(object => object.id === id && !object.locked && !object.hidden));
   };
@@ -157,10 +169,14 @@ export function useBoardConnectorGesture(props: Props) {
       const path = connectorResolvedPath(relationship, liveObjects);
       if (JSON.stringify(relationship) === JSON.stringify(final.before) || (final.creating && (!path || path.length * latest.current.viewport.zoom < 3))) { cancel(); return; }
       cancel();
-      const targetIds = new Set([final.before.from, final.before.to, relationship.from, relationship.to].filter((id): id is string => Boolean(id)));
+      const endpointEdit = !final.creating && (final.kind === 'from' || final.kind === 'to');
+      const priorTargets = endpointEdit ? [final.kind === 'from' ? final.before.from : final.before.to] : [final.before.from, final.before.to];
+      const targetIds = new Set([...priorTargets, relationship.from, relationship.to].filter((id): id is string => Boolean(id)));
       const preconditions: SpatialPrecondition[] = [...targetIds].map(id => ({ id, locked: false }));
-      if (!final.creating) preconditions.push({ id: final.id, locked: false, connector: final.originalConnector });
-      const accepted = latest.current.execute({ type: final.creating ? "create-connector" : "update-connector", id: final.id, relationship }, preconditions);
+      if (!final.creating) preconditions.push({ id: final.id, locked: false, connector: endpointEdit ? liveObjects.find(object => object.id === final.id)?.connector : final.originalConnector });
+      const endpointChanges: readonly ('from' | 'to')[] | undefined = final.kind === 'from' ? ['from'] : final.kind === 'to' ? ['to'] : final.kind === 'translate' ? ['from', 'to'] : undefined;
+      const command: SpatialCommand = final.creating ? { type: 'create-connector', id: final.id, relationship } : { type: 'update-connector', id: final.id, relationship, ...(endpointChanges ? { endpointChanges } : {}) };
+      const accepted = latest.current.execute(command, preconditions);
       if (accepted && final.creating) latest.current.onCreated(final.id);
       if (!accepted) latest.current.onFailure();
     } catch { cancel(); latest.current.onFailure(); }
