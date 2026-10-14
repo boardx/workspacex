@@ -238,9 +238,10 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
   const before=await canonicalBoardSnapshot(api,token,boardId),baseline=[a.id,b.id,drawing.id].map(id=>before.objects.find(object=>object.id===id)!);
   const v=await viewport(page),screen=(point:{x:number;y:number})=>({x:v.box.x+v.x+point.x*v.z,y:v.box.y+v.y+point.y*v.z});
   const blank=await blankCanvasPoint(page,v);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
-  // Select the lowest drawing first; upper widgets remain reachable when its
-  // contextual toolbar appears. Keep the canonical baseline/oracles unchanged.
-  const selectionOrder=[baseline[2]!,baseline[0]!,baseline[1]!];
+  // With room above the fixture, select from top to bottom: selecting the
+  // lowest drawing first puts its toolbar over the smaller upper widgets.
+  // Preserve the canonical baseline and all transform oracles independently.
+  const selectionOrder=[...baseline].sort((a,b)=>Math.min(...entityCorners(a.geometry).map(p=>p.y))-Math.min(...entityCorners(b.geometry).map(p=>p.y)));
   for(const [index,value] of selectionOrder.entries()){
    // A selected widget's floating chrome can cover another widget's center.
    // Keep native canvas selection, but choose an exposed interior point using
