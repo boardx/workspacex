@@ -23,7 +23,7 @@ export class BoardThumbnailQueue {
       if (!token) throw new Error('BOARD_THUMBNAIL_SESSION_REQUIRED');
       // Always reauthorize, including cached pixels, via existing human Board read permission.
       const head = z.object({ epoch: z.number().int().positive(), seq: z.number().int().nonnegative() }).passthrough().parse(
-        await apiRequest(`/whiteboards/${encodeURIComponent(boardId)}/head`, { method: 'GET', signal }),
+        await apiRequest(`/v1/whiteboards/${encodeURIComponent(boardId)}/head`, { method: 'GET', signal }),
       );
       signal.throwIfAborted();
       if (getStoredSessionToken() !== token) throw new Error('BOARD_THUMBNAIL_SESSION_CHANGED');

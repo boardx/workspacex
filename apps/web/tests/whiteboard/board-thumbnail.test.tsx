@@ -33,7 +33,7 @@ describe('authorized canonical Board thumbnails', () => {
     const queue = new BoardThumbnailQueue('org/user', 'user');
     const view = render(<BoardThumbnail boardId={id} name="团队" revisionHint="1" queue={queue} />);
     expect(await screen.findByRole('img', { name: '团队的白板预览' })).toHaveAttribute('src', 'blob:thumbnail');
-    expect(apiRequest).toHaveBeenCalledWith(`/whiteboards/${id}/head`, expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }));
+    expect(apiRequest).toHaveBeenCalledWith(`/v1/whiteboards/${id}/head`, expect.objectContaining({ method: 'GET', signal: expect.any(AbortSignal) }));
     expect(renderCanonicalBoardImage).toHaveBeenCalledWith(expect.objectContaining({ boardId: id, objects: snapshot().objects, maxWidth: 640, maxHeight: 360, padding: 24 }));
     view.unmount(); expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:thumbnail');
   });
