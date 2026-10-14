@@ -115,7 +115,7 @@ with httpx.Client(transport=httpx.HTTPTransport(uds=p['socket']),base_url='http:
   const path = `/interviews/digital/${created.interviewId}/markdown`;
   let interview = interviewMarkdown.InterviewMarkdownEnvelope.parse(await json(path));
   interview = interviewMarkdown.InterviewMarkdownEnvelope.parse(await json(`${path}/initialize`, { expectedVersion: interview.version }));
-  await json(`${path}/report`, { markdown: `# 中文采购决策报告\n\n## 核心发现\n应追访真实采购负责人，当前为模拟材料，不作为实地证据。\n\n${longBody}\n\n${sourceLink}\n\n## 下一步\n对预算、采购周期与决策责任开展验证。`, expectedVersion: interview.version, expectedDocumentVersion: 0 });
+  await json(`${path}/report`, { markdown: `# 中文采购决策报告\n\n## 核心发现\n应追访真实采购负责人，当前为模拟材料，不作为实地证据。\n\n${longBody}\n\n${sourceLink}\n\n| 优先级 | 建议行动 |\n| --- | --- |\n| 高 | 核对预算授权。<br>追访采购负责人。 |\n| 中 | 保留原始材料。<br />确认决策时间。 |\n\n## 下一步\n对预算、采购周期与决策责任开展验证。`, expectedVersion: interview.version, expectedDocumentVersion: 0 });
   bindings.push({ kind: 'interview', id: created.interviewId });
   const session = research.GuidedResearchSession.parse(await json('/research/guided-sessions', { title: '中文研究报告', tags: [], idempotencyKey: randomUUID(), collaboratorUserIds: [], brief: { topic: '采购证据', goal: '核验采购流程', timeRange: '', region: '中国', focus: '决策责任' } }));
   const state = research.GuidedResearchRuntime.parse(await json(`/research/guided-sessions/${session.sessionId}/runtime`));
