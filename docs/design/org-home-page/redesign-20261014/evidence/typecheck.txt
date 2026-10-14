@@ -2,9 +2,3 @@
 > web@0.1.0 typecheck /private/tmp/wsx-org-home-redesign-20261014/apps/web
 > tsc --noEmit
 
-tests/ui/home-redesign-presentation.test.tsx(19,5): error TS2532: Object is possibly 'undefined'.
-tests/ui/home-redesign-presentation.test.tsx(24,40): error TS2532: Object is possibly 'undefined'.
-tests/ui/home-redesign-presentation.test.tsx(35,40): error TS2532: Object is possibly 'undefined'.
-/private/tmp/wsx-org-home-redesign-20261014/apps/web:
- ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
-Exit status 2
