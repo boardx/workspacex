@@ -35,5 +35,6 @@ it('stacks visible mindmap controls below real narrow-screen navigation and reta
  expect(controls).toHaveClass('[&>button]:px-[var(--board-mindmap-control-padding)]','[&>button]:py-[var(--board-mindmap-control-padding)]');
  expect(controls.style.left).toBe('16px');expect(controls).toHaveClass('flex-wrap','overflow-x-auto');
  expect(screen.getByTestId('board-mindmap-menu')).toBeVisible();
+ expect(screen.getByTestId('board-mindmap-menu').querySelector('svg.lucide-network')).not.toBeNull();
  expect(screen.getByTestId('board-mindmap-menu')).not.toHaveStyle({fontSize:'14px'});
 });

@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useLayoutEffect, type CSSProperties } from 'react';
 import { boardMindmapControlsLayout, BOARD_CHROME_SPACING } from './board-chrome-spacing';
+import { Network } from 'lucide-react';
 import { BoardSubmenuChevron } from './board-submenu-chevron';
 import { readMindmapMetadata, readMindmapTree, type WhiteboardObject } from '@repo/whiteboard-core';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ export function BoardMindmapControls({objects,selectedId,position,disabled,busy,
   const blocked=disabled||busy||parsing;
   const add=(action:'add-child'|'add-sibling')=>{if(node)void onAction({action,nodeId:node.id,id:crypto.randomUUID(),edgeId:crypto.randomUUID(),text:'新主题'});};
   return <div data-testid="board-mindmap-controls" style={{...layout,padding:BOARD_CHROME_SPACING.padding,gap:BOARD_CHROME_SPACING.gap,"--board-mindmap-control-padding":`${BOARD_CHROME_SPACING.controlPadding}px`} as CSSProperties} className="absolute z-30 flex flex-wrap items-center overflow-x-auto rounded-lg border border-border bg-card shadow-sm [&>button]:h-auto [&>button]:min-h-[44px] [&>button]:min-w-0 [&>button]:max-w-full [&>button]:whitespace-normal [&>button]:break-words [&>button]:px-[var(--board-mindmap-control-padding)] [&>button]:py-[var(--board-mindmap-control-padding)]">
-    <BoardToolPopover label="思维导图" placement="right" trigger={<Button variant="ghost" data-testid="board-mindmap-menu">思维导图</Button>}>
+    <BoardToolPopover label="思维导图" placement="right" trigger={<Button variant="ghost" data-testid="board-mindmap-menu"><Network aria-hidden style={{width:16,height:16}} className="shrink-0"/>思维导图</Button>}>
       <div className="grid gap-1">
         <Button data-testid="board-mindmap-create-root" disabled={blocked} onClick={()=>void onAction({action:'create-root',id:crypto.randomUUID(),text:'中心主题',position})}>新建思维导图</Button>
         <Button data-testid="board-mindmap-import" disabled={blocked} onClick={()=>{setError('');setImportOpen(true);}}>导入 Mermaid 思维导图</Button>
