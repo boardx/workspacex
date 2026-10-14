@@ -12,7 +12,9 @@ it('keeps existing connection appearance while deriving fresh anchors and exclud
  const edge:WhiteboardObject={...source,id:'old-edge',kind:'connector',style:{stroke:'#e11d48'},connector:{from:'source',to:'old-target',type:'curve',startStyle:'circle',endStyle:'diamond',lineStyle:'dashed',label:'old label',route:{kind:'curve',startOffset:{x:1,y:2},endOffset:{x:3,y:4}}}};
  const result=boardWidgetContinuation([source,edge],'source','next','edge')!;
  expect(result.commands[1]).toMatchObject({object:{style:edge.style,connector:{type:'curve',startStyle:'circle',endStyle:'diamond',lineStyle:'dashed',label:''}}});
- expect(result.commands[1].type==='create'&&result.commands[1].object.connector?.route).toBeUndefined();
+ const connection=result.commands[1];
+ if(!connection||connection.type!=='create')throw new Error('Expected the second continuation command to create its connection');
+ expect(connection.object.connector?.route).toBeUndefined();
 });
 it('rejects locked or hidden ancestors, groups and connector selections',()=>{
  const parent={...source,id:'parent',kind:'group' as const,locked:true};
