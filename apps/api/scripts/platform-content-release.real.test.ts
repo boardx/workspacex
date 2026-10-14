@@ -8,14 +8,17 @@ import { toOrgId } from "../src/domain/org-id";
 import { ACTOR, sha, stateDigest, verifyInputs, synchronize, type ReleaseRequest, type VerifiedInputs } from "./platform-content-release-core";
 import { PgSkillStarterImportRepository } from "../src/infrastructure/skill/pg-skill-starter-import-repository";
 import { verifySkillStarterPack, importPayloadDigest } from "../src/domain/skill/starter-pack";
+import { buildOfficialAgentRolePack } from "../src/domain/agent/official-role-packs";
+import { PgOfficialAgentRolePackImportRepository } from "../src/infrastructure/agent/pg-official-agent-role-pack-import-repository";
+import { wave2Runtime } from "@repo/contracts";
 
 const ORG = toOrgId("org-platform"), TENANT = "org-content-release-protected";
 let db: PgDatabase;
 function makePack(id: string, stableName: string, text = "# Release fixture\n") {
   const body = Buffer.from(text);
-  const unsigned = { schemaVersion: 1, packId: id, packVersion: "1.0.0", skills: [{ stableName, name: stableName,
+  const unsigned = wave2Runtime.UnsignedSkillStarterPack.parse({ schemaVersion: 1, packId: id, packVersion: "1.0.0", skills: [{ stableName, name: stableName,
     semanticVersion: "1.0.0", manifest: { description: "isolated release fixture", entrypoint: "SKILL.md" },
-    files: [{ path: "SKILL.md", digest: sha(body), contentBase64: body.toString("base64"), mediaType: "text/markdown" }] }] };
+    files: [{ path: "SKILL.md", digest: sha(body), contentBase64: body.toString("base64"), mediaType: "text/markdown" }] }] });
   return { ...unsigned, packDigest: sha(JSON.stringify(unsigned)) };
 }
 async function input(packs = [makePack("release-fixture", "release-fixture")]): Promise<VerifiedInputs> {
@@ -57,6 +60,24 @@ describe("actual PostgreSQL content release", () => {
     await expect(synchronize(db, target)).rejects.toThrow("CONTENT_BEFORE_STATE_CAS");
     const names = await db.withTenant(ORG, s => s.query<{ stable_name: string }>("SELECT stable_name FROM skills WHERE org_id=$1", [ORG]));
     expect(names.rows.map(x => x.stable_name)).toEqual(["outside"]);
+  });
+  it("upgrades recognized legacy role without forging old history and preserves its frozen version", async () => {
+    const pack = buildOfficialAgentRolePack();
+    const old = wave2Runtime.UnsignedOfficialAgentStarterPack.parse({ schemaVersion: 1 as const, packId: pack.packId, packVersion: "1.6.0",
+      agents: pack.agents.filter(x => x.roleRef === "D002").map(x => ({ ...x, semanticVersion: "1.6.0" })) });
+    const legacy = { ...old, packDigest: sha(JSON.stringify(old)) };
+    const created = await new PgOfficialAgentRolePackImportRepository(db).persistVerified({ orgId: ORG, actorId: ACTOR,
+      idempotencyKey: "actual-test-legacy", payloadDigest: sha(JSON.stringify(old)), pack: legacy });
+    expect(created.kind).toBe("created");
+    const target = await input(); target.request.officialRolePackDigest = pack.packDigest;
+    target.requestSha256 = sha(JSON.stringify(target.request));
+    const receipt = await synchronize(db, target);
+    expect(receipt.roleVersions).toBe(7);
+    expect(receipt.pendingBindings).toBeGreaterThan(0);
+    const versions = await db.withTenant(ORG, s => s.query<{ semantic_label: string }>(
+      "SELECT semantic_label FROM agent_versions WHERE org_id=$1", [ORG]));
+    expect(versions.rows.filter(x => x.semantic_label === "1.6.0")).toHaveLength(1);
+    expect(versions.rows.filter(x => x.semantic_label === pack.packVersion)).toHaveLength(7);
   });
   it("rolls back the entire batch when a later package conflicts; tenant content survives", async () => {
     await seedOrg({ orgId: TENANT, projectId: "project-content-protected" });
