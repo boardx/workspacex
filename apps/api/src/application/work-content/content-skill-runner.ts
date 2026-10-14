@@ -18,6 +18,8 @@ export interface ContentSkillInvocation {
   skillVersion: string;
   input: Record<string, unknown>;
   prior: Readonly<Record<string, unknown>>;
+  /** Trusted workflow code only; never copied from the trigger body. */
+  runtimeInstructions?: string;
 }
 
 export interface ContentSkillRunnerPort {
@@ -79,6 +81,7 @@ export class ModelContentSkillRunner implements ContentSkillRunnerPort {
       system: [
         `Workflow ${call.workflowId} stage ${call.stageId}: run Skill ${call.skillId}@${call.skillVersion}.`,
         instructions,
+        ...(call.runtimeInstructions ? [call.runtimeInstructions] : []),
         "Use the workflow input and the prior stage outputs in the user message.",
         CONTENT_SKILL_REPLY_INSTRUCTION,
       ].join("\n"),

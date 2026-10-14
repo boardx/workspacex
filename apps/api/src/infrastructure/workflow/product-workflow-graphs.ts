@@ -6,6 +6,7 @@
  * 不调用模型、不碰外部系统；逐 Skill 的执行接线属于内容线端到端 feature（CT06）。
  */
 import type { StageWork } from "../../application/workflow/run-instance";
+import { ContentStageUnavailableError } from "./pinned-content-stage";
 import {
   graphRefOf,
   PRODUCT_LINE_WORKFLOWS,
@@ -14,14 +15,17 @@ import {
 import type { LinearWorkflowGraph } from "./workflow-graph-registry";
 
 function stageWork(workflowId: string, stageId: string): StageWork {
-  return async (exec) => ({
-    label: `${workflowId}/${stageId}`,
-    content: {
-      workflowId,
-      stageId,
-      pinnedSkills: exec.pinnedSkills.filter((p) => p.stageId === stageId).map((p) => `${p.stableId}@${p.version}`),
-    },
-  });
+  return async (exec) => {
+    if (workflowId === "W027") throw new ContentStageUnavailableError("W027_legacy_graph_has_no_content_executor");
+    return {
+      label: `${workflowId}/${stageId}`,
+      content: {
+        workflowId,
+        stageId,
+        pinnedSkills: exec.pinnedSkills.filter((p) => p.stageId === stageId).map((p) => `${p.stableId}@${p.version}`),
+      },
+    };
+  };
 }
 
 export function contentWorkflowGraph(def: ContentWorkflowDefinition): LinearWorkflowGraph {

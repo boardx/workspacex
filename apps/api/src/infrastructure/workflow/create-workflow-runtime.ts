@@ -33,6 +33,9 @@ import { DEMO_APPROVAL_WORKFLOW_DEFINITION, demoApprovalWorkflowGraph } from "./
 import { DEMO_WORKFLOW_DEFINITION, demoWorkflowGraph } from "./demo-workflow-graph";
 import { PgEffectCapabilityAuthority } from "./pg-effect-capability-authority";
 import { productWorkflowGraphs } from "./product-workflow-graphs";
+import { discoveryExecutionDefinition } from "../../domain/work-content/discovery-execution-definition";
+import { discoveryExecutionGraph, type DiscoveryExecutionDeps } from "./discovery-execution-graph";
+import { publishDiscovery } from "../../application/work-content/discovery-publication";
 import { researchToBriefGraph } from "./research-to-brief-graph";
 import { problemToPrdGraph } from "./problem-to-prd-graph";
 import { PgWorkflowAccess } from "./pg-workflow-access";
@@ -73,6 +76,7 @@ export function builtInWorkflowDefinitions(): WorkflowDefinitionVersionInput[] {
     structuredClone(DEMO_APPROVAL_WORKFLOW_DEFINITION) as WorkflowDefinitionVersionInput,
     ...PRODUCT_LINE_WORKFLOWS.map(toRuntimeDefinition),
     problemToPrdTriggerV2Definition(),
+    discoveryExecutionDefinition(),
     ...RESEARCH_WORKFLOW_DEFINITIONS.map(toResearchRuntimeDefinition),
     researchPublicationDefinition(),
   ];
@@ -83,6 +87,7 @@ export function defaultWorkflowGraphs(): LinearWorkflowGraph[] {
     demoWorkflowGraph(),
     demoApprovalWorkflowGraph(),
     ...productWorkflowGraphs(),
+    discoveryExecutionGraph(),
     { ...productWorkflowGraphs().find((graph) => graph.graphRef === "problem-to-prd:1")!, graphRef: "problem-to-prd:2" },
     ...RESEARCH_WORKFLOW_DEFINITIONS.map(toLinearGraph),
     { graphRef: "research-to-brief:2", stages: researchPublicationDefinition().stages.map(stage => ({ stageId: stage.stageId,
@@ -110,6 +115,7 @@ export interface WorkflowRuntimeOptions {
   effectReconcilers?: Record<string, EffectReconcilePort>;
   /** CT06：内容线执行接线（缺省 = 只注册 CT05 的占位图，Skill 不执行、不发布）。 */
   content?: { skills: ContentSkillRunnerPort; notifications: NotificationPublisher; materialization?: MaterializeDeps };
+  discoveryAdapters?: DiscoveryExecutionDeps["adapters"];
   /**
    * CT09：W011「线索到合格」写回段的租户侧端口（租户 CRM / 站内通知 / 审批人资格）。给了才合成
    * `leadWriteBack`，并把 `crm.write` 的只读对账注册进网关（runInstance 通用恢复路径同样可用）。
@@ -143,6 +149,12 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
   const outputs = new PgWorkflowStageOutputStore(db);
   let graphs = opts.graphs ?? defaultWorkflowGraphs();
   if (opts.content) {
+    const discovery = discoveryExecutionGraph({ skills: opts.content.skills, outputs, instances,
+      effects: () => effectGateway, adapters: {
+        ...(opts.content.materialization ? { publish: args => publishDiscovery(opts.content!.materialization!, args) } : {}),
+        ...opts.discoveryAdapters,
+      } });
+    graphs = [...graphs.filter(g => g.graphRef !== discovery.graphRef), discovery];
     const prd = problemToPrdGraph({
       skills: opts.content.skills,
       outputs,

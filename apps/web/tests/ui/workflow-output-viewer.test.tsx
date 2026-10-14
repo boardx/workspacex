@@ -45,6 +45,22 @@ beforeEach(() => {
 });
 
 describe("WorkflowOutputViewer", () => {
+  it("shows a saved exploratory opportunity with its evidence limit", async () => {
+    api.getWorkflowInstanceOutput.mockResolvedValue(prdOutput({
+      kind: "discovery_artifact", title: "管理员邀请流程探索", evidenceGrade: "exploratory-provisional",
+      artifactId: "artifact-1", versionId: "version-1", versionNumber: 1,
+      materializedKeys: ["content.md", "provenance.json"], contentHash: DIGEST, digest: DIGEST,
+      frame: { frameId: "frame-1", version: 1, status: "draft", statement: "管理员难以确定首次邀请对象。" },
+      map: { mapId: "map-1", version: 1, root: { frameId: "frame-1", frameVersion: 1 },
+        evidenceBasis: { synthesisIds: ["synthesis-1"], anyProvisional: true },
+        opportunities: [{ oppId: "O1", statement: "帮助管理员明确适合邀请的同事" }],
+        decision: { status: "proposed", proposedTarget: "O1" } },
+    }));
+    render(<WorkflowRunOutputPage params={{ instanceId: "i1" }} searchParams={{}} />);
+    await waitFor(() => expect(screen.getByTestId("workflow-output-discovery")).toBeTruthy());
+    expect(screen.getByTestId("workflow-output-discovery").textContent).toContain("探索级证据，仍需后续验证");
+    expect(screen.getByTestId("workflow-output-discovery-opportunities").textContent).toContain("帮助管理员明确适合邀请的同事");
+  });
   it("PRD：标题、问题陈述+证据、需求、指标、版本与阶段来源", async () => {
     let resolve!: (v: unknown) => void;
     api.getWorkflowInstanceOutput.mockReturnValue(new Promise((r) => { resolve = r; }));
