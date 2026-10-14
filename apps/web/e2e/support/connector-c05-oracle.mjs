@@ -104,5 +104,5 @@ export function connectorStorageReference(storage){
 export function navigationPrefetchAbort({method,pathname,errorText,prefetch}){
  if(method!=='GET'||errorText!=='net::ERR_ABORTED'||prefetch!=='1')return false;
  // An allowlist excludes every Board, API, script, asset and unknown resource.
- return ['/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files'].includes(pathname);
+ return ['/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
 }
