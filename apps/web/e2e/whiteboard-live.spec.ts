@@ -197,8 +197,22 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
     await request(api,commenterToken,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
     const listed=await request(api,commenterToken,'GET',`/whiteboards/${boardId}/comments`),items=(await listed.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items;
     expect(items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:320,y:240}}));
-    await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});await expect(commenter.getByTestId('denied')).toBeVisible({timeout:30_000});
+    const beforeDowngrade=await listed.json();
+    await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});
+    // Viewer still has read access; only comment writes are revoked.
     const denied=await api.post(`${required('WHITEBOARD_API_URL').replace(/\/$/,'')}/whiteboards/${boardId}/comments/commands`,{headers:{Authorization:`Bearer ${commenterToken}`},data:{...worldBody,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID()}});expect(denied.status()).toBe(403);
+    expect(await (await request(api,commenterToken,'GET',`/whiteboards/${boardId}/comments`)).json()).toEqual(beforeDowngrade);
+    await commenter.reload();await synced(commenter);
+    await expect(commenter.getByTestId('denied')).toHaveCount(0);
+    const viewerTarget=commenter.getByRole('button',{name:'图形：comment anchor target',exact:true});
+    await expect(viewerTarget).toBeVisible();await viewerTarget.focus();await viewerTarget.press('Enter');
+    await expect(commenter.getByLabel('对象文字',{exact:true})).toHaveCount(0);
+    await commenter.getByRole('button',{name:'评论',exact:true}).click();
+    await expect(commenter.getByText('object anchored by commenter')).toBeVisible();
+    // Draft typing remains local, but a nonempty draft must not enable viewer writes.
+    await commenter.getByLabel('评论内容').fill('viewer write must remain denied');
+    await expect(commenter.getByRole('button',{name:'发布评论',exact:true})).toBeDisabled();
+    expect(await (await request(api,commenterToken,'GET',`/whiteboards/${boardId}/comments`)).json()).toEqual(beforeDowngrade);
   }finally{try{if(boardId&&ownerToken)await archiveBoard(api,ownerToken,boardId);}finally{await Promise.all([ownerContext.close(),commenterContext.close()]);}}
 });
 

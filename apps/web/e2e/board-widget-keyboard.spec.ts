@@ -40,8 +40,19 @@ test('real canvas sticky and rectangle Tab continue/select; Delete and each undo
    await page.reload();await synced();expect((await canonicalBoardSnapshot(api,token,id)).objects).toEqual(redone.objects);
    // Reload resets local history. The remaining input-scope checks must preserve this exact snapshot.
    // An actual product text input retains Delete/Tab instead of deleting/continuing the selected widget.
-   await surface.focus();await page.keyboard.press('ControlOrMeta+a');await page.getByTestId('board-title-menu').click();const input=page.getByLabel('白板名称');await input.fill(`${title}X`);await input.press('Home');await input.press('Delete');await expect(input).toHaveValue(`${title.slice(1)}X`);await input.fill(title);await input.press('Tab');
-   expect((await canonicalBoardSnapshot(api,token,id)).objects).toEqual(redone.objects);await page.keyboard.press('Escape');
+   await surface.focus();await page.keyboard.press('ControlOrMeta+a');
+   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 3 个对象');
+   // The inline board title is intentionally readonly. Use the actual uncommitted
+   // bulk draft input so native Delete/Tab can be checked without changing data.
+   await page.keyboard.press('Shift+N');const input=page.getByTestId('board-bulk-text');
+   await expect(input).toBeEditable();await input.fill(`${title}X`);
+   await input.press('ControlOrMeta+a');await input.press('ArrowLeft');await input.press('Delete');
+   await expect(input).toHaveValue(`${title.slice(1)}X`);await input.fill(title);await input.press('Tab');
+   await expect(input).not.toBeFocused();
+   expect(await canonicalBoardSnapshot(api,token,id)).toEqual(redone);
+   await page.getByRole('button',{name:'取消',exact:true}).click();
+   await expect(page.getByRole('dialog',{name:'批量创建便利贴'})).toHaveCount(0);
+   expect(await canonicalBoardSnapshot(api,token,id)).toEqual(redone);
    await page.screenshot({path:info.outputPath(`${kind}-keyboard.png`)});
    await info.attach(`${kind}-runtime-after`,{body:JSON.stringify(await verifyRuntimeIdentity(api,sourceSha,await chunks()),null,2),contentType:'application/json'});
   }
