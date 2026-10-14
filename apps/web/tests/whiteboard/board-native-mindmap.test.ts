@@ -6,8 +6,8 @@ import * as Y from 'yjs';
 import { executeCommands, readObjects } from '@repo/whiteboard-core';
 function apply(objects: WhiteboardObject[], action: Parameters<typeof planBoardMindmap>[1]): WhiteboardObject[] {
   const doc=new Y.Doc();
-  if(objects.length)executeCommands(doc,objects.map(object=>({type:'create',object})));
-  executeCommands(doc,planBoardMindmap(objects,action).commands);
+  if(objects.length)executeCommands(doc,objects.map(object=>({type:'create',object})), 'fixture');
+  executeCommands(doc,planBoardMindmap(objects,action).commands, 'fixture-operation');
   const result=readObjects(doc);doc.destroy();return result;
 }
 function fixture(){let objects=apply([],{action:'create-root',id:'root',text:'中心主题',position:{x:10,y:20}});objects=apply(objects,{action:'add-child',nodeId:'root',id:'a',edgeId:'ra',text:'研究'});objects=apply(objects,{action:'add-sibling',nodeId:'a',id:'b',edgeId:'rb',text:'开发'});return objects;}

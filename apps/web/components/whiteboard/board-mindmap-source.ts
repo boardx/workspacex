@@ -11,5 +11,5 @@ export function boardMindmapSource(objects: readonly WhiteboardObject[], treeId:
     nodes.push({id,label:object.text,shape:'sticky',x:0,y:0,width:0,height:0,data:{mmType:0}});
     for(const child of tree.children.get(id)??[]){const edge=tree.incoming.get(child)!;edges.push({id:edge.id,source:id,target:child,label:'',kind:'open'});visit(child);}
   };visit(treeId);
-  return serializeMindmap({kind:'mindmap',nodes,edges});
+  return serializeMindmap({kind:'mindmap',direction:'LR',nodes,edges});
 }
