@@ -125,7 +125,27 @@ test("production Board library manages, duplicates, filters and deletes durable 
   await page.getByTestId(`board-filter-tag-${beta.id}`).click();
   await expect(page.getByTestId(`board-card-${source.id}`)).toBeVisible();
   await expect(page.getByTestId(`board-card-${oneTag.id}`)).toHaveCount(0);
-  await expect(page.getByTestId(`board-thumbnail-empty-${source.id}`)).toHaveText("预览尚未生成");
+  const thumbnail = page.getByTestId(`board-thumbnail-${source.id}`).locator('img');
+  await expect(thumbnail).toBeVisible();
+  await expect.poll(() => thumbnail.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0)).toBe(true);
+  const thumbnailContent = await thumbnail.evaluate(async (image: HTMLImageElement) => {
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('THUMBNAIL_PIXEL_CONTEXT_REQUIRED');
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+    let yellowPixels = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      // Independent visual oracle: this fixture created a default yellow sticky.
+      if (pixels[i + 3]! > 200 && pixels[i]! > 180 && pixels[i + 1]! > 140 && pixels[i + 2]! < 180) yellowPixels++;
+    }
+    return {width: canvas.width, height: canvas.height, yellowPixels};
+  });
+  expect(thumbnailContent.width).toBeGreaterThan(0);expect(thumbnailContent.width).toBeLessThanOrEqual(640);
+  expect(thumbnailContent.height).toBeGreaterThan(0);expect(thumbnailContent.height).toBeLessThanOrEqual(360);
+  expect(thumbnailContent.yellowPixels).toBeGreaterThan(100);
 
   await page.getByTestId(`board-menu-${source.id}`).click();
   await page.getByTestId(`board-action-duplicate-${source.id}`).click();
