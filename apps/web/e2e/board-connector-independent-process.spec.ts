@@ -1,6 +1,7 @@
 import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect,chromium,type Page,type Browser} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
+import * as Y from 'yjs';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
@@ -30,6 +31,10 @@ test('C05 distinct browser processes converge on Connector style path and concur
  let boardId='',ownerToken='',failure:unknown;
  const screenshots:Array<{phase:string;process:number;path:string;sha256:string}>=[];
  const traffic:Array<Array<{direction:'sent'|'received';type:string;updateId?:string;gestureId?:string;epoch?:number;seq?:number;code?:string}>>=[[],[],[]];
+ // Private protocol replicas predict concurrent CRDT resolution independently of API projection.
+ // Binary content stays in memory; public evidence retains only protocol identity and numeric outcomes.
+ const protocolDocs=Array.from({length:3},()=>new Y.Doc());
+ const submittedUpdates=new Map<string,Uint8Array>();
  const capture=async(phase:string)=>{for(let index=0;index<pages.length;index++){const path=info.outputPath(`${phase}-process-${index}.png`),bytes=await pages[index]!.screenshot({path});screenshots.push({phase,process:index,path,sha256:sha256(bytes)});}};
  let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
@@ -44,6 +49,11 @@ test('C05 distinct browser processes converge on Connector style path and concur
     const observe=(direction:'sent'|'received',payload:string|Buffer)=>{
      let message:Record<string,unknown>;try{message=JSON.parse(String(payload));}catch{return;}
      if(!['update','ack','sync','error','recovery'].includes(String(message.type)))return;
+     if(typeof message.update==='string'){
+      const bytes=new Uint8Array(Buffer.from(message.update,'base64'));
+      if(direction==='received'&&(message.type==='sync'||message.type==='update'))Y.applyUpdate(protocolDocs[index]!,bytes);
+      if(direction==='sent'&&message.type==='update'&&typeof message.updateId==='string')submittedUpdates.set(message.updateId,bytes);
+     }
      // Retain protocol identity only, never credentials or document payload bytes.
      traffic[index]!.push({direction,type:String(message.type),...(typeof message.updateId==='string'?{updateId:message.updateId}:{}),...(typeof message.gestureId==='string'?{gestureId:message.gestureId}:{}),...(typeof message.epoch==='number'?{epoch:message.epoch}:{}),...(typeof message.seq==='number'?{seq:message.seq}:{}),...(typeof message.code==='string'?{code:message.code}:{})});
     };
@@ -186,12 +196,34 @@ test('C05 distinct browser processes converge on Connector style path and concur
   await select(owner);await select(editor);
   await owner.getByTestId('board-connector-width-open').click();await editor.getByTestId('board-connector-width-open').click();
   const sameFieldBefore=await state(),sameFieldOffsets=traffic.map(frames=>frames.length);
+  const concurrentBaseline=Y.encodeStateAsUpdate(protocolDocs[0]!);
   await Promise.all([owner.getByTestId('board-connector-width-4').click(),editor.getByTestId('board-connector-width-12').click()]);
   await owner.keyboard.press('Escape');await editor.keyboard.press('Escape');
   const sameField=await stable('same-field-width-converged');proof(sameFieldBefore.head,sameField.head,sameFieldOffsets,[0,1]);
-  const finalWidthWriter=traffic.findIndex((frames,index)=>frames.slice(sameFieldOffsets[index]).some(frame=>frame.direction==='received'&&frame.type==='ack'&&frame.seq===sameField.head.seq));
-  expect(finalWidthWriter).toBeGreaterThanOrEqual(0);expect(finalWidthWriter).toBeLessThan(2);expect(sameField.edge.connector!.strokeWidth).toBe(finalWidthWriter===0?4:12);
-  retainedConnector({...sameFieldBefore.edge.connector!,strokeWidth:sameField.edge.connector!.strokeWidth},sameField.edge.connector!);
+  const concurrentUpdates=[0,1].map(index=>{
+   const sent=traffic[index]!.slice(sameFieldOffsets[index]).filter(frame=>frame.direction==='sent'&&frame.type==='update');
+   expect(sent).toHaveLength(1);
+   const bytes=submittedUpdates.get(sent[0]!.updateId!);expect(bytes).toBeDefined();return bytes!;
+  });
+  const predictConnector=(order:number[])=>{
+   const reference=new Y.Doc();try{
+    Y.applyUpdate(reference,concurrentBaseline);
+    for(const index of order)Y.applyUpdate(reference,concurrentUpdates[index]!);
+    const connector=reference.getMap<Y.Map<unknown>>('objects').get(edgeId)!.get('connector') as {strokeWidth:number};
+    return structuredClone(connector);
+   }finally{reference.destroy();}
+  };
+  // Each actual update must independently carry its intended width, before resolving the conflict.
+  expect(predictConnector([0]).strokeWidth).toBe(4);expect(predictConnector([1]).strokeWidth).toBe(12);
+  const predictedConnector=predictConnector([0,1]),predictedWidth=predictedConnector.strokeWidth;
+  expect(predictConnector([1,0]),'Concurrent Yjs winner must be independent of delivery order').toEqual(predictedConnector);
+  expect(sameField.edge.connector).toEqual(predictedConnector);
+  for(const [index,replica] of protocolDocs.entries()){
+   expect(replica.getMap<Y.Map<unknown>>('objects').get(edgeId)!.get('connector'),`Process ${index} authoritative stream must match independent reference`).toEqual(predictedConnector);
+  }
+  expect(sameField.edge.connector!.strokeWidth,'Canonical width must match independently replayed CRDT winner').toBe(predictedWidth);
+  records.push({phase:'same-field-independent-CRDT-proof',baselineSha256:sha256(Buffer.from(concurrentBaseline)),individualWidths:[4,12],predictedWidth,deliveryOrdersAgree:true});
+  retainedConnector({...sameFieldBefore.edge.connector!,strokeWidth:predictedWidth},sameField.edge.connector!);
   await select(owner);await select(editor);const beforeRace=await state(),raceOffsets=traffic.map(frames=>frames.length);
   const sceneDelta=async(page:Page,dx:number,dy:number)=>{const zoom=await page.getByTestId('board-fabric-surface').getAttribute('data-viewport-zoom');expect(Number(zoom)).toBeGreaterThan(0);return {x:dx/Number(zoom),y:dy/Number(zoom),zoom};};
   const fromDelta=await sceneDelta(owner,-30,60),toDelta=await sceneDelta(editor,30,-60);
@@ -223,6 +255,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
  }catch(error){failure=error;}
  finally{
   if(boardId&&ownerToken){try{cleanup.push(await deleteOwnedConnectorFixture(api,ownerToken,boardId,F.userId,'C05 independent Connector processes'));}catch(error){cleanupErrors.push(error);}}
+  for(const replica of protocolDocs)replica.destroy();submittedUpdates.clear();
   for(const browser of browsers){try{await browser.close();}catch(error){cleanupErrors.push(error);}}
   try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector process execution/cleanup/provenance failures');
