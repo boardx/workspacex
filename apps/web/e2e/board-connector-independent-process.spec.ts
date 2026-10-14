@@ -4,7 +4,7 @@ import {writeFile} from 'node:fs/promises';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
-import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,glyphBounds,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -137,10 +137,19 @@ test('C05 distinct browser processes converge on Connector style path and concur
      const golden=document.createElement('canvas');golden.width=300;golden.height=60;const goldenContext=golden.getContext('2d')!;
      // Native Canvas text is an independent glyph oracle, not Fabric or a copy of its rendered bytes.
      goldenContext.font=`${13*zoom*scale}px "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif`;goldenContext.fillStyle='#000000';
-     // labelPosition denotes the label center. Native Canvas defaults to a
-     // left/alphabetic anchor, which shifts a correct centered glyph by half
-     // its width and must not be used as this independent position oracle.
-     goldenContext.textAlign='center';goldenContext.textBaseline='middle';goldenContext.fillText(input.label,150,30);
+     // Preserve the floating bitmap center relative to the integer crop.
+     // Rounding this center first changes subpixel rasterization of small glyphs.
+     const centerX=(panX+zoom*input.labelPoint.x)*scale-x,centerY=(panY+zoom*input.labelPoint.y)*scale-y;
+     goldenContext.textAlign='center';goldenContext.textBaseline='alphabetic';
+     const metrics=goldenContext.measureText(input.label),ascent=metrics.actualBoundingBoxAscent,descent=metrics.actualBoundingBoxDescent;
+     if(![centerX,centerY,ascent,descent].every(Number.isFinite)||ascent+descent<=0)throw new Error('C05_NATIVE_GLYPH_METRICS_REQUIRED');
+     // Center the independently measured ink around labelPosition, rather than
+     // copying Fabric's private 1.13/0.222 line-box baseline constants.
+     const baselineY=centerY+(ascent-descent)/2;
+     // The actual label has opaque white paper. A transparent oracle changes
+     // the existing alpha>200 mask's coverage meaning even for the same font.
+     goldenContext.fillStyle='#FFFFFF';goldenContext.fillRect(0,0,300,60);
+     goldenContext.fillStyle=input.textColor;goldenContext.fillText(input.label,centerX,baselineY);
      const t=.12,u=1-t,{start,end,route}=input;
      const dx=3*u*u*route.startOffset.x+6*u*t*(end.x+route.endOffset.x-start.x-route.startOffset.x)-3*t*t*route.endOffset.x;
      const dy=3*u*u*route.startOffset.y+6*u*t*(end.y+route.endOffset.y-start.y-route.startOffset.y)-3*t*t*route.endOffset.y;
@@ -150,8 +159,9 @@ test('C05 distinct browser processes converge on Connector style path and concur
       const x=px(point.x)+Math.round(normal.x*offset),y=py(point.y)+Math.round(normal.y*offset),key=`${x}:${y}`;if(visited.has(key))continue;visited.add(key);
       const rgba=context.getImageData(x,y,1,1).data,ink=rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255;if(ink)lineWidth++;scan.push({offset,ink});
      }
-     return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale};
-    },{start,end,route,label,labelPoint,sample:samples[0]!,width:relation.strokeWidth!});
+     return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale,reference:{centerX,centerY,baselineY,ascent,descent,fontAscent:metrics.fontBoundingBoxAscent,fontDescent:metrics.fontBoundingBoxDescent}};
+    },{start,end,route,label,labelPoint,sample:samples[0]!,width:relation.strokeWidth!,textColor:authoritative.edge.style.color??'#29261E'});
+    await info.attach(`${phase}-process-${pages.indexOf(page)}-glyph-metrics`,{body:JSON.stringify({reference:raster.reference,actual:glyphBounds(raster.label),expected:glyphBounds(raster.golden)}),contentType:'application/json'});
     glyphProof(raster.label,raster.golden);
     strokeProof(raster.scan,raster.expectedWidth);
     localRaster.push({process:pages.indexOf(page),labelHash:sha256(Buffer.from(raster.label)),lineWidth:raster.lineWidth,expectedWidth:raster.expectedWidth});
