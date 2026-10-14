@@ -71,7 +71,18 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   for(const gesture of ['drag','text','undo'] as const){
    failureStage=`${gesture.toUpperCase()}_READY`;await expectBoardSynced(owner);const before=await canonicalBoardSnapshot(api,ownerToken,boardId),metadataBefore=transport.snapshot().events.length;
    await owner.keyboard.press('Escape');await owner.getByTestId('board-tool-select').click();await owner.getByTestId('board-zoom-fit-board').click();
+   if(gesture==='drag'){
+    // Fit zoom is fractional; Chromium mouse coordinates are CSS-pixel quantized.
+    // Use the real zoom UI to make a 40x24 CSS-pixel gesture exactly 40x24 world units.
+    await owner.getByTestId('board-zoom-menu').click();
+    await owner.getByRole('menuitem',{name:'实际大小 100%',exact:true}).click();
+    await expect(owner.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom','1');
+   }
    const point=gesture==='drag'?await objectPoint(owner,objectId):null;
+   if(point){
+    expect(point.zoom).toBe(1);point.x=Math.round(point.x);point.y=Math.round(point.y);
+    expect(await owner.evaluate(p=>document.elementFromPoint(p.x,p.y)?.tagName==='CANVAS',point)).toBe(true);
+   }
    failureStage=`${gesture.toUpperCase()}_HOLD`;await control('hold-writes');
    if(gesture==='drag'){await owner.mouse.move(point!.x,point!.y);await owner.mouse.down();await owner.mouse.move(point!.x+40*point!.zoom,point!.y+24*point!.zoom,{steps:12});await owner.mouse.up();}
    else if(gesture==='text')await edit(owner,objectId,'Acknowledged text');
