@@ -20,6 +20,11 @@ export const WHITEBOARD_OPERATION_SERVICE = Symbol('WhiteboardOperationService')
 export class WhiteboardOperationError extends Error {
   constructor(readonly code: 'UNAUTHENTICATED'|'FORBIDDEN'|'STALE_REVISION'|'IDEMPOTENCY_CONFLICT'|'NOT_FOUND'|'VALIDATION_FAILED'|'ARCHIVED'|'RATE_LIMITED'|'DEPENDENCY_UNAVAILABLE') { super(code); }
 }
+function parseOperationRequest(untrusted: unknown) {
+  const parsed = WhiteboardOperationRequest.safeParse(untrusted);
+  if (!parsed.success) throw new WhiteboardOperationError('VALIDATION_FAILED');
+  return parsed.data;
+}
 export type WhiteboardRateLimitedEntry='operation'|'artifact-handoff'|'events'|'objects'|'head'|'proposal-create'|'proposal-read'|'proposal-cancel'|'proposal-confirm'|'room-join'|'presentation-read'|'presentation-command';
 function collaborationError(error:unknown):never{
   if(!(error instanceof WhiteboardCollaborationError))throw error;
@@ -45,11 +50,11 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 export class WhiteboardOperationService {
   constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>,private readonly validator?:Pick<WhiteboardUpdateValidator,'objects'>,private readonly undoStore?:WhiteboardOperationUndoStore){}
   async execute(principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string;agentVersionId:string}):Promise<Receipt>{
-    const request=WhiteboardOperationRequest.parse(untrusted);
+    const request=parseOperationRequest(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request,expectedRuntime));
   }
   async executeInTransaction(session:TenantSession,principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string;agentVersionId:string}):Promise<Receipt>{
-      const requested=WhiteboardOperationRequest.parse(untrusted);
+      const requested=parseOperationRequest(untrusted);
       if(requested.boardId!==boardId||requested.actor.orgId!==principal.orgId)throw new WhiteboardOperationError('FORBIDDEN');
       const head=await this.audit.lockHead(session,principal,boardId);
       if(!head)throw new WhiteboardOperationError('NOT_FOUND');

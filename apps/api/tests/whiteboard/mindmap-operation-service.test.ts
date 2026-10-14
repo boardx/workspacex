@@ -31,7 +31,7 @@ describe('typed mindmap operation service boundary',()=>{
   it('rejects a tree scope mismatch and illegal action before commit',async()=>{
     const f=mindmapFixture();await expect(f.service.execute(principal,boardId,{...f.input,mindmap:{...f.input.mindmap,treeId:'other'}})).rejects.toMatchObject({code:'VALIDATION_FAILED'});
     expect(f.write).not.toHaveBeenCalled();
-    await expect(f.service.execute(principal,boardId,{...f.input,mindmap:{...f.input.mindmap,action:'layout'}})).rejects.toThrow();
+    await expect(f.service.execute(principal,boardId,{...f.input,mindmap:{...f.input.mindmap,action:'layout'}})).rejects.toMatchObject({code:'VALIDATION_FAILED'});
     f.doc.destroy();
   });
   it('undo uses server compensation without executing or reading a new domain command',async()=>{
