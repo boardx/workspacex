@@ -58,6 +58,11 @@ class PackageContracts(unittest.TestCase):
         self.assertNotIn('secret',str(result));self.assertNotIn('TOKEN',str(result))
         self.assertEqual(m.safe_error(b'MISSING_REQUIRED_PACKAGE:<runtime>',Path('/safe/stage')),
                          {'errorCode':'MISSING_REQUIRED_PACKAGE','syntheticRuntimeEdge':True})
+        for name in ('/private/example', '../example', './example'):
+            self.assertEqual(m.safe_error(('MISSING_REQUIRED_PACKAGE:'+name).encode(),Path('/safe/stage')),
+                             {'errorCode':'MISSING_REQUIRED_PACKAGE'})
+        self.assertEqual(m.safe_error(b'MISSING_REQUIRED_PACKAGE:@scope/example',Path('/safe/stage')),
+                         {'errorCode':'MISSING_REQUIRED_PACKAGE','missingPackage':'@scope/example'})
 
     def test_source_snapshot_rejects_symlink(self):
         path=self.repo/'skills/starter-packs/link.json';path.symlink_to('example/1.json')

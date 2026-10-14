@@ -49,7 +49,8 @@ def safe_error(stderr, cwd):
     helper=re.search(r'\b('+'|'.join(helper_codes)+r')\b',text)
     if helper:result['errorCode']=helper.group(1)
     missing=re.search(r'MISSING_REQUIRED_PACKAGE:([@a-zA-Z0-9_./-]{1,128})(?:\s|$)',text)
-    if missing:result['missingPackage']=missing.group(1)
+    if missing and not missing.group(1).startswith(('/', '.')):
+        result['missingPackage']=missing.group(1)
     if 'MISSING_REQUIRED_PACKAGE:<runtime>' in text:result['syntheticRuntimeEdge']=True
     package = re.search(r"Cannot find (?:package|module) ['\"]([@a-zA-Z0-9_./-]+)['\"]", text)
     if package:
