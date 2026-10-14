@@ -57,8 +57,16 @@ test('native mindmap root child sibling collapse reparent undo redo source and p
       await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(sibling.id);await synced(page);
     });
     const reparented=await snapshot();expect(reparented.objects.map(object=>object.id).sort()).toEqual(siblingState.objects.map(object=>object.id).sort());
-    await page.getByTestId('board-fabric-surface').focus();await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(root.id);await synced(page);
-    await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(sibling.id);await synced(page);await peer.reload();await synced(peer);await expect(peer.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(5);
+    await test.step('保存后的立即撤销和重做保持原对象身份并走权威历史接口',async()=>{
+      const undoResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/undo')&&response.request().method()==='POST');
+      await page.getByTestId('board-fabric-surface').focus();await page.keyboard.press('ControlOrMeta+z');expect((await undoResponse).status()).toBe(201);
+      await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(root.id);await synced(page);
+      expect((await snapshot()).objects.map(object=>object.id).sort()).toEqual(reparented.objects.map(object=>object.id).sort());
+      const redoResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/undo')&&response.request().method()==='POST');
+      await page.keyboard.press('ControlOrMeta+Shift+z');expect((await redoResponse).status()).toBe(201);
+      await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(sibling.id);await synced(page);
+      expect((await snapshot()).objects.map(object=>object.id).sort()).toEqual(reparented.objects.map(object=>object.id).sort());
+    });await peer.reload();await synced(peer);await expect(peer.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(5);
     await page.screenshot({path:info.outputPath('native-mindmap.png'),fullPage:true});await info.attach('runtime-source',{body:JSON.stringify(await verifyRuntimeIdentity(api,source,await chunks()),null,2),contentType:'application/json'});
     // Import the actual exported source through the real Mermaid parser/dialog.
     await menu();await page.getByTestId('board-mindmap-import').click();await page.getByTestId('board-mindmap-import-source').fill(sourceText);await page.getByTestId('board-mindmap-import-apply').click();await expect.poll(async()=>(await snapshot()).objects.length).toBe(10);await synced(page);

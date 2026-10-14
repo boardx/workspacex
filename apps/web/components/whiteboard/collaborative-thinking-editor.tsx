@@ -482,8 +482,13 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   }, [doc, execute, mutationBlocked, selected]);
   useEffect(() => { const keydown = (event: KeyboardEvent) => { if (!shouldHandleBoardShortcut(event, chromeHost.current)) return; const key = event.key.toLowerCase();
     if ((event.metaKey || event.ctrlKey) && (key === "z" || (key === "y" && event.ctrlKey && !event.metaKey && !event.shiftKey))) {
-      if (event.defaultPrevented || event.isComposing || event.repeat || mutationBlocked || !(event.target instanceof Node) || !chromeHost.current?.contains(event.target)) return;
-      event.preventDefault(); connectorGesture.cancel();
+      if (event.defaultPrevented || event.isComposing || event.repeat || readOnly || layoutPreview || !(event.target instanceof Node) || !chromeHost.current?.contains(event.target)) return;
+      event.preventDefault();
+      // A HTTP receipt may precede this browser's authoritative broadcast.
+      // Keep one user's history intent until that exact revision is applied.
+      if(mindmap.busy){void (key === "y" || event.shiftKey ? mindmap.redo() : mindmap.undo());return;}
+      if(mutationBlocked)return;
+      connectorGesture.cancel();
       if (key === "y" || event.shiftKey) performRedo(); else performUndo();
       return;
     }
@@ -508,7 +513,7 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
     if (mutationBlocked && (["sticky", "text", "shape", "pen", "connector", "eraser"] as string[]).includes(BOARD_TOOL_SHORTCUTS[key as keyof typeof BOARD_TOOL_SHORTCUTS])) { event.preventDefault(); return; }
     if (key === "v") { setTool("select"); setCreationTool(null); } else if (key === "h" || event.code === "Space") { event.preventDefault(); setTool("hand"); setCreationTool(null); } else if (key === "n" && event.shiftKey) { event.preventDefault(); if (!readOnly) setBulk(""); } else if (key === "n") { event.preventDefault(); const requested = { kind: "sticky", variant: "square" } as const; setTool("select"); setCreationTool(requested); } else if (key === "t") { event.preventDefault(); const requested = { kind: "text", preset: "body" } as const; setTool("select"); setCreationTool(requested); } else if (key === "s") { event.preventDefault(); const requested = { kind: "shape", variant: "rounded-rectangle" } as const; setTool("select"); setCreationTool(requested); } else if (key === "p") { event.preventDefault(); setDrawChoice("pen"); setDrawAppearance(drawingChoiceStyle("pen")); setCreationTool(null); setTool("draw-pen"); } else if (key === "l") { event.preventDefault(); setTool("select"); setCreationTool({kind:"connector",connectorType:"straight"}); } else if (key === "e") { event.preventDefault(); setDrawChoice("eraser"); setDrawAppearance(drawingChoiceStyle("eraser")); setCreationTool(null); setTool("erase"); }
 
-  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [centerPoint, chromeHost, connectorGesture, continueSelectedWidget, deleteSelection, createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, model.objects, objects, mutationBlocked, performRedo, performUndo, readOnly, selected, viewport, mindmap, doc]);
+  }; window.addEventListener("keydown", keydown); return () => window.removeEventListener("keydown", keydown); }, [centerPoint, chromeHost, connectorGesture, continueSelectedWidget, deleteSelection, createPanelAt, createShapeAt, createStickyAt, createTextAt, duplicateRoots, executeSpatial, model.objects, objects, mutationBlocked, performRedo, performUndo, readOnly, selected, viewport, mindmap, doc, layoutPreview]);
 
   const editingObject = editing ? model.objects.find((candidate) => candidate.id === editing.id) : undefined;
   const editingFabricObject = editing ? objects.find((candidate) => candidate.id === editing.id) : undefined;
