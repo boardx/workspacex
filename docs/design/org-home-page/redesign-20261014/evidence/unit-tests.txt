@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/wsx-org-home-redesign-20261014/apps/web
+
+ ✓ tests/lib/home-theme.test.ts (4 tests) 9ms
+ ✓ tests/lib/home-config-v2.test.ts (23 tests) 23ms
+ ✓ tests/ui/home-page-v2.test.tsx (21 tests) 321ms
+ ✓ tests/ui/home-redesign-binding.test.tsx (2 tests) 242ms
+ ✓ tests/ui/home-config-admin-v2.test.tsx (19 tests) 410ms
+
+ Test Files  5 passed (5)
+      Tests  69 passed (69)
+   Start at  15:19:35
+   Duration  5.33s (transform 4.02s, setup 1.05s, collect 12.92s, tests 1.01s, environment 3.79s, prepare 565ms)
+
