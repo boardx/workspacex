@@ -51,6 +51,21 @@ class CandidateTests(unittest.TestCase):
         for source in ('f'*40,'f0eb9d07398a66fdd5646a9e6b855fa1b940e570','F0EB9D07398A66FDD5646A9E6B855FA1B940E571'):
             p=plan();p['sourceRevision']=source
             with self.subTest(source=source),self.assertRaisesRegex(a.Rejected,'CANDIDATE_EXACT_SHA'):c.validate_plan(p)
+    def test_verified_latest_devapp_archive_remains_non_authorizing(self):
+        p=plan();p.update(sourceRevision='bc3d1254ce05c915801fb73fe6698072730a051c',budgetProfile='formal-4g-v1',maxArchiveBytes=4*1024**3)
+        self.assertEqual(c.validate_plan(p),p)
+        with tempfile.TemporaryDirectory() as td:
+            folder=Path(td)
+            labels={'org.opencontainers.image.revision':p['sourceRevision'],c.LABEL:c.identity(p)}
+            images={s:archive(folder/(s+'.tar'),p,s,labels) for s in c.hosted.SERVICES}
+            value=receipt(p,images);raw=a.json_bytes(value)
+            self.assertEqual(c.verify_bundle(folder,p,raw,a.sha(raw),value['planRawSha256']),value)
+            self.assertFalse(value['releaseReady']);self.assertFalse(value['productionReady'])
+            wrong=copy.deepcopy(p);wrong['sourceRevision']='f0eb9d07398a66fdd5646a9e6b855fa1b940e571'
+            with self.assertRaises(a.Rejected):c.verify_bundle(folder,wrong,raw,a.sha(raw),value['planRawSha256'])
+        for source in ('bc3d1254ce05c915801fb73fe6698072730a051d','BC3D1254CE05C915801FB73FE6698072730A051C'):
+            wrong=copy.deepcopy(p);wrong['sourceRevision']=source
+            with self.assertRaisesRegex(a.Rejected,'CANDIDATE_EXACT_SHA'):c.validate_plan(wrong)
     def test_three_bases_only_old_schema_rejects(self):
         p=plan();self.assertEqual(c.validate_plan(p),p)
         with self.assertRaises(a.Rejected):a.validate_plan(p)

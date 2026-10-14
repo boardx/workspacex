@@ -7,7 +7,9 @@ import tarfile
 import cn_image_archive as a
 SOURCE = '55d904af3edcca54b2fbe17bba59ed2eed09323b'
 # Preserve historical/diagnostic identity; formal builds admit only reviewed exact sources.
-FORMAL_SOURCES = frozenset((SOURCE, '5285bef9a6c91bbb9857ede42779aafa64b98f32', 'f0eb9d07398a66fdd5646a9e6b855fa1b940e571'))
+# DevApp provenance for bc3d: backend-gates38584531080/deploy115929689223.
+# Candidate admission does not authorize production activation.
+FORMAL_SOURCES = frozenset((SOURCE, '5285bef9a6c91bbb9857ede42779aafa64b98f32', 'f0eb9d07398a66fdd5646a9e6b855fa1b940e571', 'bc3d1254ce05c915801fb73fe6698072730a051c'))
 KIND = 'cn-image-candidate-v2'
 LABEL = 'org.workspacex.candidate-build-identity'
 spec = importlib.util.spec_from_file_location('candidate_hosted', Path(__file__).with_name('hosted-release.py'))
