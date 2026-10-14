@@ -16,8 +16,20 @@ export function nativeBlankCandidates(input:{canvas:NativeRect;viewport:{width:n
   const margin=input.paperMargin??8;
   const left=Math.max(0,canvas.x)+margin,top=Math.max(0,canvas.y)+margin;
   const right=Math.min(viewport.width,canvas.x+canvas.width)-margin,bottom=Math.min(viewport.height,canvas.y+canvas.height)-margin;
+  // A fixed 16px lattice can miss a valid clearance interval (for example
+  // y=448..450 between enlarged chrome). Sample each chrome boundary interval
+  // as well; the same margin and actual-canvas hit checks still decide validity.
+  const axisCandidates=(minimum:number,maximum:number,boundaries:number[])=>{
+    const values=new Set<number>();
+    for(let value=minimum;value<maximum;value+=16)values.add(value);
+    const edges=[...new Set([minimum,maximum,...boundaries.filter(value=>value>minimum&&value<maximum)])].sort((a,b)=>a-b);
+    for(let index=1;index<edges.length;index++)if(edges[index]!>edges[index-1]!)values.add((edges[index]!+edges[index-1]!)/2);
+    return [...values].filter(value=>value>=minimum&&value<maximum);
+  };
+  const xs=axisCandidates(left,right,chrome.flatMap(rect=>[rect.x-margin,rect.x+rect.width+margin]));
+  const ys=axisCandidates(top,bottom,chrome.flatMap(rect=>[rect.y-margin,rect.y+rect.height+margin]));
   const points:Array<{x:number;y:number}>=[];
-  for(let y=top;y<bottom;y+=16)for(let x=left;x<right;x+=16){
+  for(const y of ys)for(const x of xs){
     if(chrome.some(r=>x+margin>=r.x&&x-margin<=r.x+r.width&&y+margin>=r.y&&y-margin<=r.y+r.height))continue;
     if(blocked.some(r=>x>=r.x-12&&x<=r.x+r.width+12&&y>=r.y-12&&y<=r.y+r.height+12))continue;
     points.push({x,y});
