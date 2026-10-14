@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof} from './connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof,benignHomeNavigationCancellation} from './connector-c05-oracle.mjs';
 test('distinct positive browser PIDs are required, not repeated contexts',()=>{
  assert.deepEqual(independentProcessIds([100,200,300]),[100,200,300]);
  for(const ids of [[100,100,300],[100,200],[-1,200,300],[NaN,200,300]])assert.throws(()=>independentProcessIds(ids));
@@ -84,7 +84,7 @@ test('independent endpoint reference preserves legacy fallback and replaces whol
 
 test('only explicit safe Next navigation prefetch aborts are classified separately',()=>{
  const cancelled={method:'GET',pathname:'/tasks',errorText:'net::ERR_ABORTED',prefetch:'1'};
- for(const pathname of ['/billing','/home','/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
+ for(const pathname of ['/research','/billing','/home','/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known',knownProjectPath:'/projects/known'}),true);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/unknown',knownProjectPath:'/projects/known'}),false);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known/board',knownProjectPath:'/projects/known/board'}),false);
@@ -128,4 +128,11 @@ test('quarter-pixel physical coverage retains exact bound and rejects narrow ref
  assert.throws(()=>strokeRasterProof(scan,scan,{actual:10,reference:12,step:.25}),/coverage width/);
  assert.throws(()=>strokeRasterProof(scan,scan,{actual:8,reference:12,step:.25}),/coverage width/);
  assert.throws(()=>strokeRasterProof(scan,scan,{actual:12,reference:12,step:1}));
+});
+
+test('home RSC cancellation requires observed active request followed by same-frame fixture navigation',()=>{
+ const proof={sourcePath:'/home',destinationPath:'/studio/board/fixture',sameMainFrame:true,activeBeforeNavigation:true};
+ const input={method:'GET',pathname:'/home',errorText:'net::ERR_ABORTED',rsc:true,prefetch:false,proof,boardPath:'/studio/board/fixture'};
+ assert.equal(benignHomeNavigationCancellation(input),true);
+ for(const patch of [{pathname:'/api/home'},{pathname:'/studio/board/fixture'},{pathname:'/unknown'},{errorText:'net::ERR_INTERNET_DISCONNECTED'},{rsc:false},{proof:undefined},{proof:{...proof,sourcePath:'/projects'}},{proof:{...proof,destinationPath:'/studio/board/other'}},{proof:{...proof,sameMainFrame:false}},{proof:{...proof,activeBeforeNavigation:false}}])assert.equal(benignHomeNavigationCancellation({...input,...patch}),false);
 });

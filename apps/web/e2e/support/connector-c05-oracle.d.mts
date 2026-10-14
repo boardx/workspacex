@@ -14,3 +14,6 @@ export function connectorStorageReference(storage:Record<string,unknown>):Whiteb
 export function navigationPrefetchAbort(input:{method:string;pathname:string;errorText:string;prefetch:string|undefined;knownProjectPath?:string}):boolean;
 
 export function strokeRasterProof(actual:Array<{offset:number;ink:boolean;coverage:number}>,reference:Array<{offset:number;ink:boolean;coverage:number}>,integral?:{actual:number;reference:number;step:number}):void;
+
+export type HomeNavigationProof={sourcePath:string;destinationPath:string;sameMainFrame:boolean;activeBeforeNavigation:boolean};
+export function benignHomeNavigationCancellation(input:{method:string;pathname:string;errorText:string;rsc:boolean;prefetch:boolean;proof:HomeNavigationProof|undefined;boardPath:string}):boolean;

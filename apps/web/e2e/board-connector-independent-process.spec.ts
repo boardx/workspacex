@@ -1,12 +1,12 @@
 import {connectorBoardLogin} from './support/connector-authenticated-login';
-import {test,expect,chromium,type Page,type Browser} from '@playwright/test';
+import {test,expect,chromium,type Page,type Browser,type Request} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import * as Y from 'yjs';
 import type {WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
-import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,navigationPrefetchAbort,glyphBounds,glyphProof,strokeRasterProof} from './support/connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,navigationPrefetchAbort,benignHomeNavigationCancellation,type HomeNavigationProof,glyphBounds,glyphProof,strokeRasterProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -31,6 +31,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
  const sha=runtimeSourceIdentity(),browsers:Browser[]=[],pages:Page[]=[],records:unknown[]=[],cleanup:unknown[]=[],cleanupErrors:unknown[]=[],processIds:number[]=[],browserErrors:string[]=[];
  let boardId='',ownerToken='',failure:unknown;
  const navigationPrefetchAborts:Array<{process:number;method:string;pathname:string;errorText:string;nextRouterPrefetch:true}>=[];
+ const benignNavigationCancellations:Array<{process:number;method:string;pathname:string;errorText:string;proof:HomeNavigationProof}>=[];
  const screenshots:Array<{phase:string;process:number;path:string;sha256:string}>=[];
  const traffic:Array<Array<{direction:'sent'|'received';type:string;updateId?:string;gestureId?:string;epoch?:number;seq?:number;code?:string}>>=[[],[],[]];
  // Private protocol replicas predict concurrent CRDT resolution independently of API projection.
@@ -62,9 +63,21 @@ test('C05 distinct browser processes converge on Connector style path and concur
     socket.on('framesent',frame=>observe('sent',frame.payload));socket.on('framereceived',frame=>observe('received',frame.payload));
    });
    page.on('pageerror',()=>browserErrors.push(`process-${index}:pageerror`));page.on('console',message=>{if(message.type()==='error')browserErrors.push(`process-${index}:console-error`);});
+   const activeHomeRsc=new Map<Request,{sourcePath:string;proof?:HomeNavigationProof}>();
+   page.on('request',request=>{
+    const requestUrl=new URL(request.url()),sourceUrl=new URL(page.url()),pathname=requestUrl.pathname,sourcePath=sourceUrl.pathname;
+    if(requestUrl.origin!==sourceUrl.origin)return;
+    if(request.frame()===page.mainFrame()&&request.method()==='GET'&&pathname==='/home'&&sourcePath==='/home'&&request.headers()['rsc']==='1')activeHomeRsc.set(request,{sourcePath});
+    if(boardId&&request.isNavigationRequest()&&request.frame()===page.mainFrame()&&pathname===`/studio/board/${boardId}`&&sourcePath==='/home'){
+     for(const pending of activeHomeRsc.values())pending.proof={sourcePath:pending.sourcePath,destinationPath:pathname,sameMainFrame:true,activeBeforeNavigation:true};
+    }
+   });
+   page.on('requestfinished',request=>activeHomeRsc.delete(request));
    page.on('requestfailed',request=>{
     const method=request.method(),pathname=new URL(request.url()).pathname,rawError=request.failure()?.errorText??'UNKNOWN',errorText=/^net::ERR_[A-Z_]+$/.test(rawError)?rawError:'UNKNOWN',prefetch=request.headers()['next-router-prefetch'];
     if(navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath:`/projects/${encodeURIComponent(F.projectId)}`})){navigationPrefetchAborts.push({process:index,method,pathname,errorText,nextRouterPrefetch:true});return;}
+    const proof=activeHomeRsc.get(request)?.proof;activeHomeRsc.delete(request);
+    if(benignHomeNavigationCancellation({method,pathname,errorText,rsc:request.headers()['rsc']==='1',prefetch:prefetch==='1',proof,boardPath:`/studio/board/${boardId}`})){benignNavigationCancellations.push({process:index,method,pathname,errorText,proof:proof!});return;}
     browserErrors.push(`process-${index}:${method}:${pathname}:request-failed:${errorText}:nextRouterPrefetch=${prefetch==='1'}:rsc=${request.headers()['rsc']==='1'}`);
    });
   }
@@ -340,6 +353,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   await viewer.getByTestId(`board-a11y-object-${edgeId}`).focus();await viewer.getByTestId(`board-a11y-object-${edgeId}`).press('Enter');
   await expect(viewer.getByTestId('board-connector-width-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-label-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-handle-from')).toHaveCount(0);
   const runtimeAfter=await Promise.all(chunkReaders.map(async read=>verifyRuntimeIdentity(api,sha,await read())));
+  records.push({phase:'benign-home-navigation-cancellations',count:benignNavigationCancellations.length,proofs:benignNavigationCancellations});
   records.push({phase:'navigation-prefetch-aborts',count:navigationPrefetchAborts.length,requests:navigationPrefetchAborts});
   expect(browserErrors).toEqual([]);records.push({runtimeBefore,runtimeAfter,identities,processIds,traffic,independentBrowserLaunches:browsers.length,engines:browsers.map(browser=>browser.version())});
  }catch(error){failure=error;}
@@ -349,7 +363,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   for(const browser of browsers){try{await browser.close();}catch(error){cleanupErrors.push(error);}}
   try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector process execution/cleanup/provenance failures');
-  const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,navigationPrefetchAbortCount:navigationPrefetchAborts.length,navigationPrefetchAborts,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
+  const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,benignNavigationCancellations,navigationPrefetchAbortCount:navigationPrefetchAborts.length,navigationPrefetchAborts,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
  }
  if(failure)throw failure;
 });

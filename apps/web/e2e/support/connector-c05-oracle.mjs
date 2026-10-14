@@ -105,7 +105,7 @@ export function navigationPrefetchAbort({method,pathname,errorText,prefetch,know
  if(method!=='GET'||errorText!=='net::ERR_ABORTED'||prefetch!=='1')return false;
  // An allowlist excludes every Board, API, script, asset and unknown resource.
  if(typeof knownProjectPath==='string'&&/^\/projects\/[^/]+$/.test(knownProjectPath)&&pathname===knownProjectPath)return true;
- return ['/billing','/home','/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
+ return ['/research','/billing','/home','/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
 }
 
 /** Compare the actual full-opacity raster to an independently drawn nominal-width reference. */
@@ -128,4 +128,10 @@ export function strokeRasterProof(actual,reference,integral){
  }
  assert(Math.abs(actualCoverage-referenceCoverage)<=1.5,`C05 stroke coverage width: ${JSON.stringify({actualCoverage,referenceCoverage,step:integral?.step??1,delta:actualCoverage-referenceCoverage})}`);
  assert(disagreement<=1.5,`C05 stroke raster offsets disagree: ${JSON.stringify({disagreement,actualInk:actual.filter(sample=>sample.ink).length,referenceInk:referenceWidth})}`);
+}
+
+export function benignHomeNavigationCancellation({method,pathname,errorText,rsc,prefetch,proof,boardPath}){
+ return method==='GET'&&pathname==='/home'&&errorText==='net::ERR_ABORTED'&&rsc===true&&prefetch===false
+  &&typeof boardPath==='string'&&/^\/studio\/board\/[^/]+$/.test(boardPath)
+  &&proof?.sourcePath==='/home'&&proof.destinationPath===boardPath&&proof.sameMainFrame===true&&proof.activeBeforeNavigation===true;
 }
