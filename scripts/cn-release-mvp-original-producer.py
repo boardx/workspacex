@@ -53,7 +53,7 @@ def prepare(release, *, reader=E.private):
     payload,bundles,objects=collect(release,reader=reader)
     # No supplied callback may assert provenance. The actual collector re-fetches
     # provider metadata and checks historical root admission before receipts.
-    provenance=C.verify(payload,bundles,objects,reader=reader)
+    provenance=C.verify(payload,bundles,objects,reader=reader,completed=False)
     E.need(provenance.get('authenticatedProviderReadbackVerified')is True
         and provenance.get('historicalRootAdmissionVerified')is True,'TRUSTED_PROVENANCE_REQUIRED')
     E.need(provenance.get('releaseSha256')==release,'TRUSTED_APPROVAL_REBIND')
@@ -72,6 +72,22 @@ def prepare(release, *, reader=E.private):
         liveProviderProvenanceVerified=True,productionAccepted=False,
         portalInstallationRequired=True)
     return files,report
+
+
+def complete(release,mode):
+    E.need(mode in ('run','status','reconcile'),'PRODUCER_MODE')
+    if mode=='run':
+        module('cn-release-mvp-original-retention').retain(release)
+    files,report=prepare(release)
+    folder=INPUT/release/'mvp-terminal-proposal'
+    if folder.exists():
+        E.need(all(E.private(folder/name)==raw for name,raw in files.items()),'PROPOSAL_REBIND')
+    elif mode=='run':
+        M.write_proposal(folder,files,report)
+    else:
+        return dict(status='EVIDENCE_NOT_READY',productionAccepted=False)
+    return dict(status='MVP_TERMINAL_PROPOSAL_READY',selectorSha256=report['selectorSha256'],
+        productionAccepted=False,portalInstallationRequired=True)
 
 
 def main():

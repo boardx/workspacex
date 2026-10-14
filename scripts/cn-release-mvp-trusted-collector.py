@@ -8,6 +8,10 @@ import io
 import json
 import sys
 import time
+import re
+import stat
+import tempfile
+import zipfile
 from pathlib import Path
 
 
@@ -19,6 +23,39 @@ def module(name, path=None):
 
 S=module('cn-release-mvp-stage-evidence')
 E=S.E
+TRANSFER_MEMBERS=frozenset(('upload-plan.json','hk-template.json','proof.json','policy.json','receipt.json'))
+
+
+def transfer_metadata(payload,github):
+    """Fetch only the exact small metadata artifact, never an image archive."""
+    runid=payload['transferRunId'];control=payload['identity']['controlRevision']
+    listing=github(f'/repos/boardx/workspacex/actions/runs/{runid}/artifacts?per_page=100')
+    rows=listing.get('artifacts');E.need(type(rows)is list and listing.get('total_count')==len(rows),'TRANSFER_METADATA_PAGINATION')
+    hits=[row for row in rows if row.get('name')==f'cn-hk-originals-{runid}-1']
+    E.need(len(hits)==1,'TRANSFER_METADATA_ARTIFACT')
+    row=hits[0]
+    E.need(row.get('expired')is False and type(row.get('id'))is int and row['id']>0
+        and type(row.get('size_in_bytes'))is int and 0<row['size_in_bytes']<=1024**2
+        and re.fullmatch('sha256:[a-f0-9]{64}',row.get('digest',''))
+        and row.get('workflow_run',{}).get('id')==runid
+        and row['workflow_run'].get('head_sha')==control,'TRANSFER_METADATA_SCOPE')
+    with tempfile.TemporaryDirectory(prefix='cn-mvp-transfer-originals-')as folder:
+        path=Path(folder)/'metadata.zip';github(f'/repos/boardx/workspacex/actions/artifacts/{row["id"]}/zip',path,row['size_in_bytes'])
+        E.need(path.stat().st_size==row['size_in_bytes'] and E.sha(path.read_bytes())==row['digest'][7:],'TRANSFER_METADATA_DIGEST')
+        with zipfile.ZipFile(path)as archive:
+            members=archive.infolist()
+            E.need(len(members)==len(TRANSFER_MEMBERS) and {m.filename for m in members}==TRANSFER_MEMBERS,'TRANSFER_METADATA_MEMBERS')
+            result={}
+            for member in members:
+                E.need(not member.is_dir()and not member.flag_bits&1 and stat.S_IFMT(member.external_attr>>16)in(0,stat.S_IFREG)
+                    and 0<member.file_size<=262144,'TRANSFER_METADATA_ENTRY')
+                raw=archive.read(member);E.need(len(raw)==member.file_size,'TRANSFER_METADATA_ENTRY_SIZE');S.parse(raw);result[member.filename]=raw
+    # Stable identity fields, not mutable download counters/URLs.
+    after=github(f'/repos/boardx/workspacex/actions/artifacts/{row["id"]}')
+    E.need(all(after.get(key)==row.get(key)for key in ('id','name','expired','size_in_bytes','digest'))
+        and after.get('workflow_run',{}).get('id')==runid
+        and after['workflow_run'].get('head_sha')==control,'TRANSFER_METADATA_CHANGED')
+    return result
 
 
 def protected_github(policy):
@@ -150,7 +187,7 @@ def verify_retained_hooks(approval,release,switch,payload,schema_raw,content_raw
         and receipt['fullBusinessAcceptance']is False,'HOOK_RESULT')
 
 
-def verify(payload,bundles,objects,*,reader=E.private,advance=None,github=None):
+def verify(payload,bundles,objects,*,reader=E.private,advance=None,github=None,completed=True):
     """Verify authenticated metadata and actual admitted root execution history."""
     advance=advance or module('trusted_advance',Path(__file__).parents[1]/'.harness/scripts/vm/cn-release-advance.py')
     parsed={stage:S.parse(raw)for stage,raw in bundles.items()}
@@ -181,7 +218,7 @@ def verify(payload,bundles,objects,*,reader=E.private,advance=None,github=None):
     policy=value('transfer','policy');github=github or protected_github(policy)
     # Raw approval hashing is checked above; canonical JSON re-serialization is
     # not used here because the installed authority may retain a final newline.
-    production_context(approval,E.sha(authorization),payload,github,completed=True)
+    production_context(approval,E.sha(authorization),payload,github,completed=completed)
     # Re-fetch actual provider run and artifact metadata; do not trust retained
     # JSON's success fields merely because its content address is consistent.
     for stage,runid in (('build',payload['buildRunId']),('transfer',payload['transferRunId'])):
@@ -197,6 +234,9 @@ def verify(payload,bundles,objects,*,reader=E.private,advance=None,github=None):
     transfer=module('cn-release-mvp-transfer-input')
     candidate=transfer.metadata_zip(bound['artifacts']['plan'],{'cn-candidate-plan.json'},github)['cn-candidate-plan.json']
     E.need(candidate==original('build','candidatePlan'),'AUTHENTICATED_PLAN_CHANGED')
+    metadata=transfer_metadata(payload,github)
+    for member,role in (('upload-plan.json','plan'),('hk-template.json','template'),('proof.json','proof'),('policy.json','policy')):
+        E.need(metadata[member]==original('transfer',role),'AUTHENTICATED_TRANSFER_ORIGINAL_CHANGED')
     # RDS originals are authenticated by the existing protected SDK execution
     # admission, including immutable provider response/evidence files.
     backup=historical(parsed['backup'],objects,advance)
@@ -206,4 +246,4 @@ def verify(payload,bundles,objects,*,reader=E.private,advance=None,github=None):
     E.need(observe['evidenceSha256']==E.sha(original('acceptance','readback')),'TRUSTED_NONMODEL_RESULT')
     verify_retained_hooks(approval,E.sha(authorization),switch,payload,original('schema','readback'),original('content','readback'),reader=reader)
     return {'kind':'cn-mvp-trusted-provenance-report-v1','releaseSha256':E.sha(authorization),'authenticatedProviderReadbackVerified':True,
-        'historicalRootAdmissionVerified':True,'productionAccepted':True}
+        'historicalRootAdmissionVerified':True,'productionAccepted':completed}
