@@ -56,3 +56,11 @@ flowchart LR
 - `build-discovery-execution-pack.ts --check`：通过，6 个精确 1.2.0 方法；SHA256 9672d8cb453afd4b61b6eda0fb1365bdaedee20853f2600d466d2ce2e2b86313。
 
 以上 84 项为实际测试断言，不是 84 个已完成实体。W027 真库与单测均使用确定性模型端口；真实模型专业质量、完整 W027 发布旅程、四种格式完整业务验收未运行。所有本轮隔离栈由 with-test-isolation 清理。详细机器结果在本任务工作副本 acceptance/，原历史 acceptance/ 未覆盖。
+
+## CI 反证与共享固定版本兼容修复
+
+第一项提交 95c8d3db0 的 gates-test (2) 实测发现新探索包与既有 work-product/work-research 的正逆序导入冲突。修复仅允许本组织已有成功 starter-pack 导入血统、相同 Work stableId / stableName / 显示名的实体追加不同不可变版本；普通 Skill、自建/URL 导入或平台组织行不进入此路径。同版本不同正文仍拒绝，整包预检在任何版本写入前完成；跨包导入不恢复手动停用状态。版本分叉由 HTTP 409 可见返回，重放同一失败请求仍为 409。
+
+真实模型测试因自动审批审查拒绝私有开发凭据的外部发送而未执行；域名核实和主机/重定向限制后仍被拒绝。按用户接管要求，助手不再读取或发送模型 API key、不重试认证命令。已准备本任务 acceptance/run-w027-real-model.ts，供用户本人本地终端执行一次合成 S061 调用；结果在用户回传前始终为未运行。脚本、命令与最小回传格式仅保留在本地 evidence，不把私有模型端点配置提交到仓库。
+
+共享固定版本兼容修复专项：starter-packs-live-stack / explicit-starter-import / starter-pack-upgrade 共 30/30 通过；API typecheck 与 lint 通过。包括正逆序全包导入、旧版本保留、手动停用保留、用户/URL 内容拒绝覆盖、同版本分叉和失败请求重放。真实模型调用未执行，用户本地命令尚未回传结果。

@@ -259,9 +259,11 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
       // 不能指向平台组织的 skill 行。
       const sharedCandidates = await session.query<{
         id: string; org_id: string; stable_name: string; name: string; version_id: string; content_digest: string;
+        stable_id: string | null;
       }>(
-        `SELECT s.id, s.org_id, s.stable_name, s.name, v.id AS version_id, v.content_digest FROM skills s
+        `SELECT s.id, s.org_id, s.stable_name, s.name, v.id AS version_id, v.content_digest, e.stable_id FROM skills s
            JOIN skill_versions v ON v.skill_id = s.id AND v.org_id = s.org_id AND v.published
+           LEFT JOIN skill_catalog_entries e ON e.skill_id = s.id AND e.org_id = s.org_id
           WHERE s.stable_name = ANY($2::text[]) AND s.id <> ALL($4::text[])
             AND (
               (s.org_id = $1 AND EXISTS (
@@ -275,6 +277,7 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         [input.orgId, stableNames, input.pack.packId, upgradeRows.rows.map((row) => row.id), PLATFORM_ORG_ID],
       );
       const sharedTargets = new Map<string, { id: string; versionId: string }>();
+      const sharedWorkVersionTargets = new Set<string>();
       for (const skill of input.pack.skills) {
         if (upgradeTargets.has(skill.stableName)) continue;
         const digest = skillContentDigest(skill);
@@ -284,8 +287,20 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
             (row.org_id === input.orgId || !isWork),
         );
         if (hit) sharedTargets.set(skill.stableName, { id: hit.id, versionId: hit.version_id });
+        else if (isWork) {
+          // A new immutable version of the same catalogued Work entity may arrive via another pack.
+          // Require local successful-import lineage plus exact stable ID/name; never user/URL/platform rows.
+          // The existing labelTaken check below still rejects a different body at the same version.
+          const stableId = input.workManifests!.get(skill.stableName)!.stableId;
+          const versionTarget = sharedCandidates.rows.find(row => row.org_id === input.orgId &&
+            row.stable_name === skill.stableName && row.name === skill.name && row.stable_id === stableId);
+          if (versionTarget) {
+            upgradeTargets.set(skill.stableName, versionTarget);
+            sharedWorkVersionTargets.add(skill.stableName);
+          }
+        }
       }
-      const upgradeIds = [...upgradeRows.rows.map((row) => row.id), ...[...sharedTargets.values()].map((t) => t.id)];
+      const upgradeIds = [...upgradeTargets.values()].map(row => row.id).concat([...sharedTargets.values()].map(t => t.id));
 
       // ⚠ 同时对着 `PLATFORM_ORG_ID` 查——四个官方 skill（`skill-platform-*`）在
       // `listAll()`/`GET /skills` 里对每个组织都可见（design-delta `platform-owned-skills`
@@ -341,6 +356,25 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
         return { kind: "stable-id-conflict", ...stableIdConflict };
       }
 
+      // Validate frozen labels for the whole upgrade set before writing any earlier version.
+      // A failed mixed pack must not leave a successfully appended prefix behind.
+      if (upgradeTargets.size) {
+        const frozen = await session.query<{ skill_id: string; semantic_label: string; content_digest: string }>(
+          "SELECT skill_id,semantic_label,content_digest FROM skill_versions WHERE org_id=$1 AND skill_id=ANY($2::text[])",
+          [input.orgId, [...upgradeTargets.values()].map(row => row.id)],
+        );
+        const fork = input.pack.skills.find(skill => {
+          const target = upgradeTargets.get(skill.stableName);
+          return target && frozen.rows.some(version => version.skill_id === target.id &&
+            version.semantic_label === skill.semanticVersion && version.content_digest !== skillContentDigest(skill));
+        });
+        if (fork) {
+          await session.query("UPDATE starter_pack_imports SET status='failed',failure_code='SKILL_STARTER_PACK_VERSION_LABEL_REUSED' WHERE id=$1 AND org_id=$2",
+            [importId, input.orgId]);
+          return { kind: "version-label-reused", stableName: fork.stableName, semanticVersion: fork.semanticVersion };
+        }
+      }
+
       const skillIds: string[] = [];
       const versionIds: string[] = [];
       for (const skill of input.pack.skills) {
@@ -382,12 +416,12 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
           // （issue #3733）。放在 ① 的早退之前——重新发货的正文往往一个字节没变。
           // 只认本包血统里的行（`upgradeRows` 就是按血统查的），不会把管理员手动停用的
           // 别家 skill 拉起来。
-          await session.query(
+          if (!sharedWorkVersionTargets.has(skill.stableName)) await session.query(
             `UPDATE skills SET status = 'enabled', updated_at = $3
               WHERE id = $1 AND org_id = $2 AND status = 'disabled'`,
             [existingSkill.id, input.orgId, importedAt],
           );
-          await session.query(
+          if (!sharedWorkVersionTargets.has(skill.stableName)) await session.query(
             `UPDATE capability_listings SET enabled = true
               WHERE id = $1 AND org_id = $2 AND kind = 'skill' AND enabled = false`,
             [existingSkill.id, input.orgId],
