@@ -147,3 +147,42 @@ def closure_status():
             'requiredRuntimeClosures': ['source-bound API dependency tree and lockfile',
              'pinned Node/tsx interpreter', 'existing scoped database environment',
              'root-owned exact control Git checkout', 'provider authenticated read-only clients']}
+
+
+INSTALLATION_DIRECTORIES = (
+    '/etc/workspacex-cn/mvp-evidence',
+    '/etc/workspacex-cn/mvp-evidence/selectors',
+    '/etc/workspacex-cn/mvp-evidence/objects',
+    '/etc/workspacex-cn/continuation-requests',
+    '/etc/workspacex-cn/continuation-approvals',
+    '/var/lib/workspacex-cn/continuation',
+    '/etc/workspacex-cn/release-approvals',
+    '/etc/workspacex-cn/runtime-readback-approvals',
+    '/etc/workspacex-cn/continuation-finalize-approvals',
+    '/var/lib/workspacex-cn/continuation-evidence',
+    '/var/lib/workspacex-cn/continuation-derived-requests',
+    '/var/lib/workspacex-cn/release-driver',
+    '/var/lib/workspacex-cn/release-generated',
+    '/var/lib/workspacex-cn/release-inputs',
+    '/etc/workspacex-cn/acquire-observers',
+    '/etc/workspacex-cn/publication-observers',
+    '/etc/workspacex-cn/runtime-observer-approvals',
+    '/etc/workspacex-cn/writer-resume-approvals',
+    '/etc/workspacex-cn/writer-resume-approvals/by-release',
+    '/etc/workspacex-cn/recovery-writer-resume-approvals',
+    '/etc/workspacex-cn/recovery-writer-resume-approvals/by-recovery',
+    '/etc/workspacex-cn/release-recovery-approvals',
+    '/etc/workspacex-cn/release-recovery-approvals/by-failed-request',
+    '/etc/workspacex-cn/mvp-cloud-policies',
+    '/etc/workspacex-cn/mvp-cloud-policies/objects',
+    '/var/lib/workspacex-cn/release-generated/mvp-cloud-preparation',
+)
+
+FIXED_ENTRIES = (
+    '/usr/local/bin/workspacex-cn-fixed-release',
+    '/usr/local/bin/workspacex-cn-mvp-evidence',
+    '/usr/local/bin/workspacex-cn-mvp-prepare-approved',
+    '/usr/local/bin/workspacex-cn-release-advance',
+    '/usr/local/bin/workspacex-cn-fixed-recovery',
+    '/usr/local/bin/workspacex-cn-deploy',
+)
