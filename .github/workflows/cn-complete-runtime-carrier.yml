@@ -1,0 +1,21 @@
+name: Repository artifact carrier contracts
+on:
+  pull_request:
+    paths:
+      - 'scripts/cn-complete-runtime-carrier.py'
+      - 'tests/test_cn_complete_runtime_carrier.py'
+      - '.github/workflows/cn-complete-runtime-carrier.yml'
+permissions:
+  contents: read
+jobs:
+  carrier-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify isolated bootstrap and carrier contracts
+        # Fixture tests use disposable private /run directories, with no
+        # deployment credentials, artifact downloads or production endpoints.
+        run: sudo /usr/bin/python3 -I -S -B -m unittest discover -s tests -p test_cn_complete_runtime_carrier.py -v
