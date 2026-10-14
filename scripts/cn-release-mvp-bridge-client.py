@@ -5,6 +5,7 @@ from pathlib import Path
 def module(name,file):
     s=importlib.util.spec_from_file_location(name,Path(__file__).with_name(file));m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 D=module('bridge_dispatch','cn-release-mvp-dispatch.py');U=module('bridge_artifact','cn-hk-original-artifact-upload.py');B=module('bridge_terminal','cn-release-mvp-chain.py')
+AUTH=module('bridge_metadata','cn-release-mvp-contract.py')
 def raw_result(run,stage,reader=U.gh):
     listing=reader(f'/repos/boardx/workspacex/actions/runs/{run}/artifacts?per_page=100')
     rows=listing['artifacts'];D.need(listing['total_count']==len(rows),'ARTIFACT_LIST_INCOMPLETE')
@@ -31,7 +32,8 @@ def obtain(stage,payload,base,root,dispatch=D.coordinate,reader=U.gh):
         raw=result['rawJson'].encode();D.need(hashlib.sha256(raw).hexdigest()==result['releaseSha256'],'APPROVAL_RAW_HASH')
         a=json.loads(raw);D.need(a['identity']['sourceRevision']==payload['identity']['sourceRevision'] and a['identity']['controlRevision']==payload['identity']['controlRevision'],'APPROVAL_SOURCE')
         D.need(a.get('kind')=='cn-fixed-release-approval-v1' and a.get('target')=={'accountId':'1177216024653153','region':'cn-shanghai','ecsInstanceId':'i-uf6ga92ewloganobbln6'},'APPROVAL_TARGET')
-        D.need(a.get('mvp')=={'acceptanceScope':'mvp-non-model','contentManifestSha256':payload['identity']['contentManifestSha256'],'buildRunId':payload['buildRunId'],'transferRunId':payload['transferRunId']},'APPROVAL_CONTENT_AND_RUNS')
+        metadata=AUTH.validate_metadata(a.get('mvp'))
+        D.need({k:metadata[k]for k in AUTH.BASE_FIELDS}=={'acceptanceScope':'mvp-non-model','contentManifestSha256':payload['identity']['contentManifestSha256'],'buildRunId':payload['buildRunId'],'transferRunId':payload['transferRunId']},'APPROVAL_CONTENT_AND_RUNS')
         D.need(all(a['acquire']['requests'][phase]['runId']==payload['buildRunId'] and a['acquire']['requests'][phase]['runAttempt']==1 for phase in ('consume','publication')),'MVP_ACQUIRE_BUILD_BINDING')
         D.need(a['identity']['requestedAt']==payload['requestedAt'] and a['identity']['deadlineAt']==payload['deadlineAt'],'APPROVAL_WINDOW')
     else:

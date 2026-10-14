@@ -2,10 +2,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ensureDatabase, migrateOnce, resetOrgs, asOwner, seedOrg } from "../tests/support/db";
 import { ensurePlatformOrgSeeded } from "../src/infrastructure/skill/ensure-platform-skill-catalog";
-import { migrationConfig } from "../src/infrastructure/db/pg-config";
-import { PgDatabase } from "../src/infrastructure/db/pg-database";
+import { appConfig, migrationConfig } from "../src/infrastructure/db/pg-config";
+import { PgDatabase, pgHealthProbe } from "../src/infrastructure/db/pg-database";
 import { toOrgId } from "../src/domain/org-id";
-import { ACTOR, sha, canonical, stateDigest, verifyInputs, synchronize, type ReleaseRequest, type VerifiedInputs } from "./platform-content-release-core";
+import { ACTOR, sha, canonical, stateDigest, verifyInputs, synchronize, readback, type ReleaseRequest, type VerifiedInputs } from "./platform-content-release-core";
 import { PgSkillStarterImportRepository } from "../src/infrastructure/skill/pg-skill-starter-import-repository";
 import { verifySkillStarterPack, importPayloadDigest } from "../src/domain/skill/starter-pack";
 import { buildOfficialAgentRolePack } from "../src/domain/agent/official-role-packs";
@@ -15,6 +15,9 @@ import { readFileSync } from "node:fs";
 import { checkWorkSkillManifests } from "../src/domain/skill/work-skill-import-check";
 
 import { schemaReadback } from "./platform-schema-readback-core";
+import { migrationFiles, MIGRATIONS_DIR } from "../src/infrastructure/db/migrator";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 const ORG = toOrgId("org-platform"), TENANT = "org-content-release-protected";
 let db: PgDatabase;
 function makePack(id: string, stableName: string, text = "# Release fixture\n") {
@@ -43,6 +46,33 @@ beforeEach(async () => { await resetOrgs([ORG, TENANT]); await ensurePlatformOrg
 afterAll(async () => { await db?.close(); await resetOrgs([ORG, TENANT]); });
 
 describe("actual PostgreSQL content release", () => {
+  it("runs isolated schema/content/independent readback and actual application-role tenant denial", async () => {
+    const startedAt = new Date().toISOString();
+    await seedOrg({ orgId: TENANT, projectId: "project-content-protected" });
+    const expected = migrationFiles().map(name => ({ name, checksum: sha(readFileSync(join(MIGRATIONS_DIR, name))) }));
+    const schema = await schemaReadback(db, migrationConfig().database, expected);
+    const target = await input();
+    const applied = await synchronize(db, target);
+    const independentlyRead = await db.withTenant(ORG, async s => { await s.query("SET TRANSACTION READ ONLY"); return readback(db, s, target); });
+    expect(independentlyRead).toMatchObject({ skillVersions: applied.skillVersions, contentReadbackPassed: true });
+    const application = new PgDatabase(appConfig());
+    let protectedRows = 0;
+    try {
+      const own = await application.withTenant(toOrgId(TENANT), s => s.query("SELECT id FROM projects WHERE id=$1", ["project-content-protected"]));
+      expect(own.rows).toHaveLength(1);
+      const foreign = await application.withTenant(ORG, s => s.query("SELECT id FROM projects WHERE id=$1", ["project-content-protected"]));
+      protectedRows = foreign.rows.length; expect(protectedRows).toBe(0);
+      const health = pgHealthProbe(application);
+      expect(await health.allRlsForced()).toBe(true); expect(await health.currentRoleOwnsTables()).toBe(false);
+    } finally { await application.close(); }
+    const receipt = { kind: "cn-mvp-isolated-postgresql-flow-v1", startedAt, completedAt: new Date().toISOString(),
+      actualDatabaseIsolated: migrationConfig().database.startsWith("wsx_"), requestSha256: target.requestSha256,
+      stages: { schema, content: applied, independentReadback: independentlyRead, tenantProtection: { foreignProjectRows: protectedRows, actualApplicationRole: true } },
+      cloudProviderExecuted: false, productionExecuted: false, modelQuality: "SKIPPED", fullBusinessAcceptance: false };
+    console.log("CN_MVP_ISOLATED_PG_RECEIPT=" + JSON.stringify(receipt));
+    const output = process.env.WORKSPACEX_MVP_RECEIPT_DIRECTORY;
+    if (output) { mkdirSync(output, { recursive: true, mode: 0o700 }); writeFileSync(join(output, "isolated-postgresql-flow.json"), JSON.stringify(receipt), { flag: "wx", mode: 0o600 }); }
+  });
   it("reads the actual migration ledger without mutation and rejects checksum drift", async () => {
     const expected = await db.withoutTenant(async s => (await s.query<{name:string;checksum:string}>("SELECT name,checksum FROM _kernel_migrations ORDER BY name")).rows);
     const before = sha(canonical(expected));

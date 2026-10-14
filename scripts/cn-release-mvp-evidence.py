@@ -59,8 +59,10 @@ def resolve(mode,payload,pin,reader=private,root=ROOT,*,structural_only=False):
         allowed={'kind','schemaVersion','identity','target','issuedAt','expiresAt','business','rds','codeFiles','runtime','runtimeStage','writerResume','acquire','mvp'}
         need(set(a)<=allowed,'APPROVAL_PRIVATE_FIELDS')
         need(a.get('target')=={'accountId':'1177216024653153','region':'cn-shanghai','ecsInstanceId':'i-uf6ga92ewloganobbln6'},'APPROVAL_TARGET')
-        need(a.get('mvp')=={'acceptanceScope':'mvp-non-model','contentManifestSha256':identity['contentManifestSha256'],
-             'buildRunId':payload['buildRunId'],'transferRunId':payload['transferRunId']},'APPROVAL_CONTENT_AND_RUNS')
+        contract_path=Path(__file__).with_name('cn-release-mvp-contract.py');cs=importlib.util.spec_from_file_location('portal_contract',contract_path);contract=importlib.util.module_from_spec(cs);cs.loader.exec_module(contract)
+        contract.validate_metadata(a.get('mvp'))
+        need(all(a['mvp'].get(k)==v for k,v in {'acceptanceScope':'mvp-non-model','contentManifestSha256':identity['contentManifestSha256'],
+             'buildRunId':payload['buildRunId'],'transferRunId':payload['transferRunId']}.items()),'APPROVAL_CONTENT_AND_RUNS')
         need(all(a['acquire']['requests'][phase]['runId']==payload['buildRunId'] and a['acquire']['requests'][phase]['runAttempt']==1 for phase in ('consume','publication')),'MVP_ACQUIRE_BUILD_BINDING')
         need(all(a['identity'].get(k)==identity[k] for k in ('sourceRevision','controlRevision')),'APPROVAL_IDENTITY')
         need(a['identity']['requestedAt']==payload['requestedAt'] and a['identity']['deadlineAt']==payload['deadlineAt'],'APPROVAL_WINDOW')
@@ -87,10 +89,13 @@ def resolve(mode,payload,pin,reader=private,root=ROOT,*,structural_only=False):
             raw=read(key);need(sha(raw)==pin,'ORIGINAL_OBJECT_HASH');objects[pin]=raw
     path=Path(__file__).with_name('cn-release-mvp-stage-evidence.py');spec=importlib.util.spec_from_file_location('stage_originals',path);validator=importlib.util.module_from_spec(spec);spec.loader.exec_module(validator)
     report=validator.validate(payload,receipts,{stage:read('evidence-'+stage)for stage in module().STAGES},objects)
-    # Hash/chain correctness is not provider provenance or business validation.
-    # No trusted stage-specific producer/validator exists in this closure yet.
-    need(structural_only,'TRUSTED_STAGE_PROVENANCE_VALIDATOR_NOT_READY')
-    return {'kind':'cn-mvp-structural-terminal-proposal-v1','productionAccepted':False,'originalClosureReport':report}
+    if structural_only:
+        return {'kind':'cn-mvp-structural-terminal-proposal-v1','productionAccepted':False,'originalClosureReport':report}
+    path=Path(__file__).with_name('cn-release-mvp-trusted-collector.py');spec=importlib.util.spec_from_file_location('trusted_collector',path);collector=importlib.util.module_from_spec(spec);spec.loader.exec_module(collector)
+    provenance=collector.verify(payload,{stage:read('evidence-'+stage)for stage in module().STAGES},objects)
+    return {'kind':'cn-mvp-verified-terminal-v1','selectorSha256':sha(encode(payload)),'identity':identity,
+            'buildRunId':payload['buildRunId'],'transferRunId':payload['transferRunId'],'productionRunId':payload['productionRunId'],
+            'receipts':receipts,'terminal':terminal,'productionAccepted':True,'originalEvidenceBytesVerified':True,'provenance':provenance}
 def main():
     p=argparse.ArgumentParser();p.add_argument('mode',choices=('approval','terminal'));p.add_argument('selector_sha256');args=p.parse_args()
     try:

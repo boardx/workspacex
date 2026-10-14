@@ -71,5 +71,24 @@ class DriverTests(unittest.TestCase):
             return {'status':'NOT_STARTED'}if n==1 else {'status':'COMPLETED','receiptSha256':str(n)*64}
         with self.assertRaisesRegex(m.e.Rejected,'RECEIPT_CHANGED'):self.run_driver(executor=execute)
         self.assertEqual(len(self.generated),1)
+    def test_explicit_mvp_hook_after_switch_before_held_acceptance(self):
+        self.a['mvp']={'acceptanceScope':'mvp-non-model'}
+        calls=[]
+        def hook(release,previous,mode):
+            calls.append((list(self.requests),previous,mode));return {'contentReadbackPassed':True}
+        self.router.mvp_after_switch=hook
+        result,_=self.run_driver()
+        self.assertEqual(result['status'],'CHAIN_COMPLETED')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(calls[0][0][-1],'switch')
+        self.assertNotIn('acceptance',calls[0][0])
+        self.assertEqual(calls[0][1],result['completed'][13]['receiptSha256'])
+    def test_mvp_unavailable_hook_never_clears_hold(self):
+        self.a['mvp']={'acceptanceScope':'mvp-non-model'}
+        self.router.mvp_after_switch=lambda *args: {'status':'NOT_STARTED','stage':'mvp-held-content'}
+        result,_=self.run_driver()
+        self.assertEqual(result['stage'],'mvp-held-content')
+        self.assertNotIn('clear-hold',self.requests)
+        self.assertNotIn('observe',self.requests)
 
 if __name__=='__main__':unittest.main()

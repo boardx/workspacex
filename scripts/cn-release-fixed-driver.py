@@ -63,6 +63,9 @@ def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now
     # Missing later observers/recovery capabilities cannot be deferred to stop.
     if mode=='run':router.preflight(release)
     for stage in e.STAGES:
+        if stage=='acceptance' and approval.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
+            hook=router.mvp_after_switch(release,previous,mode)
+            if hook.get('status')=='NOT_STARTED':return {**hook,'completed':receipts}
         # Lookup is read-only. The router may create the next package only after
         # all previous receipts passed original immutable-file checks.
         request=router.lookup(release,stage)
