@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { WhiteboardObject } from '@repo/contracts/whiteboard-document';
+import { WhiteboardObject } from '@repo/contracts/whiteboard-document';
 import {
   BoardCommandPort,
   WhiteboardCommandOrigin,
