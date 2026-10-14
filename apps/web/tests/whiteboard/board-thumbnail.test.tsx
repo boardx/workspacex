@@ -1,32 +1,27 @@
-import { createHash, webcrypto } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { BoardThumbnail, BoardThumbnailQueue } from '@/components/whiteboard/board-thumbnail';
-import { apiRequest } from '@/lib/api-client';
+import { apiRequest, getStoredSessionToken } from '@/lib/api-client';
+import { readReadonlyBoardSnapshot } from '@/lib/whiteboard-readonly-snapshot';
 import { renderCanonicalBoardImage } from '@/components/whiteboard/board-canonical-image';
 import { createWhiteboardDocument, createStickyBatchEnvelope, BoardCommandPort, readObjects } from '@repo/whiteboard-core';
-vi.mock('@/lib/api-client', () => ({ apiRequest: vi.fn() }));
+vi.mock('@/lib/api-client', () => ({ apiRequest: vi.fn(), getStoredSessionToken: vi.fn() }));
 vi.mock('@/components/whiteboard/board-canonical-image', () => ({ renderCanonicalBoardImage: vi.fn() }));
+vi.mock('@/lib/whiteboard-readonly-snapshot', () => ({ readReadonlyBoardSnapshot: vi.fn() }));
 const id = '57d83843-21e2-40ae-8c1c-571d0ad63c80';
 function snapshot(seq = 1) {
   const doc = createWhiteboardDocument();
   new BoardCommandPort(doc).dispatch(createStickyBatchEnvelope({ boardId: id, clientId: 'test', gestureId: 'op', items: [{id:'sticky-1',text:'Thumbnail content',geometry:{x:30,y:40,width:200,height:160,rotation:0}}], color: {custom:'#FFF0A0'} }));
   const objects = readObjects(doc); doc.destroy();
-  return { boardId: id, revision: { epoch: 1, seq }, role: 'viewer', archived: false, objects };
+  return { boardId: id, revision: { epoch: 1, seq }, role: 'viewer' as const, archived: false, objects };
 }
 function protocol(value = snapshot()) {
-  const payload = Buffer.from(JSON.stringify({ format: 'workspacex.board.v1', board: {id, ...value.revision}, objects: value.objects }));
-  const exportId = '8fa6acf8-83f8-4c5f-bcc4-d1c9d6d35140';
-  const metadata = { format: 'workspacex.board.v1', exportId, boardId: id, ...value.revision, sha256: createHash('sha256').update(payload).digest('hex'), sizeBytes: payload.length, fileName: 'board.json', objectKey: 'private/export.json', downloadPath: `/whiteboards/${id}/imports/standard-export/${exportId}` };
-  vi.mocked(apiRequest).mockImplementation(async (path) => {
-    if (path.endsWith('/head')) return value.revision;
-    if (path.endsWith('/standard-export')) return { ...metadata, replayed: false };
-    return { ...metadata, contentBase64: payload.toString('base64') };
-  });
+  vi.mocked(apiRequest).mockResolvedValue(value.revision);
+  vi.mocked(readReadonlyBoardSnapshot).mockResolvedValue(value);
 }
 beforeEach(() => {
   vi.resetAllMocks();
-  vi.stubGlobal('crypto', webcrypto);
+  vi.mocked(getStoredSessionToken).mockReturnValue('private-token');
   protocol();
   vi.mocked(renderCanonicalBoardImage).mockResolvedValue({ blob: new Blob(['pixels']), width: 640, height: 360, bounds: { x: 0, y: 0, width: 100, height: 100 } });
   vi.stubGlobal('IntersectionObserver', undefined);
@@ -45,7 +40,7 @@ describe('authorized canonical Board thumbnails', () => {
   it('reauthorizes before cached pixels and rerenders when canonical revision changes', async () => {
     const queue = new BoardThumbnailQueue('org/user', 'user'), signal = new AbortController().signal;
     await queue.load(id, signal); await queue.load(id, signal);
-    expect(apiRequest).toHaveBeenCalledTimes(4); expect(renderCanonicalBoardImage).toHaveBeenCalledTimes(1);
+    expect(apiRequest).toHaveBeenCalledTimes(2); expect(renderCanonicalBoardImage).toHaveBeenCalledTimes(1);
     protocol(snapshot(2)); await queue.load(id, signal);
     expect(renderCanonicalBoardImage).toHaveBeenCalledTimes(2);
     vi.mocked(apiRequest).mockRejectedValue(new Error('denied'));

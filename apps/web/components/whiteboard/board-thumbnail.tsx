@@ -2,9 +2,8 @@
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
-import { WhiteboardObject } from '@repo/contracts/whiteboard-document';
-import { StandardWhiteboardExport, StandardWhiteboardExportDownload } from '@repo/contracts/whiteboard-import';
-import { ApiError, apiRequest } from '@/lib/api-client';
+import { apiRequest, getStoredSessionToken } from '@/lib/api-client';
+import { readReadonlyBoardSnapshot } from '@/lib/whiteboard-readonly-snapshot';
 import { renderCanonicalBoardImage } from './board-canonical-image';
 
 /** Cache is owned by one authenticated library scope, never persisted or shared across accounts. */
@@ -20,44 +19,25 @@ export class BoardThumbnailQueue {
     });
     try {
       signal.throwIfAborted();
-      for (let attempt = 0; attempt < 2; attempt++) {
-        // HEAD reauthorizes even cached previews. Never treat exported pixels as an authorization grant.
-        const head = z.object({ epoch: z.number().int().positive(), seq: z.number().int().nonnegative() }).passthrough().parse(
-          await apiRequest(`/whiteboards/${encodeURIComponent(boardId)}/head`, { method: 'GET', signal }),
-        );
-        signal.throwIfAborted();
-        const key = JSON.stringify([this.scope, boardId, head.epoch, head.seq]);
-        if (this.cache.has(key)) {
-          const cached = this.cache.get(key)!; this.cache.delete(key); this.cache.set(key, cached); return cached;
-        }
-        const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key)));
-        digest[6] = (digest[6]! & 15) | 80; digest[8] = (digest[8]! & 63) | 128;
-        const hex = Array.from(digest.slice(0, 16), byte => byte.toString(16).padStart(2, '0')).join('');
-        const requestId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
-        let exported;
-        try {
-          exported = StandardWhiteboardExport.parse(await apiRequest(`/whiteboards/${encodeURIComponent(boardId)}/imports/standard-export`, { method: 'POST', body: { requestId }, signal }));
-        } catch (error) { if (attempt === 0 && error instanceof ApiError && error.status === 409) continue; throw error; }
-        const expectedPath = `/whiteboards/${encodeURIComponent(boardId)}/imports/standard-export/${exported.exportId}`;
-        if (exported.boardId !== boardId || exported.downloadPath !== expectedPath) throw new Error('BOARD_THUMBNAIL_SCOPE_MISMATCH');
-        const downloaded = StandardWhiteboardExportDownload.parse(await apiRequest(expectedPath, { method: 'GET', signal }));
-        for (const field of ['format', 'exportId', 'boardId', 'epoch', 'seq', 'sha256', 'sizeBytes', 'fileName', 'objectKey', 'downloadPath'] as const) {
-          if (downloaded[field] !== exported[field]) throw new Error('BOARD_THUMBNAIL_INTEGRITY_FAILED');
-        }
-        const bytes = Uint8Array.from(atob(downloaded.contentBase64), character => character.charCodeAt(0));
-        const actualHash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('');
-        if (bytes.length !== exported.sizeBytes || actualHash !== exported.sha256) throw new Error('BOARD_THUMBNAIL_INTEGRITY_FAILED');
-        const content = z.object({ format: z.literal('workspacex.board.v1'), board: z.object({ id: z.string().uuid(), epoch: z.number().int().positive(), seq: z.number().int().nonnegative() }).strict(), objects: z.array(WhiteboardObject) }).strict().parse(JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes)));
-        if (content.board.id !== boardId || content.board.epoch !== exported.epoch || content.board.seq !== exported.seq) throw new Error('BOARD_THUMBNAIL_SCOPE_MISMATCH');
-        signal.throwIfAborted();
-        const blob = content.objects.some(object => !object.hidden) ? (await renderCanonicalBoardImage({ boardId, objects: content.objects, maxWidth: 640, maxHeight: 360, padding: 24, signal })).blob : null;
-        signal.throwIfAborted();
-        // Export may race a newer update; bind pixels to its actual revision, never the earlier HEAD.
-        this.cache.set(JSON.stringify([this.scope, boardId, exported.epoch, exported.seq]), blob);
-        if (this.cache.size > 32) this.cache.delete(this.cache.keys().next().value!);
-        return blob;
-      }
-      throw new Error('BOARD_THUMBNAIL_REVISION_CONFLICT');
+      const token = getStoredSessionToken();
+      if (!token) throw new Error('BOARD_THUMBNAIL_SESSION_REQUIRED');
+      // Always reauthorize, including cached pixels, via existing human Board read permission.
+      const head = z.object({ epoch: z.number().int().positive(), seq: z.number().int().nonnegative() }).passthrough().parse(
+        await apiRequest(`/whiteboards/${encodeURIComponent(boardId)}/head`, { method: 'GET', signal }),
+      );
+      signal.throwIfAborted();
+      if (getStoredSessionToken() !== token) throw new Error('BOARD_THUMBNAIL_SESSION_CHANGED');
+      const key = JSON.stringify([this.scope, boardId, head.epoch, head.seq]);
+      if (this.cache.has(key)) { const cached = this.cache.get(key)!; this.cache.delete(key); this.cache.set(key, cached); return cached; }
+      const snapshot = await readReadonlyBoardSnapshot(boardId, signal);
+      signal.throwIfAborted();
+      const blob = snapshot.objects.some(object => !object.hidden) ? (await renderCanonicalBoardImage({ boardId, objects: snapshot.objects, maxWidth: 640, maxHeight: 360, padding: 24, signal })).blob : null;
+      signal.throwIfAborted();
+      if (getStoredSessionToken() !== token) throw new Error('BOARD_THUMBNAIL_SESSION_CHANGED');
+      // Bind to actual sync revision if another edit raced HEAD.
+      this.cache.set(JSON.stringify([this.scope, boardId, snapshot.revision.epoch, snapshot.revision.seq]), blob);
+      if (this.cache.size > 32) this.cache.delete(this.cache.keys().next().value!);
+      return blob;
     } finally { this.active--; this.waiting.shift()?.(); }
   }
 }
