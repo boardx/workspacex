@@ -29,7 +29,7 @@
 
 - ./init.sh 快速路径通过。
 - Web typecheck、完整 lint（含设计 lint、light scope token 检查）通过。
-- 69 项测试通过：现有首页/后台配置/主题/表单测试，加两项介绍编辑与移除绑定测试。
+- 72 项测试通过：现有首页/后台配置/主题/表单测试，加两项介绍编辑与移除绑定测试及三项 fixture 开发/生产门禁测试。
 - 实际内置浏览器测量：首页和配置预览在 375/768/1280px，documentElement.scrollWidth 均等于 viewport width（browser-checks.json）。
 - 键盘 Tab 到数字人入口后 activeElement 有姓名+角色名称、明确焦点环（keyboard.json）。
 - 深链保留 /chat?agent=；组件测试验证 agentId URL 编码，未调用模型或执行 Skill。
@@ -45,3 +45,16 @@ fixture 只在 NODE_ENV=development 且 WSX_HOME_FIXTURE=1 时可访问，生产
 ![修改前：测试数据](evidence/01-before-home-fixture.png)
 
 ![修改后：测试数据，包含键盘焦点](evidence/02-after-home-fixture.png)
+
+## CI 修复与附件交付
+
+精确提交 bcdd228f0 的 CI 曾失败于新增开发路由未登记、fixture 能力样例位于产品扫描目录。两者均属于本次改动，已修复：明确测试数据移入 tests/fixtures，给开发路由登记精确 previewPrefix，并使用正式生成器产出的路由事实；没有放宽生产守卫。新增生产即使开关开启也拒绝、开发未启用开关拒绝的负向测试。完整 API lint、ui-wiring、Web lint/typecheck 和 72 项测试均通过。
+
+Library 上传入口在当前执行连接不可用（没有准备上传会话或创建文件）。两张已在 PR 中交付的不可变截图下载链接已成功下载且与本地原图 SHA-256 一致：
+
+- 首页：`f10d337273ac4638cc98bbeab728b5d7c9f2049a0798ffbb370bc6317ff90d29`
+- 配置：`cb2d535c41e4f57967a814db41fb726fdc50862662c613630cc9e7e7a1ea18de`
+
+[首页附件（fixture 测试数据）](https://raw.githubusercontent.com/boardx/workspacex/bcdd228f0cc815b099455f006a4915f605dd6fdf/docs/design/org-home-page/redesign-20261014/evidence/02-after-home-fixture.png)
+
+[配置附件（fixture 测试数据）](https://raw.githubusercontent.com/boardx/workspacex/bcdd228f0cc815b099455f006a4915f605dd6fdf/docs/design/org-home-page/redesign-20261014/evidence/03-after-config-fixture.png)

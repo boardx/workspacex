@@ -6,7 +6,7 @@
 
 ## 我理解的目标
 - **目标**：用完整人物形象、角色说明和明确互动入口改善组织首页与配置体验
-- **完成判据**：Web 类型检查、完整 lint、69 项相关测试与三档浏览器布局检查通过，草稿 PR 可审查
+- **完成判据**：Web 类型检查、完整 lint、72 项相关测试与三档浏览器布局检查通过，草稿 PR 可审查
 - **不做什么**：不部署、不合并、不修改认证/API/数据库，不执行模型、Skill 或 Workflow
 - **假设与待确认**：用户已授权 fixture；真实 API 绑定待非生产环境验证
 
@@ -36,7 +36,7 @@ flowchart TD
   class S2 done
   class S3 done
   class S4 tested
-  %% evidence S4: 69 tests, typecheck, full lint; evidence/ logs and browser-checks.json
+  %% evidence S4: 72 tests, typecheck, full lint; evidence/ logs and browser-checks.json
   class S5 done
 ```
 
