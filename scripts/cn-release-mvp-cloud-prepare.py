@@ -77,6 +77,11 @@ def publication(p,selector,files,input_objects):
   'mvp-profile.json','mvp-schema-request.json','mvp-content-request.json','mvp-content-backup.json','mvp-nonmodel-fixtures.json',
   'mvp-nonmodel-credentials.json','mvp-existing-environment.json','mvp-runtime-manifest.json'}
  E.need(required<=set(root_inputs),'COMPLETE_ROOT_INPUTS_REQUIRED')
+ # These two objects are approved references, never credential payloads.
+ # Preparation must not resolve or open their existing private targets.
+ private=load('mvp-private-input')
+ for name,purpose in (('mvp-existing-environment.json','migration-environment'),('mvp-nonmodel-credentials.json','nonmodel-credentials')):
+  private.validate_ref(root_inputs[name],purpose)
  static=a['runtime']['staticInputHashes']
  E.need(set(static)=={'authorization','template','migrationDiff'} and all(E.sha(root_inputs[name+'.json'])==h for name,h in static.items()),'APPROVAL_STATIC_INPUT_HASHES')
  E.need(root_inputs['test-data-scope.json']==root_inputs['mvp-nonmodel-fixtures.json'],'WRITER_FIXTURE_SCOPE')
@@ -90,6 +95,7 @@ def execute(pin,*,reader=E.private,clock=lambda:dt.datetime.now(dt.timezone.utc)
  """Root-policy capability only; neither runner booleans nor paths grant this."""
  E.need(type(pin)is str and re.fullmatch('[a-f0-9]{64}',pin),'POLICY_HASH')
  raw=reader(POLICIES/(pin+'.json'));p=policy(raw,pin,clock())
+ E.need('scripts/cn-release-mvp-private-input.py' in p['codeFiles'],'PRIVATE_INPUT_HELPER_PIN_REQUIRED')
  for name,h in p['codeFiles'].items():
   rel=Path(name);E.need(not rel.is_absolute() and '..'not in rel.parts,'CODE_PATH')
   E.need(E.sha(reader(ROOT/rel))==h,'POLICY_CODE_PIN')

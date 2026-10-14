@@ -31,6 +31,7 @@ def derive(blueprint_raw,probe_raw,*,github):
         and bp['kind']=='cn-mvp-approved-blueprint-v1','BLUEPRINT_SCHEMA')
     closure=module('cn-release-installation-closure')
     inventory=closure.inventory(P.ROOT)
+    E.need('scripts/cn-release-mvp-private-input.py' in inventory,'PRIVATE_INPUT_HELPER_PIN_REQUIRED')
     E.need(bp['codeFiles']==inventory and bp['controlBundleSha256']==closure.digest(inventory),'BLUEPRINT_CODE_CLOSURE')
     payload=bp['selector'];E.selector('approval',payload);identity=payload['identity']
     E.need(E.sha(probe_raw)==bp['probeSha256'],'BLUEPRINT_PROBE')

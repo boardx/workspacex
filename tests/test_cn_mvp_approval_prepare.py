@@ -49,6 +49,7 @@ class Prepare(unittest.TestCase):
  def test_real_zip_originals_derive_full_canonical_approval(self):
   files,report=self.derive();a=json.loads(files['approval.json'])
   self.assertEqual(a['mvp']['buildRunId'],42);self.assertEqual(a['mvp']['transferRunId'],43)
+  self.assertIn('scripts/cn-release-mvp-private-input.py',a['codeFiles'])
   self.assertEqual(a['codeFiles'],self.blueprint['codeFiles']);self.assertFalse(report['installed']);self.assertFalse(report['authorityGranted'])
   for request in a['acquire']['requests'].values():
    self.assertEqual(request['inputs']['proof'],m.E.sha(files['proof.json']));self.assertEqual(request['runId'],42)

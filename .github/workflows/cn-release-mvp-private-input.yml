@@ -1,0 +1,21 @@
+name: Existing private input reference contracts
+on:
+  pull_request:
+    paths:
+      - 'scripts/cn-release-mvp-private-input.py'
+      - 'tests/test_cn_mvp_private_input.py'
+      - '.github/workflows/cn-release-mvp-private-input.yml'
+permissions:
+  contents: read
+jobs:
+  private-input-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify references with disposable fake private files
+        # Tests use synthetic values in /run fixtures. They do not read actual
+        # credential files or call authentication services.
+        run: sudo /usr/bin/python3 -I -S -B -m unittest discover -s tests -p test_cn_mvp_private_input.py -v
