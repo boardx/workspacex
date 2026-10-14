@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { createHash, randomUUID } from 'node:crypto';
 import { FULLSTACK_E2E as F } from './fullstack-smoke-fixture';
-import { boardLogin, createAcceptanceBoard, operate, object, openBoard, boardHead, boardApi, apiOrigin } from './board-acceptance-support';
+import { boardLogin, createAcceptanceBoard, operate, object, openBoard, boardHead, boardApi, apiOrigin, objectPoint } from './board-acceptance-support';
 import { expectBoardSynced } from './support/board-sync-status';
 import { deleteOwnedConnectorFixture } from './support/connector-acceptance-fixture';
 
@@ -59,7 +59,11 @@ test('Board library generates canonical thumbnails, updates after ACK, reloads a
     await expect(page.getByTestId(`board-thumbnail-empty-${empty}`)).toHaveText('空白白板');
     await page.screenshot({ path: info.outputPath('thumbnail-real-library.png'), fullPage: true });
     await openBoard(page, populated, 4);
-    await page.getByTestId('board-a11y-mirror').locator('li[data-object-id="thumb-sticky"] button').dblclick();
+    await page.getByTestId('board-tool-select').click();
+    await page.getByTestId('board-zoom-fit-board').click();
+    const stickyPoint=await objectPoint(page,'thumb-sticky');
+    await page.mouse.dblclick(stickyPoint.x,stickyPoint.y);
+    await expect(page.getByTestId('board-thinking-editor')).toBeFocused();
     await page.getByTestId('board-thinking-editor').fill('UPDATED THUMBNAIL CONTENT');
     await page.getByTestId('board-thinking-editor').press('ControlOrMeta+Enter');
     await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(4);
