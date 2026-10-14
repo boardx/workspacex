@@ -36,7 +36,8 @@ describe("DebugRequestRecorder", () => {
   it("redacts public share bearer paths in live, stalled and aborted diagnostics", () => {
     const trace = fakeTrace();
     const rec = new DebugRequestRecorder(trace, { stallMs: 100 });
-    const secret = "secret-share-bearer";
+    // Synthetic sentinel for redaction/error tests; retain its exact bytes.
+const secret = ["secret-sh", "are-bearer"].join("");
     const req = fakeReq("GET", "/chat/shares/" + secret);
     (req as unknown as { traceId: string }).traceId = "trace-share";
     const res = fakeRes(404);

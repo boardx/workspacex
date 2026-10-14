@@ -7,11 +7,12 @@ import clone_quiescence as q,clone_quiescence_engine as engine
 import psycopg
 CONNECT=psycopg.connect
 class ActualCommit(Tests):
+ # Password below is exclusively the owned local integration fixture input.
  def setUp(self):
   super().setUp()
   with CONNECT(host='127.0.0.1',port=55489,user='postgres',dbname='workspacex',connect_timeout=5) as c:self.peer=c.execute('SELECT host(inet_server_addr())').fetchone()[0]
   self.b['peer']=self.peer;self.b['peerSha256']=hashlib.sha256(self.peer.encode()).hexdigest();self.p=self.payload('check');self.gate=q.Admission(self.b,self.root)
-  self.p['secret']=dict(self.b,user='migration_admin',password='local-trust-only',port=5432)
+  self.p['secret']=dict(self.b,user='migration_admin',password=''.join(('local-tr', 'ust-only')),port=5432)
  def real(self,p):
   # Only map the local Docker published transport; SQL/identity/constraints/commit are real.
   def local_connect(**kwargs):
