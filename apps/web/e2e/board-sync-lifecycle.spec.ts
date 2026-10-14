@@ -54,7 +54,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   if(!proxyUrl||!secret||secret.length<32||!bridgePath||!templatePath)throw new Error('Explicit private owned transport required');
   const url=new URL(proxyUrl);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||url.pathname!=='/'||url.search||url.hash||url.username||url.password)throw new Error('Non-loopback proxy');
   await sourceProof();
-  secondBrowser=await chromium.launch();peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});const peer=await peerContext.newPage();transport.observe(peer,'peer');
+  secondBrowser=await chromium.launch();peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});let peer=await peerContext.newPage();transport.observe(peer,'peer');
   for(const page of [owner,peer])page.on('websocket',socket=>{const observed=new URL(socket.url());if(observed.pathname===whiteboardSync.WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)))bindings.push(observed.protocol==='ws:'&&observed.hostname===url.hostname&&observed.port===url.port&&!observed.search&&!observed.hash&&!observed.username&&!observed.password);});
   stage='login-owner';ownerToken=await boardLogin(owner);privateSecrets.push(ownerToken);stage='login-peer';const peerToken=await boardLogin(peer,F.leadEmail,F.leadPassword);privateSecrets.push(peerToken);
   const identities=[];for(const token of [ownerToken,peerToken]){const response=await api.get(`${apiOrigin()}/kernel/probe/whoami`,{headers:{authorization:`Bearer ${token}`}});expect(response.status()).toBe(200);identities.push(await response.json());}
@@ -103,7 +103,11 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
    failureStage=`${gesture.toUpperCase()}_HOLD`;await control('hold-writes');
    if(gesture==='drag'){await owner.mouse.move(point!.x,point!.y);await owner.mouse.down();await owner.mouse.move(point!.x+40*point!.zoom,point!.y+24*point!.zoom,{steps:12});await owner.mouse.up();}
    else if(gesture==='text')await edit(owner,objectId,'Acknowledged text');
-   else await owner.getByRole('button',{name:'撤销',exact:true}).click();
+   else {
+    failureStage='UNDO_UI';
+    if((owner.viewportSize()?.width??1440)<640){await owner.getByTestId('board-fabric-surface').focus();await owner.keyboard.press('ControlOrMeta+z');}
+    else await owner.getByRole('button',{name:'撤销',exact:true}).click();
+   }
    failureStage=`${gesture.toUpperCase()}_PENDING`;await cloud(owner,'pending',`${gesture}-pending`);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(before);
    await expect.poll(()=>durableIds(owner,boardId)).not.toEqual([]);const receipts=await durableIds(owner,boardId);
    expect(transport.snapshot().events.slice(metadataBefore).filter(event=>event.client==='original'&&event.direction==='received'&&event.type==='ack')).toHaveLength(0);
@@ -123,7 +127,22 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   failureStage='PEER_RECOVERY';await peerContext.setOffline(false);await expectBoardSynced(peer,45_000);await expect.poll(()=>canonicalRows(owner),{timeout:45_000}).toEqual(await canonicalRows(peer));
   const recovered=await canonicalBoardSnapshot(api,ownerToken,boardId);expect(recovered.objects).toEqual(offlineBefore.objects.map(object=>object.id===objectId?{...object,text:'Independent offline text'}:object));await expect.poll(()=>durableIds(peer,boardId)).toEqual([]);await peer.reload();await expectBoardSynced(peer);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(recovered);await cloud(peer,'synced','independent-peer-refreshed');
   failureStage='VIEWER_UNMOUNT';await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.leadUserId,role:'viewer'});
-  await expect(peer.getByTestId('board-add-sticky')).toBeDisabled();await expectBoardSynced(peer,30_000,true);
+  // Live role revocation intentionally clears and unmounts the old document.
+  await expect(peer.getByTestId('denied')).toBeVisible();
+  await expect(peer.getByTestId('board-fabric-surface')).toHaveCount(0);
+  const viewerResponse=await boardApi(api,peerToken,'GET',`/whiteboards/${boardId}`);
+  expect((await viewerResponse.json()).role).toBe('viewer');
+  const viewerHead=await boardHead(api,peerToken,boardId);
+  const rejectedWrite=await api.post(`${apiOrigin()}/whiteboards/${boardId}/commands`,{headers:{authorization:`Bearer ${peerToken}`},data:{requestId:randomUUID(),epoch:viewerHead.epoch,commands:[{type:'delete',id:objectId}]}});
+  expect(rejectedWrite.status()).toBe(403);expect(await boardHead(api,ownerToken,boardId)).toEqual(viewerHead);
+  // A fresh actual viewer session has no revoked outbox from the former editor.
+  failureStage='VIEWER_REAUTH';await peerContext.close();
+  peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});peer=await peerContext.newPage();
+  transport.observe(peer,'peer');const viewerToken=await boardLogin(peer,F.leadEmail,F.leadPassword);privateSecrets.push(viewerToken);
+  expect(viewerToken).not.toBe(peerToken);expect((await (await boardApi(api,viewerToken,'GET',`/whiteboards/${boardId}`)).json()).role).toBe('viewer');
+  await peer.goto(`/studio/board/${boardId}`);await expectBoardSynced(peer,30_000,true);
+  await expect(peer.getByTestId('board-add-sticky')).toBeDisabled();
+
   const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=transport.snapshot().events.length;
   const viewerOutline=peer.getByTestId(`board-a11y-object-${objectId}`);await viewerOutline.focus();await viewerOutline.press('Enter');await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
   const readonlyPoint=await objectPoint(peer,objectId);await peer.mouse.move(readonlyPoint.x,readonlyPoint.y);await peer.mouse.down();await peer.mouse.move(readonlyPoint.x+20*readonlyPoint.zoom,readonlyPoint.y+20*readonlyPoint.zoom,{steps:8});await peer.mouse.up();await peer.mouse.dblclick(readonlyPoint.x,readonlyPoint.y);await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);

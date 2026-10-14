@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {readFileSync,realpathSync,statSync} from 'node:fs';
 import {basename,relative,isAbsolute} from 'node:path';
 const title='S01-S03 independent processes and users prove pending ACK, offline convergence and no late lifecycle writes';
-const stages=new Set(['SETUP','INITIAL_ORIGIN_SYNC','INITIAL_PEER_SYNC','PEER_OFFLINE','PEER_RECOVERY','VIEWER_UNMOUNT','OWNER_UNMOUNT',...['DRAG','TEXT','UNDO'].flatMap(g=>['READY','HOLD','PENDING','ACK'].map(s=>`${g}_${s}`))]);
+const stages=new Set(['SETUP','INITIAL_ORIGIN_SYNC','INITIAL_PEER_SYNC','PEER_OFFLINE','PEER_RECOVERY','VIEWER_UNMOUNT','VIEWER_REAUTH','UNDO_UI','OWNER_UNMOUNT',...['DRAG','TEXT','UNDO'].flatMap(g=>['READY','HOLD','PENDING','ACK'].map(s=>`${g}_${s}`))]);
 function snapshot(value,budget={nodes:0},depth=0){assert(++budget.nodes<=10000&&depth<=20);if(value===null||typeof value!=='object'){assert(['string','boolean','number','undefined'].includes(typeof value)||value===null);return value;}assert(Object.getPrototypeOf(value)===(Array.isArray(value)?Array.prototype:Object.prototype));const out=Array.isArray(value)?[]:{};for(const key of Object.keys(value)){const d=Object.getOwnPropertyDescriptor(value,key);assert(d&&Object.hasOwn(d,'value'));Object.defineProperty(out,key,{value:snapshot(d.value,budget,depth+1),enumerable:true,writable:true,configurable:true});}return out;}
 export function safeSyncLifecycleStageExport(input,artifacts,head,config){
  try{
