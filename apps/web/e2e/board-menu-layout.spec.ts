@@ -90,8 +90,10 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
    for(const height of [viewport.height,500]){
     await page.setViewportSize({width:viewport.width,height});
     await page.getByTestId('board-zoom-menu').click();const content=page.getByTestId('board-zoom-content');await expect(content).toBeVisible();
-    const side=await content.getAttribute('data-side');const direction=({top:'above',bottom:'below',left:'left',right:'right'} as Record<string,string>)[side!];
-    expect(direction).toBeTruthy();await expect(page.getByTestId('board-zoom-submenu-chevron')).toHaveAttribute('data-direction',direction);
+    const side=await content.getAttribute('data-side');
+    if(side!=='top'&&side!=='bottom'&&side!=='left'&&side!=='right')throw new Error(`INVALID_ZOOM_MENU_SIDE:${side}`);
+    const directions:Record<'top'|'bottom'|'left'|'right',string>={top:'above',bottom:'below',left:'left',right:'right'};
+    const direction=directions[side];await expect(page.getByTestId('board-zoom-submenu-chevron')).toHaveAttribute('data-direction',direction);
     await checkAllCues(page);records.push({phase:'zoom-placement',viewport:{width:viewport.width,height},side,direction});
     await page.screenshot({path:info.outputPath(`zoom-${viewport.width}-${height}.png`)});
     await page.keyboard.press('Escape');await expect(content).toBeHidden();
