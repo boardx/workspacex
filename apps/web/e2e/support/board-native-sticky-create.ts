@@ -70,6 +70,19 @@ export async function createNativeText(page:Page,text:string,proof:NativeCreatio
 }
 async function createNativeTextObject(page:Page,text:string,proof:NativeCreationProof,kind:'sticky'|'text',options:{finishEditor?:boolean}){
   await expectBoardSynced(page,30_000);
+  // Reflow loops can leave editing or an inspector open after focus moves.
+  // Exit through the real focused editor/close control before arming a tool;
+  // fixed chrome cannot be moved out of the way by panning the canvas.
+  const previousEditor=page.getByLabel('对象文字',{exact:true});
+  if(await previousEditor.isVisible()){
+    await previousEditor.focus();await expect(previousEditor).toBeFocused();
+    await previousEditor.press('Escape');await expect(previousEditor).toBeHidden();
+    await expectBoardSynced(page,30_000);
+  }
+  const mindmapClose=page.getByRole('button',{name:'关闭思维导图',exact:true});
+  if(await mindmapClose.isVisible()){
+    await mindmapClose.click();await expect(mindmapClose).toBeHidden();
+  }
   const before=await canonicalRows(page);
   const armedSnapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),armedHead=await boardHead(proof.api,proof.token,proof.boardId),armedUpdates=proof.updates();
   const selected=page.locator('[data-testid="board-a11y-mirror"] button[aria-pressed="true"]');
@@ -114,7 +127,7 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
       return {x:box.x+(g.x+g.width/2)*zoom+panX-width/2,y:box.y+(g.y+g.height/2)*zoom+panY-height/2,width,height};
     });
     if(occupied.length!==count)throw new Error('NATIVE_GEOMETRY_COUNT_MISMATCH');
-    const chrome=Array.from(document.querySelectorAll('[data-board-chrome]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
+    const chrome=Array.from(document.querySelectorAll('[data-board-chrome], [data-testid="board-mindmap-controls"]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
     const selection=occupied.filter((_,index)=>nodes[index]?.querySelector('[aria-pressed="true"]'));
     return {canvas:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},occupied,selection,
       // This is viewport-visible clearance for native reflow placement, not proof of the full scaled paper footprint.
