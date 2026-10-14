@@ -9,7 +9,7 @@ import { executeBoardOperation } from '@/lib/whiteboard-operation-client';
 import { planBoardMindmap, type MindmapAction } from './board-mindmap-planner';
 
 type Revision = { epoch: number; seq: number };
-export function useBoardMindmap(input: { boardId: string; doc: Y.Doc; readOnly: boolean; role: 'owner'|'editor'|'commenter'|'viewer'; revision: Revision|null; onSelection: (ids: string[]) => void; onNotice: (message: string) => void }) {
+export function useBoardMindmap(input: { boardId: string; doc: Y.Doc; readOnly: boolean; role: 'owner'|'editor'|'commenter'|'viewer'; revision: Revision|null; onSelection: (ids: string[]) => void; onNotice: (message: string) => void; onCreatedRoot?: (id:string)=>void }) {
   const session = useOptionalSession();
   const [busy, setBusy] = useState(false), [pendingRevision, setPendingRevision] = useState(0);
   const busyRef = useRef(false), scope = useRef(0);
@@ -17,7 +17,7 @@ export function useBoardMindmap(input: { boardId: string; doc: Y.Doc; readOnly: 
   const queuedHistory=useRef<'undo'|'redo'|null>(null);
   const historyAction=useRef<(direction:'undo'|'redo')=>Promise<boolean>>(async()=>false);
   const drainHistory=useCallback(()=>{const next=queuedHistory.current;queuedHistory.current=null;if(next)void historyAction.current(next);},[]);
-  const awaiting = useRef<{ revision: Revision; selectedId: string|null }|null>(null);
+  const awaiting = useRef<{ revision: Revision; selectedId: string|null; createdRoot?:string }|null>(null);
   const revisionRef = useRef(input.revision); revisionRef.current = input.revision;
   const { boardId, doc, onSelection, onNotice } = input;
   useEffect(() => { scope.current++; busyRef.current = false; setBusy(false); undo.current=[]; redo.current=[]; awaiting.current=null; queuedHistory.current=null; }, [boardId, doc, session?.session?.currentOrgId, session?.session?.userId]);
@@ -26,9 +26,10 @@ export function useBoardMindmap(input: { boardId: string; doc: Y.Doc; readOnly: 
     if (!pending || !applied || applied.epoch !== pending.revision.epoch || applied.seq < pending.revision.seq) return;
     awaiting.current=null; busyRef.current=false; setBusy(false);
     onSelection(pending.selectedId && readObjects(doc).some(object => object.id === pending.selectedId) ? [pending.selectedId] : []);
+    if(pending.createdRoot)input.onCreatedRoot?.(pending.createdRoot);
     onNotice('思维导图已由服务器保存。');
     drainHistory();
-  }, [doc, input.revision, onSelection, onNotice, drainHistory]);
+  }, [doc, input.revision, input.onCreatedRoot, onSelection, onNotice, drainHistory]);
   useEffect(() => {
     const pending=awaiting.current;
     if(!pending)return;
@@ -50,15 +51,16 @@ export function useBoardMindmap(input: { boardId: string; doc: Y.Doc; readOnly: 
         commands:command.commands, mindmap:command, provenance:{source:action.action==='import-mermaid'?'import':'human',model:null,skill:null,sourceArtifactId:null,sourceRevision:null,layoutHash:null,inputObjectIds:[],}, });
       if(scope.current!==currentScope)return false;
       undo.current.push(receipt); redo.current=[];
-      awaiting.current={revision:receipt.revision,selectedId:plan.selectedId};setPendingRevision(value=>value+1);
+      const createdRoot=action.action==='create-root'||action.action==='import-mermaid'?plan.treeId:undefined;
+      awaiting.current={revision:receipt.revision,selectedId:plan.selectedId,createdRoot};setPendingRevision(value=>value+1);
       const applied=revisionRef.current;
-      if(applied?.epoch===receipt.revision.epoch&&applied.seq>=receipt.revision.seq){awaiting.current=null;onSelection(plan.selectedId?[plan.selectedId]:[]);busyRef.current=false;setBusy(false);onNotice('思维导图已由服务器保存。');drainHistory();}
+      if(applied?.epoch===receipt.revision.epoch&&applied.seq>=receipt.revision.seq){awaiting.current=null;onSelection(plan.selectedId?[plan.selectedId]:[]);busyRef.current=false;setBusy(false);if(createdRoot)input.onCreatedRoot?.(createdRoot);onNotice('思维导图已由服务器保存。');drainHistory();}
       return true;
     } catch(error) {
       if(scope.current===currentScope){queuedHistory.current=null;busyRef.current=false;setBusy(false);onNotice(error instanceof Error && (error.message.includes('CONFLICT') || error.message.includes('STALE'))?'思维导图未保存：其他成员已修改白板，请核对后重试。':`思维导图未保存：${error instanceof Error?error.message:'操作失败'}`);}
       return false;
     }
-  }, [boardId, doc, input.readOnly, input.role, onNotice, onSelection, session, drainHistory]);
+  }, [boardId, doc, input.readOnly, input.role, input.onCreatedRoot, onNotice, onSelection, session, drainHistory]);
   const history = useCallback(async (direction:'undo'|'redo') => {
     if(input.readOnly)return false;
     if(busyRef.current){queuedHistory.current??=direction;return true;}

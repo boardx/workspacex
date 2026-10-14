@@ -121,7 +121,8 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   const [presenting]=useState(false),[followingActorId,setFollowingActorId]=useState<string|null>(null);const viewportRevision=useRef(0),followRevision=useRef(-1);
   const [notice, setNotice] = useState(""), [editing, setEditing] = useState<EditSession | null>(null), [conflictedDraft, setConflictedDraft] = useState<string | null>(null);
   const [viewingStickyId, setViewingStickyId] = useState<string | null>(null);
-  const mindmap = useBoardMindmap({boardId,doc,readOnly,role:role??"viewer",revision:serverRevision,onSelection:setSelected,onNotice:setNotice});
+  const revealMindmapRoot=useCallback((id:string)=>{const object=readObjects(doc).find(object=>object.id===id);if(!object)return;const next={...viewport,panX:frame.size.width/2-(object.geometry.x+object.geometry.width/2)*viewport.zoom,panY:frame.size.height/2-(object.geometry.y+object.geometry.height/2)*viewport.zoom};setViewport(next);persistViewport(next);},[doc,frame.size,viewport,setViewport,persistViewport]);
+  const mindmap = useBoardMindmap({boardId,doc,readOnly,role:role??"viewer",revision:serverRevision,onSelection:setSelected,onNotice:setNotice,onCreatedRoot:revealMindmapRoot});
   const pendingCreatedEdits = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const awaitingAck=useRef<{kind:"撤销"|"重做";gestureId:string}|null>(null);
   const [bulk, setBulk] = useState<string | null>(null), [pasteChoice, setPasteChoice] = useState<PasteChoice>(null);

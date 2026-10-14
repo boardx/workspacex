@@ -1,4 +1,4 @@
-import { createStickyBatchEnvelope, type WhiteboardCommand, type WhiteboardObject } from '@repo/whiteboard-core';
+import { canonicalSceneBounds, createStickyBatchEnvelope, type WhiteboardCommand, type WhiteboardObject } from '@repo/whiteboard-core';
 import { computeMindmapLayout, readMindmapMetadata, readMindmapTree } from '@repo/whiteboard-core';
 import type { DiagramModel } from '@repo/fabric-markdown/model';
 
@@ -23,6 +23,7 @@ function edge(id: string, treeId: string, from: string, to: string, siblingOrder
 }
 /** Pure candidate planning: no Yjs writes, IDs are allocated once by the caller. */
 export function planBoardMindmap(objects: readonly WhiteboardObject[], input: MindmapAction): MindmapPlan {
+  const originalIds=new Set(objects.map(object=>object.id));
   const byId = new Map(objects.map(object => [object.id, structuredClone(object)]));
   const commands: WhiteboardCommand[] = [];
   let treeId: string, selectedId: string | null;
@@ -91,6 +92,22 @@ export function planBoardMindmap(objects: readonly WhiteboardObject[], input: Mi
       const object = byId.get(id)!;
       if (object.locked && JSON.stringify(object.geometry) !== JSON.stringify(geometry)) throw new Error('MINDMAP_LOCKED');
       if (JSON.stringify(object.geometry) !== JSON.stringify(geometry)) commands.push({ type: 'geometry', id, geometry });
+      object.geometry=geometry;
+    }
+  }
+  if(input.action==='create-root'||input.action==='import-mermaid'){
+    const createdNodes=[...byId.values()].filter(object=>!originalIds.has(object.id)&&object.kind==='sticky'&&readMindmapMetadata(object)?.treeId===treeId);
+    const existing=objects.filter(object=>!object.hidden&&object.kind!=='connector'&&object.kind!=='frame'&&object.kind!=='group').map(object=>canonicalSceneBounds(object.geometry));
+    const boxes=createdNodes.map(object=>canonicalSceneBounds(object.geometry));
+    const overlaps=boxes.some(box=>existing.some(old=>box.left<old.right+32&&box.right>old.left-32&&box.top<old.bottom+32&&box.bottom>old.top-32));
+    if(overlaps&&existing.length){
+      // Translate only the new tree below the occupied scene. Existing roots
+      // and their layout anchors never move just to make room for an import.
+      const dy=Math.max(...existing.map(box=>box.bottom))+80-Math.min(...boxes.map(box=>box.top));
+      const createdIds=new Set(createdNodes.map(object=>object.id));
+      for(const object of createdNodes){object.geometry={...object.geometry,y:object.geometry.y+dy};}
+      for(let index=commands.length-1;index>=0;index--){const command=commands[index]!;if(command.type==='geometry'&&createdIds.has(command.id))commands.splice(index,1);}
+      for(const command of commands)if(command.type==='create'&&createdIds.has(command.object.id))command.object.geometry={...byId.get(command.object.id)!.geometry};
     }
   }
   if (!commands.length) { const root = byId.get(treeId)!; commands.push({ type: 'geometry', id: treeId, geometry: root.geometry }); }

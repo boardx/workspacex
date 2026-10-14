@@ -73,6 +73,10 @@ test('native mindmap root child sibling collapse reparent undo redo source and p
     const imported=await snapshot();expect(imported.objects.filter(object=>object.kind==='sticky'&&(object.extensionData?.mindmap as{treeId:string})?.treeId!==root.id)).toHaveLength(3);
     // Delete the imported root through the server-authoritative subtree command.
     const importedRoot=imported.objects.find(object=>object.kind==='sticky'&&(object.extensionData?.mindmap as{treeId:string})?.treeId===object.id&&object.id!==root.id)!;
+    expect(imported.objects.find(object=>object.id===root.id)!.geometry).toEqual(reparented.objects.find(object=>object.id===root.id)!.geometry);
+    for(const old of reparented.objects.filter(object=>object.kind==='sticky'))expect(importedRoot.geometry.y).toBeGreaterThan(old.geometry.y+old.geometry.height);
+    // The product reveals the new root after its authoritative revision arrives.
+    await expect(page.getByTestId(`board-a11y-object-${importedRoot.id}`)).toHaveAttribute('aria-pressed','true');
     await selectCanvas(page,importedRoot.id);await page.getByTestId('board-fabric-surface').focus();await page.keyboard.press('Delete');await expect.poll(async()=>(await snapshot()).objects.length).toBe(5);await synced(page);
   }catch(error){firstError=error;}
   finally{try{await peerContext.close();}catch(error){cleanupErrors.push(error);}try{await deleteOwnedConnectorFixture(api,token,id,F.userId,title);}catch(error){cleanupErrors.push(error);}if(cleanupErrors.length)await info.attach('cleanup-errors',{body:cleanupErrors.map(error=>String(error)).join('\n'),contentType:'text/plain'});}

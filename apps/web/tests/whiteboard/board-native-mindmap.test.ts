@@ -18,6 +18,17 @@ describe('native Board mindmap (#5682)',()=>{
   it('reparents in one plan and preserves node and edge IDs',()=>{const objects=fixture();const next=apply(objects,{action:'reparent',nodeId:'a',newParentId:'b'});expect(next.map(object=>object.id).sort()).toEqual(objects.map(object=>object.id).sort());expect(readMindmapTree(next,'root').incoming.get('a')!.connector!.from).toBe('b');expect(()=>planBoardMindmap(next,{action:'reparent',nodeId:'b',newParentId:'a'})).toThrow();expect(()=>planBoardMindmap(objects,{action:'reparent',nodeId:'root',newParentId:'a'})).toThrow();});
   it('deletes a subtree atomically and refuses locked trees',()=>{const objects=fixture();expect(apply(objects,{action:'delete-subtree',nodeId:'a'}).map(object=>object.id).sort()).toEqual(['b','rb','root']);objects.find(object=>object.id==='b')!.locked=true;expect(()=>planBoardMindmap(objects,{action:'layout',treeId:'root'})).toThrow('MINDMAP_LOCKED');});
   it('deletes a full tree edge-first without duplicate cascaded deletes',()=>{const objects=fixture(),plan=planBoardMindmap(objects,{action:'delete-subtree',nodeId:'root'});expect(plan.commands.filter(command=>command.type==='delete').slice(0,2).map(command=>command.id).sort()).toEqual(['ra','rb']);expect(apply(objects,{action:'delete-subtree',nodeId:'root'})).toEqual([]);});
+  it('places repeated creation and imports without overlapping existing widgets or moving their anchors',()=>{
+    const objects=fixture(),rootBefore={...objects.find(object=>object.id==='root')!.geometry};
+    const created=apply(objects,{action:'create-root',id:'second-root',text:'第二个主题',position:{x:10,y:20}});
+    const second=created.find(object=>object.id==='second-root')!.geometry;
+    for(const old of objects.filter(object=>object.kind==='sticky'))expect(second.y).toBeGreaterThan(old.geometry.y+old.geometry.height);
+    expect(created.find(object=>object.id==='root')!.geometry).toEqual(rootBefore);
+    const model={kind:'mindmap' as const,direction:'LR' as const,nodes:[{id:'n0',label:'导入根',shape:'sticky' as const,x:0,y:0,width:180,height:180},{id:'n1',label:'导入子',shape:'sticky' as const,x:0,y:0,width:180,height:180}],edges:[{id:'e0',source:'n0',target:'n1',label:'',kind:'open' as const}]};
+    const imported=apply(objects,{action:'import-mermaid',model,ids:{n0:'import-root',n1:'import-child'},edgeIds:{e0:'import-edge'},position:{x:10,y:20}});
+    for(const node of imported.filter(object=>object.id.startsWith('import-')&&object.kind==='sticky'))for(const old of objects.filter(object=>object.kind==='sticky'))expect(node.geometry.y).toBeGreaterThan(old.geometry.y+old.geometry.height);
+    expect(imported.find(object=>object.id==='root')!.geometry).toEqual(rootBefore);
+  });
   it('exports tree source without geometry or collapsed node omission',()=>{const source=boardMindmapSource(fixture(),'root');expect(source).toContain('mindmap');expect(source).toContain('中心主题');expect(source).toContain('研究');expect(source).toContain('开发');expect(source).not.toMatch(/width|height|rotation|geometry/);});
   it('previews only a valid explicit reparent zone, excluding descendants and current parent',()=>{const objects=fixture();const b=objects.find(object=>object.id==='b')!;expect(mindmapReparentTarget(objects,'a',b.geometry)).toBe('b');expect(mindmapReparentTarget(objects,'root',b.geometry)).toBeNull();expect(mindmapReparentTarget(objects,'a',{...b.geometry,x:9999})).toBeNull();});
 });
