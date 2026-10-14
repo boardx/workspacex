@@ -19,7 +19,16 @@ function readDataUrl(blob: Blob): Promise<string> {
 export function BoardDownloadControls({ boardId, title, objects }: { boardId: string; title: string; objects: readonly WhiteboardObject[] }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState<string | null>(null);
   const active = useRef<AbortController | null>(null);
-  useEffect(() => () => { active.current?.abort(); }, [boardId]);
+  useEffect(() => {
+    setBusy(false);
+    setError(null);
+    return () => {
+      active.current?.abort();
+      // Release the old board immediately: its rendering can remain pending
+      // on fonts/decoding, and must not block a new board's download.
+      active.current = null;
+    };
+  }, [boardId]);
   const download = async (format: "png" | "pdf") => {
     if (active.current) return;
     const controller = new AbortController();

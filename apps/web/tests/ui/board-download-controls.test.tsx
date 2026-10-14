@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BoardDownloadControls } from "../../components/whiteboard/board-download-controls";
 const renderImage = vi.hoisted(() => vi.fn());
@@ -25,4 +25,27 @@ describe("Board download controls", () => {
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("下载失败"));
     expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
   });
+});
+
+it("releases a cancelled board download and ignores its late completion while the new board exports", async () => {
+  let finishOld!: (value: unknown) => void, finishNew!: (value: unknown) => void;
+  renderImage.mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
+    .mockImplementationOnce(() => new Promise(resolve => { finishNew = resolve; }));
+  const view = render(<BoardDownloadControls boardId="old-board" title="Old" objects={[]}/>);
+  fireEvent.click(screen.getByTestId("board-download-png"));
+  const oldSignal = renderImage.mock.calls[0]![0].signal as AbortSignal;
+  expect(screen.getByTestId("board-download-png").hasAttribute("disabled")).toBe(true);
+  view.rerender(<BoardDownloadControls boardId="new-board" title="New" objects={[]}/>);
+  expect(oldSignal.aborted).toBe(true);
+  expect(screen.getByTestId("board-download-png").hasAttribute("disabled")).toBe(false);
+  fireEvent.click(screen.getByTestId("board-download-png"));
+  expect(renderImage.mock.calls[1]![0].boardId).toBe("new-board");
+  const image = { blob: new Blob(["png"], { type: "image/png" }), width: 500, height: 300 };
+  await act(async () => { finishOld(image); });
+  expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByTestId("board-download-png").hasAttribute("disabled")).toBe(true);
+  await act(async () => { finishNew(image); });
+  expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledOnce();
+  expect(screen.getByTestId("board-download-png").hasAttribute("disabled")).toBe(false);
 });
