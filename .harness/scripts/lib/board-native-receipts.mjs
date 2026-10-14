@@ -61,8 +61,8 @@ export function safeNativeReceiptSummary(receipts) {
   return Object.fromEntries(Object.keys(NATIVE_RECEIPTS).map(lane=>{const r=receipts[lane]??{};return [lane,{status:statuses.has(r.status)?r.status:'INVALID',failureReason:r.failureReason==null?null:reasons.has(r.failureReason)?r.failureReason:'UNRECOGNIZED_FAILURE',actualRuntimeExecution:typeof r.actualRuntimeExecution==='boolean'?r.actualRuntimeExecution:null,requiredSuiteComplete:typeof r.requiredSuiteComplete==='boolean'?r.requiredSuiteComplete:null}];}));
 }
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  try { const receipts=readNativeReceipts(process.argv[2]);
+  try { assert.match(process.argv[3],/^[a-f0-9]{40}$/);const receipts=readNativeReceipts(process.argv[2]);
     console.log(JSON.stringify({sourceHead:process.argv[3],suites:safeNativeReceiptSummary(receipts)}));
     verifyNativeReceipts(receipts, process.argv[3]); }
-  catch (error) { console.error(error.message); process.exitCode = 1; }
+  catch { console.error('NATIVE_RECEIPT_INVALID_OR_FAILED'); process.exitCode = 1; }
 }

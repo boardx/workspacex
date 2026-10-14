@@ -1,3 +1,4 @@
+import {spawnSync} from 'node:child_process';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
@@ -42,4 +43,16 @@ test('public receipt summary rejects arbitrary values before verdict validation'
 });
 test('R01 final proof preserves original stage with a separate secondary marker',()=>{
  assert.deepEqual(parseNativeFailure('AggregateError: R01_NATIVE_FAILURE LOGIN FINAL_PROOF','board-r01-native-matrix.spec.ts'),{suite:'R01',stage:'LOGIN',primaryFailure:'PRIVATE_REPORT_RETAINED',secondaryStage:'FINAL_PROOF'});
+});
+
+test('whole receipt CLI never prints malformed JSON or assertion operands',()=>{
+ const root=mkdtempSync(join(tmpdir(),'board-cli-'));
+ try{
+  mkdirSync(join(root,'connectors'));
+  for(const raw of ['{"sourceHead":"PRIVATE_PASSWORD","schemaVersion":1,"status":"PASSED"}','{"PRIVATE_PASSWORD"']){
+   writeFileSync(join(root,'connectors','receipt.json'),raw);
+   const result=spawnSync(process.execPath,['.harness/scripts/lib/board-native-receipts.mjs',root,'a'.repeat(40)],{encoding:'utf8'});
+   assert.equal(result.status,1);assert(!`${result.stdout}${result.stderr}`.includes('PRIVATE_PASSWORD'));assert.match(result.stderr,/NATIVE_RECEIPT_INVALID_OR_FAILED/);
+  }
+ }finally{rmSync(root,{recursive:true});}
 });
