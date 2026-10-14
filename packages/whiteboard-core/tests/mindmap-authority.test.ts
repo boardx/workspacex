@@ -37,4 +37,12 @@ describe('native mindmap authority',()=>{
     const item=restored.getMap<Y.Map<unknown>>('objects').get('ra')!;item.set('connector',{from:'b',to:'a'});expect(()=>validateDocument(restored)).toThrow('MINDMAP_CYCLE');
     restored.destroy();doc.destroy();
   });
+  it('domain intentions reject layout deletion and collapse reparenting before mutation',()=>{
+    const doc=seed(),before=Y.encodeStateAsUpdate(doc),port=new MindmapCommandPort(doc);
+    const envelope={boardId:'board',clientId:'browser',gestureId:'bad-action'};
+    expect(()=>port.dispatch({...envelope,command:{action:'layout',treeId:'root',expectedStateVector:mindmapStateVector(doc),commands:[{type:'delete',id:'b'}]}})).toThrow();
+    expect(()=>port.dispatch({...envelope,command:{action:'set-collapsed',treeId:'root',expectedStateVector:mindmapStateVector(doc),commands:[{type:'connector',id:'ab',connector:{from:'root',to:'b'}}]}})).toThrow();
+    expect(Y.encodeStateAsUpdate(doc)).toEqual(before);doc.destroy();
+  });
+
 });

@@ -129,19 +129,6 @@ export class WhiteboardOperationService {
       if(head.epoch!==stored.receipt.revision.epoch||head.seq!==stored.receipt.revision.seq)throw new WhiteboardOperationError('STALE_REVISION');
       const desired=await this.undoStore.readBefore(principal,boardId,stored.before);
       const before=await this.undoStore.capture(session,principal,boardId);
-      if (request.mindmap) {
-        if (canonical(request.mindmap.commands) !== canonical(request.commands)) throw new WhiteboardOperationError('VALIDATION_FAILED');
-        const snapshot = await this.collaboration.loadInTransaction(session, principal, boardId);
-        if (snapshot.epoch !== head.epoch || snapshot.seq !== head.seq) throw new WhiteboardOperationError('STALE_REVISION');
-        const shadow = createWhiteboardDocument();
-        try {
-          Y.applyUpdate(shadow, snapshot.update);
-          new MindmapCommandPort(shadow).dispatch({boardId,clientId:actor.actorId,gestureId:request.requestId,command:request.mindmap});
-        } catch (error) {
-          throw new WhiteboardOperationError(error instanceof Error && error.message === 'MINDMAP_STALE_REVISION' ? 'STALE_REVISION' : 'VALIDATION_FAILED');
-        } finally { shadow.destroy(); }
-      }
-
       await this.undoStore.checkComments(session,principal,boardId,stored.before);
       const ack=await this.collaboration.compensateInTransaction(session,principal,boardId,{epoch:head.epoch,requestId:stored.undoId,actorId:actor.actorId,before:desired}).catch(collaborationError);
       await this.undoStore.restoreComments(session,principal,boardId,stored.before);

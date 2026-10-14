@@ -176,7 +176,21 @@ export const WhiteboardMindmapCommand = z.object({
   /** Hex Yjs state vector captured before planning: stale geometry/parentage is rejected. */
   expectedStateVector:z.string().max(65536).regex(/^(?:[a-f0-9]{2})+$/),
   commands:WhiteboardCommandBatch,
-}).strict();
+}).strict().superRefine((command, ctx) => {
+  const allowed: Record<typeof command.action, readonly string[]> = {
+    'create-root':['create'], 'import-mermaid':['create','geometry'],
+    'add-child':['create','geometry','extension'], 'add-sibling':['create','geometry','extension'],
+    reparent:['connector','geometry','extension'], 'set-collapsed':['extension','geometry'],
+    layout:['geometry'], 'delete-subtree':['delete','geometry'],
+  };
+  const reject = (message:string) => ctx.addIssue({code:z.ZodIssueCode.custom,message});
+  if (command.commands.some(primitive => !allowed[command.action].includes(primitive.type))) reject('Mindmap action cannot issue this primitive command');
+  if (command.action === 'create-root' && (command.commands.length !== 1 || command.commands[0]?.type !== 'create' || command.commands[0].object.id !== command.treeId)) reject('Root creation must create its root identity exactly once');
+  if (['add-child','add-sibling'].includes(command.action) && command.commands.filter(primitive => primitive.type === 'create').length !== 2) reject('Adding a topic must create one sticky and one tree edge');
+  if (command.action === 'reparent' && command.commands.filter(primitive => primitive.type === 'connector').length !== 1) reject('Reparent must change exactly one tree edge');
+  if (command.action === 'set-collapsed' && command.commands.filter(primitive => primitive.type === 'extension').length !== 1) reject('Collapse must update exactly one node metadata');
+  if (command.action === 'delete-subtree' && !command.commands.some(primitive => primitive.type === 'delete')) reject('Delete subtree must delete a member');
+});
 export type WhiteboardMindmapCommand = z.infer<typeof WhiteboardMindmapCommand>;
 
 

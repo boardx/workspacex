@@ -1,7 +1,7 @@
 import {lockBoardStorageMaintenance} from './storage-maintenance-access';
 import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
-import { WhiteboardCommandBatch, WhiteboardObjectId, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
+import { WhiteboardCommandBatch, WhiteboardObjectId, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';

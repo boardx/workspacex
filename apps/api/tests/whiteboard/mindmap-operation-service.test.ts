@@ -34,4 +34,15 @@ describe('typed mindmap operation service boundary',()=>{
     await expect(f.service.execute(principal,boardId,{...f.input,mindmap:{...f.input.mindmap,action:'layout'}})).rejects.toThrow();
     f.doc.destroy();
   });
+  it('undo uses server compensation without executing or reading a new domain command',async()=>{
+    const f=mindmapFixture(),receipt=await f.service.execute(principal,boardId,f.input);
+    const load=vi.mocked(f.collaboration.loadInTransaction);load.mockClear();
+    const compensate=vi.fn(f.collaboration.compensateInTransaction!);f.collaboration.compensateInTransaction=compensate;
+    f.audit.lockHead=async()=>({epoch:1,seq:1,actorRole:'editor'});
+    const result=await f.service.undo(principal,boardId,receipt.operationId,{expectedRevision:receipt.revision});
+    expect(result.events[0]?.type).toBe('OperationUndone');
+    expect(compensate).toHaveBeenCalledTimes(1);expect(load).not.toHaveBeenCalled();expect(f.write).toHaveBeenCalledTimes(1);
+    f.doc.destroy();
+  });
+
 });

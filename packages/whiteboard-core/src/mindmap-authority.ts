@@ -33,6 +33,24 @@ export class MindmapCommandPort {
       const object = primitive.type === 'create' ? primitive.object : objects.get(primitive.id);
       if (!object) throw new Error('OBJECT_NOT_FOUND');
       const metadata = object.extensionData?.mindmap as {treeId?:string} | undefined;
+      if (primitive.type === 'extension') {
+        const existing = object.extensionData ?? {};
+        const next = primitive.key === 'mindmap' ? primitive.value : primitive.extensionData?.mindmap;
+        if (primitive.key !== undefined && primitive.key !== 'mindmap') throw new Error('MINDMAP_INVALID_ACTION');
+        const oldMetadata = existing.mindmap as Record<string,unknown> | undefined;
+        if (primitive.extensionData) {
+          const withoutMindmap = (value:Record<string,unknown>) => JSON.stringify(Object.entries(value).filter(([key]) => key !== 'mindmap').sort(([a],[b])=>a.localeCompare(b)));
+          if (withoutMindmap(primitive.extensionData) !== withoutMindmap(existing)) throw new Error('MINDMAP_INVALID_ACTION');
+        }
+        if (command.action === 'set-collapsed') {
+          const nextMetadata = next as Record<string,unknown> | undefined;
+          if (oldMetadata?.role !== 'node' || nextMetadata?.role !== 'node' || typeof nextMetadata.collapsed !== 'boolean'
+            || nextMetadata.version !== oldMetadata.version || nextMetadata.treeId !== oldMetadata.treeId) throw new Error('MINDMAP_INVALID_ACTION');
+        }
+      }
+      if (primitive.type === 'connector' && command.action === 'reparent') {
+        if (object.connector?.to !== primitive.connector.to || metadata === undefined) throw new Error('MINDMAP_INVALID_ACTION');
+      }
       if (metadata?.treeId !== command.treeId) {
         const linkedCleanup = command.action === 'delete-subtree' && primitive.type === 'delete'
           && metadata === undefined && object.kind === 'connector'
