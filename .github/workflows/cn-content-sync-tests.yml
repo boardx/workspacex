@@ -6,10 +6,13 @@ on:
       - 'apps/api/vitest.platform-content-release.config.ts'
       - 'scripts/cn-content-sync/**'
       - 'scripts/cn-release-mvp*'
+      - 'scripts/cn-release-approval-plan.py'
       - 'scripts/cn-hk-*'
       - 'tests/test_cn_mvp*'
+      - 'tests/test_cn_release_approval_plan.py'
       - 'tests/test_cn_hk*'
       - '.github/workflows/cn-content-sync-tests.yml'
+      - '.github/workflows/cn-release-mvp*.yml'
   workflow_dispatch:
 permissions:
   contents: read
@@ -33,6 +36,8 @@ jobs:
         run: python3 -B -m unittest discover -s tests -p 'test_cn_mvp_*.py' -v
       - name: Hong Kong v2 compatibility and v3 negative cases
         run: python3 -B -m unittest discover -s tests -p 'test_cn_hk_*.py' -v
+      - name: Canonical approval and fixed driver compatibility
+        run: python3 -B -m unittest discover -s tests -p 'test_cn_release_approval_plan.py' -v
       - name: Start isolated PostgreSQL on GitHub runner
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
       - name: Actual database atomicity, idempotency and tenant protection

@@ -27,5 +27,5 @@ class Transfer(unittest.TestCase):
  def test_bridge_actual_missing_entries_fail_closed(self):
   with self.assertRaisesRegex(ValueError,'ROOT_BRIDGE_NOT_READY'):master.bridge_admission({'fixedReleaseInstalled':False})
  def test_status_does_not_grant_authority(self):
-  self.assertTrue(master.bridge_admission({k:True for k in ['fixedReleaseInstalled','advanceInstalled','controlInstalled','approvalStoreInstalled','sudoFixedEntryAllowed']}))
+  self.assertTrue(master.bridge_admission({k:True for k in ['fixedReleaseInstalled','advanceInstalled','controlInstalled','approvalStoreInstalled','sudoFixedEntryAllowed','evidencePortalInstalled','trustedEvidenceMaterializerInstalled']}))
 if __name__=='__main__':unittest.main()

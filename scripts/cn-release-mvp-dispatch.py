@@ -3,6 +3,7 @@
 import argparse, datetime, hashlib, json, os, re, subprocess, time
 from pathlib import Path
 WORKFLOWS={'build':'build-cn-image-candidates.yml','transfer':'transfer-cn-candidates-via-hongkong.yml','production':'release-cn-fixed.yml'}
+WORKFLOWS.update(approval='cn-release-mvp-bridge.yml',terminal='cn-release-mvp-bridge.yml')
 def need(ok,reason):
  if not ok:raise ValueError(reason)
 def api(path,payload=None):

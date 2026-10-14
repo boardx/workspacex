@@ -14,10 +14,17 @@ def module(name):
 
 def generate(parameters,probe):
     o=module('orchestrate');r=module('stage-router');d=module('fixed-driver');ac=module('acquire-delegation');e=o.e
-    e.need(set(parameters)=={'identity','target','issuedAt','expiresAt','acquireRequests','runtimeStaticInputHashes','runtimeRoot','business','rds'},'PARAMETER_SCHEMA')
+    fields={'identity','target','issuedAt','expiresAt','acquireRequests','runtimeStaticInputHashes','runtimeRoot','business','rds'}
+    e.need(set(parameters)in (fields,fields|{'mvp'}),'PARAMETER_SCHEMA')
     plan=o.installation_plan(probe);bundle=plan['controlBundle'];code={f['path']:f['sha256']for f in bundle['files']}
     a={'kind':'cn-fixed-release-approval-v1','schemaVersion':1,**{k:copy.deepcopy(parameters[k])for k in ('identity','target','issuedAt','expiresAt','business','rds')},'codeFiles':code}
     e.need(set(a['identity'])==set(d.IDENTITY) and a['target']==d.TARGET,'IDENTITY_SCOPE')
+    if 'mvp' in parameters:
+        m=parameters['mvp'];e.need(set(m)=={'acceptanceScope','contentManifestSha256','buildRunId','transferRunId'} and m['acceptanceScope']=='mvp-non-model','MVP_SCOPE')
+        e.need(isinstance(m['contentManifestSha256'],str) and e.HEX.fullmatch(m['contentManifestSha256']),'MVP_CONTENT_PIN')
+        e.need(all(type(m[k])is int and m[k]>0 for k in ('buildRunId','transferRunId')),'MVP_RUNS')
+        e.need(all(parameters['acquireRequests'][phase]['runId']==m['buildRunId'] and parameters['acquireRequests'][phase]['runAttempt']==1 for phase in ('consume','publication')),'MVP_ACQUIRE_BUILD_BINDING')
+        a['mvp']=copy.deepcopy(m)
     e.need(set(parameters['runtimeStaticInputHashes'])=={'authorization','template','migrationDiff'},'STATIC_INPUTS')
     for h in parameters['runtimeStaticInputHashes'].values():e.need(isinstance(h,str) and e.HEX.fullmatch(h),'STATIC_PIN')
     root=parameters['runtimeRoot'];e.need(isinstance(root,str) and __import__('re').fullmatch('/var/lib/workspacex-cn/runtime/upgrade-f0eb-[a-z0-9-]{1,64}',root),'RUNTIME_ROOT')

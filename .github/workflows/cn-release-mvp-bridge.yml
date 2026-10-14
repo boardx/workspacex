@@ -1,0 +1,42 @@
+name: Protected CN MVP evidence bridge
+run-name: ${{ inputs.chain_id || 'Protected CN MVP evidence bridge' }}
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        required: true
+        options: [approval, terminal]
+      selector_sha256:
+        type: string
+        required: true
+      chain_id:
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: workspacex-cn-production-deploy
+  cancel-in-progress: false
+jobs:
+  evidence:
+    if: github.ref == 'refs/heads/main' && github.run_attempt == 1
+    environment: production-cn-promotion
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 3
+    steps:
+      - name: Read only retained root-approved evidence
+        env:
+          OPERATION: ${{ inputs.operation }}
+          SELECTOR: ${{ inputs.selector_sha256 }}
+        run: |
+          set -euo pipefail
+          [[ "$OPERATION" =~ ^(approval|terminal)$ ]]
+          [[ "$SELECTOR" =~ ^[a-f0-9]{64}$ ]]
+          sudo -n /usr/local/bin/workspacex-cn-mvp-evidence "$OPERATION" "$SELECTOR" > "$RUNNER_TEMP/result.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cn-mvp-${{ inputs.operation }}-${{ github.run_id }}-1
+          path: ${{ runner.temp }}/result.json
+          retention-days: 1
+          if-no-files-found: error

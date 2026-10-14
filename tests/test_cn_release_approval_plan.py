@@ -30,6 +30,16 @@ class ApprovalPlanTests(unittest.TestCase):
    observer,verifier=r.render_contract(path,a['codeFiles']['scripts/cn-release-stage-contract.py'],stage)
    self.assertEqual(a['runtime']['stageVerifierSha256'][stage],r.e.digest(verifier));self.assertEqual(a['runtime']['stageObserverSha256'][stage],r.e.digest(observer))
   self.assertNotIn('sdkFiles',a['rds']);self.assertEqual(a['identity'],self.parameters['identity'])
+ def test_mvp_metadata_preserves_canonical_driver_and_acquire_compatibility(self):
+  for request in self.parameters['acquireRequests'].values():request['runAttempt']=1
+  self.parameters['mvp']={'acceptanceScope':'mvp-non-model','contentManifestSha256':'f'*64,'buildRunId':self.parameters['acquireRequests']['consume']['runId'],'transferRunId':13}
+  raw,_,_=p.generate(self.parameters,self.probe);a=json.loads(raw)
+  self.assertEqual(a['mvp'],self.parameters['mvp']);d=p.module('fixed-driver')
+  self.assertEqual(d.validate(d.e.digest(raw),raw,d.e.instant(a['issuedAt']))['mvp'],a['mvp'])
+  p.module('acquire-delegation').approval(raw,now=d.e.instant(a['issuedAt']))
+ def test_mvp_cannot_label_an_old_acquire_as_new_build(self):
+  self.parameters['mvp']={'acceptanceScope':'mvp-non-model','contentManifestSha256':'f'*64,'buildRunId':self.parameters['acquireRequests']['consume']['runId']+1,'transferRunId':13}
+  with self.assertRaisesRegex(Exception,'MVP_ACQUIRE_BUILD_BINDING'):p.generate(self.parameters,self.probe)
  def test_complete_request_limit_cannot_be_hidden_by_small_manifest_reference(self):
   self.parameters['rds']['principalArn']='x'*65536
   with self.assertRaisesRegex(Exception,'COMPLETE_APPROVAL_TOO_LARGE'):p.generate(self.parameters,self.probe)
