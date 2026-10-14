@@ -23,6 +23,9 @@ async function viewport(page:Page){
  const z=Number(await surface.getAttribute('data-viewport-zoom')),x=Number(await surface.getAttribute('data-viewport-pan-x')),y=Number(await surface.getAttribute('data-viewport-pan-y'));
  expect(z).toBeGreaterThan(0);expect([z,x,y].every(Number.isFinite)).toBe(true);return {z,x,y,box};
 }
+// Right-side whitespace is outside the fixture objects and the top-left Mindmap
+// launcher at both registered viewport widths. Keep topCanvas checks at callers.
+function blankCanvasPoint(view:Awaited<ReturnType<typeof viewport>>){return {x:Math.round(view.box.x+view.box.width-80),y:Math.round(view.box.y+140)};}
 async function topCanvas(page:Page,point:{x:number;y:number}){expect(await page.evaluate(point=>document.elementFromPoint(point.x,point.y)?.matches('canvas.upper-canvas')??false,point)).toBe(true);}
 async function capture(page:Page,info:TestInfo,name:string){if(!visualHeavy())return;const path=info.outputPath(`${name}-${page.viewportSize()!.width}.png`);await page.screenshot({path});await info.attach(name,{path,contentType:'image/png'});}
 async function rgba(page:Page,point:{x:number;y:number},size=3){
@@ -72,7 +75,7 @@ test('N01-N02 auxiliary pan held release cancellation and Select pointer wheel p
  await page.getByTestId('board-tool-select').click();const before=await canonicalBoardSnapshot(api,token,boardId);
  const unchanged=async()=>{expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(before);expect(transport.snapshot().events.filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');};
  for(const button of ['middle','right'] as const)for(const finish of ['release','escape','pointercancel','blur'] as const){
-  const v=await viewport(page),start={x:Math.round(v.box.x+30),y:Math.round(v.box.y+70)},delta={x:24,y:18};await topCanvas(page,start);
+  const v=await viewport(page),start=blankCanvasPoint(v),delta={x:24,y:18};await topCanvas(page,start);
   const center={x:v.box.x+v.x+160*v.z,y:v.box.y+v.y+160*v.z},literalFill=visualHeavy()?await rgba(page,center):null;
   if(literalFill)expect(literalFill.filter((value,index)=>index%4===1&&value===197).length).toBeGreaterThan(0);
   const movedEdge={x:v.box.x+v.x+200*v.z+delta.x/2,y:center.y+delta.y/2};
@@ -102,9 +105,9 @@ test('N01-N02 auxiliary pan held release cancellation and Select pointer wheel p
 test('N05 transformed multi drawing erase preserves image Sticky Shape and locked ink in one durable history transaction',async({page,request:api},info)=>withBoard(page,api,info,async({token,boardId,transport})=>{
  await openBoard(page,boardId,0);const surface=page.getByTestId('board-fabric-surface');
  for(let index=0;index<3;index++){
-  await page.getByTestId('board-tool-select').click();const v=await viewport(page),blank={x:v.box.x+20,y:v.box.y+30};await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
+  await page.getByTestId('board-tool-select').click();const v=await viewport(page),blank=blankCanvasPoint(v);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-pen').click();await page.getByTestId('board-draw-stroke-20').click();await page.getByTestId('board-draw-color-18181b').click();
-  const start={x:Math.round(v.box.x+40+index*80),y:Math.round(v.box.y+90+index*35)},end={x:start.x+40,y:start.y+20};await topCanvas(page,start);await topCanvas(page,end);
+  const start={x:Math.round(v.box.x+280+index*80),y:Math.round(v.box.y+160+index*35)},end={x:start.x+40,y:start.y+20};await topCanvas(page,start);await topCanvas(page,end);
   await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:12});await page.mouse.up();
   await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects.filter(object=>object.kind==='drawing').length).toBe(index+1);
  }
@@ -120,7 +123,7 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  await boardApi(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'geometry',id:image.id,geometry:{x:160,y:345,width:64,height:48,rotation:0}}]});
  await expect(surface.locator('canvas.lower-canvas')).toHaveCount(1);await page.getByTestId('board-tool-select').click();
  const v=await viewport(page),screen=(point:{x:number;y:number})=>({x:v.box.x+v.x+point.x*v.z,y:v.box.y+v.y+point.y*v.z});
- const clearSelection=async()=>{const current=await viewport(page),blank={x:current.box.x+current.x+20*current.z,y:current.box.y+current.y+30*current.z};await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await settled(page);};await clearSelection();
+ const clearSelection=async()=>{const current=await viewport(page),blank=blankCanvasPoint(current);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await settled(page);};await clearSelection();
  const baseline=await canonicalBoardSnapshot(api,token,boardId),sites=drawings.map((drawing,index)=>{
   const content=drawing.extensionData!.contentObject as {strokes:Array<{tool:string;color:string;width:number;opacity:number;points:Array<{x:number;y:number}>}>};
   expect(content.strokes).toHaveLength(1);expect(content.strokes[0]).toMatchObject({tool:'pen',color:'#18181B',width:20,opacity:1});
@@ -192,7 +195,7 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  const redoStart=transport.snapshot().events.length;await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects).toEqual(erased.objects);
  const redone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(undone.revision,redone.revision,1);assertAtomicRevision(erased.revision,redone.revision,2);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
  await clearSelection();if(visualHeavy())expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(erasedInk);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
- await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();const emptyStart=transport.snapshot().events.length,empty=screen({x:20,y:30});await topCanvas(page,empty);await page.mouse.move(empty.x,empty.y);await page.mouse.down();await page.mouse.move(empty.x+10,empty.y+5);await page.mouse.up();expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(emptyStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
+ await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();const emptyStart=transport.snapshot().events.length,empty=blankCanvasPoint(await viewport(page));await topCanvas(page,empty);await page.mouse.move(empty.x,empty.y);await page.mouse.down();await page.mouse.move(empty.x+10,empty.y+5);await page.mouse.up();expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(emptyStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
  await page.reload();await expectBoardSynced(page);await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(6);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await clearSelection();
  const refreshed=await viewport(page),refreshScreen=(point:{x:number;y:number})=>({x:refreshed.box.x+refreshed.x+point.x*refreshed.z,y:refreshed.box.y+refreshed.y+point.y*refreshed.z});
  if(visualHeavy())for(let index=0;index<2;index++)assertTransparentPixels(await rgba(page,refreshScreen(sites[index]!.point),11));
@@ -212,11 +215,11 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
  await boardApi(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:createCommands([a,b,drawing,edge])});await openBoard(page,boardId,4);
  await page.getByTestId('board-zoom-menu').click();await page.getByText('实际大小 100%',{exact:true}).click();
  for(let index=0;index<Math.round(Math.abs(matrixZoom-1)*10);index++){await page.getByTestId('board-zoom-menu').click();await page.getByTestId(matrixZoom<1?'board-zoom-out':'board-zoom-in').click();}
- expect((await viewport(page)).z).toBeCloseTo(matrixZoom,6);const initial=await viewport(page),pan={x:matrixZoom===2?-80:35,y:matrixZoom===2?-180:45};await page.mouse.move(initial.box.x+20,initial.box.y+30);await page.mouse.wheel(initial.x-pan.x,initial.y-pan.y);await expect.poll(async()=>{const v=await viewport(page);return [v.x,v.y];}).toEqual([pan.x,pan.y]);
+ expect((await viewport(page)).z).toBeCloseTo(matrixZoom,6);const initial=await viewport(page),pan={x:matrixZoom===2?-80:35,y:matrixZoom===2?-180:45};const wheelPoint=blankCanvasPoint(initial);await topCanvas(page,wheelPoint);await page.mouse.move(wheelPoint.x,wheelPoint.y);await page.mouse.wheel(initial.x-pan.x,initial.y-pan.y);await expect.poll(async()=>{const v=await viewport(page);return [v.x,v.y];}).toEqual([pan.x,pan.y]);
  for(const gesture of ['move','rotate','scale'] as const)for(const outcome of ['cancel','commit'] as const){
   const before=await canonicalBoardSnapshot(api,token,boardId),baseline=[a.id,b.id,drawing.id].map(id=>before.objects.find(object=>object.id===id)!);
   const v=await viewport(page),screen=(point:{x:number;y:number})=>({x:v.box.x+v.x+point.x*v.z,y:v.box.y+v.y+point.y*v.z});
-  const blank={x:v.box.x+20,y:v.box.y+30};await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
+  const blank=blankCanvasPoint(v);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
   for(const [index,value] of baseline.entries()){
    const point=screen(entityPoint(value.geometry,{x:value.geometry.width/2,y:value.geometry.height/2}));await topCanvas(page,point);
    if(index)await page.keyboard.down('Shift');try{await page.mouse.click(point.x,point.y);}finally{if(index)await page.keyboard.up('Shift');}
