@@ -94,10 +94,10 @@ class PackageTest(unittest.TestCase):
         future = CONFIG['domains']['workspacex.cn']
         self.assertFalse(future['enabled'])
         self.assertEqual(future['destination'], CONFIG['marketingOrigin'])
-        self.assertEqual(future['filingVerification'], 'new-filing-order-not-submitted')
+        self.assertEqual(future['filingVerification'], 'pending-new-filing-coverage')
         self.assertIn('official-filing-coverage', future['requires'])
 
-    def test_release_marker_keeps_sha_and_identifies_cn_without_claiming_coverage(self):
+    def test_release_marker_keeps_sha_and_identifies_verified_cn_domain(self):
         marker = self.source / '.well-known/workspacex-release.json'
         marker.parent.mkdir()
         original = {'commit': 'a' * 40, 'project': 'workspacex-home'}
@@ -108,7 +108,7 @@ class PackageTest(unittest.TestCase):
         self.assertEqual(result['commit'], original['commit'])
         self.assertEqual(result['project'], 'workspacex-home-cn')
         self.assertEqual(result['region'], 'cn')
-        self.assertEqual(result['filingCoverage'], 'requires-official-verification')
+        self.assertEqual(result['filingCoverage'], 'verified-aliyun-existing-domain-record')
         self.assertEqual(json.loads(marker.read_text()), original)
 
     def test_links_assets_metadata_and_manual_choice(self):

@@ -6,13 +6,15 @@
   "domains": {
     "www.boardx.com.cn": {
       "purpose": "marketing",
-      "filingVerification": "official-domain-coverage-required"
+      "filingVerification": "verified-aliyun-existing-domain-record",
+      "subjectFilingNumber": "粤ICP备2021115740号",
+      "websiteFilingNumber": "粤ICP备2021115740号-1"
     },
     "workspacex.cn": {
       "purpose": "future-redirect",
       "enabled": false,
       "destination": "https://www.boardx.com.cn",
-      "filingVerification": "new-filing-order-not-submitted",
+      "filingVerification": "pending-new-filing-coverage",
       "requires": ["official-filing-coverage", "valid-source-domain-tls", "approved-exact-dns-and-routing-change"]
     }
   }

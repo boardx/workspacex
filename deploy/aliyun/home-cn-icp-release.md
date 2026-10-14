@@ -28,9 +28,15 @@
 | workspacex.cn | 云 DNS 已有 A `47.116.87.136`，TTL 600，RecordId `2110299639349437440`；本机公共解析失败 |
 | www.workspacex.cn | 本机公共解析失败；本次未发现已有 www 云 DNS 记录 |
 
-本任务没有写入上述 DNS 记录。工信部官方查询浏览器返回
-`net::ERR_BLOCKED_BY_CLIENT`，尚未核实 `boardx.com.cn` 与旧号的官方覆盖关系。
-`workspacex.cn` 新增备案订单尚未提交（委托提供的事实），不得宣称已完成备案。
+本任务没有写入上述 DNS 记录。工信部公共查询浏览器返回
+`net::ERR_BLOCKED_BY_CLIENT`。随后只读进入阿里云 ICP 代备案管理系统，
+“我的ICP备案信息”列出 `boardx.com.cn`，主体号 `粤ICP备2021115740号`、
+网站号 `粤ICP备2021115740号-1`，已完成首次备案订单为管局审核通过。
+账号内整改提示还明确要求已完成备案的 `www.boardx.com.cn` 页脚展示
+`粤ICP备2021115740号` 并链接工信部，故按用户及接入商明确要求展示主体号。
+脱敏摘要见 `icp-record-summary.json`；不保存负责人、证件或完整订单页面。
+该页面还显示新增服务申请的整改提示，包括公司介绍需与主办单位相符；
+这不证明 `workspacex.cn` 已取得备案覆盖，未来入口保持禁用。没有修改或提交备案订单。
 
 `GetRoutineCodeVersion` 的 `RoutineCode` 解码后是 OSS `NoSuchKey` 错误，
 因此 `rollback-code-version.json` 是失败的源码下载证据，不是可用源码备份。
@@ -41,7 +47,7 @@
 本次不触发 `.github/workflows/deploy-cn-production.yml`，不操作应用容器、数据库或 sudo。
 现有中国官网已经在阿里云 ESA，不需要为本次页脚变更新建 ECS 或迁移 Cloudflare。
 
-1. 取得官方备案查询结果，核对 `boardx.com.cn` 覆盖和展示编号。
+1. 旧域名覆盖和展示编号已依据阿里云账号内实际备案记录核实；发布前保留该记录摘要。
 2. 从通过回归的精确提交打包独立 US 基础包，再生成独立 CN 包：
 
    ```sh
@@ -60,9 +66,16 @@
    验证中国首页/隐私/手册在手机和关闭 JavaScript 时显示链接，
    验证美国 `/`、`/zh/`、隐私及手册没有备案号。没有实际回执不宣称发布完成。
 
-当前没有执行上传、发布或回退。正式发布被官方备案覆盖核查阻塞；
-可用 CLI 暴露了函数代码上传 API，但尚未核实此纯静态 HasAssets 应用的静态资产上传路径，
+当前没有执行上传、发布或回退。控制台显示应用未连接 Git 仓库，
+新增构建不可用；官方 ESA CLI 文档支持仅设置 `assets.directory` 的静态 Pages，
+可通过 `aliyun esa-cli` 兼容入口核查。静态发布的认证与上传路径仍须验证，
 不能把函数代码上传接口直接当作静态官网发布接口。
+
+官方依据：[ESA CLI 文档](https://help.aliyun.com/en/edge-security-acceleration/esa/user-guide/functions-and-pages-cli-tool)、
+[官方 CLI 配置与版本发布说明](https://github.com/aliyun/alibabacloud-esa-cli#configuration)。
+执行时只设置已有应用名称和独立 CN `assets.directory`，沿用当前 `404Page` 策略；
+不执行 `init`、`login`、域名增删或账户安全操作。如果现有 OAuth 认证不能用于
+静态上传，先报告所需凭据配置及范围，不自行新建 AccessKey。
 
 ## workspacex.cn 跳转变更边界
 
@@ -104,8 +117,8 @@ flowchart LR
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
   class A done
   class B done
-  class C doing
+  class C done
   class D doing
-  class E blocked
+  class E doing
   class F blocked
 ```

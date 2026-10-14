@@ -166,7 +166,8 @@ def build_cn_package(source, destination):
     if marker.exists():
         release = json.loads(marker.read_text())
         release.update(project=CONFIG['routine'], region='cn', origin=ORIGIN,
-                       icp=ICP_NUMBER, filingCoverage='requires-official-verification')
+                       icp=ICP_NUMBER,
+                       filingCoverage=CONFIG['domains'][urlsplit(ORIGIN).netloc]['filingVerification'])
         marker.write_text(json.dumps(release, ensure_ascii=False) + '\n')
 
 
