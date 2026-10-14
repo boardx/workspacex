@@ -6,12 +6,12 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import { DeniedState, ErrorState, LoadingSkeleton } from "@/components/work-stack/states";
-import { Bot, Workflow } from "lucide-react";
+import { Bot, FileText, MessageCircle, UserRoundPlus, Workflow } from "lucide-react";
+import { agentTaskExamples, directoryWorkflowStatus } from "@/lib/agent-directory-tasks";
 import { workflowLabelsOf } from "@/lib/workflow-catalog-title-copy";
 import {
   AGENT_ROLE_CATEGORIES,
@@ -32,22 +32,9 @@ import {
  * （ready/missing/unknown）里 `missing`/`unknown` 一律显示「能力未就绪」，不区分「明确缺失」
  * 与「查不到」，那条区分本身就是授权细节。
  */
-function ReadinessBadge({ readiness }: { readiness: AgentDirectoryCard["readiness"] }) {
-  // 同一套 Badge 语义色（uiux-r1 cross-cutting：不再混用实底棕色 pill 与浅色 pill）——
-  // 「部分待开通」用浅色 warning-tint，不是实底 warning：它不阻止开始对话。
-  if (readiness === "ready") {
-    return <Badge tone="success" data-testid="agent-card-readiness" className="shrink-0 whitespace-nowrap">可用</Badge>;
-  }
-  return (
-    <Badge
-      tone="attention"
-      data-testid="agent-card-readiness"
-      className="shrink-0 whitespace-nowrap"
-      title="日常对话可以直接开始；少数要连外部系统的动作还在等组织管理员开通"
-    >
-      部分能力待开通
-    </Badge>
-  );
+function ReadinessBadge({ card }: { card: AgentDirectoryCard }) {
+  const status = directoryWorkflowStatus(card);
+  return <Badge tone={status.tone} data-testid="agent-card-readiness" title={status.description} className="shrink-0 whitespace-nowrap text-12">{status.label}</Badge>;
 }
 
 /**
@@ -61,7 +48,7 @@ export function readinessReasonText(card: Pick<AgentDirectoryCard, "readiness" |
   return "部分能力待开通：需要连接外部系统的动作，等组织管理员开通后开放。日常对话可直接开始。";
 }
 
-function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartChat: (agentId: string) => void }) {
+function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartChat: (agentId: string, prefill?: string) => void }) {
   const name = agentDisplayName(card);
   const subtitle = agentSubtitle(card);
   const detailHref = `/agent/${encodeURIComponent(card.agentId)}`;
@@ -69,17 +56,20 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
   const readinessReason = readinessReasonText(card);
   // uiux-r5 #3.1：没有标签的数字人（通用助手）用角色类别兜一枚中性标签，不留空行。
   const displayTags = card.tags.length > 0 ? card.tags : [card.roleCategory ? ROLE_CATEGORY_LABEL[card.roleCategory] : "通用"];
-  const workflowsLine = workflowLabels.length > 0 ? `可发起：${workflowLabels.join("、")}` : null;
+  const workflowsLine = workflowLabels.length > 0 ? `关联流程：${workflowLabels.join("、")}` : null;
+  const examples = agentTaskExamples(card);
   return (
     <ResourceCard
       testId={`agent-card-${card.agentId}`}
+      className="shadow-none [&_h3]:text-16 [&_p]:text-14"
+      ariaLabel={name}
       leading={
         <Avatar
           data-testid="agent-card-avatar"
           initials={card.initials}
           avatarKey={card.avatar?.key ?? null}
           tone="ai"
-          className="h-12 w-12 text-16"
+          className="h-16 w-16 text-20"
         />
       }
       title={
@@ -94,33 +84,44 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
       }
       subtitle={subtitle ? <span data-testid="agent-card-subtitle" title={subtitle}>{firstClause(subtitle)}</span> : undefined}
       badges={card.catalogSource === "official" ? <Badge tone="ai" data-testid="agent-card-official-badge">官方</Badge> : undefined}
-      tags={<ResourceCardTags tags={displayTags} testId="agent-card-tags" />}
+      tags={<ResourceCardTags tags={displayTags} max={2} testId="agent-card-tags" />}
       meta={
         <>
           <span data-testid="agent-card-workflows" className="flex min-w-0 items-center gap-1 truncate">
             <Workflow aria-hidden className="h-3.5 w-3.5 shrink-0" />
             <span className="min-w-0 truncate" title={workflowsLine ?? undefined}>{workflowsLine ?? "直接对话推进"}</span>
           </span>
-          <ReadinessBadge readiness={card.readiness} />
+          <div className="flex flex-wrap gap-2">
+            <Badge tone="success" data-testid="agent-card-conversation-status" className="whitespace-nowrap text-12"><MessageCircle aria-hidden className="h-3.5 w-3.5" />对话可用</Badge>
+            <ReadinessBadge card={card} />
+          </div>
         </>
       }
       actions={
         <>
           <Button asChild size="sm" variant="outline">
-            <Link href={detailHref} data-testid="agent-card-view-detail">查看详情</Link>
+            <Link href={detailHref} data-testid="agent-card-view-detail">查看能力</Link>
           </Button>
           <Button
-            size="sm"
+            size="md"
             variant="primary"
+            className="ml-auto"
             data-testid="agent-card-start-chat"
             title={readinessReason ?? undefined}
             onClick={() => onStartChat(card.agentId)}
           >
-            开始对话
+            开始任务
           </Button>
         </>
       }
     >
+      <div className="flex flex-wrap gap-2 py-2" aria-label={`${name}的示例任务`} data-testid="agent-card-task-examples">
+        {examples.map((example) => (
+          <Button key={example.label} type="button" size="sm" variant="outline" className="h-auto min-h-9 whitespace-normal text-left text-12" onClick={() => onStartChat(card.agentId, example.prompt)}>
+            <FileText aria-hidden className="h-4 w-4 shrink-0" />{example.label}
+          </Button>
+        ))}
+      </div>
       {readinessReason !== null ? (
         <p data-testid="agent-card-readiness-reason" title={readinessReason} className="line-clamp-2 min-h-[2rem] text-11 text-muted-foreground">{readinessReason}</p>
       ) : null}
@@ -139,7 +140,11 @@ function sortByCategory(cards: readonly AgentDirectoryCard[]): readonly AgentDir
 export interface AgentDirectoryProps {
   /** 测试/宿主可注入；默认使用真实 `listAgentDirectory`。 */
   fetchDirectory?: (filters: { roleCategory?: AgentRoleCategory; q?: string }) => Promise<readonly AgentDirectoryCard[]>;
-  onStartChat?: (agentId: string) => void;
+  onStartChat?: (agentId: string, prefill?: string) => void;
+  /** Authenticated, organization-scoped host owns the actual offer and imports. */
+  officialRoles?: React.ReactNode;
+  canManageOfficial?: boolean;
+  directoryRefreshKey?: number;
 }
 
 type LoadState =
@@ -148,7 +153,8 @@ type LoadState =
   | { readonly kind: "error"; readonly message: string }
   | { readonly kind: "ready"; readonly cards: readonly AgentDirectoryCard[] };
 
-export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartChat }: AgentDirectoryProps) {
+export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartChat, officialRoles, canManageOfficial = false, directoryRefreshKey = 0 }: AgentDirectoryProps) {
+  const [tab, setTab] = React.useState<"organization" | "official">("organization");
   const [category, setCategory] = React.useState<AgentRoleCategory | "all">("all");
   const [query, setQuery] = React.useState("");
   const [state, setState] = React.useState<LoadState>({ kind: "loading" });
@@ -169,63 +175,65 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
   }, [fetchDirectory]);
 
   React.useEffect(() => {
+    if (tab !== "organization") return;
     const filters = { roleCategory: category === "all" ? undefined : category, q: query.trim() || undefined };
     const timer = window.setTimeout(() => load(filters), query ? 250 : 0);
-    return () => window.clearTimeout(timer);
+    return () => { window.clearTimeout(timer); requestId.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `load` 依赖 `fetchDirectory`，两者一起触发即可
-  }, [category, query, load]);
+  }, [category, query, load, tab, directoryRefreshKey]);
+
+  React.useEffect(() => { if (directoryRefreshKey > 0) setTab("organization"); }, [directoryRefreshKey]);
 
   const handleStartChat = onStartChat ?? (() => { /* 未接线的宿主：无操作，不假装跳转 */ });
 
   return (
     <div data-testid="agent-directory" className="flex h-full min-h-0 flex-col">
       <header className="border-b border-border">
-       <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-4 py-3 md:px-6">
-        <div className="min-w-0">
-          <h1 className="text-16 font-bold text-background-foreground">数字人目录</h1>
-          <p className="text-12 text-muted-foreground">按角色挑一位数字人，直接开始对话或发起它擅长的工作流。</p>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <div data-testid="agent-directory-filter-category" className="flex flex-wrap gap-1">
-            <button
-              type="button"
-              onClick={() => setCategory("all")}
-              aria-pressed={category === "all"}
-              className={`rounded-control px-2.5 py-1 text-12 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                category === "all" ? "bg-muted font-medium text-background-foreground" : "text-muted-foreground"
-              }`}
-            >
-              全部
-            </button>
-            {AGENT_ROLE_CATEGORIES.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => setCategory(c)}
-                aria-pressed={category === c}
-                className={`rounded-control px-2.5 py-1 text-12 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  category === c ? "bg-muted font-medium text-background-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {ROLE_CATEGORY_LABEL[c]}
-              </button>
-            ))}
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 md:px-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-24 font-bold text-background-foreground">数字人目录</h1>
+              <p className="mt-1 text-14 text-muted-foreground">按角色找同事，按任务开始工作。</p>
+            </div>
+            {officialRoles && canManageOfficial && tab === "organization" ? (
+              <Button type="button" variant="outline" onClick={() => setTab("official")} data-testid="agent-directory-enable-official">
+                <UserRoundPlus aria-hidden className="h-4 w-4" />启用官方数字人
+              </Button>
+            ) : null}
           </div>
-          <div className="w-full sm:w-56">
-            <Input
-              data-testid="agent-directory-search"
-              placeholder="搜索角色、标签…"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              aria-label="搜索数字人"
-            />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {officialRoles ? (
+              <div className="flex shrink-0 gap-1 rounded-control bg-muted p-1" aria-label="数字人目录范围">
+                <Button type="button" variant={tab === "organization" ? "primary" : "ghost"} aria-pressed={tab === "organization"} onClick={() => setTab("organization")}>本组织</Button>
+                <Button type="button" variant={tab === "official" ? "primary" : "ghost"} aria-pressed={tab === "official"} onClick={() => setTab("official")}>官方角色</Button>
+              </div>
+            ) : null}
+            {tab === "organization" ? (
+              <Input data-testid="agent-directory-search" placeholder="搜索角色、标签…" value={query}
+                onChange={(event) => setQuery(event.target.value)} aria-label="搜索数字人" className="min-w-0 flex-1" />
+            ) : null}
           </div>
+          {tab === "organization" ? (
+            <div data-testid="agent-directory-filter-category" className="flex flex-wrap gap-1">
+              <Button type="button" size="sm" variant={category === "all" ? "secondary" : "ghost"} aria-pressed={category === "all"} onClick={() => setCategory("all")}>全部</Button>
+              {AGENT_ROLE_CATEGORIES.map((c) => (
+                <Button key={c} type="button" size="sm" variant={category === c ? "secondary" : "ghost"} aria-pressed={category === c} onClick={() => setCategory(c)}>{ROLE_CATEGORY_LABEL[c]}</Button>
+              ))}
+            </div>
+          ) : null}
         </div>
-       </div>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
        <div className="mx-auto w-full max-w-6xl px-4 py-4 md:px-6">
+        {tab === "official" ? (
+          <div data-testid="agent-directory-official">
+            {officialRoles}
+            <Button type="button" variant="outline" className="mt-4" onClick={() => setTab("organization")}>查看本组织数字人</Button>
+          </div>
+        ) : (
+          <>
+            {directoryRefreshKey > 0 ? <p role="status" className="mb-4 text-14 text-muted-foreground">数字人配置已更新。具体能力以详情中的就绪状态为准。</p> : null}
         {state.kind === "loading" && <LoadingSkeleton testid="agent-directory-loading" />}
         {state.kind === "denied" && <DeniedState testid="agent-directory-denied" />}
         {state.kind === "error" && (
@@ -276,6 +284,12 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
               ))}
             </div>
           )
+        )}
+            {state.kind === "ready" && state.cards.length > 0 ? (
+              <p className="mt-5 text-12 text-muted-foreground">示例任务会预填到新对话，发送前可以修改；已有草稿会保留。角色启用与流程业务验收是不同状态。</p>
+            ) : null}
+            {officialRoles ? <Button type="button" variant="ghost" className="mt-3" onClick={() => setTab("official")}>浏览官方角色</Button> : null}
+          </>
         )}
        </div>
       </div>
