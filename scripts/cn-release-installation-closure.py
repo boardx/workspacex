@@ -130,12 +130,12 @@ for name,pin in pins.items():
   st=os.fstat(stream.fileno())
   if not stat.S_ISREG(st.st_mode) or st.st_uid!=0 or st.st_mode&0o077 or st.st_nlink!=1 or st.st_size>1048576:raise SystemExit(20)
   if hashlib.sha256(stream.read(1048577)).hexdigest()!=pin:raise SystemExit(20)
-path=root/'scripts'/LEAF_VALUE
+path=Path(FULL_LEAF_VALUE)
 source=path.read_bytes()
 if hashlib.sha256(source).hexdigest()!=pins['scripts/'+LEAF_VALUE]:raise SystemExit(20)
 exec(compile(source,str(path),'exec'),{'__file__':str(path),'__name__':'__main__'})
 '''
-    for key, value in {'ROOT_VALUE':repr(root),'PINS_VALUE':repr(files),'MODES_VALUE':repr(modes),'LEAF_VALUE':repr(leaf)}.items():
+    for key, value in {'ROOT_VALUE':repr(root),'PINS_VALUE':repr(files),'MODES_VALUE':repr(modes),'FULL_LEAF_VALUE':repr(root+'/scripts/'+leaf),'LEAF_VALUE':repr(leaf)}.items():
         source = source.replace(key, value)
     return source.encode()
 
