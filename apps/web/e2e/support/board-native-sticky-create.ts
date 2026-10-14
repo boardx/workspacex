@@ -83,6 +83,15 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
   if(await mindmapClose.isVisible()){
     await mindmapClose.click();await expect(mindmapClose).toBeHidden();
   }
+  // Previous inspector/palette dialogs can survive a reflow with focus restored
+  // to their trigger. Dismiss them through their actual close control before
+  // arming a canvas gesture; never pretend an obscured area is native paper.
+  const openPopovers=page.getByTestId('board-tool-popover');
+  while(await openPopovers.count()){
+    const popup=openPopovers.last(),close=popup.getByRole('button',{name:/^关闭/});
+    await close.focus();await expect(close).toBeFocused();await close.press('Enter');
+    await expect(popup).toBeHidden();
+  }
   const before=await canonicalRows(page);
   const armedSnapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),armedHead=await boardHead(proof.api,proof.token,proof.boardId),armedUpdates=proof.updates();
   const selected=page.locator('[data-testid="board-a11y-mirror"] button[aria-pressed="true"]');

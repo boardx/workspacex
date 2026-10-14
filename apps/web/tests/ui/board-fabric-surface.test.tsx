@@ -158,9 +158,12 @@ describe("BoardFabricSurface", () => {
     await waitFor(() => expect(probe.active?.hasControls).toBe(true));
     const selection = probe.active;
     view.rerender(<BoardFabricSurface {...props} viewport={{ ...VIEWPORT, zoom: .22 }} />);
-    await waitFor(() => expect(probe.active?.hasControls).toBe(false));
+    await waitFor(() => expect(probe.active?.hasControls).toBe(true));
+    expect(Reflect.get(probe.active!,"controlVisibility")).toMatchObject({br:true,mtr:true,tl:false,tr:false,bl:false,ml:false,mt:false,mr:false,mb:false});
+    expect(probe.active).toBe(selection);
     view.rerender(<BoardFabricSurface {...props} viewport={VIEWPORT} />);
     await waitFor(() => expect(probe.active?.hasControls).toBe(true));
+    expect(Reflect.get(probe.active!,"controlVisibility")).toMatchObject({br:true,mtr:true,tl:true,tr:true,bl:true,ml:true,mt:true,mr:true,mb:true});
     expect(probe.active).toBe(selection);
   });
 
