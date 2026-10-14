@@ -1,4 +1,4 @@
-import {WHITEBOARD_SYNC} from '@repo/contracts';
+import {whiteboardSync} from '@repo/contracts';
 import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {test,expect,chromium,type Page,type Browser,type BrowserContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
@@ -55,7 +55,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   const url=new URL(proxyUrl);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||url.pathname!=='/'||url.search||url.hash||url.username||url.password)throw new Error('Non-loopback proxy');
   await sourceProof();
   secondBrowser=await chromium.launch();peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});const peer=await peerContext.newPage();transport.observe(peer,'peer');
-  for(const page of [owner,peer])page.on('websocket',socket=>{const observed=new URL(socket.url());if(observed.pathname===WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)))bindings.push(observed.protocol==='ws:'&&observed.hostname===url.hostname&&observed.port===url.port&&!observed.search&&!observed.hash&&!observed.username&&!observed.password);});
+  for(const page of [owner,peer])page.on('websocket',socket=>{const observed=new URL(socket.url());if(observed.pathname===whiteboardSync.path.replace(':boardId',encodeURIComponent(boardId)))bindings.push(observed.protocol==='ws:'&&observed.hostname===url.hostname&&observed.port===url.port&&!observed.search&&!observed.hash&&!observed.username&&!observed.password);});
   stage='login-owner';ownerToken=await boardLogin(owner);privateSecrets.push(ownerToken);stage='login-peer';const peerToken=await boardLogin(peer,F.leadEmail,F.leadPassword);privateSecrets.push(peerToken);
   const identities=[];for(const token of [ownerToken,peerToken]){const response=await api.get(`${apiOrigin()}/kernel/probe/whoami`,{headers:{authorization:`Bearer ${token}`}});expect(response.status()).toBe(200);identities.push(await response.json());}
   expect(identities.map(identity=>identity.userId)).toEqual([F.userId,F.leadUserId]);expect(F.userId).not.toBe(F.leadUserId);expect(peerToken).not.toBe(ownerToken);

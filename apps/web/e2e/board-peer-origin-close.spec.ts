@@ -1,4 +1,4 @@
-import {WHITEBOARD_SYNC} from '@repo/contracts';
+import {whiteboardSync} from '@repo/contracts';
 import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {captureBoardLogin} from './support/board-login-capture.mjs';
 import {test,expect,type Page} from '@playwright/test';
@@ -45,7 +45,7 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
  if(proxyOrigin.hostname!=='127.0.0.1'||proxyOrigin.protocol!=='http:'||proxyOrigin.pathname!=='/'||proxyOrigin.search||proxyOrigin.hash||proxyOrigin.username||proxyOrigin.password)throw new Error('Invalid isolated proxy origin');
  const actualProxyBindings:boolean[]=[];
  for(const page of [origin,peer])page.on('websocket',socket=>{
-  const url=new URL(socket.url());if(url.pathname!==WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)))return;
+  const url=new URL(socket.url());if(url.pathname!==whiteboardSync.path.replace(':boardId',encodeURIComponent(boardId)))return;
   actualProxyBindings.push(url.protocol==='ws:'&&url.hostname===proxyOrigin.hostname&&url.port===proxyOrigin.port&&!url.search&&!url.hash&&!url.username&&!url.password);
  });
  const proxyControl=async(command:string)=>{
