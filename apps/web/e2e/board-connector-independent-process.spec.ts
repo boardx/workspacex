@@ -73,7 +73,17 @@ test('C05 distinct browser processes converge on Connector style path and concur
   // Its chroma therefore independently measures antialias coverage without
   // mistaking neutral background/black pixels for red stroke coverage.
   const nativeStrokeCounterexamples=await pages[0]!.evaluate(()=>{
-   const result:Array<{angle:number;width:number;scan:Array<{offset:number;ink:boolean;coverage:number}>}>=[];
+   const result:Array<{angle:number;width:number;integral:number;scan:Array<{offset:number;ink:boolean;coverage:number}>}>=[];
+   const integrateCoverage=(context:CanvasRenderingContext2D,cx:number,cy:number,nx:number,ny:number)=>{
+    const coverage=(x:number,y:number)=>{const rgba=context.getImageData(x,y,1,1).data;return Math.max(0,Math.min(1,(rgba[0]!-rgba[1]!)/196));};
+    const bilinear=(x:number,y:number)=>{
+     const ix=Math.floor(x-.5),iy=Math.floor(y-.5),fx=x-.5-ix,fy=y-.5-iy;
+     return coverage(ix,iy)*(1-fx)*(1-fy)+coverage(ix+1,iy)*fx*(1-fy)+coverage(ix,iy+1)*(1-fx)*fy+coverage(ix+1,iy+1)*fx*fy;
+    };
+    let integral=0;const step=.25;
+    for(let index=0;index<=240;index++){const offset=-30+index*step;integral+=bilinear(cx+nx*offset,cy+ny*offset)*step*(index===0||index===240 ? .5 : 1);}
+    return integral;
+   };
    for(const angle of [0,Math.PI/4])for(const width of [8,10,12]){
     const canvas=document.createElement('canvas');canvas.width=200;canvas.height=200;
     const context=canvas.getContext('2d')!;context.fillStyle='#FFFFFF';context.fillRect(0,0,200,200);
@@ -82,17 +92,17 @@ test('C05 distinct browser processes converge on Connector style path and concur
     const scan=Array.from({length:61},(_,index)=>{
      const offset=index-30,rgba=context.getImageData(Math.round(100-Math.sin(angle)*offset),Math.round(100+Math.cos(angle)*offset),1,1).data;
      return {offset,ink:rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255,coverage:Math.max(0,Math.min(1,(rgba[0]!-rgba[1]!)/196))};
-    });result.push({angle,width,scan});
+    });result.push({angle,width,scan,integral:integrateCoverage(context,100,100,-Math.sin(angle),Math.cos(angle))});
    }return result;
   });
   for(const angle of [0,Math.PI/4]){
    const reference=nativeStrokeCounterexamples.find(sample=>sample.angle===angle&&sample.width===12)!;
-   strokeRasterProof(reference.scan,reference.scan);
+   strokeRasterProof(reference.scan,reference.scan,{actual:reference.integral,reference:reference.integral,step:.25});
    for(const width of [8,10]){
     const actual=nativeStrokeCounterexamples.find(sample=>sample.angle===angle&&sample.width===width)!;
-    const diagnostic={angle,width,referenceWidth:12,actualCore:actual.scan.filter(sample=>sample.ink).length,referenceCore:reference.scan.filter(sample=>sample.ink).length,actualCoverage:actual.scan.reduce((sum,sample)=>sum+sample.coverage,0),referenceCoverage:reference.scan.reduce((sum,sample)=>sum+sample.coverage,0)};
+    const diagnostic={angle,width,referenceWidth:12,actualCore:actual.scan.filter(sample=>sample.ink).length,referenceCore:reference.scan.filter(sample=>sample.ink).length,actualCoverage:actual.integral,referenceCoverage:reference.integral,subpixelStep:.25};
     await info.attach('native-narrow-stroke-control',{body:JSON.stringify(diagnostic),contentType:'application/json'});
-    expect(()=>strokeRasterProof(actual.scan,reference.scan),`Real narrow native stroke must reject ${JSON.stringify(diagnostic)}`).toThrow();
+    expect(()=>strokeRasterProof(actual.scan,reference.scan,{actual:actual.integral,reference:reference.integral,step:.25}),`Real narrow native stroke must reject ${JSON.stringify(diagnostic)}`).toThrow();
    }
   }
   records.push({phase:'native-stroke-negative-controls',cases:nativeStrokeCounterexamples.map(sample=>({angle:sample.angle,width:sample.width,fullInkCount:sample.scan.filter(point=>point.ink).length}))});
@@ -207,6 +217,17 @@ test('C05 distinct browser processes converge on Connector style path and concur
      const physical=(point:{x:number;y:number})=>({x:(panX+zoom*point.x)*scale,y:(panY+zoom*point.y)*scale});
      const p0=physical(start),p1=physical({x:start.x+route.startOffset.x,y:start.y+route.startOffset.y}),p2=physical({x:end.x+route.endOffset.x,y:end.y+route.endOffset.y}),p3=physical(end);
      strokeContext.strokeStyle='#E11D48';strokeContext.lineWidth=input.width*zoom*scale;strokeContext.beginPath();strokeContext.moveTo(p0.x,p0.y);strokeContext.bezierCurveTo(p1.x,p1.y,p2.x,p2.y,p3.x,p3.y);strokeContext.stroke();
+   const integrateCoverage=(context:CanvasRenderingContext2D,cx:number,cy:number,nx:number,ny:number)=>{
+    const coverage=(x:number,y:number)=>{const rgba=context.getImageData(x,y,1,1).data;return Math.max(0,Math.min(1,(rgba[0]!-rgba[1]!)/196));};
+    const bilinear=(x:number,y:number)=>{
+     const ix=Math.floor(x-.5),iy=Math.floor(y-.5),fx=x-.5-ix,fy=y-.5-iy;
+     return coverage(ix,iy)*(1-fx)*(1-fy)+coverage(ix+1,iy)*fx*(1-fy)+coverage(ix,iy+1)*(1-fx)*fy+coverage(ix+1,iy+1)*fx*fy;
+    };
+    let integral=0;const step=.25;
+    for(let index=0;index<=240;index++){const offset=-30+index*step;integral+=bilinear(cx+nx*offset,cy+ny*offset)*step*(index===0||index===240 ? .5 : 1);}
+    return integral;
+   };
+     const physicalSample=physical(point),coverageIntegral={actual:integrateCoverage(context,physicalSample.x,physicalSample.y,normal.x,normal.y),reference:integrateCoverage(strokeContext,physicalSample.x,physicalSample.y,normal.x,normal.y),step:.25};
      let referenceInkLength=0;const coverageScan:Array<{offset:number;rgba:number[];referenceRgba:number[]}>=[];
      let lineWidth=0;const bitmapSamples=new Set<string>();const scan:Array<{offset:number;ink:boolean}>=[];
      // Keep every 1px normal-distance sample. Rounded bitmap coordinates may
@@ -219,15 +240,15 @@ test('C05 distinct browser processes converge on Connector style path and concur
       if(referenceRgba[0]===225&&referenceRgba[1]===29&&referenceRgba[2]===72&&referenceRgba[3]===255)referenceInkLength++;
       coverageScan.push({offset,rgba:Array.from(rgba),referenceRgba:Array.from(referenceRgba)});
      }
-     return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale,normal,referenceInkLength,coverageScan,scalarSpacing:1,duplicateCount:scan.length-bitmapSamples.size,reference:{centerX,centerY,baselineY,ascent,descent,fontAscent:metrics.fontBoundingBoxAscent,fontDescent:metrics.fontBoundingBoxDescent}};
+     return {label,golden:Array.from(goldenContext.getImageData(0,0,300,60).data),scan,lineWidth,expectedWidth:input.width*zoom*scale,zoom,scale,normal,referenceInkLength,coverageScan,coverageIntegral,scalarSpacing:1,duplicateCount:scan.length-bitmapSamples.size,reference:{centerX,centerY,baselineY,ascent,descent,fontAscent:metrics.fontBoundingBoxAscent,fontDescent:metrics.fontBoundingBoxDescent}};
     },{start,end,route,label,labelPoint,sample:samples[0]!,width:relation.strokeWidth!,textColor:authoritative.edge.style.color??'#29261E'});
     await info.attach(`${phase}-process-${pages.indexOf(page)}-glyph-metrics`,{body:JSON.stringify({reference:raster.reference,actual:glyphBounds(raster.label),expected:glyphBounds(raster.golden)}),contentType:'application/json'});
     glyphProof(raster.label,raster.golden);
-    const strokeDiagnostic={phase,process:pages.indexOf(page),inkLength:raster.lineWidth,expectedPixelWidth:raster.expectedWidth,delta:raster.lineWidth-raster.expectedWidth,zoom:raster.zoom,scale:raster.scale,canonicalWidth:relation.strokeWidth,normal:raster.normal,referenceInkLength:raster.referenceInkLength,coverageScan:raster.coverageScan,scalarSpacing:raster.scalarSpacing,duplicateCount:raster.duplicateCount,firstInkOffset:raster.scan.find(sample=>sample.ink)?.offset,lastInkOffset:raster.scan.findLast(sample=>sample.ink)?.offset,from:start,to:end};
+    const strokeDiagnostic={phase,process:pages.indexOf(page),inkLength:raster.lineWidth,expectedPixelWidth:raster.expectedWidth,delta:raster.lineWidth-raster.expectedWidth,zoom:raster.zoom,scale:raster.scale,canonicalWidth:relation.strokeWidth,normal:raster.normal,referenceInkLength:raster.referenceInkLength,coverageIntegral:raster.coverageIntegral,coverageScan:raster.coverageScan,scalarSpacing:raster.scalarSpacing,duplicateCount:raster.duplicateCount,firstInkOffset:raster.scan.find(sample=>sample.ink)?.offset,lastInkOffset:raster.scan.findLast(sample=>sample.ink)?.offset,from:start,to:end};
     await info.attach(`${phase}-process-${pages.indexOf(page)}-stroke-metrics`,{body:JSON.stringify(strokeDiagnostic),contentType:'application/json'});
     const referenceScan=raster.coverageScan.map(sample=>({offset:sample.offset,ink:sample.referenceRgba[0]===225&&sample.referenceRgba[1]===29&&sample.referenceRgba[2]===72&&sample.referenceRgba[3]===255,coverage:Math.max(0,Math.min(1,(sample.referenceRgba[0]!-sample.referenceRgba[1]!)/196))}));
     const actualScan=raster.scan.map((sample,index)=>({...sample,coverage:Math.max(0,Math.min(1,(raster.coverageScan[index]!.rgba[0]!-raster.coverageScan[index]!.rgba[1]!)/196))}));
-    strokeRasterProof(actualScan,referenceScan);
+    strokeRasterProof(actualScan,referenceScan,raster.coverageIntegral);
     localRaster.push({process:pages.indexOf(page),labelHash:sha256(Buffer.from(raster.label)),lineWidth:raster.lineWidth,expectedWidth:raster.expectedWidth});
    }
    // Identical fixed viewports must render the same actual glyphs, including the viewer.

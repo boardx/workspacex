@@ -84,7 +84,7 @@ test('independent endpoint reference preserves legacy fallback and replaces whol
 
 test('only explicit safe Next navigation prefetch aborts are classified separately',()=>{
  const cancelled={method:'GET',pathname:'/tasks',errorText:'net::ERR_ABORTED',prefetch:'1'};
- for(const pathname of ['/home','/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
+ for(const pathname of ['/billing','/home','/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known',knownProjectPath:'/projects/known'}),true);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/unknown',knownProjectPath:'/projects/known'}),false);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known/board',knownProjectPath:'/projects/known/board'}),false);
@@ -120,4 +120,12 @@ test('antialias coverage rejects narrow stroke despite one-pixel core difference
  const narrow=reference.map((sample,index)=>({...sample,ink:index>=27&&index<=35,coverage:index>=27&&index<=35?1:index===26||index===36?0.4:0}));
  assert.throws(()=>strokeRasterProof(narrow,reference),/coverage width/);
  strokeRasterProof(reference,reference);
+});
+
+test('quarter-pixel physical coverage retains exact bound and rejects narrow reference mismatch',()=>{
+ const scan=Array.from({length:61},(_,index)=>({offset:index-30,ink:index>=26&&index<=35,coverage:index>=26&&index<=35?1:0}));
+ strokeRasterProof(scan,scan,{actual:12.1,reference:12,step:.25});
+ assert.throws(()=>strokeRasterProof(scan,scan,{actual:10,reference:12,step:.25}),/coverage width/);
+ assert.throws(()=>strokeRasterProof(scan,scan,{actual:8,reference:12,step:.25}),/coverage width/);
+ assert.throws(()=>strokeRasterProof(scan,scan,{actual:12,reference:12,step:1}));
 });

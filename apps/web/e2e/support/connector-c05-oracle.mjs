@@ -105,11 +105,11 @@ export function navigationPrefetchAbort({method,pathname,errorText,prefetch,know
  if(method!=='GET'||errorText!=='net::ERR_ABORTED'||prefetch!=='1')return false;
  // An allowlist excludes every Board, API, script, asset and unknown resource.
  if(typeof knownProjectPath==='string'&&/^\/projects\/[^/]+$/.test(knownProjectPath)&&pathname===knownProjectPath)return true;
- return ['/home','/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
+ return ['/billing','/home','/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
 }
 
 /** Compare the actual full-opacity raster to an independently drawn nominal-width reference. */
-export function strokeRasterProof(actual,reference){
+export function strokeRasterProof(actual,reference,integral){
  assert.equal(actual.length,reference.length);assert(actual.length>0);
  const referenceWidth=reference.filter(sample=>sample.ink).length;
  // Preserve the 1.5px count bound, continuity and exterior rejection. The
@@ -122,6 +122,10 @@ export function strokeRasterProof(actual,reference){
   actualCoverage+=actual[index].coverage;referenceCoverage+=reference[index].coverage;
   if(actual[index].ink!==reference[index].ink)disagreement++;
  }
- assert(Math.abs(actualCoverage-referenceCoverage)<=1.5,`C05 stroke coverage width: ${JSON.stringify({actualCoverage,referenceCoverage,delta:actualCoverage-referenceCoverage})}`);
+ if(integral){
+  assert.equal(integral.step,.25);assert(Number.isFinite(integral.actual)&&Number.isFinite(integral.reference)&&integral.actual>=0&&integral.reference>=0);
+  actualCoverage=integral.actual;referenceCoverage=integral.reference;
+ }
+ assert(Math.abs(actualCoverage-referenceCoverage)<=1.5,`C05 stroke coverage width: ${JSON.stringify({actualCoverage,referenceCoverage,step:integral?.step??1,delta:actualCoverage-referenceCoverage})}`);
  assert(disagreement<=1.5,`C05 stroke raster offsets disagree: ${JSON.stringify({disagreement,actualInk:actual.filter(sample=>sample.ink).length,referenceInk:referenceWidth})}`);
 }

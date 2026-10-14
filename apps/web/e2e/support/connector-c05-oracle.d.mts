@@ -13,4 +13,4 @@ export function connectorStorageReference(storage:Record<string,unknown>):Whiteb
 
 export function navigationPrefetchAbort(input:{method:string;pathname:string;errorText:string;prefetch:string|undefined;knownProjectPath?:string}):boolean;
 
-export function strokeRasterProof(actual:Array<{offset:number;ink:boolean;coverage:number}>,reference:Array<{offset:number;ink:boolean;coverage:number}>):void;
+export function strokeRasterProof(actual:Array<{offset:number;ink:boolean;coverage:number}>,reference:Array<{offset:number;ink:boolean;coverage:number}>,integral?:{actual:number;reference:number;step:number}):void;
