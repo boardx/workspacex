@@ -44,7 +44,7 @@ export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, 
     style = { backgroundColor: customColor, color: readableTextOn(customColor) === "light" ? TEXT_ON_DARK : TEXT_ON_LIGHT };
     textClass = "";
   }
-  const subtle = hasImage || customColor === null ? "opacity-80" : "opacity-80";
+  const subtle = "";
 
   return (
     <section
@@ -53,7 +53,7 @@ export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, 
       data-banner-source={hasImage ? "image" : customColor !== null ? "custom" : "preset"}
       style={style}
       className={cn(
-        "relative overflow-hidden rounded-container px-6 py-8 sm:px-10 sm:py-10",
+        "relative overflow-hidden rounded-container px-6 py-6 sm:px-8 sm:py-8",
         !hasImage && customColor === null && presetMeta.className,
         textClass,
         className,
@@ -66,13 +66,13 @@ export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, 
           <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-inverse/70 via-inverse/30 to-transparent" />
         </>
       ) : null}
-      <div className={cn("relative flex items-start gap-6", hasImage && "text-inverse-foreground")}>
+      <div className={cn("relative flex items-start gap-4", hasImage && "text-inverse-foreground")}>
         {/* eslint-disable-next-line @next/next/no-img-element -- authenticated organization logo */}
-        {logo ? <img src={logo} alt="组织 Logo" className="hidden h-24 w-24 shrink-0 object-contain sm:block" /> : null}
-        <div>
-        <p className="max-w-lg text-30 sm:text-40 font-semibold leading-tight tracking-tight">{title}</p>
-        <h1 className="mt-2 max-w-lg text-14 font-medium leading-relaxed" data-testid="home-greeting">{greeting}</h1>
-        <h2 className={cn("mt-3 max-w-lg text-20 font-medium leading-snug", subtle)}>{headline}</h2>
+        {logo ? <img src={logo} alt="组织 Logo" className="h-12 w-12 shrink-0 rounded-control bg-card p-1 object-contain sm:h-16 sm:w-16" /> : null}
+        <div className="min-w-0">
+        <p className="text-13 font-medium leading-relaxed" data-testid="home-greeting">{greeting}</p>
+        <h1 className="mt-2 max-w-lg break-words text-24 sm:text-30 font-semibold leading-tight tracking-tight">{title}</h1>
+        <p className={cn("mt-3 max-w-lg break-words text-16 font-medium leading-snug", subtle)}>{headline}</p>
         {tagline.length > 0 ? <p className={cn("mt-1 max-w-md text-13 leading-relaxed", subtle)}>{tagline}</p> : null}
         </div>
       </div>

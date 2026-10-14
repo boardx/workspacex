@@ -3,7 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Bot, MessageSquarePlus, Sparkles } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
+import { DigitalHumanPortrait } from "./digital-human-portrait";
 import { useOptionalFeedback } from "@/components/feedback/feedback-provider";
 import { QUICK_ACTION_CATALOG } from "@/lib/home-config-catalog";
 import { initialsOf } from "@/lib/home-format";
@@ -37,17 +37,17 @@ export function QuickActionsGrid({ actions }: { actions: HomeConfig["quickAction
     .map((a) => ({ key: a.key, ...QUICK_ACTION_CATALOG[a.key] }));
   if (items.length === 0) return null;
   return (
-    <section aria-label="快捷入口" className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="home-quick-actions">
-      {items.map(({ key, href, icon: Icon, label, desc }, index) => (
-        <Link key={key} href={href} data-testid={`home-quick-action-${key}`} style={{ backgroundColor: `color-mix(in srgb, hsl(var(--${["secondary", "primary", "accent", "secondary"][index % 4]})) 10%, hsl(var(--card)))` }} className={cn(TILE, "min-h-36 border-transparent p-5")}>
-          <span className="flex h-8 w-8 items-center justify-center rounded-control bg-accent text-accent-foreground">
+    <section aria-label="快捷入口" className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 13rem), 1fr))" }} data-testid="home-quick-actions">
+      {items.map(({ key, href, icon: Icon, label, desc }) => (
+        <Link key={key} href={href} data-testid={`home-quick-action-${key}`} className={cn(TILE, "relative min-h-24 gap-1 pl-14")}>
+          <span className="absolute left-4 top-4 flex h-7 w-7 items-center justify-center rounded-control bg-muted text-muted-foreground">
             <Icon aria-hidden className="h-4 w-4" />
           </span>
           <span className="flex items-center gap-1 text-13 font-medium text-card-foreground">
             {label}
             <ArrowRight aria-hidden className="h-3 w-3 text-muted-foreground transition-transform duration-fast group-hover:translate-x-0.5" />
           </span>
-          <span className="text-11 text-muted-foreground">{desc}</span>
+          <span className="text-12 text-muted-foreground">{desc}</span>
         </Link>
       ))}
     </section>
@@ -58,22 +58,31 @@ export function QuickActionsGrid({ actions }: { actions: HomeConfig["quickAction
 export function AgentsStrip({ agents }: { agents: HomeConfig["recommendedAgents"] }) {
   if (agents.length === 0) return null;
   return (
-    <section aria-label="推荐数字人" className="flex flex-col gap-2" data-testid="home-agents">
-      <SectionTitle href="/agent" hrefLabel="全部数字人">数字人</SectionTitle>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+    <section aria-label="推荐数字人" className="flex flex-col gap-4" data-testid="home-agents">
+      <div className="space-y-1">
+        <SectionTitle href="/agent" hrefLabel="探索全部数字人">与你协作的数字人</SectionTitle>
+        <p className="text-13 text-muted-foreground">选择一位 AI 伙伴，开始讨论你的问题与想法。</p>
+      </div>
+      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 17rem), 1fr))" }}>
         {agents.map((a) => (
-          <Link
-            key={a.agentId}
-            href={`/chat?agent=${encodeURIComponent(a.agentId)}`}
+          <Link key={a.agentId} href={`/chat?agent=${encodeURIComponent(a.agentId)}`}
+            aria-label={`与${a.name}开始对话${a.roleLabel ? ` · ${a.roleLabel}` : ""}`}
             data-testid={`home-agent-${a.agentId}`}
-            className={cn(TILE, "flex-row items-center gap-3 p-3")}
-          >
-            <Avatar initials={initialsOf(a.name)} avatarKey={a.avatarKey} tone="ai" size="lg" />
-            <span className="min-w-0">
-              <span className="block truncate text-12 font-medium text-card-foreground">{a.name}</span>
-              {a.roleLabel ? <span className="block truncate text-11 text-muted-foreground">{a.roleLabel}</span> : null}
-              {a.note ? <span className="mt-0.5 block line-clamp-2 text-11 text-muted-foreground">{a.note}</span> : null}
-            </span>
+            className="group flex min-w-0 flex-col overflow-hidden rounded-container border border-border bg-card text-card-foreground transition-colors duration-fast hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+            <div className="relative flex h-48 items-end justify-center overflow-hidden bg-muted px-6 pt-4">
+              <span className="absolute left-4 top-4 z-10 rounded-full border border-border bg-card px-2.5 py-1 text-11 font-medium text-card-foreground">AI 数字人</span>
+              <DigitalHumanPortrait avatarKey={a.avatarKey} initials={initialsOf(a.name)} className="h-44 w-44 rounded-t-container rounded-b-none" />
+            </div>
+            <div className="flex flex-1 flex-col gap-3 p-5">
+              <div className="min-w-0 space-y-1">
+                <h3 className="break-words text-20 font-semibold leading-snug">{a.name}</h3>
+                {a.roleLabel ? <p className="break-words text-13 font-medium text-muted-foreground">{a.roleLabel}</p> : null}
+              </div>
+              {a.note ? <p className="break-words text-13 leading-relaxed text-muted-foreground">{a.note}</p> : null}
+              <span className="mt-auto flex items-center justify-between border-t border-border pt-3 text-13 font-medium">
+                开始对话<ArrowRight aria-hidden className="h-4 w-4 transition-transform duration-fast motion-safe:group-hover:translate-x-1" />
+              </span>
+            </div>
           </Link>
         ))}
       </div>

@@ -1,0 +1,159 @@
+{
+  "home": [
+    {
+      "agentCount": 3,
+      "headings": [
+        {
+          "tag": "H1",
+          "text": "星河创新工作室"
+        },
+        {
+          "tag": "H2",
+          "text": "与你协作的数字人"
+        },
+        {
+          "tag": "H3",
+          "text": "林知远"
+        },
+        {
+          "tag": "H3",
+          "text": "苏予"
+        },
+        {
+          "tag": "H3",
+          "text": "陈墨"
+        },
+        {
+          "tag": "H2",
+          "text": "组织推荐"
+        }
+      ],
+      "links": [
+        {
+          "href": "/chat?agent=fixture-strategy",
+          "name": "与林知远开始对话 · 战略顾问"
+        },
+        {
+          "href": "/chat?agent=fixture-research",
+          "name": "与苏予开始对话 · 用户研究伙伴"
+        },
+        {
+          "href": "/chat?agent=fixture-design",
+          "name": "与陈墨开始对话 · 创新设计伙伴"
+        }
+      ],
+      "portraitCount": 3,
+      "scrollWidth": 375,
+      "view": "home",
+      "width": 375
+    },
+    {
+      "agentCount": 3,
+      "headings": [
+        {
+          "tag": "H1",
+          "text": "星河创新工作室"
+        },
+        {
+          "tag": "H2",
+          "text": "与你协作的数字人"
+        },
+        {
+          "tag": "H3",
+          "text": "林知远"
+        },
+        {
+          "tag": "H3",
+          "text": "苏予"
+        },
+        {
+          "tag": "H3",
+          "text": "陈墨"
+        },
+        {
+          "tag": "H2",
+          "text": "组织推荐"
+        }
+      ],
+      "links": [
+        {
+          "href": "/chat?agent=fixture-strategy",
+          "name": "与林知远开始对话 · 战略顾问"
+        },
+        {
+          "href": "/chat?agent=fixture-research",
+          "name": "与苏予开始对话 · 用户研究伙伴"
+        },
+        {
+          "href": "/chat?agent=fixture-design",
+          "name": "与陈墨开始对话 · 创新设计伙伴"
+        }
+      ],
+      "portraitCount": 3,
+      "scrollWidth": 768,
+      "view": "home",
+      "width": 768
+    },
+    {
+      "agentCount": 3,
+      "headings": [
+        {
+          "tag": "H1",
+          "text": "星河创新工作室"
+        },
+        {
+          "tag": "H2",
+          "text": "与你协作的数字人"
+        },
+        {
+          "tag": "H3",
+          "text": "林知远"
+        },
+        {
+          "tag": "H3",
+          "text": "苏予"
+        },
+        {
+          "tag": "H3",
+          "text": "陈墨"
+        },
+        {
+          "tag": "H2",
+          "text": "组织推荐"
+        }
+      ],
+      "links": [
+        {
+          "href": "/chat?agent=fixture-strategy",
+          "name": "与林知远开始对话 · 战略顾问"
+        },
+        {
+          "href": "/chat?agent=fixture-research",
+          "name": "与苏予开始对话 · 用户研究伙伴"
+        },
+        {
+          "href": "/chat?agent=fixture-design",
+          "name": "与陈墨开始对话 · 创新设计伙伴"
+        }
+      ],
+      "portraitCount": 3,
+      "scrollWidth": 1280,
+      "view": "home",
+      "width": 1280
+    }
+  ],
+  "config": [
+    {
+      "width": 375,
+      "scrollWidth": 375
+    },
+    {
+      "width": 768,
+      "scrollWidth": 768
+    },
+    {
+      "width": 1280,
+      "scrollWidth": 1280
+    }
+  ]
+}

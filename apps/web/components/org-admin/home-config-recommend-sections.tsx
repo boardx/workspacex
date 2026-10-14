@@ -3,6 +3,7 @@ import * as React from "react";
 import Link from "next/link";
 import { Plus, Sparkles, Bot, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { DigitalHumanPortrait } from "@/components/home/digital-human-portrait";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialsOf } from "@/lib/home-format";
@@ -77,14 +78,15 @@ export function RecommendedAgentsSection({ form, onChange }: Props) {
           <Plus aria-hidden className="h-3.5 w-3.5" />添加数字人
         </Button>
       </div>
+      <p className="text-12 leading-relaxed text-muted-foreground">首页会展示数字人的形象、角色与一句话介绍。成员点击「开始对话」进入对应数字人的对话。</p>
       {form.recommendedAgents.length === 0 ? <p className="text-11 text-muted-foreground">还没有推荐数字人。</p> : (
         <ul className="flex flex-col gap-2">
           {form.recommendedAgents.map((a) => (
             <li key={a.agentId} className="flex items-start gap-2 rounded-card border border-border-subtle bg-card p-2.5" data-testid={`home-config-agent-${a.agentId}`}>
-              <Avatar initials={initialsOf(a.name)} avatarKey={a.avatarKey} tone="ai" size="lg" />
+              <DigitalHumanPortrait avatarKey={a.avatarKey} initials={initialsOf(a.name)} className="h-20 w-20 shrink-0" />
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-12 font-medium text-card-foreground">{a.name}{a.roleLabel ? <span className="ml-1.5 text-11 font-normal text-muted-foreground">{a.roleLabel}</span> : null}</span>
-                <Input value={a.note ?? ""} placeholder="一句话介绍（可选，最多 80 字）" maxLength={80} onChange={(e) => setNote(a.agentId, e.target.value)} data-testid={`home-config-agent-note-${a.agentId}`} />
+                <Input aria-label={`${a.name}的一句话介绍`} value={a.note ?? ""} placeholder="能帮助成员解决什么问题？（最多 80 字）" maxLength={80} onChange={(e) => setNote(a.agentId, e.target.value)} data-testid={`home-config-agent-note-${a.agentId}`} />
               </div>
               <Button type="button" size="icon" variant="ghost" aria-label={`移除 ${a.name}`} onClick={() => remove(a.agentId)} data-testid={`home-config-agent-remove-${a.agentId}`}>
                 <X aria-hidden className="h-3.5 w-3.5" />
