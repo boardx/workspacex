@@ -163,7 +163,11 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await viewerOutline.focus();await viewerOutline.press('Enter');
   await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await peer.keyboard.press('Delete');await peer.keyboard.press('ControlOrMeta+z');await peer.keyboard.press('n');
   const peerSocket=viewerTransport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='open').at(-1)?.socketId;expect(typeof peerSocket).toBe('number');
-  await peer.goto('/home');await expect(peer.getByTestId('collaborative-editor')).toHaveCount(0);
+  // Navigate through the real SPA Back action: keep this renderer/CDP target
+  // alive so the native WebSocket close from provider cleanup remains observable.
+  await peer.getByRole('button',{name:'返回白板',exact:true}).click();
+  await expect(peer).toHaveURL(/\/studio\/board(?:\?.*)?$/);
+  await expect(peer.getByTestId('collaborative-editor')).toHaveCount(0);
   await expect.poll(()=>viewerTransport.snapshot().events.slice(readonlyEvents).some(event=>event.client==='peer'&&event.direction==='close'&&event.socketId===peerSocket)).toBe(true);
   // A real quiet interval catches detached timers; no mocked provider is involved.
   await peer.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(readonlyBefore);
