@@ -237,8 +237,17 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
   const v=await viewport(page),screen=(point:{x:number;y:number})=>({x:v.box.x+v.x+point.x*v.z,y:v.box.y+v.y+point.y*v.z});
   const blank=await blankCanvasPoint(page,v);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
   for(const [index,value] of baseline.entries()){
-   const point=screen(entityPoint(value.geometry,{x:value.geometry.width/2,y:value.geometry.height/2}));await topCanvas(page,point);
-   if(index)await page.keyboard.down('Shift');try{await page.mouse.click(point.x,point.y);}finally{if(index)await page.keyboard.up('Shift');}
+   // A selected widget's floating chrome can cover another widget's center.
+   // Keep native canvas selection, but choose an exposed interior point using
+   // canonical geometry and DOM hit-testing instead of forcing Fabric state.
+   const fractions=value.kind==='drawing'?[.5,.35,.65,.2,.8].map(t=>({x:t,y:t})):
+    [.5,.3,.7,.15,.85].flatMap(x=>[.5,.3,.7,.15,.85].map(y=>({x,y})));
+   const otherBounds=before.objects.filter(other=>other.id!==value.id).map(other=>{const corners=entityCorners(other.geometry);return {left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};});
+   const candidates=fractions.map(f=>entityPoint(value.geometry,{x:value.geometry.width*f.x,y:value.geometry.height*f.y})).filter(p=>!otherBounds.some(b=>p.x>=b.left&&p.x<=b.right&&p.y>=b.top&&p.y<=b.bottom)).map(screen);
+   const point=await page.evaluate(points=>points.find(p=>document.elementFromPoint(p.x,p.y)?.matches('canvas.upper-canvas'))??null,candidates);
+   expect(point,`native canvas must expose widget ${value.id} for selection`).not.toBeNull();await topCanvas(page,point!);
+   if(index)await page.keyboard.down('Shift');try{await page.mouse.click(point!.x,point!.y);}finally{if(index)await page.keyboard.up('Shift');}
+   await expect.poll(()=>page.getByTestId('board-a11y-mirror').locator('button[aria-pressed="true"]').evaluateAll(buttons=>buttons.map(button=>button.closest('li')!.getAttribute('data-object-id')).sort())).toEqual(baseline.slice(0,index+1).map(object=>object.id).sort());
   }
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 3 个对象');
   const corners=baseline.flatMap(value=>entityCorners(value.geometry)),left=Math.min(...corners.map(point=>point.x)),right=Math.max(...corners.map(point=>point.x)),top=Math.min(...corners.map(point=>point.y)),bottom=Math.max(...corners.map(point=>point.y));
