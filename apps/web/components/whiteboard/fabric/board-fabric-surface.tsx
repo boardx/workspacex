@@ -1094,7 +1094,6 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const initial=auxiliaryPan.start;
       canvas.setViewportTransform(initial);
       auxiliaryPan = null;
-      callbacksRef.current.onViewportChange({...stateRef.current.viewport,zoom:initial[0],panX:initial[4],panY:initial[5]},"pan");
       canvas.requestRenderAll();
     };
     const cancelAuxiliaryPointer = (event: PointerEvent) => { if (event.isPrimary !== false && event.pointerType === "mouse") cancelAuxiliaryPan(); };

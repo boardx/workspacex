@@ -377,8 +377,8 @@ describe("BoardFabricSurface", () => {
       element.dispatchEvent(cancelled);
       document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,button,clientX:124,clientY:118}));
     });
-    expect(onViewportChange).toHaveBeenCalledTimes(1);
-    expect(onViewportChange).toHaveBeenLastCalledWith(initial,'pan');
+    expect(onViewportChange).not.toHaveBeenCalled();
+    expect(Reflect.get(probe.canvas!,'viewportTransform')).toEqual([1,0,0,1,24,18]);
   });
 
   it("keeps only one resize and offset rotation control for a dense multi-selection",()=>{
