@@ -62,8 +62,9 @@ test('C07 UI deletion history restores complete Connector without overwriting pe
    await editor.keyboard.down('Alt');
    await editor.mouse.move(peerPoint.x+80,peerPoint.y+90,{steps:12});
   } finally {await editor.keyboard.up('Alt');await editor.mouse.up();}
+  const precisePeer=editor;
   await expect.poll(async()=>{
-   const current=(await canonicalRows(editor)).find(row=>row.id==='c07-b')!.geometry;
+   const current=(await canonicalRows(precisePeer)).find(row=>row.id==='c07-b')!.geometry;
    const originalB=original.objects.find(item=>item.id==='c07-b')!.geometry;
    return Math.max(Math.abs(current.x-originalB.x-80/peerZoom),Math.abs(current.y-originalB.y-90/peerZoom));
   }).toBeLessThanOrEqual(1);
