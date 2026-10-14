@@ -37,6 +37,8 @@ description: 问卷创建、模板、题目编辑、发布、填写和结果分�
 - 2026-09-29：分析报告的样本数、有效率和平均用时必须排除 `analysis = excluded` 的答卷；没有有效样本时只展示报告结构和明确的“暂无结论”提示，不得继续渲染固定演示指标。证据：`apps/web/tests/ui/survey-workflow-model.test.ts` 的排除答卷回归（#4691 后续优化）。
 - 2026-09-29：设计器的发布前试填必须复用正式题目渲染与条件可见性计算，但试填答案只留在本地状态，不触发草稿 `onChange`、保存或答卷提交。证据：`apps/web/tests/ui/survey-responsive-designer.test.tsx`（#4691）。
 
+- #5673：导入工具栏统一收进 `问卷输入` group；原生文件入口由可键盘触发按钮控制，删除附件必须保留原文。共享语音使用默认关闭的 compact 参数；错误与恢复动作仍条件直接展示。证据：`survey-ai-proposal.test.tsx`、`interview-voice-input.test.tsx`、`survey-complete-flow.spec.ts` 与 `docs/proposals/survey-import-redesign-5673/proposal.md`。
+
 ## 知识回流规则
 
 谁修改本模块，谁在 PR 中追加可验证经验；不删除旧条目，推翻时注明替代来源。

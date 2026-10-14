@@ -1,4 +1,4 @@
-import { fireEvent,render,screen,waitFor } from '@testing-library/react';
+import { fireEvent,render,screen,waitFor,within } from '@testing-library/react';
 import { beforeEach,expect,it,vi } from 'vitest';
 import { SurveyAiProposal } from '@/components/survey/live/ai-proposal';
 const request=vi.hoisted(()=>vi.fn());
@@ -48,4 +48,34 @@ it('ignores a cancelled late proposal without replacing the current draft',async
  fireEvent.click(screen.getByRole('button',{name:'取消生成'}));finish(proposal);
  await waitFor(()=>expect(screen.queryByRole('textbox',{name:'AI 提案 Markdown'})).not.toBeInTheDocument());
  expect(apply).not.toHaveBeenCalled();
+});
+
+it('places file and voice actions inside the input composer without permanent hint blocks',()=>{
+ render(<SurveyAiProposal locked={false} onApply={vi.fn()}/>);
+ const composer=screen.getByRole('group',{name:'问卷输入'});
+ expect(within(composer).getByRole('textbox',{name:'问卷需求'})).toBeInTheDocument();
+ expect(within(composer).getByRole('button',{name:'添加文件'})).toBeInTheDocument();
+ expect(within(composer).getByRole('button',{name:'语音输入'})).toBeInTheDocument();
+ expect(within(composer).getByRole('button',{name:'选择已保存录音'})).toBeInTheDocument();
+ expect(screen.queryByText(/描述目标与受众/)).not.toBeInTheDocument();
+ expect(screen.queryByText(/可直接在本页语音输入/)).not.toBeInTheDocument();
+});
+it('lets a file be removed while retaining the typed demand',async()=>{
+ request.mockImplementation(()=>new Promise(()=>{}));
+ render(<SurveyAiProposal locked={false} onApply={vi.fn()}/>);
+ fireEvent.change(screen.getByRole('textbox',{name:'问卷需求'}),{target:{value:'保留原始研究目标'}});
+ fireEvent.change(screen.getByLabelText('上传问卷文件'),{target:{files:[new File(['文件内容'],'source.txt')]}});
+ fireEvent.click(await screen.findByRole('button',{name:'移除文件 source.txt'}));
+ fireEvent.click(screen.getByRole('button',{name:'生成问卷'}));
+ expect(request.mock.calls[0]?.[1].body).toEqual({text:'保留原始研究目标'});
+});
+it('uses an accessible keyboard-focusable upload trigger for the native file chooser',()=>{
+ render(<SurveyAiProposal locked={false} onApply={vi.fn()}/>);
+ const input=screen.getByLabelText('上传问卷文件');
+ const choose=vi.spyOn(input,'click');
+ const trigger=screen.getByRole('button',{name:'添加文件'});
+ trigger.focus();expect(trigger).toHaveFocus();
+ fireEvent.click(trigger);
+ expect(choose).toHaveBeenCalledTimes(1);
+ expect(input).toHaveAttribute('accept','.md,.markdown,.txt,.pdf,.docx');
 });
