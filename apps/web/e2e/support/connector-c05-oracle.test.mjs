@@ -84,6 +84,9 @@ test('independent endpoint reference preserves legacy fallback and replaces whol
 
 test('only explicit safe Next navigation prefetch aborts are classified separately',()=>{
  const cancelled={method:'GET',pathname:'/tasks',errorText:'net::ERR_ABORTED',prefetch:'1'};
- for(const pathname of ['/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
+ for(const pathname of ['/home','/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known',knownProjectPath:'/projects/known'}),true);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/unknown',knownProjectPath:'/projects/known'}),false);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known/board',knownProjectPath:'/projects/known/board'}),false);
  for(const patch of [{pathname:'/api/tasks'},{pathname:'/admin/api'},{pathname:'/brain/private-asset'},{pathname:'/whiteboards/board'},{pathname:'/studio/board/id'},{pathname:'/_next/static/app.js'},{prefetch:undefined},{prefetch:'0'},{method:'POST'},{errorText:'net::ERR_CONNECTION_RESET'},{errorText:'net::ERR_INTERNET_DISCONNECTED'},{errorText:'UNKNOWN'},{pathname:'/unknown'}])assert.equal(navigationPrefetchAbort({...cancelled,...patch}),false);
 });

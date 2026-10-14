@@ -64,8 +64,8 @@ test('C05 distinct browser processes converge on Connector style path and concur
    page.on('pageerror',()=>browserErrors.push(`process-${index}:pageerror`));page.on('console',message=>{if(message.type()==='error')browserErrors.push(`process-${index}:console-error`);});
    page.on('requestfailed',request=>{
     const method=request.method(),pathname=new URL(request.url()).pathname,rawError=request.failure()?.errorText??'UNKNOWN',errorText=/^net::ERR_[A-Z_]+$/.test(rawError)?rawError:'UNKNOWN',prefetch=request.headers()['next-router-prefetch'];
-    if(navigationPrefetchAbort({method,pathname,errorText,prefetch})){navigationPrefetchAborts.push({process:index,method,pathname,errorText,nextRouterPrefetch:true});return;}
-    browserErrors.push(`process-${index}:${method}:${pathname}:request-failed:${errorText}`);
+    if(navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath:`/projects/${encodeURIComponent(F.projectId)}`})){navigationPrefetchAborts.push({process:index,method,pathname,errorText,nextRouterPrefetch:true});return;}
+    browserErrors.push(`process-${index}:${method}:${pathname}:request-failed:${errorText}:nextRouterPrefetch=${prefetch==='1'}:rsc=${request.headers()['rsc']==='1'}`);
    });
   }
   independentProcessIds(processIds);

@@ -101,8 +101,9 @@ export function connectorStorageReference(storage){
 }
 
 /** Only explicitly marked Next navigation prefetch cancellations are non-errors. */
-export function navigationPrefetchAbort({method,pathname,errorText,prefetch}){
+export function navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath}){
  if(method!=='GET'||errorText!=='net::ERR_ABORTED'||prefetch!=='1')return false;
  // An allowlist excludes every Board, API, script, asset and unknown resource.
- return ['/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
+ if(typeof knownProjectPath==='string'&&/^\/projects\/[^/]+$/.test(knownProjectPath)&&pathname===knownProjectPath)return true;
+ return ['/home','/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
 }
