@@ -1,14 +1,14 @@
-# 执行计划 — 组织首页协作体验重设计
+# 执行计划 — 组织首页前台展示重设计
 
 > 规范：`.harness/instructions/execution-plan-visualization.md`。
 > 改状态用 `node .harness/scripts/execution-plan.mjs set <本文件> <节点> <状态>`，
 > 改完 `check` 一遍；不要手改 classDef 颜色。
 
 ## 我理解的目标
-- **目标**：用完整人物形象、角色说明和明确互动入口改善组织首页与配置体验
-- **完成判据**：Web 类型检查、完整 lint、72 项相关测试与三档浏览器布局检查通过，草稿 PR 可审查
-- **不做什么**：不部署、不合并、不修改认证/API/数据库，不执行模型、Skill 或 Workflow
-- **假设与待确认**：用户已授权 fixture；真实 API 绑定待非生产环境验证
+- **目标**：用完整人物形象、角色说明和明确互动入口改善组织首页前台展示体验
+- **完成判据**：Web 类型检查、完整 lint、74 项相关测试与三档浏览器布局检查通过，草稿 PR 可审查
+- **不做什么**：不改后台配置界面/字段/提交体/数据结构；不部署、不合并、不修改认证/API/数据库，不执行模型、Skill 或 Workflow
+- **假设与待确认**：用户已授权 fixture；只改前台；真实鉴权读取与人物对话待非生产环境验证，后台保存闭环不在范围内
 
 ## 执行计划
 
@@ -25,7 +25,7 @@ flowchart TD
 
   G --> S1 --> S2 --> S3 --> S4 --> S5
 
-  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef todo fill:#e5e7eb,stroke:#6b7480,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
@@ -36,7 +36,7 @@ flowchart TD
   class S2 done
   class S3 done
   class S4 tested
-  %% evidence S4: 72 tests, typecheck, full lint; evidence/ logs and browser-checks.json
+  %% evidence S4: 74 tests, typecheck, full lint; evidence/ logs and browser-checks.json
   class S5 done
 ```
 
