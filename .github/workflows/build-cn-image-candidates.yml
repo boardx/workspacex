@@ -1,8 +1,13 @@
 name: build-cn-image-candidates
+run-name: ${{ inputs.chain_id || github.workflow }}
 
 on:
   workflow_dispatch:
     inputs:
+      chain_id:
+        description: Exact MVP dispatch correlation; no authority granted
+        type: string
+        required: false
       candidate_plan:
         description: 'Reviewed JSON candidate plan: exact main source/control SHAs, three public base digests, source contracts, fixed budgets and unique attempt; never release-ready'
         required: true
@@ -63,7 +68,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     needs: plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 65
+    # A coordinator attempt has one immutable 30-minute window. Its build
+    # cannot inherit the standalone 65-minute allowance and outlive that window.
+    # This cap does not guarantee the complete production chain finishes in 30m.
+    timeout-minutes: ${{ inputs.chain_id != '' && 20 || 65 }}
     strategy:
       fail-fast: false
       max-parallel: 5

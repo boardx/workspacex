@@ -36,3 +36,12 @@ it('fails closed if a repository returns a guarded profile owned by another acto
  const actor={orgId:org,actorId:`${org}-owner`};const stored=await repo.create(actor,{fields,requestId:randomUUID()});
  await expect(listCustomExperts({...deps(),repo:{list:async()=>[{...stored,actorId:'custom-other-actor'}],create:(a,i)=>repo.create(a,i)}},actor)).rejects.toThrow();
 });
+it('stores and reloads every optional profile fact in real JSONB without changing legacy profiles',async()=>{
+ const actor={orgId:org,actorId:`${org}-owner`};
+ const profile={category:'技术',location:'深圳',age:42,occupation:'研究员',goals:['理解需求','验证假设'],interests:['设计'],painPoints:['资料不足'],motivations:['改进体验'],influences:['同行'],personalityTraits:{introvertExtrovert:3,analyticalCreative:7,busyTimeRich:5},serviceValue:'检验假设',typicalAdvice:'先验证问题'};
+ const input={fields:{...fields,profile},requestId:randomUUID()};const created=await create(actor,input);
+ expect(created.fields.profile).toEqual(profile);expect((await list(actor)).find(item=>item.expertId===created.expertId)?.fields).toEqual(input.fields);
+ expect(await create(actor,input)).toEqual(created);
+ expect((await list(actor)).some(item=>item.fields.profile===undefined)).toBe(true);
+ expect(await list({orgId:org,actorId:'custom-other-actor'})).toEqual([]);
+});

@@ -46,3 +46,16 @@ it('keeps ordinary prose, lists and fenced code within exactly one saved expert'
  const document={documentId:'doc',step:'experts' as const,version:1,contentHash:'a'.repeat(64),evidenceMode:'simulated' as const,references:[],markdown:`# 专家\n\n## [顾问](#expert-custom-expert-real)\n\n${body}`};
  expect(interviewMarkdown.projectInterviewMarkdownExperts(document).map(item=>item.expertId)).toEqual(['custom-expert-real']);
 });
+it('round-trips complete saved profile metadata and retains exactly one canonical expert anchor',()=>{
+ const fields={name:'资料齐全的顾问',role:'顾问',domains:'研究',focus:'分析',style:'审慎',bio:'模拟研究',limits:'不是真人证据',profile:{category:'技术',location:'深圳',age:42,occupation:'研究员',goals:['理解需求','验证假设'],interests:['设计'],painPoints:['资料不足'],motivations:['改进体验'],influences:['同行'],personalityTraits:{introvertExtrovert:3,analyticalCreative:7,busyTimeRich:5},serviceValue:'检验假设',typicalAdvice:'先验证问题'}};
+ expect(parseVirtualExpertProposal(renderVirtualExpertMarkdown(fields))).toEqual(fields);
+ const markdown=`# 专家\n\n## [${fields.name}](#expert-custom-expert-complete)\n\n${renderVirtualExpertSelection(fields)}`;
+ expect(parseVirtualExpertSelection(fields.name,markdown.replace('# 专家\n\n',''))).toEqual(fields);
+ const source={documentId:'doc-profile',step:'experts' as const,version:1,contentHash:'a'.repeat(64),evidenceMode:'simulated' as const,references:[],markdown};
+ expect(interviewMarkdown.parseInterviewMarkdown(source).blocks.filter(block=>block.links.some(link=>link.url.startsWith('#expert-')))).toHaveLength(1);
+});
+it('preserves literal headings in fenced profile details when re-editing saved experts',()=>{
+ const fields={...safeFields,profile:{typicalAdvice:'示例\n\n```text\n## 代码标题\n### 保持原样\n```'}};
+ expect(parseVirtualExpertProposal(renderVirtualExpertMarkdown(fields))).toEqual(fields);
+ expect(parseVirtualExpertSelection(fields.name,`## [顾问](#expert-saved)\n\n${renderVirtualExpertSelection(fields)}`)).toEqual(fields);
+});

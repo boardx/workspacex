@@ -12,6 +12,7 @@ export interface InterviewPersona {
   pain_points: string[];
   motivations: string[];
   influences: string[];
+  personality_traits: { introvert_extrovert: number; analytical_creative: number; busy_time_rich: number };
   service_value: string;
   typical_advice: string;
 }

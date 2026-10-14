@@ -80,6 +80,9 @@ def staged(ctx):
 
 def observe(stage):
     a,ctx,m,release=context(stage)
+    if stage=='observe' and a.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
+        p=subprocess.run(['/usr/bin/python3','-I','-B',str(ROOT/'scripts/cn-release-mvp-driver-stages.py'),'readback',release],capture_output=True,timeout=115,env=e.ENV,cwd='/')
+        e.need(p.returncode==0 and 0<len(p.stdout)<=e.MAX,'MVP_READBACK_FAILED');return p.stdout
     if stage=='consume':return load('consume').observe(ctx['requestSha256'])
     if stage in ('publication-stage','check-plan','publish'):return load('publication').observe(ctx['requestSha256'],stage)
     if stage.endswith('-stage'):return staged(ctx)
@@ -109,6 +112,10 @@ def verify(stage,raw,manifest,previous,mode):
         e.need(result=={'externalWritesTerminal':True,'safeToRecover':True},'RECOVERY_RESULT_CONTRACT')
         return result
     e.need(mode in ('advance','reconcile','terminal'),'NORMAL_CONTRACT_ONLY')
+    if stage=='observe' and a.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
+        actual=observe(stage);e.need(raw==actual,'MVP_LIVE_READBACK_CHANGED')
+        value=e.decode(raw);e.need(value['modelQuality']=='SKIPPED' and value['fullBusinessAcceptance']is False,'MVP_SCOPE')
+        return {'externalWritesTerminal':True} if mode=='terminal' else True
     if stage=='consume':return load('consume').verify(raw,m,previous,mode,ctx['requestSha256'])
     if stage in ('publication-stage','check-plan','publish'):return load('publication').verify(raw,m,previous,mode,ctx['requestSha256'])
     if stage.endswith('-stage'):

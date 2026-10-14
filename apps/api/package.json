@@ -8,6 +8,7 @@
     "test:chat-share-unit": "vitest run --config vitest.chat-share-unit.config.ts",
     "test:report-files-unit": "vitest run --config vitest.report-files-unit.config.ts",
     "test:report-files-native-live": "vitest run --config vitest.report-files-native-live.config.ts",
+    "test:platform-content-release": "vitest run --config vitest.platform-content-release.config.ts",
     "dev": "tsx watch src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc --noEmit",

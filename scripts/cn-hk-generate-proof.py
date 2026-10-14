@@ -15,8 +15,8 @@ def validate_binding(original,p,template_raw):
  assert all(p['artifactIds'][k]==v['id']for k,v in original['artifacts'].items())
  expiry=datetime.datetime.fromisoformat(original['expiresAt'].replace('Z','+00:00'))
  assert expiry.tzinfo is not None and datetime.datetime.now(datetime.timezone.utc)<expiry
- if original['kind']=='hk-original-artifact-transfer-v2':
-  assert original['sourceRevision']==SOURCE and original['producerWorkflowSha256']==p['producerWorkflowSha256']
+ if original['kind']in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3'):
+  assert (re.fullmatch('[a-f0-9]{40}',original['sourceRevision'])if original['kind']=='hk-original-artifact-transfer-v3'else original['sourceRevision']==SOURCE) and original['producerWorkflowSha256']==p['producerWorkflowSha256']
   assert original['candidatePlanRawSha256']==p['candidatePlanRawSha256'] and original['revalidationTemplateSha256']==sha(template_raw)
  else:assert original['kind']=='hk-original-artifact-transfer-v1' and control=='27bada5321e45fbdd5f0506fd06d08fa29ea24ce' and original['sourceRun']==38146134231
  return control,expiry
@@ -52,7 +52,7 @@ def main():
  policy=x.output/'revalidation-policy.json';pin=put(policy,p)
  run([policy,pin,x.output,'--cached',manifest,sha(manifest.read_bytes())])
  proof=x.output/p['verificationId']/'candidate-revalidation.json';assert proof.is_file()
- assert json.loads(proof.read_bytes())['sourceRevision']==SOURCE
+ assert json.loads(proof.read_bytes())['sourceRevision']==original.get('sourceRevision',SOURCE)
  validate_binding(original,p,template_raw)
  print(json.dumps(dict(proofPath=str(proof),proofSha256=sha(proof.read_bytes()),policyPath=str(policy),policySha256=pin,artifactZipPaths={k:v['path']for k,v in cached.items()},productionReady=False)))
 if __name__=='__main__':main()

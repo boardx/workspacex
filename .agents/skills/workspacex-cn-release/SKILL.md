@@ -84,3 +84,27 @@ its raw intent and installed closure independently; keep canonical manifests on
 verified real digests. Reproduce with `test_cn_candidate_publication.py` (old-tag
 preservation and same-attempt rejection) and `test_cn_candidate_host.py` (running
 old/new target and storage protection). Local fixtures do not prove cloud access.
+
+### Cloud MVP approval and terminal publication
+
+Release execution must run on GitHub Actions and the cloud Linux executor. Do not
+use a workstation process or workstation files as a publishing runtime. The
+read-only evidence portal cannot install approval objects. Use the separately
+approved, fixed cloud preparation operation and its immutable root policy to
+derive actual build/transfer bindings and publish selectors last. New root
+entries, sudo rules and private input copies require their own exact approval.
+
+Retain the original transfer plan and revalidation template together with proof,
+policy and receipt. Hong Kong's proof executable path is not Shanghai's provider
+configuration: pin the existing authenticated host reader separately, and verify
+it before stopping writers. Never copy workstation credentials to make it work.
+
+The running driver can retain originals and create an unaccepted proposal;
+requiring its own workflow to have already completed causes a circular wait.
+Final terminal publication must independently require actual workflow success.
+`test_cn_mvp_cloud_prepare.py`, `test_cn_mvp_collector_end_to_end.py` and
+`test_cn_mvp_trusted_collector.py` cover this boundary, interrupted publication,
+cross-host provider pins, two-round reuse and stale evidence rejection. Their
+provider stand-ins are not production acceptance. MVP builds have a 20-minute
+export cap; standalone builds retain 65 minutes. The complete 30-minute target
+requires real measurement and does not extend an approved attempt's deadline.

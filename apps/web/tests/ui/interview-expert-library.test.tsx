@@ -42,3 +42,23 @@ it('preserves unsafe heading input and refuses persistence with actionable feedb
  fireEvent.click(screen.getByRole('button',{name:'保存专家'}));
  expect(await screen.findByRole('alert')).toHaveTextContent('Markdown 标题');expect(api.createCustomInterviewExpert).not.toHaveBeenCalled();expect(screen.getByLabelText('能力简介',{exact:true})).toHaveValue('[伪专家](#expert-injected)\n---');
 });
+
+it('shows the full original built-in profile rather than a shortened biography',async()=>{
+ render(<InterviewExpertLibrary/>);const persona=INTERVIEW_PERSONAS[0]!;
+ fireEvent.click(screen.getByRole('button',{name:`查看画像 ${persona.name}`}));
+ const dialog=screen.getByRole('dialog');
+ for(const value of [persona.personality.locations,String(persona.personality.age),persona.personality.occupation,...persona.goals,...persona.interests,...persona.pain_points,...persona.motivations,...persona.influences,persona.service_value,persona.typical_advice])expect(dialog).toHaveTextContent(value);
+ expect(dialog).not.toHaveTextContent('局限与材料边界');expect(dialog).not.toHaveTextContent('背景与建议未经独立验证');
+ for(const label of ['内向—外向','分析—创造','忙碌—时间充裕'])expect(dialog).toHaveTextContent(label);
+});
+it('shows custom profile details without the retired boundary section and marks missing data as unfilled',async()=>{
+ api.loadCustomInterviewExperts.mockResolvedValueOnce({items:[profile]});render(<InterviewExpertLibrary includeBuiltins={false}/>);
+ fireEvent.click(await screen.findByRole('button',{name:'查看画像 采购顾问'}));
+ const dialog=screen.getByRole('dialog');for(const [key,value] of Object.entries(profile.fields))if(key!=='limits')expect(dialog).toHaveTextContent(value);
+ expect(dialog).not.toHaveTextContent('局限与材料边界');expect(dialog).not.toHaveTextContent(profile.fields.limits);
+ expect(dialog).toHaveTextContent('所在地');expect(dialog).toHaveTextContent('未填写');
+});
+it('offers the same full profile fields when creating a private expert',async()=>{
+ render(<InterviewExpertLibrary/>);fireEvent.click(screen.getByRole('button',{name:'添加专家'}));
+ for(const label of ['分类','所在地','年龄','职业','目标','兴趣','痛点','动机','影响因素','服务价值','典型建议','内向—外向','分析—创造','忙碌—时间充裕'])expect(screen.getByLabelText(label,{exact:true})).toBeInTheDocument();
+});

@@ -21,6 +21,7 @@ import {
   SkillStarterPackConflictError,
   SkillStarterPackInvalidError,
   SkillStarterPackNotFoundError,
+  SkillStarterPackVersionLabelReusedError,
   WorkSkillImportRejectedError,
   WorkSkillStableIdConflictError,
 } from "../../application/skill-import/import-skill-starter-pack";
@@ -109,7 +110,7 @@ export class SkillStarterImportController {
       if (error instanceof SkillStarterPackInvalidError) {
         throw new UnprocessableEntityException({ reasonCode: "SKILL_STARTER_PACK_INVALID" });
       }
-      if (error instanceof SkillStarterPackConflictError) {
+      if (error instanceof SkillStarterPackConflictError || error instanceof SkillStarterPackVersionLabelReusedError) {
         throw new ConflictException({ reasonCode: "SKILL_STARTER_PACK_CONFLICT" });
       }
       if (error instanceof SkillStarterImportIdempotencyConflictError) {

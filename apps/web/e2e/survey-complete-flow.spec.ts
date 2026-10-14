@@ -67,6 +67,37 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
  await page.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
+ const composer=page.getByTestId('survey-intake-composer');
+ await expect(composer.getByLabel('问卷需求')).toBeVisible();
+ await expect(composer.getByRole('button',{name:'添加文件',exact:true})).toBeVisible();
+ await expect(composer.getByRole('button',{name:'语音输入',exact:true})).toBeVisible();
+ await expect(composer.getByRole('button',{name:'选择已保存录音',exact:true})).toBeVisible();
+ await expect(page.getByText(/可直接在本页语音输入/)).toHaveCount(0);
+ for(const width of [1440,375]){
+   await page.setViewportSize({width,height:1000});
+   const input=composer.getByRole('textbox',{name:'问卷需求'});
+   await input.focus();
+   await expect(input).toBeFocused();
+   expect(await composer.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
+   expect(await input.evaluate(el=>getComputedStyle(el).boxShadow)).toMatch(/0px 0px 0px 0px/);
+   const bounds=await composer.boundingBox();expect(bounds).not.toBeNull();
+   for(const label of ['添加文件','语音输入','选择已保存录音']){
+     const action=await composer.getByRole('button',{name:label,exact:true}).boundingBox();expect(action).not.toBeNull();
+     expect(action!.x).toBeGreaterThanOrEqual(bounds!.x);expect(action!.x+action!.width).toBeLessThanOrEqual(bounds!.x+bounds!.width+1);
+     expect(action!.y+action!.height).toBeLessThanOrEqual(bounds!.y+bounds!.height+1);
+   }
+   expect(await page.locator('body').evaluate(element=>element.scrollWidth)).toBeLessThanOrEqual(width);
+   await page.screenshot({path:testInfo.outputPath(`survey-intake-${width}.png`),fullPage:true});
+   const fileButton=composer.getByRole('button',{name:'添加文件',exact:true});
+   await fileButton.focus();await expect(fileButton).toBeFocused();
+   await page.screenshot({path:testInfo.outputPath(`survey-toolbar-focus-${width}.png`),fullPage:true});
+   await fileButton.evaluate(el=>(el as HTMLElement).blur());
+   await expect(input).not.toBeFocused();
+   await page.screenshot({path:testInfo.outputPath(`survey-blurred-${width}.png`),fullPage:true});
+ }
+ await page.setViewportSize({width:1440,height:1000});
+ await composer.getByRole('button',{name:'添加文件',exact:true}).focus();
+ await expect(composer.getByRole('button',{name:'添加文件',exact:true})).toBeFocused();
  await page.screenshot({path:testInfo.outputPath('survey-ai-import-step.png'),fullPage:true});
  await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
  // Real browser capture + deterministic loopback ASR: this is not human/provider evidence.
@@ -99,7 +130,9 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  expect(page.url()).toBe(importUrl);
  await page.getByLabel('问卷需求').fill(settled+'\n补充关注易用性');
 
- await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
+ const fileChooser=page.waitForEvent('filechooser');
+ await composer.getByRole('button',{name:'添加文件',exact:true}).press('Enter');
+ await (await fileChooser).setFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
  await expect(page.getByText(/研究目标.md/)).toBeVisible();
  await page.getByRole('button',{name:'生成问卷',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Markdown 预览与校对'});

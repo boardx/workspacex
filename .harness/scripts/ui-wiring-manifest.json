@@ -32,6 +32,10 @@
     {
       "prefix": "/chat/copilotkit-preview",
       "reason": "#654 阶段 1a 的独立预览路由，刻意不挂在 /chat 生产入口下。"
+    },
+    {
+      "prefix": "/dev/org-home-fixture",
+      "reason": "明确测试数据的组织首页组件预览；仅 NODE_ENV=development 且 WSX_HOME_FIXTURE=1 可访问，生产和未启用时 notFound，不修改鉴权或真实配置。"
     }
   ],
   "nonApiAdapters": [
@@ -4645,6 +4649,10 @@
         "ChatShareController",
         "CopilotkitAguiController"
       ]
+    },
+    "/dev/org-home-fixture": {
+      "kind": "preview",
+      "screen": "apps/web/app/dev/org-home-fixture/page.tsx"
     }
   }
 }

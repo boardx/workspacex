@@ -1,8 +1,13 @@
 name: Fixed approved CN release
+run-name: ${{ inputs.chain_id || github.workflow }}
 
 on:
   workflow_dispatch:
     inputs:
+      chain_id:
+        description: Exact MVP dispatch correlation; no authority granted
+        type: string
+        required: false
       lane:
         description: Normal release or separately approved baseline recovery
         required: true

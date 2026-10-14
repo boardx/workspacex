@@ -28,7 +28,7 @@ type Output = NonNullable<WorkflowInstanceOutput["output"]>;
 
 const CONFIDENCE_TEXT: Record<Claim["confidence"], string> = { low: "置信度低", medium: "置信度中", high: "置信度高" };
 const CONFIDENCE_TONE: Record<Claim["confidence"], "outline" | "neutral" | "success"> = { low: "outline", medium: "neutral", high: "success" };
-const KIND_TEXT: Record<Output["kind"], string> = { prd: "产品需求文档（PRD）", research_brief: "研究简报", data_needs_statement: "数据需求说明" };
+const KIND_TEXT: Record<Output["kind"], string> = { prd: "产品需求文档（PRD）", research_brief: "研究简报", data_needs_statement: "数据需求说明", discovery_artifact: "产品探索结果" };
 
 export interface WorkflowOutputViewerProps {
   readonly instanceId: string;
@@ -181,6 +181,19 @@ function ClaimView({ claim }: { readonly claim: Claim }) {
 }
 
 function OutputBody({ output }: { readonly output: Output }) {
+  if (output.kind === "discovery_artifact") {
+    return <article data-testid="workflow-output-discovery" className="space-y-4">
+      <h3 className="text-20 font-semibold tracking-tight" data-testid="workflow-output-title">{output.title}</h3>
+      <p className="text-muted-foreground">探索级证据，仍需后续验证。</p>
+      <Block title="问题陈述" testId="workflow-output-discovery-frame"><p>{output.frame.statement}</p></Block>
+      <Block title="目标机会" testId="workflow-output-discovery-opportunities">
+        <ul className="space-y-2">{output.map.opportunities.map(opportunity => <li key={opportunity.oppId}>
+          <p>{opportunity.statement}</p>
+          {opportunity.oppId === output.map.decision.proposedTarget ? <Badge tone="outline">已确认目标</Badge> : null}
+        </li>)}</ul>
+      </Block>
+    </article>;
+  }
   if (output.kind === "prd") {
     return (
       <article data-testid="workflow-output-prd" className="space-y-4">
