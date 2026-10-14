@@ -107,3 +107,18 @@ export function navigationPrefetchAbort({method,pathname,errorText,prefetch,know
  if(typeof knownProjectPath==='string'&&/^\/projects\/[^/]+$/.test(knownProjectPath)&&pathname===knownProjectPath)return true;
  return ['/home','/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
 }
+
+/** Compare the actual full-opacity raster to an independently drawn nominal-width reference. */
+export function strokeRasterProof(actual,reference){
+ assert.equal(actual.length,reference.length);assert(actual.length>0);
+ const referenceWidth=reference.filter(sample=>sample.ink).length;
+ // Preserve the 1.5px count bound, continuity and exterior rejection. The
+ // expected full-ink core comes from nominal native rasterization, never actual.
+ strokeProof(reference,referenceWidth);strokeProof(actual,referenceWidth);
+ let disagreement=0;
+ for(let index=0;index<actual.length;index++){
+  assert.equal(actual[index].offset,reference[index].offset);
+  if(actual[index].ink!==reference[index].ink)disagreement++;
+ }
+ assert(disagreement<=1.5,`C05 stroke raster offsets disagree: ${JSON.stringify({disagreement,actualInk:actual.filter(sample=>sample.ink).length,referenceInk:referenceWidth})}`);
+}

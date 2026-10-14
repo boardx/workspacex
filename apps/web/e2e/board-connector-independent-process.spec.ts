@@ -6,7 +6,7 @@ import type {WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
-import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,navigationPrefetchAbort,glyphBounds,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,navigationPrefetchAbort,glyphBounds,glyphProof,strokeRasterProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -69,6 +69,26 @@ test('C05 distinct browser processes converge on Connector style path and concur
    });
   }
   independentProcessIds(processIds);
+  const nativeStrokeCounterexamples=await pages[0]!.evaluate(()=>{
+   const result:Array<{angle:number;width:number;scan:Array<{offset:number;ink:boolean}>}>=[];
+   for(const angle of [0,Math.PI/4])for(const width of [8,10,12]){
+    const canvas=document.createElement('canvas');canvas.width=200;canvas.height=200;
+    const context=canvas.getContext('2d')!;context.fillStyle='#FFFFFF';context.fillRect(0,0,200,200);
+    context.strokeStyle='#E11D48';context.lineWidth=width;context.beginPath();
+    context.moveTo(100-70*Math.cos(angle),100-70*Math.sin(angle));context.lineTo(100+70*Math.cos(angle),100+70*Math.sin(angle));context.stroke();
+    const scan=Array.from({length:61},(_,index)=>{
+     const offset=index-30,rgba=context.getImageData(Math.round(100-Math.sin(angle)*offset),Math.round(100+Math.cos(angle)*offset),1,1).data;
+     return {offset,ink:rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255};
+    });result.push({angle,width,scan});
+   }return result;
+  });
+  for(const angle of [0,Math.PI/4]){
+   const reference=nativeStrokeCounterexamples.find(sample=>sample.angle===angle&&sample.width===12)!;
+   strokeRasterProof(reference.scan,reference.scan);
+   for(const width of [8,10])expect(()=>strokeRasterProof(nativeStrokeCounterexamples.find(sample=>sample.angle===angle&&sample.width===width)!.scan,reference.scan),'Real narrow native stroke must reject against independently rendered nominal12').toThrow();
+  }
+  records.push({phase:'native-stroke-negative-controls',cases:nativeStrokeCounterexamples.map(sample=>({angle:sample.angle,width:sample.width,fullInkCount:sample.scan.filter(point=>point.ink).length}))});
+
   const [owner,editor,viewer]=pages as [Page,Page,Page],chunkReaders=pages.map(observeRuntimeChunks);
   const accounts:Array<[string,string,string]>=[[F.email,F.password,F.userId],[F.adminEmail,F.adminPassword,F.adminUserId],[F.leadEmail,F.leadPassword,F.leadUserId]];
   const tokens:string[]=[],identities:string[]=[];
@@ -197,7 +217,8 @@ test('C05 distinct browser processes converge on Connector style path and concur
     glyphProof(raster.label,raster.golden);
     const strokeDiagnostic={phase,process:pages.indexOf(page),inkLength:raster.lineWidth,expectedPixelWidth:raster.expectedWidth,delta:raster.lineWidth-raster.expectedWidth,zoom:raster.zoom,scale:raster.scale,canonicalWidth:relation.strokeWidth,normal:raster.normal,referenceInkLength:raster.referenceInkLength,coverageScan:raster.coverageScan,scalarSpacing:raster.scalarSpacing,duplicateCount:raster.duplicateCount,firstInkOffset:raster.scan.find(sample=>sample.ink)?.offset,lastInkOffset:raster.scan.findLast(sample=>sample.ink)?.offset,from:start,to:end};
     await info.attach(`${phase}-process-${pages.indexOf(page)}-stroke-metrics`,{body:JSON.stringify(strokeDiagnostic),contentType:'application/json'});
-    strokeProof(raster.scan,raster.expectedWidth);
+    const referenceScan=raster.coverageScan.map(sample=>({offset:sample.offset,ink:sample.referenceRgba[0]===225&&sample.referenceRgba[1]===29&&sample.referenceRgba[2]===72&&sample.referenceRgba[3]===255}));
+    strokeRasterProof(raster.scan,referenceScan);
     localRaster.push({process:pages.indexOf(page),labelHash:sha256(Buffer.from(raster.label)),lineWidth:raster.lineWidth,expectedWidth:raster.expectedWidth});
    }
    // Identical fixed viewports must render the same actual glyphs, including the viewer.

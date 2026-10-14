@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort} from './connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof} from './connector-c05-oracle.mjs';
 test('distinct positive browser PIDs are required, not repeated contexts',()=>{
  assert.deepEqual(independentProcessIds([100,200,300]),[100,200,300]);
  for(const ids of [[100,100,300],[100,200],[-1,200,300],[NaN,200,300]])assert.throws(()=>independentProcessIds(ids));
@@ -106,4 +106,11 @@ test('diagonal normal-distance samples must not be collapsed into unique bitmap 
   const narrow=samples.map(({offset})=>({offset,ink:offset>=-width/2&&offset<width/2}));
   assert.throws(()=>strokeProof(narrow,12));
  }
+});
+
+test('reference-raster thickness preserves strict narrow gap and exterior rejection',()=>{
+ const scan=(from,to)=>Array.from({length:61},(_,index)=>({offset:index-30,ink:index-30>=from&&index-30<=to}));
+ const nativeNominal12Core=scan(-4,5);
+ strokeRasterProof(scan(-4,5),nativeNominal12Core);
+ for(const actual of [scan(-3,4),scan(-2,3),scan(-6,7),nativeNominal12Core.map(sample=>({...sample,ink:sample.ink&&sample.offset!==0}))])assert.throws(()=>strokeRasterProof(actual,nativeNominal12Core));
 });
