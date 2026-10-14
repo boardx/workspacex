@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "marketingOrigin": "https://www.boardx.com.cn",
+  "routine": "workspacex-home-cn",
+  "siteId": "182657519556832",
+  "domains": {
+    "www.boardx.com.cn": {
+      "purpose": "marketing",
+      "filingVerification": "official-domain-coverage-required"
+    },
+    "workspacex.cn": {
+      "purpose": "future-redirect",
+      "enabled": false,
+      "destination": "https://www.boardx.com.cn",
+      "filingVerification": "new-filing-order-not-submitted",
+      "requires": ["official-filing-coverage", "valid-source-domain-tls", "approved-exact-dns-and-routing-change"]
+    }
+  }
+}

@@ -23,11 +23,19 @@ on:
   pull_request:
     paths:
       - 'apps/home/**'
+      - 'deploy/aliyun/home_cn_language_package.py'
+      - 'deploy/aliyun/home-cn-domains.json'
+      - 'deploy/aliyun/test_home_cn_language_package.py'
+      - 'deploy/aliyun/test-home-cn-icp.mjs'
       - '.github/workflows/home-gates.yml'
   push:
     branches: [main]
     paths:
       - 'apps/home/**'
+      - 'deploy/aliyun/home_cn_language_package.py'
+      - 'deploy/aliyun/home-cn-domains.json'
+      - 'deploy/aliyun/test_home_cn_language_package.py'
+      - 'deploy/aliyun/test-home-cn-icp.mjs'
       - '.github/workflows/home-gates.yml'
   workflow_dispatch:
 
@@ -58,6 +66,8 @@ jobs:
       - name: static gates
         working-directory: apps/home
         run: node scripts/check-all.mjs --static-only
+      - name: CN packaging and US isolation
+        run: python3 -m unittest discover -s deploy/aliyun -p test_home_cn_language_package.py
 
   # 浏览器套件 + 性能预算。playwright 与 axe-core 是开发工具，不是本站的依赖，
   # 所以在这里 `--no-save` 装，不写进任何 manifest。
@@ -93,6 +103,16 @@ jobs:
       - name: browser suites and performance budget
         working-directory: apps/home
         run: node scripts/check-all.mjs
+      - name: CN ICP mobile and no-JS isolation
+        env:
+          ICP_EVIDENCE_DIR: apps/home/test-results/cn-icp
+        run: node deploy/aliyun/test-home-cn-icp.mjs
+      - name: upload CN ICP screenshot
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: home-cn-icp-evidence
+          path: apps/home/test-results/cn-icp/
       # The page as Safari draws it, for anyone reviewing without an iPhone.
       - name: upload WebKit screenshots
         if: always()
