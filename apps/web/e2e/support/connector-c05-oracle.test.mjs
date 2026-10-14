@@ -102,4 +102,8 @@ test('diagonal normal-distance samples must not be collapsed into unique bitmap 
  assert(deduplicated.filter(sample=>sample.ink).length<12-1.5);
  assert.throws(()=>strokeProof(deduplicated,12));
  assert.throws(()=>strokeProof(samples,8));
+ for(const width of [8,10]){
+  const narrow=samples.map(({offset})=>({offset,ink:offset>=-width/2&&offset<width/2}));
+  assert.throws(()=>strokeProof(narrow,12));
+ }
 });
