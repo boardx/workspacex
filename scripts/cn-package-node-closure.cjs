@@ -58,6 +58,10 @@ async function collectClosure({root,entryPoints,apiDirectory='apps/api',includeR
   const additional=bindings.map(row=>inside(root,path.join(root,row.target))).filter(file=>!sourceFiles.includes(file));if(!additional.length)break;need(pass===0,'DYNAMIC_GRAPH_UNCLOSED');result=await graph([...entries,...additional]);
  }
  need(!result.warnings.some(w=>/dynamic|glob|require|import/i.test(w.text)),'UNRESOLVED_IMPORT_WARNING');
+ // onResolve can cache equal external specifiers across importer sites. The
+ // metafile retains each source edge, which is required to preserve every
+ // package lookup alias when unbundled TS is copied to staging.
+ for(const [importer,input]of Object.entries(result.metafile.inputs)){for(const edge of input.imports||[]){if(edge.external&&!isBuiltin(edge.path)&&!edge.path.startsWith('.')&&!path.isAbsolute(edge.path)){const row={name:packageName(edge.path),importer:inside(root,path.resolve(root,importer))};if(edge.path.startsWith('@repo/'))workspaces.push(row);else externals.push(row);}}}
  const packages=new Set(),files=new Set(),links={};
  function recordLinks(file){
   const rel=relative(root,file).split('/');let current=root;

@@ -57,3 +57,22 @@ test('tampered migrator constant is rejected even with approved mapping',async t
 test('tampered expression and unrelated dynamic import are rejected',async t=>{const f=dynamicFixture(t);f.put(mapping.importer,f.text.replace('join(root, migratorPath)','join(other, migratorPath)'));await assert.rejects(dynamicCollect(f),/UNRESOLVED_DYNAMIC_IMPORT/);
  f.put(mapping.importer,f.text+";const data='./unknown.ts';import(data)");await assert.rejects(dynamicCollect(f),/UNRESOLVED_DYNAMIC_IMPORT/);});
 test('approved expression cannot use arbitrary runtime roots',async t=>{const f=dynamicFixture(t);await assert.rejects(dynamicCollect(f,[{...mapping,sourceRoot:'/tmp/arbitrary'}]),/DYNAMIC_REVIEW_SCOPE/);});
+test('all importer aliases survive esbuild external resolution caching',async t=>{
+ const f=fixture(t),foo=f.pkg('foo');f.put('apps/api/core.ts',"import {n} from '@repo/shared';import foo from 'foo';console.log(n,foo)");
+ f.put('packages/shared/package.json',{name:'@repo/shared',exports:'./src/index.ts'});f.put('packages/shared/src/index.ts',"import foo from 'foo';export const n=foo");
+ f.link('apps/api/node_modules/@repo/shared','../../../../packages/shared');f.link('apps/api/node_modules/foo','../../../'+foo);f.link('packages/shared/node_modules/foo','../../../'+foo);
+ const x=await collect(f);assert.ok(x.links['apps/api/node_modules/foo']);assert.ok(x.links['packages/shared/node_modules/foo']);
+ // Copy only the declared package files and aliases, then prove actual Node
+ // resolution from both importer locations without any ambient node_modules.
+ const stage=fs.mkdtempSync(path.join(os.tmpdir(),'cn-closure-stage-'));t.after(()=>fs.rmSync(stage,{recursive:true,force:true}));
+ for(const name of x.packageFiles){const target=path.join(stage,name);fs.mkdirSync(path.dirname(target),{recursive:true});fs.copyFileSync(path.join(f.root,name),target);}
+ for(const [name,target]of Object.entries(x.links)){const link=path.join(stage,name);fs.mkdirSync(path.dirname(link),{recursive:true});fs.symlinkSync(target,link);}
+ for(const importer of ['apps/api/core.ts','packages/shared/src/index.ts'])assert.equal(createRequire(path.join(stage,importer))('foo'),1);
+});
+test('pnpm public-hoisted dependency link survives a pruned staging copy',async t=>{
+ const f=fixture(t),foo=f.pkg('foo',{bar:'1.0.0'}),bar=f.pkg('bar');f.put('apps/api/core.ts',"import foo from 'foo';console.log(foo)");f.put(foo+'/index.js',"module.exports=require('bar')");f.link('apps/api/node_modules/foo','../../../'+foo);f.link('node_modules/.pnpm/node_modules/bar','../bar/node_modules/bar');
+ const x=await collect(f);assert.ok(x.links['node_modules/.pnpm/node_modules/bar']);const stage=fs.mkdtempSync(path.join(os.tmpdir(),'cn-hoisted-stage-'));t.after(()=>fs.rmSync(stage,{recursive:true,force:true}));
+ for(const name of x.packageFiles){const file=path.join(stage,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.copyFileSync(path.join(f.root,name),file);}
+ for(const [name,target]of Object.entries(x.links)){const link=path.join(stage,name);fs.mkdirSync(path.dirname(link),{recursive:true});fs.symlinkSync(target,link);}
+ assert.equal(createRequire(path.join(stage,'apps/api/core.ts'))('foo'),1);
+});
