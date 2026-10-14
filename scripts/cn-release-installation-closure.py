@@ -150,6 +150,9 @@ def closure_status():
 
 
 INSTALLATION_DIRECTORIES = (
+    '/etc/workspacex-cn/mvp-approval-blueprints',
+    '/etc/workspacex-cn/mvp-approval-blueprints/objects',
+    '/var/lib/workspacex-cn/release-generated/mvp-approval',
     '/etc/workspacex-cn/mvp-evidence',
     '/etc/workspacex-cn/mvp-evidence/selectors',
     '/etc/workspacex-cn/mvp-evidence/objects',

@@ -55,7 +55,7 @@ class ProbeInstallationContract(unittest.TestCase):
         for row in plan['files']+[plan[key] for key in ('fixedDriver','fixedRecoveryDriver','readOnlyEvidencePortal','approvedCloudPreparation')]:
             self.assertIn(row['target'],targets)
             self.assertTrue(row['oldStateVerified']);self.assertTrue(row['expectedOldAbsent'])
-        for name in ('/etc/workspacex-cn/mvp-cloud-policies','/etc/workspacex-cn/mvp-cloud-policies/objects','/var/lib/workspacex-cn/release-generated/mvp-cloud-preparation'):
+        for name in ('/etc/workspacex-cn/mvp-approval-blueprints','/etc/workspacex-cn/mvp-approval-blueprints/objects','/var/lib/workspacex-cn/release-generated/mvp-approval','/etc/workspacex-cn/mvp-cloud-policies','/etc/workspacex-cn/mvp-cloud-policies/objects','/var/lib/workspacex-cn/release-generated/mvp-cloud-preparation'):
             self.assertIn(name,plan['directories'])
         self.assertFalse(plan['installationReady'])
 
