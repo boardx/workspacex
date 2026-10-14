@@ -3,19 +3,20 @@ $ pnpm --filter api exec vitest run tests/billing/billing-config.test.ts
 
  RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
 
-[db-isolation] db=wsx_09c5fe978c13aaa1869c capacity=100 current=6 required=32
+[db-isolation] db=wsx_095a47d38502652ec073 capacity=100 current=6 required=32
 {"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
 {"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
 {"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
-{"level":"error","msg":"http exception","traceId":"81c0a394-8ab1-4f1e-96cd-f16e925514f4","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
- ✓ tests/billing/billing-config.test.ts (15 tests) 30997ms
+{"level":"error","msg":"http exception","traceId":"2aee5445-1469-4d1b-8f1d-7f6b03b7a0b9","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/billing/billing-config.test.ts (15 tests) 43340ms
+   ✓ configured billing module HTTP > serves the signed model for each deployment profile 368ms
 
  Test Files  1 passed (1)
       Tests  15 passed (15)
-   Start at  22:03:07
-   Duration  38.42s (transform 8.98s, setup 10ms, collect 2.34s, tests 31.00s, environment 0ms, prepare 75ms)
+   Start at  23:45:55
+   Duration  53.23s (transform 11.28s, setup 13ms, collect 4.27s, tests 43.34s, environment 0ms, prepare 80ms)
 
-[db-isolation] db=wsx_09c5fe978c13aaa1869c peak_connections=3
+[db-isolation] db=wsx_095a47d38502652ec073 peak_connections=3
 
 
 $ pnpm --filter @repo/contracts exec vitest run tests/billing/billing-operations-export.test.ts
@@ -23,12 +24,12 @@ $ pnpm --filter @repo/contracts exec vitest run tests/billing/billing-operations
 
  RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/packages/contracts
 
- ✓ tests/billing/billing-operations-export.test.ts (2 tests) 4ms
+ ✓ tests/billing/billing-operations-export.test.ts (2 tests) 6ms
 
  Test Files  1 passed (1)
       Tests  2 passed (2)
-   Start at  22:03:47
-   Duration  2.19s (transform 1.06s, setup 0ms, collect 1.71s, tests 4ms, environment 0ms, prepare 138ms)
+   Start at  23:46:49
+   Duration  3.00s (transform 1.48s, setup 0ms, collect 2.36s, tests 6ms, environment 0ms, prepare 196ms)
 
 
-[harness-verify v1 sha256=da14aeff46842f241c8edc2514bd64621c7ab6f3e876a30ed0fe679d53839c3e commit=3a9ac358fd505248f613f28ba6c89d31f0f54015 at=2026-10-14T14:03:49.452Z]
+[harness-verify v1 sha256=5f31ce27ed56221ca1bf81fd2dec0e26086b01d1c6acc29665227092b01ea24c commit=db11b4d34b5eacafae9501cde169d9466e9db41d at=2026-10-14T15:46:53.094Z]

@@ -41,7 +41,7 @@
         "pnpm --filter api exec vitest run tests/billing/billing-config.test.ts",
         "pnpm --filter @repo/contracts exec vitest run tests/billing/billing-operations-export.test.ts"
       ],
-      "evidence": "evidence/F02.verify.log @ 2026-10-14T14:03:49.455Z",
+      "evidence": "evidence/F02.verify.log @ 2026-10-14T15:46:53.097Z",
       "notes": "依据 00 R2-3（未启用渠道配置缺失不得卡启动）与 R10（骨架并入或重写）；契约 domain.md 现状基线：GET /billing/config 返回 [] 不用 HTTP 错误表达未配置（覆盖 V2/V4 的 API 侧）。契约文件 billing-credits.ts / billing-subscription.ts 已存在并 export（packages/contracts/src/index.ts），本 feature 负责删除旧 payment.ts、校验单源与挂载路由。连带门：/billing/* 路径落地时同步 apps/web/lib/navigation.ts 与 nav-reachability 配置（contract-design「物化③连带门」）。"
     },
     {
