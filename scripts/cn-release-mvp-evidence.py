@@ -80,10 +80,17 @@ def resolve(mode,payload,pin,reader=private,root=ROOT,*,structural_only=False):
         need(sha(evidence)==row['evidenceSha256'],'STAGE_EVIDENCE_CHANGED')
     terminal=module().terminal(identity,receipts)
     binding=json.loads(read('binding'));need(binding==payload,'TERMINAL_RUN_BINDING')
+    objects={}
+    for key in refs:
+        if key.startswith('original-'):
+            pin=key.removeprefix('original-');need(re.fullmatch('[a-f0-9]{64}',pin),'ORIGINAL_OBJECT_KEY')
+            raw=read(key);need(sha(raw)==pin,'ORIGINAL_OBJECT_HASH');objects[pin]=raw
+    path=Path(__file__).with_name('cn-release-mvp-stage-evidence.py');spec=importlib.util.spec_from_file_location('stage_originals',path);validator=importlib.util.module_from_spec(spec);spec.loader.exec_module(validator)
+    report=validator.validate(payload,receipts,{stage:read('evidence-'+stage)for stage in module().STAGES},objects)
     # Hash/chain correctness is not provider provenance or business validation.
     # No trusted stage-specific producer/validator exists in this closure yet.
     need(structural_only,'TRUSTED_STAGE_PROVENANCE_VALIDATOR_NOT_READY')
-    return {'kind':'cn-mvp-structural-terminal-proposal-v1','productionAccepted':False}
+    return {'kind':'cn-mvp-structural-terminal-proposal-v1','productionAccepted':False,'originalClosureReport':report}
 def main():
     p=argparse.ArgumentParser();p.add_argument('mode',choices=('approval','terminal'));p.add_argument('selector_sha256');args=p.parse_args()
     try:

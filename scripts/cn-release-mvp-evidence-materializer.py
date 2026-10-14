@@ -6,7 +6,9 @@ s=importlib.util.spec_from_file_location('portal',Path(__file__).with_name('cn-r
 def prepare(mode,payload,originals,installed_approval=None):
     E.selector(mode,payload);pin=E.sha(E.encode(payload));root=E.ROOT
     required={'approval','binding'} if mode=='approval' else {'receipts','binding'}|{'evidence-'+stage for stage in E.module().STAGES}
-    E.need(set(originals)==required and all(isinstance(b,bytes)and 0<len(b)<=65536 for b in originals.values()),'ORIGINAL_CLOSURE')
+    extra=set(originals)-required
+    E.need(required<=set(originals) and (not extra if mode=='approval' else all(__import__('re').fullmatch('original-[a-f0-9]{64}',k)for k in extra))
+        and all(isinstance(b,bytes)and 0<len(b)<=65536 for b in originals.values()),'ORIGINAL_CLOSURE')
     refs={};files={};readable={}
     for key,raw in originals.items():
         name=E.sha(raw)+'.json';refs[key]={'name':name,'sha256':E.sha(raw)}

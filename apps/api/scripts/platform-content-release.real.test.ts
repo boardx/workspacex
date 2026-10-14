@@ -5,7 +5,7 @@ import { ensurePlatformOrgSeeded } from "../src/infrastructure/skill/ensure-plat
 import { migrationConfig } from "../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../src/infrastructure/db/pg-database";
 import { toOrgId } from "../src/domain/org-id";
-import { ACTOR, sha, stateDigest, verifyInputs, synchronize, type ReleaseRequest, type VerifiedInputs } from "./platform-content-release-core";
+import { ACTOR, sha, canonical, stateDigest, verifyInputs, synchronize, type ReleaseRequest, type VerifiedInputs } from "./platform-content-release-core";
 import { PgSkillStarterImportRepository } from "../src/infrastructure/skill/pg-skill-starter-import-repository";
 import { verifySkillStarterPack, importPayloadDigest } from "../src/domain/skill/starter-pack";
 import { buildOfficialAgentRolePack } from "../src/domain/agent/official-role-packs";
@@ -14,6 +14,7 @@ import { wave2Runtime } from "@repo/contracts";
 import { readFileSync } from "node:fs";
 import { checkWorkSkillManifests } from "../src/domain/skill/work-skill-import-check";
 
+import { schemaReadback } from "./platform-schema-readback-core";
 const ORG = toOrgId("org-platform"), TENANT = "org-content-release-protected";
 let db: PgDatabase;
 function makePack(id: string, stableName: string, text = "# Release fixture\n") {
@@ -42,6 +43,15 @@ beforeEach(async () => { await resetOrgs([ORG, TENANT]); await ensurePlatformOrg
 afterAll(async () => { await db?.close(); await resetOrgs([ORG, TENANT]); });
 
 describe("actual PostgreSQL content release", () => {
+  it("reads the actual migration ledger without mutation and rejects checksum drift", async () => {
+    const expected = await db.withoutTenant(async s => (await s.query<{name:string;checksum:string}>("SELECT name,checksum FROM _kernel_migrations ORDER BY name")).rows);
+    const before = sha(canonical(expected));
+    expect(await schemaReadback(db, migrationConfig().database, expected)).toMatchObject({schemaReadbackPassed:true,productionWrites:false,schemaLedgerSha256:before});
+    await expect(schemaReadback(db,migrationConfig().database,expected.map((row,i)=>i===0?{...row,checksum:"0".repeat(64)}:row))).rejects.toThrow("SCHEMA_LEDGER_READBACK");
+    await expect(schemaReadback(db,"wrong_database",expected)).rejects.toThrow("SCHEMA_DATABASE");
+    const after = await db.withoutTenant(async s => (await s.query("SELECT name,checksum FROM _kernel_migrations ORDER BY name")).rows);
+    expect(sha(canonical(after))).toBe(before);
+  });
   it("imports exact bytes once, replays without new versions, and writes no fake gates", async () => {
     const target = await input(); const first = await synchronize(db, target); const second = await synchronize(db, target);
     expect(first).toMatchObject({ skillVersions: 1, replayed: false, fullBusinessAcceptance: false, realModel: "SKIPPED" });

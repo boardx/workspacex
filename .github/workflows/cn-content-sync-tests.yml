@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'apps/api/scripts/platform-content-release*'
+      - 'apps/api/scripts/platform-schema-readback*'
       - 'apps/api/vitest.platform-content-release.config.ts'
       - 'scripts/cn-content-sync/**'
       - 'scripts/cn-release-mvp*'

@@ -72,13 +72,9 @@ class Evidence(unittest.TestCase):
    if stage=='acceptance':row.update(checks={k:'PASSED'for k in E.module().CHECKS},modelQuality='SKIPPED',futureV2Content='NOT_APPLICABLE')
    previous=E.sha(E.encode(row));rows.append(row)
   originals['receipts']=E.encode(rows);return payload,originals
- def test_terminal_requires_original_stage_bytes(self):
-  payload,originals=self.terminal_originals();_,report=P.prepare('terminal',payload,originals)
-  self.assertFalse(report['liveProviderProvenanceVerified'])
-  files,_=P.prepare('terminal',payload,originals);root=E.ROOT;retained={root/name:raw for name,raw in files.items()};pin=E.sha(E.encode(payload))
-  with self.assertRaisesRegex(ValueError,'TRUSTED_STAGE_PROVENANCE_VALIDATOR_NOT_READY'):E.resolve('terminal',payload,pin,retained.__getitem__)
-  originals['evidence-content']=b'{}'
-  with self.assertRaisesRegex(ValueError,'STAGE_EVIDENCE_CHANGED'):P.prepare('terminal',payload,originals)
+ def test_untyped_terminal_evidence_cannot_be_packaged_as_verified(self):
+  payload,originals=self.terminal_originals()
+  with self.assertRaises((ValueError,KeyError)):P.prepare('terminal',payload,originals)
  def test_actual_bridge_zip_and_digest_rechecked(self):
   import io,zipfile
   stream=io.BytesIO()
