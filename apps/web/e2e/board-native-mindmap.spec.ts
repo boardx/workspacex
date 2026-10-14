@@ -35,6 +35,13 @@ test('native mindmap root child sibling collapse reparent undo redo source and p
     await page.getByTestId('board-fabric-surface').focus();await page.keyboard.press('Enter');await expect.poll(async()=>(await snapshot()).objects.length).toBe(5);await synced(page);
     const siblingState=await snapshot(),sibling=siblingState.objects.find(object=>object.kind==='sticky'&&object.id!==root.id&&object.id!==child.id)!;
     expect(siblingState.revision.seq).toBe(childState.revision.seq+1);
+    // Ordinary multi-delete and duplicate must fail before a raw Yjs write.
+    await page.getByTestId('board-fabric-surface').focus();await page.keyboard.press('ControlOrMeta+a');
+    await page.keyboard.press('Delete');await expect(page.getByText(/选择或区域包含思维导图/)).toBeVisible();
+    expect(await snapshot()).toEqual(siblingState);await synced(page);
+    await page.keyboard.press('ControlOrMeta+d');await expect(page.getByText(/暂不支持复制思维导图/)).toBeVisible();
+    expect(await snapshot()).toEqual(siblingState);await page.reload();await synced(page);
+    expect(await snapshot()).toEqual(siblingState);await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(5);
     const peerToken=await boardLogin(peer,F.adminEmail,F.adminPassword);expect(peerToken).toBeTruthy();await peer.goto(`/studio/board/${id}`);await synced(peer);await expect(peer.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(5);
     await selectCanvas(page,root.id);await menu();await page.getByTestId('board-mindmap-collapse').click();await expect.poll(async()=>{const object=(await snapshot()).objects.find(object=>object.id===root.id)!;return(object.extensionData?.mindmap as{collapsed:boolean}).collapsed;}).toBe(true);await synced(page);
     const collapsed=await snapshot();expect(collapsed.objects).toHaveLength(5);await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(1);await expect(peer.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(1);

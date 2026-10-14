@@ -1,5 +1,6 @@
 "use client";
 
+import { ordinaryMindmapCommandRejection, ordinaryMindmapSpatialRejection } from "./board-mindmap-ordinary-guard";
 import { mindmapReparentTarget } from "./board-mindmap-planner";
 import { BoardMindmapControls } from "./board-mindmap-controls";
 import { useBoardMindmap } from "./use-board-mindmap";
@@ -189,9 +190,10 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
 
   const dispatchEnvelope = useCallback((envelope: BoardCommandEnvelope): boolean => {
     if (mutationBlocked) { setNotice(layoutPreview ? "请先应用或取消当前布局预览。" : "当前白板为只读，不能修改。"); return false; }
+    const rejection=ordinaryMindmapCommandRejection(readObjects(doc),envelope.commands);if(rejection){setNotice(rejection);return false;}
     try { const accepted = model.execute(envelope); if (!accepted) { setNotice("操作未应用：命令通道尚未就绪，请重试。"); return false; } setNotice(""); return true; }
     catch { setNotice("操作未应用：请检查对象是否仍存在或内容是否超出限制。"); return false; }
-  }, [layoutPreview, model, mutationBlocked]);
+  }, [layoutPreview, model, mutationBlocked, doc]);
   const execute = useCallback((commands: WhiteboardCommand[], gestureId = crypto.randomUUID()) => dispatchEnvelope({ boardId, clientId, gestureId, commands }), [boardId, clientId, dispatchEnvelope]);
   const replaceContent = useCallback((id: string, content: CanonicalContentObject): boolean => {
     if (readOnly) return false;
@@ -200,9 +202,10 @@ export function CollaborativeThinkingEditor({ organizeFitRequest, dockExtension,
   }, [boardId, clientId, contentPort, readOnly]);
   const executeSpatial = useCallback((command: SpatialCommand, preconditions?: import("@repo/whiteboard-core").SpatialPrecondition[]): boolean => {
     if (readOnly) { setNotice("当前白板为只读，不能修改空间关系。"); return false; }
+    const rejection=ordinaryMindmapSpatialRejection(readObjects(doc),command);if(rejection){setNotice(rejection);return false;}
     try { const accepted = spatialPort.dispatch({ boardId, clientId, gestureId: crypto.randomUUID(), command, preconditions }); if (!accepted) { setNotice("操作未应用：命令通道尚未就绪，请重试。"); return false; } setNotice(""); return true; }
     catch (error) { setNotice(error instanceof Error && error.message === "OBJECT_LOCKED" ? "对象已锁定，不能移动、调整、编辑或批量操作。" : error instanceof Error && error.message === "SPATIAL_COMMAND_REJECTED" ? "操作未应用：命令通道尚未就绪，请重试。" : "空间操作未应用：对象可能已变化，请重试。"); return false; }
-  }, [boardId, clientId, readOnly, spatialPort]);
+  }, [boardId, clientId, readOnly, spatialPort, doc]);
   const duplicateRoots = useCallback((rootIds: string[], offset = { x: 24, y: 24 }): boolean => {
     const roots = rootIds.filter((id) => !rootIds.some((other) => model.objects.find((object) => object.id === id)?.parentId === other));
     const closure = new Set(roots); let changed = true;

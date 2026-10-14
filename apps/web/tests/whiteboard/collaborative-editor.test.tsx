@@ -358,3 +358,19 @@ it('scopes connector and eraser shortcuts to the board and ignores IME/repeats',
  fireEvent.keyDown(canvas,{key:'e',repeat:true});expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','true');
  fireEvent.keyDown(canvas,{key:'e'});expect(screen.getByTestId('board-draw-tool-panel')).toBeVisible();expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','false');doc.destroy();
 });
+
+it('rejects ordinary multi-delete and duplicate of a native mindmap before any canonical write',async()=>{
+  const {planBoardMindmap}=await import('@/components/whiteboard/board-mindmap-planner');
+  const doc=createWhiteboardDocument();
+  executeCommands(doc,planBoardMindmap([],{action:'create-root',id:'guard-root',text:'主题',position:{x:50,y:50}}).commands,'fixture');
+  executeCommands(doc,planBoardMindmap(readObjects(doc),{action:'add-child',nodeId:'guard-root',id:'guard-child',edgeId:'guard-edge',text:'子'}).commands,'fixture');
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+  fireEvent.click(screen.getByTestId('fabric-select-all'));
+  const before=readObjects(doc),updates=vi.fn();doc.on('update',updates);
+  const canvas=screen.getByTestId('board-fabric-canvas');
+  fireEvent.keyDown(canvas,{key:'Delete'});
+  expect(screen.getByText(/选择或区域包含思维导图/)).toBeVisible();expect(readObjects(doc)).toEqual(before);expect(updates).not.toHaveBeenCalled();
+  fireEvent.keyDown(canvas,{key:'d',ctrlKey:true});
+  expect(screen.getByText(/暂不支持复制思维导图/)).toBeVisible();expect(readObjects(doc)).toEqual(before);expect(updates).not.toHaveBeenCalled();
+  doc.off('update',updates);doc.destroy();
+});
