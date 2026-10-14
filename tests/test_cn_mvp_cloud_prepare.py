@@ -20,13 +20,15 @@ class CloudPreparation(unittest.TestCase):
   for p in (self.policyroot,self.policyroot/'objects',self.approvals,self.inputs,self.journals,self.portal,self.portal/'objects',self.portal/'selectors'):p.mkdir(mode=0o700)
   self.now=m.S.instant('2026-10-14T02:05:00Z')
   data={name:m.E.encode({'approvedInput':name})for name in ('authorization.json','template.json','migrationDiff.json','writer-authorization.json','test-data-scope.json','mvp-profile.json','mvp-schema-request.json','mvp-content-request.json','mvp-content-backup.json','mvp-nonmodel-fixtures.json','mvp-nonmodel-credentials.json','mvp-existing-environment.json','mvp-runtime-manifest.json')}
+  for name,purpose in (('mvp-existing-environment.json','migration-environment'),('mvp-nonmodel-credentials.json','nonmodel-credentials')):
+   data[name]=m.E.encode(dict(kind='cn-mvp-existing-private-input-ref-v1',purpose=purpose,format=purpose+'-json-v1',path='/etc/workspacex-cn/synthetic-only-'+purpose+'.json',sha256='e'*64))
   data['test-data-scope.json']=data['mvp-nonmodel-fixtures.json']
   host={'ghExecutable':'/usr/bin/gh','ghSha256':'d'*64,'authentication':'existing-root-gh'}
   data['mvp-profile.json']=m.E.encode({'githubProvider':host})
   self.objects={m.E.sha(raw):raw for raw in data.values()};self.pins={name:m.E.sha(raw)for name,raw in data.items()}
   identity={'sourceRevision':'a'*40,'controlRevision':'b'*40,'releaseId':'cloud-test','contentManifestSha256':self.pins['mvp-content-request.json']}
   target={'accountId':'1177216024653153','region':'cn-shanghai','ecsInstanceId':'i-uf6ga92ewloganobbln6'}
-  code={'scripts/cn-release-mvp-cloud-prepare.py':m.E.sha((ROOT/'scripts/cn-release-mvp-cloud-prepare.py').read_bytes())}
+  code={name:m.E.sha((ROOT/name).read_bytes()) for name in ('scripts/cn-release-mvp-cloud-prepare.py','scripts/cn-release-mvp-private-input.py')}
   self.p={'kind':'cn-mvp-cloud-preparation-policy-v1','action':'install-approved-control-data','identity':identity,'target':target,'requestedAt':'2026-10-14T02:00:00Z','deadlineAt':'2026-10-14T02:30:00Z','codeFiles':code,'rootInputPins':self.pins,'githubPolicy':host,'probeSha256':m.E.sha(b'{}')}
   self.selector=dict(identity=identity,requestedAt=self.p['requestedAt'],deadlineAt=self.p['deadlineAt'],buildRunId=12,transferRunId=13)
   stage={'profileSha256':'mvp-profile.json','schemaRequestSha256':'mvp-schema-request.json','contentRequestSha256':'mvp-content-request.json','contentBackupSha256':'mvp-content-backup.json','nonmodelFixturesSha256':'mvp-nonmodel-fixtures.json','nonmodelCredentialsSha256':'mvp-nonmodel-credentials.json'}
@@ -71,6 +73,27 @@ class CloudPreparation(unittest.TestCase):
   for name,h in self.pins.items():self.assertEqual(m.E.sha((self.inputs/release/name).read_bytes()),h);self.assertEqual((self.inputs/release/name).stat().st_mode&0o777,0o600)
   approval_index=events.index(self.approvals/(release+'.json'));selector_index=events.index(self.portal/'selectors'/(result['selectorSha256']+'.json'))
   self.assertLess(approval_index,selector_index);self.assertNotIn('approvedInput',json.dumps(result))
+ def test_preparation_only_copies_references_and_never_resolves_private_target(self):
+  actual=m.load
+  private=actual('mvp-private-input')
+  with patch.object(private,'resolve_ref',side_effect=AssertionError('secret target read forbidden')):
+   with patch.object(m,'load',side_effect=lambda name:private if name=='mvp-private-input' else actual(name)):
+    result=self.publish()
+  for name in ('mvp-existing-environment.json','mvp-nonmodel-credentials.json'):
+   raw=(self.inputs/result['releaseSha256']/name).read_bytes()
+   self.assertEqual(raw,self.objects[self.pins[name]])
+   self.assertEqual(json.loads(raw)['kind'],'cn-mvp-existing-private-input-ref-v1')
+ def test_literal_credentials_rejected_before_publication(self):
+  for name,payload in (('mvp-existing-environment.json',{'MIGRATION_DB_PASSWORD':'synthetic-never-copy'}),('mvp-nonmodel-credentials.json',{'primary':{'email':'synthetic@example.invalid','password':'synthetic-never-copy'}})):
+   with self.subTest(name=name):
+    objects=dict(self.objects);policy=dict(self.p);policy['rootInputPins']=dict(self.pins)
+    raw=m.E.encode(payload);pin=m.E.sha(raw);objects[pin]=raw;policy['rootInputPins'][name]=pin
+    # Keep all authenticated metadata consistent so rejection is the ref schema.
+    files=dict(self.files);approval=json.loads(files['approval.json'])
+    if name=='mvp-nonmodel-credentials.json':approval['mvp']['stageInputs']['nonmodelCredentialsSha256']=pin
+    files['approval.json']=m.E.encode(approval)
+    with self.assertRaises(ValueError):m.publication(policy,self.selector,files,objects)
+    self.assertEqual(list(self.inputs.iterdir()),[])
  def test_same_policy_never_replays_publication(self):
   self.publish()
   with self.assertRaises(FileExistsError):self.publish()

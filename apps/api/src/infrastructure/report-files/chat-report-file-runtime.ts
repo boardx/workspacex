@@ -1,4 +1,4 @@
-import { NativeArtifactPublishInput } from '@repo/contracts/native-artifact-publish';
+import { reportFilePublication } from '../../application/report-files/publication';
 import { REPORT_FILE_FORMATS } from '@repo/contracts/report-files';
 import { listSkills } from '../../application/skill/list-skills';
 import { PgSkillContractRepository } from '../skill/pg-skill-contract-repository';
@@ -60,12 +60,7 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
     })).threadId;
     if (!record.threadId) await saveThread(threadId);
     const attachment = await uploadAttachment(this.deps.attachments, { ...actor, threadId, filename: 'saved-report.md', mime: 'text/markdown', bytes: encodeSavedReportInput(source) });
-    const publication = NativeArtifactPublishInput.parse({
-      workspacePath: `/workspace/report${REPORT_FILE_FORMATS[record.job.format].extension}`,
-      title: `report${REPORT_FILE_FORMATS[record.job.format].extension}`,
-      mediaType: REPORT_FILE_FORMATS[record.job.format].mediaType,
-      idempotencyKey: `report-file:${record.requestId}`,
-    });
+    const publication = reportFilePublication(record);
     const accepted = await acceptHumanMessage(this.deps.messages, {
       ...actor, threadId, clientMessageId: record.requestId, agentId, requestedSkillVersionId: record.skill.versionId,
       attachmentIds: [attachment.id],
