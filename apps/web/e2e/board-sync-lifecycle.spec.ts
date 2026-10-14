@@ -189,6 +189,7 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await owner.getByRole('button',{name:'返回白板',exact:true}).click();
   await expect(owner).toHaveURL(/\/studio\/board(?:\?.*)?$/);
   await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);
+  await expect(owner.getByTestId('whiteboard-library')).toBeVisible();
   expect(await owner.evaluate(()=>navigator.onLine)).toBe(false);
   await owner.context().setOffline(false);
   await owner.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(unmountBefore);
