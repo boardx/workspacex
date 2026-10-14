@@ -91,7 +91,7 @@ for (const unavailable of [false, true]) test(`nonempty Board export ${unavailab
     if (unavailable) {
       let downloads = 0; page.on("download", () => downloads++);
       await page.getByTestId("board-download-png").click();
-      await expect(page.getByRole("alert")).toContainText("下载失败");
+      await expect(page.getByLabel("下载白板", { exact: true }).getByRole("alert")).toContainText("下载失败");
       expect(downloads).toBe(0);
     } else {
       const pending = page.waitForEvent("download"); await page.getByTestId("board-download-png").click();
