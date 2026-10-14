@@ -42,7 +42,7 @@ export function strokeProof(samples,expectedWidth){
  assert(Number.isFinite(expectedWidth)&&expectedWidth>=2);
  assert(samples.length>0);for(let i=0;i<samples.length;i++){assert(Number.isFinite(samples[i].offset));assert.equal(typeof samples[i].ink,'boolean');if(i>0)assert(samples[i].offset>samples[i-1].offset);}
  const ink=samples.filter(sample=>sample.ink);assert(ink.some(sample=>Math.abs(sample.offset)<=1));
- assert(Math.abs(ink.length-expectedWidth)<=1.5);
+ assert(Math.abs(ink.length-expectedWidth)<=1.5,`C05 stroke width: ${JSON.stringify({inkLength:ink.length,expectedWidth,delta:ink.length-expectedWidth,firstInkOffset:ink[0]?.offset,lastInkOffset:ink.at(-1)?.offset})}`);
  for(const sample of samples)if(Math.abs(sample.offset)>expectedWidth/2+1.5)assert.equal(sample.ink,false);
  const first=samples.findIndex(sample=>sample.ink),last=samples.findLastIndex(sample=>sample.ink);
  assert(samples.slice(first,last+1).every(sample=>sample.ink));

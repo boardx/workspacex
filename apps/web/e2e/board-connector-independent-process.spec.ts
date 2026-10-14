@@ -138,6 +138,10 @@ test('C05 distinct browser processes converge on Connector style path and concur
      const zoom=Number(surface.dataset.viewportZoom),panX=Number(surface.dataset.viewportPanX),panY=Number(surface.dataset.viewportPanY),rect=element.getBoundingClientRect(),sx=element.width/rect.width,sy=element.height/rect.height;
      return points.every(point=>{const x=Math.round((panX+zoom*point.x)*sx),y=Math.round((panY+zoom*point.y)*sy);if(x<4||y<4||x+4>=element.width||y+4>=element.height)return false;const data=ctx.getImageData(x-4,y-4,9,9).data;for(let i=0;i<data.length;i+=4)if(data[i]===225&&data[i+1]===29&&data[i+2]===72&&data[i+3]===255)return true;return false;});
     },samples),{message:`${phase}: persisted red Connector must paint independent cubic samples`}).toBe(true);
+    // Protocol/DOM readiness precedes Fabric's requestRenderAll frame. Wait for
+    // two actual paint callbacks, then ensure the sampled canonical head stayed fixed.
+    await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+    expect(await state(),`${phase}: canonical state must stay fixed across paint frames`).toEqual(authoritative);
     const raster=await page.locator('canvas.lower-canvas').evaluate((canvas,input)=>{
      const element=canvas as HTMLCanvasElement,context=element.getContext('2d')!,surface=element.closest('[data-testid="board-fabric-surface"]') as HTMLElement,rect=element.getBoundingClientRect();
      const zoom=Number(surface.dataset.viewportZoom),panX=Number(surface.dataset.viewportPanX),panY=Number(surface.dataset.viewportPanY),scale=element.width/rect.width;
@@ -174,6 +178,8 @@ test('C05 distinct browser processes converge on Connector style path and concur
     },{start,end,route,label,labelPoint,sample:samples[0]!,width:relation.strokeWidth!,textColor:authoritative.edge.style.color??'#29261E'});
     await info.attach(`${phase}-process-${pages.indexOf(page)}-glyph-metrics`,{body:JSON.stringify({reference:raster.reference,actual:glyphBounds(raster.label),expected:glyphBounds(raster.golden)}),contentType:'application/json'});
     glyphProof(raster.label,raster.golden);
+    const strokeDiagnostic={phase,process:pages.indexOf(page),inkLength:raster.lineWidth,expectedPixelWidth:raster.expectedWidth,delta:raster.lineWidth-raster.expectedWidth,zoom:raster.zoom,scale:raster.scale,canonicalWidth:relation.strokeWidth,from:start,to:end};
+    await info.attach(`${phase}-process-${pages.indexOf(page)}-stroke-metrics`,{body:JSON.stringify(strokeDiagnostic),contentType:'application/json'});
     strokeProof(raster.scan,raster.expectedWidth);
     localRaster.push({process:pages.indexOf(page),labelHash:sha256(Buffer.from(raster.label)),lineWidth:raster.lineWidth,expectedWidth:raster.expectedWidth});
    }
