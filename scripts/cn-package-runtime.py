@@ -182,7 +182,8 @@ def build(control, source, revision, source_revision, output, helper):
     meta.joinpath('dynamic-bindings.json').write_bytes(encode(closure['dynamicBindings']))
     archive=output/'runtime.tar.gz';total=make_archive(payload,archive)
     summary={'schemaVersion':1,'controlRevision':revision,'sourceRevision':source_revision,
-             'producerRevision':os.environ.get('GITHUB_SHA'),'runId':os.environ.get('GITHUB_RUN_ID'),
+             'producerRevision':run(['git','rev-parse','HEAD'],helper.parent.parent).decode().strip(),
+             'eventRevision':os.environ.get('GITHUB_SHA'),'runId':os.environ.get('GITHUB_RUN_ID'),
              'runAttempt':os.environ.get('GITHUB_RUN_ATTEMPT'),'platform':'linux-x64',
              'archiveSha256':digest(archive.read_bytes()),'archiveBytes':archive.stat().st_size,'unpackedBytes':total,
              'lockfileSha256':digest((control/'pnpm-lock.yaml').read_bytes()),'fixedControlBundleSha256':module.digest(canonical),

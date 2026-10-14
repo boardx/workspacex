@@ -1,7 +1,8 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{createRequire}=require('node:module');
 const {collectClosure}=require('../scripts/cn-package-node-closure.cjs');
-const tools={ts:require('typescript'),esbuild:require(createRequire(require.resolve('tsx')).resolve('esbuild'))};
+const dependencies=createRequire(path.join(process.env.CN_PACKAGE_TEST_DEPENDENCY_ROOT||path.resolve(__dirname,'..'),'package.json'));
+const tools={ts:dependencies('typescript'),esbuild:require(createRequire(dependencies.resolve('tsx')).resolve('esbuild'))};
 function fixture(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'cn-package-fixture-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
  function put(name,raw){const file=path.join(root,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,typeof raw==='string'?raw:JSON.stringify(raw));return file;}
  function link(name,target){const file=path.join(root,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.symlinkSync(target,file);}
