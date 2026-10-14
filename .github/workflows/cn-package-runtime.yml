@@ -1,0 +1,86 @@
+name: Deterministic Linux repository package
+on:
+  workflow_dispatch:
+    inputs:
+      control_sha:
+        description: Exact reviewed control commit
+        required: true
+      source_sha:
+        description: Exact application commit
+        required: true
+  pull_request:
+    paths:
+      - 'scripts/cn-package-runtime.py'
+      - 'scripts/cn-package-node-closure.cjs'
+      - 'tests/test_cn_package_runtime.py'
+      - 'tests/test_cn_package_node_closure.cjs'
+      - '.github/workflows/cn-package-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CONTROL_SHA: ${{ inputs.control_sha || 'cbbdc3ef0cfb563236b83c57a259a3eeab02672e' }}
+      SOURCE_SHA: ${{ inputs.source_sha || 'cbbdc3ef0cfb563236b83c57a259a3eeab02672e' }}
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+    steps:
+      - name: Validate fixed revisions
+        run: |
+          python3 -B - <<'PY'
+          import os,re
+          assert all(re.fullmatch('[a-f0-9]{40}',os.environ[key]) for key in ('CONTROL_SHA','SOURCE_SHA'))
+          PY
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          path: tooling
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CONTROL_SHA }}
+          path: control
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          path: source
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4.4.0
+        with:
+          version: 9.15.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          cache: pnpm
+          cache-dependency-path: control/pnpm-lock.yaml
+      - name: Install frozen build dependencies without lifecycle hooks
+        working-directory: control
+        run: pnpm install --frozen-lockfile --ignore-scripts --filter @repo/api... --filter agentic-harness-template
+      - name: Verify packaging contracts
+        working-directory: tooling
+        run: |
+          python3 -B -m unittest discover -s tests -p test_cn_package_runtime.py -v
+          node --test tests/test_cn_package_node_closure.cjs
+      - name: Build package and import the actual staged dependency closure
+        run: |
+          python3 -B tooling/scripts/cn-package-runtime.py \
+            --control "$GITHUB_WORKSPACE/control" --source "$GITHUB_WORKSPACE/source" \
+            --revision "$CONTROL_SHA" --source-revision "$SOURCE_SHA" \
+            --helper "$GITHUB_WORKSPACE/tooling/scripts/cn-package-node-closure.cjs" \
+            --output "$RUNNER_TEMP/repository-package"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: linux-repository-package-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/repository-package/runtime.tar.gz
+          retention-days: 1
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v6
+        with:
+          name: linux-repository-package-summary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/repository-package/summary.json
+          retention-days: 1
+          if-no-files-found: error
