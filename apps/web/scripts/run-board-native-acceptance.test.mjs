@@ -339,8 +339,10 @@ test('Connector fixed login markers preserve exact assertion identity without pr
 
 test('Files fixed phase diagnostics bind actual aggregate source and preserve failure gates',async()=>{
  const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
- const {fixedFilesFailure,FILES_FAILURE_AGGREGATE_LINE}=await import('../e2e/support/board-files-failure-diagnostic.mjs');
+ const {fixedFilesFailure,filesFailureAggregateLine}=await import('../e2e/support/board-files-failure-diagnostic.mjs');
  const source=readFileSync(new URL('../e2e/board-files-filenames.spec.ts',import.meta.url),'utf8');
+ const FILES_FAILURE_AGGREGATE_LINE=filesFailureAggregateLine(new URL('../../..',import.meta.url).pathname);
+ assert(Number.isInteger(FILES_FAILURE_AGGREGATE_LINE));
  assert(source.split('\n')[FILES_FAILURE_AGGREGATE_LINE-1].includes('throw new AggregateError(failures, fixedFilesFailure('));
  const config='e2e/board-files-completion.config.ts',file='board-files-filenames.spec.ts';
  const inspectError=(error,specfile=file)=>{const failed={status:'failed',errors:[error]},test={results:[failed]},spec={file:specfile,line:23,tests:[test]},suite={specs:[spec]};return safeAcceptanceDiagnostics(config,{suites:[suite]}).firstFailure;};
@@ -387,3 +389,16 @@ test('absent native suite retains truthful receipt and exits nonzero before runt
     assert.deepEqual(JSON.parse(readFileSync(join(evidence,'files/receipt.json'),'utf8')),{sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false});
   } finally {rmSync(root,{recursive:true});rmSync(evidence,{recursive:true});}
 });
+
+ test('Files fixed marker follows source line movement and rejects duplicates or absence',async()=>{
+ const {filesFailureAggregateLine}=await import('../e2e/support/board-files-failure-diagnostic.mjs');
+ const root=realpathSync(mkdtempSync(join(tmpdir(),'wsx-files-marker-'))),directory=join(root,'apps/web/e2e'),path=join(directory,'board-files-filenames.spec.ts');
+ const line='if (failures.length) throw new AggregateError(failures, fixedFilesFailure(primaryPhase, primaryOrdinal, deleteFailures, identityFailures));';
+ try{
+  mkdirSync(directory,{recursive:true});assert.equal(filesFailureAggregateLine(root),null);
+  writeFileSync(path,'\n'.repeat(83)+line+'\n');assert.equal(filesFailureAggregateLine(root),84);
+  writeFileSync(path,line+'\n'+line);assert.equal(filesFailureAggregateLine(root),null);
+  writeFileSync(path,'// '+line);assert.equal(filesFailureAggregateLine(root),null);
+  writeFileSync(path,'x'.repeat(512*1024+1));assert.equal(filesFailureAggregateLine(root),null);
+ }finally{rmSync(root,{recursive:true});}
+ });

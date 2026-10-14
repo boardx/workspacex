@@ -133,7 +133,7 @@ export function safeAcceptanceDiagnostics(config,report,root=resolve(process.cwd
         const location=known?sourceLocation(spec,errors[0]):null;
         const marker=connectorMarkerAt(root,location);
         first={...result('CASE',known?index:null,failed.status,errors,marker),sourceLocation:location};
-        const filesFailure = config === 'e2e/board-files-completion.config.ts' ? parseFilesFailure(ownData(errors[0], 'message'), location) : null;
+        const filesFailure = config === 'e2e/board-files-completion.config.ts' ? parseFilesFailure(ownData(errors[0], 'message'), location, root) : null;
         if (filesFailure) first.filesFailure = filesFailure;
       }
     }
