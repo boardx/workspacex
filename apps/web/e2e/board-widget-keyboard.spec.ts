@@ -5,6 +5,10 @@ import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity} from '
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 
 test('real canvas sticky and rectangle Tab continue/select; Delete and each undo persist atomically',async({page,request:api},info)=>{
+ // Both widget kinds execute independent durable history and reload journeys.
+ // CI trace reached the second native Tab at 29.954s; match the standalone
+ // formal lane's budget without changing action or assertion timeouts.
+ test.setTimeout(180_000);
  const sourceSha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page);
  const token=await boardLogin(page),owned:Array<{id:string;title:string}>=[];let failure:unknown;
  const synced=async()=>{await expect(page.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','synced');};
@@ -16,7 +20,7 @@ test('real canvas sticky and rectangle Tab continue/select; Delete and each undo
    const box=await surface.boundingBox();expect(box).not.toBeNull();const zoom=Number(await surface.getAttribute('data-viewport-zoom')),panX=Number(await surface.getAttribute('data-viewport-pan-x')),panY=Number(await surface.getAttribute('data-viewport-pan-y'));
    const point={x:box!.x+panX+140*zoom,y:box!.y+panY+255*zoom};
    expect(await page.evaluate(p=>document.elementFromPoint(p.x,p.y)?.tagName==='CANVAS',point)).toBe(true);await page.mouse.click(point.x,point.y);
-   await expect(page.getByTestId(`board-a11y-object-${source.id}`)).toHaveAttribute('aria-pressed','true');await page.keyboard.press('Tab');
+   await expect(page.getByTestId(`board-a11y-object-${source.id}`)).toHaveAttribute('aria-pressed','true');await expect(surface).toBeFocused();await page.keyboard.press('Tab');
    await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects.length).toBe(3);await synced();const continued=await canonicalBoardSnapshot(api,token,id),next=continued.objects.find(value=>value.id!==source.id&&value.kind===kind)!;
    expect(next).toBeTruthy();expect(next.style).toEqual(before.objects[0]!.style);expect(continued.revision).toEqual({epoch:before.revision.epoch,seq:before.revision.seq+1});
    expect(continued.objects.find(value=>value.kind==='connector')!.connector).toMatchObject({from:source.id,to:next.id});await expect(page.getByTestId(`board-a11y-object-${next.id}`)).toHaveAttribute('aria-pressed','true');
