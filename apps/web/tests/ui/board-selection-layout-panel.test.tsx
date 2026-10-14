@@ -14,7 +14,8 @@ it('groups alignment, distribution and size commands and preserves canonical com
 });
 it('offers all smart previews without applying canonical mutations', () => {
   const p = props(); render(<BoardSelectionLayoutPanel {...p} />); tab('智能布局');
-  for (const kind of ['grid','cards','cluster','journey','mind-map','flow','timeline']) { fireEvent.click(screen.getByTestId(`board-smart-${kind}`)); expect(p.onPreview).toHaveBeenLastCalledWith(kind); }
+  for (const kind of ['grid','cards','cluster','journey','flow','timeline']) { fireEvent.click(screen.getByTestId(`board-smart-${kind}`)); expect(p.onPreview).toHaveBeenLastCalledWith(kind); }
+  expect(screen.queryByTestId('board-smart-mind-map')).toBeNull();
   fireEvent.click(screen.getByTestId('board-layout-smart-preview')); expect(p.onPreview).toHaveBeenLastCalledWith('grid'); expect(p.onArrange).not.toHaveBeenCalled();
 });
 it('retains distribution minimum and clamps layout parameters', () => {

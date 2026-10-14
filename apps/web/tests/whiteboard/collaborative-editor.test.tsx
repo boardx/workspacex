@@ -186,7 +186,9 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
   expect(readObjects(doc)).toEqual(before);
   fireEvent.mouseDown(screen.getByTestId('board-layout-tab-smart'), { button: 0, ctrlKey: false });
-  for (const suggestion of ['grid', 'cards', 'cluster', 'journey', 'mind-map', 'flow', 'timeline']) {
+  expect(screen.queryByTestId('board-smart-mind-map')).toBeNull();
+  expect(screen.getByTestId('board-mindmap-menu')).toBeVisible();
+  for (const suggestion of ['grid', 'cards', 'cluster', 'journey', 'flow', 'timeline']) {
     fireEvent.click(screen.getByTestId(`board-smart-${suggestion}`));
     expect(screen.getByTestId('board-layout-preview')).toBeVisible();
     expect(readObjects(doc)).toEqual(before);
