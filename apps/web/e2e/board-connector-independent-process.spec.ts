@@ -6,7 +6,7 @@ import type {WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
-import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,glyphBounds,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,glyphBounds,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -210,7 +210,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
    const reference=new Y.Doc();try{
     Y.applyUpdate(reference,baseline);
     for(const index of order)Y.applyUpdate(reference,updates[index]!);
-    const connector=reference.getMap<Y.Map<unknown>>('objects').get(edgeId)!.get('connector') as WhiteboardConnector;
+    const connector=connectorStorageReference(reference.getMap<Y.Map<unknown>>('objects').get(edgeId)!.toJSON());
     return structuredClone(connector);
    }finally{reference.destroy();}
   };
@@ -220,7 +220,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   expect(predictConnector([1,0]),'Concurrent Yjs winner must be independent of delivery order').toEqual(predictedConnector);
   expect(sameField.edge.connector).toEqual(predictedConnector);
   for(const [index,replica] of protocolDocs.entries()){
-   expect(replica.getMap<Y.Map<unknown>>('objects').get(edgeId)!.get('connector'),`Process ${index} authoritative stream must match independent reference`).toEqual(predictedConnector);
+   expect(connectorStorageReference(replica.getMap<Y.Map<unknown>>('objects').get(edgeId)!.toJSON()),`Process ${index} authoritative stream must match independent reference`).toEqual(predictedConnector);
   }
   expect(sameField.edge.connector!.strokeWidth,'Canonical width must match independently replayed CRDT winner').toBe(predictedWidth);
   records.push({phase:'same-field-independent-CRDT-proof',baselineSha256:sha256(Buffer.from(concurrentBaseline)),individualWidths:[4,12],predictedWidth,deliveryOrdersAgree:true});
@@ -254,6 +254,10 @@ test('C05 distinct browser processes converge on Connector style path and concur
   const individualEndpoints=[predictConnector([0],endpointBaseline,endpointUpdates),predictConnector([1],endpointBaseline,endpointUpdates)];
   retainedConnector({...beforeRace.edge.connector!,from:undefined,fromPoint:expectedFrom},individualEndpoints[0]!);
   retainedConnector({...beforeRace.edge.connector!,to:undefined,toPoint:expectedTo},individualEndpoints[1]!);
+  const expectedRace={...beforeRace.edge.connector!,from:undefined,to:undefined,fromPoint:expectedFrom,toPoint:expectedTo};
+  retainedConnector(expectedRace,predictConnector([0,1],endpointBaseline,endpointUpdates));
+  expect(predictConnector([1,0],endpointBaseline,endpointUpdates)).toEqual(predictConnector([0,1],endpointBaseline,endpointUpdates));
+  for(const replica of protocolDocs)retainedConnector(expectedRace,connectorStorageReference(replica.getMap<Y.Map<unknown>>('objects').get(edgeId)!.toJSON()));
   records.push({phase:'concurrent-endpoint-intent-proof',baselineSha256:sha256(Buffer.from(endpointBaseline)),updateSha256:endpointUpdates.map(bytes=>sha256(Buffer.from(bytes))),individualEndpoints:individualEndpoints.map((connector,process)=>({process,from:connector.from,to:connector.to,fromPoint:connector.fromPoint,toPoint:connector.toPoint})),expectedFrom,expectedTo});
 
   await expect(owner.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom',fromDelta.zoom!);await expect(editor.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom',toDelta.zoom!);

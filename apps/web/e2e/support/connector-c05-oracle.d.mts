@@ -1,3 +1,4 @@
+import type {WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 type Point={x:number;y:number};
 export function independentProcessIds(ids:number[]):number[];
 export function cubicSamples(start:Point,end:Point,route:{kind:'curve';startOffset:Point;endOffset:Point}):Point[];
@@ -7,3 +8,5 @@ export function curveMeasurement(start:Point,end:Point,route:{kind:'curve';start
 export function glyphBounds(data:number[]):{x:number;y:number;width:number;height:number;count:number};
 export function glyphProof(actual:number[],expected:number[]):void;
 export function strokeProof(samples:Array<{offset:number;ink:boolean}>,expectedWidth:number):void;
+
+export function connectorStorageReference(storage:Record<string,unknown>):WhiteboardConnector;

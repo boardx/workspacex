@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {independentProcessIds,cubicSamples} from './connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector} from './connector-c05-oracle.mjs';
 test('distinct positive browser PIDs are required, not repeated contexts',()=>{
  assert.deepEqual(independentProcessIds([100,200,300]),[100,200,300]);
  for(const ids of [[100,100,300],[100,200],[-1,200,300],[NaN,200,300]])assert.throws(()=>independentProcessIds(ids));
@@ -70,4 +70,14 @@ test('glyph anchor rejection retains strict tolerances and only bounded numeric 
  assert.deepEqual(glyphBounds(expected),{x:140,y:20,width:19,height:9,count:200});
  assert.throws(()=>glyphProof(actual,expected),error=>error.message.includes('horizontal anchor')&&error.message.includes('"x":10')&&error.message.length<800);
  glyphProof(image(144),expected);
+});
+
+test('independent endpoint reference preserves legacy fallback and replaces whole endpoint slots',()=>{
+ const connector={from:'a',to:'b',fromAnchor:'right',toAnchor:'left',fromOffset:{x:2,y:3},strokeWidth:12,label:'unchanged'};
+ assert.deepEqual(connectorStorageReference({connector}),connector);
+ const storage={connector,connectorFrom:{fromPoint:{x:260,y:330},fromAnchor:'right'},connectorTo:{toPoint:{x:1080,y:410},toAnchor:'left'}};
+ const expected={toAnchor:'left',fromAnchor:'right',fromPoint:{x:260,y:330},toPoint:{x:1080,y:410},strokeWidth:12,label:'unchanged'};
+ assert.deepEqual(connectorStorageReference(storage),expected);
+ assert.throws(()=>retainedConnector({...expected,toPoint:{x:1080,y:411}},connectorStorageReference(storage)));
+ for(const invalid of [null,[],{}, {from:'a',fromPoint:{x:1,y:2}}, {to:'b'}, {fromPoint:{x:NaN,y:1}}, {fromPoint:{x:1,y:2},fromOffset:{x:1,y:2}}, {from:'a',extra:1}])assert.throws(()=>connectorStorageReference({connector,connectorFrom:invalid}));
 });

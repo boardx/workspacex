@@ -76,3 +76,26 @@ export function cubicSamples(start,end,route){
   y:u*u*u*start.y+3*u*u*t*(start.y+route.startOffset.y)+3*u*t*t*(end.y+route.endOffset.y)+t*t*t*end.y,
  };});
 }
+
+/** Independent reference for the versioned endpoint storage contract. No product decoder. */
+export function connectorStorageReference(storage){
+ const record=value=>Boolean(value)&&typeof value==='object'&&!Array.isArray(value);
+ assert(record(storage)&&record(storage.connector),'C05 reference requires a connector fallback');
+ const result=structuredClone(storage.connector);
+ const point=value=>record(value)&&Object.keys(value).every(key=>key==='x'||key==='y')&&Number.isFinite(value.x)&&Number.isFinite(value.y);
+ for(const [side,slot] of [['from','connectorFrom'],['to','connectorTo']]){
+  const names=[side,`${side}Point`,`${side}Anchor`,`${side}Offset`];
+  if(Object.hasOwn(storage,slot)){
+   const endpoint=storage[slot];
+   assert(record(endpoint)&&Object.keys(endpoint).every(key=>names.includes(key)),'C05 reference rejects malformed endpoint slot');
+   for(const key of names)delete result[key];
+   Object.assign(result,structuredClone(endpoint));
+  }
+  const attached=result[side],free=result[`${side}Point`],offset=result[`${side}Offset`],anchor=result[`${side}Anchor`];
+  assert((typeof attached==='string'&&attached.length>0)!==Boolean(free),'C05 reference requires exactly one endpoint identity');
+  if(free!==undefined)assert(point(free),'C05 reference requires finite free endpoint');
+  if(offset!==undefined)assert(attached&&point(offset),'C05 reference offset requires attached endpoint');
+  if(anchor!==undefined)assert(['top','right','bottom','left','center'].includes(anchor),'C05 reference rejects invalid anchor');
+ }
+ return result;
+}
