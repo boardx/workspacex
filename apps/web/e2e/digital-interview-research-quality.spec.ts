@@ -527,19 +527,22 @@ test("prototype journey keeps the list shell separate from all six full-screen s
       expect(headingSize, `${step} heading must remain readable in the compact research layout`).toBeGreaterThanOrEqual(24);
       const actions = page.getByTestId("itv-step-actions");
       await expect(actions).toBeVisible();
-      // One browser snapshot avoids measuring different frames during expert-group smooth scrolling.
+      await expect(actions).toHaveCount(1);
+      await expect(actions).toHaveAttribute("data-workflow-action-bar", "footer");
+      await expect(actions.locator('[data-workflow-action-bar]')).toHaveCount(0);
+      // Capture footer and immediately preceding content in the same frame.
       const layout = await actions.evaluate((node) => {
-        const header = node.closest("header")!;
-        const heading = header.querySelector("h2")!.getBoundingClientRect();
+        const preceding = node.previousElementSibling!;
         const commands = node.getBoundingClientRect();
-        const container = header.getBoundingClientRect();
-        return { headingTop: heading.top, headingBottom: heading.bottom,
-          actionTop: commands.top, actionBottom: commands.bottom,
-          actionRight: commands.right, headerRight: container.right };
+        const content = preceding.getBoundingClientRect();
+        const container = node.parentElement!.getBoundingClientRect();
+        return { contentBottom: content.bottom, actionTop: commands.top,
+          actionRight: commands.right, containerRight: container.right,
+          position: getComputedStyle(node).position };
       });
-      expect(Math.min(layout.headingBottom, layout.actionBottom) - Math.max(layout.headingTop, layout.actionTop),
-        `${step} actions must overlap the heading row`).toBeGreaterThan(0);
-      expect(Math.abs(layout.actionRight - layout.headerRight), `${step} actions must align with the header's right edge`).toBeLessThanOrEqual(2);
+      expect(layout.position, `${step} actions stay in the document flow`).not.toBe("fixed");
+      expect(layout.actionTop, `${step} actions must follow content`).toBeGreaterThanOrEqual(layout.contentBottom - 1);
+      expect(Math.abs(layout.actionRight - layout.containerRight), `${step} actions align with their content container`).toBeLessThanOrEqual(2);
     }
     if (step === "intake") {
       const action = await page.getByTestId("itv-markdown-intake").getByRole("button", { name: /下一步：确认分析/u }).boundingBox();

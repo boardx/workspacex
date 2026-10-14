@@ -626,3 +626,32 @@ it("preserves dirty expert selection when virtual persistence conflicts with a n
   await waitFor(() => expect(screen.getByText(/专家已在其他位置更新/)).toBeVisible());
   expect(screen.getByRole("button", { name: "移除专家 张浩宇", hidden: true })).toBeInTheDocument();
 });
+
+it.each((["save", "generate", "confirm"] as const).flatMap(operation => [false, true].map(failed => ({ operation, failed }))))("only invoked outline $operation is busy and clears after failure=$failed", async ({ operation, failed }) => {
+  vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
+  const outline = { ...source, documentId: "outline-action", step: "outline" as const, markdown: "## [模拟专家](#expert-action)\n\n1. 谁负责预算？\n" };
+  const envelope = { interviewId: `itv-action-${operation}-${failed}`, revisionId: `rev-action-${operation}-${failed}`, version: 2, documents: [outline], states: [{ documentId: outline.documentId, status: "draft", failure: null }] };
+  let finish!: (response: Response) => void; let calls = 0;
+  vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+    if (url.endsWith("/digital/experts")) return new Response(JSON.stringify({ items: [] }));
+    const invoked = init.method === "POST" && url.endsWith(operation === "save" ? "/outline" : `/outline/${operation}`);
+    if (invoked) { calls += 1; return new Promise<Response>(resolve => { finish = resolve; }); }
+    return new Response(JSON.stringify(envelope));
+  });
+  render(<InterviewMarkdownEditingStep interviewId={envelope.interviewId} step="outline" onVersionChange={vi.fn()} onDirtyChange={vi.fn()} onContinue={vi.fn()} />);
+  const labels = { save: "保存问题草稿", generate: "生成访谈问题", confirm: "确认问题并开始访谈" };
+  const active = await screen.findByRole("button", { name: labels[operation] });
+  await waitFor(() => expect(active).toBeEnabled());
+  if (operation === "save") fireEvent.change(screen.getByRole("textbox", { name: "编辑问题 1" }), { target: { value: "谁负责新预算？" } });
+  fireEvent.click(active);
+  await waitFor(() => expect(calls).toBe(1));
+  const footer = screen.getByTestId("itv-step-actions");
+  expect(active).toHaveAttribute("aria-busy", "true");
+  expect(footer.querySelectorAll('[aria-busy="true"]')).toHaveLength(1);
+  expect(footer.querySelectorAll('.animate-spin')).toHaveLength(1);
+  for (const button of within(footer).getAllByRole("button")) expect(button).toBeDisabled();
+  fireEvent.click(active); expect(calls).toBe(1);
+  finish(failed ? new Response(JSON.stringify({ error: "dependency_unavailable", reasonCode: "DEPENDENCY_UNAVAILABLE" }), { status: 503 }) : new Response(JSON.stringify({ ...envelope, version: 3 })));
+  await waitFor(() => expect(footer.querySelectorAll('[aria-busy="true"]')).toHaveLength(0));
+  expect(footer.querySelectorAll('.animate-spin')).toHaveLength(0);
+});

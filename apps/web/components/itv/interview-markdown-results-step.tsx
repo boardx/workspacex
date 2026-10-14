@@ -4,12 +4,12 @@ import { interviewMarkdown } from "@repo/contracts";
 import { ApiError } from "@/lib/api-client";
 import { initializeInterviewMarkdown, loadInterviewMarkdown, confirmInterviewMarkdown, streamInterviewMarkdownReport, executeInterviewMarkdown, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
-import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
 import { InterviewRunsStep } from "./interview-runs-step";
 import { InterviewReportStep } from "./interview-report-step";
 import { getInterviewGenerationSession, subscribeInterviewGeneration, runInterviewGeneration } from "@/lib/interview-generation-session";
 import { InterviewReportGeneration } from "./interview-report-generation";
-import { InterviewStepHeader } from "./interview-step-header";
+import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
 import { interviewReportFailureMessage } from "@/lib/interview-report-failure";
 
 export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySelectedExpertIds, onVersionChange, onReport, reportPin, onBusyChange, onRunningStepChange }: {
@@ -180,16 +180,16 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   }
   if (step === "report" && !source && !error) return <><InterviewStepHeader title="研究报告" /><p role="status" className="text-sm text-muted-foreground">正在载入报告与生成进度…</p></>;
   if (step === "report" && generatingReport && session && !document) return <InterviewReportGeneration session={session} />;
-  const reportRetry = step === "report" && !generatingReport && (state?.status === "failed" || error) ? <Button variant="outline" disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</Button> : null;
+  const reportRetry = step === "report" && !generatingReport && (state?.status === "failed" || error) ? <ActionButton variant="primary" loading={pending} disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</ActionButton> : null;
   return <div>
     {step === "report" && generatingReport && session && document && <InterviewReportGeneration session={session} />}
-    {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><Button variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</Button></div>}
+    {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><ActionButton variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</ActionButton></div>}
     {state?.status === "failed" && !error && <p role="alert" className="mb-4 text-sm text-destructive">{interviewReportFailureMessage(state.failure?.code)}已保存内容不代表完整报告。</p>}
-    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} onGenerateReport={() => void generateReport()} actions={<>
-      {!execution && <Button variant="primary" disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</Button>}
-      {execution?.status === "running" && <Button variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</Button>}
-      {execution?.status === "paused" && <Button variant="primary" disabled={pending} onClick={() => void execute("resume")}>继续访谈</Button>}
-      {execution?.status === "failed" && <Button variant="primary" disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</Button>}
-    </>} /> : document ? <InterviewReportStep interviewId={interviewId} revisionId={source?.revisionId} actions={reportRetry} document={document} sourceDocuments={source?.documents ?? []} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title="研究报告">{reportRetry}</InterviewStepHeader><p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p></>}
+    {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} generatingReport={generatingReport} onGenerateReport={() => void generateReport()} actions={<>
+      {!execution && <ActionButton variant="primary" loading={pending} disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</ActionButton>}
+      {execution?.status === "running" && <ActionButton variant="outline" onClick={() => void execute("pause")}>暂停后续访谈</ActionButton>}
+      {execution?.status === "paused" && <ActionButton variant="primary" loading={pending} disabled={pending} onClick={() => void execute("resume")}>继续访谈</ActionButton>}
+      {execution?.status === "failed" && <ActionButton variant="primary" loading={pending} disabled={pending} onClick={() => void execute("retry")}>重试未完成专家</ActionButton>}
+    </>} /> : document ? <InterviewReportStep interviewId={interviewId} revisionId={source?.revisionId} actions={reportRetry} document={document} sourceDocuments={source?.documents ?? []} expertsDocument={experts} execution={execution} legacySelectedExpertIds={legacySelectedExpertIds} legacyRuns={runs} reportStatus={state?.status} shareUrl={`/itv/${encodeURIComponent(interviewId)}/report?documentId=${encodeURIComponent(document.documentId)}&version=${document.version}`} /> : <><InterviewStepHeader title="研究报告"/><p className="text-sm text-muted-foreground">暂无已保存的报告 Markdown，请先完成访谈。</p><InterviewStepActions>{reportRetry}</InterviewStepActions></>}
   </div>;
 }
