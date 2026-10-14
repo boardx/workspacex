@@ -76,7 +76,7 @@ export function installTraceWireObserver(): void {
     const getReader: typeof body.getReader = ((options?: ReadableStreamGetReaderOptions) => {
       const reader = originalGetReader.call(body, options as { mode: 'byob' });
       const originalRead = reader.read;
-      const read = ((...args: Parameters<typeof originalRead>) => originalRead.apply(reader, args).then(chunk => {
+      const read = ((...args: Parameters<typeof originalRead>) => (Reflect.apply(originalRead, reader, args) as Promise<ReadableStreamReadResult<Uint8Array>>).then(chunk => {
         observe(chunk as ReadableStreamReadResult<Uint8Array>);
         return chunk;
       }, error => { if (active) state.error = true; throw error; })) as typeof reader.read;
