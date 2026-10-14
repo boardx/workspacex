@@ -82,10 +82,19 @@ test('Board library generates canonical thumbnails, updates after ACK, reloads a
       await boardApi(request, token, 'DELETE', `/whiteboards/${populated}/members/${F.adminUserId}`);
       const denied = await request.get(`${apiOrigin()}/v1/whiteboards/${populated}/head`, { headers: { authorization: `Bearer ${viewerToken}` } });
       expect([403, 404]).toContain(denied.status());
-      // Focus revalidation exercises the SAME cached card, rather than clearing state by navigation.
-      await page.bringToFront(); await viewerPage.bringToFront();
-      await expect(viewerPage.getByTestId(`board-thumbnail-empty-${populated}`)).toHaveText('预览暂时无法加载');
+      const previousBlob=await viewerPage.getByTestId(`board-thumbnail-${populated}`).locator('img').getAttribute('src');
+      expect(previousBlob).toMatch(/^blob:/);
+      // Use a real list action: headless bringToFront does not reliably emit window focus.
+      // This keeps the cached card mounted until the actual authorized list response excludes it.
+      const refreshedList=viewerPage.waitForResponse(response=>response.request().method()==='GET'&&response.url().includes('/whiteboards?')&&new URL(response.url()).searchParams.get('query')===name);
+      await viewerPage.getByTestId('board-search').fill(name);
+      const listResponse=await refreshedList;expect(listResponse.status()).toBe(200);
+      const deniedList=await listResponse.json()as{items:Array<{id:string}>};expect(Array.isArray(deniedList.items)).toBe(true);
+      expect(deniedList.items.some(item=>item.id===populated)).toBe(false);
+      await expect(viewerPage.getByTestId(`board-card-${populated}`)).toHaveCount(0);
       await expect(viewerPage.getByTestId(`board-thumbnail-${populated}`).locator('img')).toHaveCount(0);
+      // Removal must revoke the captured private object URL, rather than leaving reusable pixels.
+      await expect.poll(()=>viewerPage.evaluate(async source=>{try{const response=await fetch(source!);return response.ok;}catch{return false;}},previousBlob)).toBe(false);
     } finally { await viewerContext.close(); }
     expect(logins).toBe(1);
     await info.attach('thumbnail evidence', { body: JSON.stringify({ initialRevision, editedRevision, first: { ...first, digestBytes: createHash('sha256').update(JSON.stringify(first.digestBytes)).digest('hex') }, edited: { ...edited, digestBytes: createHash('sha256').update(JSON.stringify(edited.digestBytes)).digest('hex') }, logins, serverAclCoverage: true }), contentType: 'application/json' });
