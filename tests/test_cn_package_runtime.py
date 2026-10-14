@@ -44,6 +44,19 @@ class PackageContracts(unittest.TestCase):
         self.assertEqual(rows['apps/api/migrations/001.sql'],b'select 2;')
         self.assertEqual(rows['skills/starter-packs/example/1.json'],b'{}')
 
+    def test_dirty_control_and_between_check_and_copy_tamper_rejected(self):
+        m.require_clean(self.repo,self.revision)
+        name='apps/api/migrations/001.sql';(self.repo/name).write_text('uncommitted')
+        with self.assertRaisesRegex(ValueError,'TRACKED_WORKTREE_DIRTY'):m.require_clean(self.repo,self.revision)
+        with self.assertRaisesRegex(ValueError,'COPIED_SOURCE_DIFFERS_FROM_COMMIT'):
+            m.copy_commit_file(self.repo,name,self.revision,self.root/'stage')
+
+    def test_error_retains_missing_module_identity_without_raw_environment(self):
+        raw=b"Error [ERR_MODULE_NOT_FOUND]: Cannot find package 'example-module' imported from /safe/stage/apps/api/core.ts\nTOKEN=do-not-retain\npostgres://secret"
+        result=m.safe_error(raw,Path('/safe/stage'))
+        self.assertEqual(result,{'errorCode':'ERR_MODULE_NOT_FOUND','missingPackage':'example-module','importerRelativeFile':'apps/api/core.ts'})
+        self.assertNotIn('secret',str(result));self.assertNotIn('TOKEN',str(result))
+
     def test_source_snapshot_rejects_symlink(self):
         path=self.repo/'skills/starter-packs/link.json';path.symlink_to('example/1.json')
         self.git('add','.');self.git('commit','-qm','link')

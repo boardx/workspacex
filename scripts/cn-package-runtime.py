@@ -35,11 +35,35 @@ def digest(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+def safe_error(stderr, cwd):
+    text = stderr.decode(errors='replace')
+    result = {}
+    code = re.search(r'\b(ERR_[A-Z_]+|MODULE_NOT_FOUND)\b', text)
+    if code: result['errorCode'] = code.group(1)
+    package = re.search(r"Cannot find (?:package|module) ['\"]([@a-zA-Z0-9_./-]+)['\"]", text)
+    if package:
+        name = package.group(1)
+        if not name.startswith(('/', '.')): result['missingPackage'] = name
+        else:
+            path = Path(name)
+            if path.is_absolute() and path.is_relative_to(Path(cwd).resolve()):
+                result['missingRelativeFile'] = str(path.relative_to(Path(cwd).resolve()))
+    imported = re.search(r'imported from (.+)', text)
+    if imported:
+        name = imported.group(1).strip()
+        if re.fullmatch(r'[/a-zA-Z0-9_.@+-]+', name):
+            path=Path(name)
+            if path.is_absolute() and path.is_relative_to(Path(cwd).resolve()):
+                result['importerRelativeFile']=str(path.relative_to(Path(cwd).resolve()))
+    return result
+
+
 def run(args, cwd, data=None):
     result = subprocess.run(args, cwd=cwd, input=data, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE, timeout=180, check=False)
     if result.returncode:
-        raise ValueError('PACKAGE_COMMAND_FAILED:' + Path(args[0]).name)
+        error={'command':Path(args[0]).name,'exitCode':result.returncode,**safe_error(result.stderr,cwd)}
+        raise ValueError('PACKAGE_COMMAND_FAILED:' + json.dumps(error,sort_keys=True))
     return result.stdout
 
 
@@ -59,6 +83,18 @@ def copy_file(root, name, dest):
     target = dest / rel; target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(source.read_bytes())
     target.chmod(0o700 if source.stat().st_mode & 0o111 else 0o600)
+
+
+def require_clean(root, revision):
+    if run(['git','rev-parse','HEAD'],root).decode().strip()!=revision:raise ValueError('SOURCE_CHECKOUT')
+    if run(['git','status','--porcelain','--untracked-files=no'],root):raise ValueError('TRACKED_WORKTREE_DIRTY')
+
+
+def copy_commit_file(root, name, revision, dest):
+    raw=run(['git','show',revision+':'+str(relative(name))],root)
+    if (root/name).read_bytes()!=raw:raise ValueError('COPIED_SOURCE_DIFFERS_FROM_COMMIT')
+    copy_file(root,name,dest)
+    if (dest/name).read_bytes()!=raw:raise ValueError('COPIED_SOURCE_CHANGED')
 
 
 def source_files(root, revision):
@@ -135,8 +171,7 @@ def make_archive(payload, archive):
 def build(control, source, revision, source_revision, output, helper):
     if os.uname().sysname != 'Linux' or os.uname().machine != 'x86_64': raise ValueError('LINUX_X64_REQUIRED')
     if not HEX.fullmatch(revision) or not HEX.fullmatch(source_revision): raise ValueError('SOURCE_IDENTITY')
-    if run(['git','rev-parse','HEAD'], control).decode().strip() != revision: raise ValueError('CONTROL_CHECKOUT')
-    if run(['git','rev-parse','HEAD'], source).decode().strip() != source_revision: raise ValueError('SOURCE_CHECKOUT')
+    require_clean(control,revision);require_clean(source,source_revision)
     output.mkdir(parents=True, exist_ok=False); payload = output / 'payload'; runtime = payload / 'control'
     runtime.mkdir(parents=True)
     args = ['node', str(helper), '--root', str(control)]
@@ -160,7 +195,7 @@ def build(control, source, revision, source_revision, output, helper):
         if run(['git','show',revision+':'+name],control) != raw: raise ValueError('CONTROL_SOURCE_DATA_MISMATCH')
         files.add(name)
         path = payload/'source'/name; path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw);path.chmod(0o600)
-    for name in sorted(files): copy_file(control, name, runtime)
+    for name in sorted(files): copy_commit_file(control,name,revision,runtime)
     for name in closure['packageFiles']: copy_file(control,name,runtime)
     for name,target in closure['links'].items():
         rel=relative(name); destination=runtime/rel; destination.parent.mkdir(parents=True,exist_ok=True)
@@ -170,7 +205,7 @@ def build(control, source, revision, source_revision, output, helper):
     # Execute actual unprivileged imports from the pruned package, not the build checkout.
     probe="await import('./apps/api/scripts/platform-content-release-core.ts');await import('./apps/api/scripts/platform-schema-readback-core.ts');await import('./apps/api/src/infrastructure/db/pg-database.ts');await import('./apps/api/src/infrastructure/db/pg-config.ts');console.log('IMPORT_CLOSURE_OK')"
     if b'IMPORT_CLOSURE_OK' not in run(['node','--import','tsx','--input-type=module','-e',probe],runtime): raise ValueError('STAGED_IMPORT_FAILED')
-    for name in canonical: copy_file(control,name,payload/'entry-control')
+    for name in canonical: copy_commit_file(control,name,revision,payload/'entry-control')
     for entry in ('release','evidence','prepare'):
         path=payload/'entries'/entry;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(module.fixed_wrapper(canonical,entry));path.chmod(0o700)
     meta=payload/'manifests';meta.mkdir()
@@ -193,6 +228,8 @@ def build(control, source, revision, source_revision, output, helper):
              'npmPackageCount':len(closure['packageDirectories']),'sourceDataFiles':len(data),
              'dynamicBindings':closure['dynamicBindings'],
              'stagedImportsPassed':True,'controlSourceDataMatched':True,'productionChanges':False,
+             'stagedImportScope':['platform-content-release-core','platform-schema-readback-core','pg-database','pg-config'],
+             'sourceSnapshotScope':'migration-and-skill-data-only-no-independent-migration-planning-checkout',
              'credentialsIncluded':False,'installationAuthorized':False}
     output.joinpath('summary.json').write_bytes(encode(summary))
     print(json.dumps(summary,sort_keys=True))
