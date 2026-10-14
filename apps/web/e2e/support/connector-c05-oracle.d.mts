@@ -10,3 +10,5 @@ export function glyphProof(actual:number[],expected:number[]):void;
 export function strokeProof(samples:Array<{offset:number;ink:boolean}>,expectedWidth:number):void;
 
 export function connectorStorageReference(storage:Record<string,unknown>):WhiteboardConnector;
+
+export function navigationPrefetchAbort(input:{method:string;pathname:string;errorText:string;prefetch:string|undefined}):boolean;

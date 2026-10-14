@@ -99,3 +99,10 @@ export function connectorStorageReference(storage){
  }
  return result;
 }
+
+/** Only explicitly marked Next navigation prefetch cancellations are non-errors. */
+export function navigationPrefetchAbort({method,pathname,errorText,prefetch}){
+ if(method!=='GET'||errorText!=='net::ERR_ABORTED'||prefetch!=='1')return false;
+ // An allowlist excludes every Board, API, script, asset and unknown resource.
+ return ['/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files'].includes(pathname);
+}

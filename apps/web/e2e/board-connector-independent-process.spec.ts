@@ -6,7 +6,7 @@ import type {WhiteboardConnector} from '@repo/contracts/whiteboard-document';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
-import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,glyphBounds,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,curveMeasurement,acceptedGesture,retainedConnector,connectorStorageReference,navigationPrefetchAbort,glyphBounds,glyphProof,strokeProof} from './support/connector-c05-oracle.mjs';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
@@ -30,6 +30,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
  expect(baseURL,'An existing isolated production runtime URL is required').toBeTruthy();
  const sha=runtimeSourceIdentity(),browsers:Browser[]=[],pages:Page[]=[],records:unknown[]=[],cleanup:unknown[]=[],cleanupErrors:unknown[]=[],processIds:number[]=[],browserErrors:string[]=[];
  let boardId='',ownerToken='',failure:unknown;
+ const navigationPrefetchAborts:Array<{process:number;method:string;pathname:string;errorText:string;nextRouterPrefetch:true}>=[];
  const screenshots:Array<{phase:string;process:number;path:string;sha256:string}>=[];
  const traffic:Array<Array<{direction:'sent'|'received';type:string;updateId?:string;gestureId?:string;epoch?:number;seq?:number;code?:string}>>=[[],[],[]];
  // Private protocol replicas predict concurrent CRDT resolution independently of API projection.
@@ -61,7 +62,11 @@ test('C05 distinct browser processes converge on Connector style path and concur
     socket.on('framesent',frame=>observe('sent',frame.payload));socket.on('framereceived',frame=>observe('received',frame.payload));
    });
    page.on('pageerror',()=>browserErrors.push(`process-${index}:pageerror`));page.on('console',message=>{if(message.type()==='error')browserErrors.push(`process-${index}:console-error`);});
-   page.on('requestfailed',request=>browserErrors.push(`process-${index}:${request.method()}:${new URL(request.url()).pathname}:request-failed`));
+   page.on('requestfailed',request=>{
+    const method=request.method(),pathname=new URL(request.url()).pathname,rawError=request.failure()?.errorText??'UNKNOWN',errorText=/^net::ERR_[A-Z_]+$/.test(rawError)?rawError:'UNKNOWN',prefetch=request.headers()['next-router-prefetch'];
+    if(navigationPrefetchAbort({method,pathname,errorText,prefetch})){navigationPrefetchAborts.push({process:index,method,pathname,errorText,nextRouterPrefetch:true});return;}
+    browserErrors.push(`process-${index}:${method}:${pathname}:request-failed:${errorText}`);
+   });
   }
   independentProcessIds(processIds);
   const [owner,editor,viewer]=pages as [Page,Page,Page],chunkReaders=pages.map(observeRuntimeChunks);
@@ -272,6 +277,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   await viewer.getByTestId(`board-a11y-object-${edgeId}`).focus();await viewer.getByTestId(`board-a11y-object-${edgeId}`).press('Enter');
   await expect(viewer.getByTestId('board-connector-width-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-label-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-handle-from')).toHaveCount(0);
   const runtimeAfter=await Promise.all(chunkReaders.map(async read=>verifyRuntimeIdentity(api,sha,await read())));
+  records.push({phase:'navigation-prefetch-aborts',count:navigationPrefetchAborts.length,requests:navigationPrefetchAborts});
   expect(browserErrors).toEqual([]);records.push({runtimeBefore,runtimeAfter,identities,processIds,traffic,independentBrowserLaunches:browsers.length,engines:browsers.map(browser=>browser.version())});
  }catch(error){failure=error;}
  finally{
@@ -280,7 +286,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   for(const browser of browsers){try{await browser.close();}catch(error){cleanupErrors.push(error);}}
   try{expect(manifestBefore).toBeTruthy();records.push({phase:'runtime-manifest-after',...await verifyConnectorRuntimeManifest(manifestBefore)});}catch(error){cleanupErrors.push(error);}
   if(cleanupErrors.length)failure=new AggregateError([...(failure?[failure]:[]),...cleanupErrors],'Connector process execution/cleanup/provenance failures');
-  const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
+  const path=info.outputPath('connector-independent-process-result.json');await writeFile(path,JSON.stringify({sha,status:failure?'failed':'C05-process-subcases-passed',requiredC05Complete:false,requiredRoundComplete:false,records,screenshots,cleanup,browserErrors,navigationPrefetchAbortCount:navigationPrefetchAborts.length,navigationPrefetchAborts,pending:['C05 actual browser execution and independent visual review','C06 complete denial and gesture races','C07 concurrent history','C08 full-field interchange','390px independent-process case']},null,2),{mode:0o600});await info.attach('connector-independent-process-result',{path,contentType:'application/json'});
  }
  if(failure)throw failure;
 });
