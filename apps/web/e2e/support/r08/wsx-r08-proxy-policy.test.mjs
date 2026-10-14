@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {FaultPolicy,fixedUpstream,scopedSession,sha256,validateScope} from './wsx-r08-proxy-policy.mjs';
 import {createFaultProxy} from './wsx-r08-fault-proxy.mjs';
 const boardId='aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',scope={boardId,sessionHashes:[sha256('one'),sha256('two')]};
-const request=(token='one',url=`/v1/whiteboards/${boardId}/sync`)=>({url,headers:{'sec-websocket-protocol':`whiteboard,bearer.${token}`}});
+const request=(token='one',url=`/whiteboards/${boardId}/sync`)=>({url,headers:{'sec-websocket-protocol':`whiteboard,bearer.${token}`}});
 test('canonical API upstream cannot be overridden to arbitrary remote target',()=>{
   assert.equal(fixedUpstream({prepared:true,ports:{api:36320},apiBase:'https://evil.invalid'}),'http://127.0.0.1:36320');
   for(const port of [0,80,65536,'36320'])assert.throws(()=>fixedUpstream({prepared:true,ports:{api:port}}));
@@ -12,7 +12,7 @@ test('canonical API upstream cannot be overridden to arbitrary remote target',()
 test('only exact owned board and registered subprotocol sessions are controlled',()=>{
   assert.equal(scopedSession(request(),scope,'bearer.'),scope.sessionHashes[0]);
   assert.equal(scopedSession(request('two'),scope,'bearer.'),scope.sessionHashes[1]);
-  for(const requestValue of [request('foreign'),request('one',`/v1/whiteboards/${boardId}/sync?token=one`),request('one','/v1/whiteboards/bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb/sync'),{...request(),headers:{'sec-websocket-protocol':'bearer.one,bearer.two'}}])assert.equal(scopedSession(requestValue,scope,'bearer.'),null);
+  for(const requestValue of [request('foreign'),request('one',`/v1/whiteboards/${boardId}/sync`),request('one',`/whiteboards/${boardId}/sync?token=one`),request('one','/whiteboards/bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb/sync'),{...request(),headers:{'sec-websocket-protocol':'bearer.one,bearer.two'}}])assert.equal(scopedSession(requestValue,scope,'bearer.'),null);
 });
 test('invalid scope cannot acquire blanket authority',()=>{
   for(const value of [{...scope,boardId:'*'},{...scope,sessionHashes:[]},{...scope,sessionHashes:[scope.sessionHashes[0],scope.sessionHashes[0]]}])assert.throws(()=>validateScope(value));
