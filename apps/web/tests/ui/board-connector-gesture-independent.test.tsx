@@ -5,10 +5,15 @@ import {createWhiteboardDocument,executeCommands,readObjects,SpatialRelationship
 import {useBoardConnectorGesture} from "@/components/whiteboard/use-board-connector-gesture";
 import type {ConnectorHandleKind,ConnectorOverlayPointerEvent} from "@/components/whiteboard/board-connector-handles";
 
-function setup() {
+function setup({free=false}: {free?:boolean}={}) {
   const doc=createWhiteboardDocument();
   const node=(id:string,x:number):WhiteboardObject=>({id,schemaVersion:1,kind:"rectangle",geometry:{x,y:0,width:100,height:80,rotation:0},text:"",style:{},parentId:null,orderKey:id});
   const edge:WhiteboardObject={...node("edge",100),kind:"connector",connector:{from:"a",to:"b",fromAnchor:"right",toAnchor:"left",type:"curve",route:{kind:"curve",startOffset:{x:20,y:30},endOffset:{x:-20,y:-30}},label:"relationship"}};
+  if(free){
+    // The real body-translate control only exists for two unbound endpoints.
+    delete edge.connector!.from;delete edge.connector!.to;
+    edge.connector!.fromPoint={x:100,y:40};edge.connector!.toPoint={x:300,y:40};
+  }
   executeCommands(doc,[{type:"create",object:node("a",0)},{type:"create",object:node("b",300)},{type:"create",object:node("c",500)},{type:"create",object:edge}],{});
   const undo=new WhiteboardUndo(doc),port=new SpatialRelationshipCommandPort(doc),host=document.createElement("div"),target=document.createElement("button");
   let captured=false,localBatches=0;
@@ -28,7 +33,7 @@ const gestures:Array<[ConnectorHandleKind,string|null,{x:number;y:number},{x:num
   ["translate",null,{x:200,y:40},{x:220,y:60}],
 ];
 it.each(gestures)("%s preview does not write; one release is one real command batch and one Undo",(kind,id,start,end)=>{
-  const test=setup(),before=readObjects(test.doc),bytes=Y.encodeStateAsUpdate(test.doc);
+  const test=setup({free:kind==='translate'}),before=readObjects(test.doc),bytes=Y.encodeStateAsUpdate(test.doc);
   try {
     act(()=>test.result.current.onPointerDown(kind,id,test.event(start.x,start.y)));
     act(()=>test.result.current.onPointerMove(test.event(end.x,end.y)));
@@ -60,7 +65,7 @@ it.each(["edge-locked","target-locked","target-deleted","remote-edge"])("rejects
   } finally {test.destroy();}
 });
 it.each(gestures)("%s cancellation rejects late release without canonical mutation",(kind,id,start,end)=>{
-  const test=setup(),bytes=Y.encodeStateAsUpdate(test.doc);
+  const test=setup({free:kind==='translate'}),bytes=Y.encodeStateAsUpdate(test.doc);
   try {
     act(()=>test.result.current.onPointerDown(kind,id,test.event(start.x,start.y)));act(()=>test.result.current.onPointerMove(test.event(end.x,end.y)));
     act(()=>test.result.current.onPointerCancel());act(()=>test.result.current.onPointerUp(test.event(end.x,end.y)));
