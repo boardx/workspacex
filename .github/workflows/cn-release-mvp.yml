@@ -1,0 +1,38 @@
+name: CN deterministic MVP coordinator
+run-name: cn-mvp-${{ github.run_id }}
+on:
+  workflow_dispatch:
+    inputs:
+      chain_request:
+        description: Exact bound build/transfer/installed-production request bundle; cold approval bridge required
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: workspacex-cn-mvp-coordinator
+  cancel-in-progress: false
+jobs:
+  coordinate:
+    if: github.ref == 'refs/heads/main' && github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Validate bound inputs and coordinate one attempt
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAIN_REQUEST: ${{ inputs.chain_request }}
+        run: python3 -B scripts/cn-release-mvp-master.py --request-env CHAIN_REQUEST --state-directory "$RUNNER_TEMP/cn-mvp" --control "$GITHUB_SHA"
+      - name: Preserve sanitized receipts and dispatch intents
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-mvp-receipts-${{ github.run_id }}-1
+          path: ${{ runner.temp }}/cn-mvp/*.json
+          retention-days: 1
+          if-no-files-found: warn

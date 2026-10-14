@@ -44,15 +44,17 @@ def metadata(name,record,plan=None):
  m=gh(f'/repos/{REPO}/actions/artifacts/{record["id"]}')
  expected=f'cn-candidate-plan-{run}-1' if name=='plan' else f'cn-image-candidate-set-{run}-1' if name=='set' else f'cn-image-candidate-{name}-{run}-1'
  need(m['id']==record['id'] and m['name']==expected and m['expired'] is False and m['size_in_bytes']==record['bytes'] and m['digest']=='sha256:'+record['sha256'] and m['workflow_run']['id']==run and m['workflow_run']['head_sha']==control)
- if plan is not None and plan['kind']=='hk-original-artifact-transfer-v2':need(m['workflow_run'].get('repository_id')==1000328649 and m['workflow_run'].get('head_repository_id')==1000328649)
+ if plan is not None and plan['kind']in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3'):need(m['workflow_run'].get('repository_id')==1000328649 and m['workflow_run'].get('head_repository_id')==1000328649)
  return {k:m[k]for k in ('id','name','expired','size_in_bytes','digest','workflow_run')}
 def validate_plan(v):
- rebound=v.get('kind')=='hk-original-artifact-transfer-v2'
+ v3=v.get('kind')=='hk-original-artifact-transfer-v3'
+ rebound=v.get('kind')in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3')
  fields={'kind','accountId','bucket','region','endpoint','prefix','sourceRun','producerControl','artifacts','expiresAt','uploaderRoleArn','subject','oidcProviderArn','uploaderFiles'}
- need(set(v)==fields|(REBOUND_FIELDS if rebound else set()))
- need(v['kind']in ('hk-original-artifact-transfer-v1','hk-original-artifact-transfer-v2') and v['accountId']==ACCOUNT)
+ need(set(v)==fields|(REBOUND_FIELDS if rebound else set())|({'sourceRunAttempt'}if v3 else set()))
+ need(v['kind']in ('hk-original-artifact-transfer-v1','hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3') and v['accountId']==ACCOUNT)
  if rebound:
-  need(type(v['sourceRun'])is int and v['sourceRun']>0 and re.fullmatch('[a-f0-9]{40}',v['producerControl']) and v['sourceRevision']==SOURCE)
+  need(type(v['sourceRun'])is int and v['sourceRun']>0 and re.fullmatch('[a-f0-9]{40}',v['producerControl']) and (re.fullmatch('[a-f0-9]{40}',v['sourceRevision'])if v3 else v['sourceRevision']==SOURCE))
+  if v3:need(type(v['sourceRunAttempt'])is int and v['sourceRunAttempt']==1)
   need(all(re.fullmatch('[a-f0-9]{64}',v[k])for k in REBOUND_FIELDS-{'sourceRevision'}))
  else:need(v['sourceRun']==RUN and v['producerControl']==CONTROL)
  need(v['region']=='cn-hongkong' and v['endpoint']=='https://oss-cn-hongkong.aliyuncs.com' and re.fullmatch('[a-z0-9][a-z0-9-]{1,61}[a-z0-9]',v['bucket']))
@@ -71,7 +73,7 @@ def validate_source_run(v):
  run=v['sourceRun'];control=v['producerControl']
  initial=gh(f'/repos/{REPO}/actions/runs/{run}/attempts/1')
  need(initial.get('id')==run and initial.get('head_sha')==control and initial.get('conclusion')=='success' and initial.get('status')=='completed')
- if v['kind']=='hk-original-artifact-transfer-v2':
+ if v['kind']in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3'):
   need(initial.get('run_attempt')==1 and initial.get('event')=='workflow_dispatch' and initial.get('head_branch')=='main' and initial.get('path')==WORKFLOW)
   need(initial.get('repository',{}).get('id')==1000328649 and initial.get('repository',{}).get('full_name')==REPO and initial.get('head_repository',{}).get('id')==1000328649)
   content=gh(f'/repos/{REPO}/contents/{WORKFLOW}?ref={control}')
@@ -86,7 +88,7 @@ def validate_source_run(v):
     items=archive.infolist();need(len(items)==1)
     item=items[0];need(item.filename=='cn-candidate-plan.json' and not item.is_dir() and not item.flag_bits&1 and stat.S_IFMT(item.external_attr>>16)in (0,stat.S_IFREG) and 0<item.file_size<=16384)
     raw=archive.read(item);need(len(raw)==item.file_size and sha(raw)==v['candidatePlanRawSha256'])
-    source=rawjson(raw);need(source.get('sourceRevision')==SOURCE and source.get('controlRevision')==control)
+    source=rawjson(raw);need(source.get('sourceRevision')==(v['sourceRevision']if v['kind']=='hk-original-artifact-transfer-v3'else SOURCE) and source.get('controlRevision')==control)
   need(metadata('plan',record,v)==before)
   need(gh(f'/repos/{REPO}/actions/runs/{run}/attempts/1')==initial)
  validate_plan(v)
@@ -163,10 +165,10 @@ class ArtifactWorker:
   return receipt
 
 class ProofWorker:
- def __init__(self,v,output,seconds,plan_sha):self.v=v;self.output=output;self.seconds=seconds;self.plan_sha=plan_sha
+ def __init__(self,v,output,seconds,plan_sha,template='.github/release-plans/hk-revalidation-template.json'):self.v=v;self.output=output;self.seconds=seconds;self.plan_sha=plan_sha;self.template=template
  def __call__(self,name):
   validate_plan(self.v);need(name=='proof-generation')
-  result=subprocess.run([sys.executable,'-I','-B',str(Path(__file__).with_name('cn-hk-generate-proof.py')),'--bundle',str(self.output),'--upload-plan-sha256',self.plan_sha,'--control',str(Path('producer-control').resolve()),'--template','.github/release-plans/hk-revalidation-template.json','--output',str(self.output/'revalidation')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=self.seconds)
+  result=subprocess.run([sys.executable,'-I','-B',str(Path(__file__).with_name('cn-hk-generate-proof.py')),'--bundle',str(self.output),'--upload-plan-sha256',self.plan_sha,'--control',str(Path('producer-control').resolve()),'--template',str(self.template),'--output',str(self.output/'revalidation')],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=self.seconds)
   need(result.returncode==0 and len(result.stdout)<16384);validate_plan(self.v)
   return rawjson(result.stdout)
 
@@ -190,13 +192,13 @@ def pipeline(v,output,seconds,worker=None,context=None):
 
 def capacity(v,output):
  total=sum(x['bytes']for x in v['artifacts'].values())
- required=total*3+2*1024**3 if v.get('kind')=='hk-original-artifact-transfer-v2' else total*2+3825868800+2*1024**3
+ required=total*3+2*1024**3 if v.get('kind')in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3') else total*2+3825868800+2*1024**3
  need(shutil.disk_usage(output).free>=required)
  return required
 
 def main():
  need(sys.platform=='linux')
- p=argparse.ArgumentParser();p.add_argument('--plan',type=Path,required=True);p.add_argument('--plan-sha256',required=True);p.add_argument('--output',type=Path,required=True);args=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--plan',type=Path,required=True);p.add_argument('--plan-sha256',required=True);p.add_argument('--output',type=Path,required=True);p.add_argument('--template',type=Path,default=Path('.github/release-plans/hk-revalidation-template.json'));args=p.parse_args()
  raw=args.plan.read_bytes();need(sha(raw)==args.plan_sha256);v=validate_plan(rawjson(raw));args.output.mkdir(mode=0o700)
  # Unchanged conservative all-seven ZIP/extraction capacity admission.
  capacity(v,args.output)
@@ -211,7 +213,7 @@ def main():
  left=min(1200,deadline-time.monotonic());need(left>0)
  # Proof's nested canonical/gh children share a supervised process group too.
  from bounded_workers import run,TransferStopped
- try:proofresults,_=run(['proof-generation'],ProofWorker(v,args.output,left,args.plan_sha256),left)
+ try:proofresults,_=run(['proof-generation'],ProofWorker(v,args.output,left,args.plan_sha256,args.template),left)
  except TransferStopped as e:
   save_json(args.output/'proof-failed.json',dict(states=e.states,externalWritesTerminal=False,retryAllowed=False));raise
  proofresult=proofresults['proof-generation']
