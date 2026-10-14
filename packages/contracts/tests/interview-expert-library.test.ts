@@ -16,3 +16,10 @@ describe('private expert Markdown data boundaries',()=>{
   expect(CreateInterviewCustomExpert.safeParse({fields,requestId:'00000000-0000-4000-8000-000000000000',actorId:'other',origin:'builtin',expertId:'persona-existing'}).success).toBe(false);
  });
 });
+it('accepts old profiles and persists partial or complete catalog-derived metadata without defaults',()=>{
+ expect(InterviewExpertFields.parse(fields)).toEqual(fields);
+ const profile={category:'技术',location:'深圳',age:42,occupation:'研究员',goals:['理解需求'],interests:['设计'],painPoints:['资料不足'],motivations:['改进体验'],influences:['同行'],personalityTraits:{introvertExtrovert:3,analyticalCreative:7,busyTimeRich:5},serviceValue:'检验假设',typicalAdvice:'先验证问题'};
+ expect(InterviewExpertFields.parse({...fields,profile}).profile).toEqual(profile);
+ expect(InterviewExpertFields.parse({...fields,profile:{location:'北京'}}).profile).toEqual({location:'北京'});
+ for(const unsafe of [{age:-1},{age:1.5},{personalityTraits:{introvertExtrovert:11}},{serviceValue:'## 伪标题'},{goals:['伪标题','---']},{goals:['跨行\n内容']},{agentDefinitionId:'fake'}])expect(InterviewExpertFields.safeParse({...fields,profile:unsafe}).success).toBe(false);
+});
