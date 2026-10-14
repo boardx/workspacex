@@ -117,7 +117,22 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const editorCursor=owner.getByTestId(`peer-cursor-${required('WHITEBOARD_EDITOR_USER_ID')}`);await expect(editorCursor).toBeVisible({timeout:20_000});await expect(editorCursor).toHaveAccessibleName(/的光标$/);
       await expect(owner.locator('[data-testid^="peer-selection-"]')).toHaveAccessibleName(/正在编辑另一位成员的中文修改/);
       await owner.getByRole('button',{name:'更多白板操作'}).click();
-      await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-menu').click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
+      // Presentation is paused in Board chrome; ordinary member following remains available.
+      await expect(owner.getByTestId('board-present-viewport')).toHaveCount(0);
+      await expect(owner.getByRole('button',{name:/开始演示|结束演示|演示视图|停止演示/})).toHaveCount(0);
+      await owner.keyboard.press('Escape');
+      await editor.getByRole('button',{name:'跟随Fullstack E2E admin（成员）',exact:true}).click();
+      await expect(editor.getByRole('button',{name:'停止跟随Fullstack E2E admin（成员）',exact:true})).toBeVisible();
+      await owner.getByTestId('board-zoom-menu').click();
+      await owner.getByTestId('board-zoom-in').click();
+      await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
+      await editor.getByRole('button',{name:'停止跟随Fullstack E2E admin（成员）',exact:true}).click();
+      await expect(editor.getByRole('button',{name:'跟随Fullstack E2E admin（成员）',exact:true})).toBeVisible();
+      await owner.getByTestId('board-share-open').click();
+      await expect(owner.getByTestId('board-share-dialog')).toBeVisible();
+      await expect(owner.getByText('已授权 2 位协作者（不含白板所有者）。')).toBeVisible();
+      await owner.keyboard.press('Escape');
+      await expect(owner.getByTestId('board-share-dialog')).toBeHidden();
       await editor.getByRole('button',{name:'评论',exact:true}).click();
       await editor.getByLabel('评论内容').fill('请一起核对这个结论');
       await editor.getByLabel('提及成员').fill('Fullstack E2E admin');
