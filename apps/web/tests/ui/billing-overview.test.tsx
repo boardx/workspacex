@@ -76,7 +76,7 @@ describe("真实计费入口与账户状态", () => {
     renderOverview();
     await screen.findByText("Stripe · 已配置");
     expect(screen.getByText("微信支付 · 未开通")).toBeTruthy();
-    expect(screen.getByText("微信充值暂未开放。已有额度仍可查询。")).toBeTruthy();
+    expect(screen.getByText("微信充值暂未开放。")).toBeTruthy();
     expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
   });
 

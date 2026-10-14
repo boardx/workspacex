@@ -17,7 +17,6 @@ flowchart LR
  %% evidence B: component.log验证菜单可达与真实API读取状态。
  class C tested
  %% evidence C: component/lint/typecheck/navigation.log命令退出0。
- class D tested
- %% evidence D: browser.log 实际Chromium键盘/三档无溢出退出0；独立exact SHA审查ACCEPT ab2225636
+ class D doing
  class E doing
 ```

@@ -25,3 +25,9 @@
 ![1280宽](billing-1280.png)
 
 本次 localhost Next 服务已停止；运行缓存按本 lane 独立目录清理。提交后仍需最新 CI 与独立审查，以及主线合入/发布；本记录不把本地验证当作线上已可见。
+
+## 移动端与 CI 接线复审修正（2026-10-15）
+
+移动端通过「我 → 个人资料 → 额度与订阅」进入，入口复用同一导航声明，仅在移动端显示；计费页保持「我」高亮。实际 Chromium 在 375 宽点击此路径，见 billing-mobile-entry.png、mobile-browser.log。mobile-component.log 为 5 文件 30 项通过，mobile-red.log 记录入口缺失时的失败；mobile-lint.log、mobile-typecheck.log、wiring.log 均成功。
+
+接线清单由官方生成器提取新增 /billing 路由及其必要控制器事实，仅保留本路由增量。wired 分类不代表充值、订阅购买或 token 消费已经交付。当前仍等待最新 CI、独立复审和主线发布。

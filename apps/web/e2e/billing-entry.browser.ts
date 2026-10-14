@@ -32,6 +32,20 @@ test("个人入口键盘可达，账户服务未开放时真实提示，三档�
     const sizes = await page.evaluate(() => ({ viewport: innerWidth, body: document.documentElement.scrollWidth }));
     expect(sizes.body).toBeLessThanOrEqual(sizes.viewport);
     await page.screenshot({ path: resolve(evidence, `billing-${width}.png`), fullPage: true });
+    if (width < 768) {
+      await expect(page.getByTestId("mobile-tab-me")).toHaveAttribute("aria-current", "page");
+      await page.getByTestId("mobile-tab-me").click();
+      await expect(page).toHaveURL(/\/profile$/);
+      await expect(page.getByTestId("profile-billing-entry")).toBeVisible();
+      await page.screenshot({ path: resolve(evidence, "billing-mobile-entry.png"), fullPage: true });
+      await page.getByTestId("profile-billing-entry").click();
+      await expect(page).toHaveURL(/\/billing$/);
+      await expect(page.getByRole("heading", { name: "额度与订阅" })).toBeVisible();
+    } else {
+      await page.goto("/profile");
+      await expect(page.getByTestId("profile-billing-entry")).not.toBeVisible();
+      await page.goto("/billing");
+    }
   }
   // Start at normal document focus and reach the menu without targeting focus directly.
   let reached = false;

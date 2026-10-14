@@ -1,0 +1,22 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ✓ tests/ui/profile-mobile-actions.test.tsx (4 tests) 1316ms
+   ✓ `/profile` 移动端顶部动作行 > 移动端我页可发现计费入口，桌面档隐藏该入口避免重复 717ms
+ ✓ tests/ui/billing-overview.test.tsx (7 tests) 2077ms
+   ✓ 真实计费入口与账户状态 > 个人菜单始终可发现账户入口，不依赖支付凭据 1053ms
+   ✓ 真实计费入口与账户状态 > 未配置渠道仍读取真实钱包和订阅，不显示二维码或虚构额度 329ms
+ ✓ tests/ui/app-shell-anon-redirect.test.tsx (3 tests) 86ms
+ ✓ tests/ui/rail-more-menu.test.tsx (4 tests) 1451ms
+   ✓ IconRail「更多」三点菜单 > 栏内只常驻最重要的入口，收纳的入口不在栏里 632ms
+   ✓ IconRail「更多」三点菜单 > 点开三点菜单后收纳的入口都在，按原分组给小标题，且不与栏内重复 684ms
+ ✓ tests/ui/shell-personal-menu.test.tsx (12 tests) 2184ms
+   ✓ IconRail：左上角组织菜单 + 个人菜单 > 左上角触发器点开组织菜单：`org-admin-entry` 指向 `/org-admin`，带 aria-label，且只有一处 1091ms
+   ✓ IconRail：左上角组织菜单 + 个人菜单 > 组织菜单列出全部组织，当前组织 aria-checked=true；点另一个组织触发切换回调 358ms
+
+ Test Files  5 passed (5)
+      Tests  30 passed (30)
+   Start at  00:25:59
+   Duration  17.95s (transform 7.98s, setup 4.80s, collect 38.04s, tests 7.11s, environment 18.27s, prepare 1.79s)
+
