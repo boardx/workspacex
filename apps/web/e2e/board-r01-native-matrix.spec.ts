@@ -1,3 +1,4 @@
+import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {observeNativeBrowserDiagnostics} from './support/native-runtime/native-browser-diagnostics';
 import {categoryEnabled,observationMode} from './support/board-observation-categories.mjs';
 const visualHeavy=()=>categoryEnabled('pixel-comparison');
@@ -76,8 +77,15 @@ async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(bind
   const errors:unknown[]=[];
   try{await info.attach('native-browser-safe-diagnostics',{body:JSON.stringify(await diagnostics.snapshot()),contentType:'application/json'});}catch(error){errors.push(error);}finally{diagnostics.dispose();}
   let owned=false;if(boardId&&token)try{const board=await(await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();expect(board.ownerId).toBe(F.userId);expect(board.name).toBe(title);owned=true;}catch(error){errors.push(error);}
+  let cleanupPending=Boolean(boardId),fixtureCleanup:Awaited<ReturnType<typeof deleteOwnedConnectorFixture>>|null=null;
+  // Only the producer's verified owned runtime grants fixture cleanup. External
+  // existing-runtime sessions preserve their boards until explicitly authorized.
+  if(owned&&boardId&&token&&process.env.BOARD_R01_OWNED_FIXTURE_CLEANUP==='1')try{
+   fixtureCleanup=await deleteOwnedConnectorFixture(api,token,boardId,F.userId,title);
+   cleanupPending=false;
+  }catch(error){errors.push(error);}
   try{afterProof=await verify?.();expect(afterProof).toEqual(beforeProof);}catch(error){errors.push(error);}
-  try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,observationMode:observationMode(),visualEvidence:visualHeavy()?'executed-not-human-approved':'deferred-not-verified',status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending:owned,boardId:owned?boardId:null,title:owned?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
+  try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,observationMode:observationMode(),visualEvidence:visualHeavy()?'executed-not-human-approved':'deferred-not-verified',status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending,fixtureCleanup,boardId:cleanupPending?boardId:null,title:cleanupPending?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
   if(errors.length)throw new AggregateError(failure?[failure,...errors]:errors,'R01_FINAL_PROOF_FAILED');
  }
 }

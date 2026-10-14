@@ -3,7 +3,7 @@ import {observationMode} from '../e2e/support/board-observation-categories.mjs';
 import {safeSyncLifecycleStageExport} from './sync-lifecycle-safe-export.mjs';
 import {safeConnectorLoginExport} from './connector-login-safe-export.mjs';
 import assert from 'node:assert/strict';
-import {readFileSync,writeFileSync,mkdirSync,existsSync,rmSync,openSync,closeSync,readdirSync,copyFileSync,realpathSync,statSync,fstatSync,readSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,rmSync,openSync,closeSync,writeSync,readdirSync,copyFileSync,realpathSync,statSync,fstatSync,readSync} from 'node:fs';
 import {execFileSync,spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {join,resolve,basename,relative,isAbsolute} from 'node:path';
@@ -270,7 +270,7 @@ export async function run(args=process.argv.slice(2)){
     if(adapter){const adapterRoot=join(data,'r08-acceptance');mkdirSync(adapterRoot,{mode:0o700});adapterState=await adapter.prepareEnvironment({root,privateRoot:adapterRoot,planPath:join(data,'native-runtime-plan.json'),manifestPath});assert.equal(adapterState.proxyPort,36322);}
     phase='ACCEPTANCE';
     const report=join(privateRoot,'playwright-report.json');
-    const env={...process.env,...environment,...adapterState?.environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),...(isR01?{BOARD_R01_WEB_URL:manifest.webBase,BOARD_R01_OUTPUT_DIR:join(privateRoot,'artifacts'),BOARD_ACCEPTANCE_SHA:head}:{}),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
+    const env={...process.env,...environment,...adapterState?.environment,BOARD_CONNECTOR_WEB_URL:manifest.webBase,BOARD_CONNECTOR_RUNTIME_MANIFEST:manifestPath,BOARD_CONNECTOR_RUNTIME_VERIFIER:join(support,'runtime-attestation.mjs'),...(isR01?{BOARD_R01_WEB_URL:manifest.webBase,BOARD_R01_OUTPUT_DIR:join(privateRoot,'artifacts'),BOARD_ACCEPTANCE_SHA:head,BOARD_R01_OWNED_FIXTURE_CLEANUP:'1'}:{}),BOARD_FILES_REPORT_PATH:report,PLAYWRIGHT_JSON_OUTPUT_NAME:report};
     const test=spawn(command[0],[...command.slice(1),'--reporter=json','--output',join(privateRoot,'artifacts')],{cwd:root,env,stdio:['ignore',fd,fd]});
     const [code,signal]=await once(test,'exit');actualRuntimeExecution=true;exitCode=code;assert.equal(signal,null);assert.equal(typeof code,'number');
     if(code!==0)failureReason='ACCEPTANCE_FAILED';
@@ -295,7 +295,12 @@ export async function run(args=process.argv.slice(2)){
     writeFileSync(join(safeRoot,'visual-category.json'),JSON.stringify({sourceHead:head,observationMode:mode,category:'visual-heavy',status:visualDeferred?'deferred-not-verified':'executed-not-human-approved',screenshotManifestVerified:!visualDeferred},null,2),{mode:0o600,flag:'wx'});
     if(isR01){const summary=r01ResultSummary(r01ReportReceipts(parsed,join(privateRoot,'artifacts'),head),head,mode);writeFileSync(join(safeRoot,'r01-summary.json'),JSON.stringify(summary,null,2),{mode:0o600,flag:'wx'});assert.equal(summary.cleanupPending,false,'R01 owned boards remain preserved pending authorized cleanup');}
     requiredSuiteComplete=true;
-  }catch{failureReason=failureReason??'NATIVE_RUN_FAILED';}
+  }catch(error){
+    // Preserve the first producer exception only in the mode-0600 private log;
+    // safe receipts remain bounded generic codes without internal stack data.
+    try{writeSync(fd,`\nNATIVE_PRODUCER_PRIMARY_FAILURE [${phase}]\n${error instanceof Error?error.stack??error.message:String(error)}\n`);}catch{ /* Log failure must not replace the original producer failure. */ }
+    failureReason=failureReason??'NATIVE_RUN_FAILED';
+  }
   finally{
     if(adapterState)try{await adapterState.verifyEnd();}catch(error){adapterEndRuntimeFailure=safeEndRuntimeFailure(error);cleanupFailures.push('R08_END_RUNTIME_PROOF_FAILED');}
     if(runtimeBefore)try{sameRuntimeProof(runtimeBefore.before,runtimeBefore.proof());}catch(error){endRuntimeFailure=safeEndRuntimeFailure(error);cleanupFailures.push('END_RUNTIME_IDENTITY_CHANGED');}
