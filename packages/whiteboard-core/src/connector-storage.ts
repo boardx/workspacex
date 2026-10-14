@@ -49,7 +49,7 @@ export function assertConnectorFallbackUnchanged(before: Y.Map<unknown>, after: 
   const previous = before.get('connector') as Record<string, unknown> | undefined;
   const next = after.get('connector') as Record<string, unknown> | undefined;
   for (const side of sides) {
-    if (!before.has(slot(side))) continue;
+    if (!before.has(slot(side)) && !after.has(slot(side))) continue;
     if (JSON.stringify(pick(previous ?? {}, keys(side))) !== JSON.stringify(pick(next ?? {}, keys(side)))) throw new Error('CONNECTOR_LEGACY_ENDPOINT_WRITE');
   }
 }
