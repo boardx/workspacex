@@ -151,6 +151,9 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  if(visualHeavy())await expect.poll(()=>rgba(page,screen(protectedSites[1]!))).toEqual(Array.from({length:9},()=>[231,29,73,255]).flat());
  const protectedPixels=visualHeavy()?await Promise.all(protectedSites.map(point=>rgba(page,screen(point)))):[];
  await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();
+ // f5b46c42c (#5356) changed the fixed nominal world brush width 24 → 48.
+ // Assert the literal user-facing contract; do not derive this oracle from product helpers.
+ await expect(page.getByLabel('Eraser width')).toHaveText('48px');
  const route=[sites[0]!.point,sites[1]!.point,sites[2]!.point,...protectedSites],start=screen(route[0]!);
  // Observe trusted native inputs only; no Fabric state is read or changed.
  const eventStart=transport.snapshot().events.length,updates=()=>transport.snapshot().events.slice(eventStart).filter(event=>event.direction==='sent'&&event.type==='update');
@@ -183,7 +186,7 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
   for(const point of oldPoints)assertPoints([drawingPointWorld(after.geometry,newPoints,point)],[drawingPointWorld(original.geometry,oldPoints,point)]);
   const mask=afterStrokes.at(-1)!;expect(mask.erases).toEqual(originalStrokes.map(stroke=>stroke.id));
   expect(mask.tool).toBe('eraser');expect(mask.color).toBe('#FFFFFF');expect(mask.opacity).toBe(1);expect(mask.points.every(point=>point.pressure===.5)).toBe(true);
-  const xs=oldPoints.map(point=>point.x),ys=oldPoints.map(point=>point.y);expect(mask.width).toBeCloseTo(24*Math.min(Math.max(1,Math.max(...xs)-Math.min(...xs))/Math.max(1,original.geometry.width),Math.max(1,Math.max(...ys)-Math.min(...ys))/Math.max(1,original.geometry.height)),4);
+  const xs=oldPoints.map(point=>point.x),ys=oldPoints.map(point=>point.y);expect(mask.width).toBeCloseTo(48*Math.min(Math.max(1,Math.max(...xs)-Math.min(...xs))/Math.max(1,original.geometry.width),Math.max(1,Math.max(...ys)-Math.min(...ys))/Math.max(1,original.geometry.height)),4);
   const maskWorld=mask.points.map(point=>drawingPointWorld(after.geometry,newPoints,point));expect(maskWorld.length).toBeGreaterThan(1);
   for(const actual of maskWorld)expect(Math.min(...worldInputs.map(input=>Math.hypot(input.x-actual.x,input.y-actual.y)))).toBeLessThanOrEqual(.01);
   for(const input of worldInputs)expect(Math.min(...maskWorld.map(actual=>Math.hypot(input.x-actual.x,input.y-actual.y)))).toBeLessThanOrEqual(.01);
