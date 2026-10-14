@@ -3,6 +3,10 @@
 import * as React from "react";
 import { useSession } from "@/components/session/session-provider";
 import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { ResourceCard } from "@/components/ui/resource-card";
+import { ROLE_CATEGORY_LABEL } from "@/lib/agent-directory";
 import {
   agentDisplayNameByAvatar,
   enableOfficialRolePack,
@@ -13,7 +17,7 @@ import {
 } from "@/lib/agent-directory";
 
 /** Mounted inside an organization-keyed modal; only an explicit click imports the pack. */
-export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void }) {
+export function OfficialDigitalHumanPanel({ onEnabled, layout = "list" }: { onEnabled: () => void; layout?: "list" | "cards" }) {
   const { session } = useSession();
   const currentSession = React.useRef(session);
   currentSession.current = session;
@@ -94,12 +98,26 @@ export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void
   return (
     <section className="flex flex-col gap-3" aria-label="官方数字人">
       <p className="text-12 text-muted-foreground">启用官方数字人时，会同时准备所需的技能与工作流。启用后可在首页推荐中添加。</p>
+      {layout === "cards" ? <p className="text-14 text-muted-foreground">启用按钮会为当前组织准备以下全部待启用角色及其依赖；成员仅可查看。启用不会增加数据访问或写入权限，也不代表工作流业务验收通过。</p> : null}
       {loading ? <p role="status">加载官方数字人…</p> : null}
       {error ? <div role="alert"><p>{error}</p>{!offer ? <Button type="button" onClick={() => setTick((value) => value + 1)}>重新加载</Button> : null}</div> : null}
       {completedAction ? <p role="status">{completedAction === "enable" ? "官方数字人已启用。" : "所选官方数字人已升级。"}</p> : null}
       {!loading && offer ? (
         <>
           {offer.pending.length === 0 ? <p>本组织已启用全部官方数字人。</p> : (
+            layout === "cards" ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="official-role-card-grid">
+                {offer.pending.map((role) => {
+                  const name = agentDisplayNameByAvatar(role.avatar?.key, role.name);
+                  return <ResourceCard key={role.roleRef} title={name} ariaLabel={name} testId={`official-role-card-${role.roleRef}`}
+                    className="shadow-none" headingLevel={2}
+                    leading={<Avatar initials={name.slice(0, 1)} avatarKey={role.avatar?.key ?? null} tone="ai" className="h-16 w-16 text-20" />}
+                    subtitle={role.roleCategory ? ROLE_CATEGORY_LABEL[role.roleCategory] : "官方数字人"}
+                    badges={<Badge tone="neutral">待启用</Badge>}
+                    description="启用后出现在本组织目录。具体执行能力仍需核对配置和验收结果。" />;
+                })}
+              </div>
+            ) : (
             <ul className="flex flex-col gap-2">
               {offer.pending.map((role) => (
                 <li key={role.roleRef} className="rounded-card border border-border bg-panel p-3">
@@ -107,6 +125,7 @@ export function OfficialDigitalHumanPanel({ onEnabled }: { onEnabled: () => void
                 </li>
               ))}
             </ul>
+            )
           )}
 
           {(offer.upgrades ?? []).length > 0 ? <section aria-label="官方数字人升级" className="flex flex-col gap-2">
