@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { BoardSubmenuChevron } from './board-submenu-chevron';
 import { readMindmapMetadata, readMindmapTree, type WhiteboardObject } from '@repo/whiteboard-core';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +11,8 @@ import type { MindmapAction } from './board-mindmap-planner';
 
 export function BoardMindmapControls({objects,selectedId,position,disabled,busy,onAction}:{objects:readonly WhiteboardObject[];selectedId:string|null;position:{x:number;y:number};disabled:boolean;busy:boolean;onAction:(action:MindmapAction)=>Promise<boolean>}){
   const [sourceOpen,setSourceOpen]=useState(false),[importOpen,setImportOpen]=useState(false),[source,setSource]=useState('mindmap\n  中心主题\n    分支一\n    分支二'),[error,setError]=useState(''),[parsing,setParsing]=useState(false);
+  const [reparentOpen,setReparentOpen]=useState(false);
+  useEffect(()=>setReparentOpen(false),[selectedId]);
   const selected=objects.find(object=>object.id===selectedId),meta=selected&&readMindmapMetadata(selected);
   const node=meta?.role==='node'?selected:undefined;
   const tree=node&&meta?readMindmapTree(objects,meta.treeId):null;
@@ -25,7 +28,10 @@ export function BoardMindmapControls({objects,selectedId,position,disabled,busy,
           <Button data-testid="board-mindmap-sibling" disabled={blocked||node.id===tree.root.id} onClick={()=>add('add-sibling')}>新增同级 Enter</Button>
           <Button data-testid="board-mindmap-collapse" disabled={blocked} onClick={()=>void onAction({action:'set-collapsed',nodeId:node.id,collapsed:meta?.role==='node'?!meta.collapsed:false})}>{meta?.role==='node'&&meta.collapsed?'展开分支':'折叠分支'}</Button>
           <Button data-testid="board-mindmap-layout" disabled={blocked} onClick={()=>void onAction({action:'layout',treeId:tree.root.id})}>整理思维导图</Button>
-          {node.id!==tree.root.id?<BoardToolPopover label="移动分支到" placement="right"><div className="grid max-h-60 gap-1 overflow-auto">{[...tree.nodes.values()].filter(candidate=>candidate.id!==node.id).map(candidate=><Button key={candidate.id} data-testid={`board-mindmap-reparent-${candidate.id}`} disabled={blocked} onClick={()=>void onAction({action:'reparent',nodeId:node.id,newParentId:candidate.id})}>{candidate.text||'未命名主题'}</Button>)}</div></BoardToolPopover>:null}
+          {node.id!==tree.root.id?<>
+            <Button data-testid="board-mindmap-reparent-toggle" className="relative pr-7" aria-expanded={reparentOpen} aria-controls="board-mindmap-reparent-targets" disabled={blocked} onClick={()=>setReparentOpen(value=>!value)}>移动分支到<BoardSubmenuChevron open={reparentOpen} direction={reparentOpen?'above':'below'} className="absolute right-2 top-1/2 -translate-y-1/2"/></Button>
+            {reparentOpen?<div id="board-mindmap-reparent-targets" data-testid="board-mindmap-reparent-targets" role="group" aria-label="移动分支目标" className="grid max-h-60 gap-1 overflow-auto">{[...tree.nodes.values()].filter(candidate=>candidate.id!==node.id).map(candidate=><Button key={candidate.id} data-testid={`board-mindmap-reparent-${candidate.id}`} disabled={blocked} onClick={()=>{void onAction({action:'reparent',nodeId:node.id,newParentId:candidate.id}).then(accepted=>{if(accepted)setReparentOpen(false);});}}>{candidate.text||'未命名主题'}</Button>)}</div>:null}
+          </>:null}
           <Button data-testid="board-mindmap-export" onClick={()=>setSourceOpen(true)}>导出 Mermaid</Button>
           <Button data-testid="board-mindmap-delete" disabled={blocked} onClick={()=>void onAction({action:'delete-subtree',nodeId:node.id})}>删除此分支</Button>
         </>:null}

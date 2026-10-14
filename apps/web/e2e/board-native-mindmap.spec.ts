@@ -21,7 +21,7 @@ test('native mindmap root child sibling collapse reparent undo redo source and p
     expect(await target.evaluate(({x,y})=>document.elementFromPoint(x,y)?.tagName==='CANVAS',{x,y})).toBe(true);
     await target.mouse.click(x,y);await expect(target.getByTestId(`board-a11y-object-${objectId}`)).toHaveAttribute('aria-pressed','true');await surface.focus();
   };
-  const menu=async()=>{const child=page.getByTestId('board-mindmap-create-root');if(!await child.isVisible())await page.getByTestId('board-mindmap-menu').click();};
+  const menu=async()=>{const child=page.getByTestId('board-mindmap-create-root');if(!await child.isVisible())await page.getByTestId('board-mindmap-menu').click();await expect(child).toBeVisible({timeout:5000});};
   try{
     await boardApi(api,token,'PUT',`/whiteboards/${id}/members`,{userId:F.adminUserId,role:'editor'});
     await page.setViewportSize({width:1440,height:900});await page.goto(`/studio/board/${id}`);await synced(page);
@@ -48,7 +48,14 @@ test('native mindmap root child sibling collapse reparent undo redo source and p
     await page.reload();await synced(page);await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(1);
     await selectCanvas(page,root.id);await menu();await page.getByTestId('board-mindmap-export').click();const sourceText=await page.getByTestId('board-mindmap-source').inputValue();expect(sourceText).toContain('中心主题');expect(sourceText.match(/新主题/g)).toHaveLength(2);expect(sourceText).not.toMatch(/geometry|width|height|rotation/);await page.keyboard.press('Escape');
     await menu();await page.getByTestId('board-mindmap-collapse').click();await expect(page.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(5);await synced(page);
-    await selectCanvas(page,child.id);await menu();await page.getByRole('button',{name:'移动分支到',exact:true}).click();await page.getByTestId(`board-mindmap-reparent-${sibling.id}`).click();await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(sibling.id);await synced(page);
+    await test.step('打开父菜单内的重挂目标列表并保存父关系',async()=>{
+      await selectCanvas(page,child.id);await menu();
+      const toggle=page.getByTestId('board-mindmap-reparent-toggle');await expect(toggle).toBeVisible({timeout:5000});await toggle.click();
+      await expect(page.getByTestId('board-mindmap-reparent-targets')).toBeVisible({timeout:5000});
+      await expect(page.getByTestId('board-mindmap-create-root')).toBeVisible();
+      const target=page.getByTestId(`board-mindmap-reparent-${sibling.id}`);await expect(target).toBeVisible({timeout:5000});await expect(target).toBeEnabled();await target.click({timeout:5000});
+      await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(sibling.id);await synced(page);
+    });
     const reparented=await snapshot();expect(reparented.objects.map(object=>object.id).sort()).toEqual(siblingState.objects.map(object=>object.id).sort());
     await page.getByTestId('board-fabric-surface').focus();await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(root.id);await synced(page);
     await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=> (await snapshot()).objects.find(object=>object.connector?.to===child.id)!.connector!.from).toBe(sibling.id);await synced(page);await peer.reload();await synced(peer);await expect(peer.getByTestId('board-a11y-mirror').getByRole('button')).toHaveCount(5);
