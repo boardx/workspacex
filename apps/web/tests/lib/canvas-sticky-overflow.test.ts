@@ -38,8 +38,8 @@ function contained(sticky: FlowNode, label: string) {
   expect(sticky.label).toBe(label);
   expect(text.getScaledHeight()).toBeLessThanOrEqual(card.height - 12 + 0.001);
   expect(text.getScaledWidth()).toBeLessThanOrEqual(card.width - 12 + 0.001);
-  expect(sticky.height).toBeCloseTo(card.height, 0);
-  expect(sticky.width).toBeCloseTo(card.width, 0);
+  expect(sticky.height).toBeCloseTo(card.getScaledHeight(), 6);
+  expect(sticky.width).toBeCloseTo(card.getScaledWidth(), 6);
   expect(text.scaleX).toBe(text.scaleY);
   return text;
 }
@@ -60,9 +60,17 @@ describe('Chat fixed sticky text containment (#5688)', () => {
   });
   it('restores exact text and fixed card geometry through JSON', async () => {
     const sticky = node(chinese);
-    const restored = await FlowNode.fromObject(sticky.toObject());
-    contained(restored, chinese);
-    expect(restored.left).toBe(sticky.left);
-    expect(restored.top).toBe(sticky.top);
+    let restored = sticky;
+    for (let round = 0; round < 3; round += 1) {
+      restored = await FlowNode.fromObject(restored.toObject());
+      contained(restored, chinese);
+      const card = restored.getObjects().find(o => o instanceof Rect) as Rect;
+      expect(card.width).toBe(130);
+      expect(card.height).toBe(85);
+      expect(restored.width).toBe(sticky.width);
+      expect(restored.height).toBe(sticky.height);
+      expect(restored.left).toBe(sticky.left);
+      expect(restored.top).toBe(sticky.top);
+    }
   });
 });

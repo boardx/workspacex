@@ -652,6 +652,19 @@ export class FlowNode extends Group {
     // (group height - L) to stay round-trip consistent.
     const shape = (object['shape'] as NodeShape) ?? 'rect';
     const L = shape === 'participant' ? ((object['lifelineHeight'] as number) ?? 160) : 0;
+    // Fabric's Group bounds include each child's strokeWidth, even for a
+    // borderless Rect. Reusing those bounds as card dimensions grows a sticky
+    // by one pixel on every JSON restore. The serialized card owns its size.
+    const card = shape === 'sticky' && Array.isArray(object['objects'])
+      ? object['objects'].find((child: unknown): child is Record<string, unknown> =>
+          typeof child === 'object' && child !== null &&
+          typeof (child as Record<string, unknown>)['type'] === 'string' &&
+          ((child as Record<string, unknown>)['type'] as string).toLowerCase() === 'rect')
+      : undefined;
+    const cardDimension = (key: 'width' | 'height'): number | undefined => {
+      const value = card?.[key];
+      return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+    };
     const node = new FlowNode({
       nodeId: (object['nodeId'] as string) ?? 'node',
       label: (object['label'] as string) ?? '',
@@ -660,8 +673,8 @@ export class FlowNode extends Group {
       // the stored group position verbatim below instead.
       x: shape === 'pieSlice' ? 0 : ((object['left'] as number) ?? 0),
       y: shape === 'pieSlice' ? 0 : ((object['top'] as number) ?? 0) - L / 2,
-      width: (object['width'] as number) ?? 100,
-      height: ((object['height'] as number) ?? 40) - L,
+      width: cardDimension('width') ?? ((object['width'] as number) ?? 100),
+      height: cardDimension('height') ?? (((object['height'] as number) ?? 40) - L),
       members: object['members'] as string[] | undefined,
       methods: object['methods'] as string[] | undefined,
       data: object['data'] as Record<string, unknown> | undefined,
