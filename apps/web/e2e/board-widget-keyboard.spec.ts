@@ -21,12 +21,27 @@ test('real canvas sticky and rectangle Tab continue/select; Delete and each undo
    expect(next).toBeTruthy();expect(next.style).toEqual(before.objects[0]!.style);expect(continued.revision).toEqual({epoch:before.revision.epoch,seq:before.revision.seq+1});
    expect(continued.objects.find(value=>value.kind==='connector')!.connector).toMatchObject({from:source.id,to:next.id});await expect(page.getByTestId(`board-a11y-object-${next.id}`)).toHaveAttribute('aria-pressed','true');
    await page.keyboard.press('Delete');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects.map(value=>value.id)).toEqual([source.id]);await synced();
+   const deleted=await canonicalBoardSnapshot(api,token,id);expect(deleted.revision).toEqual({epoch:continued.revision.epoch,seq:continued.revision.seq+1});
    await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects).toEqual(continued.objects);await synced();
+   const restored=await canonicalBoardSnapshot(api,token,id);expect(restored.revision).toEqual({epoch:deleted.revision.epoch,seq:deleted.revision.seq+1});
    await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects).toEqual(before.objects);await synced();
-   await page.reload();await synced();expect((await canonicalBoardSnapshot(api,token,id)).objects).toEqual(before.objects);
+   const undone=await canonicalBoardSnapshot(api,token,id);expect(undone.revision).toEqual({epoch:restored.revision.epoch,seq:restored.revision.seq+1});
+   await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects.length).toBe(3);await synced();
+   const redone=await canonicalBoardSnapshot(api,token,id),edge=continued.objects.find(value=>value.kind==='connector')!;
+   const restoredWidget=redone.objects.find(value=>value.restoredFrom===next.id)!;
+   const restoredEdge=redone.objects.find(value=>value.restoredFrom===edge.id)!;
+   expect(restoredWidget).toBeTruthy();expect(restoredEdge).toBeTruthy();
+   expect(redone.revision).toEqual({epoch:undone.revision.epoch,seq:undone.revision.seq+1});
+   expect(new Set(redone.objects.map(value=>value.id)).size).toBe(3);
+   expect(redone.objects.some(value=>value.id===next.id||value.id===edge.id)).toBe(false);
+   expect(restoredWidget).toEqual({...next,id:restoredWidget.id,restoredFrom:next.id});
+   expect(restoredEdge).toEqual({...edge,id:restoredEdge.id,restoredFrom:edge.id,connector:{...edge.connector,to:restoredWidget.id}});
+   expect(redone.objects.find(value=>value.id===source.id)).toEqual(before.objects[0]);
+   await page.reload();await synced();expect((await canonicalBoardSnapshot(api,token,id)).objects).toEqual(redone.objects);
+   // Reload resets local history. The remaining input-scope checks must preserve this exact snapshot.
    // An actual product text input retains Delete/Tab instead of deleting/continuing the selected widget.
    await surface.focus();await page.keyboard.press('ControlOrMeta+a');await page.getByTestId('board-title-menu').click();const input=page.getByLabel('白板名称');await input.fill(`${title}X`);await input.press('Home');await input.press('Delete');await expect(input).toHaveValue(`${title.slice(1)}X`);await input.fill(title);await input.press('Tab');
-   expect((await canonicalBoardSnapshot(api,token,id)).objects).toEqual(before.objects);await page.keyboard.press('Escape');
+   expect((await canonicalBoardSnapshot(api,token,id)).objects).toEqual(redone.objects);await page.keyboard.press('Escape');
    await page.screenshot({path:info.outputPath(`${kind}-keyboard.png`)});
    await info.attach(`${kind}-runtime-after`,{body:JSON.stringify(await verifyRuntimeIdentity(api,sourceSha,await chunks()),null,2),contentType:'application/json'});
   }
