@@ -41,7 +41,9 @@ it('keeps an above cue inside the trigger while actual picker visibility toggles
 
 it('keeps dock gutters and chrome spacing in physical pixels during text-only reflow',()=>{
  mount();
- expect(screen.getByRole('navigation',{name:'白板工具'})).toHaveStyle({left:'16px',right:'16px',bottom:'20px',maxWidth:'calc(100vw - 32px)'});
+ const dock=screen.getByRole('navigation',{name:'白板工具'});
+ expect(dock).toHaveStyle({left:'16px',right:'16px',bottom:'20px'});
+ expect(dock.style.maxWidth).toBe('calc(100vw - 32px)');
  expect(screen.getByTestId('board-tool-select').parentElement).toHaveStyle({padding:'4px',gap:'2px'});
  for(const tool of ['sticky','text','shape','draw'])expect(screen.getByTestId(`board-add-${tool}-submenu`)).toHaveClass('bottom-[6px]','right-[6px]');
 });
