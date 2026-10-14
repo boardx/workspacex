@@ -1,0 +1,65 @@
+{
+  "scope": "frontend only",
+  "home": [
+    {
+      "adminEditorCount": 0,
+      "agentCount": 3,
+      "links": [
+        {
+          "href": "/chat?agent=fixture-strategy",
+          "name": "与林知远开始对话 · 战略顾问"
+        },
+        {
+          "href": "/chat?agent=fixture-research",
+          "name": "与苏予开始对话 · 用户研究伙伴"
+        },
+        {
+          "href": "/chat?agent=fixture-design",
+          "name": "与陈墨开始对话 · 创新设计伙伴"
+        }
+      ],
+      "scrollWidth": 375,
+      "width": 375
+    },
+    {
+      "adminEditorCount": 0,
+      "agentCount": 3,
+      "links": [
+        {
+          "href": "/chat?agent=fixture-strategy",
+          "name": "与林知远开始对话 · 战略顾问"
+        },
+        {
+          "href": "/chat?agent=fixture-research",
+          "name": "与苏予开始对话 · 用户研究伙伴"
+        },
+        {
+          "href": "/chat?agent=fixture-design",
+          "name": "与陈墨开始对话 · 创新设计伙伴"
+        }
+      ],
+      "scrollWidth": 768,
+      "width": 768
+    },
+    {
+      "adminEditorCount": 0,
+      "agentCount": 3,
+      "links": [
+        {
+          "href": "/chat?agent=fixture-strategy",
+          "name": "与林知远开始对话 · 战略顾问"
+        },
+        {
+          "href": "/chat?agent=fixture-research",
+          "name": "与苏予开始对话 · 用户研究伙伴"
+        },
+        {
+          "href": "/chat?agent=fixture-design",
+          "name": "与陈墨开始对话 · 创新设计伙伴"
+        }
+      ],
+      "scrollWidth": 1280,
+      "width": 1280
+    }
+  ]
+}
