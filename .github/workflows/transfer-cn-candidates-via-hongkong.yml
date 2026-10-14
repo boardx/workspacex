@@ -130,3 +130,36 @@ jobs:
             ${{ runner.temp }}/hk-original-artifacts/revalidation/revalidation-policy.json
           retention-days: 1
           if-no-files-found: error
+      - name: Retain bounded original transfer metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          sources = {
+              'upload-plan.json': root / 'hk-original-artifacts/upload-plan.json',
+              'hk-template.json': root / 'hk-template.json',
+              'proof.json': root / 'hk-original-artifacts/revalidation/hk-cloud-proof/candidate-revalidation.json',
+              'policy.json': root / 'hk-original-artifacts/revalidation/revalidation-policy.json',
+              'receipt.json': root / 'hk-original-artifacts/receipt.json',
+          }
+          originals = {name: source.read_bytes() for name, source in sources.items()}
+          if any(len(raw) > 262144 for raw in originals.values()) or sum(map(len, originals.values())) > 1048576:
+              raise SystemExit('Original transfer metadata exceeds bounded retention limit')
+          for raw in originals.values():
+              json.loads(raw)
+          destination = root / 'cn-hk-originals'
+          destination.mkdir(mode=0o700, exist_ok=False)
+          for name, raw in originals.items():
+              with (destination / name).open('xb') as output:
+                  output.write(raw)
+              (destination / name).chmod(0o600)
+          PY
+      - name: Upload original transfer metadata
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-hk-originals-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-hk-originals/*.json
+          retention-days: 1
+          if-no-files-found: error

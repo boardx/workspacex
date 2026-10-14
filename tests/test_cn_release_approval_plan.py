@@ -30,6 +30,42 @@ class ApprovalPlanTests(unittest.TestCase):
    observer,verifier=r.render_contract(path,a['codeFiles']['scripts/cn-release-stage-contract.py'],stage)
    self.assertEqual(a['runtime']['stageVerifierSha256'][stage],r.e.digest(verifier));self.assertEqual(a['runtime']['stageObserverSha256'][stage],r.e.digest(observer))
   self.assertNotIn('sdkFiles',a['rds']);self.assertEqual(a['identity'],self.parameters['identity'])
+ def test_single_inventory_pins_wrappers_code_and_source_runtime_boundary(self):
+  raw,plan,report=p.generate(self.parameters,self.probe);a=json.loads(raw);plan=json.loads(plan)
+  closure=p.module('installation-closure');inventory=closure.inventory(ROOT)
+  self.assertEqual(a['codeFiles'],inventory)
+  self.assertEqual({f['path']:f['sha256'] for f in plan['controlBundle']['files']},inventory)
+  self.assertEqual(plan['controlBundle']['sha256'],closure.digest(inventory))
+  import base64
+  for field,script in [('fixedDriver','cn-release-fixed-driver.py'),('readOnlyEvidencePortal','cn-release-mvp-evidence.py')]:
+   item=plan[field];wrapper=base64.b64decode(item['bytesBase64'])
+   self.assertEqual(item['sha256'],p.module('orchestrate').e.digest(wrapper))
+   self.assertIn((plan['controlBundle']['targetRoot']+'/scripts/'+script).encode(),wrapper)
+   self.assertNotIn('*',item['sudoRule']);self.assertIn('[a-f0-9]{64}$',item['sudoRule'])
+  self.assertIsNone(plan['sudoRule']);self.assertIsNone(plan['fixedRecoveryDriver']['sudoRule'])
+  self.assertFalse(plan['installationReady']);self.assertFalse(plan['contentRuntimeClosure']['runtimeDependencyClosureVerified'])
+  self.assertEqual(plan['contentSourceFiles'],closure.content_source_inventory(ROOT))
+ def test_inventory_rejects_missing_and_symlinked_dependencies(self):
+  import tempfile
+  closure=p.module('installation-closure');closure.CONTROL_FILES=('scripts/dependency.py',)
+  with tempfile.TemporaryDirectory(dir=ROOT) as td:
+   directory=Path(td);(directory/'scripts').mkdir()
+   with self.assertRaisesRegex(ValueError,'CONTROL_FILE_MISSING'):closure.inventory(directory)
+   actual=directory/'actual.py';actual.write_text('pass')
+   (directory/'scripts/dependency.py').symlink_to(actual)
+   with self.assertRaisesRegex(ValueError,'CONTROL_FILE_MISSING'):closure.inventory(directory)
+   (directory/'scripts/dependency.py').unlink();(directory/'scripts').rmdir();(directory/'real').mkdir();(directory/'real/dependency.py').write_text('pass')
+   (directory/'scripts').symlink_to(directory/'real',target_is_directory=True)
+   with self.assertRaisesRegex(ValueError,'CONTROL_FILE_MISSING'):closure.inventory(directory)
+ def test_stage_input_schema_pinned_and_arbitrary_paths_rejected(self):
+  for request in self.parameters['acquireRequests'].values():request['runAttempt']=1
+  contract=p.module('mvp-contract')
+  m={'acceptanceScope':'mvp-non-model','contentManifestSha256':'f'*64,'buildRunId':self.parameters['acquireRequests']['consume']['runId'],'transferRunId':13,'stageInputs':{k:'a'*64 for k in contract.STAGE_INPUT_FIELDS}}
+  m['stageInputs']['contentRequestSha256']=m['contentManifestSha256']
+  self.parameters['mvp']=m
+  raw,_,_=p.generate(self.parameters,self.probe);self.assertEqual(json.loads(raw)['mvp'],m)
+  m['stageInputs']['requestPath']='/tmp/arbitrary'
+  with self.assertRaisesRegex(Exception,'MVP_STAGE_INPUTS'):p.generate(self.parameters,self.probe)
  def test_mvp_metadata_preserves_canonical_driver_and_acquire_compatibility(self):
   for request in self.parameters['acquireRequests'].values():request['runAttempt']=1
   self.parameters['mvp']={'acceptanceScope':'mvp-non-model','contentManifestSha256':'f'*64,'buildRunId':self.parameters['acquireRequests']['consume']['runId'],'transferRunId':13}

@@ -19,6 +19,7 @@ def module(path,name):
 
 e=module(ROOT/'.harness/scripts/vm/cn-release-advance.py','fixed_driver_entry')
 APPROVALS=Path('/etc/workspacex-cn/release-approvals')
+BLUEPRINTS=Path('/etc/workspacex-cn/mvp-approval-blueprints')
 DRIVER_STATE=Path('/var/lib/workspacex-cn/release-driver')
 IDENTITY=('sourceRevision','baselineRevision','controlRevision','publicationAttemptId','attemptId','requestedAt','deadlineAt')
 TARGET={'accountId':'1177216024653153','region':'cn-shanghai','ecsInstanceId':'i-uf6ga92ewloganobbln6'}
@@ -63,6 +64,9 @@ def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now
     # Missing later observers/recovery capabilities cannot be deferred to stop.
     if mode=='run':router.preflight(release)
     for stage in e.STAGES:
+        if stage=='acceptance' and approval.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
+            hook=router.mvp_after_switch(release,previous,mode)
+            if hook.get('status')=='NOT_STARTED':return {**hook,'completed':receipts}
         # Lookup is read-only. The router may create the next package only after
         # all previous receipts passed original immutable-file checks.
         request=router.lookup(release,stage)
@@ -89,14 +93,54 @@ def coordinate(release,approval,router,*,mode='run',executor=e.entry,clock=e.now
         verified=executor('status',request,attempt)
         e.need(verified['status']=='COMPLETED' and verified['receiptSha256']==current['receiptSha256'],'RECEIPT_CHANGED')
         previous=verified['receiptSha256'];receipts.append({'stage':stage,'requestSha256':request,'receiptSha256':previous})
-    return {'status':'CHAIN_COMPLETED','completed':receipts,'requestedAt':approval['identity']['requestedAt'],
+    terminal=None
+    if approval.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
+        terminal=router.mvp_complete(release,mode)
+        if terminal.get('status')!='MVP_TERMINAL_PROPOSAL_READY':
+            return {'status':'EVIDENCE_NOT_READY','stage':'mvp-terminal','completed':receipts,
+                    'terminal':terminal,'productionAcceptanceClaimedByDriver':False}
+    result={'status':'CHAIN_COMPLETED','completed':receipts,'requestedAt':approval['identity']['requestedAt'],
             'deadlineAt':approval['identity']['deadlineAt'],'productionAcceptanceClaimedByDriver':False}
+    if terminal is not None:result['terminalProposal']=terminal
+    return result
+
+
+def prepare_only(selector,mode,*,clock=e.now):
+    """An explicitly installed blueprint prepares a proposal, never executes it.
+
+    A single invocation cannot mint approval and then enter production. Root
+    installation/publication remains separately governed; public SHA is no grant.
+    """
+    e.need(e.HEX.fullmatch(selector) and mode in ('run','status','reconcile'),'PREPARATION_SCOPE')
+    blueprint=e.decode(e.read(BLUEPRINTS/(selector+'.json')))
+    e.need(blueprint.get('kind')=='cn-mvp-approved-blueprint-v1','BLUEPRINT_KIND')
+    payload=blueprint['selector']
+    canonical=__import__('json').dumps(payload,sort_keys=True,separators=(',',':')).encode()
+    e.need(e.digest(canonical)==selector,'BLUEPRINT_SELECTOR')
+    code=blueprint['codeFiles']
+    required={'scripts/cn-release-fixed-driver.py','scripts/cn-release-mvp-approval-prepare.py'}
+    e.need(required<=set(code),'PREPARER_CODE_CLOSURE')
+    for name,pin in code.items():
+        path=Path(name);e.need(not path.is_absolute() and '..'not in path.parts,'CODE_PATH')
+        e.need(e.digest(e.read(ROOT/path,1048576))==pin,'PREPARER_CODE_PIN')
+    # Read-only modes do not create preparation intent, upload or install data.
+    if mode!='run':return {'status':'PREPARATION_READ_ONLY_NO_EXECUTION','authorityGranted':False,'installed':False}
+    e.need(e.instant(payload['requestedAt'])<=clock()<e.instant(payload['deadlineAt']),'PREPARATION_DEADLINE')
+    preparer=module(ROOT/'scripts/cn-release-mvp-approval-prepare.py','fixed_mvp_preparer')
+    result=preparer.prepare(selector)
+    return {'status':'PREPARE_ONLY','preparation':result,'productionStarted':False,
+            'authorityGranted':False,'installed':False}
 
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('mode',choices=('run','status','reconcile'));p.add_argument('release_sha256');args=p.parse_args()
     e.need(os.geteuid()==0 and e.HEX.fullmatch(args.release_sha256),'ROOT_RELEASE_REQUIRED')
-    raw=e.read(APPROVALS/(args.release_sha256+'.json'));a=validate(args.release_sha256,raw,e.now())
+    approval_path=APPROVALS/(args.release_sha256+'.json')
+    blueprint_path=BLUEPRINTS/(args.release_sha256+'.json')
+    e.need(not (approval_path.exists() and blueprint_path.exists()),'AMBIGUOUS_RELEASE_SELECTOR')
+    if not approval_path.exists():
+        print(e.encode(prepare_only(args.release_sha256,args.mode)).decode(),end='');return
+    raw=e.read(approval_path);a=validate(args.release_sha256,raw,e.now())
     # Fixed installed code paths only. Root approval pins the complete closure;
     # caller cannot supply a router module, shell command, workspace or env.
     pins={'scripts/cn-release-fixed-driver.py':Path(__file__).resolve(),

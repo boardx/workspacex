@@ -18,6 +18,11 @@ def bridge_admission(status):
 def cold_prepare(bundle,control,root):
  identity=B.identity(bundle['identity']);D.need(identity['controlRevision']==control,'MASTER_CONTROL')
  bridge_admission(bundle.get('rootBridgeStatus'))
+ policy=bundle.get('approvedPreparationPolicySha256')
+ if policy is not None:
+  D.need(type(policy)is str and re.fullmatch('[a-f0-9]{64}',policy),'APPROVED_PREPARATION_POLICY_HASH')
+  D.need(bundle['rootBridgeStatus'].get('approvedCloudPreparationEntryInstalled')is True
+   and bundle['rootBridgeStatus'].get('approvedCloudPreparationPolicyInstalled')is True,'EXPLICIT_ROOT_PREPARATION_NOT_READY')
  request=bundle['buildRequest']
  D.need(request['stage']=='build'and request['controlRevision']==control and request['releaseId']==identity['releaseId'],'BUILD_IDENTITY')
  plan=json.loads(request['inputs']['candidate_plan'])
@@ -31,9 +36,17 @@ def cold_prepare(bundle,control,root):
  (root/'transfer-receipt.json').write_text(json.dumps(result,sort_keys=True)+'\n')
  payload=dict(identity=identity,buildRunId=built['runId'],transferRunId=result['runId'],
               requestedAt=request['requestedAt'],deadlineAt=request['deadlineAt'])
+ if policy is not None:
+  # A separately approved root capability installs only its frozen policy's
+  # control data. Public hashes and these observations are not authorization.
+  prepared=D.coordinate({**request,'stage':'prepare','inputs':{'operation':'prepare','policy_sha256':policy}},root/'prepare-intent.json')
+  (root/'prepare-receipt.json').write_text(json.dumps(prepared,sort_keys=True)+'\n')
  approval=E.obtain('approval',payload,request,root)
  production={**request,'stage':'production','inputs':{'lane':'release','mode':'run','release_sha256':approval['releaseSha256']}}
  deployed=D.coordinate(production,root/'production-intent.json')
+ if policy is not None:
+  finalized=D.coordinate({**request,'stage':'finalize','inputs':{'operation':'terminal','policy_sha256':policy}},root/'finalize-intent.json')
+  (root/'finalize-receipt.json').write_text(json.dumps(finalized,sort_keys=True)+'\n')
  terminal=E.obtain('terminal',{**payload,'productionRunId':deployed['runId']},request,root)
  return terminal['terminal']
 def validate(bundle,control):

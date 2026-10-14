@@ -8,6 +8,11 @@ on:
       - 'scripts/cn-content-sync/**'
       - 'scripts/cn-release-mvp*'
       - 'scripts/cn-release-approval-plan.py'
+      - 'scripts/cn-release-orchestrate.py'
+      - 'scripts/cn-release-installation-closure.py'
+      - 'scripts/cn-release-fixed-driver.py'
+      - 'scripts/cn-release-stage-router.py'
+      - 'scripts/cn-release-stage-contract.py'
       - 'scripts/cn-hk-*'
       - 'tests/test_cn_mvp*'
       - 'tests/test_cn_release_approval_plan.py'
@@ -38,11 +43,23 @@ jobs:
       - name: Hong Kong v2 compatibility and v3 negative cases
         run: python3 -B -m unittest discover -s tests -p 'test_cn_hk_*.py' -v
       - name: Canonical approval and fixed driver compatibility
-        run: python3 -B -m unittest discover -s tests -p 'test_cn_release_approval_plan.py' -v
+        run: |
+          python3 -B -m unittest discover -s tests -p 'test_cn_release_approval_plan.py' -v
+          python3 -B -m unittest discover -s tests -p 'test_cn_release_fixed_driver.py' -v
       - name: Start isolated PostgreSQL on GitHub runner
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
       - name: Actual database atomicity, idempotency and tenant protection
+        env:
+          WORKSPACEX_MVP_RECEIPT_DIRECTORY: ${{ runner.temp }}/cn-mvp-isolated-receipts
         run: pnpm --filter @repo/api exec vitest run --config vitest.platform-content-release.config.ts
+      - name: Retain isolated PostgreSQL stage receipts
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-mvp-isolated-pg-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-mvp-isolated-receipts/*.json
+          retention-days: 1
+          if-no-files-found: warn
       - name: Clean only this test stack
         if: always()
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes --remove-orphans
