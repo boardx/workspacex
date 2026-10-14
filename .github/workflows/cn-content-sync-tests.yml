@@ -1,0 +1,34 @@
+name: CN deterministic content synchronization tests
+on:
+  pull_request:
+    paths:
+      - 'apps/api/scripts/platform-content-release*'
+      - 'apps/api/vitest.platform-content-release.config.ts'
+      - 'scripts/cn-content-sync/**'
+      - '.github/workflows/cn-content-sync-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  content-sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      WORKSPACEX_DB: wsx_content_release_${{ github.run_id }}_${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Offline identity, conflict, dependency and scope tests
+        run: python3 -B -m unittest discover -s scripts/cn-content-sync -p 'test_content_sync.py' -v
+      - name: Start isolated PostgreSQL on GitHub runner
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
+      - name: Actual database atomicity, idempotency and tenant protection
+        run: pnpm --filter @repo/api exec vitest run --config vitest.platform-content-release.config.ts
+      - name: Clean only this test stack
+        if: always()
+        run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down --volumes --remove-orphans
