@@ -310,6 +310,22 @@ describe("BoardFabricSurface", () => {
     expect(onViewportChange).toHaveBeenCalledTimes(callsAfterCancel);
   });
 
+  it.each([1,2])("commits one absolute auxiliary pan for button %s despite repeated move and release samples", button => {
+    const onViewportChange=vi.fn();
+    const view=renderSurface({viewport:{...VIEWPORT,zoom:2,panX:12,panY:-8},onViewportChange});
+    const canvas=view.container.querySelector('canvas')!;
+    act(()=>{
+      canvas.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button,clientX:100,clientY:100}));
+      document.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:124,clientY:118}));
+      // A competing compatibility preview must not be integrated again at release.
+      (probe.canvas as unknown as {viewportTransform:number[]}).viewportTransform=[2,0,0,2,60,28];
+      document.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:124,clientY:118}));
+      document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,button,clientX:124,clientY:118}));
+    });
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({zoom:2,panX:36,panY:10}),'pan');
+  });
+
   it("publishes transient snapped geometry during a move and clears it at completion", () => {
     const onTransformPreview = vi.fn(), onObjectTransform = vi.fn(() => true);
     renderSurface({ onTransformPreview, onObjectTransform });

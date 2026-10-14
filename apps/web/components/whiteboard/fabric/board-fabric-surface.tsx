@@ -27,7 +27,7 @@ import {
 } from "./board-fabric-object";
 import { BOARD_FABRIC_VISUAL, boardDotGridStyle } from "./board-fabric-visual";
 import { connectorInteraction } from "./connector-interaction";
-import { representableWorldGeometry } from "./fabric-transform";
+import { snapTargetsForFabricSelection, representableWorldGeometry } from "./fabric-transform";
 import { drawingToolStyle, type BoardDrawingToolStyle } from "../drawing-tool-style";
 import { drawingStrokePath } from "./drawing-stroke-path";
 import { preserveDrawingInkCache } from "./drawing-cache-bounds";
@@ -687,7 +687,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
       const nestedIds = new Set(nested.flatMap(object => object.data?.boardObjectId ? [object.data.boardObjectId] : []));
       if (!target || (!canonical && nested.length === 0) || canonical?.locked || stateRef.current.readOnly) { setSnapPreview(null); return; }
       if (mode === "rotate") {
-        const targets = [...canonicalRef.current.values()].filter(candidate => candidate.id !== id && !nestedIds.has(candidate.id));
+        const targets = snapTargetsForFabricSelection([...canonicalRef.current.values()], id ? [id] : [...nestedIds]);
         const transform = event.transform ?? canvas._currentTransform;
         snapFabricRotation(target, targets, transform?.target === target ? { originX: transform.originX, originY: transform.originY } : undefined);
         setSnapPreview(null);
@@ -700,7 +700,7 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
         target.setCoords();
       }
       const moving = id ? geometryFromFabric(target) : { x: target.getBoundingRect().left, y: target.getBoundingRect().top, width: target.getBoundingRect().width, height: target.getBoundingRect().height, rotation: 0 };
-      const targets = [...canonicalRef.current.values()].filter(candidate => candidate.id !== id && !nestedIds.has(candidate.id));
+      const targets = snapTargetsForFabricSelection([...canonicalRef.current.values()], id ? [id] : [...nestedIds]);
       const result = calculateSnapGuides(moving, targets, 5 / Math.max(0.05, canvas.getZoom()));
       if (mode === "scale") {
         const xAnchor = result.guides.find(guide => guide.axis === "x")?.movingAnchor;
@@ -1066,22 +1066,21 @@ export function BoardFabricSurface({ objects, selectedObjectIds, readOnly, tool,
     inputDocument.addEventListener("keydown", cancelOnEscape, true);
     // Capture auxiliary mouse navigation before Fabric can start a selection or
     // transform. Document listeners finish the drag even outside the canvas.
-    let auxiliaryPan: { last: FabricInput; start: typeof canvas.viewportTransform; button: number } | null = null;
+    let auxiliaryPan: { origin: FabricInput; start: typeof canvas.viewportTransform; button: number } | null = null;
     const auxiliaryMouse = (event: MouseEvent) => {
       if (event.type === "mousedown") {
         if (auxiliaryPan || !host.contains(event.target as Node) || !(event.target instanceof HTMLCanvasElement) || ![1, 2].includes(event.button)) return;
         const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
         if (!input) return;
         abortNativeInput(event);
-        auxiliaryPan = { last: input, start: [...canvas.viewportTransform], button: event.button };
+        auxiliaryPan = { origin: input, start: [...canvas.viewportTransform], button: event.button };
       } else if (!auxiliaryPan) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       const input = readFabricInput({ clientX: event.clientX, clientY: event.clientY });
       if (!input || !auxiliaryPan) return;
-      const transform = panFabricViewport(canvas.viewportTransform, auxiliaryPan.last, input);
+      const transform = panFabricViewport(auxiliaryPan.start, auxiliaryPan.origin, input);
       if (transform) canvas.setViewportTransform(transform as typeof canvas.viewportTransform);
-      auxiliaryPan.last = input;
       if (event.type === "mouseup" && event.button === auxiliaryPan.button) {
         auxiliaryPan = null;
         const transform = canvas.viewportTransform;
