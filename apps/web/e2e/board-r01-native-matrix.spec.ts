@@ -47,6 +47,7 @@ async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(bind
  const diagnostics=observeNativeBrowserDiagnostics(page,`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`);
  const title=`R01 native matrix ${randomUUID()}`,transport=createSpatialWsMetadataRecorder(),chunks=observeRuntimeChunks(page);transport.observe(page,'original');
  try{
+  await diagnostics.ready;
   source=runtimeSourceIdentity();
   const manifestPath=process.env.BOARD_CONNECTOR_RUNTIME_MANIFEST;if(!manifestPath)throw new Error('R01_NATIVE_MANIFEST_REQUIRED');
   const verifierPath=join(root,'apps/web/e2e/support/native-runtime/runtime-attestation.mjs'),selectorPath=join(root,'scripts/local-session/board-runtime-source-files.mjs'),authority=await import(pathToFileURL(verifierPath).href),selector=await import(pathToFileURL(selectorPath).href);
