@@ -15,24 +15,28 @@ export function observeNativeBrowserDiagnostics(page: Page, expectedApiOrigin: s
   let cdp: CDPSession | null = null, cdpEnabled = false, socketClosed = 0, disposed = false;
   const boardRequests = new Set<string>();
   const handshakeStatuses: number[] = [], networkFailures: string[] = [];
-  const ready = page.context().newCDPSession(page).then(async session => {
-    if (disposed) { await session.detach(); return; }
-    cdp = session;
-    session.on('Network.webSocketCreated', (event: {requestId:string;url:string}) => {
+  const socketCreated = (event: {requestId:string;url:string}) => {
       try { if (/^\/whiteboards\/[^/]+\/sync$/.test(new URL(event.url).pathname) && boardRequests.size < maximum) boardRequests.add(event.requestId); } catch { /* no raw URL retention */ }
-    });
-    session.on('Network.webSocketHandshakeResponseReceived', (event: {requestId:string;response:{status:number}}) => {
+  };
+  const handshakeResponse = (event: {requestId:string;response:{status:number}}) => {
       if (!boardRequests.has(event.requestId)) return;
       if (handshakeStatuses.length < maximum) handshakeStatuses.push(event.response.status); else dropped++;
       // Deliberately do not access response headers, status text or request handshake fields.
-    });
-    session.on('Network.loadingFailed', (event: {requestId:string;errorText:string}) => {
+  };
+  const loadingFailed = (event: {requestId:string;errorText:string}) => {
       if (!boardRequests.has(event.requestId)) return;
       const known = ['ERR_CONNECTION_REFUSED', 'ERR_CONNECTION_CLOSED', 'ERR_CONNECTION_RESET', 'ERR_TIMED_OUT', 'ERR_FAILED', 'ERR_ABORTED'];
       const category = known.find(code => event.errorText === `net::${code}`) ?? 'OTHER_NETWORK_ERROR';
       if (networkFailures.length < maximum) networkFailures.push(category); else dropped++;
-    });
-    session.on('Network.webSocketClosed', (event: {requestId:string}) => { if (boardRequests.has(event.requestId)) socketClosed++; });
+  };
+  const socketClosedEvent = (event: {requestId:string}) => { if (boardRequests.has(event.requestId)) socketClosed++; };
+  const ready = page.context().newCDPSession(page).then(async session => {
+    if (disposed) { await session.detach(); return; }
+    cdp = session;
+    session.on('Network.webSocketCreated', socketCreated);
+    session.on('Network.webSocketHandshakeResponseReceived', handshakeResponse);
+    session.on('Network.loadingFailed', loadingFailed);
+    session.on('Network.webSocketClosed', socketClosedEvent);
     await session.send('Network.enable'); cdpEnabled = true;
   }).catch(() => { /* Unsupported browser or a closed page: report availability only. */ });
   const pending = new Set<Promise<void>>();
@@ -71,6 +75,6 @@ export function observeNativeBrowserDiagnostics(page: Page, expectedApiOrigin: s
   return {
     ready,
     async snapshot() { await ready; await Promise.allSettled([...pending]); await readDocument(); return { version: 2, cdpEnabled, handshakeStatuses: [...handshakeStatuses], networkFailures: [...networkFailures], socketClosed, websocketCreated, pageerrorCount, dropped, errors: [...errors], sockets: [...sockets], documents: [...documents] }; },
-    dispose() { disposed = true; if (cdp) { cdp.removeAllListeners(); void cdp.detach().catch(() => {}); cdp = null; } page.off('domcontentloaded', documentReady); page.off('pageerror', pageerror); page.off('websocket', websocket); },
+    dispose() { disposed = true; if (cdp) { cdp.off('Network.webSocketCreated', socketCreated); cdp.off('Network.webSocketHandshakeResponseReceived', handshakeResponse); cdp.off('Network.loadingFailed', loadingFailed); cdp.off('Network.webSocketClosed', socketClosedEvent); void cdp.detach().catch(() => {}); cdp = null; } page.off('domcontentloaded', documentReady); page.off('pageerror', pageerror); page.off('websocket', websocket); },
   };
 }
