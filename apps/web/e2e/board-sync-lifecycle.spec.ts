@@ -155,6 +155,12 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=viewerTransport.snapshot().events.length;
   const viewerOutline=peer.getByTestId(`board-a11y-object-${objectId}`);await viewerOutline.focus();await viewerOutline.press('Enter');await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
   const readonlyPoint=await objectPoint(peer,objectId);await peer.mouse.move(readonlyPoint.x,readonlyPoint.y);await peer.mouse.down();await peer.mouse.move(readonlyPoint.x+20*readonlyPoint.zoom,readonlyPoint.y+20*readonlyPoint.zoom,{steps:8});await peer.mouse.up();await peer.mouse.dblclick(readonlyPoint.x,readonlyPoint.y);await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
+  // Viewer Fabric objects are intentionally non-selectable/evented. Pointer
+  // attempts can clear outline selection; prove no write, then explicitly select
+  // through the actual accessible outline before exercising destructive keys.
+  expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(readonlyBefore);
+  expect(viewerTransport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
+  await viewerOutline.focus();await viewerOutline.press('Enter');
   await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await peer.keyboard.press('Delete');await peer.keyboard.press('ControlOrMeta+z');await peer.keyboard.press('n');
   const peerSocket=viewerTransport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='open').at(-1)?.socketId;expect(typeof peerSocket).toBe('number');
   await peer.goto('/home');await expect(peer.getByTestId('collaborative-editor')).toHaveCount(0);
