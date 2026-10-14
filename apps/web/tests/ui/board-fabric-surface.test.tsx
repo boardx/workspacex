@@ -123,7 +123,8 @@ vi.mock("fabric", async () => {
     getObjects() { return this.objects; }
     removeAll() { const previous = this.objects; this.objects = []; return previous; }
     add(...objects: MockProjectedObject[]) { this.objects.push(...objects); return this.objects.length; }
-    setControlsVisibility() { return this; }
+    controlVisibility: Record<string,boolean> = {};
+    setControlsVisibility(value:Record<string,boolean>) { this.controlVisibility=value; return this; }
   }
   const util = { qrDecompose: (matrix: number[] & { angle?: number }) => ({ angle: matrix.angle ?? Math.atan2(matrix[1] ?? 0, matrix[0] ?? 1) * 180 / Math.PI, scaleX: Math.hypot(matrix[0] ?? 1, matrix[1] ?? 0), scaleY: Math.hypot(matrix[2] ?? 0, matrix[3] ?? 1), translateX: matrix[4] ?? 0, translateY: matrix[5] ?? 0, skewX: 0, skewY: 0 }) };
   return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject, util };
@@ -375,6 +376,14 @@ describe("BoardFabricSurface", () => {
     });
     expect(onViewportChange).toHaveBeenCalledTimes(1);
     expect(onViewportChange).toHaveBeenLastCalledWith(initial,'pan');
+  });
+
+  it("keeps only one resize and offset rotation control for a dense multi-selection",()=>{
+    const small=OBJECTS.map(object=>({...object,geometry:{...object.geometry,width:20,height:20}}));
+    renderSurface({objects:small,selectedObjectIds:small.map(object=>object.id),viewport:{...VIEWPORT,zoom:.5}});
+    expect(Reflect.get(probe.active!,'hasControls')).toBe(true);
+    expect(Reflect.get(probe.active!,'controlVisibility')).toMatchObject({br:true,mtr:true,tl:false,tr:false,bl:false,ml:false,mt:false,mr:false,mb:false});
+    for(const member of probe.objects)expect(Reflect.get(member,'hasControls')).toBe(false);
   });
 
   const attachedPreviewArrow=():BoardFabricObject=>({ id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } });
