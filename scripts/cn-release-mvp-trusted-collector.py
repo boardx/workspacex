@@ -73,6 +73,24 @@ def protected_github(policy):
     return read
 
 
+def validate_host_provider(value):
+    E.need(type(value)is dict and set(value)=={'ghExecutable','ghSha256','authentication'}
+        and value['authentication']=='existing-root-gh','HOST_PROVIDER_PROFILE')
+    path=Path(value['ghExecutable'])
+    E.need(path.is_absolute() and '..'not in path.parts and re.fullmatch('[a-f0-9]{64}',value['ghSha256']),'HOST_PROVIDER_BINARY_PIN')
+    return value
+
+
+def provider_for(approval,release,reader=E.private):
+    """Use the approved host profile, never the HK runner's proof executable."""
+    E.need(type(release)is str and re.fullmatch('[a-f0-9]{64}',release),'HOST_PROVIDER_RELEASE')
+    raw=reader(Path('/var/lib/workspacex-cn/release-inputs')/release/'mvp-profile.json')
+    E.need(E.sha(raw)==approval['mvp']['stageInputs']['profileSha256'],'HOST_PROVIDER_PROFILE_PIN')
+    profile=S.parse(raw);host=validate_host_provider(profile.get('githubProvider'))
+    E.need(all(profile['identity'][key]==approval['identity'][key]for key in ('sourceRevision','controlRevision')),'HOST_PROVIDER_IDENTITY')
+    return protected_github(host)
+
+
 def historical(bundle,objects,advance):
     refs=bundle['originals']
     receipt=S.parse(objects[refs['durableReceipt']]);manifest=S.parse(objects[refs['durableManifest']])
@@ -117,7 +135,7 @@ def ensure_production_context(approval,release,profile,*,reader=E.private,github
     E.need(S.parse(profile_raw)==profile and E.sha(profile_raw)==approval['mvp']['stageInputs']['profileSha256'],'CONTEXT_PROFILE_PIN')
     policy_raw=reader(Path('/var/lib/workspacex-cn/release-inputs')/release/'policy.json')
     E.need(E.sha(policy_raw)==approval['acquire']['requests']['consume']['inputs']['policy'],'CONTEXT_POLICY_PIN')
-    github=github or protected_github(S.parse(policy_raw))
+    github=github or provider_for(approval,release,reader)
     listing=github('/repos/boardx/workspacex/actions/workflows/release-cn-fixed.yml/runs?event=workflow_dispatch&branch=main&per_page=100')
     E.need(type(listing.get('workflow_runs'))is list,'CONTEXT_PROVIDER_LIST')
     hits=[r for r in listing['workflow_runs']if r.get('display_title')==profile['productionCorrelation']
@@ -215,7 +233,7 @@ def verify(payload,bundles,objects,*,reader=E.private,advance=None,github=None,c
     for role in ('proof','policy','plan'):
         actual=original('build','candidatePlan')if role=='plan'else original('transfer',role)
         E.need(E.sha(actual)==pins[role],'TRUSTED_ACQUIRE_ORIGINAL')
-    policy=value('transfer','policy');github=github or protected_github(policy)
+    policy=value('transfer','policy');github=github or provider_for(approval,E.sha(authorization),reader)
     # Raw approval hashing is checked above; canonical JSON re-serialization is
     # not used here because the installed authority may retain a final newline.
     production_context(approval,E.sha(authorization),payload,github,completed=completed)

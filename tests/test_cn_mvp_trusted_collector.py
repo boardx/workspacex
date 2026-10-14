@@ -23,6 +23,26 @@ class TrustedCollector(unittest.TestCase):
             head_sha='b'*40,head_branch='main',event='workflow_dispatch',run_attempt=1,
             display_title='cn-mvp-test-production',created_at='2026-10-14T04:01:00Z',status='completed',conclusion='success')
 
+    def test_provider_uses_pinned_host_profile_not_hk_policy_binary(self):
+        release='d'*64;host={'ghExecutable':'/usr/local/bin/gh','ghSha256':'e'*64,'authentication':'existing-root-gh'}
+        profile={'identity':{'sourceRevision':'a'*40,'controlRevision':'b'*40},'githubProvider':host}
+        raw=C.E.encode(profile);approval={'identity':profile['identity'],'mvp':{'stageInputs':{'profileSha256':C.E.sha(raw)}}}
+        paths=[]
+        def read(path):paths.append(path);return raw
+        sentinel=object()
+        with patch.object(C,'protected_github',return_value=sentinel)as protected:
+            self.assertIs(C.provider_for(approval,release,read),sentinel);protected.assert_called_once_with(host)
+        self.assertEqual(paths,[Path('/var/lib/workspacex-cn/release-inputs')/release/'mvp-profile.json'])
+        approval['mvp']['stageInputs']['profileSha256']='0'*64
+        with self.assertRaisesRegex(ValueError,'HOST_PROVIDER_PROFILE_PIN'):C.provider_for(approval,release,read)
+
+    def test_host_profile_missing_or_credential_transfer_mode_rejected(self):
+        with self.assertRaisesRegex(ValueError,'HOST_PROVIDER_PROFILE'):C.validate_host_provider(None)
+        host={'ghExecutable':'/usr/local/bin/gh','ghSha256':'e'*64,'authentication':'copy-hk-token'}
+        with self.assertRaisesRegex(ValueError,'HOST_PROVIDER_PROFILE'):C.validate_host_provider(host)
+        host['authentication']='existing-root-gh';host['ghExecutable']='relative/gh'
+        with self.assertRaisesRegex(ValueError,'HOST_PROVIDER_BINARY_PIN'):C.validate_host_provider(host)
+
     def test_actual_provider_context_bound_and_never_authority(self):
         payload=self.payload();approval={'identity':dict(sourceRevision='a'*40,controlRevision='b'*40,requestedAt=payload['requestedAt'],deadlineAt=payload['deadlineAt'])}
         calls=[]

@@ -47,6 +47,7 @@ CONTROL_FILES = (
     'scripts/cn-release-generated-commands.py',
     'scripts/cn-release-installation-closure.py',
     'scripts/cn-release-mvp-approval-prepare.py',
+    'scripts/cn-release-mvp-cloud-prepare.py',
     'scripts/cn-release-mvp-chain.py',
     'scripts/cn-release-mvp-content-stage.py',
     'scripts/cn-release-mvp-contract.py',

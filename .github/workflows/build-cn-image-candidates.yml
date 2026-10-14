@@ -68,7 +68,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     needs: plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 65
+    # A coordinator attempt has one immutable 30-minute window. Its build
+    # cannot inherit the standalone 65-minute allowance and outlive that window.
+    # This cap does not guarantee the complete production chain finishes in 30m.
+    timeout-minutes: ${{ inputs.chain_id != '' && 20 || 65 }}
     strategy:
       fail-fast: false
       max-parallel: 5

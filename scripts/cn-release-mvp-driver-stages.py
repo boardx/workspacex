@@ -60,8 +60,13 @@ def inputs(a,release):
 
 def preflight(a,release):
  x=inputs(a,release);p=e.decode(x['profile'])
- e.need(set(p)=={'sourceCheckout','nodeSha256','environmentSha256','pythonPath','pythonSha256',
- 'dockerSha256','holdHelperSha256','deploymentMarker','productionCorrelation','identity','sourceFiles','gitSha256','runtimeManifestSha256'},'MVP_PROFILE_FIELDS')
+ profile_fields={'sourceCheckout','nodeSha256','environmentSha256','pythonPath','pythonSha256',
+ 'dockerSha256','holdHelperSha256','deploymentMarker','productionCorrelation','identity','sourceFiles','gitSha256','runtimeManifestSha256'}
+ e.need(set(p)in(profile_fields,profile_fields|{'githubProvider'}),'MVP_PROFILE_FIELDS')
+ if 'githubProvider'in p:load('mvp-trusted-collector').validate_host_provider(p['githubProvider'])
+ provider=load('mvp-trusted-collector').provider_for(a,release,reader=e.read)
+ repository=provider('/repos/boardx/workspacex')
+ e.need(repository.get('id')==1000328649 and repository.get('full_name')=='boardx/workspacex','MVP_EXISTING_PROVIDER_AUTH')
  e.need(p['identity']['sourceRevision']==a['identity']['sourceRevision'] and p['identity']['controlRevision']==a['identity']['controlRevision'],'MVP_PROFILE_IDENTITY')
  checkout=Path(p['sourceCheckout'])
  e.need(checkout==Path('/usr/local/lib/workspacex-cn/release-source')/a['identity']['sourceRevision'],'MVP_SOURCE_PATH')

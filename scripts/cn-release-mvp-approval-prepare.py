@@ -103,7 +103,7 @@ def derive_from_policy(policy_raw,selector,probe_raw,*,github):
     required={'mvp-profile.json','mvp-schema-request.json','mvp-content-request.json','mvp-content-backup.json','mvp-nonmodel-fixtures.json','mvp-nonmodel-credentials.json','mvp-existing-environment.json','mvp-runtime-manifest.json'}
     E.need(type(pins)is dict and required<=set(pins) and len(pins)<=128,'POLICY_ROOT_INPUTS')
     E.need(not set(pins)&{'plan.json','set.json','proof.json','policy.json'},'POLICY_PROVIDER_INPUT_COLLISION')
-    E.need(all(type(name)is str and re.fullmatch('[a-z0-9][a-z0-9-]{0,95}\.json',name) and type(pin)is str and re.fullmatch('[a-f0-9]{64}',pin)for name,pin in pins.items()),'POLICY_ROOT_INPUT_PIN')
+    E.need(all(type(name)is str and (name=='migrationDiff.json' or re.fullmatch(r'[a-z0-9][a-z0-9-]{0,95}\.json',name)) and type(pin)is str and re.fullmatch('[a-f0-9]{64}',pin)for name,pin in pins.items()),'POLICY_ROOT_INPUT_PIN')
     E.selector('approval',selector)
     E.need(selector['identity']==policy['identity'] and all(selector[k]==policy[k]for k in ('requestedAt','deadlineAt')),'POLICY_SELECTOR_BINDING')
     parameters=copy.deepcopy(policy['parametersTemplate'])

@@ -98,4 +98,28 @@ class Evidence(unittest.TestCase):
   with tempfile.TemporaryDirectory() as folder,patch.object(M.D,'coordinate',side_effect=dispatch),patch.object(M.T,'derive',return_value={'transferRaw':'{}','templateRaw':'{}'}),patch.object(M.E,'obtain',side_effect=evidence):
    r=M.cold_prepare(bundle,'b'*40,Path(folder));self.assertEqual(r['status'],'SUCCEEDED_MVP')
   self.assertEqual(calls,['build','transfer','approval','production','terminal'])
+ def test_cold_scoped_policy_prepares_and_finalizes_through_separate_entry(self):
+  payload,_,_,_,_=self.fixture();calls=[]
+  request={'stage':'build','controlRevision':'b'*40,'releaseId':'test-release','requestedAt':payload['requestedAt'],'deadlineAt':payload['deadlineAt'],'inputs':{'candidate_plan':json.dumps({'sourceRevision':'a'*40,'controlRevision':'b'*40})}}
+  flags={k:True for k in ['fixedReleaseInstalled','advanceInstalled','controlInstalled','approvalStoreInstalled','sudoFixedEntryAllowed','evidencePortalInstalled','trustedEvidenceMaterializerInstalled','approvedCloudPreparationEntryInstalled','approvedCloudPreparationPolicyInstalled']}
+  bundle={'identity':payload['identity'],'rootBridgeStatus':flags,'buildRequest':request,'reviewedTransferPolicy':{},'approvedPreparationPolicySha256':'e'*64}
+  def dispatch(req,path):
+   calls.append(req['stage'])
+   if req['stage']in ('prepare','finalize'):
+    self.assertEqual(req['inputs']['policy_sha256'],'e'*64)
+    self.assertEqual(req['inputs']['operation'],'prepare'if req['stage']=='prepare'else'terminal')
+   return {'runId':{'build':12,'transfer':13,'prepare':15,'production':14,'finalize':16}[req['stage']]}
+  def evidence(stage,*args):
+   calls.append(stage)
+   return {'releaseSha256':'d'*64}if stage=='approval'else {'terminal':{'status':'SUCCEEDED_MVP','fullBusinessAcceptance':False}}
+  with tempfile.TemporaryDirectory()as folder,patch.object(M.D,'coordinate',side_effect=dispatch),patch.object(M.T,'derive',return_value={'transferRaw':'{}','templateRaw':'{}'}),patch.object(M.E,'obtain',side_effect=evidence):
+   self.assertEqual(M.cold_prepare(bundle,'b'*40,Path(folder))['status'],'SUCCEEDED_MVP')
+  self.assertEqual(calls,['build','transfer','prepare','approval','production','finalize','terminal'])
+ def test_policy_without_new_explicit_entry_blocks_before_build(self):
+  payload,_,_,_,_=self.fixture()
+  flags={k:True for k in ['fixedReleaseInstalled','advanceInstalled','controlInstalled','approvalStoreInstalled','sudoFixedEntryAllowed','evidencePortalInstalled','trustedEvidenceMaterializerInstalled']}
+  with tempfile.TemporaryDirectory()as folder,patch.object(M.D,'coordinate')as dispatch:
+   with self.assertRaisesRegex(ValueError,'EXPLICIT_ROOT_PREPARATION_NOT_READY'):
+    M.cold_prepare({'identity':payload['identity'],'rootBridgeStatus':flags,'approvedPreparationPolicySha256':'e'*64},'b'*40,Path(folder))
+  dispatch.assert_not_called()
 if __name__=='__main__':unittest.main()

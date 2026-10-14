@@ -22,7 +22,7 @@ def retain(release,*,reader=E.private,advance=None,github=None,installed_reader=
     E.selector('terminal',payload);E.need(context['releaseSha256']==release,'RETENTION_CONTEXT')
     policy_raw=reader(Path('/var/lib/workspacex-cn/release-inputs')/release/'policy.json')
     E.need(E.sha(policy_raw)==a['acquire']['requests']['consume']['inputs']['policy'],'RETENTION_POLICY')
-    github=github or C.protected_github(S.parse(policy_raw))
+    github=github or C.provider_for(a,release,reader)
     C.production_context(a,release,payload,github,completed=False)
     objects={};bundles={}
     def bundle(stage,roles):

@@ -18,4 +18,15 @@ class Dispatch(unittest.TestCase):
   with tempfile.TemporaryDirectory()as folder,self.assertRaisesRegex(ValueError,'RUN_IDENTITY'):m.coordinate(self.request(),Path(folder)/'intent',provider,lambda:m.instant('2026-10-14T02:01:00Z'))
  def test_deadline_not_reset(self):
   with tempfile.TemporaryDirectory()as folder,self.assertRaisesRegex(ValueError,'DEADLINE'):m.coordinate(self.request(),Path(folder)/'intent',lambda *_:self.fail('provider called'),lambda:m.instant('2026-10-14T02:31:00Z'))
+ def test_bounded_build_timeout_is_known_failure_without_redispatch(self):
+  posts=[]
+  def provider(path,payload=None):
+   if payload is not None:posts.append(payload);return None
+   return {'workflow_runs':[dict(id=123,display_title='cn-mvp-test-1-build',created_at='2026-10-14T02:01:00Z',head_sha='a'*40,run_attempt=1,event='workflow_dispatch',head_branch='main',status='completed',conclusion='timed_out')]}
+  with tempfile.TemporaryDirectory()as folder:
+   state=Path(folder)/'intent'
+   for attempt in range(2):
+    with self.assertRaisesRegex(ValueError,'CHILD_FAILED'):
+     m.coordinate(self.request(),state,provider,lambda:m.instant('2026-10-14T02:21:00Z'))
+  self.assertEqual(len(posts),1)
 if __name__=='__main__':unittest.main()
