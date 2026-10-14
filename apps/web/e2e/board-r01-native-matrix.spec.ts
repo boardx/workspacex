@@ -231,12 +231,17 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
  await boardApi(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:createCommands([a,b,drawing,edge])});await openBoard(page,boardId,4);
  await page.getByTestId('board-zoom-menu').click();await page.getByText('实际大小 100%',{exact:true}).click();
  for(let index=0;index<Math.round(Math.abs(matrixZoom-1)*10);index++){await page.getByTestId('board-zoom-menu').click();await page.getByTestId(matrixZoom<1?'board-zoom-out':'board-zoom-in').click();}
- expect((await viewport(page)).z).toBeCloseTo(matrixZoom,6);const initial=await viewport(page),pan={x:matrixZoom===2?-80:35,y:matrixZoom===2?-180:45};const wheelPoint=await blankCanvasPoint(page,initial);await topCanvas(page,wheelPoint);await page.mouse.move(wheelPoint.x,wheelPoint.y);await page.mouse.wheel(initial.x-pan.x,initial.y-pan.y);await expect.poll(async()=>{const v=await viewport(page);return [v.x,v.y];}).toEqual([pan.x,pan.y]);
+ // Use a real nonzero wheel pan that leaves room above the fixtures for toolbar
+ // chrome: the old near-top framing covered the native bottom rotation control.
+ expect((await viewport(page)).z).toBeCloseTo(matrixZoom,6);const initial=await viewport(page),pan={x:matrixZoom===2?-80:35,y:matrixZoom===2?40:145};const wheelPoint=await blankCanvasPoint(page,initial);await topCanvas(page,wheelPoint);await page.mouse.move(wheelPoint.x,wheelPoint.y);await page.mouse.wheel(initial.x-pan.x,initial.y-pan.y);await expect.poll(async()=>{const v=await viewport(page);return [v.x,v.y];}).toEqual([pan.x,pan.y]);
  for(const gesture of ['move','rotate','scale'] as const)for(const outcome of ['cancel','commit'] as const){
   const before=await canonicalBoardSnapshot(api,token,boardId),baseline=[a.id,b.id,drawing.id].map(id=>before.objects.find(object=>object.id===id)!);
   const v=await viewport(page),screen=(point:{x:number;y:number})=>({x:v.box.x+v.x+point.x*v.z,y:v.box.y+v.y+point.y*v.z});
   const blank=await blankCanvasPoint(page,v);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
-  for(const [index,value] of baseline.entries()){
+  // Select the lowest drawing first; upper widgets remain reachable when its
+  // contextual toolbar appears. Keep the canonical baseline/oracles unchanged.
+  const selectionOrder=[baseline[2]!,baseline[0]!,baseline[1]!];
+  for(const [index,value] of selectionOrder.entries()){
    // A selected widget's floating chrome can cover another widget's center.
    // Keep native canvas selection, but choose an exposed interior point using
    // canonical geometry and DOM hit-testing instead of forcing Fabric state.
@@ -247,7 +252,7 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
    const point=await page.evaluate(points=>points.find(p=>document.elementFromPoint(p.x,p.y)?.matches('canvas.upper-canvas'))??null,candidates);
    expect(point,`native canvas must expose widget ${value.id} for selection`).not.toBeNull();await topCanvas(page,point!);
    if(index)await page.keyboard.down('Shift');try{await page.mouse.click(point!.x,point!.y);}finally{if(index)await page.keyboard.up('Shift');}
-   await expect.poll(()=>page.getByTestId('board-a11y-mirror').locator('button[aria-pressed="true"]').evaluateAll(buttons=>buttons.map(button=>button.closest('li')!.getAttribute('data-object-id')).sort())).toEqual(baseline.slice(0,index+1).map(object=>object.id).sort());
+   await expect.poll(()=>page.getByTestId('board-a11y-mirror').locator('button[aria-pressed="true"]').evaluateAll(buttons=>buttons.map(button=>button.closest('li')!.getAttribute('data-object-id')).sort())).toEqual(selectionOrder.slice(0,index+1).map(object=>object.id).sort());
   }
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 3 个对象');
   const corners=baseline.flatMap(value=>entityCorners(value.geometry)),left=Math.min(...corners.map(point=>point.x)),right=Math.max(...corners.map(point=>point.x)),top=Math.min(...corners.map(point=>point.y)),bottom=Math.max(...corners.map(point=>point.y));
