@@ -176,9 +176,21 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   expect(viewerTransport.snapshot().dropped).toBe(0);observations.push({phase:'viewer-transport',client:'viewer',...viewerTransport.snapshot()});
   observations.push({phase:'viewer-runtime-after',...await verifyRuntimeIdentity(api,sourceSha,await viewerChunks())});
   expect(transport.snapshot().events.slice(revokedEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
-  failureStage='OWNER_UNMOUNT';const unmountBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await owner.context().setOffline(true);await cloud(owner,'offline','owner-before-unmount');
+  failureStage='OWNER_UNMOUNT';
+  // Populate the real client-router cache through the user's navigation path.
+  // A full page.goto while offline cannot load a new HTML document.
+  await owner.getByRole('button',{name:'返回白板',exact:true}).click();
+  await expect(owner).toHaveURL(/\/studio\/board(?:\?.*)?$/);
+  await expect(owner.getByTestId(`board-open-${boardId}`)).toBeVisible();
+  await owner.getByTestId(`board-open-${boardId}`).click();await expectBoardSynced(owner);
+  const unmountBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await owner.context().setOffline(true);await cloud(owner,'offline','owner-before-unmount');
   await edit(owner,objectId,'Unsubmitted detached editor');const unmountEvents=transport.snapshot().events.length;
-  await owner.goto('/home');await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);await owner.context().setOffline(false);
+  expect(await owner.evaluate(()=>navigator.onLine)).toBe(false);
+  await owner.getByRole('button',{name:'返回白板',exact:true}).click();
+  await expect(owner).toHaveURL(/\/studio\/board(?:\?.*)?$/);
+  await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);
+  expect(await owner.evaluate(()=>navigator.onLine)).toBe(false);
+  await owner.context().setOffline(false);
   await owner.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(unmountBefore);
   expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='open')).toHaveLength(0);
   expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
