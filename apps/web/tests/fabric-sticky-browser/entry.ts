@@ -5,18 +5,20 @@ const canvas = new StaticCanvas('sticky-canvas', { width: 900, height: 380, back
 const labels = [
   '学校AI俱乐部定期聚会与线上协作工具，基于研究报告描述用户画像中的行为与痛点。'.repeat(12),
   'Youth AI Challenge / AI for Good 挑战赛报名与提交平台（来源：研究报告第六章，用户画像行为分区）\n'.repeat(16),
-];
+] as const;
 async function run() {
   await document.fonts.ready;
   const nodes = labels.map((label, index) => new FlowNode({ nodeId: `sticky-${index}`, shape: 'sticky', label, x: 180 + index * 400, y: 160, width: 130, height: 85 }));
+  const first = nodes[0]!;
+  const second = nodes[1]!;
   canvas.add(...nodes);
-  nodes[0].setLabel(labels[1]);
-  nodes[0].setLabel(labels[0]);
-  const restored = await FlowNode.fromObject(nodes[1].toObject());
-  canvas.remove(nodes[1]);
+  first.setLabel(labels[1]);
+  first.setLabel(labels[0]);
+  const restored = await FlowNode.fromObject(second.toObject());
+  canvas.remove(second);
   canvas.add(restored);
   canvas.renderAll();
-  const results = [nodes[0], restored].map((node, index) => {
+  const results = [first, restored].map((node, index) => {
     const card = node.getObjects().find(o => o instanceof Rect) as Rect;
     const text = node.getObjects().find(o => o instanceof Textbox) as Textbox;
     const cardBounds = card.getBoundingRect(), textBounds = text.getBoundingRect();
