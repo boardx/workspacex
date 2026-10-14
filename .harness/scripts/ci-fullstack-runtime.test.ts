@@ -64,6 +64,18 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(args).toContain('exec pnpm --filter web run e2e:trace-geometry');
     expect(args).not.toContain('exec pnpm run verify:fullstack-smoke');
   });
+  it('runs complete sticky coverage in the sealed browser environment without import credentials', () => {
+    const command = ['--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts'];
+    expect(() => assertRuntimeCommand('sticky', command)).not.toThrow();
+    expect(() => assertRuntimeCommand('sticky', [...command, '--grep', 'one'])).toThrow();
+    expect(() => assertRuntimeCommand('sticky', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
+    const args = runtimeArgs({ ...inputs, sticky: true, env: { ...inputs.env, WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: 'FAKE' } }).join(' ');
+    expect(args).toContain('PLAYWRIGHT_BROWSERS_PATH=/ms-playwright');
+    expect(args).toContain('ci-fullstack-runtime.mjs browser');
+    expect(args).toContain('exec ' + command.slice(1).join(' '));
+    expect(args).not.toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN');
+    expect(args).not.toContain('must-not-enter');
+  });
   it('retains full commands and evidence within a bounded complete-run budget', () => {
     const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
     const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('  # #2084:'));
