@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { Database, Eye, FileText, BookOpen, Link } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { WorkflowActionButton, WorkflowActionBar } from "./research-workflow-actions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ReportDocument } from "@/lib/research-report-document";
 import { chapterBody, ResearchReportMarkdown } from "./guided-research-report-document";
@@ -25,6 +25,6 @@ export function ResearchPrototypeReport({ document, sources, limitations, action
       {!!document.references.length && <section id="research-report-references" className="scroll-mt-80 space-y-4 border-t pt-7" data-testid="research-report-references"><h3 className="text-2xl font-bold">参考来源</h3><ol className="list-inside list-decimal space-y-3 text-base">{document.references.map((reference) => <li key={reference.number}><a className="underline underline-offset-4" href={reference.url} target="_blank" rel="noopener noreferrer">{reference.title}</a></li>)}</ol></section>}
       {limitations && <p className="rounded-lg border border-destructive/40 p-4 text-base" data-testid="research-report-limitations">{limitations}</p>}
     </article>
-    <div className="fixed right-4 top-16 z-50 sm:top-4 flex max-w-[calc(100vw-2rem)] flex-wrap justify-end gap-2 rounded-lg border bg-background p-2 shadow-sm md:right-8" data-testid="research-report-actions">{fileActions}<span className="contents [&_[role=status]]:hidden sm:[&_[role=status]]:inline">{actions}</span><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="h-10 px-3 text-sm sm:px-4 sm:text-base" aria-label="更多操作" data-testid="research-report-more-actions">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => root.current?.querySelector("#research-report-summary")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Eye className="mr-2 size-4" />在线查看</DropdownMenuItem>{moreActions}{moreActions && <DropdownMenuSeparator />}<DropdownMenuItem disabled={disabled} onSelect={onRegenerate}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div>
+    <WorkflowActionBar placement="footer" data-testid="research-report-actions"><DropdownMenu><DropdownMenuTrigger asChild><WorkflowActionButton variant="outline" aria-label="更多操作" data-testid="research-report-more-actions">更多操作</WorkflowActionButton></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onSelect={() => root.current?.querySelector("#research-report-summary")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Eye className="mr-2 size-4" />在线查看</DropdownMenuItem>{moreActions}{moreActions && <DropdownMenuSeparator />}<DropdownMenuItem disabled={disabled} onSelect={onRegenerate}>重新生成报告</DropdownMenuItem></DropdownMenuContent></DropdownMenu>{fileActions}<span className="contents [&_[role=status]]:hidden sm:[&_[role=status]]:inline">{actions}</span></WorkflowActionBar>
   </div>;
 }

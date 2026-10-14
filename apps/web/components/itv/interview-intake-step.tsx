@@ -3,8 +3,9 @@
 import * as React from "react";
 import { ArrowRight, FileText, Mic } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
 import { InterviewVoiceInput } from "./interview-voice-input";
-import { InterviewStepHeader } from "./interview-step-header";
+import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
 
 /** Controlled Markdown editor. Content changes are not implicit confirmation. */
 export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, onImportFile, onUploadFile, onVoice, readOnly = false, voiceSessionToken, onVoiceBusyChange }: {
@@ -37,9 +38,7 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
     onChange(markdown ? `${markdown}\n\n${text}` : text);
   }
   return <div data-testid="itv-markdown-intake">
-    <InterviewStepHeader title="导入需求">
-      <Button variant="primary" disabled={busy || !markdown.trim()} onClick={() => void perform(onConfirm)}>{busy ? "正在处理…" : "下一步：确认分析"}<ArrowRight className="size-4" aria-hidden /></Button>
-    </InterviewStepHeader>
+    <InterviewStepHeader title="导入需求" />
     <section className="rounded-2xl border border-border bg-card p-4 lg:p-5">
       <label htmlFor="interview-demand-markdown" className="sr-only">研究需求 Markdown</label>
       <div className="mt-3 rounded-xl border border-input bg-background p-4">
@@ -59,5 +58,6 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
       </div>
       {error && <p role="alert" className="mt-4 text-sm leading-6 text-destructive">{error}</p>}
     </section>
+    <InterviewStepActions><ActionButton variant="primary" loading={busy} icon={<ArrowRight className="size-4" aria-hidden />} disabled={busy || !markdown.trim()} onClick={() => void perform(onConfirm)}>{busy ? "正在处理…" : "下一步：确认分析"}</ActionButton></InterviewStepActions>
   </div>;
 }

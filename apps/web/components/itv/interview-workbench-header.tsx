@@ -5,6 +5,7 @@ import { ArrowLeft, MessageSquareText } from "lucide-react";
 import { researchWorkspaceStyle as workspace, ResearchWorkspaceStepIndicator } from "@/components/research-studio/research-workspace-style";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
 
 export const INTERVIEW_WORKBENCH_STEPS = [
   { id: "intake", label: "导入需求", detail: "保存研究 Markdown" },
@@ -65,7 +66,7 @@ export function InterviewWorkbenchHeader({
     <div className={workspace.width}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
-        <Button data-testid="itv-return-history" type="button" variant="primary" className="h-8 text-sm" onClick={onReturnToList}><ArrowLeft className="size-4" aria-hidden />返回访谈列表</Button>
+        <ActionButton data-testid="itv-return-history" type="button" variant="outline" onClick={onReturnToList}><ArrowLeft className="size-4" aria-hidden />返回访谈列表</ActionButton>
           <MessageSquareText aria-hidden className="size-9 shrink-0 rounded-lg bg-primary p-2 text-primary-foreground" />
           <span className="text-xl font-bold">用户访谈</span>
         </div>
@@ -74,7 +75,7 @@ export function InterviewWorkbenchHeader({
         <span data-testid="itv-workflow-version" className="sr-only">版本 {version}</span>
         {topic && <span data-testid="itv-persisted-topic" className="sr-only">已确认主题：{topic}</span>}
         {tags.map((tag) => <span key={tag} className="hidden rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground lg:inline-flex">{tag}</span>)}
-        {onOpenSkill && <Button data-testid="itv-skill-drawer-trigger" type="button" variant="outline" onClick={onOpenSkill}><MessageSquareText className="size-4" aria-hidden />访谈助手</Button>}
+        {onOpenSkill && <ActionButton data-testid="itv-skill-drawer-trigger" type="button" variant="outline" onClick={onOpenSkill}><MessageSquareText className="size-4" aria-hidden />访谈助手</ActionButton>}
       </div>
     </div>
     </div>
