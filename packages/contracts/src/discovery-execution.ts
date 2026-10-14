@@ -19,6 +19,15 @@ export const DiscoveryPlanBoundary = z.object({
 export const DiscoveryInterviewPlanBoundary = z.object({ planId: id, status: z.literal("ready-for-review"),
   researchQuestions: z.array(z.object({ questionId: id, text: id }).passthrough()).min(1),
 }).passthrough();
+/** Additional consumed boundary required by the actual outline import, not by a metadata preview. */
+export const DiscoveryOutlinePlanBoundary = DiscoveryInterviewPlanBoundary.extend({
+  guide: z.array(z.object({ sectionId: id,
+    section: z.enum(["warmup", "core", "counterexample", "closing"]), objective: id,
+    minutes: z.number().int().positive(), order: z.number().int().nonnegative(),
+    items: z.array(z.object({ itemId: id, kind: z.enum(["question", "probe", "script"]),
+      text: id, rqIds: z.array(id), parentItemId: id.optional() }).passthrough()).min(1),
+  }).passthrough()).min(1),
+});
 export const DiscoveryCorpusBoundary = z.object({ packId: id,
   corpus: z.array(z.object({ segmentId: id }).passthrough()).min(1),
 }).passthrough();

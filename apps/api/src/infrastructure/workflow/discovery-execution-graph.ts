@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { DiscoveryFieldworkResult, DiscoveryOutlineResult, DiscoveryPublicationResult } from "@repo/contracts/discovery-execution";
 import type { EffectGateway } from "../../application/workflow/effect-gateway";
 import type { StageExecution, StageWork } from "../../application/workflow/run-instance";
+import { prepareDiscoveryOutline, type DiscoveryOutlineImport } from "../../application/work-content/discovery-outline-import";
 import { discoveryExecutionDefinition } from "../../domain/work-content/discovery-execution-definition";
 import { freezeDiscoveryPlan, validateDiscoveryStage } from "../../domain/work-content/discovery-stage-validation";
 import type { LinearWorkflowGraph } from "./workflow-graph-registry";
@@ -14,6 +15,7 @@ export interface DiscoveryExecutionDeps extends PinnedContentStageDeps {
   adapters?: Partial<Record<"import_outline" | "fieldwork" | "publish", (args: {
     orgId: string; instanceId: string; initiatorUserId: string;
     input: Record<string, unknown>; prior: Readonly<Record<string, unknown>>;
+    outline?: DiscoveryOutlineImport;
   }) => Promise<Record<string, unknown>>>>;
 }
 
@@ -45,7 +47,9 @@ export function discoveryExecutionGraph(deps?: DiscoveryExecutionDeps): LinearWo
     const adapter = deps.adapters?.[stage.stageId as keyof NonNullable<DiscoveryExecutionDeps["adapters"]>];
     if (!adapter) throw new ContentStageUnavailableError(`stage_adapter_missing:${stage.stageId}`);
     const args = { orgId: exec.lease.orgId, instanceId: exec.instanceId,
-      initiatorUserId: instance.initiatorUserId, input: exec.input, prior };
+      initiatorUserId: instance.initiatorUserId, input: exec.input, prior,
+      ...(stage.stageId === "import_outline" ? { outline: prepareDiscoveryOutline(exec.instanceId, 1,
+        prior.plan_interviews, (exec.input.fieldwork as { plannedMinutes?: number } | undefined)?.plannedMinutes ?? 0) } : {}) };
     const runAdapter = async () => {
       const result = await adapter(args);
       const schema = stage.stageId === "import_outline" ? DiscoveryOutlineResult

@@ -18,6 +18,7 @@ import { loadPinnedMethodFiles } from "../../src/infrastructure/work-content/pin
 import { ModelContentSkillRunner } from "../../src/application/work-content/content-skill-runner";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
 import { getContentInstanceOutput } from "../../src/application/work-content/get-content-instance-output";
+import { prepareDiscoveryOutline } from "../../src/application/work-content/discovery-outline-import";
 import type { WorkflowInstanceProjection } from "@repo/contracts/workflow-runtime";
 
 const tests = [{ testId: "T1", assumptionId: "A1", targetRung: "reported-behavior",
@@ -27,6 +28,36 @@ const tests = [{ testId: "T1", assumptionId: "A1", targetRung: "reported-behavio
 const plan = { planId: "plan-1", planVersion: 1, criteriaDigest: discoveryCriteriaDigest(tests),
   outcome: { status: "anchored", actor: "管理员", behavior: "首次邀请" },
   assumptions: [{ assumptionId: "A1", text: "管理员需要先找到可信邀请对象", selected: true }], tests };
+
+describe("S062 outline import consumed boundary", () => {
+  const outline = () => ({ planId: "ip-1", status: "ready-for-review",
+    researchQuestions: [{ questionId: "RQ1", text: "首次邀请如何发生" }],
+    guide: [{ sectionId: "core", section: "core", objective: "了解最近一次实际选择", minutes: 20, order: 1,
+      items: [{ itemId: "Q1", kind: "question", text: "回忆最近一次邀请", rqIds: ["RQ1"] },
+        { itemId: "Q2", kind: "question", text: "当时如何选择对象", rqIds: ["RQ1"] },
+        { itemId: "P1", kind: "probe", text: "后来发生什么", rqIds: ["RQ1"], parentItemId: "Q1" },
+        { itemId: "S1", kind: "script", text: "提醒可以跳过", rqIds: [] }] }] });
+  it("maps authored questions without silently generating or padding content and gives each round a stable external key", () => {
+    const imported = prepareDiscoveryOutline("instance-a", 1, outline(), 45);
+    expect(imported.sections).toEqual([{ objective: "了解最近一次实际选择",
+      openers: ["回忆最近一次邀请", "当时如何选择对象"], minutes: 20, order: 1 }]);
+    expect(imported.externalRef).toBe(prepareDiscoveryOutline("instance-a", 1, outline(), 45).externalRef);
+    expect(imported.externalRef).not.toBe(prepareDiscoveryOutline("instance-a", 2, outline(), 45).externalRef);
+  });
+  it("rejects incomplete guides, dangling RQs and orphan probes before any write can be attempted", () => {
+    const incomplete = outline(); incomplete.guide[0]!.items.splice(1, 1);
+    expect(() => prepareDiscoveryOutline("a", 1, incomplete, 45)).toThrow("discovery_outline_incomplete");
+    const unknown = outline(); unknown.guide[0]!.items[0]!.rqIds = ["not-in-plan"];
+    expect(() => prepareDiscoveryOutline("a", 1, unknown, 45)).toThrow("discovery_outline_unknown_rq");
+    const orphan = outline(); orphan.guide[0]!.items[2]!.parentItemId = "missing";
+    expect(() => prepareDiscoveryOutline("a", 1, orphan, 45)).toThrow("discovery_outline_orphan_probe");
+  });
+  it("rejects duplicate identifiers and an over-budget guide", () => {
+    const duplicate = outline(); duplicate.guide.push(structuredClone(duplicate.guide[0]!));
+    expect(() => prepareDiscoveryOutline("a", 1, duplicate, 45)).toThrow("discovery_outline_duplicate_section");
+    expect(() => prepareDiscoveryOutline("a", 1, outline(), 15)).toThrow("discovery_outline_time_budget_exceeded");
+  });
+});
 
 function fixture() {
   const definition = discoveryExecutionDefinition();
@@ -107,6 +138,17 @@ describe("W027 substantive execution boundaries", () => {
       f.rows.set(stage.stageId, { professionalOutput: "persisted" });
     }
     await expect(f.stage("import_outline")).rejects.toMatchObject({ reason: "stage_adapter_missing:import_outline" });
+    expect(f.effects.execute).not.toHaveBeenCalled();
+  });
+  it("rejects metadata-only interview plans before invoking a configured write adapter or recording effects", async () => {
+    const f = fixture(); const adapter = vi.fn(async () => ({ outlineId: "outline", status: "pending_confirm" }));
+    f.deps.adapters = { import_outline: adapter };
+    for (const stage of f.definition.stages) {
+      if (stage.stageId === "import_outline") break;
+      f.rows.set(stage.stageId, { professionalOutput: "persisted" });
+    }
+    await expect(f.stage("import_outline")).rejects.toThrow();
+    expect(adapter).not.toHaveBeenCalled();
     expect(f.effects.execute).not.toHaveBeenCalled();
   });
   it("rejects professionally invalid JSON and changed preregistered criteria", async () => {
