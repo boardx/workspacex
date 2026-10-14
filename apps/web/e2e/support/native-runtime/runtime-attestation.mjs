@@ -42,13 +42,41 @@ export function runtimeSourceHashes(root, sourceFiles) {
   return Object.fromEntries(sourceFiles.map(path => [path,createHash('sha256').update(readFileSync(join(root,path))).digest('hex')]));
 }
 
-export function committedRuntimeSourceHashes(root, head, sourceFiles) {
-  return Object.fromEntries(sourceFiles.map(path => {
-    let bytes;
-    try { bytes = execFileSync('git', ['show', `${head}:${path}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 }); }
-    catch { assert.fail(`runtime source must exist in attested commit: ${path}`); }
-    return [path, createHash('sha256').update(bytes).digest('hex')];
-  }));
+export function committedRuntimeSourceHashes(root, head, sourceFiles, {exec = execFileSync} = {}) {
+  const options = {cwd:root,stdio:['pipe','pipe','pipe']};
+  const tree = exec('git',['ls-tree','-r','-l','-z',head],{...options,maxBuffer:16*1024*1024}).toString('utf8');
+  const byPath = new Map();
+  for (const entry of tree.split('\0').filter(Boolean)) {
+    const tab=entry.indexOf('\t'), header=entry.slice(0,tab).trim().split(/\s+/);
+    assert(tab>=0&&header.length===4,'invalid committed source tree record');
+    byPath.set(entry.slice(tab+1),{oid:header[2],type:header[1],size:Number(header[3])});
+  }
+  const objects=sourceFiles.map(path=>{
+    const object=byPath.get(path);
+    assert(object,`runtime source must exist in attested commit: ${path}`);
+    assert.equal(object.type,'blob','runtime source must be a committed blob');
+    assert(/^[a-f0-9]{40,64}$/.test(object.oid),'invalid committed source object identity');
+    assert(Number.isSafeInteger(object.size)&&object.size>=0&&object.size<=16*1024*1024,'committed source exceeds blob size limit');
+    return {...object,path};
+  });
+  if(!objects.length)return {};
+  const maxBuffer=objects.reduce((size,object)=>size+object.size+128,0);
+  const output=exec('git',['cat-file','--batch'],{...options,input:objects.map(object=>object.oid).join('\n')+'\n',maxBuffer});
+  let cursor=0;
+  const hashes=objects.map(object=>{
+    const end=output.indexOf(10,cursor);assert(end>=cursor,'missing committed blob header');
+    const header=output.subarray(cursor,end).toString('ascii').split(' ');
+    assert.equal(header.length,3,'invalid committed blob header');
+    assert.equal(header[0],object.oid,'committed blob identity mismatch');
+    assert.equal(header[1],'blob','runtime source must be a committed blob');
+    assert.equal(header[2],String(object.size),'committed blob length mismatch');
+    cursor=end+1;assert(cursor+object.size<output.length,'truncated committed source bytes');
+    const bytes=output.subarray(cursor,cursor+object.size);cursor+=object.size;
+    assert.equal(output[cursor++],10,'missing committed blob terminator');
+    return [object.path,createHash('sha256').update(bytes).digest('hex')];
+  });
+  assert.equal(cursor,output.length,'unexpected committed blob output');
+  return Object.fromEntries(hashes);
 }
 
 export function savedSequence(label) {
