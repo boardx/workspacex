@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:26773) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/billing-entry.browser.ts:7:5 › 个人入口键盘可达，账户服务未开放时真实提示，三档无溢出 (3.8s)
+
+  1 passed (4.5s)

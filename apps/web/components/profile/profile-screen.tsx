@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { PaginationLoadMore } from "@/components/ui/pagination";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { ApiError } from "@/lib/api-client";
+import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
 import {
   changeOwnPassword, fetchAvatarObjectUrl, listOwnActivity, updateOwnProfile, uploadOwnAvatar,
   type ListOwnActivityOut,
@@ -84,6 +85,19 @@ export function ProfileScreen() {
           <div className="flex flex-1 flex-col">
             <span className="text-13 font-medium">我的 Brain</span>
             <span className="text-10 text-muted-foreground">长期记忆 / 对话里记下的</span>
+          </div>
+          <ChevronRight aria-hidden className="h-4 w-4 text-muted-foreground" />
+        </Link>
+
+        <Link
+          href={PERSONAL_BILLING_ENTRY.href}
+          data-testid="profile-billing-entry"
+          className="flex items-center gap-3 rounded-lg border border-border bg-panel p-3 transition-all duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+        >
+          <PERSONAL_BILLING_ENTRY.icon aria-hidden className="h-5 w-5 text-muted-foreground" />
+          <div className="flex flex-1 flex-col">
+            <span className="text-13 font-medium">{PERSONAL_BILLING_ENTRY.label}</span>
+            <span className="text-10 text-muted-foreground">个人额度、订阅与支付渠道</span>
           </div>
           <ChevronRight aria-hidden className="h-4 w-4 text-muted-foreground" />
         </Link>

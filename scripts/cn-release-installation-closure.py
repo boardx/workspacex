@@ -55,6 +55,7 @@ CONTROL_FILES = (
     'scripts/cn-release-mvp-evidence-materializer.py',
     'scripts/cn-release-mvp-evidence.py',
     'scripts/cn-release-mvp-nonmodel.py',
+    'scripts/cn-release-mvp-private-input.py',
     'scripts/cn-release-mvp-stage-evidence.py',
     'scripts/cn-release-mvp-trusted-collector.py',
     'scripts/cn-release-orchestrate.py',

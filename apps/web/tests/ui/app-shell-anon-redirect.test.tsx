@@ -52,4 +52,10 @@ describe("SessionAppShell 匿名跳转带 next", () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
+
+  it("计费页匿名访问仍要求登录，并保留返回路径", async () => {
+    setUrl("/billing");
+    render(<AppShell previewRole={null}><div>billing content</div></AppShell>);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith(`/login?next=${encodeURIComponent("/billing")}`));
+  });
 });

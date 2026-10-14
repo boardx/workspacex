@@ -45,6 +45,9 @@ import {
  *    导航 route 必属某束或在显式白名单）。改这里必须同步跑它，否则会红。
  * ────────────────────────────────────────────────────────────────────────────
  */
+/** Personal account navigation; rendered once in PersonalMenu, independent of channel configuration. */
+export const PERSONAL_BILLING_ENTRY = { href: "/billing", label: "额度与订阅", icon: CreditCard };
+
 export interface NavItem {
   key: string;
   label: string;
@@ -395,11 +398,11 @@ export const NAV_SEGMENTS: NavSegment[] = [
           //   `canvas` 项，指向裸 `/canvas`）不受影响，仍是去重后不再渲染的重复入口。
           { key: "canvas", label: "画布", href: "/canvas", icon: Shapes, ucRefs: ["07-canvas/uc-7-1", "07-canvas/uc-7-3"] },
           // 束: billing-credits / billing-subscription（phase-21 billing-payment 两束，2026-10-01 建）。
-          // ⚠ 本轮只出①②③⑤签核材料（design-signoff.md status: pending），未接实现——落地后
-          //   收银台/订阅弹窗并入用户菜单与组织管理页的既有入口，计费管理端并入平台后台，不是独立页面。
+          // 静态签核材料仍保留在后台预览；正式个人账户入口由 PERSONAL_BILLING_ENTRY
+          //   在 PersonalMenu 单独渲染，渠道和账户状态使用真实 API，充值写路径仍待接入。
           //   `/preview/billing` 是签核用的静态原型屏（`ui-prototyper` 交付，
           //   `phases/phase-21-billing-payment/ui-preview/` 下 31 张截图按束分目录），供
-          //   lint-nav-reachability 判可达用；接线落地后这一行应改指向真实入口，非遗漏。
+          //   预览材料；它不等同于可支付入口。可达性门的两束现行入口已指向 /billing。
           // ucRefs 如实留空：本 phase 判据单一事实源是 requirements/*.md 的 R12（见各束 coverage.md），
           // 不是 UC 文档编号体系，编一个假引用比留空更糟。
           { key: "billing-preview", label: "计费预览", href: "/preview/billing", icon: CreditCard, ucRefs: [], isPrototype: true },

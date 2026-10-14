@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ✓ tests/ui/app-shell-anon-redirect.test.tsx (3 tests) 43ms
+ ✓ tests/ui/billing-overview.test.tsx (7 tests) 418ms
+ ✓ tests/ui/rail-more-menu.test.tsx (4 tests) 406ms
+ ✓ tests/ui/shell-personal-menu.test.tsx (12 tests) 667ms
+
+ Test Files  4 passed (4)
+      Tests  26 passed (26)
+   Start at  22:58:51
+   Duration  5.85s (transform 2.12s, setup 1.33s, collect 9.63s, tests 1.53s, environment 8.10s, prepare 387ms)
+

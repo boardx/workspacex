@@ -26,7 +26,7 @@ e=load('fixed-driver').e
 FILES={'profile':'profile','schemaRequest':'schema-request','contentRequest':'content-request',
        'contentBackup':'content-backup','nonmodelFixtures':'nonmodel-fixtures','nonmodelCredentials':'nonmodel-credentials'}
 CODE={'scripts/cn-release-mvp-driver-stages.py','scripts/cn-release-mvp-contract.py','scripts/cn-release-mvp-content-stage.py',
- 'scripts/cn-release-mvp-nonmodel.py','scripts/cn-release-business-state.py',
+ 'scripts/cn-release-mvp-nonmodel.py','scripts/cn-release-mvp-private-input.py','scripts/cn-release-business-state.py',
  'apps/api/scripts/platform-content-release.ts','apps/api/scripts/platform-content-release-core.ts',
  'apps/api/scripts/platform-schema-readback.ts','apps/api/scripts/platform-schema-readback-core.ts'}
 
@@ -57,6 +57,14 @@ def inputs(a,release):
   raw=e.read(INPUTS/release/('mvp-'+name+'.json'));e.need(e.digest(raw)==pins[k+'Sha256'],'MVP_INPUT_PIN')
   result[k]=raw
  return result
+
+def existing_environment(release,p):
+ environment=e.read(INPUTS/release/'mvp-existing-environment.json');e.need(e.digest(environment)==p['environmentSha256'],'MVP_ENVIRONMENT_PIN')
+ env=load('mvp-private-input').resolve_ref(environment,'migration-environment')
+ allowed={'WORKSPACEX_DEPLOY_PROFILE','WORKSPACEX_RDS_TLS_EXCEPTION','PGHOST','PGPORT','PGDATABASE','PGSSLMODE','PGSSLROOTCERT','PGCONNECT_TIMEOUT_MS','PGSTATEMENT_TIMEOUT_MS','MIGRATION_DB_USER','MIGRATION_DB_PASSWORD'}
+ e.need(type(env)is dict and set(env)<=allowed and all(type(v)is str for v in env.values()),'MVP_EXISTING_ENVIRONMENT_ONLY')
+ e.need(env.get('WORKSPACEX_DEPLOY_PROFILE')=='production' and env.get('PGDATABASE')=='workspacex_a1cb_20261006' and env.get('PGHOST') and env.get('MIGRATION_DB_USER') and env.get('MIGRATION_DB_PASSWORD'),'MVP_EXISTING_MIGRATION_ENV_REQUIRED')
+ return env
 
 def preflight(a,release):
  x=inputs(a,release);p=e.decode(x['profile'])
@@ -111,11 +119,8 @@ def preflight(a,release):
  probe="await import('./apps/api/scripts/platform-content-release-core.ts');await import('./apps/api/scripts/platform-schema-readback-core.ts');await import('./apps/api/src/infrastructure/db/pg-database.ts');console.log('MVP_IMPORT_OK')"
  result=subprocess.run(['/usr/bin/node','--import','tsx','--input-type=module','-e',probe],cwd=str(CONTROL),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=60,env=e.ENV,check=False)
  e.need(result.returncode==0 and result.stdout==b'MVP_IMPORT_OK\n','MVP_RUNTIME_IMPORT_UNAVAILABLE')
- environment=e.read(INPUTS/release/'mvp-existing-environment.json');e.need(e.digest(environment)==p['environmentSha256'],'MVP_ENVIRONMENT_PIN')
- env=e.decode(environment)
- allowed={'WORKSPACEX_DEPLOY_PROFILE','WORKSPACEX_RDS_TLS_EXCEPTION','PGHOST','PGPORT','PGDATABASE','PGSSLMODE','PGSSLROOTCERT','PGCONNECT_TIMEOUT_MS','PGSTATEMENT_TIMEOUT_MS','MIGRATION_DB_USER','MIGRATION_DB_PASSWORD'}
- e.need(type(env)is dict and set(env)<=allowed and all(type(v)is str for v in env.values()),'MVP_EXISTING_ENVIRONMENT_ONLY')
- e.need(env.get('WORKSPACEX_DEPLOY_PROFILE')=='production' and env.get('PGDATABASE')=='workspacex_a1cb_20261006' and env.get('PGHOST') and env.get('MIGRATION_DB_USER') and env.get('MIGRATION_DB_PASSWORD'),'MVP_EXISTING_MIGRATION_ENV_REQUIRED')
+ env=existing_environment(release,p)
+ load('mvp-private-input').validate_ref(x['nonmodelCredentials'],'nonmodel-credentials')
  schema=e.decode(x['schemaRequest']);content=e.decode(x['contentRequest'])
  backup=e.decode(x['contentBackup'])
  e.need(set(backup)=={'sourceRevision','requestSha256','beforeStateSha256','dbInstanceId','database'} and backup['requestSha256']==e.digest(x['contentRequest']) and backup['sourceRevision']==a['identity']['sourceRevision'] and backup['beforeStateSha256']==content['beforeStateSha256'] and backup['dbInstanceId']=='pgm-uf6rg214cp381l49' and backup['database']=='workspacex_a1cb_20261006','MVP_BACKUP_TEMPLATE')
@@ -225,9 +230,10 @@ def nonmodel(a,release,mode):
  if mode=='observe':
   e.need(not receipt.exists() and not (folder/'nonmodel-intent.json').exists(),'MVP_NONMODEL_NO_RETRY')
   public(a,release,p)
+  credentials=load('mvp-private-input').resolve_ref(x['nonmodelCredentials'],'nonmodel-credentials')
   e.create(folder/'nonmodel-intent.json',e.encode({'releaseSha256':release,'automaticRetry':False}))
   # Legacy admission invokes docker/helper with fd9 retained under this lock.
-  value=load('mvp-nonmodel').execute(p['identity'],e.decode(x['nonmodelFixtures']),e.decode(x['nonmodelCredentials']),
+  value=load('mvp-nonmodel').execute(p['identity'],e.decode(x['nonmodelFixtures']),credentials,
    'https://app.boardx.com.cn',run,lambda identity,origin:public(a,release,p))
   e.create(receipt,e.encode(value))
  else:
