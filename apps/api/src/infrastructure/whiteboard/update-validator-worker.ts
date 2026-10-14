@@ -34,7 +34,7 @@ try {
       if(new Set(changes.map(change=>change.id)).size!==changes.length||input.proof.some(proof=>!changes.some(change=>change.id===proof.id&&change.before===proof.digest&&change.after===null)))throw new Error('RESTORE_CHANGES');
       for(const change of changes){const current=beforeById.get(change.id);if((current?digest(current):null)!==change.after)throw new Error('RESTORE_AFTER_CONFLICT');}
       const storedBefore=new Map([...doc.getMap('objects').keys()].map(id=>[id,digest(readStoredObject(doc,id))]));
-      const restoredRoutes=new Map(input.proof.map(proof=>[proof.id,readStoredObject(doc,proof.id)] as const).filter(([,object])=>object?.kind==='connector'&&object.connector?.route));
+      const restoredRoutes=new Map(input.proof.map(proof=>[proof.id,readStoredObject(doc,proof.id)] as const).filter(([id,object])=>object?.kind==='connector'&&(object.connector?.route||(doc.getMap<Y.Map<unknown>>('objects').get(id)?.has('connectorFrom')||doc.getMap<Y.Map<unknown>>('objects').get(id)?.has('connectorTo')))));
       const vector=Y.encodeStateVector(doc);
       executeCommands(doc,input.proof.map(p=>({type:'restore',id:p.id})),'authorized-delete-undo');
       const trustedRouteGeometry=new Map([...restoredRoutes.keys()].map(id=>[id,readStoredObject(doc,id)!.geometry]));
