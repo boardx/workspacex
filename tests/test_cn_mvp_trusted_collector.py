@@ -66,7 +66,7 @@ class TrustedCollector(unittest.TestCase):
             'mvp':dict(buildRunId=11,transferRunId=12,stageInputs={'profileSha256':C.E.sha(raw)}),
             'acquire':{'requests':{'consume':{'inputs':{'policy':C.E.sha(policy)}}}}}
         release='d'*64;inputs=Path('/var/lib/workspacex-cn/release-inputs')/release
-        reads={inputs/'profile.json':raw,inputs/'policy.json':policy}
+        reads={inputs/'mvp-profile.json':raw,inputs/'policy.json':policy}
         record=self.record();record['status']='in_progress';record['conclusion']=None
         def provider(endpoint):
             return {'workflow_runs':[dict(record,jobs_url='listing-url')]}if '/workflows/'in endpoint else dict(record,jobs_url='attempt-url')

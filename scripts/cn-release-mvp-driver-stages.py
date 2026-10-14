@@ -126,6 +126,7 @@ def preflight(a,release):
   e.need(p['sourceFiles'].get(ref['path'])==ref['rawSha256'],'MVP_APP_PACK_PIN')
  load('mvp-chain').identity(p['identity'])
  e.need(p['identity']['contentManifestSha256']==a['mvp']['contentManifestSha256'],'MVP_CONTENT_MANIFEST_IDENTITY')
+ e.need(e.digest(x['contentRequest'])==a['mvp']['contentManifestSha256'],'MVP_CONTENT_REQUEST_BINDING')
  e.need(a['business']['testDataScopeSha256']==a['mvp']['stageInputs']['nonmodelFixturesSha256'],'MVP_WRITER_FIXTURE_SCOPE')
  e.need(p['productionCorrelation']=='cn-mvp-'+p['identity']['releaseId']+'-production','MVP_CORRELATION')
  e.need(schema['identity']==p['identity'] and 'productionRunId'not in schema and content['sourceRevision']==a['identity']['sourceRevision'],'MVP_REQUEST_IDENTITY')

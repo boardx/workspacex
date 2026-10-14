@@ -61,6 +61,7 @@ class ApprovalPlanTests(unittest.TestCase):
   for request in self.parameters['acquireRequests'].values():request['runAttempt']=1
   contract=p.module('mvp-contract')
   m={'acceptanceScope':'mvp-non-model','contentManifestSha256':'f'*64,'buildRunId':self.parameters['acquireRequests']['consume']['runId'],'transferRunId':13,'stageInputs':{k:'a'*64 for k in contract.STAGE_INPUT_FIELDS}}
+  m['stageInputs']['contentRequestSha256']=m['contentManifestSha256']
   self.parameters['mvp']=m
   raw,_,_=p.generate(self.parameters,self.probe);self.assertEqual(json.loads(raw)['mvp'],m)
   m['stageInputs']['requestPath']='/tmp/arbitrary'

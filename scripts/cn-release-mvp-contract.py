@@ -14,4 +14,5 @@ def validate_metadata(value):
         pins=value['stageInputs']
         if not isinstance(pins,dict) or set(pins)!=STAGE_INPUT_FIELDS: raise ValueError('MVP_STAGE_INPUTS')
         if not all(isinstance(pin,str) and HEX.fullmatch(pin) for pin in pins.values()): raise ValueError('MVP_STAGE_INPUT_PIN')
+        if pins['contentRequestSha256'] != value['contentManifestSha256']: raise ValueError('MVP_CONTENT_REQUEST_BINDING')
     return value

@@ -76,7 +76,7 @@ def ensure_production_context(approval,release,profile,*,reader=E.private,github
     """
     identity=E.module().identity(profile['identity'])
     E.need(profile['productionCorrelation']=='cn-mvp-'+identity['releaseId']+'-production','CONTEXT_CORRELATION')
-    profile_raw=reader(Path('/var/lib/workspacex-cn/release-inputs')/release/'profile.json')
+    profile_raw=reader(Path('/var/lib/workspacex-cn/release-inputs')/release/'mvp-profile.json')
     E.need(S.parse(profile_raw)==profile and E.sha(profile_raw)==approval['mvp']['stageInputs']['profileSha256'],'CONTEXT_PROFILE_PIN')
     policy_raw=reader(Path('/var/lib/workspacex-cn/release-inputs')/release/'policy.json')
     E.need(E.sha(policy_raw)==approval['acquire']['requests']['consume']['inputs']['policy'],'CONTEXT_POLICY_PIN')
