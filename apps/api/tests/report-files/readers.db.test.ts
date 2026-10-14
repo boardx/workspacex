@@ -1,5 +1,16 @@
 // @global-scope-fixture seeder:ensurePlatformSkillCatalogSeeded: The isolation runner drops its owned test database and platform seed rows.
 import 'reflect-metadata';
+import {PgReportFileJobStore} from '../../src/infrastructure/report-files/pg-job-store';
+import {PgNativeOutputStaging} from '../../src/infrastructure/agent-run/pg-native-output-staging';
+import {PgParentRunControlReader} from '../../src/infrastructure/agent-run/pg-parent-run-control';
+import {ToolExecutionAuthority} from '../../src/application/agent-run/tool-execution-authority';
+import {PgAgentRunRepository} from '../../src/infrastructure/agent-run/pg-agent-run-repository';
+import {reportFilePublication} from '../../src/application/report-files/publication';
+import {FsObjectStore} from '../../src/infrastructure/storage/fs-object-store';
+import type {NativeSessionOwner} from '../../src/application/agent-run/native-session-owner';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { beforeAll, beforeEach, afterAll, it, expect } from 'vitest';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -107,4 +118,50 @@ it('private conversion does not bypass actual unconfigured AI admission or membe
   expect(policyProjectId).toBe(project);
   expect((await admission.reserve(org, { requestId: randomUUID(), userId: observer,
     windowStart: start, windowEnd: end, maximumTokens: 1n, maximumCostMicros: 1n, modelProvider: 'test', modelId: 'test', currency: 'CNY', priceVersion: 'reader-test' })).decision).toBe('TOKEN_LIMIT_REACHED');
+});
+
+it('binds publication to the genuine accepted report job and preserves normal ready writeback',async()=>{
+ const record=await accept(collaborator),store=new PgReportFileJobStore(db);
+ const ctx={orgId:org,parentRunId:record.runId,attemptId:record.runId+':1',leaseEpoch:1,bindingId:randomUUID(),toolCallId:'report-publish'};
+ const check={...ctx,toolName:'execute',toolArgs:{command:'generate'}};
+ expect(await store.artifactPolicyForRun(check)).toMatchObject({jobId:record.job.id,published:false});
+ expect(await store.artifactPolicyForRun({...check,orgId:toOrgId('other')})).toBeNull();
+ // Acceptance starts dispatch before finish persists runId: accepted message/request/thread still bind it.
+ await asApp(org,c=>c.query("UPDATE report_skill_file_jobs SET metadata=metadata-'runId',lease_token=$2,lease_until=now()+interval '90 seconds' WHERE id=$1",[record.job.id,randomUUID()]));
+ expect(await store.artifactPolicyForRun(check)).toMatchObject({jobId:record.job.id,published:false});
+ await asApp(org,c=>c.query("UPDATE report_skill_file_jobs SET metadata=jsonb_set(metadata,'{runId}',to_jsonb($2::text)) WHERE id=$1",[record.job.id,record.runId]));
+ await asApp(org,c=>c.query("UPDATE chat_messages SET client_message_id=$2 WHERE id=(SELECT input_message_id FROM agent_runs WHERE id=$1)",[record.runId,randomUUID()]));
+ expect(await store.artifactPolicyForRun(check)).toBeNull();
+ await asApp(org,c=>c.query("UPDATE chat_messages SET client_message_id=$2 WHERE id=(SELECT input_message_id FROM agent_runs WHERE id=$1)",[record.runId,record.requestId]));
+ await asApp(org,c=>c.query("UPDATE agent_runs SET status='running',started_at=now(),lease_epoch=1,lease_expires_at=now()+interval '10 minutes' WHERE id=$1",[record.runId]));
+ await asApp(org,c=>c.query("INSERT INTO agent_run_steps(id,org_id,run_id,seq,kind,status,started_at,ended_at) VALUES($1,$2,$3,2,'context_built','succeeded',now(),now())",[randomUUID(),org,record.runId]));
+ for(const change of [{actor:{orgId:org,userId:observer}},{skill:{...record.skill,versionId:'wrong-version'}},{renderHash:'invalid'}]){
+  await asApp(org,c=>c.query('UPDATE report_skill_file_jobs SET metadata=$2::jsonb WHERE id=$1',[record.job.id,JSON.stringify({...record,...change})]));
+  await expect(store.artifactPolicyForRun(check)).rejects.toThrow('report_file_binding_invalid');
+ }
+ await asApp(org,c=>c.query('UPDATE report_skill_file_jobs SET metadata=$2::jsonb WHERE id=$1',[record.job.id,JSON.stringify(record)]));
+ const authority=new ToolExecutionAuthority(new PgParentRunControlReader(db),{readPinnedSkills:async()=>[]},{hasGrant:async()=>true,grantForRun:async()=>{},grantStanding:async()=>{},revokeAllForRun:async()=>{},listStanding:async()=>[],revokeStanding:async()=>false},input=>store.artifactPolicyForRun(input));
+ const root=await mkdtemp(join(tmpdir(),'report-publish-5709-'));
+ try{
+  const objects=new FsObjectStore(root),input=reportFilePublication(record),bytes=Buffer.from('%PDF-1.4\nfixture structural PDF\n%%EOF');
+  const owner:NativeSessionOwner={provision:async()=>{throw new Error('unused');},release:async()=>{},releaseForRun:async()=>{},resolve:async()=>({sessionId:randomUUID(),token:'a'.repeat(64),expiresAt:Date.now()+60000,interruptOn:{},packageDigest:'b'.repeat(64),inputs:[]})};
+  const files=()=>({read:async()=>({path:input.workspacePath,sizeBytes:bytes.length,contentBase64:bytes.toString('base64')})});
+  const failed=new PgNativeOutputStaging(db,owner,{putOnce:async()=>{throw new Error('object write failure');},get:objects.get.bind(objects),head:objects.head.bind(objects)},authority,files);
+  await expect(failed.stage(ctx,input)).rejects.toThrow('object write failure');
+  expect(await store.artifactPolicyForRun(check)).toMatchObject({published:false});
+  const staging=new PgNativeOutputStaging(db,owner,objects,authority,files);
+  expect(await staging.stage(ctx,input)).toMatchObject({status:'staged',completion:{kind:'report-file',jobId:record.job.id}});
+  expect(await authority.check(check)).toMatchObject({allowed:false,reason:'report_output_published'});
+  expect(await authority.check({...check,toolName:'wx_artifact_publish',toolArgs:input})).toMatchObject({allowed:false,reason:'report_output_published'});
+  expect(await authority.check({...check,toolName:'read_file'})).toMatchObject({allowed:true});
+  expect(await authority.check({...check,leaseEpoch:2})).toMatchObject({allowed:false,reason:'lease_lost'});
+  const staged=await staging.listFiles(org,record.runId),repo=new PgAgentRunRepository(db);
+  expect(staged).toHaveLength(1);
+  await repo.storeOutputAwaitingWriteback(org,record.runId,{text:'Report file staged.',finalStepSeq:2,files:staged});
+  const pending=(await repo.claimWritebackPending(org,1))[0]!;
+  await repo.commitWriteback(org,{runId:record.runId,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files:staged});
+  const attachments=await db.withTenant(org,s=>s.query('SELECT a.storage_ref FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,record.runId]));
+  expect(attachments.rows).toHaveLength(1);expect(await objects.get(attachments.rows[0]!.storage_ref)).toEqual(new Uint8Array(bytes));
+  expect((await asApp(org,c=>c.query('SELECT status FROM agent_runs WHERE id=$1',[record.runId]))).rows[0]!.status).toBe('succeeded');
+ }finally{await rm(root,{recursive:true,force:true});}
 });
