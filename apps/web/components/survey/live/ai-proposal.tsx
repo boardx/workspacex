@@ -74,7 +74,7 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
     <div className="rounded-lg border border-border bg-card p-5 sm:p-8">
       <h2 className="mb-5 text-20 font-semibold">告诉我们，你想了解什么？</h2>
       <div role="group" aria-label="问卷输入" data-testid="survey-intake-composer" className="rounded-lg border border-border bg-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
-        <textarea aria-label="问卷需求" maxLength={SURVEY_PROPOSAL_TEXT_MAX_CHARS} disabled={busy||voiceBusy} value={displayedText} onChange={event=>setText(event.target.value)} className="min-h-64 w-full resize-y rounded-t-lg border-0 bg-transparent p-4 text-14 leading-relaxed outline-none sm:min-h-72" placeholder="调研目标、受众与关注内容…"/>
+        <textarea aria-label="问卷需求" maxLength={SURVEY_PROPOSAL_TEXT_MAX_CHARS} disabled={busy||voiceBusy} value={displayedText} onChange={event=>setText(event.target.value)} className="min-h-64 w-full resize-y rounded-t-lg border-0 bg-transparent p-4 text-14 leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:min-h-72" placeholder="调研目标、受众与关注内容…"/>
         <div className="flex flex-wrap items-start gap-2 px-3 pb-3">
           <input ref={fileInput} aria-label="上传问卷文件" type="file" accept=".md,.markdown,.txt,.pdf,.docx" disabled={busy||voiceBusy} onChange={event=>upload(event.target.files?.[0])} className="sr-only" tabIndex={-1}/>
           <Button variant="outline" disabled={busy||reading||voiceBusy} title={`支持 Markdown、TXT、PDF 和 DOCX，最多 ${SURVEY_PROPOSAL_FILE_MAX_BYTES/1024} KB`} onClick={()=>fileInput.current?.click()}><Paperclip className="mr-2 size-4" aria-hidden/>添加文件</Button>
