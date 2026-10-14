@@ -2,7 +2,7 @@ import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect,type Page,type BrowserContext} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate,dragObject,canonicalRows} from './board-acceptance-support';
+import {boardApi,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate,objectPoint,canonicalRows} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {connectorAuthorityTransport} from './support/connector-authority-transport';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
@@ -51,7 +51,23 @@ test('C07 UI deletion history restores complete Connector without overwriting pe
   await selectA();let offset=transport.snapshot().events.length;await owner.getByRole('toolbar',{name:'对象快捷操作',exact:true}).getByRole('button',{name:'删除对象',exact:true}).click();await owner.keyboard.press('Escape');
   const deleted=await assertAcknowledged(original.revision,'original',offset);expect(deleted.objects.map(item=>item.id)).toEqual(['c07-b']);await capture('cascaded-delete');
   const peerZoom=Number(await editor.getByTestId('board-fabric-surface').getAttribute('data-viewport-zoom'));expect(peerZoom).toBeGreaterThan(0);
-  offset=transport.snapshot().events.length;await dragObject(editor,'c07-b',80,90);const moved=await assertAcknowledged(deleted.revision,'peer',offset),remoteB=moved.objects[0]!,originalB=original.objects.find(item=>item.id==='c07-b')!;expect(remoteB.id).toBe('c07-b');expect(remoteB).toEqual({...originalB,geometry:{...originalB.geometry,x:originalB.geometry.x+80/peerZoom,y:originalB.geometry.y+90/peerZoom}});await capture('peer-surviving-endpoint-move');
+  offset=transport.snapshot().events.length;
+  // C07 needs an exact endpoint displacement, not a snapping test. Alt is
+  // held only during movement: down/up without Alt avoids duplicate gestures.
+  await editor.keyboard.press('Escape');await editor.getByTestId('board-tool-select').click();
+  const peerPoint=await objectPoint(editor,'c07-b');
+  expect(peerPoint.zoom).toBe(peerZoom);
+  await editor.mouse.move(peerPoint.x,peerPoint.y);await editor.mouse.down();
+  try {
+   await editor.keyboard.down('Alt');
+   await editor.mouse.move(peerPoint.x+80,peerPoint.y+90,{steps:12});
+  } finally {await editor.keyboard.up('Alt');await editor.mouse.up();}
+  await expect.poll(async()=>{
+   const current=(await canonicalRows(editor)).find(row=>row.id==='c07-b')!.geometry;
+   const originalB=original.objects.find(item=>item.id==='c07-b')!.geometry;
+   return Math.max(Math.abs(current.x-originalB.x-80/peerZoom),Math.abs(current.y-originalB.y-90/peerZoom));
+  }).toBeLessThanOrEqual(1);
+  const moved=await assertAcknowledged(deleted.revision,'peer',offset),remoteB=moved.objects[0]!,originalB=original.objects.find(item=>item.id==='c07-b')!;expect(remoteB.id).toBe('c07-b');expect(remoteB).toEqual({...originalB,geometry:{...originalB.geometry,x:originalB.geometry.x+80/peerZoom,y:originalB.geometry.y+90/peerZoom}});await capture('peer-surviving-endpoint-move');
   const restored=async(phase:string)=>{
    const snapshot=await state();expect(snapshot.objects.map(item=>item.id).sort()).toEqual(['c07-a','c07-b','c07-edge']);expect(snapshot.objects.find(item=>item.id==='c07-a')).toEqual(originalA);expect(snapshot.objects.find(item=>item.id==='c07-b')).toEqual(remoteB);
    restoredConnectorHistory(original.objects,remoteB,snapshot.objects);
