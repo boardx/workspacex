@@ -35,6 +35,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
  let boardId='',ownerToken='',failure:unknown;
  const navigationPrefetchAborts:Array<{process:number;method:string;pathname:string;errorText:string;nextRouterPrefetch:true}>=[];
  const benignNavigationCancellations:Array<{process:number;method:string;pathname:string;errorText:string;proof:HomeNavigationProof}>=[];
+ const navigationObservers:Array<{begin:()=>void;finish:()=>void}>=[];
  const screenshots:Array<{phase:string;process:number;path:string;sha256:string}>=[];
  const traffic:Array<Array<{direction:'sent'|'received';type:string;updateId?:string;gestureId?:string;epoch?:number;seq?:number;code?:string}>>=[[],[],[]];
  // Private protocol replicas predict concurrent CRDT resolution independently of API projection.
@@ -66,21 +67,40 @@ test('C05 distinct browser processes converge on Connector style path and concur
     socket.on('framesent',frame=>observe('sent',frame.payload));socket.on('framereceived',frame=>observe('received',frame.payload));
    });
    page.on('pageerror',()=>browserErrors.push(`process-${index}:pageerror`));page.on('console',message=>{if(message.type()==='error')browserErrors.push(`process-${index}:console-error`);});
-   const activeHomeRsc=new Map<Request,{sourcePath:string;proof?:HomeNavigationProof}>();
+   let eventSequence=0,homeObserved=0,navigationIntent=0,boardDocument=0,boardCommitted=0;
+   const activeHomeRsc=new Map<Request,{start:number;cancel?:number;sourcePath:string}>();
+   const observeHome=()=>{if(new URL(page.url()).pathname==='/home')homeObserved=++eventSequence;};
+   page.on('framenavigated',frame=>{
+    if(frame!==page.mainFrame())return;
+    const pathname=new URL(frame.url()).pathname;
+    if(pathname==='/home')homeObserved=++eventSequence;
+    if(boardId&&pathname===`/studio/board/${boardId}`&&!boardCommitted)boardCommitted=++eventSequence;
+   });
    page.on('request',request=>{
-    const requestUrl=new URL(request.url()),sourceUrl=new URL(page.url()),pathname=requestUrl.pathname,sourcePath=sourceUrl.pathname;
-    if(requestUrl.origin!==sourceUrl.origin)return;
-    if(request.frame()===page.mainFrame()&&request.method()==='GET'&&pathname==='/home'&&sourcePath==='/home'&&request.headers()['rsc']==='1')activeHomeRsc.set(request,{sourcePath});
-    if(boardId&&request.isNavigationRequest()&&request.frame()===page.mainFrame()&&pathname===`/studio/board/${boardId}`&&sourcePath==='/home'){
-     for(const pending of activeHomeRsc.values())pending.proof={sourcePath:pending.sourcePath,destinationPath:pathname,sameMainFrame:true,activeBeforeNavigation:true};
-    }
+    const sequence=++eventSequence,requestUrl=new URL(request.url()),sourceUrl=new URL(page.url()),pathname=requestUrl.pathname;
+    if(requestUrl.origin!==sourceUrl.origin||request.frame()!==page.mainFrame())return;
+    if(request.method()==='GET'&&pathname==='/home'&&request.headers()['rsc']==='1')activeHomeRsc.set(request,{start:sequence,sourcePath:sourceUrl.pathname});
+    if(boardId&&request.isNavigationRequest()&&pathname===`/studio/board/${boardId}`&&!boardDocument)boardDocument=sequence;
    });
    page.on('requestfinished',request=>activeHomeRsc.delete(request));
+   navigationObservers.push({begin:()=>{observeHome();if(new URL(page.url()).pathname==='/home')navigationIntent=++eventSequence;},finish:()=>{
+    for(const pending of activeHomeRsc.values()){
+     if(pending.cancel===undefined)continue;
+     const observedHome=homeObserved>0&&homeObserved<navigationIntent,activeBeforeNavigation=pending.start<navigationIntent;
+     const inNavigationWindow=navigationIntent>0&&pending.cancel>=navigationIntent&&pending.cancel<=boardCommitted;
+     const observedDocument=boardDocument>=navigationIntent&&boardCommitted>=boardDocument&&boardDocument>0;
+     const proof:HomeNavigationProof|undefined=observedHome&&activeBeforeNavigation&&inNavigationWindow&&observedDocument?{sourcePath:'/home',destinationPath:`/studio/board/${boardId}`,sameMainFrame:true,activeBeforeNavigation:true}:undefined;
+     records.push({phase:'home-navigation-cancellation-diagnostic',process:index,requestSourcePath:pending.sourcePath,requestStart:pending.start,homeObserved,navigationIntent,boardDocument,boardCommitted,cancel:pending.cancel,observedHome,activeBeforeNavigation,inNavigationWindow,observedDocument});
+     if(benignHomeNavigationCancellation({method:'GET',pathname:'/home',errorText:'net::ERR_ABORTED',rsc:true,prefetch:false,proof,boardPath:`/studio/board/${boardId}`}))benignNavigationCancellations.push({process:index,method:'GET',pathname:'/home',errorText:'net::ERR_ABORTED',proof:proof!});
+     else browserErrors.push(`process-${index}:GET:/home:request-failed:net::ERR_ABORTED:missing-navigation-proof`);
+    }
+   }});
    page.on('requestfailed',request=>{
     const method=request.method(),pathname=new URL(request.url()).pathname,rawError=request.failure()?.errorText??'UNKNOWN',errorText=/^net::ERR_[A-Z_]+$/.test(rawError)?rawError:'UNKNOWN',prefetch=request.headers()['next-router-prefetch'];
     if(navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath:`/projects/${encodeURIComponent(F.projectId)}`,knownNavigationPaths})){navigationPrefetchAborts.push({process:index,method,pathname,errorText,nextRouterPrefetch:true});return;}
-    const proof=activeHomeRsc.get(request)?.proof;activeHomeRsc.delete(request);
-    if(benignHomeNavigationCancellation({method,pathname,errorText,rsc:request.headers()['rsc']==='1',prefetch:prefetch==='1',proof,boardPath:`/studio/board/${boardId}`})){benignNavigationCancellations.push({process:index,method,pathname,errorText,proof:proof!});return;}
+    const pending=activeHomeRsc.get(request);
+    if(pending&&method==='GET'&&pathname==='/home'&&errorText==='net::ERR_ABORTED'&&request.headers()['rsc']==='1'&&prefetch!=='1'){pending.cancel=++eventSequence;return;}
+    activeHomeRsc.delete(request);
     browserErrors.push(`process-${index}:${method}:${pathname}:request-failed:${errorText}:nextRouterPrefetch=${prefetch==='1'}:rsc=${request.headers()['rsc']==='1'}`);
    });
   }
@@ -138,7 +158,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
    object('c05-a','sticky',150,220,'A',140,100),object('c05-b','sticky',1050,420,'B',140,100),
    {...object(edgeId,'connector',290,270,'C05',760,200),style:{stroke:ink},connector:{from:'c05-a',to:'c05-b',fromAnchor:'right',toAnchor:'left',type:'curve',startStyle:'none',endStyle:'none',lineStyle:'solid',strokeWidth:4,label:'C05',semanticRelation:'depends_on',route:{kind:'curve',startOffset:{x:180,y:0},endOffset:{x:-180,y:0}},labelPosition:{t:.5,normalOffset:20}}},
   ]));
-  for(const page of pages){await page.goto(`/studio/board/${boardId}`);await synced(page);await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(3);}
+  for(const [index,page] of pages.entries()){navigationObservers[index]!.begin();await page.goto(`/studio/board/${boardId}`);await synced(page);await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(3);}
   const runtimeBefore=await Promise.all(chunkReaders.map(async read=>verifyRuntimeIdentity(api,sha,await read())));
   const state=async()=>{const snapshot=await canonicalBoardSnapshot(api,ownerToken,boardId);return {head:await boardHead(api,ownerToken,boardId),edge:snapshot.objects.find(item=>item.id===edgeId)!,objects:snapshot.objects};};
   const proof=(before:{epoch:number;seq:number},after:{epoch:number;seq:number},offsets:number[],actors:number[])=>{
@@ -356,6 +376,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   await viewer.getByTestId(`board-a11y-object-${edgeId}`).focus();await viewer.getByTestId(`board-a11y-object-${edgeId}`).press('Enter');
   await expect(viewer.getByTestId('board-connector-width-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-label-open')).toBeDisabled();await expect(viewer.getByTestId('board-connector-handle-from')).toHaveCount(0);
   const runtimeAfter=await Promise.all(chunkReaders.map(async read=>verifyRuntimeIdentity(api,sha,await read())));
+  for(const observer of navigationObservers)observer.finish();
   records.push({phase:'benign-home-navigation-cancellations',count:benignNavigationCancellations.length,proofs:benignNavigationCancellations});
   records.push({phase:'navigation-prefetch-aborts',count:navigationPrefetchAborts.length,requests:navigationPrefetchAborts});
   expect(browserErrors).toEqual([]);records.push({runtimeBefore,runtimeAfter,identities,processIds,traffic,independentBrowserLaunches:browsers.length,engines:browsers.map(browser=>browser.version())});
