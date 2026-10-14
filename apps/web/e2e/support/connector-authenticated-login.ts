@@ -5,7 +5,7 @@ import {captureBoardLogin} from './board-login-capture.mjs';
 import {connectorLoginDiagnostic} from './connector-login-diagnostic.mjs';
 
 /** Capture the single real upstream response before the login page navigates. */
-export async function connectorBoardLogin(page:Page,info:TestInfo,email=F.email,password=F.password,userId=F.userId){
+export async function connectorBoardLogin(page:Page,info:TestInfo,email:string=F.email,password:string=F.password,userId:string=F.userId){
  const captured=await captureBoardLogin(page,()=>boardLogin(page,email,password));
  const diagnostic=connectorLoginDiagnostic(captured.status,captured.body,userId,captured.token,captured.jsonParsed);
  expect(captured.posts,'CONNECTOR_LOGIN_SINGLE_POST').toBe(1);

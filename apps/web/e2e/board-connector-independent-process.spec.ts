@@ -54,7 +54,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
   }
   independentProcessIds(processIds);
   const [owner,editor,viewer]=pages as [Page,Page,Page],chunkReaders=pages.map(observeRuntimeChunks);
-  const accounts=[[F.email,F.password,F.userId],[F.adminEmail,F.adminPassword,F.adminUserId],[F.leadEmail,F.leadPassword,F.leadUserId]];
+  const accounts:Array<[string,string,string]>=[[F.email,F.password,F.userId],[F.adminEmail,F.adminPassword,F.adminUserId],[F.leadEmail,F.leadPassword,F.leadUserId]];
   const tokens:string[]=[],identities:string[]=[];
   for(let index=0;index<pages.length;index++){
    tokens.push(await connectorBoardLogin(pages[index]!,info,accounts[index]![0],accounts[index]![1],accounts[index]![2]));

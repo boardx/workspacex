@@ -47,7 +47,7 @@ test('C06 valid Connector permissions and held gesture authority lifecycle',asyn
    expect(diagnostic.actorMatches,'C06_LOGIN_FIXTURE_ACTOR').toBe(true);
    expect(diagnostic.tokenMatches,'C06_LOGIN_SESSION_TOKEN').toBe(true);
    const navigationPath=new URL(page.url()).pathname;expect(navigationPath).toMatch(/^\/(?:home|projects)$/);
-   records.push({phase:'C06_LOGIN',actor:userId,posts,httpStatus:status,navigationPath,cookieCount:(await page.context().cookies()).length,...diagnostic});
+   records.push({phase:'C06_LOGIN',actor:userId,posts,navigationPath,cookieCount:(await page.context().cookies()).length,...diagnostic});
    identities.set(page,userId);return token;
   };
   ownerToken=await login(owner,F.email,F.password,F.userId);const editorToken=await login(editor,F.adminEmail,F.adminPassword,F.adminUserId),viewerToken=await login(viewer,F.leadEmail,F.leadPassword,F.leadUserId),commenterToken=await login(commenter,F.memberEmail,F.memberPassword,F.memberUserId),outsiderToken=await login(outsider,foreign.email,foreign.password,foreign.userId);expect(new Set(identities.values()).size).toBe(5);
