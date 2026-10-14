@@ -45,9 +45,9 @@ export function writeConnectorStorage(item: Y.Map<unknown>, current: NonNullable
 
 /** Reject old clients replacing a fallback after slots exist: that write would
  * otherwise be accepted but silently ignored by the effective endpoint. */
-export function assertConnectorFallbackUnchanged(before: Y.Map<unknown>, after: Y.Map<unknown>): void {
+export function assertConnectorFallbackUnchanged(before: Y.Map<unknown>, after: Y.Map<unknown>, incoming?: Record<string, unknown>): void {
   const previous = before.get('connector') as Record<string, unknown> | undefined;
-  const next = after.get('connector') as Record<string, unknown> | undefined;
+  const next = incoming ?? after.get('connector') as Record<string, unknown> | undefined;
   for (const side of sides) {
     if (!before.has(slot(side)) && !after.has(slot(side))) continue;
     if (JSON.stringify(pick(previous ?? {}, keys(side))) !== JSON.stringify(pick(next ?? {}, keys(side)))) throw new Error('CONNECTOR_LEGACY_ENDPOINT_WRITE');

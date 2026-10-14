@@ -38,9 +38,16 @@ export function prepareWhiteboardUpdate(authority: Y.Doc, update: Uint8Array): U
       assertConnectorFallbackUnchanged(item, next);
       if (item.get('kind') !== next.get('kind') || item.get('schemaVersion') !== next.get('schemaVersion')) throw new Error('IMMUTABLE_FIELD_CHANGED');
     }
+    const candidateIds = new Map([...objectMap(candidate)].map(([id, item]) => [item, id]));
     for (const struct of decoded.structs) {
       if (!(struct instanceof Y.Item)) continue;
       const integrated = Y.getItem(candidate.store, struct.id);
+      if (integrated instanceof Y.Item && integrated.parentSub === 'connector' && integrated.parent instanceof Y.Map) {
+        const id = candidateIds.get(integrated.parent), previous = id ? objectMap(authority).get(id) : undefined;
+        if (previous) for (const incoming of struct.content.getContent()) {
+          if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) assertConnectorFallbackUnchanged(previous, integrated.parent, incoming as Record<string, unknown>);
+        }
+      }
       if (integrated instanceof Y.Item && ['connectorFrom', 'connectorTo'].includes(integrated.parentSub ?? '')) {
         for (const endpoint of struct.content.getContent()) decodeConnectorStorage({kind:'connector',connector:{fromPoint:{x:0,y:0},toPoint:{x:1,y:1}},[integrated.parentSub!]:endpoint});
       }
