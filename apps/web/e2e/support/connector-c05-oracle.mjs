@@ -115,10 +115,13 @@ export function strokeRasterProof(actual,reference){
  // Preserve the 1.5px count bound, continuity and exterior rejection. The
  // expected full-ink core comes from nominal native rasterization, never actual.
  strokeProof(reference,referenceWidth);strokeProof(actual,referenceWidth);
- let disagreement=0;
+ let disagreement=0,actualCoverage=0,referenceCoverage=0;
  for(let index=0;index<actual.length;index++){
   assert.equal(actual[index].offset,reference[index].offset);
+  for(const sample of [actual[index],reference[index]])assert(Number.isFinite(sample.coverage)&&sample.coverage>=0&&sample.coverage<=1,'C05 reference requires physical coverage');
+  actualCoverage+=actual[index].coverage;referenceCoverage+=reference[index].coverage;
   if(actual[index].ink!==reference[index].ink)disagreement++;
  }
+ assert(Math.abs(actualCoverage-referenceCoverage)<=1.5,`C05 stroke coverage width: ${JSON.stringify({actualCoverage,referenceCoverage,delta:actualCoverage-referenceCoverage})}`);
  assert(disagreement<=1.5,`C05 stroke raster offsets disagree: ${JSON.stringify({disagreement,actualInk:actual.filter(sample=>sample.ink).length,referenceInk:referenceWidth})}`);
 }

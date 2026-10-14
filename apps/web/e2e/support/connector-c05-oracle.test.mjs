@@ -109,8 +109,15 @@ test('diagonal normal-distance samples must not be collapsed into unique bitmap 
 });
 
 test('reference-raster thickness preserves strict narrow gap and exterior rejection',()=>{
- const scan=(from,to)=>Array.from({length:61},(_,index)=>({offset:index-30,ink:index-30>=from&&index-30<=to}));
+ const scan=(from,to)=>Array.from({length:61},(_,index)=>({offset:index-30,ink:index-30>=from&&index-30<=to,coverage:index-30>=from&&index-30<=to?1:0}));
  const nativeNominal12Core=scan(-4,5);
  strokeRasterProof(scan(-4,5),nativeNominal12Core);
  for(const actual of [scan(-3,4),scan(-2,3),scan(-6,7),nativeNominal12Core.map(sample=>({...sample,ink:sample.ink&&sample.offset!==0}))])assert.throws(()=>strokeRasterProof(actual,nativeNominal12Core));
+});
+
+test('antialias coverage rejects narrow stroke despite one-pixel core difference',()=>{
+ const reference=Array.from({length:61},(_,index)=>({offset:index-30,ink:index>=26&&index<=35,coverage:index>=26&&index<=35?1:index===25||index===36?0.9:0}));
+ const narrow=reference.map((sample,index)=>({...sample,ink:index>=27&&index<=35,coverage:index>=27&&index<=35?1:index===26||index===36?0.4:0}));
+ assert.throws(()=>strokeRasterProof(narrow,reference),/coverage width/);
+ strokeRasterProof(reference,reference);
 });

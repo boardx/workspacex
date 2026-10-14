@@ -69,8 +69,11 @@ test('C05 distinct browser processes converge on Connector style path and concur
    });
   }
   independentProcessIds(processIds);
+  // The fixed red ink has R-G=225-29=196; neutral paper has R-G=0.
+  // Its chroma therefore independently measures antialias coverage without
+  // mistaking neutral background/black pixels for red stroke coverage.
   const nativeStrokeCounterexamples=await pages[0]!.evaluate(()=>{
-   const result:Array<{angle:number;width:number;scan:Array<{offset:number;ink:boolean}>}>=[];
+   const result:Array<{angle:number;width:number;scan:Array<{offset:number;ink:boolean;coverage:number}>}>=[];
    for(const angle of [0,Math.PI/4])for(const width of [8,10,12]){
     const canvas=document.createElement('canvas');canvas.width=200;canvas.height=200;
     const context=canvas.getContext('2d')!;context.fillStyle='#FFFFFF';context.fillRect(0,0,200,200);
@@ -78,14 +81,19 @@ test('C05 distinct browser processes converge on Connector style path and concur
     context.moveTo(100-70*Math.cos(angle),100-70*Math.sin(angle));context.lineTo(100+70*Math.cos(angle),100+70*Math.sin(angle));context.stroke();
     const scan=Array.from({length:61},(_,index)=>{
      const offset=index-30,rgba=context.getImageData(Math.round(100-Math.sin(angle)*offset),Math.round(100+Math.cos(angle)*offset),1,1).data;
-     return {offset,ink:rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255};
+     return {offset,ink:rgba[0]===225&&rgba[1]===29&&rgba[2]===72&&rgba[3]===255,coverage:Math.max(0,Math.min(1,(rgba[0]!-rgba[1]!)/196))};
     });result.push({angle,width,scan});
    }return result;
   });
   for(const angle of [0,Math.PI/4]){
    const reference=nativeStrokeCounterexamples.find(sample=>sample.angle===angle&&sample.width===12)!;
    strokeRasterProof(reference.scan,reference.scan);
-   for(const width of [8,10])expect(()=>strokeRasterProof(nativeStrokeCounterexamples.find(sample=>sample.angle===angle&&sample.width===width)!.scan,reference.scan),'Real narrow native stroke must reject against independently rendered nominal12').toThrow();
+   for(const width of [8,10]){
+    const actual=nativeStrokeCounterexamples.find(sample=>sample.angle===angle&&sample.width===width)!;
+    const diagnostic={angle,width,referenceWidth:12,actualCore:actual.scan.filter(sample=>sample.ink).length,referenceCore:reference.scan.filter(sample=>sample.ink).length,actualCoverage:actual.scan.reduce((sum,sample)=>sum+sample.coverage,0),referenceCoverage:reference.scan.reduce((sum,sample)=>sum+sample.coverage,0)};
+    await info.attach('native-narrow-stroke-control',{body:JSON.stringify(diagnostic),contentType:'application/json'});
+    expect(()=>strokeRasterProof(actual.scan,reference.scan),`Real narrow native stroke must reject ${JSON.stringify(diagnostic)}`).toThrow();
+   }
   }
   records.push({phase:'native-stroke-negative-controls',cases:nativeStrokeCounterexamples.map(sample=>({angle:sample.angle,width:sample.width,fullInkCount:sample.scan.filter(point=>point.ink).length}))});
 
@@ -217,8 +225,9 @@ test('C05 distinct browser processes converge on Connector style path and concur
     glyphProof(raster.label,raster.golden);
     const strokeDiagnostic={phase,process:pages.indexOf(page),inkLength:raster.lineWidth,expectedPixelWidth:raster.expectedWidth,delta:raster.lineWidth-raster.expectedWidth,zoom:raster.zoom,scale:raster.scale,canonicalWidth:relation.strokeWidth,normal:raster.normal,referenceInkLength:raster.referenceInkLength,coverageScan:raster.coverageScan,scalarSpacing:raster.scalarSpacing,duplicateCount:raster.duplicateCount,firstInkOffset:raster.scan.find(sample=>sample.ink)?.offset,lastInkOffset:raster.scan.findLast(sample=>sample.ink)?.offset,from:start,to:end};
     await info.attach(`${phase}-process-${pages.indexOf(page)}-stroke-metrics`,{body:JSON.stringify(strokeDiagnostic),contentType:'application/json'});
-    const referenceScan=raster.coverageScan.map(sample=>({offset:sample.offset,ink:sample.referenceRgba[0]===225&&sample.referenceRgba[1]===29&&sample.referenceRgba[2]===72&&sample.referenceRgba[3]===255}));
-    strokeRasterProof(raster.scan,referenceScan);
+    const referenceScan=raster.coverageScan.map(sample=>({offset:sample.offset,ink:sample.referenceRgba[0]===225&&sample.referenceRgba[1]===29&&sample.referenceRgba[2]===72&&sample.referenceRgba[3]===255,coverage:Math.max(0,Math.min(1,(sample.referenceRgba[0]!-sample.referenceRgba[1]!)/196))}));
+    const actualScan=raster.scan.map((sample,index)=>({...sample,coverage:Math.max(0,Math.min(1,(raster.coverageScan[index]!.rgba[0]!-raster.coverageScan[index]!.rgba[1]!)/196))}));
+    strokeRasterProof(actualScan,referenceScan);
     localRaster.push({process:pages.indexOf(page),labelHash:sha256(Buffer.from(raster.label)),lineWidth:raster.lineWidth,expectedWidth:raster.expectedWidth});
    }
    // Identical fixed viewports must render the same actual glyphs, including the viewer.
