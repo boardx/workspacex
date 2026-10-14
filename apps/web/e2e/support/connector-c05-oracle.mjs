@@ -22,11 +22,20 @@ export function retainedConnector(expected,actual){
  for(const field of ['strokeWidth','label','route','labelPosition','fromPoint','toPoint','from','to','fromAnchor','toAnchor','semanticRelation','startStyle','endStyle','lineStyle','type'])assert.deepEqual(actual[field],expected[field]);
 }
 
+function glyphMask(data){
+ const points=[];for(let i=0;i<data.length;i+=4)if(data[i]<100&&data[i+1]<100&&data[i+2]<100&&data[i+3]>200)points.push({x:(i/4)%300,y:Math.floor(i/4/300)});
+ assert(points.length>10,`C05 glyph mask requires visible complete ink; count=${points.length}`);
+ const x=Math.min(...points.map(p=>p.x)),y=Math.min(...points.map(p=>p.y));
+ return {x,y,points:new Set(points.map(p=>`${p.x-x}:${p.y-y}`)),width:Math.max(...points.map(p=>p.x))-x,height:Math.max(...points.map(p=>p.y))-y};
+}
+/** Bounded geometry only: never prints raster bytes, label text or credentials. */
+export function glyphBounds(data){const {x,y,width,height,points}=glyphMask(data);return {x,y,width,height,count:points.size};}
 export function glyphProof(actual,expected){
- const mask=data=>{const points=[];for(let i=0;i<data.length;i+=4)if(data[i]<100&&data[i+1]<100&&data[i+2]<100&&data[i+3]>200)points.push({x:(i/4)%300,y:Math.floor(i/4/300)});assert(points.length>10);const x=Math.min(...points.map(p=>p.x)),y=Math.min(...points.map(p=>p.y));return {x,y,points:new Set(points.map(p=>`${p.x-x}:${p.y-y}`)),width:Math.max(...points.map(p=>p.x))-x,height:Math.max(...points.map(p=>p.y))-y};};
- const a=mask(actual),e=mask(expected);assert(Math.abs(a.width-e.width)<=2);assert(Math.abs(a.height-e.height)<=2);
- assert(Math.abs(a.x-e.x)<=4);assert(Math.abs(a.y-e.y)<=4);
- const overlap=[...a.points].filter(point=>e.points.has(point)).length;assert(overlap/Math.max(a.points.size,e.points.size)>.65);
+ const a=glyphMask(actual),e=glyphMask(expected);
+ const summary=JSON.stringify({actual:{x:a.x,y:a.y,width:a.width,height:a.height,count:a.points.size},expected:{x:e.x,y:e.y,width:e.width,height:e.height,count:e.points.size},delta:{x:a.x-e.x,y:a.y-e.y,width:a.width-e.width,height:a.height-e.height}});
+ assert(Math.abs(a.width-e.width)<=2,`C05 glyph width: ${summary}`);assert(Math.abs(a.height-e.height)<=2,`C05 glyph height: ${summary}`);
+ assert(Math.abs(a.x-e.x)<=4,`C05 glyph horizontal anchor: ${summary}`);assert(Math.abs(a.y-e.y)<=4,`C05 glyph vertical anchor: ${summary}`);
+ const overlap=[...a.points].filter(point=>e.points.has(point)).length;assert(overlap/Math.max(a.points.size,e.points.size)>.65,`C05 glyph shape overlap=${overlap/Math.max(a.points.size,e.points.size)}: ${summary}`);
 }
 
 export function strokeProof(samples,expectedWidth){

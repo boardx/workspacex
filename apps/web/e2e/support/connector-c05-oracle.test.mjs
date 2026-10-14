@@ -62,3 +62,12 @@ test('stroke oracle rejects a thin four-to-two line and shifted or disconnected 
  assert.throws(()=>strokeProof([{offset:0,ink:true},{offset:0,ink:true}],2));
  assert.throws(()=>strokeProof([{offset:NaN,ink:true}],2));
 });
+
+test('glyph anchor rejection retains strict tolerances and only bounded numeric diagnostics',async()=>{
+ const {glyphProof,glyphBounds}=await import('./connector-c05-oracle.mjs');
+ const image=x=>{const data=new Array(300*60*4).fill(0);for(let y=20;y<30;y++)for(let xx=x;xx<x+20;xx++){const i=(y*300+xx)*4;data[i+3]=255;}return data;};
+ const expected=image(140),actual=image(150);
+ assert.deepEqual(glyphBounds(expected),{x:140,y:20,width:19,height:9,count:200});
+ assert.throws(()=>glyphProof(actual,expected),error=>error.message.includes('horizontal anchor')&&error.message.includes('"x":10')&&error.message.length<800);
+ glyphProof(image(144),expected);
+});

@@ -136,7 +136,11 @@ test('C05 distinct browser processes converge on Connector style path and concur
      const label=Array.from(context.getImageData(x,y,300,60).data);
      const golden=document.createElement('canvas');golden.width=300;golden.height=60;const goldenContext=golden.getContext('2d')!;
      // Native Canvas text is an independent glyph oracle, not Fabric or a copy of its rendered bytes.
-     goldenContext.font=`${13*zoom*scale}px "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif`;goldenContext.fillStyle='#000000';goldenContext.fillText(input.label,150,30+13*zoom*scale*.9);
+     goldenContext.font=`${13*zoom*scale}px "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif`;goldenContext.fillStyle='#000000';
+     // labelPosition denotes the label center. Native Canvas defaults to a
+     // left/alphabetic anchor, which shifts a correct centered glyph by half
+     // its width and must not be used as this independent position oracle.
+     goldenContext.textAlign='center';goldenContext.textBaseline='middle';goldenContext.fillText(input.label,150,30);
      const t=.12,u=1-t,{start,end,route}=input;
      const dx=3*u*u*route.startOffset.x+6*u*t*(end.x+route.endOffset.x-start.x-route.startOffset.x)-3*t*t*route.endOffset.x;
      const dy=3*u*u*route.startOffset.y+6*u*t*(end.y+route.endOffset.y-start.y-route.startOffset.y)-3*t*t*route.endOffset.y;
