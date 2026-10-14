@@ -40,6 +40,17 @@ def safe_error(stderr, cwd):
     result = {}
     code = re.search(r'\b(ERR_[A-Z_]+|MODULE_NOT_FOUND)\b', text)
     if code: result['errorCode'] = code.group(1)
+    helper_codes=('MISSING_REQUIRED_PACKAGE','UNRESOLVED_WORKSPACE_IMPORT','BUILD_TOOL_MISSING',
+                  'ROOT_PACKAGE_MISSING_OR_AMBIGUOUS','PACKAGE_FILE_TOO_LARGE','UNRESOLVED_DYNAMIC_IMPORT',
+                  'DYNAMIC_FUNCTION_BINDING','DYNAMIC_CONSTANT_BINDING','DYNAMIC_REVIEW_SCOPE',
+                  'UNRESOLVED_IMPORT_WARNING','OUTSIDE_ROOT','ROOT_PACKAGE_LINK_MISMATCH',
+                  'WORKSPACE_MANIFEST_MISSING','PACKAGE_MANIFEST_NOT_FOUND','NPM_PACKAGE_OUTSIDE_NODE_MODULES',
+                  'PACKAGE_INTERNAL_DIRECTORY_LINK','ROOT_PACKAGE_VERSION_AMBIGUOUS')
+    helper=re.search(r'\b('+'|'.join(helper_codes)+r')\b',text)
+    if helper:result['errorCode']=helper.group(1)
+    missing=re.search(r'MISSING_REQUIRED_PACKAGE:([@a-zA-Z0-9_./-]{1,128})(?:\s|$)',text)
+    if missing:result['missingPackage']=missing.group(1)
+    if 'MISSING_REQUIRED_PACKAGE:<runtime>' in text:result['syntheticRuntimeEdge']=True
     package = re.search(r"Cannot find (?:package|module) ['\"]([@a-zA-Z0-9_./-]+)['\"]", text)
     if package:
         name = package.group(1)

@@ -56,6 +56,8 @@ class PackageContracts(unittest.TestCase):
         result=m.safe_error(raw,Path('/safe/stage'))
         self.assertEqual(result,{'errorCode':'ERR_MODULE_NOT_FOUND','missingPackage':'example-module','importerRelativeFile':'apps/api/core.ts'})
         self.assertNotIn('secret',str(result));self.assertNotIn('TOKEN',str(result))
+        self.assertEqual(m.safe_error(b'MISSING_REQUIRED_PACKAGE:<runtime>',Path('/safe/stage')),
+                         {'errorCode':'MISSING_REQUIRED_PACKAGE','syntheticRuntimeEdge':True})
 
     def test_source_snapshot_rejects_symlink(self):
         path=self.repo/'skills/starter-packs/link.json';path.symlink_to('example/1.json')

@@ -76,3 +76,7 @@ test('pnpm public-hoisted dependency link survives a pruned staging copy',async 
  for(const [name,target]of Object.entries(x.links)){const link=path.join(stage,name);fs.mkdirSync(path.dirname(link),{recursive:true});fs.symlinkSync(target,link);}
  assert.equal(createRequire(path.join(stage,'apps/api/core.ts'))('foo'),1);
 });
+test('esbuild synthetic CommonJS runtime edge is not an npm dependency',async t=>{
+ const f=fixture(t);f.put('apps/api/core.ts',"if(require.main===module){throw Error('CLI MAIN MUST NOT EXECUTE')}module.exports={value:42}");
+ const x=await collect(f);assert.deepEqual(x.packageDirectories,[]);assert.ok(x.sourceFiles.includes('apps/api/core.ts'));
+});
