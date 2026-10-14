@@ -6,7 +6,7 @@ import type {WhiteboardReceiptObserver} from './whiteboard-provider-observer';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
   role: 'owner' | 'editor' | 'commenter' | 'viewer'; archived: boolean; epoch?: number | null;
-  /** Server revision already applied to this document; own ACK attribution is separate. */
+  /** Server sync/update already applied to this document; durability ACK never advances it. */
   appliedRevision?: { epoch: number; seq: number } | null;
   peers: Extract<WhiteboardServerMessage, { type: 'presence' }>['peers']; reason: string | null;
   retryAttempt: number; duplicateAcks: number; lastAckSequence: number | null; lastAckReceipt: {updateId:string;gestureId:string;seq:number}|null;
@@ -375,8 +375,7 @@ export class WhiteboardProvider {
             if(index<0&&this.awaitingReceipt.delete(receiptKey)){
               this.dischargeReceiptIntent(message.updateId);this.acked.add(receiptKey);
               while(this.acked.size>WHITEBOARD_SYNC.pendingUpdates)this.acked.delete(this.acked.values().next().value!);
-              this.seq = Math.max(this.seq ?? 0, message.seq);
-              this.publish({appliedRevision: { epoch: this.epoch!, seq: this.seq },lastAckSequence:message.seq,lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq}});
+              this.publish({lastAckSequence:message.seq,lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq}});
               this.observeAcceptedReceipt(message,socketGeneration);this.drain();this.scheduleReceiptReplay();
               return;
             }
@@ -387,8 +386,7 @@ export class WhiteboardProvider {
           this.dischargeReceiptIntent(message.updateId);this.pending.splice(index, 1); this.inFlight.delete(message.updateId); this.persisted.delete(message.updateId); this.acked.add(receiptKey);
           if (this.outbox) void this.queuePersistence(async()=>{const token=this.token;if(!token)throw new Error('SESSION_CHANGED');await this.outbox!.acknowledge(token,message.updateId);}).catch(()=>this.block('OUTBOX_WRITE_FAILED',false));
           while (this.acked.size > WHITEBOARD_SYNC.pendingUpdates) this.acked.delete(this.acked.values().next().value!);
-          this.seq = Math.max(this.seq ?? 0, message.seq);
-          this.publish({ appliedRevision: { epoch: this.epoch!, seq: this.seq }, lastAckSequence: message.seq, lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq} });
+          this.publish({ lastAckSequence: message.seq, lastAckReceipt:{updateId:message.updateId,gestureId:message.gestureId,seq:message.seq} });
           this.observeAcceptedReceipt(message,socketGeneration);
           this.drain();this.scheduleReceiptReplay(); if (!this.pending.length) this.schedulePresence();
         } else if (message.type === 'recovery') {
