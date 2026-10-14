@@ -100,7 +100,16 @@ test('C05 distinct browser processes converge on Connector style path and concur
     if(page!==viewer)await select(page);
     else {await page.getByTestId(`board-a11y-object-${edgeId}`).focus();await page.getByTestId(`board-a11y-object-${edgeId}`).press('Enter');}
     if(page!==viewer){
-     await expect(page.getByTestId('board-connector-width-open')).toHaveText(String(relation.strokeWidth));
+     // The current screenshot-approved trigger is icon-only; inspect the
+     // actual width palette instead of expecting obsolete numeric button text.
+     await page.getByTestId('board-connector-width-open').click();
+     const widthGroup=page.getByRole('group',{name:'连接线粗细预设',exact:true});
+     await expect(widthGroup).toBeVisible();
+     const activeWidth=widthGroup.getByRole('button',{name:`${relation.strokeWidth} px`,exact:true});
+     await expect(activeWidth).toHaveAttribute('aria-pressed','true');
+     await expect(widthGroup.locator('button[aria-pressed="true"]')).toHaveCount(1);
+     await expect(activeWidth.locator('span[aria-hidden="true"]')).toHaveCSS('height',`${relation.strokeWidth}px`);
+     await page.keyboard.press('Escape');
      await page.getByTestId('board-connector-label-open').click();await expect(page.getByTestId('board-connector-label')).toHaveValue(label);await page.keyboard.press('Escape');
      await page.getByTestId('board-connector-path-open').click();await expect(page.getByTestId('board-connector-curve')).toHaveAttribute('aria-pressed','true');await page.keyboard.press('Escape');
     }
