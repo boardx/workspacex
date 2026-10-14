@@ -46,6 +46,12 @@ export class ToolExecutionAuthority {
       if (!snapshot.leaseValid) return { allowed: false, reason: "lease_lost" };
       if (snapshot.attemptId !== input.attemptId) return { allowed: false, reason: "attempt_stale" };
       if (snapshot.allowedTools && !snapshot.allowedTools.includes(input.toolName)) return { allowed: false, reason: "run_unavailable" };
+      const rawPolicy=await this.reportFilePolicy?.(input);
+      const reportFile=rawPolicy?ReportFileArtifactPolicy.parse(rawPolicy):undefined;
+      if(reportFile){
+        if(reportFile.published&&!REPORT_FILE_POST_PUBLISH_TOOLS.some(name=>name===input.toolName))return {allowed:false,reason:"report_output_published",reportFile};
+        if(input.toolName===NATIVE_ARTIFACT_TOOL&&toolArgumentsDigest(input.toolArgs)!==toolArgumentsDigest(reportFile.publication))return {allowed:false,reason:"report_output_mismatch"};
+      }
       const skills = input.toolName === "call_skill" ? await this.runs.readPinnedSkills(input.orgId, snapshot.skillVersionIds) : [];
       const actualSkill = input.toolArgs && typeof input.toolArgs === "object" && !Array.isArray(input.toolArgs)
         ? (input.toolArgs as Record<string, unknown>).skill_stable_name : undefined;
@@ -59,12 +65,6 @@ export class ToolExecutionAuthority {
       if (risk === "L2" && !await this.grants.hasGrant(input.orgId, input.parentRunId, input.toolName)
         && !await snapshot.authorizeOnce?.()) {
         return { allowed: false, reason: "approval_required" };
-      }
-      const rawPolicy=await this.reportFilePolicy?.(input);
-      const reportFile=rawPolicy?ReportFileArtifactPolicy.parse(rawPolicy):undefined;
-      if(reportFile){
-        if(reportFile.published&&!REPORT_FILE_POST_PUBLISH_TOOLS.some(name=>name===input.toolName))return {allowed:false,reason:"report_output_published",reportFile};
-        if(input.toolName===NATIVE_ARTIFACT_TOOL&&toolArgumentsDigest(input.toolArgs)!==toolArgumentsDigest(reportFile.publication))return {allowed:false,reason:"report_output_mismatch"};
       }
       return { allowed: true,...(reportFile?{reportFile}:{}) };
     });
