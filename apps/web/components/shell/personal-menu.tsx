@@ -5,6 +5,7 @@ import { BarChart3, BrainCircuit, LogOut, User } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
+import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
 
 /**
  * 左下角头像 → 个人菜单（下拉，2026-08-09 信息架构调整）。
@@ -61,6 +62,12 @@ export function PersonalMenu({
         </MenuItem>
         <MenuItem asChild data-testid="personal-menu-usage-item">
           <Link href="/usage" className="gap-2"><BarChart3 aria-hidden className="h-3.5 w-3.5"/>我的 AI 用量</Link>
+        </MenuItem>
+        <MenuItem asChild data-testid="personal-menu-billing-item">
+          <Link href={PERSONAL_BILLING_ENTRY.href} data-testid="personal-menu-billing" className="gap-2">
+            <PERSONAL_BILLING_ENTRY.icon aria-hidden className="h-3.5 w-3.5" />
+            {PERSONAL_BILLING_ENTRY.label}
+          </Link>
         </MenuItem>
         <MenuSeparator />
         <MenuItem asChild onSelect={(e) => e.preventDefault()}>

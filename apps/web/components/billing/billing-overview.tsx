@@ -1,0 +1,130 @@
+"use client";
+import * as React from "react";
+import Link from "next/link";
+import { billingCredits, billingSubscription } from "@repo/contracts";
+import { CreditCard, Wallet } from "lucide-react";
+import { ApiError, apiRequest } from "@/lib/api-client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+type ReadState<T> = { status: "loading" } | { status: "ready"; data: T } | { status: "error"; message: string };
+interface ReadOperation<T> {
+  path: string;
+  query?: Record<string, string>;
+  parse: (raw: unknown, userId: string) => T;
+}
+const configRead = {
+  path: billingCredits.operations.getBillingConfig.path,
+  parse: (raw: unknown) => billingCredits.operations.getBillingConfig.out.parse(raw),
+};
+const walletRead = {
+  path: billingCredits.operations.getWallet.path,
+  query: { ownerType: "user" },
+  parse: (raw: unknown, userId: string) => {
+    const { wallet } = billingCredits.operations.getWallet.out.parse(raw);
+    if (wallet.ownerType !== "user" || wallet.ownerId !== userId) throw new Error("BILLING_WALLET_SCOPE_MISMATCH");
+    return wallet;
+  },
+};
+const subscriptionRead = {
+  path: billingSubscription.operations.getSubscriptionInfo.path,
+  parse: (raw: unknown) => billingSubscription.operations.getSubscriptionInfo.out.parse(raw),
+};
+
+function failureMessage(error: unknown): string {
+  if (error instanceof ApiError && error.status === 404) return "此项服务暂未开放。你仍可以查看我的 AI 用量。";
+  if (error instanceof ApiError && error.status === 401) return "登录已失效，请重新登录后查看。";
+  if (error instanceof ApiError && error.status === 403) return "当前账号没有查看权限。";
+  return "暂时无法查询，请重试。已有余额和订阅不会因此改变。";
+}
+
+function useBillingRead<T>(operation: ReadOperation<T>, userId: string, sessionToken: string) {
+  const [state, setState] = React.useState<ReadState<T>>({ status: "loading" });
+  const [revision, retry] = React.useReducer((value: number) => value + 1, 0);
+  React.useEffect(() => {
+    const controller = new AbortController();
+    setState({ status: "loading" });
+    void apiRequest<unknown>(operation.path, { query: operation.query, sessionToken, signal: controller.signal })
+      .then((raw) => {
+        const data = operation.parse(raw, userId);
+        if (!controller.signal.aborted) setState({ status: "ready", data });
+      })
+      .catch((error: unknown) => {
+        if (!controller.signal.aborted) setState({ status: "error", message: failureMessage(error) });
+      });
+    return () => controller.abort();
+  }, [operation, userId, sessionToken, revision]);
+  return { state, retry };
+}
+
+function ReadNotice({ state, name, label, retry }: { state: ReadState<unknown>; name: string; label: string; retry: () => void }) {
+  if (state.status === "loading") return <div data-testid={`billing-${name}-loading`} role="status" aria-label={`正在查询${label}`} className="h-16 animate-pulse rounded-control bg-muted" />;
+  if (state.status === "error") return <div data-testid={`err-billing-${name}`} className="space-y-3">
+    <p role="status" className="text-13 text-muted-foreground">{state.message}</p>
+    <Button variant="outline" size="sm" onClick={retry} aria-label={`重试${label}`}>重试</Button>
+  </div>;
+  return null;
+}
+
+const subscriptionLabels: Record<billingSubscription.SubscriptionStatus, string> = {
+  none: "暂无订阅", active: "已订阅", trialing: "试用中", past_due: "付款逾期", canceled: "已取消", incomplete: "待完成付款", unpaid: "待支付",
+};
+function periodLabel(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? null : date.toLocaleDateString("zh-CN");
+}
+
+/** Account discovery remains available even when a deployment has no payment channel.
+ * Each read fails independently; missing services never become fabricated zero balances.
+ */
+export function BillingOverview({ userId, sessionToken }: { userId: string; sessionToken: string }) {
+  const config = useBillingRead(configRead, userId, sessionToken);
+  const wallet = useBillingRead(walletRead, userId, sessionToken);
+  const subscription = useBillingRead(subscriptionRead, userId, sessionToken);
+  const providers = config.state.status === "ready" ? config.state.data.enabledProviders : [];
+  const number = (value: number) => value.toLocaleString("zh-CN");
+  return <div data-testid="billing-overview" className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6">
+    <header className="space-y-2">
+      <h1 className="text-24 font-semibold">额度与订阅</h1>
+      <p className="text-13 text-muted-foreground">管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。</p>
+    </header>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card data-testid="billing-wallet-card">
+        <CardHeader><CardTitle className="flex items-center gap-2"><Wallet aria-hidden className="h-4 w-4" />个人额度</CardTitle><CardDescription>查看余额与累计到账额度</CardDescription></CardHeader>
+        <CardContent className="space-y-4">
+          <ReadNotice state={wallet.state} name="wallet" label="额度查询" retry={wallet.retry} />
+          {wallet.state.status === "ready" && <>
+            <div><p className="text-12 text-muted-foreground">当前余额</p><p data-testid="billing-wallet-balance" className="text-32 font-semibold tabular-nums">{number(wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">额度</span></p></div>
+            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">累计充值</dt><dd className="tabular-nums">{number(wallet.state.data.totalPurchased)}</dd></div><div><dt className="text-muted-foreground">累计发放</dt><dd className="tabular-nums">{number(wallet.state.data.totalGranted)}</dd></div></dl>
+          </>}
+          <p className="text-12 text-muted-foreground">微信充值暂未开放。已有额度仍可查询。</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />个人订阅</CardTitle><CardDescription>订阅状态以实际到账同步结果为准</CardDescription></CardHeader>
+        <CardContent className="space-y-4">
+          <ReadNotice state={subscription.state} name="subscription" label="订阅查询" retry={subscription.retry} />
+          {subscription.state.status === "ready" && <div className="space-y-3">
+            <Badge data-testid="billing-subscription-status" tone={subscription.state.data.status === "active" ? "success" : "neutral"}>{subscriptionLabels[subscription.state.data.status]}</Badge>
+            {periodLabel(subscription.state.data.currentPeriodEnd) && <p className="text-13">本期结束：{periodLabel(subscription.state.data.currentPeriodEnd)}</p>}
+            {subscription.state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">将在本期结束后取消</p>}
+          </div>}
+          <p className="text-12 text-muted-foreground">Stripe 订阅购买与管理暂未开放。</p>
+        </CardContent>
+      </Card>
+    </div>
+    <Card>
+      <CardHeader><CardTitle>支付渠道</CardTitle><CardDescription>渠道配置不会代替订单到账或订阅确认</CardDescription></CardHeader>
+      <CardContent className="space-y-3">
+        <ReadNotice state={config.state} name="config" label="支付渠道" retry={config.retry} />
+        {config.state.status === "ready" && <>
+          <div className="flex flex-wrap gap-2"><Badge tone={providers.includes("wechat") ? "primary" : "neutral"}>微信支付 · {providers.includes("wechat") ? "已配置" : "未开通"}</Badge><Badge tone={providers.includes("stripe") ? "primary" : "neutral"}>Stripe · {providers.includes("stripe") ? "已配置" : "未开通"}</Badge></div>
+          {providers.length === 0 && <p data-testid="billing-provider-unavailable" className="text-13 text-muted-foreground">支付渠道暂未开通，当前无法购买。已有余额与订阅可分别查询。</p>}
+        </>}
+      </CardContent>
+    </Card>
+    <Button asChild variant="outline"><Link href="/usage">查看我的 AI 用量</Link></Button>
+  </div>;
+}

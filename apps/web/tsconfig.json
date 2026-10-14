@@ -49,7 +49,8 @@
     ".next-design-loop/types/**/*.ts",
     ".next-parity-eval/types/**/*.ts",
     ".next-s8build/types/**/*.ts",
-    ".next-kg-eval/types/**/*.ts"
+    ".next-kg-eval/types/**/*.ts",
+    ".next-billing-entry-5714/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
