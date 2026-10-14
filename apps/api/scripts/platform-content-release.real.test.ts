@@ -11,6 +11,8 @@ import { verifySkillStarterPack, importPayloadDigest } from "../src/domain/skill
 import { buildOfficialAgentRolePack } from "../src/domain/agent/official-role-packs";
 import { PgOfficialAgentRolePackImportRepository } from "../src/infrastructure/agent/pg-official-agent-role-pack-import-repository";
 import { wave2Runtime } from "@repo/contracts";
+import { readFileSync } from "node:fs";
+import { checkWorkSkillManifests } from "../src/domain/skill/work-skill-import-check";
 
 const ORG = toOrgId("org-platform"), TENANT = "org-content-release-protected";
 let db: PgDatabase;
@@ -92,5 +94,32 @@ describe("actual PostgreSQL content release", () => {
     expect(await db.withTenant(ORG, stateDigest)).toBe(before);
     const preserved = await asOwner(c => c.query("SELECT name FROM skills WHERE org_id=$1 AND id='protected-skill'", [TENANT]));
     expect(preserved.rows[0]?.name).toBe("Private existing");
+  });
+  it("does not publish a customized official instruction draft", async () => {
+    const pack = buildOfficialAgentRolePack();
+    await new PgOfficialAgentRolePackImportRepository(db).persistVerified({ orgId: ORG, actorId: ACTOR,
+      idempotencyKey: "current-role-fixture", payloadDigest: sha(JSON.stringify(pack)), pack });
+    await asOwner(c => c.query("UPDATE agents SET instructions='user-authored custom draft' WHERE org_id=$1", [ORG]));
+    const target = await input(); target.request.officialRolePackDigest = pack.packDigest;
+    target.requestSha256 = sha(JSON.stringify(target.request));
+    const before = await db.withTenant(ORG, stateDigest);
+    await expect(synchronize(db, target)).rejects.toThrow("ROLE_DRAFT_RUNTIME_CHANGED");
+    expect(await db.withTenant(ORG, stateDigest)).toBe(before);
+  });
+  it("rejects a same-version role whose frozen pending bindings became stale", async () => {
+    const pack = buildOfficialAgentRolePack();
+    await new PgOfficialAgentRolePackImportRepository(db).persistVerified({ orgId: ORG, actorId: ACTOR,
+      idempotencyKey: "current-role-fixture", payloadDigest: sha(JSON.stringify(pack)), pack });
+    const raw = JSON.parse(readFileSync(new URL("../../../skills/starter-packs/work-executive/1.0.0.json", import.meta.url), "utf8"));
+    const skillPack = verifySkillStarterPack(raw, { packId: "work-executive", packVersion: "1.0.0" });
+    const work = checkWorkSkillManifests(skillPack); expect(work.kind).not.toBe("rejected");
+    if (work.kind === "rejected") throw new Error("invalid shipped fixture");
+    await new PgSkillStarterImportRepository(db).persistVerified({ orgId: ORG, actorId: ACTOR, pack: skillPack,
+      idempotencyKey: "after-role-skill-import", payloadDigest: importPayloadDigest(skillPack), workManifests: work.manifests });
+    const target = await input(); target.request.officialRolePackDigest = pack.packDigest;
+    target.requestSha256 = sha(JSON.stringify(target.request));
+    const before = await db.withTenant(ORG, stateDigest);
+    await expect(synchronize(db, target)).rejects.toThrow("ROLE_BINDINGS_NOT_ALIGNED");
+    expect(await db.withTenant(ORG, stateDigest)).toBe(before);
   });
 });

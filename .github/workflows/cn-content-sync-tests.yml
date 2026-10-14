@@ -5,6 +5,10 @@ on:
       - 'apps/api/scripts/platform-content-release*'
       - 'apps/api/vitest.platform-content-release.config.ts'
       - 'scripts/cn-content-sync/**'
+      - 'scripts/cn-release-mvp*'
+      - 'scripts/cn-hk-*'
+      - 'tests/test_cn_mvp*'
+      - 'tests/test_cn_hk*'
       - '.github/workflows/cn-content-sync-tests.yml'
   workflow_dispatch:
 permissions:
@@ -25,6 +29,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Offline identity, conflict, dependency and scope tests
         run: python3 -B -m unittest discover -s scripts/cn-content-sync -p 'test_content_sync.py' -v
+      - name: Exact child workflow correlation and dynamic transfer binding
+        run: python3 -B -m unittest discover -s tests -p 'test_cn_mvp_*.py' -v
+      - name: Hong Kong v2 compatibility and v3 negative cases
+        run: python3 -B -m unittest discover -s tests -p 'test_cn_hk_*.py' -v
       - name: Start isolated PostgreSQL on GitHub runner
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
       - name: Actual database atomicity, idempotency and tenant protection

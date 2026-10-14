@@ -110,6 +110,14 @@ export function checkLegacy(row: RoleRow, target: OfficialEntry): void {
   const draft = row.draft, pub = row.published;
   need(pub && draft.catalog_source === "official" && pub.catalog_source === "official", "CUSTOM_ROLE_CONFLICT");
   need(draft.name === target.name && draft.role_label === target.roleLabel, "ROLE_CUSTOMIZED");
+  // Import-created legacy drafts have nullable instructions/model_id and empty
+  // mount/whitelist arrays. Non-default edits must not hitchhike on an upgrade.
+  need((draft.instructions == null || draft.instructions === pub.instructions)
+    && (draft.model_id == null || draft.model_id === pub.model_id)
+    && (draft.model_provider == null || draft.model_provider === pub.model_provider)
+    && (draft.tool_policy == null || canonical(draft.tool_policy) === canonical(pub.tool_policy))
+    && (draft.tool_whitelist == null || canonical(draft.tool_whitelist) === "[]")
+    && (draft.skill_mounts == null || canonical(draft.skill_mounts) === "[]"), "ROLE_DRAFT_RUNTIME_CHANGED");
   need(Object.values(AGENT_ROLE_COLUMN_OF).every(col => canonical(draft[col]) === canonical(pub[col])), "ROLE_DRAFT_CHANGED");
   need(Object.entries(AGENT_ROLE_COLUMN_OF).every(([key, col]) => canonical(pub[col]) === canonical(key === "catalogSource" ? "official" : target.role[key as keyof typeof target.role])), "ROLE_FIELDS_CUSTOMIZED");
   need(pub.model_provider === target.modelProvider && pub.model_id === target.modelId && canonical(pub.tool_policy) === canonical(target.toolPolicy), "ROLE_RUNTIME_CUSTOMIZED");
@@ -119,6 +127,11 @@ export function checkLegacy(row: RoleRow, target: OfficialEntry): void {
   need(label === label.split("+")[0] && historicalOfficialRoleInstructionDigests(label)[target.stableName] === pub.instruction_digest,
     "ROLE_LEGACY_NOT_RECOGNIZED");
   need(Array.isArray(pub.skill_version_ids) && pub.skill_version_ids.length === 0, "ROLE_LEGACY_CUSTOM_PINS");
+}
+
+export function checkBindings(row: RoleRow, refs: { readonly pins: readonly string[]; readonly pending: readonly unknown[] }): void {
+  need(canonical(row.published.skill_version_ids) === canonical(refs.pins)
+    && canonical(row.published.pending_skill_bindings ?? []) === canonical(refs.pending), "ROLE_BINDINGS_NOT_ALIGNED");
 }
 
 async function synchronizeRoles(db: DatabasePort, s: TenantSession, input: VerifiedInputs): Promise<void> {
@@ -142,7 +155,10 @@ async function synchronizeRoles(db: DatabasePort, s: TenantSession, input: Verif
       need(outcome.kind === "created" || outcome.kind === "replayed", "ROLE_IMPORT_REJECTED");
       continue;
     }
-    if (row.published.semantic_label === target.semanticVersion && row.published.instruction_digest === target.instructionDigest) continue;
+    if (row.published.semantic_label === target.semanticVersion && row.published.instruction_digest === target.instructionDigest) {
+      checkBindings(row, resolved.get(target.stableName)!);
+      continue;
+    }
     const versionId = `agent-version-${randomUUID()}`;
     const refs = resolved.get(target.stableName)!;
     await insertAgentVersionFromDraft(s, { versionId, orgId: ORG, agentId: row.id,
@@ -185,10 +201,13 @@ export async function readback(db: DatabasePort, s: TenantSession, input: Verifi
   }
   if (input.request.officialRolePackDigest !== null) {
     const rows = await roleRows(s);
-    for (const target of buildOfficialAgentRolePack().agents) {
+    const pack = buildOfficialAgentRolePack();
+    const resolved = await resolveOfficialRoleSkillRefs(s, ORG, pack);
+    for (const target of pack.agents) {
       const row = rows.find(x => x.stable_name === target.stableName); need(row, "ROLE_READBACK_MISSING");
       checkLegacy(row, target);
       need(row.published.semantic_label === target.semanticVersion && row.published.instruction_digest === target.instructionDigest, "ROLE_READBACK_VERSION");
+      checkBindings(row, resolved.get(target.stableName)!);
       pendingBindings += Array.isArray(row.published.pending_skill_bindings) ? row.published.pending_skill_bindings.length : 0;
       roleVersions++;
     }

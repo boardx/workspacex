@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildOfficialAgentRolePack } from "../src/domain/agent/official-role-packs";
 import { AGENT_ROLE_COLUMN_OF } from "../src/infrastructure/agent/agent-version-insert";
-import { canonical, checkLegacy, sha, verifyInputs, type ReleaseRequest } from "./platform-content-release-core";
+import { canonical, checkLegacy, checkBindings, sha, verifyInputs, type ReleaseRequest } from "./platform-content-release-core";
 
 const pack = buildOfficialAgentRolePack();
 function request(): ReleaseRequest { return { schemaVersion: 1, releaseId: "unit-content-release", sourceRevision: "a".repeat(40),
   targetOrgId: "org-platform", acceptanceScope: "mvp-non-model", expectedDatabase: "wsx_content_release_test",
   packRefs: [], officialRolePackDigest: pack.packDigest, workflows: [], beforeStateSha256: "b".repeat(64),
   skippedTests: ["real-model", "ai-output-quality"], notApplicableContents: ["future-catalog-v2"] }; }
-function row() {
+function row(): { id: string; stable_name: string; published_version_id: string;
+  draft: Record<string, unknown>; published: Record<string, unknown> } {
   const target = pack.agents[0]!;
   const fields: Record<string, unknown> = Object.fromEntries(Object.entries(AGENT_ROLE_COLUMN_OF).map(([key, col]) => [col, key === "catalogSource" ? "official" : target.role[key as keyof typeof target.role]]));
   return { id: "test-agent", stable_name: target.stableName, published_version_id: "test-version",
@@ -44,8 +45,20 @@ describe("content release admission", () => {
     expect(() => checkLegacy(r, pack.agents[0]!)).toThrow("ROLE_DRAFT_CHANGED");
   });
   it("rejects corrupt published instruction bytes", () => {
-    const r = row(); r.published.instructions += "changed";
+    const r = row(); r.published.instructions = String(r.published.instructions) + "changed";
     expect(() => checkLegacy(r, pack.agents[0]!)).toThrow("ROLE_INSTRUCTION_CORRUPT");
+  });
+  it("rejects a customized instruction or model draft without overwriting it", () => {
+    const r = row(); r.draft.instructions = "user-authored draft";
+    expect(() => checkLegacy(r, pack.agents[0]!)).toThrow("ROLE_DRAFT_RUNTIME_CHANGED");
+    r.draft.instructions = null; r.draft.model_id = "user-selected-model";
+    expect(() => checkLegacy(r, pack.agents[0]!)).toThrow("ROLE_DRAFT_RUNTIME_CHANGED");
+  });
+  it("rejects stale pending or custom pins even when the version label matches", () => {
+    const r = row();
+    expect(() => checkBindings(r, { pins: [], pending: [{ reason: "awaiting_verification" }] })).toThrow("ROLE_BINDINGS_NOT_ALIGNED");
+    r.published.skill_version_ids = ["custom-pin"];
+    expect(() => checkBindings(r, { pins: [], pending: [] })).toThrow("ROLE_BINDINGS_NOT_ALIGNED");
   });
   it("rejects an official-looking unknown legacy version", () => {
     const r = row(); r.published.semantic_label = "0.0.1";
