@@ -4,11 +4,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { interviewTranscriptDisplay } from "@/components/itv/interview-transcript-display";
 import { InterviewRunsStep } from "@/components/itv/interview-runs-step";
 afterEach(cleanup);
-it("keeps report actions above the saved transcript without a second progress hero", () => {
+it("keeps report actions in one footer after the saved transcript without a second progress hero", () => {
   render(<InterviewRunsStep runs={[]} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.queryByRole("heading", { name: "开始访谈" })).not.toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "生成报告" }).closest('[data-testid="itv-step-actions"]')).not.toBeNull();
+  const actions=screen.getByRole("button", { name: "生成报告" }).closest('[data-testid="itv-step-actions"]');
+  expect(actions).toHaveAttribute("data-workflow-action-bar","footer");
+  expect(screen.getByTestId("itv-source-runs").querySelectorAll('[data-workflow-action-bar="footer"]')).toHaveLength(1);
 });
 it("queued experts are not presented as actively interviewing", () => {
   render(<InterviewRunsStep runs={[{ expertId: "queued-7", displayName: "待访谈专家", status: "pending", completedQuestions: 0, totalQuestions: 1 }]} pending={false} onGenerateReport={vi.fn()} />);
