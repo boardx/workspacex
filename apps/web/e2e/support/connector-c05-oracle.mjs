@@ -101,11 +101,15 @@ export function connectorStorageReference(storage){
 }
 
 /** Only explicitly marked Next navigation prefetch cancellations are non-errors. */
-export function navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath}){
+export function navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath,knownNavigationPaths}){
  if(method!=='GET'||errorText!=='net::ERR_ABORTED'||prefetch!=='1')return false;
  // An allowlist excludes every Board, API, script, asset and unknown resource.
+ // Critical resources remain failures even if mistakenly present in trusted navigation input.
+ if(/^\/(?:api|whiteboards|_next|assets|uploads)(?:\/|$)/.test(pathname)||/^\/studio\/board(?:\/|$)/.test(pathname)||/\.(?:js|mjs|css|png|jpg|svg|woff2?|pdf)$/i.test(pathname))return false;
  if(typeof knownProjectPath==='string'&&/^\/projects\/[^/]+$/.test(knownProjectPath)&&pathname===knownProjectPath)return true;
- return ['/research','/billing','/home','/itv','/tasks','/studio/survey','/rec','/projects','/chat','/studio','/calendar','/contacts','/files','/studio/design-workbench','/brain','/admin'].includes(pathname);
+ if(/^\/projects\//.test(pathname))return false;
+ return Array.isArray(knownNavigationPaths)&&knownNavigationPaths.includes(pathname);
+
 }
 
 /** Compare the actual full-opacity raster to an independently drawn nominal-width reference. */

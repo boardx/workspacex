@@ -11,7 +11,7 @@ export function strokeProof(samples:Array<{offset:number;ink:boolean}>,expectedW
 
 export function connectorStorageReference(storage:Record<string,unknown>):WhiteboardConnector;
 
-export function navigationPrefetchAbort(input:{method:string;pathname:string;errorText:string;prefetch:string|undefined;knownProjectPath?:string}):boolean;
+export function navigationPrefetchAbort(input:{method:string;pathname:string;errorText:string;prefetch:string|undefined;knownProjectPath?:string;knownNavigationPaths?:readonly string[]}):boolean;
 
 export function strokeRasterProof(actual:Array<{offset:number;ink:boolean;coverage:number}>,reference:Array<{offset:number;ink:boolean;coverage:number}>,integral?:{actual:number;reference:number;step:number}):void;
 

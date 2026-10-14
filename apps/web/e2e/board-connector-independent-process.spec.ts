@@ -1,3 +1,4 @@
+import {NAV_SEGMENTS,PERSONAL_BILLING_ENTRY,type NavItem} from '../lib/navigation';
 import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect,chromium,type Page,type Browser,type Request} from '@playwright/test';
 import {writeFile} from 'node:fs/promises';
@@ -11,6 +12,8 @@ import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixtur
 import {verifyConnectorRuntimeManifest} from './support/connector-runtime-manifest';
 
 const edgeId='c05-edge',ink='#E11D48';
+const navigationHrefs=(items:NavItem[]):string[]=>items.flatMap(item=>[item.href,...navigationHrefs(item.children??[])]);
+const knownNavigationPaths=[...new Set([...navigationHrefs(NAV_SEGMENTS.flatMap(segment=>segment.items)),PERSONAL_BILLING_ENTRY.href].filter(href=>href.startsWith('/')).map(href=>new URL(href,'http://navigation.invalid').pathname))];
 async function synced(page:Page){
  const status=page.getByTestId('board-sync-status');
  await expect(status).toHaveAttribute('data-sync-phase','synced');
@@ -75,7 +78,7 @@ test('C05 distinct browser processes converge on Connector style path and concur
    page.on('requestfinished',request=>activeHomeRsc.delete(request));
    page.on('requestfailed',request=>{
     const method=request.method(),pathname=new URL(request.url()).pathname,rawError=request.failure()?.errorText??'UNKNOWN',errorText=/^net::ERR_[A-Z_]+$/.test(rawError)?rawError:'UNKNOWN',prefetch=request.headers()['next-router-prefetch'];
-    if(navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath:`/projects/${encodeURIComponent(F.projectId)}`})){navigationPrefetchAborts.push({process:index,method,pathname,errorText,nextRouterPrefetch:true});return;}
+    if(navigationPrefetchAbort({method,pathname,errorText,prefetch,knownProjectPath:`/projects/${encodeURIComponent(F.projectId)}`,knownNavigationPaths})){navigationPrefetchAborts.push({process:index,method,pathname,errorText,nextRouterPrefetch:true});return;}
     const proof=activeHomeRsc.get(request)?.proof;activeHomeRsc.delete(request);
     if(benignHomeNavigationCancellation({method,pathname,errorText,rsc:request.headers()['rsc']==='1',prefetch:prefetch==='1',proof,boardPath:`/studio/board/${boardId}`})){benignNavigationCancellations.push({process:index,method,pathname,errorText,proof:proof!});return;}
     browserErrors.push(`process-${index}:${method}:${pathname}:request-failed:${errorText}:nextRouterPrefetch=${prefetch==='1'}:rsc=${request.headers()['rsc']==='1'}`);

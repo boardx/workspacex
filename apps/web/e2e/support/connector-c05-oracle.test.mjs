@@ -83,8 +83,10 @@ test('independent endpoint reference preserves legacy fallback and replaces whol
 });
 
 test('only explicit safe Next navigation prefetch aborts are classified separately',()=>{
- const cancelled={method:'GET',pathname:'/tasks',errorText:'net::ERR_ABORTED',prefetch:'1'};
+ const cancelled={method:'GET',pathname:'/tasks',errorText:'net::ERR_ABORTED',prefetch:'1',knownNavigationPaths:['/research','/billing','/home','/tasks','/studio/design-workbench','/brain','/admin']};
  for(const pathname of ['/research','/billing','/home','/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
+ for(const pathname of ['/api/home','/whiteboards/id','/studio/board/id','/_next/static/app.js','/assets/ink.png'])assert.equal(navigationPrefetchAbort({...cancelled,pathname,knownNavigationPaths:[pathname]}),false);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/unknown',knownNavigationPaths:['/projects/unknown']}),false);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known',knownProjectPath:'/projects/known'}),true);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/unknown',knownProjectPath:'/projects/known'}),false);
  assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known/board',knownProjectPath:'/projects/known/board'}),false);
