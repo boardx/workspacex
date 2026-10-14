@@ -33,7 +33,7 @@ export class PgNativeOutputStaging implements NativeOutputStaging {
    const existing=(await s.query<Row>('SELECT id,args_digest,sha256,file FROM native_output_staging WHERE org_id=$1 AND run_id=$2 AND idempotency_key=$3',[context.orgId,context.parentRunId,input.idempotencyKey])).rows[0];
    if(existing){
     if(existing.args_digest!==argsDigest||existing.sha256!==sha256)throw new Error('native_output_idempotency_conflict');
-    return NativeArtifactStaged.parse({publishId:existing.id,status:'staged',sha256,sizeBytes:size});
+    return NativeArtifactStaged.parse({publishId:existing.id,status:'staged',sha256,sizeBytes:size,...(decision.reportFile?{completion:{kind:'report-file',jobId:decision.reportFile.jobId}}:{})});
    }
    const count=await s.query<{count:string;bytes:string}>('SELECT count(*)::text AS count,COALESCE(sum((file->>\'sizeBytes\')::bigint),0)::text AS bytes FROM native_output_staging WHERE org_id=$1 AND run_id=$2',[context.orgId,context.parentRunId]);
    if(Number(count.rows[0]!.count)>=S.limits.maxFiles||Number(count.rows[0]!.bytes)+size>S.limits.maxRequestBytes)throw new Error('native_output_limit');
@@ -42,7 +42,7 @@ export class PgNativeOutputStaging implements NativeOutputStaging {
    const collected=await collectNativeOutputs({objects:this.objects,sessionFiles:{read:async()=>file}},{runId:context.parentRunId,paths:[input.workspacePath],verifiedMime:input.mediaType});
    const output={...collected[0]!,name:input.title};const id=randomUUID();
    await s.query('INSERT INTO native_output_staging(id,org_id,run_id,idempotency_key,args_digest,sha256,file) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)',[id,context.orgId,context.parentRunId,input.idempotencyKey,argsDigest,sha256,JSON.stringify(output)]);
-   return NativeArtifactStaged.parse({publishId:id,status:'staged',sha256,sizeBytes:size});
+   return NativeArtifactStaged.parse({publishId:id,status:'staged',sha256,sizeBytes:size,...(decision.reportFile?{completion:{kind:'report-file',jobId:decision.reportFile.jobId}}:{})});
   });
  }
  async listFiles(orgId:OrgId,runId:string){return this.db.withTenant(orgId,async s=>(await s.query<{file:RunOutputFile}>('SELECT file FROM native_output_staging WHERE org_id=$1 AND run_id=$2 ORDER BY created_at,id',[orgId,runId])).rows.map(r=>r.file));}

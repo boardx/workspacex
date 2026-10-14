@@ -18,6 +18,7 @@ is byte-for-byte what it was.
 from __future__ import annotations
 
 import os
+from .report_file_completion import published_report,POST_PUBLISH_TOOLS
 from typing import TYPE_CHECKING, Any
 
 from langchain.agents.middleware.types import AgentMiddleware
@@ -91,11 +92,15 @@ class ToolBudgetMiddleware(AgentMiddleware):
 
     name = "ToolBudgetMiddleware"
 
-    def __init__(self, *, excluded: frozenset[str]) -> None:
+    def __init__(self, *, excluded: frozenset[str], scope_messages=None) -> None:
         super().__init__()
         self._excluded = excluded
+        self.scope_messages = scope_messages
 
     def _pruned(self, request: "ModelRequest") -> "ModelRequest":
+        if self.scope_messages and published_report(self.scope_messages((getattr(request,'state',None) or {}).get('messages',[]))):
+            tools=prune_tools(list(getattr(request,'tools',None) or []),self._excluded | per_run_excluded_tools())
+            return request.override(tools=[tool for tool in tools if _tool_name(tool) in POST_PUBLISH_TOOLS],tool_choice=None)
         tools = getattr(request, "tools", None)
         if not tools:
             return request
