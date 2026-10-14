@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import type {WhiteboardDeletionProof,WhiteboardDeletionChange} from '../../application/whiteboard/collaboration-ports';
 import { parentPort, workerData } from 'node:worker_threads';
 import * as Y from 'yjs';
-import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObject, WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObject, WHITEBOARD_UPDATE_LIMITS, mindmapStructureDigest } from '@repo/whiteboard-core';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 
 const canonical=(value:unknown):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>`${JSON.stringify(key)}:${canonical(item)}`).join(',')}}`:JSON.stringify(value);
@@ -61,7 +61,7 @@ try {
       }
       if(restoredRoutes.size)executeCommands(doc,[...restoredRoutes.keys()].map(id=>({type:'connector',id,connector:afterById.get(id)!.connector!})),'authorized-delete-undo-bounds');
       validateDocument(doc);update=Y.encodeStateAsUpdate(doc,vector);
-    }else if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); }
+    }else if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); if (mindmapStructureDigest(before) !== mindmapStructureDigest(readObjects(doc))) throw new Error('MINDMAP_OPERATION_REQUIRED'); }
     else {
       const vector = Y.encodeStateVector(doc);
       executeCommands(doc, input.commands, 'authorized-host-command');

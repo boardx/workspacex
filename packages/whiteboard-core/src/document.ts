@@ -4,6 +4,7 @@ import { validateContentExtension } from './content-object-model';
 import { validateSpatialExtension } from './spatial-model';
 import { rotatedAnchorPoint } from './spatial-geometry';
 import { resolveConnectorPath } from './connector-path';
+import { validateMindmapTrees } from './mindmap-validation';
 
 export function createWhiteboardDocument(): Y.Doc {
   const doc = new Y.Doc();
@@ -43,6 +44,7 @@ export function validateDocument(doc: Y.Doc): void {
   if (objectMap(doc).size > WHITEBOARD_LIMITS.objects || tombstones(doc).size > WHITEBOARD_LIMITS.tombstones) throw new Error('LIMIT_EXCEEDED');
   for (const [id, value] of tombstones(doc)) if (value !== true || !objectMap(doc).has(id)) throw new Error('INVALID_TOMBSTONE');
   const all = new Map([...objectMap(doc)].map(([id, value]) => [id, decode(id, value)]));
+  validateMindmapTrees([...all.values()].filter(value => !tombstones(doc).has(value.id))); 
   for (const value of all.values()) {
     validateContentExtension(value);
     validateSpatialExtension(value);

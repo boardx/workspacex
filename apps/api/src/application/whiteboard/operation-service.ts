@@ -81,7 +81,7 @@ export class WhiteboardOperationService {
       if(head.epoch!==request.expectedRevision.epoch||head.seq!==request.expectedRevision.seq)throw new WhiteboardOperationError('STALE_REVISION');
       if(!this.undoStore)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
       const before=await this.undoStore.capture(session,principal,boardId);
-      const ack=await this.collaboration.writeCommandsInTransaction(session,principal,boardId,{epoch:request.expectedRevision.epoch,requestId:request.requestId,commands:request.commands,actorId:actor.actorId}).catch(error=>collaborationError(error));
+      const ack=await this.collaboration.writeCommandsInTransaction(session,principal,boardId,{epoch:request.expectedRevision.epoch,requestId:request.requestId,commands:request.commands,actorId:actor.actorId,expectedSeq:request.expectedRevision.seq}).catch(error=>collaborationError(error));
       const operationId=randomUUID(),event:Event={eventId:randomUUID(),operationId,requestId:request.requestId,boardId,
         type:eventType(request.commands,request.provenance.source),actor:request.actor,objectIds:objectIds(request.commands),revision:{epoch:ack.epoch,seq:ack.seq},occurredAt:this.now().toISOString(),provenance:request.provenance};
       const receipt=WhiteboardOperationReceipt.parse({operationId,requestId:request.requestId,boardId,revision:event.revision,replayed:false,events:[event]});
