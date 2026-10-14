@@ -1,4 +1,5 @@
 import path from "node:path";
+import {BOARD_UNIFIED_REGRESSION_SPECS} from "./board-unified-regression-registry";
 import { randomUUID } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
@@ -511,7 +512,23 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress"],
+      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress", "board-unified-mobile"],
+    },
+    {
+      // New Board regressions use the existing fresh runtime after empty-state checks.
+      name: "board-unified-desktop",
+      testMatch: [...BOARD_UNIFIED_REGRESSION_SPECS],
+      dependencies: ["seeded"],
+      workers: 1, fullyParallel: false, retries: 0,
+      use: {...devices["Desktop Chrome"], viewport: {width: 1440, height: 900}},
+    },
+    {
+      // Physical canvas keyboard interaction must also fit a narrow viewport.
+      name: "board-unified-mobile",
+      testMatch: ["board-widget-keyboard.spec.ts"],
+      dependencies: ["board-unified-desktop"],
+      workers: 1, fullyParallel: false, retries: 0,
+      use: {...devices["Desktop Chrome"], viewport: {width: 390, height: 844}},
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.
