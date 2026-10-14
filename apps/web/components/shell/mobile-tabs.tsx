@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessagesSquare, FolderKanban, ListTodo, User } from "lucide-react";
-import { TOP_LEVEL_NAV_ITEMS } from "@/lib/navigation";
+import { PERSONAL_BILLING_ENTRY, TOP_LEVEL_NAV_ITEMS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -27,7 +27,8 @@ export function MobileTabs() {
       className="flex h-14 shrink-0 items-stretch border-t border-border bg-card md:hidden"
     >
       {TABS.map((t) => {
-        const active = pathname === t.href || pathname.startsWith(t.href + "/");
+        const active = pathname === t.href || pathname.startsWith(t.href + "/")
+          || (t.key === "me" && (pathname === PERSONAL_BILLING_ENTRY.href || pathname.startsWith(PERSONAL_BILLING_ENTRY.href + "/")));
         const Icon = t.icon;
         return (
           <Link

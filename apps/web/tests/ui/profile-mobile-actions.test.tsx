@@ -45,6 +45,12 @@ import { ProfileScreen } from "@/components/profile/profile-screen";
 afterEach(() => cleanup());
 
 describe("`/profile` 移动端顶部动作行", () => {
+  it("移动端我页可发现计费入口，桌面档隐藏该入口避免重复", () => {
+    render(<ProfileScreen />);
+    const entry = screen.getByRole("link", { name: /额度与订阅/ });
+    expect(entry.getAttribute("href")).toBe("/billing");
+    expect(entry.className).toMatch(/\bmd:hidden\b/);
+  });
   it("渲染出主题切换与退出两个入口，且都带 `md:hidden`（避免与桌面档下拉重复）", () => {
     render(<ProfileScreen />);
     const row = screen.getByTestId("profile-mobile-actions");

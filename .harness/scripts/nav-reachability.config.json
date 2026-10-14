@@ -44,7 +44,8 @@
       "/agent",
       "/skill?screen=work-catalog",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ],
     "linkExemptRoutes": {
       "//": "仅保留已核验仍需显式 URL 进入的独立路由；已存在真实链接的页面不再豁免。",
@@ -87,7 +88,8 @@
       "/preview/chat-knowledge-graph",
       "/agent",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ]
   },
   "phase-14-agent-kernel-unification": {
@@ -127,7 +129,8 @@
       "/preview/chat-knowledge-graph",
       "/agent",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ]
   },
   "phase-18-org-brain-knowledge-graph": {
@@ -163,14 +166,15 @@
       "/tpl",
       "/agent",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ]
   },
   "phase-21-billing-payment": {
-    "//": "两束目前只有签核用静态原型屏 /preview/billing（ui-prototyper 交付，31 张截图按束分目录 billing-credits/24 张 + billing-subscription/9 张），落地面分别是用户菜单/组织管理页/平台后台——届时本段改指向真实路由。",
+    "//": "正式个人菜单入口 /billing 提供真实账户与渠道状态；充值下单和订阅购买仍属于后续功能，静态 /preview/billing 保留为签核材料。",
     "bundleRoutes": {
-      "billing-credits": "/preview/billing",
-      "billing-subscription": "/preview/billing"
+      "billing-credits": "/billing",
+      "billing-subscription": "/billing"
     },
     "allowRoutes": [
       "/home",
@@ -200,7 +204,9 @@
       "/tasks",
       "/tpl",
       "/agent",
-      "/workflows"
+      "/workflows",
+      "/billing",
+      "/preview/billing"
     ]
   }
 }

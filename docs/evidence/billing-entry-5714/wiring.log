@@ -1,0 +1,6 @@
+
+> agentic-harness-template@ lint:ui-wiring /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> pnpm exec tsx .harness/scripts/lint-ui-wiring.mjs
+
+[ui-wiring] 路由 136 条：已接线 57 / mock 豁免 23（上限 35）/ 无数据面 18 / 原型 38；controller 149 个。
+[ui-wiring] 清单与代码一致：每条产品路由都解析到已挂载的 controller 与 application 用例。
