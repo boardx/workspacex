@@ -22,7 +22,7 @@ export function observeNativeBrowserDiagnostics(page: Page, expectedApiOrigin: s
         return { online: navigator.onLine, sessionRecordPresent: Boolean(raw), sessionVersionValid: session?.version === 2,
           sessionCommitMatches: typeof session?.revision === 'string' && session.revision === localStorage.getItem('wsx.sessionCommit'),
           sessionActorPresent: typeof session?.userId === 'string' && session.userId.length > 0,
-          sessionOrgPresent: typeof session?.currentOrgId === 'string' && Array.isArray(session.orgIds) && session.orgIds.includes(session.currentOrgId),
+          sessionOrgPresent: typeof session?.currentOrgId === 'string' && Array.isArray(session.orgs) && session.orgs.includes(session.currentOrgId),
           tokenPresent: Boolean(localStorage.getItem('wsx.sessionToken')) };
       });
       if (documents.length < maximum) documents.push(value); else dropped++;
