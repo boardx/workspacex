@@ -376,3 +376,14 @@ it.each(["sticky", "text"] as const)("shows the rendered legacy %s font size wit
   expect(onTextChange).not.toHaveBeenCalled();
   expect(object).toEqual(before);
 });
+
+
+it("keeps board operations available without a presentation viewport action", () => {
+  const doc = createWhiteboardDocument();
+  render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" presentationControls={<button>结束演示</button>} />);
+  expect(screen.queryByRole("button", { name: /开始演示|结束演示|演示视图|停止演示/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "更多白板操作" }));
+  expect(screen.queryByTestId("board-present-viewport")).toBeNull();
+  expect(screen.queryByRole("button", { name: /开始演示|结束演示|演示视图|停止演示/ })).toBeNull();
+  doc.destroy();
+});
