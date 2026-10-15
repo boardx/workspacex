@@ -37,9 +37,12 @@ async function main(){
  need(process.env.CN_RELEASE_FULLSTACK_FIXTURE==='1'&&process.env.CN_SIX_REPORT_PATH);
  const directory=path.dirname(process.env.CN_SIX_REPORT_PATH);need(path.isAbsolute(directory)&&fs.realpathSync(directory)===directory);
  const st=fs.lstatSync(directory);need(st.isDirectory()&&!st.isSymbolicLink()&&st.uid===process.getuid()&&(st.mode&0o777)===0o700);
- const identity={kind:'cn-next-launch-v1',sourceSha256:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),port:Number(args[0])};
+ const identity={kind:'cn-next-launch-v1',sourceSha256:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),port:Number(args[0]),maxOldSpaceMiB:3072};
  store(directory,'next-launch-intent.json',identity);
- const child=spawn(process.execPath,[cli,'dev','-p',args[0]],{cwd:web,env:process.env,stdio:['ignore','pipe','pipe'],detached:false});
+ // Next's host-RAM default exceeds this fixture's 6 GiB shared cgroup.
+ // Bound V8 to half that unit; leave headroom for Nest and native allocations.
+ const env={...process.env,NODE_OPTIONS:'--max-old-space-size=3072'};
+ const child=spawn(process.execPath,[cli,'dev','-p',args[0]],{cwd:web,env,stdio:['ignore','pipe','pipe'],detached:false});
  const counts={stdout:0,stderr:0},hashes={stdout:crypto.createHash('sha256'),stderr:crypto.createHash('sha256')};
  for(const key of ['stdout','stderr']){child[key].on('data',data=>{counts[key]+=data.length;hashes[key].update(data);if(!process[key].write(data))child[key].pause();});process[key].on('drain',()=>child[key].resume());}
  const before=resources();let started=false;
