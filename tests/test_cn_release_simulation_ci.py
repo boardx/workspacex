@@ -29,6 +29,15 @@ class CiBootstrap(unittest.TestCase):
   with patch.object(m.tempfile,'mkdtemp')as create:
    with self.assertRaisesRegex(ValueError,'TEN_ALL'):m.execute('a'*40,10,0,'linux-boundary-reap',1)
    create.assert_not_called()
+ def test_worker_records_survive_both_explicit_projection_layers(self):
+  tree=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())
+  assignments=[n for n in ast.walk(tree)if isinstance(n,ast.Assign)and any(isinstance(v,ast.Name)and v.id=='six_names'for v in n.targets)or isinstance(n,ast.AugAssign)and isinstance(n.target,ast.Name)and n.target.id=='six_names']
+  self.assertEqual(len(assignments),2)
+  scope={};exec(compile(ast.fix_missing_locations(ast.Module(body=assignments,type_ignores=[])),'<actual-six-projection>','exec'),scope)
+  spec=importlib.util.spec_from_file_location('simulation_export',ROOT/'scripts/cn-release-simulation.py');export=importlib.util.module_from_spec(spec);spec.loader.exec_module(export)
+  self.assertEqual(scope['six_names'],export.EXPORT_NESTED_FILES['six-business'])
+  self.assertEqual(len(set(scope['six_names'])),59)
+  self.assertIn('next-worker-01-started.json',scope['six_names']);self.assertIn('next-worker-16-exit.json',scope['six_names'])
  def test_full_control_owner_receipts_have_explicit_export_whitelist(self):
   import ast
   tree=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())
