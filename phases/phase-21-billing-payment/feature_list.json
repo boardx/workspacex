@@ -229,7 +229,8 @@
       "wave": 3,
       "design_ref": "ui-preview/billing-credits/01-cashier-*.png（11 张，个人/组织双主体）；apps/web/components/billing/cashier-dialog.tsx + qr-panel.tsx",
       "verification": [
-        "pnpm --filter web exec vitest run tests/ui/billing-cashier.test.tsx"
+        "pnpm --filter web exec vitest run tests/ui/billing-cashier.test.tsx",
+        "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts"
       ],
       "evidence": "",
       "notes": "覆盖 V1–V6 的 UI 侧；稳定 testid 见契约束 ui.md §二（billing-cashier-dialog / billing-generate-qr / billing-qr-code-area / billing-order-countdown / billing-refresh-status / billing-regenerate / billing-success-badge / billing-cashier-denied 等，已随原型交付）。原型 mock（apps/web/lib/mock/billing.ts）是界面投影，实现期按 ADR-020 收敛为从契约生成的客户端。生产挂载点 apps/web/components/shell/personal-menu.tsx（原型未改生产菜单，本 feature 落地接入「购买额度」MenuItem）。轮询间隔 3s 不得更密（00 R9）。支付宝置灰+「未开通」为 UI 先行决策（ui-preview README 待确认清单）。"
