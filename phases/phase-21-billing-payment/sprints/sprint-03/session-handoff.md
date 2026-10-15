@@ -9,3 +9,5 @@ F02配置PR5716现已合入main并部署，当前分支已同步main c0dcbb150�
 当前架构修正：纯适配器工厂模块在infrastructure/identity，不增加根级豁免；opaque cursor不定义第二份公共DTO。35项隔离回归通过。旧正式失败留下保守quarantine租约，缺完整后代退出证明未手删；无运行容器/旧验证进程。继续正式verify与独立审/CI，不能以已有专项通过代替全局结果。
 
 当前钱包PR #5744仍draft。独立基线修复PR #5746已验证完整Web并合入当前分支，待主协调者CI绿后合入main以使F03差异回到仅钱包范围。最近正式run因已确认Web失败在API部分测试期间中断(exit143)，F03.verify.log仍旧架构失败记录，不能误读为本轮通过证据。新正式复验尚未完成，下一feature不抢先claim；下一个订单测试矩阵见/tmp/wsx-wechat-transport-notes-1015.md及审查消息，不能把本地临时材料视作已交付代码。
+
+最新正式结果是215152fa8的exit1（新指纹9a1f344a…210e1e），API全过、Web两处超时。不要继续把F03.verify.log称作旧架构失败记录；它现保存此次真实失败。主机温控休眠与异常耗时重合，见F03.host-sleep.log。PR5744和5746已由外部合入main；F03仍in_progress，#5749测试并发预算是当前验证修复事项。自有进程/栈已清理，外来ai-company-generator容器未动；端口quarantine保留。
