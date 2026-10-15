@@ -33,13 +33,13 @@ import QRCode from "qrcode";
 vi.mock("qrcode",()=>({default:{toCanvas:vi.fn().mockResolvedValue(undefined)}}));
 const order={orderNo:"bg20261016000000abcdef",ownerType:"user",ownerId:"user-a",provider:"wechat",status:"PENDING",packageId:"p1",amountFen:9900,baseCredits:100,bonusCredits:20,currency:"CNY",qrCodeUrl:"weixin://wxpay/bizpayurl?pr=real-server-intent",createdAt:"2026-10-16T00:00:00Z",paidAt:null,notifyAt:null,expiredAt:new Date(Date.now()+900000).toISOString(),closedAt:null,lastErrorCode:null};
 function reply(body:unknown,status=200){return Promise.resolve(new Response(JSON.stringify(body),{status}));}
-function live(options:{post?:()=>Promise<Response>;get?:()=>Promise<Response>;wallet?:()=>Promise<Response>;items?:unknown[]}={}){
+function live(options:{post?:()=>Promise<Response>;get?:()=>Promise<Response>;wallet?:()=>Promise<Response>;ledger?:()=>Promise<Response>;items?:unknown[]}={}){
  const fetcher=vi.fn((url:string,init:RequestInit)=>{
   const path=new URL(url).pathname;
   if(path.endsWith("/config"))return reply({enabledProviders:["wechat"]});
   if(path.endsWith("/packages"))return reply({items:options.items??[pack]});
   if(path.endsWith("/wallet"))return options.wallet?.()??reply({wallet});
-  if(path.endsWith("/transactions"))return reply({items:[],nextCursor:null});
+  if(path.endsWith("/transactions"))return options.ledger?.()??reply({items:[],nextCursor:null});
   if(init.method==="POST")return options.post?.()??reply({order});
   return options.get?.()??reply({order});
  });vi.stubGlobal("fetch",fetcher);
@@ -136,5 +136,51 @@ describe("F06 real cashier financial lifecycle",()=>{
   expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
   f.view.rerender(<LiveCashierDialog {...f.props}/>);await screen.findByTestId("billing-qr-code-area");
   expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(1);
+ });
+});
+
+describe("F06 refreshed accounting and stale result protection",()=>{
+ it("hides old accounting while SUCCESS wallet and ledger are pending",async()=>{
+  let wallets=0,ledgers=0;
+  live({wallet:()=>++wallets===1?reply({wallet}):new Promise(()=>undefined),ledger:()=>++ledgers===1?reply({items:[],nextCursor:null}):new Promise(()=>undefined),get:()=>reply({order:{...order,status:"SUCCESS",paidAt:new Date().toISOString()}})});
+  await generate();await screen.findByTestId("billing-qr-code-area");fireEvent.click(screen.getByTestId("billing-refresh-status"));
+  await screen.findByTestId("billing-success-badge");
+  expect(screen.queryByTestId("billing-updated-balance")).toBeNull();
+  expect(screen.queryByTestId("billing-ledger-empty")).toBeNull();
+  expect(screen.getByText("支付已确认，正在刷新余额…")).toBeTruthy();
+ });
+ it("retains SUCCESS when a later read returns a stale payable status",async()=>{
+  let reads=0;
+  live({get:()=>reply({order:++reads===1?{...order,status:"SUCCESS",paidAt:new Date().toISOString()}:order})});await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-success-badge");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-refresh-hint");
+  expect(screen.getByTestId("billing-success-badge")).toBeTruthy();expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+ });
+ it("aborts old owner requests and ignores their late payment reply",async()=>{
+  let finish!:(response:Response)=>void;
+  const f=live({get:()=>new Promise(resolve=>{finish=resolve;})});await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));
+  const oldRequest=f.fetcher.mock.calls.find(([url])=>String(url).includes(`/orders/${order.orderNo}`));
+  f.view.rerender(<LiveCashierDialog {...f.props} owner={{ownerType:"user",ownerId:"user-b"}} sessionToken="new-user-session"/>);
+  expect((oldRequest![1].signal as AbortSignal).aborted).toBe(true);
+  await act(async()=>{finish(await reply({order:{...order,status:"SUCCESS",paidAt:new Date().toISOString()}}));});
+  expect(screen.queryByTestId("billing-success-badge")).toBeNull();expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+ });
+});
+
+import { CashierLedgerHistory } from "@/components/billing/cashier-ledger-history";
+const txn={txnId:"t1",type:"purchase",direction:1,credits:100,balanceAfter:100,sourceType:"order",sourceId:order.orderNo,operatorId:null,reason:null,createdAt:"2026-10-16T00:00:00Z"};
+describe("F06 full ledger pagination",()=>{
+ it("keeps existing records and cursor through an error, then deduplicates the last page",async()=>{
+  let calls=0;
+  vi.stubGlobal("fetch",vi.fn((url:string)=>{
+   expect(new URL(url).searchParams.get("cursor")).toBe("next-page");
+   return ++calls===1?reply({},503):reply({items:[txn,{...txn,txnId:"t2"},{...txn,txnId:"t2"}],nextCursor:null});
+  }));
+  render(<CashierLedgerHistory owner={{ownerType:"user",ownerId:"user-a"}} sessionToken="cashier-test-session" initial={{items:[txn],nextCursor:"next-page"}} onDenied={vi.fn()}/>);
+  fireEvent.click(screen.getByTestId("billing-view-all-ledger"));fireEvent.click(await screen.findByRole("button",{name:"重试加载流水"}));
+  await act(async()=>{});
+  expect(screen.getByTestId("billing-ledger-table").querySelectorAll("tbody tr")).toHaveLength(2);
+  expect(screen.queryByRole("button",{name:"加载更多流水"})).toBeNull();
  });
 });

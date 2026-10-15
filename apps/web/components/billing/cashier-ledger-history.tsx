@@ -22,7 +22,7 @@ export function CashierLedgerHistory({ owner, sessionToken, initial, onDenied }:
       const page = billing.operations.listTransactions.out.parse(raw);
       if (page.nextCursor === cursor) throw new Error("LEDGER_CURSOR_DID_NOT_ADVANCE");
       if (!controller.signal.aborted) {
-        setItems(previous => { const known = new Set(previous.map(item => item.txnId)); return [...previous, ...page.items.filter(item => !known.has(item.txnId))]; });
+        setItems(previous => { const known = new Set(previous.map(item => item.txnId)); return [...previous, ...page.items.filter(item => { if (known.has(item.txnId)) return false; known.add(item.txnId); return true; })]; });
         setCursor(page.nextCursor);
       }
     } catch (error) {
