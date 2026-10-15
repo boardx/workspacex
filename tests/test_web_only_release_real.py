@@ -19,11 +19,15 @@ def main(out):
    d('build','--platform=linux/amd64','--network=none','--pull=false','--build-arg','SOURCE='+source,'-t',tag,str(context));images[label]=json.loads(d('image','inspect',tag))[0]['Id']
   with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
   services=['api','web','agent','sandbox','sandbox-sessions'];file=out/'compose.json';env=out/'existing.env';env.write_text('');fixture=out/'synthetic-data';fixture.mkdir();(fixture/'keep.txt').write_text('existing synthetic bytes')
-  rows={s:{'image':images['baseline'],'platform':'linux/amd64','environment':{'UNCHANGED':'fixture'},'volumes':[str(fixture)+':/data:ro']} for s in services}
+  service_env=out/'service.env';literal='fixture-literal-$NOT_INTERPOLATED-${NOT_INTERPOLATED}-$$';service_env.write_text('UNCHANGED='+literal+'\n')
+  rows={s:{'image':images['baseline'],'platform':'linux/amd64','env_file':[{'path':str(service_env),'format':'raw'}],'volumes':[str(fixture)+':/data:ro']} for s in services}
   rows['web'].update(command=['python3','/server.py'],ports=[f'127.0.0.1:{port}:8080']);file.write_text(json.dumps({'services':rows}));compose=['compose','--project-name',project,'--env-file',str(env),'--file',str(file)]
   d(*compose,'up','--detach','--pull','never','--no-build');lock=out/'release.lock';lock.touch(mode=0o600)
   archive=out/'web.tar';subprocess.run([docker,'save',tags[1]],stdout=archive.open('wb'),check=True)
   backend=w.m.Docker(docker);before=w.inspect_live(backend,compose,services,project)
+  for service in services:
+   ident=d(*compose,'ps','--quiet',service).decode().strip();live=json.loads(d('container','inspect',ident))[0]
+   assert 'UNCHANGED='+literal in live['Config']['Env'],'LITERAL_ENV_INTERPOLATED'
   c={'kind':'single-host-web-only-v1','sourceRevision':NEW,'baselineRevision':BASE,'project':project,'docker':docker,'webService':'web','services':services,'baseline':before,'webImageId':images['candidate'],'composeFiles':[pin(file)],'envFile':pin(env),'lockFile':str(lock),'artifact':{**pin(archive),'runId':'1','artifactId':'1'},'browser':{}}
   config=out/'config.json';config.write_text(json.dumps(c))
   def probe(c,o,mode):
@@ -52,7 +56,7 @@ def main(out):
   # A disk-only env drift with a newly pinned file still fails live config hash before up.
   c['baseline']=after;c['baselineRevision']=NEW;c['sourceRevision']=BASE;c['webImageId']=images['baseline']
   with archive.open('wb') as f:subprocess.run([docker,'save',tags[0]],stdout=f,check=True)
-  c['artifact'].update(pin(archive));rows['web']['environment']['UNCHANGED']='drift';rows['web']['image']=images['candidate'];file.write_text(json.dumps({'services':rows}));c['composeFiles']=[pin(file)];config.write_text(json.dumps(c))
+  c['artifact'].update(pin(archive));service_env.write_text('UNCHANGED=changed-on-disk\n');rows['web']['image']=images['candidate'];file.write_text(json.dumps({'services':rows}));c['composeFiles']=[pin(file)];config.write_text(json.dumps(c))
   with patch.object(w,'browser',side_effect=probe):rejected=w.release(config,out/'drift',True)
   assert rejected['code']=='LIVE_CONFIG_DRIFT' and not rejected['applied'],rejected
   result={'passed':True,'realDocker':True,'realCompose':True,'rollbackVerified':True,'successVerified':True,'diskDriftRejected':True,'syntheticDataPreserved':True,'production':False}

@@ -10,7 +10,10 @@ class FakeDocker:
   self.calls.append(args)
   if 'up' in args:
    self.applied='rollback-web.json' not in ' '.join(args);return b''
-  if '--hash' in args:return (args[-1]+' hash-'+args[-1]).encode()
+  if '--hash' in args:
+   assert '--no-interpolate' not in args
+   p=pathlib.Path(args[args.index('--file')+1]);assert p.stat().st_mode & 0o777==0o600
+   return '\n'.join(s+' hash-'+s for s in json.loads(p.read_text())['services']).encode()
   if 'ps' in args:return (args[-1]+'-id').encode()
   raise AssertionError(args)
  def json(self,args,**kw):
@@ -48,6 +51,23 @@ class Tests(unittest.TestCase):
    self.assertNotIn('down',a);self.assertNotIn('build',a)
  def test_plan_no_application_mutation(self):
   self.assertEqual(self.run_release(False)['status'],'PLANNED');self.assertEqual(self.mutations(),[])
+ def test_resolved_secret_model_removed_after_hashing(self):
+  self.assertEqual(self.run_release(False)['status'],'PLANNED')
+  hashes=[a for a in self.d.calls if '--hash' in a];self.assertTrue(hashes)
+  for a in hashes:
+   self.assertNotIn('--no-interpolate',a);self.assertFalse(pathlib.Path(a[a.index('--file')+1]).exists())
+ def test_hash_failure_removes_private_resolved_model(self):
+  original=self.d.run;seen=[]
+  def run(args,**kw):
+   if '--hash' in args:
+    seen.append(pathlib.Path(args[args.index('--file')+1]));raise w.m.Rejected('HASH_FAILED')
+   return original(args,**kw)
+  self.d.run=run;self.assertEqual(self.run_release()['code'],'HASH_FAILED')
+  self.assertTrue(seen);self.assertTrue(all(not p.exists() for p in seen));self.assertEqual(self.mutations(),[])
+ def test_incomplete_resolved_hashes_rejected(self):
+  original=self.d.run
+  def run(args,**kw):return b'api hash-api' if '--hash' in args else original(args,**kw)
+  self.d.run=run;self.assertEqual(self.run_release()['code'],'CONFIG_HASH_CLOSURE');self.assertEqual(self.mutations(),[])
  def test_success_preserves_all_non_web_ids_and_start_times(self):
   r=self.run_release();self.assertEqual(r['status'],'SUCCEEDED');self.assertTrue(r['backendAndDataUnchanged']);self.assert_web_only();self.assertEqual(len(self.mutations()),1)
   self.assertNotIn('never-receipt',json.dumps(r))

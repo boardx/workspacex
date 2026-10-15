@@ -91,9 +91,10 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: directory-web-d651dcb2-${{ github.run_id }}
-          path: ${{ runner.temp }}/directory-web-${{ github.run_id }}
+          # Keep the archive outside job temp and checkout-cleaned directories.
+          path: ${{ github.workspace }}/../../directory-web-artifacts/${{ github.run_id }}
       - name: Verify downloaded archive without loading or starting it
-        working-directory: ${{ runner.temp }}/directory-web-${{ github.run_id }}
+        working-directory: ${{ github.workspace }}/../../directory-web-artifacts/${{ github.run_id }}
         run: |
           set -euo pipefail
           sha256sum --check archive.sha256

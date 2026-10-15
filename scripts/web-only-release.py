@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Pinned Web-only Compose transaction; never restarts data or backend services."""
-import argparse,tarfile,hashlib,importlib.util,json,os,pathlib,re,subprocess,fcntl,stat
+import argparse,tarfile,hashlib,importlib.util,json,os,pathlib,re,subprocess,fcntl,stat,tempfile
 spec=importlib.util.spec_from_file_location('minimal',pathlib.Path(__file__).with_name('minimal-docker-release.py'))
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
@@ -12,14 +12,31 @@ def snapshot(v):
             'networks':sorted(v.get('NetworkSettings',{}).get('Networks',{})),
             'hostConfiguration':m.digest(m.encoded(v.get('HostConfig',{})))}
 
+def resolved_hashes(d,base,project):
+    # Compose 2.40 config --hash skips env_file resolution; up resolves it first.
+    # Normal reload decodes config's $$ serialization back to literal secret dollars.
+    model=d.json(base+['config','--format','json'])
+    directory=base[base.index('--project-directory')+1] if '--project-directory' in base else str(pathlib.Path(base[base.index('--file')+1]).parent)
+    with tempfile.TemporaryDirectory(prefix='wsx-compose-resolved-') as folder:
+        path=pathlib.Path(folder)/'compose.json'
+        fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        with os.fdopen(fd,'wb') as f:f.write(m.encoded(model))
+        command=['compose','--project-name',project,'--project-directory',directory,'--file',str(path)]
+        rows=d.run(command+['config','--hash','*']).decode().splitlines()
+        pairs=[row.split() for row in rows]
+        m.need(all(len(row)==2 for row in pairs),'CONFIG_HASH_PROTOCOL')
+        hashes=dict(pairs)
+        m.need(len(hashes)==len(pairs) and set(hashes)==set(model['services']),'CONFIG_HASH_CLOSURE')
+        return hashes
+
 def inspect_live(d,base,services,project):
+    hashes=resolved_hashes(d,base,project)
     result={}
     for s in services:
         ids=d.run(base+['ps','--quiet',s]).decode().split();m.need(len(ids)==1,'LIVE_CONTAINER_COUNT')
         v=d.json(['container','inspect',ids[0]])[0];l=v['Config'].get('Labels',{})
         m.need(l.get('com.docker.compose.project')==project and l.get('com.docker.compose.service')==s and v['State']['Running'],'LIVE_BINDING')
-        config_hash=d.run(base+['config','--hash',s]).decode().strip().split()
-        m.need(len(config_hash)==2 and config_hash[0]==s and l.get('com.docker.compose.config-hash')==config_hash[1],'LIVE_CONFIG_DRIFT')
+        m.need(l.get('com.docker.compose.config-hash')==hashes.get(s),'LIVE_CONFIG_DRIFT')
         result[s]=snapshot(v)
     return result
 
