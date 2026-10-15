@@ -1,5 +1,5 @@
 import { createCipheriv, randomBytes, randomUUID, sign, type KeyObject } from "node:crypto";
-import { raw } from "express";
+import { registerBillingRawBodyParser } from "../../src/interface/middleware/billing-raw-body-parser";
 import type { Request, Response } from "express";
 import { orderFixture } from "./order-fixture";
 import { asOwner } from "../support/db";
@@ -12,8 +12,7 @@ export async function notifyFixture(background = false) {
   const network = { dropAck: false };
   const base = await orderFixture(app => {
     const server = app.getHttpAdapter().getInstance();
-    // Replaced by the production raw-parser installer once its missing-route RED is established.
-    server.post("/billing/webhooks/wechat", raw({ type: () => true, limit: "1mb" }));
+    registerBillingRawBodyParser(server);
     server.post("/billing/webhooks/wechat", (_req: Request, res: Response, next: () => void) => {
       if (network.dropAck) { network.dropAck = false; res.end = (() => { res.destroy(); return res; }) as typeof res.end; }
       next();
@@ -56,6 +55,7 @@ export async function notifyFixture(background = false) {
       return (await response.json()).order as { orderNo: string; ownerId: string; ownerType: string };
     },
     async close(options?: { preserveData?: boolean }) {
+      await worker?.onModuleDestroy();
       try { if (!options?.preserveData) await cleanup(); } finally { await base.close(options); }
     },
   };

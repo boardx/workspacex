@@ -28,11 +28,15 @@ export interface DatabasePort {
   withTenant<T>(orgId: OrgId, fn: (s: TenantSession) => Promise<T>): Promise<T>;
 
   /**
-   * Run with NO tenant context (kernel self-checks and health probes only).
+   * Run with NO tenant context (kernel diagnostics and explicitly global stores).
    *
-   * Business queries must not use this: the policy is fail-closed, so this path reads
+   * Tenant business queries must not use this: the policy is fail-closed, so this path reads
    * zero rows and looks like "no data" rather than "error" -- the hardest class of bug
    * to track down.
+   * Narrow billing exception: verified cross-owner payment receipt recovery/crediting
+   * and rejected-webhook security audit operate only on owner-global billing tables.
+   * PgBillingCreditingStore shares this pool and enforces billing-global-boundary;
+   * it must never read organization settings, identity, or other tenant content.
    */
   withoutTenant<T>(fn: (s: TenantSession) => Promise<T>): Promise<T>;
 

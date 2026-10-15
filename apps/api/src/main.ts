@@ -1,3 +1,4 @@
+import { registerBillingRawBodyParser } from "./interface/middleware/billing-raw-body-parser";
 import { registerGuidedResearchBodyParsers } from "./interface/middleware/guided-research-body-parser";
 import { WHITEBOARD_COLLABORATION_STORE } from './application/whiteboard/collaboration-ports';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
@@ -91,6 +92,7 @@ export async function createApp(): Promise<NestExpressApplication> {
   app.use(traceMiddleware);
   // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
   app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);
+  registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
   registerGuidedResearchBodyParsers(app.getHttpAdapter().getInstance());
   // #3249: one bounded multi-file endpoint needs more than Express's default 100 KiB.
   // Register before Nest installs its default parser; other routes retain their limit.
