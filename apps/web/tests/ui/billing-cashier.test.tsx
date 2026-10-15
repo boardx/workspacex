@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { BillingOverview } from "@/components/billing/billing-overview";
 const wallet={ownerType:"user",ownerId:"user-a",balance:100,totalPurchased:100,totalGranted:0,updatedAt:"2026-10-16T00:00:00Z"};
 const pack={packageId:"p1",ownerType:"user",region:"cn",currency:"CNY",amountFen:9900,displayAmount:"¥99.00",baseCredits:100,bonusCredits:20,bonusRate:0.2,totalCredits:120};
@@ -193,7 +193,7 @@ describe("F06 purchase navigation intent",()=>{
   fireEvent.click(screen.getByRole("button",{name:"关闭"}));
   await act(async()=>{});
   expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
-  expect(document.activeElement).toBe(screen.getByRole("button",{name:"购买额度"}));
+  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole("button",{name:"购买额度"})));
   view.rerender(<BillingOverview userId="user-a" sessionToken="cashier-test-session" openOnReady onPurchaseOpened={consumed}/>);
   expect(consumed).toHaveBeenCalledTimes(1);expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
  });
