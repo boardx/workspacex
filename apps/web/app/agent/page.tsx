@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
-import { AgentDirectory } from "@/components/agent/agent-directory";
+import { AgentDirectoryWorkspace } from "@/components/agent/agent-directory-workspace";
 import { agentChatHref } from "@/lib/agent-directory";
 
 /**
@@ -17,7 +17,7 @@ export default function AgentDirectoryPage() {
   const router = useRouter();
   return (
     <AppShell previewRole={null}>
-      <AgentDirectory onStartChat={(agentId) => router.push(agentChatHref(agentId))} />
+      <AgentDirectoryWorkspace onStartChat={(agentId, prefill) => router.push(agentChatHref(agentId, prefill))} />
     </AppShell>
   );
 }
