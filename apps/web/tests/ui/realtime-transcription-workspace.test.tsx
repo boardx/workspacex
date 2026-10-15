@@ -99,6 +99,17 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(onSaveContent).toHaveBeenNthCalledWith(2, "失败后保留草稿");
   });
 
+  it("clears the local save error when failed editing is canceled", async () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      onStart={vi.fn()} onStop={vi.fn()} onSaveContent={vi.fn().mockRejectedValue(new Error("offline"))} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("正文保存失败"));
+    fireEvent.click(screen.getByRole("button", { name: "取消", exact: true }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rec-live-edit")).toHaveFocus();
+  });
+
   it("keeps save pending and prevents duplicate submission through shared actions", async () => {
     let resolveSave!: () => void;
     const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));

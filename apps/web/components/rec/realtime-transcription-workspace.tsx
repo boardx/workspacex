@@ -213,7 +213,7 @@ export function RealtimeTranscriptionWorkspace({
               <textarea autoFocus aria-label="逐字稿正文" data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
                 className="min-h-72 w-full resize-y rounded-lg border border-border bg-background p-4 text-13 leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               <WorkflowActionBar placement="footer">
-                <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+                <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => { setSaveError(null); setEditing(false); }}>
                   <X aria-hidden className="h-4 w-4" />取消
                 </WorkflowActionButton>
                 <WorkflowActionButton data-testid="rec-live-save" type="button" variant="primary" disabled={saving} loading={saving}
