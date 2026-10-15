@@ -3,6 +3,7 @@ import {expectBoardSynced} from './support/board-sync-status';
 import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
 import { SESSION_TOKEN_STORAGE_KEY } from "../lib/api-client";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
+import { createNativeText, observeNativeStickyWrites } from "./support/board-native-sticky-create";
 import { verifyEditorConnectorEntry } from "./support/board-editor-connector-entry";
 
 test.describe.configure({ mode: "default", timeout: 420_000 });
@@ -102,58 +103,54 @@ function closeGeometry(left: Geometry, right: Geometry, epsilon = 1): boolean {
 }
 
 async function marqueeAll(page: Page): Promise<void> {
+  const editor = page.getByLabel("对象文字", {exact: true});
+  if (await editor.isVisible()) {
+    await editor.focus();await expect(editor).toBeFocused();
+    await editor.press("Escape");await expect(editor).toBeHidden();
+  }
   const selectTool = page.getByTestId("board-tool-select");
-  const settleCanvas = () => page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
-  const scanInteractiveCanvas = async () => page.evaluate(() => {
-    const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="board-fabric-surface"] canvas[data-fabric="top"]');
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect(), inset = 8, step = 12;
-    const points: Array<{ x: number; y: number }> = [];
-    for (let y = rect.top + inset; y <= rect.bottom - inset; y += step) {
-      for (let x = rect.left + inset; x <= rect.right - inset; x += step) {
-        if (document.elementFromPoint(x, y) === canvas) points.push({ x, y });
+  const settleCanvas = () => page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await selectTool.click();await expect(selectTool).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("board-zoom-fit-board").click();await settleCanvas();
+  expect(parseGeometry(await geometry(page))).toHaveLength(7);
+  const measure = () => page.getByTestId("board-fabric-surface").evaluate(host => {
+    const canvas = host.querySelector<HTMLCanvasElement>('canvas[data-fabric="top"]');
+    if (!canvas) throw new Error('LAYOUT_MARQUEE_CANVAS_MISSING');
+    const box = canvas.getBoundingClientRect(), data = (host as HTMLElement).dataset;
+    const zoom = Number(data.viewportZoom), panX = Number(data.viewportPanX), panY = Number(data.viewportPanY);
+    const scenes = JSON.parse(data.objectScenes ?? '[]') as Array<{left:number;top:number;width:number;height:number}>;
+    if (scenes.length !== 7 || ![zoom,panX,panY].every(Number.isFinite) || zoom <= 0 || scenes.some(scene => ![scene.left,scene.top,scene.width,scene.height].every(Number.isFinite))) throw new Error('LAYOUT_MARQUEE_GEOMETRY_INVALID');
+    const left = box.x + panX + Math.min(...scenes.map(scene => scene.left)) * zoom;
+    const top = box.y + panY + Math.min(...scenes.map(scene => scene.top)) * zoom;
+    const right = box.x + panX + Math.max(...scenes.map(scene => scene.left + scene.width)) * zoom;
+    const bottom = box.y + panY + Math.max(...scenes.map(scene => scene.top + scene.height)) * zoom;
+    for (const padding of [32,40,48,24]) {
+      const corners = [{x:left-padding,y:top-padding},{x:right+padding,y:top-padding},{x:right+padding,y:bottom+padding},{x:left-padding,y:bottom+padding}];
+      for (const index of [0,1]) {
+        const start = corners[index]!, end = corners[index+2]!;
+        if ([start,end].every(point => point.x >= box.left+40 && point.x <= box.right-40 && point.y >= box.top+40 && point.y <= box.bottom-40 && document.elementFromPoint(point.x,point.y) === canvas)) return {start,end,left,top,right,bottom};
       }
     }
-    if (!points.length) return null;
-    const topLeft = points.reduce((best, point) => point.x + point.y < best.x + best.y ? point : best);
-    const bottomRight = points.reduce((best, point) => point.x + point.y > best.x + best.y ? point : best);
-    const bottomLeft = points.reduce((best, point) => point.y - point.x > best.y - best.x ? point : best);
-    return { rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom }, topLeft, bottomRight, bottomLeft, count: points.length };
+    throw new Error(`LAYOUT_MARQUEE_NO_REAL_CANVAS_CORNERS ${JSON.stringify({zoom,panX,panY,left,top,right,bottom})}`);
   });
-
-  await selectTool.click();
-  await expect(selectTool).toHaveAttribute("aria-pressed", "true");
-  await page.getByTestId("board-zoom-fit-board").click();
-  await settleCanvas();
-  expect(parseGeometry(await geometry(page))).toHaveLength(7);
-
-  const beforeClear = await scanInteractiveCanvas();
-  expect(beforeClear?.count, "Fit Board must leave an interactive upper-canvas margin").toBeGreaterThan(0);
-  await page.keyboard.press("Escape");
-  await page.mouse.click(beforeClear!.bottomLeft.x, beforeClear!.bottomLeft.y);
+  const beforeClear = await measure();
+  await page.keyboard.press("Escape");await page.mouse.click(beforeClear.start.x,beforeClear.start.y);
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("未选择对象");
-
-  // Contextual UI disappears after clearing selection and can resize Fabric.
-  // Scan the real post-resize upper canvas again and immediately use its
-  // extreme interactive points; no world-to-screen projection is involved.
   await settleCanvas();
-  const dragArea = await scanInteractiveCanvas();
-  expect(dragArea?.count, "post-clear upper canvas must expose interactive points").toBeGreaterThan(0);
-  expect(dragArea!.topLeft.x).toBeLessThan(dragArea!.bottomRight.x);
-  expect(dragArea!.topLeft.y).toBeLessThan(dragArea!.bottomRight.y);
-  expect(dragArea!.topLeft.x - dragArea!.rect.left).toBeLessThanOrEqual(32);
-  expect(dragArea!.topLeft.y - dragArea!.rect.top).toBeLessThanOrEqual(220);
-  expect(dragArea!.rect.right - dragArea!.bottomRight.x).toBeLessThanOrEqual(32);
-  expect(dragArea!.rect.bottom - dragArea!.bottomRight.y).toBeLessThanOrEqual(32);
-  const hitSurfaces = await page.evaluate(([startPoint, endPoint]) => [startPoint, endPoint].map((point) => {
+  const dragArea = await measure();
+  // Both actual-canvas endpoints lie outside all seven projected objects;
+  // the real marquee encloses the complete union and avoids edge auto-pan.
+  expect(Math.min(dragArea.start.x,dragArea.end.x)).toBeLessThan(dragArea.left);
+  expect(Math.min(dragArea.start.y,dragArea.end.y)).toBeLessThan(dragArea.top);
+  expect(Math.max(dragArea.start.x,dragArea.end.x)).toBeGreaterThan(dragArea.right);
+  expect(Math.max(dragArea.start.y,dragArea.end.y)).toBeGreaterThan(dragArea.bottom);
+  const hitSurfaces = await page.evaluate(points => points.map(point => {
     const element = document.elementFromPoint(point.x, point.y) as HTMLElement | null;
-    return { fabric: element?.dataset.fabric ?? null, insideSurface: Boolean(element?.closest('[data-testid="board-fabric-surface"]')) };
-  }), [dragArea!.topLeft, dragArea!.bottomRight] as const);
-  expect(hitSurfaces).toEqual([{ fabric: "top", insideSurface: true }, { fabric: "top", insideSurface: true }]);
-  await page.mouse.move(dragArea!.topLeft.x, dragArea!.topLeft.y);
-  await page.mouse.down();
-  await page.mouse.move(dragArea!.bottomRight.x, dragArea!.bottomRight.y, { steps: 16 });
-  await page.mouse.up();
+    return {fabric:element?.dataset.fabric??null,insideSurface:Boolean(element?.closest('[data-testid="board-fabric-surface"]'))};
+  }), [dragArea.start,dragArea.end]);
+  expect(hitSurfaces).toEqual([{fabric:"top",insideSurface:true},{fabric:"top",insideSurface:true}]);
+  await page.mouse.move(dragArea.start.x,dragArea.start.y);await page.mouse.down();
+  await page.mouse.move(dragArea.end.x,dragArea.end.y,{steps:16});await page.mouse.up();
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 7 个对象");
   await expect(page.getByTestId("board-selection-layout-toolbar")).toBeVisible();
 }
@@ -185,19 +182,17 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
   await page.getByTestId("board-bulk-text").fill("一\n二\n三\n四\n五\n六");
   await page.getByTestId("board-bulk-apply").click();
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(6);
-  await page.getByTestId("board-tool-select").focus();
-  await page.keyboard.press("t");
-  await page.getByTestId("board-fabric-surface").locator("canvas.upper-canvas").click({position:{x:100,y:120}});
-  const textEditor = page.getByLabel("对象文字", { exact: true });
-  await expect(textEditor).toBeVisible();
-  await textEditor.fill("研究标题");
-  await textEditor.press("Escape");
+  // Use an independently hit-tested blank canvas position: the fixed former
+  // (100,120) point can be covered by the real Mindmap control.
+  const updates = observeNativeStickyWrites(page, boardId);
+  await createNativeText(page, "研究标题", {api: request, token, boardId, updates});
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
   await expect(page.getByTestId("board-a11y-mirror").getByRole("button", { name: "图形：研究标题" })).toBeVisible();
   await login(second);
   await second.goto(`/studio/board/${boardId}`);
   await expectBoardSynced(second,30_000);
   await expect(second.getByTestId("board-a11y-mirror").getByRole("button")).toHaveCount(7);
+  await expectBoardSynced(page,30_000);
   const original = await geometry(page);
   await expect.poll(() => geometry(second)).toBe(original);
   return { secondContext, second, original, boardId, token };
@@ -206,7 +201,6 @@ async function setupMixedBoard(page: Page, request: APIRequestContext, browser: 
 test.describe("organize <=2 actions", () => {
   test.describe("snap guideline zoom", () => {
     test("15 layout commands converge and undo", async ({ page, request, browser, baseURL }) => {
-      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(480_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -231,7 +225,6 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("Alt-drag duplicates ActiveSelection, converges and undoes", async ({ page, request, browser, baseURL }) => {
-      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(180_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -281,7 +274,6 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("pointer snap guide converges and undoes", async ({ page, request, browser, baseURL }) => {
-      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(120_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -294,6 +286,9 @@ test.describe("organize <=2 actions", () => {
         const sourceOutline = page.getByTestId(`board-a11y-object-${source.id}`);
         await sourceOutline.focus({ timeout: 10_000 });
         await sourceOutline.press("Enter", { timeout: 10_000 });
+        const sourceEditor = page.getByLabel("对象文字", {exact: true});
+        await expect(sourceEditor).toBeFocused();
+        await sourceEditor.press("Escape");await expect(sourceEditor).toBeHidden();
         await page.getByTestId("board-tool-select").focus();
         await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
         const currentSurface = page.getByTestId("board-fabric-surface"), currentCanvas = currentSurface.locator('canvas[data-fabric="top"]');
@@ -323,7 +318,6 @@ test.describe("organize <=2 actions", () => {
     });
 
     test("smart preview cancel apply undo CAS and reload", async ({ page, request, browser, baseURL }) => {
-      test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
       test.setTimeout(180_000);
       const { secondContext, second, original } = await setupMixedBoard(page, request, browser, baseURL);
       try {
@@ -348,7 +342,9 @@ test.describe("organize <=2 actions", () => {
         await page.getByRole("button", { name: "关闭布局", exact: true }).click();
         const remoteObject = second.getByTestId("board-a11y-mirror").getByRole("button").first(); await remoteObject.focus(); await remoteObject.press("Enter");
         const remoteId = (await remoteObject.getAttribute("data-testid"))!.replace("board-a11y-object-", "");
-        await second.getByLabel("对象文字", { exact: true }).fill("并发修改后的对象");
+        const remoteEditor = second.getByLabel("对象文字", { exact: true });
+        await expect(remoteEditor).toBeFocused();await remoteEditor.fill("并发修改后的对象");
+        await remoteEditor.press("Escape");await expectBoardSynced(second,30_000);
         const afterRemoteEdit = JSON.stringify(parseGeometry(original).map(value => value.id === remoteId ? { ...value, text: "并发修改后的对象" } : value));
         await expect.poll(() => geometry(second)).toBe(afterRemoteEdit);
         await expect(page.getByTestId(`board-a11y-object-${remoteId}`)).toHaveText("并发修改后的对象");
@@ -365,7 +361,6 @@ test.describe("organize <=2 actions", () => {
 // These checks are a geometry/interaction guard, not a substitute for reviewing
 // the attached screenshots against the visual acceptance rubric.
 test("visual acceptance: compact selection in three viewports", async ({ page, request, browser, baseURL }, testInfo) => {
-  test.skip(true, "Temporarily deferred by explicit user approval 2026-10-06 03:53 UTC; PR #5418 restoration backlog: diagnose Shift+N/board-bulk-text, then restore all assertions.");
   test.setTimeout(180_000);
   const { secondContext, second, original, boardId, token } = await setupMixedBoard(page, request, browser, baseURL);
   try {
