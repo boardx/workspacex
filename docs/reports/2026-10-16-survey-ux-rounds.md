@@ -30,6 +30,42 @@ R2完成后重新fetch main仍4cc。独立路径：AI导入原文→受控503→
 
 最终稳定代码浏览器1case PASS（执行37s/清理1s），本轮未发现需要产品修复的问题，只新增验证。最终四个受影响UI文件72测试PASS，typecheck退出0。截图：[生成失败](assets/issue-5779/r3/generation-error.png)、[恢复原文](assets/issue-5779/r3/recovered-input.png)。503、延迟响应与提案均浏览器受控合成，证明前端恢复与显式应用边界，不是供应商真实故障或真实模型质量。
 
-## R4 手机桌面、键盘和长内容综合
+## R4 手机桌面、键盘和长内容综合（已自验，无产品改动）
 
-未开始。
+R3 checkpoint `19a291aa21eda6b043ad1c8b60d8146199acb0d8` 后fetch main仍4cc。本轮独立长内容路径：6240字需求，375/768/1280三种宽度，输入无内层边框，Tab进入添加文件、三类工具均在composer内部，生成按钮可达，手机不被底部导航遮挡，无横向溢出。三张截图已实际检视：[375](assets/issue-5779/r4/r4-long-input-375.png)、[768](assets/issue-5779/r4/r4-long-input-768.png)、[1280](assets/issue-5779/r4/r4-long-input-1280.png)。无新产品问题，未强造改动。
+
+最终使用标准 `playwright.fullstack-smoke.config.ts`、标准with-test-isolation和独占重e2e锁，单次production构建：R1两case、R2、R3、R4及既有模板创建→自动保存刷新→发布→匿名答题→答卷→正式报告综合链，共6case全部PASS。执行4m59s、清理1s，无重复production构建。真实隔离API/PG与回环provider，不是生产用户/真人ASR/供应商质量证明。综合证据：[手机答卷](assets/issue-5779/r4/response-workspace-mobile.png)、[持久化列表](assets/issue-5779/r4/survey-home-populated-desktop.png)。
+
+最终72受影响UI测试、typecheck、targeted lint均PASS，`git diff --check`通过；临时leaf已移到忽略cache，不入PR。心跳发现旧survey租约expired，先只读status确认空闲再acquire，没有抢占。
+
+## 执行计划
+
+```mermaid
+flowchart TD
+  G([目标：简洁问卷与四轮真实交互优化])
+  S1[1. R1 入口与输入]
+  S2[2. R2 自动保存与刷新]
+  S3[3. R3 错误取消重试]
+  S4[4. R4 多端长内容及完整流程]
+  S5[5. PR CI 与独立复核]
+
+  G --> S1 --> S2 --> S3 --> S4 --> S5
+
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+
+  class G doing
+  class S1 tested
+  class S2 tested
+  class S3 tested
+  class S4 tested
+  %% evidence S4: /tmp/survey-ux-final-production.log: 标准production6case PASS，含R4三宽度及完整链
+  class S5 doing
+
+%% evidence S1: 35UI及真实浏览器2case+键盘补验1case，见R1
+%% evidence S2: 37UI及真实保存刷新1case，见R2
+%% evidence S3: 受控生成恢复稳定代码1case，见R3
+```

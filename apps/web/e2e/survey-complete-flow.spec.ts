@@ -314,6 +314,24 @@ test('R3 问卷体验：生成失败重试与取消保留原文且不应用迟�
  await page.screenshot({path:testInfo.outputPath('r3-recovered-input.png'),fullPage:true});
 });
 
+test('R4 问卷体验：长需求在手机平板桌面保持单层输入与键盘工具入口',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R4 长内容',tags:[]})));
+ const text='了解用户最近一次使用体验、主要困难与下一步改进建议。'.repeat(240);
+ const input=page.getByRole('textbox',{name:'问卷需求'});await input.fill(text);
+ for(const width of [375,768,1280]){
+   await page.setViewportSize({width,height:width===375?812:1000});await input.focus();await expect(input).toBeFocused();
+   await expect(input).toHaveValue(text);await expect(input).toHaveCSS('border-top-width','0px');
+   await input.press('Tab');await expect(page.getByRole('button',{name:'添加文件',exact:true})).toBeFocused();
+   const composer=page.getByTestId('survey-intake-composer');
+   for(const label of ['添加文件','语音输入','选择已保存录音'])await expect(composer.getByRole('button',{name:label,exact:true})).toBeVisible();
+   const generate=page.getByRole('button',{name:'生成问卷',exact:true});await expect(generate).toBeEnabled();await generate.scrollIntoViewIfNeeded();
+   expect(await page.locator('body').evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(width);
+   if(width===375){const action=await generate.boundingBox();const nav=await page.getByRole('navigation',{name:'主导航（移动端）'}).boundingBox();expect(action&&nav&&action.y+action.height<=nav.y).toBeTruthy();}
+   await page.screenshot({path:testInfo.outputPath(`r4-long-input-${width}.png`),fullPage:true});
+ }
+});
+
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
