@@ -28,7 +28,10 @@ export class BillingWechatNotifyService {
       const accepted = await this.store.accept(receipt);
       if (accepted.completed) return success;
       stage = "credit";
-      return (await this.store.processOne(receipt.providerEventId)).completed ? success : retry;
+      const credited = await this.store.processOne(receipt.providerEventId);
+      if (credited.completed) return success;
+      this.logger.info("billing_callback_pending", { traceId, stage: "credit", providerEventId: receipt.providerEventId, orderNo: receipt.orderNo });
+      return retry;
     } catch (error) {
       if (error instanceof PaymentNoticeError) {
         if (error.reason === "provider_unavailable") return retry;
