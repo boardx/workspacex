@@ -174,6 +174,55 @@ test('问卷 inline 语音权限拒绝与设备缺失保留原文可重试',asyn
  }
 });
 
+test('紧凑问卷输入与发布设置在桌面平板手机保持可操作',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ const draft=encodeURIComponent(JSON.stringify({name:'紧凑布局验收',tags:[]}));
+ await page.goto('/studio/survey/new/import?draft='+draft);
+ await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验，关注易用性与改进机会。');
+ for(const width of [1280,768,375]){
+   await page.setViewportSize({width,height:width===375?812:1000});
+   const input=page.getByRole('textbox',{name:'问卷需求'});await input.focus();await expect(input).toBeFocused();
+   const composer=page.getByTestId('survey-intake-composer');
+   expect(await composer.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
+   const generate=page.getByRole('button',{name:'生成问卷',exact:true});await expect(generate).toBeEnabled();
+   await generate.scrollIntoViewIfNeeded();
+   if(width===375){
+     const action=await generate.boundingBox();const bar=await generate.locator('..').boundingBox();
+     expect(action&&bar&&Math.abs(action.width-bar.width)<=1).toBeTruthy();
+     const nav=await page.getByRole('navigation',{name:'主导航（移动端）'}).boundingBox();
+     expect(action&&nav&&action.y+action.height<=nav.y).toBeTruthy();
+   }else{
+     const primary=page.getByRole('button',{name:'生成问卷',exact:true});
+     const action=await primary.boundingBox();const bar=await primary.locator('..').boundingBox();
+     expect(action&&bar&&action.width<bar.width).toBeTruthy();
+   }
+   expect(await page.locator('body').evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(width);
+   await page.screenshot({path:testInfo.outputPath(`survey-compact-input-${width}.png`),fullPage:true});
+ }
+ await page.setViewportSize({width:1280,height:1000});await page.goto('/studio/survey?tab=modules');
+ const template=page.locator('article').filter({has:page.getByRole('heading',{name:TEMPLATE_TITLE,exact:true})});
+ await template.getByRole('button',{name:'使用并创建问卷'}).click();
+ await expect(page.getByRole('region',{name:'问卷设计画布'})).toBeVisible();
+ await page.locator('header').getByRole('button',{name:'发布回收',exact:true}).click();
+ await expect(page.getByRole('heading',{name:'发布与回收',exact:true})).toBeVisible();
+ for(const width of [1280,768,375]){
+   await page.setViewportSize({width,height:width===375?812:1000});
+   const start=page.getByRole('button',{name:'开始回收',exact:true});await expect(start).toBeEnabled();await start.scrollIntoViewIfNeeded();
+   await expect(page.getByLabel('匿名填写',{exact:true})).toBeChecked();
+   if(width===375){
+     const action=await start.boundingBox();const bar=await start.locator('..').boundingBox();
+     expect(action&&bar&&Math.abs(action.width-bar.width)<=1).toBeTruthy();
+     const nav=await page.getByRole('navigation',{name:'主导航（移动端）'}).boundingBox();
+     expect(action&&nav&&action.y+action.height<=nav.y).toBeTruthy();
+   }else{
+     const action=await start.boundingBox();const bar=await start.locator('..').boundingBox();
+     expect(action&&bar&&action.width<bar.width).toBeTruthy();
+   }
+   expect(await page.locator('body').evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(width);
+   await page.screenshot({path:testInfo.outputPath(`survey-compact-publish-${width}.png`),fullPage:true});
+ }
+});
+
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
