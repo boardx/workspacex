@@ -156,7 +156,7 @@ export function RealtimeTranscriptionWorkspace({
               size="lg"
               className="ml-auto min-w-28"
               type="button"
-              variant={canStop ? "destructive" : "primary"}
+              variant="primary"
               disabled={streamState === "stopping" || renaming}
               onClick={canStop ? onStop : onStart}
             >
