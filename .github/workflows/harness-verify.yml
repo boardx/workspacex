@@ -134,6 +134,9 @@ jobs:
           # --affected 需要能 diff 到 base 分支
           fetch-depth: 0
 
+      - name: Exercise minimal Docker release command offline
+        run: python3 -I -B tests/test_minimal_docker_release.py
+
       # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段
       # (pnpm@9.0.0) 读取。两处都写会触发 ERR_PNPM_BAD_PM_VERSION。
       - name: Setup pnpm
