@@ -1,5 +1,19 @@
 # 剩余8项与 #5666：实际验收记录
 
+## Current iteration: historical results below are not final acceptance
+
+A is implemented as the authorized minimal compatible technical choice. No #5638 reply is treated as signoff, and no confirmed/status, API schema, database schema or production authorization rule changed. The explicit admin triage entry navigates only after a real 201 and server ID; existing entries retain mine. Saved IDs and review links survive destination-read failures without another POST.
+
+- Implementation: `37529be86`; normal main integration: `44e3d5536`; linked pagination/search/view preservation fix: `c9db0d68d`.
+- Root ran 334 related unit tests on `c9db0d68d`: all passed. Registry counterexamples: 3 passed. Independent code review ACCEPT is not complete acceptance. Normal pre-push checks passed; no force push or skipped hook.
+- Exact-head CI fullstack: **118 passed / 1 failed / 94 did not run**. The new admin chat test receives project authorization 403 before thread navigation. The original admin intentionally lacks project/team membership for existing catalog-empty counterexamples. Disposable fixture prerequisites are being corrected without relaxing production permissions or altering the original admin.
+- Intermediate `44e3d5536` supplementary run was deliberately interrupted, not passed. The `c9db0d68d` run stopped at 17/20 during execution transport loss, with at least three Board offline failures and no final execution/summary JSON. Original logs and traces were retained; its owned processes and isolated stack were verified and cleaned after reconnection.
+- Corrected-source supplementary 20, complete fullstack and native 25 remain pending. Final exact source and real results will be recorded in [PR #5766](https://github.com/boardx/workspacex/pull/5766). Merge is still blocked by missing acceptance.
+
+Private evidence: `/tmp/pr5766-ui-c9db.log`, `/tmp/pr5766-fullstack-c9db.log`, `/tmp/pr5766-disconnected-c9db-artifacts.tar.gz`, `/var/folders/ph/ns5lvrqn6v5d1wcg8wbcpw500000gn/T/wsx-board-remaining-TuPFeQ/`. Raw session-bearing attachments are not published.
+
+## Historical evidence, bound only to its stated older source
+
 2026-10-15。Issue #5764、#5666。状态：**部分通过，不能合并**。子智能体只开发；以下测试由 root 执行。
 
 源码起点与最新已核对 origin/main：`a4346771468f33eb13e25f836c9e74b06f44cba4`。
