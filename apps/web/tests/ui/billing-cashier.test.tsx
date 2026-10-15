@@ -91,7 +91,7 @@ describe("F06 real cashier financial lifecycle",()=>{
   expect(f.fetcher.mock.calls.filter(([url])=>String(url).endsWith("/wallet?ownerType=user"))).toHaveLength(2);
   expect(f.fetcher.mock.calls.filter(([url])=>String(url).includes("/transactions?"))).toHaveLength(2);
  });
- it.each([401,403])("masks all sensitive content on a definitive %s order denial",async(status)=>{
+ it.each([401,403,404])("masks all sensitive content on a definitive %s order denial",async(status)=>{
   live({get:()=>reply({},status)});await generate();await screen.findByTestId("billing-qr-code-area");
   fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-cashier-denied");
   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
