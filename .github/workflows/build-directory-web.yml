@@ -82,6 +82,8 @@ jobs:
           path: apps/web/test-results/digital-directory-cards
           retention-days: 7
   stage-existing-host:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    environment: production-cn-build
     needs: [build, compatibility]
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 10
