@@ -198,3 +198,11 @@ describe("F06 purchase navigation intent",()=>{
   expect(consumed).toHaveBeenCalledTimes(1);expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
  });
 });
+
+describe("F06 payment confirmation safety",()=>{
+ it("removes the payable QR while verified payment is PROCESSING without claiming SUCCESS",async()=>{
+  live({get:()=>reply({order:{...order,status:"PROCESSING"}})});await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-processing-hint");
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();expect(screen.queryByTestId("billing-success-badge")).toBeNull();
+ });
+});
