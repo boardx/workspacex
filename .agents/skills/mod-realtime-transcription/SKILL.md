@@ -46,3 +46,5 @@ description: 实时录音、ASR 流式转录、停止收尾和逐字稿持久化
 谁修改本模块，谁在 PR 中追加一条可验证经验；不删除旧条目，推翻时标明替代来源。
 
 - 2026-10-04：ASR gateway 测试须完整断言服务器计量身份，并在 afterEach 无条件清理客户端与 gateway WebSocket；仅末尾 close 会在身份断言失败后使 HTTP server.close 等待至超时（issue #5261 / PR #5269，故意不匹配本地断言 1.39s 退出反证）。
+
+- 2026-10-15：个人录音 VAD 模式停止使用 `session.finish` 并等待 `session.finished`，不能发仅适用于 manual 的 commit，也不能以已有 final 替代结束回执；录音断句窗口与 chat 隔离，保留原始标点。尾帧和 tracks 释放后 AudioContext.close 竞态不应阻断服务端停止握手（issue #5742，recording-protocol 与 pcm-audio-worklet-stop 回归）。

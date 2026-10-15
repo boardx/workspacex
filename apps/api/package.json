@@ -28,6 +28,7 @@
     "test:kg-remediation-unit": "vitest run --config vitest.kg-remediation-unit.config.ts",
     "test:model-testbench-unit": "vitest run --config vitest.model-testbench-unit.config.ts",
     "test:platform-model-test": "vitest run --config vitest.platform-model-test.config.ts",
+    "test:recording-protocol": "vitest run --config vitest.recording-protocol.config.ts",
     "test:realtime-voice-unit": "vitest run --config vitest.realtime-voice-unit.config.ts",
     "test:research-policy": "vitest run --config vitest.research-policy.config.ts",
     "test:usage-unit": "vitest run --config vitest.usage-unit.config.ts",
