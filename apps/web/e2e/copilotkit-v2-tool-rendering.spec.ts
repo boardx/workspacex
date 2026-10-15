@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { installTraceWireObserver, exactTraceRun, type TraceWireState } from "./support/trace-wire-observer";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { TRACE_SAMPLER, judgeLiveness, toBrowserClock, type TraceBaseline, type TraceSample } from "./support/trace-liveness";
 
@@ -279,43 +280,82 @@ test("工作台旧入口保留项目和线程参数", async ({ request }) => {
  */
 
 for (const projectId of [null, CHAT_READ_E2E.projectId]) {
-test(`工作台执行过程默认折叠，运行中展开实时更新，刷新后可回放（${projectId ? "项目" : "个人"}）`, async ({ page }) => {
+test(`工作台执行过程默认折叠，运行中展开实时更新，刷新后可回放（${projectId ? "项目" : "个人"}）`, async ({ page }, testInfo) => {
   await login(page);
   await warmUpCopilotRuntimeRoute(page);
   await page.goto(projectId ? `/chat?projectId=${projectId}` : "/chat", { waitUntil: "domcontentloaded" });
   let streamFinishedAt: number | null = null;
   const runResponse = page.waitForResponse((response) =>
-    response.request().method() === "POST" && response.url().includes("/api/copilotkit/") && response.url().includes("/run"));
+    response.request().method() === "POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(response.url()));
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
   const clockSkew = (await page.evaluate(() => Date.now())) - Date.now();
   await page.evaluate(TRACE_SAMPLER);
+  await page.evaluate(installTraceWireObserver);
+  let runId: string | null = null;
   const sendAt = toBrowserClock(Date.now(), clockSkew);
-  await page.getByTestId("copilotkit-v2-send").click();
-  const response = await runResponse;
-  void response.finished().then(() => { streamFinishedAt = Date.now(); });
-  const panel = page.getByTestId("run-trace-panel").last();
-  const toggle = panel.getByTestId("run-trace-toggle");
-  await expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await expect(panel.getByTestId("run-trace-body")).toBeHidden();
-  await toggle.click();
-  await expect(panel.getByTestId("run-trace-entry").first()).toBeVisible();
-  await expect.poll(() => panel.getByTestId("run-trace-entry").count()).toBeGreaterThan(1);
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await expect.poll(() => streamFinishedAt, { timeout: 60_000 }).not.toBeNull();
-  // ── 活性反证：条目在 run 流**还开着**的时候就已经进 DOM，不是结束后一次性灌进来的 ──
-  const runId = await panel.getAttribute("data-run-id");
-  const { samples, baseline } = await page.evaluate(() => {
-    const scope = window as unknown as { __traceSamples: TraceSample[]; __traceBaseline: TraceBaseline };
-    return { samples: scope.__traceSamples, baseline: scope.__traceBaseline };
-  });
-  const verdict = judgeLiveness(samples, baseline, runId, sendAt, toBrowserClock(streamFinishedAt!, clockSkew));
-  expect(verdict.live, verdict.message).toBe(true);
-  const count = await panel.getByTestId("run-trace-entry").count();
-  await page.reload({ waitUntil: "domcontentloaded" });
-  const restored = page.locator(`[data-testid="run-trace-panel"][data-run-id="${runId}"]`);
-  await expect(restored.getByTestId("run-trace-toggle")).toHaveAttribute("aria-expanded", "false");
-  await restored.getByTestId("run-trace-toggle").click();
-  await expect(restored.getByTestId("run-trace-entry")).toHaveCount(count);
-  if (projectId) await expect(page).toHaveURL(new RegExp(`projectId=${projectId}`));
+  try {
+    await page.getByTestId("copilotkit-v2-send").click();
+    const response = await runResponse;
+    expect(response.status()).toBe(200);
+    void response.finished().then(() => { streamFinishedAt = Date.now(); });
+    await expect.poll(async () => {
+      const wire = await page.evaluate(() => (window as unknown as { __traceWire: TraceWireState }).__traceWire);
+      runId = exactTraceRun(wire);
+      return runId;
+    }).not.toBeNull();
+    // The backend execution_event identity is distinct from the AGUI client runId.
+    // Never let the last historical/other panel substitute for this response's run.
+    const panel = page.locator(`[data-testid="run-trace-panel"][data-run-id="${runId}"]`);
+    const toggle = panel.getByTestId("run-trace-toggle");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(panel.getByTestId("run-trace-body")).toBeHidden();
+    await toggle.click();
+    await expect(panel.getByTestId("run-trace-entry").first()).toBeVisible();
+    await expect.poll(() => panel.getByTestId("run-trace-entry").count()).toBeGreaterThan(1);
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect.poll(async () => {
+      const wire = await page.evaluate(() => (window as unknown as { __traceWire: TraceWireState }).__traceWire);
+      return wire.records.some(row => row.requestOrdinal === 1 && row.kind === 'stream-end') ? streamFinishedAt : null;
+    }, { timeout: 60_000 }).not.toBeNull();
+    // ── 活性反证：条目在 run 流**还开着**的时候就已经进 DOM，不是结束后一次性灌进来的 ──
+    expect(await panel.getAttribute("data-run-id")).toBe(runId);
+    expect(exactTraceRun(await page.evaluate(() => (window as unknown as { __traceWire: TraceWireState }).__traceWire))).toBe(runId);
+    const { samples, baseline } = await page.evaluate(() => {
+      const scope = window as unknown as { __traceSamples: TraceSample[]; __traceBaseline: TraceBaseline };
+      return { samples: scope.__traceSamples, baseline: scope.__traceBaseline };
+    });
+    const verdict = judgeLiveness(samples, baseline, runId, sendAt, toBrowserClock(streamFinishedAt!, clockSkew));
+    expect(verdict.live, verdict.message).toBe(true);
+    const count = await panel.getByTestId("run-trace-entry").count();
+    await retainTraceDiagnostics();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const restored = page.locator(`[data-testid="run-trace-panel"][data-run-id="${runId}"]`);
+    await expect(restored.getByTestId("run-trace-toggle")).toHaveAttribute("aria-expanded", "false");
+    await restored.getByTestId("run-trace-toggle").click();
+    await expect(restored.getByTestId("run-trace-entry")).toHaveCount(count);
+    if (projectId) await expect(page).toHaveURL(new RegExp(`projectId=${projectId}`));
+  } finally {
+    await retainTraceDiagnostics();
+    await page.evaluate(() => (window as unknown as { __stopTraceWire?: () => void }).__stopTraceWire?.()).catch(() => {});
+  }
+  async function retainTraceDiagnostics() {
+    const evidence = await page.evaluate((currentRun) => {
+      const state = window as unknown as { __traceWire?: TraceWireState; __traceSamples?: TraceSample[]; __traceBaseline?: TraceBaseline };
+      if (!state.__traceWire) return null;
+      return { wire: state.__traceWire,
+        samples: state.__traceSamples?.slice(0, 2048).map(sample => ({ at: sample.at, total: sample.total, runEntries: currentRun ? sample.counts[currentRun] ?? 0 : null })),
+        baselineEntries: currentRun ? state.__traceBaseline?.[currentRun] ?? 0 : null,
+        samplesTruncated: (state.__traceSamples?.length ?? 0) > 2048,
+        mountedPanels: [...document.querySelectorAll('[data-testid="run-trace-panel"]')].slice(0, 128).map(panel => ({
+          matchesCurrentRun: currentRun !== null && panel.getAttribute('data-run-id') === currentRun,
+          entries: panel.querySelectorAll('[data-testid="run-trace-entry"]').length,
+          expanded: panel.querySelector('[data-testid="run-trace-toggle"]')?.getAttribute('aria-expanded') === 'true',
+        })) };
+    }, runId).catch(() => null);
+    if (evidence) await testInfo.attach('trace-liveness-metadata', { body: JSON.stringify({
+      kind: 'trace-liveness-metadata-v1', runId, sendAt, streamFinishedAt: streamFinishedAt === null ? null : toBrowserClock(streamFinishedAt, clockSkew),
+      ...evidence, hookGenerationObserved: false, anchorSelectionObserved: false,
+    }), contentType: 'application/json' });
+  }
 });
 }
