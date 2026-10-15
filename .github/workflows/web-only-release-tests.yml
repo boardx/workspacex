@@ -1,0 +1,22 @@
+name: Web-only release contract
+on:
+  pull_request:
+    paths:
+      - scripts/web-only-release.py
+      - scripts/directory-release-source.py
+      - tests/test_web_only_release.py
+      - tests/test_directory_release_source.py
+      - scripts/directory-production-browser.cjs
+      - .github/workflows/build-directory-web.yml
+      - .github/workflows/web-only-release-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 -I -B tests/test_web_only_release.py
+      - run: python3 -I -B tests/test_directory_release_source.py
+      - run: node --check scripts/directory-production-browser.cjs

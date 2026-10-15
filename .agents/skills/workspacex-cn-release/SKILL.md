@@ -108,3 +108,7 @@ cross-host provider pins, two-round reuse and stale evidence rejection. Their
 provider stand-ins are not production acceptance. MVP builds have a 20-minute
 export cap; standalone builds retain 65 minutes. The complete 30-minute target
 requires real measurement and does not extend an approved attempt's deadline.
+
+## Directory-only data-preserving partial release (#5752)
+
+When the human explicitly requires preserving existing data and adding no permissions, the separately reviewed [directory Web-only contract](../../../docs/operations/directory-web-only-release.md) may be used for this exact five-file backport. It records per-service source/image identity and does not claim the unified-source invariant or full-release receipts. Full-release rules remain unchanged. Its required build, baseline CAS, unchanged backend container/start-time proof, Web rollback and public-browser checks are implemented in `scripts/web-only-release.py`; no bare manual Compose invocation is accepted.

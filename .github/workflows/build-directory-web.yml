@@ -1,0 +1,99 @@
+name: Build CN directory Web backport
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: directory-web-backport-build
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          ref: d651dcb2cbbaa33e70d6ecdc7ace99954bc54890
+          path: source
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify exact baseline and reviewed five-file payload
+        working-directory: source
+        run: python3 -I -B ../control/scripts/directory-release-source.py d651dcb2cbbaa33e70d6ecdc7ace99954bc54890 > ../source-proof.json
+      - name: Resolve and freeze public Node base digest
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request,re
+          token=json.load(urllib.request.urlopen('https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/node:pull'))['token']
+          r=urllib.request.urlopen(urllib.request.Request('https://registry-1.docker.io/v2/library/node/manifests/22-bookworm-slim',headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json'}))
+          digest=r.headers['Docker-Content-Digest'];assert re.fullmatch('sha256:[a-f0-9]{64}',digest)
+          open('node-base.txt','w').write('docker.io/library/node@'+digest)
+          PY
+      - uses: docker/setup-buildx-action@v3
+      - name: Build immutable Web image only
+        run: |
+          set -euo pipefail
+          docker buildx build --load --platform linux/amd64 --file source/deploy/aliyun/images/web.Dockerfile --build-arg "NODE_IMAGE=$(cat node-base.txt)" --build-arg SOURCE_REVISION=d651dcb2cbbaa33e70d6ecdc7ace99954bc54890 --tag directory-web:d651dcb2 source
+          docker image inspect directory-web:d651dcb2 --format '{{json .}}' > image-inspect.json
+          docker save directory-web:d651dcb2 | gzip -1 > directory-web.tar.gz
+          sha256sum directory-web.tar.gz > archive.sha256
+      - uses: actions/upload-artifact@v6
+        with:
+          name: directory-web-d651dcb2-${{ github.run_id }}
+          path: |
+            directory-web.tar.gz
+            archive.sha256
+            image-inspect.json
+            node-base.txt
+            source-proof.json
+          retention-days: 7
+          if-no-files-found: error
+  compatibility:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: d651dcb2cbbaa33e70d6ecdc7ace99954bc54890
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Run reviewed acceptance against real baseline API and fresh isolated data
+        run: |
+          set -euo pipefail
+          git show bdd0a2911a05ac03de29b2cd2965ab3623116ee7:apps/web/e2e/digital-directory-cards.spec.ts > apps/web/e2e/digital-directory-cards.spec.ts
+          git show bdd0a2911a05ac03de29b2cd2965ab3623116ee7:apps/web/playwright.digital-directory-cards.config.ts > apps/web/playwright.digital-directory-cards.config.ts
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.digital-directory-cards.config.ts
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: directory-backport-browser-${{ github.run_id }}
+          path: apps/web/test-results/digital-directory-cards
+          retention-days: 7
+  stage-existing-host:
+    needs: [build, compatibility]
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: directory-web-d651dcb2-${{ github.run_id }}
+          path: ${{ runner.temp }}/directory-web-${{ github.run_id }}
+      - name: Verify downloaded archive without loading or starting it
+        working-directory: ${{ runner.temp }}/directory-web-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          sha256sum --check archive.sha256
+          echo "STAGED_DIRECTORY_WEB=$PWD"
+          # This job has no sudo, Docker, data, environment or activation commands.
