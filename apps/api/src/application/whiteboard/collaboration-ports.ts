@@ -17,7 +17,7 @@ export interface WhiteboardUpdateAck { epoch: number; seq: number; updateId: str
 /** Never broadcast or acknowledge before the owning outer transaction commits. */
 export interface WhiteboardPendingUpdate extends WhiteboardUpdateAck { durability: 'pending'; }
 export interface WhiteboardUpdateInput { epoch: number; updateId: string; gestureId: string; update: Uint8Array; }
-export interface WhiteboardCommandsInput { epoch: number; requestId: string; commands: WhiteboardCommand[]; actorId?: string; }
+export interface WhiteboardCommandsInput { epoch: number; requestId: string; commands: WhiteboardCommand[]; actorId?: string; expectedSeq?: number; }
 export interface WhiteboardDeletionProof {id:string;digest:string;tombstone:{client:number;clock:number};}
 export interface WhiteboardDeletionChange {id:string;before:string|null;after:string|null;}
 export interface WhiteboardRestoreDeletionInput {epoch:number;updateId:string;gestureId:string;deleteGestureId:string;objectIds:string[];inverseUpdate?:string;}

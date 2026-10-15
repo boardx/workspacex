@@ -1,3 +1,5 @@
+import {captureBoardLogin} from './support/board-login-capture.mjs';
+import {whiteboardSync} from '@repo/contracts';
 import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {test,expect,chromium,type Page,type Browser,type BrowserContext} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
@@ -6,7 +8,7 @@ import {dirname,join} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {SESSION_TOKEN_STORAGE_KEY} from '../lib/api-client';
-import {apiOrigin,boardApi,boardLogin,boardHead,createAcceptanceBoard,canonicalBoardSnapshot,canonicalRows,objectPoint} from './board-acceptance-support';
+import {apiOrigin,boardApi,boardLogin,boardHead,createAcceptanceBoard,canonicalBoardSnapshot,canonicalRows,objectPoint,settled} from './board-acceptance-support';
 import {expectBoardSynced} from './support/board-sync-status';
 import {createSpatialWsMetadataRecorder} from './support/board-spatial-ws-metadata';
 import {observeRuntimeChunks,runtimeSourceIdentity,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
@@ -53,8 +55,8 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   if(!proxyUrl||!secret||secret.length<32||!bridgePath||!templatePath)throw new Error('Explicit private owned transport required');
   const url=new URL(proxyUrl);if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||url.pathname!=='/'||url.search||url.hash||url.username||url.password)throw new Error('Non-loopback proxy');
   await sourceProof();
-  secondBrowser=await chromium.launch();peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});const peer=await peerContext.newPage();transport.observe(peer,'peer');
-  for(const page of [owner,peer])page.on('websocket',socket=>{const observed=new URL(socket.url());if(observed.pathname===`/v1/whiteboards/${boardId}/sync`)bindings.push(observed.protocol==='ws:'&&observed.hostname===url.hostname&&observed.port===url.port&&!observed.search&&!observed.hash&&!observed.username&&!observed.password);});
+  secondBrowser=await chromium.launch();peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});let peer=await peerContext.newPage();transport.observe(peer,'peer');
+  for(const page of [owner,peer])page.on('websocket',socket=>{const observed=new URL(socket.url());if(observed.pathname===whiteboardSync.WHITEBOARD_SYNC.path.replace(':boardId',encodeURIComponent(boardId)))bindings.push(observed.protocol==='ws:'&&observed.hostname===url.hostname&&observed.port===url.port&&!observed.search&&!observed.hash&&!observed.username&&!observed.password);});
   stage='login-owner';ownerToken=await boardLogin(owner);privateSecrets.push(ownerToken);stage='login-peer';const peerToken=await boardLogin(peer,F.leadEmail,F.leadPassword);privateSecrets.push(peerToken);
   const identities=[];for(const token of [ownerToken,peerToken]){const response=await api.get(`${apiOrigin()}/kernel/probe/whoami`,{headers:{authorization:`Bearer ${token}`}});expect(response.status()).toBe(200);identities.push(await response.json());}
   expect(identities.map(identity=>identity.userId)).toEqual([F.userId,F.leadUserId]);expect(F.userId).not.toBe(F.leadUserId);expect(peerToken).not.toBe(ownerToken);
@@ -70,11 +72,43 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   for(const gesture of ['drag','text','undo'] as const){
    failureStage=`${gesture.toUpperCase()}_READY`;await expectBoardSynced(owner);const before=await canonicalBoardSnapshot(api,ownerToken,boardId),metadataBefore=transport.snapshot().events.length;
    await owner.keyboard.press('Escape');await owner.getByTestId('board-tool-select').click();await owner.getByTestId('board-zoom-fit-board').click();
+   if(gesture==='drag'){
+    // Fit zoom is fractional; Chromium mouse coordinates are CSS-pixel quantized.
+    // Use the real zoom UI to make a 40x24 CSS-pixel gesture exactly 40x24 world units.
+    await owner.getByTestId('board-zoom-menu').click();
+    await owner.getByRole('menuitem',{name:'实际大小 100%',exact:true}).click();
+    await expect(owner.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom','1');
+    await settled(owner);
+    // Zoom preserves pan: a fitted pan can leave the note offscreen at 100%.
+    // Recenter through the actual Hand gesture before the measured write gesture.
+    const surface=owner.getByTestId('board-fabric-surface');
+    const pan=await surface.evaluate(el=>{
+     const r=el.getBoundingClientRect(),px=Number(el.getAttribute('data-viewport-pan-x')),py=Number(el.getAttribute('data-viewport-pan-y'));
+     const start={x:Math.round(r.left+r.width/2),y:Math.round(r.top+r.height/2)};
+     // Independent seeded world center (190,230); keep release away from edge pan.
+     return {start,dx:Math.round(r.width/2-px-190),dy:Math.round(r.height/2-py-230)};
+    });
+    await owner.getByTestId('board-tool-hand').click();
+    expect(await owner.evaluate(p=>document.elementFromPoint(p.x,p.y)?.tagName==='CANVAS',pan.start)).toBe(true);
+    await owner.mouse.move(pan.start.x,pan.start.y);await owner.mouse.down();
+    await owner.mouse.move(pan.start.x+pan.dx,pan.start.y+pan.dy,{steps:12});await owner.mouse.up();
+    await owner.getByTestId('board-tool-select').click();await settled(owner);
+    await expect(surface).toHaveAttribute('data-viewport-zoom','1');
+
+   }
    const point=gesture==='drag'?await objectPoint(owner,objectId):null;
+   if(point){
+    expect(point.zoom).toBe(1);point.x=Math.round(point.x);point.y=Math.round(point.y);
+    expect(await owner.evaluate(p=>document.elementFromPoint(p.x,p.y)?.tagName==='CANVAS',point)).toBe(true);
+   }
    failureStage=`${gesture.toUpperCase()}_HOLD`;await control('hold-writes');
    if(gesture==='drag'){await owner.mouse.move(point!.x,point!.y);await owner.mouse.down();await owner.mouse.move(point!.x+40*point!.zoom,point!.y+24*point!.zoom,{steps:12});await owner.mouse.up();}
    else if(gesture==='text')await edit(owner,objectId,'Acknowledged text');
-   else await owner.getByRole('button',{name:'撤销',exact:true}).click();
+   else {
+    failureStage='UNDO_UI';
+    if((owner.viewportSize()?.width??1440)<640){await owner.getByTestId('board-fabric-surface').focus();await owner.keyboard.press('ControlOrMeta+z');}
+    else await owner.getByRole('button',{name:'撤销',exact:true}).click();
+   }
    failureStage=`${gesture.toUpperCase()}_PENDING`;await cloud(owner,'pending',`${gesture}-pending`);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(before);
    await expect.poll(()=>durableIds(owner,boardId)).not.toEqual([]);const receipts=await durableIds(owner,boardId);
    expect(transport.snapshot().events.slice(metadataBefore).filter(event=>event.client==='original'&&event.direction==='received'&&event.type==='ack')).toHaveLength(0);
@@ -93,22 +127,71 @@ test('S01-S03 independent processes and users prove pending ACK, offline converg
   await edit(peer,objectId,'Independent offline text');await expect.poll(()=>durableIds(peer,boardId)).not.toEqual([]);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(offlineBefore);
   failureStage='PEER_RECOVERY';await peerContext.setOffline(false);await expectBoardSynced(peer,45_000);await expect.poll(()=>canonicalRows(owner),{timeout:45_000}).toEqual(await canonicalRows(peer));
   const recovered=await canonicalBoardSnapshot(api,ownerToken,boardId);expect(recovered.objects).toEqual(offlineBefore.objects.map(object=>object.id===objectId?{...object,text:'Independent offline text'}:object));await expect.poll(()=>durableIds(peer,boardId)).toEqual([]);await peer.reload();await expectBoardSynced(peer);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(recovered);await cloud(peer,'synced','independent-peer-refreshed');
+  const revokedEvents=transport.snapshot().events.length;
   failureStage='VIEWER_UNMOUNT';await boardApi(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:F.leadUserId,role:'viewer'});
-  await expect(peer.getByTestId('board-add-sticky')).toBeDisabled();await expectBoardSynced(peer,30_000,true);
-  const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=transport.snapshot().events.length;
+  // Live role revocation intentionally clears and unmounts the old document.
+  await expect(peer.getByTestId('denied')).toBeVisible();
+  await expect(peer.getByTestId('board-fabric-surface')).toHaveCount(0);
+  const viewerResponse=await boardApi(api,peerToken,'GET',`/whiteboards/${boardId}`);
+  expect((await viewerResponse.json()).role).toBe('viewer');
+  const viewerHead=await boardHead(api,peerToken,boardId);
+  const rejectedWrite=await api.post(`${apiOrigin()}/whiteboards/${boardId}/commands`,{headers:{authorization:`Bearer ${peerToken}`},data:{requestId:randomUUID(),epoch:viewerHead.epoch,commands:[{type:'delete',id:objectId}]}});
+  expect(rejectedWrite.status()).toBe(403);expect(await boardHead(api,ownerToken,boardId)).toEqual(viewerHead);
+  await expect.poll(()=>durableIds(peer,boardId)).toEqual([]);
+  expect(transport.snapshot().events.slice(revokedEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
+  // A fresh actual viewer session has no revoked outbox from the former editor.
+  failureStage='VIEWER_REAUTH';await peerContext.close();
+  peerContext=await secondBrowser.newContext({baseURL,viewport:owner.viewportSize()!});peer=await peerContext.newPage();
+  const viewerTransport=createSpatialWsMetadataRecorder();viewerTransport.observe(peer,'peer');
+  const viewerChunks=observeRuntimeChunks(peer);
+  const viewerLogin=await captureBoardLogin(peer,()=>boardLogin(peer,F.leadEmail,F.leadPassword));
+  expect(viewerLogin.posts).toBe(1);expect(viewerLogin.status).toBe(200);expect((viewerLogin.body as {userId:string}).userId).toBe(F.leadUserId);
+  const viewerToken=viewerLogin.token;privateSecrets.push(viewerToken);
+  expect(viewerToken).not.toBe(peerToken);expect((await (await boardApi(api,viewerToken,'GET',`/whiteboards/${boardId}`)).json()).role).toBe('viewer');
+  await peer.goto(`/studio/board/${boardId}`);await expectBoardSynced(peer,30_000,true);
+  await expect(peer.getByTestId('board-add-sticky')).toBeDisabled();
+  observations.push({phase:'viewer-runtime-before',...await verifyRuntimeIdentity(api,sourceSha,await viewerChunks())});
+
+  const readonlyBefore=await canonicalBoardSnapshot(api,ownerToken,boardId),readonlyEvents=viewerTransport.snapshot().events.length;
   const viewerOutline=peer.getByTestId(`board-a11y-object-${objectId}`);await viewerOutline.focus();await viewerOutline.press('Enter');await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
   const readonlyPoint=await objectPoint(peer,objectId);await peer.mouse.move(readonlyPoint.x,readonlyPoint.y);await peer.mouse.down();await peer.mouse.move(readonlyPoint.x+20*readonlyPoint.zoom,readonlyPoint.y+20*readonlyPoint.zoom,{steps:8});await peer.mouse.up();await peer.mouse.dblclick(readonlyPoint.x,readonlyPoint.y);await expect(peer.getByRole('textbox',{name:'对象文字',exact:true})).toHaveCount(0);
+  // Viewer Fabric objects are intentionally non-selectable/evented. Pointer
+  // attempts can clear outline selection; prove no write, then explicitly select
+  // through the actual accessible outline before exercising destructive keys.
+  expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(readonlyBefore);
+  expect(viewerTransport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
+  await viewerOutline.focus();await viewerOutline.press('Enter');
   await expect(viewerOutline).toHaveAttribute('aria-pressed','true');await peer.keyboard.press('Delete');await peer.keyboard.press('ControlOrMeta+z');await peer.keyboard.press('n');
-  const peerSocket=transport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='open').at(-1)?.socketId;expect(typeof peerSocket).toBe('number');
-  await peer.goto('/home');await expect(peer.getByTestId('collaborative-editor')).toHaveCount(0);
-  await expect.poll(()=>transport.snapshot().events.slice(readonlyEvents).some(event=>event.client==='peer'&&event.direction==='close'&&event.socketId===peerSocket)).toBe(true);
+  const peerSocket=viewerTransport.snapshot().events.filter(event=>event.client==='peer'&&event.direction==='open').at(-1)?.socketId;expect(typeof peerSocket).toBe('number');
+  // Navigate through the real SPA Back action: keep this renderer/CDP target
+  // alive so the native WebSocket close from provider cleanup remains observable.
+  await peer.getByRole('button',{name:'返回白板',exact:true}).click();
+  await expect(peer).toHaveURL(/\/studio\/board(?:\?.*)?$/);
+  await expect(peer.getByTestId('collaborative-editor')).toHaveCount(0);
+  await expect.poll(()=>viewerTransport.snapshot().events.slice(readonlyEvents).some(event=>event.client==='peer'&&event.direction==='close'&&event.socketId===peerSocket)).toBe(true);
   // A real quiet interval catches detached timers; no mocked provider is involved.
   await peer.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(readonlyBefore);
-  expect(transport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
+  expect(viewerTransport.snapshot().events.slice(readonlyEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
   expect(bindings.every(Boolean)).toBe(true);observations.push({phase:'readonly-unmount',lateUpdates:0,before:readonlyBefore.revision,after:(await boardHead(api,ownerToken,boardId))});
-  failureStage='OWNER_UNMOUNT';const unmountBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await owner.context().setOffline(true);await cloud(owner,'offline','owner-before-unmount');
+  expect(viewerTransport.snapshot().dropped).toBe(0);observations.push({phase:'viewer-transport',client:'viewer',...viewerTransport.snapshot()});
+  observations.push({phase:'viewer-runtime-after',...await verifyRuntimeIdentity(api,sourceSha,await viewerChunks())});
+  expect(transport.snapshot().events.slice(revokedEvents).filter(event=>event.client==='peer'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);
+  failureStage='OWNER_UNMOUNT';
+  // Populate the real client-router cache through the user's navigation path.
+  // A full page.goto while offline cannot load a new HTML document.
+  await owner.getByRole('button',{name:'返回白板',exact:true}).click();
+  await expect(owner).toHaveURL(/\/studio\/board(?:\?.*)?$/);
+  await expect(owner.getByTestId(`board-open-${boardId}`)).toBeVisible();
+  await owner.getByTestId(`board-open-${boardId}`).click();await expectBoardSynced(owner);
+  const unmountBefore=await canonicalBoardSnapshot(api,ownerToken,boardId);await owner.context().setOffline(true);await cloud(owner,'offline','owner-before-unmount');
   await edit(owner,objectId,'Unsubmitted detached editor');const unmountEvents=transport.snapshot().events.length;
-  await owner.goto('/home');await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);await owner.context().setOffline(false);
+  expect(await owner.evaluate(()=>navigator.onLine)).toBe(false);
+  await owner.getByRole('button',{name:'返回白板',exact:true}).click();
+  await expect(owner).toHaveURL(/\/studio\/board(?:\?.*)?$/);
+  await expect(owner.getByTestId('collaborative-editor')).toHaveCount(0);
+  await expect(owner.getByTestId('whiteboard-library')).toBeVisible();
+  expect(await owner.evaluate(()=>navigator.onLine)).toBe(false);
+  await owner.context().setOffline(false);
   await owner.waitForTimeout(1500);expect(await canonicalBoardSnapshot(api,ownerToken,boardId)).toEqual(unmountBefore);
   expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='open')).toHaveLength(0);
   expect(transport.snapshot().events.slice(unmountEvents).filter(event=>event.client==='original'&&event.direction==='sent'&&event.type==='update')).toHaveLength(0);

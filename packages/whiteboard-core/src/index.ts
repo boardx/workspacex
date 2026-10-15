@@ -127,3 +127,9 @@ export { WhiteboardAIProposalManager, proposalCommands } from './ai-proposal';
 export { computeRenderedLayoutHash, renderedLayoutToCommands, verifyRenderedDiagramLayout } from './artifact-handoff';
 export { WhiteboardPresentationSession, type PresentationState } from './presentation';
 export {compensateWhiteboardSnapshot} from './snapshot-compensation';
+
+export { MindmapCommandPort, mindmapStateVector, type MindmapCommandEnvelope } from './mindmap-authority';
+export { validateMindmapTrees, mindmapStructureDigest, commandsChangeMindmapStructure } from './mindmap-validation';
+export { WhiteboardMindmapMetadata, WhiteboardMindmapCommand } from '@repo/contracts/whiteboard-document';
+
+export { computeMindmapLayout, mindmapHiddenIds, readMindmapTree, readMindmapMetadata, type MindmapTree } from './mindmap-layout';

@@ -2,9 +2,10 @@ import { afterEach, expect, it } from "vitest";
 import { shouldHandleBoardShortcut } from "@/components/whiteboard/board-shortcuts";
 const disposers: Array<() => void> = [];
 afterEach(() => { disposers.splice(0).forEach(dispose => dispose()); document.body.replaceChildren(); });
-function dispatchScope({ outside = false, input = false, dialog = false, composing = false, repeat = false, prevented = false } = {}) {
+function dispatchScope({ outside = false, input = false, dialog = false, menu = false, composing = false, repeat = false, prevented = false } = {}) {
   const host = document.createElement("section"), picker = document.createElement("div"), target = document.createElement(input ? "input" : "button");
   if (dialog) picker.setAttribute("role", "dialog");
+  if (menu) picker.setAttribute("role", "menu");
   picker.append(target); host.append(picker); document.body.append(host);
   let detached = false, owned = false, handled: boolean | undefined;
   const dismiss = () => { target.remove(); detached = !host.contains(target); };
@@ -30,3 +31,5 @@ it("continues to reject IME, repeat and already handled events", () => {
   expect(dispatchScope({ repeat: true }).handled).toBe(false);
   expect(dispatchScope({ prevented: true }).handled).toBe(false);
 });
+
+it("preserves native menu keys even after the menu detaches", () => { expect(dispatchScope({ menu: true }).handled).toBe(false); });

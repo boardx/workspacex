@@ -29,7 +29,7 @@ export function offsetAnchor(geometry:R01Geometry,side:'left'|'right',offset:R01
 }
 export function assertPoints(actual:R01Point[],expected:R01Point[],tolerance=.01){
  finite([tolerance]);if(tolerance<0||!expected.length||actual.length!==expected.length)throw new Error('R01_MISSING_ENTITY_POINT');
- actual.forEach((point,index)=>{finite([point.x,point.y,expected[index]!.x,expected[index]!.y]);if(Math.hypot(point.x-expected[index]!.x,point.y-expected[index]!.y)>tolerance)throw new Error('R01_POINT_ERROR');});
+ actual.forEach((point,index)=>{finite([point.x,point.y,expected[index]!.x,expected[index]!.y]);const distance=Math.hypot(point.x-expected[index]!.x,point.y-expected[index]!.y);if(distance>tolerance)throw new Error(`R01_POINT_ERROR ${JSON.stringify({index,actual:{x:point.x,y:point.y},expected:{x:expected[index]!.x,y:expected[index]!.y},distance,tolerance})}`);});
 }
 export function assertAtomicRevision(before:{epoch:number;seq:number},after:{epoch:number;seq:number},delta:number){
  if(![before.epoch,after.epoch,before.seq,after.seq,delta].every(Number.isSafeInteger)||before.epoch<=0||after.epoch<=0||before.seq<0||after.seq<0||delta<0)throw new Error('R01_INVALID_REVISION');

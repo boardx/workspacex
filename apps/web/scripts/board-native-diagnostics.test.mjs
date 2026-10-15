@@ -5,7 +5,7 @@ import {mkdtempSync,mkdirSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {fixedNativeFailure,parseNativeFailure} from '../e2e/support/board-native-failure-stage.mjs';
-import {fixedFilesFailure,parseFilesFailure} from '../e2e/support/board-files-failure-diagnostic.mjs';
+import {fixedFilesFailure,parseFilesFailure,filesFailureAggregateLine} from '../e2e/support/board-files-failure-diagnostic.mjs';
 import {readNativeReceipts,nativeReceiptVerdict,verifyNativeReceipts,safeNativeReceiptSummary} from '../../../.harness/scripts/lib/board-native-receipts.mjs';
 test('native markers expose only fixed stage and retain no primary text',()=>{
  for(const [suite,file] of [['R01','board-r01-native-matrix.spec.ts'],['R08','board-peer-origin-close.spec.ts']]){
@@ -17,9 +17,12 @@ test('native markers expose only fixed stage and retain no primary text',()=>{
  }
 });
 test('file marker preserves phase despite private reporter suffix',()=>{
+ const root=new URL('../../..',import.meta.url).pathname,line=filesFailureAggregateLine(root);
+ assert(Number.isSafeInteger(line));
  const message='AggregateError: '+fixedFilesFailure('DOWNLOAD_HEADERS',2,0,0)+'\nprivate-stack';
- assert.deepEqual(parseFilesFailure(message,{source:'ASSERTION',file:'board-files-filenames.spec.ts',line:68}),{phase:'DOWNLOAD_HEADERS',ordinal:2,deleteFailures:0,identityFailures:0});
- assert.equal(parseFilesFailure(message,{source:'ASSERTION',file:'foreign.ts',line:68}),null);
+ assert.deepEqual(parseFilesFailure(message,{source:'ASSERTION',file:'board-files-filenames.spec.ts',line},root),{phase:'DOWNLOAD_HEADERS',ordinal:2,deleteFailures:0,identityFailures:0});
+ assert.equal(parseFilesFailure(message,{source:'ASSERTION',file:'foreign.ts',line},root),null);
+ assert.equal(parseFilesFailure(message,{source:'ASSERTION',file:'board-files-filenames.spec.ts',line:line+1},root),null);
 });
 test('missing connectors never erases two measured failures and cannot pass',()=>{
  const root=mkdtempSync(join(tmpdir(),'board-receipts-'));const sha='a'.repeat(40);

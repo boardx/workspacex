@@ -16,8 +16,20 @@ export function nativeBlankCandidates(input:{canvas:NativeRect;viewport:{width:n
   const margin=input.paperMargin??8;
   const left=Math.max(0,canvas.x)+margin,top=Math.max(0,canvas.y)+margin;
   const right=Math.min(viewport.width,canvas.x+canvas.width)-margin,bottom=Math.min(viewport.height,canvas.y+canvas.height)-margin;
+  // A fixed 16px lattice can miss a valid clearance interval (for example
+  // y=448..450 between enlarged chrome). Sample each chrome boundary interval
+  // as well; the same margin and actual-canvas hit checks still decide validity.
+  const axisCandidates=(minimum:number,maximum:number,boundaries:number[])=>{
+    const values=new Set<number>();
+    for(let value=minimum;value<maximum;value+=16)values.add(value);
+    const edges=[...new Set([minimum,maximum,...boundaries.filter(value=>value>minimum&&value<maximum)])].sort((a,b)=>a-b);
+    for(let index=1;index<edges.length;index++)if(edges[index]!>edges[index-1]!)values.add((edges[index]!+edges[index-1]!)/2);
+    return [...values].filter(value=>value>=minimum&&value<maximum);
+  };
+  const xs=axisCandidates(left,right,chrome.flatMap(rect=>[rect.x-margin,rect.x+rect.width+margin]));
+  const ys=axisCandidates(top,bottom,chrome.flatMap(rect=>[rect.y-margin,rect.y+rect.height+margin]));
   const points:Array<{x:number;y:number}>=[];
-  for(let y=top;y<bottom;y+=16)for(let x=left;x<right;x+=16){
+  for(const y of ys)for(const x of xs){
     if(chrome.some(r=>x+margin>=r.x&&x-margin<=r.x+r.width&&y+margin>=r.y&&y-margin<=r.y+r.height))continue;
     if(blocked.some(r=>x>=r.x-12&&x<=r.x+r.width+12&&y>=r.y-12&&y<=r.y+r.height+12))continue;
     points.push({x,y});
@@ -70,6 +82,30 @@ export async function createNativeText(page:Page,text:string,proof:NativeCreatio
 }
 async function createNativeTextObject(page:Page,text:string,proof:NativeCreationProof,kind:'sticky'|'text',options:{finishEditor?:boolean}){
   await expectBoardSynced(page,30_000);
+  // Reflow loops can leave editing or an inspector open after focus moves.
+  // Exit through the real focused editor/close control before arming a tool;
+  // fixed chrome cannot be moved out of the way by panning the canvas.
+  const previousEditor=page.getByLabel('对象文字',{exact:true});
+  if(await previousEditor.isVisible()){
+    await previousEditor.focus();await expect(previousEditor).toBeFocused();
+    await previousEditor.press('Escape');await expect(previousEditor).toBeHidden();
+    await expectBoardSynced(page,30_000);
+  }
+  const mindmapClose=page.getByRole('button',{name:'关闭思维导图',exact:true});
+  if(await mindmapClose.isVisible()){
+    await mindmapClose.click();await expect(mindmapClose).toBeHidden();
+  }
+  // Previous inspector/palette dialogs can survive a reflow with focus restored
+  // to their trigger. Dismiss them through their actual close control before
+  // arming a canvas gesture; never pretend an obscured area is native paper.
+  const openPopovers=page.getByTestId('board-tool-popover');
+  for(let attempt=0;attempt<12&&await openPopovers.count();attempt++){
+    const previousCount=await openPopovers.count();
+    const popup=openPopovers.last(),close=popup.getByRole('button',{name:/^关闭/});
+    await close.focus();await expect(close).toBeFocused();await close.press('Enter');
+    await expect.poll(()=>openPopovers.count()).toBeLessThan(previousCount);
+  }
+  await expect(openPopovers).toHaveCount(0);
   const before=await canonicalRows(page);
   const armedSnapshot=await canonicalBoardSnapshot(proof.api,proof.token,proof.boardId),armedHead=await boardHead(proof.api,proof.token,proof.boardId),armedUpdates=proof.updates();
   const selected=page.locator('[data-testid="board-a11y-mirror"] button[aria-pressed="true"]');
@@ -114,11 +150,16 @@ async function createNativeTextObject(page:Page,text:string,proof:NativeCreation
       return {x:box.x+(g.x+g.width/2)*zoom+panX-width/2,y:box.y+(g.y+g.height/2)*zoom+panY-height/2,width,height};
     });
     if(occupied.length!==count)throw new Error('NATIVE_GEOMETRY_COUNT_MISMATCH');
-    const chrome=Array.from(document.querySelectorAll('[data-board-chrome]')).map(node=>node.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0);
+    const allowedChrome=new Set(['header','dock','tool-picker','draw-panel','frame-panel','zoom','minimap']);
+    const chrome=Array.from(document.querySelectorAll('[data-board-chrome], [data-testid="board-mindmap-controls"]')).map(node=>{
+      const rect=node.getBoundingClientRect(),candidate=node.getAttribute('data-board-chrome');
+      const kind=candidate&&allowedChrome.has(candidate)?candidate:node.getAttribute('data-testid')==='board-mindmap-controls'?'mindmap':'other';
+      return {x:rect.x,y:rect.y,width:rect.width,height:rect.height,kind};
+    }).filter(rect=>rect.width>0&&rect.height>0);
     const selection=occupied.filter((_,index)=>nodes[index]?.querySelector('[aria-pressed="true"]'));
     return {canvas:{x:box.x,y:box.y,width:box.width,height:box.height},viewport:{width:innerWidth,height:innerHeight},occupied,selection,
       // This is viewport-visible clearance for native reflow placement, not proof of the full scaled paper footprint.
-      zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height}))};
+      zoom,requestedPaperMargin:Math.max(120,120*zoom),paperMargin:Math.max(8,Math.min(Math.max(120,120*zoom),Math.min(box.width,innerWidth)/4,Math.min(box.height,innerHeight)/4)),chrome:chrome.map(r=>({x:r.x,y:r.y,width:r.width,height:r.height,kind:r.kind}))};
    },expectedCount);
    const candidates=await page.evaluate(nativeBlankCandidates,sample);
    return page.getByTestId('board-fabric-surface').evaluate(nativeBlankHitPoint,{points:candidates,geometry:sample,hitPolicy:diagnosticPolicy});

@@ -84,6 +84,10 @@ describe("real Fabric drawing coordinate projection", () => {
     { tool: "eraser" as const, width: 24, scaleX: 2, scaleY: 2, rotation: 90 },
     { tool: "marker" as const, width: 8, scaleX: 1, scaleY: 1, rotation: 0 },
     { tool: "eraser" as const, width: 24, scaleX: 1, scaleY: 1, rotation: 90 },
+    // Current captured eraser width (48) must remain exact in world space;
+    // 2.4x scaling yields intrinsic width 20, not the old 24px oracle's 10.
+    { tool: "eraser" as const, width: 48, scaleX: 2.4, scaleY: 2.4, rotation: 37 },
+    { tool: "eraser" as const, width: 48, scaleX: 2.4, scaleY: .5, rotation: 90 },
     { tool: "marker" as const, width: 8, scaleX: 2, scaleY: .5, rotation: 37 },
   ])("preserves maximum scene ink width for $tool at $scaleX/$scaleY scale and $rotation degrees", ({ tool, width, scaleX, scaleY, rotation }) => {
     const geometry = { x: 10, y: 20, width: 40 * scaleX, height: 40 * scaleY, rotation };

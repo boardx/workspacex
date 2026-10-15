@@ -96,6 +96,9 @@ test('R01 requires eight distinct signed title-project cases, not a repeated pas
 test('R01 final projection never publishes private fields or treats preserved boards and hardware as completed',()=>{
  const definition=suiteDefinition('e2e/board-r01-existing-runtime.config.ts'),head='a'.repeat(40),proof={identity:{head},manifestHash:'1'.repeat(64),verifierHash:'2'.repeat(64),selectorHash:'3'.repeat(64)},receipts=definition.titles.flatMap(title=>definition.projects.map(project=>({source:head,testIdentity:{title,project},status:'functional-cases-passed',completed:false,cleanupPending:true,hardwareTrackpad:'unverified',observationMode:'all',visualEvidence:'executed-not-human-approved',screenshots:[{name:'bounded',sha256:'5'.repeat(64)}],boardId:'private-id',title:'private-title',beforeProof:structuredClone(proof),afterProof:structuredClone(proof)})));
  assert.deepEqual(r01ResultSummary(receipts,head,'all'),{observationMode:'all',visualEvidence:'executed-not-human-approved',visuallyAccepted:false,functionalCasesPassed:8,completed:false,cleanupPending:true,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
+ const cleaned=receipts.map(value=>({...value,cleanupPending:false,boardId:null,title:null}));
+ assert.deepEqual(r01ResultSummary(cleaned,head,'all'),{observationMode:'all',visualEvidence:'executed-not-human-approved',visuallyAccepted:false,functionalCasesPassed:8,completed:false,cleanupPending:false,hardwareTrackpad:'unverified',requiredSuiteComplete:false});
+ assert.equal(r01ResultSummary([...cleaned.slice(1),receipts[0]],head,'all').cleanupPending,true);
  for(const values of [receipts.slice(1),receipts.map(()=>receipts[0]),receipts.map(value=>({...value,source:'b'.repeat(40)})),receipts.map(value=>({...value,status:'failed'})),receipts.map(value=>({...value,completed:true}))])assert.throws(()=>r01ResultSummary(values,head,'all'));
  const functional=receipts.map(value=>({...value,observationMode:'functional',visualEvidence:'deferred-not-verified',screenshots:[]}));
  assert.equal(r01ResultSummary(functional,head,'functional').visualEvidence,'deferred-not-verified');
@@ -336,8 +339,10 @@ test('Connector fixed login markers preserve exact assertion identity without pr
 
 test('Files fixed phase diagnostics bind actual aggregate source and preserve failure gates',async()=>{
  const {safeAcceptanceDiagnostics}=await import('./run-board-native-acceptance.mjs');
- const {fixedFilesFailure,FILES_FAILURE_AGGREGATE_LINE}=await import('../e2e/support/board-files-failure-diagnostic.mjs');
+ const {fixedFilesFailure,filesFailureAggregateLine}=await import('../e2e/support/board-files-failure-diagnostic.mjs');
  const source=readFileSync(new URL('../e2e/board-files-filenames.spec.ts',import.meta.url),'utf8');
+ const FILES_FAILURE_AGGREGATE_LINE=filesFailureAggregateLine(new URL('../../..',import.meta.url).pathname);
+ assert(Number.isInteger(FILES_FAILURE_AGGREGATE_LINE));
  assert(source.split('\n')[FILES_FAILURE_AGGREGATE_LINE-1].includes('throw new AggregateError(failures, fixedFilesFailure('));
  const config='e2e/board-files-completion.config.ts',file='board-files-filenames.spec.ts';
  const inspectError=(error,specfile=file)=>{const failed={status:'failed',errors:[error]},test={results:[failed]},spec={file:specfile,line:23,tests:[test]},suite={specs:[spec]};return safeAcceptanceDiagnostics(config,{suites:[suite]}).firstFailure;};
@@ -385,3 +390,16 @@ test('absent native suite retains truthful receipt and exits nonzero before runt
     assert.deepEqual(JSON.parse(readFileSync(join(evidence,'files/receipt.json'),'utf8')),{sourceHead:head,status:'ABSENT',existingSpecsSkipped:0,actualRuntimeExecution:false,requiredSuiteComplete:false});
   } finally {rmSync(root,{recursive:true});rmSync(evidence,{recursive:true});}
 });
+
+ test('Files fixed marker follows source line movement and rejects duplicates or absence',async()=>{
+ const {filesFailureAggregateLine}=await import('../e2e/support/board-files-failure-diagnostic.mjs');
+ const root=realpathSync(mkdtempSync(join(tmpdir(),'wsx-files-marker-'))),directory=join(root,'apps/web/e2e'),path=join(directory,'board-files-filenames.spec.ts');
+ const line='if (failures.length) throw new AggregateError(failures, fixedFilesFailure(primaryPhase, primaryOrdinal, deleteFailures, identityFailures));';
+ try{
+  mkdirSync(directory,{recursive:true});assert.equal(filesFailureAggregateLine(root),null);
+  writeFileSync(path,'\n'.repeat(83)+line+'\n');assert.equal(filesFailureAggregateLine(root),84);
+  writeFileSync(path,line+'\n'+line);assert.equal(filesFailureAggregateLine(root),null);
+  writeFileSync(path,'// '+line);assert.equal(filesFailureAggregateLine(root),null);
+  writeFileSync(path,'x'.repeat(512*1024+1));assert.equal(filesFailureAggregateLine(root),null);
+ }finally{rmSync(root,{recursive:true});}
+ });

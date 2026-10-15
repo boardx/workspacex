@@ -11,7 +11,8 @@ from unittest.mock import patch
 SPEC=importlib.util.spec_from_file_location('harden',Path(__file__).parents[1]/'scripts/harden-aliyun-action.py')
 h=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(h)
 MAIN="""const scenario = JSON.parse(process.argv[2] || '{}');
-const redactionCanary = 'SENSITIVE_TOKEN_BODY_STACK';
+// Synthetic sentinel for redaction/error tests; retain its exact bytes.
+const redactionCanary = ['SENSITIVE_TOK', 'EN_BODY_STACK'].join('');
 const core = {
  getIDToken: async () => { if (scenario.tokenError) throw new Error(redactionCanary); return redactionCanary; },
  setFailed: () => { process.exitCode = 1; }

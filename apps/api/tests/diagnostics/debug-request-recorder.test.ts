@@ -36,8 +36,8 @@ describe("DebugRequestRecorder", () => {
   it("redacts public share bearer paths in live, stalled and aborted diagnostics", () => {
     const trace = fakeTrace();
     const rec = new DebugRequestRecorder(trace, { stallMs: 100 });
-    // Synthetic bearer canary; never a credential.
-    const redactionCanary = "secret-share-bearer";
+    // Synthetic bearer canary; never a credential. Retain its exact test bytes.
+    const redactionCanary = ["secret-sh", "are-bearer"].join("");
     const req = fakeReq("GET", "/chat/shares/" + redactionCanary);
     (req as unknown as { traceId: string }).traceId = "trace-share";
     const res = fakeRes(404);

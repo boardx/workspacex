@@ -33,6 +33,17 @@ describe('native Sticky click placement',()=>{
     expect(points.length).toBeGreaterThan(0);
     expect(points.every(p=>p.x>=80&&p.x<240&&p.y>192&&p.y<640)).toBe(true);
   });
+  it('finds the real two-pixel clearance interval missed by a 16px lattice at 400 percent text reflow',()=>{
+    const input={canvas:{x:0,y:0,width:320,height:720},viewport,occupied:[],paperMargin:80,
+      chrome:[{x:0,y:0,width:320,height:64},{x:16,y:182,width:288,height:186},{x:57,y:80,width:247,height:90},{x:16,y:530,width:288,height:170}]};
+    const points=nativeBlankCandidates(input);
+    expect(points.length).toBeGreaterThan(0);
+    expect(points.some(point=>point.y===449)).toBe(true);
+    expect(points.every(point=>point.x>=80&&point.x<240&&point.y>448&&point.y<450)).toBe(true);
+    // Exact original 80px effective paper clearance, without relaxing any chrome edge.
+    for(const point of points)for(const rect of input.chrome)expect(point.x+80>=rect.x&&point.x-80<=rect.x+rect.width&&point.y+80>=rect.y&&point.y-80<=rect.y+rect.height).toBe(false);
+    expect(nativeBlankCandidates({...input,occupied:[{x:0,y:436,width:320,height:26}]})).toEqual([]);
+  });
   it('cannot invent a blank point when chrome covers the entire real canvas',()=>{
     expect(nativeBlankCandidates({canvas,viewport,occupied:[],chrome:[canvas]})).toEqual([]);
   });

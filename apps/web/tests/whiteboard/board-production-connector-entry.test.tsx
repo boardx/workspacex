@@ -47,7 +47,8 @@ it("mounts the approved Connector entry in production without enabling Frame or 
     expect(screen.getByTestId("board-tool-picker")).toBeVisible();
     expect(connector).toHaveAttribute("aria-expanded", "true");
     expect(chevron).toHaveAttribute("data-state", "open");
-    expect(chevron).toHaveClass("rotate-180");
+    expect(chevron).toHaveAttribute("data-direction", "above");
+    expect(chevron.parentElement).toBe(connector);
     fireEvent.click(connector);
     expect(screen.queryByTestId("board-tool-picker")).toBeNull();
     expect(connector).toHaveAttribute("aria-expanded", "false");

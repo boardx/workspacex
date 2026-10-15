@@ -296,13 +296,34 @@ function textFitHeight(opts: Record<string, unknown>): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined;
 }
 
+/** Keep the entire label inside a fixed card, including labels too dense for 7px. */
+function fitStickyText(tb: Textbox, cardW: number, cardH: number): void {
+  tb.set({ width: Math.max(1, cardW - 14), scaleX: 1, scaleY: 1 });
+  tb.initDimensions();
+  const maxH = Math.max(1, cardH - 12);
+  shrinkTextboxToFit(tb, maxH);
+  // Font-size fitting has a readable floor. It is not a containment guarantee:
+  // long labels can still have dozens of lines at that floor. Scale the display
+  // uniformly as a last resort, without trimming the authoritative label.
+  const scale = Math.min(
+    1,
+    maxH / Math.max(1, tb.height + tb.strokeWidth),
+    Math.max(1, cardW - 12) / Math.max(1, tb.width + tb.strokeWidth),
+  );
+  tb.set({ scaleX: scale, scaleY: scale, left: 0, top: 0 });
+  // initDimensions refreshes aCoords before the last-resort scale is applied.
+  // Fabric reads cached aCoords for hit-testing and getBoundingRect, so refresh
+  // them after the final transform, not merely after measuring text.
+  tb.setCoords();
+}
+
 /**
  * Textbox for a fixed-size sticky note: starts at 13px and shrinks (down to
  * 7px) until the wrapped text fits the card height. CJK wraps per grapheme.
  */
 function makeStickyText(label: string, cardW: number, cardH: number): Textbox {
   const tb = new Textbox(label, {
-    width: Math.max(40, cardW - 14),
+    width: Math.max(1, cardW - 14),
     fontSize: 13,
     fontFamily: FONT_FAMILY,
     fill: LABEL_COLOR,
@@ -312,7 +333,7 @@ function makeStickyText(label: string, cardW: number, cardH: number): Textbox {
     top: 0,
     splitByGrapheme: true,
   });
-  shrinkTextboxToFit(tb, cardH - 12);
+  fitStickyText(tb, cardW, cardH);
   return tb;
 }
 
@@ -547,8 +568,15 @@ export class FlowNode extends Group {
         const baseFontSize = isMindmapNode ? ((this.data?.['fontSize'] as number) ?? FONT.body) : 13;
         tb.set({ text, fontSize: baseFontSize });
         tb.initDimensions();
-        shrinkTextboxToFit(tb, this.height - (isMindmapNode ? 10 : 12));
-        tb.set({ left: 0, top: 0 });
+        if (this.shape === 'sticky') {
+          // Use the fixed card, not the Group's layout bounds (text can affect
+          // those bounds during an edit).
+          const card = this.getObjects().find((o) => o instanceof Rect) as Rect;
+          fitStickyText(tb, card.width, card.height);
+        } else {
+          shrinkTextboxToFit(tb, this.height - 10);
+          tb.set({ left: 0, top: 0 });
+        }
       } else if (this.shape === 'text' && textFitHeight(this.data ?? {}) !== undefined) {
         // Header field value edited in place: re-fit exactly like a sticky —
         // reset to the base size, then shrink until it fits the row again.
@@ -628,6 +656,19 @@ export class FlowNode extends Group {
     // (group height - L) to stay round-trip consistent.
     const shape = (object['shape'] as NodeShape) ?? 'rect';
     const L = shape === 'participant' ? ((object['lifelineHeight'] as number) ?? 160) : 0;
+    // Fabric's Group bounds include each child's strokeWidth, even for a
+    // borderless Rect. Reusing those bounds as card dimensions grows a sticky
+    // by one pixel on every JSON restore. The serialized card owns its size.
+    const card = shape === 'sticky' && Array.isArray(object['objects'])
+      ? object['objects'].find((child: unknown): child is Record<string, unknown> =>
+          typeof child === 'object' && child !== null &&
+          typeof (child as Record<string, unknown>)['type'] === 'string' &&
+          ((child as Record<string, unknown>)['type'] as string).toLowerCase() === 'rect')
+      : undefined;
+    const cardDimension = (key: 'width' | 'height'): number | undefined => {
+      const value = card?.[key];
+      return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+    };
     const node = new FlowNode({
       nodeId: (object['nodeId'] as string) ?? 'node',
       label: (object['label'] as string) ?? '',
@@ -636,8 +677,8 @@ export class FlowNode extends Group {
       // the stored group position verbatim below instead.
       x: shape === 'pieSlice' ? 0 : ((object['left'] as number) ?? 0),
       y: shape === 'pieSlice' ? 0 : ((object['top'] as number) ?? 0) - L / 2,
-      width: (object['width'] as number) ?? 100,
-      height: ((object['height'] as number) ?? 40) - L,
+      width: cardDimension('width') ?? ((object['width'] as number) ?? 100),
+      height: cardDimension('height') ?? (((object['height'] as number) ?? 40) - L),
       members: object['members'] as string[] | undefined,
       methods: object['methods'] as string[] | undefined,
       data: object['data'] as Record<string, unknown> | undefined,

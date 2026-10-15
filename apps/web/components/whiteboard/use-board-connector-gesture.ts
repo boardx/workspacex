@@ -58,7 +58,19 @@ export function useBoardConnectorGesture(props: Props) {
     if (blocked) return false;
     if (!gesture.creating) {
       const edge = objects.find(object => object.id === gesture.id);
-      if (!edge || edge.locked || edge.hidden || JSON.stringify(edge.connector) !== gesture.baseline) return false;
+      if (!edge || edge.locked || edge.hidden) return false;
+      if (gesture.kind === 'from' || gesture.kind === 'to') {
+        // A held endpoint owns only its own slots. A remote move of the other
+        // endpoint is allowed, while owned endpoint/route/appearance changes cancel.
+        const opposite = gesture.kind === 'from' ? 'to' : 'from';
+        const unchanged = (connector: WhiteboardObject['connector']) => {
+          const fields: Record<string, unknown> = { ...connector };
+          for (const key of [opposite, `${opposite}Point`, `${opposite}Anchor`, `${opposite}Offset`]) delete fields[key];
+          return JSON.stringify(fields);
+        };
+        if (unchanged(edge.connector) !== unchanged(gesture.originalConnector)) return false;
+      } else if (JSON.stringify(edge.connector) !== gesture.baseline) return false;
+      return [edge.connector?.from, edge.connector?.to].every(id => !id || objects.some(object => object.id === id && !object.locked && !object.hidden));
     }
     return [gesture.before.from, gesture.before.to].every(id => !id || objects.some(object => object.id === id && !object.locked && !object.hidden));
   };
@@ -66,8 +78,9 @@ export function useBoardConnectorGesture(props: Props) {
     const { viewport } = latest.current;
     if (gesture.nodes) {
       const nodes = gesture.nodes;
-      const relationship: ConnectorRelationship = {...gesture.before, fromPoint:nodes[0], toPoint:gesture.current, route:{kind:'free',waypoints:nodes.slice(1, nodes[nodes.length-1]!.x===gesture.current.x && nodes[nodes.length-1]!.y===gesture.current.y ? -1 : undefined)}};
-      return {relationship,snap:null};
+      const snap=connectorGestureSnap(objects,gesture.current,viewport.zoom,gesture.before.from?[gesture.before.from]:[],gesture.bypass);
+      const relationship=connectorEndpointChange({...gesture.before,route:{kind:'free',waypoints:nodes.slice(1,nodes[nodes.length-1]!.x===gesture.current.x && nodes[nodes.length-1]!.y===gesture.current.y ? -1 : undefined)}},'to',gesture.current,snap);
+      return {relationship,snap};
     }
     const relationship = gesture.creating ? gesture.before : connectorRelationshipFromObject(objects.find(object => object.id === gesture.id)!) ?? gesture.before;
     if (gesture.kind === "from" || gesture.kind === "to") {
@@ -107,10 +120,12 @@ export function useBoardConnectorGesture(props: Props) {
       if (old?.nodes) {
         if (Math.hypot(point.x-old.nodes[old.nodes.length-1]!.x,point.y-old.nodes[old.nodes.length-1]!.y)*latest.current.viewport.zoom < 3) return;
         if (old.nodes.length >= WHITEBOARD_CONNECTOR_LIMITS.freeWaypointsMax + 2) { latest.current.onFailure(); return; }
-        const next = {...old,nodes:[...old.nodes,point],current:point,previewRevision:old.previewRevision+1}; activeRef.current=next;setActive(next); return;
+        const next = {...old,nodes:[...old.nodes,point],current:point,bypass:event.metaKey||event.ctrlKey,previewRevision:old.previewRevision+1}; next.heldSnapTargetId=project(next).snap?.objectId; activeRef.current=next;setActive(next); return;
       }
-      const before: ConnectorRelationship = {fromPoint:point,toPoint:point,type:'free',route:{kind:'free',waypoints:[]},fromAnchor:'right',toAnchor:'left',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'',semanticRelation:''};
-      const next: Gesture = {nodes:[point],pointerId:event.pointerId,target:event.currentTarget,id:crypto.randomUUID(),creating:true,kind:'to',handleId:null,initial:point,current:point,before,baseline:null,bypass:true,moved:false,previewRevision:1}; activeRef.current=next;setActive(next); return;
+      const startSnap=connectorGestureSnap(latest.current.objects,point,latest.current.viewport.zoom,[],event.metaKey||event.ctrlKey);
+      const start=startSnap?.point??point;
+      const before: ConnectorRelationship = {...(startSnap?{from:startSnap.objectId}:{fromPoint:start}),toPoint:start,type:'free',route:{kind:'free',waypoints:[]},fromAnchor:startSnap?.anchor??'right',toAnchor:'left',startStyle:'none',endStyle:'arrow',lineStyle:'solid',label:'',semanticRelation:''};
+      const next: Gesture = {nodes:[start],pointerId:event.pointerId,target:event.currentTarget,id:crypto.randomUUID(),creating:true,kind:'to',handleId:null,initial:point,current:point,before,baseline:null,bypass:event.metaKey||event.ctrlKey,moved:false,previewRevision:1}; activeRef.current=next;setActive(next); return;
     }
     const snap = connectorGestureSnap(latest.current.objects, point, latest.current.viewport.zoom, [], event.metaKey || event.ctrlKey);
     const start = snap?.point ?? point;
@@ -130,9 +145,11 @@ export function useBoardConnectorGesture(props: Props) {
     const draft=activeRef.current; if (!draft?.nodes) return;
     const nodes=draft.nodes; const live=latest.current.readLiveObjects?.()??latest.current.objects;
     if (nodes.length<2 || !legal(draft,live)) { cancel();return; }
-    const relationship: ConnectorRelationship={...draft.before,fromPoint:nodes[0],toPoint:nodes[nodes.length-1],route:{kind:'free',waypoints:nodes.slice(1,-1)}};
+    if(draft.heldSnapTargetId&&!live.some(object=>object.id===draft.heldSnapTargetId&&!object.locked&&!object.hidden)){cancel();return;}
+    const final={...draft,current:nodes[nodes.length-1]!};
+    const {relationship}=project(final,live);
     cancel();
-    try { const accepted=latest.current.execute({type:'create-connector',id:draft.id,relationship});if(accepted)latest.current.onCreated(draft.id);else latest.current.onFailure(); } catch {latest.current.onFailure();}
+    try { const accepted=latest.current.execute({type:'create-connector',id:draft.id,relationship},[...new Set([relationship.from,relationship.to].filter((id):id is string=>Boolean(id)))].map(id=>({id,locked:false}))); if(accepted)latest.current.onCreated(draft.id);else latest.current.onFailure(); } catch {latest.current.onFailure();}
   };
   const finishFreeRef = useRef(finishFree); finishFreeRef.current = finishFree;
   const onPointerUp = (event: ConnectorOverlayPointerEvent) => {
@@ -152,10 +169,14 @@ export function useBoardConnectorGesture(props: Props) {
       const path = connectorResolvedPath(relationship, liveObjects);
       if (JSON.stringify(relationship) === JSON.stringify(final.before) || (final.creating && (!path || path.length * latest.current.viewport.zoom < 3))) { cancel(); return; }
       cancel();
-      const targetIds = new Set([final.before.from, final.before.to, relationship.from, relationship.to].filter((id): id is string => Boolean(id)));
+      const endpointEdit = !final.creating && (final.kind === 'from' || final.kind === 'to');
+      const priorTargets = endpointEdit ? [final.kind === 'from' ? final.before.from : final.before.to] : [final.before.from, final.before.to];
+      const targetIds = new Set([...priorTargets, relationship.from, relationship.to].filter((id): id is string => Boolean(id)));
       const preconditions: SpatialPrecondition[] = [...targetIds].map(id => ({ id, locked: false }));
-      if (!final.creating) preconditions.push({ id: final.id, locked: false, connector: final.originalConnector });
-      const accepted = latest.current.execute({ type: final.creating ? "create-connector" : "update-connector", id: final.id, relationship }, preconditions);
+      if (!final.creating) preconditions.push({ id: final.id, locked: false, connector: endpointEdit ? liveObjects.find(object => object.id === final.id)?.connector : final.originalConnector });
+      const endpointChanges: readonly ('from' | 'to')[] | undefined = final.kind === 'from' ? ['from'] : final.kind === 'to' ? ['to'] : final.kind === 'translate' ? ['from', 'to'] : undefined;
+      const command: SpatialCommand = final.creating ? { type: 'create-connector', id: final.id, relationship } : { type: 'update-connector', id: final.id, relationship, ...(endpointChanges ? { endpointChanges } : {}) };
+      const accepted = latest.current.execute(command, preconditions);
       if (accepted && final.creating) latest.current.onCreated(final.id);
       if (!accepted) latest.current.onFailure();
     } catch { cancel(); latest.current.onFailure(); }
