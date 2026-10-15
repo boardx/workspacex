@@ -59,8 +59,17 @@ export function RealtimeTranscriptionWorkspace({
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [savingName, setSavingName] = React.useState(false);
   const renamePending = React.useRef(false);
+  const titleButtonRef = React.useRef<HTMLButtonElement>(null);
+  const restoreTitleFocus = React.useRef(false);
+  React.useEffect(() => {
+    if (renaming || !restoreTitleFocus.current) return;
+    restoreTitleFocus.current = false;
+    const button = titleButtonRef.current;
+    if (button?.isConnected && !button.disabled) button.focus();
+  }, [renaming]);
   const beginRename = () => {
     if (!onRename || renamePending.current || recording || busy) return;
+    restoreTitleFocus.current = true;
     setNameDraft(session.name); setNameError(null); setRenaming(true);
   };
   async function saveName() {
@@ -125,7 +134,7 @@ export function RealtimeTranscriptionWorkspace({
                   <Button size="icon" variant="ghost" aria-label="取消修改名称" disabled={savingName} onClick={() => { setRenaming(false); setNameError(null); }}><X aria-hidden className="h-4 w-4" /></Button>
                   {nameError && <p role="alert" className="text-12 text-destructive">{nameError}</p>}
                 </div> : <h1 data-testid="rec-live-title" onDoubleClick={beginRename} className="truncate text-24 font-semibold tracking-tight">
-                  {onRename ? <button type="button" aria-label="修改录音名称" disabled={recording || busy}
+                  {onRename ? <button ref={titleButtonRef} type="button" aria-label="修改录音名称" disabled={recording || busy}
                     title={recording || busy ? "停止转录后可修改录音名称" : "双击修改录音名称"}
                     className="max-w-full truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); beginRename(); } }}>{session.name}</button> : session.name}

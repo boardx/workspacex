@@ -44,6 +44,17 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(onRename).toHaveBeenCalledTimes(2);
   });
 
+  it("returns keyboard focus to the title after canceling or saving a rename", async () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onRename={vi.fn().mockResolvedValue(undefined)}
+      onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    fireEvent.keyDown(screen.getByRole("button", { name: "修改录音名称" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "录音名称" }), { key: "Escape" });
+    expect(screen.getByRole("button", { name: "修改录音名称" })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("button", { name: "修改录音名称" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "录音名称" }), { key: "Enter" });
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "修改录音名称" })).toHaveFocus());
+  });
+
   it("allows canceling the initial connection", () => {
     const onStop = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="connecting"
