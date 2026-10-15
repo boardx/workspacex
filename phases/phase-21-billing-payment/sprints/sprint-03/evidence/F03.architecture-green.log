@@ -1,0 +1,39 @@
+[stack-admission] load1=3.50 cores=10 perCore=0.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv8yoabz-fb012437-60bb2a1f1a28 db=wsx_60bb2a1f1a28bc779fd8 compose=wsx-60bb2a1f1a28bc779fd8 pg=20751 redis=21751 api=24751 web=25751 sandbox=26751 model=27751 deep-agent=28751 asr=29751 vision=30751 loopback-sandbox=31751 mail=19751
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_60bb2a1f1a28bc779fd8 capacity=100 current=6 required=32
+stdout | tests/billing/wallet-ledger-query.test.ts
+[F03 HTTP fixture] starting database readiness
+
+stdout | tests/billing/wallet-ledger-query.test.ts
+[F03 HTTP fixture] database ready; creating Nest fixture
+[F03 HTTP fixture] Nest created; binding loopback listener
+[F03 HTTP fixture] listener ready
+
+ ✓ tests/billing/wallet-ledger-query.test.ts (9 tests) 7153ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"7390c6b2-6c30-43f9-9951-26e42fc9a3dc","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/billing/billing-config.test.ts (15 tests) 4550ms
+ ✓ tests/arch-gate.test.ts (7 tests) 242ms
+ ✓ tests/contract-single-source.test.ts (4 tests) 25030ms
+   ✓ contract as single source, backend side > no backend file redefines a contract type 11396ms
+   ✓ the contract gate reaches the backend at all > V10: lint-contract-source scans apps/api, not just the frontend 13567ms
+
+ Test Files  4 passed (4)
+      Tests  35 passed (35)
+   Start at  11:10:32
+   Duration  42.34s (transform 2.92s, setup 10ms, collect 1.21s, tests 36.97s, environment 0ms, prepare 95ms)
+
+[db-isolation] db=wsx_60bb2a1f1a28bc779fd8 peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/billing/wallet-ledger-query.test.ts tests/billing/billing-config.test.ts tests/arch-gate.test.ts tests/contract-single-source.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：43s
+  清理：0s
+  总计：43s

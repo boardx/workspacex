@@ -1,0 +1,21 @@
+[stack-admission] load1=2.63 cores=10 perCore=0.26 running=0/2
+[test-isolation] id=run-mv8fqkkl-12146086-1063a1a9152c db=wsx_1063a1a9152c2502853d compose=wsx-1063a1a9152c2502853d pg=20905 redis=21905 api=24905 web=25905 sandbox=26905 model=27905 deep-agent=28905 asr=29905 vision=30905 loopback-sandbox=31905 mail=19905
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_1063a1a9152c2502853d capacity=100 current=6 required=32
+ ✓ tests/billing/wallet-ledger-query.test.ts (6 tests) 7053ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  02:20:26
+   Duration  10.18s (transform 134ms, setup 6ms, collect 56ms, tests 7.05s, environment 0ms, prepare 28ms)
+
+[db-isolation] db=wsx_1063a1a9152c2502853d peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/billing/wallet-ledger-query.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：11s

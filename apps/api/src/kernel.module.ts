@@ -253,7 +253,7 @@ import {
 } from "./application/auth/ports";
 import { BcryptPasswordHasher } from "./infrastructure/auth/bcrypt-password-hasher";
 import {
-  PgCredentialRepository, PgLoginAttemptRepository, PgResetTokenRepository,
+  PgLoginAttemptRepository, PgResetTokenRepository,
 } from "./infrastructure/auth/pg-credential-repository";
 import { RedisSessionTokenStore, redisConfig } from "./infrastructure/auth/redis-session-token-store";
 import { fileSessionStoreFromEnv, sessionStoreKindFromEnv } from "./infrastructure/auth/file-session-token-store";
@@ -277,6 +277,7 @@ import {
   type DecisionIdFactory,
   type IdentityRepository,
 } from "./application/identity/ports";
+import { IdentityPersistenceModule } from "./infrastructure/identity/identity-persistence.module";
 import { PgIdentityRepository } from "./infrastructure/identity/pg-identity-repository";
 import {
   InMemoryAuthorizationCache,
@@ -909,7 +910,6 @@ import { PLATFORM_MEMBER_REPOSITORY } from "./application/system/platform-member
 import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-member-repository";
 // platform-admin-role delta：落库的"平台管理员"名册。
 import { PLATFORM_ADMIN_REPOSITORY } from "./application/system/platform-admin-ports";
-import { PgPlatformAdminRepository } from "./infrastructure/system/pg-platform-admin-repository";
 import { PlatformAccessController } from "./interface/controllers/platform-access.controller";
 import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
@@ -1225,7 +1225,7 @@ const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
 const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
 
 @Module({
-  imports: [BillingModule],
+  imports: [BillingModule, IdentityPersistenceModule],
   controllers: [
     WhiteboardFilesController,
     WorkflowRuntimeController,
@@ -1372,7 +1372,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard,
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
     { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
-    { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
     {
       provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT, MODEL_CALL_PORT, NOTIFICATION_CENTER, OBJECT_STORE, ARTIFACT_REPOSITORY, ID_FACTORY],
@@ -1476,11 +1475,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // E4: what the user sees as 「本次启动出网 N 次」 -- read from the same patched chokepoint.
     { provide: EGRESS_LEDGER, useFactory: () => new ProcessEgressLedger(readDeploymentEdition()) },
     { provide: LOCAL_MODEL_RUNTIME, useFactory: (repo:IdentityRepository,meter:TokenUsageMeterPort) => new HttpLocalModelRuntime(localRuntimeEndpoint(),localRuntimeModelId(),process.env.KERNEL_LOCAL_REQUEST_ACCOUNTING_ENABLED==="1"?new PgLocalRequestAccounting(repo,meter):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[IDENTITY_REPOSITORY,TOKEN_USAGE_METER] },
-    {
-      provide: IDENTITY_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgIdentityRepository(db),
-      inject: [DATABASE_PORT],
-    },
     /* ── #548 模型池 ───────────────────────────────────────────────────────── */
     {
       provide: MODEL_POOL_REPOSITORY,
@@ -2041,11 +2035,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: SESSION_STORE, useClass: InMemorySessionStore },
 
     /* ── F20 / F21 auth ─────────────────────────────────────────────────────── */
-    {
-      provide: CREDENTIAL_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgCredentialRepository(db),
-      inject: [DATABASE_PORT],
-    },
     {
       provide: LOGIN_ATTEMPT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgLoginAttemptRepository(db),
@@ -3043,11 +3032,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     // platform-admin-role delta：落库的"平台管理员"名册，PlatformOperatorGuard 与
     // grant/revokePlatformAdmin 都靠它判定/写入。
-    {
-      provide: PLATFORM_ADMIN_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgPlatformAdminRepository(db),
-      inject: [DATABASE_PORT],
-    },
     // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
     // 后者（PgTokenUsageRepository）是账的唯一写入点，前者只读账、写额度。
     // F162 限额策略。与额度仓储分开：规则是配置，额度是数额，两者的读写路径没有共享逻辑。

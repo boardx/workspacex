@@ -1,0 +1,33 @@
+[stack-admission] load1=3.11 cores=10 perCore=0.31 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv8fmdab-0da2764c-9f4abd554fb4 db=wsx_9f4abd554fb48a407d5a compose=wsx-9f4abd554fb48a407d5a pg=20477 redis=21477 api=24477 web=25477 sandbox=26477 model=27477 deep-agent=28477 asr=29477 vision=30477 loopback-sandbox=31477 mail=19477
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_9f4abd554fb48a407d5a capacity=100 current=6 required=32
+ ❯ tests/billing/wallet-ledger-query.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/wallet-ledger-query.test.ts [ tests/billing/wallet-ledger-query.test.ts ]
+Error: Failed to load url ../../src/infrastructure/billing/pg-billing-wallet-repository (resolved id: ../../src/infrastructure/billing/pg-billing-wallet-repository) in /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/tests/billing/wallet-ledger-query.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  02:17:10
+   Duration  3.75s (transform 160ms, setup 5ms, collect 0ms, tests 0ms, environment 0ms, prepare 32ms)
+
+[db-isolation] db=wsx_9f4abd554fb48a407d5a peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wallet-ledger-query.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/wallet-ledger-query.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4s
+  清理：0s
+  总计：5s
