@@ -7,6 +7,7 @@ on:
       - tests/test_web_only_release.py
       - tests/test_directory_release_source.py
       - tests/test_web_only_release_real.py
+      - tests/test_directory_browser.cjs
       - scripts/directory-production-browser.cjs
       - .github/workflows/build-directory-web.yml
       - .github/workflows/web-only-release-tests.yml
@@ -33,3 +34,16 @@ jobs:
           name: web-only-real-compose-${{ github.run_id }}
           path: ${{ runner.temp }}/web-only-fixture/*/receipt.json
           retention-days: 7
+  recovery-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter web...
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: node tests/test_directory_browser.cjs

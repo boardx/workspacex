@@ -3,6 +3,13 @@ const fs=require('node:fs'),path=require('node:path');
 const arg=k=>process.argv[process.argv.indexOf(k)+1];
 const check=(v,code)=>{if(!v)throw Error(code)};
 let phase='config',loginHttpStatus=null,blockedPaths=[];
+async function verifyBaseline(page,timeout=30000){
+ await page.waitForFunction(()=>{
+  const root=document.querySelector('[data-testid="agent-directory"]');if(!root)return false;
+  if(root.querySelector('[data-testid="agent-directory-loading"],[data-testid="agent-directory-error"],[data-testid="agent-directory-denied"]'))return false;
+  return [...root.querySelectorAll('[data-testid="agent-directory-empty"],[data-testid="agent-card-start-chat"]')].some(el=>el.getClientRects().length>0);
+ },null,{timeout});
+}
 async function run(){
  const c=JSON.parse(fs.readFileSync(arg('--config'),'utf8')),out=arg('--output'),mode=arg('--mode');
  check(['baseline','candidate'].includes(mode),'MODE');check(c.origin==='https://app.boardx.com.cn','ORIGIN');
@@ -28,10 +35,9 @@ async function run(){
   const checks={login:true,directory:true};
   if(mode==='baseline'){
    phase='baseline-auth-read';
-   const authenticated=await page.evaluate(async()=>{const token=localStorage.getItem('wsx.sessionToken');if(!token)return false;const r=await fetch('/api/agents/directory',{headers:{Authorization:'Bearer '+token},cache:'no-store',redirect:'error'});return r.ok;});
+   const authenticated=await page.evaluate(async()=>{const token=localStorage.getItem('wsx.sessionToken');if(!token)return false;const r=await fetch('/api/agents/directory',{headers:{Authorization:'Bearer '+token},cache:'no-store',redirect:'error'});return r.ok&&Array.isArray((await r.json()).items);});
    check(authenticated,'BASELINE_AUTHENTICATED_READ');
-   await page.getByTestId('agent-directory').waitFor({state:'visible'});
-   check(await page.getByTestId('agent-directory-error').count()===0,'BASELINE_DIRECTORY_ERROR');await page.screenshot({path:path.join(out,'baseline-directory.png'),fullPage:true});
+   await verifyBaseline(page);await page.screenshot({path:path.join(out,'baseline-directory.png'),fullPage:true});
    return {passed:true,mode,checks,screenshots:1,blockedWrites};
   }
   const {expect}=require(c.playwrightTestModule);
@@ -62,4 +68,5 @@ async function run(){
   await context.close();return {passed:true,mode,checks,screenshots:6,blockedWrites,businessWritesPerformed:false};
  }finally{await browser.close();}
 }
-run().then(v=>process.stdout.write(JSON.stringify(v)+'\n')).catch(()=>{process.stdout.write(JSON.stringify({passed:false,mode:arg('--mode'),code:'DIRECTORY_BROWSER_FAILED',phase,loginHttpStatus,blockedPaths})+'\n');process.exitCode=1});
+module.exports={verifyBaseline};
+if(require.main===module)run().then(v=>process.stdout.write(JSON.stringify(v)+'\n')).catch(()=>{process.stdout.write(JSON.stringify({passed:false,mode:arg('--mode'),code:'DIRECTORY_BROWSER_FAILED',phase,loginHttpStatus,blockedPaths})+'\n');process.exitCode=1});
