@@ -1,9 +1,13 @@
+// @global-scope-fixture table:billing_webhook_events: f05-poison signed-receipt event collisions only; notifyFixture cleans all f05- rows.
 // @global-scope-fixture table:credit_wallets: f04-order- owners only; notify-fixture resets these rows.
 // @global-scope-fixture table:credit_transactions: f05-starting-grant only; notify-fixture resets owner wallets and ledger.
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { notifyFixture } from "./wechat-notify-fixture";
 import { asOwner } from "../support/db";
 import { user } from "./order-fixture";
+import { BILLING_CREDITING_STORE, type BillingCreditingStore } from "../../src/application/billing/billing-notify-ports";
+import { DeploymentWechatNoticeVerifier } from "../../src/infrastructure/billing/wechat-notice-verifier";
+import { DeploymentBillingConfig } from "../../src/infrastructure/billing/deployment-billing-config";
 let f: Awaited<ReturnType<typeof notifyFixture>>;
 beforeAll(async () => { f = await notifyFixture(); });
 beforeEach(async () => { await f.reset(); });
@@ -62,6 +66,24 @@ describe("F05 durable idempotent PostgreSQL crediting", () => {
     const order = await f.createOrder(), n = f.notice(order.orderNo); f.network.dropAck = true;
     await expect(f.post(n.body, n.headers)).rejects.toThrow(); expect((await wallet()).balance).toBe(1320);
     expect((await f.post(n.body, n.headers)).status).toBe(200); expect(await transactions(order.orderNo)).toHaveLength(2);
+  });
+  it("does not let ten conflicting receipts starve a later valid crash-recovery receipt", async () => {
+    const store = f.app.get<BillingCreditingStore>(BILLING_CREDITING_STORE);
+    const verifier = new DeploymentWechatNoticeVerifier(f.app.get(DeploymentBillingConfig));
+    for (let i=0; i<10; i++) {
+      const order = await f.createOrder(), n = f.notice(order.orderNo);
+      await asOwner(c => c.query("INSERT INTO billing_webhook_events(provider,provider_event_id,signature_verified,result) VALUES('stripe',$1,true,'ok')", [n.eventId]));
+      expect((await f.post(n.body,n.headers)).status).toBe(400);
+    }
+    await asOwner(c => c.query("UPDATE billing_payment_receipts SET retry_at=now()-interval '1 minute' WHERE provider_event_id LIKE 'f05-%'"));
+    const order = await f.createOrder(), n = f.notice(order.orderNo);
+    const headers = Object.fromEntries(Object.entries(n.headers).map(([k,v]) => [k.toLowerCase(),v]));
+    await store.accept(verifier.verify(n.body,headers));
+    await f.worker?.runOnce(); await f.worker?.runOnce();
+    expect(await transactions(order.orderNo)).toHaveLength(2);
+    expect((await wallet()).balance).toBe(1320);
+    const deferred = await asOwner(c => c.query("SELECT count(*)::int AS count FROM billing_payment_receipts WHERE state='pending' AND retry_at>now() AND last_error='event_conflict'"));
+    expect(deferred.rows[0]?.count).toBe(10);
   });
   it("records an explicit permanent wallet limit for manual recovery without partial credit", async () => {
     await asOwner(async c => {

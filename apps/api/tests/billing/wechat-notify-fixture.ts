@@ -49,7 +49,7 @@ export async function notifyFixture(background = false) {
   }
   return { ...base, network, worker, notice, signed,
     async reset() { await cleanup(); await base.reset(); },
-    post(body: Buffer, headers: Record<string, string>) { return fetch(`${base.base}/billing/webhooks/wechat`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body }); },
+    post(body: Buffer, headers: Record<string, string>) { return fetch(`${base.base}/billing/webhooks/wechat`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: new Uint8Array(body) }); },
     async createOrder(extra: Record<string, unknown> = {}) {
       const response = await base.create(extra); if (response.status !== 201) throw new Error(`order fixture create failed: ${response.status}`);
       return (await response.json()).order as { orderNo: string; ownerId: string; ownerType: string };

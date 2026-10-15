@@ -3,17 +3,20 @@ import { BillingOrderError, type OrderDraft, type WechatNativePort } from "../..
 import type { DeploymentBillingConfig } from "./deployment-billing-config";
 import { verifyWechatSignature } from "./wechat-signature";
 const path = "/v3/pay/transactions/native";
-async function boundedBody(response: Response): Promise<Buffer> {
+async function boundedBody(response: Response, signal: AbortSignal): Promise<Buffer> {
   if (!response.body) throw new Error("empty_response");
   const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
+  const abort = () => { void reader.cancel().catch(() => undefined); };
+  signal.addEventListener("abort", abort, { once: true });
   try {
+    signal.throwIfAborted();
     while (true) {
-      const next = await reader.read(); if (next.done) break;
+      const next = await reader.read(); signal.throwIfAborted(); if (next.done) break;
       size += next.value.byteLength;
       if (size > 65536) { await reader.cancel(); throw new Error("response_too_large"); }
       chunks.push(next.value);
     }
-  } finally { reader.releaseLock(); }
+  } finally { signal.removeEventListener("abort", abort); reader.releaseLock(); }
   return Buffer.concat(chunks);
 }
 function qr(value: unknown): value is string {
@@ -27,18 +30,21 @@ export class WechatNativeClient implements WechatNativePort {
   async createNativeOrder(order: OrderDraft): Promise<string> {
     const config = this.deployment.getWechat();
     if (!config) throw new BillingOrderError("payment_provider_not_configured");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
       const body = JSON.stringify({ appid: config.appId, mchid: config.mchId, description: `WorkspaceX ${order.baseCredits + order.bonusCredits} credits`, out_trade_no: order.orderNo,
         time_expire: order.expiredAt, notify_url: config.notifyUrl, amount: { total: order.amountFen, currency: order.currency } });
       const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("hex");
       const signature = sign("RSA-SHA256", Buffer.from(`POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`), config.privateKey).toString("base64");
-      const response = await fetch(`https://api.mch.weixin.qq.com${path}`, { method: "POST", redirect: "error", signal: AbortSignal.timeout(8000),
+      const response = await fetch(`https://api.mch.weixin.qq.com${path}`, { method: "POST", redirect: "error", signal: controller.signal,
         headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `WECHATPAY2-SHA256-RSA2048 mchid="${config.mchId}",nonce_str="${nonce}",timestamp="${timestamp}",serial_no="${config.mchSerialNo}",signature="${signature}"` }, body });
-      const raw = await boundedBody(response);
+      const raw = await boundedBody(response, controller.signal);
       if (!verifyWechatSignature(config, name => response.headers.get(name), raw) || !response.ok) throw new Error("untrusted_response");
       const decoded: unknown = JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(raw));
       if (!decoded || typeof decoded !== "object" || !("code_url" in decoded) || !qr(decoded.code_url)) throw new Error("missing_native_qr");
       return decoded.code_url;
     } catch { throw new BillingOrderError("wechat_upstream_failed"); }
+    finally { clearTimeout(timer); }
   }
 }

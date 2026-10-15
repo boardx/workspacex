@@ -158,7 +158,7 @@ export const OrgBillingSetting = z
   })
   .strict();
 
-/** 微信回调应答：仅此两值（FAIL 促使微信重试）。 */
+/** 微信回调应答。仅已提交终态使用 HTTP 200 + SUCCESS；校验失败 4xx、可重试失败 5xx + FAIL。HTTP 200 + FAIL 不是重试信号。 */
 export const WechatNotifyAck = z
   .object({
     code: z.enum(["SUCCESS", "FAIL"]),
