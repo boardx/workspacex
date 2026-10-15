@@ -63,7 +63,10 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
       close();
       push(withProjectId(`/itv/${created.interviewId}/intake`, projectId));
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.reasonCode ?? cause.message : cause instanceof Error ? cause.message : "DEPENDENCY_UNAVAILABLE");
+      setError(cause instanceof ApiError && cause.status === 401 ? "登录已失效，请重新登录"
+        : cause instanceof ApiError && cause.status === 403 ? "当前账号无权创建访谈"
+          : cause instanceof ApiError && [400, 422].includes(cause.status) ? "请检查访谈名称与标签"
+            : "服务暂时不可用");
       setBusy(false);
     }
   }
