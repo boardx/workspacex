@@ -119,7 +119,9 @@ def materialize(request_raw, approval_raw, inputs, repo, output, *, now=None):
     """Library testing seam; production must use load_approval in main."""
     r,a=parse(request_raw),parse(approval_raw);now=now or dt.datetime.now(dt.timezone.utc)
     fields={'schemaVersion','phase','sourceRevision','controlRevision','attemptId','repositoryId','runId','runAttempt','producerWorkflowSha256','requestedAt','deadlineAt','inputs','release','launcher'}
-    if r.get('phase')=='publication':fields.add('publicationCapability')
+    if r.get('phase')=='publication':
+        fields.add('publicationCapability')
+        if 'publicationIntentVersion' in r:fields.add('publicationIntentVersion')
     need(set(r)==fields and type(r['schemaVersion']) is int and r['schemaVersion']==1,'REQUEST_FIELDS')
     need(r['phase'] in ('consume','publication'),'PHASE')
     for k in ('sourceRevision','controlRevision'):need(isinstance(r[k],str) and re.fullmatch('[a-f0-9]{40}',r[k]),'REVISION')
@@ -130,6 +132,8 @@ def materialize(request_raw, approval_raw, inputs, repo, output, *, now=None):
     need(start<=now<end and dt.timedelta(0)<end-start<=dt.timedelta(minutes=30),'END_TO_END_DEADLINE')
     cap_start,cap_end=start,end
     if r['phase']=='publication':
+        if 'publicationIntentVersion' in r:
+            need(type(r['publicationIntentVersion']) is int and r['publicationIntentVersion'] in (2,3),'PUBLICATION_INTENT_VERSION')
         capability=r['publicationCapability']
         need(type(capability) is dict and set(capability)=={'issuedAt','expiresAt'},'PUBLICATION_CAPABILITY_FIELDS')
         cap_start,cap_end=b.stamp(capability['issuedAt']),b.stamp(capability['expiresAt'])
@@ -164,6 +168,7 @@ def materialize(request_raw, approval_raw, inputs, repo, output, *, now=None):
                       'requestedAt':r['requestedAt'],'deadlineAt':r['deadlineAt'],'release':r['release'],
                       'identity':{k:r[k] for k in ('sourceRevision','controlRevision','attemptId')},
                       'refs':{n:{'path':str(t/(n+'.json')),'sha256':sha(raw)} for n,raw in inputs.items()}}
+            if 'publicationIntentVersion' in r:decision['publicationIntentVersion']=r['publicationIntentVersion']
             raw=encode(decision);(t/'decision.json').write_bytes(raw);dest=t/'publication'
             runner = """import importlib.util,json,sys,os
 from pathlib import Path
