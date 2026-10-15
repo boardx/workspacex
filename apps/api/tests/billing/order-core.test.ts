@@ -1,9 +1,10 @@
 // @global-scope-fixture table:credit_packages: f04-order- fixtures, restored by order-fixture.
 // @global-scope-fixture table:billing_orders: f04-order- creators only, restored by order-fixture.
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { operations } from "@repo/contracts/billing-credits";
 import { asOwner } from "../support/db";
 import { orderFixture, org, user, type Mode } from "./order-fixture";
+import { DeploymentBillingConfig } from "../../src/infrastructure/billing/deployment-billing-config";
 let f: Awaited<ReturnType<typeof orderFixture>>;
 beforeAll(async () => { f = await orderFixture(); });
 beforeEach(async () => { await f.reset(); });
@@ -33,13 +34,51 @@ describe("F04 real Native order HTTP and PostgreSQL", () => {
   it("rejects client money before contacting the merchant", async () => {
     expect((await f.create({ amountFen: 1, baseCredits: 999999 })).status).toBe(400); expect(f.state.calls).toBe(0);
   });
-  for (const mode of ["non2xx", "bad-signature", "missing-signature", "stale", "unknown-key", "missing-qr", "bad-qr", "malformed", "redirect"] satisfies Mode[]) {
+  for (const mode of ["non2xx", "bad-signature", "wrong-rsa", "tampered", "missing-signature", "missing-nonce", "missing-time", "stale", "unknown-key", "missing-qr", "bad-qr", "malformed", "redirect", "oversize", "timeout-headers", "timeout-body"] satisfies Mode[]) {
     it(`does not persist a fake order on ${mode}`, async () => {
       f.state.mode = mode; const response = await f.create(); expect(response.status).toBe(502);
       expect(await response.json()).toMatchObject({ code: "wechat_upstream_failed" });
       const result = await asOwner(c => c.query("SELECT count(*)::int AS n FROM billing_orders WHERE created_by=$1", [user])); expect(result.rows[0]?.n).toBe(0);
     });
   }
+  it("does not contact WeChat or create an order when the deployment is unconfigured", async () => {
+    const config = f.app.get(DeploymentBillingConfig);
+    const unavailable = vi.spyOn(config, "getPublicConfig").mockReturnValue({ enabledProviders: [] });
+    try {
+      const response = await f.create(); expect(response.status).toBe(503); expect(await response.json()).toMatchObject({ code: "payment_provider_not_configured" });
+      expect(f.state.calls).toBe(0);
+      expect((await asOwner(c => c.query("SELECT count(*)::int AS n FROM billing_orders WHERE created_by=$1", [user]))).rows[0]?.n).toBe(0);
+    } finally { unavailable.mockRestore(); }
+  });
+  it("keeps the original package snapshot when the catalog changes during Native dispatch", async () => {
+    f.state.onRequest = async () => { await asOwner(c => c.query("UPDATE credit_packages SET amount_fen=200,base_credits=10,bonus_credits=0,total_credits=10 WHERE package_id='f04-order-basic'")); };
+    const response = await f.create(); expect(response.status).toBe(201);
+    expect((await response.json()).order).toMatchObject({ amountFen: 9900, baseCredits: 1200, bonusCredits: 120 });
+  });
+  it("does not report success or silently create a second intent after a real INSERT failure", async () => {
+    f.state.onRequest = async () => { await asOwner(c => c.query("DELETE FROM credit_packages WHERE package_id='f04-order-basic'")); };
+    const response = await f.create(); expect(response.status).toBe(500); expect(f.state.calls).toBe(1);
+    expect((await asOwner(c => c.query("SELECT count(*)::int AS n FROM billing_orders WHERE created_by=$1", [user]))).rows[0]?.n).toBe(0);
+  });
+  it("reads an expired order without closing it and preserves reads after billing is disabled", async () => {
+    const now = Date.now();
+    const date = new Date(now - 1200000);
+    vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(date);
+    let orderNo: string;
+    try { const response = await f.create({ ownerType: "team", ownerId: org }); expect(response.status).toBe(201); orderNo = (await response.json()).order.orderNo; }
+    finally { vi.useRealTimers(); }
+    await asOwner(c => c.query("INSERT INTO org_billing_settings(org_id,credit_enabled,updated_by) VALUES($1,false,$2)", [org, user]));
+    const response = await f.request(`/billing/orders/${orderNo!}`); expect(response.status).toBe(200);
+    const { order } = await response.json(); expect(Date.parse(order.expiredAt)).toBeLessThan(now); expect(order.status).toBe("PENDING"); expect(order.closedAt).toBeNull();
+  });
+  it("filters catalog scopes and permits members to browse without granting permission to buy", async () => {
+    await asOwner(c => c.query("UPDATE credit_packages SET owner_type='team' WHERE package_id='f04-order-basic'"));
+    const personal = operations.listPackages.out.parse(await (await f.request("/billing/packages?ownerType=user")).json());
+    expect(personal.items.some(item => item.packageId === "f04-order-basic")).toBe(false);
+    const team = await f.request("/billing/packages?ownerType=team", undefined, "f04-other"); expect(team.status).toBe(200);
+    expect(operations.listPackages.out.parse(await team.json()).items[0]?.packageId).toBe("f04-order-basic");
+    expect(await (await f.create()).json()).toMatchObject({ code: "package_disabled" }); expect(f.state.calls).toBe(0);
+  });
   it("blocks disabled packages and organization billing before network dispatch", async () => {
     await asOwner(c => c.query("UPDATE credit_packages SET enabled=false WHERE package_id='f04-order-basic'"));
     expect(await (await f.create()).json()).toMatchObject({ code: "package_disabled" });

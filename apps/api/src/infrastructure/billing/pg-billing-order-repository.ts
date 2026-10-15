@@ -1,7 +1,8 @@
 import type { OrgId } from "../../domain/org-id";
 import type { DatabasePort } from "../../application/ports/database.port";
-import type { BillingOrderRepository, OrderDraft, OrderView, PackageView } from "../../application/billing/billing-order-service";
+import { BillingOrderError, type BillingOrderOwner, type BillingOrderRepository, type OrderDraft, type OrderView, type PackageView } from "../../application/billing/billing-order-service";
 import type { BillingOwner } from "../../application/billing/billing-wallet-service";
+import { guard, discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 type PackageRow = { package_id: string; region: string; currency: string; amount_fen: number; base_credits: number; bonus_credits: number; bonus_rate: string; total_credits: number; owner_type: PackageView["ownerType"]; enabled: boolean };
 function packageView(row: PackageRow): PackageView {
   const symbol = row.currency === "CNY" ? "¥" : `${row.currency} `;
@@ -23,8 +24,13 @@ export class PgBillingOrderRepository implements BillingOrderRepository {
   async package(orgId: OrgId, packageId: string) {
     return this.db.withTenant(orgId, async s => { const row = (await s.query<PackageRow>("SELECT * FROM credit_packages WHERE package_id=$1", [packageId])).rows[0]; return row ? { ...packageView(row), enabled: row.enabled } : null; });
   }
-  async creditEnabled(owner: BillingOwner) {
-    return this.db.withTenant(owner.orgId, async s => (await s.query<{credit_enabled: boolean}>("SELECT credit_enabled FROM org_billing_settings WHERE org_id=$1", [owner.ownerId])).rows[0]?.credit_enabled ?? true);
+  async creditEnabled(owner: BillingOrderOwner) {
+    return this.db.withTenant(owner.orgId, async s => {
+      const enabled = (await s.query<{credit_enabled: boolean}>("SELECT credit_enabled FROM org_billing_settings WHERE org_id=$1", [owner.ownerId])).rows[0]?.credit_enabled ?? true;
+      const result = discloseDecided(guard({ kind: "organization", id: owner.ownerId }, enabled), owner.decision);
+      if (!isDisclosed(result)) throw new BillingOrderError("forbidden");
+      return result.payload;
+    });
   }
   async insert(owner: BillingOwner, order: OrderDraft, qrCodeUrl: string) {
     return this.db.withTenant(owner.orgId, async s => {

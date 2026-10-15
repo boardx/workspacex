@@ -67,7 +67,7 @@
         "pnpm --filter api exec vitest run tests/billing/order-ownership.test.ts"
       ],
       "evidence": "",
-      "notes": "覆盖 V1/V3/V6/V7/V8 的 API 侧（UC-BC-2/3/4 + 内部端口 UC-BC-I4 WechatPayClient.createNativeOrder，测试用 mock 上游不依赖真实商户号）；I-5 套餐快照、I-13 无假二维码（微信下单失败不落库）、I-9 归属收敛。org_billing_disabled 校验分支（I-12）由 F-TBD-org-billing-setting 接入，本 feature 在 createPaymentOrder 预留开关读取点。金额精度：分（整数），前端金额字段一律忽略并记录可疑请求（01 R7-1）。"
+      "notes": "覆盖 V1/V3/V6/V7/V8 的 API 侧（UC-BC-2/3/4 + 内部端口 UC-BC-I4 WechatPayClient.createNativeOrder，测试用 mock 上游不依赖真实商户号）；I-5 套餐快照、I-13 无假二维码（微信下单失败不落库）、I-9 归属收敛。org_billing_disabled 校验分支（I-12）由 F-TBD-org-billing-setting 接入，本 feature 在 createPaymentOrder 预留开关读取点。金额精度：分（整数）；跨束契约strict输入为权威，额外金额字段400拒绝。组织开关读取已接入已有行，写接口属后续feature。Native响应必须验签；网络/保存失败不自动新建第二意图，不承诺请求级幂等。"
     },
     {
       "id": "F03",

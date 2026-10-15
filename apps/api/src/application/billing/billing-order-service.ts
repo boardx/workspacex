@@ -1,4 +1,4 @@
-import { randomInt } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import type { z } from "zod";
 import { operations, type BillingErrorCode } from "@repo/contracts/billing-credits";
 import { assertPrincipal, type Principal } from "../../domain/principal";
@@ -6,14 +6,17 @@ import { toOrgId, type OrgId } from "../../domain/org-id";
 import type { IdentityRepository } from "../identity/ports";
 import type { BillingConfigPort } from "./billing-config.port";
 import type { BillingOwner } from "./billing-wallet-service";
+import { decideOrderOwner } from "../../domain/billing/order-access";
+import type { PermissionDecision } from "../../domain/identity/permission-decision";
 
 export type OrderView = z.infer<typeof operations.getPaymentOrder.out>["order"];
 export type PackageView = z.infer<typeof operations.listPackages.out>["items"][number];
 export type OrderDraft = Omit<OrderView, "qrCodeUrl"> & { readonly createdBy: string };
+export type BillingOrderOwner = BillingOwner & { readonly decision: PermissionDecision };
 export interface BillingOrderRepository {
   packages(owner: BillingOwner): Promise<PackageView[]>;
   package(orgId: OrgId, packageId: string): Promise<(PackageView & { enabled: boolean }) | null>;
-  creditEnabled(owner: BillingOwner): Promise<boolean>;
+  creditEnabled(owner: BillingOrderOwner): Promise<boolean>;
   insert(owner: BillingOwner, order: OrderDraft, qrCodeUrl: string): Promise<OrderView>;
   scope(orgId: OrgId, orderNo: string): Promise<Pick<BillingOwner, "ownerType" | "ownerId"> | null>;
   order(owner: BillingOwner, orderNo: string): Promise<OrderView | null>;
@@ -30,18 +33,20 @@ export class BillingOrderService {
     private readonly config: BillingConfigPort,
     private readonly native: WechatNativePort,
   ) {}
-  private async owner(principal: Principal, ownerType: "user" | "team", ownerId: string | undefined, admin: boolean): Promise<BillingOwner> {
+  private async owner(principal: Principal, ownerType: "user" | "team", ownerId: string | undefined, admin: boolean): Promise<BillingOrderOwner> {
     assertPrincipal(principal);
     if (ownerType === "user") {
       if (ownerId !== undefined && ownerId !== principal.userId) throw new BillingOrderError("forbidden");
-      return { ownerType, ownerId: principal.userId, orgId: principal.orgId };
+      const decision = decideOrderOwner({ decisionId: randomUUID(), ownerType, ownerId: principal.userId, userId: principal.userId, orgRole: null, teamId: null, requiresAdmin: admin });
+      return { ownerType, ownerId: principal.userId, orgId: principal.orgId, decision };
     }
     const target = ownerId ?? principal.orgId;
     let orgId: OrgId;
     try { orgId = toOrgId(target); } catch { throw new BillingOrderError("forbidden"); }
     const membership = await this.identity.findOrgMembership(principal.userId, orgId);
-    if (!membership || admin && membership.orgRole !== "admin") throw new BillingOrderError("forbidden");
-    return { ownerType, ownerId: target, orgId };
+    const decision = decideOrderOwner({ decisionId: randomUUID(), ownerType, ownerId: target, userId: principal.userId, orgRole: membership?.orgRole ?? null, teamId: membership?.teamId ?? null, requiresAdmin: admin });
+    if (!decision.allowed) throw new BillingOrderError("forbidden");
+    return { ownerType, ownerId: target, orgId, decision };
   }
   async packages(principal: Principal, input: z.infer<typeof operations.listPackages.in>) {
     const query = operations.listPackages.in.parse(input);
