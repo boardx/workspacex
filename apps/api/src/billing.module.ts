@@ -12,13 +12,22 @@ import { isRequestorPlatformOperator } from "./application/system/platform-opera
 import { BillingWalletService } from "./application/billing/billing-wallet-service";
 import { PgBillingWalletRepository } from "./infrastructure/billing/pg-billing-wallet-repository";
 import { BillingWalletController } from "./interface/controllers/billing-wallet.controller";
+import { BillingOrderService } from "./application/billing/billing-order-service";
+import { PgBillingOrderRepository } from "./infrastructure/billing/pg-billing-order-repository";
+import { WechatNativeClient } from "./infrastructure/billing/wechat-native-client";
+import { BillingOrderController } from "./interface/controllers/billing-order.controller";
 
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [BillingConfigController, BillingWalletController],
+  controllers: [BillingConfigController, BillingWalletController, BillingOrderController],
   providers: [
     { provide: DeploymentBillingConfig, useFactory: () => new DeploymentBillingConfig() },
     { provide: BILLING_CONFIG_PORT, useExisting: DeploymentBillingConfig },
+    { provide: BillingOrderService,
+      useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig) =>
+        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config)),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig],
+    },
     { provide: BillingWalletService,
       useFactory: (db:DatabasePort, identity:IdentityRepository, credentials:CredentialRepository, platformAdmins:PlatformAdminRepository) =>
         new BillingWalletService(new PgBillingWalletRepository(db),identity,userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),
