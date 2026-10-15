@@ -83,6 +83,9 @@ on:
       - '.harness/scripts/vm/import-cn-image-candidates.py'
       - 'tests/test_cn_candidate_host*.py'
       - 'tests/test_cn_candidate_publication.py'
+      - 'scripts/cn-release-continuation-acquire.py'
+      - '.harness/scripts/vm/cn-runtime-continuation/acquire/**'
+      - 'tests/test_cn_release_continuation_acquire.py'
       - 'scripts/build-cn-image-candidates.py'
       - 'scripts/cn-image-candidate-protocol.md'
       - 'tests/test_cn_image_candidate.py'
@@ -149,6 +152,10 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/archive-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76
           echo "CN_ARCHIVE_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/archive-fixture" >> "$GITHUB_ENV"
+      - name: Source-only BC receipt binding and original observer contracts
+        run: |
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_target_business.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_business_observer.py' -v
       - name: Run archive contracts and real canonical Node fixture
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
       - name: Run bounded release scenario and offline chain regressions
@@ -159,6 +166,8 @@ jobs:
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_repeated_layers.py' -v
       - name: Candidate publication ordering without host credentials
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_publication.py' -v
+      - name: Reviewed publication intent selection and pinned materialization
+        run: python3 -I -B -m unittest discover -s tests -p 'test_cn_release_continuation_acquire.py' -v
       - name: Candidate host admission and real canonical adapter
         run: python3 -I -B -m unittest discover -s tests -p 'test_cn_candidate_host*.py' -v
       - name: Protected candidate download admission and SDK wheel validation

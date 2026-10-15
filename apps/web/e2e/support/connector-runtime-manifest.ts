@@ -6,7 +6,7 @@ import {sha256} from '../board-runtime-evidence';
 import {apiOrigin} from '../board-acceptance-support';
 
 // The reviewed shared producer supplies the single runtime verifier implementation.
-const verifierDigest='279eb61731e94c57208d0a3957180997a060a7aa1f3f70bd0ec4d0b98213b004';
+const verifierDigest='e14aeb8d426e9556028e3beb273120ace9d8a3ac528463240240c7086a1bef54';
 const root=resolve(__dirname,'../../../..');
 type Manifest={ready:boolean;head:string;startedAt:string;deploymentMarker:string;sourceFiles:string[];sourceHashes:Record<string,string>};
 type Verifier={listRuntimeSourceFiles(root:string):string[];verifyRuntimeManifest(input:{manifestPath:string;root:string;base:string;origin:string;sourceFiles:string[]}):unknown};

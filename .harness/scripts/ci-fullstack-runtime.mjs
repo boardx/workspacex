@@ -26,17 +26,18 @@ export function pnpmPackageRoot(executable) {
   throw new Error('PNPM_PACKAGE_ENTRYPOINT_NOT_FOUND');
 }
 
-export function runtimeCommand(geometry, directory = false) {
+export function runtimeCommand(geometry, sticky = false, directory = false) {
   if (directory) return ['pnpm', 'run', 'verify:digital-directory-cards'];
+  if (sticky) return ['pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts'];
   return geometry ? ['pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'] : ['pnpm', 'run', 'verify:fullstack-smoke'];
 }
 
 export function assertRuntimeCommand(mode, argv) {
-  const expected = ['--', ...runtimeCommand(mode === 'geometry', mode === 'directory')];
+  const expected = ['--', ...runtimeCommand(mode === 'geometry', mode === 'sticky', mode === 'directory')];
   if (JSON.stringify(argv) !== JSON.stringify(expected)) throw new Error('RUNTIME_COMMAND_CONTRACT_MISMATCH');
 }
 
-export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, unzip, socketGid, env, geometry = false, directory = false }) {
+export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, unzip, socketGid, env, geometry = false, sticky = false, directory = false }) {
   if (![uid, gid].every(v => Number.isInteger(v) && v >= 0)) throw new Error('INVALID_RUNTIME_IDENTITY');
   if (!/^mcr\.microsoft\.com\/playwright@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('UNSEALED_RUNTIME_IMAGE');
   if (!Number.isInteger(socketGid) || socketGid < 0) throw new Error('INVALID_DOCKER_SOCKET_GROUP');
@@ -53,11 +54,11 @@ export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, do
     if (env[key]) args.push('--env', `${key}=${env[key]}`);
   }
   // Public-repository read credential only; Docker inherits the value without exposing it in argv.
-  if (!geometry && !directory && env.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN) {
+  if (!geometry && !sticky && !directory && env.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN) {
     args.push('--env', 'WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN');
   }
   args.push(image, 'bash', '-euc',
-    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry, directory).join(' '));
+    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry, sticky, directory).join(' '));
   return args;
 }
 
@@ -86,7 +87,7 @@ async function main(mode) {
     } finally { await browser.close(); }
     return;
   }
-  if (!['run', 'geometry', 'directory'].includes(mode) || process.platform !== 'linux' || process.arch !== 'x64') throw new Error('LINUX_AMD64_RUNNER_REQUIRED');
+  if (!['run', 'geometry', 'sticky', 'directory'].includes(mode) || process.platform !== 'linux' || process.arch !== 'x64') throw new Error('LINUX_AMD64_RUNNER_REQUIRED');
   assertRuntimeCommand(mode, process.argv.slice(3));
   const catalog = JSON.parse(readFileSync(new URL('../playwright-runtime-images.json', import.meta.url), 'utf8'));
   const image = sealedImage(version, catalog);
@@ -110,7 +111,7 @@ async function main(mode) {
   for (const path of ['bin/node', 'bin/docker', 'bin/unzip']) writeFileSync(resolve(tools, path), '', { mode: 0o600 });
   console.log(JSON.stringify({ runtimeImage: image, playwrightVersion: version, network: 'host', uid: process.getuid(), aptInstall: false }));
   const args = runtimeArgs({ root, home, tools, uid: process.getuid(), gid: process.getgid(), image,
-    node: realpathSync(process.execPath), pnpm, docker, compose, unzip: which('unzip'), socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry', directory: mode === 'directory' });
+    node: realpathSync(process.execPath), pnpm, docker, compose, unzip: which('unzip'), socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry', sticky: mode === 'sticky', directory: mode === 'directory' });
   const child = spawn(docker, args, { stdio: 'inherit' });
   const forward = signal => child.kill(signal);
   const term = () => forward('SIGTERM');

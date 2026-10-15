@@ -68,7 +68,7 @@ const LEGACY = [
   { file: "components/whiteboard/board-tool-popover.tsx", cls: "text-foreground", count: 1 },
   { file: "components/whiteboard/collaborative-thinking-editor.tsx", cls: "text-foreground", count: 1 },
   { file: "components/whiteboard/fabric-preview/board-fabric-preview.tsx", cls: "text-foreground", count: 2 },
-  { file: "components/whiteboard/whiteboard-library.tsx", cls: "bg-success-tint", count: 2 },
+  { file: "components/whiteboard/whiteboard-library.tsx", cls: "bg-success-tint", count: 1 },
   { file: "components/whiteboard/whiteboard-library.tsx", cls: "text-success-tint-foreground", count: 1 },
   { file: "components/workflow/workflow-approval-drawer.tsx", cls: "bg-success-tint", count: 1 },
   { file: "components/workflow/workflow-approval-drawer.tsx", cls: "text-success-tint-foreground", count: 1 },

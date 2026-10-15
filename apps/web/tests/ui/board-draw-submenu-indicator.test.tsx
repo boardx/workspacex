@@ -30,11 +30,20 @@ it('does not enable drawing mutations in readonly mode',()=>{
  expect(callbacks.onToolChange).not.toHaveBeenCalled();expect(callbacks.onCreationToolChange).not.toHaveBeenCalled();
 });
 
-it('uses actual picker visibility for chevron direction and toggles the same trigger',()=>{
+it('keeps an above cue inside the trigger while actual picker visibility toggles',()=>{
  function Harness(){const [creation,setCreation]=useState<BoardCreationTool>(null);return <BoardBottomDock activeTool="select" creationTool={creation} readOnly={false} onToolChange={vi.fn()} onCreationToolChange={setCreation} onQuickCreate={vi.fn()} onBulkSticky={vi.fn()} onImageRequest={vi.fn()}/>;}
  render(<Harness/>);const trigger=screen.getByTestId('board-add-sticky'),arrow=screen.getByTestId('board-add-sticky-submenu');
  expect(arrow).toHaveAttribute('data-state','closed');fireEvent.click(trigger);
- expect(arrow).toHaveAttribute('data-state','open');expect(arrow).toHaveClass('rotate-180');fireEvent.click(trigger);
+ expect(arrow).toHaveAttribute('data-state','open');expect(arrow).toHaveAttribute('data-direction','above');expect(arrow.parentElement).toBe(trigger);expect(trigger.querySelector('[data-board-drag-preview]')?.contains(arrow)).toBe(false);fireEvent.click(trigger);
  expect(arrow).toHaveAttribute('data-state','closed');expect(trigger).toHaveAttribute('aria-expanded','false');
  fireEvent.click(trigger);fireEvent.keyDown(window,{key:'Escape'});expect(arrow).toHaveAttribute('data-state','closed');
+});
+
+it('keeps dock gutters and chrome spacing in physical pixels during text-only reflow',()=>{
+ mount();
+ const dock=screen.getByRole('navigation',{name:'白板工具'});
+ expect(dock).toHaveStyle({left:'16px',right:'16px',bottom:'20px'});
+ expect(dock.style.maxWidth).toBe('calc(100vw - 32px)');
+ expect(screen.getByTestId('board-tool-select').parentElement).toHaveStyle({padding:'4px',gap:'2px'});
+ for(const tool of ['sticky','text','shape','draw'])expect(screen.getByTestId(`board-add-${tool}-submenu`)).toHaveClass('bottom-[6px]','right-[6px]');
 });

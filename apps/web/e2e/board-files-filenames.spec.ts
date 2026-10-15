@@ -3,6 +3,7 @@ import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-f
 import {test, expect} from '@playwright/test';
 import {createHash, randomUUID} from 'node:crypto';
 import {readFile} from 'node:fs/promises';
+import {readContentObject} from '@repo/whiteboard-core';
 import {WhiteboardFileMetadata} from '@repo/contracts/whiteboard-file';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
 import {apiOrigin, boardLogin, boardHead, createAcceptanceBoard, openBoard, canonicalBoardSnapshot} from './board-acceptance-support';
@@ -28,8 +29,16 @@ test('R09 real multipart original filename matrix and literal RFC5987 download h
       ordinal++;
       const bytes = Buffer.from(`unique filename ${fileName} ${randomUUID()}`);
       phase = 'UPLOAD';
-      const response = await request.post(`${apiOrigin()}/whiteboards/${board}/files`, {
-        headers: {authorization: `Bearer ${owner}`}, multipart: {fileName, file: {name: fileName, mimeType: 'text/plain', buffer: bytes}},
+      // Use the platform multipart encoder, as the browser uploader does.
+      // Playwright's API multipart serializer inserts unescaped quotes into
+      // filename=, yielding malformed headers for the literal quoted case.
+      const body = new FormData();
+      body.append('file', new Blob([new Uint8Array(bytes)], {type: 'text/plain'}), fileName);
+      body.append('fileName', fileName);
+      const encoded = new Request(`${apiOrigin()}/whiteboards/${board}/files`, {method: 'POST', body});
+      const response = await request.post(encoded.url, {
+        headers: {authorization: `Bearer ${owner}`, 'content-type': encoded.headers.get('content-type')!},
+        data: Buffer.from(await encoded.arrayBuffer()),
       });
       phase = 'UPLOAD_STATUS';
       expect(response.status()).toBe(201);
@@ -88,7 +97,6 @@ test('R09 native UI downloads preserve browser-safe filenames and exact bytes af
       finally { await transfer.dispose(); }
       const response = await uploaded; expect(response.status()).toBe(201);
       const metadata = WhiteboardFileMetadata.parse(await response.json()); expect(metadata.fileName).toBe(fileName);
-      const {readContentObject} = await import('@repo/whiteboard-core');
       // Upload HTTP success precedes verified download bytes and the canvas create command.
       await expect.poll(async () => {
         const snapshot = await canonicalBoardSnapshot(request, owner, board);

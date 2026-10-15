@@ -1,0 +1,40 @@
+import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {afterEach,expect,it,vi} from 'vitest';
+import {boardMindmapControlsLayout} from '@/components/whiteboard/board-chrome-spacing';
+import {BoardMindmapControls} from '@/components/whiteboard/board-mindmap-controls';
+import {planBoardMindmap} from '@/components/whiteboard/board-mindmap-planner';
+import type {WhiteboardObject} from '@repo/whiteboard-core';
+afterEach(cleanup);
+it('keeps the parent popover and real target mounted while expanding reparent choices',async()=>{
+ const objects:WhiteboardObject[]=[];
+ const root=planBoardMindmap([],{action:'create-root',id:'root',text:'中心',position:{x:0,y:0}}).commands[0]!;
+ if(root.type!=='create')throw new Error('ROOT_FIXTURE_INVALID');objects.push(root.object);
+ const childPlan=planBoardMindmap(objects,{action:'add-child',nodeId:'root',id:'child',edgeId:'edge',text:'分支'});
+ for(const command of childPlan.commands)if(command.type==='create')objects.push(command.object);
+ const onAction=vi.fn().mockResolvedValue(true);
+ render(<BoardMindmapControls objects={objects} selectedId="child" position={{x:0,y:0}} disabled={false} busy={false} onAction={onAction}/>);
+ fireEvent.click(screen.getByTestId('board-mindmap-menu'));
+ expect(screen.getByTestId('board-mindmap-create-root')).toBeVisible();
+ fireEvent.click(screen.getByTestId('board-mindmap-reparent-toggle'));
+ expect(screen.getByTestId('board-mindmap-reparent-toggle')).toHaveAttribute('aria-expanded','true');
+ expect(screen.getByTestId('board-mindmap-create-root')).toBeVisible();
+ expect(screen.getByTestId('board-mindmap-reparent-root')).toBeVisible();
+ fireEvent.click(screen.getByTestId('board-mindmap-reparent-root'));
+ expect(onAction).toHaveBeenCalledTimes(1);expect(onAction).toHaveBeenCalledWith({action:'reparent',nodeId:'child',newParentId:'root'});
+ await waitFor(()=>expect(screen.queryByTestId('board-mindmap-reparent-targets')).toBeNull());
+ expect(screen.getByTestId('board-mindmap-create-root')).toBeVisible();
+});
+
+it('stacks visible mindmap controls below real narrow-screen navigation and retains viewport gutters',()=>{
+ expect(boardMindmapControlsLayout(320,64,170)).toEqual({left:16,top:182,maxWidth:288});
+ expect(boardMindmapControlsLayout(320,64,240)).toEqual({left:16,top:252,maxWidth:288});
+ expect(boardMindmapControlsLayout(1440,64,680)).toEqual({left:16,top:80,maxWidth:1408});
+ render(<BoardMindmapControls objects={[]} selectedId={null} position={{x:0,y:0}} disabled={false} busy={false} onAction={vi.fn().mockResolvedValue(true)}/>);
+ const controls=screen.getByTestId('board-mindmap-controls');
+ expect(controls.style.getPropertyValue('--board-mindmap-control-padding')).toBe('8px');
+ expect(controls).toHaveClass('[&>button]:px-[var(--board-mindmap-control-padding)]','[&>button]:py-[var(--board-mindmap-control-padding)]');
+ expect(controls.style.left).toBe('16px');expect(controls).toHaveClass('flex-wrap','overflow-x-auto');
+ expect(screen.getByTestId('board-mindmap-menu')).toBeVisible();
+ expect(screen.getByTestId('board-mindmap-menu').querySelector('svg.lucide-network')).not.toBeNull();
+ expect(screen.getByTestId('board-mindmap-menu')).not.toHaveStyle({fontSize:'14px'});
+});

@@ -67,12 +67,17 @@ for (const viewport of viewports) {
       const trigger = page.getByTestId('board-add-draw');
       const arrow = page.getByTestId('board-add-draw-submenu');
       await expect(arrow).toHaveAttribute('data-state', 'closed');
-      await expect(arrow).not.toHaveClass(/rotate-180/);
+      await expect(arrow).toHaveAttribute('data-direction','above');
+      await expect(arrow).toHaveClass(/lucide-chevron-up/);
       await trigger.click();
       await expect(arrow).toHaveAttribute('data-state', 'open');
-      await expect(arrow).toHaveClass(/rotate-180/);
+      await expect(arrow).toHaveAttribute('data-direction','above');
+      const arrowBounds=(await arrow.boundingBox())!,triggerBounds=(await trigger.boundingBox())!;
+      expect(Math.abs(triggerBounds.x+triggerBounds.width-arrowBounds.x-arrowBounds.width-6)).toBeLessThanOrEqual(1);
+      expect(Math.abs(triggerBounds.y+triggerBounds.height-arrowBounds.y-arrowBounds.height-6)).toBeLessThanOrEqual(1);
       const panel = page.getByTestId('board-draw-tool-panel');
       await expect(panel).toBeVisible(); await withinViewport(panel, viewport.width);
+      await expect.poll(async()=>{const box=(await panel.boundingBox())!;return triggerBounds.y-box.y-box.height;}).toBeGreaterThanOrEqual(0);
       const instruments = ['pen', 'marker', 'pencil', 'highlighter', 'eraser'];
       const positions = [];
       for (const instrument of instruments) {
@@ -105,10 +110,18 @@ for (const viewport of viewports) {
       await page.getByTestId('board-layout-tab-arrange').click();
       await expect(page.getByTestId('board-layout-grid')).toBeVisible();
       await page.getByTestId('board-layout-tab-smart').click();
-      for (const kind of ['grid', 'cards', 'cluster', 'journey', 'mind-map', 'flow', 'timeline']) {
+      for (const kind of ['grid', 'cards', 'cluster', 'journey', 'flow', 'timeline']) {
         await expect(page.getByTestId(`board-smart-${kind}`).locator('svg')).toBeVisible();
       }
       await screenshot(page, info, 'layout-smart-thumbnails');
+      // Mindmap is now a persistent native tree, rather than a one-shot smart layout.
+      await page.keyboard.press('Escape');await expect(panel).toBeHidden();
+      const mindmap=page.getByTestId('board-mindmap-menu');
+      await expect(mindmap.locator('svg.lucide-network')).toBeVisible();await mindmap.click();
+      await expect(page.getByTestId('board-mindmap-create-root')).toBeVisible();
+      await expect(page.getByTestId('board-mindmap-import')).toBeVisible();
+      await page.keyboard.press('Escape');
+      await page.getByTestId('board-inspector-layout').click();
       await page.getByTestId('board-layout-tab-align').click();
       await page.getByTestId('board-layout-align-left').click();
       await expectBoardSynced(page);
@@ -304,13 +317,24 @@ for (const viewport of viewports) {
       await expect(page.getByTestId('board-fabric-surface')).toHaveAttribute('data-viewport-zoom', '1');
       const before = await canonicalBoardSnapshot(request, token, boardId);
       const surface = page.getByTestId('board-fabric-surface');
-      const point = await surface.evaluate(node => {
+      const readNearbyPoint = () => surface.evaluate(node => {
         const rect = node.getBoundingClientRect();
         const zoom = Number(node.getAttribute('data-viewport-zoom'));
         const panX = Number(node.getAttribute('data-viewport-pan-x'));
         const panY = Number(node.getAttribute('data-viewport-pan-y'));
         return { x: rect.x + panX + 190 * zoom, y: rect.y + panY + 40 * zoom };
       });
+      let point=await readNearbyPoint();
+      if(!await page.evaluate(point=>document.elementFromPoint(point.x,point.y)?.matches('canvas.upper-canvas'),point)){
+        const view=await surface.evaluate(node=>{const rect=node.getBoundingClientRect();return{x:rect.x,y:rect.y,width:rect.width,height:rect.height,zoom:Number(node.getAttribute('data-viewport-zoom')),panX:Number(node.getAttribute('data-viewport-pan-x')),panY:Number(node.getAttribute('data-viewport-pan-y'))};});
+        const candidates=compactBlankPoints(view,[]);
+        const destination=await page.evaluate(points=>points.find(point=>document.elementFromPoint(point.x,point.y)?.matches('canvas.upper-canvas'))??null,candidates);
+        expect(destination,'real wheel-pan destination must expose the native canvas').not.toBeNull();
+        await page.mouse.move(destination!.x,destination!.y);await page.mouse.wheel(point.x-destination!.x,point.y-destination!.y);
+        await expect.poll(async()=>{const next=await readNearbyPoint();return Math.hypot(next.x-destination!.x,next.y-destination!.y);}).toBeLessThan(.1);
+        point=await readNearbyPoint();
+        expect(await canonicalBoardSnapshot(request,token,boardId)).toEqual(before);
+      }
       expect(await page.evaluate(point => document.elementFromPoint(point.x, point.y)?.matches('canvas.upper-canvas'), point)).toBe(true);
       await page.mouse.dblclick(point.x, point.y);
       await expectBoardSynced(page);

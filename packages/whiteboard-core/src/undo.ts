@@ -1,6 +1,7 @@
+import { writeConnectorStorage } from './connector-storage';
 import * as Y from 'yjs';
 import { WhiteboardCommandBatch } from '@repo/contracts/whiteboard-document';
-import { cloneDocument, executeCommands, objectMap, readObjects, tombstones, validateDocument } from './document';
+import { cloneDocument, executeCommands, objectMap, readStoredObject, readObjects, tombstones, validateDocument } from './document';
 import { WhiteboardCommandOrigin } from './command-port';
 
 const HISTORY = Symbol('whiteboard-history');
@@ -104,9 +105,11 @@ export class WhiteboardUndo {
         const object=JSON.parse(desired[id]??'null') as ReturnType<typeof readObjects>[number]|null;
         if(!object){tombstones(doc).set(id,true);continue;}
         const value=objectMap(doc).get(id);if(!value)throw new Error('COMPOUND_OBJECT_MISSING');
+        const previous=readStoredObject(doc,id);
+        if(previous?.connector&&object.connector)writeConnectorStorage(value,previous.connector,object.connector);
         tombstones(doc).delete(id);
-        for(const key of [...value.keys()])if(!['text','style'].includes(key)&&!(key in object))value.delete(key);
-        for(const [key,field] of Object.entries(object))if(!['id','text','style'].includes(key))value.set(key,structuredClone(field));
+        for(const key of [...value.keys()])if(!['text','style','connectorFrom','connectorTo'].includes(key)&&!(key in object))value.delete(key);
+        for(const [key,field] of Object.entries(object))if(!['id','text','style','connector'].includes(key))value.set(key,structuredClone(field));
         const text=value.get('text') as Y.Text;
         if(text.toString()!==object.text){text.delete(0,text.length);text.insert(0,object.text);}
         const style=value.get('style') as Y.Map<unknown>;for(const key of [...style.keys()])if(!(key in object.style))style.delete(key);

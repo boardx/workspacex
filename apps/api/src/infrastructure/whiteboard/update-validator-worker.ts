@@ -2,7 +2,7 @@ import {createHash} from 'node:crypto';
 import type {WhiteboardDeletionProof,WhiteboardDeletionChange} from '../../application/whiteboard/collaboration-ports';
 import { parentPort, workerData } from 'node:worker_threads';
 import * as Y from 'yjs';
-import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObject, WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObject, WHITEBOARD_UPDATE_LIMITS, mindmapStructureDigest } from '@repo/whiteboard-core';
 import type { WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 
 const canonical=(value:unknown):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>`${JSON.stringify(key)}:${canonical(item)}`).join(',')}}`:JSON.stringify(value);
@@ -34,7 +34,7 @@ try {
       if(new Set(changes.map(change=>change.id)).size!==changes.length||input.proof.some(proof=>!changes.some(change=>change.id===proof.id&&change.before===proof.digest&&change.after===null)))throw new Error('RESTORE_CHANGES');
       for(const change of changes){const current=beforeById.get(change.id);if((current?digest(current):null)!==change.after)throw new Error('RESTORE_AFTER_CONFLICT');}
       const storedBefore=new Map([...doc.getMap('objects').keys()].map(id=>[id,digest(readStoredObject(doc,id))]));
-      const restoredRoutes=new Map(input.proof.map(proof=>[proof.id,readStoredObject(doc,proof.id)] as const).filter(([,object])=>object?.kind==='connector'&&object.connector?.route));
+      const restoredRoutes=new Map(input.proof.map(proof=>[proof.id,readStoredObject(doc,proof.id)] as const).filter(([id,object])=>object?.kind==='connector'&&(object.connector?.route||(doc.getMap<Y.Map<unknown>>('objects').get(id)?.has('connectorFrom')||doc.getMap<Y.Map<unknown>>('objects').get(id)?.has('connectorTo')))));
       const vector=Y.encodeStateVector(doc);
       executeCommands(doc,input.proof.map(p=>({type:'restore',id:p.id})),'authorized-delete-undo');
       const trustedRouteGeometry=new Map([...restoredRoutes.keys()].map(id=>[id,readStoredObject(doc,id)!.geometry]));
@@ -61,7 +61,7 @@ try {
       }
       if(restoredRoutes.size)executeCommands(doc,[...restoredRoutes.keys()].map(id=>({type:'connector',id,connector:afterById.get(id)!.connector!})),'authorized-delete-undo-bounds');
       validateDocument(doc);update=Y.encodeStateAsUpdate(doc,vector);
-    }else if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); }
+    }else if (input.mode === 'update') { update = prepareWhiteboardUpdate(doc, input.update); Y.applyUpdate(doc, update); if (mindmapStructureDigest(before) !== mindmapStructureDigest(readObjects(doc))) throw new Error('MINDMAP_OPERATION_REQUIRED'); }
     else {
       const vector = Y.encodeStateVector(doc);
       executeCommands(doc, input.commands, 'authorized-host-command');

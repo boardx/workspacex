@@ -4,6 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode, cloneElement, isValidElement } from "react";
 import { BoardSubmenuChevron } from "./board-submenu-chevron";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 /** Non-modal inspector: explicit entry, Escape/outside dismissal and focus return. */
@@ -54,9 +55,12 @@ export function BoardToolPopover({ label, children, trigger, open, onOpenChange,
   },[isOpen,placement,content,update]);
   const updateOpen = (next: boolean) => { setLocalOpen(next); onOpenChange?.(next); if (next) window.dispatchEvent(new CustomEvent("board-inspector-open", { detail: id })); };
   useEffect(() => { const closeOthers = (event: Event) => { if (isOpen && (event as CustomEvent<string>).detail !== id) { setLocalOpen(false); onOpenChange?.(false); } }; window.addEventListener("board-inspector-open", closeOthers); return () => window.removeEventListener("board-inspector-open", closeOthers); }, [id, isOpen, onOpenChange]);
-  const actualTrigger = isValidElement<{children?: ReactNode}>(trigger) ? cloneElement(trigger, {}, <>{trigger.props.children}<BoardSubmenuChevron open={isOpen} className="ml-1" /></>) : trigger;
+  const cue = <BoardSubmenuChevron open={isOpen} direction={isOpen && anchor.maxHeight > 0 ? anchor.side : placement} className="absolute bottom-0 right-0" />;
+  // Keep the main icon centered at its original size. The cue occupies the
+  // button's inner corner instead of becoming another flex-layout child.
+  const actualTrigger = isValidElement<{children?: ReactNode;className?: string}>(trigger) ? cloneElement(trigger, {className:cn(trigger.props.className,"relative")}, <>{trigger.props.children}{cue}</>) : trigger;
   return <Dialog.Root modal={false} open={isOpen} onOpenChange={updateOpen}>
-    <Dialog.Trigger ref={triggerRef} asChild>{actualTrigger ?? <Button data-testid={`board-inspector-${({ "更多操作": "actions", "布局": "layout", "外观": "appearance", "便利贴样式": "sticky", "文字样式": "text", "标签与链接": "metadata" } as Record<string, string>)[label] ?? "open"}`} variant="ghost" className="min-h-11 shrink-0 px-3">{label}</Button>}</Dialog.Trigger>
+    <Dialog.Trigger ref={triggerRef} asChild>{actualTrigger ?? <Button data-testid={`board-inspector-${({ "更多操作": "actions", "布局": "layout", "外观": "appearance", "便利贴样式": "sticky", "文字样式": "text", "标签与链接": "metadata" } as Record<string, string>)[label] ?? "open"}`} variant="ghost" className="relative min-h-11 shrink-0 px-3">{label}{cue}</Button>}</Dialog.Trigger>
     <Dialog.Portal><Dialog.Content data-testid="board-tool-popover" data-board-popover-preferred-placement={placement} data-board-popover-placement={anchor.side} style={{
       left: anchor.left,
       top: anchor.top,

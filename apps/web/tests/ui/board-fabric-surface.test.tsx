@@ -123,7 +123,8 @@ vi.mock("fabric", async () => {
     getObjects() { return this.objects; }
     removeAll() { const previous = this.objects; this.objects = []; return previous; }
     add(...objects: MockProjectedObject[]) { this.objects.push(...objects); return this.objects.length; }
-    setControlsVisibility() { return this; }
+    controlVisibility: Record<string,boolean> = {};
+    setControlsVisibility(value:Record<string,boolean>) { this.controlVisibility=value; return this; }
   }
   const util = { qrDecompose: (matrix: number[] & { angle?: number }) => ({ angle: matrix.angle ?? Math.atan2(matrix[1] ?? 0, matrix[0] ?? 1) * 180 / Math.PI, scaleX: Math.hypot(matrix[0] ?? 1, matrix[1] ?? 0), scaleY: Math.hypot(matrix[2] ?? 0, matrix[3] ?? 1), translateX: matrix[4] ?? 0, translateY: matrix[5] ?? 0, skewX: 0, skewY: 0 }) };
   return { ActiveSelection, Canvas, Rect: MockRect, Circle: MockCircle, Line: MockObject, Path: MockPath, FabricImage: MockImage, Triangle: MockObject, Textbox: MockTextbox, Group: MockGroup, Point: MockObject, util };
@@ -157,9 +158,12 @@ describe("BoardFabricSurface", () => {
     await waitFor(() => expect(probe.active?.hasControls).toBe(true));
     const selection = probe.active;
     view.rerender(<BoardFabricSurface {...props} viewport={{ ...VIEWPORT, zoom: .22 }} />);
-    await waitFor(() => expect(probe.active?.hasControls).toBe(false));
+    await waitFor(() => expect(probe.active?.hasControls).toBe(true));
+    expect(Reflect.get(probe.active!,"controlVisibility")).toMatchObject({br:true,mtr:true,tl:false,tr:false,bl:false,ml:false,mt:false,mr:false,mb:false});
+    expect(probe.active).toBe(selection);
     view.rerender(<BoardFabricSurface {...props} viewport={VIEWPORT} />);
     await waitFor(() => expect(probe.active?.hasControls).toBe(true));
+    expect(Reflect.get(probe.active!,"controlVisibility")).toMatchObject({br:true,mtr:true,tl:true,tr:true,bl:true,ml:true,mt:true,mr:true,mb:true});
     expect(probe.active).toBe(selection);
   });
 
@@ -310,6 +314,22 @@ describe("BoardFabricSurface", () => {
     expect(onViewportChange).toHaveBeenCalledTimes(callsAfterCancel);
   });
 
+  it.each([1,2])("commits one absolute auxiliary pan for button %s despite repeated move and release samples", button => {
+    const onViewportChange=vi.fn();
+    const view=renderSurface({viewport:{...VIEWPORT,zoom:2,panX:12,panY:-8},onViewportChange});
+    const canvas=view.container.querySelector('canvas')!;
+    act(()=>{
+      canvas.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button,clientX:100,clientY:100}));
+      document.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:124,clientY:118}));
+      // A competing compatibility preview must not be integrated again at release.
+      (probe.canvas as unknown as {viewportTransform:number[]}).viewportTransform=[2,0,0,2,60,28];
+      document.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:124,clientY:118}));
+      document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,button,clientX:124,clientY:118}));
+    });
+    expect(onViewportChange).toHaveBeenCalledTimes(1);
+    expect(onViewportChange).toHaveBeenLastCalledWith(expect.objectContaining({zoom:2,panX:36,panY:10}),'pan');
+  });
+
   it("publishes transient snapped geometry during a move and clears it at completion", () => {
     const onTransformPreview = vi.fn(), onObjectTransform = vi.fn(() => true);
     renderSurface({ onTransformPreview, onObjectTransform });
@@ -345,17 +365,57 @@ describe("BoardFabricSurface", () => {
     expect(onObjectTransform).toHaveBeenCalledWith(canonical.id, { x: 220, y: 280, width: 120, height: 100, rotation: 90 });
   });
 
+  it.each([1,2])("cancels captured auxiliary mouse pan for button %s before compatibility mouseup",button=>{
+    const onViewportChange=vi.fn(),initial={...VIEWPORT,zoom:1,panX:24,panY:18};
+    const view=renderSurface({viewport:initial,onViewportChange});
+    const element=view.container.querySelector('canvas')!;
+    act(()=>{
+      element.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button,clientX:100,clientY:100}));
+      document.dispatchEvent(new MouseEvent('mousemove',{bubbles:true,clientX:124,clientY:118}));
+      const cancelled=new Event('pointercancel',{bubbles:true});
+      Object.defineProperties(cancelled,{pointerId:{value:1},pointerType:{value:'mouse'},isPrimary:{value:true}});
+      element.dispatchEvent(cancelled);
+      document.dispatchEvent(new MouseEvent('mouseup',{bubbles:true,button,clientX:124,clientY:118}));
+    });
+    expect(onViewportChange).not.toHaveBeenCalled();
+    expect(Reflect.get(probe.canvas!,'viewportTransform')).toEqual([1,0,0,1,24,18]);
+  });
+
+  it("keeps only one resize and offset rotation control for a dense multi-selection",()=>{
+    const small=OBJECTS.map(object=>({...object,geometry:{...object.geometry,width:20,height:20}}));
+    renderSurface({objects:small,selectedObjectIds:small.map(object=>object.id),viewport:{...VIEWPORT,zoom:.5}});
+    expect(Reflect.get(probe.active!,'hasControls')).toBe(true);
+    expect(Reflect.get(probe.active!,'controlVisibility')).toMatchObject({br:true,mtr:true,tl:false,tr:false,bl:false,ml:false,mt:false,mr:false,mb:false});
+    for(const member of probe.objects)expect(Reflect.get(member,'hasControls')).toBe(false);
+  });
+
+  const attachedPreviewArrow=():BoardFabricObject=>({ id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } });
+
   it("updates attached arrows in the local drag preview without committing per frame", () => {
-    const arrow: BoardFabricObject = { id: "edge", kind: "connector", revision: 1, orderKey: "z", geometry: { x: 260, y: 150, width: 100, height: 1, rotation: 0 }, style: { fill: "", textColor: "#222" }, content: { text: "" }, connector: { from: "s-1", to: "r-1", fromAnchor: "right", toAnchor: "left", type: "straight", startStyle: "none", endStyle: "arrow", lineStyle: "solid", label: "", semanticRelation: "", start: { x: 260, y: 150 }, end: { x: 360, y: 150 } } };
+    const arrow=attachedPreviewArrow();
     const onObjectTransform = vi.fn(() => true);
     renderSurface({ objects: [...OBJECTS, arrow], onObjectTransform });
     const sticky = probe.objects.find(item => item.data?.boardObjectId === "s-1")!;
     const originalArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
     sticky.left += 40;
-    probe.handlers.get("object:moving")?.({ target: sticky });
+    // Alt requests a precise translation without guides; this case isolates attachment preview.
+    probe.handlers.get("object:moving")?.({ target: sticky, e: new MouseEvent("mousemove", { altKey: true }) });
     const movedArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
     expect(movedArrow).not.toBe(originalArrow);
     expect(movedArrow.children?.[0]?.text).toBe("M 300 150 L 360 150");
+    expect(onObjectTransform).not.toHaveBeenCalled();
+  });
+
+  it("retains a stationary independent endpoint guide while ignoring its incident moving connector", () => {
+    const onObjectTransform=vi.fn(()=>true);
+    renderSurface({objects:[...OBJECTS,attachedPreviewArrow()],onObjectTransform});
+    const sticky=probe.objects.find(item=>item.data?.boardObjectId==='s-1')!;
+    sticky.left+=40;
+    // The independent endpoint object remains a guide: its rotated bottom is
+    // 80 + 240*sin(5deg) + 140*cos(5deg) = 240.384636, not the stale edge y=150.
+    probe.handlers.get("object:moving")?.({ target: sticky });
+    const snappedArrow = probe.objects.find(item => item.data?.boardObjectId === "edge")!;
+    expect(snappedArrow.children?.[0]?.text).toBe("M 300 150.384636 L 360 150");
     expect(onObjectTransform).not.toHaveBeenCalled();
   });
 
@@ -1016,6 +1076,21 @@ describe("BoardFabricSurface", () => {
     sticky.left += 24; sticky.top += 24;
     probe.handlers.get("object:modified")?.({ target: sticky, e: new MouseEvent("mouseup", { altKey: true }) });
     expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({ id: "s-1" })], { duplicate: true });
+  });
+
+  it("uses Alt for centered scaling rather than duplicating or restoring the transformed object",()=>{
+    const onObjectsTransform=vi.fn(()=>true);
+    renderSurface({selectedObjectIds:['s-1'],onObjectsTransform});
+    const sticky=probe.objects.find(object=>object.data?.boardObjectId==='s-1')!;
+    probe.canvas!._currentTransform={target:sticky,action:'scale'};
+    probe.handlers.get('mouse:down')?.({target:sticky,e:new MouseEvent('mousedown',{altKey:true,clientX:100,clientY:120})});
+    sticky.scaleX*=1.2;sticky.scaleY*=1.2;
+    probe.handlers.get('object:modified')?.({target:sticky,action:'scale',e:new MouseEvent('mouseup',{altKey:true})} as never);
+    probe.handlers.get('mouse:up')?.({target:sticky,e:new MouseEvent('mouseup',{altKey:true,clientX:142,clientY:148})});
+    expect(onObjectsTransform).toHaveBeenCalledOnce();
+    expect(onObjectsTransform).toHaveBeenCalledWith([expect.objectContaining({id:'s-1',geometry:expect.objectContaining({width:264,height:216})})],{duplicate:false});
+    expect(sticky.width*sticky.scaleX).toBeCloseTo(264,6);
+    expect(sticky.height*sticky.scaleY).toBeCloseTo(216,6);
   });
 
   it("captures an Alt ActiveSelection at pointer-down and duplicates every member even when Fabric omits object:modified", () => {

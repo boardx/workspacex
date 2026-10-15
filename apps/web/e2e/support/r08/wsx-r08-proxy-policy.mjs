@@ -13,7 +13,7 @@ export function validateScope(scope){
 export function scopedSession(request,scope,bearerPrefix){
   if(typeof bearerPrefix!=='string'||!bearerPrefix.length)throw new Error('MISSING_CANONICAL_BEARER_PREFIX');
   const url=new URL(request.url,'http://127.0.0.1');
-  if(url.search||url.pathname!==`/v1/whiteboards/${scope.boardId}/sync`)return null;
+  if(url.search||url.pathname!==`/whiteboards/${scope.boardId}/sync`)return null;
   const protocols=String(request.headers['sec-websocket-protocol']??'').split(',').map(value=>value.trim());
   const candidates=protocols.filter(value=>value.startsWith(bearerPrefix));
   if(candidates.length!==1)return null;

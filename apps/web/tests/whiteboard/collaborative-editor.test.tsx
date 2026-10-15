@@ -64,16 +64,26 @@ it('returns a rejected transform result, reports it truthfully, and opens no Yjs
 });
 it('read-only disables mutation controls and does not alter the document', () => {
   const doc = createWhiteboardDocument();
+  executeCommands(doc, [{ type: 'create', object: { id: 'readonly-note', schemaVersion: 1, kind: 'sticky', geometry: { x: 10, y: 20, width: 180, height: 140, rotation: 0 }, text: '保留只读对象', style: {}, parentId: null, orderKey: '' } }], 'seed');
   render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly title="只读白板" status="已连接" />);
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   expect(screen.getByTestId('board-add-draw')).toBeDisabled();
+  fireEvent.click(screen.getByTestId('fabric-select-all'));
   fireEvent.click(screen.getByLabelText('更多白板操作'));
-  expect(screen.getByRole('button', {name: '粘贴'})).toBeDisabled();
+  const before = readObjects(doc);
+  const blockedTransactions: Y.Transaction[] = [];
+  doc.on('afterTransaction', transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) blockedTransactions.push(transaction); });
+  fireEvent.keyDown(document,{key:'Escape'});
+  const board = screen.getByTestId('collaborative-editor'); board.focus();
+  fireEvent.paste(board, { clipboardData: { files: [], getData: () => '只读粘贴不应创建对象' } });
+  fireEvent.keyDown(board, { key: 'Delete' });
+  expect(readObjects(doc)).toEqual(before);
+  expect(blockedTransactions).toHaveLength(0);
   fireEvent.keyDown(document,{key:'Escape'});
   fireEvent.pointerDown(screen.getByTestId('board-title-menu'),{button:0,ctrlKey:false});
   expect(screen.getByLabelText('白板名称')).toBeDisabled();
   fireEvent.click(screen.getByTestId('board-add-sticky')); fireEvent.click(screen.getByTestId('fabric-place'));
-  expect(readObjects(doc)).toEqual([]); doc.destroy();
+  expect(readObjects(doc)).toEqual(before); expect(blockedTransactions).toHaveLength(0); doc.destroy();
 });
 it('undoes and redoes object creation as one local operation', () => {
   const doc = createWhiteboardDocument();
@@ -147,7 +157,13 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   expect(readObjects(doc)).toEqual(before);
   expect(screen.getByRole('button', {name: '撤销'})).toBeDisabled();
   fireEvent.click(screen.getByLabelText('更多白板操作'));
-  expect(screen.getByRole('button', {name: '删除选中'})).toBeDisabled();
+  fireEvent.keyDown(document,{key:'Escape'});
+  const board = screen.getByTestId('collaborative-editor'); board.focus();
+  const blockedTransactions: Y.Transaction[] = [];
+  doc.on('afterTransaction', transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) blockedTransactions.push(transaction); });
+  fireEvent.keyDown(board, { key: 'Delete' });
+  expect(readObjects(doc)).toEqual(before);
+  expect(blockedTransactions).toHaveLength(0);
   fireEvent.keyDown(document,{key:'Escape'});
   expect(screen.getByTestId('board-add-sticky')).toBeDisabled();
   fireEvent.click(screen.getByRole('button',{name:'布局'}));
@@ -170,7 +186,9 @@ it('smart layout preview is zero-write, cancelable, applicable and conflict guar
   fireEvent.click(screen.getByTestId('board-layout-preview-cancel'));
   expect(readObjects(doc)).toEqual(before);
   fireEvent.mouseDown(screen.getByTestId('board-layout-tab-smart'), { button: 0, ctrlKey: false });
-  for (const suggestion of ['grid', 'cards', 'cluster', 'journey', 'mind-map', 'flow', 'timeline']) {
+  expect(screen.queryByTestId('board-smart-mind-map')).toBeNull();
+  expect(screen.getByTestId('board-mindmap-menu')).toBeVisible();
+  for (const suggestion of ['grid', 'cards', 'cluster', 'journey', 'flow', 'timeline']) {
     fireEvent.click(screen.getByTestId(`board-smart-${suggestion}`));
     expect(screen.getByTestId('board-layout-preview')).toBeVisible();
     expect(readObjects(doc)).toEqual(before);
@@ -339,4 +357,20 @@ it('scopes connector and eraser shortcuts to the board and ignores IME/repeats',
  fireEvent.keyDown(canvas,{key:'l'});expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','true');
  fireEvent.keyDown(canvas,{key:'e',repeat:true});expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','true');
  fireEvent.keyDown(canvas,{key:'e'});expect(screen.getByTestId('board-draw-tool-panel')).toBeVisible();expect(screen.getByTestId('board-add-connector')).toHaveAttribute('aria-pressed','false');doc.destroy();
+});
+
+it('rejects ordinary multi-delete and duplicate of a native mindmap before any canonical write',async()=>{
+  const {planBoardMindmap}=await import('@/components/whiteboard/board-mindmap-planner');
+  const doc=createWhiteboardDocument();
+  executeCommands(doc,planBoardMindmap([],{action:'create-root',id:'guard-root',text:'主题',position:{x:50,y:50}}).commands,'fixture');
+  executeCommands(doc,planBoardMindmap(readObjects(doc),{action:'add-child',nodeId:'guard-root',id:'guard-child',edgeId:'guard-edge',text:'子'}).commands,'fixture');
+  render(<CollaborativeEditor boardId="board-test" clientId="client-test" doc={doc} readOnly={false} title="白板" status="已连接"/>);
+  fireEvent.click(screen.getByTestId('fabric-select-all'));
+  const before=readObjects(doc),updates=vi.fn();doc.on('update',updates);
+  const canvas=screen.getByTestId('board-fabric-canvas');
+  fireEvent.keyDown(canvas,{key:'Delete'});
+  expect(screen.getByText(/选择或区域包含思维导图/)).toBeVisible();expect(readObjects(doc)).toEqual(before);expect(updates).not.toHaveBeenCalled();
+  fireEvent.keyDown(canvas,{key:'d',ctrlKey:true});
+  expect(screen.getByText(/暂不支持复制思维导图/)).toBeVisible();expect(readObjects(doc)).toEqual(before);expect(updates).not.toHaveBeenCalled();
+  doc.off('update',updates);doc.destroy();
 });

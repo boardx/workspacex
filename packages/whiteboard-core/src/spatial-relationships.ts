@@ -61,7 +61,7 @@ export type SpatialCommand =
   | { type: 'layer'; objectIds: string[]; action: LayerAction }
   | { type: 'set-locked'; objectIds: string[]; locked: boolean }
   | { type: 'create-connector'; id: string; relationship: ConnectorRelationship; zIndex?: number }
-  | { type: 'update-connector'; id: string; relationship: ConnectorRelationship }
+  | { type: 'update-connector'; id: string; relationship: ConnectorRelationship; endpointChanges?: readonly ('from' | 'to')[] }
   | { type: 'delete-object'; id: string; connectors?: 'cascade' | 'preserve-free' }
   | { type: 'delete-objects'; ids: string[]; connectors?: 'cascade' | 'preserve-free' };
 
@@ -512,7 +512,19 @@ function build(snapshot: Snapshot, command: SpatialCommand): { commands: Whitebo
     const target = object(snapshot, command.id); ensureUnlocked(target);
     if (target.kind !== 'connector') throw new Error('CONNECTOR_KIND_REQUIRED');
     if (target.hidden) throw new Error('SPATIAL_CONFLICT');
-    const value = relation(command.relationship), from = value.from ? object(snapshot, value.from) : null, to = value.to ? object(snapshot, value.to) : null;
+    let requested = command.relationship;
+    if (command.endpointChanges !== undefined) {
+      if (!command.endpointChanges.length || command.endpointChanges.length > 2 || new Set(command.endpointChanges).size !== command.endpointChanges.length || command.endpointChanges.some(side => side !== 'from' && side !== 'to')) throw new Error('CONNECTOR_ENDPOINT_INTENT_INVALID');
+      const merged = { ...command.relationship, ...target.connector } as Record<string, unknown>;
+      for (const side of command.endpointChanges) {
+        for (const key of [side, `${side}Point`, `${side}Anchor`, `${side}Offset`]) {
+          delete merged[key];
+          if (Object.hasOwn(command.relationship, key)) merged[key] = command.relationship[key as keyof ConnectorRelationship];
+        }
+      }
+      requested = merged as unknown as ConnectorRelationship;
+    }
+    const value = relation(requested), from = value.from ? object(snapshot, value.from) : null, to = value.to ? object(snapshot, value.to) : null;
     const boundIds = new Set([target.connector?.from, target.connector?.to, value.from, value.to].filter((id): id is string => Boolean(id)));
     ensureConnectorTargetsAvailable(...[...boundIds].map(id => object(snapshot, id)));
     assertConnectorTargets(from,to,value);

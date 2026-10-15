@@ -1,7 +1,7 @@
 import {lockBoardStorageMaintenance} from './storage-maintenance-access';
 import { createHash, randomUUID } from 'node:crypto';
 import { whiteboard as C } from '@repo/contracts';
-import { WhiteboardCommandBatch, WhiteboardObjectId, WHITEBOARD_LIMITS } from '@repo/contracts/whiteboard-document';
+import { WhiteboardCommandBatch, WhiteboardObjectId, WHITEBOARD_LIMITS, type WhiteboardCommand } from '@repo/contracts/whiteboard-document';
 import type { Principal } from '../../domain/principal';
 import { assertPrincipal } from '../../domain/principal';
 import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
@@ -9,7 +9,7 @@ import { WhiteboardCollaborationError as Fault, type WhiteboardDeletionProof, ty
 import { WorkerWhiteboardUpdateValidator, WHITEBOARD_VALIDATOR_LIMITS } from './update-validator';
 import { NO_PROJECT_WHITEBOARD_ACCESS, type WhiteboardProjectAccess } from '../../application/whiteboard/project-access';
 import { unionWhiteboardRole } from '../../domain/whiteboard/access-decision';
-import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { WHITEBOARD_UPDATE_LIMITS, commandsChangeMindmapStructure } from '@repo/whiteboard-core';
 import { WhiteboardClientMessage, WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { ObjectExistsError, type ObjectStore } from '../../application/artifact/ports';
 
@@ -215,7 +215,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     if (Buffer.byteLength(JSON.stringify(input.commands)) > WHITEBOARD_VALIDATOR_LIMITS.commandBytes) throw new Fault('VALIDATION_FAILED');
     const parsed = WhiteboardCommandBatch.safeParse(input.commands); if (!parsed.success) throw new Fault('VALIDATION_FAILED');
     const commands = structuredClone(parsed.data);
-    return this.commitInTransaction(session, p, boardId, input.epoch, input.requestId, input.requestId, HASH(`commands:${JSON.stringify(canonical(commands))}`), snapshot => this.validator.commands(snapshot, commands),undefined,input.actorId);
+    return this.commitInTransaction(session, p, boardId, input.epoch, input.requestId, input.requestId, HASH(`commands:${JSON.stringify(canonical(commands))}`), snapshot => this.validator.commands(snapshot, commands),undefined,input.actorId,input.expectedSeq,commands);
   }
   async compensateInTransaction(session:TenantSession,p:Principal,boardId:string,input:{epoch:number;requestId:string;actorId:string;before:Uint8Array}):Promise<WhiteboardPendingUpdate>{
     validIds(p,boardId,input.requestId,input.epoch);
@@ -226,7 +226,7 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const { durability: _pending, ...ack } = await this.db.withTenant(p.orgId, session => this.commitInTransaction(session, p, boardId, epoch, updateId, gestureId, hash, validate, legacyHash));
     return ack;
   }
-  private async commitInTransaction(session: TenantSession, p: Principal, boardId: string, epoch: number, updateId: string, gestureId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>, legacyHash?:string, attributedActorId = p.userId): Promise<WhiteboardPendingUpdate> {
+  private async commitInTransaction(session: TenantSession, p: Principal, boardId: string, epoch: number, updateId: string, gestureId: string, hash: string, validate: (snapshot: Uint8Array) => Promise<ValidatedWhiteboardUpdate>, legacyHash?:string, attributedActorId = p.userId, expectedSeq?: number, commands?: WhiteboardCommand[]): Promise<WhiteboardPendingUpdate> {
     await this.access(session, p, boardId, true);
     // Serialize writers at the canonical document row. Each field command is then
     // calculated from the latest committed Yjs snapshot, so concurrent commands
@@ -243,7 +243,13 @@ export class PgWhiteboardCollaborationStore implements WhiteboardCollaborationSt
     const count = await session.query<{ count: string }>(`SELECT count(*)::text AS count FROM whiteboard_updates WHERE org_id=$1 AND board_id=$2 AND actor_id=$3 AND created_at>clock_timestamp()-interval '1 minute'`, [p.orgId, boardId, attributedActorId]);
     if (Number(count.rows[0]?.count ?? 0) >= this.acceptedUpdatesPerMinute) throw new Fault('RATE_LIMITED');
     if (!this.objects) throw new Fault('DEPENDENCY_UNAVAILABLE');
-    const current = await this.documentBytes(session, p, boardId, doc), accepted = await validate(current), seq = Number(doc.seq) + 1;
+    const current = await this.documentBytes(session, p, boardId, doc);
+    if (commands?.some(command => !['geometry', 'text', 'style', 'parent', 'state'].includes(command.type))) {
+      const before = await this.validator.objects(current);
+      const structural = commandsChangeMindmapStructure(before, commands);
+      if (structural && (expectedSeq === undefined || expectedSeq !== Number(doc.seq))) throw new Fault('VALIDATION_FAILED');
+    }
+    const accepted = await validate(current), seq = Number(doc.seq) + 1;
     if (!Number.isSafeInteger(seq) || accepted.snapshot.byteLength > WHITEBOARD_UPDATE_LIMITS.documentBytes || accepted.update.byteLength > WHITEBOARD_SYNC.persistedUpdateBytes) throw new Fault('VALIDATION_FAILED');
     if (!Array.isArray(accepted.objectIds) || accepted.objectIds.length > WHITEBOARD_LIMITS.objects || new Set(accepted.objectIds).size !== accepted.objectIds.length || accepted.objectIds.some(id => !WhiteboardObjectId.safeParse(id).success)) throw new Fault('VALIDATION_FAILED');
     const prefix=this.objectPrefix(p,boardId), snapshotHash=HASH(accepted.snapshot), updateHash=HASH(accepted.update);

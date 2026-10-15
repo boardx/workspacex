@@ -23,7 +23,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { paths, type LocalConfig } from "./config";
-import { LOCAL_ENV_PARITY } from "./parity";
+import { BILLING_PAYMENT_ENV_KEYS, LOCAL_ENV_PARITY } from "./parity";
 
 export type CapabilityState =
   /** 这台机器上根本没有这条能力的实现（供应商形态，或第一版不随包）。 */
@@ -54,6 +54,12 @@ export interface LocalCapability {
  * ⚠ 顺序即展示顺序：用户最可能先撞到的排前面。
  */
 export const LOCAL_CAPABILITY_BASELINE: readonly LocalCapability[] = [
+  {
+    id: "online-billing", label: "在线充值和订阅", state: "unavailable",
+    because: "本地版不连接外部支付服务，本地模型使用无需在线充值。",
+    remedy: "如需购买云端额度或订阅，请连接 WorkspaceX 云。",
+    envKeys: BILLING_PAYMENT_ENV_KEYS,
+  },
   {
     id: "web-search",
     label: "联网检索（web_search）",

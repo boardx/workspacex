@@ -1,0 +1,35 @@
+$ pnpm --filter api exec vitest run tests/billing/billing-config.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_095a47d38502652ec073 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"2aee5445-1469-4d1b-8f1d-7f6b03b7a0b9","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/billing/billing-config.test.ts (15 tests) 43340ms
+   ✓ configured billing module HTTP > serves the signed model for each deployment profile 368ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  23:45:55
+   Duration  53.23s (transform 11.28s, setup 13ms, collect 4.27s, tests 43.34s, environment 0ms, prepare 80ms)
+
+[db-isolation] db=wsx_095a47d38502652ec073 peak_connections=3
+
+
+$ pnpm --filter @repo/contracts exec vitest run tests/billing/billing-operations-export.test.ts
+[exit 0]
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/packages/contracts
+
+ ✓ tests/billing/billing-operations-export.test.ts (2 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  23:46:49
+   Duration  3.00s (transform 1.48s, setup 0ms, collect 2.36s, tests 6ms, environment 0ms, prepare 196ms)
+
+
+[harness-verify v1 sha256=5f31ce27ed56221ca1bf81fd2dec0e26086b01d1c6acc29665227092b01ea24c commit=db11b4d34b5eacafae9501cde169d9466e9db41d at=2026-10-14T15:46:53.094Z]

@@ -11,9 +11,11 @@ import { cn } from "@/lib/utils";
  * 这里首帧读 DOM 上已经生效的 `.dark` class 即可，不需要自己再猜一遍存储值，
  * 也避免了「组件状态」与「阻塞脚本已经做的决定」打架。
  */
-export function ThemeToggle({
-  testId, className, role = "menuitem",
-}: { testId: string; className?: string; role?: "menuitem" | undefined }) {
+type ThemeToggleProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { testId: string; role?: "menuitem" };
+
+export const ThemeToggle = React.forwardRef<HTMLButtonElement, ThemeToggleProps>(function ThemeToggle({
+  testId, className, role = "menuitem", onClick, ...buttonProps
+}, ref) {
   // 初始 null：避免 SSR（服务端不知道 localStorage）与阻塞脚本已经设好的 DOM 状态不一致导致的
   // hydration 告警——首帧渲染一个中性态，挂载后立刻用真实 DOM class 同步。
   const [mode, setMode] = React.useState<ThemeMode | null>(null);
@@ -32,11 +34,16 @@ export function ThemeToggle({
 
   return (
     <button
+      {...buttonProps}
+      ref={ref}
       type="button"
       role={role}
       data-testid={testId}
       aria-pressed={mode === null ? undefined : current === "dark"}
-      onClick={toggle}
+      onClick={(event) => {
+        onClick?.(event);
+        if (!event.defaultPrevented) toggle();
+      }}
       className={cn(
         "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 text-card-foreground",
         "transition-colors duration-200 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
@@ -52,4 +59,4 @@ export function ThemeToggle({
       {current === "dark" ? "切换到浅色模式" : "切换到深色模式"}
     </button>
   );
-}
+});

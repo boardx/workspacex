@@ -91,6 +91,43 @@ class AcquireTests(unittest.TestCase):
   for step in order['steps']:
    params=json.loads((out/step['parameters']).read_bytes());self.assertEqual(params['InstanceId.1'],'i-uf6ga92ewloganobbln6');self.assertEqual(params['RepeatMode'],'Once')
   self.assertEqual(result['cloudCalls'],0);compile((out/'stage.py').read_bytes(),'stage','exec')
+ def test_publication_default_and_explicit_v2_remain_historical(self):
+  for version in (None,2):
+   with self.subTest(version=version):
+    self.publication_inputs()
+    if version is not None:self.r['publicationIntentVersion']=version
+    self.bind();intent=json.loads((self.root/'out/publication-intent.json').read_bytes())
+    self.assertEqual(intent['kind'],'cn-candidate-publication-intent-v2');self.assertEqual(intent['schemaVersion'],2);self.assertNotIn('tagPolicy',intent)
+    shutil.rmtree(self.root/'out')
+ def test_explicit_v3_uses_pinned_new_templates_with_original_producer_control(self):
+  # Fixture repository was committed before this request; generated template
+  # bytes are separately approved and do not modify plan/proof/control identity.
+  self.publication_inputs();self.r['publicationIntentVersion']=3
+  original={name:self.inputs[name] for name in ('plan','set','proof','policy')}
+  self.bind();out=self.root/'out';intent=json.loads((out/'publication-intent.json').read_bytes())
+  self.assertEqual(intent['kind'],'cn-candidate-publication-intent-v3');self.assertEqual(intent['schemaVersion'],3);self.assertEqual(intent['tagPolicy'],'source-attempt-v1')
+  self.assertEqual(intent['controlRevision'],self.control);self.assertEqual(intent['sourceRevision'],self.r['sourceRevision']);self.assertEqual(intent['attemptId'],self.r['attemptId'])
+  self.assertEqual(intent['candidatePlanRawSha256'],m.sha(original['plan']));self.assertEqual(intent['candidateSetRawSha256'],m.sha(original['set']));self.assertEqual(intent['revalidationRawSha256'],m.sha(original['proof']))
+  for name,raw in original.items():self.assertEqual(self.inputs[name],raw)
+  self.assertEqual((out/'candidate-plan.json').read_bytes(),original['plan'])
+  self.assertEqual((out/'candidate-revalidation.json').read_bytes(),original['proof'])
+  self.assertEqual(subprocess.check_output(['git','-C',str(self.repo),'rev-parse','HEAD']).decode().strip(),self.control)
+ def test_invalid_version_and_consume_selection_are_rejected(self):
+  self.publication_inputs()
+  for version in (True,False,1,4,'3',None,{},[]):
+   with self.subTest(version=version):
+    self.r['publicationIntentVersion']=version
+    with self.assertRaisesRegex(ValueError,'PUBLICATION_INTENT_VERSION'):self.bind()
+  self.r['phase']='consume';self.r.pop('publicationCapability');self.r['publicationIntentVersion']=3
+  with self.assertRaisesRegex(ValueError,'REQUEST_FIELDS'):self.bind()
+ def test_v3_selection_requires_new_root_request_and_template_pins(self):
+  self.publication_inputs();self.r['publicationIntentVersion']=3
+  self.r['inputs']={n:m.sha(raw) for n,raw in self.inputs.items()}
+  raw=m.encode(self.r);approval=dict(kind='cn-continuation-acquire-approval-v1',requestSha256=m.sha(raw),issuedAt=self.r['requestedAt'],expiresAt=self.r['deadlineAt'],templateFiles={n:m.sha((m.TEMPLATES/n).read_bytes()) for n in m.NAMES})
+  old=dict(self.r);old.pop('publicationIntentVersion');stale=dict(approval,requestSha256=m.sha(m.encode(old)))
+  with self.assertRaisesRegex(ValueError,'ROOT_APPROVAL_REQUEST'):m.materialize(raw,m.encode(stale),self.inputs,self.repo,self.root/'out',now=self.now)
+  approval['templateFiles']=dict(approval['templateFiles']);approval['templateFiles']['materialize-publication.py']='0'*64
+  with self.assertRaisesRegex(ValueError,'TEMPLATE_HASH'):m.materialize(raw,m.encode(approval),self.inputs,self.repo,self.root/'out',now=self.now)
  def test_late_publication_capability_preserves_original_execution_budget(self):
   self.publication_inputs();self.r['requestedAt']=(self.now-dt.timedelta(seconds=957)).isoformat();self.r['deadlineAt']=(self.now+dt.timedelta(seconds=843)).isoformat()
   self.r['publicationCapability']={'issuedAt':self.now.isoformat(),'expiresAt':(self.now+dt.timedelta(minutes=25)).isoformat()}

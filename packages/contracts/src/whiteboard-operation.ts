@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { BoardId, BoardRole } from './whiteboard';
-import { WhiteboardCommand, WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS } from './whiteboard-document';
+import { WhiteboardCommand, WhiteboardMindmapCommand, WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS } from './whiteboard-document';
 
 export const WHITEBOARD_OPERATION_LIMITS = {
   commands: 200,
@@ -59,6 +59,7 @@ export const WhiteboardOperationRequest = z.object({
   actor: WhiteboardOperationActor,
   commands: z.array(WhiteboardCommand).min(1).max(WHITEBOARD_OPERATION_LIMITS.commands),
   provenance: WhiteboardOperationProvenance,
+  mindmap: WhiteboardMindmapCommand.optional(),
 }).strict();
 export type WhiteboardOperationRequest = z.infer<typeof WhiteboardOperationRequest>;
 

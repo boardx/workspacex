@@ -67,6 +67,12 @@ export function validateWhiteboardExtensionData(value: unknown, depth = 0, key =
   }
 }
 export const WhiteboardObjectId = z.string().min(1).max(128).regex(/^[a-zA-Z0-9_-]+$/);
+/** Native tree identity is carried by edges; node metadata never duplicates parentage. */
+export const WhiteboardMindmapMetadata = z.discriminatedUnion('role', [
+  z.object({version:z.literal(1),role:z.literal('node'),treeId:WhiteboardObjectId,collapsed:z.boolean()}).strict(),
+  z.object({version:z.literal(1),role:z.literal('edge'),treeId:WhiteboardObjectId,siblingOrder:z.string().min(1).max(128)}).strict(),
+]);
+export type WhiteboardMindmapMetadata = z.infer<typeof WhiteboardMindmapMetadata>;
 export const WhiteboardGeometry = z.object({
   x: z.number().finite().min(-1000000).max(1000000), y: z.number().finite().min(-1000000).max(1000000),
   width: z.number().finite().positive().max(100000), height: z.number().finite().positive().max(100000),
@@ -82,6 +88,7 @@ export const WhiteboardExtensionData = z.record(z.unknown()).superRefine((value,
     const encoded = JSON.stringify(value);
     if (new TextEncoder().encode(encoded).length > WHITEBOARD_LIMITS.extensionBytes) throw new Error();
     validateWhiteboardExtensionData(value);
+    if (value.mindmap !== undefined) WhiteboardMindmapMetadata.parse(value.mindmap);
   } catch (error) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: error instanceof Error && error.message.startsWith('UNSAFE_EXTENSION') ? error.message : 'Extension must be bounded plain JSON' });
   }
@@ -129,6 +136,10 @@ export const WhiteboardObject = z.object({
   restoredFrom: WhiteboardObjectId.optional(),
   extensionData: WhiteboardExtensionData.optional(),
 }).strict().superRefine((object, ctx) => {
+  if (object.extensionData?.mindmap) {
+    const metadata = WhiteboardMindmapMetadata.parse(object.extensionData.mindmap);
+    if (object.kind !== (metadata.role === 'node' ? 'sticky' : 'connector')) ctx.addIssue({code:z.ZodIssueCode.custom,message:'Mindmap metadata requires native sticky or connector'});
+  }
   if ((object.kind === 'connector') !== Boolean(object.connector)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Connector endpoints required only for connector objects' });
 });
 export type WhiteboardObject = z.infer<typeof WhiteboardObject>;
@@ -159,6 +170,29 @@ export const WhiteboardCommand = z.union([
 ]);
 export type WhiteboardCommand = z.infer<typeof WhiteboardCommand>;
 export const WhiteboardCommandBatch = z.array(WhiteboardCommand).min(1).max(WHITEBOARD_LIMITS.batch);
+export const WhiteboardMindmapCommand = z.object({
+  action:z.enum(['create-root','add-child','add-sibling','reparent','set-collapsed','layout','delete-subtree','import-mermaid']),
+  treeId:WhiteboardObjectId,
+  /** Hex Yjs state vector captured before planning: stale geometry/parentage is rejected. */
+  expectedStateVector:z.string().max(65536).regex(/^(?:[a-f0-9]{2})+$/),
+  commands:WhiteboardCommandBatch,
+}).strict().superRefine((command, ctx) => {
+  const allowed: Record<typeof command.action, readonly string[]> = {
+    'create-root':['create'], 'import-mermaid':['create','geometry'],
+    'add-child':['create','geometry','extension'], 'add-sibling':['create','geometry','extension'],
+    reparent:['connector','geometry','extension'], 'set-collapsed':['extension','geometry'],
+    layout:['geometry'], 'delete-subtree':['delete','geometry'],
+  };
+  const reject = (message:string) => ctx.addIssue({code:z.ZodIssueCode.custom,message});
+  if (command.commands.some(primitive => !allowed[command.action].includes(primitive.type))) reject('Mindmap action cannot issue this primitive command');
+  if (command.action === 'create-root' && (command.commands.length !== 1 || command.commands[0]?.type !== 'create' || command.commands[0].object.id !== command.treeId)) reject('Root creation must create its root identity exactly once');
+  if (['add-child','add-sibling'].includes(command.action) && command.commands.filter(primitive => primitive.type === 'create').length !== 2) reject('Adding a topic must create one sticky and one tree edge');
+  if (command.action === 'reparent' && command.commands.filter(primitive => primitive.type === 'connector').length !== 1) reject('Reparent must change exactly one tree edge');
+  if (command.action === 'set-collapsed' && command.commands.filter(primitive => primitive.type === 'extension').length !== 1) reject('Collapse must update exactly one node metadata');
+  if (command.action === 'delete-subtree' && !command.commands.some(primitive => primitive.type === 'delete')) reject('Delete subtree must delete a member');
+});
+export type WhiteboardMindmapCommand = z.infer<typeof WhiteboardMindmapCommand>;
+
 
 export const WhiteboardLayoutKind = z.enum([
   'align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom',

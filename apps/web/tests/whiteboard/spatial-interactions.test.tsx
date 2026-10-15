@@ -188,9 +188,11 @@ it("preflights multi-delete and commits preserve-free endpoints in one UI transa
   });
   fireEvent.click(screen.getByTestId("mock-select-stickies"));
   const before = readObjects(doc);
-  fireEvent.click(screen.getByLabelText("更多白板操作"));
-  fireEvent.click(screen.getByRole("button", { name: "删除选中" }));
-  fireEvent.keyDown(document,{key:"Escape"});
+  const board = screen.getByTestId("collaborative-editor"); board.focus();
+  const blockedTransactions: Y.Transaction[] = [];
+  doc.on("afterTransaction", transaction => { if (transaction.origin instanceof WhiteboardCommandOrigin) blockedTransactions.push(transaction); });
+  fireEvent.keyDown(board, { key: "Delete" });
+  expect(blockedTransactions).toHaveLength(0);
   expect(readObjects(doc)).toEqual(before);
   act(() => port.dispatch({ boardId: "spatial-board", clientId: "fixture", gestureId: "unlock-edge", command: { type: "set-locked", objectIds: ["edge"], locked: false } }));
   const transactions: Y.Transaction[] = [];

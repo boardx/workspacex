@@ -6,6 +6,8 @@ import type {WhiteboardReceiptObserver} from './whiteboard-provider-observer';
 export type WhiteboardConnectionState = {
   phase: 'connecting' | 'online' | 'offline' | 'blocked'; pending: number;
   role: 'owner' | 'editor' | 'commenter' | 'viewer'; archived: boolean; epoch?: number | null;
+  /** Server sync/update already applied to this document; durability ACK never advances it. */
+  appliedRevision?: { epoch: number; seq: number } | null;
   peers: Extract<WhiteboardServerMessage, { type: 'presence' }>['peers']; reason: string | null;
   retryAttempt: number; duplicateAcks: number; lastAckSequence: number | null; lastAckReceipt: {updateId:string;gestureId:string;seq:number}|null;
 };
@@ -357,13 +359,14 @@ export class WhiteboardProvider {
           }
           this.epoch = message.epoch; this.seq = message.seq; this.ready = true; this.retry = 0;
           clearTimeout(handshake);
-          this.publish({ phase: 'online', role: message.role, archived: message.archived, epoch: message.epoch, reason: null, retryAttempt: 0 });
+          this.publish({ phase: 'online', role: message.role, archived: message.archived, epoch: message.epoch, appliedRevision: { epoch: message.epoch, seq: message.seq }, reason: null, retryAttempt: 0 });
           this.inFlight.clear(); this.drain();this.scheduleReceiptReplay(); if (!this.pending.length) this.schedulePresence();
         } else if (message.type === 'update') {
           if (!this.ready || message.epoch !== this.epoch) { this.block('STALE_EPOCH'); return; }
           if (this.seq !== null && message.seq <= this.seq) return;
           Y.applyUpdate(this.doc, base64ToBytes(message.update), REMOTE);
           this.seq = message.seq;
+          this.publish({ appliedRevision: { epoch: message.epoch, seq: message.seq } });
         } else if (message.type === 'ack') {
           if (!this.ready) { this.block('PROTOCOL_ERROR'); return; }
           const index = this.pending.findIndex(item => item.updateId === message.updateId);

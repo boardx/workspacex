@@ -1,0 +1,32 @@
+[stack-admission] load1=2.45 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mv3e95l5-3eaa5805-11d9b559327e db=wsx_11d9b559327ec1e76f5b compose=wsx-11d9b559327ec1e76f5b pg=20409 redis=21409 api=24409 web=25409 sandbox=26409 model=27409 deep-agent=28409 asr=29409 vision=30409 loopback-sandbox=31409 mail=19409
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_11d9b559327ec1e76f5b capacity=100 current=6 required=32
+ ❯ tests/billing/billing-config.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/billing-config.test.ts [ tests/billing/billing-config.test.ts ]
+Error: Failed to load url ../../src/infrastructure/billing/deployment-billing-config (resolved id: ../../src/infrastructure/billing/deployment-billing-config) in /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/tests/billing/billing-config.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  13:40:03
+   Duration  4.33s (transform 565ms, setup 5ms, collect 0ms, tests 0ms, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_11d9b559327ec1e76f5b peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/billing-config.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/billing-config.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5s
+  清理：0s
+  总计：5s

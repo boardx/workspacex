@@ -1,3 +1,4 @@
+import {PgReportFileJobStore} from './infrastructure/report-files/pg-job-store';
 import { InterviewExpertLibraryController } from './interface/controllers/interview-expert-library.controller';
 import { INTERVIEW_CUSTOM_EXPERT_LIBRARY } from './application/interview/custom-expert-library';
 import { PgCustomExpertLibrary } from './infrastructure/interview/pg-custom-expert-library';
@@ -213,6 +214,7 @@ import { GoogleGuidedSearch } from "./infrastructure/research/google-guided-sear
  */
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
+import { BillingModule } from "./billing.module";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
 import { DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT } from "./application/ports/database.port";
@@ -1223,6 +1225,7 @@ const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
 const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
 
 @Module({
+  imports: [BillingModule],
   controllers: [
     WhiteboardFilesController,
     WorkflowRuntimeController,
@@ -2725,7 +2728,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: TOOL_EXECUTION_AUTHORITY,
       useFactory: (db: DatabasePort, runs: AgentRunStore, grants: ToolPermissionGrantStore) =>
-        new ToolExecutionAuthority(new PgParentRunControlReader(db), runs, grants),
+        new ToolExecutionAuthority(new PgParentRunControlReader(db), runs, grants, input => new PgReportFileJobStore(db).artifactPolicyForRun(input)),
       inject: [DATABASE_PORT, AGENT_RUN_STORE, TOOL_PERMISSION_GRANT_STORE],
     },
     {

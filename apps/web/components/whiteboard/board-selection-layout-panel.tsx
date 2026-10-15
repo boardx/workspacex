@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-export type BoardSmartLayout = "grid" | "cards" | "cluster" | "journey" | "mind-map" | "flow" | "timeline";
+export type BoardSmartLayout = "grid" | "cards" | "cluster" | "journey" | "flow" | "timeline";
 export interface BoardSelectionLayoutPanelProps {
   disabled: boolean; selectedCount: number; gap: number; columns: number;
   onGapChange: (gap: number) => void; onColumnsChange: (columns: number) => void;
@@ -19,17 +19,17 @@ const alignments: readonly [WhiteboardLayoutKind, string, LucideIcon][] = [
 const distribution: readonly [WhiteboardLayoutKind, string, LucideIcon][] = [["distribute-horizontal", "水平分布", AlignHorizontalSpaceAround], ["distribute-vertical", "垂直分布", AlignVerticalSpaceAround]];
 const sizes: readonly [WhiteboardLayoutKind, string, LucideIcon][] = [["equal-width", "等宽", RectangleHorizontal], ["equal-height", "等高", RectangleVertical], ["equal-size", "等尺寸", Square]];
 const arrangements: readonly [WhiteboardLayoutKind, string, LucideIcon][] = [["grid", "网格", Grid2X2], ["row", "横排", Columns3], ["column", "竖排", Rows3], ["tidy-up", "整理", Sparkles]];
-const smart: readonly [BoardSmartLayout, string][] = [["grid", "网格"], ["cards", "卡片"], ["cluster", "聚类"], ["journey", "旅程"], ["mind-map", "思维导图"], ["flow", "流程"], ["timeline", "时间线"]];
+const smart: readonly [BoardSmartLayout, string][] = [["grid", "网格"], ["cards", "卡片"], ["cluster", "聚类"], ["journey", "旅程"], ["flow", "流程"], ["timeline", "时间线"]];
 
 /** Schematic previews describe arrangement, without changing the canonical layout algorithms. */
 function LayoutPreview({ kind }: { kind: BoardSmartLayout }) {
   const positions: Record<BoardSmartLayout, readonly [number, number][]> = {
     grid: [[8, 8], [32, 8], [8, 30], [32, 30]], cards: [[5, 12], [24, 12], [43, 12]],
     cluster: [[8, 8], [20, 24], [40, 10], [44, 32]], journey: [[3, 30], [22, 20], [43, 8]],
-    "mind-map": [[4, 22], [40, 4], [40, 22], [40, 40]], flow: [[3, 20], [24, 20], [45, 20]], timeline: [[3, 8], [24, 30], [45, 8]],
+    flow: [[3, 20], [24, 20], [45, 20]], timeline: [[3, 8], [24, 30], [45, 8]],
   };
   return <svg viewBox="0 0 64 60" className="h-12 w-16 text-muted-foreground" aria-hidden="true">
-    {["journey", "mind-map", "flow", "timeline"].includes(kind) && <path d={kind === "mind-map" ? "M17 29H32V11H40M32 29H40M32 29V47H40" : kind === "journey" ? "M10 37L29 27L50 15" : kind === "timeline" ? "M3 29H61" : "M8 27H56"} fill="none" stroke="currentColor" strokeWidth="1.5" />}
+    {["journey", "flow", "timeline"].includes(kind) && <path d={kind === "journey" ? "M10 37L29 27L50 15" : kind === "timeline" ? "M3 29H61" : "M8 27H56"} fill="none" stroke="currentColor" strokeWidth="1.5" />}
     {positions[kind].map(([x, y], i) => <rect key={i} x={x} y={y} width={kind === "cards" ? 14 : 13} height={kind === "cards" ? 32 : 14} rx="2" fill="currentColor" opacity="0.65" />)}
   </svg>;
 }
