@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
@@ -221,6 +223,51 @@ test('紧凑问卷输入与发布设置在桌面平板手机保持可操作',asy
    expect(await page.locator('body').evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(width);
    await page.screenshot({path:testInfo.outputPath(`survey-compact-publish-${width}.png`),fullPage:true});
  }
+});
+
+test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
+ await expect(page.getByRole('heading',{name:'还没有问卷',exact:true})).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('r1-empty-list.png'),fullPage:true});
+ await expect(page.getByRole('button',{name:'新建问卷',exact:true})).toHaveCount(1);
+ const create=page.getByTestId('survey-create-primary');await create.focus();await create.press('Enter');
+ const dialog=page.getByRole('dialog',{name:'新建问卷',exact:true});
+ await expect(dialog.getByLabel('问卷名称',{exact:true})).toBeFocused();
+ await expect(dialog.getByRole('button',{name:'下一步',exact:true})).toBeDisabled();
+ await dialog.getByLabel('问卷名称',{exact:true}).fill('R1 合成问卷');
+ await expect(dialog.getByRole('button',{name:'下一步',exact:true})).toBeEnabled();
+ await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await expect(create).toBeFocused();
+ await page.screenshot({path:testInfo.outputPath('r1-cancel-focus.png'),fullPage:true});
+ await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).press('Escape');
+ await expect(dialog).toHaveCount(0);await expect(create).toBeFocused();
+ await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).fill('R1 成功导航');
+ await dialog.getByRole('radio',{name:/AI 导入创建/}).check();
+ await dialog.getByRole('button',{name:'下一步',exact:true}).click();
+ await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
+ await expect(page.getByLabel('问卷需求')).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('r1-created-ai-entry.png'),fullPage:true});
+});
+
+test('R1 问卷体验：读取失败后直接重选同一文件保留原文',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R1 文件重试',tags:[]})));
+ await page.getByLabel('问卷需求').fill('保留手动输入的研究目标');
+ await page.evaluate(()=>{
+   const read=FileReader.prototype.readAsDataURL;let attempts=0;
+   FileReader.prototype.readAsDataURL=function(blob:Blob){
+     attempts++;if(attempts===1){setTimeout(()=>this.dispatchEvent(new ProgressEvent('error')),0);return;}
+     return read.call(this,blob);
+   };
+ });
+ const source=testInfo.outputPath('r1-source.md');await mkdir(dirname(source),{recursive:true});await writeFile(source,'合成研究资料：关注最近一次使用体验。');
+ const select=async()=>{const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'添加文件',exact:true}).click();await(await chooser).setFiles(source);};
+ await select();await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toHaveText('文件读取失败，请重新选择。');
+ await page.screenshot({path:testInfo.outputPath('r1-file-read-error.png'),fullPage:true});
+ await select();await expect(page.getByRole('button',{name:'移除文件 r1-source.md',exact:true})).toBeVisible();
+ await expect(page.getByLabel('问卷需求')).toHaveValue('保留手动输入的研究目标');
+ await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toHaveCount(0);
+ await page.screenshot({path:testInfo.outputPath('r1-file-reselected.png'),fullPage:true});
 });
 
 async function loginAsAdmin(page: Page) {
