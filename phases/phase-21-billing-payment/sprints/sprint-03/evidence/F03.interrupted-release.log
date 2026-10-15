@@ -1,0 +1,15 @@
+Source fa5cc745e75cbd22d29fa4730198d213a2ac87b6
+Final exit143 after controlled SIGTERM, not a passing certificate.
+INTERRUPTED after confirmed Web failure; official verification has no passing result. Feature command passed per outer log; Web 937 files passed / 1 failed; 8066 tests passed / 1 failed / 5 skipped. API partial; not complete. Owned PID tree captured before SIGTERM; no quarantine deletion.
+
+
+> agentic-harness-template@ harness /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+> tsx .harness/scripts/cli.ts "verify" "--sprint" "21/03" "--feature" "F03"
+
+==> 验证 F03 — 钱包余额与流水查询（归属校验 + 游标分页）
+✓ 通过: pnpm --filter api exec vitest run tests/billing/wallet-ledger-query.test.ts
+  高风险命中 1 处：apps/api/src/infrastructure/identity/identity-persistence.module.ts ⟵ apps/api/src/*/identity/**
+==> 运行基础验证（风险档=high_risk）: pnpm -w run verify:release
+
+Web failure/full rerun evidence: docs/evidence/survey-voice-ready-5745/.
+Original API output was partial, no full API result. Recorded owned process tree was terminated and its isolated stack cleaned; no lease quarantine deleted.
