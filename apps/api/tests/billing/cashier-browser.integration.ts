@@ -3,7 +3,7 @@
  */
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { chromium, type Browser } from "playwright";
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { createServer } from "node:net";
@@ -47,7 +47,12 @@ async function stopWeb() {
   const groupAlive = () => {
     if (!web?.pid) return false;
     try { process.kill(process.platform === "win32" ? web.pid : -web.pid, 0); return true; }
-    catch (error) { if ((error as NodeJS.ErrnoException).code === "ESRCH") return false; throw error; }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
+      let snapshot = "unavailable";
+      try { snapshot = execFileSync("ps", ["-axo", "pid=,ppid=,pgid=,uid=,stat="], { encoding: "utf8" }).split("\n").filter(line => Number(line.trim().split(/\s+/)[2]) === web?.pid).join("\n"); } catch { /* Preserve the original permission failure. */ }
+      throw new Error(`Owned Next group probe failed: pid=${web.pid} closed=${closed} exitCode=${web.exitCode} code=${(error as NodeJS.ErrnoException).code} members=${snapshot || "none"}`, { cause: error });
+    }
   };
   const signal = (name: NodeJS.Signals) => { try { if (process.platform === "win32") web?.kill(name); else if (web?.pid) process.kill(-web.pid, name); } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error; } };
   const wait = async () => {
@@ -83,7 +88,7 @@ it("creates through the real UI, credits through a verified callback and never d
     localStorage.setItem("wsx.sessionToken", "f04-user");
     localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId, orgs: [orgId], currentOrgId: orgId, expiresAt: "2099-01-01T00:00:00Z" }));
   }, { userId: user, orgId: org });
-  await page.route(`${origin}/__fullstack_api/identity/me`, route => route.fulfill({ json: { org: { id: org, name: "Isolated billing acceptance", kind: "organization", team: null, modelPolicy: "any", avatarUrl: null }, orgRole: "admin", teamId: null, projectRole: null, groupId: null, displayName: "Isolated payer", avatarUrl: null } }));
+  await page.route(url => url.origin === origin && url.pathname === "/__fullstack_api/identity/me", route => route.fulfill({ json: { org: { id: org, name: "Isolated billing acceptance", kind: "organization", team: null, modelPolicy: "any", avatarUrl: null }, orgRole: "admin", teamId: null, projectRole: null, groupId: null, displayName: "Isolated payer", avatarUrl: null } }));
   await page.goto(`${origin}/billing`);
   await page.getByRole("button", { name: "购买额度", exact: true }).click();
   await page.locator('input[type="radio"][value="f04-order-basic"]').check();
