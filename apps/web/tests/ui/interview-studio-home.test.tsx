@@ -362,7 +362,8 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     fireEvent.keyDown(screen.getByTestId("itv-create-tag-input"), { key: "Enter" });
 
     fireEvent.click(screen.getByTestId("itv-create-submit"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时不可用");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
     expect(screen.getByTestId("itv-create-name")).toHaveValue("保留的创建输入");
     fireEvent.click(screen.getByTestId("itv-create-submit"));
     await waitFor(() => {

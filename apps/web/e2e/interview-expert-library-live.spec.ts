@@ -1,4 +1,16 @@
 import { randomUUID } from 'node:crypto';
+import { createRequire } from 'node:module';
+import { resolve } from 'node:path';
+import { execFileSync } from 'node:child_process';
+interface InterviewUxAuditClient { query(sql: string, params: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }> }
+async function modelActivity() {
+ if (!process.env.WORKSPACEX_ISOLATION_ID || !process.env.WORKSPACEX_DB?.startsWith('wsx_')) throw new Error('owned isolated database required');
+ const { PgDatabase } = createRequire(resolve(process.cwd(), '../api/package.json'))('./src/infrastructure/db/pg-database.ts');
+ const config = JSON.parse(execFileSync(process.execPath, ['--import','tsx','--input-type=module','-e',"import {appConfig} from '../api/src/infrastructure/db/pg-config.ts'; process.stdout.write(JSON.stringify(appConfig()));"], {cwd:process.cwd(),encoding:'utf8'}));
+ const db = new PgDatabase(config);
+ try { return (await db.withTenant(FULLSTACK_E2E.orgId,(client:InterviewUxAuditClient)=>client.query('SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests',[FULLSTACK_E2E.orgId]))).rows[0]; }
+ finally { await db.close(); }
+}
 import { expect,test } from '@playwright/test';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
 import { INTERVIEW_PERSONAS,personaAnchorId } from '../lib/interview-personas/persona-library';
@@ -36,4 +48,48 @@ test('built-in experts and private custom experts persist and can be selected in
  await page.goto(`/itv/${interviewId}/experts`);await page.getByTestId(`itv-library-${custom.expertId}`).getByRole('button',{name:`添加画像 ${name}`,exact:true}).click();
  await expect.poll(async()=>{const current=await(await page.request.get(path,{headers})).json();return current.documents.find((doc:{step:string})=>doc.step==='experts')?.markdown??'';}).toContain(`#expert-${custom.expertId}`);
  await page.reload();const current=await(await page.request.get(path,{headers})).json();const markdown=current.documents.find((doc:{step:string})=>doc.step==='experts').markdown;expect(markdown).toContain('采购决策顾问');for(const value of Object.values(fullProfile))expect(markdown).toContain(value);expect(markdown).toContain('不作为真人访谈证据');
+});
+
+/** Final production check for creation/editing/recovery, followed by R4 multi-viewport walk. No model command. */
+test('four rounds of interview interaction with isolated saved data', async({page},testInfo)=>{
+ test.setTimeout(180_000);
+ const fs=await import('node:fs/promises');
+ const dir=process.env.ITV_UX_EVIDENCE ?? testInfo.outputPath('four-rounds');await fs.mkdir(dir,{recursive:true});
+ const modelBefore = await modelActivity(); const modelCommands: string[] = [];
+ page.on('request',request=>{if(request.method()==='POST' && /runtime\/commands|report-files|\/(?:generate|execute)(?:\/|$)/u.test(new URL(request.url()).pathname)) modelCommands.push(new URL(request.url()).pathname);});
+ const checkpoint=async(name:string,data:unknown)=>{await page.screenshot({path:`${dir}/${name}.png`,fullPage:true});await fs.writeFile(`${dir}/${name}.json`,JSON.stringify(data,null,2));console.log(`UX_CHECKPOINT ${name}`);};
+ await page.goto('/login');await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/u);
+ const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));const headers={authorization:`Bearer ${token}`};
+ // R1: keyboard entry and actual creation; no generation command.
+ await page.goto('/itv');await page.getByTestId('itv-create').click();
+ const name=page.getByLabel('访谈名称',{exact:true});await expect(name).toBeFocused();
+ expect(await name.evaluate((el:HTMLInputElement)=>el.value.slice(el.selectionStart??0,el.selectionEnd??0))).toBe('未命名访谈');
+ await page.keyboard.type('UX four rounds');await expect(name).toHaveValue('UX four rounds');
+ await checkpoint('r1-after',{defaultSelected:true});await page.getByTestId('itv-create-submit').click();await expect(page).toHaveURL(/\/itv\/[^/]+\/intake/u);
+ const interviewId=new URL(page.url()).pathname.split('/')[2]!;const path=`/__fullstack_api/interviews/digital/${interviewId}/markdown`;
+ const save=async(step:string,markdown:string)=>{const current=await(await page.request.get(path,{headers})).json();const result=await page.request.post(`${path}/${step}`,{headers,data:{markdown,expectedVersion:current.version,expectedDocumentVersion:current.documents.find((d:{step:string})=>d.step===step)?.version??0}});expect(result.ok()).toBe(true);return result.json();};
+ // R2: saved expert/question drafts and keyboard continuation after adding a question.
+ await save('experts','# 专家\n\n## [合成顾问](#expert-ux-synthetic)\n\n### 专业角色\n采购顾问\n\n模拟画像，不作为真人证据。\n');
+ await save('outline','# 访谈问题\n\n## [合成顾问](#expert-ux-synthetic)\n\n1. 请介绍最近一次采购决策？\n');
+ await page.goto(`/itv/${interviewId}/outline`);await page.getByRole('button',{name:'添加问题',exact:true}).click();
+ const added=page.getByRole('textbox',{name:'编辑问题 2',exact:true});await expect(added).toBeFocused();await added.fill('谁拥有预算批准权？');
+ await page.getByRole('button',{name:'保存问题草稿',exact:true}).click();await expect(page.getByRole('button',{name:'保存问题草稿',exact:true})).toBeEnabled();await page.reload();await expect(page.getByRole('textbox',{name:'编辑问题 2',exact:true})).toHaveValue('谁拥有预算批准权？');await expect(page.getByRole('button',{name:'保存问题草稿',exact:true})).toBeEnabled();await checkpoint('r2-after',{savedAndReloaded:true});
+ // R3: explicitly controlled unavailable HTTP response at create boundary, never a provider success.
+ await page.goto('/itv');await page.getByTestId('itv-create').click();await name.fill('受控恢复验收');
+ let failed=true;const attempts:string[]=[];await page.route('**/__fullstack_api/interviews/digital',async route=>{if(route.request().method()!=='POST'){await route.continue();return;}attempts.push(route.request().postDataJSON().requestId);if(failed){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({reasonCode:'DEPENDENCY_UNAVAILABLE',message:'DEPENDENCY_UNAVAILABLE'})});}else await route.continue();});
+ await page.getByTestId('itv-create-submit').click();await expect(page.getByRole('alert')).toContainText('服务暂时不可用');await expect(page.getByRole('alert')).not.toContainText('DEPENDENCY_UNAVAILABLE');await expect(name).toHaveValue('受控恢复验收');await expect(page.getByTestId('itv-create-submit')).toBeEnabled();await checkpoint('r3-after-error',{controlled503:true,preserved:true});
+ failed=false;await page.getByTestId('itv-create-submit').click();await expect(page).toHaveURL(/\/itv\/[^/]+\/intake/u);expect(attempts).toHaveLength(2);expect(attempts[0]).toBe(attempts[1]);await page.unroute('**/__fullstack_api/interviews/digital');await checkpoint('r3-after-retry',{realApiCreated:true,sameRequestId:true});
+ // R4: long saved content, experts/details and report file entry across three widths. No model dispatch.
+ const long='请详细介绍在不同预算审批和跨部门协作条件下，最近一次采购决策的参与人、争议、证据以及最终取舍？'.repeat(5);
+ await save('outline',`# 访谈问题\n\n## [合成顾问](#expert-ux-synthetic)\n\n1. ${long}\n\n2. 谁拥有预算批准权？\n`);
+ await save('report',`# 合成验收报告\n\n模拟材料，需真人验证。\n\n## 核心发现\n${'采购责任需要与预算授权共同核验。'.repeat(40)}\n\n|事项|行动|\n|---|---|\n|采购|核验授权|`);
+ for(const width of [375,768,1280]){
+  await page.setViewportSize({width,height:900});await page.goto(`/itv/${interviewId}/outline`);const longQuestion=page.getByRole('textbox',{name:'编辑问题 1',exact:true});await expect(longQuestion).toHaveValue(long);await expect(page.getByRole('button',{name:'保存问题草稿',exact:true})).toBeEnabled();
+  const geometry=await longQuestion.evaluate(el=>({height:el.getBoundingClientRect().height,width:el.getBoundingClientRect().width,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,whiteSpace:getComputedStyle(el).whiteSpace}));expect(geometry.height).toBeGreaterThan(48);expect(geometry.width).toBeGreaterThan(width===375?180:300);expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth);expect(geometry.whiteSpace).toBe('pre-wrap');
+  await longQuestion.focus();await page.keyboard.press('End');await page.keyboard.press('Enter');await expect(longQuestion).toHaveValue(long);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await checkpoint(`r4-outline-${width}`,{longQuestionPreserved:true,geometry});
+  await page.getByRole('button',{name:'保存问题草稿',exact:true}).click();await expect(page.getByRole('button',{name:'保存问题草稿',exact:true})).toBeEnabled();await page.reload();await expect(longQuestion).toHaveValue(long);
+  await page.goto(`/itv/${interviewId}/report`);for(const label of ['生成 PDF','生成 Word','分享报告'])await expect(page.getByRole('button',{name:label,exact:true})).toBeEnabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'生成 Word',exact:true}).focus();await expect(page.getByRole('button',{name:'生成 Word',exact:true})).toBeFocused();await checkpoint(`r4-report-${width}`,{fileEntriesEnabled:true,noGenerationClicked:true});
+ }
+ await page.goto('/itv?tab=experts');const builtin=INTERVIEW_PERSONAS[0]!;await page.getByTestId(`itv-library-${personaAnchorId(builtin)}`).getByRole('button',{name:`查看画像 ${builtin.name}`,exact:true}).click();await expect(page.getByRole('dialog',{name:builtin.name,exact:true})).toContainText(builtin.service_value);await page.keyboard.press('Escape');await expect(page.getByRole('button',{name:`查看画像 ${builtin.name}`,exact:true})).toBeFocused();await checkpoint('r4-expert-keyboard',{completeData:true,focusRestored:true});
+ const modelAfter=await modelActivity();expect(modelAfter).toEqual(modelBefore);expect(modelCommands).toEqual([]);await fs.writeFile(`${dir}/model-activity.json`,JSON.stringify({before:modelBefore,after:modelAfter,commands:modelCommands},null,2));
 });
