@@ -76,6 +76,18 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(args).not.toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN');
     expect(args).not.toContain('must-not-enter');
   });
+  it('runs directory acceptance in the sealed browser runtime without import credentials', () => {
+    const key = 'WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN';
+    const args = runtimeArgs({ ...inputs, directory: true, env: { ...inputs.env, [key]: 'FAKE' } });
+    expect(args.join(' ')).toContain('PLAYWRIGHT_BROWSERS_PATH=/ms-playwright');
+    expect(args.join(' ')).toContain('exec pnpm run verify:digital-directory-cards');
+    expect(args).not.toContain(key);
+    expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:digital-directory-cards'])).not.toThrow();
+    expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
+    expect(() => assertRuntimeCommand('directory', ['--', 'pnpm', 'run', 'verify:digital-directory-cards', '--grep', 'one'])).toThrow();
+    const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
+    expect(workflow).toContain('ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards');
+  });
   it('retains full commands and evidence within a bounded complete-run budget', () => {
     const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
     const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('  # #2084:'));

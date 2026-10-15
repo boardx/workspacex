@@ -5,7 +5,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Clock3, MoreHorizontal, Pencil, Plus, Square, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, type HistorySort } from "@/components/studio/studio-history";
 import { useOptionalSession } from "@/components/session/session-provider";
 import {
   createPersonalTranscription,
@@ -496,7 +496,6 @@ function HistoryState({
   return (
     <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} onEdit={onEdit} onStop={onStop} onDelete={onDelete} />)}
-      <StudioHistoryCreateCard business="转录" testId="rec-create-card" onCreate={onCreate} />
     </div>
   );
 }
@@ -516,7 +515,7 @@ function HistoryCard({
       status={<Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>{item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}</Badge>}
       description={item.project} tags={item.tags}
       metadata={<><span>{item.duration}</span><time>{item.updatedAt}</time></>}
-      primaryAction={<Button data-testid={`rec-history-open-${item.id}`} size="sm" variant="primary" onClick={() => onOpen(item)}>进入转录</Button>}
+      primaryAction={<Button data-testid={`rec-history-open-${item.id}`} size="md" variant="outline" onClick={() => onOpen(item)}>进入转录</Button>}
       management={
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreHorizontal aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
