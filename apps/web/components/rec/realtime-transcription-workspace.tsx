@@ -59,12 +59,12 @@ export function RealtimeTranscriptionWorkspace({
   const [savingName, setSavingName] = React.useState(false);
   const renamePending = React.useRef(false);
   const beginRename = () => {
-    if (!onRename || renamePending.current) return;
+    if (!onRename || renamePending.current || recording || busy) return;
     setNameDraft(session.name); setNameError(null); setRenaming(true);
   };
   async function saveName() {
     const name = nameDraft.trim();
-    if (!onRename || renamePending.current) return;
+    if (!onRename || renamePending.current || recording || busy) return;
     if (!C.operations.updatePersonalTranscriptionMetadata.in.shape.name.safeParse(name).success) {
       setNameError("请输入有效的录音名称，或缩短名称后重试。"); return;
     }
@@ -124,7 +124,8 @@ export function RealtimeTranscriptionWorkspace({
                   <Button size="icon" variant="ghost" aria-label="取消修改名称" disabled={savingName} onClick={() => { setRenaming(false); setNameError(null); }}><X aria-hidden className="h-4 w-4" /></Button>
                   {nameError && <p role="alert" className="text-12 text-destructive">{nameError}</p>}
                 </div> : <h1 data-testid="rec-live-title" onDoubleClick={beginRename} className="truncate text-24 font-semibold tracking-tight">
-                  {onRename ? <button type="button" aria-label="修改录音名称" title="双击修改录音名称"
+                  {onRename ? <button type="button" aria-label="修改录音名称" disabled={recording || busy}
+                    title={recording || busy ? "停止转录后可修改录音名称" : "双击修改录音名称"}
                     className="max-w-full truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); beginRename(); } }}>{session.name}</button> : session.name}
                 </h1>}
@@ -154,7 +155,7 @@ export function RealtimeTranscriptionWorkspace({
               data-testid="rec-live-toggle"
               type="button"
               variant={canStop ? "destructive" : "primary"}
-              disabled={streamState === "stopping"}
+              disabled={streamState === "stopping" || renaming}
               onClick={canStop ? onStop : onStart}
             >
               {reconnecting ? "停止转录" : streamState === "connecting" ? "取消连接" : streamState === "stopping" ? "正在收尾" : recording ? "停止转录" : session.content ? "继续转录" : "开始转录"}

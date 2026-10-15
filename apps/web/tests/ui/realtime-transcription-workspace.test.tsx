@@ -9,6 +9,15 @@ const SESSION = {
 };
 
 describe("RealtimeTranscriptionWorkspace", () => {
+  it("requires stopping before renaming because metadata cannot change during a capture", () => {
+    const onRename = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState="recording"
+      onRename={onRename} onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "修改录音名称" })).toBeDisabled();
+    fireEvent.doubleClick(screen.getByTestId("rec-live-title"));
+    expect(screen.queryByRole("textbox", { name: "录音名称" })).not.toBeInTheDocument();
+  });
+
   it("uses the audio meter without a duplicate normal-recording indicator", () => {
     render(<RealtimeTranscriptionWorkspace session={SESSION} streamState="recording" inputLevel={0.6}
       onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
