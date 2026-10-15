@@ -2,6 +2,7 @@
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { UiState } from "@/lib/ui-state";
+import { useSession } from "@/components/session/session-provider";
 import { useFeedback } from "@/components/feedback/feedback-provider";
 import { DesignLoopDraftsScreen } from "@/components/design-loop/drafts-screen";
 import { DesignLoopInboxScreen } from "@/components/design-loop/inbox-screen";
@@ -39,8 +40,14 @@ export function DesignLoopInboxAdminScreen({ state }: { state: UiState }) {
 function InboxInner({ state }: { state: UiState }) {
   const router = useRouter();
   const sp = useSearchParams();
+  const feedback = useFeedback();
+  const { identity } = useSession();
   return (
     <DesignLoopInboxScreen
+      savedFeedbackId={feedback.savedInboxId}
+      onNewFeedback={identity?.orgRole === "admin" ? () => feedback.openFeedback({
+        target: { kind: "product" }, targetLabel: null, afterSubmit: "inbox",
+      }) : undefined}
       state={state}
       openId={sp?.get("open") ?? null}
       onDeepen={(projectId) => router.push(`/platform-admin/design-workbench/${projectId}`)}

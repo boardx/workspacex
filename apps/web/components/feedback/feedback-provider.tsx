@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import Link from "next/link";
+import { useOptionalSession } from "@/components/session/session-provider";
 import type { FeedbackTarget } from "@/lib/live-feedback";
 import { FeedbackDialog } from "./feedback-dialog";
 
@@ -24,10 +26,13 @@ export interface FeedbackOpenRequest {
   readonly target: FeedbackTarget;
   /** 目标的显示名。产品级传 null；agent/skill 传当时看到的名字，弹层原样显示 */
   readonly targetLabel: string | null;
+  /** Explicit triage entry only; all existing entries retain mine. */
+  readonly afterSubmit?: "inbox";
 }
 
 interface FeedbackContextValue {
   openFeedback(request: FeedbackOpenRequest): void;
+  readonly savedInboxId: string | null;
 }
 
 const FeedbackContext = React.createContext<FeedbackContextValue | null>(null);
@@ -46,20 +51,47 @@ export function useOptionalFeedback(): FeedbackContextValue | null {
 }
 
 export function FeedbackProvider({ children }: { children: React.ReactNode }) {
+  const session = useOptionalSession()?.session;
+  const receiptKey = session == null ? null : `feedback-saved-inbox-id:${encodeURIComponent(session.userId)}:${encodeURIComponent(session.currentOrgId)}`;
+  const [savedInboxId, setSavedInboxId] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    setSavedInboxId(null);
+    if (receiptKey !== null) {
+      try { setSavedInboxId(window.sessionStorage.getItem(receiptKey)); } catch { /* Receipt still works in memory. */ }
+    }
+  }, [receiptKey]);
+  const rememberSaved = (id: string | null) => {
+    setSavedInboxId(id);
+    try {
+      if (receiptKey === null) return;
+      if (id === null) window.sessionStorage.removeItem(receiptKey);
+      else window.sessionStorage.setItem(receiptKey, id);
+    } catch { /* Storage is optional; never repeat the saved POST. */ }
+  };
   const [open, setOpen] = React.useState<FeedbackOpenRequest | null>(null);
 
   const value = React.useMemo<FeedbackContextValue>(
-    () => ({ openFeedback: (request) => setOpen(request) }),
-    [],
+    () => ({ openFeedback: (request) => setOpen(request), savedInboxId }),
+    [savedInboxId],
   );
 
   return (
     <FeedbackContext.Provider value={value}>
       {children}
+      {savedInboxId !== null && (
+        <div role="status" className="fixed bottom-4 right-4 z-50 max-w-md rounded-md border border-border bg-card p-3 text-12 shadow-lg" data-testid="feedback-saved-receipt">
+          已保存，反馈编号：{savedInboxId}。若无法打开收件箱，
+          <Link href={`/platform-admin/inbox?open=${encodeURIComponent(savedInboxId)}`}>打开已保存的反馈</Link>
+          ，或从「提反馈」的「我提过的」回看，无需重新提交。
+          <button type="button" onClick={() => rememberSaved(null)} aria-label="关闭保存回执" className="ml-2">关闭</button>
+        </div>
+      )}
       {open !== null && (
         <FeedbackDialog
           target={open.target}
           targetLabel={open.targetLabel}
+          afterSubmit={open.afterSubmit}
+          onSubmitted={open.afterSubmit === "inbox" ? rememberSaved : undefined}
           onClose={() => setOpen(null)}
         />
       )}
