@@ -1,0 +1,49 @@
+name: Web-only release contract
+on:
+  pull_request:
+    paths:
+      - scripts/web-only-release.py
+      - scripts/directory-release-source.py
+      - tests/test_web_only_release.py
+      - tests/test_directory_release_source.py
+      - tests/test_web_only_release_real.py
+      - tests/test_directory_browser.cjs
+      - scripts/directory-production-browser.cjs
+      - .github/workflows/build-directory-web.yml
+      - .github/workflows/web-only-release-tests.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 -I -B tests/test_web_only_release.py
+      - run: python3 -I -B tests/test_directory_release_source.py
+      - run: node --check scripts/directory-production-browser.cjs
+  real-compose:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 -I -B tests/test_web_only_release_real.py --output "$RUNNER_TEMP/web-only-fixture"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: web-only-real-compose-${{ github.run_id }}
+          path: ${{ runner.temp }}/web-only-fixture/*/receipt.json
+          retention-days: 7
+  recovery-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter web...
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - run: node tests/test_directory_browser.cjs
