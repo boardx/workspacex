@@ -226,7 +226,15 @@ test('紧凑问卷输入与发布设置在桌面平板手机保持可操作',asy
 });
 
 test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({page},testInfo)=>{
- test.setTimeout(120000);await loginAsAdmin(page);
+ test.setTimeout(120000);
+ const identityResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/identity/me')&&response.request().method()==='GET');
+ await loginAsAdmin(page);
+ // Read a fresh authenticated response after login navigation; Chromium may release
+ // response bodies from the old document during that navigation.
+ const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));expect(token).toBeTruthy();
+ const identity=await page.request.get((await identityResponse).url(),{headers:{Authorization:`Bearer ${token}`}});expect(identity.ok()).toBeTruthy();
+ const authenticated=await identity.json() as {org:{id:string};orgRole:string};
+ expect(authenticated.org.id).toBe(FULLSTACK_E2E.orgId);expect(authenticated.orgRole).toBe('admin');
  // Earlier tests create surveys in this same ephemeral organization. Reset through
  // the real UI only inside the standard local isolated stack, never on a live host.
  expect(process.env.WORKSPACEX_ISOLATION_ID).toBeTruthy();expect(new URL(page.url()).hostname).toBe('127.0.0.1');

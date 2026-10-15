@@ -74,4 +74,8 @@ flowchart TD
 
 ## PR 复核：空列表场景隔离
 
-PR #5788 自动review发现whole spec前两条创建问卷会污染R1空态。新增测试setup：强制标准隔离ID与127.0.0.1；读取真实列表，再通过UI逐条删除该临时组织的合成问卷，随后验证空态。生产数据与其他隔离库不可进入该setup。实际按既有前两条创建/应用保存→R1空态顺序运行，3case PASS（执行1m1s、清理1s）；这是补充的本机dev验证，不把之前production6case子集声称为whole spec通过。无产品修改。
+PR #5788 自动review发现whole spec前两条创建问卷会污染R1空态。新增测试setup：强制标准隔离ID与127.0.0.1；读取真实列表，再通过UI逐条删除该临时组织的合成问卷，随后验证空态。此时仅有本机地址与隔离ID自检，不能绝对保证认证组织正确；主会话复核要求进一步收紧。实际按既有前两条创建/应用保存→R1空态顺序运行，3case PASS（执行1m1s、清理1s）；这是补充的本机dev验证，不把之前production6case子集声称为whole spec通过。无产品修改。
+
+主会话复核后，首DELETE前增加真实 `/identity/me` 成功响应断言：`org.id === FULLSTACK_E2E.orgId` 且角色admin；不匹配立即停止。该orgId含本次标准隔离scope标记，不能仅靠本机环境自证当前认证组织。继续窄序列复验，未新增产品/共享框架。
+
+认证org guard最终窄验：原两条创建/应用保存→R1空态3case PASS（执行57s、清理1s）。Chromium登录导航会释放旧document response body，因此登录稳定后用当前真实会话向实际捕获的identity/me URL发新认证GET，再断org/role；不输出token。中途一次浏览器缓存缺失，官方install恢复后可执行path实核，未GC/清缓存。此前旧body读取失败与缺浏览器均驱动失败，不计产品证据。临时leaf仍未入库。
