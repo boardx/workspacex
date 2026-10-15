@@ -44,7 +44,7 @@ export function PersonalMenu({
     return () => controller.abort();
   }, [open, token]);
   return (
-    <Menu open={open} onOpenChange={setOpen}>
+    <Menu open={open} onOpenChange={next => { setPurchase(null); setOpen(next); }}>
       <MenuTrigger asChild>
         <button
           type="button"

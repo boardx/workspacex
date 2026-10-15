@@ -17,5 +17,5 @@ function BillingContent() {
 }
 
 export default function BillingPage() {
-  return <React.Suspense fallback={<p role="status">Loading billing…</p>}><BillingContent /></React.Suspense>;
+  return <React.Suspense fallback={<p role="status">正在查询账户…</p>}><BillingContent /></React.Suspense>;
 }
