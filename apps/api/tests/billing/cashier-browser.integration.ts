@@ -51,6 +51,15 @@ async function stopWeb() {
       if ((error as NodeJS.ErrnoException).code === "ESRCH") return false;
       let snapshot = "unavailable";
       try { snapshot = execFileSync("ps", ["-axo", "pid=,ppid=,pgid=,uid=,stat="], { encoding: "utf8" }).split("\n").filter(line => Number(line.trim().split(/\s+/)[2]) === web?.pid).join("\n"); } catch { /* Preserve the original permission failure. */ }
+      // Darwin can reject kill(0) while the owned leader is a zombie awaiting
+      // Node's child reaper. This is not a live group and must not be signalled.
+      // Completion still requires the captured close event below; permission
+      // failures with any other process-table evidence remain fatal.
+      const members = snapshot.trim().split("\n").map(line => line.trim().split(/\s+/));
+      if (process.platform === "darwin" && (error as NodeJS.ErrnoException).code === "EPERM" && members.length === 1) {
+        const member = members[0]!;
+        if (member.length === 5 && Number(member[0]) === web.pid && Number(member[2]) === web.pid && Number(member[3]) === process.getuid?.() && member[4]!.startsWith("Z")) return false;
+      }
       throw new Error(`Owned Next group probe failed: pid=${web.pid} closed=${closed} exitCode=${web.exitCode} code=${(error as NodeJS.ErrnoException).code} members=${snapshot || "none"}`, { cause: error });
     }
   };
