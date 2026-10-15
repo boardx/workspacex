@@ -29,3 +29,11 @@ Refs #5778，父 #5777。基线 main `4cc236c75`；现有工作树复用，逐�
 最终命令结果见PR与issue收据；root按最终exact独立验收，不自行合并部署。
 
 独立静态审查发现保存失败后取消编辑的本地错误可能残留；追加取消清除局部错误，回归先红1/19通过，再执行最终验证。父层ASR错误不在取消时清除。
+
+## 最终验证收据
+
+- `./init.sh` 快速路径退出0（`/tmp/rec-four-init.log`）。
+- 转录两文件49项PASS（`/tmp/rec-four-final-tests.log`）；类型发现新增测试的错误exact属性，改成精确名称正则后工作区20项PASS（`/tmp/rec-four-workspace-final.log`）。共享5项已在本轮组合套件通过（`/tmp/rec-four-tests.log`，该次新增取消错误回归前共53项）。
+- `pnpm --filter web typecheck` 最终退出0（`/tmp/rec-four-typecheck-final.log`）；`pnpm --filter web lint` 退出0（`/tmp/rec-four-lint.log`）。
+- 独立静态增量审查334020ca7：先前P2已解决，无新增发现。后续仅测试选择器类型修正与本文收据。
+- 独占compose容器查询为空；API24141/Web25141/ASR29141无监听。

@@ -105,7 +105,7 @@ describe("RealtimeTranscriptionWorkspace", () => {
     fireEvent.click(screen.getByTestId("rec-live-edit"));
     fireEvent.click(screen.getByTestId("rec-live-save"));
     await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("正文保存失败"));
-    fireEvent.click(screen.getByRole("button", { name: "取消", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByTestId("rec-live-edit")).toHaveFocus();
   });
