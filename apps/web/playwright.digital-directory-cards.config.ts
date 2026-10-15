@@ -6,6 +6,7 @@ import fullstack from "./playwright.fullstack-smoke.config";
 export default defineConfig({
   ...fullstack,
   projects: [{ name: "directory-cards", testMatch: ["digital-directory-cards.spec.ts"], retries: 0 }],
+  outputDir: "test-results/digital-directory-cards",
   workers: 1,
   fullyParallel: false,
 });

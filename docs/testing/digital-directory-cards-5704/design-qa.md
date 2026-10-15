@@ -27,7 +27,7 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec 
 # wrapper cleanup completed in 1s
 ```
 
-The mutating browser test uses a dedicated config reusing the existing fullstack server/seed definition. It must not run in `seeded`, whose other tests require empty catalogs, or beside the existing role-pending journey. This dedicated command is local acceptance evidence, not a claim that the standard CI suite runs it. It checks actual computed column count, document overflow, search height >=36px, image naturalWidth, explicit activation and refreshed role cards, search/clear/category controls, keyboard Tab focus, exact role/prompt URL and composer value, and absence of member activation controls before/after activation. Component regressions cover stale organization/account/token scope and readiness boundaries; those are **component evidence**, not a browser org-switch acceptance claim.
+The mutating browser test uses a dedicated config reusing the existing fullstack server/seed definition. It must not run in `seeded`, whose other tests require empty catalogs, or beside the existing role-pending journey. The fullstack-smoke workflow invokes `pnpm run verify:digital-directory-cards` as a separate isolated runtime after its existing checks; outputs use their own directory to preserve baseline artifacts. Final CI must confirm this new step actually runs. It checks actual computed column count, document overflow, search height >=36px, image naturalWidth, explicit activation and refreshed role cards, search/clear/category controls, keyboard Tab focus, exact role/prompt URL and composer value, and absence of member activation controls before/after activation. Component regressions cover stale organization/account/token scope and readiness boundaries; those are **component evidence**, not a browser org-switch acceptance claim.
 
 ## Captures and inspection
 
@@ -61,3 +61,5 @@ At 390px, the search input used `flex-1` inside a column flex container, collaps
 See PR #5710 checks for the follow-up commit and issue progress comments. Do not reuse starting-HEAD CI as final-HEAD evidence. No merge or production deployment is authorized.
 
 Dedicated-lane note: initial visual work ran only this file in a fresh runtime. Before finalizing, the mutating test was moved out of the shared seeded project to avoid poisoning other tests’ empty-catalog and pending-role premises. The dedicated lane was rerun successfully and all eleven resulting captures were inspected. The original entry-point smoke test remains unchanged. The prior chat’s design generation prompt was recovered read-only, but its savedPath is null; no original pixels were available.
+
+CI follow-up: spec-gate correctly rejected an uninvoked dedicated config. Added its root script and an explicit fullstack-smoke workflow step, preserving separate databases and artifact directories. No gate waiver or coverage allowlist was added.
