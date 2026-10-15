@@ -92,6 +92,7 @@ async function submitOpenFeedback(
   page: Page,
   opts: { kind: "缺陷" | "需求"; title: string; detail: string },
 ): Promise<void> {
+  const originUrl = page.url();
   await expect(page.getByTestId("feedback-form")).toBeVisible();
   // issue #2679 ②——表单现在是两段式：compose（只有「详细说说」+ 语音）→ 点「下一步」
   // 交给 AI 整理 → review（这时才有 kind/标题/结构化字段/提交按钮）。这个 e2e 环境
@@ -117,6 +118,9 @@ async function submitOpenFeedback(
   // 提交完成必须自动落在「我提过的」，且刚提交那条能看到——闭环的可见性就是这一下。
   await expect(page.getByTestId("feedback-just-submitted")).toBeVisible();
   await expect(page.getByTestId("feedback-mine-list")).toContainText(opts.title);
+  const { feedbackId } = await response.json() as { feedbackId: string };
+  await expect(page.getByTestId(`feedback-mine-item-${feedbackId}`)).toContainText(opts.title);
+  await expect(page).toHaveURL(originUrl);
   await page.getByTestId("feedback-dialog-close").click();
   await expect(page.getByTestId("feedback-dialog")).toHaveCount(0);
 }
@@ -184,13 +188,20 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     });
   });
 
-  test("③④ Skill·缺陷 与 Agent·需求 —— 引导师，会话内两处入口", async ({ page }) => {
+  test("管理员产品原入口仍切到我提过的", async ({ page }) => {
+    await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
+    await page.getByTestId("rail-feedback").click();
+    await submitOpenFeedback(page, { kind: "需求", title: `${TITLES.productReq}_admin`, detail: "原入口默认去向保持不变。" });
+  });
+
+  for (const admin of [false, true]) {
+  test(`③④ Skill·缺陷 与 Agent·需求 —— ${admin ? "管理员" : "引导师"}，会话内两处入口`, async ({ page }) => {
     // 要真的等一次 agent run 从 queued 跑到 succeeded（步骤 8b 同款单独就给 180s），
     // 加上挂载 + 两次提交反馈的开销，单独给这一条用例放宽超时。
     test.setTimeout(300_000);
-    await login(page, FULLSTACK_E2E.email, FULLSTACK_E2E.password);
+    await login(page, admin ? FULLSTACK_E2E.adminEmail : FULLSTACK_E2E.email, admin ? FULLSTACK_E2E.adminPassword : FULLSTACK_E2E.password);
     await page.goto(`/chat?projectId=${FULLSTACK_E2E.projectId}`);
-    const threadTitle = `反馈端到端 ${STAMP}`;
+    const threadTitle = `反馈端到端 ${admin ? "admin" : "member"} ${STAMP}`;
     await createNamedWorkbenchThread(page, threadTitle, FULLSTACK_E2E.projectId);
 
     /* ── ③ Skill 级 · 缺陷 —— 会话内挂载态 chip 上 ── */
@@ -213,7 +224,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await expect(page.getByTestId("feedback-dialog-title")).toContainText(FULLSTACK_E2E.mountableSkillName);
     await submitOpenFeedback(page, {
       kind: "缺陷",
-      title: TITLES.skillBug,
+      title: admin ? `${TITLES.skillBug}_admin` : TITLES.skillBug,
       detail: "有时候给表格有时候给段落，下游没法直接用。",
     });
 
@@ -234,10 +245,12 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await expect(page.getByTestId("feedback-dialog-title")).toContainText(FULLSTACK_E2E.agentDisplayName);
     await submitOpenFeedback(page, {
       kind: "需求",
-      title: TITLES.agentReq,
+      title: admin ? `${TITLES.agentReq}_admin` : TITLES.agentReq,
       detail: "回答里能不能直接引用原始消息，现在要自己往上翻。",
     });
   });
+
+  }
 
   test("D3 反证：非管理员看得到标题看不到别人的正文", async ({ page }) => {
     await login(page, FULLSTACK_E2E.memberEmail, FULLSTACK_E2E.memberPassword);

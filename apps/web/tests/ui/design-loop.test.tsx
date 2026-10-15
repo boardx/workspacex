@@ -50,6 +50,8 @@ vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
 import * as React from "react";
 import { FeedbackDialog } from "@/components/feedback/feedback-dialog";
 import { DesignLoopInboxScreen, INBOX_REFRESH_MS } from "@/components/design-loop/inbox-screen";
+import { PreviewSessionProvider } from "@/components/session/session-provider";
+import { FeedbackProvider } from "@/components/feedback/feedback-provider";
 import { DesignLoopInboxAdminScreen } from "@/components/admin/design-loop-screens";
 import { DesignWorkbenchHome } from "@/components/design-loop/workbench-screen";
 import { DESIGN_WORKBENCH_STARTERS } from "@/lib/live-design-workbench";
@@ -846,7 +848,7 @@ describe("UC-17.8 B3.7：关联标可点击跳转并高亮", () => {
 
   it("生产落点 DesignLoopInboxAdminScreen：跳转后 URL 带 ?open=<目标 id>", async () => {
     mockInbox(linkedPair());
-    render(<DesignLoopInboxAdminScreen state="default" />);
+    render(<PreviewSessionProvider><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>);
     const card = await screen.findByTestId("inbox-card-B-1");
     fireEvent.click(within(card).getByTestId("link-generated-B-1"));
     await waitFor(() => expect(screen.getByTestId("inbox-drawer")).toHaveTextContent("方案一"));
@@ -5526,5 +5528,31 @@ describe("详情页底栏的「更新于」", () => {
     // ⭐ 反证锚点：改回 `toLocaleDateString("zh-CN")` ⇒ 这两条红。
     expect(bar.textContent).toContain("更新于 3 分钟前");
     expect(bar.textContent).not.toMatch(/\d{4}\/\d{1,2}\/\d{1,2}/);
+  });
+});
+
+
+describe("explicit triage entry scope and saved recovery", () => {
+  it.each(["org-local", "org-yuanyang"])("entry follows existing projected org role in %s", async (orgId) => {
+    mockInbox([]);
+    render(<PreviewSessionProvider orgId={orgId}><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>);
+    await screen.findByTestId("design-loop-inbox");
+    if (orgId === "org-local") expect(screen.getByTestId("inbox-new-feedback")).toHaveTextContent("新建反馈并分诊");
+    else expect(screen.queryByTestId("inbox-new-feedback")).toBeNull();
+  });
+  it.each(["default", "dep-failed", "denied"] as const)("saved target missing in %s retains actual ID and read-only retry link", async (state) => {
+    mockInbox([]);
+    render(<DesignLoopInboxScreen state={state} openId="saved-id" savedFeedbackId="saved-id" />);
+    const notice = await screen.findByTestId("inbox-saved-open-failed");
+    expect(notice).toHaveTextContent("已保存，无法打开收件箱");
+    expect(notice).toHaveTextContent("saved-id");
+    expect(within(notice).getByRole("link")).toHaveAttribute("href", "/platform-admin/inbox?open=saved-id");
+    expect(apiRequest.mock.calls.some(([, opts]) => opts?.method === "POST")).toBe(false);
+  });
+  it("arbitrary open query is not evidence of a successful save", async () => {
+    mockInbox([]);
+    render(<DesignLoopInboxScreen openId="not-saved" />);
+    await screen.findByTestId("design-loop-inbox");
+    expect(screen.queryByTestId("inbox-saved-open-failed")).toBeNull();
   });
 });

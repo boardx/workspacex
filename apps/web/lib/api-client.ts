@@ -151,6 +151,8 @@ export class ApiError extends Error {
 }
 
 export interface ApiRequestOptions {
+  /** Optional local response-contract check; does not change the request. */
+  readonly expectedStatus?: number;
   /**
    * ⚠ `PUT` 是 #881 补的：契约 `assetGovernance.writeAssetFile` 用的就是 PUT
    * （`@Put("/assets/:assetKind/:assetId/files/content")`），而此前这个联合类型里没有它
@@ -269,6 +271,9 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
   if (!res.ok) {
     const reasonCode = extractReasonCode(json);
     throw new ApiError(res.status, reasonCode, json);
+  }
+  if (opts.expectedStatus !== undefined && res.status !== opts.expectedStatus) {
+    throw new ApiError(res.status, null, json);
   }
   return json as T;
 }
