@@ -96,13 +96,14 @@ jobs:
       - name: Verify native acceptance receipts and safe diagnostics
         if: needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-r01
-        run: node --test apps/web/scripts/run-board-native-acceptance.test.mjs
+        run: node --test apps/web/scripts/run-board-native-acceptance.test.mjs apps/web/scripts/board-native-diagnostics.test.mjs
       - name: Run complete native R01 acceptance
         if: needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-r01
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-r01-existing-runtime.config.ts
       - name: Create exact connector source checkout
-        if: needs.batch.outputs.run == 'true'
+        id: connector_prepare
+        if: always() && needs.batch.outputs.run == 'true'
         run: |
           git clone --no-hardlinks "$GITHUB_WORKSPACE" /private/tmp/wsx-native-connectors
           git -C /private/tmp/wsx-native-connectors checkout --detach "$(git rev-parse HEAD)"
@@ -110,7 +111,7 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm --filter web exec playwright install --with-deps chromium
       - name: Run complete native connector acceptance
-        if: needs.batch.outputs.run == 'true'
+        if: always() && needs.batch.outputs.run == 'true' && steps.connector_prepare.outcome == 'success'
         working-directory: /private/tmp/wsx-native-connectors
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts
       - name: Create exact ordinary-file source checkout

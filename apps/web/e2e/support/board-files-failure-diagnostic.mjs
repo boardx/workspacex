@@ -8,7 +8,8 @@ export function fixedFilesFailure(phase, ordinal, deleteFailures, identityFailur
 function ownData(object,key) { try { return object !== null && typeof object === 'object' ? Object.getOwnPropertyDescriptor(object,key)?.value : undefined; } catch { return undefined; } }
 export function parseFilesFailure(message, location) {
   if (typeof message !== 'string' || message.length > 1024 || ownData(location,'source') !== 'ASSERTION' || ownData(location,'file') !== 'board-files-filenames.spec.ts' || ownData(location,'line') !== FILES_FAILURE_AGGREGATE_LINE) return null;
-  const match=/^(?:AggregateError: )?R09_FILES_FAILURE (\{[^\r\n]*\})$/.exec(message);
+  const line=message.split(/\r?\n/,1)[0];
+  const match=/^(?:AggregateError: )?R09_FILES_FAILURE (\{[^\r\n]*\})$/.exec(line);
   if (!match) return null;
   let value;try { value=JSON.parse(match[1]); } catch { return null; }
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join(',') !== 'deleteFailures,identityFailures,ordinal,phase') return null;

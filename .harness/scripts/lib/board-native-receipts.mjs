@@ -18,6 +18,7 @@ export function nativeReceiptVerdict(receipts, sha) {
   assert.match(sha, /^[a-f0-9]{40}$/);
   for (const [lane, suite] of Object.entries(NATIVE_RECEIPTS)) {
     const receipt = receipts?.[lane];
+    if (receipt?.status === 'MISSING') { verdict = 'failure'; continue; }
     assert.equal(receipt?.schemaVersion, 1, `${lane}: missing/versioned receipt`);
     assert.equal(receipt.sourceHead, sha, `${lane}: source SHA mismatch`);
     assert.equal(receipt.suiteConfig, suite.config, `${lane}: suite mismatch`);
@@ -49,9 +50,19 @@ export function verifyNativeReceipts(receipts, sha) {
   return true;
 }
 export function readNativeReceipts(directory) {
-  return Object.fromEntries(Object.keys(NATIVE_RECEIPTS).map(lane => [lane, JSON.parse(readFileSync(join(directory, lane, 'receipt.json'), 'utf8'))]));
+  return Object.fromEntries(Object.keys(NATIVE_RECEIPTS).map(lane => {
+    try { return [lane, JSON.parse(readFileSync(join(directory, lane, 'receipt.json'), 'utf8'))]; }
+    catch (error) { if (error.code === 'ENOENT') return [lane, {status:'MISSING',actualRuntimeExecution:false,requiredSuiteComplete:false}]; throw error; }
+  }));
+}
+export function safeNativeReceiptSummary(receipts) {
+  const statuses=new Set(['PASSED','FAILED','MISSING']);
+  const reasons=new Set(['ACCEPTANCE_FAILED','NATIVE_RUN_FAILED','OWNED_CLEANUP_FAILED','STARTUP_FAILURE_RECEIPT_INVALID']);
+  return Object.fromEntries(Object.keys(NATIVE_RECEIPTS).map(lane=>{const r=receipts[lane]??{};return [lane,{status:statuses.has(r.status)?r.status:'INVALID',failureReason:r.failureReason==null?null:reasons.has(r.failureReason)?r.failureReason:'UNRECOGNIZED_FAILURE',actualRuntimeExecution:typeof r.actualRuntimeExecution==='boolean'?r.actualRuntimeExecution:null,requiredSuiteComplete:typeof r.requiredSuiteComplete==='boolean'?r.requiredSuiteComplete:null}];}));
 }
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
-  try { verifyNativeReceipts(readNativeReceipts(process.argv[2]), process.argv[3]); }
-  catch (error) { console.error(error.message); process.exitCode = 1; }
+  try { assert.match(process.argv[3],/^[a-f0-9]{40}$/);const receipts=readNativeReceipts(process.argv[2]);
+    console.log(JSON.stringify({sourceHead:process.argv[3],suites:safeNativeReceiptSummary(receipts)}));
+    verifyNativeReceipts(receipts, process.argv[3]); }
+  catch { console.error('NATIVE_RECEIPT_INVALID_OR_FAILED'); process.exitCode = 1; }
 }

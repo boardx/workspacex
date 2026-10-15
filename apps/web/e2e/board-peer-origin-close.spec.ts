@@ -1,3 +1,4 @@
+import {fixedNativeFailure} from './support/board-native-failure-stage.mjs';
 import {primaryFailure,acceptanceFailureSecrets} from './support/board-primary-failure';
 import {captureBoardLogin} from './support/board-login-capture.mjs';
 import {test,expect,type Page} from '@playwright/test';
@@ -186,5 +187,5 @@ test('same-profile live peer recovers a closed origin without reload and ACKs ea
   if(runtimeStarted)try{observations.push({phase:'post-cleanup-runtime',proof:await verifyRuntimeIdentity(api,sourceSha,await chunks())});}catch(error){cleanupErrors.push(error);}
   try{await writeFile(info.outputPath('origin-close-result.json'),JSON.stringify({sourceSha,stage,primaryFailure:primaryFailure(failure,privateSecrets),secondaryErrors:cleanupErrors.map(error=>primaryFailure(error,privateSecrets)),status:failureCaptured||cleanupErrors.length?'failed':'functional-cases-passed',completed:!failureCaptured&&!cleanupErrors.length&&!cleanupPending,cleanupPending,viewport:info.project.use.viewport,observations,transport:transport.snapshot(),sameProfile:true,independentBrowserUsers:false,failedReconnect:observations.some(value=>value.phase==='real-503-recovery'),permissionLateWrites:'unit-only-not-browser-claimed'},null,2),{mode:0o600});}catch(error){cleanupErrors.push(error);}
  }
- if(failureCaptured||cleanupErrors.length)throw new AggregateError([...(failureCaptured?[failure]:[]),...cleanupErrors],'Origin-close acceptance or cleanup failed');
+ if(failureCaptured||cleanupErrors.length)throw new AggregateError([...(failureCaptured?[failure]:[]),...cleanupErrors],fixedNativeFailure('R08',failureStage));
 });
