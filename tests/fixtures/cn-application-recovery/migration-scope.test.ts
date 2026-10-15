@@ -12,7 +12,7 @@ test('actual migration catalog keeps the historical prefix and includes every re
 test('future or missing migrations cannot silently alter the tested upgrade',()=>{
  const names=['20200101000000_prefix.sql',...reviewedSuffix];
  assert.equal(migrationScope(names).originalCount,1);
- assert.throws(()=>migrationScope([...names,'20261015000000_unreviewed.sql']),/UNREVIEWED/);
+ assert.throws(()=>migrationScope([...names,'20990101000000_unreviewed.sql']),/UNREVIEWED/);
  assert.throws(()=>migrationScope(names.slice(0,-1)),/UNREVIEWED/);
  assert.throws(()=>migrationScope(names.filter(n=>n!==reviewedSuffix[0])),/HISTORICAL/);
  assert.throws(()=>migrationScope([...names,names.at(-1)!]),/SORTED_UNIQUE/);
