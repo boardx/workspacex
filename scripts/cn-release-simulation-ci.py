@@ -167,6 +167,7 @@ def execute(sha,rounds,seed,suite='all',workers=3,mode='acceptance'):
                     with (report/name).open('xb')as sink,origin.open('rb')as source:shutil.copyfileobj(source,sink,65536)
             six_names=('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','playwright-report.json','session-cleanup.json','result.json','application.log')
             six_names+=tuple('next-worker-%02d-%s.json'%(n,phase)for n in range(1,17)for phase in ('started','exit','error'))+('next-worker-overflow.json',)
+            six_names+=('next-build-intent.json','next-build.json','next-build-process-cleanup.json','next-build-cleanup.json','next-production-start.json','next-production-build-exit.json','next-production-start-exit.json','next-build.log')
             owner_names=('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')
             for index in range(1,11):
                 rid='round-%02d'%index;folder=owned/'six-owners'/rid

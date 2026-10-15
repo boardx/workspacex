@@ -24,8 +24,8 @@ test('actual six config resolves installed web Next without inherited workspace 
   assert.deepEqual(config.use?.launchOptions?.args,['--use-fake-device-for-media-stream','--use-fake-ui-for-media-stream']);
   assert.deepEqual(config.use?.permissions,['microphone']);
   const servers=Array.isArray(config.webServer)?config.webServer:[];
-  const next=servers.filter(s=>s.command.includes('NEXT_DIST_DIR=.next-chat-read-e2e'));
-  assert.equal(next.length,1);assert.match(next[0]!.command,/node ..\/..\/tests\/fixtures\/cn-six-business\/next-server-launch.cjs 25001$/);
+  const next=servers.filter(s=>s.command.includes('next-production-launch.cjs'));
+  assert.equal(next.length,1);assert.match(next[0]!.command,/node ..\/..\/tests\/fixtures\/cn-six-business\/next-production-launch.cjs start 25001$/);
   // Resolve pnpm before sanitizing PATH. GitHub action-setup installs pnpm in
   // its own node_modules/.bin, which is not the web workspace's Next bin.
   const pnpm=execFileSync('/bin/sh',['-c','command -v pnpm'],{encoding:'utf8',timeout:10000}).trim();
@@ -37,7 +37,7 @@ test('actual six config resolves installed web Next without inherited workspace 
   // Reproduce the original direct-launch environment without starting a server.
   const old=spawnSync('/bin/sh',['-c','next --version'],{cwd,env,encoding:'utf8',timeout:10000});
   assert.notEqual(old.status,0);
-  const versionCommand=next[0]!.command.replace(/next-server-launch\.cjs [0-9]+$/,'next-server-launch.cjs --version');
+  const versionCommand=next[0]!.command.replace(/next-production-launch\.cjs start [0-9]+$/,'next-server-launch.cjs --version');
   const output=execFileSync('/bin/sh',['-c',versionCommand],{cwd,env,encoding:'utf8',timeout:10000});
   assert.match(output,/^Next\.js v[0-9]+\./);
  }finally{

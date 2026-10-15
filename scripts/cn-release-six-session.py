@@ -12,6 +12,7 @@ import re
 import selectors
 import subprocess
 import stat
+import shutil
 import time
 ROOT=Path(__file__).resolve().parents[1]
 def load(name,path):
@@ -63,7 +64,7 @@ class Session:
         self.owner.start(deadline=self.started+PREPARE_BUDGET)
         if time.monotonic()-self.started>PREPARE_BUDGET:raise TimeoutError('SIX_PREPARE_TIMEOUT')
         self.prepared=True
-        self.environment={**self.env,**isolated,**self.owner.environment,'GITHUB_RUN_ID':self.run_id,'CN_RELEASE_FULLSTACK_FIXTURE':'1','CN_SIX_REPORT_PATH':str(self.output/'playwright-report.json'),'CN_SIX_OUTPUT_DIR':str(self.output/'playwright-output'),'PGUSER':'postgres','PGPASSWORD':'postgres_dev'}
+        self.environment={**self.env,**isolated,**self.owner.environment,'GITHUB_RUN_ID':self.run_id,'CN_RELEASE_FULLSTACK_FIXTURE':'1','CN_SIX_SOURCE_COMMIT':self.commit,'CN_SIX_REPORT_PATH':str(self.output/'playwright-report.json'),'CN_SIX_OUTPUT_DIR':str(self.output/'playwright-output'),'PGUSER':'postgres','PGPASSWORD':'postgres_dev'}
         self.environment.pop('WORKSPACEX_REUSE_INFRA',None)
         infra.durable(self.output,'session-ready.json',dict(prepared=True,prepareSeconds=time.monotonic()-self.started,report=self.environment['CN_SIX_REPORT_PATH'],productionAccepted=False,egressIsolated=False))
         return self.environment
@@ -95,6 +96,48 @@ class Session:
 
 def playwright_command(env):
     return [env['CN_API_STARTUP_NODE'],str(ROOT/'apps/web/node_modules/@playwright/test/cli.js'),'test','--config',str(ROOT/'apps/web/playwright.cn-six-business.config.ts')]
+
+
+def build_command(env):
+    return [env['CN_API_STARTUP_NODE'],'--import',str(ROOT/'node_modules/tsx/dist/loader.mjs'),str(ROOT/'tests/fixtures/cn-six-business/next-production-build.ts')]
+
+
+def run_phase(domain,command,env,log_path,deadline,phase):
+    process=None
+    try:
+        with log_path.open('xb')as log:
+            process=domain.spawn(command,cwd=ROOT,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
+            selector=selectors.DefaultSelector();selector.register(process.stdout,selectors.EVENT_READ);total=0
+            try:
+                while True:
+                    if time.monotonic()>=deadline:raise TimeoutError('SIX_'+phase+'_TIMEOUT')
+                    if not selector.select(.1):continue
+                    raw=os.read(process.stdout.fileno(),65536)
+                    if not raw:break
+                    total+=len(raw)
+                    if total>16*1024*1024:raise RuntimeError('SIX_'+phase+'_LOG_LIMIT')
+                    log.write(raw)
+                if process.wait(timeout=max(.01,deadline-time.monotonic()))!=0:raise RuntimeError('SIX_'+phase+'_FAILED')
+            finally:selector.close()
+    finally:
+        if process is not None and process.stdout is not None:process.stdout.close()
+
+
+
+def cleanup_build(output,commit,application_cleanup):
+    if not isinstance(application_cleanup,dict)or application_cleanup.get('verified')is not True or application_cleanup.get('populated')!=0:raise RuntimeError('SIX_BUILD_CLEANUP_UNPROVEN')
+    dist=ROOT/'apps/web/.next-chat-read-e2e';intent=output/'next-build-intent.json'
+    if not intent.exists():
+        if dist.exists()or dist.is_symlink():raise RuntimeError('SIX_BUILD_OWNER_MISSING')
+        return dict(verified=True,created=False)
+    info=intent.lstat()
+    if not stat.S_ISREG(info.st_mode)or intent.is_symlink()or info.st_nlink!=1 or info.st_size>16384:raise RuntimeError('SIX_BUILD_OWNER_INVALID')
+    owner=json.loads(intent.read_bytes())
+    if owner.get('sourceCommit')!=commit:raise RuntimeError('SIX_BUILD_SOURCE_CHANGED')
+    info=dist.lstat()
+    if not stat.S_ISDIR(info.st_mode)or dist.is_symlink()or (info.st_dev,info.st_ino)!=(owner.get('distDevice'),owner.get('distInode')):raise RuntimeError('SIX_BUILD_OWNER_CHANGED')
+    shutil.rmtree(dist)
+    return dict(verified=True,created=True,removed=True)
 
 
 def validate_report(path,required_titles):
@@ -129,15 +172,28 @@ def report_diagnostic(path):
 
 def run_round(root,run_id,round_id,commit,env,images,required_titles):
     session=None;application=None;process=None;app_cleanup=None;session_cleanup=None;report=None;failure=None
-    begin=time.monotonic();stage='prepare';diagnostic=None
+    begin=time.monotonic();stage='prepare';diagnostic=None;build_cleanup=None;build_started=False
     try:
         application=domains.Domain()
         session=Session(root,run_id,round_id,commit,env,images)
         prepared=session.prepare()
+        # Build and six journeys share the original application budget and unit.
+        end=time.monotonic()+APPLICATION_BUDGET
+        stage='build'
+        build_started=True
+        try:run_phase(application,build_command(prepared),prepared,session.output/'next-build.log',end,'BUILD')
+        finally:
+            # Confirm compiler descendants are gone before starting services.
+            build_cleanup=application.close();app_cleanup=build_cleanup;application=None
+            infra.durable(session.output,'next-build-process-cleanup.json',build_cleanup)
+            if not isinstance(build_cleanup,dict)or build_cleanup.get('verified')is not True or build_cleanup.get('populated')!=0:raise RuntimeError('SIX_BUILD_CLEANUP_UNPROVEN')
         stage='application'
+        if time.monotonic()>=end:raise TimeoutError('SIX_APPLICATION_TIMEOUT')
+        application=domains.Domain();app_cleanup=None
         with (session.output/'application.log').open('xb')as log:
+            if time.monotonic()>=end:raise TimeoutError('SIX_APPLICATION_TIMEOUT')
             process=application.spawn(playwright_command(prepared),cwd=ROOT,env=prepared,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
-            selector=selectors.DefaultSelector();selector.register(process.stdout,selectors.EVENT_READ);end=time.monotonic()+APPLICATION_BUDGET;total=0
+            selector=selectors.DefaultSelector();selector.register(process.stdout,selectors.EVENT_READ);total=0
             try:
                 while True:
                     if time.monotonic()>=end:raise TimeoutError('SIX_APPLICATION_TIMEOUT')
@@ -152,7 +208,7 @@ def run_round(root,run_id,round_id,commit,env,images,required_titles):
         stage='report';report=validate_report(Path(prepared['CN_SIX_REPORT_PATH']),required_titles)
     except Exception as exc:
         failure=type(exc).__name__;reason=str(exc)
-        diagnostic=dict(stage=stage,reason=reason if reason in ('SIX_APPLICATION_TIMEOUT','SIX_APPLICATION_FAILED','SIX_APPLICATION_LOG_LIMIT','SIX_REPORT_REQUIRED','SIX_REPORT_NOT_ALL_PASSED','SIX_REPORT_CASE_INVENTORY','SIX_REPORT_SPEC_FAILED','SIX_REPORT_ATTEMPT_FAILED')else'UNCLASSIFIED',exitCode=process.returncode if process is not None else None)
+        diagnostic=dict(stage=stage,reason=reason if reason in ('SIX_BUILD_TIMEOUT','SIX_BUILD_FAILED','SIX_BUILD_LOG_LIMIT','SIX_BUILD_CLEANUP_UNPROVEN','SIX_APPLICATION_TIMEOUT','SIX_APPLICATION_FAILED','SIX_APPLICATION_LOG_LIMIT','SIX_REPORT_REQUIRED','SIX_REPORT_NOT_ALL_PASSED','SIX_REPORT_CASE_INVENTORY','SIX_REPORT_SPEC_FAILED','SIX_REPORT_ATTEMPT_FAILED')else'UNCLASSIFIED',exitCode=process.returncode if process is not None else None)
         if session is not None:
             try:diagnostic['report']=report_diagnostic(session.output/'playwright-report.json')
             except Exception:diagnostic['report']={'reportAvailable':False,'projectionFailed':True}
@@ -162,6 +218,9 @@ def run_round(root,run_id,round_id,commit,env,images,required_titles):
             except Exception as exc:failure='application-cleanup-'+type(exc).__name__
         if process is not None and process.stdout is not None:process.stdout.close()
         if session is not None:
+            if build_started:
+                try:infra.durable(session.output,'next-build-cleanup.json',cleanup_build(session.output,commit,app_cleanup))
+                except Exception as exc:failure='build-cleanup-'+type(exc).__name__
             try:session_cleanup=session.finish(app_cleanup)
             except Exception as exc:failure='session-cleanup-'+type(exc).__name__
     result=dict(kind='cn-six-business-isolated-result-v1',verified=failure is None and report is not None and session_cleanup is not None and session_cleanup.get('verified')is True,failure=failure,diagnostic=diagnostic,report=report,applicationCleanup=app_cleanup,sessionCleanup=session_cleanup,elapsedSeconds=time.monotonic()-begin,productionAccepted=False,egressIsolated=False)

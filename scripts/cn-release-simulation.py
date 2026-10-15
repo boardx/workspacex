@@ -287,6 +287,7 @@ EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.case
 EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json')
 EXPORT_NESTED_FILES={'api-container-owner':EXPORT_REGISTRY_FILES,'six-business':('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','playwright-report.json','session-cleanup.json','result.json','application.log'),'six-infra-owner':('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')}
 EXPORT_NESTED_FILES['six-business']+=tuple('next-worker-%02d-%s.json'%(n,phase)for n in range(1,17)for phase in ('started','exit','error'))+('next-worker-overflow.json',)
+EXPORT_NESTED_FILES['six-business']+=('next-build-intent.json','next-build.json','next-build-process-cleanup.json','next-build-cleanup.json','next-production-start.json','next-production-build-exit.json','next-production-start-exit.json','next-build.log')
 EXPORT_NESTED_FILES['application-recovery-owner']=EXPORT_REGISTRY_FILES
 EXPORT_NESTED_FILES['application-recovery-complete-owner']=EXPORT_REGISTRY_FILES
 EXPORT_NESTED_FILES['six-kill-target-owner']=EXPORT_NESTED_FILES['six-infra-owner']

@@ -1,7 +1,7 @@
 # T22 complete-application fixture (not yet Linux verified)
 
 This independent lane reuses the existing chat-read application stack: real Next
-**development server**, actual Nest `startApi`, full PostgreSQL migrations and
+**production standalone server**, actual Nest `startApi`, full PostgreSQL migrations and
 real Chromium. It does not replace these with static HTML. The API launcher
 refuses shared infrastructure and any database other than the isolation wrapper's
 `wsx_<20 hex>` database on loopback. It inserts synthetic feedback and grants the
@@ -45,7 +45,8 @@ for terminal creation knowledge. Other projects are never cleanup targets.
 After outer setup/readback, run from the repo:
 
 ```sh
-CN_RELEASE_FULLSTACK_FIXTURE=1 pnpm --filter web exec playwright test --config playwright.cn-six-business.config.ts
+# The existing isolated Linux CI owner invokes run_round in
+# scripts/cn-release-six-session.py; direct Playwright requires its build receipt.
 ```
 
 Do not wrap this command in the original `with-test-isolation.ts`, whose Compose
@@ -87,3 +88,26 @@ the exporter names each allowed record explicitly. Raw kernel messages, arbitrar
 commands and process contents are never exported. RSS is sampled, not a kernel
 peak measurement. A SIGKILL/counter correlation without the owned-PID kernel
 match does not by itself prove the kernel OOM victim.
+
+Approved production build/run split (2026-10-15): the owner now first runs the
+existing Next release build with WORKSPACEX_RELEASE_BUILD=1 and 3072MiB old-space,
+then copies public/static assets into the same standalone layout as
+deploy/aliyun/images/web.Dockerfile. No image is built or deployed. Compilation
+and service/browser execution share the original 1200s application budget and
+6GiB enclosing unit. Compiler descendants must be proven empty before any full
+service stack starts. The normal globalSetup still performs real HTTP readiness
+checks with the unchanged 300s per-route budget; all six assertions are unchanged.
+
+A fresh build receipt binds source commit, lockfile, selected runtime environment,
+BUILD_ID and the complete standalone tree, including manifests, public/static
+assets and traced dependencies. Internal pnpm symlinks are content-bound; links
+outside the standalone tree reject. The running artifact is checked before its
+real server.js starts. Build failure, identity mismatch or exhausted shared
+budget fails the lane before journeys. After the application domain is empty,
+only the build directory whose device/inode was recorded at exclusive creation
+is removed. Both CI report projection layers explicitly retain build evidence.
+
+Known issue retained: the earlier development server cold compilation exceeded
+6GiB and the kernel killed server worker PID55322 in run38691992798. This change
+does not repair or cover that dev cold compilation. Production build/runtime
+acceptance is a user-approved coverage change, not proof of that issue's repair.

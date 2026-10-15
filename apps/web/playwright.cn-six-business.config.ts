@@ -1,8 +1,9 @@
-/** Real Next dev/Nest/PG; deterministic external provider protocols, not production acceptance. */
+/** Production Next standalone/Nest/PG; fixture providers, not production deployment acceptance. */
 import {defineConfig} from '@playwright/test';
 import base from './playwright.chat-read.config';
 import {chromiumLaunch} from '../../tests/fixtures/cn-six-business/chromium-launch';
 import {admitOutputs} from '../../tests/fixtures/cn-six-business/output-admission';
+import {productionCommand} from '../../tests/fixtures/cn-six-business/next-production-command';
 const reportPath=process.env.CN_SIX_REPORT_PATH,outputPath=process.env.CN_SIX_OUTPUT_DIR;
 if(Boolean(reportPath)!==Boolean(outputPath))throw Error('PAIRED_PRIVATE_OUTPUTS_REQUIRED');
 if(reportPath&&outputPath)admitOutputs(reportPath,outputPath,process.env.TEST_WORKER_INDEX);
@@ -15,7 +16,7 @@ const webServer=servers.map(server=>{
   nextReplaced++;
   // The isolated launcher invokes Playwright directly, outside a pnpm script.
   // Resolve Next from the web workspace explicitly instead of inherited .bin PATH.
-  return {...server,command:server.command.replace('NEXT_DIST_DIR=.next-chat-read-e2e next dev -p ','NEXT_DIST_DIR=.next-chat-read-e2e node ../../tests/fixtures/cn-six-business/next-server-launch.cjs ')};
+  return productionCommand(server,'start');
  }
  if(!server.command.includes('pnpm --filter @repo/api start 2>&1'))return server;
  replaced++;
