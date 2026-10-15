@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Pinned Web-only Compose transaction; never restarts data or backend services."""
-import argparse,hashlib,importlib.util,json,os,pathlib,re,subprocess,fcntl,stat
+import argparse,tarfile,hashlib,importlib.util,json,os,pathlib,re,subprocess,fcntl,stat
 spec=importlib.util.spec_from_file_location('minimal',pathlib.Path(__file__).with_name('minimal-docker-release.py'))
 m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 
@@ -9,7 +9,8 @@ def snapshot(v):
     config={k:x for k,x in v['Config'].items() if k not in ('Image','Labels','Hostname')}
     return {'id':v['Id'],'image':v['Image'],'startedAt':v['State'].get('StartedAt'),'running':v['State']['Running'],
             'configuration':m.digest(m.encoded(config)),'mounts':m.digest(m.encoded(v.get('Mounts',[]))),
-            'networks':sorted(v.get('NetworkSettings',{}).get('Networks',{}))}
+            'networks':sorted(v.get('NetworkSettings',{}).get('Networks',{})),
+            'hostConfiguration':m.digest(m.encoded(v.get('HostConfig',{})))}
 
 def inspect_live(d,base,services,project):
     result={}
@@ -17,6 +18,8 @@ def inspect_live(d,base,services,project):
         ids=d.run(base+['ps','--quiet',s]).decode().split();m.need(len(ids)==1,'LIVE_CONTAINER_COUNT')
         v=d.json(['container','inspect',ids[0]])[0];l=v['Config'].get('Labels',{})
         m.need(l.get('com.docker.compose.project')==project and l.get('com.docker.compose.service')==s and v['State']['Running'],'LIVE_BINDING')
+        config_hash=d.run(base+['config','--hash',s]).decode().strip().split()
+        m.need(len(config_hash)==2 and config_hash[0]==s and l.get('com.docker.compose.config-hash')==config_hash[1],'LIVE_CONFIG_DRIFT')
         result[s]=snapshot(v)
     return result
 
@@ -24,6 +27,29 @@ def assert_unchanged(before,after,web):
     m.need(set(before)==set(after),'SERVICE_SET_DRIFT')
     for s,v in before.items():
         if s!=web:m.need(after[s]==v,'BACKEND_OR_DATA_CHANGED')
+
+def archive_identity(path,expected,source):
+    with tarfile.open(path,'r:*') as t:
+        entry=t.getmember('manifest.json');m.need(entry.size<=65536,'ARCHIVE_MANIFEST_SIZE')
+        rows=json.load(t.extractfile(entry));m.need(len(rows)==1,'ARCHIVE_SINGLE_IMAGE')
+        name=rows[0]['Config'];m.need(not name.startswith('/') and '..' not in pathlib.PurePosixPath(name).parts,'ARCHIVE_CONFIG_PATH')
+        cfg=t.getmember(name);m.need(cfg.isfile() and cfg.size<=1024*1024,'ARCHIVE_CONFIG_SIZE')
+        raw=t.extractfile(cfg).read();v=json.loads(raw)
+        config_digest='sha256:'+m.digest(raw)
+        if config_digest!=expected:
+            def blob(ident):
+                m.need(re.fullmatch('sha256:[a-f0-9]{64}',ident),'ARCHIVE_DIGEST')
+                try:item=t.getmember('blobs/sha256/'+ident.split(':')[1])
+                except KeyError:raise m.Rejected('ARCHIVE_IMAGE_IDENTITY')
+                m.need(item.isfile() and item.size<=1024*1024,'ARCHIVE_DESCRIPTOR_SIZE')
+                value=t.extractfile(item).read();m.need('sha256:'+m.digest(value)==ident,'ARCHIVE_DESCRIPTOR_DIGEST');return json.loads(value)
+            root=blob(expected)
+            if 'manifests' in root:
+                candidates=[x for x in root['manifests'] if x.get('platform')=={'architecture':'amd64','os':'linux'}]
+                m.need(len(candidates)==1,'ARCHIVE_PLATFORM_CLOSURE');root=blob(candidates[0]['digest'])
+            m.need(root.get('config',{}).get('digest')==config_digest,'ARCHIVE_IMAGE_IDENTITY')
+        m.need(v.get('os')=='linux' and v.get('architecture')=='amd64','ARCHIVE_IMAGE_IDENTITY')
+        m.need(v.get('config',{}).get('Labels',{}).get('org.opencontainers.image.revision')==source,'ARCHIVE_SOURCE_IDENTITY')
 
 def browser(c,out,mode):
     m.trusted_file(c['script']['path'],c['script']['sha256'])
@@ -62,6 +88,7 @@ def release(config,output,apply=False):
         provenance=c['artifact'];m.need(re.fullmatch('[a-f0-9]{64}',provenance['sha256']) and str(provenance['runId']).isdigit() and str(provenance['artifactId']).isdigit(),'ARTIFACT_PROVENANCE')
         # Caller pins an actual downloaded build archive; inspect verifies the loaded immutable image separately.
         m.trusted_file(provenance['path'],provenance['sha256'])
+        archive_identity(provenance['path'],c['webImageId'],c['sourceRevision'])
         for name,ident in [('candidate',c['webImageId']),('rollback',before[web]['image'])]:
             m.need(not d.json(['image','inspect',ident])[0].get('Config',{}).get('Volumes'),'IMAGE_VOLUME_FORBIDDEN')
         override=out/'web.json';m.save(override,{'services':{web:{'image':c['webImageId']}}})
@@ -83,7 +110,7 @@ def release(config,output,apply=False):
         stage='browser';result=browser(c['browser'],out/'candidate-browser','candidate')
         after=inspect_live(d,command,services,c['project']);assert_unchanged(before,after,web)
         m.need(after[web]['image']==c['webImageId'],'WEB_IMAGE_MISMATCH')
-        for k in ('configuration','mounts','networks'):m.need(after[web][k]==before[web][k],'WEB_CONFIGURATION_CHANGED')
+        for k in ('configuration','mounts','networks','hostConfiguration'):m.need(after[web][k]==before[web][k],'WEB_CONFIGURATION_CHANGED')
         receipt={'status':'SUCCEEDED','kind':c['kind'],'sourceRevision':c['sourceRevision'],'baselineRevision':c['baselineRevision'],
           'before':before,'after':after,'browser':result,'backendAndDataUnchanged':True,'migrationsExecuted':False,'permissionChanges':False}
         m.save(out/'receipt.json',receipt);return receipt
@@ -93,11 +120,13 @@ def release(config,output,apply=False):
             result['status']='FAILED_OR_UNCERTAIN'
             try:
                 # Do not mask external backend drift by restarting it. Restore only our Web image.
+                for x in [*c['composeFiles'],c['envFile']]:m.trusted_file(x['path'],x['sha256'])
+                m.need(d.json(base+['config','--format','json'])==original,'ROLLBACK_INPUT_DRIFT')
                 rollback=base+['--file',str((out/'rollback-web.json').resolve())]
                 d.run(rollback+['up','--detach','--no-deps','--pull','never','--no-build',c['webService']],timeout=90)
                 restored=inspect_live(d,rollback,c['services'],c['project']);assert_unchanged(before,restored,c['webService'])
                 m.need(restored[c['webService']]['image']==before[c['webService']]['image'],'ROLLBACK_IMAGE_MISMATCH')
-                for k in ('configuration','mounts','networks'):m.need(restored[c['webService']][k]==before[c['webService']][k],'ROLLBACK_CONFIGURATION_CHANGED')
+                for k in ('configuration','mounts','networks','hostConfiguration'):m.need(restored[c['webService']][k]==before[c['webService']][k],'ROLLBACK_CONFIGURATION_CHANGED')
                 result['rollbackBrowser']=browser(c['browser'],out/'rollback-browser','baseline');result['status']='ROLLED_BACK'
             except Exception:result['rollback']='UNPROVEN'
         m.save(out/'receipt.json',result);return result
