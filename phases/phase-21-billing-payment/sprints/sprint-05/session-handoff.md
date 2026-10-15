@@ -1,18 +1,9 @@
-# 会话交接 — Sprint 21/05
+# Sprint 21/05 handoff
 
-## 当前已验证
-- <哪些 feature 确认 passing,各自跑过的验证命令>
+Branch worker/coord-voice-21-f05: F05 in_progress, source 2e3c2ef74 ACCEPT, 64 focused assertions and API type/lint/contracts type/default init passed. All earlier failures retained. Not yet formal passing or main integration.
 
-## 本轮改动
-- <改了哪些代码 / 基础设施>
+Next run through existing validation agent: caffeinate -i env WORKSPACEX_WEB_TEST_MAX_WORKERS=2 pnpm harness verify --sprint 21/05 --feature F05 --owner coord-voice. Freeze source/HEAD/refs during run; tool alone owns status transitions. Save formal output, independent final review, then create/attach separate PR Closes #5759 and fix current-head CI.
 
-## 仍损坏或未验证
-- <已知问题、风险区、未跑的验证>
+Implemented raw-byte signature verification/decryption, merchant/order/amount validation, durable receipts, one transaction per merchant payment, atomic base/bonus crediting and wallet/order/event state, restart recovery, conflict backoff and SQL literal boundary using existing pool. No active merchant query (R6 exclusion). Explicit wallet capacity failure records deterministic recovery key; real admin recovery remains a launch dependency.
 
-## 下一步最佳动作
-- <下一轮从哪个 feature 开始;哪些东西不要动>
-
-## 命令
-- 启动:`pnpm -w run dev`
-- 验证:`pnpm harness verify --sprint 21/05`
-- 调试:<填你的调试命令>
+Parent #5750 ready/open; F04 #5757 draft stacked on it. Retarget F04 main after parent integrates, rerun CI; do not merge into dependency branch. Continue cashier/expiry/admin recovery, Stripe, and approved token settlement with coherent minor-unit migration. No real keys/charges/deployed login proof claimed.
