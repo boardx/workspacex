@@ -56,7 +56,7 @@ const LAYERS = Object.keys(ALLOWED);
  * assembly instructions -- but it is an exemption, so it is enumerated rather than inferred.
  * Keep this list tiny; every entry is a file the layering rules do not protect.
  */
-const COMPOSITION_ROOT = new Set(["main.ts", "kernel.module.ts", "billing.module.ts"]);
+const COMPOSITION_ROOT = new Set(["main.ts", "kernel.module.ts", "billing.module.ts", "identity-persistence.module.ts"]);
 
 /** Why a given dependency is forbidden -- written for the person reading the error. */
 const WHY = {

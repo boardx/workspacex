@@ -70,14 +70,14 @@
       "notes": "覆盖 V1/V3/V6/V7/V8 的 API 侧（UC-BC-2/3/4 + 内部端口 UC-BC-I4 WechatPayClient.createNativeOrder，测试用 mock 上游不依赖真实商户号）；I-5 套餐快照、I-13 无假二维码（微信下单失败不落库）、I-9 归属收敛。org_billing_disabled 校验分支（I-12）由 F-TBD-org-billing-setting 接入，本 feature 在 createPaymentOrder 预留开关读取点。金额精度：分（整数），前端金额字段一律忽略并记录可疑请求（01 R7-1）。"
     },
     {
-      "id": "F-TBD-wallet-ledger-query",
+      "id": "F03",
       "priority": 4,
       "area": "billing-credits",
       "title": "钱包余额与流水查询（归属校验 + 游标分页）",
       "user_visible_behavior": "用户查自己的钱包得到余额/累计充值/累计发放；从未有过钱包记录时返回全零空钱包而非 404；流水列表可按类型筛选、游标分页（limit≤100），每笔含 credits 与 balance_after，空列表合法；查他人钱包/流水 403，无权限不泄露资源存在性；组织钱包按开放问题 Q5 暂定 owner/admin 可读。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "03",
+      "owner": "coord-voice",
       "capability": "CAP-DATA",
       "spec_ref": "04-billing-admin.md#R3",
       "depends_on": [
@@ -175,7 +175,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "04-billing-admin.md#R3",
       "depends_on": [
-        "F-TBD-wallet-ledger-query"
+        "F03"
       ],
       "points": 5,
       "wave": 3,
@@ -222,7 +222,7 @@
       "spec_ref": "01-credits-topup.md#R8",
       "depends_on": [
         "F-TBD-credit-order-core",
-        "F-TBD-wallet-ledger-query",
+        "F03",
         "F02"
       ],
       "points": 8,
@@ -247,7 +247,7 @@
       "spec_ref": "04-billing-admin.md#R8",
       "depends_on": [
         "F-TBD-admin-grant",
-        "F-TBD-wallet-ledger-query"
+        "F03"
       ],
       "points": 6,
       "wave": 4,
@@ -271,7 +271,7 @@
       "spec_ref": "04-billing-admin.md#R5",
       "depends_on": [
         "F-TBD-org-billing-setting",
-        "F-TBD-wallet-ledger-query"
+        "F03"
       ],
       "points": 5,
       "wave": 4,
