@@ -75,6 +75,16 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(onStop).not.toHaveBeenCalled();
   });
 
+  it("focuses the named editor on entry and restores the edit action after saving", async () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      onStart={vi.fn()} onStop={vi.fn()} onSaveContent={vi.fn().mockResolvedValue(undefined)} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    expect(screen.getByRole("textbox", { name: "逐字稿正文" })).toHaveFocus();
+    fireEvent.change(screen.getByRole("textbox", { name: "逐字稿正文" }), { target: { value: "修改正文" } });
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-edit")).toHaveFocus());
+  });
+
   it("keeps save pending and prevents duplicate submission through shared actions", async () => {
     let resolveSave!: () => void;
     const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));

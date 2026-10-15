@@ -84,6 +84,14 @@ export function RealtimeTranscriptionWorkspace({
     finally { renamePending.current = false; setSavingName(false); }
   }
   const [editing, setEditing] = React.useState(false);
+  const editButtonRef = React.useRef<HTMLButtonElement>(null);
+  const restoreEditFocus = React.useRef(false);
+  React.useEffect(() => {
+    if (editing || !restoreEditFocus.current) return;
+    restoreEditFocus.current = false;
+    const button = editButtonRef.current;
+    if (button?.isConnected && !button.disabled) button.focus();
+  }, [editing]);
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
   const [copied, setCopied] = React.useState(false);
@@ -188,8 +196,8 @@ export function RealtimeTranscriptionWorkspace({
                   {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
                   {copied ? "已复制" : "复制全文"}
                 </Button>
-                {!editing && <Button data-testid="rec-live-edit" type="button" size="md" variant="outline"
-                  disabled={recording || busy || !onSaveContent} onClick={() => { setDraft(session.content); setEditing(true); }}>
+                {!editing && <Button ref={editButtonRef} data-testid="rec-live-edit" type="button" size="md" variant="outline"
+                  disabled={recording || busy || !onSaveContent} onClick={() => { restoreEditFocus.current = true; setDraft(session.content); setEditing(true); }}>
                   <Pencil aria-hidden className="h-4 w-4" />编辑
                 </Button>}
               </div>
@@ -198,7 +206,7 @@ export function RealtimeTranscriptionWorkspace({
 
           {editing ? (
             <div className="mt-4">
-              <textarea data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
+              <textarea autoFocus aria-label="逐字稿正文" data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
                 className="min-h-72 w-full resize-y rounded-lg border border-border bg-background p-4 text-13 leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               <WorkflowActionBar placement="footer">
                 <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
