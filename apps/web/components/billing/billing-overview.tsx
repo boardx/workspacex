@@ -80,12 +80,19 @@ function periodLabel(value: string | null): string | null {
 /** Account discovery remains available even when a deployment has no payment channel.
  * Each read fails independently; missing services never become fabricated zero balances.
  */
-export function BillingOverview({ userId, sessionToken }: { userId: string; sessionToken: string }) {
+export function BillingOverview({ userId, sessionToken, openOnReady = false, onPurchaseOpened }: { userId: string; sessionToken: string; openOnReady?: boolean; onPurchaseOpened?: () => void }) {
   const [cashierOpen, setCashierOpen] = React.useState(false);
   const config = useBillingRead(configRead, userId, sessionToken);
   const wallet = useBillingRead(walletRead, userId, sessionToken);
   const subscription = useBillingRead(subscriptionRead, userId, sessionToken);
   const providers = config.state.status === "ready" ? config.state.data.enabledProviders : [];
+  const consumed = React.useRef(false);
+  React.useEffect(() => {
+    if (!openOnReady) { consumed.current = false; return; }
+    if (!consumed.current && config.state.status === "ready" && config.state.data.enabledProviders.includes("wechat")) {
+      consumed.current = true; setCashierOpen(true); onPurchaseOpened?.();
+    }
+  }, [openOnReady, config.state, onPurchaseOpened]);
   const number = (value: number) => value.toLocaleString("zh-CN");
   return <div data-testid="billing-overview" className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6">
     <header className="space-y-2">

@@ -20,7 +20,9 @@ export function LiveQrPanel({ order, refresh, regenerate }: { order: LiveOrder; 
   }, [visible, order.qrCodeUrl, revision]);
   return <section className="space-y-4 rounded-lg border p-4" aria-label="微信支付订单">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">微信扫码支付</h3><span className="text-20 font-semibold tabular-nums">{new Intl.NumberFormat("zh-CN", { style: "currency", currency: order.currency }).format(order.amountFen / 100)}</span></div>
-    <p className="break-all text-12 text-muted-foreground">订单号：{order.orderNo}</p>
+    <p data-testid="billing-order-no" className="break-all text-12 text-muted-foreground">订单号：{order.orderNo}</p>
+    <p data-testid="billing-order-status" className="text-13 text-muted-foreground">{({ PENDING: "待支付", PROCESSING: "确认到账中", SUCCESS: "已到账", CLOSED: "已关闭", FAILED: "到账处理失败" })[order.status]}</p>
+    {!visible && <div data-testid="billing-qr-placeholder" className="sr-only">当前无可扫描二维码</div>}
     {visible && <div hidden={qrFailed} data-testid="billing-qr-code-area" className="mx-auto w-fit rounded-lg bg-white p-2"><canvas ref={canvas} role="img" aria-label="微信支付二维码" /></div>}
     {qrFailed && <p role="status">二维码暂时无法显示。<Button variant="outline" onClick={redraw}>重新绘制二维码</Button>此操作不会重新下单。</p>}
     {waiting && <>

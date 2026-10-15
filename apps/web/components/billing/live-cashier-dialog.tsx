@@ -62,6 +62,7 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
         {config.result.state === "error" && <p role="status">支付渠道暂时无法查询。<Button variant="outline" onClick={config.retry}>重试渠道</Button></p>}
         {config.result.state === "ready" && !configured && <p data-testid="billing-cashier-unavailable" role="status">微信支付暂未开通。</p>}
         {configured && <>
+          <div className="flex gap-2 text-13"><span data-testid="billing-provider-wechat">微信支付</span><button type="button" data-testid="billing-provider-alipay" disabled className="text-muted-foreground">支付宝·未开通</button></div>
           {catalog.result.state === "loading" && <p role="status">正在查询套餐…</p>}
           {catalog.result.state === "error" && <p role="status">套餐暂时无法查询。<Button variant="outline" onClick={catalog.retry}>重试套餐</Button></p>}
           {catalog.result.state === "ready" && (packages.length === 0 ? <p data-testid="billing-packages-empty" role="status">暂无可购买套餐，请稍后再来。</p> : <>
@@ -75,8 +76,8 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
       </>}
       {wallet.result.state === "loading" && <p role="status">{success === "initial" ? "正在查询余额…" : "支付已确认，正在刷新余额…"}</p>}
       {wallet.result.state === "error" && <p role="status">{success === "initial" ? "余额暂时无法查询。" : "支付已确认，余额暂未更新。"}<Button variant="outline" onClick={wallet.retry}>重试余额查询</Button></p>}
-      {wallet.result.state === "ready" && <p data-testid="billing-updated-balance" className="text-13 text-muted-foreground">当前余额 {wallet.result.data.balance} 额度</p>}
-      <section aria-label="最近额度流水" className="space-y-2 border-t pt-3"><h3 className="text-13 font-semibold">最近流水</h3>
+      {wallet.result.state === "ready" && <p data-testid="billing-updated-balance" className="text-13 text-muted-foreground"><span data-testid="billing-cashier-balance"/>当前余额 {wallet.result.data.balance} 额度</p>}
+      <section data-testid="billing-recent-ledger" aria-label="最近额度流水" className="space-y-2 border-t pt-3"><h3 className="text-13 font-semibold">最近流水</h3>
         {ledger.result.state === "loading" && <p role="status">正在查询流水…</p>}
         {ledger.result.state === "error" && <p role="status">流水暂时无法查询。<Button variant="outline" onClick={ledger.retry}>重试流水查询</Button></p>}
         {ledger.result.state === "ready" && <CashierLedgerHistory key={`${scope}:${success}`} owner={owner} sessionToken={sessionToken} initial={ledger.result.data} onDenied={payment.revoke} />}
