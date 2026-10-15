@@ -3,9 +3,10 @@
 import * as React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { Clock3, MoreHorizontal, Pencil, Plus, Square, Trash2 } from "lucide-react";
+import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { StudioHistoryHeader, StudioHistoryFilters, StudioHistoryCard, type HistorySort } from "@/components/studio/studio-history";
 import { useOptionalSession } from "@/components/session/session-provider";
 import {
   createPersonalTranscription,
@@ -406,8 +407,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   }
 
   return (
-    <section data-testid="rec-history-page" className="min-h-full bg-background px-5 py-6 md:px-8 lg:px-10">
-      <div className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6">
+    <section data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4">
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={() => setCreateOpen(true)} />
         <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
@@ -472,31 +473,30 @@ function HistoryState({
 }) {
   if (uiState === "loading") {
     return (
-      <div data-testid="loading" className="grid animate-pulse grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-        {Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-64 rounded-lg bg-muted" />)}
+      <div data-testid="loading" className="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 8 }).map((_, index) => <div key={index} className="h-40 rounded-lg bg-muted" />)}
       </div>
     );
   }
   if (uiState === "dep-failed" || uiState === "denied" || uiState === "invalid") {
     return (
-      <div role="alert" data-testid="rec-history-error" className="rounded-lg border border-destructive bg-card p-6 text-13 text-destructive">
+      <div role="alert" data-testid="rec-history-error" className="rounded-lg border border-destructive bg-card p-4 text-13 text-destructive">
         历史转录暂时无法读取，请稍后重试。
       </div>
     );
   }
   if (uiState === "empty" || items.length === 0) {
     return (
-      <div data-testid="rec-history-empty" className="flex min-h-64 flex-col items-center justify-center gap-4 rounded-lg border border-dashed border-border bg-card text-center">
+      <div data-testid="rec-history-empty" className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg bg-card p-4 text-center">
         <Clock3 aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <div><p className="text-14 font-medium">{filtered ? "没有符合条件的转录" : "还没有转录"}</p><p className="mt-1 text-12 text-muted-foreground">{filtered ? "请调整标签或搜索条件。" : "创建一次新的实时转录，名称和标签会保存在这里。"}</p></div>
-        <Button variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />新建转录</Button>
+        <div><p className="text-14 font-medium">{filtered ? "没有符合条件的转录" : "还没有转录"}</p><p className="mt-1 text-12 text-muted-foreground">{filtered ? "请调整标签或搜索条件。" : "新建转录即可开始记录。"}</p></div>
+        <WorkflowActionButton variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />新建转录</WorkflowActionButton>
       </div>
     );
   }
   return (
-    <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div data-testid="rec-history-grid" className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
       {items.map((item) => <HistoryCard key={item.id} item={item} onOpen={onOpen} onEdit={onEdit} onStop={onStop} onDelete={onDelete} />)}
-      <StudioHistoryCreateCard business="转录" testId="rec-create-card" onCreate={onCreate} />
     </div>
   );
 }
@@ -516,7 +516,7 @@ function HistoryCard({
       status={<Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>{item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}</Badge>}
       description={item.project} tags={item.tags}
       metadata={<><span>{item.duration}</span><time>{item.updatedAt}</time></>}
-      primaryAction={<Button data-testid={`rec-history-open-${item.id}`} size="sm" variant="primary" onClick={() => onOpen(item)}>进入转录</Button>}
+      primaryAction={<WorkflowActionButton data-testid={`rec-history-open-${item.id}`} variant="outline" onClick={() => onOpen(item)}>进入转录</WorkflowActionButton>}
       management={
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreHorizontal aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>

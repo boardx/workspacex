@@ -1,3 +1,7 @@
+import {readPublicReceiptChecks} from './public_acceptance';
+import {recordPublicTransport,verifyOwnerTerminal,admitOwnerTerminalSink} from './migration_owner_terminal';
+import {migrationSourceSchema} from '../cn-migration-source-identity';
+import {optionalMigrationScopeAdmission} from './migration_scope_adapter';
 import {admittedReleaseIdentity} from './release_identity';
 import {readOriginalPlanAuthority,assertSourcePlanAuthority} from './source_plan_authority';
 /** Fixed 9b source composition. Root inputs contain only protected data refs;
@@ -81,14 +85,37 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
  const common=(source:TrustedExecutable)=>({binding:{identity,toolRevision,source,inputRefs:[{path:plan.consumerInputsPath,sha256:plan.consumerInputsSha256}]},assertCapability:async()=>{all.forEach(verify);}});
  let archived:CurrentEpochEvidence|undefined,current:CurrentEpochEvidence|undefined;
  const manifest=io.readBytes(v.prepared.manifest.path,v.prepared.manifest.sha256);
+ const migrationScope=authority.sourcePlan.releaseContinuation===undefined?undefined:(()=>{
+  const productionSource=migrationSourceSchema.parse(migrationInputs.expectedCompletion.productionSource);
+  return optionalMigrationScopeAdmission(authority,{preparedManifest:manifest,consumerInputsSha256:plan.consumerInputsSha256,codeFiles:profile.filesSha256,
+   target:{accountId:productionSource.accountId,regionId:productionSource.regionId,dbInstanceId:productionSource.dbInstanceId,ecsInstanceId:authority.sourcePlan.host?.instanceId}},io.readBytes);
+ })();
  const offline=maintenanceOfflinePreparedAction(io.readJson(v.prepared.receipt.path,v.prepared.receipt.sha256),manifest,verifyOfflineManifest(identity,manifest,v.prepared.manifest.sha256,v.dockerRuntime));
+ const publicReceipts:Partial<Record<'canonical'|'browser',FactoryRef>>={};
  const readReceipt=(value:any,lane:'canonical'|'browser')=>{
   const r=ref.parse(value.receipt);need(r.path===`/etc/workspacex-cn/maintenance-acceptance/${identity.sourceRevision}/${identity.attemptId}/${lane}.json`,'SOURCE_ACCEPTANCE_RECEIPT_PATH');
-  const receipt=io.readJson(r.path,r.sha256) as any;
-  need(receipt?.schemaVersion===1&&receipt.kind===lane+'-acceptance-completed'&&same(receipt.identity,identity)&&receipt.deploymentMarker===v.publicPolicy.deploymentMarker,'SOURCE_ACCEPTANCE_RECEIPT_BINDING');return receipt.checks;
+  const bytes=io.readBytes(r.path,r.sha256);need(createHash('sha256').update(bytes).digest('hex')===r.sha256,'SOURCE_ACCEPTANCE_RECEIPT_RAW_PIN');
+  const checks=readPublicReceiptChecks(JSON.parse(bytes.toString('utf8')),lane,{identity,deploymentMarker:v.publicPolicy.deploymentMarker});
+  need(!publicReceipts[lane],'SOURCE_ACCEPTANCE_RECEIPT_REENTRY');publicReceipts[lane]=Object.freeze({...r});return checks;
  };
+ let holdCas:{input:unknown;cleared:unknown;readback:unknown}|undefined;
+ const terminalRun:CommandRunner=async(command,args,input)=>{
+  const result=await io.run(command,args,input);
+  if(command.path===plan.host.hold.path&&args.length===2&&args[1]==='/var/lib/workspacex-cn/runtime'){
+   if(args[0]==='clear')holdCas={input:structuredClone(input),cleared:JSON.parse(result.stdout),readback:undefined};
+   else if(args[0]==='read'&&holdCas&&holdCas.readback===undefined)holdCas.readback=JSON.parse(result.stdout);
+   else if(args[0]==='create')holdCas=undefined;
+  }
+  return result;
+ };
+ const recorded=recordPublicTransport({readPublicIdentity:()=>op('read-public-candidate-identity'),verifyCanonical:async()=>readReceipt(await op('canonical-candidate-acceptance'),'canonical'),runBrowserSmoke:async()=>readReceipt(await op('browser-candidate-acceptance'),'browser'),readObservation:()=>op('observe-opened-candidate')});
+ const terminalSink=migrationScope?await admitOwnerTerminalSink(authority,profile):undefined;
  try{
- const route=await createARouteFactory({binding:plan.host,toolRevision,installedFilesSha256:profile.installedFilesSha256,run:io.run,
+ const route=await createARouteFactory({migrationScope,recordCanonicalTerminal:terminalSink?async evidence=>{
+   const raw=Buffer.from(JSON.stringify({schemaVersion:1,kind:'canonical-migration-owner-evidence-v1',originalPlanSha256:authority.sourcePlanSha256,toolRevision,holdGeneration:evidence.epoch.holdGeneration,epoch:evidence.epoch.epoch,completion:evidence.completion.completion,candidate:evidence.candidate.reference,holdCas,publicReceipts,publicTranscript:recorded.snapshot()})+'\n');
+   await verifyOwnerTerminal(authority,raw,createHash('sha256').update(raw).digest('hex'),{identity,...v.publicPolicy},approvedRelease(),io.readBytes);
+   await terminalSink(raw);
+  }:undefined,binding:plan.host,toolRevision,installedFilesSha256:profile.installedFilesSha256,run:terminalRun,
   acquireReleaseLock:async()=>{const release=await io.acquireLock();return async()=>{await release();};},assertInstalledSource:async c=>verify(c),readEvidence:async r=>io.readJson(r.path,r.sha256),consumers:{
   offline:{...common(operationSource),prepare:offline},
   prehold:{...common(prehold.qualificationExecutable),verifyRecoveryCapability:async()=>{archived=await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);},verifyIsolatedAcceptance:async()=>{need(archived,'SOURCE_PREHOLD_NOT_VERIFIED');await consumePreholdEpochManifest(prehold,{read:async r=>io.readJson(r.path,r.sha256),run:io.run},authority);}},
@@ -97,10 +124,12 @@ export async function createSourceProductionConsumers(plan:EntryPlan,profile:any
   heldReadback:{...common(operationSource),verify:async()=>{await op('held-candidate-readback');}},
   candidate:{...common(operationSource),stageAndSeal:async(_id,_host,e,c)=>{const result=await op('stage-candidate-and-seal');return {...c,reference:ref.parse(result.reference)};}},
   writer:{...common(plan.host.writerFence),lifecycle},
-  public:{...common(operationSource),bindingPolicy:{identity,...v.publicPolicy},transport:{readPublicIdentity:()=>op('read-public-candidate-identity'),verifyCanonical:async()=>readReceipt(await op('canonical-candidate-acceptance'),'canonical'),runBrowserSmoke:async()=>readReceipt(await op('browser-candidate-acceptance'),'browser'),readObservation:()=>op('observe-opened-candidate')}},
+  public:{...common(operationSource),bindingPolicy:{identity,...v.publicPolicy},transport:recorded.transport},
   disposition:{...common(plan.host.writerFence),recordRecoveryRequired:async id=>{await lifecycle.invoke('recordDatabaseRecoveryRequired',id);},recordReconciliationRequired:async id=>{await lifecycle.invoke('recordWriteStateReconciliationRequired',id);}},
  }});
  const inputs:Partial<ProtectedOperationInputs>={admittedARoute:route,assertProtectedInputs:async()=>{all.forEach(verify);}};
  return {host:plan.host,inputs,run:runWriter,acquireLock:io.acquireLock,retainUnknown:()=>lifecycle.retainUnknown()};
  }catch(error){lifecycle.retainUnknown();throw error;}
 }
+
+export {schema as sourceConsumerSchema};

@@ -1,0 +1,27 @@
+{
+  "reviewedAt": "2026-10-12T14:07:18.209410+00:00",
+  "outcome": "ACCEPT_FOR_ISOLATED_LINUX_CHECKPOINT",
+  "files": {
+    "tests/cn_release_fsync_entry_linux.py": "2a9bdca9a852abe170b51e98265d98e3a247e31a4d12ff0eea860d7d0725db25",
+    "tests/test_cn_release_fsync_entry_fixture.py": "616838135d03e6469f5f68c5d9f246ae20dc2f35e5a76be867eba72cd3fb7e43"
+  },
+  "localTests": {
+    "count": 4,
+    "passed": 4,
+    "seconds": 0.013
+  },
+  "confirmed": [
+    "Original entry advance/status/reconcile functions are executed without replacing their implementations.",
+    "Fault targets terminal journal fsync after one synthetic action; original bytes preserved and advance replay rejected both before and after fault removal.",
+    "Fresh private mount namespace, exact owned mount identities, bounded tmpfs and owned nested cgroup cleanup; cleanup failures prevent verified success.",
+    "Missing Linux/root/GitHub/FUSE capability fails instead of skipping."
+  ],
+  "limitations": [
+    "Linux FUSE/cgroup scenario has not been executed in this review.",
+    "Synthetic consume action and verifier; not full release recovery, real provider terminal proof, or physical power-loss durability.",
+    "Worker output limit is checked after communicate; it is not a streaming memory cap. Fixed fixture output and server log reside within bounded tmpfs."
+  ],
+  "blockingFindings": [],
+  "productionAccepted": false,
+  "cloudOperations": 0
+}

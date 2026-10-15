@@ -96,6 +96,33 @@ def receipt_path(release):
     return STATE/('hk-'+sha(raw)[:32])/'promoted-receipt.json'
 
 
+def consume_receipt(release,code_root,reader=None):
+    """Existing receipt or pinned full read-only recovery; never a retry.
+
+    Prepared intent alone cannot select publication. Partial state without an
+    intent fails closed rather than regenerating a consumer/download command.
+    """
+    reader=reader or root_read;path=receipt_path(release)
+    try:reader(path.parent/'promotion-intent.json',65536)
+    except FileNotFoundError:
+        try:return reader(path,65536)
+        except FileNotFoundError:pass
+        request=release['acquire']['requests']['consume']
+        inbox=STATE/'candidate-inbox'/request['sourceRevision']/request['attemptId']
+        need(not path.parent.exists() and not path.parent.is_symlink()
+             and not inbox.exists() and not inbox.is_symlink(),'CONSUME_PARTIAL_RECONCILE_NO_RETRY')
+        return None
+    script=Path(code_root)/'scripts/cn-release-acquire-observer.py'
+    raw=reader(script,MAX)
+    need(sha(raw)==release['codeFiles']['scripts/cn-release-acquire-observer.py'],'CONSUME_RECOVERY_OBSERVER_HASH')
+    namespace={'__name__':'approved_consume_recovery','__file__':str(script)}
+    exec(compile(raw,str(script),'exec'),namespace)
+    request_sha=sha(encode(release['acquire']['requests']['consume']))
+    recovered=namespace['recover_receipt'](request_sha)
+    need(type(recovered)is bytes and 0<len(recovered)<=65536,'CONSUME_RECOVERY_RECEIPT')
+    return recovered
+
+
 def verify_receipt(raw,release,inputs,now=None):
     """Root-generated consumption evidence binding, not a second image admission."""
     v=parse(raw);request=release['acquire']['requests']['consume'];now=now or dt.datetime.now(dt.timezone.utc)
@@ -195,9 +222,7 @@ def main():
     release_sha=sys.argv[1];raw=root_read(APPROVALS/(release_sha+'.json'));need(sha(raw)==release_sha,'RELEASE_RAW_HASH');release=approval(raw)
     need(Path(__file__).resolve()==CONTROL_ROOT/'scripts/cn-release-acquire-delegation.py','FIXED_INSTALLED_ENTRY_REQUIRED')
     load_generator(CONTROL_ROOT,release,root_read)
-    physical=receipt_path(release);receipt=None
-    try:receipt=root_read(physical,65536)
-    except FileNotFoundError:pass
+    receipt=consume_receipt(release,CONTROL_ROOT)
     phase='publication' if receipt is not None else 'consume'
     request=release['acquire']['requests'][phase];inputs={n:root_read(INPUTS/release_sha/(n+'.json')) for n in request['inputs']}
     parent=OUTPUTS/release_sha/'acquire'

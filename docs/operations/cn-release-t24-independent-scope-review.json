@@ -1,0 +1,72 @@
+{
+  "kind": "independent-scope-review-v1",
+  "reviewer": "automation_evidence_audit",
+  "observedAt": "2026-10-12T12:46:19.113703+00:00",
+  "decision": "ACCEPT_LOCAL_PROTOCOL_AND_LINUX_CI_INTEGRATION_SCOPE_ONLY",
+  "filesSha256": {
+    "tests/fixtures/cn-postclear-recovery/candidate_actor.py": "a6308c56840d0a9b641901c71d497ba989a6029ffa34f7b68e63c7da5afa2f2e",
+    "tests/fixtures/cn-postclear-recovery/driver.ts": "85551e723cedb5c548b93a337f2bb50222674ccbd80de3b1bed7d155761f8229",
+    "tests/fixtures/cn-postclear-recovery/recovery.ts": "f18f3ed85e2db06e3ba580b2f0622a4190f7f0e39cab745db35cd171c86f82c0",
+    "tests/fixtures/cn-postclear-recovery/recovery_test.ts": "b91f291c30c84ed83a7c02c0751bdcb5b68c15648f489889671da9e45069866c",
+    "tests/fixtures/cn-postclear-recovery/postgres.ts": "6fdb6678800bb697f64bc42cea6f3b5d2a84c7c781eee8d755b515736d19ed32",
+    "tests/fixtures/cn-postclear-recovery/package.json": "a90fc33418afa2b9cbf4768524b021135b965ecdf993457505bfae3ac44a8428",
+    "tests/fixtures/cn-postclear-recovery/README.md": "1c0909759f9c4212edbe47733263d7459888e634f3d7ffa652a0925627e8ebd1",
+    "tests/cn_release_postclear_recovery_linux.py": "ae4877cd505068301dc1cc9d19a17f1da9f1578336f7d62448c8e3c705f84a8c"
+  },
+  "localTests": {
+    "command": "CN_POSTCLEAR_PYTHON=<python3.12> <node22> --import tsx --test tests/fixtures/cn-postclear-recovery/recovery_test.ts",
+    "tests": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0,
+    "durationMs": 636.242916,
+    "platform": "macOS",
+    "realPostgres": false
+  },
+  "verifiedCalls": [
+    "original readOriginalPlanAuthority via source-owned test reader",
+    "original createARouteFactory/runARouteMaintenanceRelease post-clear catch and rehold",
+    "original HoldStore create/read/clear CAS on disposable files",
+    "retained flock with FD9 inode/lock probe before recovery checks",
+    "original RetainedCandidateActor/CandidateHostTransport/CandidateWriterAdapter close-only operations",
+    "WeakMap capability invalid after callback; copied JSON context denied",
+    "exclusive durable recovery intent before capture, per-target intent, repeated invocation denied"
+  ],
+  "closedFindings": [
+    {
+      "id": "T24-REVIEW-01",
+      "severity": "P1",
+      "finding": "Already signalled child exitCode remains null; late exit listener can wait forever.",
+      "fix": "Persistent exit/error completion registered immediately; signalCode tested; real SIGKILL regression independently passes."
+    },
+    {
+      "id": "T24-REVIEW-02",
+      "severity": "P2",
+      "finding": "Runtime child error was treated as completed spawn failure.",
+      "fix": "Existing PID error yields ACTOR_EXIT_UNPROVEN; fixture regression passes; no cleanup-success claim."
+    },
+    {
+      "id": "T24-REVIEW-03",
+      "severity": "P2",
+      "finding": "Linux partial restore fault happened before second database restore.",
+      "fix": "Fault moved after actual second pg_restore and facts readback; no-redispatch assertion retained. Code reviewed, real Linux execution pending."
+    },
+    {
+      "id": "T24-REVIEW-04",
+      "severity": "P2",
+      "finding": "Wrapper printed original stderr tail.",
+      "fix": "Fixed diagnostic code plus byte count and SHA only."
+    }
+  ],
+  "pending": [
+    "Real Linux four-scenario PostgreSQL execution and outer cgroup cleanup evidence",
+    "SQL login CAS uses the original implementation through real database_execute, but no real Linux execution was performed in this review",
+    "Docker/process/session observations and initial migration/epoch/public receipts remain explicit fixtures",
+    "Catalog facts use fixture-specific SQL, not original cn-production-recovery-catalog.cjs or full application schema fidelity; originalCatalogVerified=false",
+    "No production recovery authorization, TLS/provider identity, systemd or production writer acceptance"
+  ],
+  "t24Closed": false,
+  "productionAccepted": false,
+  "cloudCalls": 0,
+  "macImageDownloads": 0
+}

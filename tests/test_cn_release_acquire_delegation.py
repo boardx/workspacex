@@ -103,7 +103,7 @@ class DelegationTests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'GENERATION_EXISTS_RECONCILE_NO_RETRY'):self.derive()
  def test_no_runner_command_path_phase_or_approval_arguments(self):
   for args in (['a'*64,'--phase','publication'],['--approval','/tmp/x'],['../../tmp/x']):
-   result=subprocess.run([sys.executable,str(ROOT/'scripts/cn-release-acquire-delegation.py'),*args],capture_output=True,text=True)
+   result=subprocess.run([sys.executable,'-I','-B',str(ROOT/'scripts/cn-release-acquire-delegation.py'),*args],capture_output=True,text=True)
    self.assertNotEqual(result.returncode,0);self.assertIn('ONLY_RELEASE_SHA_ACCEPTED',result.stderr)
  def test_input_alias_and_proof_swap_between_phases_rejected(self):
   self.release['acquire']['requests']['publication']['inputs']['proof']='0'*64
