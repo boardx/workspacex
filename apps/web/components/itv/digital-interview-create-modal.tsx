@@ -83,7 +83,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
           <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-name" className="text-13">访谈名称</Label><span className="text-11 text-muted-foreground">{name.length}/100</span></div>
-              <Input id="itv-create-name" data-testid="itv-create-name" maxLength={100} autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-10" />
+              <Input id="itv-create-name" data-testid="itv-create-name" maxLength={100} autoFocus onFocus={event => { if (event.currentTarget.value === DEFAULT_INTERVIEW_NAME) event.currentTarget.select(); }} value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-10" />
             </div>
             <TagField
               value={tags}

@@ -157,6 +157,13 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
 
+  it("selects the default name so typing immediately replaces it", async () => {
+    render(<InterviewStudioHome initialCreateOpen />);
+    const input = await screen.findByLabelText("访谈名称") as HTMLInputElement;
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input.value.slice(input.selectionStart ?? 0, input.selectionEnd ?? 0)).toBe("未命名访谈");
+  });
+
   it("history resumes the saved canonical source step rather than inferring it from legacy status", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [{ interviewId: "itv-source-outline", kind: "batch", name: "已保存提纲", tags: [], topic: null,
       status: "topic_pending", expertCount: 0, completedExpertCount: 0, primaryAction: "confirm_topic", sourceStep: "outline", updatedAt: "2026-09-28T01:00:00.000Z" }] }));
