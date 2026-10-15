@@ -1,0 +1,36 @@
+name: Minimal Docker release integration
+
+on:
+  pull_request:
+    paths:
+      - scripts/minimal-docker-release.py
+      - tests/test_minimal_docker_release*.py
+      - deploy/examples/minimal-*.json
+      - .github/workflows/minimal-docker-release-test.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - name: Exercise a real isolated Docker deployment
+        run: python3 -I -B tests/test_minimal_docker_release_real.py --output "$RUNNER_TEMP/minimal-release-real"
+      - name: Retain fixture receipts and cleanup proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: minimal-docker-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/minimal-release-real/result.json
+            ${{ runner.temp }}/minimal-release-real/cleanup.json
+            ${{ runner.temp }}/minimal-release-real/base-image.json
+            ${{ runner.temp }}/minimal-release-real/schema-rejection.json
+            ${{ runner.temp }}/minimal-release-real/applied/receipt.json
+            ${{ runner.temp }}/minimal-release-real/rejected/receipt.json
+          retention-days: 1
+          if-no-files-found: warn
