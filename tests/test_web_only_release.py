@@ -57,6 +57,13 @@ class Tests(unittest.TestCase):
  def test_snapshot_mount_content_still_changes_identity(self):
   v=self.d.value('api');v['Mounts']=[{'Type':'bind','Source':'/one','Destination':'/first','RW':False}]
   before=w.snapshot(v);v['Mounts'][0]['RW']=True;self.assertNotEqual(before['mounts'],w.snapshot(v)['mounts'])
+ def test_snapshot_bind_order_stable_but_dns_order_remains_significant(self):
+  v=self.d.value('web');v['HostConfig']={'Binds':['/one:/first:ro','/two:/second:ro'],'Dns':['192.0.2.1','192.0.2.2']}
+  before=w.snapshot(v);v['HostConfig']['Binds'].reverse();self.assertEqual(before,w.snapshot(v))
+  v['HostConfig']['Dns'].reverse();self.assertNotEqual(before['hostConfiguration'],w.snapshot(v)['hostConfiguration'])
+ def test_snapshot_bind_options_still_change_identity(self):
+  v=self.d.value('web');v['HostConfig']={'Binds':['/one:/first:ro']};before=w.snapshot(v)
+  v['HostConfig']['Binds']=['/one:/first:rw'];self.assertNotEqual(before['hostConfiguration'],w.snapshot(v)['hostConfiguration'])
  def test_resolved_secret_model_removed_after_hashing(self):
   self.assertEqual(self.run_release(False)['status'],'PLANNED')
   hashes=[a for a in self.d.calls if '--hash' in a];self.assertTrue(hashes)

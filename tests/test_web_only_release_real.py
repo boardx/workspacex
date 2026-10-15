@@ -20,11 +20,12 @@ def main(out):
   with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
   services=['api','web','agent','sandbox','sandbox-sessions'];file=out/'compose.json';env=out/'existing.env';env.write_text('');fixture=out/'synthetic-data';fixture.mkdir();(fixture/'keep.txt').write_text('existing synthetic bytes')
   service_env=out/'service.env';literal='fixture-literal-$NOT_INTERPOLATED-${NOT_INTERPOLATED}-$$';service_env.write_text('UNCHANGED='+literal+'\n')
-  rows={s:{'image':images['baseline'],'platform':'linux/amd64','env_file':[{'path':str(service_env),'format':'raw'}],'volumes':[str(fixture)+':/data:ro',str(fixture)+':/second-data:ro']} for s in services}
+  rows={s:{'image':images['baseline'],'platform':'linux/amd64','env_file':[{'path':str(service_env),'format':'raw'}],'volumes':[str(fixture)+':/'+name+':ro' for name in ['data','second-data','third-data','fourth-data']]} for s in services}
   rows['web'].update(command=['python3','/server.py'],ports=[f'127.0.0.1:{port}:8080']);file.write_text(json.dumps({'services':rows}));compose=['compose','--project-name',project,'--env-file',str(env),'--file',str(file)]
   d(*compose,'up','--detach','--pull','never','--no-build');lock=out/'release.lock';lock.touch(mode=0o600)
   archive=out/'web.tar';subprocess.run([docker,'save',tags[1]],stdout=archive.open('wb'),check=True)
   backend=w.m.Docker(docker);before=w.inspect_live(backend,compose,services,project)
+  raw_before={service:json.loads(d('container','inspect',d(*compose,'ps','--quiet',service).decode().strip()))[0] for service in services}
   for service in services:
    ident=d(*compose,'ps','--quiet',service).decode().strip();live=json.loads(d('container','inspect',ident))[0]
    assert 'UNCHANGED='+literal in live['Config']['Env'],'LITERAL_ENV_INTERPOLATED'
@@ -45,6 +46,19 @@ def main(out):
    if mode=='candidate':raise w.m.Rejected('FIXTURE_INJECTED_BROWSER_FAILURE')
    return result
   with patch.object(w,'browser',side_effect=fail_candidate):rollback=w.release(config,out/'rollback',True)
+  if rollback['status']!='ROLLED_BACK':
+   diagnostics=[]
+   for service in services:
+    ids=d(*compose,'ps','--quiet',service).decode().split()
+    if len(ids)!=1:diagnostics.append({'service':service,'runningContainers':len(ids)});continue
+    old=raw_before[service]['HostConfig'];now=json.loads(d('container','inspect',ids[0]))[0]['HostConfig']
+    fields=sorted(k for k in old.keys()|now.keys() if old.get(k)!=now.get(k));collections={}
+    for key in ['Binds','Mounts']:
+     a,b=old.get(key),now.get(key)
+     if isinstance(a,list) and isinstance(b,list):
+      collections[key]={'beforeCount':len(a),'afterCount':len(b),'beforeHash':w.m.digest(w.m.encoded(a)),'afterHash':w.m.digest(w.m.encoded(b)),'sameCompleteRecordMultiset':sorted(a,key=w.m.encoded)==sorted(b,key=w.m.encoded)}
+    if fields:diagnostics.append({'service':service,'hostConfigurationChangedFields':fields,'mountCollections':collections})
+   print(json.dumps({'rollbackDiagnostic':rollback,'dockerVersion':d('version','--format','{{.Server.Version}}').decode().strip(),'composeVersion':d('compose','version','--short').decode().strip(),'services':diagnostics}),flush=True)
   assert rollback['status']=='ROLLED_BACK',rollback
   restored=w.inspect_live(backend,compose,services,project);w.assert_unchanged(before,restored,'web');assert restored['web']['image']==images['baseline']
   # Restore creates a new Web container: freeze the freshly observed baseline.

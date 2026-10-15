@@ -7,10 +7,12 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 def snapshot(v):
     # Values remain in memory; receipts contain a whole-configuration fingerprint only.
     config={k:x for k,x in v['Config'].items() if k not in ('Image','Labels','Hostname')}
+    host=dict(v.get('HostConfig',{}))
+    if isinstance(host.get('Binds'),list):host['Binds']=sorted(host['Binds'])
     return {'id':v['Id'],'image':v['Image'],'startedAt':v['State'].get('StartedAt'),'running':v['State']['Running'],
             'configuration':m.digest(m.encoded(config)),'mounts':m.digest(m.encoded(sorted(v.get('Mounts',[]),key=m.encoded))),
             'networks':sorted(v.get('NetworkSettings',{}).get('Networks',{})),
-            'hostConfiguration':m.digest(m.encoded(v.get('HostConfig',{})))}
+            'hostConfiguration':m.digest(m.encoded(host))}
 
 def resolved_hashes(d,base,project):
     # Compose 2.40 config --hash skips env_file resolution; up resolves it first.
