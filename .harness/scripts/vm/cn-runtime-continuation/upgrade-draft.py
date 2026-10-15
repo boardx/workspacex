@@ -246,9 +246,15 @@ def main():
         for f in b['composeFiles']: args += ['-f', f['path']]
         run(args + ['-f', str(override), 'up', '-d', '--no-deps', '--no-build', '--pull', 'never', *SERVICES], 180)
         xs = json.loads(run(D + ['inspect'] + names))
+        assert len(xs) == len(SERVICES), 'EXACT_FIVE_REQUIRED'
+        assert {x['Config']['Labels']['com.docker.compose.service'] for x in xs} == set(SERVICES), 'SERVICE_SET_CHANGED'
+        assert len({x['Id'] for x in xs}) == len(SERVICES), 'CONTAINER_ID_DUPLICATED'
         for x in xs:
-            service = x['Config']['Labels']['com.docker.compose.service']
-            assert x['State']['Running'] and x['Config']['Image'] == images[service]
+            labels = x['Config']['Labels']
+            service = labels['com.docker.compose.service']
+            assert x['Name'].lstrip('/') == 'workspacex-cn-' + service + '-1', 'CONTAINER_NAME_CHANGED'
+            assert labels['com.docker.compose.project'] == 'workspacex-cn', 'PROJECT_CHANGED'
+            assert x['State']['Running'] and not x['State']['Restarting'] and x['Config']['Image'] == images[service]
         assert hold() == h
         record(root, mode + '-result.json', {'exactFiveRunning': True, 'holdRetained': True, 'businessAcceptancePassed': False})
     print(json.dumps({'operation': mode, 'completed': True, 'holdRetained': True}))

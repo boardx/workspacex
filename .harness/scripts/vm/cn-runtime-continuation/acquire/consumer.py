@@ -61,10 +61,10 @@ def storage_plan(v, observations):
  assert set(capacity['guards'])=={'SPOOL_CAPACITY','DOCKER_CAPACITY'}
  z=sum(x['bytes'] for x in v['objects'].values())
  # Extracted plan + set + five fragments/plans, copied bundle metadata,
- # two bounded receipts, plus conservative filesystem allocation rounding.
+ # three bounded receipts (including promotion intent), plus conservative filesystem allocation rounding.
  metadata=(PLAN_LIMIT+(PLAN_LIMIT+SET_LIMIT)+5*(PLAN_LIMIT+FRAGMENT_LIMIT)
            +PLAN_LIMIT+SET_LIMIT+v['objects']['proof']['bytes']+v['objects']['policy']['bytes']
-           +2*RECEIPT_LIMIT+ALLOCATION_UNITS*observations['consumer']['allocationUnit'])
+           +3*RECEIPT_LIMIT+ALLOCATION_UNITS*observations['consumer']['allocationUnit'])
  retained=max(2*z,z+t+metadata)
  assert observations['consumer']['device']==observations['inbox']['device'],'INBOX_PROMOTION_CROSS_DEVICE'
  devices={}
@@ -89,6 +89,9 @@ def admit_storage(v):
 def write_receipt(path,value):
  raw=(json.dumps(value,sort_keys=True)+'\n').encode();assert len(raw)<=RECEIPT_LIMIT
  with path.open('xb')as f:path.chmod(0o600);f.write(raw);f.flush();os.fsync(f.fileno())
+ fd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+ try:os.fsync(fd)
+ finally:os.close(fd)
 
 def extract(z,folder,limits):
  with zipfile.ZipFile(z)as archive:
@@ -201,6 +204,16 @@ def promote_verified(root,result,check):
    if not p.exists():p.mkdir(mode=0o700)
    s=p.lstat();assert stat.S_ISDIR(s.st_mode)and s.st_uid==s.st_gid==0 and not s.st_mode&0o022
   target=INBOX/SOURCE/ATTEMPT;assert not target.exists()and not target.is_symlink(),'PUBLISHER_INBOX_EXISTS_RECONCILE'
+  # A durable prepared intent is not success. A read-only observer can recover
+  # the exact receipt only after independently validating the actual inbox,
+  # original ZIPs, proof and deadline. No redownload or overwrite is admitted.
+  final={**result,'bundle':str(target),'promotedToExactPublisherInbox':True}
+  prepared={k:v for k,v in result.items()if k!='storageAdmission'}
+  before=(json.dumps(prepared,sort_keys=True)+'\n').encode()
+  assert (root/'receipt.json').read_bytes()==before,'PROMOTION_PRE_RECEIPT_CHANGED'
+  write_receipt(root/'promotion-intent.json',dict(kind='cn-hk-promotion-intent-v1',
+    sourceBundle=str(bundle),target=str(target),prePromotionReceiptSha256=sha(before),
+    receipt=result,finalReceiptSha256=sha((json.dumps(final,sort_keys=True)+'\n').encode())))
   libc=ctypes.CDLL(None,use_errno=True);rename=libc.renameat2;rename.argtypes=[ctypes.c_int,ctypes.c_char_p,ctypes.c_int,ctypes.c_char_p,ctypes.c_uint];rename.restype=ctypes.c_int
   assert rename(-100,os.fsencode(bundle),-100,os.fsencode(target),1)==0,'PROMOTE_FAILED_RECONCILE'
   d=os.open(target.parent,os.O_RDONLY|os.O_DIRECTORY);os.fsync(d);os.close(d)

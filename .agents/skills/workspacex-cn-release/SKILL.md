@@ -73,6 +73,64 @@ bytes, rootfs and layer bytes must still verify. `StoreContentRevalidationTests`
 `tests/test_cn_candidate_host.py` covers metadata-only differences and rejection
 of identity/content changes.
 
+### Nonterminal driver and failed-transfer evidence
+
+`WAITING_FOR_WRITER_APPROVAL`, `UNKNOWN_RECONCILE_REQUIRED`, and `NOT_STARTED`
+are not successful execution. Driver `run`/`reconcile` must return nonzero for
+these states; read-only `status` may return zero. The CLI subprocess regressions
+in `tests/test_cn_release_fixed_driver.py` check the process exit, not only a
+returned dictionary. `CHAIN_COMPLETED` still does not itself claim business
+acceptance.
+
+A failed HK PUT may already have reached OSS. Always retain the bounded sanitized
+intent, worker result, and pipeline/proof failure records for one day, including
+on workflow failure. Never upload ZIPs, credentials, raw SDK errors, or temporary
+directories as diagnostics. Admission may fail before any record exists: missing
+diagnostics must not mask the original failure or claim successful transfer.
+`tests/test_cn_hk_failure_evidence.py` exercises a real child-process failure
+after intent creation and checks unknown terminality, no retry, no success
+receipt, and no provider error leakage. A lost runner can still prevent artifact
+upload; diagnostics alone never prove remote terminality or authorize replay.
+
+### Recovery and runtime success must be explicit
+
+Apply the same exit-code rule to the recovery driver: only `RECOVERY_VERIFIED`
+is successful execution; waiting, unknown, not-started and merely reconciled
+states remain nonzero. Read-only status queries do not resume a writer.
+
+An empty Docker inspect list previously passed the switch/rollback loop, and
+five duplicate entries could also yield `exactFiveRunning`. Require exactly
+five distinct container IDs and the complete service set, exact CN names and
+project, running/non-restarting state and the approved image for every service
+before writing runtime success. The real template branch regressions in
+`tests/test_cn_release_failure_isolation.py` cover both false-success cases and
+foreign project, mixed image, name and restart failures. Docker replies in this
+suite are fixtures: it is not live container or database recovery acceptance.
+
+### Stable simulation evidence
+
+Do not run hash-pinned integration tests against a worktree while another worker
+edits its templates. Retain any `CODE_HASH`/`TEMPLATE_PIN` failure, freeze the
+source snapshot, then repeat the affected integration suite. A final ten-round
+series must use the same clean commit; each round uses clean isolated state and
+records its fault seed. Changes require a new series, not removal of old failures.
+Skipped or expected-failing required tests cannot count toward complete coverage.
+Cloud substitutes and unmeasured live metrics must remain explicit; fixture
+duration cannot establish the 30-minute production release goal.
+
+### Promotion receipt crash recovery
+
+Persist a private prepared intent before the no-replace inbox rename. An intent
+alone is never success. If the final receipt is absent, empty, or an exact byte
+prefix of the independently reconstructed receipt, recover its exact bytes
+read-only only after original ZIPs, inbox, canonical verifier, identity, proof
+and deadline all pass again. The actual fixed router must use the pinned recovery
+interface; fixing only the standalone delegation CLI leaves the main chain
+broken. `tests/test_cn_release_promotion_recovery.py` exercises a real process
+exit after kernel rename and partial write, locking, tampering and routing.
+Recovery never overwrites an existing receipt. Non-prefix bytes, conflicting
+complete JSON, expiry and evidence drift fail closed.
+
 ### Candidate attempt tag collision
 
 Candidate identity includes the original attempt, so two builds of one source may

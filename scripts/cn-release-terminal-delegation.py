@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import stat
 import tempfile
+import threading
 
 BASE=Path(__file__).resolve().parents[1]
 APPROVALS=Path('/etc/workspacex-cn/release-approvals')
@@ -74,19 +75,60 @@ def release(raw):
     return a,sha(raw)
 
 
+# Only this module's live lock context can mint a capability. No serialized
+# bool/token or independently opened fd is accepted as an owned entry lock.
+_WRITER_LOCKS = {}
+
+
+class _WriterLock:
+    __slots__ = ()
+
+    def __reduce__(self):
+        raise TypeError('WRITER_LOCK_NOT_SERIALIZABLE')
+
+
+def owned_writer_root(capability, entry, identity):
+    record = _WRITER_LOCKS.get(capability)
+    need(record is not None, 'WRITER_LOCK_CAPABILITY')
+    actual_entry, actual_identity, root, fd, inode, pid, thread = record
+    need(pid == os.getpid() and thread == threading.get_ident(), 'WRITER_LOCK_EXECUTION_OWNER')
+    need(actual_entry is entry and actual_identity == identity, 'WRITER_LOCK_BINDING')
+    s = os.fstat(fd)
+    named = (entry.STATE/'entry.lock').lstat()
+    need((s.st_dev, s.st_ino) == inode == (named.st_dev, named.st_ino)
+         and stat.S_ISREG(named.st_mode) and not stat.S_ISLNK(named.st_mode)
+         and s.st_uid == entry.OWNER and s.st_nlink == 1 and not s.st_mode & 0o077,
+         'WRITER_LOCK_REPLACED')
+    need(entry.decode(entry.read(entry.STATE/'active-attempt.json')) == identity['attemptId'], 'ACTIVE_ATTEMPT')
+    actual = entry.decode(entry.read(root/'identity.json'))
+    need(actual == {**{k: identity[k] for k in FIELDS if k != 'publicationAttemptId'},
+                    'scope': 'runtime-only-reviewed-continuation'}, 'ENTRY_IDENTITY')
+    return root
+
+
 @contextmanager
-def locked(entry,identity):
-    root=entry.STATE/identity['attemptId'];entry.directory(root)
-    fd=os.open(entry.STATE/'entry.lock',os.O_RDWR|os.O_NOFOLLOW)
+def writer_lock(entry, identity):
+    root = entry.STATE/identity['attemptId']; entry.directory(root)
+    fd = os.open(entry.STATE/'entry.lock', os.O_RDWR | os.O_NOFOLLOW)
+    capability = _WriterLock()
     try:
-        s=os.fstat(fd);need(stat.S_ISREG(s.st_mode) and s.st_uid==entry.OWNER and s.st_nlink==1 and not s.st_mode&0o077,'LOCK_FILE')
-        try:fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except BlockingIOError:raise ValueError('ENTRY_ACTIVE')from None
-        need(entry.decode(entry.read(entry.STATE/'active-attempt.json'))==identity['attemptId'],'ACTIVE_ATTEMPT')
-        actual=entry.decode(entry.read(root/'identity.json'))
-        need(actual=={**{k:identity[k]for k in FIELDS if k!='publicationAttemptId'},'scope':'runtime-only-reviewed-continuation'},'ENTRY_IDENTITY')
-        yield root
-    finally:os.close(fd)
+        s = os.fstat(fd)
+        need(stat.S_ISREG(s.st_mode) and s.st_uid == entry.OWNER and s.st_nlink == 1
+             and not s.st_mode & 0o077, 'LOCK_FILE')
+        try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError: raise ValueError('ENTRY_ACTIVE') from None
+        _WRITER_LOCKS[capability] = (entry, dict(identity), root, fd, (s.st_dev, s.st_ino), os.getpid(), threading.get_ident())
+        owned_writer_root(capability, entry, identity)
+        yield capability
+    finally:
+        _WRITER_LOCKS.pop(capability, None)
+        os.close(fd)
+
+
+@contextmanager
+def locked(entry, identity):
+    with writer_lock(entry, identity) as capability:
+        yield owned_writer_root(capability, entry, identity)
 
 
 def chain(entry,root,identity,verifiers,end):
@@ -204,7 +246,7 @@ def derive_held_health(approval_raw,inputs,entry,finalizer,output,*,now=None):
             'releaseSha256':release_sha,'writerResumed':False,'businessAcceptancePassed':False}
 
 
-def derive_writer_resume(approval_raw,writer_approval_raw,inputs,entry,output,*,now=None,package=None):
+def _writer_resume_context(approval_raw,writer_approval_raw,inputs,*,now=None):
     """A5 is a separate human approval; A6 public/business acceptance follows.
 
     Reuse original prepare/runtime clear CAS without altering the old finalizer's
@@ -237,41 +279,56 @@ def derive_writer_resume(approval_raw,writer_approval_raw,inputs,entry,output,*,
     need(hold['generation']==w['holdGeneration'] and hold==b['hold'] and hold['state']=='held','A5_HOLD_GENERATION')
     # Authenticated health readback proves these exact current host file hashes.
     need(status['bindingSha256']==sha(inputs['binding']) and status['switchReceiptSha256']==sha(inputs['switchReceipt']), 'A5_HEALTH_FILE_LINK')
-    import subprocess
-    with locked(entry,r)as root:
-        observed=chain(entry,root,r,a['writerResume']['stageVerifierSha256'],14)
-        need(inputs['status']==observed['acceptance'][0],'A5_HELD_HEALTH_NOT_ACTUAL')
-        need(inputs['hold']==observed['hold'][1],'A5_HOLD_NOT_ACTUAL')
-        template_root=Path(package)if package is not None else BASE/'.harness/scripts/vm/cn-runtime-continuation/finalize'
-        need(set(a['writerResume']['packageFiles'])=={'prepare.py','runtime.py'},'A5_TEMPLATE_CLOSURE')
-        # Use the already reviewed exact single-source-comparison specializer.
-        need(sha((BASE/FINAL_CODE).read_bytes())==a['codeFiles'][FINAL_CODE],'A5_SPECIALIZER_PIN')
-        spec=importlib.util.spec_from_file_location('a5_final_specializer',BASE/FINAL_CODE)
-        finalizer=importlib.util.module_from_spec(spec);spec.loader.exec_module(finalizer)
-        need(sha((BASE/FINAL_CODE).read_bytes())==a['codeFiles'][FINAL_CODE],'A5_SPECIALIZER_PIN')
-        code={}
-        for name,pin in a['writerResume']['packageFiles'].items():
-            path=template_root/name;need(not path.is_symlink(),'A5_TEMPLATE_SYMLINK');raw=path.read_bytes()
-            need(sha(raw)==pin,'A5_TEMPLATE_PIN');code[name]=finalizer.specialize(raw,r['sourceRevision'])
-        output=Path(output).absolute();need(not output.exists(),'A5_OUTPUT_EXISTS')
-        with tempfile.TemporaryDirectory(prefix='cn-writer-resume-')as td:
-            folder=Path(td)
-            for name,raw in code.items():(folder/name).write_bytes(raw)
-            c=dict(mode='clear-hold',remoteRoot=a['writerResume']['remoteRoot'],issuedAt=w['issuedAt'],
-                   expiresAt=w['expiresAt'],clearHoldAuthorized=True,output=str(output))
-            for key in ('binding','hold','switchReceipt','status'):
-                path=folder/(key+'.json');path.write_bytes(inputs[key]);c[key]=str(path)
-            config=folder/'config.json';config.write_text(json.dumps(c))
-            proc=subprocess.run([__import__('sys').executable,'-I','-B',str(folder/'prepare.py'),str(config)],
-                capture_output=True,timeout=30,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
-            need(proc.returncode==0,'ORIGINAL_A5_CLEAR_MATERIALIZER_REJECTED')
-        provenance={'kind':'cn-writer-resume-materialization-v1','releaseSha256':release_sha,
-            'writerApprovalSha256':sha(writer_approval_raw),'testDataScopeSha256':w['testDataScopeSha256'],'identity':r,'inputHashes':{k:sha(v)for k,v in inputs.items()},
-            'files':{p.name:sha(p.read_bytes())for p in output.iterdir()},'cloudCalls':0,'writerResumed':False,
-            'businessAcceptancePassed':False,'publicBusinessAcceptanceRequiredAfterResume':True}
-        save(output/'writer-resume-provenance.json',enc(provenance))
-        return {'status':'MATERIALIZED_A5','intentCreated':False,'output':str(output),'provenance':provenance}
+    return a,release_sha,r,now,w
 
+
+def derive_writer_resume(approval_raw,writer_approval_raw,inputs,entry,output,*,now=None,package=None):
+    context = _writer_resume_context(approval_raw,writer_approval_raw,inputs,now=now)
+    if isinstance(context,dict): return context
+    a,_,_,_,_ = context
+    with writer_lock(entry,a['identity']) as capability:
+        return derive_writer_resume_locked(approval_raw,writer_approval_raw,inputs,entry,output,
+                                           capability,now=now,package=package)
+
+
+def derive_writer_resume_locked(approval_raw,writer_approval_raw,inputs,entry,output,capability,*,now=None,package=None):
+    context = _writer_resume_context(approval_raw,writer_approval_raw,inputs,now=now)
+    if isinstance(context,dict): return context
+    a,release_sha,r,now,w = context
+    import subprocess
+    root=owned_writer_root(capability,entry,r)
+    observed=chain(entry,root,r,a['writerResume']['stageVerifierSha256'],14)
+    need(inputs['status']==observed['acceptance'][0],'A5_HELD_HEALTH_NOT_ACTUAL')
+    need(inputs['hold']==observed['hold'][1],'A5_HOLD_NOT_ACTUAL')
+    template_root=Path(package)if package is not None else BASE/'.harness/scripts/vm/cn-runtime-continuation/finalize'
+    need(set(a['writerResume']['packageFiles'])=={'prepare.py','runtime.py'},'A5_TEMPLATE_CLOSURE')
+    # Use the already reviewed exact single-source-comparison specializer.
+    need(sha((BASE/FINAL_CODE).read_bytes())==a['codeFiles'][FINAL_CODE],'A5_SPECIALIZER_PIN')
+    spec=importlib.util.spec_from_file_location('a5_final_specializer',BASE/FINAL_CODE)
+    finalizer=importlib.util.module_from_spec(spec);spec.loader.exec_module(finalizer)
+    need(sha((BASE/FINAL_CODE).read_bytes())==a['codeFiles'][FINAL_CODE],'A5_SPECIALIZER_PIN')
+    code={}
+    for name,pin in a['writerResume']['packageFiles'].items():
+        path=template_root/name;need(not path.is_symlink(),'A5_TEMPLATE_SYMLINK');raw=path.read_bytes()
+        need(sha(raw)==pin,'A5_TEMPLATE_PIN');code[name]=finalizer.specialize(raw,r['sourceRevision'])
+    output=Path(output).absolute();need(not output.exists(),'A5_OUTPUT_EXISTS')
+    with tempfile.TemporaryDirectory(prefix='cn-writer-resume-')as td:
+        folder=Path(td)
+        for name,raw in code.items():(folder/name).write_bytes(raw)
+        c=dict(mode='clear-hold',remoteRoot=a['writerResume']['remoteRoot'],issuedAt=w['issuedAt'],
+               expiresAt=w['expiresAt'],clearHoldAuthorized=True,output=str(output))
+        for key in ('binding','hold','switchReceipt','status'):
+            path=folder/(key+'.json');path.write_bytes(inputs[key]);c[key]=str(path)
+        config=folder/'config.json';config.write_text(json.dumps(c))
+        proc=subprocess.run([__import__('sys').executable,'-I','-B',str(folder/'prepare.py'),str(config)],
+            capture_output=True,timeout=30,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
+        need(proc.returncode==0,'ORIGINAL_A5_CLEAR_MATERIALIZER_REJECTED')
+    provenance={'kind':'cn-writer-resume-materialization-v1','releaseSha256':release_sha,
+        'writerApprovalSha256':sha(writer_approval_raw),'testDataScopeSha256':w['testDataScopeSha256'],'identity':r,'inputHashes':{k:sha(v)for k,v in inputs.items()},
+        'files':{p.name:sha(p.read_bytes())for p in output.iterdir()},'cloudCalls':0,'writerResumed':False,
+        'businessAcceptancePassed':False,'publicBusinessAcceptanceRequiredAfterResume':True}
+    save(output/'writer-resume-provenance.json',enc(provenance))
+    return {'status':'MATERIALIZED_A5','intentCreated':False,'output':str(output),'provenance':provenance}
 
 def save(path,raw):
     need(not path.exists(),'OUTPUT_EXISTS');fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)

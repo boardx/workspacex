@@ -1,0 +1,38 @@
+{
+  "kind": "independent-root-review",
+  "reviewer": "root (non-author)",
+  "reviewedAt": "2026-10-12T14:08:19.814146+00:00",
+  "decision": "ACCEPT_DIAGNOSTIC_CHANGE_ONLY",
+  "files": {
+    "tests/fixtures/cn-postclear-recovery/driver.ts": "e5c9262583349c248b675ad1920cf612468c30e3d514f157f8e12e24521b4ceb",
+    "tests/fixtures/cn-postclear-recovery/diagnostic.ts": "f0ee7c00f7fa59d6d24e0d9c0d8e72aaa726e36bde9b0b2516899d23464c7cc0",
+    "tests/fixtures/cn-postclear-recovery/diagnostic_test.ts": "61ea5c071a9d3d4b960e5c38913d04da4d913cb6cd72db6648498e72bbb68a7f",
+    "tests/fixtures/cn-postclear-recovery/recovery_test.ts": "079be3a3b9d166c6df413cb5fbba6d2f881f47007346da4a5d828610358b4ccc",
+    "tests/fixtures/cn-postclear-recovery/fixed-error-codes.json": "b18ad889a4eb95f212519d7c29bf9111ca1fd66b55a599fbbf51f80c85319084",
+    "tests/cn_release_postclear_recovery_linux.py": "4b3a41de8d2edc9b9ff87f4989068852fabb36cab12634e3e0286383aa6437cf",
+    "tests/test_cn_release_postclear_diagnostic.py": "8e4b8aa7c67cf9aed7bd410237cca5c4f71dd36d8d907cf5c4100f151cb2cb04"
+  },
+  "independentTests": {
+    "typescript": {
+      "pass": 17,
+      "fail": 0,
+      "skip": 0,
+      "milliseconds": 2336.892
+    },
+    "python": {
+      "pass": 5,
+      "fail": 0,
+      "seconds": 0.001
+    }
+  },
+  "scope": [
+    "Fixed codes traced to actual original source literals",
+    "Original operation errors observed and rethrown without retry",
+    "Bounded cycle-safe cause traversal; no arbitrary error text or SQL exported"
+  ],
+  "limits": [
+    "T24 actual Linux cause remains unknown",
+    "No actual PostgreSQL operation in these local regressions",
+    "Does not close T24 or count final regression round"
+  ]
+}
