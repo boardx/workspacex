@@ -36,6 +36,26 @@ describe("F05 durable idempotent PostgreSQL crediting", () => {
     const conflict = f.notice(b.orderNo, {}, { eventId: n.eventId });
     expect((await f.post(conflict.body, conflict.headers)).status).toBe(400); expect(await transactions(b.orderNo)).toHaveLength(0); expect((await wallet()).balance).toBe(1320);
   });
+  it("rejects a merchant transaction reused on a different order", async () => {
+    const a=await f.createOrder(), b=await f.createOrder();
+    const first=f.notice(a.orderNo,{transaction_id:"f05-shared-merchant-transaction"});
+    expect((await f.post(first.body,first.headers)).status).toBe(200);
+    const reused=f.notice(b.orderNo,{transaction_id:"f05-shared-merchant-transaction"});
+    expect((await f.post(reused.body,reused.headers)).status).toBe(400);
+    expect(await transactions(b.orderNo)).toHaveLength(0);
+    expect((await wallet()).balance).toBe(1320);
+  });
+  it("credits at most one order when one merchant transaction races across orders", async () => {
+    const a=await f.createOrder(), b=await f.createOrder();
+    const notices=[a,b].map(o=>f.notice(o.orderNo,{transaction_id:"f05-raced-merchant-transaction"}));
+    const responses=await Promise.all(notices.map(n=>f.post(n.body,n.headers)));
+    expect(responses.every(r=>[200,400,503].includes(r.status))).toBe(true);
+    expect(responses.filter(r=>r.status===200)).toHaveLength(1);
+    for(const n of notices) await f.post(n.body,n.headers);
+    await f.worker?.runOnce();
+    expect((await wallet()).balance).toBe(1320);
+    expect((await transactions(a.orderNo)).length+(await transactions(b.orderNo)).length).toBe(2);
+  });
   it("honors genuine paid funds after local closure and retains the previous close audit", async () => {
     const order = await f.createOrder(); await asOwner(c => c.query("UPDATE billing_orders SET status='CLOSED',closed_at=now() WHERE order_no=$1", [order.orderNo]));
     const n = f.notice(order.orderNo); expect((await f.post(n.body, n.headers)).status).toBe(200);
