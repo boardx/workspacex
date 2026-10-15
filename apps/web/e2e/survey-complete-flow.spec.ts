@@ -290,6 +290,30 @@ test('R2 问卷体验：自动保存保留标题焦点并可刷新恢复',async(
  await page.screenshot({path:testInfo.outputPath('r2-refreshed-title.png'),fullPage:true});
 });
 
+test('R3 问卷体验：生成失败重试与取消保留原文且不应用迟到提案',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R3 异常恢复',tags:[]})));
+ const input=page.getByLabel('问卷需求');const original='保留原文：了解最近一次会议的改进机会';await input.fill(original);
+ let attempts=0;let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ let finished!:()=>void;const lateFinished=new Promise<void>(resolve=>{finished=resolve;});
+ await page.route('**/surveys/markdown-proposals',async route=>{
+   attempts++;if(attempts===1){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'controlled unavailable'})});return;}
+   const delayed=attempts===2;if(delayed)await gate;
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({markdown:'# R3 合成提案\n\n## recent [open]\n请描述最近一次体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'controlled-test',modelId:'synthetic',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}})}).catch(()=>{});if(delayed)finished();
+ });
+ const generate=page.getByRole('button',{name:'生成问卷',exact:true});await generate.click();
+ await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toContainText('生成失败');await expect(input).toHaveValue(original);
+ await page.screenshot({path:testInfo.outputPath('r3-generation-error.png'),fullPage:true});
+ try{await generate.click();await expect(page.getByRole('button',{name:'正在生成…',exact:true})).toBeDisabled();
+ await expect.poll(()=>attempts).toBe(2);await page.getByRole('button',{name:'取消生成',exact:true}).click();await expect(generate).toBeEnabled();await expect(input).toHaveValue(original);
+ }finally{release();}
+ await lateFinished;await expect(page.getByRole('dialog',{name:'Markdown 预览与校对'})).toHaveCount(0);
+ await generate.click();const preview=page.getByRole('dialog',{name:'Markdown 预览与校对'});await expect(preview).toBeVisible();
+ await expect(page).toHaveURL(/\/new\/import/);await preview.getByRole('button',{name:'返回输入',exact:true}).click();
+ await expect(preview).toHaveCount(0);await expect(input).toHaveValue(original);
+ await page.screenshot({path:testInfo.outputPath('r3-recovered-input.png'),fullPage:true});
+});
+
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);

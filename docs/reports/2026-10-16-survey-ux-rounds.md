@@ -24,9 +24,11 @@ R1 checkpoint `ba139069ad200333138d0c4abe4f111f6ab023fc` 后重新fetch main，�
 
 组件先RED（disabled断言，jsdom没有模拟浏览器失焦），修后37 UI PASS；真实浏览器RED→GREEN 1case（执行1m4s、清理2s），targeted lint PASS。截图：[修前焦点丢失](assets/issue-5779/r2/before-saving-focus.png)、[保存中保持焦点](assets/issue-5779/r2/after-saving-focus.png)、[刷新恢复](assets/issue-5779/r2/after-refreshed-title.png)。实际检视保存中截图。响应延迟为受控，本地真实API/PG保存；不代表生产延迟测量。
 
-## R3 异常恢复
+## R3 异常恢复（已自验，无产品改动）
 
-未开始。
+R2完成后重新fetch main仍4cc。独立路径：AI导入原文→受控503→明确错误及保原文→重试并等待请求实际到达→取消→释放迟到响应且确认无提案弹窗→再次生成→预览仍需明确应用→返回输入保原文。没有自动应用/创建问卷。
+
+最终稳定代码浏览器1case PASS（执行37s/清理1s），本轮未发现需要产品修复的问题，只新增验证。最终四个受影响UI文件72测试PASS，typecheck退出0。截图：[生成失败](assets/issue-5779/r3/generation-error.png)、[恢复原文](assets/issue-5779/r3/recovered-input.png)。503、延迟响应与提案均浏览器受控合成，证明前端恢复与显式应用边界，不是供应商真实故障或真实模型质量。
 
 ## R4 手机桌面、键盘和长内容综合
 
