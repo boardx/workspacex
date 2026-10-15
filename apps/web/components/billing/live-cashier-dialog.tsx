@@ -26,7 +26,7 @@ function useCashierRead<T>(path: string, query: Record<string, string>, parse: (
   }, [path, queryKey, scope, sessionToken, open, revision, retryCount, key]);
   return { result: result.key === key ? result.value : { state: "loading" as const }, retry };
 }
-export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onCredited }: { owner: CashierOwner; sessionToken: string; open: boolean; onOpenChange: (open: boolean) => void; onCredited: () => void }) {
+export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onCredited, focusFallback }: { owner: CashierOwner; sessionToken: string; open: boolean; onOpenChange: (open: boolean) => void; onCredited: () => void; focusFallback?: () => void }) {
   const returnFocus = React.useRef<HTMLElement | null>(null);
   const scope = `${sessionToken}:${owner.ownerType}:${owner.ownerId}`;
   const payment = useCashierOrder(owner, sessionToken, open);
@@ -54,7 +54,7 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
   const selected = selection?.scope === scope && packages.some(p => p.packageId === selection.id) ? selection.id : null;
   const configured = config.result.state === "ready" && config.result.data.enabledProviders.includes("wechat");
   const retryAll = () => { config.retry(); catalog.retry(); wallet.retry(); ledger.retry(); void payment.refresh(); };
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent data-testid="billing-cashier-dialog" onOpenAutoFocus={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected) returnFocus.current.focus(); }} className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent data-testid="billing-cashier-dialog" onOpenAutoFocus={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected && returnFocus.current !== document.body) returnFocus.current.focus(); else focusFallback?.(); }} className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
     <DialogTitle>购买额度</DialogTitle><DialogDescription>{owner.ownerType === "team" ? "为当前组织充值" : "为个人账户充值"}，使用微信扫码支付。关闭窗口会保留当前订单。</DialogDescription>
     {denied ? <div data-testid="billing-cashier-denied"><p role="status">登录已失效或你没有此账户的访问权限。请重新登录或联系管理员。</p><Button variant="outline" onClick={retryAll}>重新验证权限</Button></div> : <>
       {payment.order ? <LiveQrPanel order={payment.order} refresh={() => { void payment.refresh(); }} regenerate={payment.regenerate} /> : <>

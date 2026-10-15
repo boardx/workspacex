@@ -48,5 +48,12 @@ test("live cashier keyboard, QR, polling recovery and accounting across three wi
   await page.screenshot({path:resolve(evidence,`cashier-${width}-success.png`),fullPage:true});
   await page.keyboard.press("Escape");await expect(page.getByRole("dialog")).toHaveCount(0);await expect(buy).toBeFocused();
  }
+ // Configured personal-menu purchase opens the same real cashier through its URL intent.
+ await page.goto("/profile");await page.getByTestId("rail-profile-menu").click();
+ await page.getByTestId("billing-menu-purchase").click();
+ await expect(page.getByRole("dialog")).toBeVisible();
+ await expect(page).toHaveURL(/\/billing$/);
+ await page.keyboard.press("Escape");
+ await expect(page.getByRole("button",{name:"购买额度",exact:true})).toBeFocused();
  expect(posts).toBe(3);
 });

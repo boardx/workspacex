@@ -184,3 +184,17 @@ describe("F06 full ledger pagination",()=>{
   expect(screen.queryByRole("button",{name:"加载更多流水"})).toBeNull();
  });
 });
+
+describe("F06 purchase navigation intent",()=>{
+ it("consumes an explicit configured purchase intent once and restores a safe focus target",async()=>{
+  const f=live();f.view.unmount();const consumed=vi.fn();
+  const view=render(<BillingOverview userId="user-a" sessionToken="cashier-test-session" openOnReady onPurchaseOpened={consumed}/>);
+  await screen.findByTestId("billing-cashier-dialog");expect(consumed).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button",{name:"关闭"}));
+  await act(async()=>{});
+  expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
+  expect(document.activeElement).toBe(screen.getByRole("button",{name:"购买额度"}));
+  view.rerender(<BillingOverview userId="user-a" sessionToken="cashier-test-session" openOnReady onPurchaseOpened={consumed}/>);
+  expect(consumed).toHaveBeenCalledTimes(1);expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
+ });
+});

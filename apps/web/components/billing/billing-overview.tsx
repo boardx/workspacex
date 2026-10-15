@@ -81,6 +81,8 @@ function periodLabel(value: string | null): string | null {
  * Each read fails independently; missing services never become fabricated zero balances.
  */
 export function BillingOverview({ userId, sessionToken, openOnReady = false, onPurchaseOpened }: { userId: string; sessionToken: string; openOnReady?: boolean; onPurchaseOpened?: () => void }) {
+  const purchaseButton = React.useRef<HTMLButtonElement>(null);
+  const restorePurchaseFocus = React.useCallback(() => purchaseButton.current?.focus(), []);
   const [cashierOpen, setCashierOpen] = React.useState(false);
   const config = useBillingRead(configRead, userId, sessionToken);
   const wallet = useBillingRead(walletRead, userId, sessionToken);
@@ -108,7 +110,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
             <div><p className="text-12 text-muted-foreground">当前余额</p><p data-testid="billing-wallet-balance" className="text-32 font-semibold tabular-nums">{number(wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">额度</span></p></div>
             <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">累计充值</dt><dd className="tabular-nums">{number(wallet.state.data.totalPurchased)}</dd></div><div><dt className="text-muted-foreground">累计发放</dt><dd className="tabular-nums">{number(wallet.state.data.totalGranted)}</dd></div></dl>
           </>}
-          {providers.includes("wechat") ? <Button onClick={() => setCashierOpen(true)}>购买额度</Button> : <p className="text-12 text-muted-foreground">微信充值暂未开放。</p>}
+          {providers.includes("wechat") ? <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>购买额度</Button> : <p className="text-12 text-muted-foreground">微信充值暂未开放。</p>}
         </CardContent>
       </Card>
       <Card>
@@ -134,7 +136,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
         </>}
       </CardContent>
     </Card>
-    <LiveCashierDialog key={`${userId}:${sessionToken}`} owner={{ ownerType: "user", ownerId: userId }} sessionToken={sessionToken} open={cashierOpen} onOpenChange={setCashierOpen} onCredited={wallet.retry} />
+    <LiveCashierDialog key={`${userId}:${sessionToken}`} owner={{ ownerType: "user", ownerId: userId }} sessionToken={sessionToken} open={cashierOpen} onOpenChange={setCashierOpen} onCredited={wallet.retry} focusFallback={restorePurchaseFocus} />
     <Button asChild variant="outline"><Link href="/usage">查看我的 AI 用量</Link></Button>
   </div>;
 }
