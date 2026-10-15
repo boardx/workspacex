@@ -1,0 +1,30 @@
+{
+  "docker": "/usr/bin/docker",
+  "project": "workspacex",
+  "manifestSha256": "REPLACE_WITH_SHA256_OF_VERIFIED_MANIFEST_BYTES",
+  "composeFiles": [
+    {
+      "path": "/srv/workspacex/compose.json",
+      "sha256": "REPLACE_WITH_ACTUAL_FILE_SHA256"
+    }
+  ],
+  "envFile": {
+    "path": "/srv/workspacex/compose-interpolation.env",
+    "sha256": "REPLACE_WITH_ACTUAL_FILE_SHA256"
+  },
+  "services": {
+    "api": "api",
+    "web": "web",
+    "agent": "agent",
+    "sandbox": "sandbox",
+    "sandbox-sessions": "sandbox"
+  },
+  "health": {
+    "url": "https://app.example.com/api/healthz",
+    "expected": {
+      "trustworthy": true
+    }
+  },
+  "lockFile": "/srv/workspacex/release.lock",
+  "readinessTimeoutSeconds": 120
+}
