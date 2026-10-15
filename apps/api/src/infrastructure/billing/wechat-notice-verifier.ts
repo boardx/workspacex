@@ -28,8 +28,8 @@ export class DeploymentWechatNoticeVerifier implements WechatNoticeVerifier {
       const ciphertext=Buffer.from(encoded,"base64"); if(ciphertext.length<=16) throw new Error("invalid_resource");
       const decipher=createDecipheriv("aes-256-gcm",Buffer.from(config.apiV3Key),Buffer.from(nonce));
       decipher.setAAD(Buffer.from(aad));decipher.setAuthTag(ciphertext.subarray(-16));
-      const decrypted=Buffer.concat([decipher.update(ciphertext.subarray(0,-16)),decipher.final()]);
-      const payment=object(JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(decrypted)));
+      const paymentBytes=Buffer.concat([decipher.update(ciphertext.subarray(0,-16)),decipher.final()]);
+      const payment=object(JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(paymentBytes)));
       orderNo=OrderNo.parse(payment.out_trade_no);
       if(payment.appid!==config.appId || payment.mchid!==config.mchId) throw new Error("merchant_mismatch");
       const amount=object(payment.amount);
