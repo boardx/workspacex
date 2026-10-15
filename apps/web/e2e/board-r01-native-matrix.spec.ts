@@ -1,5 +1,7 @@
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {observeNativeBrowserDiagnostics} from './support/native-runtime/native-browser-diagnostics';
+import {fixedNativeFailure} from './support/board-native-failure-stage.mjs';
+
 import {categoryEnabled,observationMode} from './support/board-observation-categories.mjs';
 const visualHeavy=()=>categoryEnabled('pixel-comparison');
 import {test,expect,type Page,type TestInfo,type APIRequestContext} from '@playwright/test';
@@ -61,18 +63,19 @@ async function shapeStrokePixels(page:Page,geometry:{x:number;y:number;width:num
 }
 async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(binding:{token:string;boardId:string;transport:ReturnType<typeof createSpatialWsMetadataRecorder>})=>Promise<void>){
  let boardId:string|undefined,token:string|undefined,serverActor:string|undefined,source:ReturnType<typeof runtimeSourceIdentity>|undefined,verify:(()=>Promise<unknown>)|undefined,beforeProof:unknown,afterProof:unknown,failure:unknown;
+ let failureStage='SETUP';
  const diagnostics=observeNativeBrowserDiagnostics(page,`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`);
  const title=`R01 native matrix ${randomUUID()}`,transport=createSpatialWsMetadataRecorder(),chunks=observeRuntimeChunks(page);transport.observe(page,'original');
  try{
   await diagnostics.ready;
-  source=runtimeSourceIdentity();
-  const manifestPath=process.env.BOARD_CONNECTOR_RUNTIME_MANIFEST;if(!manifestPath)throw new Error('R01_NATIVE_MANIFEST_REQUIRED');
+  failureStage='SOURCE';source=runtimeSourceIdentity();
+  failureStage='MANIFEST';const manifestPath=process.env.BOARD_CONNECTOR_RUNTIME_MANIFEST;if(!manifestPath)throw new Error('R01_NATIVE_MANIFEST_REQUIRED');
   const verifierPath=join(root,'apps/web/e2e/support/native-runtime/runtime-attestation.mjs'),selectorPath=join(root,'scripts/local-session/board-runtime-source-files.mjs'),authority=await import(pathToFileURL(verifierPath).href),selector=await import(pathToFileURL(selectorPath).href);
   const sourceFiles=selector.listRuntimeSourceFiles(root);
   verify=async()=>{const manifestBytes=await readFile(manifestPath),verifierBytes=await readFile(verifierPath),selectorBytes=await readFile(selectorPath),identity=authority.verifyRuntimeManifest({manifestPath,root,base:process.env.BOARD_R01_WEB_URL,origin:`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`,sourceFiles});expect(JSON.parse(manifestBytes.toString()).head).toBe(process.env.BOARD_ACCEPTANCE_SHA);return {identity,manifestHash:createHash('sha256').update(manifestBytes).digest('hex'),verifierHash:createHash('sha256').update(verifierBytes).digest('hex'),selectorHash:createHash('sha256').update(selectorBytes).digest('hex')};};beforeProof=await verify();
-  token=await boardLogin(page);const identity=await(await boardApi(api,token,'GET','/kernel/probe/whoami')).json();expect(identity.userId).toBe(F.userId);serverActor=identity.userId;boardId=await createAcceptanceBoard(api,token,title);
-  await run({token,boardId,transport});await verifyRuntimeIdentity(api,source,await chunks());
- }catch(error){failure=error;throw error;}
+  failureStage='LOGIN';token=await boardLogin(page);failureStage='ACTOR';const identity=await(await boardApi(api,token,'GET','/kernel/probe/whoami')).json();expect(identity.userId).toBe(F.userId);serverActor=identity.userId;failureStage='CREATE_BOARD';boardId=await createAcceptanceBoard(api,token,title);
+  failureStage='CASE';await run({token,boardId,transport});failureStage='END_RUNTIME';await verifyRuntimeIdentity(api,source,await chunks());
+ }catch(error){failure=error;throw new AggregateError([error],fixedNativeFailure('R01',failureStage));}
  finally{
   const errors:unknown[]=[];
   try{await info.attach('native-browser-safe-diagnostics',{body:JSON.stringify(await diagnostics.snapshot()),contentType:'application/json'});}catch(error){errors.push(error);}finally{diagnostics.dispose();}
@@ -86,7 +89,8 @@ async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(bind
   }catch(error){errors.push(error);}
   try{afterProof=await verify?.();expect(afterProof).toEqual(beforeProof);}catch(error){errors.push(error);}
   try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,observationMode:observationMode(),visualEvidence:visualHeavy()?'executed-not-human-approved':'deferred-not-verified',status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending,fixtureCleanup,boardId:cleanupPending?boardId:null,title:cleanupPending?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
-  if(errors.length)throw new AggregateError(failure?[failure,...errors]:errors,'R01_FINAL_PROOF_FAILED');
+  if(errors.length)throw new AggregateError(failure?[failure,...errors]:errors,failure?fixedNativeFailure('R01',failureStage)+' FINAL_PROOF':fixedNativeFailure('R01','FINAL_PROOF'));
+
  }
 }
 

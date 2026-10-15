@@ -351,7 +351,8 @@ test('Files fixed phase diagnostics bind actual aggregate source and preserve fa
  assert.deepEqual(output.filesFailure,{phase:'DOWNLOAD_BYTES',ordinal:3,deleteFailures:1,identityFailures:0});
  assert.equal(output.resultStatus,'failed');assert.equal(output.errorCount,1);assert.equal(output.matchedFailure,'UNKNOWN');assert(!JSON.stringify(output).includes('PRIVATE'));
  assert.throws(()=>suiteResult(config,{}));
- for(const bad of [message+' PRIVATE',message+'\nPRIVATE',message.replace('DOWNLOAD_BYTES','PRIVATE'),message.replace('"ordinal":3','"ordinal":9999')])assert.equal(inspect(bad).filesFailure,undefined);
+ for(const bad of [message+' PRIVATE',message.replace('DOWNLOAD_BYTES','PRIVATE'),message.replace('"ordinal":3','"ordinal":9999')])assert.equal(inspect(bad).filesFailure,undefined);
+ assert.deepEqual(inspect(message+'\nPRIVATE').filesFailure,output.filesFailure);
  assert.equal(inspect(message,FILES_FAILURE_AGGREGATE_LINE+1).filesFailure,undefined);
  assert.equal(inspect(message,FILES_FAILURE_AGGREGATE_LINE,'board-files-retry.spec.ts').filesFailure,undefined);
  let reads=0;const error={location:{file,line:FILES_FAILURE_AGGREGATE_LINE}};Object.defineProperty(error,'message',{get(){reads++;throw Error('PRIVATE');}});
