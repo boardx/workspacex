@@ -73,6 +73,9 @@ const TITLES = {
   productReq: `E2E产品需求_希望能筛选录音_${STAMP}`,
   skillBug: `E2E技能缺陷_输出格式不稳_${STAMP}`,
   agentReq: `E2E智能体需求_希望能引用原文_${STAMP}`,
+  adminProductReq: `E2E管理员产品需求_保持默认反馈入口_${STAMP}`,
+  adminSkillBug: `E2E管理员技能缺陷_保持对话位置_${STAMP}`,
+  adminAgentReq: `E2E管理员智能体需求_保持对话位置_${STAMP}`,
 };
 
 async function login(page: Page, email: string, password: string): Promise<void> {
@@ -194,7 +197,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
   test("管理员产品原入口仍切到我提过的", async ({ page }) => {
     await login(page, FULLSTACK_E2E.adminEmail, FULLSTACK_E2E.adminPassword);
     await page.getByTestId("rail-feedback").click();
-    await submitOpenFeedback(page, { kind: "需求", title: `${TITLES.productReq}_admin`, detail: "原入口默认去向保持不变。" });
+    await submitOpenFeedback(page, { kind: "需求", title: TITLES.adminProductReq, detail: "原入口默认去向保持不变。" });
   });
 
   for (const admin of [false, true]) {
@@ -236,7 +239,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await expect(page.getByTestId("feedback-dialog-title")).toContainText(FULLSTACK_E2E.mountableSkillName);
     await submitOpenFeedback(page, {
       kind: "缺陷",
-      title: admin ? `${TITLES.skillBug}_admin` : TITLES.skillBug,
+      title: admin ? TITLES.adminSkillBug : TITLES.skillBug,
       target: { kind: "skill", skillId },
       detail: "有时候给表格有时候给段落，下游没法直接用。",
     });
@@ -258,7 +261,7 @@ test.describe("反馈端到端：不同种类从前端提交，后台真的看�
     await expect(page.getByTestId("feedback-dialog-title")).toContainText(FULLSTACK_E2E.agentDisplayName);
     await submitOpenFeedback(page, {
       kind: "需求",
-      title: admin ? `${TITLES.agentReq}_admin` : TITLES.agentReq,
+      title: admin ? TITLES.adminAgentReq : TITLES.agentReq,
       target: { kind: "agent", agentId: FULLSTACK_E2E.agentId },
       detail: "回答里能不能直接引用原始消息，现在要自己往上翻。",
     });
