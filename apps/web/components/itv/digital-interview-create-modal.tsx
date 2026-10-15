@@ -5,6 +5,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton, WorkflowActionBar } from "@/components/research-studio/research-workflow-actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
@@ -30,6 +31,8 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
 }) {
   const { push } = useRouter();
   const scope: InterviewScope = projectId ? { kind: "project", projectId, researchProjectId: null } : INDEPENDENT_SCOPE;
+  const returnFocus = React.useRef<HTMLElement | null>(null);
+  const nameInput = React.useRef<HTMLInputElement | null>(null);
   const [name, setName] = React.useState(DEFAULT_INTERVIEW_NAME);
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [tagDraft, setTagDraft] = React.useState("");
@@ -72,18 +75,18 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
     <Dialog.Root open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-background-foreground/35 backdrop-blur-sm animate-in fade-in" />
-        <Dialog.Content data-testid="itv-create-dialog" className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-7 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Dialog.Content onOpenAutoFocus={event => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; event.preventDefault(); nameInput.current?.focus(); }} onCloseAutoFocus={event => { if (returnFocus.current?.isConnected) { event.preventDefault(); returnFocus.current.focus(); } }} data-testid="itv-create-dialog" className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <Dialog.Title className="text-20 font-semibold tracking-tight">新建访谈</Dialog.Title>
-              <Dialog.Description className="text-12 text-muted-foreground">创建后将直接进入访谈设计流程</Dialog.Description>
+              <Dialog.Description className="sr-only">填写访谈名称，可选标签</Dialog.Description>
             </div>
             <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭新建访谈弹窗"><X className="size-4" aria-hidden /></Button></Dialog.Close>
           </div>
-          <form onSubmit={submit} className="mt-6 flex flex-col gap-5">
+          <form onSubmit={submit} className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-name" className="text-13">访谈名称</Label><span className="text-11 text-muted-foreground">{name.length}/100</span></div>
-              <Input id="itv-create-name" data-testid="itv-create-name" maxLength={100} autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-10" />
+              <Input id="itv-create-name" data-testid="itv-create-name" maxLength={100} ref={nameInput} value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-9" />
             </div>
             <TagField
               value={tags}
@@ -97,10 +100,10 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
             />
             <div data-testid="itv-create-scope" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-12 text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>{projectId ? "本项目访谈" : "独立访谈"}</div>
             {error && <p role="alert" className="text-12 text-destructive">创建失败：{error}。当前输入已保留，可重试。</p>}
-            <div className="mt-2 flex justify-end gap-3">
-              <Button type="button" variant="outline" size="lg" className="min-w-24" onClick={close}>取消</Button>
-              <Button data-testid="itv-create-submit" type="submit" variant="primary" size="lg" className="min-w-28" disabled={!name.trim() || busy}>{busy ? "创建中…" : "开始访谈"}</Button>
-            </div>
+            <WorkflowActionBar placement="footer">
+              <WorkflowActionButton type="button" variant="outline" onClick={close}>取消</WorkflowActionButton>
+              <WorkflowActionButton data-testid="itv-create-submit" type="submit" variant="primary" loading={busy} disabled={!name.trim() || busy}>{busy ? "创建中…" : "开始访谈"}</WorkflowActionButton>
+            </WorkflowActionBar>
           </form>
         </Dialog.Content>
       </Dialog.Portal>
