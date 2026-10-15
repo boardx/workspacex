@@ -103,14 +103,14 @@ export function RealtimeTranscriptionWorkspace({
   }
 
   return (
-    <section data-testid="rec-live-workspace" className="min-h-full bg-background px-5 py-6 md:px-8 lg:px-10">
+    <section data-testid="rec-live-workspace" className="min-h-full bg-background px-4 py-6 md:px-8 lg:px-10">
       <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-6">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3 md:flex-1">
             <Button data-testid="rec-live-back" type="button" variant="ghost" size="icon" aria-label="返回历史转录" onClick={onBack}>
               <ArrowLeft aria-hidden className="h-4 w-4" />
             </Button>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 {renaming ? <div className="flex flex-wrap items-center gap-2">
                   <input aria-label="录音名称" autoFocus maxLength={C.operations.updatePersonalTranscriptionMetadata.in.shape.name.maxLength ?? undefined} disabled={savingName}
@@ -119,7 +119,7 @@ export function RealtimeTranscriptionWorkspace({
                       if (event.nativeEvent.isComposing) return;
                       if (event.key === "Enter") { event.preventDefault(); void saveName(); }
                       if (event.key === "Escape" && !savingName) { setRenaming(false); setNameError(null); }
-                    }} className="rounded-md border border-input bg-background px-2 py-1 text-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                    }} className="min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-1 text-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
                   <Button size="icon" variant="ghost" aria-label="保存录音名称" disabled={savingName} onClick={() => void saveName()}><Check aria-hidden className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" aria-label="取消修改名称" disabled={savingName} onClick={() => { setRenaming(false); setNameError(null); }}><X aria-hidden className="h-4 w-4" /></Button>
                   {nameError && <p role="alert" className="text-12 text-destructive">{nameError}</p>}
@@ -132,7 +132,7 @@ export function RealtimeTranscriptionWorkspace({
               </div>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 pl-11 md:justify-end md:pl-0">
+          <div className="flex w-full flex-wrap items-center gap-3 md:w-auto md:justify-end">
             <MicDevicePicker devices={devices} selectedDeviceId={selectedDeviceId}
               disabled={recording || busy} onSelect={onSelectDevice} testIdPrefix="rec" side="down" iconOnly />
             <div className="flex items-end gap-0.5" role="meter" aria-label="麦克风输入音量"
@@ -153,6 +153,8 @@ export function RealtimeTranscriptionWorkspace({
             </span>}
             <Button
               data-testid="rec-live-toggle"
+              size="lg"
+              className="ml-auto min-w-28"
               type="button"
               variant={canStop ? "destructive" : "primary"}
               disabled={streamState === "stopping" || renaming}
@@ -166,17 +168,17 @@ export function RealtimeTranscriptionWorkspace({
         {errorMessage && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}
 
-        <Card className="min-h-96 p-6" data-testid="rec-live-transcript">
+        <Card className="min-h-96 p-4 sm:p-6" data-testid="rec-live-transcript">
           <div className="border-b border-border pb-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-16 font-semibold">实时逐字稿</h2>
               <div className="flex items-center gap-2">
-                <Button data-testid="rec-live-copy" type="button" size="sm" variant="outline"
+                <Button data-testid="rec-live-copy" type="button" size="md" variant="outline"
                   disabled={!visibleContent} onClick={() => void copyContent()}>
                   {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
                   {copied ? "已复制" : "复制全文"}
                 </Button>
-                {!editing && <Button data-testid="rec-live-edit" type="button" size="sm" variant="outline"
+                {!editing && <Button data-testid="rec-live-edit" type="button" size="md" variant="outline"
                   disabled={recording || busy || !onSaveContent} onClick={() => { setDraft(session.content); setEditing(true); }}>
                   <Pencil aria-hidden className="h-4 w-4" />编辑
                 </Button>}
