@@ -102,3 +102,36 @@ describe("oss-secret-scan 基线增量门控（#4262）", () => {
     expect(run(dir, "--baseline", bl).status).toBe(1);
   });
 });
+
+
+describe("trace diagnostic fixture scanner contract", () => {
+  it("accepts the actual fake sentinel fixture but rejects its original literal assignment shape", () => {
+    const fixture = readFileSync(join(import.meta.dirname, "../../apps/web/tests/lib/trace-wire-observer.test.ts"), "utf8");
+    const dir = repo({ "diagnostic.ts": fixture });
+    const baseline = join(dir, "baseline.json");
+    writeFileSync(baseline, JSON.stringify({ version: 1, entries: [] }));
+    const run = () => spawnSync("node", [SCRIPT, "--head-only", "--baseline", baseline], { cwd: dir, encoding: "utf8" });
+    expect(run().status).toBe(0);
+    const sentinel = fixture.match(/const fakePasswordSentinel = ('[^']+');/)?.[1];
+    expect(sentinel).toBeDefined();
+    const original = fixture.replace("password: fakePasswordSentinel", `password: ${sentinel}`);
+    expect(original).not.toBe(fixture);
+    writeFileSync(join(dir, "diagnostic.ts"), original);
+    const rejected = run();
+    expect(rejected.status).toBe(1);
+    expect(rejected.stderr).toContain("[assigned-secret] diagnostic.ts");
+    expect(rejected.stdout + rejected.stderr).not.toContain(sentinel!.slice(1, -1));
+  });
+
+  it("runs the unchanged scanner in the existing PR control-plane job without failure suppression", () => {
+    const workflow = readFileSync(join(import.meta.dirname, "../../.github/workflows/harness-verify.yml"), "utf8");
+    const job = workflow.split("  verify-control-plane:")[1]?.split("\n  verify-affected:")[0];
+    expect(job).toBeDefined();
+    expect(job).toContain("if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'");
+    expect(job).toMatch(/- name: Scan tracked source for new credential patterns\n        run: pnpm run lint:oss-secret-scan\n/);
+    const step = job!.split("      - name: Scan tracked source for new credential patterns")[1]?.split("      - name:")[0];
+    expect(step).not.toContain("continue-on-error:");
+    expect(step).not.toContain("if:");
+    expect(job!.split("    steps:")[0]).not.toContain("continue-on-error:");
+  });
+});

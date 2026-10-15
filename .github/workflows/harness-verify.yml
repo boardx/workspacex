@@ -148,6 +148,10 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Scan PR heads before merge; full-regression-core only runs this after merge.
+      - name: Scan tracked source for new credential patterns
+        run: pnpm run lint:oss-secret-scan
+
       - name: Subagent 生成物未漂移
         run: |
           pnpm harness gen-subagents
