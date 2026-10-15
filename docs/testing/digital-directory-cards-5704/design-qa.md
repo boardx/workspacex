@@ -1,21 +1,59 @@
 # Directory role cards — issue #5704
 
-final result: blocked
+Final result: **partial; original-image comparison blocked**. Keep PR #5710 Draft.
 
-## Selected target
-Implement the user's second role-card alternative within the existing white app shell: real role avatars, responsive three/two/one-column cards, organization/official tabs, task examples, and in-place official activation. Generated role names, avatars and capability claims are not seed data.
+## Target and scope
 
-## Implemented scope
-Reuse ResourceCard and the existing directory, official-offer, activation and chat-prefill APIs. Example tasks prefill a draft without sending it. Workflow associations are explicitly unconfirmed; metadata does not imply business acceptance. Session organization, account and token changes remount the workspace and abort previous activation requests.
+The selected second alternative is described in #5704: existing white shell, real avatars, three/two/one-column role cards, organization/official tabs, filters, task examples and explicit in-place activation. The original selected image is absent from this checkout and issue; requested from the user on 2026-10-15. Textual requirements were checked, but pixel/spacing/type fidelity against that image is **not accepted**.
 
-## Regression coverage added
-Real card rendering; existing chat route and encoded prefill; explicit activation and directory refresh; member permission boundary; stale directory responses; organization change during activation; token replacement during activation; readiness metadata not promoted to verified workflow execution.
+No production data, permissions, deployment, merge, model calls or workflow execution were included. Readiness and workflow association do not prove business quality or acceptance.
 
-## Execution evidence
-Source and tests committed through the GitHub contents API on worker/digital-directory-cards-5704. No local shell or browser is exposed in this execution session. Local init.sh, compilation, tests and browser screenshots have not been run. PR CI results must be recorded separately at the exact final commit; authored tests are not passing-test evidence.
+## Runtime evidence, 2026-10-15
 
-## Browser acceptance still required
-Check the selected layout at desktop/tablet/mobile widths; keyboard navigation and focus; real avatar fallbacks; loading/denied/empty/error states; administrator and member official-role views; explicit activation followed by organization refresh; task example draft preservation; org/account switching during requests. Capture screenshots and compare with the user's second image. Do not mark visual acceptance complete without this evidence.
+Starting remote HEAD verified with `gh pr view`: `40ba9b51f2375d00c717ba55c7f00d6488d0de6f`, OPEN/Draft. Its existing CI checks passed or were skipped; those results predate this follow-up.
 
-## Release boundary
-Draft PR only. No merge, deployment, production configuration/data changes, additional account permissions, model calls or credentials are included.
+Isolated worktree `/private/tmp/wsx-digital-directory-5704`; `./init.sh` exited 0 (repository default quick health path, not full-repo verification). Real Chromium -> production-built Next Web -> real API -> fresh PostgreSQL/Redis/MinIO, using the existing seeded fixture and isolation wrapper. No intercepted/fabricated successful API responses. Existing upstream loopbacks start with this config; this test sends no model requests.
+
+Commands completed successfully:
+
+```sh
+pnpm --filter web exec vitest run tests/ui/agent-directory.test.tsx tests/ui/agent-directory-cards.test.tsx
+# 2 files, 29 tests passed
+pnpm --filter web typecheck
+pnpm --filter web lint
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --no-deps agent-directory-entry-point.spec.ts
+# after fix: 2 passed, 2.0m; isolation run-mv8wqnka-34bde674-19a97205ed25
+# wrapper cleanup completed in 1s
+```
+
+The browser test lives in the existing CI-selected `seeded` file. It checks actual computed column count, document overflow, search height >=36px, image naturalWidth, explicit activation and refreshed role cards, search/clear/category controls, keyboard Tab focus, exact role/prompt URL and composer value, and absence of member activation controls before/after activation. Component regressions cover stale organization/account/token scope and readiness boundaries; those are **component evidence**, not a browser org-switch acceptance claim.
+
+## Captures and inspection
+
+All ten saved PNGs below were opened and visually inspected in this run. These capture the application viewport, including its internal scroll region; they are not a claim that every offscreen card was visually inspected.
+
+| Step | Evidence | Result |
+|---|---|---|
+| 1 | [Official desktop](screenshots/01-official-desktop.png), [tablet](screenshots/01-official-tablet.png), [mobile](screenshots/01-official-mobile.png) | Real portraits, readable names, 3/2/1 layout; no horizontal document overflow. Activation remains explicit. |
+| 2 | [Member pending](screenshots/01-member-pending-mobile.png) | Same real offers readable; no activation button. No permission change. |
+| 3 | [Organization desktop](screenshots/02-organization-desktop.png), [tablet](screenshots/02-organization-tablet.png), [mobile](screenshots/02-organization-mobile.png) | Automatic refresh after real imports; portraits and fallback initial render; long seeded title truncates within the card. Description wraps, labels/actions stay within bounds. Conversation and unconfirmed workflow statuses remain separate. |
+| 4 | [Filtered empty state](screenshots/03-filter-empty-mobile.png) | Visible empty explanation and clear-filter recovery. Search focus outline visible. Sales category returns the real sales role; clearing restores multiple cards. |
+| 5 | [Prefilled draft](screenshots/04-prefilled-draft-mobile.png) | Correct research role and exact example text in composer; no send or model execution. Waited for loading UI to disappear before capture. |
+| 6 | [Member after activation](screenshots/05-member-official-mobile.png) | Already-enabled state visible; member still has no activation control. |
+
+## Defect fixed
+
+At 390px, the search input used `flex-1` inside a column flex container, collapsing its height to approximately 20px. Changed to `sm:flex-1`, preserving the normal 36px input height on mobile. Added a real computed-height regression across all three viewports. The final mobile screenshot shows the repaired input and visible keyboard focus. No shared input component or permissions were changed.
+
+## Remaining limits
+
+- Original second image comparison awaits its accessible source; do not declare visual acceptance complete.
+- Browser loading/error/denied/retry and in-flight organization/account/token switching were not independently exercised in this run. Existing 29 component tests are supplementary evidence for those paths.
+- Long title and normal wrapped descriptions were observed from existing seed/official data. Arbitrarily long unbroken text and all lower cards are not separately accepted.
+- Keyboard search-to-category focus was tested; full screen-reader/contrast/accessibility compliance was not assessed.
+- Workflow quality, CRM/ticket writes and business acceptance remain unverified.
+- Coordination `tick` could not run: `COORD_GATEWAY_URL` absent. `readiness` was read, but its score is not product acceptance. User explicitly assigned this issue; reason for taking it outside the queue is recorded on #5704.
+
+## Final HEAD CI
+
+See PR #5710 checks for the follow-up commit and issue progress comments. Do not reuse starting-HEAD CI as final-HEAD evidence. No merge or production deployment is authorized.

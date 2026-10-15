@@ -210,7 +210,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
             ) : null}
             {tab === "organization" ? (
               <Input data-testid="agent-directory-search" placeholder="搜索角色、标签…" value={query}
-                onChange={(event) => setQuery(event.target.value)} aria-label="搜索数字人" className="min-w-0 flex-1" />
+                onChange={(event) => setQuery(event.target.value)} aria-label="搜索数字人" className="min-w-0 sm:flex-1" />
             ) : null}
           </div>
           {tab === "organization" ? (
