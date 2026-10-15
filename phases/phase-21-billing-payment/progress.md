@@ -1,5 +1,8 @@
 # 进度日志 — Phase 21 billing-payment
 
+
+当前推进：F02（#5591）已由脚本认领并接入只读渠道配置、独立 BillingModule 和匿名 GET /billing/config；专项验证中，尚未 passing。F01 PR #5590 的 CI 流程死锁由独立修复 PR #5593 处理，其他 CI 已通过。
+
 ## 当前已验证状态
 - 当前检出：`/Users/shenyangjun/.codex/worktrees/eaa4/workspacex`，F01工作分支已推送；新验证证据正在整理为PR。
 - 标准启动：`pnpm -w run dev`；标准验证：`pnpm harness verify --sprint 21/01 --feature F01 --owner coord-voice`。

@@ -7,7 +7,7 @@ import { createWriteStream, mkdirSync } from "node:fs";
 import net from "node:net";
 import { platform } from "node:os";
 import { join } from "node:path";
-import { parityIndex } from "./parity";
+import { BILLING_PAYMENT_ENV_KEYS, parityIndex } from "./parity";
 
 export interface SpawnSpec {
   readonly name: string;
@@ -36,7 +36,7 @@ export function startManaged(spec: SpawnSpec, log: (line: string) => void = defa
   // `up` then took the stale worker's /healthz for its own (Mac实测 2026-09-17).
   const child = spawn(spec.command, [...spec.args], {
     cwd: spec.cwd,
-    env: { ...baseEnv(), ...spec.env },
+    env: localChildEnv(spec.env),
     stdio: ["ignore", "pipe", "pipe"],
     detached: platform() !== "win32",
   });
@@ -161,7 +161,7 @@ export function runToCompletion(spec: Omit<SpawnSpec, "logDir">): Promise<RunRes
   return new Promise((resolve) => {
     const child = spawn(spec.command, [...spec.args], {
       cwd: spec.cwd,
-      env: { ...baseEnv(), ...spec.env },
+      env: localChildEnv(spec.env),
       stdio: ["ignore", "pipe", "pipe"],
     });
     let stdout = "";
@@ -235,6 +235,14 @@ export function portInUse(port: number, host = "127.0.0.1"): Promise<boolean> {
 }
 
 /** Inherit PATH/HOME etc., but never leak the parent's cloud model / DB configuration into a child. */
+function localChildEnv(overrides: Readonly<Record<string, string>>): Record<string, string> {
+  const env = { ...baseEnv(), ...overrides };
+  // Payment is unavailable locally even when explicitly injected by a caller.
+  // Keep the billing key set in parity.ts as the single declaration.
+  for (const key of BILLING_PAYMENT_ENV_KEYS) delete env[key];
+  return env;
+}
+
 function baseEnv(): Record<string, string> {
   const out: Record<string, string> = {};
   const parity = parityIndex();

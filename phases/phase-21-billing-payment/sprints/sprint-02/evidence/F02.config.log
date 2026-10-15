@@ -1,0 +1,25 @@
+[stack-admission] load1=2.96 cores=10 perCore=0.30 running=0/2
+[test-isolation] id=run-mv3eenvb-cc819642-807a2898c4bb db=wsx_807a2898c4bb7eb5fff6 compose=wsx-807a2898c4bb7eb5fff6 pg=20432 redis=21432 api=24432 web=25432 sandbox=26432 model=27432 deep-agent=28432 asr=29432 vision=30432 loopback-sandbox=31432 mail=19432
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_807a2898c4bb7eb5fff6 capacity=100 current=6 required=32
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"243d9890-dab1-466d-a069-8e2861f3a830","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+ ✓ tests/billing/billing-config.test.ts (15 tests) 11492ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  13:44:20
+   Duration  15.16s (transform 3.15s, setup 4ms, collect 830ms, tests 11.49s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_807a2898c4bb7eb5fff6 peak_connections=2
+[timing] pnpm --filter api exec vitest run tests/billing/billing-config.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：16s
+  清理：0s
+  总计：16s

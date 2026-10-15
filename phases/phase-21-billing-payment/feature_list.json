@@ -23,14 +23,14 @@
       "notes": "依据契约束 billing-credits domain.md §二/§四（I-4/I-7/I-2）；语义对齐参考实现但按本仓 NestJS+Postgres 重做（00 R10）。跨束共享表 billing_webhook_events 由本 feature 单源创建（provider 列含 wechat/stripe，subscription 束只引用不重复建，design-coherence XC-01）。覆盖 V15 的数据侧。requirements 无 `估点 **n**` 头部，点数由 requirement-author 估定。束 design-signoff.md 尚未人类签核，开工前须补签（ADR-023）。"
     },
     {
-      "id": "F-TBD-billing-config",
+      "id": "F02",
       "priority": 2,
       "area": "billing-credits",
       "title": "渠道配置读模型与支付骨架收敛（不阻塞启动）",
       "user_visible_behavior": "GET /billing/config 返回 { enabledProviders }：渠道已配置时为 [\"wechat\"]（启用 Stripe 时含 stripe），未配置时为空数组而非报错，前端据此隐藏入口；微信/Stripe 密钥类环境变量全部缺失时 api 服务照常启动；旧的 region→provider 骨架（packages/contracts/src/payment.ts、apps/api/src/infrastructure/payment/、payment.controller.ts、tests/payment/payment-config.test.ts）被删除或并入新契约，全仓不存在第二份渠道判定事实源。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "02",
+      "owner": "coord-voice",
       "capability": "CAP-DATA",
       "spec_ref": "00-overview.md#R2",
       "depends_on": [],
@@ -41,7 +41,7 @@
         "pnpm --filter api exec vitest run tests/billing/billing-config.test.ts",
         "pnpm --filter @repo/contracts exec vitest run tests/billing/billing-operations-export.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F02.verify.log @ 2026-10-14T15:46:53.097Z",
       "notes": "依据 00 R2-3（未启用渠道配置缺失不得卡启动）与 R10（骨架并入或重写）；契约 domain.md 现状基线：GET /billing/config 返回 [] 不用 HTTP 错误表达未配置（覆盖 V2/V4 的 API 侧）。契约文件 billing-credits.ts / billing-subscription.ts 已存在并 export（packages/contracts/src/index.ts），本 feature 负责删除旧 payment.ts、校验单源与挂载路由。连带门：/billing/* 路径落地时同步 apps/web/lib/navigation.ts 与 nav-reachability 配置（contract-design「物化③连带门」）。"
     },
     {
@@ -57,7 +57,7 @@
       "spec_ref": "01-credits-topup.md#R3",
       "depends_on": [
         "F01",
-        "F-TBD-billing-config"
+        "F02"
       ],
       "points": 7,
       "wave": 2,
@@ -105,7 +105,7 @@
       "spec_ref": "02-payment-order-notify.md#R3",
       "depends_on": [
         "F01",
-        "F-TBD-billing-config"
+        "F02"
       ],
       "points": 8,
       "wave": 2,
@@ -223,7 +223,7 @@
       "depends_on": [
         "F-TBD-credit-order-core",
         "F-TBD-wallet-ledger-query",
-        "F-TBD-billing-config"
+        "F02"
       ],
       "points": 8,
       "wave": 3,
@@ -295,7 +295,7 @@
       "spec_ref": "03-subscription-stripe.md#R3",
       "depends_on": [
         "F01",
-        "F-TBD-billing-config"
+        "F02"
       ],
       "points": 5,
       "wave": 2,
@@ -342,7 +342,7 @@
       "spec_ref": "03-subscription-stripe.md#R8",
       "depends_on": [
         "F-TBD-subscription-backend",
-        "F-TBD-billing-config"
+        "F02"
       ],
       "points": 6,
       "wave": 3,
