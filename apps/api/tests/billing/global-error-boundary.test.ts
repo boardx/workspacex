@@ -6,7 +6,7 @@ import { BillingHttpException } from "../../src/interface/controllers/billing-ht
 
 describe("billing errors in the production global boundary", () => {
   it.each([
-    [new HttpException({ code: "wechat_upstream_failed", secret: "merchant-secret" }, 502), 502, "bad_gateway"],
+    [new HttpException({ code: "wechat_upstream_failed", diagnostic: "merchant-internal-detail" }, 502), 502, "bad_gateway"],
     [new BillingHttpException("merchant-secret" as BillingErrorCode, 502), 502, "bad_gateway"],
     [new Error("merchant-secret"), 500, "internal_error"],
     [new HttpException({ code: "wechat_upstream_failed", message: "merchant-secret" }, 500), 500, "internal_error"],
