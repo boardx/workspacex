@@ -27,7 +27,7 @@ class AcceptedPutThenDisconnect:
 class FailureEvidence(unittest.TestCase):
     def retention_step(self):
         text = (ROOT/'.github/workflows/transfer-cn-candidates-via-hongkong.yml').read_text()
-        return text.split('      - name: Retain only sanitized receipt', 1)[1]
+        return text.split('      - name: Retain only sanitized receipt', 1)[1].split('\n      - ', 1)[0]
 
     def test_failed_transfer_always_retains_only_bounded_diagnostics(self):
         step = self.retention_step()
