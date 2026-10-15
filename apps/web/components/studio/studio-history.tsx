@@ -12,7 +12,7 @@ import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 export type HistorySort = "recent" | "oldest";
 
 export function StudioHistoryHeader({ business, title, count, createTestId, countTestId, onCreate }: {
-  business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: () => void;
+  business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   return <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0 space-y-2">

@@ -19,9 +19,10 @@ export interface NewTranscriptionDraft {
 }
 
 export function CreateTranscriptionDialog({
-  open, onOpenChange, onCreate, knownTags,
+  open, onOpenChange, onCreate, knownTags, openerRef,
 }: {
   open: boolean;
+  openerRef?: React.RefObject<HTMLElement>;
   onOpenChange: (open: boolean) => void;
   onCreate: (draft: NewTranscriptionDraft) => void | Promise<void>;
   /** 已有标签词表（`标签 → 用量`），给输入框做建议；不给就没有建议。 */
@@ -75,7 +76,7 @@ export function CreateTranscriptionDialog({
           onOpenAutoFocus={(event) => {
             event.preventDefault();
             created.current = false;
-            opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+            opener.current = openerRef?.current ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
             nameInput.current?.focus();
           }}
           onCloseAutoFocus={(event) => {
