@@ -112,6 +112,10 @@ async function marqueeAll(page: Page): Promise<void> {
   const settleCanvas = () => page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await selectTool.click();await expect(selectTool).toHaveAttribute("aria-pressed", "true");
   await page.getByTestId("board-zoom-fit-board").click();await settleCanvas();
+  // Fit leaves only 32px at the horizontal extremes. One real zoom-out step
+  // creates room for a marquee outside the objects and the 40px auto-pan band.
+  await page.getByTestId("board-zoom-menu").click();
+  await page.getByTestId("board-zoom-out").click();await settleCanvas();
   expect(parseGeometry(await geometry(page))).toHaveLength(7);
   const measure = () => page.getByTestId("board-fabric-surface").evaluate(host => {
     const canvas = host.querySelector<HTMLCanvasElement>('canvas[data-fabric="top"]');
