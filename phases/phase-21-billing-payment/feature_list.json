@@ -98,7 +98,7 @@
       "area": "billing-credits",
       "title": "微信支付回调：验签解密、原子抢占与幂等入账",
       "user_visible_behavior": "微信服务端回调到达 raw body 端点后：验签/解密失败直接应答 FAIL 且不入账并记安全审计；验签通过的 SUCCESS 回调经一致性校验（订单存在、金额与快照一致）后原子抢占 PENDING→PROCESSING，钱包增加基础额度+赠送额度两笔流水、订单置 SUCCESS 并写 paid_at/notify_at；重复回调按 provider_event_id 幂等、并发回调至多入账一次；已关闭订单收到成功回调按资金真实性优先入账并留痕告警；处理中回调应答 FAIL 促使微信重试（崩溃重启后重试按幂等继续，不丢单不双记）。",
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "05",
       "owner": "coord-voice",
       "capability": "CAP-DATA",
@@ -114,7 +114,7 @@
         "pnpm --filter api exec vitest run tests/billing/wechat-notify-verify.test.ts",
         "pnpm --filter api exec vitest run tests/billing/wechat-notify-crediting.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F05.verify.log @ 2026-10-15T16:23:11.506Z",
       "notes": "覆盖 V9–V14 与 I-1/I-2/I-5/I-6/I-7/I-14；UC-BC-7 + 内部端口 UC-BC-I5（验签/解密）、UC-BC-I1（条件更新抢占）、UC-BC-I2（入账内核，单事务不部分入账）。raw body 不进通用 JSON 解析（参考 main.ts 的 raw 先例）；密钥（API v3 密钥/商户私钥/平台公钥证书）只从部署配置读取；应答 <5s（先占单再入账、处理与应答分离，02 R7）。入账内核是本束唯一实现，F-TBD-mock-paid 复用而非重写（横切收敛）。验签跳过是参考实现的已知缺陷（00 R2-1），任何分支禁止进入生产。"
     },
     {
