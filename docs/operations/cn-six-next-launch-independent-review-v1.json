@@ -1,0 +1,21 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T13:41:58.059476+00:00",
+  "disposition": "accepted-local-next-launch-fix",
+  "reviewedFiles": {
+    "apps/web/playwright.cn-six-business.config.ts": "b712eda1678445d8c311ebaa4a87e061dd06399d4b9ded0b7217c05da5e5463a",
+    "tests/fixtures/cn-six-business/next-launch.test.ts": "96b564680860cb49b90a7839ef447825db0d1ec6fabfd8ab69f0195fa5e5b9af",
+    "tests/test_cn_release_six_next_launch.py": "e516068f39320a6dee839ee573a2c49b095937b147cf28bd8c1d0bf67e614e2f"
+  },
+  "scope": "Only derived six-business Playwright Next command resolves installed web workspace Next via pnpm --filter web exec. Base config and original API/PG launch mapping stay intact; exactly one Next server and one API server required, no retries or new service/provider behavior.",
+  "executionEvidence": {
+    "independentPythonWrapperPassed": 1,
+    "seconds": 0.471,
+    "actualNodeTestInvoked": true,
+    "installedNextVersionCommandTested": true,
+    "actualNextServerStarted": false,
+    "linuxBrowserRun": "pending"
+  },
+  "productionExecuted": false
+}

@@ -4,6 +4,7 @@ import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton, WorkflowActionBar } from "@/components/research-studio/research-workflow-actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
@@ -67,7 +68,7 @@ export function CreateTranscriptionDialog({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-background-foreground/35 backdrop-blur-sm animate-in fade-in" />
         <Dialog.Content
           data-testid="rec-create-dialog"
-          className="fixed left-1/2 top-1/2 z-50 w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 sm:p-7 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="fixed left-1/2 top-1/2 z-50 w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="flex items-start justify-between gap-4">
             <div className="flex flex-col gap-1">
@@ -81,7 +82,7 @@ export function CreateTranscriptionDialog({
             </Dialog.Close>
           </div>
 
-          <form className="mt-6 flex flex-col gap-5" onSubmit={submit}>
+          <form className="mt-4 flex flex-col gap-4" onSubmit={submit}>
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3">
                 <Label htmlFor="rec-create-name" className="text-13 text-card-foreground">转录名称</Label>
@@ -112,14 +113,14 @@ export function CreateTranscriptionDialog({
               {submitError && <p role="alert" className="text-11 text-destructive">创建失败，请稍后重试。</p>}
             </div>
 
-            <div className="mt-2 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <Button data-testid="rec-create-cancel" type="button" variant="outline" size="lg" className="w-full sm:w-auto sm:min-w-28" onClick={() => changeOpen(false)}>
+            <WorkflowActionBar placement="footer">
+              <WorkflowActionButton data-testid="rec-create-cancel" type="button" variant="outline" onClick={() => changeOpen(false)}>
                 取消
-              </Button>
-              <Button data-testid="rec-create-submit" type="submit" variant="primary" size="lg" className="w-full sm:w-auto sm:min-w-28" disabled={!name.trim() || submitting}>
+              </WorkflowActionButton>
+              <WorkflowActionButton data-testid="rec-create-submit" type="submit" variant="primary" loading={submitting} disabled={!name.trim() || submitting}>
                 {submitting ? "正在创建" : "创建并进入"}
-              </Button>
-            </div>
+              </WorkflowActionButton>
+            </WorkflowActionBar>
           </form>
         </Dialog.Content>
       </Dialog.Portal>

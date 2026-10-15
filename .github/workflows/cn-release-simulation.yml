@@ -1,0 +1,223 @@
+name: Isolated CN release simulation
+on:
+  workflow_dispatch:
+    inputs:
+      rounds:
+        description: Ten complete regressions use this single immutable checkout
+        type: choice
+        options: ['1', '10']
+        default: '1'
+      lane:
+        description: Targeted repairs run in four independent VMs; all preserves full regression
+        type: choice
+        options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']
+        default: 'all'
+      mode:
+        description: Development retains known clean business failures; never final acceptance
+        type: choice
+        options: ['acceptance', 'development']
+        default: 'acceptance'
+      seed:
+        description: Integer base seed for isolated fault fixtures
+        type: string
+        default: '0'
+  pull_request:
+    paths:
+      - 'scripts/cn-release-*.py'
+      - 'scripts/cn-hk-*.py'
+      - 'scripts/cn_candidate*.py'
+      - 'scripts/cn_image*.py'
+      - 'scripts/cn_archive*.py'
+      - 'scripts/bounded_workers.py'
+      - 'scripts/cn_release_simulation_domain.py'
+      - '.harness/scripts/vm/cn-runtime-continuation/**'
+      - '.harness/scripts/vm/cn-release-advance.py'
+      - 'tests/test_cn_release_*.py'
+      - 'tests/test_cn_candidate_*.py'
+      - 'tests/test_cn_image*.py'
+      - 'tests/test_cn_archive*.py'
+      - 'tests/test_release_failure_matrix.py'
+      - 'tests/test_cn_hk*.py'
+      - 'tests/cn_hk_performance_linux.py'
+      - 'tests/cn_release_simulation_domain_linux.py'
+      - 'tests/cn_release_postgres_linux.py'
+      - 'tests/cn_release_postgres_lifecycle_linux.py'
+      - 'tests/fixtures/cn-postgres-lifecycle/**'
+      - 'tests/cn_release_storage_linux.py'
+      - 'tests/cn_release_api_startup_linux.py'
+      - 'tests/cn_release_docker_cleanup_linux.py'
+      - 'tests/cn_release_boundary_reap_linux.py'
+      - 'tests/cn_release_api_outer_recovery_linux.py'
+      - 'tests/cn_release_postclear_recovery_linux.py'
+      - 'tests/fixtures/cn-postclear-recovery/**'
+      - 'tests/cn_release_application_recovery_linux.py'
+      - 'tests/fixtures/cn-application-recovery/**'
+      - 'tests/cn_release_six_business_linux.py'
+      - 'tests/cn_release_six_cleanup_linux.py'
+      - 'scripts/cn-release-six-port-lease.ts'
+      - 'tests/fixtures/cn-six-business/**'
+      - 'apps/web/e2e/cn-release-six-business.spec.ts'
+      - 'apps/web/playwright.cn-six-business.config.ts'
+      - 'tests/cn_release_migration_guard_linux.py'
+      - 'tests/cn_release_migration_terminal_linux.py'
+      - 'tests/cn_release_migration_owner_linux.py'
+      - 'tests/fixtures/cn-migration-owner/**'
+      - 'tests/cn_release_fsync_linux.py'
+      - 'tests/fixtures/cn-storage-fsync/**'
+      - 'tests/cn_release_readiness_linux.py'
+      - 'packages/cloud-deploy/src/cn-release-readiness-dispatch.ts'
+      - 'packages/cloud-deploy/test/cn-release-readiness-dispatch.test.ts'
+      - 'tests/fixtures/cn-api-startup/**'
+      - 'apps/api/docker/postgres-age/Dockerfile'
+      - 'apps/api/src/main.ts'
+      - 'apps/api/scripts/migrator.ts'
+      - 'apps/api/migrations/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - 'tests/cn_release_private_fixture.py'
+      - 'tests/cn_release_browser_linux.py'
+      - 'tests/cn_release_cgroup_linux.py'
+      - 'tests/cn-release-business-*.ts'
+      - 'scripts/cn-release-business-*.ts'
+      - 'scripts/build-cn-business-runtime.cjs'
+      - 'scripts/aliyun-release-auth.py'
+      - 'scripts/harden-aliyun-action.py'
+      - 'scripts/cloud-build-only.py'
+      - 'scripts/diagnose-cn-agent-postbuild.py'
+      - 'tests/test_cn_formal_*.py'
+      - 'tests/test_cn_repeated_layers.py'
+      - 'tests/test_cn_exact_source_admission.py'
+      - 'tests/test_cn_agent_postbuild_diagnostic.py'
+      - 'tests/test_cloud_build_only.py'
+      - 'tests/test_aliyun_release_auth.py'
+      - 'tests/test_auth_action_hardening.py'
+      - 'tests/test_cn_main_registration.py'
+      - 'tests/fixtures/cn-postgres-isolation/**'
+      - 'tests/fixtures/cn-promotion-recovery/**'
+      - 'docs/operations/cn-release-simulation-matrix.json'
+      - 'docs/operations/cn-release-simulation-defects.json'
+      - 'docs/operations/cn-release-simulation-invariants.json'
+      - 'docs/operations/cn-release-independent-review-*.json'
+      - '.github/workflows/cn-release-simulation.yml'
+permissions:
+  contents: read
+jobs:
+  simulation:
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || inputs.lane == 'linux-boundary-reap' && '["linux-boundary-reap"]' || '["all"]') }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
+      - name: Reject partial ten-round requests before setup
+        env:
+          LANE: ${{ inputs.lane || 'all' }}
+          ROUNDS: ${{ inputs.rounds || '1' }}
+        run: |
+          case "$LANE" in all|targeted|linux-application-recovery-complete|linux-six-business|linux-boundary-reap) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
+          if [ "$LANE" != all ] && [ "$ROUNDS" = 10 ]; then
+            echo 'CI_TEN_ALL_REQUIRED' >&2
+            exit 1
+          fi
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          # Ancestor-bound independent review requires old fixCommit objects.
+          # Fetch once in GitHub; the root-owned clone and evaluator stay offline.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22.20.0'
+          package-manager-cache: false
+      - uses: pnpm/action-setup@v4.4.0
+        with:
+          version: 9.15.0
+          run_install: false
+      - name: Build job-local PostgreSQL fixture image once
+        timeout-minutes: 20
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          docker pull pgvector/pgvector:pg16
+          base=$(docker image inspect pgvector/pgvector:pg16 --format '{{index .RepoDigests 0}}')
+          [[ "$base" =~ ^pgvector/pgvector@sha256:[a-f0-9]{64}$ ]]
+          docker build --build-arg "PGVECTOR_IMAGE=$base" --build-arg "SOURCE_REVISION=$GITHUB_SHA" --iidfile "$RUNNER_TEMP/cn-startup-image.id" apps/api/docker/postgres-age
+          image=$(cat "$RUNNER_TEMP/cn-startup-image.id")
+          [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "CN_API_STARTUP_PG_IMAGE=$image" >> "$GITHUB_ENV"
+          python3 -c 'import json,sys,time;json.dump(dict(kind="cn-fixture-image-setup-v1",commit=sys.argv[1],baseDigest=sys.argv[2],imageId=sys.argv[3],buildSeconds=int(time.time())-int(sys.argv[4]),productionAccepted=False),open(sys.argv[5],"x"))' "$GITHUB_SHA" "$base" "$image" "$started" "$RUNNER_TEMP/cn-image-setup.json"
+      - name: Resolve job-local Redis fixture image once
+        timeout-minutes: 5
+        shell: bash
+        run: |
+          set -euo pipefail
+          started=$(date +%s)
+          docker pull redis:7-alpine
+          digest=$(docker image inspect redis:7-alpine --format '{{index .RepoDigests 0}}')
+          [[ "$digest" =~ ^redis@sha256:[a-f0-9]{64}$ ]]
+          image=$(docker image inspect "$digest" --format '{{.Id}}')
+          [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]]
+          [[ "$(docker image inspect "$image" --format '{{.Os}}/{{.Architecture}}')" == linux/amd64 ]]
+          echo "CN_SIX_REDIS_IMAGE=$image" >> "$GITHUB_ENV"
+          python3 -c 'import json,sys,time;json.dump(dict(kind="cn-fixture-redis-setup-v1",commit=sys.argv[1],digest=sys.argv[2],imageId=sys.argv[3],setupSeconds=int(time.time())-int(sys.argv[4]),productionAccepted=False),open(sys.argv[5],"x"))' "$GITHUB_SHA" "$digest" "$image" "$started" "$RUNNER_TEMP/cn-redis-setup.json"
+      - name: Install isolated FUSE fixture build prerequisites
+        run: |
+          sudo -n apt-get update
+          sudo -n apt-get install -y libfuse3-dev pkg-config gcc
+          test -c /dev/fuse
+      - name: Install isolated fixture dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cn-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76 pg@8.13.1 playwright@1.62.0
+          "$RUNNER_TEMP/cn-fixture/node_modules/.bin/playwright" install --with-deps chromium
+          echo "NODE_PATH=$RUNNER_TEMP/cn-fixture/node_modules" >> "$GITHUB_ENV"
+          echo "CN_TEST_PLAYWRIGHT=$RUNNER_TEMP/cn-fixture/node_modules/playwright" >> "$GITHUB_ENV"
+          echo "CN_TEST_CHROMIUM=$(node -e 'process.stdout.write(require(process.argv[1]).chromium.executablePath())' "$RUNNER_TEMP/cn-fixture/node_modules/playwright")" >> "$GITHUB_ENV"
+          echo "CN_ARCHIVE_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
+          echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/cn-fixture" >> "$GITHUB_ENV"
+          python3 -m venv "$RUNNER_TEMP/cn-test-sdk"
+          "$RUNNER_TEMP/cn-test-sdk/bin/pip" install --disable-pip-version-check oss2==2.19.1 alibabacloud-credentials==0.3.6 aliyun-python-sdk-core==2.16.0 aliyun-python-sdk-sts==3.1.2
+      - name: Run production-code fixture suites with bounded logs
+        env:
+          ROUNDS: ${{ inputs.rounds || '1' }}
+          SEED: ${{ inputs.seed || '0' }}
+          MODE: ${{ inputs.mode || 'acceptance' }}
+          SUITE: ${{ matrix.suite }}
+          WORKERS: ${{ matrix.suite == 'all' && '3' || '1' }}
+        run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS" --mode "$MODE"'
+      - name: Export bounded reports for the unprivileged artifact uploader
+        if: always()
+        run: |
+          mkdir -m 700 "$RUNNER_TEMP/cn-simulation-artifacts"
+          if [ -f "$RUNNER_TEMP/cn-image-setup.json" ]; then cp "$RUNNER_TEMP/cn-image-setup.json" "$RUNNER_TEMP/cn-simulation-artifacts/image-setup.json"; fi
+          if [ -f "$RUNNER_TEMP/cn-redis-setup.json" ]; then cp "$RUNNER_TEMP/cn-redis-setup.json" "$RUNNER_TEMP/cn-simulation-artifacts/redis-setup.json"; fi
+          sudo -n env -i PATH="$PATH" /usr/bin/python3 -I -B scripts/cn-release-simulation.py --export-parent "$RUNNER_TEMP"
+      - name: Preserve simulation report and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.suite }}
+          path: |
+            ${{ runner.temp }}/cn-simulation-artifacts/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/*.csv
+            ${{ runner.temp }}/cn-simulation-artifacts/*.txt
+            ${{ runner.temp }}/cn-simulation-artifacts/fullstack-install.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/owner.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-intent.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-receipt.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/cleanup.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/recovery-cleanup.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/application-recovery-owner/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/sim14-evidence/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/application.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/next-build.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-infra-owner/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-target-owner/*.json
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-control-owner/*.json
+          retention-days: 7
+          if-no-files-found: warn
