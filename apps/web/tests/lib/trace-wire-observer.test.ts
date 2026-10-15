@@ -3,7 +3,8 @@ import { exactTraceRun, installTraceWireObserver, type TraceWireState } from '..
 import { judgeLiveness } from '../../e2e/support/trace-liveness';
 const RUN = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
-const message = (runId = RUN) => ({ type: 'CUSTOM', name: 'execution_event', value: { runId, seq: 1, kind: 'tool_start', args: { password: 'must-not-retain' }, result: 'private-user-content' } });
+const fakePasswordSentinel = 'must-not-retain';
+const message = (runId = RUN) => ({ type: 'CUSTOM', name: 'execution_event', value: { runId, seq: 1, kind: 'tool_start', args: { password: fakePasswordSentinel }, result: 'private-user-content' } });
 const encode = (value: unknown) => `data: ${JSON.stringify(value)}\n\n`;
 function fixture(chunks: string[]) {
   const response = new Response(new ReadableStream({ start(controller) {
@@ -35,7 +36,7 @@ describe('exact response run metadata', () => {
     expect(scope.__traceWire!.threadGeneration).toBe(1);
     expect(scope.__traceWire!.hookGeneration).toBeNull();
     const safe = JSON.stringify(scope.__traceWire);
-    for (const secret of ['must-not-retain', 'private-user-content', 'private-thread-id', OTHER, 'password']) expect(safe).not.toContain(secret);
+    for (const secret of [fakePasswordSentinel, 'private-user-content', 'private-thread-id', OTHER, 'password']) expect(safe).not.toContain(secret);
     scope.__stopTraceWire!(); expect(scope.fetch).toBe(original);
   });
   it('cannot substitute client run id or accept two durable runs', async () => {
