@@ -1,0 +1,55 @@
+name: Billing cashier real integration
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/api/src/billing.module.ts'
+      - 'apps/api/src/application/billing/**'
+      - 'apps/api/src/domain/billing/**'
+      - 'apps/api/src/infrastructure/billing/**'
+      - 'apps/api/src/interface/controllers/billing*'
+      - 'apps/api/src/interface/middleware/billing*'
+      - 'apps/api/src/interface/filters/all-exceptions.filter.ts'
+      - 'apps/api/migrations/*billing*'
+      - 'apps/api/tests/billing/**'
+      - 'apps/api/tests/support/**'
+      - 'apps/api/vitest.billing-cashier.config.ts'
+      - 'apps/web/app/billing/**'
+      - 'apps/web/components/billing/**'
+      - 'apps/web/components/shell/personal-menu.tsx'
+      - 'apps/web/components/session/**'
+      - 'apps/web/lib/api-client.ts'
+      - 'apps/web/next.config.mjs'
+      - 'packages/contracts/src/billing*'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/billing-cashier-glue.yml'
+permissions:
+  contents: read
+concurrency:
+  group: billing-cashier-glue-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  billing-cashier-glue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0 }
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Install the API driver's matching Chromium
+        run: pnpm --filter api exec playwright install --with-deps chromium
+      - name: Real Next / Billing API / PostgreSQL / signed merchant and callback
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts
+      - name: Preserve integration evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: billing-cashier-glue-${{ github.run_id }}
+          path: phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue/
+          if-no-files-found: warn
