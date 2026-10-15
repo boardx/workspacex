@@ -1,9 +1,10 @@
 "use client";
+import type { z } from "zod";
 import * as React from "react";
 import { billingCredits as billing } from "@repo/contracts";
 import { apiRequest, ApiError } from "@/lib/api-client";
 export type CashierOwner = { ownerType: "user" | "team"; ownerId: string };
-export type LiveOrder = billing.BillingOrder;
+export type LiveOrder = z.infer<typeof billing.BillingOrder>;
 export function billingFailure(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return "登录已失效，请重新登录。";
@@ -27,6 +28,7 @@ function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder):
 /** A completed order stays in this hook when the dialog closes. No GET can create an intent. */
 export function useCashierOrder(owner: CashierOwner, sessionToken: string, open: boolean) {
   const scope = `${sessionToken}:${owner.ownerType}:${owner.ownerId}`;
+  const [accessError, setAccessError] = React.useState<string | null>(null);
   const currentScope = React.useRef(scope); currentScope.current = scope;
   const [state, setState] = React.useState<{ scope: string; order: LiveOrder | null; creating: boolean; uncertain: boolean; message: string | null }>({ scope, order: null, creating: false, uncertain: false, message: null });
   const active = state.scope === scope ? state : { scope, order: null, creating: false, uncertain: false, message: null };
@@ -35,6 +37,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
   const latest = React.useRef(active); latest.current = active;
   React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; pending.current?.abort(); }; }, []);
   React.useEffect(() => {
+    setAccessError(null);
     setState({ scope, order: null, creating: false, uncertain: false, message: null });
     return () => { pending.current?.abort(); pending.current = null; };
   }, [scope]);
@@ -47,8 +50,10 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
       const path = billing.operations.getPaymentOrder.path.replace(":orderNo", encodeURIComponent(order.orderNo));
       const raw = await apiRequest<unknown>(path, { sessionToken, signal: controller.signal });
       const fresh = validateOrder(raw, owner, order);
-      if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState(value => ({ ...value, order: fresh, message: null }));
-    } catch {
+      if ((order.status === "SUCCESS" || order.status === "FAILED") && fresh.status !== order.status) throw new Error("ORDER_STATE_REGRESSION");
+      if (!controller.signal.aborted && mounted.current && currentScope.current === scope) { setAccessError(null); setState(value => ({ ...value, order: fresh, message: null })); }
+    } catch (error) {
+      if (!controller.signal.aborted && currentScope.current === scope && error instanceof ApiError && [401, 403].includes(error.status)) setAccessError(billingFailure(error));
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState(value => ({ ...value, message: "状态暂未更新，订单已保留。请稍后刷新，勿重复付款。" }));
     } finally { if (pending.current === controller) pending.current = null; }
   }, [open, owner.ownerType, owner.ownerId, sessionToken, scope]);
@@ -67,6 +72,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
       const body = billing.operations.createPaymentOrder.in.parse({ ownerType: owner.ownerType, ...(owner.ownerType === "team" ? { ownerId: owner.ownerId } : {}), packageId, provider: "wechat" });
       const raw = await apiRequest<unknown>(billing.operations.createPaymentOrder.path, { method: "POST", body, sessionToken, signal: controller.signal });
       const order = validateOrder(raw, owner);
+      if (order.packageId !== packageId || order.status !== "PENDING") throw new Error("ORDER_CREATE_MISMATCH");
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState({ scope, order, creating: false, uncertain: false, message: null });
     } catch (error) {
       if (mounted.current && currentScope.current === scope) {
@@ -79,5 +85,5 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
   function regenerate() {
     if (latest.current.order?.status === "CLOSED" && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
   }
-  return { ...active, refresh, create, regenerate };
+  return { ...active, accessError, refresh, create, regenerate };
 }
