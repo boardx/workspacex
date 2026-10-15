@@ -247,7 +247,8 @@ ${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
         const text=chunk.subarray(0,65536-traceBytes).toString("utf8");
         traceBytes+=Buffer.byteLength(text);trace.push({elapsedMs:Math.round(performance.now()-started),text});
       });
-      const closed=new Promise<number|null>(resolve=>publisher.once("close",code=>resolve(code)));
+      let publisherClosed=false;
+      const closed=new Promise<number|null>(resolve=>publisher.once("close",code=>{publisherClosed=true;resolve(code);}));
       const unrelatedClosed=new Promise<void>(resolve=>unrelated.once("close",()=>resolve()));
       let child=0,descendant=0;
       const groupAlive=()=>{try{process.kill(-child,0);return true;}catch{return false;}};
@@ -288,7 +289,7 @@ ${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
         // Killing a spawned publisher is not the same as joining it. Never remove
         // the fixture directory while an owned shell can still use its paths.
         try{await Promise.all([waitForPublisher(),unrelatedClosed]);}
-        finally{rmSync(dir,{recursive:true,force:true});}
+        finally{if(publisherClosed)rmSync(dir,{recursive:true,force:true});else console.error("publisher fixture retained until owned process closes",dir);}
       }
     });
   }
