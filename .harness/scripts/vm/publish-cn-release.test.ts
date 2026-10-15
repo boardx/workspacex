@@ -262,7 +262,12 @@ ${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
         expect(existsSync(ready)).toBe(true);
         child=Number(readFileSync(childFile,"utf8").trim());
         descendant=Number(readFileSync(descendantFile,"utf8").trim());
-        if(scenario!=="EXIT")publisher.kill(scenario==="INT" ? "SIGINT" : "SIGTERM");
+        if(process.platform==="linux")expect(existsSync("/proc/self/stat")).toBe(true);
+        if(scenario!=="EXIT"){
+          // Positive control: an unavailable probe cannot masquerade as dead children.
+          for(const pid of [child,descendant])expect(()=>process.kill(pid,0)).not.toThrow();
+          publisher.kill(scenario==="INT" ? "SIGINT" : "SIGTERM");
+        }
         const code=await waitForPublisher();
         const commands=trace.map(event=>event.text).join("");
         expect(commands).toContain("cleanup_owned_builds");
@@ -276,6 +281,10 @@ ${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
           // closes. Bound that observation window; none may remain live at expiry.
           const proc=`/proc/${pid}/stat`;
           await expect.poll(()=>{
+            if(process.platform!=="linux"){
+              try{process.kill(pid,0);return false;}
+              catch(error){if((error as NodeJS.ErrnoException).code==="ESRCH")return true;throw error;}
+            }
             try{return readFileSync(proc,"utf8").split(") ")[1]?.[0]==="Z";}
             catch(error){if((error as NodeJS.ErrnoException).code==="ENOENT")return true;throw error;}
           },{timeout:1000,interval:10}).toBe(true);
