@@ -558,7 +558,8 @@ jobs:
     runs-on: ubuntu-latest
     # 147 browser cases take ~19m including application startup; installation,
     # geometry checks and evidence upload also count toward the job deadline.
-    timeout-minutes: 35
+    # #5704 adds a fresh isolated directory runtime (measured 5m17s on CI).
+    timeout-minutes: 40
     # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
     # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
     # 但 evidence/日志仍然照常上传，供人回看）。真正阻塞发布的是 backend-gates.yml 的
@@ -592,6 +593,14 @@ jobs:
         env:
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         run: node .harness/scripts/ci-skill-import-auth-probe.mjs
+      # #5704: official imports need a fresh seeded catalog, separate from smoke.
+      - name: Verify digital directory cards in isolated runtime
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
       # Optional public-repository read-only credential; never substitute github.token.
       - name: Execute trusted full-stack smoke
         if: steps.dedup.outputs.run == 'true'
@@ -620,14 +629,6 @@ jobs:
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
           node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
-      # #5704: official imports need a fresh seeded catalog, separate from smoke.
-      - name: Verify digital directory cards in isolated runtime
-        if: steps.dedup.outputs.run == 'true'
-        shell: bash
-        run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
-          set -o pipefail
-          pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
       - name: Upload runtime evidence (success or failure)
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
