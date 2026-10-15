@@ -1,3 +1,4 @@
+import { traceIdOf } from "../middleware/trace";
 import { Controller, Post, Req, Res, Inject } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { operations } from "@repo/contracts/billing-credits";
@@ -9,7 +10,7 @@ export class BillingWechatNotifyController {
   @Public()
   @Post(operations.wechatNotify.path)
   async notify(@Req() req: Request, @Res() res: Response): Promise<void> {
-    const response = await this.service.handle(req.body, req.headers);
+    const response = await this.service.handle(req.body, req.headers, traceIdOf(req));
     res.status(response.status).json(response.body);
   }
 }

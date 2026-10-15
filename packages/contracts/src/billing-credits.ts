@@ -66,7 +66,7 @@ export const BillingErrorCode = z.enum([
   "forbidden", // 通用越权（组织主体非 owner/admin、非平台管理员等）
   "wechat_upstream_failed", // E2：微信 Native 下单失败（不落库为订单，I-13）
   "order_not_pending", // 状态机拒绝：目标订单不在可迁移态（含并发抢占失败）
-  "invalid_amount", // 发放额度 ≤0 / 非整数
+  "invalid_amount", // 发放额度 ≤0 / 非整数，或到账超出钱包整数容量
   "reason_required", // 人工发放缺原因
   "owner_not_found", // 计费主体不存在
   "signature_invalid", // E1：微信回调验签失败（不得入账）

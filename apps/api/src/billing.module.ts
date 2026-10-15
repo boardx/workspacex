@@ -1,3 +1,4 @@
+import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 // Billing composition root: infrastructure credentials remain outside application/interface layers.
 import { Module } from "@nestjs/common";
 import { BILLING_CONFIG_PORT } from "./application/billing/billing-config.port";
@@ -30,7 +31,7 @@ import { BillingReceiptWorker } from "./infrastructure/billing/billing-receipt-w
   providers: [
     { provide: BILLING_CREDITING_STORE, useFactory: (db: DatabasePort) => new PgBillingCreditingStore(db), inject: [DATABASE_PORT] },
     { provide: BillingWechatNotifyService, useFactory: (config: DeploymentBillingConfig, store: BillingCreditingStore) =>
-      new BillingWechatNotifyService(new DeploymentWechatNoticeVerifier(config), store), inject: [DeploymentBillingConfig, BILLING_CREDITING_STORE] },
+      new BillingWechatNotifyService(new DeploymentWechatNoticeVerifier(config), store, new ConsoleLogger()), inject: [DeploymentBillingConfig, BILLING_CREDITING_STORE] },
     { provide: BILLING_RECEIPT_WORKER, useFactory: (store: BillingCreditingStore, service: BillingWechatNotifyService) =>
       new BillingReceiptWorker(store, service), inject: [BILLING_CREDITING_STORE, BillingWechatNotifyService] },
     { provide: DeploymentBillingConfig, useFactory: () => new DeploymentBillingConfig() },
