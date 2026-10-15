@@ -1,0 +1,353 @@
+[
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "新建转录",
+        "width": 112,
+        "x": 131.5,
+        "y": 418
+      },
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "取消",
+        "width": 96,
+        "x": 242,
+        "y": 528.5
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "创建并进入",
+        "width": 301,
+        "x": 37,
+        "y": 572.5
+      }
+    ],
+    "screen": "create",
+    "scroll": 375,
+    "width": 375
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "新建转录",
+        "width": 112,
+        "x": 366,
+        "y": 316
+      },
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "取消",
+        "width": 96,
+        "x": 371,
+        "y": 556.5
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "创建并进入",
+        "width": 112,
+        "x": 475,
+        "y": 556.5
+      }
+    ],
+    "screen": "create",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "新建转录",
+        "width": 112,
+        "x": 622,
+        "y": 300
+      },
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "取消",
+        "width": 96,
+        "x": 627,
+        "y": 556.5
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "创建并进入",
+        "width": 112,
+        "x": 731,
+        "y": 556.5
+      }
+    ],
+    "screen": "create",
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "开始转录",
+        "width": 343,
+        "x": 16,
+        "y": 140
+      },
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "取消",
+        "width": 96,
+        "x": 246,
+        "y": 587
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "保存修改",
+        "width": 309,
+        "x": 33,
+        "y": 631
+      }
+    ],
+    "screen": "editor",
+    "scroll": 375,
+    "width": 375
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "开始转录",
+        "width": 112,
+        "x": 632,
+        "y": 60
+      },
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "取消",
+        "width": 96,
+        "x": 511,
+        "y": 507
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "保存修改",
+        "width": 112,
+        "x": 615,
+        "y": 507
+      }
+    ],
+    "screen": "editor",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "开始转录",
+        "width": 112,
+        "x": 1144,
+        "y": 60
+      },
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "取消",
+        "width": 96,
+        "x": 1023,
+        "y": 507
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "保存修改",
+        "width": 112,
+        "x": 1127,
+        "y": 507
+      }
+    ],
+    "screen": "editor",
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "继续转录",
+        "width": 343,
+        "x": 16,
+        "y": 140
+      }
+    ],
+    "screen": "workspace",
+    "scroll": 375,
+    "width": 375
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "继续转录",
+        "width": 112,
+        "x": 632,
+        "y": 60
+      }
+    ],
+    "screen": "workspace",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "继续转录",
+        "width": 112,
+        "x": 1144,
+        "y": 60
+      }
+    ],
+    "screen": "workspace",
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "进入转录",
+        "width": 96,
+        "x": 33,
+        "y": 402.5
+      }
+    ],
+    "headerHeight": 44,
+    "screen": "history",
+    "scroll": 375,
+    "width": 375
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "进入转录",
+        "width": 96,
+        "x": 117,
+        "y": 300.5
+      }
+    ],
+    "headerHeight": 44,
+    "screen": "history",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "进入转录",
+        "width": 96,
+        "x": 117,
+        "y": 284.5
+      }
+    ],
+    "headerHeight": 44,
+    "screen": "history",
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "暂不处理",
+        "width": 96,
+        "x": 238,
+        "y": 462
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "重新连接",
+        "width": 293,
+        "x": 41,
+        "y": 506
+      }
+    ],
+    "savedText": "今天讨论了产品的使用流程，以及下一步需要改进的体验。\n\n后续将补充访谈记录，并确认任务分工。",
+    "screen": "recovery",
+    "scroll": 375,
+    "width": 375
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "暂不处理",
+        "width": 96,
+        "x": 367,
+        "y": 480
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "重新连接",
+        "width": 112,
+        "x": 471,
+        "y": 480
+      }
+    ],
+    "savedText": "今天讨论了产品的使用流程，以及下一步需要改进的体验。\n\n后续将补充访谈记录，并确认任务分工。",
+    "screen": "recovery",
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "buttons": [
+      {
+        "height": 36,
+        "role": "secondary",
+        "text": "暂不处理",
+        "width": 96,
+        "x": 623,
+        "y": 480
+      },
+      {
+        "height": 36,
+        "role": "primary",
+        "text": "重新连接",
+        "width": 112,
+        "x": 727,
+        "y": 480
+      }
+    ],
+    "savedText": "今天讨论了产品的使用流程，以及下一步需要改进的体验。\n\n后续将补充访谈记录，并确认任务分工。",
+    "screen": "recovery",
+    "scroll": 1280,
+    "width": 1280
+  }
+]

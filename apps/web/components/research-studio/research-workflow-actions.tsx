@@ -33,7 +33,8 @@ export const WorkflowActionButton = React.forwardRef<HTMLButtonElement, Workflow
       }, indicator ? <>{indicator}{child.props.children}</> : child.props.children);
     }
     return <Button {...props} ref={ref} asChild={asChild} type={props.type ?? (asChild ? undefined : "button")} variant={variant} size="md"
-      className={cn("aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent", className)}
+      className={cn(variant === "primary" ? "min-w-28" : variant === "outline" || variant === "secondary" ? "min-w-24" : undefined, "aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent", className)}
+      data-workflow-action-role={variant === "primary" ? "primary" : "secondary"}
       disabled={blocked} aria-disabled={asChild && blocked ? true : props['aria-disabled']} aria-busy={loading || props['aria-busy'] || undefined}
       onAuxClick={event => { if (blocked) { event.preventDefault(); event.stopPropagation(); return; } onAuxClick?.(event); }}
       onClick={event => { if (blocked) { event.preventDefault(); event.stopPropagation(); return; } onClick?.(event); }}>
@@ -51,7 +52,7 @@ export interface WorkflowActionBarProps extends React.HTMLAttributes<HTMLDivElem
 export function WorkflowActionBar({ placement = "inline", className, ...props }: WorkflowActionBarProps) {
   return <div {...props} data-workflow-action-bar={placement} className={cn(
     "flex min-w-0 flex-wrap items-center justify-end gap-2 print:hidden",
-    placement === "footer" && "mt-6 border-t border-border pt-4",
+    placement === "footer" && "mt-3 pt-2 pb-[max(theme(spacing.3),env(safe-area-inset-bottom))] md:pb-0 [&_[data-workflow-action-role=primary]]:w-full md:[&_[data-workflow-action-role=primary]]:w-auto",
     className,
   )} />;
 }
