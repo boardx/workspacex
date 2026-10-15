@@ -56,3 +56,11 @@ export function bindPublicAcceptance(binding: PublicAcceptanceBinding, transport
   },
  };
 }
+
+/** Shared persisted receipt envelope check. The producing source verifies the
+ * actual canonical/browser work before publishing these exact private bytes. */
+export function readPublicReceiptChecks(value:unknown,lane:'canonical'|'browser',binding:Pick<PublicAcceptanceBinding,'identity'|'deploymentMarker'>):unknown {
+ const receipt=z.object({schemaVersion:z.literal(1),kind:z.literal(lane+'-acceptance-completed'),identity:identitySchema,deploymentMarker:z.string(),checks:z.unknown()}).passthrough().parse(value);
+ if(JSON.stringify(receipt.identity)!==JSON.stringify(identitySchema.parse(binding.identity))||receipt.deploymentMarker!==binding.deploymentMarker)throw Error('SOURCE_ACCEPTANCE_RECEIPT_BINDING');
+ return receipt.checks;
+}

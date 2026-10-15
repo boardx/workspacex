@@ -1,0 +1,38 @@
+{
+  "kind": "api-outer-recovery-independent-review-v1",
+  "decision": "ACCEPT_FOR_ISOLATED_LINUX_CI",
+  "reviewer": "browser_linux_integration",
+  "files": {
+    "scripts/cn-release-fixture-docker-cleanup.py": "79e0e0ed9bb8e80bdeae4ba85a24295bad0bd0d5f1fb6a4862854e2296897ebf",
+    "scripts/cn-release-simulation-ci.py": "fe26456e08cc9977cc9bac610aa609d94c273b05690200d551fd09a4128014b7",
+    "scripts/cn-release-simulation.py": "83b4b91868868e1c5c115cf4037da3f13f4581453bd8eca896d43b36140a615c",
+    "tests/test_cn_release_fixture_docker_cleanup.py": "3dcfdd94719239668dcce631d60bb99068c3faaebdcb103f062661089a37c687",
+    "tests/test_cn_release_simulation_ci.py": "552d416c62389559c9a27f49fc7b7542a1412ec3043163b292768831c750ec65"
+  },
+  "blockingFindings": [],
+  "resolvedFindings": [
+    "RUNNER_TEMP runner-owned ancestry conflicted with root-only restore: now CI creates api-owners under its root-owned /var/lib invocation directory, passes CN_API_OWNER_ROOT to fixed factory and recovers the same exact root; bounded receipts exported separately.",
+    "API/application recovery now shares 120-second deadline over fixed 20 owner paths, propagated to actual bounded Docker command; unavailable owners remain unverified."
+  ],
+  "reviewed": [
+    "Outer simulation Domain.close must prove verified,populated0 before daemon recovery; recover_all also requires removedtrue.",
+    "API and application use distinct fixed registry basenames and exact round/run/token identity. No global container or process prune/scan.",
+    "Live container ID/name/image/token inspected before exact removal; missing create ACK remains false even after empty readback; repeated prior false cannot upgrade.",
+    "Each registry and each owner failure is isolated; failures retained and aggregate unverified prevents owned directory deletion.",
+    "Fixed 5 receipt names exported with ownership/type/size checks.",
+    "Shared Docker response deadline has separate up-to-5-second kill/reap grace; whole CI process death remains outside this local finally proof."
+  ],
+  "validation": {
+    "ownerProtocolTests": 12,
+    "ciProtocolTests": 10,
+    "toolChunk": "b3927f",
+    "realLocalDeadlineChild": true,
+    "realLinuxDaemonSigkill": false,
+    "productionActions": false
+  },
+  "limits": [
+    "Tests use explicit fake daemon/Domain protocol boundaries except real local subprocess timeout checks.",
+    "Actual whole-simulation Linux SIGKILL followed by exact Docker recovery remains required in CI.",
+    "Full CI workflow/other suite behavior is outside this narrow owner integration review; six registry protocol was reviewed separately."
+  ]
+}

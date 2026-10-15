@@ -145,6 +145,11 @@ jobs:
         with:
           node-version: '22.20.0'
           package-manager-cache: false
+      - uses: pnpm/action-setup@v4.4.0
+      - name: Install locked dependencies for actual source import regressions
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile
       - name: Install isolated test runtime
         shell: bash
         run: |

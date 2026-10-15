@@ -1,0 +1,30 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "sourceRef": "Delegated exact final boundary reaper cdcf7784/4a1cbbf9; independent local read and seven diagnostic tests",
+  "reviewedAt": "2026-10-12T12:29:00.008114+00:00",
+  "findings": [
+    {
+      "issueId": "SIM-12",
+      "disposition": "accepted",
+      "reviewedFiles": {
+        "tests/cn_release_boundary_reap_linux.py": "cdcf7784cbac358e87b34b221fa7c2e44f88d79c057cef7733a44cb2e42ab630",
+        "tests/test_cn_release_boundary_reap_diagnostic.py": "4a1cbbf99d15e670c93dc8d494152b4b6068e4328506f795a25eb19205533747"
+      },
+      "scope": "Local code checkpoint: deterministic retained shell emits exact child PID, supervisor requires self-adopted zombie, SIGKILL waitpid status and exact group disappearance; exec-sleep group disappearance and owned Domain cleanup remain strict. Safe diagnostics emit bounded allowlisted facts and hashes without raw output. Historical CI cause remains unproven.",
+      "executionEvidence": {
+        "independentLocalDiagnosticTestsPassed": 7,
+        "linuxNewReaperExecutedByReviewer": false,
+        "historicalCiCauseProven": false,
+        "productionExecuted": false
+      },
+      "requiredCounterexampleCaseIds": [
+        "linux_boundary_reap_contract"
+      ]
+    }
+  ],
+  "remainingBlockers": [
+    "New deterministic Linux subreaper counterexample requires next Linux CI execution; code review is not execution evidence."
+  ],
+  "productionExecuted": false
+}

@@ -281,6 +281,10 @@ const EXEMPTIONS = [
  * 写这里的代价是：这条 spec 被共享包改动打红时，CI 不会告诉任何人。
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
+  {
+    spec: "apps/web/e2e/cn-release-six-business.spec.ts",
+    reason: "CN release simulation owner: cn-release-simulation.yml executes this full application fixture via the AST-verified Python runner/session chain. The workflow has explicit release/source path filters and manual dispatch, so this is conditional coverage, not an unconditional product E2E gate. Exact-candidate/production acceptance remains separate.",
+  },
   ...[
     "board-agent-public-api.spec.ts",
     "board-ai-api.spec.ts",
@@ -538,6 +542,14 @@ export function resolveInvokedConfigs(root = REPO_ROOT) {
   while (queue.length > 0) {
     const { text, pkgDir, unconditional, via } = queue.pop();
 
+    // This lane invokes Playwright through owned Python process supervision.
+    // A filename mention alone is insufficient: inspect the actual AST edges
+    // through all-suite selection, module.main and the final fixed spawn.
+    if (/\s-I\s+-B\s+scripts\/cn-release-simulation-ci\.py\s+--sha\s/.test(text)
+        && cnSixSimulationReachable(root)) {
+      note("apps/web/playwright.cn-six-business.config.ts", "apps/web", unconditional, via, []);
+    }
+
     for (const match of text.matchAll(SCRIPT_REF)) {
       const filter = match[1];
       const scriptName = match[2];
@@ -572,6 +584,12 @@ export function resolveInvokedConfigs(root = REPO_ROOT) {
   return [...configs.values()].sort((a, b) => a.configPath.localeCompare(b.configPath));
 }
 
+export function cnSixSimulationReachable(root = REPO_ROOT) {
+  const raw = execFileSync("python3", ["-I", "-B", path.join(REPO_ROOT, ".harness/scripts/cn-six-gate-reachability.py"), root],
+    { encoding: "utf8", maxBuffer: 65536, timeout: 10000 });
+  return JSON.parse(raw).verified === true;
+}
+
 /** 总体：全部 git 追踪的 `*.spec.ts`（口径边界 2、3 见文件头）。 */
 export function allSpecFiles() {
   const out = execFileSync("git", ["ls-files", "*.spec.ts", "*.spec.tsx"], {
@@ -600,6 +618,23 @@ export function r08DiscoveryEnvironment(args, environment = process.env) {
   };
 }
 
+/** CN-only --list placeholders; never contaminate another config's owner env. */
+export function cnDiscoveryEnvironment(args, configPath, environment = process.env) {
+  if (!args.includes("--list")) throw new Error("Coverage placeholders require Playwright --list");
+  if (configPath !== "apps/web/playwright.cn-six-business.config.ts") return { ...environment };
+  return {
+    ...environment,
+    CN_RELEASE_FULLSTACK_FIXTURE: "1",
+    CN_SIX_INFRA_RECEIPT: "spec-gate-discovery-only/no-runtime-receipt.json",
+    WORKSPACEX_REUSE_INFRA: "0",
+    CN_SIX_REPORT_PATH: "",
+    CN_SIX_OUTPUT_DIR: "",
+    // --list never launches Chromium. Use this already installed executable
+    // only for config import; the actual runtime still requires its owner path.
+    CN_TEST_CHROMIUM: process.execPath,
+  };
+}
+
 export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
   const configFile = path.posix.relative(pkgDir, configPath);
   const args = [
@@ -617,7 +652,7 @@ export function specsMatchedBy({ pkgDir, configPath, projects = [] }) {
       encoding: "utf8",
       maxBuffer: 64 * 1024 * 1024,
       env: {
-        ...r08DiscoveryEnvironment(args),
+        ...cnDiscoveryEnvironment(args, configPath, r08DiscoveryEnvironment(args)),
         WORKSPACEX_API_PORT: process.env.WORKSPACEX_API_PORT ?? "39001",
         WORKSPACEX_WEB_PORT: process.env.WORKSPACEX_WEB_PORT ?? "39002",
         PGPORT: process.env.PGPORT ?? "39003",

@@ -256,8 +256,8 @@ describe("lib/agent-directory.ts 与真实契约对得上（stub 全局 fetch）
     ])} />);
     await waitFor(() => expect(screen.getByTestId("agent-card-a1")).not.toBeNull());
     const line1 = within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-workflows").textContent ?? "";
-    expect(line1).toBe("可发起：研究到简报、知识捕获闭环、自定义流程");
-    expect(within(screen.getByTestId("agent-card-a2")).getByTestId("agent-card-workflows").textContent).toBe("可发起：问题定义到 PRD");
+    expect(line1).toBe("关联流程：研究到简报、知识捕获闭环、自定义流程");
+    expect(within(screen.getByTestId("agent-card-a2")).getByTestId("agent-card-workflows").textContent).toBe("关联流程：问题定义到 PRD");
     expect(line1).not.toMatch(/[A-Za-z]{3,}/);
     const badge = within(screen.getByTestId("agent-card-a1")).getByTestId("agent-card-readiness");
     expect(badge.className).toContain("whitespace-nowrap");

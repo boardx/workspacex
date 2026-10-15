@@ -1,0 +1,51 @@
+{
+  "kind": "cn-t20-extension-independent-review-v1",
+  "reviewer": "browser_linux_integration",
+  "decision": "ACCEPT_FOR_ISOLATED_LINUX_CI",
+  "files": {
+    "tests/cn_release_api_startup_linux.py": "a7e845f06ba44e4aa19db871f70cf992333c22d02eaa216c2acca9dbbc87d65b",
+    "tests/test_cn_release_api_startup_limits.py": "300407a8332e1460ca5d1bfcd7fcf2b53780eeee5ea4e5496192b70d9ef103df",
+    "tests/fixtures/cn-api-startup/extended.ts": "acf201a45597c71b726cd972f32942c3e2b2c8ceae08897d16ef34f20f59786b",
+    "tests/fixtures/cn-api-startup/EXTENDED.md": "dec4cb5aa40c46c7c1af1c9771de2a2355a411713dc791f552504b8f5f5c6b86"
+  },
+  "blockingFindings": [],
+  "resolvedFinding": {
+    "issue": "Pending status alone could pass without attempted INSERT failure",
+    "resolution": "Normal writeback attempts 0; trigger fault pending attempts 1; recovered succeeded attempts still 1, exact model call and message counts retained."
+  },
+  "sourceReview": [
+    "Original sweep SQL strict created_at comparison at 30/7 days; real app transaction pins PostgreSQL now() with before/equal/after microsecond fixtures.",
+    "Original debug cap DELETE uses descending ID OFFSET 500000; actual 500001 generated rows, count/min/max and repeat-sweep assertions match.",
+    "Original PgAgentRunRepository queued claim uses transaction/thread locks and SKIP LOCKED; two actual executors exercise one claim/model call.",
+    "Original commitWriteback inserts message, step and terminal status in one tenant transaction; trigger denial must increment original recordWritebackAttempt before recovery.",
+    "Fresh executor reuses persisted model output; exact single message/body and no extra loopback HTTP calls checked. Provider 503 is terminal and later tick cannot reexecute.",
+    "Fresh migration clone checksum and canary checked; original schema field types and tenant fixture helpers inspected.",
+    "Container image volumes prechecked; fixed 2GiB memory/equal swap, 1GiB PGDATA tmpfs and live no persistent volume checks. Shared 1110s work/90s cleanup; outer supervision still required for kill/reap grace."
+  ],
+  "validation": {
+    "limitsUnitTests": {
+      "passed": 6,
+      "seconds": 0.0,
+      "toolChunk": "e25ee1"
+    },
+    "typescriptTranspile": {
+      "syntaxErrors": 0,
+      "toolChunk": "e5afcc",
+      "typecheck": false
+    },
+    "realPostgresExecuted": false,
+    "realLinuxExtendedScenariosExecuted": false
+  },
+  "scope": {
+    "application": "control-checkout-isolated-simulation",
+    "candidateExactSourceTested": false,
+    "fullNestCompositionByExtendedFixtureTested": false,
+    "externalProviderTested": false,
+    "physicalOrProductionEffects": false
+  },
+  "remaining": [
+    "Run both new scenarios on isolated GitHub Linux PostgreSQL with immutable prepared image; real storage/time costs unmeasured.",
+    "Outer CI owner/cgroup recovery must remain wired; total deadline kill/reap grace is not an extra application budget.",
+    "No production release approval or candidate compatibility conclusion follows from this review."
+  ]
+}

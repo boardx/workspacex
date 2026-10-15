@@ -1,0 +1,18 @@
+{
+  "reviewer": "/root",
+  "reviewedAt": "2026-10-12T23:45:42.207325+00:00",
+  "disposition": "accepted-for-isolated-linux-validation",
+  "reviewedFiles": {
+    "scripts/cn-exact-f0eb-unit.py": "ce667c218fc182eec9c2ce5e8bf1ddeb953fe678c38e7ed6bb929a641c41c2e8",
+    "scripts/cn-exact-f0eb-github.py": "7a7f2420911b17054457e621674db509c57de6ed93fd18ef8100b4991642746b",
+    "tests/test_cn_exact_f0eb_unit.py": "d109fb63ccb718b0f26950e4659f187c69efb838f1c6b290148f785b8374447f",
+    ".github/workflows/cn-exact-f0eb-preflight.yml": "c9167b3f6c3cbfea7865597e219f22ebbe15de5f0139866996d2317323b2fdb9",
+    "docs/operations/cn-exact-f0eb-transient-unit.md": "601431950a49b3c1fd7ff087f09e0aff115b2118b2b64da1d73b39bb1c408026"
+  },
+  "independentTests": {
+    "passed": 30,
+    "seconds": 0.126
+  },
+  "scope": "Independent review of exact ROOT/.git trust delta and regression. No wildcard trust; clone remains hooks-off, no-hardlinks, exact owned destination. Prior independent implementation review retained.",
+  "linuxSystemdVerified": false
+}

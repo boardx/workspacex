@@ -1,0 +1,38 @@
+{
+  "kind": "application-recovery-independent-review-v1",
+  "decision": "ACCEPT_FIXTURE_FOR_ISOLATED_LINUX_CI_PENDING_OUTER_INTEGRATION",
+  "reviewer": "browser_linux_integration",
+  "files": {
+    "tests/cn_release_application_recovery_linux.py": "6cead613bb0c0975359fc93f75cb4361dd105a71e4cc0be6a374cafd3ceb17f0",
+    "tests/fixtures/cn-application-recovery/lifecycle.ts": "59ff9d57a3c6c6248c49e4325ab40d40d1c32b5ebf00453e08dcaf3f4a097443",
+    "tests/fixtures/cn-application-recovery/package.json": "a90fc33418afa2b9cbf4768524b021135b965ecdf993457505bfae3ac44a8428",
+    "tests/fixtures/cn-application-recovery/README.md": "e1d1d4609bf2dfb9bc3b318a8318b8ee4fcdacbee4673f8a22569ce8f28ebf84",
+    "tests/test_cn_release_application_recovery_fixture.py": "7a9063e0fce2ed8814d7b11b74d9978ce6ddc24c18b4ff680f6927e32236eba1"
+  },
+  "resolvedFindings": [
+    "Anonymous PGDATA volume/resource limit omission fixed with image-volume precheck, 2GiB memory/equal swap,1GiB tmpfs and exact private socket bind/live mounts validation.",
+    "Postclear weak no-action assertion fixed by actually calling guarded restore, asserting OLD_EPOCH_RESTORE_FORBIDDEN, checking new rows unchanged and recovery database absent."
+  ],
+  "reviewed": [
+    "Original unchanged driver_bridge calls fixed driver coordinate and original cn-release-advance entry; sequence, previous raw receipt hash, epoch/seed, eight phases and read-only replay validated by bridge.",
+    "Original migration SQL bytes copied into historical prefix/candidate fixture, exact final migration name pinned, deliberately failing fixture SQL follows real last migration.",
+    "One original-epoch dump is hashed and reused into fresh exclusive databases; source is never overwritten. Ledger checksums, canary and actual PgIdentityRepository readback compared.",
+    "Fixture hold revokes app writes/sequence privileges, terminates only app-role sessions in exact isolated DB and requires canary denial. This is not production writer hold.",
+    "Startup fault is explicitly injected after repository read, not real startApi; postclear guard is fixture-only.",
+    "Immutable local image revision bound to current control checkout; candidateValidation/productionAccepted false."
+  ],
+  "tests": {
+    "localWrapperTests": 7,
+    "seconds": 0.405,
+    "toolChunk": "127eec",
+    "typescriptSyntaxErrors": 0,
+    "syntaxToolChunk": "c44d1d",
+    "actualLinuxPg": false,
+    "actualDocker": false
+  },
+  "remaining": [
+    "Outer API/application DockerOwner integration must use trusted root-owned registry; current RUNNER_TEMP ancestry mismatch separately reported to workflow author.",
+    "Actual Linux migration/restore timing and 1GiB storage fit remain unmeasured.",
+    "Control historical-prefix coverage does not validate f0eb candidate or authorize production migration/recovery."
+  ]
+}
