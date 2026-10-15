@@ -145,7 +145,9 @@ def release(config,output,apply=False):
                 m.need(restored[c['webService']]['image']==before[c['webService']]['image'],'ROLLBACK_IMAGE_MISMATCH')
                 for k in ('configuration','mounts','networks','hostConfiguration'):m.need(restored[c['webService']][k]==before[c['webService']][k],'ROLLBACK_CONFIGURATION_CHANGED')
                 result['rollbackBrowser']=browser(c['browser'],out/'rollback-browser','baseline');result['status']='ROLLED_BACK'
-            except Exception:result['rollback']='UNPROVEN'
+            except Exception as recovery_error:
+                result['rollback']='UNPROVEN'
+                result['rollbackCode']=str(recovery_error) if isinstance(recovery_error,m.Rejected) else 'OPERATION_FAILED'
         m.save(out/'receipt.json',result);return result
     finally:
         if lock is not None:os.close(lock)

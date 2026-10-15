@@ -42,7 +42,7 @@ def main(out):
   # First exercise failure and actual exact-image restoration.
   def fail_candidate(c,o,mode):
    result=probe(c,o,mode)
-   if mode=='candidate':raise w.m.Rejected('FIXTURE_BROWSER_FAILED')
+   if mode=='candidate':raise w.m.Rejected('FIXTURE_INJECTED_BROWSER_FAILURE')
    return result
   with patch.object(w,'browser',side_effect=fail_candidate):rollback=w.release(config,out/'rollback',True)
   assert rollback['status']=='ROLLED_BACK',rollback

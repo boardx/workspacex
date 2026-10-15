@@ -92,7 +92,7 @@ class Tests(unittest.TestCase):
   def browser(c,o,mode):
    if mode=='candidate':self.d.value=lambda s:{**FakeDocker.value(self.d,s),'Id':'external-change' if s=='api' else FakeDocker.value(self.d,s)['Id']}
    return {'passed':True,'mode':mode}
-  self.assertEqual(self.run_release(browser=browser)['status'],'FAILED_OR_UNCERTAIN');self.assert_web_only()
+  result=self.run_release(browser=browser);self.assertEqual(result['status'],'FAILED_OR_UNCERTAIN');self.assertEqual(result['rollbackCode'],'BACKEND_OR_DATA_CHANGED');self.assert_web_only()
  def test_live_compose_drift_rejected_before_up(self):
   original=self.d.value
   def value(s):
