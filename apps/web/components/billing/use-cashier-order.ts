@@ -53,7 +53,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
       if ((order.status === "SUCCESS" || order.status === "FAILED") && fresh.status !== order.status) throw new Error("ORDER_STATE_REGRESSION");
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) { setAccessError(null); setState(value => ({ ...value, order: fresh, message: null })); }
     } catch (error) {
-      if (!controller.signal.aborted && currentScope.current === scope && error instanceof ApiError && [401, 403].includes(error.status)) setAccessError(billingFailure(error));
+      if (!controller.signal.aborted && currentScope.current === scope && error instanceof ApiError && [401, 403, 404].includes(error.status)) setAccessError(billingFailure(error));
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState(value => ({ ...value, message: "状态暂未更新，订单已保留。请稍后刷新，勿重复付款。" }));
     } finally { if (pending.current === controller) pending.current = null; }
   }, [open, owner.ownerType, owner.ownerId, sessionToken, scope]);
