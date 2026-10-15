@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-10-13T02:59:52.314231+00:00",
+  "baseCommit": "07bb7baa858a19b203777deb1a23af950b62bc1b",
+  "reviewer": "independent targeted_workflow_review agent",
+  "scope": [
+    ".github/workflows/cn-release-simulation.yml",
+    "scripts/cn-release-simulation-ci.py",
+    "scripts/cn-release-simulation-unit.py",
+    "tests/cn_release_api_outer_recovery_linux.py"
+  ],
+  "outcome": "no-blocking-finding",
+  "localTests": {
+    "unit": 18,
+    "ci": 15,
+    "failures": 0
+  },
+  "verifiedContracts": [
+    "default all retains 28 suites",
+    "targeted four independent Ubuntu jobs",
+    "partial ten rejected",
+    "exact worker and fault argv; no arbitrary command",
+    "lexical venv executable retained",
+    "fault nested domain admitted by observed systemd/cgroup and source SHA",
+    "contents read only; no secrets/OIDC/production deployment"
+  ],
+  "linuxFaultAcceptance": false,
+  "productionAccepted": false
+}

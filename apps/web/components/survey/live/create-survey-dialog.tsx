@@ -1,8 +1,9 @@
 "use client";
+import { WorkflowActionBar, WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
+
 import * as React from "react";
 import { SurveyDraftInputSchema, SurveyRuntimeSchema } from "@repo/contracts/survey-runtime";
 import { SurveyLibraryTemplateSchema, type SurveyLibraryTemplate } from "@repo/contracts/survey-template-library";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagField, commitDraft } from "@/components/ui/tag-input";
 import { tagInputLimits, surveySource } from "@repo/contracts";
@@ -60,16 +61,16 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
     finally{lock.current=false;setBusy(false);}
   }
   return <Dialog open={open} onOpenChange={value=>{if(!lock.current)onOpenChange(value);}}><DialogContent className="max-w-2xl">
-    <DialogTitle>新建问卷</DialogTitle><DialogDescription>先填写名称与标签，再选择创建方式。报告模板为可选项。</DialogDescription>
+    <DialogTitle>新建问卷</DialogTitle><DialogDescription className="sr-only">填写名称并选择创建方式。</DialogDescription>
     <form className="space-y-5" onSubmit={event=>void create(event)}>
       <label className="block space-y-2 text-13">问卷名称<Input aria-label="问卷名称" disabled={busy} value={name} onChange={event=>setName(event.target.value)} autoFocus /></label>
       <TagField value={tags} onChange={setTags} draft={pendingTag} onDraftChange={setPendingTag} knownTags={knownTags} disabled={busy} {...TAG_LIMITS} testIdPrefix="survey-create-tag" label="标签" />
       <fieldset disabled={busy} className="space-y-3"><legend className="mb-2 text-13 font-medium">选择创建方式</legend><div className="grid gap-3 sm:grid-cols-3">
-        {([ ["blank","空白创建","直接进入设计问卷"],["ai","AI 导入创建","先导入内容并校对 Markdown，再进入设计"],["template","从模板创建","使用现有问卷模板，直接进入设计"] ] as const).map(([value,title,description])=><label key={value} className={`rounded-lg border p-4 ${mode===value?"border-primary bg-accent":"border-border"}`}><input type="radio" name="survey-create-mode" value={value} checked={mode===value} onChange={()=>{setMode(value);setError("");}} /><span className="ml-2 font-medium">{title}</span><p className="mt-2 text-12 text-muted-foreground">{description}</p></label>)}
+        {([ ["blank","空白创建","直接设计"],["ai","AI 导入创建","从内容生成并校对"],["template","从模板创建","复用已有模板"] ] as const).map(([value,title,description])=><label key={value} className={`rounded-lg border p-4 ${mode===value?"border-primary bg-accent":"border-border"}`}><input type="radio" name="survey-create-mode" value={value} checked={mode===value} onChange={()=>{setMode(value);setError("");}} /><span className="ml-2 font-medium">{title}</span><p className="mt-2 text-12 text-muted-foreground">{description}</p></label>)}
       </div></fieldset>
       {mode==="template"&&<label className="block text-13">问卷模板<select aria-label="选择问卷模板" disabled={busy||loading} value={selected} onChange={event=>setSelected(event.target.value)} className="mt-2 w-full rounded-md border border-border bg-card p-2"><option value="">{loading?"正在加载模板…":"请选择问卷模板"}</option>{[...builtins,...templates].map(row=><option key={row.id} value={row.id}>{row.title}</option>)}</select></label>}
       {error&&<p role="alert" className="text-13 text-destructive">{error}</p>}
-      <div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>取消</Button><Button type="submit" disabled={busy||!name.trim()||loading}>{busy?"正在创建…":"下一步"}</Button></div>
+      <WorkflowActionBar><WorkflowActionButton type="button" variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>取消</WorkflowActionButton><WorkflowActionButton type="submit" variant="primary" disabled={busy||!name.trim()||loading}>{busy?"正在创建…":"下一步"}</WorkflowActionButton></WorkflowActionBar>
     </form>
   </DialogContent></Dialog>;
 }

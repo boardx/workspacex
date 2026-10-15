@@ -334,9 +334,7 @@ export function SurveyQuestionEditor({
   return (
     <div className={studioLayout ? "flex min-h-0 flex-col gap-4 p-5 lg:h-full lg:overflow-hidden" : "space-y-5 p-5"}>
       <div className={`flex flex-wrap items-center justify-between gap-3 ${studioLayout ? "shrink-0" : ""}`}>
-        <p className={studioLayout ? "sr-only" : "text-12 text-muted-foreground"}>
-          选择题型，配置题目，再用实时预览试填。
-        </p>
+
         <div className="flex flex-wrap gap-2">
           {studioLayout && !locked && (
             <>

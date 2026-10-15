@@ -1,4 +1,6 @@
 "use client";
+import { WorkflowActionBar, WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
+
 import * as React from "react";
 import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
@@ -552,11 +554,11 @@ export function LiveSurveyWorkspace({
             />
           </>)}
           {step === "publish" && (
-            <section className="mx-auto max-w-screen-2xl space-y-5 p-5 sm:p-7 lg:p-10">
-              <div><h1 className="text-20 font-semibold">发布与回收</h1><p className="mt-1 text-12 text-muted-foreground">设置回收状态与时间，发布后分享链接并查看真实答卷。</p></div>
-              <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
-              <div className="space-y-5">
-              <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
+            <section className="mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6">
+              <h1 className="text-20 font-semibold">发布与回收</h1>
+              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
+              <div className="space-y-4">
+              <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-4">
                 <p className="text-12 font-medium text-muted-foreground">{selectedPublication ? "问卷回收状态" : "回收设置"}</p>
                 <h2 className="mt-3 text-24 font-semibold">{selectedPublication ? collectionLabel === "正在回收" ? "问卷正在回收中" : `问卷${collectionLabel}` : "问卷尚未开始回收"}</h2>
                 <p className="mt-2 text-13 text-muted-foreground">{selectedPublication ? collectionExpired || selectedPublication.status === "closed" ? "当前链接不再接受新答卷；历史答卷仍可查看。" : collectionPending ? "回收尚未开始；受访者可在开始时间后填写，开始前不接受答卷或上传。" : "受访者可通过链接或二维码填写；答卷与发布版本对应。" : "设置回收时间后开始回收。开始回收后题目与匿名方式固定。"}</p>
@@ -565,29 +567,29 @@ export function LiveSurveyWorkspace({
                 {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
               </section>
               {runtime && (runtime.status === "draft" || runtime.status === "ready") ? (
-                <section className="space-y-4 rounded-md border border-success/40 bg-success/5 p-4">
+                <section className="space-y-4 rounded-lg border border-border bg-card p-4">
                   <div>
-                    <h2 className="text-16 font-semibold">回收设置</h2>
-                    <p className="mt-1 text-12 text-muted-foreground">设计阶段自动检查问卷。设置开始和截止时间，可立即回收或预约开始。</p>
+                    <h2 className="text-16 font-semibold">回收时间</h2>
                     {designBlockers.length > 0 && <p className="mt-2 text-12 text-warning">请返回设计，处理 {designBlockers.length} 项问题后开始回收。</p>}
                   </div>
                   <CollectionScheduleFields starts={starts} expires={expires} onStartChange={setStarts} onEndChange={setExpires} disabled={busy} />
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => selectStep("design")}>
+                  <WorkflowActionBar placement="footer">
+                    <WorkflowActionButton variant="outline" onClick={() => selectStep("design")}>
                       返回编辑
-                    </Button>
-                    <Button
+                    </WorkflowActionButton>
+                    <WorkflowActionButton
+                      variant="primary"
                       disabled={designBlockers.length > 0}
                       onClick={() => void execute(() => command("begin-collection", collectionScheduleInput(starts, expires)))}
                     >
                       开始回收
-                    </Button>
-                  </div>
+                    </WorkflowActionButton>
+                  </WorkflowActionBar>
                 </section>
               ) : runtime && selectedPublication ? (
                 <>
                   <CollectionOverview runtime={runtime} batchId={selectedBatch?.id} />
-                  <section aria-label="分享问卷" className="space-y-4 rounded-lg border border-border bg-card p-5">
+                  <section aria-label="分享问卷" className="space-y-4 rounded-lg border border-border bg-card p-4">
                     <div>
                       <h2 className="text-16 font-semibold">分享问卷</h2>
                       <p className="mt-1 text-12 text-muted-foreground">通过链接或二维码邀请受访者填写。{selectedPublication.startsAt && <>开始 {new Date(selectedPublication.startsAt).toLocaleString("zh-CN")}；</>}截止 {new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}。</p>
@@ -648,7 +650,7 @@ export function LiveSurveyWorkspace({
               )}
               </div>
               <aside className="space-y-4" aria-label="回收设置面板">
-                {runtime && !runtime.publication && <section className="rounded-lg border border-border bg-card p-5">
+                {runtime && !runtime.publication && <section className="rounded-lg border border-border bg-card p-4">
                   <label className="flex items-center justify-between gap-4 text-13 font-medium">
                     匿名填写
                     <input type="checkbox" disabled={busy} checked={runtime.anonymity === "anonymous"} onChange={event => {
@@ -669,14 +671,14 @@ export function LiveSurveyWorkspace({
                 </section>}
                 <SurveyCollectionSettingsEditor markdown={selectedPublication?.sourceSnapshot?.documents.publication.markdown ?? publicationMarkdown} locked={busy || !!selectedPublication} onChange={setPublicationMarkdown}/>
                 {collectionBatches.length > 1 && (
-                  <label className="block rounded-lg border border-border bg-card p-5 text-13">
+                  <label className="block rounded-lg border border-border bg-card p-4 text-13">
                     回收批次
                     <select aria-label="回收批次" className="mt-3 h-9 w-full rounded-md border border-border bg-background px-3" value={selectedBatch?.id ?? activeBatchId ?? ""} onChange={(event) => setSelectedBatchId(event.target.value)}>
                       {collectionBatches.map((batch, index) => <option key={batch.id} value={batch.id}>{index + 1}. {collectionStatusLabel(batch, collectionNow)} · {new Date(batch.createdAt).toLocaleString("zh-CN")}</option>)}
                     </select>
                   </label>
                 )}
-                {selectedPublication && <div className="rounded-lg border border-border bg-card p-5 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">开始时间：{selectedPublication.startsAt ? new Date(selectedPublication.startsAt).toLocaleString("zh-CN") : "发布后立即开始"}</p><p className="mt-2">截止时间：{new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime?.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
+                {selectedPublication && <div className="rounded-lg border border-border bg-card p-4 text-13"><h2 className="font-semibold">已发布设置</h2><p className="mt-3">开始时间：{selectedPublication.startsAt ? new Date(selectedPublication.startsAt).toLocaleString("zh-CN") : "发布后立即开始"}</p><p className="mt-2">截止时间：{new Date(selectedPublication.expiresAt).toLocaleString("zh-CN")}</p><p className="mt-2">匿名填写：{runtime?.anonymity === "anonymous" ? "开启" : "关闭"}</p><p className="mt-2 text-12 text-muted-foreground">这些设置随发布版本冻结，历史答卷不会被修改。</p></div>}
                 {runtime && selectedPublication && <RecentCollectionActivity runtime={runtime} batchId={selectedBatch?.id} />}
               </aside>
               </div>

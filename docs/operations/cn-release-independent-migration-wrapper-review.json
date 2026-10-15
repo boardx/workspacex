@@ -1,0 +1,29 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root",
+  "reviewedAt": "2026-10-12T12:51:05.909058+00:00",
+  "scope": "Migration wrapper TAP parsers after independent reviewer narrow fix; original migration code is independently covered by v8.",
+  "reviewedFiles": {
+    "tests/cn_release_migration_guard_linux.py": "7d81450ef6d8f9d566b9c673e1fb4a8c6529d738892b7e5f8d5e3432a11738c0",
+    "tests/cn_release_migration_terminal_linux.py": "3a8ddfed25d1271537acedb3d713915475daf3a46b95bf21e438ed2231b01af9",
+    "tests/test_cn_release_migration_guard_wrapper.py": "a8db187be990d8db41af8029085e9e696004a98e5cf0db1b0e18b996e8107d78",
+    "tests/test_cn_release_migration_terminal_wrapper.py": "db6b00c4a1e35f93c9e32d8f7e58e234a84f5764ce70167581b8efbbdf11a32f",
+    "tests/fixtures/cn-migration-owner/guard-cases.json": "2c6f5dd486e6145577bcd426495616406146c5903a2f81111414e2dd6bd1af00",
+    "tests/fixtures/cn-migration-owner/terminal-cases.json": "ba065c700e3fd9767e76ab2e8fa5ada7fae18a38198a92b4c37e1b5ecbf9eac8"
+  },
+  "disposition": "accepted-for-isolated-linux-ci",
+  "localTests": {
+    "passed": 12,
+    "failed": 0,
+    "seconds": 0.003
+  },
+  "findings": [
+    "Explicit failure or bailout lines rejected even beside exact green summary",
+    "Exact 51 and 68 unique Node case manifests; missing, duplicate, skipped, unknown names rejected",
+    "Terminal Node and Python share monotonic 180-second deadline; nonzero subprocess rejected",
+    "Native 19-test aggregate requires no failures, skipped, expected failures or unexpected successes"
+  ],
+  "linuxExecuted": false,
+  "productionExecuted": false,
+  "candidateF0ebAccepted": false
+}

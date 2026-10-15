@@ -11,9 +11,12 @@
       "reviewedChange": "Exact provider job and original Create intent/stop hashes admit documented timestamp precision without altering provider time. Preparation metadata is private mode 0600 for the root-only reader."
     },
     "upgrade-draft.py": {
-      "sha256": "9e1b0e124691b4d3a32e4a650a52d5aca247f3343886b9aebd4af39bd6324113",
-      "bytes": 15513,
-      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/upgrade-draft.py"
+      "sha256": "baaa95ad3690277fd33c711f71a6945148682d28e5fac3007bc784adf41a2cd1",
+      "bytes": 16042,
+      "originalRelativePath": "release-continuation/devapp-f0eb-release/prep/upgrade-draft.py",
+      "originalSha256": "9e1b0e124691b4d3a32e4a650a52d5aca247f3343886b9aebd4af39bd6324113",
+      "originalBytes": 15513,
+      "reviewedChange": "Require all five distinct service/container identities, CN names/project, and running non-restarting exact images before switch/rollback success; no authorization or historical binding changes."
     },
     "backup-host.DRAFT.py": {
       "sha256": "f78db3508680d1a0ee4e9c0aa675ba3625449b0f415f625db2b0e77f0627d12c",

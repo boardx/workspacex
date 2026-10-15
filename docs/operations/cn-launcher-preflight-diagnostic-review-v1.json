@@ -1,0 +1,38 @@
+{
+  "kind": "independent-root-review",
+  "reviewer": "root (non-author)",
+  "reviewedAt": "2026-10-12T14:04:49.900412+00:00",
+  "baseCommit": "d2ebc44cdade7aeb06a4890432d90708f30bcd66",
+  "decision": "ACCEPT_LOCAL_FIX_AND_DIAGNOSTIC",
+  "files": {
+    "scripts/cn-exact-f0eb-github.py": "ddb7c56d93c55e7c9aeef93bff22142ba740838b7cd9cde7333e212745fd2d13",
+    "tests/test_cn_exact_f0eb_github.py": "0882445b535ed9dcf5920fb7dc2c927a9dd65613b1c065fae07ccbeb3cbf9b48",
+    ".github/workflows/cn-exact-f0eb-preflight.yml": "de42c13d123ae7216e345b8b38288c47ea0e4ee8214941352dcaf1da3cc4e3a7",
+    "tests/fixtures/cn-six-business/next-launch.test.ts": "002c185e77c276e83bdc810b919bc2268e1ea679e9854e424765f42131a3c005",
+    "tests/test_cn_release_six_next_launch.py": "42b260758a0bf6d8b5b09d13cf9300a0a1c69fb46d809b0aa6d11edc0c5d65c1"
+  },
+  "tests": [
+    {
+      "suite": "test_cn_release_six_next_launch",
+      "pass": 2,
+      "fail": 0,
+      "seconds": 2.28
+    },
+    {
+      "suite": "test_cn_exact_f0eb_github",
+      "pass": 18,
+      "fail": 0,
+      "seconds": 0.105
+    }
+  ],
+  "findingsResolved": [
+    "Next test preserves exact pnpm executable while removing workspace Next PATH",
+    "Fixed preflight stage/reason prevents arbitrary exception text export",
+    "Missing controller and worker report upload paths fixed and tested"
+  ],
+  "limits": [
+    "No actual new GitHub Linux execution on these bytes yet",
+    "Original exact preflight failure cause remains unknown until new diagnostic",
+    "No parent controller changes, no production action, no full candidate acceptance"
+  ]
+}
