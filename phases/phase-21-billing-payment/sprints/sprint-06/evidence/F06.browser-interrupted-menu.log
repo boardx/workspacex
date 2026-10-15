@@ -1,0 +1,61 @@
+[heavy-e2e-lock] 排队中：机器上已有重 e2e 套件在跑（pid=37572，命令：pnpm --filter web exec playwright test --config playwright.itv-four-rounds.local.config.ts --project=seeded --workers=1 interview-expert-library-live.spec.ts --grep four rounds）。本命令：pnpm --filter web exec playwright test --config playwright.billing-cashier.config.ts
+[heavy-e2e-lock] 排队中：已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 100s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 105s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 110s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 115s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 120s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 125s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 130s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 135s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 140s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 145s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 150s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 155s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 160s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 165s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 170s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 175s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 180s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 185s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 190s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 195s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 200s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 205s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 210s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 215s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 220s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 225s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排队中：已等 230s，5s 后重试。（这不是卡死，也不是你的代码有问题——机器上有另一个重 e2e 套件正占着互斥锁）
+[heavy-e2e-lock] 排到了，等了 235s
+[stack-admission] load1=20.89 cores=10 perCore=2.09 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv9xqhnt-ec757be9-167ce6ea6f75 db=wsx_167ce6ea6f750525348a compose=wsx-167ce6ea6f750525348a pg=20330 redis=21330 api=24330 web=25330 sandbox=26330 model=27330 deep-agent=28330 asr=29330 vision=30330 loopback-sandbox=31330 mail=19330
+[WebServer] (node:42839) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:42845) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:43064) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
