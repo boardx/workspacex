@@ -1,3 +1,4 @@
+import { LOGGER_PORT } from "../../src/application/ports/logger.port";
 // @global-scope-fixture table:credit_packages: f04-order- package fixtures only.
 import "reflect-metadata";
 import { AllExceptionsFilter } from "../../src/interface/filters/all-exceptions.filter";
@@ -47,7 +48,7 @@ export async function orderFixture() {
     if (state.mode === "timeout-body") { res.flushHeaders(); res.write("{"); return; }
     res.end(state.mode === "tampered" ? `${payload} ` : payload);
   });
-  const requestLogger = new ConsoleLogger(true);
+  let requestLogger = new ConsoleLogger(true);
   let app: NestExpressApplication | undefined;
   async function release() {
     try {
@@ -73,6 +74,7 @@ export async function orderFixture() {
       return nativeFetch(input, init);
     });
     const env: Record<string, string> = {
+      KERNEL_KEEP_LOGS: "1",
       WECHAT_PAY_APP_ID: "wx-f04-fixture", WECHAT_PAY_MCH_ID: "1900000001", WECHAT_PAY_API_V3_KEY: randomBytes(16).toString("hex"),
       WECHAT_PAY_MCH_SERIAL_NO: "ABC123", WECHAT_PAY_PLATFORM_KEY_ID: "PUB_KEY_ID_f04",
       WECHAT_PAY_PRIVATE_KEY: merchant.privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
@@ -88,6 +90,7 @@ export async function orderFixture() {
           return id ? { userId: id, orgId: org } : null;
         } } }, { provide: APP_GUARD, useClass: PrincipalGuard },
       ] }, { logger: false, abortOnError: false });
+      requestLogger = app.get<ConsoleLogger>(LOGGER_PORT);
       app.use(traceMiddleware);
       app.useGlobalFilters(new AllExceptionsFilter(requestLogger, {
         record: async () => undefined,

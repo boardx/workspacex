@@ -8,6 +8,14 @@ beforeAll(async()=>{ f=await orderFixture(); });
 beforeEach(async()=>{ await f.reset(); });
 afterAll(async()=>{ await f?.close(); });
 describe("Native merchant failure diagnostics",()=>{
+  it("correlates actual HTTP billing error with Native diagnostics", async()=>{
+    f.state.mode="malformed";
+    const response=await f.create();
+    const body=await response.json();
+    expect(response.status).toBe(502);
+    expect(body).toMatchObject({error:"bad_gateway",code:"wechat_upstream_failed",traceId:response.headers.get("x-trace-id")});
+    expect(f.requestLogger.drain()).toContainEqual(expect.objectContaining({msg:"billing_native_failed",fields:expect.objectContaining({traceId:body.traceId,err:expect.objectContaining({reason:"response_json_invalid"})})}));
+  });
   it.each([
     ["non2xx","upstream_http_error"],
     ["bad-signature","response_signature_invalid"],

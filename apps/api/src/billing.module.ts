@@ -1,3 +1,5 @@
+import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
+import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 // Billing composition root: infrastructure credentials remain outside application/interface layers.
 import { Module } from "@nestjs/common";
 import { BILLING_CONFIG_PORT } from "./application/billing/billing-config.port";
@@ -21,12 +23,13 @@ import { BillingOrderController } from "./interface/controllers/billing-order.co
   imports: [IdentityPersistenceModule],
   controllers: [BillingConfigController, BillingWalletController, BillingOrderController],
   providers: [
+    { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
     { provide: DeploymentBillingConfig, useFactory: () => new DeploymentBillingConfig() },
     { provide: BILLING_CONFIG_PORT, useExisting: DeploymentBillingConfig },
     { provide: BillingOrderService,
-      useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig) =>
-        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config)),
-      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig],
+      useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig, logger: LoggerPort) =>
+        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger)),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig, LOGGER_PORT],
     },
     { provide: BillingWalletService,
       useFactory: (db:DatabasePort, identity:IdentityRepository, credentials:CredentialRepository, platformAdmins:PlatformAdminRepository) =>

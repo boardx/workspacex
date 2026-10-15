@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Param, Query, Inject, HttpException } from "@nestjs/common";
+import { BillingHttpException } from "./billing-http-exception";
+import { traceIdOf } from "../middleware/trace";
+import { Controller, Get, Post, Body, Param, Query, Inject, Req } from "@nestjs/common";
 import type { z } from "zod";
 import { operations } from "@repo/contracts/billing-credits";
 import type { Principal } from "../../domain/principal";
@@ -14,7 +16,7 @@ export class BillingOrderController {
       if (error instanceof BillingOrderError) {
         const status = error.code === "forbidden" ? 403 : error.code === "order_not_found" || error.code === "package_not_found" ? 404
           : error.code === "payment_provider_not_configured" ? 503 : error.code === "wechat_upstream_failed" ? 502 : 409;
-        throw new HttpException({ code: error.code }, status);
+        throw new BillingHttpException(error.code, status);
       }
       throw error;
     }
@@ -24,8 +26,8 @@ export class BillingOrderController {
     return this.mapped(() => this.service.packages(principal, input));
   }
   @Post(operations.createPaymentOrder.path)
-  create(@CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(operations.createPaymentOrder.in)) input: z.infer<typeof operations.createPaymentOrder.in>) {
-    return this.mapped(() => this.service.create(principal, input));
+  create(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(operations.createPaymentOrder.in)) input: z.infer<typeof operations.createPaymentOrder.in>) {
+    return this.mapped(() => this.service.create(principal, input, traceIdOf(req)));
   }
   @Get(operations.getPaymentOrder.path)
   get(@CurrentPrincipal() principal: Principal, @Param(new ZodBodyPipe(operations.getPaymentOrder.in)) input: z.infer<typeof operations.getPaymentOrder.in>) {
