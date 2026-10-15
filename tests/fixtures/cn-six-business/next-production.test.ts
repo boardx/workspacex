@@ -8,6 +8,21 @@ import {runInNewContext} from 'node:vm';
 import {spawn,spawnSync} from 'node:child_process';
 import {productionCommand} from './next-production-command';
 
+test('six readbacks traverse the actual chat-read proxy routes, retaining authenticated backend reads',async()=>{
+ const previous=process.env.CHAT_READ_E2E_API_ORIGIN;process.env.CHAT_READ_E2E_API_ORIGIN='http://127.0.0.1:25000';
+ try{
+  const {default:config}=await import('../../../apps/web/next.config.mjs');
+  const routes=(await config.rewrites()).afterFiles!;
+  const source=readFileSync(resolve('apps/web/e2e/cn-release-six-business.spec.ts'),'utf8');
+  const paths=[...source.matchAll(/fetch\('([^']+)'/g)].map(m=>m[1]!);assert.equal(paths.length,3);
+  for(const request of paths){
+   const proxy=routes.find((r:any)=>r.source.endsWith('/:path*')&&request.startsWith(r.source.replace(/\/:path\*$/,'')+'/'));
+   assert.ok(proxy,`No actual API proxy for ${request}`);assert.equal(proxy.destination,'http://127.0.0.1:25000'+proxy.source);
+  }
+  assert.match(source,/Authorization:'Bearer '\+token/);assert.match(source,/resultMessageId/);assert.match(source,/execution-events/);
+ }finally{if(previous===undefined)delete process.env.CHAT_READ_E2E_API_ORIGIN;else process.env.CHAT_READ_E2E_API_ORIGIN=previous;}
+});
+
 test('actual ESM phase entry loads the existing CommonJS config before invoking build',()=>{
  const directory=realpathSync(mkdtempSync(join(tmpdir(),'cn-next-phase-entry-'))),preload=join(directory,'probe.cjs');
  writeFileSync(preload,"const cp=require('node:child_process'),{EventEmitter}=require('node:events');cp.spawn=(command,options)=>{if(options.env.NODE_ENV!=='production'||options.env.WORKSPACEX_RELEASE_BUILD!=='1')throw Error('PRODUCTION_BINDINGS');process.stdout.write('FIXED_BUILD_SPAWN '+command+'\\n');const child=new EventEmitter();setImmediate(()=>child.emit('exit',7,null));return child;};");
