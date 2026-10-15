@@ -19,7 +19,7 @@ export function PublicChatShareScreen({ token }: { token: string }) {
     });
     return () => controller.abort();
   }, [token, attempt]);
-  return <main className="min-h-dvh bg-background px-4 py-6 text-foreground sm:px-6 sm:py-10" data-testid="public-chat-share">
+  return <main className="min-h-dvh bg-background px-4 py-6 text-background-foreground sm:px-6 sm:py-10" data-testid="public-chat-share">
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <header className="space-y-2 border-b border-border pb-5">
         <p className="text-12 font-medium text-muted-foreground">WorkspaceX · 对话分享</p>

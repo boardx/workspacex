@@ -1,3 +1,7 @@
+import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
+import {observeNativeBrowserDiagnostics} from './support/native-runtime/native-browser-diagnostics';
+import {fixedNativeFailure} from './support/board-native-failure-stage.mjs';
+
 import {categoryEnabled,observationMode} from './support/board-observation-categories.mjs';
 const visualHeavy=()=>categoryEnabled('pixel-comparison');
 import {test,expect,type Page,type TestInfo,type APIRequestContext} from '@playwright/test';
@@ -22,6 +26,22 @@ async function viewport(page:Page){
  const z=Number(await surface.getAttribute('data-viewport-zoom')),x=Number(await surface.getAttribute('data-viewport-pan-x')),y=Number(await surface.getAttribute('data-viewport-pan-y'));
  expect(z).toBeGreaterThan(0);expect([z,x,y].every(Number.isFinite)).toBe(true);return {z,x,y,box};
 }
+// Read the published DOM scene geometry, not Fabric state. Reject object bounds
+// with room for the native gesture, and require the actual upper canvas on top.
+async function blankCanvasPoint(page:Page,view:Awaited<ReturnType<typeof viewport>>){
+ const sceneJson=await page.getByTestId('board-fabric-surface').getAttribute('data-object-scenes');expect(sceneJson).not.toBeNull();
+ const scenes=JSON.parse(sceneJson!) as Array<{worldCorners:Array<{x:number;y:number}>}>;
+ for(const scene of scenes){expect(scene.worldCorners).toHaveLength(4);expect(scene.worldCorners.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))).toBe(true);}
+ const occupied=scenes.map(scene=>({left:Math.min(...scene.worldCorners.map(p=>p.x))*view.z+view.box.x+view.x,right:Math.max(...scene.worldCorners.map(p=>p.x))*view.z+view.box.x+view.x,top:Math.min(...scene.worldCorners.map(p=>p.y))*view.z+view.box.y+view.y,bottom:Math.max(...scene.worldCorners.map(p=>p.y))*view.z+view.box.y+view.y}));
+ const candidates:Array<{x:number;y:number}>=[];
+ for(let y=140;y<view.box.height-140;y+=40)for(let x=view.box.width-80;x>=80;x-=40){
+  const p={x:Math.round(view.box.x+x),y:Math.round(view.box.y+y)};
+  if(!occupied.some(b=>p.x>=b.left-64&&p.x<=b.right+64&&p.y>=b.top-64&&p.y<=b.bottom+64))candidates.push(p);
+ }
+ const point=await page.evaluate(points=>points.find(p=>document.elementFromPoint(p.x,p.y)?.matches('canvas.upper-canvas'))??null,candidates);
+ expect(point,'native gesture needs unobstructed canvas outside projected objects').not.toBeNull();
+ return point!;
+}
 async function topCanvas(page:Page,point:{x:number;y:number}){expect(await page.evaluate(point=>document.elementFromPoint(point.x,point.y)?.matches('canvas.upper-canvas')??false,point)).toBe(true);}
 async function capture(page:Page,info:TestInfo,name:string){if(!visualHeavy())return;const path=info.outputPath(`${name}-${page.viewportSize()!.width}.png`);await page.screenshot({path});await info.attach(name,{path,contentType:'image/png'});}
 async function rgba(page:Page,point:{x:number;y:number},size=3){
@@ -43,22 +63,34 @@ async function shapeStrokePixels(page:Page,geometry:{x:number;y:number;width:num
 }
 async function withBoard(page:Page,api:APIRequestContext,info:TestInfo,run:(binding:{token:string;boardId:string;transport:ReturnType<typeof createSpatialWsMetadataRecorder>})=>Promise<void>){
  let boardId:string|undefined,token:string|undefined,serverActor:string|undefined,source:ReturnType<typeof runtimeSourceIdentity>|undefined,verify:(()=>Promise<unknown>)|undefined,beforeProof:unknown,afterProof:unknown,failure:unknown;
+ let failureStage='SETUP';
+ const diagnostics=observeNativeBrowserDiagnostics(page,`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`);
  const title=`R01 native matrix ${randomUUID()}`,transport=createSpatialWsMetadataRecorder(),chunks=observeRuntimeChunks(page);transport.observe(page,'original');
  try{
-  source=runtimeSourceIdentity();
-  const manifestPath=process.env.BOARD_CONNECTOR_RUNTIME_MANIFEST;if(!manifestPath)throw new Error('R01_NATIVE_MANIFEST_REQUIRED');
+  await diagnostics.ready;
+  failureStage='SOURCE';source=runtimeSourceIdentity();
+  failureStage='MANIFEST';const manifestPath=process.env.BOARD_CONNECTOR_RUNTIME_MANIFEST;if(!manifestPath)throw new Error('R01_NATIVE_MANIFEST_REQUIRED');
   const verifierPath=join(root,'apps/web/e2e/support/native-runtime/runtime-attestation.mjs'),selectorPath=join(root,'scripts/local-session/board-runtime-source-files.mjs'),authority=await import(pathToFileURL(verifierPath).href),selector=await import(pathToFileURL(selectorPath).href);
   const sourceFiles=selector.listRuntimeSourceFiles(root);
   verify=async()=>{const manifestBytes=await readFile(manifestPath),verifierBytes=await readFile(verifierPath),selectorBytes=await readFile(selectorPath),identity=authority.verifyRuntimeManifest({manifestPath,root,base:process.env.BOARD_R01_WEB_URL,origin:`http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`,sourceFiles});expect(JSON.parse(manifestBytes.toString()).head).toBe(process.env.BOARD_ACCEPTANCE_SHA);return {identity,manifestHash:createHash('sha256').update(manifestBytes).digest('hex'),verifierHash:createHash('sha256').update(verifierBytes).digest('hex'),selectorHash:createHash('sha256').update(selectorBytes).digest('hex')};};beforeProof=await verify();
-  token=await boardLogin(page);const identity=await(await boardApi(api,token,'GET','/kernel/probe/whoami')).json();expect(identity.userId).toBe(F.userId);serverActor=identity.userId;boardId=await createAcceptanceBoard(api,token,title);
-  await run({token,boardId,transport});await verifyRuntimeIdentity(api,source,await chunks());
- }catch(error){failure=error;throw error;}
+  failureStage='LOGIN';token=await boardLogin(page);failureStage='ACTOR';const identity=await(await boardApi(api,token,'GET','/kernel/probe/whoami')).json();expect(identity.userId).toBe(F.userId);serverActor=identity.userId;failureStage='CREATE_BOARD';boardId=await createAcceptanceBoard(api,token,title);
+  failureStage='CASE';await run({token,boardId,transport});failureStage='END_RUNTIME';await verifyRuntimeIdentity(api,source,await chunks());
+ }catch(error){failure=error;throw new AggregateError([error],fixedNativeFailure('R01',failureStage));}
  finally{
   const errors:unknown[]=[];
+  try{await info.attach('native-browser-safe-diagnostics',{body:JSON.stringify(await diagnostics.snapshot()),contentType:'application/json'});}catch(error){errors.push(error);}finally{diagnostics.dispose();}
   let owned=false;if(boardId&&token)try{const board=await(await boardApi(api,token,'GET',`/whiteboards/${boardId}`)).json();expect(board.ownerId).toBe(F.userId);expect(board.name).toBe(title);owned=true;}catch(error){errors.push(error);}
+  let cleanupPending=Boolean(boardId),fixtureCleanup:Awaited<ReturnType<typeof deleteOwnedConnectorFixture>>|null=null;
+  // Only the producer's verified owned runtime grants fixture cleanup. External
+  // existing-runtime sessions preserve their boards until explicitly authorized.
+  if(owned&&boardId&&token&&process.env.BOARD_R01_OWNED_FIXTURE_CLEANUP==='1')try{
+   fixtureCleanup=await deleteOwnedConnectorFixture(api,token,boardId,F.userId,title);
+   cleanupPending=false;
+  }catch(error){errors.push(error);}
   try{afterProof=await verify?.();expect(afterProof).toEqual(beforeProof);}catch(error){errors.push(error);}
-  try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,observationMode:observationMode(),visualEvidence:visualHeavy()?'executed-not-human-approved':'deferred-not-verified',status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending:owned,boardId:owned?boardId:null,title:owned?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
-  if(errors.length)throw new AggregateError(failure?[failure,...errors]:errors,'R01_FINAL_PROOF_FAILED');
+  try{const screenshots=await Promise.all(info.attachments.filter(item=>item.contentType==='image/png'&&item.path).map(async item=>({name:item.name,sha256:createHash('sha256').update(await readFile(item.path!)).digest('hex')})));const path=info.outputPath('r01-result.json');await writeFile(path,JSON.stringify({source,testIdentity:{title:info.title,project:info.project.name},serverActor,beforeProof,afterProof,screenshots,observationMode:observationMode(),visualEvidence:visualHeavy()?'executed-not-human-approved':'deferred-not-verified',status:failure||errors.length?'failed':'functional-cases-passed',completed:false,cleanupPending,fixtureCleanup,boardId:cleanupPending?boardId:null,title:cleanupPending?title:null,hardwareTrackpad:'unverified',cancellationEvidence:'browser-dispatched pointercancel and blur; trusted mouse pan and release',transport:transport.snapshot()}),{mode:0o600});await info.attach('r01-result',{path,contentType:'application/json'});}catch(error){errors.push(error);}
+  if(errors.length)throw new AggregateError(failure?[failure,...errors]:errors,failure?fixedNativeFailure('R01',failureStage)+' FINAL_PROOF':fixedNativeFailure('R01','FINAL_PROOF'));
+
  }
 }
 
@@ -68,7 +100,7 @@ test('N01-N02 auxiliary pan held release cancellation and Select pointer wheel p
  await page.getByTestId('board-tool-select').click();const before=await canonicalBoardSnapshot(api,token,boardId);
  const unchanged=async()=>{expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(before);expect(transport.snapshot().events.filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');};
  for(const button of ['middle','right'] as const)for(const finish of ['release','escape','pointercancel','blur'] as const){
-  const v=await viewport(page),start={x:Math.round(v.box.x+30),y:Math.round(v.box.y+70)},delta={x:24,y:18};await topCanvas(page,start);
+  const v=await viewport(page),start=await blankCanvasPoint(page,v),delta={x:24,y:18};await topCanvas(page,start);
   const center={x:v.box.x+v.x+160*v.z,y:v.box.y+v.y+160*v.z},literalFill=visualHeavy()?await rgba(page,center):null;
   if(literalFill)expect(literalFill.filter((value,index)=>index%4===1&&value===197).length).toBeGreaterThan(0);
   const movedEdge={x:v.box.x+v.x+200*v.z+delta.x/2,y:center.y+delta.y/2};
@@ -98,9 +130,9 @@ test('N01-N02 auxiliary pan held release cancellation and Select pointer wheel p
 test('N05 transformed multi drawing erase preserves image Sticky Shape and locked ink in one durable history transaction',async({page,request:api},info)=>withBoard(page,api,info,async({token,boardId,transport})=>{
  await openBoard(page,boardId,0);const surface=page.getByTestId('board-fabric-surface');
  for(let index=0;index<3;index++){
-  await page.getByTestId('board-tool-select').click();const v=await viewport(page),blank={x:v.box.x+20,y:v.box.y+30};await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
+  await page.getByTestId('board-tool-select').click();const v=await viewport(page),blank=await blankCanvasPoint(page,v);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-pen').click();await page.getByTestId('board-draw-stroke-20').click();await page.getByTestId('board-draw-color-18181b').click();
-  const start={x:Math.round(v.box.x+40+index*80),y:Math.round(v.box.y+90+index*35)},end={x:start.x+40,y:start.y+20};await topCanvas(page,start);await topCanvas(page,end);
+  const start=await blankCanvasPoint(page,v),end={x:start.x+40,y:start.y+20};await topCanvas(page,start);await topCanvas(page,end);
   await page.mouse.move(start.x,start.y);await page.mouse.down();await page.mouse.move(end.x,end.y,{steps:12});await page.mouse.up();
   await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects.filter(object=>object.kind==='drawing').length).toBe(index+1);
  }
@@ -116,7 +148,7 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  await boardApi(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:[{type:'geometry',id:image.id,geometry:{x:160,y:345,width:64,height:48,rotation:0}}]});
  await expect(surface.locator('canvas.lower-canvas')).toHaveCount(1);await page.getByTestId('board-tool-select').click();
  const v=await viewport(page),screen=(point:{x:number;y:number})=>({x:v.box.x+v.x+point.x*v.z,y:v.box.y+v.y+point.y*v.z});
- const clearSelection=async()=>{const current=await viewport(page),blank={x:current.box.x+current.x+20*current.z,y:current.box.y+current.y+30*current.z};await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await settled(page);};await clearSelection();
+ const clearSelection=async()=>{const current=await viewport(page),blank=await blankCanvasPoint(page,current);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await settled(page);};await clearSelection();
  const baseline=await canonicalBoardSnapshot(api,token,boardId),sites=drawings.map((drawing,index)=>{
   const content=drawing.extensionData!.contentObject as {strokes:Array<{tool:string;color:string;width:number;opacity:number;points:Array<{x:number;y:number}>}>};
   expect(content.strokes).toHaveLength(1);expect(content.strokes[0]).toMatchObject({tool:'pen',color:'#18181B',width:20,opacity:1});
@@ -131,6 +163,9 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  if(visualHeavy())await expect.poll(()=>rgba(page,screen(protectedSites[1]!))).toEqual(Array.from({length:9},()=>[231,29,73,255]).flat());
  const protectedPixels=visualHeavy()?await Promise.all(protectedSites.map(point=>rgba(page,screen(point)))):[];
  await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();
+ // f5b46c42c (#5356) changed the fixed nominal world brush width 24 → 48.
+ // Assert the literal user-facing contract; do not derive this oracle from product helpers.
+ await expect(page.getByLabel('Eraser width')).toHaveText('48px');
  const route=[sites[0]!.point,sites[1]!.point,sites[2]!.point,...protectedSites],start=screen(route[0]!);
  // Observe trusted native inputs only; no Fabric state is read or changed.
  const eventStart=transport.snapshot().events.length,updates=()=>transport.snapshot().events.slice(eventStart).filter(event=>event.direction==='sent'&&event.type==='update');
@@ -163,7 +198,7 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
   for(const point of oldPoints)assertPoints([drawingPointWorld(after.geometry,newPoints,point)],[drawingPointWorld(original.geometry,oldPoints,point)]);
   const mask=afterStrokes.at(-1)!;expect(mask.erases).toEqual(originalStrokes.map(stroke=>stroke.id));
   expect(mask.tool).toBe('eraser');expect(mask.color).toBe('#FFFFFF');expect(mask.opacity).toBe(1);expect(mask.points.every(point=>point.pressure===.5)).toBe(true);
-  const xs=oldPoints.map(point=>point.x),ys=oldPoints.map(point=>point.y);expect(mask.width).toBeCloseTo(24*Math.min(Math.max(1,Math.max(...xs)-Math.min(...xs))/Math.max(1,original.geometry.width),Math.max(1,Math.max(...ys)-Math.min(...ys))/Math.max(1,original.geometry.height)),4);
+  const xs=oldPoints.map(point=>point.x),ys=oldPoints.map(point=>point.y);expect(mask.width).toBeCloseTo(48*Math.min(Math.max(1,Math.max(...xs)-Math.min(...xs))/Math.max(1,original.geometry.width),Math.max(1,Math.max(...ys)-Math.min(...ys))/Math.max(1,original.geometry.height)),4);
   const maskWorld=mask.points.map(point=>drawingPointWorld(after.geometry,newPoints,point));expect(maskWorld.length).toBeGreaterThan(1);
   for(const actual of maskWorld)expect(Math.min(...worldInputs.map(input=>Math.hypot(input.x-actual.x,input.y-actual.y)))).toBeLessThanOrEqual(.01);
   for(const input of worldInputs)expect(Math.min(...maskWorld.map(actual=>Math.hypot(input.x-actual.x,input.y-actual.y)))).toBeLessThanOrEqual(.01);
@@ -188,7 +223,7 @@ test('N05 transformed multi drawing erase preserves image Sticky Shape and locke
  const redoStart=transport.snapshot().events.length;await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=>(await canonicalBoardSnapshot(api,token,boardId)).objects).toEqual(erased.objects);
  const redone=await canonicalBoardSnapshot(api,token,boardId);assertAtomicRevision(undone.revision,redone.revision,1);assertAtomicRevision(erased.revision,redone.revision,2);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
  await clearSelection();if(visualHeavy())expect(await Promise.all(sites.map(site=>rgba(page,screen(site.point),11)))).toEqual(erasedInk);await assertHistoryReceipt(redoStart,undone.revision,redone,undoUpdateId);
- await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();const emptyStart=transport.snapshot().events.length,empty=screen({x:20,y:30});await topCanvas(page,empty);await page.mouse.move(empty.x,empty.y);await page.mouse.down();await page.mouse.move(empty.x+10,empty.y+5);await page.mouse.up();expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(emptyStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
+ await page.getByTestId('board-add-draw').click();await page.getByTestId('board-draw-eraser').click();const emptyStart=transport.snapshot().events.length,empty=await blankCanvasPoint(page,await viewport(page));await topCanvas(page,empty);await page.mouse.move(empty.x,empty.y);await page.mouse.down();await page.mouse.move(empty.x+10,empty.y+5);await page.mouse.up();expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(emptyStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
  await page.reload();await expectBoardSynced(page);await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(6);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);await clearSelection();
  const refreshed=await viewport(page),refreshScreen=(point:{x:number;y:number})=>({x:refreshed.box.x+refreshed.x+point.x*refreshed.z,y:refreshed.box.y+refreshed.y+point.y*refreshed.z});
  if(visualHeavy())for(let index=0;index<2;index++)assertTransparentPixels(await rgba(page,refreshScreen(sites[index]!.point),11));
@@ -208,14 +243,29 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
  await boardApi(api,token,'POST',`/whiteboards/${boardId}/commands`,{requestId:randomUUID(),epoch:1,commands:createCommands([a,b,drawing,edge])});await openBoard(page,boardId,4);
  await page.getByTestId('board-zoom-menu').click();await page.getByText('实际大小 100%',{exact:true}).click();
  for(let index=0;index<Math.round(Math.abs(matrixZoom-1)*10);index++){await page.getByTestId('board-zoom-menu').click();await page.getByTestId(matrixZoom<1?'board-zoom-out':'board-zoom-in').click();}
- expect((await viewport(page)).z).toBeCloseTo(matrixZoom,6);const initial=await viewport(page),pan={x:matrixZoom===2?-80:35,y:matrixZoom===2?-180:45};await page.mouse.move(initial.box.x+20,initial.box.y+30);await page.mouse.wheel(initial.x-pan.x,initial.y-pan.y);await expect.poll(async()=>{const v=await viewport(page);return [v.x,v.y];}).toEqual([pan.x,pan.y]);
+ // Use a real nonzero wheel pan that leaves room above the fixtures for toolbar
+ // chrome: the old near-top framing covered the native bottom rotation control.
+ expect((await viewport(page)).z).toBeCloseTo(matrixZoom,6);const initial=await viewport(page),pan={x:matrixZoom===2?-80:35,y:matrixZoom===2?40:145};const wheelPoint=await blankCanvasPoint(page,initial);await topCanvas(page,wheelPoint);await page.mouse.move(wheelPoint.x,wheelPoint.y);await page.mouse.wheel(initial.x-pan.x,initial.y-pan.y);await expect.poll(async()=>{const v=await viewport(page);return [v.x,v.y];}).toEqual([pan.x,pan.y]);
  for(const gesture of ['move','rotate','scale'] as const)for(const outcome of ['cancel','commit'] as const){
   const before=await canonicalBoardSnapshot(api,token,boardId),baseline=[a.id,b.id,drawing.id].map(id=>before.objects.find(object=>object.id===id)!);
   const v=await viewport(page),screen=(point:{x:number;y:number})=>({x:v.box.x+v.x+point.x*v.z,y:v.box.y+v.y+point.y*v.z});
-  const blank={x:v.box.x+20,y:v.box.y+30};await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
-  for(const [index,value] of baseline.entries()){
-   const point=screen(entityPoint(value.geometry,{x:value.geometry.width/2,y:value.geometry.height/2}));await topCanvas(page,point);
-   if(index)await page.keyboard.down('Shift');try{await page.mouse.click(point.x,point.y);}finally{if(index)await page.keyboard.up('Shift');}
+  const blank=await blankCanvasPoint(page,v);await topCanvas(page,blank);await page.mouse.click(blank.x,blank.y);
+  // With room above the fixture, select from top to bottom: selecting the
+  // lowest drawing first puts its toolbar over the smaller upper widgets.
+  // Preserve the canonical baseline and all transform oracles independently.
+  const selectionOrder=[...baseline].sort((a,b)=>Math.min(...entityCorners(a.geometry).map(p=>p.y))-Math.min(...entityCorners(b.geometry).map(p=>p.y)));
+  for(const [index,value] of selectionOrder.entries()){
+   // A selected widget's floating chrome can cover another widget's center.
+   // Keep native canvas selection, but choose an exposed interior point using
+   // canonical geometry and DOM hit-testing instead of forcing Fabric state.
+   const fractions=value.kind==='drawing'?[.5,.35,.65,.2,.8].map(t=>({x:t,y:t})):
+    [.5,.3,.7,.15,.85].flatMap(x=>[.5,.3,.7,.15,.85].map(y=>({x,y})));
+   const otherBounds=before.objects.filter(other=>other.id!==value.id).map(other=>{const corners=entityCorners(other.geometry);return {left:Math.min(...corners.map(p=>p.x)),right:Math.max(...corners.map(p=>p.x)),top:Math.min(...corners.map(p=>p.y)),bottom:Math.max(...corners.map(p=>p.y))};});
+   const candidates=fractions.map(f=>entityPoint(value.geometry,{x:value.geometry.width*f.x,y:value.geometry.height*f.y})).filter(p=>!otherBounds.some(b=>p.x>=b.left&&p.x<=b.right&&p.y>=b.top&&p.y<=b.bottom)).map(screen);
+   const point=await page.evaluate(points=>points.find(p=>document.elementFromPoint(p.x,p.y)?.matches('canvas.upper-canvas'))??null,candidates);
+   expect(point,`native canvas must expose widget ${value.id} for selection`).not.toBeNull();await topCanvas(page,point!);
+   if(index)await page.keyboard.down('Shift');try{await page.mouse.click(point!.x,point!.y);}finally{if(index)await page.keyboard.up('Shift');}
+   await expect.poll(()=>page.getByTestId('board-a11y-mirror').locator('button[aria-pressed="true"]').evaluateAll(buttons=>buttons.map(button=>button.closest('li')!.getAttribute('data-object-id')).sort())).toEqual(selectionOrder.slice(0,index+1).map(object=>object.id).sort());
   }
   await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('已选择 3 个对象');
   const corners=baseline.flatMap(value=>entityCorners(value.geometry)),left=Math.min(...corners.map(point=>point.x)),right=Math.max(...corners.map(point=>point.x)),top=Math.min(...corners.map(point=>point.y)),bottom=Math.max(...corners.map(point=>point.y));
@@ -282,7 +332,7 @@ for(const matrixZoom of [.5,2])test(`N03-N04 native Sticky Shape Drawing multi t
   await page.reload();await expectBoardSynced(page);await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(4);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);
   const refreshedScenes=JSON.parse((await page.getByTestId('board-fabric-surface').getAttribute('data-object-scenes'))!) as Array<{id:string;worldCorners:Array<{x:number;y:number}>}>;
   for(const value of expected)assertPoints(refreshedScenes.find(item=>item.id===value.id)!.worldCorners,entityCorners(value.geometry),.01);
-  await page.getByTestId('board-tool-select').click();const fresh=await viewport(page),freshBlank={x:fresh.box.x+20,y:fresh.box.y+30},clearEventStart=transport.snapshot().events.length;await topCanvas(page,freshBlank);await page.mouse.click(freshBlank.x,freshBlank.y);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await expect(page.getByTestId('board-selection-layout-toolbar')).toHaveCount(0);await expect.poll(()=>page.getByTestId('board-fabric-surface').getAttribute('data-selection-scene')).toBeNull();await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(clearEventStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);await verifyEntityPixels(point=>({x:fresh.box.x+fresh.x+point.x*fresh.z,y:fresh.box.y+fresh.y+point.y*fresh.z}),fresh,false);await settled(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(clearEventStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
+  await page.getByTestId('board-tool-select').click();const fresh=await viewport(page),freshBlank=await blankCanvasPoint(page,fresh),clearEventStart=transport.snapshot().events.length;await topCanvas(page,freshBlank);await page.mouse.click(freshBlank.x,freshBlank.y);await expect(page.getByTestId('board-a11y-selection-announcement')).toHaveText('未选择对象');await expect(page.getByTestId('board-selection-layout-toolbar')).toHaveCount(0);await expect.poll(()=>page.getByTestId('board-fabric-surface').getAttribute('data-selection-scene')).toBeNull();await settled(page);await expectBoardSynced(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(clearEventStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);await verifyEntityPixels(point=>({x:fresh.box.x+fresh.x+point.x*fresh.z,y:fresh.box.y+fresh.y+point.y*fresh.z}),fresh,false);await settled(page);expect(await canonicalBoardSnapshot(api,token,boardId)).toEqual(redone);expect(transport.snapshot().events.slice(clearEventStart).filter(event=>event.direction==='sent'&&event.type==='update')).toEqual([]);
   await capture(page,info,`multi-${gesture}-refreshed`);
  }
 }));

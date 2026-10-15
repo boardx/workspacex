@@ -17,6 +17,8 @@ export default defineConfig({ resolve:{alias:{
   '@repo/contracts/whiteboard-collaboration':resolve(__dirname,'../../packages/contracts/src/whiteboard-collaboration.ts'),
   '@repo/contracts/whiteboard-operation':resolve(__dirname,'../../packages/contracts/src/whiteboard-operation.ts'),
   '@repo/contracts/whiteboard-storage':resolve(__dirname,'../../packages/contracts/src/whiteboard-storage.ts'),
+  '@repo/contracts/report-files':resolve(__dirname,'../../packages/contracts/src/report-files.ts'),
+  '@repo/contracts/work-eval':resolve(__dirname,'../../packages/contracts/src/work-eval.ts'),
   '@repo/contracts/interview-markdown-report-review':resolve(__dirname,'../../packages/contracts/src/interview-markdown-report-review.ts'),
   '@repo/contracts':resolve(__dirname,'../../packages/contracts/src/index.ts'),
   '@repo/whiteboard-core':resolve(__dirname,'../../packages/whiteboard-core/src/index.ts'),

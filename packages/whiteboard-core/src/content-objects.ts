@@ -6,7 +6,7 @@ import {
   type BoardCommandAccepted,
   type BoardCommandEnvelope,
 } from './command-port';
-import { cloneDocument, objectMap, validateDocument } from './document';
+import { cloneDocument, objectMap, readStoredObject, validateDocument } from './document';
 import {
   parseContentObject,
   readContentObject,
@@ -64,7 +64,7 @@ function applyReplace(doc: Y.Doc, command: ReplaceContentObjectCommand): { befor
   if (command.type !== 'replace-content' || !ID.test(command.id)) throw new Error('CONTENT_COMMAND_INVALID');
   const item = objectMap(doc).get(command.id);
   if (!item) throw new Error('OBJECT_NOT_FOUND');
-  const current = WhiteboardObject.parse({ ...item.toJSON(), id: command.id });
+  const current = readStoredObject(doc, command.id)!;
   const before = readContentObject(current); if (!before) throw new Error('CONTENT_OBJECT_NOT_FOUND');
   const after = parseContentObject(command.content);
   if (before.type !== after.type) throw new Error('CONTENT_OBJECT_TYPE_IMMUTABLE');

@@ -183,8 +183,31 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
 
   // Real marquee exercises Fabric ActiveSelection; matrix scale/rotation stays covered by
   // the renderer's deterministic Fabric tests until Iteration 06 normalizes its origin.
-  const canvas = page.getByTestId("board-fabric-canvas"); const box = (await canvas.boundingBox())!;
-  await page.mouse.move(box.x + 20, box.y + 80); await page.mouse.down(); await page.mouse.move(box.x + 1250, box.y + 760, { steps: 12 }); await page.mouse.up();
+  // A persisted/auto-panned viewport makes fixed box-relative coordinates
+  // unreliable. Fit through the real UI, then enclose all actual Fabric bounds.
+  await page.getByTestId("board-zoom-fit-board").click();
+  const marquee = await surface.evaluate(host => {
+    const canvas = host.querySelector('canvas.upper-canvas');
+    if (!canvas) throw new Error('SPATIAL_MARQUEE_CANVAS_MISSING');
+    const box = canvas.getBoundingClientRect(), data = (host as HTMLElement).dataset;
+    const zoom = Number(data.viewportZoom), panX = Number(data.viewportPanX), panY = Number(data.viewportPanY);
+    const scenes = JSON.parse(data.objectScenes ?? '[]') as Array<{left:number;top:number;width:number;height:number}>;
+    if (scenes.length !== 3 || ![zoom,panX,panY].every(Number.isFinite) || zoom <= 0 || scenes.some(scene => ![scene.left,scene.top,scene.width,scene.height].every(Number.isFinite))) throw new Error('SPATIAL_MARQUEE_GEOMETRY_INVALID');
+    const left = box.x + panX + Math.min(...scenes.map(scene => scene.left)) * zoom;
+    const top = box.y + panY + Math.min(...scenes.map(scene => scene.top)) * zoom;
+    const right = box.x + panX + Math.max(...scenes.map(scene => scene.left + scene.width)) * zoom;
+    const bottom = box.y + panY + Math.max(...scenes.map(scene => scene.top + scene.height)) * zoom;
+    for (const padding of [16,24,32]) {
+      const corners = [{x:left-padding,y:top-padding},{x:right+padding,y:top-padding},{x:right+padding,y:bottom+padding},{x:left-padding,y:bottom+padding}];
+      for (const index of [0,1]) {
+        const start = corners[index]!, end = corners[index+2]!;
+        if ([start,end].every(point => point.x > box.left+40 && point.x < box.right-40 && point.y > box.top+40 && point.y < box.bottom-40 && document.elementFromPoint(point.x,point.y) === canvas)) return {start,end};
+      }
+    }
+    throw new Error(`SPATIAL_MARQUEE_NO_CLEAR_CORNERS ${JSON.stringify({zoom,panX,panY,left,top,right,bottom})}`);
+  });
+  await page.mouse.move(marquee.start.x,marquee.start.y);await page.mouse.down();
+  await page.mouse.move(marquee.end.x,marquee.end.y,{steps:12});await page.mouse.up();
   await expect(page.getByTestId("board-a11y-selection-announcement")).toHaveText("已选择 3 个对象");
 
   const panel = objectRow(page, "panel");
@@ -261,20 +284,34 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await page.getByTestId("board-zoom-fit-board").click();
   const sourceHandle = page.getByTestId(`connector-handle-${firstId}-right`);
   await expect(sourceHandle).toBeVisible();
-  const sourceBounds = (await sourceHandle.boundingBox())!;
-  const targetAnchor = anchorPoint(await geometryOf(secondSticky), "left");
+  // Fit is projected on the next animation frame. Read source hit target,
+  // target geometry and viewport together only after that projection settles.
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  const gesturePoints = await surface.evaluate((host,{sourceId,targetId})=>{
+    const source=document.querySelector(`[data-testid="connector-handle-${sourceId}-right"]`),target=document.querySelector(`[data-testid="board-a11y-mirror"] li[data-object-id="${targetId}"]`);
+    const canvas=host.querySelector('canvas.upper-canvas');
+    if(!source||!target||!canvas)throw new Error('SPATIAL_CONNECTOR_TARGET_MISSING');
+    const bounds=source.getBoundingClientRect(),box=canvas.getBoundingClientRect(),data=(host as HTMLElement).dataset;
+    const zoom=Number(data.viewportZoom),panX=Number(data.viewportPanX),panY=Number(data.viewportPanY),geometry=JSON.parse(target.getAttribute('data-geometry')!);
+    if(![zoom,panX,panY,geometry.x,geometry.y,geometry.width,geometry.height,geometry.rotation].every(Number.isFinite)||zoom<=0)throw new Error('SPATIAL_CONNECTOR_VIEWPORT_INVALID');
+    const angle=geometry.rotation*Math.PI/180,dx=-geometry.width/2;
+    const targetPointer={x:box.x+panX+(geometry.x+geometry.width/2+dx*Math.cos(angle))*zoom,y:box.y+panY+(geometry.y+geometry.height/2+dx*Math.sin(angle))*zoom};
+    for(const fx of [.5,.25,.75])for(const fy of [.5,.25,.75]){
+      const point={x:bounds.x+bounds.width*fx,y:bounds.y+bounds.height*fy},hit=document.elementFromPoint(point.x,point.y);
+      if(hit===source||source.contains(hit))return{source:point,target:targetPointer};
+    }
+    throw new Error('SPATIAL_CONNECTOR_SOURCE_OCCLUDED');
+  },{sourceId:firstId,targetId:secondId});
   const connectorViewport = await canvasTransform(page);
-  const targetPointer = {
-    x: connectorViewport.box.x + connectorViewport.panX + targetAnchor.x * connectorViewport.zoom,
-    y: connectorViewport.box.y + connectorViewport.panY + targetAnchor.y * connectorViewport.zoom,
-  };
+  const targetPointer = gesturePoints.target;
   expect(targetPointer.x).toBeGreaterThan(connectorViewport.box.x);
   expect(targetPointer.x).toBeLessThan(connectorViewport.box.x + connectorViewport.box.width);
   expect(targetPointer.y).toBeGreaterThan(connectorViewport.box.y);
   expect(targetPointer.y).toBeLessThan(connectorViewport.box.y + connectorViewport.box.height);
-  await page.mouse.move(sourceBounds.x + sourceBounds.width / 2, sourceBounds.y + sourceBounds.height / 2);
+  await page.mouse.move(gesturePoints.source.x,gesturePoints.source.y);
   await page.mouse.down();
   await page.mouse.move(targetPointer.x, targetPointer.y, { steps: 12 });
+  await expect(page.getByTestId('board-connector-snap-cue')).toHaveAttribute('data-target-id',secondId);
   await expect(objectRow(page, "connector")).toHaveCount(0);
   await page.mouse.up();
   await expect(objectRow(page, "connector")).toBeVisible();

@@ -1,9 +1,11 @@
+import {WhiteboardCommandBatch} from '@repo/contracts/whiteboard-document';
+import {connectorBoardLogin} from './support/connector-authenticated-login';
 import {test,expect} from '@playwright/test';
 import {randomUUID} from 'node:crypto';
 import {writeFile} from 'node:fs/promises';
 import {PortableExportResult,PortableImportResult} from '@repo/contracts/whiteboard-portable';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardLogin,boardApi,apiOrigin,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
+import {boardApi,apiOrigin,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity,sha256} from './board-runtime-evidence';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 import {exactInterchangeObjects,portableExportProof,portableObjectExpectation} from './support/connector-c08-oracle.mjs';
@@ -23,12 +25,13 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}])test(`C08
  let manifestBefore:Awaited<ReturnType<typeof verifyConnectorRuntimeManifest>>|undefined;
  try{
   manifestBefore=await verifyConnectorRuntimeManifest();records.push({phase:'runtime-manifest-before',...manifestBefore});
-  const loginResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/auth/login')&&response.request().method()==='POST');token=await boardLogin(page);const login=await (await loginResponse).json();expect(login.userId).toBe(F.userId);expect(login.sessionToken).toBe(token);
+  token=await connectorBoardLogin(page,info);
   for(const type of ['straight','elbow','curve'] as const){
    const sourceId=await make(`C08 ${type} source`),sourceObjects=[object('c08-a','sticky',150,180,'A',140,100),object('c08-b','sticky',850,420,'B',140,100)];
    const route=type==='curve'?{kind:'curve' as const,startOffset:{x:100,y:-70},endOffset:{x:-80,y:25}}:type==='elbow'?{kind:'elbow' as const,waypoints:[{x:450,y:230},{x:450,y:470}]}:undefined;
    const advanced={fromAnchor:'right' as const,toAnchor:'left' as const,type,route,strokeWidth:24,label:'中文 English C08',semanticRelation:'depends_on',labelPosition:{t:.73,normalOffset:-29},startStyle:'circle' as const,endStyle:'diamond' as const,lineStyle:'dotted' as const};
-   const edges=[{...object('c08-bound','connector',290,230,'中文 English C08',560,240),style:{stroke:'#E11D48'},connector:{...advanced,from:'c08-a',to:'c08-b'}},{...object('c08-free','connector',250,650,'中文 English C08',650,0),style:{stroke:'#E11D48'},connector:{...advanced,fromPoint:{x:250,y:650},toPoint:{x:900,y:650}}}];
+   const edges=[{...object('c08-bound','connector',290,230,'中文 English C08',560,240),style:{stroke:'#E11D48'},connector:{...advanced,from:'c08-a',to:'c08-b'}},{...object('c08-free','connector',250,650,'中文 English C08',650,1),style:{stroke:'#E11D48'},connector:{...advanced,fromPoint:{x:250,y:650},toPoint:{x:900,y:650}}}];
+   expect(WhiteboardCommandBatch.safeParse(createCommands([...sourceObjects,...edges])).success).toBe(true);
    await operate(api,token,sourceId,createCommands([...sourceObjects,...edges]));const before=await canonicalBoardSnapshot(api,token,sourceId);await capture(sourceId,`${type}-source`,before.objects);
    records.push({phase:'runtime-before',type,identity:await verifyRuntimeIdentity(api,source,await chunks())});
    const exported=PortableExportResult.parse(await (await boardApi(api,token,'POST',`/whiteboards/${sourceId}/portable/export`,{})).json());portableExportProof(exported,before.objects,before.revision);

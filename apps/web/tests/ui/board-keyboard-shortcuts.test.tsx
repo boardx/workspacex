@@ -1,14 +1,14 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { createWhiteboardDocument, readObjects } from "@repo/whiteboard-core";
+import { createWhiteboardDocument, executeCommands, readObjects } from "@repo/whiteboard-core";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 const probe = vi.hoisted(() => ({ tool: "", selection: [] as string[] }));
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
-  BoardFabricSurface: ({ objects, tool, onSelectionChange, onCanvasClick }: { objects: readonly BoardFabricObject[]; tool: string; onCanvasClick: (point:{x:number;y:number})=>void; onSelectionChange: (ids: readonly string[], source: "canvas") => void }) => {
-    probe.tool = tool; probe.selection = objects.map((object) => object.id);
-    return <div data-testid="surface"><button data-testid="canvas-click" onClick={()=>onCanvasClick({x:200,y:240})}>place</button><button data-testid="select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), "canvas")}>select</button></div>;
+  BoardFabricSurface: ({ objects, tool, onSelectionChange, onCanvasClick, selectedObjectIds }: { selectedObjectIds: readonly string[]; objects: readonly BoardFabricObject[]; tool: string; onCanvasClick: (point:{x:number;y:number})=>void; onSelectionChange: (ids: readonly string[], source: "canvas") => void }) => {
+    probe.tool = tool; probe.selection = [...selectedObjectIds];
+    return <div data-testid="board-fabric-surface" tabIndex={0}><button data-testid="canvas-click" onClick={()=>onCanvasClick({x:200,y:240})}>place</button><button data-testid="select-all" onClick={() => onSelectionChange(objects.map((object) => object.id), "canvas")}>select</button></div>;
   },
 }));
 class ResizeObserverMock { observe() {} disconnect() {} }
@@ -66,4 +66,36 @@ it("copies, pastes, and duplicates canonical selections through standard shortcu
   expect(readObjects(doc)).toHaveLength(3);
   expect(new Set(readObjects(doc).map((object) => object.id)).size).toBe(3);
   doc.destroy();
+});
+
+function selectedWidgetKey(key:string) { const surface=screen.getByTestId('board-fabric-surface');surface.focus();fireEvent.keyDown(surface,{key}); }
+it.each(['sticky','rectangle'] as const)('continues selected %s with one connected operation and deletes/undoes its new selection',kind=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'source',schemaVersion:1,kind,geometry:{x:100,y:220,width:80,height:70,rotation:0},text:'',style:{fill:'#22c55e'},parentId:null,orderKey:''}}],{});
+ render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
+ let updates=0;doc.on('update',()=>{updates++;});
+ fireEvent.click(screen.getByTestId('select-all'));selectedWidgetKey('Tab');expect(updates).toBe(1);
+ const continued=readObjects(doc),next=continued.find(object=>object.id!=='source'&&object.kind===kind)!;
+ expect(next).toBeTruthy();expect(next.style).toEqual(continued.find(object=>object.id==='source')!.style);
+ expect(probe.selection).toEqual([next.id]);expect(continued.filter(object=>object.kind==='connector')).toHaveLength(1);
+ expect(continued.find(object=>object.kind==='connector')!.connector).toMatchObject({from:'source',to:next.id});
+ selectedWidgetKey('Delete');expect(updates).toBe(2);expect(readObjects(doc).map(object=>object.id)).toEqual(['source']);
+ boardKey({key:'z',ctrlKey:true});expect(updates).toBe(3);expect(readObjects(doc)).toEqual(continued);
+ boardKey({key:'z',ctrlKey:true});expect(updates).toBe(4);expect(readObjects(doc).map(object=>object.id)).toEqual(['source']);
+ boardKey({key:'z',ctrlKey:true,shiftKey:true});expect(updates).toBe(5);
+ // Redo of creation cannot revive tombstoned IDs; core recreates the entire subgraph.
+ const redone=readObjects(doc),edge=continued.find(object=>object.kind==='connector')!;
+ const restoredWidget=redone.find(object=>object.restoredFrom===next.id)!;
+ const restoredEdge=redone.find(object=>object.restoredFrom===edge.id)!;
+ expect(redone).toHaveLength(3);expect(restoredWidget).toBeTruthy();expect(restoredEdge).toBeTruthy();
+ expect(new Set(redone.map(object=>object.id)).size).toBe(3);
+ expect(redone.some(object=>object.id===next.id||object.id===edge.id)).toBe(false);
+ expect(restoredWidget).toEqual({...next,id:restoredWidget.id,restoredFrom:next.id});
+ expect(restoredEdge).toEqual({...edge,id:restoredEdge.id,restoredFrom:edge.id,connector:{...edge.connector,to:restoredWidget.id}});
+ expect(redone.find(object=>object.id==='source')).toEqual(continued.find(object=>object.id==='source'));
+ boardKey({key:'z',ctrlKey:true});expect(updates).toBe(6);expect(readObjects(doc).map(object=>object.id)).toEqual(['source']);doc.destroy();
+});
+it.each([{readOnly:true,locked:false},{readOnly:false,locked:true}])('rejects Tab/Delete with readonly=$readOnly locked=$locked',({readOnly,locked})=>{
+ const doc=createWhiteboardDocument();executeCommands(doc,[{type:'create',object:{id:'source',schemaVersion:1,kind:'rectangle',geometry:{x:100,y:220,width:80,height:70,rotation:0},text:'',style:{},parentId:null,orderKey:'',locked}}],{});
+ render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={readOnly} title="Board" status="已连接" />);
+ fireEvent.click(screen.getByTestId('select-all'));const before=readObjects(doc);selectedWidgetKey('Tab');selectedWidgetKey('Delete');expect(readObjects(doc)).toEqual(before);doc.destroy();
 });

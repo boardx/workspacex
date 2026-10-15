@@ -83,3 +83,89 @@ it("dialog picker/drop and retry are real controls, busy blocks duplicates but c
   fireEvent.drop(screen.getByTestId("board-image-dropzone"), { dataTransfer: { files: [file] } });
   expect(onFile).toHaveBeenCalledTimes(2); fireEvent.click(screen.getByTestId("board-image-close")); expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it("keeps successful batch tiles and retries only failed frozen requests", async () => {
+  const files = [file, new File(["two"], "two.png", { type: "image/png" }), new File(["three"], "three.png", { type: "image/png" })];
+  inspect.file.mockImplementation(async source => ({ ...verified, blob: source }));
+  const commit = vi.fn().mockResolvedValueOnce(true).mockRejectedValueOnce(new Error("IMAGE_ASSET_UNAVAILABLE")).mockResolvedValueOnce(true).mockResolvedValue(true), onSuccess = vi.fn();
+  const { result } = renderHook(() => useBoardImageUpload({ scope: "board", blocked: false, commit, onSuccess }));
+  const requests = files.map((source, index) => ({ source, point: { x: 32 + index * 24, y: 80 + index * 24 } }));
+  await act(() => result.current.uploadBatch(requests));
+  expect(result.current.items.map(item => item.status)).toEqual(["succeeded", "failed", "succeeded"]);
+  expect(onSuccess).not.toHaveBeenCalled();
+  requests[1]!.point.x = 999;
+  act(() => result.current.retry());
+  await waitFor(() => expect(onSuccess).toHaveBeenCalledOnce());
+  expect(commit.mock.calls.map(call => call[1])).toEqual(["photo.png", "two.png", "three.png", "two.png"]);
+  expect(commit.mock.calls[3]?.[2].point).toEqual({ x: 56, y: 104 });
+  expect(result.current.items.every(item => item.status === "succeeded")).toBe(true);
+});
+
+it("rejects duplicate batch starts and repeated File entries while preserving distinct same-name files", async () => {
+  const pending = deferred<typeof verified>(); inspect.file.mockReturnValueOnce(pending.promise).mockResolvedValue(verified);
+  const commit = vi.fn().mockResolvedValue(true);
+  const { result } = renderHook(() => useBoardImageUpload({ scope: "board", blocked: false, commit, onSuccess: vi.fn() }));
+  const sameName = new File(["different"], file.name, { type: "image/png" });
+  let running!: Promise<void>; act(() => { running = result.current.uploadBatch([request, request, { ...request, source: sameName }]); });
+  await act(() => result.current.uploadBatch([request]));
+  expect(inspect.file).toHaveBeenCalledTimes(1);
+  await act(async () => { pending.resolve(verified); await running; });
+  expect(commit).toHaveBeenCalledTimes(2);
+});
+
+it.each(["cancel", "unmount", "revoke", "scope"])("preserves a completed tile and stops all remaining batch commits after %s", async mode => {
+  const pending = deferred<typeof verified>(); inspect.file.mockResolvedValueOnce(verified).mockReturnValueOnce(pending.promise).mockResolvedValue(verified);
+  const commit = vi.fn().mockResolvedValue(true), onSuccess = vi.fn();
+  const { result, unmount, rerender } = renderHook(({ blocked, scope }) => useBoardImageUpload({ scope, blocked, commit, onSuccess }), { initialProps: { blocked: false, scope: "board" } });
+  const requests = [request, { ...request, source: new File(["second"], "second.png", { type: "image/png" }) }, { ...request, source: new File(["third"], "third.png", { type: "image/png" }) }];
+  let running!: Promise<void>; act(() => { running = result.current.uploadBatch(requests); });
+  await waitFor(() => expect(inspect.file).toHaveBeenCalledTimes(2));
+  if (mode === "cancel") act(() => result.current.cancel());
+  if (mode === "unmount") unmount();
+  if (mode === "revoke") rerender({ blocked: true, scope: "board" });
+  if (mode === "scope") rerender({ blocked: false, scope: "other-board" });
+  expect((inspect.file.mock.calls[1]?.[3] as AbortSignal).aborted).toBe(true);
+  await act(async () => { pending.resolve(verified); await running; });
+  expect(commit).toHaveBeenCalledTimes(1);
+  expect(inspect.file).toHaveBeenCalledTimes(2);
+  expect(onSuccess).not.toHaveBeenCalled();
+});
+
+it("keeps replacement batches single-file and retains the original target snapshot", async () => {
+  inspect.file.mockResolvedValue(verified);
+  const commit = vi.fn().mockResolvedValue(true);
+  const { result } = renderHook(() => useBoardImageUpload({ scope: "board", blocked: false, commit, onSuccess: vi.fn() }));
+  await act(() => result.current.uploadBatch([{ ...request, targetId: "original", targetState: "frozen" }, { ...request, source: new File(["other"], "other.png", { type: "image/png" }), targetId: "original" }]));
+  expect(commit).toHaveBeenCalledTimes(1);
+  expect(commit.mock.calls[0]?.[2]).toEqual({ ...request, targetId: "original", targetState: "frozen" });
+});
+
+it("dialog accepts a full picker/drop batch, lists per-image failures, and limits replacement drops", () => {
+  const second = new File(["two"], "two.png", { type: "image/png" }), onFiles = vi.fn(), onFile = vi.fn();
+  const props = { open: true, replacing: false, busy: false, error: "one failed", onFiles, onFile, onClose: vi.fn(), onRetry: vi.fn(), onUrl: vi.fn(), items: [{ id: 1, name: file.name, status: "succeeded" as const, error: null }, { id: 2, name: second.name, status: "failed" as const, error: "网络错误" }] };
+  const { rerender } = render(<BoardImageUploadDialog {...props} />);
+  expect((screen.getByTestId("board-image-input") as HTMLInputElement).multiple).toBe(true);
+  fireEvent.change(screen.getByTestId("board-image-input"), { target: { files: [file, second] } });
+  fireEvent.drop(screen.getByTestId("board-image-dropzone"), { dataTransfer: { files: [file, second] } });
+  expect(onFiles.mock.calls).toEqual([[[file, second]], [[file, second]]]);
+  expect(screen.getByText("网络错误")).toBeTruthy();
+  fireEvent.click(screen.getByText("仅重试失败图片")); expect(props.onRetry).toHaveBeenCalledOnce();
+  rerender(<BoardImageUploadDialog {...props} replacing />);
+  expect((screen.getByTestId("board-image-input") as HTMLInputElement).multiple).toBe(false);
+  fireEvent.drop(screen.getByTestId("board-image-dropzone"), { dataTransfer: { files: [file, second] } });
+  expect(onFile).toHaveBeenCalledOnce();
+  expect(onFile).toHaveBeenCalledWith(file);
+  expect(onFiles).toHaveBeenCalledTimes(2);
+});
+
+
+it("stops the queue on server access denial before a stale UI role can send further images", async () => {
+  inspect.file.mockResolvedValue(verified);
+  const commit = vi.fn().mockRejectedValue(new Error("IMAGE_ACCESS_DENIED"));
+  const { result } = renderHook(() => useBoardImageUpload({ scope: "board", blocked: false, commit, onSuccess: vi.fn() }));
+  await act(() => result.current.uploadBatch([request, { ...request, source: new File(["other"], "other.png", { type: "image/png" }) }]));
+  expect(inspect.file).toHaveBeenCalledTimes(1);
+  expect(commit).toHaveBeenCalledTimes(1);
+  expect(result.current.items.map(item => item.status)).toEqual(["failed", "cancelled"]);
+  expect(result.current.error).toContain("访问权限");
+});

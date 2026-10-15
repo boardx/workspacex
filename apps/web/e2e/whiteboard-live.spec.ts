@@ -117,7 +117,22 @@ test('realtime presence field convergence',async({browser,request:api,baseURL})=
       const editorCursor=owner.getByTestId(`peer-cursor-${required('WHITEBOARD_EDITOR_USER_ID')}`);await expect(editorCursor).toBeVisible({timeout:20_000});await expect(editorCursor).toHaveAccessibleName(/的光标$/);
       await expect(owner.locator('[data-testid^="peer-selection-"]')).toHaveAccessibleName(/正在编辑另一位成员的中文修改/);
       await owner.getByRole('button',{name:'更多白板操作'}).click();
-      await owner.getByTestId('board-present-viewport').click();const presenter=editor.getByTitle(/正在演示/);await expect(presenter).toBeVisible({timeout:20_000});await presenter.click();await owner.getByTestId('board-zoom-menu').click();await owner.getByTestId('board-zoom-in').click();await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
+      // Presentation is paused in Board chrome; ordinary member following remains available.
+      await expect(owner.getByTestId('board-present-viewport')).toHaveCount(0); // testid-gate: absent 用户暂时移除播放入口，断言其不再出现在白板 UI。
+      await expect(owner.getByRole('button',{name:/开始演示|结束演示|演示视图|停止演示/})).toHaveCount(0);
+      await owner.keyboard.press('Escape');
+      await editor.getByRole('button',{name:'跟随Fullstack E2E admin（成员）',exact:true}).click();
+      await expect(editor.getByRole('button',{name:'停止跟随Fullstack E2E admin（成员）',exact:true})).toBeVisible();
+      await owner.getByTestId('board-zoom-menu').click();
+      await owner.getByTestId('board-zoom-in').click();
+      await expect(editor.getByTestId('board-zoom-value')).toHaveText('110%',{timeout:20_000});
+      await editor.getByRole('button',{name:'停止跟随Fullstack E2E admin（成员）',exact:true}).click();
+      await expect(editor.getByRole('button',{name:'跟随Fullstack E2E admin（成员）',exact:true})).toBeVisible();
+      await owner.getByTestId('board-share-open').click();
+      await expect(owner.getByTestId('board-share-dialog')).toBeVisible();
+      await expect(owner.getByText('已授权 2 位协作者（不含白板所有者）。')).toBeVisible();
+      await owner.keyboard.press('Escape');
+      await expect(owner.getByTestId('board-share-dialog')).toBeHidden();
       await editor.getByRole('button',{name:'评论',exact:true}).click();
       await editor.getByLabel('评论内容').fill('请一起核对这个结论');
       await editor.getByLabel('提及成员').fill('Fullstack E2E admin');
@@ -182,8 +197,22 @@ test('comments anchor ACL',async({browser,request:api,baseURL})=>{
     await request(api,commenterToken,'POST',`/whiteboards/${boardId}/comments/commands`,worldBody);
     const listed=await request(api,commenterToken,'GET',`/whiteboards/${boardId}/comments`),items=(await listed.json() as {items:Array<{objectId:string|null;worldPosition:{x:number;y:number}|null}>}).items;
     expect(items).toContainEqual(expect.objectContaining({objectId:null,worldPosition:{x:320,y:240}}));
-    await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});await expect(commenter.getByTestId('denied')).toBeVisible({timeout:30_000});
+    const beforeDowngrade=await listed.json();
+    await request(api,ownerToken,'PUT',`/whiteboards/${boardId}/members`,{userId:required('WHITEBOARD_VIEWER_USER_ID'),role:'viewer'});
+    // Viewer still has read access; only comment writes are revoked.
     const denied=await api.post(`${required('WHITEBOARD_API_URL').replace(/\/$/,'')}/whiteboards/${boardId}/comments/commands`,{headers:{Authorization:`Bearer ${commenterToken}`},data:{...worldBody,requestId:randomUUID(),threadId:randomUUID(),commentId:randomUUID()}});expect(denied.status()).toBe(403);
+    expect(await (await request(api,commenterToken,'GET',`/whiteboards/${boardId}/comments`)).json()).toEqual(beforeDowngrade);
+    await commenter.reload();await synced(commenter);
+    await expect(commenter.getByTestId('denied')).toHaveCount(0);
+    const viewerTarget=commenter.getByRole('button',{name:'图形：comment anchor target',exact:true});
+    await expect(viewerTarget).toBeVisible();await viewerTarget.focus();await viewerTarget.press('Enter');
+    await expect(commenter.getByLabel('对象文字',{exact:true})).toHaveCount(0);
+    await commenter.getByRole('button',{name:'评论',exact:true}).click();
+    await expect(commenter.getByText('object anchored by commenter')).toBeVisible();
+    // Draft typing remains local, but a nonempty draft must not enable viewer writes.
+    await commenter.getByLabel('评论内容').fill('viewer write must remain denied');
+    await expect(commenter.getByRole('button',{name:'发布评论',exact:true})).toBeDisabled();
+    expect(await (await request(api,commenterToken,'GET',`/whiteboards/${boardId}/comments`)).json()).toEqual(beforeDowngrade);
   }finally{try{if(boardId&&ownerToken)await archiveBoard(api,ownerToken,boardId);}finally{await Promise.all([ownerContext.close(),commenterContext.close()]);}}
 });
 

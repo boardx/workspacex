@@ -8,14 +8,9 @@ export function runtimeSourceHashes(root, sourceFiles) {
   return Object.fromEntries(sourceFiles.map(path => [path,createHash('sha256').update(readFileSync(join(root,path))).digest('hex')]));
 }
 
-export function committedRuntimeSourceHashes(root, head, sourceFiles) {
-  return Object.fromEntries(sourceFiles.map(path => {
-    let bytes;
-    try { bytes = execFileSync('git', ['show', `${head}:${path}`], { cwd: root, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 16 * 1024 * 1024 }); }
-    catch { assert.fail(`runtime source must exist in attested commit: ${path}`); }
-    return [path, createHash('sha256').update(bytes).digest('hex')];
-  }));
-}
+// Native and local receipts share exact committed-blob attestation, without caching.
+export {committedRuntimeSourceHashes} from '../../apps/web/e2e/support/native-runtime/runtime-attestation.mjs';
+import {committedRuntimeSourceHashes} from '../../apps/web/e2e/support/native-runtime/runtime-attestation.mjs';
 
 export function savedSequence(label) {
   const match=/^已同步(?: · 序列 (\d+))?$/.exec(label??'');

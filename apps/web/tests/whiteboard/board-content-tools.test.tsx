@@ -248,7 +248,8 @@ it("keeps an unsupported image file recoverable without creating a broken object
   const input = openImagePicker();
   expect(input).toHaveAccessibleName("上传图片");
   fireEvent.change(input, { target: { files: [new File(["plain"], "notes.txt", { type: "text/plain" })] } });
-  expect(screen.getByText(/请选择 JPG、PNG、WEBP、GIF 或 SVG/)).toBeVisible();
+  expect(screen.getByTestId("board-image-error")).toBeVisible();
+  expect(screen.getByTestId("board-image-error")).toHaveTextContent(/请选择 JPG、PNG、WEBP、GIF 或 SVG/);
   expect(readObjects(doc)).toEqual([]);
   doc.destroy();
 });
@@ -559,7 +560,7 @@ it("rehydrates a persisted image in a fresh editor session",async()=>{
 it("never creates ready canonical content when durable upload fails",async()=>{
   vi.stubGlobal('fetch',vi.fn(async()=>new Response(null,{status:503})));
   const {doc,unmount}=await setupView();fireEvent.change(openImagePicker(),{target:{files:[new File([byteBuffer(png())],'fail.png',{type:'image/png'})]}});
-  await waitFor(()=>expect(screen.getByText(/图片未保存/)).toBeVisible());expect(readObjects(doc)).toEqual([]);expect(objectUrls.size).toBe(0);unmount();doc.destroy();
+  await waitFor(()=>{ expect(screen.getByTestId("board-image-error")).toBeVisible(); expect(screen.getByTestId("board-image-error")).toHaveTextContent(/图片未保存/); });expect(readObjects(doc)).toEqual([]);expect(objectUrls.size).toBe(0);unmount();doc.destroy();
 });
 it("exposes the import callback in the editor header",async()=>{
   const {CollaborativeEditor}=await import('@/components/whiteboard/collaborative-editor'),doc=createWhiteboardDocument(),onImport=vi.fn();

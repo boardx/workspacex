@@ -39,11 +39,11 @@ test('real loopback bytes, one 503, scoped socket drop and listener cleanup', {t
   const upstreamPort=await listen(upstream),reservation=net.createServer();port=await listen(reservation);await close(reservation);
   proxy=createFaultProxy({upstream:`http://127.0.0.1:${upstreamPort}`,scope,controlSecret:'c'.repeat(32),bearerPrefix:'bearer.',port,canonicalManifestSha256:'a'.repeat(64)});await proxy.start();
   const raw=Buffer.from([0,255,13,10,0,128,42]);const forwarded=await exchange(port,'/v1/opaque',raw);assert.equal(forwarded.status,201);assert.deepEqual(forwarded.body,raw);
-  const owned=await upgrade(port,`/v1/whiteboards/${boardId}/sync`,'one',clients);
-  const foreign=await upgrade(port,'/v1/whiteboards/bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb/sync','one',clients);assert.equal(owned.status,101);assert.equal(foreign.status,101);
+  const owned=await upgrade(port,`/whiteboards/${boardId}/sync`,'one',clients);
+  const foreign=await upgrade(port,'/whiteboards/bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb/sync','one',clients);assert.equal(owned.status,101);assert.equal(foreign.status,101);
   const control=command=>exchange(port,`/__board_fault/${command}`,Buffer.alloc(0),{'x-board-fault-control':'c'.repeat(32)});
   assert.equal((await control('hold-writes')).status,200);
-  const heldUpgrade=await upgrade(port,`/v1/whiteboards/${boardId}/sync`,'two',clients,raw);assert.equal(heldUpgrade.status,101);assert.equal(heldUpgrade.extra.length,0);
+  const heldUpgrade=await upgrade(port,`/whiteboards/${boardId}/sync`,'two',clients,raw);assert.equal(heldUpgrade.status,101);assert.equal(heldUpgrade.extra.length,0);
   let headEcho=false;heldUpgrade.socket.on('data',()=>{headEcho=true;});
   let heldEcho=false;const heldListener=()=>{heldEcho=true;};owned.socket.on('data',heldListener);owned.socket.write(raw);
   const foreignEcho=once(foreign.socket,'data');foreign.socket.write(raw);assert.deepEqual((await foreignEcho)[0],raw);
@@ -51,8 +51,8 @@ test('real loopback bytes, one 503, scoped socket drop and listener cleanup', {t
   const releasedEcho=once(owned.socket,'data'),releasedHead=once(heldUpgrade.socket,'data');assert.equal((await control('release-writes')).status,200);assert.deepEqual((await releasedEcho)[0],raw);assert.deepEqual((await releasedHead)[0],raw);owned.socket.removeListener('data',heldListener);heldUpgrade.socket.destroy();
   assert.deepEqual(proxy.receipt().requests.filter(event=>event.event.startsWith('writes-')).map(event=>event.event),['writes-held','writes-released']);
   assert.equal((await exchange(port,'/__board_fault/drop',Buffer.alloc(0))).status,403);assert.equal(owned.socket.destroyed,false);
-  assert.equal((await control('deny-once')).status,200);const denied=await upgrade(port,`/v1/whiteboards/${boardId}/sync`,'two',clients);assert.equal(denied.status,503);assert.equal(upgrades.length,3);
-  const recovered=await upgrade(port,`/v1/whiteboards/${boardId}/sync`,'two',clients);assert.equal(recovered.status,101);assert.equal(upgrades.length,4);assert.equal(proxy.receipt().deniedUpgradeCount,1);
+  assert.equal((await control('deny-once')).status,200);const denied=await upgrade(port,`/whiteboards/${boardId}/sync`,'two',clients);assert.equal(denied.status,503);assert.equal(upgrades.length,3);
+  const recovered=await upgrade(port,`/whiteboards/${boardId}/sync`,'two',clients);assert.equal(recovered.status,101);assert.equal(upgrades.length,4);assert.equal(proxy.receipt().deniedUpgradeCount,1);
   const before=proxy.receipt().requests.length;assert.equal((await control('restore')).status,200);assert.equal(proxy.receipt().requests.length,before);
   const ownedClosed=once(owned.socket,'close'),recoveredClosed=once(recovered.socket,'close');await control('drop');await Promise.all([ownedClosed,recoveredClosed]);assert.equal(foreign.socket.destroyed,false);
   const echoed=once(foreign.socket,'data');foreign.socket.write(raw);assert.deepEqual((await echoed)[0],raw);
