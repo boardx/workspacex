@@ -38,6 +38,9 @@ class CiBootstrap(unittest.TestCase):
   self.assertEqual(scope['six_names'],export.EXPORT_NESTED_FILES['six-business'])
   self.assertEqual(len(set(scope['six_names'])),67)
   self.assertIn('next-worker-01-started.json',scope['six_names']);self.assertIn('next-worker-16-exit.json',scope['six_names'])
+  workflow=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
+  for name in scope['six_names']:
+   if name.endswith('.log'):self.assertIn('cn-simulation-artifacts/round-*/six-business/'+name,workflow)
  def test_full_control_owner_receipts_have_explicit_export_whitelist(self):
   import ast
   tree=ast.parse((ROOT/'scripts/cn-release-simulation-ci.py').read_text())

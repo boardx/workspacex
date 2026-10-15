@@ -215,6 +215,7 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/sim14-evidence/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/application.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-business/next-build.log
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-infra-owner/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-target-owner/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-control-owner/*.json

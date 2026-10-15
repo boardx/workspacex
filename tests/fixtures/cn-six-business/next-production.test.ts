@@ -5,8 +5,18 @@ import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {createRequire} from 'node:module';
 import {runInNewContext} from 'node:vm';
-import {spawn} from 'node:child_process';
+import {spawn,spawnSync} from 'node:child_process';
 import {productionCommand} from './next-production-command';
+
+test('actual ESM phase entry loads the existing CommonJS config before invoking build',()=>{
+ const directory=realpathSync(mkdtempSync(join(tmpdir(),'cn-next-phase-entry-'))),preload=join(directory,'probe.cjs');
+ writeFileSync(preload,"const cp=require('node:child_process'),{EventEmitter}=require('node:events');cp.spawn=(command,options)=>{if(options.env.NODE_ENV!=='production'||options.env.WORKSPACEX_RELEASE_BUILD!=='1')throw Error('PRODUCTION_BINDINGS');process.stdout.write('FIXED_BUILD_SPAWN '+command+'\\n');const child=new EventEmitter();setImmediate(()=>child.emit('exit',7,null));return child;};");
+ const env={...process.env};for(const [i,name]of ['WORKSPACEX_API_PORT','WORKSPACEX_WEB_PORT','WORKSPACEX_MODEL_PROVIDER_PORT','WORKSPACEX_DEEP_AGENT_PROVIDER_PORT','WORKSPACEX_LOOPBACK_SANDBOX_PORT','WORKSPACEX_ASR_PROVIDER_PORT','WORKSPACEX_VISION_PROVIDER_PORT'].entries())env[name]=String(25000+i);
+ try{
+  const result=spawnSync(process.execPath,['--require',preload,'--import',resolve('node_modules/tsx/dist/loader.mjs'),resolve('tests/fixtures/cn-six-business/next-production-build.ts')],{cwd:process.cwd(),env,encoding:'utf8',timeout:10000,maxBuffer:65536});
+  assert.equal(result.status,7,result.stdout+result.stderr);assert.match(result.stdout,/FIXED_BUILD_SPAWN node ..\/..\/tests\/fixtures\/cn-six-business\/next-production-launch.cjs build 25001/);
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});
 
 test('build and runtime derive identical production bindings from the actual startup shape',()=>{
  const server={command:'NEXT_PUBLIC_API_URL=http://127.0.0.1:25001 CHAT_READ_E2E_API_ORIGIN=http://127.0.0.1:25000 COPILOTKIT_V2_AGENT_ID=fixture-agent NEXT_DIST_DIR=.next-chat-read-e2e next dev -p 25001',env:{NEXT_FONT_GOOGLE_MOCKED_RESPONSES:'/fixed/fonts.cjs'}};

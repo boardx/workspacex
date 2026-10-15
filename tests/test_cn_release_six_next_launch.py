@@ -12,7 +12,7 @@ class NextLaunch(unittest.TestCase):
   node=os.environ.get('CN_API_STARTUP_NODE')or shutil.which('node');self.assertTrue(node)
   result=subprocess.run([node,'--import','tsx','--test',str(ROOT/'tests/fixtures/cn-six-business/next-production.test.ts')],cwd=ROOT,capture_output=True,text=True,timeout=30)
   self.assertEqual(result.returncode,0,result.stdout+result.stderr)
-  self.assertIn('# pass 2',result.stdout);self.assertIn('# fail 0',result.stdout);self.assertIn('# skipped 0',result.stdout)
+  self.assertIn('# pass 3',result.stdout);self.assertIn('# fail 0',result.stdout);self.assertIn('# skipped 0',result.stdout)
  def test_actual_web_workspace_next_resolution_without_inherited_bin(self):
   node=os.environ.get('CN_API_STARTUP_NODE')or shutil.which('node')
   self.assertTrue(node,'Installed Node required')

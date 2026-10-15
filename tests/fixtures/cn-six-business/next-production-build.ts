@@ -1,4 +1,6 @@
-import base from '../../../apps/web/playwright.chat-read.config';
+import {createRequire} from 'node:module';
+// apps/web is CommonJS; load its actual default explicitly from this ESM fixture.
+const base=createRequire(import.meta.url)('../../../apps/web/playwright.chat-read.config.ts').default;
 import {productionCommand} from './next-production-command';
 import {spawn} from 'node:child_process';
 import {resolve} from 'node:path';
