@@ -52,3 +52,31 @@ it("marks the save action busy and blocks duplicates until its save finishes", a
   finish(true);
   await waitFor(() => expect(action).not.toHaveAttribute("aria-busy"));
 });
+
+it("keeps a retained draft dirty against acknowledged data and cancels to that data", () => {
+  const acknowledged = runtimeFixture("outline").outline;
+  const retained = acknowledged.map((item, index) => index ? item : { ...item, title: "恢复后保留的草稿" });
+  const cancel = vi.fn();
+  render(<GuidedResearchPlanEditor value={retained} persistedValue={acknowledged} disabled={false} onSave={vi.fn()} onCancel={cancel} />);
+  expect(screen.getByRole("button", { name: "保存计划" })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  expect(cancel).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole("button", { name: "保存计划" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /编辑计划 1/ })).not.toHaveTextContent("恢复后保留的草稿");
+});
+
+it("does not overwrite unsaved input when acknowledged values arrive as fresh objects", () => {
+  const acknowledged = runtimeFixture("outline").outline;
+  const original = JSON.stringify(acknowledged);
+  const props = { disabled: false, onSave: vi.fn() };
+  const { rerender } = render(<GuidedResearchPlanEditor value={acknowledged} persistedValue={acknowledged} {...props} />);
+  fireEvent.click(screen.getByRole("button", { name: /编辑计划 1/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: "计划 1" }), { target: { value: "尚未提交的输入" } });
+  rerender(<GuidedResearchPlanEditor value={JSON.parse(original)} persistedValue={JSON.parse(original)} {...props} />);
+  expect(screen.getByRole("textbox", { name: "计划 1" })).toHaveValue("尚未提交的输入");
+  expect(screen.getByRole("button", { name: "保存计划" })).toBeEnabled();
+  expect(JSON.stringify(acknowledged)).toBe(original);
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  expect(screen.queryByRole("button", { name: "保存计划" })).not.toBeInTheDocument();
+  expect(JSON.stringify(acknowledged)).toBe(original);
+});

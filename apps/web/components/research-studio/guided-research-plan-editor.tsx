@@ -11,8 +11,10 @@ import { prepareResearchOutline, researchPlanTitle, researchQuestionsForTitle } 
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
 
 type Outline = GuidedResearchRuntime["outline"];
-export function GuidedResearchPlanEditor({ value, disabled, onSave, onDirtyChange }: {
+export function GuidedResearchPlanEditor({ value, persistedValue = value, disabled, onSave, onDirtyChange, onCancel }: {
   value: Outline; disabled: boolean; onSave: (value: Outline) => Promise<boolean>;
+  persistedValue?: Outline;
+  onCancel?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const [items, setItems] = React.useState(value);
@@ -20,13 +22,15 @@ export function GuidedResearchPlanEditor({ value, disabled, onSave, onDirtyChang
   const [confirm, setConfirm] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const server = React.useRef(value);
+  const incoming = React.useRef(value);
   React.useEffect(() => {
-    if (JSON.stringify(server.current) !== JSON.stringify(value)) {
-      server.current = value; setItems(value); setEditing(null);
+    if (JSON.stringify(incoming.current) !== JSON.stringify(value)) {
+      incoming.current = value; setItems(value); setEditing(null);
     }
   }, [value]);
-  const dirty = JSON.stringify(items) !== JSON.stringify(value);
+  // A retained draft is not an acknowledgement from the server.
+  const dirty = JSON.stringify(items) !== JSON.stringify(persistedValue);
+  React.useEffect(() => { if (!dirty) setError(null); }, [dirty]);
   React.useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
   React.useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
   const visible = items.filter((item) => item.enabled).sort((a, b) => a.order - b.order);
@@ -60,7 +64,7 @@ export function GuidedResearchPlanEditor({ value, disabled, onSave, onDirtyChang
         const id = crypto.randomUUID();
         setItems((current) => [...current, { id, title: "新计划", enabled: true, order: current.length, questions: researchQuestionsForTitle("新计划") }]); setEditing(id);
       }}><Plus className="mr-2 size-4" />新增计划</Button>
-      {dirty && <div className="flex gap-2"><Button variant="outline" disabled={locked} onClick={() => { setItems(value); setEditing(null); setError(null); }}>取消</Button><WorkflowActionButton variant="primary" loading={saving} disabled={locked || !valid} onClick={() => setConfirm(true)}>保存计划</WorkflowActionButton></div>}
+      {dirty && <div className="flex gap-2"><Button variant="outline" disabled={locked} onClick={() => { setItems(persistedValue); setEditing(null); setError(null); onCancel?.(); }}>取消</Button><WorkflowActionButton variant="primary" loading={saving} disabled={locked || !valid} onClick={() => setConfirm(true)}>保存计划</WorkflowActionButton></div>}
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <Dialog open={confirm} onOpenChange={setConfirm}><DialogContent><DialogTitle>确认修改研究计划</DialogTitle><DialogDescription>保存后需要重新确认计划并更新相关研究资料，已有历史报告会保留。</DialogDescription><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setConfirm(false)}>继续编辑</Button><Button variant="primary" onClick={() => void save()}>确认保存</Button></div></DialogContent></Dialog>
