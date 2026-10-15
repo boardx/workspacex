@@ -45,3 +45,12 @@ it('focuses only the newly added question and selects its placeholder for immedi
  expect(created.value.slice(created.selectionStart??0,created.selectionEnd??0)).toBe('新问题？');
  expect(first).toHaveValue('谁负责最终预算？');
 });
+
+it('allows wrapped long-question editing while keeping each question one canonical line',()=>{
+ const onChange=vi.fn();
+ render(<InterviewOutlineStep document={{...document,step:'outline',markdown:'# 问题\n\n## [模拟专家](#expert-virtual-actions)\n\n1. 谁负责预算审批与跨部门协作？'}} pending={false} onChange={onChange} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()}/>);
+ const question=screen.getByRole('textbox',{name:'编辑问题 1'});
+ expect(question.tagName).toBe('TEXTAREA');
+ fireEvent.change(question,{target:{value:'谁负责\n预算？'}});
+ expect(onChange).toHaveBeenCalledWith('# 问题\n\n## [模拟专家](#expert-virtual-actions)\n\n1. 谁负责预算？');
+});

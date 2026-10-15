@@ -66,8 +66,17 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
   const navigationExperts = groups.length ? groups.map((group) => ({ expertId: group.expertId, displayName: group.displayName, headingId: group.headingId }))
     : confirmedExperts.map((expert) => ({ expertId: expert.expertId, displayName: expert.displayName, headingId: `pending-${expert.expertId}` }));
   const groupRefs = React.useRef(new Map<string, HTMLElement>());
-  const questionRefs = React.useRef(new Map<string, HTMLInputElement>());
+  const questionRefs = React.useRef(new Map<string, HTMLTextAreaElement>());
   const addedQuestion = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    const resize = () => questionRefs.current.forEach(input => {
+      input.style.height = "auto";
+      input.style.height = `${Math.min(input.scrollHeight, 320)}px`;
+    });
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [document.markdown]);
   React.useEffect(() => {
     if (pending || !addedQuestion.current) return;
     const input = questionRefs.current.get(addedQuestion.current);
@@ -83,9 +92,10 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
         const questions = questionLines(document.markdown, group.contentStart, group.end);
         return <article key={group.headingId} draggable={!pending} onDragStart={(event) => { event.dataTransfer.setData("text/plain", group.headingId); event.dataTransfer.effectAllowed = "move"; }} onDragOver={(event) => event.preventDefault()} onDrop={(event) => { event.preventDefault(); const sourceId = event.dataTransfer.getData("text/plain"); const sourceIndex = groups.findIndex((item) => item.headingId === sourceId); const targetIndex = groups.findIndex((item) => item.headingId === group.headingId); if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return; let next = document.markdown; const direction = targetIndex > sourceIndex ? 1 : -1; for (let index = sourceIndex; index !== targetIndex; index += direction) { const moved = moveOutlineGroup({ ...document, markdown: next }, sourceId, direction); if (moved === null) return; next = moved; } onChange(next); }} ref={(node) => { if (node) groupRefs.current.set(group.headingId, node); else groupRefs.current.delete(group.headingId); }} className={`scroll-mt-5 rounded-xl border bg-background p-5 ${chosen?.headingId === group.headingId ? "border-primary/40 ring-1 ring-primary/15" : "border-border"}`}>
           <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-semibold">{group.displayName}</h3><div className="flex gap-1">{([-1, 1] as const).map((direction) => <Button key={direction} variant="ghost" size="icon" disabled={pending || moveOutlineGroup(document, group.headingId, direction) === null} aria-label={`${direction === -1 ? "上移" : "下移"}专家 ${group.displayName}`} onClick={() => { const next = moveOutlineGroup(document, group.headingId, direction); if (next !== null) onChange(next); }}>{direction === -1 ? <ArrowUp className="size-4" aria-hidden /> : <ArrowDown className="size-4" aria-hidden />}</Button>)}</div></div>
-          {questions.length > 0 && <ol aria-label={`${group.title}访谈问题`} className="mt-4 divide-y divide-border rounded-xl border border-border">{questions.map((question, index) => <li key={question.start} className="flex items-center gap-2 px-3 py-2">
+          {questions.length > 0 && <ol aria-label={`${group.title}访谈问题`} className="mt-4 divide-y divide-border rounded-xl border border-border">{questions.map((question, index) => <li key={question.start} className="grid grid-cols-[1.75rem_minmax(0,1fr)] items-start gap-2 px-3 py-2 sm:flex sm:items-center">
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-sm font-semibold">{index + 1}</span>
-            <input ref={node => { const key = `${group.headingId}:${index}`; if (node) questionRefs.current.set(key, node); else questionRefs.current.delete(key); }} aria-label={`编辑问题 ${index + 1}`} disabled={pending} value={question.text} onChange={(event) => onChange(document.markdown.slice(0, question.textStart) + event.target.value + document.markdown.slice(question.textEnd))} className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <textarea rows={1} ref={node => { const key = `${group.headingId}:${index}`; if (node) questionRefs.current.set(key, node); else questionRefs.current.delete(key); }} aria-label={`编辑问题 ${index + 1}`} disabled={pending} value={question.text} onChange={(event) => onChange(document.markdown.slice(0, question.textStart) + event.target.value.replace(/[\r\n]/gu, "") + document.markdown.slice(question.textEnd))} onKeyDown={event => { if (event.key === "Enter" && !event.nativeEvent.isComposing) event.preventDefault(); }} className="min-h-9 min-w-0 w-full flex-1 resize-none overflow-y-auto rounded-md bg-transparent px-2 py-1 text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <div className="col-start-2 flex justify-end gap-1 sm:contents">
             {([-1, 1] as const).map((direction) => <Button key={direction} variant="ghost" size="icon" disabled={pending || index + direction < 0 || index + direction >= questions.length} aria-label={`${direction === -1 ? "上移" : "下移"}问题 ${index + 1}`} onClick={() => {
               const other = questions[index + direction]; if (!other) return;
               const first = direction === -1 ? other : question; const second = direction === -1 ? question : other;
@@ -95,7 +105,7 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
               const tail = document.markdown.slice(question.end);
               const lineBreak = tail.startsWith("\r\n") ? 2 : tail.startsWith("\n") ? 1 : 0;
               onChange(document.markdown.slice(0, question.start) + document.markdown.slice(question.end + lineBreak));
-            }}><Trash2 className="size-4" aria-hidden /></Button>
+            }}><Trash2 className="size-4" aria-hidden /></Button></div>
           </li>)}</ol>}
           {questions.length === 0 && <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">还没有访谈问题。</p>}
           <Button className="mt-3 w-full" variant="outline" disabled={pending} onClick={() => {
