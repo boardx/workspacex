@@ -20,7 +20,7 @@ def main(out):
   with socket.socket() as s:s.bind(('127.0.0.1',0));port=s.getsockname()[1]
   services=['api','web','agent','sandbox','sandbox-sessions'];file=out/'compose.json';env=out/'existing.env';env.write_text('');fixture=out/'synthetic-data';fixture.mkdir();(fixture/'keep.txt').write_text('existing synthetic bytes')
   service_env=out/'service.env';literal='fixture-literal-$NOT_INTERPOLATED-${NOT_INTERPOLATED}-$$';service_env.write_text('UNCHANGED='+literal+'\n')
-  rows={s:{'image':images['baseline'],'platform':'linux/amd64','env_file':[{'path':str(service_env),'format':'raw'}],'volumes':[str(fixture)+':/data:ro']} for s in services}
+  rows={s:{'image':images['baseline'],'platform':'linux/amd64','env_file':[{'path':str(service_env),'format':'raw'}],'volumes':[str(fixture)+':/data:ro',str(fixture)+':/second-data:ro']} for s in services}
   rows['web'].update(command=['python3','/server.py'],ports=[f'127.0.0.1:{port}:8080']);file.write_text(json.dumps({'services':rows}));compose=['compose','--project-name',project,'--env-file',str(env),'--file',str(file)]
   d(*compose,'up','--detach','--pull','never','--no-build');lock=out/'release.lock';lock.touch(mode=0o600)
   archive=out/'web.tar';subprocess.run([docker,'save',tags[1]],stdout=archive.open('wb'),check=True)

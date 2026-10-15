@@ -51,6 +51,12 @@ class Tests(unittest.TestCase):
    self.assertNotIn('down',a);self.assertNotIn('build',a)
  def test_plan_no_application_mutation(self):
   self.assertEqual(self.run_release(False)['status'],'PLANNED');self.assertEqual(self.mutations(),[])
+ def test_snapshot_mount_order_is_semantically_stable(self):
+  v=self.d.value('api');v['Mounts']=[{'Type':'bind','Source':'/one','Destination':'/first','RW':False},{'Type':'bind','Source':'/two','Destination':'/second','RW':False}]
+  before=w.snapshot(v);v['Mounts'].reverse();self.assertEqual(before,w.snapshot(v))
+ def test_snapshot_mount_content_still_changes_identity(self):
+  v=self.d.value('api');v['Mounts']=[{'Type':'bind','Source':'/one','Destination':'/first','RW':False}]
+  before=w.snapshot(v);v['Mounts'][0]['RW']=True;self.assertNotEqual(before['mounts'],w.snapshot(v)['mounts'])
  def test_resolved_secret_model_removed_after_hashing(self):
   self.assertEqual(self.run_release(False)['status'],'PLANNED')
   hashes=[a for a in self.d.calls if '--hash' in a];self.assertTrue(hashes)
