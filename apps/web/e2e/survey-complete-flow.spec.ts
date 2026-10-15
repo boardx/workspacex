@@ -290,7 +290,7 @@ test('R2 问卷体验：自动保存保留标题焦点并可刷新恢复',async(
  await page.screenshot({path:testInfo.outputPath('r2-refreshed-title.png'),fullPage:true});
 });
 
-test('R3 问卷体验：生成失败重试与取消保留原文且不应用迟到提案',async({page},testInfo)=>{
+test('R3 问卷体验：生成失败重试与取消保留原文且未应用提案',async({page},testInfo)=>{
  test.setTimeout(120000);await loginAsAdmin(page);
  await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R3 异常恢复',tags:[]})));
  const input=page.getByLabel('问卷需求');const original='保留原文：了解最近一次会议的改进机会';await input.fill(original);
