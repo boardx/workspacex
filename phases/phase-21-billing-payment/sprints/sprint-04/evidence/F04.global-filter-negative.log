@@ -1,0 +1,22 @@
+[stack-admission] load1=9.57 cores=10 perCore=0.96 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv9ubtsr-7b4f6fe9-07aa0f48b953 db=wsx_07aa0f48b9534fb995db compose=wsx-07aa0f48b9534fb995db pg=20544 redis=21544 api=24544 web=25544 sandbox=26544 model=27544 deep-agent=28544 asr=29544 vision=30544 loopback-sandbox=31544 mail=19544
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_07aa0f48b9534fb995db capacity=100 current=6 required=32
+ ✓ tests/billing/global-error-boundary.test.ts (4 tests) 88ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  01:56:40
+   Duration  19.78s (transform 3.75s, setup 21ms, collect 4.56s, tests 88ms, environment 1ms, prepare 247ms)
+
+[db-isolation] db=wsx_07aa0f48b9534fb995db peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/billing/global-error-boundary.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：22s
+  清理：1s
+  总计：24s
