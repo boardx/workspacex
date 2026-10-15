@@ -169,7 +169,7 @@ describe("F06 refreshed accounting and stale result protection",()=>{
 });
 
 import { CashierLedgerHistory } from "@/components/billing/cashier-ledger-history";
-const txn={txnId:"t1",type:"purchase",direction:1,credits:100,balanceAfter:100,sourceType:"order",sourceId:order.orderNo,operatorId:null,reason:null,createdAt:"2026-10-16T00:00:00Z"};
+const txn={txnId:"t1",type:"purchase",direction:1,credits:100,balanceAfter:100,sourceType:"payment_order",sourceId:order.orderNo,operatorId:null,reason:null,createdAt:"2026-10-16T00:00:00Z"} as const;
 describe("F06 full ledger pagination",()=>{
  it("keeps existing records and cursor through an error, then deduplicates the last page",async()=>{
   let calls=0;
