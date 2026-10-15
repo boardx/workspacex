@@ -5,6 +5,7 @@ export default defineConfig({
   test: {
     include: [
       "tests/recording/configured-realtime-asr-provider.test.ts",
+      "tests/recording/loopback-asr-finish.test.ts",
       "tests/recording/configured-realtime-asr-events.test.ts",
       "tests/recording/personal-realtime-asr-gateway.test.ts",
     ],
