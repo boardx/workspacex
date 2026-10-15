@@ -149,6 +149,10 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/archive-fixture" --no-audit --no-fund --save-exact tsx@4.20.6 zod@3.25.76
           echo "CN_ARCHIVE_TEST_NODE=$(command -v node)" >> "$GITHUB_ENV"
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/archive-fixture" >> "$GITHUB_ENV"
+      - name: Source-only BC receipt binding and original observer contracts
+        run: |
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_target_business.py' -v
+          python3 -I -B -m unittest discover -s tests -p 'test_cn_release_business_observer.py' -v
       - name: Run archive contracts and real canonical Node fixture
         run: python3 -B -m unittest discover -s tests -p 'test_cn*archive*.py' -v
       - name: Run bounded release scenario and offline chain regressions
