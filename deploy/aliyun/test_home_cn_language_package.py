@@ -10,7 +10,7 @@ import threading
 import unittest
 from urllib.request import Request, urlopen
 
-from home_cn_language_package import build_cn_package, transform_html
+from home_cn_language_package import build_cn_package, transform_html, add_icp_footer, ICP_NUMBER, ICP_QUERY, CONFIG
 
 
 def fingerprints(root):
@@ -57,6 +57,59 @@ class PackageTest(unittest.TestCase):
             self.assertIn(f'<html lang="{lang}"', (self.output / page).read_text())
         self.assertEqual(fingerprints(self.source), self.before)
         self.assertIn('<html lang="en"', (self.source / 'index.html').read_text())
+
+    def test_icp_is_static_cn_only_and_all_languages(self):
+        for page in self.output.rglob('*.html'):
+            text = page.read_text()
+            self.assertEqual(text.count(ICP_NUMBER), 1)
+            self.assertIn(f'href="{ICP_QUERY}"', text)
+            self.assertIn('href="/assets/css/cn-icp.css"', text)
+            self.assertIn('data-cn-icp', text)
+        self.assertEqual(fingerprints(self.source), self.before)
+        for page in self.source.rglob('*.html'):
+            self.assertNotIn(ICP_NUMBER, page.read_text())
+            self.assertNotIn('cn-icp', page.read_text())
+
+    def test_footer_uses_existing_footer_and_refuses_double_injection(self):
+        html = '<html><head></head><body><footer>Copyright</footer></body></html>'
+        result = add_icp_footer(html)
+        self.assertEqual(result.count('<footer>'), 1)
+        self.assertLess(result.index(ICP_NUMBER), result.index('</footer>'))
+        with self.assertRaises(ValueError):
+            add_icp_footer(result)
+
+    def test_every_additional_page_including_manual_and_404_has_icp(self):
+        for name in ['404.html', 'manual/index.html']:
+            page = self.source / name
+            page.parent.mkdir(parents=True, exist_ok=True)
+            page.write_text('<html><head></head><body><footer>Manual</footer></body></html>')
+        before = fingerprints(self.source)
+        output = Path(self.tmp.name) / 'cn-extra'
+        build_cn_package(self.source, output)
+        for name in ['404.html', 'manual/index.html']:
+            self.assertIn(ICP_NUMBER, (output / name).read_text())
+        self.assertEqual(fingerprints(self.source), before)
+
+    def test_future_domain_is_disabled_and_targets_canonical_www(self):
+        future = CONFIG['domains']['workspacex.cn']
+        self.assertFalse(future['enabled'])
+        self.assertEqual(future['destination'], CONFIG['marketingOrigin'])
+        self.assertEqual(future['filingVerification'], 'pending-new-filing-coverage')
+        self.assertIn('official-filing-coverage', future['requires'])
+
+    def test_release_marker_keeps_sha_and_identifies_verified_cn_domain(self):
+        marker = self.source / '.well-known/workspacex-release.json'
+        marker.parent.mkdir()
+        original = {'commit': 'a' * 40, 'project': 'workspacex-home'}
+        marker.write_text(json.dumps(original))
+        output = Path(self.tmp.name) / 'cn-marker'
+        build_cn_package(self.source, output)
+        result = json.loads((output / '.well-known/workspacex-release.json').read_text())
+        self.assertEqual(result['commit'], original['commit'])
+        self.assertEqual(result['project'], 'workspacex-home-cn')
+        self.assertEqual(result['region'], 'cn')
+        self.assertEqual(result['filingCoverage'], 'verified-aliyun-existing-domain-record')
+        self.assertEqual(json.loads(marker.read_text()), original)
 
     def test_links_assets_metadata_and_manual_choice(self):
         root = (self.output / 'index.html').read_text()

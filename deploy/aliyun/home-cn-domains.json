@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "marketingOrigin": "https://www.boardx.com.cn",
+  "routine": "workspacex-home-cn",
+  "siteId": "182657519556832",
+  "domains": {
+    "www.boardx.com.cn": {
+      "purpose": "marketing",
+      "filingVerification": "verified-aliyun-existing-domain-record",
+      "subjectFilingNumber": "粤ICP备2021115740号",
+      "websiteFilingNumber": "粤ICP备2021115740号-1"
+    },
+    "workspacex.cn": {
+      "purpose": "future-redirect",
+      "enabled": false,
+      "destination": "https://www.boardx.com.cn",
+      "filingVerification": "pending-new-filing-coverage",
+      "requires": ["official-filing-coverage", "valid-source-domain-tls", "approved-exact-dns-and-routing-change"]
+    }
+  }
+}

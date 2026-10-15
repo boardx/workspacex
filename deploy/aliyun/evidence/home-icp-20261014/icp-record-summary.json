@@ -1,0 +1,16 @@
+{
+  "source": "https://beian.aliyun.com/pcContainer/myorder",
+  "inspection": "read-only browser, no filing-order changes",
+  "domain": "boardx.com.cn",
+  "subjectFilingNumber": "粤ICP备2021115740号",
+  "websiteFilingNumber": "粤ICP备2021115740号-1",
+  "existingWebsiteStatus": "listed in My ICP filing information; completed initial filing approved",
+  "providerRemediation": {
+    "domain": "www.boardx.com.cn",
+    "requestedFooterNumber": "粤ICP备2021115740号",
+    "requestedLink": "https://beian.miit.gov.cn",
+    "additionalRequirement": "company introduction consistent with the filing entity"
+  },
+  "futureDomainCoverageVerified": false,
+  "miitPublicQuery": "ERR_BLOCKED_BY_CLIENT; evidence above is the account's Aliyun ICP management record"
+}

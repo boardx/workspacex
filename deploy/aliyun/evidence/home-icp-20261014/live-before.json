@@ -1,0 +1,126 @@
+{
+  "checkedAt": "2026-10-14T09:38:16.197108+00:00",
+  "results": [
+    {
+      "host": "www.boardx.com.cn",
+      "dns": [
+        "www.boardx.com.cn.a2.initjj.com",
+        [
+          "www.boardx.com.cn"
+        ],
+        [
+          "14.215.57.122",
+          "113.96.129.8",
+          "113.105.156.151",
+          "124.226.74.51",
+          "124.226.73.54",
+          "113.96.140.79",
+          "59.36.45.113"
+        ]
+      ],
+      "tls": {
+        "subjectAltName": [
+          [
+            "DNS",
+            "www.boardx.com.cn"
+          ]
+        ],
+        "notBefore": "Oct  9 11:10:26 2026 GMT",
+        "notAfter": "Jan  7 11:10:25 2027 GMT"
+      },
+      "http": {
+        "status": 200,
+        "finalUrl": "http://www.boardx.com.cn/",
+        "server": "ESA",
+        "icpPresent": false
+      },
+      "https": {
+        "status": 200,
+        "finalUrl": "https://www.boardx.com.cn/",
+        "server": "ESA",
+        "icpPresent": false
+      }
+    },
+    {
+      "host": "boardx.com.cn",
+      "dns": [
+        "boardx.com.cn",
+        [],
+        [
+          "47.116.120.18"
+        ]
+      ],
+      "tls": {
+        "subjectAltName": [
+          [
+            "DNS",
+            "boardx.com.cn"
+          ]
+        ],
+        "notBefore": "Sep  6 08:42:47 2026 GMT",
+        "notAfter": "Dec  5 08:42:46 2026 GMT"
+      },
+      "http": {
+        "error": "HTTP Error 404: Not Found"
+      },
+      "https": {
+        "error": "HTTP Error 404: Not Found"
+      }
+    },
+    {
+      "host": "workspacex.cn",
+      "dnsError": "[Errno 8] nodename nor servname provided, or not known",
+      "tlsError": "[Errno 8] nodename nor servname provided, or not known",
+      "http": {
+        "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>"
+      },
+      "https": {
+        "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>"
+      }
+    },
+    {
+      "host": "www.workspacex.cn",
+      "dnsError": "[Errno 8] nodename nor servname provided, or not known",
+      "tlsError": "[Errno 8] nodename nor servname provided, or not known",
+      "http": {
+        "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>"
+      },
+      "https": {
+        "error": "<urlopen error [Errno 8] nodename nor servname provided, or not known>"
+      }
+    },
+    {
+      "host": "workspacex.us",
+      "dns": [
+        "workspacex.us",
+        [],
+        [
+          "104.21.45.243",
+          "172.67.221.36"
+        ]
+      ],
+      "tls": {
+        "subjectAltName": [
+          [
+            "DNS",
+            "workspacex.us"
+          ]
+        ],
+        "notBefore": "Oct  5 01:26:51 2026 GMT",
+        "notAfter": "Jan  3 02:26:48 2027 GMT"
+      },
+      "http": {
+        "status": 200,
+        "finalUrl": "https://workspacex.us/",
+        "server": "cloudflare",
+        "icpPresent": false
+      },
+      "https": {
+        "status": 200,
+        "finalUrl": "https://workspacex.us/",
+        "server": "cloudflare",
+        "icpPresent": false
+      }
+    }
+  ]
+}
