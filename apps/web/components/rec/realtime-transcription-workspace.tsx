@@ -94,6 +94,7 @@ export function RealtimeTranscriptionWorkspace({
   }, [editing]);
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
   const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
@@ -112,9 +113,12 @@ export function RealtimeTranscriptionWorkspace({
   async function saveContent() {
     if (!onSaveContent) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await onSaveContent(draft);
       setEditing(false);
+    } catch {
+      setSaveError("正文保存失败，请稍后重试。");
     } finally {
       setSaving(false);
     }
@@ -183,7 +187,7 @@ export function RealtimeTranscriptionWorkspace({
           </div>
         </header>
 
-        {errorMessage && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage}</p>}
+        {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || saveError}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}
 
         <Card className="min-h-64 p-4" data-testid="rec-live-transcript">
@@ -197,7 +201,7 @@ export function RealtimeTranscriptionWorkspace({
                   {copied ? "已复制" : "复制全文"}
                 </Button>
                 {!editing && <Button ref={editButtonRef} data-testid="rec-live-edit" type="button" size="md" variant="outline"
-                  disabled={recording || busy || !onSaveContent} onClick={() => { restoreEditFocus.current = true; setDraft(session.content); setEditing(true); }}>
+                  disabled={recording || busy || !onSaveContent} onClick={() => { restoreEditFocus.current = true; setSaveError(null); setDraft(session.content); setEditing(true); }}>
                   <Pencil aria-hidden className="h-4 w-4" />编辑
                 </Button>}
               </div>

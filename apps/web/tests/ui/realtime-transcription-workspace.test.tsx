@@ -85,6 +85,20 @@ describe("RealtimeTranscriptionWorkspace", () => {
     await vi.waitFor(() => expect(screen.getByTestId("rec-live-edit")).toHaveFocus());
   });
 
+  it("keeps failed save drafts editable and retries without an unhandled rejection", async () => {
+    const onSaveContent = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      onStart={vi.fn()} onStop={vi.fn()} onSaveContent={onSaveContent} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.change(screen.getByRole("textbox", { name: "逐字稿正文" }), { target: { value: "失败后保留草稿" } });
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("正文保存失败"));
+    expect(screen.getByRole("textbox", { name: "逐字稿正文" })).toHaveValue("失败后保留草稿");
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-edit")).toHaveFocus());
+    expect(onSaveContent).toHaveBeenNthCalledWith(2, "失败后保留草稿");
+  });
+
   it("keeps save pending and prevents duplicate submission through shared actions", async () => {
     let resolveSave!: () => void;
     const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));
