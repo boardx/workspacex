@@ -29,7 +29,10 @@ def bounded_parameters(source,name,limit,d):
 def generate(d,raw,repo):
  global SOURCE,CONTROL,ATTEMPT
  identity=d["identity"];SOURCE=identity["sourceRevision"];CONTROL=identity["controlRevision"];ATTEMPT=identity["attemptId"]
- need(set(d)=={'kind','publishAuthorized','issuedAt','expiresAt','release','refs','identity','requestedAt','deadlineAt'} and d['kind']=='cn-reviewed-publication-decision-v1' and d['publishAuthorized'] is True)
+ fields={'kind','publishAuthorized','issuedAt','expiresAt','release','refs','identity','requestedAt','deadlineAt'}
+ if 'publicationIntentVersion' in d:fields.add('publicationIntentVersion')
+ need(set(d)==fields and d['kind']=='cn-reviewed-publication-decision-v1' and d['publishAuthorized'] is True)
+ version=d.get('publicationIntentVersion',2);need(type(version) is int and version in (2,3))
  need(set(d['refs'])=={'plan','set','proof','policy','tools','canonical','provider','redis','binaries'})
  b={k:ref(v) for k,v in d['refs'].items()};v={k:json.loads(x) for k,x in b.items()};plan=v['plan']
  need((plan['sourceRevision'],plan['controlRevision'],plan['attemptId'])==(SOURCE,CONTROL,ATTEMPT))
@@ -51,7 +54,8 @@ def generate(d,raw,repo):
   import cn_image_candidate as c,cn_candidate_revalidation as rv,cn_candidate_publication as pub,cn_candidate_host as host,cn_image_archive as archive
   cap=rv.admit(b['proof'],sha(b['proof']),sha(b['policy']),b['policy']);cap.check(plan,b['set'],sha(b['set']),sha(b['plan']))
   need(end<=archive.timestamp(v['policy']['expiresAt']))
-  intent=dict(kind='cn-candidate-publication-intent-v2',schemaVersion=2,candidatePlanRawSha256=sha(b['plan']),candidateSetRawSha256=sha(b['set']),candidateIdentity=c.identity(plan),sourceRevision=SOURCE,controlRevision=CONTROL,attemptId=ATTEMPT,release=d['release'],redisImage=PREFIX+'/base-redis@sha256:'+selected[0]['Digest'],registryPrefix=PREFIX,revalidationRawSha256=sha(b['proof']))
+  intent=dict(kind='cn-candidate-publication-intent-v'+str(version),schemaVersion=version,candidatePlanRawSha256=sha(b['plan']),candidateSetRawSha256=sha(b['set']),candidateIdentity=c.identity(plan),sourceRevision=SOURCE,controlRevision=CONTROL,attemptId=ATTEMPT,release=d['release'],redisImage=PREFIX+'/base-redis@sha256:'+selected[0]['Digest'],registryPrefix=PREFIX,revalidationRawSha256=sha(b['proof']))
+  if version==3:intent['tagPolicy']=pub.ATTEMPT_TAG_POLICY
   ib=enc(intent);pub.validate_intent(ib,sha(ib),plan,b['set'],sha(b['set']),sha(b['plan']),revalidation=cap)
   provider=v['provider'];evidence={k:provider[k] for k in ('observedAt','accountId','instanceId','region')};evidence.update(namespace='workspacex-prod',providerResponseSha256=sha(b['provider']),repositories={k:dict(repositoryId=x['RepoId'],immutable=x['TagImmutability']) for k,x in provider['repositories'].items()})
   archive.validate_immutable_evidence(provider,evidence)

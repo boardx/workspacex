@@ -12,7 +12,11 @@
   "materialize-publication.py": {
     "originalSha256": "441a319b80c5aa5edf49458b9b67ac59efe6e6705a1422a9c3b88fea90c056e7",
     "source": "../release-continuation/devapp-f0eb-release/transfer-prep/publication-v1/materialize-publication.py",
-    "splitTransportSourceSha256": "153f4a9f45a38adf8680fedcc21b156c8c5b5411c6eab3cc9e65059af8619c12"
+    "splitTransportSourceSha256": "153f4a9f45a38adf8680fedcc21b156c8c5b5411c6eab3cc9e65059af8619c12",
+    "changes": [
+      "root-request-bound explicit canonical intent version selection",
+      "historical v2 default and fixed canonical v3 attempt tag policy"
+    ]
   },
   "stage-runtime.py": {
     "originalSha256": "cdf483cbb3880a81ac7bcaf647bb1d5372fbcb61fb5e2a1492ad187fee92c5a7",
