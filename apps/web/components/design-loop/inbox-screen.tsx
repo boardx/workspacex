@@ -194,6 +194,23 @@ export function DesignLoopInboxScreen({
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [counts, setCounts] = React.useState<GetInboxCountsOut | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(initialOpenId);
+  React.useEffect(() => { setOpenId(initialOpenId); }, [initialOpenId]);
+  // Only an explicitly saved feedback opens a fresh submission view. Linked navigation
+  // merely changes openId and retains already loaded pages, filters and scroll state.
+  const handledSubmission = React.useRef(savedFeedbackId === initialOpenId ? savedFeedbackId : null);
+  const [submissionRefresh, setSubmissionRefresh] = React.useState(0);
+  React.useEffect(() => {
+    if (savedFeedbackId == null || savedFeedbackId !== initialOpenId || handledSubmission.current === savedFeedbackId) return;
+    handledSubmission.current = savedFeedbackId;
+    setKindFilter("all");
+    setShowExceptionsInAll(false);
+    setStageFilter("all");
+    setInboxView("active");
+    setTagFilter(null);
+    setQueryInput("");
+    setQuery("");
+    setSubmissionRefresh((version) => version + 1);
+  }, [savedFeedbackId, initialOpenId]);
   const [openDeclineOnOpen, setOpenDeclineOnOpen] = React.useState(false);
   /** 2026-09-05——从「开始处理」/拖进「进行中」进来的反馈（尚无 issue）：直接展开 issue 确认表单。 */
   const [openIssueFormOnOpen, setOpenIssueFormOnOpen] = React.useState(false);
@@ -252,7 +269,7 @@ export function DesignLoopInboxScreen({
   React.useEffect(() => {
     if (state !== "default") return;
     void reload();
-  }, [reload, state]);
+  }, [reload, state, submissionRefresh]);
 
   React.useEffect(() => {
     if (state !== "default") return;

@@ -37,10 +37,11 @@ vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
   return { ...actual, apiRequest: (...a: unknown[]) => apiRequest(...a) };
 });
+const navQuery = vi.hoisted(() => ({ value: "" }));
 vi.mock("next/navigation", () => ({
   usePathname: () => "/chat",
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(navQuery.value),
 }));
 vi.mock("@/lib/live-asr-draft", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/live-asr-draft")>()),
@@ -68,7 +69,7 @@ import { humanTime as when } from "@/lib/human-time";
 import type { InboxItem } from "@/lib/live-inbox";
 import type { DesignProject } from "@/lib/live-design-workbench";
 
-afterEach(() => { cleanup(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); navQuery.value = ""; });
 
 type Call = [string, { method?: string; body?: Record<string, unknown>; query?: Record<string, string | undefined> } | undefined];
 const callsTo = (path: string, method = "GET") =>
@@ -5554,5 +5555,47 @@ describe("explicit triage entry scope and saved recovery", () => {
     render(<DesignLoopInboxScreen openId="not-saved" />);
     await screen.findByTestId("design-loop-inbox");
     expect(screen.queryByTestId("inbox-saved-open-failed")).toBeNull();
+  });
+});
+
+
+describe("inbox URL changes preserve linked pagination", () => {
+  it("production linked URL update keeps page two, search and list view without refetch", async () => {
+    mockInbox(linkedPair());
+    const fallback = apiRequest.getMockImplementation()!;
+    apiRequest.mockImplementation(async (path: string, opts?: { query?: Record<string, string> }) => {
+      if (path === "/inbox") return { items: opts?.query?.cursor ? [designItem()] : [feedbackItem({ resolvedByDesignId: "d1" })], nextCursor: opts?.query?.cursor ? null : "page-two", sources: { exception: "included" } };
+      return fallback(path, opts);
+    });
+    const app = <PreviewSessionProvider><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>;
+    const { rerender } = render(app);
+    await screen.findByTestId("inbox-card-B-1");
+    fireEvent.click(screen.getByTestId("inbox-view-list"));
+    fireEvent.change(screen.getByTestId("inbox-search"), { target: { value: "needle" } });
+    await waitFor(() => expect(callsTo("/inbox").at(-1)?.[1]?.query?.q).toBe("needle"));
+    fireEvent.click(await screen.findByTestId("inbox-load-more"));
+    await screen.findByTestId("inbox-row-D-1");
+    const reads = callsTo("/inbox").length;
+    fireEvent.click(within(screen.getByTestId("inbox-row-B-1")).getByTestId("link-generated-B-1"));
+    navQuery.value = new URL(window.location.href).search;
+    // Mimic Next's useSearchParams update after history.replaceState.
+    rerender(<PreviewSessionProvider><FeedbackProvider><DesignLoopInboxAdminScreen state="default" /></FeedbackProvider></PreviewSessionProvider>);
+    expect(await screen.findByTestId("inbox-drawer")).toHaveTextContent("方案一");
+    expect(screen.getByTestId("inbox-row-D-1")).toBeVisible();
+    expect(screen.getByTestId("inbox-view-list")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("inbox-search")).toHaveValue("needle");
+    expect(callsTo("/inbox")).toHaveLength(reads);
+  });
+  it("new saved feedback refreshes the current route once and opens the server ID", async () => {
+    mockInbox([feedbackItem()]);
+    const { rerender } = render(<DesignLoopInboxScreen />);
+    await screen.findByTestId("inbox-card-B-1");
+    const reads = callsTo("/inbox").length;
+    mockInbox([feedbackItem({ id: "saved-new", code: "B-NEW", title: "刚保存" }), feedbackItem()]);
+    rerender(<DesignLoopInboxScreen openId="saved-new" savedFeedbackId="saved-new" />);
+    expect(await screen.findByTestId("inbox-drawer")).toHaveTextContent("刚保存");
+    expect(callsTo("/inbox")).toHaveLength(reads + 1);
+    rerender(<DesignLoopInboxScreen openId="saved-new" savedFeedbackId="saved-new" />);
+    expect(callsTo("/inbox")).toHaveLength(reads + 1);
   });
 });

@@ -44,7 +44,6 @@ function InboxInner({ state }: { state: UiState }) {
   const { identity } = useSession();
   return (
     <DesignLoopInboxScreen
-      key={sp?.get("open") ?? "inbox"}
       savedFeedbackId={feedback.savedInboxId}
       onNewFeedback={identity?.orgRole === "admin" ? () => feedback.openFeedback({
         target: { kind: "product" }, targetLabel: null, afterSubmit: "inbox",
