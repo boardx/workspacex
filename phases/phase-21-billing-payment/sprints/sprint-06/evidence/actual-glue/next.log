@@ -1,0 +1,15 @@
+  ▲ Next.js 14.2.15
+  - Local:        http://127.0.0.1:25798
+  - Network:      http://127.0.0.1:25798
+  - Experiments (use with caution):
+    · proxyTimeout
+
+ ✓ Starting...
+ ✓ Ready in 2.2s
+ ○ Compiling /billing ...
+ ✓ Compiled /billing in 3.3s (3126 modules)
+ GET /billing 200 in 3736ms
+ GET /billing 200 in 22ms
+(node:48346) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[?25h

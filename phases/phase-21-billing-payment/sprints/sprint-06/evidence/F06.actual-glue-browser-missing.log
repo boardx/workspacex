@@ -1,0 +1,48 @@
+[stack-admission] load1=3.30 cores=10 perCore=0.33 running=0/2
+[test-isolation] id=run-mva3prj5-39b7be93-b337a2feb306 db=wsx_b337a2feb3063fb86056 compose=wsx-b337a2feb3063fb86056 pg=20870 redis=21870 api=24870 web=25870 sandbox=26870 model=27870 deep-agent=28870 asr=29870 vision=30870 loopback-sandbox=31870 mail=19870
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[heavy-e2e-lock] 排到了，等了 0s
+[db-isolation] db=wsx_b337a2feb3063fb86056 capacity=100 current=6 required=32
+ ❯ tests/billing/cashier-browser.integration.ts (1 test | 1 skipped)
+ ❯ tests/billing/cashier-browser.integration.ts (1 test | 1 skipped) 19677ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/cashier-browser.integration.ts [ tests/billing/cashier-browser.integration.ts ]
+Error: browserType.launch: Executable doesn't exist at /Users/shenyangjun/Library/Caches/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-mac-arm64/chrome-headless-shell
+╔════════════════════════════════════════════════════════════╗
+║ Looks like Playwright was just installed or updated.       ║
+║ Please run the following command to download new browsers: ║
+║                                                            ║
+║     pnpm exec playwright install                           ║
+║                                                            ║
+║ <3 Playwright Team                                         ║
+╚════════════════════════════════════════════════════════════╝
+ ❯ tests/billing/cashier-browser.integration.ts:75:51
+     73|   web.stdout?.on("data", capture); web.stderr?.on("data", capture);
+     74|   webClosed = new Promise<void>(resolve => { web!.once("close", () => …
+     75|   await waitForServer(); browser = await chromium.launch({ headless: t…
+       |                                                   ^
+     76| }, 120000);
+     77| afterAll(async () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 skipped (1)
+   Start at  06:19:25
+   Duration  23.45s (transform 669ms, setup 5ms, collect 1.25s, tests 19.68s, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_b337a2feb3063fb86056 peak_connections=2
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-cashier.config.ts
+[timing] pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：24s
+  清理：0s
+  总计：24s
