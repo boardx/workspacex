@@ -50,7 +50,7 @@
       "area": "billing-credits",
       "title": "充值订单主链路：套餐列表、创建订单、订单查询",
       "user_visible_behavior": "已登录用户 GET /billing/packages 只看到 enabled 且匹配主体类型（个人/组织）的套餐；POST /billing/orders 只传 packageId 与主体（前端不传任何金额字段）即创建 PENDING 订单，返回 15 分钟有效期的二维码链接与套餐快照；微信 Native 下单失败时订单不落库、返回 wechat_upstream_failed 可重试；GET /billing/orders/:orderNo 按归属校验，他人订单或不存在一律 order_not_found；组织普通成员下单 403、套餐下架 package_disabled、未配置渠道 payment_provider_not_configured。",
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "04",
       "owner": "coord-voice",
       "capability": "CAP-DATA",
@@ -66,7 +66,7 @@
         "pnpm --filter api exec vitest run tests/billing/order-core.test.ts",
         "pnpm --filter api exec vitest run tests/billing/order-ownership.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F04.verify.log @ 2026-10-15T11:27:47.118Z",
       "notes": "覆盖 V1/V3/V6/V7/V8 的 API 侧（UC-BC-2/3/4 + 内部端口 UC-BC-I4 WechatPayClient.createNativeOrder，测试用 mock 上游不依赖真实商户号）；I-5 套餐快照、I-13 无假二维码（微信下单失败不落库）、I-9 归属收敛。org_billing_disabled 校验分支（I-12）由 F-TBD-org-billing-setting 接入，本 feature 在 createPaymentOrder 预留开关读取点。金额精度：分（整数）；跨束契约strict输入为权威，额外金额字段400拒绝。组织开关读取已接入已有行，写接口属后续feature。Native响应必须验签；网络/保存失败不自动新建第二意图，不承诺请求级幂等。"
     },
     {
