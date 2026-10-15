@@ -1,0 +1,18 @@
+Command: pnpm --filter web test (test=vitest run)
+Source commit: e75c02787
+Exit: 0
+Output excerpt (complete log retained at /tmp/wsx-survey-5745-full-web.log):
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3) { source: 'onRunErrorEvent', runtimeErrorCode: 'MODEL_CALL_FAILED' }
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+    at startTests (file:///Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1271:3)
+ ✓ tests/ui/survey-inline-voice.test.tsx (9 tests) 2481ms
+ Test Files  938 passed (938)
+      Tests  8067 passed | 5 skipped (8072)
+   Start at  11:52:31
+   Duration  462.08s (transform 50.34s, setup 329.55s, collect 1172.68s, tests 906.50s, environment 1228.72s, prepare 139.82s)

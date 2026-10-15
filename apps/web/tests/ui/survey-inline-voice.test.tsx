@@ -57,9 +57,13 @@ it('leaves typed text editable after microphone permission or missing-device err
     const view = render(<SurveyAiProposal locked={false} onApply={vi.fn()} />);
     fireEvent.change(screen.getByRole('textbox', { name: '问卷需求' }), { target: { value: '已有文本' } });
     fireEvent.click(screen.getByRole('button', { name: '语音输入' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(detail.message));
-    expect(screen.getByRole('textbox', { name: '问卷需求' })).toHaveValue('已有文本');
-    expect(screen.getByRole('button', { name: '生成问卷' })).toBeEnabled();
+    // The child renders its error before an effect releases the parent's voice-busy state.
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(detail.message);
+      expect(screen.getByRole('textbox', { name: '问卷需求' })).toHaveValue('已有文本');
+      expect(screen.getByRole('textbox', { name: '问卷需求' })).toBeEnabled();
+      expect(screen.getByRole('button', { name: '生成问卷' })).toBeEnabled();
+    });
     view.unmount();
   }
 });
