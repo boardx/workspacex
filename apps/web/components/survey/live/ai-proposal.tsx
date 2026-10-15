@@ -1,4 +1,5 @@
 'use client';
+import { WorkflowActionBar, WorkflowActionButton } from '@/components/research-studio/research-workflow-actions';
 import * as React from 'react';
 import { Paperclip, FileText, X } from 'lucide-react';
 import { InterviewVoiceInput } from '@/components/itv/interview-voice-input';
@@ -90,7 +91,7 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
       {overLimit&&<p role="alert" className="mt-3 text-13 text-destructive">需求内容超过 {SURVEY_PROPOSAL_TEXT_MAX_CHARS} 字符（当前 {text.trim().length}）。转写已完整保留，请缩短需求后再生成。</p>}
       {error&&<p role="alert" className="mt-3 text-13 text-destructive">{error}</p>}
     </div>
-    <div className="flex justify-end gap-2">{busy?<Button variant="outline" onClick={cancel}>取消生成</Button>:null}<Button disabled={busy||reading||voiceBusy||overLimit||(!text.trim()&&!transcriptionId&&!file)} onClick={()=>void generate()}>{busy?'正在生成…':'生成问卷'}</Button></div>
+    <WorkflowActionBar placement="footer">{busy?<WorkflowActionButton variant="outline" onClick={cancel}>取消生成</WorkflowActionButton>:null}<WorkflowActionButton variant="primary" disabled={busy||reading||voiceBusy||overLimit||(!text.trim()&&!transcriptionId&&!file)} onClick={()=>void generate()}>{busy?'正在生成…':'生成问卷'}</WorkflowActionButton></WorkflowActionBar>
     <Dialog open={!!proposal} onOpenChange={open=>{if(!open)setProposal(null);}}><DialogContent className="max-h-[85vh] max-w-5xl overflow-auto">
       <DialogTitle>Markdown 预览与校对</DialogTitle><DialogDescription>AI 提案尚未应用。检查内容并修改，确认后应用到问卷。</DialogDescription>
       <p className="text-12 text-muted-foreground">{proposal?.execution.provider} / {proposal?.execution.modelId} · 来源：{proposal?.source.kind}</p>

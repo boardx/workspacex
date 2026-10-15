@@ -65,6 +65,7 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.getByLabel('问卷名称').fill('AI 校对验收');
  await page.getByLabel('添加标签',{exact:true}).fill('客户调研');await page.getByLabel('添加标签',{exact:true}).press('Enter');
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
+ await page.screenshot({path:testInfo.outputPath('survey-create-dialog.png'),fullPage:true});
  await page.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
  const composer=page.getByTestId('survey-intake-composer');
@@ -73,8 +74,9 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await expect(composer.getByRole('button',{name:'语音输入',exact:true})).toBeVisible();
  await expect(composer.getByRole('button',{name:'选择已保存录音',exact:true})).toBeVisible();
  await expect(page.getByText(/可直接在本页语音输入/)).toHaveCount(0);
- for(const width of [1440,375]){
-   await page.setViewportSize({width,height:1000});
+ await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
+ for(const width of [1280,768,375]){
+   await page.setViewportSize({width,height:width===375?812:1000});
    const input=composer.getByRole('textbox',{name:'问卷需求'});
    await input.focus();
    await expect(input).toBeFocused();
@@ -85,6 +87,13 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
      const action=await composer.getByRole('button',{name:label,exact:true}).boundingBox();expect(action).not.toBeNull();
      expect(action!.x).toBeGreaterThanOrEqual(bounds!.x);expect(action!.x+action!.width).toBeLessThanOrEqual(bounds!.x+bounds!.width+1);
      expect(action!.y+action!.height).toBeLessThanOrEqual(bounds!.y+bounds!.height+1);
+   }
+   if(width===375){
+     const generate=page.getByRole('button',{name:'生成问卷',exact:true});
+     await generate.scrollIntoViewIfNeeded();
+     const action=await generate.boundingBox();
+     const mobileNav=await page.getByRole('navigation',{name:'主导航（移动端）'}).boundingBox();
+     expect(action&&mobileNav&&action.y+action.height<=mobileNav.y).toBeTruthy();
    }
    expect(await page.locator('body').evaluate(element=>element.scrollWidth)).toBeLessThanOrEqual(width);
    await page.screenshot({path:testInfo.outputPath(`survey-intake-${width}.png`),fullPage:true});
@@ -215,6 +224,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await page.screenshot({path:testInfo.outputPath("survey-home-desktop.png"),fullPage:true});
   await page.getByRole("link", { name: "问卷模板", exact: true }).click();
   await expect(page).toHaveURL(/\/studio\/survey\?tab=modules$/);
+  await page.screenshot({path:testInfo.outputPath("survey-template-library.png"),fullPage:true});
 
   const template = page.locator("article").filter({
     has: page.getByRole("heading", { name: TEMPLATE_TITLE, exact: true }),
@@ -243,6 +253,8 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   const colors=await publishAction.evaluate(element=>({background:getComputedStyle(element).backgroundColor,color:getComputedStyle(element).color}));
   // PAPER primary = hsl(30 6% 12%), converted to rounded sRGB channels.
   expect(colors).toEqual({background:'rgb(32, 31, 29)',color:'rgb(255, 255, 255)'});
+  // Check the resting paint after moving away from the newly positioned canvas.
+  await page.getByLabel('问卷名称').hover();
   await expect(page.locator('[data-survey-inline-edit]').first()).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
   const autosaved=page.waitForResponse(response=>response.url().endsWith('/source')&&response.request().method()==='PUT');
   await page.getByLabel('问卷名称').fill('会议反馈自动保存');
@@ -267,6 +279,7 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
 
   await page.getByRole("button", { name: "2. 发布回收" }).click();
   await expect(page.getByRole("button", { name: "检查发布条件" })).toHaveCount(0);
+  await page.screenshot({path:testInfo.outputPath("survey-publish-settings.png"),fullPage:true});
   await page.getByRole("button", { name: "开始回收" }).click();
   await expect(page.getByText(/正在回收 · 0 份答卷/)).toBeVisible();
   await page.screenshot({path:testInfo.outputPath("survey-publish-desktop.png"),fullPage:true});

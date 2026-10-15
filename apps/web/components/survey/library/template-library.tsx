@@ -1,4 +1,6 @@
 "use client";
+import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
+
 
 import { ResourceCard } from "@/components/ui/resource-card";
 import * as React from "react";
@@ -156,11 +158,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       <header className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
         <div>
           <h1 className="text-30 font-semibold tracking-tight">{label}</h1>
-          <p className="mt-1 max-w-2xl text-14 text-muted-foreground">
-            {kind === "question"
-              ? "保存可重复使用的题目与配套报告，用模板开始一份新问卷。"
-              : "保存章节、内容块与数据配置，在问卷中选择模板并关联题目。"}
-          </p>
+
         </div>
         <div className="flex w-full flex-col gap-2 sm:flex-row xl:w-auto">
           <div className="relative min-w-0 sm:w-72">
@@ -183,10 +181,10 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
           >
             刷新
           </Button>
-          <Button disabled={busy} onClick={() => router.push(`${base}/new`)}>
+          <WorkflowActionButton variant="primary" disabled={busy} onClick={() => router.push(`${base}/new`)}>
             <Plus className="h-4 w-4" aria-hidden />
             新建{label}
-          </Button>
+          </WorkflowActionButton>
         </div>
       </header>
       <div className="flex flex-col gap-6">

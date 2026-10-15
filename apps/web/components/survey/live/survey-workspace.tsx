@@ -1,4 +1,6 @@
 "use client";
+import { WorkflowActionBar, WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
+
 import * as React from "react";
 import { parseSurveyDesignMarkdown, serializeSurveyDesignMarkdown, serializeSurveyReportTemplateMarkdown } from "@repo/contracts/survey-source";
 import { useSurveyUnsavedNavigation } from "@/lib/survey/use-unsaved-navigation";
@@ -553,7 +555,7 @@ export function LiveSurveyWorkspace({
           </>)}
           {step === "publish" && (
             <section className="mx-auto max-w-screen-2xl space-y-5 p-5 sm:p-7 lg:p-10">
-              <div><h1 className="text-20 font-semibold">发布与回收</h1><p className="mt-1 text-12 text-muted-foreground">设置回收状态与时间，发布后分享链接并查看真实答卷。</p></div>
+              <h1 className="text-20 font-semibold">发布与回收</h1>
               <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]">
               <div className="space-y-5">
               <section aria-label="问卷回收状态" className="rounded-lg border border-border bg-card p-6">
@@ -565,24 +567,24 @@ export function LiveSurveyWorkspace({
                 {selectedPublication && !selectedIsActive && <p className="mt-2 text-12 font-medium text-muted-foreground">历史批次只读</p>}
               </section>
               {runtime && (runtime.status === "draft" || runtime.status === "ready") ? (
-                <section className="space-y-4 rounded-md border border-success/40 bg-success/5 p-4">
+                <section className="space-y-4 rounded-lg border border-border bg-card p-6">
                   <div>
-                    <h2 className="text-16 font-semibold">回收设置</h2>
-                    <p className="mt-1 text-12 text-muted-foreground">设计阶段自动检查问卷。设置开始和截止时间，可立即回收或预约开始。</p>
+                    <h2 className="text-16 font-semibold">回收时间</h2>
                     {designBlockers.length > 0 && <p className="mt-2 text-12 text-warning">请返回设计，处理 {designBlockers.length} 项问题后开始回收。</p>}
                   </div>
                   <CollectionScheduleFields starts={starts} expires={expires} onStartChange={setStarts} onEndChange={setExpires} disabled={busy} />
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" onClick={() => selectStep("design")}>
+                  <WorkflowActionBar placement="footer">
+                    <WorkflowActionButton variant="outline" onClick={() => selectStep("design")}>
                       返回编辑
-                    </Button>
-                    <Button
+                    </WorkflowActionButton>
+                    <WorkflowActionButton
+                      variant="primary"
                       disabled={designBlockers.length > 0}
                       onClick={() => void execute(() => command("begin-collection", collectionScheduleInput(starts, expires)))}
                     >
                       开始回收
-                    </Button>
-                  </div>
+                    </WorkflowActionButton>
+                  </WorkflowActionBar>
                 </section>
               ) : runtime && selectedPublication ? (
                 <>
