@@ -20,9 +20,15 @@ class FixtureBoundaries(unittest.TestCase):
             self.assertEqual(list(root.rglob('*.pyc')),[])
             # Same real import chain without the child flag reproduces the
             # source mutation. This is a disposable tree, never the checkout.
-            m.run([sys.executable,'-I',probe],cwd=root)
+            m.run([sys.executable,'-I','-X','pycache_prefix=',probe],cwd=root)
             self.assertTrue(list((root/'scripts').rglob('*.pyc')))
             self.assertTrue(list((root/'.harness').rglob('*.pyc')))
+    def test_reviewed_migration_scope_includes_new_main_migrations(self):
+        node=shutil.which('node');self.assertTrue(node)
+        result=subprocess.run([node,'--import','tsx','--test','tests/fixtures/cn-application-recovery/migration-scope.test.ts'],cwd=ROOT,capture_output=True,text=True,timeout=15)
+        self.assertEqual(result.returncode,0,result.stderr+result.stdout)
+        self.assertIn('# pass 2',result.stdout);self.assertIn('# fail 0',result.stdout)
+        self.assertIn('# skipped 0',result.stdout)
     def test_non_linux_cannot_create_container(self):
         with patch.object(m.sys,'platform','darwin'),patch.object(m.subprocess,'Popen')as spawn,contextlib.redirect_stdout(io.StringIO())as output:
             self.assertEqual(m.main(),2);spawn.assert_not_called()

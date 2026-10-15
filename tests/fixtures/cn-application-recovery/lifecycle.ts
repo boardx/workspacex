@@ -2,6 +2,7 @@
  * Historical prefix is fault-injection input, NOT the deployed schema.
  */
 import assert from 'node:assert/strict';
+import {migrationScope}from'./migration-scope';
 import fs from 'node:fs/promises';
 import {writeFileSync}from'node:fs';
 import {startupDiagnostic}from'../cn-api-startup/diagnostic';
@@ -64,11 +65,9 @@ async function readPhase(p:string){const raw=await fs.readFile(path.join(journal
 if(mode==='--observe'){process.stdout.write((await readPhase(phase)).raw);process.exit(0);}
 assert.equal(phases[state.finished.length],phase);const intent=path.join(journal,phase+'.intent.json');await once(intent,{epoch:state.epoch,phase,seed});const begin=state.events.length;
 if(phase==='init'){
- const names=migrationFiles();assert(names.length>=2);state.fullCount=names.length;state.originalCount=names.length-1;state.finalOriginalMigration=names.at(-1);
- // Freeze the known historical last migration; a future changed tail requires review.
- assert.equal(state.finalOriginalMigration,'20261006001000_organization_creation_requests.sql');
+ const names=migrationFiles();assert(names.length>=2);const scope=migrationScope(names);state.fullCount=names.length;state.originalCount=scope.originalCount;state.finalOriginalMigration=scope.last;state.pendingOriginalMigrations=scope.pending;
  const prefix=path.join(root,'prefix'),candidate=path.join(root,'candidate');await fs.mkdir(prefix);await fs.mkdir(candidate);
- const manifest=[];for(const [i,name]of names.entries()){const raw=await fs.readFile(path.join(MIGRATIONS_DIR,name));manifest.push({name,sha256:hash(raw)});await rawOnce(path.join(candidate,name),raw);if(i<names.length-1)await rawOnce(path.join(prefix,name),raw);}
+ const manifest=[];for(const [i,name]of names.entries()){const raw=await fs.readFile(path.join(MIGRATIONS_DIR,name));manifest.push({name,sha256:hash(raw)});await rawOnce(path.join(candidate,name),raw);if(i<state.originalCount)await rawOnce(path.join(prefix,name),raw);}
  await once(path.join(root,'original-migration-manifest.json'),manifest);state.migrationManifestSha256=hash(await fs.readFile(path.join(root,'original-migration-manifest.json')));
  await rawOnce(path.join(candidate,'99999999999999_fixture_fault.sql'),Buffer.from('SELECT 1/0;\n'));
  await query('postgres','CREATE DATABASE app_epoch');const applied=await migrate(dbcfg('app_epoch'),{dir:prefix});assert.equal(applied.applied.length,state.originalCount);assert.equal(applied.skipped.length,0);
@@ -81,7 +80,7 @@ if(phase==='init'){
 }else if(phase==='backup'){await held('app_epoch');await backup();await event('current-epoch-backup',{sha256:state.dumpSha256,bytes:state.dumpBytes,epoch:state.epoch});
 }else if(phase==='restore'){await restore('app_preflight_restore');state.checks.push('same_original_backup_preflight_restore_actual_repository');
 }else if(phase==='compatibility'){
- const applied=await migrate(dbcfg('app_preflight_restore'));assert.deepEqual(applied.applied,[state.finalOriginalMigration]);await hold('app_preflight_restore');assert.deepEqual(await actualRead('app_preflight_restore'),state.applicationReadback);
+ const applied=await migrate(dbcfg('app_preflight_restore'));assert.deepEqual(applied.applied,state.pendingOriginalMigrations);await hold('app_preflight_restore');assert.deepEqual(await actualRead('app_preflight_restore'),state.applicationReadback);
  await event('actual-final-migration-success',{applied:applied.applied,fullCount:(await ledger('app_preflight_restore')).length});state.checks.push('actual_original_additive_migration_repository_compatible');
 }else if(phase==='migration-fault'){
  await held('app_epoch');await assert.rejects(migrate(dbcfg('app_epoch'),{dir:path.join(root,'candidate')}),/99999999999999_fixture_fault.sql/);
