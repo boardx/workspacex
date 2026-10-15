@@ -1,4 +1,5 @@
 import {assertRunCoreModelSnapshot} from "../model/pg-org-core-model-repository";
+import {resolveReportFilePolicyProject} from '../report-files/pg-report-file-policy-project';
 import type {OrgCoreModelAvailability} from "../../application/model/org-core-model-ports";
 import type {NativeBoundRegistration} from "./native-quota-wiring";
 import {readPrivateChildSources} from "./private-child-source-reader";
@@ -73,7 +74,12 @@ export function createAiQuotaRuntimeWiring(enabled:boolean,configuration:AiQuota
  };
  const boundaries=(orgId:OrgId,scopedDb?:DatabasePort)=>({model:deps.model,currentCandidates:()=>registry.currentCandidates(scopedDb?new PgModelPoolRepository(scopedDb):deps.pool,String(orgId)),measure:registry.measure.bind(registry)});
  return {inputOnly,run:{primaryModelId:(_org,run)=>registry.formalModelId(run.modelProvider,run.modelId),
-  facts:(orgId,run,input)=>{const subject:WholeInputSubject={orgId,userId:run.requesterUserId,rootRunId:run.runId,runId:run.runId,attemptId:input.executionAttemptId??"",leaseEpoch:input.executionLeaseEpoch??0,origin:"root-model-input"};return facts(subject,JSON.stringify(input),undefined,readRootAssembly(input,subject));},
+  facts:async(orgId,run,input)=>{
+   if(run.projectId===null && run.policyProjectId){
+    const current=await deps.db.withTenant(orgId,s=>resolveReportFilePolicyProject(s,orgId,run.runId,run.requesterUserId,run.threadId,null));
+    if(current!==run.policyProjectId)throw new Error("REPORT_POLICY_BINDING_DENIED");
+   }
+   const subject:WholeInputSubject={orgId,userId:run.requesterUserId,rootRunId:run.runId,runId:run.runId,attemptId:input.executionAttemptId??"",leaseEpoch:input.executionLeaseEpoch??0,origin:"root-model-input"};return facts(subject,JSON.stringify(input),undefined,readRootAssembly(input,subject));},
   dependencies:orgId=>({...boundaries(orgId),policy:budget,admission:budget,usage:deps.usage}),
   selection:(orgId,run,selection)=>configuration.selection(orgId,run.runId,selection)},
   runtime:{inputOnly,verifyReplacementBinding:(original,target)=>registry.samePrivateConnection(configuration.privateRuntimeProvider,original,target),selection:configuration.selection,primaryModelId:modelId=>registry.formalModelId(configuration.privateRuntimeProvider,modelId),dependencies:boundaries,

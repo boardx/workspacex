@@ -2,9 +2,8 @@ import { research as C } from "@repo/contracts";
 import { useRef, useState, type ReactNode } from "react";
 import { researchWorkspaceStyle } from "./research-workspace-style";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as Button, WorkflowActionBar } from "./research-workflow-actions";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { downloadResearchWord, printResearchPdf } from "@/lib/research-report-export";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import rehypeSanitize from "rehype-sanitize";
@@ -44,13 +43,10 @@ export function chapterBody(body: string, title: string) {
   return heading && heading[1]!.trim() === title.trim() ? body.slice(heading[0].length) : body;
 }
 
-export function GuidedResearchReportDocument({ document, provisional = false, historical = false, idPrefix = "", limitations, actions, moreActions, onRegenerate, regenerateDisabled = false }: { document: ReportDocument; provisional?: boolean; historical?: boolean; idPrefix?: string; title?: string; limitations?: string; actions?: ReactNode; moreActions?: ReactNode; validationNotice?: ReactNode; onRegenerate?: () => void; regenerateDisabled?: boolean }) {
+export function GuidedResearchReportDocument({ document, provisional = false, historical = false, idPrefix = "", limitations, actions, fileActions, moreActions, onRegenerate, regenerateDisabled = false }: { document: ReportDocument; provisional?: boolean; historical?: boolean; idPrefix?: string; title?: string; limitations?: string; actions?: ReactNode; fileActions?: ReactNode; moreActions?: ReactNode; validationNotice?: ReactNode; onRegenerate?: () => void; regenerateDisabled?: boolean }) {
   const headings = document.headings ?? C.guidedResearchReportFraming({ topic: document.title, goal: document.summary, focus: document.introduction ?? "" }).headings;
   const root = useRef<HTMLElement>(null);
   const [contentsOpen, setContentsOpen] = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [exportError, setExportError] = useState("");
-  async function word() { if (!root.current) return; setExporting(true); setExportError(""); try { await downloadResearchWord(root.current, document.title); } catch { setExportError("导出失败，请重试。"); } finally { setExporting(false); } }
   const anchorId = (id: string) => `${idPrefix}${id}`;
   const anchors = [
     ...(document.summary ? [{ id: "research-report-summary", title: headings.summary }] : []),
@@ -69,5 +65,5 @@ export function GuidedResearchReportDocument({ document, provisional = false, hi
     {document.conclusion && <section id={anchorId("research-report-conclusion")} className="scroll-mt-6 space-y-3 border-t border-border pt-8" data-testid="research-report-conclusion"><h3 className="text-20 font-semibold">{headings.conclusion}</h3><ResearchReportMarkdown text={document.conclusion} references={document.references} /></section>}
     {document.references.length > 0 && <section id={anchorId("research-report-references")} className="scroll-mt-6 space-y-3 border-t border-border pt-8" aria-label="参考来源" data-testid="research-report-references"><h3 className="text-18 font-semibold">{headings.references}</h3><ol className="list-decimal space-y-3 pl-5 text-12 leading-relaxed">{document.references.map((reference) => <li key={reference.number} id={anchorId(`research-reference-${reference.number}`)}><a href={reference.url} target="_blank" rel="noopener noreferrer" className="break-words text-primary underline underline-offset-2 transition-colors hover:decoration-primary">{reference.title}</a><p className="mt-1 break-all text-muted-foreground">{reference.url}</p></li>)}</ol></section>}
     </div>
-  </article>{!historical && <><div className="flex flex-wrap items-center justify-between gap-3" data-testid="research-report-actions"><div className="ml-auto flex items-center gap-2">{actions}<DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作" data-testid="research-report-more-actions">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{moreActions && <>{moreActions}<DropdownMenuSeparator /></>}{onRegenerate && <><DropdownMenuItem disabled={regenerateDisabled} onSelect={onRegenerate}>重新生成报告</DropdownMenuItem><DropdownMenuSeparator /></>}<DropdownMenuItem disabled={exporting} onSelect={() => void word()}>{exporting ? "正在导出…" : "下载 Word"}</DropdownMenuItem><DropdownMenuItem onSelect={() => { if (root.current) { try { printResearchPdf(root.current, document.title || "研究报告"); } catch { setExportError("无法打开打印窗口，请重试。"); } } }}>导出 PDF</DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></div>{exportError && <p role="alert" className="text-12 text-destructive">{exportError}</p>}</>}</div>;
+  </article>{!historical && <><WorkflowActionBar placement="footer" data-testid="research-report-actions"><DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" aria-label="更多操作" data-testid="research-report-more-actions">更多操作</Button></DropdownMenuTrigger><DropdownMenuContent align="end">{moreActions && <>{moreActions}<DropdownMenuSeparator /></>}{onRegenerate && <><DropdownMenuItem disabled={regenerateDisabled} onSelect={onRegenerate}>重新生成报告</DropdownMenuItem><DropdownMenuSeparator /></>}</DropdownMenuContent></DropdownMenu>{fileActions}{actions}</WorkflowActionBar></>}</div>;
 }

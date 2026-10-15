@@ -1,0 +1,23 @@
+name: CN MVP read-only cloud host capability
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    if: github.ref == 'refs/heads/main' && github.run_attempt == 1
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Inspect unprivileged metadata only
+        run: python3 -I -B scripts/cn-release-mvp-host-capability.py > "$RUNNER_TEMP/cn-mvp-host-capability.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cn-mvp-host-capability-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-mvp-host-capability.json
+          retention-days: 1
+          if-no-files-found: error

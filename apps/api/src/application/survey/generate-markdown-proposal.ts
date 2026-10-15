@@ -1,7 +1,7 @@
 import type { ModelCallPort } from '../agent-run/ports';
 import { createHash,randomUUID } from 'node:crypto';
 import { parseSurveyDesignMarkdown } from '@repo/contracts/survey-source';
-import { SurveyMarkdownProposalSchema, type SurveyMarkdownProposal } from '@repo/contracts/survey-markdown-proposal';
+import { SurveyMarkdownProposalSchema, SURVEY_PROPOSAL_TEXT_MAX_CHARS, type SurveyMarkdownProposal } from '@repo/contracts/survey-markdown-proposal';
 export const SURVEY_MARKDOWN_GENERATOR=Symbol('SurveyMarkdownGenerator');
 export class SurveyProposalError extends Error {
   constructor(readonly code:'SURVEY_AI_UNAVAILABLE'|'SURVEY_AI_INVALID_MARKDOWN'|'SURVEY_AI_INPUT_INVALID') {super(code);}
@@ -10,7 +10,7 @@ export interface SurveyMarkdownGenerator {
   generate(input:{text:string;kind?:'text'|'transcription'|'file';name?:string;referenceId?:string}):Promise<SurveyMarkdownProposal>;
 }
 export async function generateSurveyMarkdownProposal(deps:{model:ModelCallPort;provider:string;modelId:string},input:{text:string;kind?:'text'|'transcription'|'file';name?:string;referenceId?:string}):Promise<SurveyMarkdownProposal> {
-  if(!input.text.trim()||input.text.length>20000)throw new SurveyProposalError('SURVEY_AI_INPUT_INVALID');
+  if(!input.text.trim()||input.text.length>SURVEY_PROPOSAL_TEXT_MAX_CHARS)throw new SurveyProposalError('SURVEY_AI_INPUT_INVALID');
   if(!deps.provider||!deps.modelId)throw new SurveyProposalError('SURVEY_AI_UNAVAILABLE');
   let completion;
   const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;

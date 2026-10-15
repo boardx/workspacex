@@ -1,3 +1,7 @@
+import {PgReportFileJobStore} from './infrastructure/report-files/pg-job-store';
+import { InterviewExpertLibraryController } from './interface/controllers/interview-expert-library.controller';
+import { INTERVIEW_CUSTOM_EXPERT_LIBRARY } from './application/interview/custom-expert-library';
+import { PgCustomExpertLibrary } from './infrastructure/interview/pg-custom-expert-library';
 import { ORGANIZATION_CREATION_REPOSITORY } from "./application/auth/create-organization";
 import { PgOrganizationCreationRepository } from "./infrastructure/auth/pg-organization-creation-repository";
 import {CORE_MODEL_RUNTIME_GUARD,createCoreModelRuntimeGuard,guardCoreModelCalls,type CoreModelRuntimeGuard} from "./infrastructure/model/core-model-runtime-guard";
@@ -210,6 +214,7 @@ import { GoogleGuidedSearch } from "./infrastructure/research/google-guided-sear
  */
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
+import { BillingModule } from "./billing.module";
 import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 
 import { DATABASE_PORT, DIAGNOSTICS_READER_DB_PORT } from "./application/ports/database.port";
@@ -248,7 +253,7 @@ import {
 } from "./application/auth/ports";
 import { BcryptPasswordHasher } from "./infrastructure/auth/bcrypt-password-hasher";
 import {
-  PgCredentialRepository, PgLoginAttemptRepository, PgResetTokenRepository,
+  PgLoginAttemptRepository, PgResetTokenRepository,
 } from "./infrastructure/auth/pg-credential-repository";
 import { RedisSessionTokenStore, redisConfig } from "./infrastructure/auth/redis-session-token-store";
 import { fileSessionStoreFromEnv, sessionStoreKindFromEnv } from "./infrastructure/auth/file-session-token-store";
@@ -272,6 +277,7 @@ import {
   type DecisionIdFactory,
   type IdentityRepository,
 } from "./application/identity/ports";
+import { IdentityPersistenceModule } from "./infrastructure/identity/identity-persistence.module";
 import { PgIdentityRepository } from "./infrastructure/identity/pg-identity-repository";
 import {
   InMemoryAuthorizationCache,
@@ -465,6 +471,8 @@ import { PgConsentDeclineReader } from "./infrastructure/interview/pg-consent-de
 import { ContextApiInsightMaterialReader } from "./infrastructure/interview/context-api-insight-material-reader";
 import { InMemoryInsightCandidateStore } from "./infrastructure/interview/in-memory-insight-candidate-store";
 import { HeuristicCandidateInsightGenerator } from "./infrastructure/interview/heuristic-candidate-insight-generator";
+import { ReportFilesController } from "./interface/controllers/report-files.controller";
+import { reportFileProviders } from "./infrastructure/report-files/report-file.providers";
 import { GuidedResearchController } from "./interface/controllers/guided-research.controller";
 import { GUIDED_RESEARCH_SESSION_REPOSITORY } from "./application/research/guided-session-ports";
 import { GUIDED_RESEARCH_WORKFLOW_SERVICE, GuidedResearchWorkflowService } from "./application/research/guided-workflow-service";
@@ -569,6 +577,8 @@ import { ChatAttachmentController } from "./interface/controllers/chat-attachmen
 // 不是 agent-runtime 束 `ModelPoolRepository` 的第二份实现。
 import { APPROVAL_MODEL_REGISTRY_READER } from "./application/chat/approval-model-registry";
 import { PgApprovalModelRegistryReader } from "./infrastructure/chat/pg-approval-model-registry";
+import { ChatShareController } from "./interface/controllers/chat-share.controller";
+import { CHAT_SHARE_PROVIDERS } from "./infrastructure/chat/chat-share-providers";
 import { ChatController } from "./interface/controllers/chat.controller";
 // #414（Wave 2 delta §5）：最小无工具 AgentRun 的执行与轮询读。
 // 快照来自 #415 在受理时写下的 run 行；本束不解析 Agent head，也不做 provider fallback。
@@ -900,7 +910,6 @@ import { PLATFORM_MEMBER_REPOSITORY } from "./application/system/platform-member
 import { PgPlatformMemberRepository } from "./infrastructure/system/pg-platform-member-repository";
 // platform-admin-role delta：落库的"平台管理员"名册。
 import { PLATFORM_ADMIN_REPOSITORY } from "./application/system/platform-admin-ports";
-import { PgPlatformAdminRepository } from "./infrastructure/system/pg-platform-admin-repository";
 import { PlatformAccessController } from "./interface/controllers/platform-access.controller";
 import { PlatformMemberController } from "./interface/controllers/platform-member.controller";
 // F31 (files bundle): the project file browser's three READ routes.
@@ -1216,6 +1225,7 @@ const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
 const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
 
 @Module({
+  imports: [BillingModule, IdentityPersistenceModule],
   controllers: [
     WhiteboardFilesController,
     WorkflowRuntimeController,
@@ -1254,13 +1264,16 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     AuthOrgController,
     OrgAdminScopeController,
     InterviewMarkdownAttachmentController,
+    InterviewExpertLibraryController,
     DigitalInterviewController,
     ExpertAvatarPreferenceController,
     InterviewMarkdownReportReviewController,
     GuidedResearchController,
+    ReportFilesController,
     InterviewScopeController,
     InterviewInsightController,
     ChatController,
+    ChatShareController,
     ChatFollowUpSuggestionsController,
     ChatAttachmentController,
     OrgInviteController,
@@ -1350,6 +1363,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     ModelController,
   ],
   providers: [
+    ...reportFileProviders,
+    {provide: INTERVIEW_CUSTOM_EXPERT_LIBRARY, useFactory:(db:DatabasePort)=>new PgCustomExpertLibrary(db),inject:[DATABASE_PORT]},
     { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },
     { provide: INTERVIEW_MARKDOWN_REPORT_REVIEW_REPOSITORY, useFactory: (db: DatabasePort) => new PgInterviewMarkdownReportReviewRepository(db), inject: [DATABASE_PORT] },
     { provide: INTERVIEW_MARKDOWN_ATTACHMENTS, useFactory:(db:DatabasePort)=>new PgInterviewMarkdownAttachmentRepository(db),inject:[DATABASE_PORT] },
@@ -1357,7 +1372,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     SurveySubmissionRateLimitGuard, SurveyUploadCapabilityGuard, SurveyAttachmentRateLimitGuard,
     { provide: SURVEY_ATTACHMENT_SERVICE, inject: [DATABASE_PORT, OBJECT_STORE, PHYSICAL_PURGE_PORT], useFactory: (db: DatabasePort, store: ObjectStore, purge: PhysicalPurgePort) => new SurveyAttachmentService(new PgSurveyAttachmentRepository(db), store, purge) },
     { provide: SURVEY_REPOSITORY, inject: [DATABASE_PORT], useFactory: (db: DatabasePort) => new PgSurveyRepository(db) },
-    { provide: DATABASE_PORT, useFactory: () => new PgDatabase(appConfig()) },
     // WF03：Workflow 运行时（start/cancel/resume/SSE + 进程内 worker）；checkpoint 走唯一工厂与独立共享池。
     {
       provide: WORKFLOW_RUNTIME_SERVICE, inject: [DATABASE_PORT, LOGGER_PORT, MODEL_CALL_PORT, NOTIFICATION_CENTER, OBJECT_STORE, ARTIFACT_REPOSITORY, ID_FACTORY],
@@ -1461,11 +1475,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // E4: what the user sees as 「本次启动出网 N 次」 -- read from the same patched chokepoint.
     { provide: EGRESS_LEDGER, useFactory: () => new ProcessEgressLedger(readDeploymentEdition()) },
     { provide: LOCAL_MODEL_RUNTIME, useFactory: (repo:IdentityRepository,meter:TokenUsageMeterPort) => new HttpLocalModelRuntime(localRuntimeEndpoint(),localRuntimeModelId(),process.env.KERNEL_LOCAL_REQUEST_ACCOUNTING_ENABLED==="1"?new PgLocalRequestAccounting(repo,meter):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[IDENTITY_REPOSITORY,TOKEN_USAGE_METER] },
-    {
-      provide: IDENTITY_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgIdentityRepository(db),
-      inject: [DATABASE_PORT],
-    },
     /* ── #548 模型池 ───────────────────────────────────────────────────────── */
     {
       provide: MODEL_POOL_REPOSITORY,
@@ -2027,11 +2036,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
 
     /* ── F20 / F21 auth ─────────────────────────────────────────────────────── */
     {
-      provide: CREDENTIAL_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgCredentialRepository(db),
-      inject: [DATABASE_PORT],
-    },
-    {
       provide: LOGIN_ATTEMPT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgLoginAttemptRepository(db),
       inject: [DATABASE_PORT],
@@ -2100,6 +2104,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // （契约 KNOWN_CONTRACT_GAPS.C13）。给一个不存在的能力留个绑定，
     // 会让下一个接管理界面的人以为它已经在跑了。
     // F108. 仓储只负责取数，可见性判定在 domain 一处——见 pg-chat-repository 头部。
+    ...CHAT_SHARE_PROVIDERS,
     {
       provide: CHAT_REPOSITORY,
       useFactory: (db: DatabasePort) => new PgChatRepository(db),
@@ -2712,7 +2717,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {
       provide: TOOL_EXECUTION_AUTHORITY,
       useFactory: (db: DatabasePort, runs: AgentRunStore, grants: ToolPermissionGrantStore) =>
-        new ToolExecutionAuthority(new PgParentRunControlReader(db), runs, grants),
+        new ToolExecutionAuthority(new PgParentRunControlReader(db), runs, grants, input => new PgReportFileJobStore(db).artifactPolicyForRun(input)),
       inject: [DATABASE_PORT, AGENT_RUN_STORE, TOOL_PERMISSION_GRANT_STORE],
     },
     {
@@ -3027,11 +3032,6 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     // platform-admin-role delta：落库的"平台管理员"名册，PlatformOperatorGuard 与
     // grant/revokePlatformAdmin 都靠它判定/写入。
-    {
-      provide: PLATFORM_ADMIN_REPOSITORY,
-      useFactory: (db: DatabasePort) => new PgPlatformAdminRepository(db),
-      inject: [DATABASE_PORT],
-    },
     // F160（token-quota-and-usage delta）。额度读写与计量写入分成两个仓储：
     // 后者（PgTokenUsageRepository）是账的唯一写入点，前者只读账、写额度。
     // F162 限额策略。与额度仓储分开：规则是配置，额度是数额，两者的读写路径没有共享逻辑。

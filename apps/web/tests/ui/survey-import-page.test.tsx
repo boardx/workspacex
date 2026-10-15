@@ -19,7 +19,7 @@ beforeEach(() => { request.mockReset(); replace.mockReset(); window.sessionStora
 it("creates a real draft only after the corrected Markdown proposal is applied", async () => {
   request.mockResolvedValueOnce(proposal).mockResolvedValueOnce({ id: "created", version: 1 }).mockResolvedValueOnce({ id: "created", version: 2 });
   render(<SurveyImportPage searchParams={{ draft: JSON.stringify({ name: "客户调研", tags: ["客户"] }) }} />);
-  expect(screen.getByRole("heading", { name: "导入内容" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "创建问卷" })).toBeInTheDocument();
   expect(request).not.toHaveBeenCalled();
   fireEvent.change(screen.getByRole("textbox", { name: "问卷需求" }), { target: { value: "了解客户体验" } });
   fireEvent.click(screen.getByRole("button", { name: "生成问卷" }));

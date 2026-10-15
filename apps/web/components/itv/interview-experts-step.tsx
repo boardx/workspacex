@@ -1,11 +1,13 @@
 "use client";
 import * as React from "react";
 import { interviewMarkdown } from "@repo/contracts";
-import { Check, Plus, Search, Trash2, ArrowUp, ArrowDown, Pencil } from "lucide-react";
+import { ArrowRight, Check, Plus, Search, Trash2, ArrowUp, ArrowDown, Pencil } from "lucide-react";
 import type { DigitalExpertCatalogRow } from "@/lib/interview-api";
 import type { InterviewMarkdownDocument } from "@/lib/interview-markdown-api";
 import { Button } from "@/components/ui/button";
-import { InterviewStepHeader } from "./interview-step-header";
+import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
+import { InterviewExpertLibrary } from "./interview-expert-library";
+import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ExpertAvatar, ExpertAvatarEditor } from "./expert-avatar";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
@@ -20,8 +22,8 @@ function SelectedAvatar({ id, name, directory, context, savedIds }: { id: string
   const virtual = !directory.some((expert) => expert.expertId === id);
   return <ExpertAvatarEditor expertId={id} displayName={name} compact context={virtual ? context : undefined} disabled={virtual && (!context || !savedIds.includes(id))} disabledReason={virtual && (!context || !savedIds.includes(id)) ? "请先保存专家草稿，再修改虚拟专家头像。" : undefined} />;
 }
-export function InterviewExpertsStep({ document, directory, directoryStatus = "ready", onRetryDirectory, pending, onChange, onConfirm, onSuggestVirtual, onSaveExpert, avatarContext, savedExpertIds = [], showRecoveryContext = false }: {
-  document: InterviewMarkdownDocument; directory: readonly DigitalExpertCatalogRow[]; pending: boolean;
+export function InterviewExpertsStep({ document, directory, directoryStatus = "ready", onRetryDirectory, pending, loading = false, onChange, onConfirm, onSuggestVirtual, onSaveExpert, avatarContext, savedExpertIds = [], showRecoveryContext = false }: {
+  document: InterviewMarkdownDocument; directory: readonly DigitalExpertCatalogRow[]; pending: boolean; loading?: boolean;
   directoryStatus?: "loading" | "ready" | "error"; onRetryDirectory?: () => void;
   onChange: (markdown: string) => void; onConfirm: () => void;
   /** Retained as optional compatibility inputs while the expert footer is intentionally single-action. */
@@ -97,7 +99,7 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
     onChange(raw.slice(0, first.start) + raw.slice(second.start, second.end) + raw.slice(first.end, second.start) + raw.slice(first.start, first.end) + raw.slice(second.end));
   }
   return <div data-testid="itv-markdown-experts">
-    <InterviewStepHeader title="选择专家"><Button variant="outline" disabled={pending} onClick={() => { setEditingId(null); setDescription(""); setFields(emptyVirtualExpert()); setSuggestError(""); setOpen(true); }}>添加虚拟专家</Button><Button variant="primary" disabled={pending || !selected.length} onClick={onConfirm}>确认专家并生成问题</Button></InterviewStepHeader>
+    <InterviewStepHeader title="选择专家" />
     <div className="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
       <section className="rounded-xl border border-border p-5"><h3 className="text-xl font-semibold">专家库</h3>
         <div className="mt-4 flex flex-wrap gap-3"><label className="flex min-w-48 flex-1 items-center gap-2 rounded-lg border border-input px-3"><Search className="size-4" aria-hidden /><input aria-label="搜索专家" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} placeholder="姓名、角色或专业领域" className="w-full bg-transparent py-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label><select aria-label="专家领域" value={domain} onChange={(event) => { setDomain(event.target.value); setPage(1); }} className="rounded-lg border border-input bg-background px-3 text-sm"><option value="">全部领域</option>{domains.map((value) => <option key={value}>{value}</option>)}</select></div>
@@ -108,8 +110,10 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
       </section>
       <aside className="rounded-xl border border-border p-5"><h3 className="text-xl font-semibold">已选择专家 {selected.length}</h3><div className="mt-4 space-y-3">{selected.map((entry, index) => <article key={entry.id} className="rounded-lg border border-border p-3"><div className="flex items-center gap-2"><SelectedAvatar id={entry.id} name={entry.name} directory={directory} context={avatarContext} savedIds={savedExpertIds} /><strong className="min-w-0 flex-1 text-sm">{entry.name}</strong>{entry.id.startsWith("virtual-") && <Button variant="ghost" size="icon" disabled={pending} aria-label={`编辑专家 ${entry.name}`} onClick={() => editExpert(entry)}><Pencil className="size-4" aria-hidden /></Button>}<Button variant="ghost" size="icon" disabled={pending} aria-label={`移除专家 ${entry.name}`} onClick={() => onChange(document.markdown.slice(0, entry.block.start) + document.markdown.slice(entry.block.end))}><Trash2 className="size-4" aria-hidden /></Button></div><div className="mt-2 flex gap-2"><Button variant="ghost" size="sm" disabled={pending || index === 0} aria-label={`上移专家 ${entry.name}`} onClick={() => move(index, -1)}><ArrowUp className="size-4" aria-hidden /></Button><Button variant="ghost" size="sm" disabled={pending || index === selected.length - 1} aria-label={`下移专家 ${entry.name}`} onClick={() => move(index, 1)}><ArrowDown className="size-4" aria-hidden /></Button></div></article>)}</div><p className="mt-4 text-xs leading-6 text-muted-foreground">专家绑定稳定 ID；专家库头像在登录后保存到当前账号，跨会话同步。</p></aside>
     </div>
+    <InterviewExpertLibrary includeBuiltins={false} allowCreate={false} disabled={pending} onSelect={async(id,name,body)=>{if(selected.some(entry=>entry.id===id))return;const next=`${document.markdown}\n\n## [${text(name)}](#expert-${id})\n\n${body}\n`;if(onSaveExpert)await onSaveExpert(next);else onChange(next);}}/>
     {showRecoveryContext && document.markdown.trim() ? <section data-testid="itv-expert-draft-context" className="mt-4 rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground"><h3 className="font-semibold text-foreground">生成中断：已保存的未确认画像</h3><p className="mt-1">请核对完整草稿及材料边界，再保存或继续生成；解析出的专家名称不代表全文已完成。</p><pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-background p-3 font-mono text-xs leading-6">{document.markdown}</pre></section> : !selected.length && document.markdown.trim() ? <p data-testid="itv-expert-draft-context" className="mt-4 rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">已保存的画像草稿：{document.markdown.slice(0, 160)}</p> : null}
     {suggestError && !open && <p role="alert" className="mt-3 text-sm text-destructive">{suggestError}</p>}
+    <InterviewStepActions><ActionButton variant="outline" icon={<Plus className="size-4" aria-hidden />} disabled={pending} onClick={() => { setEditingId(null); setDescription(""); setFields(emptyVirtualExpert()); setSuggestError(""); setOpen(true); }}>添加虚拟专家</ActionButton><ActionButton variant="primary" loading={loading} icon={<ArrowRight className="size-4" aria-hidden />} disabled={pending || !selected.length} onClick={onConfirm}>确认专家并生成问题</ActionButton></InterviewStepActions>
     <Dialog open={open} onOpenChange={(value) => { if (!savingExpert) setOpen(value); }}><DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-6">
       <div className="flex items-center gap-4"><ExpertAvatar expertId="virtual-preview" displayName={fields.name || "虚拟专家"} /><div><DialogTitle className="text-2xl">{editingId ? "编辑虚拟专家" : "添加虚拟专家"}</DialogTitle><DialogDescription className="mt-1 text-sm leading-6">描述需要的专家，生成画像后可继续编辑。</DialogDescription></div></div>
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">

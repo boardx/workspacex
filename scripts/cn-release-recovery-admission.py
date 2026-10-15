@@ -49,7 +49,7 @@ def preflight(a):
     need(a['kind']=='cn-fixed-release-approval-v1' and a['target']==TARGET,'RELEASE_SCOPE')
     modules=closure(a);rb=modules['reader'];reader=rb.Reader()
     root=Path(a['runtimeStage']['remoteRoot'])
-    need(root.parent==VAR/'runtime' and re.fullmatch('upgrade-f0eb-[a-z0-9-]{1,64}',root.name),'CANONICAL_RUNTIME_SCOPE')
+    need(root.parent==VAR/'runtime' and re.fullmatch('upgrade-[a-z0-9-]{1,100}',root.name),'CANONICAL_RUNTIME_SCOPE')
     # Existing role and both read APIs are independently checked; no Create call.
     modules['rds'].preflight(a,reader)
     need(rb.sha(reader.file(HOLD,modes=(0o600,0o700)))==a['rds']['holdHelperSha256'],'HOLD_HELPER_PIN')
@@ -100,7 +100,7 @@ def classify(a,release,fresh_raw,modules,*,reader=None,hold_reader=None,phase_ob
     need(a['kind']=='cn-fixed-release-approval-v1' and a['target']==TARGET,'RELEASE_SCOPE')
     need(f['kind']=='cn-release-fresh-recovery-delegation-v1' and f['releaseSha256']==release and f['identity']==identity and f['target']==TARGET,'FRESH_RECOVERY_IDENTITY')
     need(rb.timestamp(f['issuedAt'])<=now<rb.timestamp(f['expiresAt']) and dt.timedelta(0)<rb.timestamp(f['expiresAt'])-rb.timestamp(f['issuedAt'])<=dt.timedelta(minutes=30),'FRESH_RECOVERY_WINDOW')
-    root=Path(f['runtimeRoot']);need(str(root)==a['runtimeStage']['remoteRoot'] and root.parent==VAR/'runtime' and re.fullmatch('upgrade-f0eb-[a-z0-9-]{1,64}',root.name),'RUNTIME_SCOPE')
+    root=Path(f['runtimeRoot']);need(str(root)==a['runtimeStage']['remoteRoot'] and root.parent==VAR/'runtime' and re.fullmatch('upgrade-[a-z0-9-]{1,100}',root.name),'RUNTIME_SCOPE')
     inputs=VAR/'release-inputs'/release
     original_raw=reader.file(inputs/'recovery-original-binding.json');prior_observation=reader.file(inputs/'recovery-terminalObservation.json');reconciliation=reader.file(inputs/'recovery-reconciliation.json')
     need({k:rb.sha(v)for k,v in {'binding':original_raw,'terminalObservation':prior_observation,'reconciliation':reconciliation}.items()}==f['inputHashes'],'RECOVERY_INPUT_RAW_PINS')

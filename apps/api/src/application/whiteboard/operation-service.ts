@@ -13,11 +13,17 @@ import {artifactSourceMatchesLayout} from '../../domain/whiteboard/artifact-layo
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './collaboration-ports';
 import type {WhiteboardOperationUndoStore} from './operation-undo-ports';
 import type { RegisteredBoardActor, WhiteboardOperationAuditRepository } from './operation-ports';
-import {renderedLayoutToCommands} from '@repo/whiteboard-core';
+import {renderedLayoutToCommands, createWhiteboardDocument, MindmapCommandPort} from '@repo/whiteboard-core';
+import * as Y from 'yjs';
 
 export const WHITEBOARD_OPERATION_SERVICE = Symbol('WhiteboardOperationService');
 export class WhiteboardOperationError extends Error {
   constructor(readonly code: 'UNAUTHENTICATED'|'FORBIDDEN'|'STALE_REVISION'|'IDEMPOTENCY_CONFLICT'|'NOT_FOUND'|'VALIDATION_FAILED'|'ARCHIVED'|'RATE_LIMITED'|'DEPENDENCY_UNAVAILABLE') { super(code); }
+}
+function parseOperationRequest(untrusted: unknown) {
+  const parsed = WhiteboardOperationRequest.safeParse(untrusted);
+  if (!parsed.success) throw new WhiteboardOperationError('VALIDATION_FAILED');
+  return parsed.data;
 }
 export type WhiteboardRateLimitedEntry='operation'|'artifact-handoff'|'events'|'objects'|'head'|'proposal-create'|'proposal-read'|'proposal-cancel'|'proposal-confirm'|'room-join'|'presentation-read'|'presentation-command';
 function collaborationError(error:unknown):never{
@@ -44,11 +50,11 @@ function eventType(commands:readonly WhiteboardCommand[],source:string):Event['t
 export class WhiteboardOperationService {
   constructor(private readonly db:DatabasePort,private readonly collaboration:WhiteboardCollaborationStore,private readonly audit:WhiteboardOperationAuditRepository,private readonly now=()=>new Date(),private readonly objects?:Pick<ObjectStore,'get'>,private readonly validator?:Pick<WhiteboardUpdateValidator,'objects'>,private readonly undoStore?:WhiteboardOperationUndoStore){}
   async execute(principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string;agentVersionId:string}):Promise<Receipt>{
-    const request=WhiteboardOperationRequest.parse(untrusted);
+    const request=parseOperationRequest(untrusted);
     return this.db.withTenant(principal.orgId,session=>this.executeInTransaction(session,principal,boardId,request,expectedRuntime));
   }
   async executeInTransaction(session:TenantSession,principal:Principal,boardId:string,untrusted:unknown,expectedRuntime?:{model:string;skill:string;agentVersionId:string}):Promise<Receipt>{
-      const requested=WhiteboardOperationRequest.parse(untrusted);
+      const requested=parseOperationRequest(untrusted);
       if(requested.boardId!==boardId||requested.actor.orgId!==principal.orgId)throw new WhiteboardOperationError('FORBIDDEN');
       const head=await this.audit.lockHead(session,principal,boardId);
       if(!head)throw new WhiteboardOperationError('NOT_FOUND');
@@ -81,7 +87,20 @@ export class WhiteboardOperationService {
       if(head.epoch!==request.expectedRevision.epoch||head.seq!==request.expectedRevision.seq)throw new WhiteboardOperationError('STALE_REVISION');
       if(!this.undoStore)throw new WhiteboardOperationError('DEPENDENCY_UNAVAILABLE');
       const before=await this.undoStore.capture(session,principal,boardId);
-      const ack=await this.collaboration.writeCommandsInTransaction(session,principal,boardId,{epoch:request.expectedRevision.epoch,requestId:request.requestId,commands:request.commands,actorId:actor.actorId}).catch(error=>collaborationError(error));
+      if (request.mindmap) {
+        if (canonical(request.mindmap.commands) !== canonical(request.commands)) throw new WhiteboardOperationError('VALIDATION_FAILED');
+        const snapshot = await this.collaboration.loadInTransaction(session, principal, boardId);
+        if (snapshot.epoch !== head.epoch || snapshot.seq !== head.seq) throw new WhiteboardOperationError('STALE_REVISION');
+        const shadow = createWhiteboardDocument();
+        try {
+          Y.applyUpdate(shadow, snapshot.update);
+          new MindmapCommandPort(shadow).dispatch({boardId,clientId:actor.actorId,gestureId:request.requestId,command:request.mindmap});
+        } catch (error) {
+          throw new WhiteboardOperationError(error instanceof Error && error.message === 'MINDMAP_STALE_REVISION' ? 'STALE_REVISION' : 'VALIDATION_FAILED');
+        } finally { shadow.destroy(); }
+      }
+
+      const ack=await this.collaboration.writeCommandsInTransaction(session,principal,boardId,{epoch:request.expectedRevision.epoch,requestId:request.requestId,commands:request.commands,actorId:actor.actorId,expectedSeq:request.expectedRevision.seq}).catch(error=>collaborationError(error));
       const operationId=randomUUID(),event:Event={eventId:randomUUID(),operationId,requestId:request.requestId,boardId,
         type:eventType(request.commands,request.provenance.source),actor:request.actor,objectIds:objectIds(request.commands),revision:{epoch:ack.epoch,seq:ack.seq},occurredAt:this.now().toISOString(),provenance:request.provenance};
       const receipt=WhiteboardOperationReceipt.parse({operationId,requestId:request.requestId,boardId,revision:event.revision,replayed:false,events:[event]});

@@ -386,6 +386,12 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
       onReconnect={() => void startRealtimeTranscription()}
       onSaveContent={saveContent}
+      onRename={async (name) => {
+        const updated = await updatePersonalTranscriptionMetadata(activeSession.sessionId,
+          { name, tags: [...activeSession.tags] }, sessionToken);
+        setActiveSession((current) => current?.sessionId === updated.sessionId ? { ...current, name: updated.name, tags: updated.tags } : current);
+        setListRevision((current) => current + 1);
+      }}
       onBack={() => {
         if (streamRef.current || stoppingRef.current) return;
         retryRef.current!.cancel();

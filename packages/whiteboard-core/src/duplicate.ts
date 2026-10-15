@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { parseContentObject } from './content-object-model';
 import { WhiteboardObject, WhiteboardObjectId, WHITEBOARD_LIMITS, type WhiteboardObject as WhiteboardObjectValue } from '@repo/contracts/whiteboard-document';
-import { createWhiteboardDocument, executeCommands, objectMap, tombstones, validateDocument } from './document';
+import { createWhiteboardDocument, executeCommands, objectMap, readStoredObject, tombstones, validateDocument } from './document';
 import { isKnownThinkingInputMetadata } from './thinking-input';
 
 export interface DuplicatedWhiteboardSnapshot {
@@ -9,17 +9,6 @@ export interface DuplicatedWhiteboardSnapshot {
   objectCount: number;
   connectorCount: number;
   assetCount: number;
-}
-
-function decode(id: string, value: Y.Map<unknown>): WhiteboardObjectValue {
-  if (!(value instanceof Y.Map) || !(value.get('text') instanceof Y.Text) || !(value.get('style') instanceof Y.Map) || value.has('id')) throw new Error('INVALID_DUPLICATE_SOURCE');
-  for (const [key, field] of value) if (!['text', 'style'].includes(key) && field instanceof Y.AbstractType) throw new Error('INVALID_DUPLICATE_SOURCE');
-  for (const delta of (value.get('text') as Y.Text).toDelta()) {
-    if (typeof delta.insert !== 'string' || delta.attributes) throw new Error('INVALID_DUPLICATE_SOURCE');
-  }
-  const parsed = WhiteboardObject.safeParse(structuredClone({ ...value.toJSON(), id }));
-  if (!parsed.success) throw new Error('INVALID_DUPLICATE_SOURCE');
-  return parsed.data;
 }
 
 const referenceKey = /(?:object|node|parent|child|source|target|from|to|ref|reference|relation|related)(?:id|ids)?$/i;
@@ -61,7 +50,7 @@ export function duplicateWhiteboardSnapshot(sourceSnapshot: Uint8Array, newId: (
     catch { throw new Error('INVALID_DUPLICATE_SOURCE'); }
     const objects = [...objectMap(source)]
       .filter(([id]) => !tombstones(source).has(id))
-      .map(([id, value]) => decode(id, value));
+      .map(([id]) => readStoredObject(source, id)!);
     if (objects.length > WHITEBOARD_LIMITS.objects) throw new Error('INVALID_DUPLICATE_SOURCE');
     const sourceIds = new Set(objects.map(item => item.id));
     const mapping = new Map<string, string>();

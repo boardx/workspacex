@@ -121,6 +121,8 @@ export interface ObjectRef {
     | "capability"
     | "organization"
     | "interview"
+    // Owner-private reusable simulation profiles have no Agent identity or ACL row.
+    | "interview_expert_profile"
     | "subject"
     | "research"
     | "feedback"

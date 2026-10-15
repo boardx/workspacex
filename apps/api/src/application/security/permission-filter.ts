@@ -141,6 +141,9 @@ function toAclRef(ref: ObjectRef): AclObjectRef {
   if (ref.kind === "whiteboard") {
     throw new Error(`whiteboard "${ref.id}" is governed by its owner/member role. Use decideWhiteboardAccess and discloseDecided().`);
   }
+  if (ref.kind === "interview_expert_profile") {
+    throw new Error(`interview_expert_profile "${ref.id}" has no ACL binding and is owner-private. Use the expert-library membership/owner decision and discloseDecided().`);
+  }
   return { kind: ref.kind, id: ref.id };
 }
 

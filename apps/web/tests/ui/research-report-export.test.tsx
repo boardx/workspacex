@@ -28,23 +28,12 @@ it.each(["", "previous-"])("exports real OOXML without references or citation ma
     expect(reader.querySelector('[data-testid="research-report-references"]')).not.toBeNull();
   } finally { rmSync(folder, { recursive: true }); }
 });
-it("prints only the report document and cleans up the isolated frame", () => {
-  render(<GuidedResearchReportDocument document={doc} provisional limitations="检索失败运行说明" validationNotice={<p>QUALITY_GATE_FAILED</p>} />);
+it("does not offer browser print or client-side generation in the report reader", () => {
+  render(<GuidedResearchReportDocument document={doc} provisional fileActions={<button>生成 PDF</button>} />);
+  expect(screen.getByRole("button", { name: "生成 PDF" })).toBeEnabled();
   fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
-  fireEvent.click(screen.getByRole("menuitem", { name: "导出 PDF" }));
-  const frame = document.querySelector("iframe")!;
-  expect(frame.contentDocument!.title).toBe("欧洲储能报告");
-  expect(frame.contentDocument!.body.textContent).toContain("欧洲储能报告");
-  const body = frame.contentDocument!.body;
-  for (const text of ["范围与方法正文。", "综合结论正文。", "证据与限制。", "目录"]) expect(body.textContent).toContain(text);
-  expect(body.textContent).not.toContain("官方来源");
-  expect(body.textContent).not.toContain("参考来源");
-  expect(body.querySelector('a[href*="#research-reference-"]')).toBeNull();
-  for (const text of ["QUALITY_GATE_FAILED", "检索失败运行说明", "草稿", "待最终校验", "内容仍在生成"]) expect(body.textContent).not.toContain(text);
-  const contents = body.querySelector("nav")!;
-  expect(frame.contentWindow!.getComputedStyle(contents).display).not.toBe("none");
-  expect(frame.contentDocument!.querySelector("button")).toBeNull();
-  frame.contentWindow!.dispatchEvent(new Event("afterprint"));
+  expect(screen.queryByRole("menuitem", { name: "导出 PDF" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("menuitem", { name: "下载 Word" })).not.toBeInTheDocument();
   expect(document.querySelector("iframe")).toBeNull();
 });
 describe("report process disclosure", () => {

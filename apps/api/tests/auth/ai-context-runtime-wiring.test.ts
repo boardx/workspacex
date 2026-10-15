@@ -65,6 +65,9 @@ function wholeFixture(child=false,contextBindings?:import("../../src/application
  const query=vi.fn(async(sql:string):Promise<QueryResult>=>{
   // Parent lookup inside the core-snapshot query is not a child ownership result.
   if(sql.includes('FROM agent_run_core_model_snapshots'))return {rows:[]};
+  // This fixture is an ordinary private Chat run, not a report conversion.
+  // Its report-lease lookup must not match the budget-window `AS active` stub.
+  if(sql.includes('FROM report_skill_file_jobs'))return {rows:[]};
   if(sql.includes('FROM context_packs'))return {rows:recordedRow?[{run_id:'context-run',org_id:String(org),status:'assembled',recorded:recordedRow.run,content_hash:recordedRow.contentHash,threshold_used:recordedRow.run.thresholdUsed,pinned_snapshot_id:null}]:[]};
   if(sql.includes('FROM segment_text'))return {rows:[]};
   if(sql.includes('SELECT v.instructions'))return {rows:[{instructions:'pinned parent instructions'}]};

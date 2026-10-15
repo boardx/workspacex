@@ -8,4 +8,7 @@ export const NativeArtifactPublishInput = z.object({
  idempotencyKey:z.string().min(1).max(128).regex(/^[A-Za-z0-9_.:-]+$/),
 }).strict();
 export const NativeArtifactStageInput=NativeSessionResolveInput.omit({runId:true}).extend({bindingId:z.string().uuid(),toolCallId:z.string().min(1).max(256),permissionRequestId:z.string().uuid().optional(),toolArgs:NativeArtifactPublishInput}).strict();
-export const NativeArtifactStaged=z.object({publishId:z.string().uuid(),status:z.literal('staged'),sha256:z.string().regex(/^[a-f0-9]{64}$/),sizeBytes:z.number().int().nonnegative()}).strict();
+export const REPORT_FILE_POST_PUBLISH_TOOLS=['read_file','ls','glob','grep','write_todos','wx_run_status'] as const;
+export const ReportFileArtifactPolicy=z.object({jobId:z.string().uuid(),publication:NativeArtifactPublishInput,published:z.boolean()}).strict();
+export type ReportFileArtifactPolicy=z.infer<typeof ReportFileArtifactPolicy>;
+export const NativeArtifactStaged=z.object({publishId:z.string().uuid(),status:z.literal('staged'),sha256:z.string().regex(/^[a-f0-9]{64}$/),sizeBytes:z.number().int().nonnegative(),completion:z.object({kind:z.literal('report-file'),jobId:z.string().uuid()}).strict().optional()}).strict();

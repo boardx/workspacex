@@ -1,0 +1,21 @@
+name: Standalone repository bootstrap contracts
+on:
+  pull_request:
+    paths:
+      - 'scripts/cn-complete-runtime-bootstrap.py'
+      - 'tests/test_cn_complete_runtime_bootstrap.py'
+      - '.github/workflows/cn-complete-runtime-bootstrap.yml'
+permissions:
+  contents: read
+jobs:
+  bootstrap-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Verify bootstrap using disposable code fixtures
+        # No credential or repository API calls: provider responses are fixtures,
+        # and the Linux syscall test materializes code under a temporary /run dir.
+        run: sudo /usr/bin/python3 -I -S -B -m unittest discover -s tests -p test_cn_complete_runtime_bootstrap.py -v

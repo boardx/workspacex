@@ -45,7 +45,7 @@ const PAGES = [
     weight: { changefreq: 'monthly', priority: '0.8' },
     zh: {
       title: '设计思维 × AI — WorkspaceX',
-      description: '以人为本，让 AI 转型找到方向。用 AI 增强设计思维心态、五阶段实践与共创工作坊，将共同理解转化为可验证的行动。',
+      description: '以人为本，让 AI 转型找到方向。用 AI 增强设计思维心态、六阶段实践与共创工作坊，将共同理解转化为可验证的行动。',
       ogTitle: '设计思维 × AI — WorkspaceX',
       ogDescription: '让设计思维为 AI 转型确立方向，让 AI 增强洞察、创意与行动，让每一步改变都回应人的真实需求。',
       ogImageAlt: 'WorkspaceX——面向人与 AI 的开放协作运行空间。',

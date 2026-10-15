@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import {strict as assert} from 'node:assert';
-import {independentProcessIds,cubicSamples} from './connector-c05-oracle.mjs';
+import {independentProcessIds,cubicSamples,connectorStorageReference,retainedConnector,navigationPrefetchAbort,strokeRasterProof,benignHomeNavigationCancellation,successfulHomeReplacement,successfulHomeDocumentNavigation} from './connector-c05-oracle.mjs';
 test('distinct positive browser PIDs are required, not repeated contexts',()=>{
  assert.deepEqual(independentProcessIds([100,200,300]),[100,200,300]);
  for(const ids of [[100,100,300],[100,200],[-1,200,300],[NaN,200,300]])assert.throws(()=>independentProcessIds(ids));
@@ -61,4 +61,92 @@ test('stroke oracle rejects a thin four-to-two line and shifted or disconnected 
  assert.throws(()=>strokeProof(scan([-2,0,1,2]),4));
  assert.throws(()=>strokeProof([{offset:0,ink:true},{offset:0,ink:true}],2));
  assert.throws(()=>strokeProof([{offset:NaN,ink:true}],2));
+});
+
+test('glyph anchor rejection retains strict tolerances and only bounded numeric diagnostics',async()=>{
+ const {glyphProof,glyphBounds}=await import('./connector-c05-oracle.mjs');
+ const image=x=>{const data=new Array(300*60*4).fill(0);for(let y=20;y<30;y++)for(let xx=x;xx<x+20;xx++){const i=(y*300+xx)*4;data[i+3]=255;}return data;};
+ const expected=image(140),actual=image(150);
+ assert.deepEqual(glyphBounds(expected),{x:140,y:20,width:19,height:9,count:200});
+ assert.throws(()=>glyphProof(actual,expected),error=>error.message.includes('horizontal anchor')&&error.message.includes('"x":10')&&error.message.length<800);
+ glyphProof(image(144),expected);
+});
+
+test('independent endpoint reference preserves legacy fallback and replaces whole endpoint slots',()=>{
+ const connector={from:'a',to:'b',fromAnchor:'right',toAnchor:'left',fromOffset:{x:2,y:3},strokeWidth:12,label:'unchanged'};
+ assert.deepEqual(connectorStorageReference({connector}),connector);
+ const storage={connector,connectorFrom:{fromPoint:{x:260,y:330},fromAnchor:'right'},connectorTo:{toPoint:{x:1080,y:410},toAnchor:'left'}};
+ const expected={toAnchor:'left',fromAnchor:'right',fromPoint:{x:260,y:330},toPoint:{x:1080,y:410},strokeWidth:12,label:'unchanged'};
+ assert.deepEqual(connectorStorageReference(storage),expected);
+ assert.throws(()=>retainedConnector({...expected,toPoint:{x:1080,y:411}},connectorStorageReference(storage)));
+ for(const invalid of [null,[],{}, {from:'a',fromPoint:{x:1,y:2}}, {to:'b'}, {fromPoint:{x:NaN,y:1}}, {fromPoint:{x:1,y:2},fromOffset:{x:1,y:2}}, {from:'a',extra:1}])assert.throws(()=>connectorStorageReference({connector,connectorFrom:invalid}));
+});
+
+test('only explicit safe Next navigation prefetch aborts are classified separately',()=>{
+ const cancelled={method:'GET',pathname:'/tasks',errorText:'net::ERR_ABORTED',prefetch:'1',knownNavigationPaths:['/research','/billing','/home','/tasks','/studio/design-workbench','/brain','/admin']};
+ for(const pathname of ['/research','/billing','/home','/tasks','/studio/design-workbench','/brain','/admin'])assert.equal(navigationPrefetchAbort({...cancelled,pathname}),true);
+ for(const pathname of ['/api/home','/whiteboards/id','/studio/board/id','/_next/static/app.js','/assets/ink.png'])assert.equal(navigationPrefetchAbort({...cancelled,pathname,knownNavigationPaths:[pathname]}),false);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/unknown',knownNavigationPaths:['/projects/unknown']}),false);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known',knownProjectPath:'/projects/known'}),true);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/unknown',knownProjectPath:'/projects/known'}),false);
+ assert.equal(navigationPrefetchAbort({...cancelled,pathname:'/projects/known/board',knownProjectPath:'/projects/known/board'}),false);
+ for(const patch of [{pathname:'/api/tasks'},{pathname:'/admin/api'},{pathname:'/brain/private-asset'},{pathname:'/whiteboards/board'},{pathname:'/studio/board/id'},{pathname:'/_next/static/app.js'},{prefetch:undefined},{prefetch:'0'},{method:'POST'},{errorText:'net::ERR_CONNECTION_RESET'},{errorText:'net::ERR_INTERNET_DISCONNECTED'},{errorText:'UNKNOWN'},{pathname:'/unknown'}])assert.equal(navigationPrefetchAbort({...cancelled,...patch}),false);
+});
+
+test('diagonal normal-distance samples must not be collapsed into unique bitmap pixels',async()=>{
+ const {strokeProof}=await import('./connector-c05-oracle.mjs');
+ const samples=Array.from({length:61},(_,index)=>{const offset=index-30;return {offset,ink:offset>=-5&&offset<=6};});
+ strokeProof(samples,12);
+ const visited=new Set(),deduplicated=samples.filter(({offset})=>{
+  const key=`${Math.round(offset/Math.sqrt(2))}:${Math.round(offset/Math.sqrt(2))}`;
+  if(visited.has(key))return false;visited.add(key);return true;
+ });
+ assert(deduplicated.filter(sample=>sample.ink).length<12-1.5);
+ assert.throws(()=>strokeProof(deduplicated,12));
+ assert.throws(()=>strokeProof(samples,8));
+ for(const width of [8,10]){
+  const narrow=samples.map(({offset})=>({offset,ink:offset>=-width/2&&offset<width/2}));
+  assert.throws(()=>strokeProof(narrow,12));
+ }
+});
+
+test('reference-raster thickness preserves strict narrow gap and exterior rejection',()=>{
+ const scan=(from,to)=>Array.from({length:61},(_,index)=>({offset:index-30,ink:index-30>=from&&index-30<=to,coverage:index-30>=from&&index-30<=to?1:0}));
+ const nativeNominal12Core=scan(-4,5);
+ strokeRasterProof(scan(-4,5),nativeNominal12Core);
+ for(const actual of [scan(-3,4),scan(-2,3),scan(-6,7),nativeNominal12Core.map(sample=>({...sample,ink:sample.ink&&sample.offset!==0}))])assert.throws(()=>strokeRasterProof(actual,nativeNominal12Core));
+});
+
+test('antialias coverage rejects narrow stroke despite one-pixel core difference',()=>{
+ const reference=Array.from({length:61},(_,index)=>({offset:index-30,ink:index>=26&&index<=35,coverage:index>=26&&index<=35?1:index===25||index===36?0.9:0}));
+ const narrow=reference.map((sample,index)=>({...sample,ink:index>=27&&index<=35,coverage:index>=27&&index<=35?1:index===26||index===36?0.4:0}));
+ assert.throws(()=>strokeRasterProof(narrow,reference),/coverage width/);
+ strokeRasterProof(reference,reference);
+});
+
+test('quarter-pixel physical coverage retains exact bound and rejects narrow reference mismatch',()=>{
+ const scan=Array.from({length:61},(_,index)=>({offset:index-30,ink:index>=26&&index<=35,coverage:index>=26&&index<=35?1:0}));
+ strokeRasterProof(scan,scan,{actual:12.1,reference:12,step:.25});
+ assert.throws(()=>strokeRasterProof(scan,scan,{actual:10,reference:12,step:.25}),/coverage width/);
+ assert.throws(()=>strokeRasterProof(scan,scan,{actual:8,reference:12,step:.25}),/coverage width/);
+ assert.throws(()=>strokeRasterProof(scan,scan,{actual:12,reference:12,step:1}));
+});
+
+test('home RSC cancellation requires observed active request followed by same-frame fixture navigation',()=>{
+ const proof={sourcePath:'/home',destinationPath:'/studio/board/fixture',sameMainFrame:true,activeBeforeNavigation:true};
+ const input={method:'GET',pathname:'/home',errorText:'net::ERR_ABORTED',rsc:true,prefetch:false,proof,boardPath:'/studio/board/fixture'};
+ assert.equal(benignHomeNavigationCancellation(input),true);
+ for(const patch of [{pathname:'/api/home'},{pathname:'/studio/board/fixture'},{pathname:'/unknown'},{errorText:'net::ERR_INTERNET_DISCONNECTED'},{rsc:false},{proof:undefined},{proof:{...proof,sourcePath:'/projects'}},{proof:{...proof,destinationPath:'/studio/board/other'}},{proof:{...proof,sameMainFrame:false}},{proof:{...proof,activeBeforeNavigation:false}}])assert.equal(benignHomeNavigationCancellation({...input,...patch}),false);
+});
+
+test('login home replacement requires independent successful completed later request and actual home commit',()=>{
+ const proof={sourcePath:'/login',start:10,cancel:20,replacementStart:15,replacementFinish:25,replacementStatus:200,firstHomeObserved:26};
+ assert.equal(successfulHomeReplacement(proof),true);
+ for(const patch of [{sourcePath:'/home'},{replacementStart:10},{replacementFinish:undefined},{replacementFinish:19},{replacementStatus:500},{firstHomeObserved:0},{firstHomeObserved:18},{status:401}])assert.equal(successfulHomeReplacement({...proof,...patch}),false);
+});
+
+test('already active home document proves login RSC cancellation only with completed real navigation',()=>{
+ const proof={pathname:'/home',sourcePath:'/login',start:46,cancel:61,status:200,documentStart:45,documentFinish:69,documentStatus:200,documentSourcePath:'/login',document:true,firstHomeObserved:65,sameOriginMainFrame:true};
+ assert.equal(successfulHomeDocumentNavigation(proof),true);
+ for(const patch of [{document:false},{documentStatus:500},{documentFinish:undefined},{documentFinish:60},{documentStart:47},{firstHomeObserved:0},{firstHomeObserved:70},{sameOriginMainFrame:false},{sourcePath:'/home'},{documentSourcePath:'/projects'},{status:401},{pathname:'/api/home'},{pathname:'/unknown'}])assert.equal(successfulHomeDocumentNavigation({...proof,...patch}),false);
 });

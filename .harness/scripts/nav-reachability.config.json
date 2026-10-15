@@ -44,15 +44,12 @@
       "/agent",
       "/skill?screen=work-catalog",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ],
     "linkExemptRoutes": {
-      "//": "这五条都是**故意**开成「只能敲 URL 进」的独立路由，各自的 page.tsx 头注写了原委，不是漏接入口。它们该不该长出正式入口是产品/IA 的裁决，不在门控里替人类做——但登记在这里，至少它们是**被点过名的**，不再是无人知晓的孤儿。",
-      "/chat/live": "F368：对话束第一条真实端到端路径（真 HTTP + 真 Postgres）。/chat 是已签核的 mock 原型屏，硬接会逼着现在就给一堆展示字段编出处，所以另开干净路由验证链路——沿用 F122 开 /project/live 的先例。并回 /chat 之前不进导航、也不该有 CTA。",
-      "/itv/live": "#356：访谈束同型的真实端到端路径，只接 interview-scope.controller.ts 真实暴露的两条读路由；/itv 保持不动（lib/mock/itv.ts 近 900 行展示字段无后端支撑）。同 /chat/live。",
-      "/chat/landing": "UC-8.3 对话产出落地屏，UI 先行原型（七态 ?state= / 视角 ?as=），是**签核材料**而非生产入口；并进 /chat 之前只由评审敲 URL 看。",
-      "/chat/preset": "UC-8.4 预设对话与技能屏，同 /chat/landing——UI 先行签核材料、七态预览用，尚未并进 /chat 生产入口。",
-      "/chat/copilotkit-preview": "#654 阶段 1a：CopilotKit 适配器的独立预览路由，故意不挂在 /chat 生产入口下（见该 page.tsx 与组件头注）。灰度评估用，不该有正式入口。"
+      "//": "仅保留已核验仍需显式 URL 进入的独立路由；已存在真实链接的页面不再豁免。",
+      "/itv/live": "#356：访谈束同型的真实端到端路径，只接 interview-scope.controller.ts 真实暴露的两条读路由；/itv 保持不动（lib/mock/itv.ts 近 900 行展示字段无后端支撑）。同 /chat/live。"
     }
   },
   "phase-03-reuse-and-governance": {
@@ -91,7 +88,8 @@
       "/preview/chat-knowledge-graph",
       "/agent",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ]
   },
   "phase-14-agent-kernel-unification": {
@@ -131,7 +129,8 @@
       "/preview/chat-knowledge-graph",
       "/agent",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ]
   },
   "phase-18-org-brain-knowledge-graph": {
@@ -167,14 +166,15 @@
       "/tpl",
       "/agent",
       "/workflows",
-      "/preview/billing"
+      "/preview/billing",
+      "/billing"
     ]
   },
   "phase-21-billing-payment": {
-    "//": "两束目前只有签核用静态原型屏 /preview/billing（ui-prototyper 交付，31 张截图按束分目录 billing-credits/24 张 + billing-subscription/9 张），落地面分别是用户菜单/组织管理页/平台后台——届时本段改指向真实路由。",
+    "//": "正式个人菜单入口 /billing 提供真实账户与渠道状态；充值下单和订阅购买仍属于后续功能，静态 /preview/billing 保留为签核材料。",
     "bundleRoutes": {
-      "billing-credits": "/preview/billing",
-      "billing-subscription": "/preview/billing"
+      "billing-credits": "/billing",
+      "billing-subscription": "/billing"
     },
     "allowRoutes": [
       "/home",
@@ -204,7 +204,9 @@
       "/tasks",
       "/tpl",
       "/agent",
-      "/workflows"
+      "/workflows",
+      "/billing",
+      "/preview/billing"
     ]
   }
 }

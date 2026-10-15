@@ -3,7 +3,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import { loadInterviewMarkdown, branchInterviewMarkdown } from "@/lib/interview-markdown-api";
-import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
 import { InterviewWorkbenchHeader, INTERVIEW_WORKBENCH_STEPS } from "./interview-workbench-header";
 import { InterviewMarkdownPlanningStep } from "./interview-markdown-planning-step";
 import { InterviewMarkdownEditingStep } from "./interview-markdown-editing-step";
@@ -58,7 +58,7 @@ export function InterviewMarkdownWorkbench({ identity, step, reportPin }: { iden
       <InterviewWorkbenchHeader name={identity.name} tags={identity.tags} steps={INTERVIEW_WORKBENCH_STEPS} activeStep={step} runningStep={runningStep} completedSteps={completed} status="Markdown 研究工作台" version={version} topic={null} onStepChange={onContinue} onReturnToList={() => navigate("/itv?tab=history")} />
       <main className={cn(researchWorkspaceStyle.main, "pb-8")}>
       {error && <p role="alert" className="mt-4 text-sm text-destructive">{error}</p>}
-      <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <Button variant="outline" disabled={branching || runningStep !== null} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</Button> : null}>
+      <InterviewRevisionAction.Provider value={completed.includes(step) && ["intake", "analysis", "experts", "outline"].includes(step) ? <ActionButton variant="outline" loading={branching} disabled={branching || runningStep !== null} onClick={() => void revise()}>{branching ? "正在创建新修订…" : "创建新修订并修改"}</ActionButton> : null}>
       <section key={`${step}:${branchEpoch}`} className="mt-4">
         {(step === "intake" || step === "analysis") && <InterviewMarkdownPlanningStep {...editing} step={step} onContinue={onContinue} />}
         {(step === "experts" || step === "outline") && <InterviewMarkdownEditingStep {...editing} step={step} onContinue={onContinue} />}

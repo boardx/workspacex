@@ -1331,7 +1331,7 @@ def build_middleware(model: BaseChatModel, *, backend: BackendProtocol | None = 
         # sees the full set the model would be shown (#3749 R1). Unset env ⇒ not appended.
         # Mounted whenever the deployment excludes tools OR the caller may exclude them per
         # run (`configurable.excluded_tools`); a request with neither passes through untouched.
-        ToolBudgetMiddleware(excluded=excluded_tool_names()),
+        ToolBudgetMiddleware(excluded=excluded_tool_names(),scope_messages=_current_turn_messages),
     ]
 
 

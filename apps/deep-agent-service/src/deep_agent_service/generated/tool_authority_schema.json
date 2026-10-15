@@ -52,6 +52,70 @@
           "allowed": {
             "type": "boolean",
             "const": true
+          },
+          "reportFile": {
+            "type": "object",
+            "properties": {
+              "jobId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "publication": {
+                "type": "object",
+                "properties": {
+                  "workspacePath": {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "pattern": "^\\/workspace\\/.+"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^/\\\\\\u0000-\\u001f]+$",
+                    "description": "Download filename including an extension matching workspacePath and mediaType, for example meeting-minutes.md. A display title without an extension is rejected."
+                  },
+                  "mediaType": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "image/png",
+                      "image/jpeg",
+                      "text/plain",
+                      "text/html",
+                      "text/markdown",
+                      "text/csv",
+                      "application/json",
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    ]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.:-]+$"
+                  }
+                },
+                "required": [
+                  "workspacePath",
+                  "title",
+                  "mediaType",
+                  "idempotencyKey"
+                ],
+                "additionalProperties": false
+              },
+              "published": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "jobId",
+              "publication",
+              "published"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -74,8 +138,74 @@
               "lease_lost",
               "attempt_stale",
               "skill_not_mounted",
-              "approval_required"
+              "approval_required",
+              "report_output_published",
+              "report_output_mismatch"
             ]
+          },
+          "reportFile": {
+            "type": "object",
+            "properties": {
+              "jobId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "publication": {
+                "type": "object",
+                "properties": {
+                  "workspacePath": {
+                    "type": "string",
+                    "maxLength": 1024,
+                    "pattern": "^\\/workspace\\/.+"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "pattern": "^[^/\\\\\\u0000-\\u001f]+$",
+                    "description": "Download filename including an extension matching workspacePath and mediaType, for example meeting-minutes.md. A display title without an extension is rejected."
+                  },
+                  "mediaType": {
+                    "type": "string",
+                    "enum": [
+                      "application/pdf",
+                      "image/png",
+                      "image/jpeg",
+                      "text/plain",
+                      "text/html",
+                      "text/markdown",
+                      "text/csv",
+                      "application/json",
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                      "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                    ]
+                  },
+                  "idempotencyKey": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z0-9_.:-]+$"
+                  }
+                },
+                "required": [
+                  "workspacePath",
+                  "title",
+                  "mediaType",
+                  "idempotencyKey"
+                ],
+                "additionalProperties": false
+              },
+              "published": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "jobId",
+              "publication",
+              "published"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

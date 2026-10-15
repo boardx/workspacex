@@ -33,6 +33,13 @@ const completed: DigitalInterviewWorkflowView = {
   }],
 };
 
+it("offers the canonical file page for a quality-qualified legacy report",()=>{
+ const markdown="# 合格报告\n\n跨回答综合：两位专家意见相反，需要分层验证。\n决策影响：应优先验证客户偏好。\n边界与反例：仅模拟角色，不代表真人证据。\n建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。";
+ render(<PersistentDigitalInterviewWorkflow initialView={{...completed,currentStep:'report',reportId:'qualified-report',report:{reportId:'qualified-report',title:'合格报告',executiveSummary:'摘要',markdown,findings:[],generatedAt:'2026-10-13T00:00:00Z'}}}/>);
+ expect(screen.getByTestId('itv-report-current-files')).toHaveAttribute('href',`/itv/${completed.interviewId}/report`);
+ expect(screen.queryByTestId('itv-live-report-quality')).not.toBeInTheDocument();
+});
+
 afterEach(() => vi.unstubAllGlobals());
 
 describe("F06 interview answers to report", () => {
@@ -186,11 +193,10 @@ describe("F06 interview answers to report", () => {
     expect(screen.getByTestId("itv-report-markdown").querySelector("script")).toBeNull();
     expect(screen.getByTestId("itv-report-markdown").querySelector("pre")).toBeNull();
 
-    fireEvent.click(screen.getByTestId("itv-report-export-word"));
-    fireEvent.click(screen.getByTestId("itv-report-export-pdf"));
     expect(screen.getByTestId("itv-live-report-quality")).toHaveTextContent("需要补齐分析链");
-    expect(screen.getByTestId("itv-report-export-word")).toBeDisabled();
-    expect(screen.getByTestId("itv-report-export-pdf")).toBeDisabled();
+    expect(screen.queryByTestId("itv-report-export-word")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("itv-report-export-pdf")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("itv-report-current-files")).not.toBeInTheDocument();
     expect(exportWord).not.toHaveBeenCalled();
     expect(exportPdf).not.toHaveBeenCalled();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));

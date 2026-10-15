@@ -633,3 +633,37 @@ it("a client cannot grant a non-general published role the mounted skill pool", 
   const rows = await asApp(ORG, c => c.query("SELECT id FROM agent_runs WHERE org_id=$1 AND agent_id=$2", [ORG, AGENT_BARE]));
   expect(rows.rows).toEqual([]);
 });
+
+function acceptanceDeps() {
+  return {
+    repo: app.get(IDENTITY_REPOSITORY), ids: app.get(DECISION_ID_FACTORY), chat: app.get(CHAT_REPOSITORY),
+    commands: app.get(CHAT_MESSAGE_COMMAND_REPOSITORY), publishedAgents: app.get(PUBLISHED_AGENT_READER),
+    threadMounts: app.get(THREAD_MOUNTED_SKILL_READER), enabledSkills: app.get(ENABLED_SKILL_VERSION_READER),
+    model: app.get(MODEL_CALL_PORT), titleModel: app.get(THREAD_TITLE_MODEL_CONFIG), log: () => {},
+  };
+}
+it('server product selection narrows a genuine general run to one already authorized Skill', async () => {
+  const deps = acceptanceDeps();
+  const published = deps.publishedAgents.resolvePublished.bind(deps.publishedAgents);
+  const selected = await acceptHumanMessage({ ...deps, publishedAgents: {
+    resolvePublished: async (orgId, id) => { const value = await published(orgId, id); return value ? { ...value, skillScope: 'general' as const, skillVersionIds: [SKILL_V1, SKILL_B_V1] } : null; },
+  } }, { userId: ACTOR, orgId: toOrgId(ORG), threadId: THREAD, clientMessageId: randomUUID(), text: 'create selected file', agentId: AGENT, requestedSkillVersionId: SKILL_V1 });
+  const row = await readRunRow(selected.agentRunId);
+  expect(row.skill_version_ids).toEqual([SKILL_V1]);
+});
+it('server product selection cannot introduce an unauthorized version or override a published role', async () => {
+  await expect(acceptHumanMessage(acceptanceDeps(), {
+    userId: ACTOR, orgId: toOrgId(ORG), threadId: THREAD, clientMessageId: randomUUID(), text: 'out of scope', agentId: AGENT_BARE, requestedSkillVersionId: SKILL_V1,
+  })).rejects.toBeInstanceOf(AgentSkillScopeViolationError);
+  const deps = acceptanceDeps(); const published = deps.publishedAgents.resolvePublished.bind(deps.publishedAgents);
+  await expect(acceptHumanMessage({ ...deps, publishedAgents: {
+    resolvePublished: async (orgId, id) => { const value = await published(orgId, id); return value ? { ...value, skillScope: 'general' as const, skillVersionIds: [SKILL_V1] } : null; },
+  } }, { userId: ACTOR, orgId: toOrgId(ORG), threadId: THREAD, clientMessageId: randomUUID(), text: 'outside general pool', agentId: AGENT, requestedSkillVersionId: 'not-enabled-version' })).rejects.toBeInstanceOf(AgentSkillScopeViolationError);
+  const rows = await asApp(ORG, c => c.query('SELECT id FROM agent_runs WHERE org_id=$1', [ORG]));
+  expect(rows.rows).toEqual([]);
+});
+it.each(['requestedSkillVersionId', 'policyProjectId', 'projectId'])('public message input cannot set server-only context %s', async field => {
+  const response = await fetch(`${BASE}/chat/threads/${THREAD}/messages`, { method: 'POST', headers: principal(),
+    body: JSON.stringify({ clientMessageId: randomUUID(), text: 'client-selected pin', agentId: AGENT, [field]: SKILL_V1 }) });
+  expect(response.status).toBe(422);
+});

@@ -155,3 +155,22 @@ it("a provider ending capture before the user clicks stop still offers confirmed
   fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
   expect(append).toHaveBeenCalledWith("供应商结束前已确认文字。");
 });
+
+it("compact presentation preserves capture, failure recovery and exactly-once append", async () => {
+  const append = vi.fn(); const busy = vi.fn();
+  render(<InterviewVoiceInput compact sessionToken="voice-session" onAppend={append} onBusyChange={busy} />);
+  expect(screen.getByTestId("itv-voice-input")).toHaveClass("flex");
+  fireEvent.click(screen.getByRole("button", { name: "语音输入" }));
+  await screen.findByRole("button", { name: "停止并追加文字" });
+  act(() => { handlers.onFinal("已确认内容。"); });
+  fireEvent.click(screen.getByRole("button", { name: "停止并追加文字" }));
+  act(() => { handlers.onError("ASR_PROVIDER_UNAVAILABLE"); });
+  expect(screen.getByRole("alert")).toHaveTextContent("语音识别服务暂时不可用");
+  expect(screen.getByRole("button", { name: "重新连接" })).toBeVisible();
+  expect(screen.getByRole("button", { name: "丢弃转录" })).toBeVisible();
+  expect(busy).toHaveBeenLastCalledWith(true);
+  fireEvent.click(screen.getByRole("button", { name: "保留已确认转录" }));
+  expect(append).toHaveBeenCalledTimes(1);
+  expect(append).toHaveBeenCalledWith("已确认内容。");
+  expect(busy).toHaveBeenLastCalledWith(false);
+});

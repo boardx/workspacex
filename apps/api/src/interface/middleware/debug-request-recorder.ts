@@ -18,6 +18,7 @@
  * `GET /health*`、`/ok` 之类探针每几秒一次，全记只会淹没有用信息；默认跳过 2xx 探针，
  * 非 2xx 探针仍记（探针失败本身就是线索）。
  */
+import { redactChatSharePath } from "../../domain/chat/share-path";
 import type { NextFunction, Request, Response } from "express";
 import type { DebugTracePort } from "../../application/ports/debug-trace.port";
 import type { Principal } from "../../domain/principal";
@@ -43,7 +44,7 @@ const QUIET_PATH_PREFIXES = ["/health", "/ok", "/system/debug/"];
 function routePathOf(req: Request): string {
   const route = (req as Request & { route?: { path?: string } }).route?.path;
   if (typeof route === "string" && route !== "") return `${req.baseUrl ?? ""}${route}`;
-  return (req.originalUrl ?? req.url ?? "").split("?")[0] ?? "";
+  return redactChatSharePath((req.originalUrl ?? req.url ?? "").split("?")[0] ?? "");
 }
 
 export class DebugRequestRecorder {
@@ -71,7 +72,7 @@ export class DebugRequestRecorder {
     const traceId = traceIdOf(req);
     const startedAt = this.now();
     const method = req.method;
-    const rawPath = (req.originalUrl ?? req.url ?? "").split("?")[0] ?? "";
+    const rawPath = redactChatSharePath((req.originalUrl ?? req.url ?? "").split("?")[0] ?? "");
     this.inFlight.set(traceId, { method, path: rawPath, startedAt });
 
     let done = false;

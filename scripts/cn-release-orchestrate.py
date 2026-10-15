@@ -56,38 +56,49 @@ def installation_plan(probe_path):
     probe=e.decode(Path(probe_path).read_bytes())
     source=ROOT/'.harness/scripts/vm/cn-release-advance.py'
     sha=e.digest(source.read_bytes());target='/usr/local/bin/workspacex-cn-release-advance'
-    observed=[v for v in probe.get('wrappers',probe.get('targets',[])) if v.get('path')==target]
-    old=observed[0] if len(observed)==1 else None
-    script_names=('cn-release-orchestrate.py','cn-release-continuation-bind.py','cn-release-continuation-acquire.py','cn-release-continuation-finalize.py','cn-release-derived-approval.py','cn-release-continuation-journal.py','cn-release-runtime-readback.py','cn-release-fixed-driver.py','cn-release-stage-router.py','cn-release-stage-contract.py','cn-release-generated-commands.py','cn-release-acquire-delegation.py','cn-release-acquire-observer.py','cn-release-publication-observer.py','cn-release-runtime-delegation.py','cn-release-runtime-stage.py','cn-release-runtime-observe.py','cn-release-terminal-delegation.py','cn-release-rds-backup.py','cn-release-business-observer.py','cn-release-business-state.py','cn-release-business-recovery.py','cn-release-recovery-writer.py','cn-release-recovery-admission.py','cn-release-recovery-driver.py','cn-release-recovery-contract.py')
-    relative=[Path('scripts')/name for name in script_names]
-    relative += [Path(n) for n in ('.harness/scripts/vm/cn-release-advance.py','packages/cloud-deploy/src/cn-release-browser-contract.ts','packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts','.harness/scripts/vm/cn-maintenance-browser.cjs','scripts/cn-release-business-runner.ts','scripts/cn-release-business-entry.ts','scripts/build-cn-business-runtime.cjs')]
-    relative += [p.relative_to(ROOT) for p in (ROOT/'.harness/scripts/vm/cn-runtime-continuation').rglob('*') if p.is_file() and '__pycache__' not in p.parts]
-    inventory={str(p):e.digest((ROOT/p).read_bytes()) for p in sorted(relative)}
+    closure_spec=importlib.util.spec_from_file_location('installation_closure',ROOT/'scripts/cn-release-installation-closure.py')
+    closure=importlib.util.module_from_spec(closure_spec);closure_spec.loader.exec_module(closure)
+    inventory=closure.inventory(ROOT)
     bundle_sha=e.digest(e.encode(inventory))
     bundle_root='/usr/local/lib/workspacex-cn/continuation-control/'+bundle_sha
-    driver_wrapper=('#!/bin/sh\nexec /usr/bin/python3 -I -B '+bundle_root+'/scripts/cn-release-fixed-driver.py \"$@\"\n').encode()
+    driver_wrapper=closure.fixed_wrapper(inventory,'release')
+    evidence_wrapper=closure.fixed_wrapper(inventory,'evidence')
+    preparation_wrapper=closure.fixed_wrapper(inventory,'prepare')
     recovery_wrapper=('#!/bin/sh\nexec /usr/bin/python3 -I -B '+bundle_root+'/scripts/cn-release-recovery-driver.py \"$@\"\n').encode()
-    return {'schemaVersion':1,'kind':'cn-continuation-installation-plan-v1',
+    result={'schemaVersion':1,'kind':'cn-continuation-installation-plan-v1',
             'oldStateObservation':{'rawSha256':e.digest(Path(probe_path).read_bytes()),'observedAt':probe.get('observedAt')},
             'files':[{'source':str(source.relative_to(ROOT)),'target':target,'newSha256':sha,
-                      'uid':0,'gid':0,'mode':'0700','expectedOldSha256':old.get('sha256') if old else None,
-                      'oldStateVerified':bool(old and (old.get('hashStatus')=='HASHED' or old.get('exists') is False)),
-                      'expectedOldAbsent':bool(old and old.get('exists') is False)}],
+                      'uid':0,'gid':0,'mode':'0700'}],
             'controlBundle':{'sha256':bundle_sha,'targetRoot':bundle_root,'expectedOldAbsent':True,'oldStateVerified':False,
                 'files':[{'path':p,'sha256':h,'mode':'0600','uid':0,'gid':0} for p,h in inventory.items()]},
-            'fixedDriver':{'target':'/usr/local/bin/workspacex-cn-fixed-release','sha256':e.digest(driver_wrapper),'bytesBase64':__import__('base64').b64encode(driver_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-fixed-release *','rootApprovalRequired':True},
-            'fixedRecoveryDriver':{'target':'/usr/local/bin/workspacex-cn-fixed-recovery','sha256':e.digest(recovery_wrapper),'bytesBase64':__import__('base64').b64encode(recovery_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-fixed-recovery *','rootApprovalRequired':True,'freshRecoveryApprovalRequired':True},
+            'fixedDriver':{'target':'/usr/local/bin/workspacex-cn-fixed-release','sha256':e.digest(driver_wrapper),'bytesBase64':__import__('base64').b64encode(driver_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-fixed-release ^(run|status|reconcile) [a-f0-9]{64}$','rootApprovalRequired':True},
+            'fixedRecoveryDriver':{'target':'/usr/local/bin/workspacex-cn-fixed-recovery','sha256':e.digest(recovery_wrapper),'bytesBase64':__import__('base64').b64encode(recovery_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':None,'rootApprovalRequired':True,'freshRecoveryApprovalRequired':True},
+            'readOnlyEvidencePortal':{'target':'/usr/local/bin/workspacex-cn-mvp-evidence','sha256':e.digest(evidence_wrapper),'bytesBase64':__import__('base64').b64encode(evidence_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-mvp-evidence ^(approval|terminal) [a-f0-9]{64}$','rootApprovalRequired':True},
+            'approvedCloudPreparation':{'target':'/usr/local/bin/workspacex-cn-mvp-prepare-approved','sha256':e.digest(preparation_wrapper),'bytesBase64':__import__('base64').b64encode(preparation_wrapper).decode(),'uid':0,'gid':0,'mode':'0700','oldStateVerified':False,'expectedOldAbsent':None,'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-mvp-prepare-approved ^(prepare|terminal) [a-f0-9]{64}$','rootApprovalRequired':True,'immutablePolicyApprovalRequired':True},
+            'contentSourceFiles':closure.content_source_inventory(ROOT),
+            'contentRuntimeClosure':closure.closure_status(),
             'externalClosures':{'rdsSdk':'Exact pinned private SDK and CreateBackup/DescribeBackups/DescribeBackupTasks capability approval required','businessRuntime':'Pinned Node, Python, Chromium, private Playwright tree and scoped test data/secret plan required','canonicalControlRepository':'Root-owned exact Git control checkout at /usr/local/lib/workspacex-cn/release-control required; no runner checkout import','approvalMaxBytes':65536,'finalPopulatedApprovalSizeVerified':False},
             'seal':{'target':'/etc/workspacex-cn/continuation-entry-install.json','mode':'0600',
                     'bytesBase64':__import__('base64').b64encode(e.encode({'schemaVersion':1,'entrySha256':sha})).decode()},
-            'sudoRule':'ghrunner ALL=(root) NOPASSWD: /usr/local/bin/workspacex-cn-release-advance *',
+            'sudoRule':None,
             'sudoTarget':'/etc/sudoers.d/workspacex-cn-release-advance',
-            'directories':['/etc/workspacex-cn/continuation-requests','/etc/workspacex-cn/continuation-approvals','/var/lib/workspacex-cn/continuation','/etc/workspacex-cn/release-approvals','/etc/workspacex-cn/runtime-readback-approvals','/etc/workspacex-cn/continuation-finalize-approvals','/var/lib/workspacex-cn/continuation-evidence','/var/lib/workspacex-cn/continuation-derived-requests','/var/lib/workspacex-cn/release-driver','/var/lib/workspacex-cn/release-generated','/var/lib/workspacex-cn/release-inputs','/etc/workspacex-cn/acquire-observers','/etc/workspacex-cn/publication-observers','/etc/workspacex-cn/runtime-observer-approvals','/etc/workspacex-cn/writer-resume-approvals','/etc/workspacex-cn/writer-resume-approvals/by-release','/etc/workspacex-cn/recovery-writer-resume-approvals','/etc/workspacex-cn/recovery-writer-resume-approvals/by-recovery','/etc/workspacex-cn/release-recovery-approvals','/etc/workspacex-cn/release-recovery-approvals/by-failed-request'],
+            'directories':list(closure.INSTALLATION_DIRECTORIES),
             'processIsolation':{'kind':'cgroup-v2','root':'/sys/fs/cgroup/workspacex-cn-continuation','requiresCgroupKill':True,'runtimeCreationAndCleanupRequiresApproval':True},
             'ecsIamDelta':[],'oidcTrustDelta':[],
             'requiresSeparateApproval':True,'installationReady':False,
             'blockers':['REVIEW_EXACT_PACKAGE_AND_VERIFIER','FRESH_OLD_STATE_CAS_REQUIRED','APPROVED_INSTALLATION_REQUIRED','TOOL_CLOSURE_AND_RDS_CAPABILITY_READBACK_REQUIRED','LINUX_CGROUP_CAPABILITY_TEST_REQUIRED','REAL_EXTERNAL_TERMINAL_OBSERVERS_REQUIRED'],
             'cloudCalls':0}
+
+
+    for item in result['files']+[result[key] for key in ('fixedDriver','fixedRecoveryDriver','readOnlyEvidencePortal','approvedCloudPreparation')]:
+        matches=[v for v in probe.get('paths',probe.get('wrappers',probe.get('targets',[]))) if v.get('path')==item['target']]
+        row=matches[0] if len(matches)==1 else {}
+        hashed=(row.get('exists') is True and row.get('symlink') is False and isinstance(row.get('sha256'),str)
+                and __import__('re').fullmatch('[a-f0-9]{64}',row['sha256']) is not None)
+        item.update(oldStateVerified=bool(hashed or row.get('exists') is False),
+                    expectedOldAbsent=row.get('exists') is False if 'exists' in row else None,
+                    expectedOldSha256=row.get('sha256') if hashed else None)
+    return result
 
 
 def main():

@@ -1,0 +1,30 @@
+[stack-admission] load1=8.30 cores=10 perCore=0.83 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv8m5214-e7a58ed0-238d570a5075 db=wsx_238d570a5075bf6895f1 compose=wsx-238d570a5075bf6895f1 pg=20418 redis=21418 api=24418 web=25418 sandbox=26418 model=27418 deep-agent=28418 asr=29418 vision=30418 loopback-sandbox=31418 mail=19418
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_238d570a5075bf6895f1 capacity=100 current=6 required=32
+stdout | tests/billing/wallet-ledger-query.test.ts
+[F03 HTTP fixture] starting database readiness
+
+stdout | tests/billing/wallet-ledger-query.test.ts
+[F03 HTTP fixture] database ready; creating Nest fixture
+[F03 HTTP fixture] Nest created; binding loopback listener
+[F03 HTTP fixture] listener ready
+
+ ✓ tests/billing/wallet-ledger-query.test.ts (8 tests) 6850ms
+
+ Test Files  1 passed (1)
+      Tests  8 passed (8)
+   Start at  05:19:39
+   Duration  10.42s (transform 145ms, setup 4ms, collect 297ms, tests 6.85s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_238d570a5075bf6895f1 peak_connections=2
+[timing] pnpm --filter api exec vitest run tests/billing/wallet-ledger-query.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：11s

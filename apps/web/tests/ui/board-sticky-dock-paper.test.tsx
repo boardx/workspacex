@@ -26,5 +26,11 @@ it('uses only the sticky paper as the native drag image, with labels available t
  expect(setDragImage).toHaveBeenCalledWith(button.querySelector('[data-board-drag-preview]'),0,0);
  expect(button.querySelector('[data-board-drag-preview]')?.querySelector('.submenu')).toBeNull();
  expect(button.querySelector('.sr-only')).toHaveTextContent('便利贴');
- expect(screen.getByTestId('board-add-sticky-submenu')).toHaveClass('top-1/2');
+ const cue=screen.getByTestId('board-add-sticky-submenu'),preview=button.querySelector('[data-board-drag-preview]');
+ expect(button).toContainElement(cue);
+ expect(cue.parentElement).toBe(button);
+ expect(preview).not.toContainElement(cue);
+ expect(cue).toHaveClass('absolute','bottom-[6px]','right-[6px]');
+ expect(cue).toHaveAttribute('data-direction','above');
+ expect(cue).toHaveStyle({width:'8px',height:'8px'});
 });

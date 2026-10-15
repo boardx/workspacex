@@ -134,6 +134,17 @@ def verify_runtime_host(approval):
 
 
 class Commands(legacy.Commands):
+    def protect_candidate_targets(self, receipt, plan, targets):
+        a.require(targets == publication.publication_targets(plan, attempt_scoped=True),
+                  'PUBLICATION_ATTEMPT_TARGET_BINDING')
+        # Keep legacy storage/staging/source-tag protection, including running
+        # old source tags. The v3 path adds protection; it removes no old gate.
+        self.protect_running_targets(receipt, plan)
+        raw = self.command([self.docker, 'ps', '--no-trunc', '--format', '{{json .}}'])
+        for line in raw.splitlines():
+            value = a.decode(line)
+            a.require(value.get('Image') not in targets.values(), 'RUNNING_CONTAINER_TARGET_COLLISION')
+
     def candidate_image_matches(self, image, entry, plan):
         # Export by the immutable daemon identity, never by a mutable tag. The
         # archive stays private and bounded; no network/registry request is made.

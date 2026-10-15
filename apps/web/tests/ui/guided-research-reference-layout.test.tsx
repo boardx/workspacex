@@ -92,7 +92,11 @@ describe("guided research reference layout", () => {
     expect(screen.getByText("计划 Markdown")).toBeVisible();
     expect(screen.queryByRole("heading", { name: "核心问题" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "生成报告" })).toHaveClass("bg-primary");
-    expect(screen.getByRole("button", { name: "上一步" })).toHaveClass("bg-primary");
+    expect(screen.getByRole("button", { name: "上一步" })).toHaveClass("bg-card");
+    expect(screen.getByRole("button", { name: "上一步" })).not.toHaveClass("bg-primary");
+    const footer = screen.getByTestId("research-plan-actions");
+    expect(footer).toHaveAttribute("data-workflow-action-bar", "footer");
+    expect(footer.lastElementChild).toBe(screen.getByRole("button", { name: "生成报告" }));
   });
   it("uses the reference-style six-step canvas instead of a generic document shell", () => {
     render(<GuidedResearchSixStepShell

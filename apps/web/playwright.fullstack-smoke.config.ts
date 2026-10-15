@@ -1,4 +1,5 @@
 import path from "node:path";
+import {BOARD_UNIFIED_REGRESSION_SPECS} from "./board-unified-regression-registry";
 import { randomUUID } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
 import { EMPTY_DB_TAG_RE } from "./e2e/core-loop-fixture";
@@ -303,12 +304,16 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
+        "chat-public-share.spec.ts",
         "guided-research-runtime.spec.ts",
         // Trust-console preview is deterministic, but keeping it in a CI-reachable project
         // prevents the browser acceptance contract from silently becoming local-only.
         "guided-research-trust-console.spec.ts",
         "digital-interview-research-quality.spec.ts",
         "digital-interview-report-export-live.spec.ts",
+        "study-workflow-actions.spec.ts",
+        "interview-expert-library-live.spec.ts",
         "digital-interview-intake-failure-live.spec.ts",
         "digital-interview-density-live.spec.ts",
         "survey-complete-flow.spec.ts",
@@ -508,7 +513,23 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress"],
+      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress", "board-unified-mobile"],
+    },
+    {
+      // New Board regressions use the existing fresh runtime after empty-state checks.
+      name: "board-unified-desktop",
+      testMatch: [...BOARD_UNIFIED_REGRESSION_SPECS],
+      dependencies: ["seeded"],
+      workers: 1, fullyParallel: false, retries: 0,
+      use: {...devices["Desktop Chrome"], viewport: {width: 1440, height: 900}},
+    },
+    {
+      // Physical canvas keyboard interaction must also fit a narrow viewport.
+      name: "board-unified-mobile",
+      testMatch: ["board-widget-keyboard.spec.ts"],
+      dependencies: ["board-unified-desktop"],
+      workers: 1, fullyParallel: false, retries: 0,
+      use: {...devices["Desktop Chrome"], viewport: {width: 390, height: 844}},
     },
     {
       // In the CI seeded-github-import dependency closure, after empty-catalog checks.
@@ -702,6 +723,8 @@ export default defineConfig({
         LOOPBACK_ASR_PROVIDER_PORT: asrProviderPort,
         LOOPBACK_OMNI_E2E_CONTROL: "1",
         LOOPBACK_ASR_TRANSCRIPT_PREFIX: FULLSTACK_E2E.asrTranscriptPrefix,
+        // Survey inline intake asserts updates before stop, not only final output.
+        LOOPBACK_ASR_EMIT_DELTA: "1",
       },
     },
     // #4789：出站邮件观察口。同样只要在 API 之前 ready（API 发信时才连它）。

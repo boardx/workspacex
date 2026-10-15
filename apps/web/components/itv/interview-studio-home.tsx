@@ -5,6 +5,8 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { INTERVIEW_PERSONA_CATEGORIES } from "@/lib/interview-personas/persona-library";
+import { InterviewExpertLibrary } from "./interview-expert-library";
 import { ExpertAvatarEditor } from "./expert-avatar";
 import { ResourceCard } from "@/components/ui/resource-card";
 import { StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
@@ -65,6 +67,7 @@ export function InterviewStudioHome({
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [notice, setNotice] = React.useState("");
   const [revision, setRevision] = React.useState(0);
+  const [libraryCount,setLibraryCount] = React.useState(0);
   const [expertRevision, setExpertRevision] = React.useState(0);
   const [tab, setTab] = React.useState<Tab>(initialTab);
   const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
@@ -125,7 +128,7 @@ export function InterviewStudioHome({
     [experts],
   );
   const expertDomains = React.useMemo(
-    () => Array.from(new Set(expertItems.flatMap((expert) => expert.domains))),
+    () => Array.from(new Set([...INTERVIEW_PERSONA_CATEGORIES, ...expertItems.flatMap((expert) => expert.domains)])),
     [expertItems],
   );
   const visibleExperts = domain === undefined
@@ -179,9 +182,10 @@ export function InterviewStudioHome({
                 ))}
               </FilterBar>
               <p data-testid="itv-expert-count" className="py-2 text-xs text-muted-foreground">
-                {visibleExperts.length} 位专家
+                {visibleExperts.length + (includeMockPreviews ? 0 : libraryCount)} 位专家
               </p>
             </div>
+            {!includeMockPreviews && <div className="mb-8"><InterviewExpertLibrary domain={domain} onCount={setLibraryCount}/></div>}
             <ExpertContent
               state={experts.kind === "ready" ? { kind: "ready", items: visibleExperts } : experts}
               preview={includeMockPreviews}
@@ -296,7 +300,7 @@ function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly labe
 function ExpertContent({ state, preview = false, filtered, onRetry, onClearFilters }: { state: LoadState<DigitalExpertCatalogRow>; preview?: boolean; filtered: boolean; onRetry: () => void; onClearFilters: () => void }) {
   if (state.kind === "loading") return <StatePanel>正在加载专家…</StatePanel>;
   if (state.kind === "error") return <StatePanel testId="itv-experts-error"><p>暂时无法加载专家，请稍后重试。</p><Button variant="outline" className="mt-4" onClick={onRetry}>重新加载专家</Button></StatePanel>;
-  if (state.items.length === 0) return <StatePanel testId="itv-experts-empty"><p>{filtered ? "当前分类暂无可用专家。" : "还没有可用专家。你可以先新建访谈，根据访谈主题选择专家。"}</p>{filtered && <Button variant="outline" className="mt-4" onClick={onClearFilters}>查看全部专家</Button>}</StatePanel>;
+  if (state.items.length === 0) return <StatePanel testId="itv-experts-empty"><p>{filtered ? "当前分类暂无可用专家。" : "暂无组织已发布专家；可使用上方内置或自建模拟画像。"}</p>{filtered && <Button variant="outline" className="mt-4" onClick={onClearFilters}>查看全部专家</Button>}</StatePanel>;
   return (
     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
       {state.items.map((expert) => (

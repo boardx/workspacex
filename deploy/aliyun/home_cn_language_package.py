@@ -13,10 +13,28 @@ import shutil
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-ORIGIN = 'https://www.boardx.com.cn'
+CONFIG = json.loads(Path(__file__).with_name('home-cn-domains.json').read_text())
+ORIGIN = CONFIG['marketingOrigin']
 SOURCE_ORIGIN = 'https://workspacex.us'
 SOURCE_APP_ORIGIN = 'https://devapp.boardx.us'
 APP_ORIGIN = 'https://app.boardx.com.cn'
+ICP_NUMBER = '粤ICP备2021115740号'
+ICP_QUERY = 'https://beian.miit.gov.cn/'
+
+
+def add_icp_footer(text):
+    """Static CN-only markup: visible without JS, including mobile."""
+    if 'data-cn-icp' in text or ICP_NUMBER in text:
+        raise ValueError('Input already contains ICP markup; use the original US package')
+    style = '<link rel="stylesheet" href="/assets/css/cn-icp.css">'
+    if '</head>' not in text or '</body>' not in text:
+        raise ValueError('Expected a complete HTML document')
+    text = text.replace('</head>', style + '\n</head>', 1)
+    link = (f'<p class="cn-icp" data-cn-icp><a href="{ICP_QUERY}" '
+            f'rel="noopener noreferrer">{ICP_NUMBER}</a></p>')
+    if '</footer>' in text:
+        return text.replace('</footer>', link + '\n</footer>', 1)
+    return text.replace('</body>', '<footer>' + link + '</footer>\n</body>', 1)
 EN_PATHS = {'/': '/en/', '/index.html': '/en/',
             '/privacy': '/en/privacy', '/privacy.html': '/en/privacy'}
 ATTR = re.compile(r'\b(href|src|action|poster)=("|\')(.*?)\2')
@@ -72,6 +90,9 @@ def build_cn_package(source, destination):
                                ('privacy.html', 'en'), ('zh/privacy.html', 'zh-Hans')]:
         if f'<html lang="{language}"' not in (source / relative).read_text():
             raise ValueError('Unexpected bilingual input: ' + relative)
+    for page in source.rglob('*.html'):
+        if ICP_NUMBER in page.read_text() or 'data-cn-icp' in page.read_text():
+            raise ValueError('Expected an ICP-free US package')
     if any(p.is_symlink() for p in source.rglob('*')):
         raise ValueError('Symlinks are not accepted in the input package')
     shutil.copytree(source, destination)
@@ -98,6 +119,15 @@ def build_cn_package(source, destination):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(transform_html(pages[name], '/' + name, '/en' + canonical, en_paths))
         (destination / name).write_text(transform_html(pages[chinese], '/' + chinese, canonical, en_paths))
+    # Never insert this into shared sources or decide from browser language.
+    for page in destination.rglob('*.html'):
+        page.write_text(add_icp_footer(page.read_text()))
+    css = destination / 'assets/css/cn-icp.css'
+    css.parent.mkdir(parents=True, exist_ok=True)
+    css.write_text('.cn-icp { margin: 1rem auto; padding: 0 1rem; text-align: center; '
+                   'font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }\n'
+                   '.cn-icp a { display: inline-flex; align-items: center; '
+                   'min-height: 44px; max-width: 100%; color: inherit; }\n')
     redirects = destination / '_redirects'
     lines = redirects.read_text().splitlines()
     lines = [line for line in lines if not re.match(r'^/en(?:\s|/\*)', line)]
@@ -132,6 +162,13 @@ def build_cn_package(source, destination):
     sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
     sitemap += ''.join(f'  <url><loc>{ORIGIN}{url}</loc></url>\n' for url in sorted(urls))
     (destination / 'sitemap.xml').write_text(sitemap + '</urlset>\n')
+    marker = destination / '.well-known/workspacex-release.json'
+    if marker.exists():
+        release = json.loads(marker.read_text())
+        release.update(project=CONFIG['routine'], region='cn', origin=ORIGIN,
+                       icp=ICP_NUMBER,
+                       filingCoverage=CONFIG['domains'][urlsplit(ORIGIN).netloc]['filingVerification'])
+        marker.write_text(json.dumps(release, ensure_ascii=False) + '\n')
 
 
 if __name__ == '__main__':

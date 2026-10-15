@@ -96,7 +96,7 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
   });
 
   it.each([undefined, "", "abc", "0", "199", "2001", "600.5", Infinity])("bounds invalid recording endpointing override %s", raw => {
-    expect(resolveRecordingTurnSilenceMs(raw)).toBe(800);
+    expect(resolveRecordingTurnSilenceMs(raw)).toBe(1200);
   });
   it.each([200, 400, 800, 1200, 2000])("accepts recording endpointing override %s", value => {
     expect(resolveRecordingTurnSilenceMs(String(value))).toBe(value);
@@ -169,9 +169,11 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
       if (frame.type === "input_audio_buffer.append") ws.send(JSON.stringify({
         type: "conversation.item.input_audio_transcription.text", text: "今天 3.14", stash: " 元",
       }));
-      if (frame.type === "input_audio_buffer.commit") ws.send(JSON.stringify({
-        type: "conversation.item.input_audio_transcription.completed", transcript: text,
-      }));
+      if (frame.type === "input_audio_buffer.commit") ws.send(JSON.stringify({ type: "error", error: { message: "commit disabled in VAD mode" } }));
+      if (frame.type === "session.finish") {
+        ws.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: text }));
+        ws.send(JSON.stringify({ type: "session.finished" }));
+      }
     });
     const provider = new ConfiguredRealtimeAsrProvider({ provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`,
       apiKey: "k", model: MODEL, turnDetectionSilenceMs: 300, recordingTurnDetectionSilenceMs: override });
@@ -179,7 +181,7 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
     const session = await provider.open(handlers, AUDIO, { turnDetection: "recording" });
     try {
       await expect.poll(() => upstream?.seenFrames.find(f => f.type === "session.update")?.session).toMatchObject({
-        turn_detection: { type: "server_vad", silence_duration_ms: override ?? 800 },
+        turn_detection: { type: "server_vad", silence_duration_ms: override ?? 1200 },
       });
       session.pushAudio(new Uint8Array(3200));
       // No final exists yet: partial delivery cannot wait for sentence completion.
@@ -188,6 +190,43 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
       await session.finish();
       expect(handlers.finals).toEqual([text]);
       expect(handlers.errors).toEqual([]);
+      expect(upstream.seenFrames.some(f => f.type === "input_audio_buffer.commit")).toBe(false);
+    } finally { session.abort(); }
+  });
+
+  it.each([true, false])("requires recording session.finished even with prior finals (ack=%s)", async (ack) => {
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.update") {
+        ws.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: "已保存。" }));
+      }
+      if (frame.type === "session.finish" && ack) ws.send(JSON.stringify({ type: "session.finished" }));
+    });
+    const handlers = recordingHandlers();
+    const session = await new ConfiguredRealtimeAsrProvider({ provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`,
+      apiKey: "k", model: MODEL }).open(handlers, AUDIO, { turnDetection: "recording" });
+    await expect.poll(() => handlers.finals.length).toBe(1);
+    const setTimer = globalThis.setTimeout;
+    const timer = vi.spyOn(globalThis, "setTimeout").mockImplementation((callback, delay, ...args) =>
+      setTimer(callback, delay === 15_000 ? 25 : delay, ...args));
+    try {
+      await session.finish();
+      expect(handlers.errors.length).toBe(ack ? 0 : 1);
+      expect(upstream.seenFrames.some(f => f.type === "session.finish")).toBe(true);
+      expect(upstream.seenFrames.some(f => f.type === "input_audio_buffer.commit")).toBe(false);
+    } finally { timer.mockRestore(); session.abort(); }
+  });
+
+  it("stops a silent recording with the explicit no-speech session.finished receipt", async () => {
+    upstream = await startFakeUpstream((frame, ws) => {
+      if (frame.type === "session.finish") ws.send(JSON.stringify({ type: "session.finished" }));
+    });
+    const handlers = recordingHandlers();
+    const session = await new ConfiguredRealtimeAsrProvider({ provider: "dashscope", baseUrl: `ws://127.0.0.1:${upstream.port}`,
+      apiKey: "k", model: MODEL }).open(handlers, AUDIO, { turnDetection: "recording" });
+    try {
+      await session.finish();
+      expect(handlers.errors).toEqual([]);
+      expect(handlers.finals).toEqual([]);
     } finally { session.abort(); }
   });
 
@@ -207,7 +246,7 @@ describe("ConfiguredRealtimeAsrProvider -- real dashscope realtime protocol shap
       sessions.push(await provider.open(recordingHandlers(), AUDIO, { turnDetection: "manual" }));
       await expect.poll(() => upstream?.seenFrames.filter(f => f.type === "session.update").length).toBe(3);
       expect(upstream.seenFrames.filter(f => f.type === "session.update").map(f => f.session)).toEqual([
-        expect.objectContaining({ turn_detection: { type: "server_vad", silence_duration_ms: value === "650" ? 650 : 800 } }),
+        expect.objectContaining({ turn_detection: { type: "server_vad", silence_duration_ms: value === "650" ? 650 : 1200 } }),
         expect.objectContaining({ turn_detection: { type: "server_vad", silence_duration_ms: 350 } }),
         expect.objectContaining({ turn_detection: null }),
       ]);

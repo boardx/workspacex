@@ -25,8 +25,9 @@ export async function getContentInstanceOutput(
   instanceId: string,
 ): Promise<ContentInstanceOutput> {
   const projection = await deps.runtime.get(orgId, userId, instanceId);
-  const row = projection.status === "succeeded" ? await deps.outputs.find(orgId, instanceId, OUTPUT_STAGE, 1) : null;
-  const output = row ? workContent.WorkContentOutput.parse(row.content.prd) : null;
+  const discovery = projection.workflowKey === "discovery-to-opportunity" && projection.definitionVersion === 2;
+  const row = projection.status === "succeeded" ? await deps.outputs.find(orgId, instanceId, discovery ? "publish" : OUTPUT_STAGE, 1) : null;
+  const output = row ? workContent.WorkContentOutput.parse(discovery ? row.content.output : row.content.prd) : null;
   return workContent.operations.getInstanceOutput.out.parse({
     instanceId,
     outcome: output ? "complete" : "with_holds",

@@ -323,7 +323,9 @@ def run_command(raw, timeout, started):
         reason = 'EXITED'
         status = None
         try:
-            ready, _, _ = select.select([ready_r], [], [], min(timeout, 5))
+            # Session admission precedes command execution and its timeout. A short
+            # action budget must not race fork scheduling under host load.
+            ready, _, _ = select.select([ready_r], [], [], 5)
             need(ready and os.read(ready_r, 1) == b'1' and os.getpgid(pid) == pid, 'CHILD_SESSION_UNPROVEN')
             domain.attach(pid)
             started(pid, domain.path.name if domain.path is not None else None)  # fsync before release.

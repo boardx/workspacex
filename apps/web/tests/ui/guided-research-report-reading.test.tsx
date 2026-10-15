@@ -62,8 +62,8 @@ it("keeps internal quality diagnostics out of the report and its exports", async
   expect(screen.queryByText("核心问题覆盖不足")).not.toBeInTheDocument();
   expect(screen.queryByText("发布质量门")).not.toBeInTheDocument();
   expect(screen.queryByText(/带限制完成/)).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "下载 Word" })).toBeEnabled();
-  expect(screen.getByRole("button", { name: "导出 PDF" })).toBeEnabled();
+  expect(screen.queryByRole("button", { name: "下载 Word" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "导出 PDF" })).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "更多操作" })).toBeEnabled();
   expect(executeResearchRuntime).not.toHaveBeenCalled();
 });

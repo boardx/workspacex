@@ -49,7 +49,9 @@ describe("formal research report", () => {
     expect(screen.getByText("当前阶段：综合研究结论")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /完成/ })).not.toBeInTheDocument();
     fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
-    expect(screen.getByRole("menuitem", { name: "下载 Word" })).toBeEnabled();
+    expect(screen.queryByRole("menuitem", { name: "下载 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 PDF" })).not.toBeInTheDocument();
     expect(screen.queryByText(/当前导出为未完成草稿/)).not.toBeInTheDocument();
   });
   it("parses streamed introduction and conclusion and redacts pending unknown identifiers", () => {

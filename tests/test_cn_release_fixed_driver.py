@@ -1,7 +1,9 @@
 import datetime as dt
+import json
 import importlib.util
 from pathlib import Path
 import unittest
+import tempfile
 from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -71,6 +73,65 @@ class DriverTests(unittest.TestCase):
             return {'status':'NOT_STARTED'}if n==1 else {'status':'COMPLETED','receiptSha256':str(n)*64}
         with self.assertRaisesRegex(m.e.Rejected,'RECEIPT_CHANGED'):self.run_driver(executor=execute)
         self.assertEqual(len(self.generated),1)
+    def test_explicit_mvp_hook_after_switch_before_held_acceptance(self):
+        self.a['mvp']={'acceptanceScope':'mvp-non-model'}
+        calls=[]
+        def hook(release,previous,mode):
+            calls.append((list(self.requests),previous,mode));return {'contentReadbackPassed':True}
+        self.router.mvp_after_switch=hook
+        self.router.mvp_complete=lambda release,mode:{'status':'MVP_TERMINAL_PROPOSAL_READY'}
+        result,_=self.run_driver()
+        self.assertEqual(result['status'],'CHAIN_COMPLETED')
+        self.assertEqual(len(calls),1)
+        self.assertEqual(calls[0][0][-1],'switch')
+        self.assertNotIn('acceptance',calls[0][0])
+        self.assertEqual(calls[0][1],result['completed'][13]['receiptSha256'])
+    def test_mvp_unavailable_hook_never_clears_hold(self):
+        self.a['mvp']={'acceptanceScope':'mvp-non-model'}
+        self.router.mvp_after_switch=lambda *args: {'status':'NOT_STARTED','stage':'mvp-held-content'}
+        result,_=self.run_driver()
+        self.assertEqual(result['stage'],'mvp-held-content')
+        self.assertNotIn('clear-hold',self.requests)
+        self.assertNotIn('observe',self.requests)
+    def test_mvp_completion_after_all_seventeen_admitted_stages(self):
+        self.a['mvp']={'acceptanceScope':'mvp-non-model'}
+        self.router.mvp_after_switch=lambda *args:{'contentReadbackPassed':True}
+        calls=[]
+        def complete(release,mode):
+            calls.append((list(self.requests),mode));return {'status':'MVP_TERMINAL_PROPOSAL_READY'}
+        self.router.mvp_complete=complete
+        result,_=self.run_driver()
+        self.assertEqual(calls,[(list(m.e.STAGES),'run')])
+        self.assertEqual(result['terminalProposal']['status'],'MVP_TERMINAL_PROPOSAL_READY')
+        self.assertFalse(result['productionAcceptanceClaimedByDriver'])
+    def test_missing_terminal_originals_cannot_report_chain_completed(self):
+        self.a['mvp']={'acceptanceScope':'mvp-non-model'}
+        self.router.mvp_after_switch=lambda *args:{'contentReadbackPassed':True}
+        self.router.mvp_complete=lambda *args:{'status':'NOT_READY','installed':False}
+        result,_=self.run_driver()
+        self.assertEqual(result['status'],'EVIDENCE_NOT_READY')
+        self.assertEqual(len(result['completed']),17)
+        self.assertFalse(result['productionAcceptanceClaimedByDriver'])
+    def test_blueprint_is_prepare_only_and_never_invokes_driver_router(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);(root/'scripts').mkdir();blueprints=root/'blueprints';blueprints.mkdir()
+            names=('scripts/cn-release-fixed-driver.py','scripts/cn-release-mvp-approval-prepare.py')
+            for name in names:(root/name).write_bytes(b'fixed installed fixture')
+            selector={'requestedAt':(self.now-dt.timedelta(seconds=1)).isoformat(),'deadlineAt':(self.now+dt.timedelta(minutes=1)).isoformat()}
+            pin=m.e.digest(json.dumps(selector,sort_keys=True,separators=(',',':')).encode())
+            blueprint={'kind':'cn-mvp-approved-blueprint-v1','selector':selector,'codeFiles':{name:m.e.digest((root/name).read_bytes())for name in names}}
+            path=blueprints/(pin+'.json');path.write_text(json.dumps(blueprint))
+            calls=[]
+            class Preparer:
+                def prepare(self,received):calls.append(received);return {'approvalSha256':'a'*64,'installed':False}
+            with patch.object(m,'ROOT',root),patch.object(m,'BLUEPRINTS',blueprints),patch.object(m.e,'read',side_effect=lambda p,*args:Path(p).read_bytes()),patch.object(m,'module',return_value=Preparer()) as importer:
+                result=m.prepare_only(pin,'status',clock=lambda:self.now)
+                self.assertEqual(result['status'],'PREPARATION_READ_ONLY_NO_EXECUTION');self.assertEqual(calls,[]);importer.assert_not_called()
+                result=m.prepare_only(pin,'run',clock=lambda:self.now)
+                self.assertEqual(calls,[pin]);self.assertEqual(result['status'],'PREPARE_ONLY');self.assertFalse(result['productionStarted'])
+                (root/names[1]).write_bytes(b'tampered code')
+                with self.assertRaisesRegex(m.e.Rejected,'PREPARER_CODE_PIN'):m.prepare_only(pin,'run',clock=lambda:self.now)
+                self.assertEqual(calls,[pin])
 
 
 # Run the actual CLI/__main__ and coordinate loop in a fresh interpreter. Only
@@ -114,7 +175,7 @@ class Loader:
  def create_module(self,spec):return None
  def exec_module(self,module):module.__dict__.update(vars(self.obj))
 original_spec=importlib.util.spec_from_file_location
-original_open=os.open;original_fstat=os.fstat
+original_open=os.open;original_fstat=os.fstat;original_exists=Path.exists
 with tempfile.TemporaryDirectory()as tmp:
  def spec(name,path,*args,**kwargs):
   if name in ('fixed_driver_entry','fixed_stage_router'):
@@ -123,10 +184,14 @@ with tempfile.TemporaryDirectory()as tmp:
  def opened(path,*args,**kwargs):
   if str(path)=='/var/lib/workspacex-cn/release-driver/driver.lock':path=Path(tmp)/'lock'
   return original_open(path,*args,**kwargs)
+ def exists(path):
+  if str(path).startswith('/etc/workspacex-cn/release-approvals/'):return True
+  if str(path).startswith('/etc/workspacex-cn/mvp-approval-blueprints/'):return False
+  return original_exists(path)
  def rootstat(fd):
   s=original_fstat(fd);v={k:getattr(s,k)for k in dir(s)if k.startswith('st_')};v['st_uid']=0;return types.SimpleNamespace(**v)
  sys.argv=[str(source),mode,release]
- with patch.object(importlib.util,'spec_from_file_location',spec),patch.object(os,'geteuid',lambda:0),patch.object(os,'open',opened),patch.object(os,'fstat',rootstat):
+ with patch.object(importlib.util,'spec_from_file_location',spec),patch.object(os,'geteuid',lambda:0),patch.object(os,'open',opened),patch.object(os,'fstat',rootstat),patch.object(Path,'exists',exists):
   runpy.run_path(str(source),run_name='__main__')
 '''
 

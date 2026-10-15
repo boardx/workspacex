@@ -377,3 +377,30 @@ class StoreContentRevalidationTests(unittest.TestCase):
                            (True, 'PUBLICATION_STORE_BLOB_SIZE')):
             with self.subTest(grow=grow), self.assertRaisesRegex(a.Rejected, code):
                 self.invoke(lambda path: self.tamper_blob(path, self.entry['layers'][0]['sha256'], grow))
+
+
+class AttemptTargetProtectionTests(unittest.TestCase):
+    def test_real_inherited_storage_and_running_gates_are_preserved(self):
+        from test_cn_image_candidate import plan
+        build = plan()
+        targets = h.publication.publication_targets(build, attempt_scoped=True)
+        staging = 'wsx-candidate-test/api:fixture'
+        receipt = {'images': {'api': {'stagingTag': staging}}}
+        adapter = object.__new__(h.Commands)
+        adapter.c = a; adapter.docker = '/usr/bin/docker'
+        for running in (targets['api'], h.publication.publication_targets(build)['api'], staging):
+            with self.subTest(running=running):
+                adapter.command = Mock(side_effect=lambda argv: a.json_bytes('/var/lib/docker')
+                    if argv[1] == 'info' else a.json_bytes({'Image': running}))
+                with self.assertRaisesRegex(ValueError, 'RUNNING_CONTAINER_TARGET_COLLISION'):
+                    adapter.protect_candidate_targets(receipt, build, targets)
+        adapter.command = Mock(side_effect=lambda argv: a.json_bytes('/var/lib/docker')
+            if argv[1] == 'info' else a.json_bytes({'Image': 'unrelated@sha256:fixture'}))
+        adapter.protect_candidate_targets(receipt, build, targets)
+        adapter.command = Mock(return_value=a.json_bytes('/other/storage'))
+        with self.assertRaisesRegex(ValueError, 'DOCKER_STORAGE_LOCATION_UNAPPROVED'):
+            adapter.protect_candidate_targets(receipt, build, targets)
+        adapter.command = Mock()
+        with self.assertRaisesRegex(ValueError, 'PUBLICATION_ATTEMPT_TARGET_BINDING'):
+            adapter.protect_candidate_targets(receipt, build, dict(targets, api='arbitrary:tag'))
+        adapter.command.assert_not_called()

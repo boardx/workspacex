@@ -1,0 +1,14 @@
+COMMAND: pnpm --filter @repo/api exec vitest run --config vitest.chat-share-unit.config.ts
+
+ RUN  v2.1.9 /Users/shenyanbin/.codex/worktrees/chat-public-share/workspacex/apps/api
+
+ ✓ tests/chat/share-chat.test.ts (7 tests) 4ms
+ ✓ tests/diagnostics/debug-request-recorder.test.ts (6 tests) 4ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  20:17:30
+   Duration  854ms (transform 433ms, setup 0ms, collect 668ms, tests 9ms, environment 0ms, prepare 46ms)
+
+
+EXIT: 0

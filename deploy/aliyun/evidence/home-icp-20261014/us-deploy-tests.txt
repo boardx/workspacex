@@ -1,0 +1,160 @@
+TAP version 13
+# Subtest: PRs, non-main refs and wrong account never reach Cloudflare
+ok 1 - PRs, non-main refs and wrong account never reach Cloudflare
+  ---
+  duration_ms: 0.979
+  type: 'test'
+  ...
+# Subtest: domain mismatch refuses to publish
+ok 2 - domain mismatch refuses to publish
+  ---
+  duration_ms: 11.720667
+  type: 'test'
+  ...
+# Subtest: success records exact SHA, new deployment and previous rollback target
+ok 3 - success records exact SHA, new deployment and previous rollback target
+  ---
+  duration_ms: 3.229084
+  type: 'test'
+  ...
+# Subtest: failed verification rolls back own deployment: {"smokeFails":true}
+ok 4 - failed verification rolls back own deployment: {"smokeFails":true}
+  ---
+  duration_ms: 1.169917
+  type: 'test'
+  ...
+# Subtest: failed verification rolls back own deployment: {"wrongPublicSha":true}
+ok 5 - failed verification rolls back own deployment: {"wrongPublicSha":true}
+  ---
+  duration_ms: 2.321875
+  type: 'test'
+  ...
+# Subtest: a competing publisher is never rolled back
+ok 6 - a competing publisher is never rolled back
+  ---
+  duration_ms: 0.69525
+  type: 'test'
+  ...
+# Subtest: a different publisher of the same SHA and another deployment ID is never rolled back
+ok 7 - a different publisher of the same SHA and another deployment ID is never rolled back
+  ---
+  duration_ms: 0.661792
+  type: 'test'
+  ...
+# Subtest: unknown own deployment ID fails closed without rollback
+ok 8 - unknown own deployment ID fails closed without rollback
+  ---
+  duration_ms: 0.351291
+  type: 'test'
+  ...
+# Subtest: packaging rejects a real dirty tracked home source from its nested working directory
+ok 9 - packaging rejects a real dirty tracked home source from its nested working directory
+  ---
+  duration_ms: 108.118
+  type: 'test'
+  ...
+# Subtest: workflow permits production only for main push, validates first, retains evidence
+ok 10 - workflow permits production only for main push, validates first, retains evidence
+  ---
+  duration_ms: 0.863584
+  type: 'test'
+  ...
+# Subtest: custom-domain propagation retries within a bounded budget before success
+ok 11 - custom-domain propagation retries within a bounded budget before success
+  ---
+  duration_ms: 1.173708
+  type: 'test'
+  ...
+# Subtest: last marker concurrent production mutation cannot report verified: {"id":"cccccccc-cccc-cccc-cccc-cccccccccccc"}
+ok 12 - last marker concurrent production mutation cannot report verified: {"id":"cccccccc-cccc-cccc-cccc-cccccccccccc"}
+  ---
+  duration_ms: 0.848083
+  type: 'test'
+  ...
+# Subtest: last marker concurrent production mutation cannot report verified: {"deployment_trigger":{"metadata":{"commit_hash":"cccccccccccccccccccccccccccccccccccccccc"}}}
+ok 13 - last marker concurrent production mutation cannot report verified: {"deployment_trigger":{"metadata":{"commit_hash":"cccccccccccccccccccccccccccccccccccccccc"}}}
+  ---
+  duration_ms: 0.846542
+  type: 'test'
+  ...
+# Subtest: last marker concurrent production mutation cannot report verified: {"latest_stage":{"status":"failure"}}
+ok 14 - last marker concurrent production mutation cannot report verified: {"latest_stage":{"status":"failure"}}
+  ---
+  duration_ms: 1.35775
+  type: 'test'
+  ...
+# Subtest: shared verification deadline expires across origins and preserves rollback budget
+ok 15 - shared verification deadline expires across origins and preserves rollback budget
+  ---
+  duration_ms: 0.90875
+  type: 'test'
+  ...
+# Subtest: synchronous subprocess receives remaining shared budget and hard termination
+ok 16 - synchronous subprocess receives remaining shared budget and hard termination
+  ---
+  duration_ms: 1.03425
+  type: 'test'
+  ...
+# Subtest: wall clock rollback cannot extend the production deadline or rollback reserve
+ok 17 - wall clock rollback cannot extend the production deadline or rollback reserve
+  ---
+  duration_ms: 0.705542
+  type: 'test'
+  ...
+# Subtest: same path across domains is valid; repeated full URL is a loop
+ok 18 - same path across domains is valid; repeated full URL is a loop
+  ---
+  duration_ms: 0.489
+  type: 'test'
+  ...
+# Subtest: query changes are distinct URLs; relative loops and hop budget remain failures
+ok 19 - query changes are distinct URLs; relative loops and hop budget remain failures
+  ---
+  duration_ms: 0.3055
+  type: 'test'
+  ...
+# Subtest: domain verification rejects lost path/query, temporary redirects and target loops
+ok 20 - domain verification rejects lost path/query, temporary redirects and target loops
+  ---
+  duration_ms: 0.3935
+  type: 'test'
+  ...
+# Subtest: publication verifies the new custom domain, not just the deployment URL
+ok 21 - publication verifies the new custom domain, not just the deployment URL
+  ---
+  duration_ms: 0.682083
+  type: 'test'
+  ...
+# Subtest: domain verification rejects a later 200 after query removed
+ok 22 - domain verification rejects a later 200 after query removed
+  ---
+  duration_ms: 0.109
+  type: 'test'
+  ...
+# Subtest: domain verification rejects a later 200 after old domain returned
+ok 23 - domain verification rejects a later 200 after old domain returned
+  ---
+  duration_ms: 0.110375
+  type: 'test'
+  ...
+# Subtest: domain verification rejects a later 200 after HTTPS downgraded
+ok 24 - domain verification rejects a later 200 after HTTPS downgraded
+  ---
+  duration_ms: 0.200584
+  type: 'test'
+  ...
+# Subtest: domain verification preserves encoded paths and query byte representation
+ok 25 - domain verification preserves encoded paths and query byte representation
+  ---
+  duration_ms: 0.210292
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 190.624666

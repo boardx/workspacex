@@ -126,3 +126,31 @@ own fresh checks. Tests include the observed 18.8659 GB counterexample against
 17.450958848 GB of publisher threshold plus retained bytes, exact byte boundaries,
 separate filesystems, compressed ZIPs smaller than TARs, changed plan margin,
 formula drift and rejection before any SDK import/GET.
+
+### Explicit publication intent version
+
+A root-approved publication request may select `publicationIntentVersion: 3`.
+The materializer passes that exact request-bound selection to the reviewed
+decision and emits the existing canonical v3 intent with the publisher's fixed
+`source-attempt-v1` policy. It never accepts caller tag or repository text.
+An absent selection retains historical v2; explicit integer 2 is also accepted.
+Consume requests reject this field. Booleans and unknown versions are rejected.
+
+The candidate plan, set, proof and producer control revision remain unchanged.
+Generator/template bytes are separately pinned by materialization approval; a
+version selection requires a new exact request approval and matching template
+hashes. This source change is not part of an already built control package.
+The fixed installed MVP entry still requires its reviewed installed closure;
+a new generator cannot be mixed into that package or reported as installed.
+Using an existing standalone materialization CLI requires a separate concrete
+approval for its exact code, template bytes and invocation after host checks.
+This change neither rebuilds candidates nor authorizes installation/publication.
+
+For a candidate already produced with control AA, that plan's control revision
+must remain AA: independently approved generator/template bytes do not re-sign
+its identity. A first publication may still use historical v2 only if a fresh
+immutable registry readback proves the exact source-only target tags are absent
+or already contain the same approved image. Absence is never assumed. That
+one-time v2 success would not fix later rebuild collisions. Permanent v3 source
+support, the current round's approved execution choice, and actual installed
+production code are three distinct states.

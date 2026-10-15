@@ -18,7 +18,9 @@ import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { SKILL_STARTER_PACK_SOURCE, type SkillStarterPackSource } from "../../src/application/skill-import/ports";
+import { sha256, type SkillStarterPack } from "../../src/domain/skill/starter-pack";
 import {
   REPO_SKILL_STARTER_PACK_ROOT,
   resolveSkillStarterPackRoot,
@@ -142,6 +144,55 @@ describe("every shipped starter pack imports into one fresh org", () => {
 });
 
 describe("shared skills across content-line packs are idempotent", () => {
+  it("rejects a cross-pack same-version fork before appending an earlier valid new version", async () => {
+    expect((await importPack(ORG_A, "work-product", "1.0.0")).status).toBe(201);
+    const source = app.get<SkillStarterPackSource>(SKILL_STARTER_PACK_SOURCE);
+    const load = source.load.bind(source);
+    const original = await load("work-product", "1.0.0") as SkillStarterPack;
+    const skills = ["S009", "S061"].map(id => {
+      const skill = structuredClone(original.skills.find(s => s.name === id)!);
+      if (id === "S009") skill.semanticVersion = "1.3.0";
+      const file = skill.files.find(f => f.path === "SKILL.md")!;
+      const body = Buffer.from(file.contentBase64, "base64").toString()
+        .replace(/^version:.*$/m, `version: ${skill.semanticVersion}`) + "\nCounterexample: changed body.\n";
+      file.contentBase64 = Buffer.from(body).toString("base64"); file.digest = sha256(body);
+      return skill;
+    });
+    const unsigned = { schemaVersion: 1 as const, packId: "work-fork-counterexample", packVersion: "1.0.0", skills };
+    const spy = vi.spyOn(source, "load").mockImplementation(async (id, version) =>
+      id === unsigned.packId ? { ...unsigned, packDigest: sha256(JSON.stringify(unsigned)) } : load(id, version));
+    try {
+      const attemptKey = randomUUID();
+      expect((await importPack(ORG_A, unsigned.packId, unsigned.packVersion, attemptKey)).status).toBe(409);
+      expect((await importPack(ORG_A, unsigned.packId, unsigned.packVersion, attemptKey)).status).toBe(409);
+      const appended = await asOwner(async c => (await c.query<{ n: number }>(
+        "SELECT count(*)::int AS n FROM skill_versions WHERE org_id=$1 AND semantic_label='1.3.0'", [ORG_A])).rows[0]!.n);
+      expect(appended).toBe(0);
+    } finally { spy.mockRestore(); }
+  }, 300_000);
+
+  it("a new pack appends a different frozen version of the same Work entity without rewriting or re-enabling it", async () => {
+    expect((await importPack(ORG_A, "work-product", "1.1.0")).status).toBe(201);
+    const original = await asOwner(async c => (await c.query<{ skill_id: string; id: string; content_digest: string }>(
+      `SELECT v.skill_id,v.id,v.content_digest FROM skill_versions v
+       JOIN skills s ON s.id=v.skill_id AND s.org_id=v.org_id
+       WHERE v.org_id=$1 AND s.stable_name='product-discovery' AND v.semantic_label='1.0.0'`, [ORG_A])).rows[0]!);
+    await asOwner(async c => {
+      await c.query("UPDATE skills SET status='disabled' WHERE org_id=$1 AND id=$2", [ORG_A, original.skill_id]);
+      await c.query("UPDATE capability_listings SET enabled=false WHERE org_id=$1 AND id=$2 AND kind='skill'", [ORG_A, original.skill_id]);
+    });
+    expect((await importPack(ORG_A, "work-discovery-execution", "1.2.0")).status).toBe(201);
+    const versions = await asOwner(async c => (await c.query<{ id: string; semantic_label: string; content_digest: string }>(
+      "SELECT id,semantic_label,content_digest FROM skill_versions WHERE org_id=$1 AND skill_id=$2 ORDER BY semantic_label",
+      [ORG_A, original.skill_id])).rows);
+    expect(versions.find(v => v.semantic_label === "1.0.0")).toMatchObject({ id: original.id, content_digest: original.content_digest });
+    expect(versions.some(v => v.semantic_label === "1.2.0")).toBe(true);
+    const state = await asOwner(async c => (await c.query<{ status: string; enabled: boolean }>(
+      "SELECT s.status,l.enabled FROM skills s JOIN capability_listings l ON l.id=s.id AND l.org_id=s.org_id AND l.kind='skill' WHERE s.org_id=$1 AND s.id=$2",
+      [ORG_A, original.skill_id])).rows[0]!);
+    expect(state).toEqual({ status: "disabled", enabled: false });
+  }, 300_000);
+
   it("work-research after work-product reuses the shared skills (same skill + version ids)", async () => {
     const product = await importPack(ORG_A, "work-product", "1.0.0");
     expect(product.status).toBe(201);

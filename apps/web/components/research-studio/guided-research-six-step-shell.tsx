@@ -3,6 +3,7 @@ import { DEFAULT_RESEARCH_NAME } from "@/lib/guided-research-heading";
 import { ArrowLeft, Search, Bot } from "lucide-react";
 import { researchWorkspaceStyle as workspace, ResearchWorkspaceStepIndicator } from "./research-workspace-style";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton } from "./research-workflow-actions";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { GUIDED_RESEARCH_STEPS, canonicalResearchStage, type GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
@@ -86,9 +87,8 @@ export function GuidedResearchSixStepShell({
     <div className="min-h-dvh min-w-0 bg-muted/20" data-testid="guided-research-six-step-shell" data-layout="deep-research-desktop" data-reference-layout="prototype-desktop">
       <header className={workspace.header} data-testid="research-workspace-header">
         <div className={workspace.brandBar}><div className={cn(workspace.width, "flex items-center gap-3")}><Search className="size-9 rounded-lg bg-primary p-2 text-primary-foreground" /><span className="text-xl font-bold">Deep Research</span>{current !== "import" && <span className="hidden rounded bg-muted px-3 py-1 text-sm text-muted-foreground sm:block">智能研究平台</span>}</div></div>
-        {currentScreen === "report" && <div aria-hidden="true" className="h-32 sm:hidden" data-testid="research-mobile-actions-space" />}
         <div className={workspace.heading}>
-          {onBack && <Button variant="primary" className="mb-4 h-10 text-sm" data-testid="research-flow-back" onClick={() => requestLeave(onBack)}><ArrowLeft className="mr-2 size-4" />返回研究列表</Button>}
+          {onBack && <WorkflowActionButton variant="outline" className="mb-4" data-testid="research-flow-back" icon={<ArrowLeft className="size-4" aria-hidden />} onClick={() => requestLeave(onBack)}>返回研究列表</WorkflowActionButton>}
           <h1 className="text-2xl font-bold tracking-tight">{researchName?.trim() || DEFAULT_RESEARCH_NAME}</h1>
           <nav aria-label="研究步骤" data-testid="research-flow-progress" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
           <ol className={workspace.timeline}>
@@ -97,7 +97,7 @@ export function GuidedResearchSixStepShell({
               const active = step.id === currentScreen;
               const executing = step.id === runningScreen;
               const completed = !executing && unlocked && (researchCompleted || (completedScreens ? completedScreens.includes(step.id) : index < furthestIndex));
-              const stepContent = <><ResearchWorkspaceStepIndicator number={index + 1} active={active} completed={completed} running={executing} /><span className="truncate">{step.label}</span></>;
+              const stepContent = <><ResearchWorkspaceStepIndicator number={index + 1} active={active} completed={completed} running={executing} animateRunning={false} /><span className="truncate">{step.label}</span></>;
               return <li key={step.id} className={workspace.step}>
                 {!unlocked ? <span data-testid={`research-step-${step.id}`} aria-current={active ? "step" : undefined} aria-disabled="true" className="inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground">{stepContent}</span> :
                 <Button

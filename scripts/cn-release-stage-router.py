@@ -70,6 +70,9 @@ class Router:
             '.harness/scripts/vm/cn-maintenance-browser.cjs','packages/cloud-deploy/src/cn-release-browser-contract.ts',
             'packages/cloud-deploy/src/cn-maintenance-host/acceptance_contract.ts',
             '.harness/scripts/vm/cn-runtime-continuation/finalize/runtime.py'}
+        if self.a.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
+            required.update({'scripts/cn-release-mvp-original-producer.py',
+                'scripts/cn-release-mvp-original-retention.py','scripts/cn-release-mvp-trusted-collector.py'})
         e.need(required<=set(self.a['codeFiles']),'INCOMPLETE_CODE_CLOSURE')
         # All code in the declared closure must be trusted before any import or
         # generation; no absolute/parent traversal or runner-owned code.
@@ -88,7 +91,8 @@ class Router:
         # These are genuine capability checks. A missing exact provider job
         # observer or held/public business lane blocks before consume/hold.
         self.load('rds').preflight(self.a)
-        self.load('business').preflight(self.a)
+        if self.a.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':self.mvp_module().preflight(self.a,self.release)
+        else:self.load('business').preflight(self.a)
         self.load('acquire').approval(self.raw)
         # A baseline browser/clear adapter is not proof that an uncertain prior
         # Docker/provider operation is safe to recover. No approval boolean can
@@ -125,6 +129,20 @@ class Router:
         if key not in self.modules:
             self.modules[key]=module(ROOT/'scripts/cn-release-conditional-writer-adapter.py','fixed_conditional_writer')
         return self.modules[key]
+
+    def mvp_module(self):
+        name='scripts/cn-release-mvp-driver-stages.py'
+        e.need(e.digest(e.read(ROOT/name,1048576))==self.a['codeFiles'][name],'MVP_DRIVER_CODE_PIN')
+        return module(ROOT/name,'fixed_mvp_stages')
+    def mvp_after_switch(self,release,previous,mode):
+        e.need(release==self.release,'RELEASE_CHANGED')
+        return self.mvp_module().after_switch(self.a,release,previous,mode)
+    def mvp_complete(self,release,mode):
+        e.need(release==self.release,'RELEASE_CHANGED')
+        name='scripts/cn-release-mvp-original-producer.py'
+        e.need(e.digest(e.read(ROOT/name,1048576))==self.a['codeFiles'][name],'MVP_PRODUCER_CODE_PIN')
+        producer=module(ROOT/name,'fixed_mvp_original_producer')
+        return producer.complete(release,mode)
     def admission(self,release,stage):
         e.need(release==self.release,'RELEASE_CHANGED')
         if stage=='clear-hold':
@@ -223,6 +241,8 @@ class Router:
             self.load('terminal').derive_held_health(self.raw,inputs,e,self.load('finalize'),folder)
             value=e.decode(e.read(folder/'parameters.json'));return value['CommandContent'].encode(),int(value['Timeout'])
         if stage in ('rds-backup','observe'):
+            if stage=='observe' and self.a.get('mvp',{}).get('acceptanceScope')=='mvp-non-model':
+                return ('/usr/bin/python3 -I -B '+str(ROOT/'scripts/cn-release-mvp-driver-stages.py')+' observe '+self.release+'\n').encode(),1200
             name='rds' if stage=='rds-backup' else 'business';mode='action'if name=='rds'else stage
             # Fixed registered executable and hex-only argument, no runner env.
             return ('/usr/bin/python3 -I -B '+str(ROOT/MODULES[name])+' '+mode+' '+self.release+'\n').encode(),1200

@@ -1,4 +1,5 @@
 import { SkillActivityFact } from "@repo/contracts/skill-activity";
+import { resolveReportFilePolicyProject } from '../report-files/pg-report-file-policy-project';
 import { DEFAULT_STALE_RUNNING_THRESHOLD_MS } from "../../application/agent-run/ports";
 import { legacyExecutionEvents } from "../../application/agent-run/legacy-execution-events";
 import { RestorableInterrupt } from "@repo/contracts/agent-interrupts";
@@ -226,12 +227,21 @@ export class PgAgentRunRepository implements AgentRunStore {
           runs.push({ kind: "unresolvable", runId: row.id, leaseEpoch:row.lease_epoch });
           continue;
         }
+        let policyProjectId: string | null;
+        try {
+          policyProjectId = await resolveReportFilePolicyProject(s, orgId, row.id,
+            extra.requester_user_id, row.thread_id, extra.project_id);
+        } catch {
+          runs.push({ kind: "unresolvable", runId: row.id, leaseEpoch: row.lease_epoch });
+          continue;
+        }
         runs.push({ kind: "executable", run: {
           runId: row.id,
           runtimeProfile: row.runtime_profile,
           leaseEpoch: row.lease_epoch,
           threadId: row.thread_id,
           projectId: extra.project_id,
+          policyProjectId,
           inputMessageId: row.input_message_id,
           inputText: extra.input_text,
           inputAttachments: toAttachmentMeta(extra.input_attachments),

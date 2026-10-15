@@ -159,6 +159,19 @@ wss.on("connection", (ws, req) => {
       }
       return;
     }
+    // Recording VAD ends through session.finish, not manual buffer commit.
+    // Return any pending real PCM count before the explicit terminal receipt.
+    if (event.type === "session.finish") {
+      if (bytes > 0) ws.send(JSON.stringify({
+        type: "conversation.item.input_audio_transcription.completed",
+        transcript: `${TRANSCRIPT_PREFIX} ${bytes}`,
+        confidence: 0.97,
+      }));
+      bytes = 0;
+      ws.send(JSON.stringify({ type: "session.finished" }));
+      ws.close();
+      return;
+    }
     if (event.type === "input_audio_buffer.commit") {
       // 一个字节都没收到 ⇒ **不编一段转录**。回一个空的 completed，
       // 由适配器/网关决定怎么处理。捏一段假文本出来正是这个进程绝不做的事。

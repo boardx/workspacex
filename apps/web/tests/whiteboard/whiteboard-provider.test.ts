@@ -1009,3 +1009,25 @@ it.each(['ack-first','reconcile-first','renew-first'] as const)('orders a real p
     expect(state.phase).toBe('online');expect(state.lastAckReceipt).toEqual({updateId:sent.updateId,gestureId:sent.gestureId,seq:1});expect((await inspect.restore('test-session')).updates).toEqual([]);
   }finally{first.close();second?.close();inspect.close();origin.destroy();peer.destroy();server.destroy();vi.restoreAllMocks();}
 });
+
+it('tracks applied server revision independently of durability ACK and preserves later catch-up',async()=>{
+  const doc=createWhiteboardDocument(),server=createWhiteboardDocument();let state!:WhiteboardConnectionState;
+  const provider=new WhiteboardProvider(doc,'applied-mindmap',value=>{state=value;},null);
+  try{
+    await flushClaims();const socket=Socket.sockets[0]!;sync(socket,server,1,0);
+    expect(state.appliedRevision).toEqual({epoch:1,seq:0});
+    executeCommands(doc,[{type:'create',object:sticky('own')}],'local');await flushClaims();
+    const own=updates(socket)[0]!;
+    socket.message({type:'ack',updateId:own.updateId,gestureId:own.gestureId,seq:2});
+    expect(state.lastAckSequence).toBe(2);
+    expect(state.appliedRevision).toEqual({epoch:1,seq:0});
+    // Gateway sends durability ACK first, then this authoritative catch-up.
+    executeCommands(server,[{type:'create',object:sticky('peer')}],'peer');
+    Y.applyUpdate(server,base64ToBytes(own.update));
+    socket.message({type:'update',epoch:1,seq:2,update:bytesToBase64(Y.encodeStateAsUpdate(server))});
+    expect(readObjects(doc).map(object=>object.id).sort()).toEqual(['own','peer']);
+    expect(state.appliedRevision).toEqual({epoch:1,seq:2});
+    socket.message({type:'update',epoch:1,seq:1,update:bytesToBase64(Y.encodeStateAsUpdate(server))});
+    expect(state.appliedRevision).toEqual({epoch:1,seq:2});
+  }finally{provider.close();doc.destroy();server.destroy();}
+});

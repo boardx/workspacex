@@ -108,7 +108,9 @@ describe("research chapter document", () => {
     expect(screen.getByTestId("research-inline-citation")).toHaveAttribute("href", source.url);
     expect(screen.getByTestId("research-report-preview")).toHaveAttribute("aria-busy", "true");
     fireEvent.pointerDown(screen.getByRole("button", { name: "更多操作" }), { button: 0, ctrlKey: false });
-    expect(screen.getByRole("menuitem", { name: "下载 Word" })).toBeEnabled();
+    expect(screen.queryByRole("menuitem", { name: "下载 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 Word" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "生成 PDF" })).not.toBeInTheDocument();
     expect(screen.queryByText("草稿")).not.toBeInTheDocument();
     expect(screen.getByTestId("research-report-preview-text")).not.toHaveTextContent("草稿");
   });

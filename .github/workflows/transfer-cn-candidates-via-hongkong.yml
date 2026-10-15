@@ -1,17 +1,30 @@
 # Local review draft. Copy with uploader and bound plan only after authorized setup.
+run-name: ${{ inputs.chain_id || github.workflow }}
 name: transfer-cn-candidates-via-hongkong
 on:
   workflow_dispatch:
     inputs:
+      chain_id:
+        description: Exact MVP dispatch correlation; no authority granted
+        type: string
+        required: false
       plan_sha256:
         description: Independently reviewed SHA256 of checked-in exact transfer plan
         type: string
         required: true
+      transfer_plan:
+        description: Optional runtime-generated v3 JSON; hash remains mandatory
+        type: string
+        required: false
+      revalidation_template:
+        description: Exact template JSON required with runtime-generated plan
+        type: string
+        required: false
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: hk-original-artifacts-38146134231-1
+  group: hk-original-artifacts-${{ inputs.plan_sha256 }}
   cancel-in-progress: false
 jobs:
   transfer:
@@ -40,19 +53,43 @@ jobs:
           REF: ${{ github.ref }}
         run: test "$ATTEMPT" = 1 && test "$REF" = refs/heads/main
       - name: Validate exact plan and complete uploader code closure before credentials
+        id: plan
         env:
           PLAN_SHA: ${{ inputs.plan_sha256 }}
+          TRANSFER_PLAN: ${{ inputs.transfer_plan }}
+          PROOF_TEMPLATE: ${{ inputs.revalidation_template }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 -I -B - <<'PYCODE'
           import importlib.util,os,pathlib
           p=pathlib.Path('scripts/cn-hk-original-artifact-upload.py')
           s=importlib.util.spec_from_file_location('uploader',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
-          raw=pathlib.Path('.github/release-plans/hk-original-artifacts.json').read_bytes()
-          m.need(m.sha(raw)==os.environ['PLAN_SHA']);m.validate_plan(m.rawjson(raw))
+          runtime=os.environ.get('TRANSFER_PLAN','')
+          planpath=pathlib.Path(os.environ['RUNNER_TEMP'])/'hk-plan.json'
+          templatepath=pathlib.Path(os.environ['RUNNER_TEMP'])/'hk-template.json'
+          if runtime:
+              raw=runtime.encode();template=os.environ.get('PROOF_TEMPLATE','').encode()
+              m.need(0<len(raw)<=65536 and 0<len(template)<=65536)
+              m.need(m.rawjson(raw).get('kind')=='hk-original-artifact-transfer-v3')
+          else:
+              m.need(not os.environ.get('PROOF_TEMPLATE',''))
+              raw=pathlib.Path('.github/release-plans/hk-original-artifacts.json').read_bytes()
+              template=pathlib.Path('.github/release-plans/hk-revalidation-template.json').read_bytes()
+          planpath.write_bytes(raw);templatepath.write_bytes(template)
+          m.need(m.sha(raw)==os.environ['PLAN_SHA']);plan=m.validate_plan(m.rawjson(raw))
+          m.validate_source_run(plan)
+          if plan['kind']=='hk-original-artifact-transfer-v3':
+              for name,record in plan['artifacts'].items():m.metadata(name,record,plan)
+          if plan['kind']in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3'):
+              m.need(m.sha(template)==plan['revalidationTemplateSha256'])
+              proof_spec=importlib.util.spec_from_file_location('proof','scripts/cn-hk-generate-proof.py')
+              proof=importlib.util.module_from_spec(proof_spec);proof_spec.loader.exec_module(proof)
+              proof.validate_binding(plan,m.rawjson(template),template)
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:output.write('control='+plan['producerControl']+'\n')
           PYCODE
       - uses: actions/checkout@v5
         with:
-          ref: 27bada5321e45fbdd5f0506fd06d08fa29ea24ce
+          ref: ${{ steps.plan.outputs.control }}
           path: producer-control
           persist-credentials: false
       - name: Verify actual OIDC claims before federation
@@ -82,7 +119,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PLAN_SHA: ${{ inputs.plan_sha256 }}
-        run: '"$RUNNER_TEMP/hk-sdk/bin/python" -I -B scripts/cn-hk-original-artifact-upload.py --plan .github/release-plans/hk-original-artifacts.json --plan-sha256 "$PLAN_SHA" --output "$RUNNER_TEMP/hk-original-artifacts"'
+        run: '"$RUNNER_TEMP/hk-sdk/bin/python" -I -B scripts/cn-hk-original-artifact-upload.py --plan "$RUNNER_TEMP/hk-plan.json" --template "$RUNNER_TEMP/hk-template.json" --plan-sha256 "$PLAN_SHA" --output "$RUNNER_TEMP/hk-original-artifacts"'
       - name: Retain only sanitized receipt
         if: ${{ always() }}
         uses: actions/upload-artifact@v6
@@ -101,3 +138,36 @@ jobs:
           # Admission/auth failure can precede creation of any transfer intent.
           # Preserve that original failed step; absence is not a successful transfer.
           if-no-files-found: warn
+      - name: Retain bounded original transfer metadata
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path(os.environ['RUNNER_TEMP'])
+          sources = {
+              'upload-plan.json': root / 'hk-original-artifacts/upload-plan.json',
+              'hk-template.json': root / 'hk-template.json',
+              'proof.json': root / 'hk-original-artifacts/revalidation/hk-cloud-proof/candidate-revalidation.json',
+              'policy.json': root / 'hk-original-artifacts/revalidation/revalidation-policy.json',
+              'receipt.json': root / 'hk-original-artifacts/receipt.json',
+          }
+          originals = {name: source.read_bytes() for name, source in sources.items()}
+          if any(len(raw) > 262144 for raw in originals.values()) or sum(map(len, originals.values())) > 1048576:
+              raise SystemExit('Original transfer metadata exceeds bounded retention limit')
+          for raw in originals.values():
+              json.loads(raw)
+          destination = root / 'cn-hk-originals'
+          destination.mkdir(mode=0o700, exist_ok=False)
+          for name, raw in originals.items():
+              with (destination / name).open('xb') as output:
+                  output.write(raw)
+              (destination / name).chmod(0o600)
+          PY
+      - name: Upload original transfer metadata
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-hk-originals-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-hk-originals/*.json
+          retention-days: 1
+          if-no-files-found: error

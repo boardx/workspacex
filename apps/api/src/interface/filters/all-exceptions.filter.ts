@@ -12,6 +12,7 @@
  * Error codes come from a CLOSED mapping off the status code, never from the exception
  * message -- using messages as codes turns internal strings into a public contract.
  */
+import { ReportFileErrorCode } from "@repo/contracts/report-files";
 import { SkillFileEditError, SkillFileEditConflict } from "@repo/contracts/skill-file-edit";
 import { AgentRoleImportError, AgentRoleImportFailureDetail } from "@repo/contracts/agent-role";
 import { WorkSkillErrorBody } from "@repo/contracts/work-skill-meta";
@@ -226,6 +227,8 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
   const interviewError = interview.InterviewError.safeParse(raw);
   if (interviewError.success) return { reasonCode: interviewError.data };
   // Closed review codes only; never reveal NO_INTERVIEW_ACCESS or exception text.
+  const reportFileError = ReportFileErrorCode.safeParse(raw);
+  if (reportFileError.success) return { reasonCode: reportFileError.data };
   const sourceReportReviewError = InterviewMarkdownReportReviewErrorCode.safeParse(raw);
   if (sourceReportReviewError.success) return { reasonCode: sourceReportReviewError.data };
 

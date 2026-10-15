@@ -46,6 +46,28 @@ beforeEach(async () => {
 });
 
 describe("Markdown source persistence", () => {
+  it('rejects export eligibility of an already migrated incomplete report without losing its body',async()=>{
+    await db.withTenant(ORG, session=>appendInterviewMarkdownDocument(session,{orgId:ORG,interviewId:ID,revisionId:REV,step:'report',title:'旧报告',markdown:'# 旧报告\n\n仅复述内容。',evidenceMode:'simulated',references:[],expectedVersion:0,status:'confirmed',source:'legacy-migration-v1'}));
+    const current=await new PgInterviewMarkdownReader(db).readCurrent(ORG,ID);
+    expect(current?.states.find(item=>item.documentId)?.status).toBe('failed');
+    const saved=await db.withTenant(ORG,readDocuments);
+    expect(saved.find(item=>item.step==='report')?.markdown).toBe('# 旧报告\n\n仅复述内容。');
+  });
+  it.each([
+    ['rejected', '# 旧报告\n\n仅复述访谈内容。', 'failed'],
+    ['qualified', '# 合格报告\n\n跨回答综合：两位专家意见相反，需要分层验证。\n决策影响：应优先验证客户偏好。\n边界与反例：仅模拟角色，不代表真人证据。\n建议行动：P0：用独立真人任务验证渠道假设，以完成时长和再次进线率为指标。', 'confirmed'],
+  ])('initialization preserves %s legacy report bytes with the correct generation eligibility', async (_, markdown, status) => {
+    await db.withTenant(ORG, async session => {
+      await session.query(`INSERT INTO digital_interview_artifact_versions(org_id,artifact_id,interview_id,revision_id,step,version_number,title,markdown,status,evidence_mode)
+        VALUES($1,'legacy-quality-report',$2,$3,'report',1,'旧报告',$4,'confirmed','simulated')`,[ORG,ID,REV,markdown]);
+      await migrateInterviewMarkdown(session,ORG,ID);
+      const doc=(await readDocuments(session)).find(item=>item.step==='report');
+      expect(doc?.markdown).toBe(markdown);
+      const states=await session.query<{status:string;failure:unknown}>(`SELECT status,failure FROM digital_interview_artifact_versions WHERE org_id=$1 AND interview_id=$2 AND step='report' ORDER BY version_number DESC LIMIT 1`,[ORG,ID]);
+      expect(states.rows[0]?.status).toBe(status);
+      if(status==='failed') expect(states.rows[0]?.failure).toEqual({code:'AI_GENERATION_UNAVAILABLE',retryable:true});
+    });
+  });
   it("does not freeze running evidence and archives it after completion", async () => {
     await db.withTenant(ORG, async (session) => {
       await session.query(`INSERT INTO digital_interview_expert_runs

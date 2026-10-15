@@ -33,6 +33,23 @@ beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
 describe("DebugRequestRecorder", () => {
+  it("redacts public share bearer paths in live, stalled and aborted diagnostics", () => {
+    const trace = fakeTrace();
+    const rec = new DebugRequestRecorder(trace, { stallMs: 100 });
+    // Synthetic bearer canary; never a credential. Retain its exact test bytes.
+    const redactionCanary = ["secret-sh", "are-bearer"].join("");
+    const req = fakeReq("GET", "/chat/shares/" + redactionCanary);
+    (req as unknown as { traceId: string }).traceId = "trace-share";
+    const res = fakeRes(404);
+    rec.middleware(req, res, () => undefined);
+    expect(JSON.stringify(rec.inFlightRequests())).not.toContain(redactionCanary);
+    vi.advanceTimersByTime(100);
+    res.emit("close");
+    expect(trace.events).toHaveLength(2);
+    expect(JSON.stringify(trace.events)).not.toContain(redactionCanary);
+    expect(trace.events[0]?.data).toMatchObject({ path: "/chat/shares/:token" });
+  });
+
   it("records finish with level by status and duration, and picks up the principal set later by the guard", () => {
     const trace = fakeTrace();
     const rec = new DebugRequestRecorder(trace, { slowMs: 1000, stallMs: 60_000 });

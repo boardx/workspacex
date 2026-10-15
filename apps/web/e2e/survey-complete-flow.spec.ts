@@ -67,9 +67,72 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.getByRole('radio',{name:/AI 导入创建/}).check();
  await page.getByRole('button',{name:'下一步',exact:true}).click();
  await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
+ const composer=page.getByTestId('survey-intake-composer');
+ await expect(composer.getByLabel('问卷需求')).toBeVisible();
+ await expect(composer.getByRole('button',{name:'添加文件',exact:true})).toBeVisible();
+ await expect(composer.getByRole('button',{name:'语音输入',exact:true})).toBeVisible();
+ await expect(composer.getByRole('button',{name:'选择已保存录音',exact:true})).toBeVisible();
+ await expect(page.getByText(/可直接在本页语音输入/)).toHaveCount(0);
+ for(const width of [1440,375]){
+   await page.setViewportSize({width,height:1000});
+   const input=composer.getByRole('textbox',{name:'问卷需求'});
+   await input.focus();
+   await expect(input).toBeFocused();
+   expect(await composer.evaluate(el=>getComputedStyle(el).boxShadow)).toContain('inset');
+   expect(await input.evaluate(el=>getComputedStyle(el).boxShadow)).toMatch(/0px 0px 0px 0px/);
+   const bounds=await composer.boundingBox();expect(bounds).not.toBeNull();
+   for(const label of ['添加文件','语音输入','选择已保存录音']){
+     const action=await composer.getByRole('button',{name:label,exact:true}).boundingBox();expect(action).not.toBeNull();
+     expect(action!.x).toBeGreaterThanOrEqual(bounds!.x);expect(action!.x+action!.width).toBeLessThanOrEqual(bounds!.x+bounds!.width+1);
+     expect(action!.y+action!.height).toBeLessThanOrEqual(bounds!.y+bounds!.height+1);
+   }
+   expect(await page.locator('body').evaluate(element=>element.scrollWidth)).toBeLessThanOrEqual(width);
+   await page.screenshot({path:testInfo.outputPath(`survey-intake-${width}.png`),fullPage:true});
+   const fileButton=composer.getByRole('button',{name:'添加文件',exact:true});
+   await fileButton.focus();await expect(fileButton).toBeFocused();
+   await page.screenshot({path:testInfo.outputPath(`survey-toolbar-focus-${width}.png`),fullPage:true});
+   await fileButton.evaluate(el=>(el as HTMLElement).blur());
+   await expect(input).not.toBeFocused();
+   await page.screenshot({path:testInfo.outputPath(`survey-blurred-${width}.png`),fullPage:true});
+ }
+ await page.setViewportSize({width:1440,height:1000});
+ await composer.getByRole('button',{name:'添加文件',exact:true}).focus();
+ await expect(composer.getByRole('button',{name:'添加文件',exact:true})).toBeFocused();
  await page.screenshot({path:testInfo.outputPath('survey-ai-import-step.png'),fullPage:true});
  await page.getByLabel('问卷需求').fill('调查客户最近一次使用体验');
- await page.getByLabel('上传问卷文件').setInputFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
+ // Real browser capture + deterministic loopback ASR: this is not human/provider evidence.
+ const importUrl=page.url();
+ await page.evaluate(()=>{
+   const capture=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+   (window as unknown as {surveyMicTracks:MediaStreamTrack[]}).surveyMicTracks=[];
+   navigator.mediaDevices.getUserMedia=async constraints=>{
+     const stream=await capture(constraints);
+     (window as unknown as {surveyMicTracks:MediaStreamTrack[]}).surveyMicTracks.push(...stream.getTracks());
+     return stream;
+   };
+ });
+ await expect(page.getByRole('link',{name:'开始录音'})).toHaveCount(0);
+ await page.getByRole('button',{name:'语音输入',exact:true}).click();
+ await expect(page.getByRole('button',{name:'停止并追加文字'})).toBeVisible();
+ await expect(page.getByRole('button',{name:'生成问卷',exact:true})).toBeDisabled();
+ await expect.poll(()=>page.getByLabel('问卷需求').inputValue()).toContain(FULLSTACK_E2E.asrTranscriptPrefix);
+ expect(page.url()).toBe(importUrl);
+ await page.screenshot({path:testInfo.outputPath('survey-inline-recording.png'),fullPage:true});
+ await page.getByRole('button',{name:'停止并追加文字'}).click();
+ await expect(page.getByRole('button',{name:'生成问卷',exact:true})).toBeEnabled({timeout:30000});
+ await expect.poll(()=>page.evaluate(()=>{
+   const tracks=(window as unknown as {surveyMicTracks:MediaStreamTrack[]}).surveyMicTracks;
+   return tracks.length>0&&tracks.every(track=>track.readyState==='ended');
+ })).toBe(true);
+ const settled=await page.getByLabel('问卷需求').inputValue();
+ expect(settled).toContain('调查客户最近一次使用体验');
+ expect(settled).toContain(FULLSTACK_E2E.asrTranscriptPrefix);
+ expect(page.url()).toBe(importUrl);
+ await page.getByLabel('问卷需求').fill(settled+'\n补充关注易用性');
+
+ const fileChooser=page.waitForEvent('filechooser');
+ await composer.getByRole('button',{name:'添加文件',exact:true}).press('Enter');
+ await (await fileChooser).setFiles({name:'研究目标.md',mimeType:'text/markdown',buffer:Buffer.from('研究软件用户近期的真实产品体验')});
  await expect(page.getByText(/研究目标.md/)).toBeVisible();
  await page.getByRole('button',{name:'生成问卷',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'Markdown 预览与校对'});
@@ -83,6 +146,23 @@ test('AI 提案先校对再应用并保存为 Markdown',async({page},testInfo)=>
  await page.screenshot({path:testInfo.outputPath('survey-ai-applied-designer.png'),fullPage:true});
  expect((await savedSource).ok()).toBeTruthy();
  await page.reload();await expect(page.getByRole('region',{name:'问卷设计画布'})).toContainText('请描述具体建议');
+});
+
+test('问卷 inline 语音权限拒绝与设备缺失保留原文可重试',async({page})=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ const draft=encodeURIComponent(JSON.stringify({name:'语音失败恢复',tags:[]}));
+ for(const failure of [{name:'NotAllowedError',message:'麦克风权限被拒绝'},{name:'NotFoundError',message:'没有找到可用的麦克风设备'}]){
+   await page.goto('/studio/survey/new/import?draft='+draft);
+   const url=page.url();await page.getByLabel('问卷需求').fill('保留手动输入');
+   // Explicit browser fault injection: not evidence of real denied hardware.
+   await page.evaluate(name=>{navigator.mediaDevices.getUserMedia=async()=>{throw new DOMException('controlled capture failure',name);};},failure.name);
+   await page.getByRole('button',{name:'语音输入',exact:true}).click();
+   await expect(page.getByTestId('itv-voice-input').getByRole('alert')).toContainText(failure.message,{timeout:30000});
+   await expect(page.getByLabel('问卷需求')).toHaveValue('保留手动输入');
+   await expect(page.getByRole('button',{name:'生成问卷',exact:true})).toBeEnabled();
+   await expect(page.getByRole('button',{name:'语音输入',exact:true})).toBeEnabled();
+   expect(page.url()).toBe(url);
+ }
 });
 
 async function loginAsAdmin(page: Page) {

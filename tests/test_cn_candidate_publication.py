@@ -43,6 +43,10 @@ class Port:
     def protect_running_targets(self, *_):
         self.events.append('protect')
 
+    def protect_candidate_targets(self, receipt, plan, targets):
+        assert targets == p.publication_targets(plan, attempt_scoped=True)
+        self.protect_running_targets(receipt, plan)
+
     def authenticate(self):
         self.events.append('authenticate')
 
@@ -352,3 +356,79 @@ class ContainerdPublicationSequenceTests(unittest.TestCase):
         with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_STORE_CONFIG'):
             self.invoke()
         self.assertFalse(any(e.startswith(('tag:', 'push:', 'cleanup:')) for e in self.port.events))
+
+
+class AttemptPublicationTests(unittest.TestCase):
+    setUp = PublicationTests.setUp
+    invoke = PublicationTests.invoke
+
+    def v3(self):
+        self.intent.update(kind='cn-candidate-publication-intent-v3', schemaVersion=3,
+                           tagPolicy=p.ATTEMPT_TAG_POLICY)
+
+    def test_v2_keeps_original_source_targets(self):
+        self.invoke()
+        self.assertEqual({e[5:] for e in self.port.events if e.startswith('push:')},
+                         set(p.publication_targets(self.plan).values()))
+
+    def test_v3_preserves_conflicting_old_tags_and_seals_actual_digests(self):
+        self.v3()
+        old = p.publication_targets(self.plan)
+        for tag in old.values():
+            self.port.remote_images[tag] = {'Id': 'sha256:' + 'f' * 64}
+            self.port.local_images[tag] = {'Id': 'sha256:' + 'f' * 64}
+        before = copy.deepcopy(self.port.remote_images)
+        result = self.invoke()
+        targets = p.publication_targets(self.plan, attempt_scoped=True)
+        self.assertEqual({e[5:] for e in self.port.events if e.startswith('push:')}, set(targets.values()))
+        for tag, image in before.items():
+            self.assertEqual(self.port.remote_images[tag], image)
+            self.assertEqual(self.port.local_images[tag], image)
+        self.assertEqual(result['binding']['publicationIntentRawSha256'], a.sha(a.json_bytes(self.intent)))
+        for service, target in targets.items():
+            self.assertEqual(result['manifestInput']['images'][service]['image'],
+                             target.rsplit(':', 1)[0] + '@sha256:' + '7' * 64)
+
+    def test_v3_same_attempt_collision_rejects_before_writes(self):
+        self.v3()
+        target = p.publication_targets(self.plan, attempt_scoped=True)['api']
+        self.port.remote_images[target] = {'Id': 'sha256:' + 'f' * 64}
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_REMOTE_COLLISION'):
+            self.invoke()
+        self.assertNotIn('redis-pull', self.port.events)
+        self.assertFalse(any(e.startswith(('load:', 'tag:', 'push:')) for e in self.port.events))
+
+    def test_explicit_version_policy_and_exact_fields_required(self):
+        self.v3()
+        original = copy.deepcopy(self.intent)
+        for delta in ({'tagPolicy': 'other'}, {'schemaVersion': True}, {'schemaVersion': 2},
+                      {'kind': 'cn-candidate-publication-intent-v2'}, {'targetTag': 'caller'},
+                      {'attemptId': 'other'}):
+            self.intent = dict(original, **delta)
+            with self.assertRaises(a.Rejected): self.invoke()
+            self.assertEqual(self.port.events, [])
+        self.intent = dict(original); del self.intent['tagPolicy']
+        with self.assertRaises(a.Rejected): self.invoke()
+        self.assertEqual(self.port.events, [])
+
+    def test_old_adapter_cannot_silently_publish_v3(self):
+        self.v3(); self.port.protect_candidate_targets = None
+        with self.assertRaisesRegex(a.Rejected, 'PUBLICATION_ATTEMPT_TARGET_ADAPTER'): self.invoke()
+        self.assertEqual(self.port.events, [])
+
+    def test_v3_unknown_ack_only_readback_no_repush(self):
+        self.v3(); self.port.lost_ack = True
+        self.invoke()
+        pushes = [e for e in self.port.events if e.startswith('push:')]
+        self.assertEqual(len(pushes), 5); self.assertEqual(len(set(pushes)), 5)
+
+    def test_tags_are_bounded_distinct_and_not_caller_repositories(self):
+        first = p.publication_targets(self.plan, attempt_scoped=True)
+        other = dict(self.plan, attemptId='b' * 64)
+        second = p.publication_targets(other, attempt_scoped=True)
+        for service, repository in a.REPOSITORIES.items():
+            self.assertNotEqual(first[service], second[service])
+            self.assertEqual(second[service], a.PREFIX + '/' + repository + ':' + other['sourceRevision'] + '-' + other['attemptId'])
+            self.assertEqual(len(second[service].rsplit(':', 1)[1]), 105)
+        with self.assertRaises(a.Rejected):
+            p.publication_targets(dict(self.plan, attemptId='../escape'), attempt_scoped=True)

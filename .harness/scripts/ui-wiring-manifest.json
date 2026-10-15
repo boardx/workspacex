@@ -32,6 +32,10 @@
     {
       "prefix": "/chat/copilotkit-preview",
       "reason": "#654 阶段 1a 的独立预览路由，刻意不挂在 /chat 生产入口下。"
+    },
+    {
+      "prefix": "/dev/org-home-fixture",
+      "reason": "明确测试数据的组织首页组件预览；仅 NODE_ENV=development 且 WSX_HOME_FIXTURE=1 可访问，生产和未启用时 notFound，不修改鉴权或真实配置。"
     }
   ],
   "nonApiAdapters": [
@@ -822,6 +826,14 @@
       "useCases": [
         "notifications/send-test-email"
       ]
+    },
+    "ChatShareController": {
+      "useCases": [
+        "chat/get-attachment-content",
+        "chat/get-thread",
+        "chat/resolve-visibility",
+        "chat/share-chat"
+      ]
     }
   },
   "routes": {
@@ -1072,6 +1084,69 @@
       "kind": "shell",
       "screen": "apps/web/app/(entry)/auth/verify-email/page.tsx"
     },
+    "/billing": {
+      "kind": "wired",
+      "screen": "apps/web/app/billing/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "HomeProjectPreviewsController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeConsolidationController",
+        "KnowledgeGraphController",
+        "KnowledgeShareController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
+      ],
+      "note": "账户发现与真实读取状态；支付服务未开放/查询失败如实显示，不能把wired分类当作充值、订阅购买或token消费已交付。"
+    },
     "/brain": {
       "kind": "wired",
       "screen": "apps/web/app/brain/page.tsx",
@@ -1154,6 +1229,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1175,6 +1251,7 @@
         "chat",
         "chat-file-upload",
         "chat-knowledge-graph",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1198,6 +1275,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CheckinBoardController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
@@ -1245,6 +1323,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1266,6 +1345,7 @@
         "chat",
         "chat-file-upload",
         "chat-knowledge-graph",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1289,6 +1369,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CheckinBoardController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
@@ -1340,6 +1421,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1357,6 +1439,7 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1376,6 +1459,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
         "EvidenceWithdrawalController",
@@ -1410,6 +1494,7 @@
         "apps/web/lib/live-asr-draft.ts",
         "apps/web/lib/live-canvas.ts",
         "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat-share.ts",
         "apps/web/lib/live-chat.ts",
         "apps/web/lib/live-feedback.ts",
         "apps/web/lib/live-files.ts",
@@ -1427,6 +1512,7 @@
         "canvas",
         "chat",
         "chat-file-upload",
+        "chat-share",
         "design-workbench",
         "feedback-loop",
         "files",
@@ -1446,6 +1532,7 @@
         "ChatAttachmentController",
         "ChatController",
         "ChatFollowUpSuggestionsController",
+        "ChatShareController",
         "CopilotkitAguiController",
         "DesignWorkbenchController",
         "EvidenceWithdrawalController",
@@ -4604,6 +4691,31 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
+    },
+    "/share/chat/[token]": {
+      "kind": "wired",
+      "screen": "apps/web/app/share/chat/[token]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-chat-share.ts",
+        "apps/web/lib/live-chat.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "chat",
+        "chat-file-upload",
+        "chat-share"
+      ],
+      "controllers": [
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "ChatShareController",
+        "CopilotkitAguiController"
+      ]
+    },
+    "/dev/org-home-fixture": {
+      "kind": "preview",
+      "screen": "apps/web/app/dev/org-home-fixture/page.tsx"
     }
   }
 }

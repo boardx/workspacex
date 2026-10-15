@@ -1,0 +1,35 @@
+{
+  "routine": "workspacex-home-cn",
+  "domain": "www.boardx.com.cn",
+  "sourceCommit": "7b27357492e42ea099085bc6637854449763a57c",
+  "archiveSha256": "933e35c47f427ecaf142a1f3c7dbc9da0c993bf7872fa8d493da6a541a04d381",
+  "cliVersion": "1.0.13",
+  "authentication": "existing aliyun OAuth profile, no new credential configuration",
+  "action": "CreateRoutineWithAssetsCodeVersion through aliyun esa-cli commit",
+  "outcome": "rejected",
+  "errorCode": "InvalidParameter",
+  "requestId": "01A139DF-9511-5E24-9CFA-45EF4CD6471A",
+  "newCodeVersion": null,
+  "published": false,
+  "postFailureVerification": {
+    "versionCount": 5,
+    "listRequestId": "01A139E0-64A8-5D52-8361-ADD6653D97E6",
+    "productionVersion": "1791865525336254983",
+    "productionPercentage": 100,
+    "routineRequestId": "01A139E0-6602-500D-ADED-099A9F31CC35"
+  },
+  "quota": {
+    "observedConsoleMode": "free",
+    "documentedVersionLimit": 5,
+    "source": "https://help.aliyun.com/en/edge-security-acceleration/esa/user-guide/functions-and-pages-billing",
+    "inference": "quota is full and must be resolved before publication; API response did not explicitly identify quota as the cause of InvalidParameter"
+  },
+  "approvalOptions": {
+    "deleteOldestHistoricalVersion": "1791721267107804086",
+    "preserveCurrentRollbackVersion": "1791865525336254983",
+    "alternative": "switch account to paid mode, 20 versions per application; may introduce account-wide request billing"
+  },
+  "dnsChanges": false,
+  "filingOrderChanges": false,
+  "usSiteChanges": false
+}

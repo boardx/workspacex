@@ -1,0 +1,44 @@
+✓ i18n in sync — 637 page keys + 54 diagram keys + 10 demo scenarios, en + zh
+(node:83736) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/apps/home/assets/js/zh.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ html structure clean — 5 pages checked
+✓ css clean — 364 classes, 71 tokens, all referenced
+✓ copy clean — 1188 Chinese values checked
+✓ links resolve — 145 files, 99 anchors, 7 sitemap urls
+✓ stated facts agree — 14 numbered sections in two languages, and the privacy page's date
+(node:83819) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/apps/home/assets/js/zh.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ citations hold — 1 source(s) registered, 3 scenario(s) quoting one
+(node:83832) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/apps/home/assets/js/demo.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ a clean citation passes — 0 problem(s)
+✓ a changed number fails — 2 problem(s)
+✓ a wrong page fails — 2 problem(s)
+✓ a wrong date fails — 1 problem(s)
+✓ an unregistered source fails — 2 problem(s)
+✓ a missing translation fails — 1 problem(s)
+✓ a missing note on whom it describes fails — 1 problem(s)
+✓ a page number on a web page fails — 1 problem(s)
+✓ one language only fails — 1 problem(s)
+✓ an http url fails — 1 problem(s)
+✓ a missing hash fails — 1 problem(s)
+✓ compat clean — 5 rules, 21 files
+✓ deploy files agree — 6 header rules, security.txt valid for 343 more days
+✓ README matches — 16 scripts documented, 16 suites, 23 runs
+✓ site.css matches its 7 sources
+✓ site.js matches its 9 modules
+✓ 3 generated page(s) + the sitemap match their sources
+(node:83917) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/apps/home/assets/js/zh.js?t=1791971012163 is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/shenyanbin/Documents/Codex/2026-10-14/task-3/workspacex-icp/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✓ manifests match their sources — 2 documents
+✓ generated assets match their sources — 8 binaries
+
+all 16 checks passed

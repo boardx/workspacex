@@ -1,0 +1,42 @@
+name: Explicitly approved CN MVP preparation
+run-name: ${{ inputs.chain_id || 'Explicitly approved CN MVP preparation' }}
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        type: choice
+        required: true
+        options: [prepare, terminal]
+      policy_sha256:
+        type: string
+        required: true
+      chain_id:
+        type: string
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: workspacex-cn-production-deploy
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main' && github.run_attempt == 1
+    environment: production-cn-promotion
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 3
+    steps:
+      - name: Invoke separately approved fixed preparation capability
+        env:
+          POLICY: ${{ inputs.policy_sha256 }}
+          OPERATION: ${{ inputs.operation }}
+        run: |
+          set -euo pipefail
+          [[ "$POLICY" =~ ^[a-f0-9]{64}$ ]]
+          [[ "$OPERATION" =~ ^(prepare|terminal)$ ]]
+          sudo -n /usr/local/bin/workspacex-cn-mvp-prepare-approved "$OPERATION" "$POLICY" > "$RUNNER_TEMP/preparation-result.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cn-mvp-approved-preparation-${{ github.run_id }}-1
+          path: ${{ runner.temp }}/preparation-result.json
+          retention-days: 1
+          if-no-files-found: error

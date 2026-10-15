@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/3120/workspacex/apps/web
+
+ ✓ tests/ui/survey-import-page.test.tsx (2 tests) 231ms
+ ✓ tests/ui/survey-ai-proposal.test.tsx (5 tests) 251ms
+ ✓ tests/ui/interview-voice-input.test.tsx (10 tests) 349ms
+ ✓ tests/ui/survey-inline-voice.test.tsx (9 tests) 363ms
+
+ Test Files  4 passed (4)
+      Tests  26 passed (26)
+   Start at  00:09:08
+   Duration  2.18s (transform 752ms, setup 488ms, collect 3.54s, tests 1.19s, environment 2.33s, prepare 215ms)
+

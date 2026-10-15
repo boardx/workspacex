@@ -2,14 +2,18 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, expect, it, vi } from "vitest";
 import { createWhiteboardDocument, executeCommands, readObjects, SpatialRelationshipCommandPort, type WhiteboardObject } from "@repo/whiteboard-core";
 import { CollaborativeThinkingEditor } from "@/components/whiteboard/collaborative-thinking-editor";
+import { BoardA11yMirror } from "@/components/whiteboard/fabric/board-a11y-mirror";
 import type { BoardFabricObject } from "@/components/whiteboard/fabric/board-fabric-object";
 
 vi.mock("@/components/whiteboard/fabric/board-fabric-surface", () => ({
-  BoardFabricSurface: ({ objects, onSelectionChange, onObjectsTransform }: {
+  BoardFabricSurface: ({ objects, selectedObjectIds, readOnly, onSelectionChange, onObjectsTransform }: {
     objects: readonly BoardFabricObject[];
+    selectedObjectIds: readonly string[];
+    readOnly: boolean;
     onSelectionChange: (ids: readonly string[], source: "canvas") => void;
     onObjectsTransform?: (items: readonly { id: string; geometry: BoardFabricObject["geometry"] }[], options?: { duplicate: boolean }) => boolean;
   }) => <div data-testid="board-fabric-surface">
+    <BoardA11yMirror objects={objects} selectedObjectIds={selectedObjectIds} readOnly={readOnly} onSelect={id => onSelectionChange([id], "canvas")} />
     {objects.map((object) => <button key={object.id} data-testid={`select-${object.id}`} onClick={() => onSelectionChange([object.id], "canvas")}>{object.id}</button>)}
     <button data-testid="marquee-all" onClick={() => onSelectionChange(objects.map((object) => object.id), "canvas")}>marquee</button>
     <button data-testid="transform-selection" onClick={(event) => { event.currentTarget.dataset.accepted = String(onObjectsTransform?.(objects.map((object) => ({ id: object.id, geometry: { ...object.geometry, x: object.geometry.x + 40, rotation: 15 } })))); }}>transform</button>
@@ -28,10 +32,14 @@ it("keeps canvas, marquee, and accessible outline selection controlled by canoni
   executeCommands(doc, [{ type: "create", object: note("a", 10) }, { type: "create", object: note("b", 240) }], "seed");
   render(<CollaborativeThinkingEditor boardId="board" clientId="web" doc={doc} readOnly={false} title="Board" status="已连接" />);
 
+  expect(screen.queryByText("0 个已选对象", { exact: true })).toBeNull();
+  expect(screen.getByTestId("board-a11y-selection-announcement")).toHaveTextContent("未选择对象");
   fireEvent.click(screen.getByTestId("select-a"));
-  expect(screen.getByText("1 个已选对象", { exact: true })).toBeVisible();
+  expect(screen.queryByText("1 个已选对象", { exact: true })).toBeNull();
+  expect(screen.getByTestId("board-a11y-selection-announcement")).toHaveTextContent("已选择 1 个对象");
   fireEvent.click(screen.getByTestId("marquee-all"));
-  expect(screen.getByText("2 个已选对象", { exact: true })).toBeVisible();
+  expect(screen.queryByText("2 个已选对象", { exact: true })).toBeNull();
+  expect(screen.getByTestId("board-a11y-selection-announcement")).toHaveTextContent("已选择 2 个对象");
   fireEvent.pointerDown(screen.getByTestId("board-zoom-menu"), {button:0,ctrlKey:false,pointerType:"mouse"});
   expect(screen.getByTestId("board-zoom-fit-selection")).toBeEnabled();
   doc.destroy();

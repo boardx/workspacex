@@ -1,6 +1,6 @@
 'use client';
 import { ResourceCard, ResourceCardTags } from '@/components/ui/resource-card';
-import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Archive, Grid2X2, List, Plus, Search, Tag, X } from 'lucide-react';
@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { ApiError } from '@/lib/api-client';
 import * as api from '@/lib/live-whiteboard';
+import { BoardThumbnail, BoardThumbnailQueue } from './board-thumbnail';
+import { useOptionalSession } from '@/components/session/session-provider';
 import { RESERVED_STATE_TESTID } from '@/lib/ui-state';
 
 type Failure = { kind: 'denied' | 'dep-failed' | 'invalid'; message: string };
@@ -31,6 +33,9 @@ function isDefiniteRejection(error: unknown) { return error instanceof ApiError 
 
 export function WhiteboardLibrary() {
   const router = useRouter();
+  const session = useOptionalSession()?.session;
+  const currentOrgId = session?.currentOrgId, userId = session?.userId;
+  const thumbnailQueue = useMemo(() => currentOrgId && userId ? new BoardThumbnailQueue(JSON.stringify([currentOrgId, userId]), userId) : null, [currentOrgId, userId]);
   const [items, setItems] = useState<api.Board[]>([]), [tags, setTags] = useState<api.BoardTag[]>([]);
   const [query, setQuery] = useState(''), [debouncedQuery, setDebouncedQuery] = useState(''), [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [untagged, setUntagged] = useState(false);
@@ -177,7 +182,7 @@ export function WhiteboardLibrary() {
       {items.length > 0 && <div aria-busy={loadingBoards} className={view === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'grid gap-3'}>{items.map(board => <ResourceCard
         key={board.id}
         testId={`board-card-${board.id}`}
-        media={<div data-testid={`board-thumbnail-empty-${board.id}`} className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-muted/50 text-12 text-muted-foreground"><div aria-hidden="true" className="absolute inset-0 flex items-center justify-center gap-3 opacity-60"><div className="h-16 w-16 -rotate-6 rounded bg-warning-tint shadow-sm"/><div className="h-16 w-16 rotate-3 rounded bg-card shadow-sm"/><div className="h-16 w-16 -rotate-3 rounded bg-success-tint shadow-sm"/></div><span className="absolute bottom-3 rounded-full bg-card/90 px-3 py-1">预览尚未生成</span></div>}
+        media={<BoardThumbnail boardId={board.id} name={board.name} revisionHint={`${board.updatedAt}:${reloadBoards}`} queue={thumbnailQueue} />}
         titleHref={EDITOR_PATH(board.id)}
         titleLinkTestId={`board-open-${board.id}`}
         title={board.name}

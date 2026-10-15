@@ -148,6 +148,10 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      # Scan PR heads before merge; full-regression-core only runs this after merge.
+      - name: Scan tracked source for new credential patterns
+        run: pnpm run lint:oss-secret-scan
+
       - name: Subagent 生成物未漂移
         run: |
           pnpm harness gen-subagents
@@ -612,6 +616,13 @@ jobs:
               --output phases/phase-01-run-a-project/evidence/ci/runtime-manifest.json
           fi
           exit "$status"
+      - name: Verify real Fabric sticky text containment
+        if: always() && steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
       # #3205: reuse this lane's browser installation and retain independent output.
       - name: Execute trace disclosure geometry
         if: always() && steps.dedup.outputs.run == 'true'

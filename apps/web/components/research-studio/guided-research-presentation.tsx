@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Check, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import type { research } from "@repo/contracts";
 import type { z } from "zod";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +56,7 @@ export function ResearchProgress({ node, availableNodes, busy, completed, onNavi
                     onClick={() => onNavigate(step)}
                   >
                     <Badge tone={current ? "primary" : done ? "primary" : "outline"} className={cn("relative z-20 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border p-0 text-12", !current && !done && "bg-card", current ? "border-primary ring-2 ring-ring ring-offset-2 ring-offset-card" : "border-border")}>
-                      {busy && current ? <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> : done && !current ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
+                      {done && !current ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : index + 1}
                     </Badge>
                     <span className="text-center text-11 leading-relaxed sm:text-12">{researchStepLabels[step]}</span>
                   </Button>
@@ -81,24 +81,16 @@ const loadingCopy: Record<ResearchNode, { title: string; description: string }> 
 export function ResearchLoading({ node }: { node: ResearchNode }) {
   const copy = loadingCopy[node];
   return (
-    <section data-testid="research-step-loading" aria-busy="true" className="min-w-0 space-y-6">
+    <section data-testid="research-step-loading" aria-busy="true" className="min-w-0">
       <div role="status" aria-live="polite" aria-atomic="true" className="flex items-start gap-3 rounded-lg border border-border bg-card p-5 text-card-foreground sm:p-6">
         <Badge tone="primary" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full p-0">
-          <Sparkles className="h-5 w-5" aria-hidden="true" />
+          <Loader2 className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
         </Badge>
         <div className="min-w-0 space-y-2">
           <h2 className="text-18 font-semibold tracking-tight text-background-foreground">{copy.title}</h2>
           <p className="text-13 leading-relaxed text-muted-foreground">{copy.description}</p>
-          <p className="flex items-center gap-2 text-12 text-muted-foreground"><Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />请稍候，结果会自动显示</p>
+          <p className="text-12 text-muted-foreground">完成后会自动显示结果</p>
         </div>
-      </div>
-      <div aria-hidden="true" data-testid="loading" className="space-y-4 motion-safe:animate-pulse">
-        {[0, 1, 2].map((index) => (
-          <div key={index} className="space-y-4 rounded-lg border border-border bg-card p-5 sm:p-6">
-            <div className="flex items-center gap-3"><div className="h-8 w-8 rounded-full bg-muted" /><div className="h-4 w-1/3 rounded bg-muted" /></div>
-            <div className="space-y-2.5"><div className="h-3 w-full rounded bg-muted" /><div className="h-3 w-5/6 rounded bg-muted" /><div className="h-3 w-2/3 rounded bg-muted" /></div>
-          </div>
-        ))}
       </div>
     </section>
   );
