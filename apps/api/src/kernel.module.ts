@@ -277,7 +277,7 @@ import {
   type DecisionIdFactory,
   type IdentityRepository,
 } from "./application/identity/ports";
-import { IdentityPersistenceModule } from "./identity-persistence.module";
+import { IdentityPersistenceModule } from "./infrastructure/identity/identity-persistence.module";
 import { PgIdentityRepository } from "./infrastructure/identity/pg-identity-repository";
 import {
   InMemoryAuthorizationCache,

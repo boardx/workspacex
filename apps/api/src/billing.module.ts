@@ -3,7 +3,7 @@ import { Module } from "@nestjs/common";
 import { BILLING_CONFIG_PORT } from "./application/billing/billing-config.port";
 import { DeploymentBillingConfig } from "./infrastructure/billing/deployment-billing-config";
 import { BillingConfigController } from "./interface/controllers/billing-config.controller";
-import { IdentityPersistenceModule } from "./identity-persistence.module";
+import { IdentityPersistenceModule } from "./infrastructure/identity/identity-persistence.module";
 import { DATABASE_PORT, type DatabasePort } from "./application/ports/database.port";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "./application/identity/ports";
 import { CREDENTIAL_REPOSITORY, type CredentialRepository } from "./application/auth/ports";

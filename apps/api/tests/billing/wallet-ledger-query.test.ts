@@ -8,7 +8,7 @@ import { asApp, asOwner, ensureDatabase, migrateOnce } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgBillingWalletRepository } from "../../src/infrastructure/billing/pg-billing-wallet-repository";
-import { BillingWalletService, BillingWalletAccessError } from "../../src/application/billing/billing-wallet-service";
+import { BillingWalletService, BillingWalletAccessError, BillingWalletCursorError } from "../../src/application/billing/billing-wallet-service";
 import { toOrgId } from "../../src/domain/org-id";
 import { operations } from "@repo/contracts/billing-credits";
 import { BillingWalletController } from "../../src/interface/controllers/billing-wallet.controller";
@@ -126,5 +126,16 @@ describe("F03 real wallet and ledger reads",()=>{
     role="admin";
     await expect(service.transactions(principal,{ownerType:"team",cursor:page.nextCursor!})).rejects.toThrow();
     await expect(service.transactions(principal,{ownerType:"user",limit:101})).rejects.toThrow();
+    const original=JSON.parse(Buffer.from(page.nextCursor!,"base64url").toString("utf8")) as Record<string,unknown>;
+    for(const changed of [
+      {...original,timestamp:"0000-01-01T00:00:00.000000Z"},
+      {...original,timestamp:"2026-02-31T00:00:00.000000Z"},
+      {...original,txnId:"not-a-uuid"},
+      {...original,extra:true},
+      [],null,
+    ]) {
+      const cursor=Buffer.from(JSON.stringify(changed)).toString("base64url");
+      await expect(service.transactions(principal,{ownerType:"user",cursor})).rejects.toBeInstanceOf(BillingWalletCursorError);
+    }
   });
 });
