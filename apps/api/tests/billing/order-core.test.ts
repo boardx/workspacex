@@ -1,5 +1,3 @@
-// @global-scope-fixture table:credit_packages: f04-order- fixtures, restored by order-fixture.
-// @global-scope-fixture table:billing_orders: f04-order- creators only, restored by order-fixture.
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { operations } from "@repo/contracts/billing-credits";
 import { asOwner } from "../support/db";
