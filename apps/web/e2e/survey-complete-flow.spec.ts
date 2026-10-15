@@ -226,7 +226,19 @@ test('紧凑问卷输入与发布设置在桌面平板手机保持可操作',asy
 });
 
 test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({page},testInfo)=>{
- test.setTimeout(120000);await loginAsAdmin(page);await page.goto('/studio/survey');
+ test.setTimeout(120000);await loginAsAdmin(page);
+ // Earlier tests create surveys in this same ephemeral organization. Reset through
+ // the real UI only inside the standard local isolated stack, never on a live host.
+ expect(process.env.WORKSPACEX_ISOLATION_ID).toBeTruthy();expect(new URL(page.url()).hostname).toBe('127.0.0.1');
+ const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');
+ await page.goto('/studio/survey');const response=await loaded;expect(response.ok()).toBeTruthy();
+ const surveys=await response.json() as {id:string}[];
+ for(const survey of surveys){
+   const card=page.getByTestId(`survey-card-${survey.id}`);await card.getByRole('button',{name:/更多操作：/}).click();
+   page.once('dialog',dialog=>dialog.accept());
+   const removed=page.waitForResponse(result=>result.url().includes(`/surveys/${survey.id}`)&&result.request().method()==='DELETE');
+   await page.getByRole('menuitem',{name:'删除问卷',exact:true}).click();expect((await removed).ok()).toBeTruthy();await expect(card).toHaveCount(0);
+ }
  await expect(page.getByRole('heading',{name:'还没有问卷',exact:true})).toBeVisible();
  await page.screenshot({path:testInfo.outputPath('r1-empty-list.png'),fullPage:true});
  await expect(page.getByRole('button',{name:'新建问卷',exact:true})).toHaveCount(1);
