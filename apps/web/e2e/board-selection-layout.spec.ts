@@ -116,6 +116,28 @@ async function marqueeAll(page: Page): Promise<void> {
   // creates room for a marquee outside the objects and the 40px auto-pan band.
   await page.getByTestId("board-zoom-menu").click();
   await page.getByTestId("board-zoom-out").click();await settleCanvas();
+  // Zoom controls retain pan. Centre the actual projected union with a real
+  // hand-tool drag rather than assuming zoom is anchored at the canvas centre.
+  await page.getByTestId("board-tool-hand").click();
+  const pan = await page.getByTestId("board-fabric-surface").evaluate(host => {
+    const canvas = host.querySelector<HTMLCanvasElement>('canvas[data-fabric="top"]');
+    if (!canvas) throw new Error('LAYOUT_PAN_CANVAS_MISSING');
+    const box=canvas.getBoundingClientRect(), data=(host as HTMLElement).dataset;
+    const zoom=Number(data.viewportZoom), panX=Number(data.viewportPanX), panY=Number(data.viewportPanY);
+    const scenes=JSON.parse(data.objectScenes??'[]') as Array<{left:number;top:number;width:number;height:number}>;
+    if(scenes.length!==7||![zoom,panX,panY].every(Number.isFinite)||zoom<=0||scenes.some(scene=>![scene.left,scene.top,scene.width,scene.height].every(Number.isFinite)))throw new Error('LAYOUT_PAN_GEOMETRY_INVALID');
+    const left=box.x+panX+Math.min(...scenes.map(scene=>scene.left))*zoom, right=box.x+panX+Math.max(...scenes.map(scene=>scene.left+scene.width))*zoom;
+    const top=box.y+panY+Math.min(...scenes.map(scene=>scene.top))*zoom, bottom=box.y+panY+Math.max(...scenes.map(scene=>scene.top+scene.height))*zoom;
+    const dx=box.x+box.width/2-(left+right)/2,dy=box.y+box.height/2-(top+bottom)/2;
+    for(const fx of [.5,.35,.65])for(const fy of [.5,.35,.65]){
+      const start={x:box.x+box.width*fx,y:box.y+box.height*fy},end={x:box.x+box.width*fx+dx,y:box.y+box.height*fy+dy};
+      if(document.elementFromPoint(start.x,start.y)===canvas&&end.x>box.left+40&&end.x<box.right-40&&end.y>box.top+40&&end.y<box.bottom-40)return{start,end};
+    }
+    throw new Error('LAYOUT_PAN_NO_REAL_CANVAS_POINT');
+  });
+  await page.mouse.move(pan.start.x,pan.start.y);await page.mouse.down();
+  await page.mouse.move(pan.end.x,pan.end.y,{steps:12});await page.mouse.up();
+  await selectTool.click();await settleCanvas();
   expect(parseGeometry(await geometry(page))).toHaveLength(7);
   const measure = () => page.getByTestId("board-fabric-surface").evaluate(host => {
     const canvas = host.querySelector<HTMLCanvasElement>('canvas[data-fabric="top"]');
