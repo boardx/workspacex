@@ -284,20 +284,34 @@ test("multi-select transform, Panel clip/expand, connector preservation, and tot
   await page.getByTestId("board-zoom-fit-board").click();
   const sourceHandle = page.getByTestId(`connector-handle-${firstId}-right`);
   await expect(sourceHandle).toBeVisible();
-  const sourceBounds = (await sourceHandle.boundingBox())!;
-  const targetAnchor = anchorPoint(await geometryOf(secondSticky), "left");
+  // Fit is projected on the next animation frame. Read source hit target,
+  // target geometry and viewport together only after that projection settles.
+  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))));
+  const gesturePoints = await surface.evaluate((host,{sourceId,targetId})=>{
+    const source=document.querySelector(`[data-testid="connector-handle-${sourceId}-right"]`),target=document.querySelector(`[data-testid="board-a11y-mirror"] li[data-object-id="${targetId}"]`);
+    const canvas=host.querySelector('canvas.upper-canvas');
+    if(!source||!target||!canvas)throw new Error('SPATIAL_CONNECTOR_TARGET_MISSING');
+    const bounds=source.getBoundingClientRect(),box=canvas.getBoundingClientRect(),data=(host as HTMLElement).dataset;
+    const zoom=Number(data.viewportZoom),panX=Number(data.viewportPanX),panY=Number(data.viewportPanY),geometry=JSON.parse(target.getAttribute('data-geometry')!);
+    if(![zoom,panX,panY,geometry.x,geometry.y,geometry.width,geometry.height,geometry.rotation].every(Number.isFinite)||zoom<=0)throw new Error('SPATIAL_CONNECTOR_VIEWPORT_INVALID');
+    const angle=geometry.rotation*Math.PI/180,dx=-geometry.width/2;
+    const targetPointer={x:box.x+panX+(geometry.x+geometry.width/2+dx*Math.cos(angle))*zoom,y:box.y+panY+(geometry.y+geometry.height/2+dx*Math.sin(angle))*zoom};
+    for(const fx of [.5,.25,.75])for(const fy of [.5,.25,.75]){
+      const point={x:bounds.x+bounds.width*fx,y:bounds.y+bounds.height*fy},hit=document.elementFromPoint(point.x,point.y);
+      if(hit===source||source.contains(hit))return{source:point,target:targetPointer};
+    }
+    throw new Error('SPATIAL_CONNECTOR_SOURCE_OCCLUDED');
+  },{sourceId:firstId,targetId:secondId});
   const connectorViewport = await canvasTransform(page);
-  const targetPointer = {
-    x: connectorViewport.box.x + connectorViewport.panX + targetAnchor.x * connectorViewport.zoom,
-    y: connectorViewport.box.y + connectorViewport.panY + targetAnchor.y * connectorViewport.zoom,
-  };
+  const targetPointer = gesturePoints.target;
   expect(targetPointer.x).toBeGreaterThan(connectorViewport.box.x);
   expect(targetPointer.x).toBeLessThan(connectorViewport.box.x + connectorViewport.box.width);
   expect(targetPointer.y).toBeGreaterThan(connectorViewport.box.y);
   expect(targetPointer.y).toBeLessThan(connectorViewport.box.y + connectorViewport.box.height);
-  await page.mouse.move(sourceBounds.x + sourceBounds.width / 2, sourceBounds.y + sourceBounds.height / 2);
+  await page.mouse.move(gesturePoints.source.x,gesturePoints.source.y);
   await page.mouse.down();
   await page.mouse.move(targetPointer.x, targetPointer.y, { steps: 12 });
+  await expect(page.getByTestId('board-connector-snap-cue')).toHaveAttribute('data-target-id',secondId);
   await expect(objectRow(page, "connector")).toHaveCount(0);
   await page.mouse.up();
   await expect(objectRow(page, "connector")).toBeVisible();
