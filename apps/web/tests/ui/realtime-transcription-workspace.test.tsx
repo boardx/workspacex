@@ -110,6 +110,17 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-edit")).toHaveFocus();
   });
 
+  it("restores editor focus after transcription makes the edit action usable again", () => {
+    const props = { session: SESSION, onBack: vi.fn(), onStart: vi.fn(), onStop: vi.fn(), onSaveContent: vi.fn() };
+    const view = render(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="recording" />);
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    expect(screen.getByTestId("rec-live-edit")).toBeDisabled();
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    expect(screen.getByTestId("rec-live-edit")).toHaveFocus();
+  });
+
   it("keeps save pending and prevents duplicate submission through shared actions", async () => {
     let resolveSave!: () => void;
     const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));

@@ -54,6 +54,8 @@ export function RealtimeTranscriptionWorkspace({
   selectedDeviceId?: string | null;
   onSelectDevice?: (deviceId: string | null) => void;
 }) {
+  const recording = reconnecting || streamState === "recording" || streamState === "stopping" || session.status === "recording";
+  const busy = streamState === "connecting" || streamState === "stopping";
   const [renaming, setRenaming] = React.useState(false);
   const [nameDraft, setNameDraft] = React.useState(session.name);
   const [nameError, setNameError] = React.useState<string | null>(null);
@@ -88,10 +90,11 @@ export function RealtimeTranscriptionWorkspace({
   const restoreEditFocus = React.useRef(false);
   React.useEffect(() => {
     if (editing || !restoreEditFocus.current) return;
-    restoreEditFocus.current = false;
     const button = editButtonRef.current;
-    if (button?.isConnected && !button.disabled) button.focus();
-  }, [editing]);
+    if (!button?.isConnected || button.disabled) return;
+    restoreEditFocus.current = false;
+    button.focus();
+  }, [editing, recording, busy, onSaveContent]);
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -99,8 +102,6 @@ export function RealtimeTranscriptionWorkspace({
   const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);
-  const recording = reconnecting || streamState === "recording" || streamState === "stopping" || session.status === "recording";
-  const busy = streamState === "connecting" || streamState === "stopping";
   const canStop = recording || streamState === "connecting";
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
 

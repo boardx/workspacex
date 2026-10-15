@@ -37,3 +37,5 @@ Refs #5778，父 #5777。基线 main `4cc236c75`；现有工作树复用，逐�
 - `pnpm --filter web typecheck` 最终退出0（`/tmp/rec-four-typecheck-final.log`）；`pnpm --filter web lint` 退出0（`/tmp/rec-four-lint.log`）。
 - 独立静态增量审查334020ca7：先前P2已解决，无新增发现。后续仅测试选择器类型修正与本文收据。
 - 独占compose容器查询为空；API24141/Web25141/ASR29141无监听。
+
+PR自动review补充边界：编辑中启动转录后取消，编辑按钮禁用时不得提前清掉焦点恢复pending。新增状态切换测试先红1/20通过；保持pending、监听recording/busy/保存能力变化直到按钮可用后恢复，21项工作区测试PASS（`/tmp/rec-pr-review-green.log`）。此状态切换只用组件验证，没有再次启用真实采音或重起整栈。
