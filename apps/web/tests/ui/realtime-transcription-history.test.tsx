@@ -134,6 +134,18 @@ function renderHistory() {
 }
 
 describe("实时转录历史工作台", () => {
+  it("persists a title rename without replacing live transcript content or tags", async () => {
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.doubleClick(await screen.findByTestId("rec-live-title"));
+    fireEvent.change(screen.getByRole("textbox", { name: "录音名称" }), { target: { value: "改名后的录音" } });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "录音名称" }), { key: "Enter" });
+    await waitFor(() => expect(api.updateMetadata).toHaveBeenCalledWith(EUROPE.sessionId,
+      { name: "改名后的录音", tags: [...EUROPE.tags] }, "session-token"));
+    await waitFor(() => expect(screen.getByTestId("rec-live-title")).toHaveTextContent("改名后的录音"));
+    expect(screen.getByTestId("rec-live-content")).toHaveTextContent("这是数据库中保存的真实逐字稿。");
+  });
+
   it("offers manual reconnect after five failed retries and stops retrying", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));

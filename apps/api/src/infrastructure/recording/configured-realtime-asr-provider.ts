@@ -57,7 +57,7 @@ import {
 } from "../../application/recording/asr-ports";
 
 const DEFAULT_ASR_TURN_SILENCE_MS = 400;
-const DEFAULT_RECORDING_TURN_SILENCE_MS = 800;
+const DEFAULT_RECORDING_TURN_SILENCE_MS = 1200;
 const MAX_UPSTREAM_AUDIO_BACKLOG_BYTES = 48_000;
 const UPSTREAM_AUDIO_BYTES_PER_SECOND = MAX_UPSTREAM_AUDIO_BACKLOG_BYTES;
 const UPSTREAM_SLOW_BACKLOG_MS = 400;
@@ -207,6 +207,8 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
 
   async open(handlers: AsrSessionHandlers, audio: AsrAudioFormat, options?: {readonly turnDetection?: "manual" | "recording"; readonly signal?: AbortSignal;readonly accountingContext?:AsrAccountingContext}): Promise<AsrSession> {
     const manual = options?.turnDetection === "manual";
+    const recording = options?.turnDetection === "recording";
+    const explicitSessionFinish = manual || recording;
     const config = this.config;
     if (config === null) {
       throw new AsrNotConfiguredError(
@@ -336,7 +338,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     };
 
     socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
-      if (manual && sessionFinished) return;
+      if (explicitSessionFinish && sessionFinished) return;
       let event: { type?: unknown; error?: unknown };
       try {
         event = JSON.parse(String(raw)) as typeof event;
@@ -345,7 +347,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         return;
       }
       const type = typeof event.type === "string" ? event.type : "";
-      if (manual && type === "session.finished") {
+      if (explicitSessionFinish && type === "session.finished") {
         if (!finishRequested) { reportError(PROVIDER_UNAVAILABLE, "upstream finished before client completion"); return; }
         sessionFinished = true;
         if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
@@ -365,7 +367,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
           ...(transcript.itemId ? {itemId: transcript.itemId} : {}),
           ...(transcript.eventId ? {eventId: transcript.eventId} : {}),
         });
-        if (!manual && finishResolve) { const r = finishResolve; finishResolve = null; r(); }
+        if (!explicitSessionFinish && finishResolve) { const r = finishResolve; finishResolve = null; r(); }
         return;
       }
       if (type === "error") {
@@ -393,7 +395,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         // 「有没有真的把音频送到上游」才是区分：送过 ≥100ms 音频，说明缓冲是被上游自己消费掉的，
         // 「没识别出文字」是正常结果（界面回到 idle）；一帧音频都没送过才是采音链路真坏了，仍报错。
         const audioReachedUpstream = audioBytesPushed >= (audio.sampleRate * 2) / 10;
-        if (!manual && finishRequested && isBenignEmptyCommitError(message) && (finalSeenEver || audioReachedUpstream)) {
+        if (!explicitSessionFinish && finishRequested && isBenignEmptyCommitError(message) && (finalSeenEver || audioReachedUpstream)) {
           // 同样要把 `finalSeen` 置真：`finish()` 在这个 promise resolve 之后还有
           // 第二道判断——`!finalSeen && !closed` 时会再报一次"上游没能及时给出最终
           // 结果"。这里跳过的正是"没有更多可提交的音频"，不是"该来的 final 没等到"，
@@ -412,10 +414,10 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     socket.on("close", (code: number, reasonBuf: Buffer) => {
       closed = true;
       if (finishResolve) { const r = finishResolve; finishResolve = null; r(); }
-      if ((!finishRequested || (manual && !sessionFinished)) && !errorReported) {
+      if ((!finishRequested || (explicitSessionFinish && !sessionFinished)) && !errorReported) {
         reportError(PROVIDER_UNAVAILABLE, `upstream closed unexpectedly (code=${code}): ${reasonBuf.toString() || "no reason given"}`);
       }
-      void account(!wasCancelled&&!errorReported&&finishRequested&&(manual?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
+      void account(!wasCancelled&&!errorReported&&finishRequested&&(explicitSessionFinish?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
       handlers.onClosed();
     });
     socket.on("error", (e: Error) => {
@@ -453,9 +455,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         finishRequested = true;
         if (closed || socket.readyState !== WebSocket.OPEN) {await account('failed');return;}
         finalSeen = false;
-        if (manual) sessionFinished = false;
-        socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));
-        if (manual) socket.send(JSON.stringify({ type: "session.finish", event_id: randomUUID() }));
+        if (explicitSessionFinish) sessionFinished = false;
+        // Qwen-ASR disables explicit commit under server VAD. session.finish flushes
+        // the recording tail (including silence) and acknowledges it with session.finished.
+        // https://www.alibabacloud.com/help/en/model-studio/qwen-asr-realtime-client-events
+        if (!recording) socket.send(JSON.stringify({ type: "input_audio_buffer.commit", ...(manual ? {event_id: randomUUID()} : {}) }));
+        if (explicitSessionFinish) socket.send(JSON.stringify({ type: "session.finish", event_id: randomUUID() }));
         // 等最后一段 final 回来再关。直接关会丢掉用户说的最后一句话，
         // 而那种丢失在界面上长得像「录音没生效」。
         await new Promise<void>((resolve) => {
@@ -466,12 +471,12 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
         });
         // A drained server-VAD buffer may produce no new event on stop. Keep the
         // grace period for a possible tail, but retain already delivered session finals.
-        // Manual mode still requires its explicit session.finished acknowledgement.
-        if (!(manual ? sessionFinished : finalSeen || finalSeenEver) && !closed) {
+        // Recording and manual modes require their explicit session.finished acknowledgement.
+        if (!(explicitSessionFinish ? sessionFinished : finalSeen || finalSeenEver) && !closed) {
           reportError(PROVIDER_UNAVAILABLE, "upstream did not settle the final segment in time");
         }
         socket.close();
-        await account(!wasCancelled&&!errorReported&&(manual?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
+        await account(!wasCancelled&&!errorReported&&(explicitSessionFinish?sessionFinished:finalSeen||finalSeenEver)?'succeeded':'failed');
       },
       abort() {
         finishRequested = true;

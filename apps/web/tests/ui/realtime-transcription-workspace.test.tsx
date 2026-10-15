@@ -9,6 +9,32 @@ const SESSION = {
 };
 
 describe("RealtimeTranscriptionWorkspace", () => {
+  it("uses the audio meter without a duplicate normal-recording indicator", () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} streamState="recording" inputLevel={0.6}
+      onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByRole("meter", { name: "麦克风输入音量" })).toHaveAttribute("aria-valuenow", "60");
+    expect(screen.queryByText("正在接收音频")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rec-live-toggle")).toHaveTextContent("停止转录");
+  });
+
+  it("renames by double click or keyboard, retains failed input, and cancels with Escape", async () => {
+    const onRename = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onRename={onRename}
+      onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    fireEvent.doubleClick(screen.getByTestId("rec-live-title"));
+    const input = screen.getByRole("textbox", { name: "录音名称" });
+    fireEvent.change(input, { target: { value: "新录音名称" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("名称保存失败"));
+    expect(input).toHaveValue("新录音名称");
+    fireEvent.keyDown(input, { key: "Enter" });
+    await vi.waitFor(() => expect(screen.queryByRole("textbox", { name: "录音名称" })).not.toBeInTheDocument());
+    expect(onRename).toHaveBeenNthCalledWith(2, "新录音名称");
+    fireEvent.keyDown(screen.getByRole("button", { name: "修改录音名称" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "录音名称" }), { key: "Escape" });
+    expect(onRename).toHaveBeenCalledTimes(2);
+  });
+
   it("allows canceling the initial connection", () => {
     const onStop = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="connecting"

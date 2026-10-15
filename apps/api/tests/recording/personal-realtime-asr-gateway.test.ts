@@ -1,12 +1,13 @@
 import { createServer, type Server } from "node:http";
 import { once } from "node:events";
 import { afterEach, describe, expect, it } from "vitest";
-import { WebSocket, type WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import type { AsrProviderPort, AsrSessionHandlers } from "../../src/application/recording/asr-ports";
 import type { PersonalTranscriptionRepository } from "../../src/application/recording/personal-transcription-ports";
 import type { AsrUsageEvent, AsrUsageMeter, RealtimeAsrTicketStore } from "../../src/application/recording/personal-realtime-asr";
 import type { IdGenerator } from "../../src/application/recording/ports";
 import { attachPersonalRealtimeAsrGateway } from "../../src/interface/ws/personal-realtime-asr.gateway";
+import { ConfiguredRealtimeAsrProvider } from "../../src/infrastructure/recording/configured-realtime-asr-provider";
 import { toOrgId } from "../../src/domain/org-id";
 
 const ORG = toOrgId("org-personal-asr-gateway");
@@ -27,6 +28,41 @@ afterEach(async () => {
 });
 
 describe("personal realtime ASR gateway", () => {
+  it("persists the real provider tail before acknowledging VAD recording stop", async () => {
+    const server = createServer(); servers.push(server);
+    const upstream = new WebSocketServer({ server }); gateways.push(upstream);
+    const sent: string[] = [];
+    upstream.on("connection", socket => socket.on("message", raw => {
+      const frame = JSON.parse(String(raw)) as { type: string };
+      sent.push(frame.type);
+      if (frame.type === "session.finish") {
+        socket.send(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: "最后一句，保存原始标点。" }));
+        socket.send(JSON.stringify({ type: "session.finished" }));
+      }
+      if (frame.type === "input_audio_buffer.commit") socket.send(JSON.stringify({ type: "error", error: { message: "commit disabled in VAD mode" } }));
+    }));
+    server.listen(0, "127.0.0.1"); await once(server, "listening");
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("upstream did not bind");
+    const persisted: string[] = [];
+    let finished = false;
+    const client = await connect({ provider: new ConfiguredRealtimeAsrProvider({ provider: "dashscope",
+      baseUrl: `ws://127.0.0.1:${address.port}`, apiKey: "test-key", model: "test-model" }),
+      repository: repositoryStub({ appendFinal: async input => { persisted.push(input.text); },
+        finishCapture: async input => { finished = !input.failed; } }), usage: usageMeter([]) });
+    client.ws.send(JSON.stringify({ type: "start" }));
+    expect(await client.next()).toMatchObject({ type: "ready" });
+    client.ws.send(Buffer.alloc(3200));
+    client.ws.send(JSON.stringify({ type: "stop" }));
+    expect(await client.next()).toMatchObject({ type: "stopping" });
+    expect(await client.next()).toMatchObject({ type: "final", text: "最后一句，保存原始标点。" });
+    expect(persisted).toEqual(["最后一句，保存原始标点。"]);
+    expect(await client.next()).toMatchObject({ type: "completed" });
+    expect(finished).toBe(true);
+    expect(sent).toContain("session.finish");
+    expect(sent).not.toContain("input_audio_buffer.commit");
+  });
+
   it("streams shared provider events, persists final before publish, and meters accepted PCM", async () => {
     const trace: string[] = [];
     const usage: AsrUsageEvent[] = [];

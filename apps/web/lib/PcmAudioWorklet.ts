@@ -242,7 +242,9 @@ export async function startPcmAudioWorklet(
         node.disconnect();
         silentGain.disconnect();
         stream.getTracks().forEach((track) => track.stop());
-        if (context.state !== "closed") await context.close();
+        // Tail delivery and track shutdown have already completed. A browser racing
+        // AudioContext closure must not prevent the server stop/receipt handshake.
+        if (context.state !== "closed") await context.close().catch(() => undefined);
       }
     },
   };

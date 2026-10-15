@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { ArrowLeft, Check, Copy, Mic, Pencil, Radio, X } from "lucide-react";
-import type { personalRealtimeTranscription as C } from "@repo/contracts";
+import { ArrowLeft, Check, Copy, Mic, Pencil, X } from "lucide-react";
+import { personalRealtimeTranscription as C } from "@repo/contracts";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -27,6 +27,7 @@ export function RealtimeTranscriptionWorkspace({
   onStart,
   onStop,
   onSaveContent,
+  onRename,
   onReconnect,
   inputLevel = 0,
   devices = [],
@@ -45,12 +46,33 @@ export function RealtimeTranscriptionWorkspace({
   onStart: () => void;
   onStop: () => void;
   onSaveContent?: (content: string) => Promise<void>;
+  onRename?: (name: string) => Promise<void>;
   onReconnect?: () => void;
   inputLevel?: number;
   devices?: readonly AudioInputDevice[];
   selectedDeviceId?: string | null;
   onSelectDevice?: (deviceId: string | null) => void;
 }) {
+  const [renaming, setRenaming] = React.useState(false);
+  const [nameDraft, setNameDraft] = React.useState(session.name);
+  const [nameError, setNameError] = React.useState<string | null>(null);
+  const [savingName, setSavingName] = React.useState(false);
+  const renamePending = React.useRef(false);
+  const beginRename = () => {
+    if (!onRename || renamePending.current) return;
+    setNameDraft(session.name); setNameError(null); setRenaming(true);
+  };
+  async function saveName() {
+    const name = nameDraft.trim();
+    if (!onRename || renamePending.current) return;
+    if (!C.operations.updatePersonalTranscriptionMetadata.in.shape.name.safeParse(name).success) {
+      setNameError("请输入有效的录音名称，或缩短名称后重试。"); return;
+    }
+    renamePending.current = true; setSavingName(true); setNameError(null);
+    try { await onRename(name); setRenaming(false); }
+    catch { setNameError("名称保存失败，请重试。"); }
+    finally { renamePending.current = false; setSavingName(false); }
+  }
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
@@ -90,7 +112,22 @@ export function RealtimeTranscriptionWorkspace({
             </Button>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 data-testid="rec-live-title" className="truncate text-24 font-semibold tracking-tight">{session.name}</h1>
+                {renaming ? <div className="flex flex-wrap items-center gap-2">
+                  <input aria-label="录音名称" autoFocus maxLength={C.operations.updatePersonalTranscriptionMetadata.in.shape.name.maxLength ?? undefined} disabled={savingName}
+                    value={nameDraft} onChange={(event) => setNameDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.nativeEvent.isComposing) return;
+                      if (event.key === "Enter") { event.preventDefault(); void saveName(); }
+                      if (event.key === "Escape" && !savingName) { setRenaming(false); setNameError(null); }
+                    }} className="rounded-md border border-input bg-background px-2 py-1 text-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                  <Button size="icon" variant="ghost" aria-label="保存录音名称" disabled={savingName} onClick={() => void saveName()}><Check aria-hidden className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" aria-label="取消修改名称" disabled={savingName} onClick={() => { setRenaming(false); setNameError(null); }}><X aria-hidden className="h-4 w-4" /></Button>
+                  {nameError && <p role="alert" className="text-12 text-destructive">{nameError}</p>}
+                </div> : <h1 data-testid="rec-live-title" onDoubleClick={beginRename} className="truncate text-24 font-semibold tracking-tight">
+                  {onRename ? <button type="button" aria-label="修改录音名称" title="双击修改录音名称"
+                    className="max-w-full truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); beginRename(); } }}>{session.name}</button> : session.name}
+                </h1>}
               </div>
             </div>
           </div>
@@ -110,10 +147,9 @@ export function RealtimeTranscriptionWorkspace({
                   className={`w-1 rounded-full transition-colors ${height} ${inputLevel >= threshold ? "bg-success" : "bg-muted"}`} />
               ))}
             </div>
-            <div className="flex items-center gap-2 text-12 text-muted-foreground">
-              <Radio aria-hidden className={`h-4 w-4 ${recording ? "text-success" : ""}`} />
-              {reconnecting ? "正在重连" : streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在收尾" : recording && flowState === "slow" ? "音频仍在传输或确认中" : recording ? "正在接收音频" : ""}
-            </div>
+            {(reconnecting || streamState === "connecting" || streamState === "stopping" || (recording && flowState === "slow")) && <span role="status" className="text-12 text-muted-foreground">
+              {reconnecting ? "正在重连" : streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在收尾" : "音频仍在传输或确认中"}
+            </span>}
             <Button
               data-testid="rec-live-toggle"
               type="button"
