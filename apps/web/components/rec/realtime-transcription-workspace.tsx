@@ -222,7 +222,7 @@ export function RealtimeTranscriptionWorkspace({
             </div>
           ) : visibleContent ? (
             <div className="mt-4 rounded-lg bg-card p-1">
-              <p data-testid="rec-live-content" className="whitespace-pre-wrap text-14 leading-8">{session.content}
+              <p data-testid="rec-live-content" className="whitespace-pre-wrap break-words text-14 leading-8">{session.content}
                 {session.content && interimSegment ? " " : ""}
                 {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
               </p>
