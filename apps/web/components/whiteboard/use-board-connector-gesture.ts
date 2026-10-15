@@ -23,6 +23,7 @@ interface Gesture {
   originalConnector?: WhiteboardObject["connector"];
   handleOrigin?: ConnectorScenePoint;
   heldSnapTargetId?: string;
+  heldSnapTarget?: WhiteboardObject;
   bypass: boolean;
   moved: boolean;
   previewRevision: number;
@@ -139,6 +140,7 @@ export function useBoardConnectorGesture(props: Props) {
     const moved = gesture.moved || Math.hypot(point.x - gesture.initial.x, point.y - gesture.initial.y) * latest.current.viewport.zoom >= 3;
     const next = { ...gesture, current: gesture.nodes && gesture.nodes.length >= WHITEBOARD_CONNECTOR_LIMITS.freeWaypointsMax + 2 ? gesture.nodes[gesture.nodes.length-1]! : point, moved, bypass: event.metaKey || event.ctrlKey, previewRevision: gesture.previewRevision + 1 };
     next.heldSnapTargetId = project(next).snap?.objectId;
+    next.heldSnapTarget = latest.current.objects.find(object => object.id === next.heldSnapTargetId);
     activeRef.current = next; setActive(next);
   };
   const finishFree = () => {
@@ -163,7 +165,13 @@ export function useBoardConnectorGesture(props: Props) {
       // React may not have rendered a remote transaction before this pointer release.
       const liveObjects = latest.current.readLiveObjects?.() ?? latest.current.objects;
       if (!legal(final, liveObjects) || !final.moved) { cancel(); return; }
-      if (final.heldSnapTargetId && !liveObjects.some(object => object.id === final.heldSnapTargetId && !object.locked && !object.hidden)) { cancel(); return; }
+      // Re-evaluate intent at release, not at the last delivered move. Preserve
+      // the last candidate geometry only to detect a release onto a now denied
+      // target; it must never supply canonical geometry or authorize a write.
+      const held = final.heldSnapTarget;
+      const intentObjects = held ? [...liveObjects.filter(object => object.id !== held.id), held] : liveObjects;
+      const releaseTargetId = project(final, intentObjects).snap?.objectId;
+      if (releaseTargetId && !liveObjects.some(object => object.id === releaseTargetId && !object.locked && !object.hidden)) { cancel(); return; }
       const { relationship } = project(final, liveObjects);
       if (![relationship.from, relationship.to].every(id => !id || liveObjects.some(object => object.id === id && !object.locked && !object.hidden))) { cancel(); return; }
       const path = connectorResolvedPath(relationship, liveObjects);
