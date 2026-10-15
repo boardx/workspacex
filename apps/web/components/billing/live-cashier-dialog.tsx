@@ -5,24 +5,26 @@ import { apiRequest, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useCashierOrder, type CashierOwner } from "./use-cashier-order";
+import { CashierLedgerHistory } from "./cashier-ledger-history";
 import { LiveQrPanel } from "./live-qr-panel";
 type Read<T> = { state: "loading" } | { state: "ready"; data: T } | { state: "error"; message: string; denied: boolean };
 function useCashierRead<T>(path: string, query: Record<string, string>, parse: (raw: unknown) => T, scope: string, sessionToken: string, open: boolean, revision: string) {
-  const [result, setResult] = React.useState<{ scope: string; value: Read<T> }>({ scope, value: { state: "loading" } });
+  const [result, setResult] = React.useState<{ key: string; value: Read<T> }>({ key: "", value: { state: "loading" } });
   const [retryCount, retry] = React.useReducer((x: number) => x + 1, 0);
   const current = React.useRef(parse); current.current = parse;
   const queryKey = JSON.stringify(query);
+  const key = `${scope}:${path}:${queryKey}:${revision}:${retryCount}`;
   React.useEffect(() => {
     if (!open) return;
-    const controller = new AbortController(); setResult({ scope, value: { state: "loading" } });
+    const controller = new AbortController(); setResult({ key, value: { state: "loading" } });
     void apiRequest<unknown>(path, { query: JSON.parse(queryKey), sessionToken, signal: controller.signal }).then(raw => {
-      const data = current.current(raw); if (!controller.signal.aborted) setResult({ scope, value: { state: "ready", data } });
+      const data = current.current(raw); if (!controller.signal.aborted) setResult({ key, value: { state: "ready", data } });
     }).catch((error: unknown) => {
-      if (!controller.signal.aborted) setResult({ scope, value: { state: "error", message: "暂时无法查询，请重试。", denied: error instanceof ApiError && [401, 403].includes(error.status) } });
+      if (!controller.signal.aborted) setResult({ key, value: { state: "error", message: "暂时无法查询，请重试。", denied: error instanceof ApiError && [401, 403].includes(error.status) } });
     });
     return () => controller.abort();
-  }, [path, queryKey, scope, sessionToken, open, revision, retryCount]);
-  return { result: result.scope === scope ? result.value : { state: "loading" as const }, retry };
+  }, [path, queryKey, scope, sessionToken, open, revision, retryCount, key]);
+  return { result: result.key === key ? result.value : { state: "loading" as const }, retry };
 }
 export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onCredited }: { owner: CashierOwner; sessionToken: string; open: boolean; onOpenChange: (open: boolean) => void; onCredited: () => void }) {
   const scope = `${sessionToken}:${owner.ownerType}:${owner.ownerId}`;
@@ -76,7 +78,7 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
       <section aria-label="最近额度流水" className="space-y-2 border-t pt-3"><h3 className="text-13 font-semibold">最近流水</h3>
         {ledger.result.state === "loading" && <p role="status">正在查询流水…</p>}
         {ledger.result.state === "error" && <p role="status">流水暂时无法查询。<Button variant="outline" onClick={ledger.retry}>重试流水查询</Button></p>}
-        {ledger.result.state === "ready" && (ledger.result.data.items.length === 0 ? <p className="text-13 text-muted-foreground">暂无流水</p> : <ul data-testid="billing-recent-transactions" className="space-y-1 text-13">{ledger.result.data.items.map(item => <li key={item.txnId} className="flex justify-between gap-2"><span>{item.type === "purchase" ? "充值" : item.type === "bonus" ? "赠送" : "额度变动"}</span><span>{item.direction === 1 ? "+" : "−"}{item.credits}</span></li>)}</ul>)}
+        {ledger.result.state === "ready" && <CashierLedgerHistory key={`${scope}:${success}`} owner={owner} sessionToken={sessionToken} initial={ledger.result.data} onDenied={payment.revoke} />}
       </section>
       {payment.message && <p data-testid="billing-refresh-hint" role="status" className="text-13 text-muted-foreground">{payment.message}</p>}
     </>}

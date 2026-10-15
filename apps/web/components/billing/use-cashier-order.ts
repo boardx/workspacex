@@ -19,7 +19,7 @@ export function billingFailure(error: unknown): string {
 }
 function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder): LiveOrder {
   const { order } = billing.operations.getPaymentOrder.out.parse(raw);
-  if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || order.provider !== "wechat") throw new Error("ORDER_SCOPE_MISMATCH");
+  if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || order.provider !== "wechat" || order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
   const qr = new URL(order.qrCodeUrl);
   if (qr.protocol !== "weixin:" || qr.hostname !== "wxpay" || qr.pathname !== "/bizpayurl" || !qr.searchParams.get("pr") || qr.username || qr.password || qr.hash) throw new Error("INVALID_NATIVE_QR");
   if (expected && ["orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => order[key as keyof LiveOrder] !== expected[key as keyof LiveOrder])) throw new Error("ORDER_SNAPSHOT_MISMATCH");
@@ -49,7 +49,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     try {
       const path = billing.operations.getPaymentOrder.path.replace(":orderNo", encodeURIComponent(order.orderNo));
       const raw = await apiRequest<unknown>(path, { sessionToken, signal: controller.signal });
-      const fresh = validateOrder(raw, owner, order);
+      const fresh = validateOrder(raw, { ownerType: owner.ownerType, ownerId: owner.ownerId }, order);
       if ((order.status === "SUCCESS" || order.status === "FAILED") && fresh.status !== order.status) throw new Error("ORDER_STATE_REGRESSION");
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) { setAccessError(null); setState(value => ({ ...value, order: fresh, message: null })); }
     } catch (error) {
@@ -63,7 +63,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     const tick = async () => { await refresh(); if (!stopped) timer = setTimeout(() => { void tick(); }, 3000); };
     timer = setTimeout(() => { void tick(); }, 3000);
     return () => { stopped = true; clearTimeout(timer); };
-  }, [open, active.order?.orderNo, active.order?.status, refresh]);
+  }, [open, active.order?.orderNo, active.order?.status, active.order, refresh]);
   async function create(packageId: string) {
     if (pending.current || latest.current.order || latest.current.creating || latest.current.uncertain || !open) return;
     const controller = new AbortController(); pending.current = controller;
@@ -85,5 +85,5 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
   function regenerate() {
     if (latest.current.order?.status === "CLOSED" && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
   }
-  return { ...active, accessError, refresh, create, regenerate };
+  return { ...active, accessError, refresh, create, regenerate, revoke: () => setAccessError("Access denied") };
 }
