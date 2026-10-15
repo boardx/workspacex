@@ -226,6 +226,9 @@ wait "$descendant"
       writeFileSync(script,`set -euo pipefail
 work=$1
 mkdir "$work"
+# Trace only this extracted, credential-free lifecycle fixture.
+PS4='[lifecycle:$SECONDS] '
+set -x
 ${lifecycle}
 bash "$2" "$3" &
 pids+=("$!"); names+=(mock)
@@ -235,16 +238,36 @@ touch "$5"
 ${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
 `);
       const unrelated=spawn("sleep",["60"]);
-      const publisher=spawn("bash",[script,work,worker,descendantFile,childFile,ready],{stdio:"ignore"});
+      const started=performance.now();
+      const trace: { elapsedMs: number; text: string }[]=[];
+      let traceBytes=0;
+      const publisher=spawn("bash",[script,work,worker,descendantFile,childFile,ready],{stdio:["ignore","ignore","pipe"]});
+      publisher.stderr.on("data",(chunk:Buffer)=>{
+        if(traceBytes>=65536)return;
+        const text=chunk.subarray(0,65536-traceBytes).toString("utf8");
+        traceBytes+=Buffer.byteLength(text);trace.push({elapsedMs:Math.round(performance.now()-started),text});
+      });
       const closed=new Promise<number|null>(resolve=>publisher.once("close",code=>resolve(code)));
+      const unrelatedClosed=new Promise<void>(resolve=>unrelated.once("close",()=>resolve()));
       let child=0,descendant=0;
+      const groupAlive=()=>{try{process.kill(-child,0);return true;}catch{return false;}};
+      const waitForPublisher=async()=>{
+        let timer:ReturnType<typeof setTimeout>|undefined;
+        try{return await Promise.race([closed,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error(`owned cleanup did not finish: ${JSON.stringify({scenario,elapsedMs:Math.round(performance.now()-started),child,descendant,groupAlive:child>0&&groupAlive(),trace})}`)),5000);})]);}
+        finally{clearTimeout(timer);}
+      };
       try{
         for(let attempt=0;attempt<200 && !existsSync(ready);attempt++)await delay(10);
         expect(existsSync(ready)).toBe(true);
         child=Number(readFileSync(childFile,"utf8").trim());
         descendant=Number(readFileSync(descendantFile,"utf8").trim());
         if(scenario!=="EXIT")publisher.kill(scenario==="INT" ? "SIGINT" : "SIGTERM");
-        const code=await Promise.race([closed,delay(5000).then(()=>{throw new Error("owned cleanup did not finish");})]);
+        const code=await waitForPublisher();
+        const commands=trace.map(event=>event.text).join("");
+        expect(commands).toContain("cleanup_owned_builds");
+        expect(commands).toContain("kill -KILL");
+        expect(commands).toContain("rm -rf");
+        console.info("publisher lifecycle observation",JSON.stringify({scenario,elapsedMs:Math.round(performance.now()-started),stages:trace.filter(event=>/cleanup_owned_builds|kill -TERM|kill -KILL|wait |rm -rf|exit /.test(event.text))}));
         expect(code).toBe(scenario==="EXIT" ? 17 : scenario==="INT" ? 130 : 143);
         expect(existsSync(work)).toBe(false);
         for(const pid of [child,descendant]){
@@ -262,8 +285,10 @@ ${scenario==="EXIT" ? "exit 17" : 'wait "${pids[0]}"'}
         publisher.kill("SIGKILL");
         for(const pid of [child,descendant])if(pid)try{process.kill(pid,"SIGKILL");}catch{}
         unrelated.kill("SIGKILL");
-        await new Promise<void>(resolve=>unrelated.once("close",()=>resolve()));
-        rmSync(dir,{recursive:true,force:true});
+        // Killing a spawned publisher is not the same as joining it. Never remove
+        // the fixture directory while an owned shell can still use its paths.
+        try{await Promise.all([waitForPublisher(),unrelatedClosed]);}
+        finally{rmSync(dir,{recursive:true,force:true});}
       }
     });
   }
