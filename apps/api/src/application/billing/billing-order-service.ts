@@ -21,7 +21,7 @@ export interface BillingOrderRepository {
   scope(orgId: OrgId, orderNo: string): Promise<Pick<BillingOwner, "ownerType" | "ownerId"> | null>;
   order(owner: BillingOwner, orderNo: string): Promise<OrderView | null>;
 }
-export interface WechatNativePort { createNativeOrder(order: OrderDraft): Promise<string> }
+export interface WechatNativePort { createNativeOrder(order: OrderDraft, traceId?: string): Promise<string> }
 export class BillingOrderError extends Error {
   constructor(readonly code: BillingErrorCode) { super(code); }
 }
@@ -53,7 +53,7 @@ export class BillingOrderService {
     const owner = await this.owner(principal, query.ownerType, undefined, false);
     return operations.listPackages.out.parse({ items: await this.repository.packages(owner) });
   }
-  async create(principal: Principal, input: z.infer<typeof operations.createPaymentOrder.in>) {
+  async create(principal: Principal, input: z.infer<typeof operations.createPaymentOrder.in>, traceId?: string) {
     assertPrincipal(principal);
     const request = operations.createPaymentOrder.in.parse(input);
     if (!this.config.getPublicConfig().enabledProviders.includes("wechat")) throw new BillingOrderError("payment_provider_not_configured");
@@ -74,7 +74,7 @@ export class BillingOrderService {
       paidAt: null, notifyAt: null, closedAt: null, lastErrorCode: null,
     };
     // No database transaction spans the upstream call, and no PENDING row exists without a verified QR.
-    const qrCodeUrl = await this.native.createNativeOrder(order);
+    const qrCodeUrl = await this.native.createNativeOrder(order, traceId);
     // A failed INSERT is an uncertain intent, not permission to create another upstream order automatically.
     return operations.createPaymentOrder.out.parse({ order: await this.repository.insert(owner, order, qrCodeUrl) });
   }

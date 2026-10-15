@@ -1,3 +1,4 @@
+import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 // Billing composition root: infrastructure credentials remain outside application/interface layers.
 import { Module } from "@nestjs/common";
@@ -34,12 +35,13 @@ import { BillingReceiptWorker } from "./infrastructure/billing/billing-receipt-w
       new BillingWechatNotifyService(new DeploymentWechatNoticeVerifier(config), store, new ConsoleLogger()), inject: [DeploymentBillingConfig, BILLING_CREDITING_STORE] },
     { provide: BILLING_RECEIPT_WORKER, useFactory: (store: BillingCreditingStore, service: BillingWechatNotifyService) =>
       new BillingReceiptWorker(store, service), inject: [BILLING_CREDITING_STORE, BillingWechatNotifyService] },
+    { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
     { provide: DeploymentBillingConfig, useFactory: () => new DeploymentBillingConfig() },
     { provide: BILLING_CONFIG_PORT, useExisting: DeploymentBillingConfig },
     { provide: BillingOrderService,
-      useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig) =>
-        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config)),
-      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig],
+      useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig, logger: LoggerPort) =>
+        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger)),
+      inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig, LOGGER_PORT],
     },
     { provide: BillingWalletService,
       useFactory: (db:DatabasePort, identity:IdentityRepository, credentials:CredentialRepository, platformAdmins:PlatformAdminRepository) =>

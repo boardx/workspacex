@@ -1,3 +1,5 @@
+import { BillingErrorCode } from "@repo/contracts/billing-credits";
+import { BillingHttpException } from "../controllers/billing-http-exception";
 /**
  * Error boundary -- one of the three mandatory runtime gates in `architecture.md`.
  *
@@ -66,6 +68,7 @@ import { traceIdOf } from "../middleware/trace";
 
 /** status code -> public error code. Closed set: additions go through review. */
 const CODE_BY_STATUS: Readonly<Record<number, string>> = {
+  502: "bad_gateway",
   400: "bad_request",
   401: "unauthenticated",
   403: "forbidden",
@@ -692,6 +695,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       res.status(status).json({
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
+        ...(exception instanceof BillingHttpException && BillingErrorCode.safeParse(exception.billingCode).success ? { code: exception.billingCode } : {}),
         ...permissionReasonOf(exception),
         ...surveyErrorOf(exception),
         ...researchConflictDetailOf(exception),

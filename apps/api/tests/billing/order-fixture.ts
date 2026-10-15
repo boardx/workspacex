@@ -1,5 +1,9 @@
+import { LOGGER_PORT } from "../../src/application/ports/logger.port";
 // @global-scope-fixture table:credit_packages: f04-order- package fixtures only.
 import "reflect-metadata";
+import { AllExceptionsFilter } from "../../src/interface/filters/all-exceptions.filter";
+import { traceMiddleware } from "../../src/interface/middleware/trace";
+import { ConsoleLogger } from "../../src/infrastructure/logging/console-logger";
 import { generateKeyPairSync, randomBytes, sign, verify } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { NestFactory, APP_GUARD } from "@nestjs/core";
@@ -44,6 +48,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     if (state.mode === "timeout-body") { res.flushHeaders(); res.write("{"); return; }
     res.end(state.mode === "tampered" ? `${payload} ` : payload);
   });
+  let requestLogger = new ConsoleLogger(true);
   let app: NestExpressApplication | undefined;
   async function release() {
     try {
@@ -69,6 +74,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
       return nativeFetch(input, init);
     });
     const env: Record<string, string> = {
+      KERNEL_KEEP_LOGS: "1",
       WECHAT_PAY_APP_ID: "wx-f04-fixture", WECHAT_PAY_MCH_ID: "1900000001", WECHAT_PAY_API_V3_KEY: randomBytes(16).toString("hex"),
       WECHAT_PAY_MCH_SERIAL_NO: "ABC123", WECHAT_PAY_PLATFORM_KEY_ID: "PUB_KEY_ID_f04",
       WECHAT_PAY_PRIVATE_KEY: merchant.privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
@@ -85,6 +91,14 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
         } } }, { provide: APP_GUARD, useClass: PrincipalGuard },
       ] }, { logger: false, abortOnError: false });
       beforeListen?.(app);
+      requestLogger = app.get<ConsoleLogger>(LOGGER_PORT);
+      app.use(traceMiddleware);
+      app.useGlobalFilters(new AllExceptionsFilter(requestLogger, {
+        record: async () => undefined,
+        list: async () => ({ items: [], hasMore: false }),
+        getLifecycle: async () => null,
+        updateLifecycle: async () => null,
+      }));
       await app.listen(0, "127.0.0.1");
     } finally {
       for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
@@ -100,7 +114,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
       await c.query("DELETE FROM credentials WHERE user_id IN ($1,$2)", [user, other]);
     });
     return {
-      app, state, cleanup, base,
+      app, state, cleanup, base, requestLogger,
       crypto: { platformPrivateKey: platform.privateKey, apiV3Key: env.WECHAT_PAY_API_V3_KEY! },
       async reset() {
         await cleanup(); state.mode = "success"; state.calls = 0; state.signedRequests = 0; state.requests = []; state.onRequest = null;
