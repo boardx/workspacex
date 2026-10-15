@@ -13,7 +13,8 @@ async function boundedBody(response: Response, signal: AbortSignal): Promise<str
     while (true) {
       const next = await reader.read(); signal.throwIfAborted(); if (next.done) break;
       size += next.value.byteLength;
-      if (size > 65536) { await reader.cancel(); throw new Error("response_too_large"); }
+      // Cancellation is best effort: the source may never settle its cancel promise.
+      if (size > 65536) { abort(); throw new Error("response_too_large"); }
       chunks.push(next.value);
     }
   } finally { signal.removeEventListener("abort", abort); reader.releaseLock(); }
