@@ -26,11 +26,11 @@ console.log(JSON.stringify({requiredFactoryPassed:true,productionAccepted:false}
         js=r'''
 import assert from 'node:assert/strict';
 import {startupDiagnostic}from './tests/fixtures/cn-api-startup/diagnostic.ts';
-const secret='SYNTHETIC_SECRET_NOT_FOR_OUTPUT';
-for(const message of ['postgres://fixture:'+secret+'@localhost/db','Bearer '+secret,'SELECT password FROM users WHERE token='+secret,'x'.repeat(100000)+secret]){
- const e=new Error(message);e.code=secret;e.stack+='\n at /missing/'+secret+'.ts:1:2';
+const sentinel='SYNTHETIC_SECRET_NOT_FOR_OUTPUT';
+for(const message of ['postgres://fixture:'+sentinel+'@localhost/db','Bearer '+sentinel,'SELECT password FROM users WHERE token='+sentinel,'x'.repeat(100000)+sentinel]){
+ const e=new Error(message);e.code=sentinel;e.stack+='\n at /missing/'+sentinel+'.ts:1:2';
  const d=startupDiagnostic(e),raw=JSON.stringify(d);
- assert(!raw.includes(secret));assert(!raw.includes('postgres://'));assert(!raw.includes('SELECT password'));assert(raw.length<4096);assert.equal(d.errorCode,null);
+ assert(!raw.includes(sentinel));assert(!raw.includes('postgres://'));assert(!raw.includes('SELECT password'));assert(raw.length<4096);assert.equal(d.errorCode,null);
  assert.equal(d.messageBytes,Buffer.byteLength(message));assert.match(d.messageSha256,/^[a-f0-9]{64}$/);
 }
 const e=new Error('Cannot find package synthetic');e.code='ERR_MODULE_NOT_FOUND';
@@ -38,9 +38,9 @@ e.stack='Error: hidden\n at '+process.cwd()+'/apps/api/src/main.ts:59:21';
 const d=startupDiagnostic(e);assert.equal(d.errorCode,'ERR_MODULE_NOT_FOUND');assert(d.categories.moduleResolution);
 assert.deepEqual(d.frames,[{file:'apps/api/src/main.ts',line:59,column:21}]);
 const pg=new Error('sensitive SQL');pg.code='42501';assert.equal(startupDiagnostic(pg).errorCode,'42501');
-for(const [code,klass]of [['53100','disk_full'],['53200','out_of_memory'],['57014','query_canceled']]){const x=new Error(secret);x.name='error';x.code=code;const d=startupDiagnostic(x);assert.equal(d.errorCode,code);assert.equal(d.postgresClass,klass);assert.equal(d.errorType,'PostgresError');assert(!JSON.stringify(d).includes(secret));}
+for(const [code,klass]of [['53100','disk_full'],['53200','out_of_memory'],['57014','query_canceled']]){const x=new Error(sentinel);x.name='error';x.code=code;const d=startupDiagnostic(x);assert.equal(d.errorCode,code);assert.equal(d.postgresClass,klass);assert.equal(d.errorType,'PostgresError');assert(!JSON.stringify(d).includes(sentinel));}
 const timeout=startupDiagnostic(new Error('Query read timeout'));assert.equal(timeout.clientQueryReadTimeout,true);assert.equal(timeout.postgresClass,null);
-assert.equal(startupDiagnostic('raw token '+secret).errorType,'Unknown');
+assert.equal(startupDiagnostic('raw token '+sentinel).errorType,'Unknown');
 console.log(JSON.stringify({verified:true,productionAccepted:false}));
 '''
         r=subprocess.run(['node','--import',str(ROOT/'apps/api/node_modules/tsx/dist/loader.mjs'),'--input-type=module','-e',js],cwd=ROOT,capture_output=True,text=True,timeout=30)
