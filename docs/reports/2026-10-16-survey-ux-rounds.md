@@ -18,9 +18,11 @@
 
 实际已逐张检视截图：[修后空列表](assets/issue-5779/r1/after-empty-list.png)、[取消焦点](assets/issue-5779/r1/after-cancel-focus.png)、[成功AI入口](assets/issue-5779/r1/after-ai-entry.png)、[同文件重选](assets/issue-5779/r1/after-file-reselected.png)。仅合成数据与受控FileReader首错，不是OS硬盘故障/真人ASR或生产供应商证明。临时leaf不入库，标准production配置仍收录同spec。
 
-## R2 核心流程反馈
+## R2 核心流程反馈（已自验）
 
-未开始。必须R1完成自验与checkpoint后开始，重新核main。
+R1 checkpoint `ba139069ad200333138d0c4abe4f111f6ab023fc` 后重新fetch main，仍为初始4cc。真实路径：模板创建→编辑标题→真实PUT写入、仅短暂延迟响应→保存中/完成保持焦点→刷新读取持久化标题。首趟设计页冷编译未就绪是驱动问题；预热路由后业务断言RED，自动保存disabled输入使Chrome焦点失活。只把标题保存中disabled改为readOnly，未加载仍disabled，原API/锁/禁并发策略保持。
+
+组件先RED（disabled断言，jsdom没有模拟浏览器失焦），修后37 UI PASS；真实浏览器RED→GREEN 1case（执行1m4s、清理2s），targeted lint PASS。截图：[修前焦点丢失](assets/issue-5779/r2/before-saving-focus.png)、[保存中保持焦点](assets/issue-5779/r2/after-saving-focus.png)、[刷新恢复](assets/issue-5779/r2/after-refreshed-title.png)。实际检视保存中截图。响应延迟为受控，本地真实API/PG保存；不代表生产延迟测量。
 
 ## R3 异常恢复
 

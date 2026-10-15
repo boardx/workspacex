@@ -270,6 +270,26 @@ test('R1 问卷体验：读取失败后直接重选同一文件保留原文',asy
  await page.screenshot({path:testInfo.outputPath('r1-file-reselected.png'),fullPage:true});
 });
 
+test('R2 问卷体验：自动保存保留标题焦点并可刷新恢复',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);await page.request.get('/studio/survey/ux-route-warmup/design');await page.goto('/studio/survey?tab=modules');
+ const template=page.locator('article').filter({has:page.getByRole('heading',{name:TEMPLATE_TITLE,exact:true})});
+ await template.getByRole('button',{name:'使用并创建问卷'}).click();
+ const title=page.getByRole('textbox',{name:'问卷名称',exact:true});await expect(title).toBeVisible();
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/surveys/*/source',async route=>{
+   if(route.request().method()!=='PUT'){await route.continue();return;}
+   const response=await route.fetch();await gate;await route.fulfill({response});
+ });
+ try{
+   await title.fill('R2 自动保存后恢复的问卷');await expect(page.getByText('正在自动保存…',{exact:true})).toBeVisible();
+   await expect(title).toBeFocused();await page.screenshot({path:testInfo.outputPath('r2-saving-focus.png'),fullPage:true});
+ }finally{release();}
+ await expect(page.getByText('正在自动保存…',{exact:true})).toHaveCount(0);await expect(title).toBeFocused();
+ await page.unroute('**/surveys/*/source');await page.reload();
+ await expect(page.getByRole('textbox',{name:'问卷名称',exact:true})).toHaveValue('R2 自动保存后恢复的问卷');
+ await page.screenshot({path:testInfo.outputPath('r2-refreshed-title.png'),fullPage:true});
+});
+
 async function loginAsAdmin(page: Page) {
   await page.goto("/login");
   await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
