@@ -49,9 +49,40 @@ describe("RealtimeTranscriptionWorkspace", () => {
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="connecting"
       onStart={vi.fn()} onStop={onStop} />);
     expect(screen.getByTestId("rec-live-toggle")).toBeEnabled();
+    expect(screen.getByTestId("rec-live-toggle")).not.toHaveAttribute("aria-busy", "true");
     fireEvent.click(screen.getByTestId("rec-live-toggle"));
     expect(onStop).toHaveBeenCalledOnce();
   });
+  it("marks only real stop settlement as busy and blocks duplicate stop", () => {
+    const onStop = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} streamState="stopping"
+      onBack={vi.fn()} onStart={vi.fn()} onStop={onStop} />);
+    const stop = screen.getByTestId("rec-live-toggle");
+    expect(stop).toBeDisabled();
+    expect(stop).toHaveAttribute("aria-busy", "true");
+    fireEvent.click(stop);
+    expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it("keeps save pending and prevents duplicate submission through shared actions", async () => {
+    let resolveSave!: () => void;
+    const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      onStart={vi.fn()} onStop={vi.fn()} onSaveContent={onSaveContent} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.change(screen.getByTestId("rec-live-editor"), { target: { value: "修订正文" } });
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    const save = screen.getByTestId("rec-live-save");
+    expect(save).toBeDisabled();
+    expect(save).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "取消" })).toBeDisabled();
+    fireEvent.click(save);
+    expect(onSaveContent).toHaveBeenCalledTimes(1);
+    expect(onSaveContent).toHaveBeenCalledWith("修订正文");
+    resolveSave();
+    await vi.waitFor(() => expect(screen.queryByTestId("rec-live-editor")).not.toBeInTheDocument());
+  });
+
   it("enables the only start button and invokes the real start action", () => {
     const onStart = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="idle" onStart={onStart} onStop={vi.fn()} />);

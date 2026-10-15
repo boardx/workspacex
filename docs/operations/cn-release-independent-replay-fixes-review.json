@@ -1,0 +1,24 @@
+{
+  "reviewer": "/root",
+  "reviewedAt": "2026-10-12T13:08:43.430864+00:00",
+  "disposition": "accepted-for-isolated-linux-replay",
+  "reviewedFiles": {
+    "tests/cn_release_application_recovery_linux.py": "6219bc2e5c9753ed6773d3ff50c74090ba3040677cef13f6678cbea50d45441b",
+    "tests/test_cn_release_application_recovery_fixture.py": "bc5bc541857847f9fa66508c6d78ca48ff6061975c54d4483f6916fae8cbefc7",
+    "tests/cn_release_api_startup_linux.py": "c52ea46c06718a99cfa044a0b66ac8a6951f64fec2b6877cbaa224437880ff1b",
+    "tests/test_cn_release_api_startup_limits.py": "b0343e08572b9d46710a3a23a7dd7f6ab5d7888179b2020c0ed538018e89d01c",
+    "tests/fixtures/cn-api-startup/diagnostic.ts": "7801cbc8db2601ce3bb2c79f877f4947d2e8a8ec588baa944badaabfc7c42b8c",
+    "tests/test_cn_release_api_startup_diagnostic.py": "0fe2854cfae7b22b96895e3cb5cbbd15f099d90a445ab0e6a00921fd26f73780",
+    "tests/fixtures/cn-six-business/infra-preflight.ts": "d038ed4d4eab32ec55d3a410f4bc90a1f416da5a3a29b574f5657e9cd40fa634",
+    "tests/fixtures/cn-six-business/infra-preflight.test.ts": "fbd5b3ee831f5843abaa683e14df07f3bc8b984895085a0244d5619ea61345c9"
+  },
+  "scope": "Bridge child -I -B real nested imports; verified-owned nonbaseline clone drop/readback only; fixed SQLSTATE/stage/numeric-resource diagnostics; no relaxation of500001 bound. Historical startup and preflight failure causes remain unresolved.",
+  "independentTests": {
+    "bridge": 8,
+    "limits": 10,
+    "diagnostic": 2,
+    "sixPreflight": 6
+  },
+  "linuxReplay": false,
+  "productionAccepted": false
+}

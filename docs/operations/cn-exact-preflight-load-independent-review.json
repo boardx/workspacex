@@ -1,0 +1,41 @@
+{
+  "kind": "independent-exact-candidate-preflight-load-review-v1",
+  "reviewedAt": "2026-10-12T12:55:56.030570+00:00",
+  "decision": "ACCEPT_LOCAL_IMPLEMENTATION_ONLY",
+  "files": {
+    "tests/fixtures/cn-exact-candidate/preflight.py": "f3fef844aaf6a9b0dd5ea524c8e35f38a90274e1dfe211e44c6dd78b5c8c7a0c",
+    "tests/fixtures/cn-exact-candidate/load.py": "f6f0ff3735ebc3bb33dc987dc46b2fd4b077e9d1aa03656c9bda5a6003313de5",
+    "tests/fixtures/cn-exact-candidate/README.md": "b36a13671b7e6d38d3a024625dedc6ea5552355141c057e72385cab74425820f",
+    "tests/test_cn_exact_candidate_preflight.py": "0ff6682b202dc3a869e37d63e8232e9fd6783395703e80e8a360299074b97160",
+    "tests/test_cn_exact_candidate_load.py": "c58764ae145ce5576761b9a477b54cc53ccbbe39919eab029aabae8cd261eb4f"
+  },
+  "tests": {
+    "preflightPassed": 11,
+    "loadPassed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "dockerInvoked": false,
+    "githubArtifactsDownloaded": false
+  },
+  "closedFindings": [
+    "load claim parent directory fsync before first image load",
+    "actual DockerRootDir filesystem disk gate before claim/load"
+  ],
+  "verified": [
+    "wrapper original ZIP and inner tar digests are separate",
+    "exact flat ZIP members reject links duplicates traversal oversize",
+    "original plan set fragment source config and layer binding",
+    "historical expiry never promoted to fresh admission",
+    "fixed local daemon idle gate and exclusive unknown-load claim prohibit automatic replay",
+    "GitHub Linux amd64 and exact control checkout required",
+    "MemTotal7GiB cannot admit original12.5GiB service caps"
+  ],
+  "remainingExecutionGates": [
+    "authenticated selection must bind actual preservation run artifact IDs wrapper sizes and digests",
+    "dedicated GitHub job must enforce outer cgroup and total deadline for all hash/extract/load stages",
+    "actual input and Docker filesystem free-space checks may reject standard runner; no measured capacity yet",
+    "seven-service startup and six original business journeys not implemented or executed by this slice"
+  ],
+  "productionReady": false,
+  "proofRefreshed": false
+}

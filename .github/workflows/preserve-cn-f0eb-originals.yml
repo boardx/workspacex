@@ -1,0 +1,103 @@
+name: preserve-cn-f0eb-originals
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [labeled]
+    branches: [main]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: preserve-cn-f0eb-originals-38146134231
+  cancel-in-progress: false
+env:
+  PRESERVE_CHECKOUT_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+jobs:
+  preserve-plan:
+    if: >-
+      github.run_attempt == 1 && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'cn-preserve-f0eb-38146134231' && github.event.pull_request.state == 'open' && github.event.pull_request.head.repo.full_name == 'boardx/workspacex' && github.event.pull_request.base.repo.full_name == 'boardx/workspacex' && github.event.pull_request.head.ref == 'worker/codex-cn-autonomous-release' && github.event.pull_request.base.ref == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      SERVICE: plan
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.PRESERVE_CHECKOUT_SHA }}
+          persist-credentials: false
+      - name: Acquire exact original ZIP with metadata and byte verification
+        id: original
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I -B scripts/preserve-cn-f0eb-originals.py acquire --service "$SERVICE"
+      - name: Preserve original ZIP and historical receipt for one day
+        uses: actions/upload-artifact@v6
+        with:
+          name: f0eb-original-${{ env.SERVICE }}-38146134231-${{ github.run_id }}
+          path: ${{ steps.original.outputs.directory }}/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Remove only this job private package after successful upload
+        run: python3 -I -B scripts/preserve-cn-f0eb-originals.py cleanup --service "$SERVICE"
+  preserve-set:
+    needs: preserve-plan
+    if: >-
+      github.run_attempt == 1 && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'cn-preserve-f0eb-38146134231' && github.event.pull_request.state == 'open' && github.event.pull_request.head.repo.full_name == 'boardx/workspacex' && github.event.pull_request.base.repo.full_name == 'boardx/workspacex' && github.event.pull_request.head.ref == 'worker/codex-cn-autonomous-release' && github.event.pull_request.base.ref == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    env:
+      SERVICE: set
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.PRESERVE_CHECKOUT_SHA }}
+          persist-credentials: false
+      - name: Acquire exact original ZIP with metadata and byte verification
+        id: original
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I -B scripts/preserve-cn-f0eb-originals.py acquire --service "$SERVICE"
+      - name: Preserve original ZIP and historical receipt for one day
+        uses: actions/upload-artifact@v6
+        with:
+          name: f0eb-original-${{ env.SERVICE }}-38146134231-${{ github.run_id }}
+          path: ${{ steps.original.outputs.directory }}/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Remove only this job private package after successful upload
+        run: python3 -I -B scripts/preserve-cn-f0eb-originals.py cleanup --service "$SERVICE"
+  preserve-images:
+    needs: preserve-set
+    if: >-
+      github.run_attempt == 1 && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') || (github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'cn-preserve-f0eb-38146134231' && github.event.pull_request.state == 'open' && github.event.pull_request.head.repo.full_name == 'boardx/workspacex' && github.event.pull_request.base.repo.full_name == 'boardx/workspacex' && github.event.pull_request.head.ref == 'worker/codex-cn-autonomous-release' && github.event.pull_request.base.ref == 'main'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 22
+    strategy:
+      fail-fast: true
+      max-parallel: 1
+      matrix:
+        service: [agent, api, postgres, sandbox, web]
+    env:
+      SERVICE: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.PRESERVE_CHECKOUT_SHA }}
+          persist-credentials: false
+      - name: Acquire exact original ZIP with metadata and byte verification
+        id: original
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -I -B scripts/preserve-cn-f0eb-originals.py acquire --service "$SERVICE"
+      - name: Preserve original ZIP and historical receipt for one day
+        uses: actions/upload-artifact@v6
+        with:
+          name: f0eb-original-${{ env.SERVICE }}-38146134231-${{ github.run_id }}
+          path: ${{ steps.original.outputs.directory }}/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - name: Remove only this job private package after successful upload
+        run: python3 -I -B scripts/preserve-cn-f0eb-originals.py cleanup --service "$SERVICE"

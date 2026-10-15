@@ -75,7 +75,7 @@
       "area": "billing-credits",
       "title": "钱包余额与流水查询（归属校验 + 游标分页）",
       "user_visible_behavior": "用户查自己的钱包得到余额/累计充值/累计发放；从未有过钱包记录时返回全零空钱包而非 404；流水列表可按类型筛选、游标分页（limit≤100），每笔含 credits 与 balance_after，空列表合法；查他人钱包/流水 403，无权限不泄露资源存在性；组织钱包按开放问题 Q5 暂定 owner/admin 可读。",
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "03",
       "owner": "coord-voice",
       "capability": "CAP-DATA",
@@ -89,7 +89,7 @@
       "verification": [
         "pnpm --filter api exec vitest run tests/billing/wallet-ledger-query.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F03.verify.log @ 2026-10-15T08:26:13.263Z",
       "notes": "覆盖 V1/V9/V17 的查询侧（UC-BC-5/6）；I-3 账实相符的查询侧断言（balance == Σ流水 credits×direction）。组织成员可见性为开放问题 Q5（契约暂按 owner/admin + 平台管理员）。被收银台/管理端/组织区块三处 UI 共用，查询能力只此一处实现（横切收敛，不重复计点）。"
     },
     {

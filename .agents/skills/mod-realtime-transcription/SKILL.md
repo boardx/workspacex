@@ -50,3 +50,5 @@ description: 实时录音、ASR 流式转录、停止收尾和逐字稿持久化
 - 2026-10-15：个人录音 VAD 模式停止使用 `session.finish` 并等待 `session.finished`，不能发仅适用于 manual 的 commit，也不能以已有 final 替代结束回执；录音断句窗口与 chat 隔离，保留原始标点。尾帧和 tracks 释放后 AudioContext.close 竞态不应阻断服务端停止握手（issue #5742，recording-protocol 与 pcm-audio-worklet-stop 回归）。
 
 - 2026-10-15：个人转录界面展示调整限定 rec 局部，移除重复创建卡仍保留顶部入口；创建仅进入工作区，不应文案暗示已启动采音。停止/恢复/改名以现有43项交互回归保护（issue #5753）。
+
+- 2026-10-15：紧凑转录展示复用共享WorkflowActionButton/Bar；loading只绑定真实执行，connecting的取消不可随busy禁用。正文保存pending须阻止重复提交；隔离真实路由应走登录/持久化读回，布局fixture不代替应用壳验收（issue #5762，45项交互回归）。

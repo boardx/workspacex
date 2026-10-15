@@ -1,0 +1,50 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T23:44:49.820039+00:00",
+  "disposition": "accepted-local-implementation-scope-with-authored-delta-requiring-parent-review",
+  "independentlyReviewedFiles": {
+    "scripts/cn-exact-f0eb-unit.py": "6c2970d079c75319ebc26315a4edcb961ba4088aa07bcdd452ee9092ed31bf7c",
+    "scripts/cn-exact-f0eb-github.py": "7a7f2420911b17054457e621674db509c57de6ed93fd18ef8100b4991642746b",
+    "tests/test_cn_exact_f0eb_unit.py": "a24f11e681cd52e71e342eba5f150705141996c80415db3593273384d06b2b7f",
+    ".github/workflows/cn-exact-f0eb-preflight.yml": "c9167b3f6c3cbfea7865597e219f22ebbe15de5f0139866996d2317323b2fdb9",
+    "docs/operations/cn-exact-f0eb-transient-unit.md": "601431950a49b3c1fd7ff087f09e0aff115b2118b2b64da1d73b39bb1c408026"
+  },
+  "currentCandidateFiles": {
+    "scripts/cn-exact-f0eb-unit.py": "ce667c218fc182eec9c2ce5e8bf1ddeb953fe678c38e7ed6bb929a641c41c2e8",
+    "scripts/cn-exact-f0eb-github.py": "7a7f2420911b17054457e621674db509c57de6ed93fd18ef8100b4991642746b",
+    "tests/test_cn_exact_f0eb_unit.py": "d109fb63ccb718b0f26950e4659f187c69efb838f1c6b290148f785b8374447f",
+    ".github/workflows/cn-exact-f0eb-preflight.yml": "c9167b3f6c3cbfea7865597e219f22ebbe15de5f0139866996d2317323b2fdb9",
+    "docs/operations/cn-exact-f0eb-transient-unit.md": "601431950a49b3c1fd7ff087f09e0aff115b2118b2b64da1d73b39bb1c408026"
+  },
+  "scope": "Build author transient service five-file implementation; reviewer-authored exact Git trust delta must be independently reviewed by parent. No production or systemd execution.",
+  "executionEvidence": {
+    "priorIndependentTests": 30,
+    "priorSeconds": 0.157,
+    "afterAuthoredDeltaTests": 30,
+    "afterSeconds": 0.137,
+    "diffCheckPassed": true,
+    "systemdExecuted": false,
+    "linuxExecuted": false
+  },
+  "findings": [
+    "Service exact ExecStart/MainPID cmdline/startticks/InvocationID/ControlGroup inode and configured/kernel limits are checked before release and independently rechecked in bridge.",
+    "Token remains outside systemd argv/manager Environment/journal; one bounded nonblocking stdin frame follows private ready original SHA verification.",
+    "Unknown Start does not redispatch; stopping requires original InvocationID/cgroup inode and exclusive durable stop claim; actual cgroup disappearance and unit terminal readback precede exact loaded-tag cleanup.",
+    "No runner parent/subtree writes or runtime seventeen-file changes."
+  ],
+  "authoredDelta": {
+    "author": "/root/code_review",
+    "independentReviewerRequired": "/root",
+    "files": [
+      "scripts/cn-exact-f0eb-unit.py",
+      "tests/test_cn_exact_f0eb_unit.py"
+    ],
+    "description": "One additional precise safe.directory=ROOT/.git alongside ROOT; regression captures actual run clone argv, rejects any broader trust list and preserves hooks-off/no-hardlinks/exact source/destination.",
+    "realCrossUidGitCloneExecuted": false
+  },
+  "remainingValidation": [
+    "Parent independent review of the two-file authored delta before final acceptance.",
+    "Installed systemd property formatting, stdin FD passing, real kernel containment and stop semantics need isolated GitHub CI. Missing capabilities refuse without fallback."
+  ]
+}

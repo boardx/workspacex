@@ -5,8 +5,9 @@ import { ArrowLeft, Check, Copy, Mic, Pencil, X } from "lucide-react";
 import { personalRealtimeTranscription as C } from "@repo/contracts";
 import type { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton, WorkflowActionBar } from "@/components/research-studio/research-workflow-actions";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import type { AudioInputDevice } from "@/lib/live-recording";
 import type { RealtimeAsrStreamState } from "@/lib/realtime-asr.types";
@@ -103,9 +104,9 @@ export function RealtimeTranscriptionWorkspace({
   }
 
   return (
-    <section data-testid="rec-live-workspace" className="min-h-full bg-background px-4 py-6 md:px-8 lg:px-10">
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-6">
-        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <section data-testid="rec-live-workspace" className="min-h-full bg-background px-4 py-4 md:px-6">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4">
+        <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-3 md:flex-1">
             <Button data-testid="rec-live-back" type="button" variant="ghost" size="icon" aria-label="返回历史转录" onClick={onBack}>
               <ArrowLeft aria-hidden className="h-4 w-4" />
@@ -151,25 +152,25 @@ export function RealtimeTranscriptionWorkspace({
             {(reconnecting || streamState === "connecting" || streamState === "stopping" || (recording && flowState === "slow")) && <span role="status" className="text-12 text-muted-foreground">
               {reconnecting ? "正在重连" : streamState === "connecting" ? "正在连接" : streamState === "stopping" ? "正在收尾" : "音频仍在传输或确认中"}
             </span>}
-            <Button
+            <WorkflowActionButton
               data-testid="rec-live-toggle"
-              size="lg"
-              className="ml-auto min-w-28"
+              className="w-full sm:ml-auto sm:w-auto"
               type="button"
               variant="primary"
               disabled={streamState === "stopping" || renaming}
+              loading={streamState === "stopping"}
               onClick={canStop ? onStop : onStart}
             >
               {reconnecting ? "停止转录" : streamState === "connecting" ? "取消连接" : streamState === "stopping" ? "正在收尾" : recording ? "停止转录" : session.content ? "继续转录" : "开始转录"}
-            </Button>
+            </WorkflowActionButton>
           </div>
         </header>
 
         {errorMessage && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}
 
-        <Card className="min-h-96 p-4 sm:p-6" data-testid="rec-live-transcript">
-          <div className="border-b border-border pb-4">
+        <Card className="min-h-64 p-4" data-testid="rec-live-transcript">
+          <div className="border-b border-border pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-16 font-semibold">实时逐字稿</h2>
               <div className="flex items-center gap-2">
@@ -187,26 +188,26 @@ export function RealtimeTranscriptionWorkspace({
           </div>
 
           {editing ? (
-            <div className="mt-5">
+            <div className="mt-4">
               <textarea data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
                 className="min-h-72 w-full resize-y rounded-lg border border-border bg-background p-4 text-13 leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-              <div className="mt-3 flex justify-end gap-2">
-                <Button type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+              <WorkflowActionBar placement="footer">
+                <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
                   <X aria-hidden className="h-4 w-4" />取消
-                </Button>
-                <Button data-testid="rec-live-save" type="button" variant="primary" disabled={saving}
-                  onClick={() => void saveContent()}>{saving ? "保存中" : "保存修改"}</Button>
-              </div>
+                </WorkflowActionButton>
+                <WorkflowActionButton data-testid="rec-live-save" type="button" variant="primary" disabled={saving} loading={saving}
+                  onClick={() => void saveContent()}>{saving ? "保存中" : "保存修改"}</WorkflowActionButton>
+              </WorkflowActionBar>
             </div>
           ) : visibleContent ? (
-            <div className="mt-5 rounded-lg bg-card p-1">
+            <div className="mt-4 rounded-lg bg-card p-1">
               <p data-testid="rec-live-content" className="whitespace-pre-wrap text-14 leading-8">{session.content}
                 {session.content && interimSegment ? " " : ""}
                 {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
               </p>
             </div>
           ) : (
-            <div className="flex min-h-72 flex-col items-center justify-center gap-4 text-center">
+            <div className="flex min-h-40 flex-col items-center justify-center gap-4 text-center">
               <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
                 <Mic aria-hidden className="h-5 w-5" />
               </span>
@@ -221,11 +222,11 @@ export function RealtimeTranscriptionWorkspace({
         <DialogContent data-testid="rec-live-reconnect-dialog" className="max-w-md">
           <DialogTitle>实时转录连接异常</DialogTitle>
           <DialogDescription>已保存的正文不会丢失。你可以重新连接后继续转录。</DialogDescription>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setErrorDialogDismissed(true)}>暂不处理</Button>
-            <Button data-testid="rec-live-reconnect" type="button" variant="primary" disabled={!onReconnect}
-              onClick={() => { setErrorDialogDismissed(true); onReconnect?.(); }}>重新连接</Button>
-          </DialogFooter>
+          <WorkflowActionBar placement="footer">
+            <WorkflowActionButton type="button" variant="outline" onClick={() => setErrorDialogDismissed(true)}>暂不处理</WorkflowActionButton>
+            <WorkflowActionButton data-testid="rec-live-reconnect" type="button" variant="primary" disabled={!onReconnect}
+              onClick={() => { setErrorDialogDismissed(true); onReconnect?.(); }}>重新连接</WorkflowActionButton>
+          </WorkflowActionBar>
         </DialogContent>
       </Dialog>
     </section>

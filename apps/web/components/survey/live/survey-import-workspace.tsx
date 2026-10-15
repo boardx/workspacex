@@ -55,9 +55,9 @@ export function SurveyImportWorkspace({ draft, projectId }: { draft: SurveyCreat
       throw cause;
     } finally { setBusy(false); }
   }
-  return <main className="mx-auto max-w-5xl space-y-7 p-5 sm:p-8">
-    <header className="space-y-5"><Button variant="ghost" className="-ml-3 text-muted-foreground" onClick={() => router.replace(withProjectId("/studio/survey", projectId))}><ArrowLeft className="mr-2 size-4" aria-hidden/>返回问卷</Button><div><h1 className="text-28 font-semibold">创建问卷</h1><p className="mt-2 text-14 text-muted-foreground">{draft.name}</p></div></header>
-    <nav aria-label="问卷创建步骤" className="grid grid-cols-2 gap-3 text-13 sm:grid-cols-4 sm:gap-5">{["导入内容","设计问卷","发布与回收","查看答卷"].map((label,index)=><span key={label} aria-current={index===0?"step":undefined} className={`flex items-center gap-3 ${index===0?'font-semibold':'text-muted-foreground'}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${index===0?'bg-primary text-primary-foreground':'border border-border'}`}>{index+1}</span>{label}</span>)}</nav>
+  return <main className="mx-auto max-w-5xl space-y-4 p-4 pb-24 sm:p-5">
+    <header className="space-y-3"><Button variant="ghost" className="-ml-3 text-muted-foreground" onClick={() => router.replace(withProjectId("/studio/survey", projectId))}><ArrowLeft className="mr-2 size-4" aria-hidden/>返回问卷</Button><div><h1 className="text-24 font-semibold">创建问卷</h1><p className="mt-1 text-14 text-muted-foreground">{draft.name}</p></div></header>
+    <nav aria-label="问卷创建步骤" className="grid grid-cols-2 gap-2 text-13 sm:grid-cols-4 sm:gap-3">{["导入内容","设计问卷","发布与回收","查看答卷"].map((label,index)=><span key={label} aria-current={index===0?"step":undefined} className={`flex items-center gap-2 ${index===0?'font-semibold':'text-muted-foreground'}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${index===0?'bg-primary text-primary-foreground':'border border-border'}`}>{index+1}</span>{label}</span>)}</nav>
     <SurveyAiProposal locked={false} storageKey={sessionKey} onApply={apply} />
     {error && <p role="alert" className="text-destructive">{error}</p>}
   </main>;

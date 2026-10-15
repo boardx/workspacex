@@ -1,0 +1,27 @@
+{
+  "kind": "cn-release-independent-code-review-v1",
+  "reviewer": "/root/code_review",
+  "reviewedAt": "2026-10-12T12:44:43.925749+00:00",
+  "sourceRef": "Exact frozen local labeled-trigger preservation files ee8b78/a5acce/467b16; independent ten tests",
+  "disposition": "accepted-local-code-checkpoint",
+  "reviewedFiles": {
+    ".github/workflows/preserve-cn-f0eb-originals.yml": "ee8b78f545b27a899af418dab0385e2434e4e130df15fb5287259763efd939b1",
+    "scripts/preserve-cn-f0eb-originals.py": "a5acce2fa271516dcc776f777282b54d209e01785930916e52bda58588d38fd2",
+    "tests/test_preserve_cn_f0eb_originals.py": "467b162e742ee84a5a7f010d62d56fc2d677ad805dd9a48df05fb798ae578216"
+  },
+  "scope": "GitHub-only preservation of seven fixed historical artifact ZIPs for one day: original metadata id/name/size/digest/producer control/run/repository and unexpired status checked before and after streaming; exact ZIP byte size and SHA256 required. No unzip, build, image load, provider operation, proof renewal or release admission. Original source f0eb and control27bada remain historical identities.",
+  "triggerReview": "Only attempt1 manualmain or same-repo open PR labeled exact cn-preserve-f0eb-38146134231, base main and head worker/codex-cn-autonomous-release; checkout event exact40SHA with persisted credentials disabled; helper independently verifies event and actual gitHEAD. No synchronize auto-trigger. Read-only contents/actions token permissions. plan then set then five serial matrix images, no application retry.",
+  "timeoutCleanup": "Metadata30s and ZIP900s have live per-chunk caps, wall deadline and finally killpg/reap; successful uploaded private exact package is cleaned. Failed partial download/package remains only in ephemeral GitHub job for diagnostics; not falsely reported cleaned and not blindly removed.",
+  "executionEvidence": {
+    "independentTestsPassed": 10,
+    "seconds": 0.082,
+    "realStreamTimeoutAndSizeLimitTested": true,
+    "realPrivateFixtureByteAcquireCleanupTested": true,
+    "githubDownloadOrUploadExecutedByReviewer": false
+  },
+  "remainingBoundaries": [
+    "Next actual GitHub run must establish successful download and upload receipts before original artifacts expire.",
+    "New upload-artifact container digest differs from preserved inner original.zip; downstream must bind and verify the inner ZIP bytes, not substitute new artifact IDs/digest as old metadata or refreshed admission."
+  ],
+  "productionExecuted": false
+}
