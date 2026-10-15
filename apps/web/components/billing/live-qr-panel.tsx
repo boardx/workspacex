@@ -9,7 +9,7 @@ export function LiveQrPanel({ order, refresh, regenerate }: { order: LiveOrder; 
   const [revision, redraw] = React.useReducer((x: number) => x + 1, 0);
   const [qrFailed, setQrFailed] = React.useState(false);
   const remaining = Math.max(0, Math.ceil((Date.parse(order.expiredAt) - now) / 1000));
-  const waiting = order.status === "PENDING" || order.status === "PROCESSING";
+  const waiting = order.status === "PENDING";
   const visible = waiting && remaining > 0;
   React.useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, [order.orderNo]);
   React.useEffect(() => {
@@ -29,6 +29,7 @@ export function LiveQrPanel({ order, refresh, regenerate }: { order: LiveOrder; 
       <p data-testid="billing-order-countdown" className="text-center text-13 tabular-nums">{remaining > 0 ? `请在 ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")} 内完成支付` : "二维码已到期，支付结果待确认。请刷新状态，勿重复付款。"}</p>
       {remaining === 0 && <div data-testid="billing-qr-expired" className="rounded-lg bg-muted p-4 text-center text-13">二维码已隐藏，避免误扫。服务器确认关闭后可以重新生成。</div>}
     </>}
+    {order.status === "PROCESSING" && <p data-testid="billing-processing-hint" role="status">正在确认到账，请勿重复付款。</p>}
     {order.status === "SUCCESS" && <div role="status" className="space-y-2"><p data-testid="billing-success-badge" className="font-semibold text-primary">支付已确认</p><p data-testid="billing-order-credited">本次到账 {order.baseCredits + order.bonusCredits} 额度</p></div>}
     {order.status === "FAILED" && <p role="alert" className="text-destructive">到账处理失败。款项可能已支付，请联系支持并提供订单号，勿再次付款。</p>}
     {order.status === "CLOSED" && <div className="space-y-2"><p role="status">订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。</p><Button data-testid="billing-regenerate" variant="outline" onClick={regenerate}>选择套餐重新生成</Button></div>}
