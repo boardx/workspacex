@@ -56,7 +56,11 @@ async function run(){
   await page.screenshot({path:path.join(out,'filtered-empty-mobile.png'),fullPage:true});
   await page.getByRole('button',{name:'清除筛选',exact:true}).click();await expect(cards.first()).toBeVisible();checks.filterEmptyRecovery=true;
   await page.getByRole('button',{name:'官方角色',exact:true}).click();
-  await expect(page.getByTestId('agent-directory-official')).toBeVisible();await page.screenshot({path:path.join(out,'official-mobile.png'),fullPage:true});
+  const official=page.getByTestId('agent-directory-official');await expect(official).toBeVisible();
+  await expect(official.getByText('加载官方数字人…',{exact:true})).toHaveCount(0);
+  await expect(official.getByRole('alert')).toHaveCount(0);
+  await expect.poll(async()=>await official.getByTestId('official-role-card-grid').count()+await official.getByText('本组织已启用全部官方数字人。',{exact:true}).count()).toBeGreaterThan(0);
+  await page.screenshot({path:path.join(out,'official-mobile.png'),fullPage:true});
   await page.getByRole('button',{name:'本组织',exact:true}).click();await expect(cards.first()).toBeVisible();checks.tabs=true;
   const roleName=await cards.first().getByTestId('agent-card-detail-link').innerText();
   await cards.first().getByTestId('agent-card-task-examples').getByRole('button').first().click();await expect(page).toHaveURL(/\/chat\?.*prefill=/);
@@ -64,6 +68,9 @@ async function run(){
   await expect(page.getByTestId('session-briefing-loading')).toHaveCount(0,{timeout:15000});
   await expect(page.getByTestId('chat-task-workbench-capability-picker')).toHaveAttribute('data-auto-match','false');
   await expect(page.getByTestId('chat-task-workbench-capability-picker-name')).toHaveText(roleName);
+  await expect(page.getByTestId('copilotkit-v2-empty')).toBeVisible();
+  const portrait=page.getByTestId('chat-task-workbench-capability-picker').locator('img');await expect(portrait).toBeVisible();
+  await expect.poll(()=>portrait.evaluate(el=>el.complete&&el.naturalWidth>0)).toBe(true);
   await page.screenshot({path:path.join(out,'prefilled-draft-mobile.png'),fullPage:true});checks.unsentPrefill=true;
   await context.close();return {passed:true,mode,checks,screenshots:6,blockedWrites,businessWritesPerformed:false};
  }finally{await browser.close();}
