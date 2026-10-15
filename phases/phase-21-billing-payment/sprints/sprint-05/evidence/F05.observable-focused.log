@@ -1,0 +1,56 @@
+[stack-admission] load1=13.46 cores=10 perCore=1.35 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv9ky0x3-78354245-428cc12d5bf5 db=wsx_428cc12d5bf59031aa74 compose=wsx-428cc12d5bf59031aa74 pg=20749 redis=21749 api=24749 web=25749 sandbox=26749 model=27749 deep-agent=28749 asr=29749 vision=30749 loopback-sandbox=31749 mail=19749
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_428cc12d5bf59031aa74 capacity=100 current=6 required=32
+{"level":"error","msg":"billing_callback_failed","traceId":"c96a4fd1-dbbb-4be3-9bd2-59c3a4b7f8b3","detail":{"stage":"accept","code":"23505","providerEventId":"f05-fa49f5bd-3b27-4c0c-8848-dc8cecbfd70d","orderNo":"bg20261015133421WqKZ0M"}}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-9fe3a8fd-2b3d-4910-b063-0e0bf0311aec","orderNo":"bg20261015133421bardyX"}
+{"level":"info","msg":"database_connection_error","traceId":"database","code":"unknown"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-12ab235c-f491-4f94-8ac6-b5f10cea974f","detail":{"providerEventId":"f05-12ab235c-f491-4f94-8ac6-b5f10cea974f","code":"57P01"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-7654efd9-9d99-4a6f-804f-d13b9ab8da02","detail":{"providerEventId":"f05-7654efd9-9d99-4a6f-804f-d13b9ab8da02","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-7325a07d-4925-402a-9d74-81ab65ba237c","detail":{"providerEventId":"f05-7325a07d-4925-402a-9d74-81ab65ba237c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-1e275fa3-3844-415e-a4a4-ad84d308f2f7","detail":{"providerEventId":"f05-1e275fa3-3844-415e-a4a4-ad84d308f2f7","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-baeb1eef-913d-4baa-8667-d7fdd3c15c60","detail":{"providerEventId":"f05-baeb1eef-913d-4baa-8667-d7fdd3c15c60","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-8b2eaef0-0e4e-4877-810a-60e24b4a72dc","detail":{"providerEventId":"f05-8b2eaef0-0e4e-4877-810a-60e24b4a72dc","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-0e4b3c75-69a8-47a4-ab81-2ec1554bbcdb","detail":{"providerEventId":"f05-0e4b3c75-69a8-47a4-ab81-2ec1554bbcdb","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-ea8cf03d-b55a-4fb2-8698-c7e4c2159cb8","detail":{"providerEventId":"f05-ea8cf03d-b55a-4fb2-8698-c7e4c2159cb8","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-90a4b4fd-1ec7-491d-9c4e-dbbaf3073d9a","detail":{"providerEventId":"f05-90a4b4fd-1ec7-491d-9c4e-dbbaf3073d9a","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-18ad5de3-5910-468a-b3e4-a9ca2a516ac5","detail":{"providerEventId":"f05-18ad5de3-5910-468a-b3e4-a9ca2a516ac5","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-98f66579-1816-4926-b5b4-40e636100a3a","detail":{"providerEventId":"f05-98f66579-1816-4926-b5b4-40e636100a3a","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-7654efd9-9d99-4a6f-804f-d13b9ab8da02","detail":{"providerEventId":"f05-7654efd9-9d99-4a6f-804f-d13b9ab8da02","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-7325a07d-4925-402a-9d74-81ab65ba237c","detail":{"providerEventId":"f05-7325a07d-4925-402a-9d74-81ab65ba237c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-1e275fa3-3844-415e-a4a4-ad84d308f2f7","detail":{"providerEventId":"f05-1e275fa3-3844-415e-a4a4-ad84d308f2f7","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-baeb1eef-913d-4baa-8667-d7fdd3c15c60","detail":{"providerEventId":"f05-baeb1eef-913d-4baa-8667-d7fdd3c15c60","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-8b2eaef0-0e4e-4877-810a-60e24b4a72dc","detail":{"providerEventId":"f05-8b2eaef0-0e4e-4877-810a-60e24b4a72dc","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-0e4b3c75-69a8-47a4-ab81-2ec1554bbcdb","detail":{"providerEventId":"f05-0e4b3c75-69a8-47a4-ab81-2ec1554bbcdb","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-ea8cf03d-b55a-4fb2-8698-c7e4c2159cb8","detail":{"providerEventId":"f05-ea8cf03d-b55a-4fb2-8698-c7e4c2159cb8","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-90a4b4fd-1ec7-491d-9c4e-dbbaf3073d9a","detail":{"providerEventId":"f05-90a4b4fd-1ec7-491d-9c4e-dbbaf3073d9a","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-18ad5de3-5910-468a-b3e4-a9ca2a516ac5","detail":{"providerEventId":"f05-18ad5de3-5910-468a-b3e4-a9ca2a516ac5","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-98f66579-1816-4926-b5b4-40e636100a3a","detail":{"providerEventId":"f05-98f66579-1816-4926-b5b4-40e636100a3a","code":"event_conflict"}}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-009ecf05-1244-452e-92df-107c6605834f","orderNo":"bg20261015133427HZtpaq","reason":"wallet_limit"}
+ ✓ tests/billing/wechat-notify-crediting.test.ts (11 tests) 18876ms
+   ✓ F05 durable idempotent PostgreSQL crediting > recovers a connection crash before commit from a durable receipt after a new app/pool starts 5794ms
+   ✓ F05 durable idempotent PostgreSQL crediting > does not let ten conflicting receipts starve a later valid crash-recovery receipt 355ms
+ ✓ tests/billing/order-core.test.ts (25 tests) 17845ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-headers 8063ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-body 8097ms
+ ✓ tests/billing/wechat-notify-verify.test.ts (13 tests) 1275ms
+ ✓ tests/billing/order-ownership.test.ts (6 tests) 664ms
+ ✓ tests/billing/wechat-notify-observability.test.ts (3 tests) 2ms
+ ✓ tests/billing/billing-global-boundary.test.ts (9 tests) 2ms
+
+ Test Files  6 passed (6)
+      Tests  67 passed (67)
+   Start at  21:34:00
+   Duration  49.11s (transform 1.70s, setup 18ms, collect 2.97s, tests 38.66s, environment 1ms, prepare 178ms)
+
+[db-isolation] db=wsx_428cc12d5bf59031aa74 peak_connections=7
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-verify.test.ts tests/billing/wechat-notify-crediting.test.ts tests/billing/order-core.test.ts tests/billing/order-ownership.test.ts tests/billing/billing-global-boundary.test.ts tests/billing/wechat-notify-observability.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：51s
+  清理：0s
+  总计：52s

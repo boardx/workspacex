@@ -1,0 +1,62 @@
+[stack-admission] load1=9.79 cores=10 perCore=0.98 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv9kujz6-e5ae25d9-64d5b2632a24 db=wsx_64d5b2632a240ca3f96e compose=wsx-64d5b2632a240ca3f96e pg=20435 redis=21435 api=24435 web=25435 sandbox=26435 model=27435 deep-agent=28435 asr=29435 vision=30435 loopback-sandbox=31435 mail=19435
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_64d5b2632a240ca3f96e capacity=100 current=6 required=32
+ ❯ tests/billing/wechat-notify-observability.test.ts (3 tests | 3 failed) 13ms
+   × callback failure diagnostics > logs accept SQL failures with the request trace and safe code while preserving the protocol body 9ms
+     → expected [] to deep equally contain ObjectContaining{…}
+   × callback failure diagnostics > logs credit SQL failures with the request trace and safe code while preserving the protocol body 1ms
+     → expected [] to deep equally contain ObjectContaining{…}
+   × callback failure diagnostics > logs audit_rejection SQL failures with the request trace and safe code while preserving the protocol body 1ms
+     → expected [] to deep equally contain ObjectContaining{…}
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/wechat-notify-observability.test.ts > callback failure diagnostics > logs accept SQL failures with the request trace and safe code while preserving the protocol body
+ FAIL  tests/billing/wechat-notify-observability.test.ts > callback failure diagnostics > logs credit SQL failures with the request trace and safe code while preserving the protocol body
+ FAIL  tests/billing/wechat-notify-observability.test.ts > callback failure diagnostics > logs audit_rejection SQL failures with the request trace and safe code while preserving the protocol body
+AssertionError: expected [] to deep equally contain ObjectContaining{…}
+
+- Expected: 
+ObjectContaining {
+  "fields": ObjectContaining {
+    "err": ObjectContaining {
+      "code": "23505",
+      "stage": "accept",
+    },
+    "traceId": "server-trace-123",
+  },
+}
+
++ Received: 
+Array []
+
+ ❯ tests/billing/wechat-notify-observability.test.ts:23:21
+     21|     const response=await service.handle(Buffer.from("private raw callb…
+     22|     expect(response).toEqual({status:503,body:{code:"FAIL"}});
+     23|     expect(entries).toContainEqual(expect.objectContaining({fields:exp…
+       |                     ^
+     24|     expect(JSON.stringify(entries)).not.toContain("payer-secret");
+     25|     expect(JSON.stringify(entries)).not.toContain("private raw callbac…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  21:31:17
+   Duration  8.47s (transform 579ms, setup 21ms, collect 27ms, tests 13ms, environment 0ms, prepare 117ms)
+
+[db-isolation] db=wsx_64d5b2632a240ca3f96e peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wechat-notify-observability.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-observability.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：10s
+  清理：1s
+  总计：11s
