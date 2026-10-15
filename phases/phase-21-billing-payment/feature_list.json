@@ -210,14 +210,14 @@
       "notes": "覆盖 V19（UC-BC-11/12 + createPaymentOrder 的 I-12 校验分支接入）；I-12 开关只控新建、不触碰任何历史数据（04 R7-3）。依赖 F-TBD-credit-order-core 以接入下单校验分支。"
     },
     {
-      "id": "F-TBD-cashier-ui",
+      "id": "F06",
       "priority": 10,
       "area": "billing-credits",
       "title": "收银台弹窗：套餐选择、二维码、轮询与全终态",
       "user_visible_behavior": "用户从个人菜单「购买额度」打开收银台弹窗：看到套餐列表（加载骨架屏、空态不编造套餐）；选套餐后点「生成二维码」进入待支付态——二维码本地 canvas 渲染（billing-qr-code-area）、订单号/金额/15 分钟每秒倒计时（billing-order-countdown）；每 3 秒轮询订单状态、轮询失败保持当前提示不误报成功/失败（billing-refresh-hint）、可手动刷新（billing-refresh-status）；轮询到成功显示到账徽标与「本次到账」额度且余额/流水即时更新（billing-order-credited）；过期显示 warning 遮罩+重新生成（billing-regenerate）；失败显示 destructive 用户可读原因+重试；渠道未配置时入口不可达且绝不渲染永远扫不成功的二维码；组织普通成员打开显示整窗权限说明（billing-cashier-denied）不泄露余额。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "06",
+      "owner": "coord-voice",
       "capability": "CAP-WEB",
       "spec_ref": "01-credits-topup.md#R8",
       "depends_on": [
