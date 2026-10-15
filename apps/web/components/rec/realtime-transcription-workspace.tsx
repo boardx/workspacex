@@ -88,13 +88,24 @@ export function RealtimeTranscriptionWorkspace({
   const [editing, setEditing] = React.useState(false);
   const editButtonRef = React.useRef<HTMLButtonElement>(null);
   const restoreEditFocus = React.useRef(false);
+  const editSessionRef = React.useRef(session.sessionId);
   React.useEffect(() => {
     if (editing || !restoreEditFocus.current) return;
+    if (editSessionRef.current !== session.sessionId) {
+      restoreEditFocus.current = false;
+      return;
+    }
     const button = editButtonRef.current;
-    if (!button?.isConnected || button.disabled) return;
+    if (!button?.isConnected) return;
+    if (button.disabled) {
+      // User navigation takes priority over a delayed restoration after recording.
+      const cancelRestore = () => { restoreEditFocus.current = false; };
+      document.addEventListener("focusin", cancelRestore);
+      return () => document.removeEventListener("focusin", cancelRestore);
+    }
     restoreEditFocus.current = false;
-    button.focus();
-  }, [editing, recording, busy, onSaveContent]);
+    if (document.activeElement === document.body || document.activeElement === button) button.focus();
+  }, [editing, recording, busy, onSaveContent, session.sessionId]);
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
@@ -202,7 +213,7 @@ export function RealtimeTranscriptionWorkspace({
                   {copied ? "已复制" : "复制全文"}
                 </Button>
                 {!editing && <Button ref={editButtonRef} data-testid="rec-live-edit" type="button" size="md" variant="outline"
-                  disabled={recording || busy || !onSaveContent} onClick={() => { restoreEditFocus.current = true; setSaveError(null); setDraft(session.content); setEditing(true); }}>
+                  disabled={recording || busy || !onSaveContent} onClick={() => { editSessionRef.current = session.sessionId; restoreEditFocus.current = true; setSaveError(null); setDraft(session.content); setEditing(true); }}>
                   <Pencil aria-hidden className="h-4 w-4" />编辑
                 </Button>}
               </div>

@@ -121,6 +121,27 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-edit")).toHaveFocus();
   });
 
+  it("does not restore delayed edit focus after the user focuses another control", () => {
+    const props = { session: SESSION, onBack: vi.fn(), onStart: vi.fn(), onStop: vi.fn(), onSaveContent: vi.fn() };
+    const view = render(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="recording" />);
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    screen.getByTestId("rec-live-toggle").focus();
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    expect(screen.getByTestId("rec-live-toggle")).toHaveFocus();
+  });
+
+  it("discards delayed edit focus when the recording session changes", () => {
+    const props = { session: SESSION, onBack: vi.fn(), onStart: vi.fn(), onStop: vi.fn(), onSaveContent: vi.fn() };
+    const view = render(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="recording" />);
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} session={{ ...SESSION, sessionId: "another-session" }} streamState="idle" />);
+    expect(screen.getByTestId("rec-live-edit")).not.toHaveFocus();
+  });
+
   it("keeps save pending and prevents duplicate submission through shared actions", async () => {
     let resolveSave!: () => void;
     const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));

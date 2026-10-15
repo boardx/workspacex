@@ -39,3 +39,5 @@ Refs #5778，父 #5777。基线 main `4cc236c75`；现有工作树复用，逐�
 - 独占compose容器查询为空；API24141/Web25141/ASR29141无监听。
 
 PR自动review补充边界：编辑中启动转录后取消，编辑按钮禁用时不得提前清掉焦点恢复pending。新增状态切换测试先红1/20通过；保持pending、监听recording/busy/保存能力变化直到按钮可用后恢复，21项工作区测试PASS（`/tmp/rec-pr-review-green.log`）。此状态切换只用组件验证，没有再次启用真实采音或重起整栈。
+
+root补充不得晚到抢焦：等待期间focusin到其他控件会取消待恢复请求；recording sessionId变化丢弃请求，effect清理解绑监听，卸载后不恢复焦点。新增主动移焦/切记录两项反证先红2/21通过，修复后23项工作区PASS（`/tmp/rec-root-focus-green.log`）。没有重跑实际音频/重启整栈。
