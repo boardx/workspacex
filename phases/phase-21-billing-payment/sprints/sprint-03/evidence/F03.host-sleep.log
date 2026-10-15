@@ -1,0 +1,11 @@
+Source: 215152fa8e4af83ff32637437fef0e460fdee6ea
+Official verification exit1; F03 stays in_progress. Feature9/harness2506/API15136 passed;54typecheck/lint tasks passed; Web936filespassed/2failed. No passing release certificate.
+Web run started2026-10-15 13:01:47+0800.
+pmset log excerpt:
+2026-10-15 13:02:40+0800 Entering Sleep state due to Idle Sleep (30secs)
+2026-10-15 13:03:19+0800 Entering Sleep state due to Thermal Emergency Sleep (201secs)
+2026-10-15 13:06:40+0800 Wake from Deep Idle
+Coincident Web tests: home-config-admin196240ms, kg-conflict195909ms, platform-model-testbench195947ms(timeout15000), chat worker module-fetch timeout.
+After-run observations:10logicalCPUs;load1m32.98/5m46.66;memory pressure normal(level1). This does not establish memory exhaustion.
+Unchanged isolated failedfiles:29/29passed in4.67s; raw log /tmp/wsx-F03-web-timeouts-isolated.log. This isolated pass does not erase full-run failure.
+Issue#5749 tracks optional Web worker budget; no OS protection change, no test scope/timeout/retry change.

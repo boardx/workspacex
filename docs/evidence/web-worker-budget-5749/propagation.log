@@ -1,0 +1,10 @@
+Turbo dry run exit0; only resource budget metadata extracted.
+{
+  "command": "vitest run",
+  "specified": [
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS"
+  ],
+  "configured": [
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS=d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35"
+  ]
+}
