@@ -5,7 +5,7 @@ const {spawn}=require('node:child_process');
 const web=path.resolve(__dirname,'../../../apps/web');
 const cli=require.resolve('next/dist/bin/next',{paths:[web]});
 function need(v){if(!v)throw Error('CN_NEXT_LAUNCH_CONTRACT');}
-function proc(pid){try{const s=fs.readFileSync(`/proc/${pid}/stat`,'utf8');return {pid,startTicks:s.slice(s.lastIndexOf(')')+2).split(' ')[19]};}catch{return null;}}
+function proc(pid){try{const s=fs.readFileSync(`/proc/${pid}/stat`,'utf8');const fields=s.slice(s.lastIndexOf(')')+2).split(' ');return {pid,startTicks:fields[19],rssPages:fields[21]};}catch{return null;}}
 function resources(){
  if(process.platform!=='linux')return {available:false};
  try{
@@ -14,6 +14,8 @@ function resources(){
   let current=path.join('/sys/fs/cgroup',relative);const observations=[];
   for(let i=0;i<8&&current!=='/sys/fs/cgroup';i++,current=path.dirname(current)){
    const st=fs.lstatSync(current);need(st.isDirectory()&&!st.isSymbolicLink());
+   // Nested cleanup-only cgroups may not have the memory controller enabled.
+   if(!fs.existsSync(path.join(current,'memory.events')))continue;
    const value={inode:st.ino,device:st.dev,pathSha256:crypto.createHash('sha256').update(current).digest('hex')};
    for(const name of ['memory.current','memory.peak','memory.max','memory.events']){
     const raw=fs.readFileSync(path.join(current,name),'utf8');need(raw.length<4096);
@@ -22,7 +24,7 @@ function resources(){
    }
    const after=fs.lstatSync(current);need(after.ino===st.ino&&after.dev===st.dev);observations.push(value);
   }
-  return {available:true,observations};
+  return observations.length?{available:true,observations}:{available:false,reason:'MEMORY_CONTROLLER_READBACK_UNAVAILABLE'};
  }catch{return {available:false,reason:'RESOURCE_READBACK_UNAVAILABLE'};}
 }
 function store(directory,name,value){
@@ -42,7 +44,7 @@ async function main(){
  // Next's host-RAM default exceeds this fixture's 6 GiB shared cgroup.
  // Bound V8 to half that unit; leave headroom for Nest and native allocations.
  const env={...process.env,NODE_OPTIONS:'--max-old-space-size=3072'};
- const child=spawn(process.execPath,[cli,'dev','-p',args[0]],{cwd:web,env,stdio:['ignore','pipe','pipe'],detached:false});
+ const child=spawn(process.execPath,['--require',path.join(__dirname,'next-worker-observer.cjs'),cli,'dev','-p',args[0]],{cwd:web,env,stdio:['ignore','pipe','pipe'],detached:false});
  const counts={stdout:0,stderr:0},hashes={stdout:crypto.createHash('sha256'),stderr:crypto.createHash('sha256')};
  for(const key of ['stdout','stderr']){child[key].on('data',data=>{counts[key]+=data.length;hashes[key].update(data);if(!process[key].write(data))child[key].pause();});process[key].on('drain',()=>child[key].resume());}
  const before=resources();let started=false;
@@ -56,4 +58,4 @@ async function main(){
  });
 }
 if(require.main===module)main().catch(()=>{console.error('CN_NEXT_LAUNCH_CONTRACT');process.exitCode=1;});
-module.exports={resources,proc,main};
+module.exports={resources,proc,store,main};

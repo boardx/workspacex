@@ -16,6 +16,11 @@ class NextLaunch(unittest.TestCase):
   self.assertEqual(result.returncode,0,result.stdout.decode(errors='replace'))
   self.assertIn(b'# pass 2',result.stdout);self.assertIn(b'# fail 0',result.stdout);self.assertIn(b'# skipped 0',result.stdout)
   self.assertIn(b'fixed supervisor records real child exit and forwards output without retry',result.stdout)
+ def test_real_server_worker_exit_observations(self):
+  node=os.environ.get('CN_API_STARTUP_NODE')or shutil.which('node');self.assertTrue(node)
+  result=subprocess.run([node,'--import','tsx','--test',str(ROOT/'tests/fixtures/cn-six-business/next-worker-observer.test.ts')],cwd=ROOT,capture_output=True,text=True,timeout=20)
+  self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+  self.assertIn('# pass 5',result.stdout);self.assertIn('# fail 0',result.stdout);self.assertIn('# skipped 0',result.stdout)
  def test_github_pnpm_in_separate_node_modules_bin_survives_test_path_sanitization(self):
   node=os.environ.get('CN_API_STARTUP_NODE')or shutil.which('node');pnpm=shutil.which('pnpm')
   self.assertTrue(node and pnpm,'Installed Node and pnpm required')

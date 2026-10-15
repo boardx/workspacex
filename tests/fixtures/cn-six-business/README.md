@@ -73,3 +73,17 @@ Authoring evidence: the real Playwright loader discovered six tests in three
 source files; web typecheck and actual loopback HTTP boundary tests passed.
 The updated whole stack has not run on Linux. T22 remains open until complete
 execution, report checks and cleanup pass; discovery is not E2E acceptance.
+
+The fixture-only Next preload observes the fixed server-worker fork without
+changing signals, restart policy, memory or business budgets. It records PID/start
+identity, exit signal, monotonic/UTC times, sampled maximum RSS pages and matched
+cgroup OOM counter deltas. Cleanup-only leaf cgroups without memory controllers
+are skipped so the original enclosing resource unit can still be read. For an
+observed SIGKILL plus OOM increment, an existing-permission kernel-log read is
+bounded to two seconds/64 KiB; only an exact owned-PID OOM match and its kernel
+time are retained. Permission failure is explicit unavailable evidence, never an
+OOM claim or a reason to add sudo/capabilities. At most 16 workers are recorded;
+the exporter names each allowed record explicitly. Raw kernel messages, arbitrary
+commands and process contents are never exported. RSS is sampled, not a kernel
+peak measurement. A SIGKILL/counter correlation without the owned-PID kernel
+match does not by itself prove the kernel OOM victim.
