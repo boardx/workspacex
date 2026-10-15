@@ -9,3 +9,5 @@
 - Original selected second image absent; requested its source. Visual comparison remains blocked. No feature status changed; PR remains Draft, no merge/deployment/production writes.
 - Runtime wrapper released both owned Docker stacks. Main checkout's pre-existing untracked files were preserved.
 - Next action: obtain the original image, match viewport/state and compare it with the committed screenshots; check current exact-HEAD CI via the commands in session-handoff.md.
+
+- Follow-up: moved mutating browser test into playwright.digital-directory-cards.config.ts, reusing existing fullstack setup with its own seeded runtime. Dedicated scenario 1/1 passed, adding aborted-read error/retry against the real API; eleven screenshots inspected. Original navigation test restored unchanged. This avoids polluting seeded empty-catalog checks.

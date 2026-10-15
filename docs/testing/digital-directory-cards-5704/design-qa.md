@@ -21,16 +21,17 @@ pnpm --filter web exec vitest run tests/ui/agent-directory.test.tsx tests/ui/age
 # 2 files, 29 tests passed
 pnpm --filter web typecheck
 pnpm --filter web lint
-pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --no-deps agent-directory-entry-point.spec.ts
-# after fix: 2 passed, 2.0m; isolation run-mv8wqnka-34bde674-19a97205ed25
+pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.digital-directory-cards.config.ts
+# original isolated two-test run after fix: 2 passed, 2.0m; run-mv8wqnka-34bde674-19a97205ed25
+# dedicated config: 1 passed, 1.9m; run-mv8wzeut-c7d68417-dd150be85f6c; cleanup 1s
 # wrapper cleanup completed in 1s
 ```
 
-The browser test lives in the existing CI-selected `seeded` file. It checks actual computed column count, document overflow, search height >=36px, image naturalWidth, explicit activation and refreshed role cards, search/clear/category controls, keyboard Tab focus, exact role/prompt URL and composer value, and absence of member activation controls before/after activation. Component regressions cover stale organization/account/token scope and readiness boundaries; those are **component evidence**, not a browser org-switch acceptance claim.
+The mutating browser test uses a dedicated config reusing the existing fullstack server/seed definition. It must not run in `seeded`, whose other tests require empty catalogs, or beside the existing role-pending journey. This dedicated command is local acceptance evidence, not a claim that the standard CI suite runs it. It checks actual computed column count, document overflow, search height >=36px, image naturalWidth, explicit activation and refreshed role cards, search/clear/category controls, keyboard Tab focus, exact role/prompt URL and composer value, and absence of member activation controls before/after activation. Component regressions cover stale organization/account/token scope and readiness boundaries; those are **component evidence**, not a browser org-switch acceptance claim.
 
 ## Captures and inspection
 
-All ten saved PNGs below were opened and visually inspected in this run. These capture the application viewport, including its internal scroll region; they are not a claim that every offscreen card was visually inspected.
+All eleven saved PNGs below were opened and visually inspected in this run. These capture the application viewport, including its internal scroll region; they are not a claim that every offscreen card was visually inspected.
 
 | Step | Evidence | Result |
 |---|---|---|
@@ -38,8 +39,9 @@ All ten saved PNGs below were opened and visually inspected in this run. These c
 | 2 | [Member pending](screenshots/01-member-pending-mobile.png) | Same real offers readable; no activation button. No permission change. |
 | 3 | [Organization desktop](screenshots/02-organization-desktop.png), [tablet](screenshots/02-organization-tablet.png), [mobile](screenshots/02-organization-mobile.png) | Automatic refresh after real imports; portraits and fallback initial render; long seeded title truncates within the card. Description wraps, labels/actions stay within bounds. Conversation and unconfirmed workflow statuses remain separate. |
 | 4 | [Filtered empty state](screenshots/03-filter-empty-mobile.png) | Visible empty explanation and clear-filter recovery. Search focus outline visible. Sales category returns the real sales role; clearing restores multiple cards. |
-| 5 | [Prefilled draft](screenshots/04-prefilled-draft-mobile.png) | Correct research role and exact example text in composer; no send or model execution. Waited for loading UI to disappear before capture. |
-| 6 | [Member after activation](screenshots/05-member-official-mobile.png) | Already-enabled state visible; member still has no activation control. |
+| 5 | [Read failure](screenshots/03-read-error-mobile.png) | Deliberately aborted directory read shows a clear error and retry; unroute + retry restores real API results. No synthetic success response. |
+| 6 | [Prefilled draft](screenshots/04-prefilled-draft-mobile.png) | Correct research role and exact example text in composer; no send or model execution. Waited for loading UI to disappear before capture. |
+| 7 | [Member after activation](screenshots/05-member-official-mobile.png) | Already-enabled state visible; member still has no activation control. |
 
 ## Defect fixed
 
@@ -48,7 +50,7 @@ At 390px, the search input used `flex-1` inside a column flex container, collaps
 ## Remaining limits
 
 - Original second image comparison awaits its accessible source; do not declare visual acceptance complete.
-- Browser loading/error/denied/retry and in-flight organization/account/token switching were not independently exercised in this run. Existing 29 component tests are supplementary evidence for those paths.
+- Browser denied/loading and in-flight organization/account/token switching were not independently exercised in this run. Existing 29 component tests are supplementary evidence for those paths.
 - Long title and normal wrapped descriptions were observed from existing seed/official data. Arbitrarily long unbroken text and all lower cards are not separately accepted.
 - Keyboard search-to-category focus was tested; full screen-reader/contrast/accessibility compliance was not assessed.
 - Workflow quality, CRM/ticket writes and business acceptance remain unverified.
@@ -57,3 +59,5 @@ At 390px, the search input used `flex-1` inside a column flex container, collaps
 ## Final HEAD CI
 
 See PR #5710 checks for the follow-up commit and issue progress comments. Do not reuse starting-HEAD CI as final-HEAD evidence. No merge or production deployment is authorized.
+
+Dedicated-lane note: initial visual work ran only this file in a fresh runtime. Before finalizing, the mutating test was moved out of the shared seeded project to avoid poisoning other tests’ empty-catalog and pending-role premises. The dedicated lane was rerun successfully and all eleven resulting captures were inspected. The original entry-point smoke test remains unchanged. The prior chat’s design generation prompt was recovered read-only, but its savedPath is null; no original pixels were available.
