@@ -1,6 +1,14 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
+// Local release runs may share a laptop with other workloads. This limits only
+// concurrency; default selection, test scope and timeouts remain unchanged.
+const workerBudget = process.env.WORKSPACEX_WEB_TEST_MAX_WORKERS;
+const maxWorkers = workerBudget === undefined ? undefined : Number(workerBudget);
+if (maxWorkers !== undefined && (!/^[1-9]\d*$/.test(workerBudget!) || !Number.isSafeInteger(maxWorkers) || maxWorkers > 16)) {
+  throw new Error("WORKSPACEX_WEB_TEST_MAX_WORKERS must be an integer between 1 and 16");
+}
+
 export default defineConfig({
   // `@/…` is the app's own alias (tsconfig `paths`). Without it here, a test may only READ a
   // module's source, never import it -- and a source-text assertion cannot check that the values
@@ -16,6 +24,7 @@ export default defineConfig({
    */
   esbuild: { jsx: "automatic" },
   test: {
+    ...(maxWorkers === undefined ? {} : { maxWorkers, minWorkers: 1 }),
     /**
      * `.tsx` was NOT in `include` while 13 phase-01 features planned React component tests under
      * `tests/ui/*.test.tsx`. A vitest run that collects zero files exits 1, so this did not fake a
