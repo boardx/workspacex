@@ -77,11 +77,20 @@ test("role cards visual acceptance: activation, responsive layout, filters and d
   await search.focus();
   await search.press("Tab");
   await expect(filters.getByRole("button", { name: "全部", exact: true })).toBeFocused();
+  const chosenRoleName = await cards.first().getByTestId("agent-card-detail-link").innerText();
   await cards.first().getByTestId("agent-card-task-examples").getByRole("button").first().click();
   await expect(page).toHaveURL(/\/chat\?.*prefill=/);
   const prompt = new URL(page.url()).searchParams.get("prefill")!;
   await expect(page.locator("textarea").first()).toHaveValue(prompt);
   await expect(page.getByTestId("loading")).toHaveCount(0);
+  await expect(page.getByTestId("copilotkit-v2-empty")).toBeVisible();
+  await expect(page.getByTestId("session-briefing-loading")).toHaveCount(0, { timeout: 15_000 });
+  const picker = page.getByTestId("chat-task-workbench-capability-picker");
+  await expect(picker).toHaveAttribute("data-auto-match", "false");
+  await expect(page.getByTestId("chat-task-workbench-capability-picker-name")).toHaveText(chosenRoleName, { timeout: 15_000 });
+  await expect(picker.locator("img")).toBeVisible({ timeout: 15_000 });
+  await expect.poll(() => picker.locator("img").evaluate(el => (el as HTMLImageElement).complete && (el as HTMLImageElement).naturalWidth > 0)).toBe(true);
+  await expect(page.locator("textarea").first()).toHaveValue(prompt);
   await page.screenshot({ path: info.outputPath("04-prefilled-draft-mobile.png"), fullPage: true });
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   try {
