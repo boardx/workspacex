@@ -110,7 +110,7 @@ export async function orderFixture() {
       await c.query("DELETE FROM credentials WHERE user_id IN ($1,$2)", [user, other]);
     });
     return {
-      app, state, cleanup,
+      app, state, cleanup, requestLogger,
       async reset() {
         await cleanup(); state.mode = "success"; state.calls = 0; state.signedRequests = 0; state.requests = []; state.onRequest = null;
         await asOwner(async c => {
