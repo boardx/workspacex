@@ -34,6 +34,11 @@ export class PgBillingCreditingStore implements BillingCreditingStore {
       const order = await this.order(s, receipt);
       if (receipt.state !== "pending") return result(receipt.state);
       if (r.tradeState === "SUCCESS") {
+        const bound = await s.query<{order_no: string}>(BILLING_GLOBAL_SQL.transactionOwner, [r.transactionId,r.orderNo]);
+        if (bound.rows.length) throw new PaymentNoticeError("transaction_conflict",true,r.orderNo);
+        // The unique index arbitrates races after this diagnostic read. A racing
+        // unique violation rolls acceptance back and receives 503, never a false ACK.
+        if (order.status === "CLOSED") await s.query(BILLING_GLOBAL_SQL.bindClosedOrder, [r.orderNo,r.transactionId]);
         await s.query(BILLING_GLOBAL_SQL.captureClosure, [r.providerEventId, order.closed_at]);
         if (order.status === "PENDING") await s.query(BILLING_GLOBAL_SQL.claimOrder, [r.orderNo,r.transactionId]);
       }

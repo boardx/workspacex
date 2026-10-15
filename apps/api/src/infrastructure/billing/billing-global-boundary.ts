@@ -1,5 +1,7 @@
 /** Single-source literal statements for the verified receipt transaction. No caller-supplied SQL is admitted. */
 export const BILLING_GLOBAL_SQL = Object.freeze({
+  transactionOwner: "SELECT order_no FROM billing_orders WHERE provider='wechat' AND channel_order_no=$1 AND order_no<>$2",
+  bindClosedOrder: "UPDATE billing_orders SET channel_order_no=$2,notify_at=now() WHERE order_no=$1",
   lockOrder: "SELECT * FROM billing_orders WHERE order_no=$1 FOR UPDATE",
   insertReceipt: `INSERT INTO billing_payment_receipts(provider_event_id,order_no,app_id,mch_id,amount_fen,currency,transaction_id,trade_state,paid_at,receipt_hash,signature_verified)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true) ON CONFLICT(provider_event_id) DO NOTHING`,

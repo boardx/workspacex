@@ -47,3 +47,8 @@ COMMENT ON TABLE billing_payment_receipts IS
   'transaction boundary may consume it. No organization settings/identity data here.';
 REVOKE ALL ON billing_payment_receipts FROM app_rw;
 GRANT SELECT,INSERT,UPDATE ON billing_payment_receipts TO app_rw;
+
+-- A merchant transaction identifies one payment, even when distinct event IDs or
+-- order receipts race. Never infer uniqueness solely from a verified signature.
+CREATE UNIQUE INDEX IF NOT EXISTS billing_orders_provider_transaction_unique
+  ON billing_orders(provider,channel_order_no) WHERE channel_order_no IS NOT NULL;
