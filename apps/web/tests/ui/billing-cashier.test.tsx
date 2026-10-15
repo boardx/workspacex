@@ -26,3 +26,115 @@ describe("F06 live cashier entry",()=>{
   expect(screen.queryByTestId("billing-generate-qr")).toBeNull();
  });
 });
+
+import { act } from "@testing-library/react";
+import { LiveCashierDialog } from "@/components/billing/live-cashier-dialog";
+import QRCode from "qrcode";
+vi.mock("qrcode",()=>({default:{toCanvas:vi.fn().mockResolvedValue(undefined)}}));
+const order={orderNo:"bg20261016000000abcdef",ownerType:"user",ownerId:"user-a",provider:"wechat",status:"PENDING",packageId:"p1",amountFen:9900,baseCredits:100,bonusCredits:20,currency:"CNY",qrCodeUrl:"weixin://wxpay/bizpayurl?pr=real-server-intent",createdAt:"2026-10-16T00:00:00Z",paidAt:null,notifyAt:null,expiredAt:new Date(Date.now()+900000).toISOString(),closedAt:null,lastErrorCode:null};
+function reply(body:unknown,status=200){return Promise.resolve(new Response(JSON.stringify(body),{status}));}
+function live(options:{post?:()=>Promise<Response>;get?:()=>Promise<Response>;wallet?:()=>Promise<Response>;items?:unknown[]}={}){
+ const fetcher=vi.fn((url:string,init:RequestInit)=>{
+  const path=new URL(url).pathname;
+  if(path.endsWith("/config"))return reply({enabledProviders:["wechat"]});
+  if(path.endsWith("/packages"))return reply({items:options.items??[pack]});
+  if(path.endsWith("/wallet"))return options.wallet?.()??reply({wallet});
+  if(path.endsWith("/transactions"))return reply({items:[],nextCursor:null});
+  if(init.method==="POST")return options.post?.()??reply({order});
+  return options.get?.()??reply({order});
+ });vi.stubGlobal("fetch",fetcher);
+ const credited=vi.fn();
+ const props={owner:{ownerType:"user" as const,ownerId:"user-a"},sessionToken:"cashier-test-session",open:true,onOpenChange:vi.fn(),onCredited:credited};
+ const view=render(<LiveCashierDialog {...props}/>);
+ return {fetcher,credited,props,view};
+}
+async function generate(){fireEvent.click(await screen.findByRole("radio"));fireEvent.click(screen.getByTestId("billing-generate-qr"));}
+afterEach(()=>{vi.useRealTimers();vi.mocked(QRCode.toCanvas).mockReset().mockResolvedValue(undefined);});
+describe("F06 real cashier financial lifecycle",()=>{
+ it("posts only server package identity once during a deferred request",async()=>{
+  let finish!:(response:Response)=>void;
+  const f=live({post:()=>new Promise(resolve=>{finish=resolve;})});await generate();
+  fireEvent.click(screen.getByTestId("billing-generate-qr"));
+  const posts=()=>f.fetcher.mock.calls.filter(([,init])=>init.method==="POST");
+  expect(posts()).toHaveLength(1);
+  expect(JSON.parse(String(posts()[0]![1].body))).toEqual({ownerType:"user",packageId:"p1",provider:"wechat"});
+  await act(async()=>{finish(await reply({order}));});
+  expect(await screen.findByTestId("billing-qr-code-area")).toBeTruthy();
+  expect(QRCode.toCanvas).toHaveBeenCalledWith(expect.anything(),order.qrCodeUrl,expect.anything());
+ });
+ it("keeps an uncertain create failure from being resubmitted",async()=>{
+  const f=live({post:()=>reply({},500)});await generate();await screen.findByTestId("billing-refresh-hint");
+  expect((screen.getByTestId("billing-generate-qr") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByTestId("billing-generate-qr"));
+  expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(1);
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+ });
+ it("keeps the current order and QR on a failed status read",async()=>{
+  live({get:()=>reply({},502)});await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));
+  expect((await screen.findByTestId("billing-refresh-hint")).textContent).toContain("订单已保留");
+  expect(screen.getByTestId("billing-qr-code-area")).toBeTruthy();
+  expect(screen.queryByTestId("billing-success-badge")).toBeNull();
+ });
+ it("serializes manual and timed polling, then stops after SUCCESS",async()=>{
+  let finish!:(response:Response)=>void;
+  const f=live({get:()=>new Promise(resolve=>{finish=resolve;})});await generate();await screen.findByTestId("billing-qr-code-area");
+  vi.useFakeTimers();fireEvent.click(screen.getByTestId("billing-refresh-status"));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(3000);});
+  const gets=()=>f.fetcher.mock.calls.filter(([url])=>String(url).includes(`/orders/${order.orderNo}`));
+  expect(gets()).toHaveLength(1);
+  await act(async()=>{finish(await reply({order:{...order,status:"SUCCESS",paidAt:new Date().toISOString()}}));});
+  expect(screen.getByTestId("billing-success-badge")).toBeTruthy();
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  await act(async()=>{await vi.advanceTimersByTimeAsync(9000);});expect(gets()).toHaveLength(1);
+  expect(f.credited).toHaveBeenCalledTimes(1);
+  expect(f.fetcher.mock.calls.filter(([url])=>String(url).endsWith("/wallet?ownerType=user"))).toHaveLength(2);
+  expect(f.fetcher.mock.calls.filter(([url])=>String(url).includes("/transactions?"))).toHaveLength(2);
+ });
+ it.each([401,403])("masks all sensitive content on a definitive %s order denial",async(status)=>{
+  live({get:()=>reply({},status)});await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-cashier-denied");
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  expect(screen.queryByText(`订单号：${order.orderNo}`)).toBeNull();
+  expect(screen.queryByTestId("billing-updated-balance")).toBeNull();
+ });
+ it("does not block package selection on wallet outage",async()=>{
+  live({wallet:()=>reply({},503)});
+  expect(await screen.findByRole("radio")).toBeTruthy();
+  expect(await screen.findByRole("button",{name:"重试余额查询"})).toBeTruthy();
+  await generate();expect(await screen.findByTestId("billing-qr-code-area")).toBeTruthy();
+ });
+ it.each([
+  {...order,ownerId:"another-user"},
+  {...order,qrCodeUrl:"https://remote-qr.example/pay"},
+  {...order,packageId:"unexpected-package"},
+ ])("does not display forged create result %#",async(forged)=>{
+  live({post:()=>reply({order:forged})});await generate();await screen.findByTestId("billing-refresh-hint");
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+ });
+ it("hides expired QR without inventing CLOSED or regenerating an intent",async()=>{
+  const f=live({post:()=>reply({order:{...order,expiredAt:new Date(Date.now()-1000).toISOString()}})});await generate();
+  expect(await screen.findByTestId("billing-qr-expired")).toBeTruthy();
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  expect(screen.queryByTestId("billing-regenerate")).toBeNull();
+  expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(1);
+ });
+ it("does not encourage paying again after an accounting failure",async()=>{
+  live({get:()=>reply({order:{...order,status:"FAILED",lastErrorCode:"invalid_amount"}})});await generate();await screen.findByTestId("billing-qr-code-area");fireEvent.click(screen.getByTestId("billing-refresh-status"));
+  expect((await screen.findByRole("alert")).textContent).toContain("勿再次付款");
+  expect(screen.queryByTestId("billing-generate-qr")).toBeNull();expect(screen.queryByTestId("billing-regenerate")).toBeNull();
+ });
+ it("redraws a QR locally without creating a second payment",async()=>{
+  vi.mocked(QRCode.toCanvas).mockRejectedValueOnce(new Error("canvas failed"));
+  const f=live();await generate();fireEvent.click(await screen.findByRole("button",{name:"重新绘制二维码"}));
+  await act(async()=>{});expect(QRCode.toCanvas).toHaveBeenCalledTimes(2);
+  expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(1);
+ });
+ it("retains a known order across closing and reopening",async()=>{
+  const f=live();await generate();await screen.findByTestId("billing-qr-code-area");
+  f.view.rerender(<LiveCashierDialog {...f.props} open={false}/>);
+  expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
+  f.view.rerender(<LiveCashierDialog {...f.props}/>);await screen.findByTestId("billing-qr-code-area");
+  expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(1);
+ });
+});
