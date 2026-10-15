@@ -1,3 +1,4 @@
+import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
 /** Controlled PG fixture for #387's login -> projects -> overview -> Files browser gate. */
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
 import {
@@ -569,5 +570,7 @@ try {
 // Board AI operation E2E uses a pre-registered immutable runtime identity. Product callers
 // have no write grant on this registry; only the controlled fixture owner seeds it.
 await asOwner(client=>client.query(`INSERT INTO whiteboard_actor_identities(org_id,actor_id,kind,delegated_by,scopes,model_snapshot,skill_snapshot,enabled) VALUES($1,$2,'ai',$3,$4,'loopback/e2e','board-cluster-e2e',true) ON CONFLICT(org_id,actor_id) DO UPDATE SET delegated_by=EXCLUDED.delegated_by,scopes=EXCLUDED.scopes,model_snapshot=EXCLUDED.model_snapshot,skill_snapshot=EXCLUDED.skill_snapshot,enabled=true`,[orgId,agentId,userId,['board:read','board:write','artifact:read','board:present']]));
+
+await seedChatPublicShare(orgId,userId);
 
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);
