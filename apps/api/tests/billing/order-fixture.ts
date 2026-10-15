@@ -1,5 +1,8 @@
 // @global-scope-fixture table:credit_packages: f04-order- package fixtures only.
 import "reflect-metadata";
+import { AllExceptionsFilter } from "../../src/interface/filters/all-exceptions.filter";
+import { traceMiddleware } from "../../src/interface/middleware/trace";
+import { ConsoleLogger } from "../../src/infrastructure/logging/console-logger";
 import { generateKeyPairSync, randomBytes, sign, verify } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { NestFactory, APP_GUARD } from "@nestjs/core";
@@ -44,6 +47,7 @@ export async function orderFixture() {
     if (state.mode === "timeout-body") { res.flushHeaders(); res.write("{"); return; }
     res.end(state.mode === "tampered" ? `${payload} ` : payload);
   });
+  const requestLogger = new ConsoleLogger(true);
   let app: NestExpressApplication | undefined;
   async function release() {
     try {
@@ -84,6 +88,13 @@ export async function orderFixture() {
           return id ? { userId: id, orgId: org } : null;
         } } }, { provide: APP_GUARD, useClass: PrincipalGuard },
       ] }, { logger: false, abortOnError: false });
+      app.use(traceMiddleware);
+      app.useGlobalFilters(new AllExceptionsFilter(requestLogger, {
+        record: async () => undefined,
+        list: async () => ({ items: [], hasMore: false }),
+        getLifecycle: async () => null,
+        updateLifecycle: async () => null,
+      }));
       await app.listen(0, "127.0.0.1");
     } finally {
       for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
