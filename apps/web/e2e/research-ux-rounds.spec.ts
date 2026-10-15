@@ -171,3 +171,78 @@ test("R3 a failed save keeps the plan draft available for explicit retry", async
   await writeFile(resolve(output, "r3-cancelled.json"), JSON.stringify({ attempts, persistedVersion: cancelled.version, persistedTitle: cancelled.outline[0]?.title, modelAfter: await activity() }, null, 2));
   await page.screenshot({ path: resolve(output, "r3-cancelled.png"), fullPage: true });
 });
+
+/** R4: saved synthetic long content, three widths and keyboard traversal. */
+test("R4 saved long research content and file controls remain readable and keyboard usable", async ({ page }, testInfo) => {
+  test.setTimeout(180000);
+  const output = resolve(process.env.WX_RESEARCH_UX_R4_EVIDENCE ?? testInfo.outputPath("evidence"));
+  await mkdir(output, { recursive: true });
+  const activity = () => asApp(c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [FULLSTACK_E2E.orgId])).then(result => result.rows[0]);
+  const before = await activity();
+  const { session, path, headers, saved } = await seedSavedPlan(page, "研究 R4 长内容与键盘");
+  const longTitle = "VeryLongResearchTitle".repeat(10).slice(0, 190);
+  const outline = Array.from({ length: 3 }, (_, index) => ({ id: `long-${index}`, title: `${index + 1} ${longTitle}`, questions: ["如何核对审批责任？"], enabled: true, order: index }));
+  const paragraph = "这是一段用于阅读交互验收的合成文本，说明审批步骤、核对责任与后续确认事项。";
+  const complete = research.GuidedResearchRuntime.parse({ ...saved, version: 2, currentNode: "report", completed: true,
+    availableNodes: ["brief", "directions", "outline", "research", "report"], generatedNodes: ["brief", "directions", "outline", "research", "report"], outline,
+    report: { title: longTitle, summary: "合成长内容阅读验收，不代表真实研究结论。", introduction: "只验证保存后的阅读与导航。",
+      sections: outline.map((item, index) => ({ sectionId: item.id, body: Array.from({ length: 24 }, (_, n) => `第${n + 1}段 ${paragraph.repeat(2)}`).join("\n\n") + ` R4-END-${index}`, sourceIds: [] })), conclusion: "需要真实来源验证后才能用于决策。" } });
+  await asApp(async c => {
+    await c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(complete)]);
+    await c.query("UPDATE guided_research_sessions SET stage='report',resume_stage='report',status='completed',progress=100,source_count=0,report_id=$3 WHERE org_id=$1 AND id=$2", [FULLSTACK_E2E.orgId, session.sessionId, `guided-${session.sessionId}-${complete.revision}`]);
+  });
+  const forbidden: string[] = [];
+  page.on("request", request => { if (request.method() === "POST" && /runtime\/commands|report-files|\/(?:generate|execute)(?:\/|$)/.test(new URL(request.url()).pathname)) forbidden.push(new URL(request.url()).pathname); });
+  const metrics: unknown[] = [];
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/research");
+    await page.getByTestId("research-history-search").fill("研究 R4 长内容与键盘");
+    await expect(page.getByTestId(`research-history-${session.sessionId}`)).toBeVisible();
+    await page.screenshot({ path: resolve(output, `r4-list-${width}.png`) });
+    await page.getByTestId(`research-view-${session.sessionId}`).focus(); await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/report$/);
+    await expect(page.getByTestId("research-report")).toContainText("R4-END-2");
+    const reportMetric = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, textLength: document.querySelector('[data-testid="research-report"]')?.textContent?.length }));
+    metrics.push({ state: "report", ...reportMetric });
+    await writeFile(resolve(output, "r4-metrics.json"), JSON.stringify(metrics, null, 2));
+    await page.screenshot({ path: resolve(output, `r4-report-top-${width}.png`) });
+    expect(reportMetric.scrollWidth).toBeLessThanOrEqual(width);
+    const footer = page.locator('[data-workflow-action-bar="footer"]');
+    await expect(footer).toHaveCount(1);
+    await footer.scrollIntoViewIfNeeded();
+    const pdf = page.getByRole("button", { name: "生成 PDF", exact: true });
+    const word = page.getByRole("button", { name: "生成 Word", exact: true });
+    await expect(pdf).toBeEnabled(); await expect(word).toBeEnabled();
+    await pdf.focus(); await page.keyboard.press("Tab"); await expect(word).toBeFocused();
+    await page.screenshot({ path: resolve(output, `r4-report-footer-${width}.png`) });
+    const overlay = await page.getByRole("button", { name: /AI\s*助手/ }).evaluate(node => { const r = node.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; });
+    const controls = await footer.locator("button").evaluateAll(nodes => nodes.map(node => { const r = node.getBoundingClientRect(); return { text: node.textContent, left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }));
+    const covered = controls.filter(r => r.right > r.left && r.bottom > r.top && Math.min(r.right, overlay.right) > Math.max(r.left, overlay.left) && Math.min(r.bottom, overlay.bottom) > Math.max(r.top, overlay.top));
+    metrics.push({ state: "footer", width, covered });
+    await writeFile(resolve(output, "r4-metrics.json"), JSON.stringify(metrics, null, 2));
+    expect(covered).toEqual([]);
+    await page.getByRole("navigation", { name: "研究步骤" }).getByRole("button", { name: /研究计划$/ }).focus({ timeout: 10000 }); await page.keyboard.press("Enter");
+    await expect(page).toHaveURL(/\/plan$/);
+    const planMetric = await page.evaluate(() => ({ width: innerWidth, scrollWidth: document.documentElement.scrollWidth, rows: [...document.querySelectorAll('button[aria-label^="编辑计划"]')].map(node => ({ width: node.clientWidth, scroll: node.scrollWidth })) }));
+    metrics.push({ state: "plan", ...planMetric });
+    await writeFile(resolve(output, "r4-metrics.json"), JSON.stringify(metrics, null, 2));
+    await page.screenshot({ path: resolve(output, `r4-plan-${width}.png`) });
+    expect(planMetric.scrollWidth).toBeLessThanOrEqual(width);
+    expect(planMetric.rows.every(row => row.scroll <= row.width + 1)).toBe(true);
+    const edit = page.getByRole("button", { name: /^编辑计划 1/ });
+    await edit.focus(); await page.keyboard.press("Enter");
+    await expect(page.getByRole("textbox", { name: "计划 1", exact: true })).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("button", { name: "保存计划", exact: true })).toHaveCount(0);
+  }
+  await page.getByRole("navigation", { name: "研究步骤" }).getByRole("button", { name: /生成报告$/ }).focus({ timeout: 10000 }); await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/report$/);
+  await page.reload();
+  await expect(page.getByTestId("research-report")).toContainText("R4-END-2");
+  const final = research.GuidedResearchRuntime.parse(await (await page.request.get(path, { headers })).json());
+  expect(final.version).toBe(complete.version);
+  expect(final.report).toEqual(complete.report);
+  expect(forbidden).toEqual([]); expect(await activity()).toEqual(before);
+  await writeFile(resolve(output, "r4-result.json"), JSON.stringify({ modelBefore: before, modelAfter: await activity(), version: final.version, reportCharacters: final.report?.sections.reduce((sum, section) => sum + section.body.length, 0), forbidden }, null, 2));
+});

@@ -1,0 +1,92 @@
+[
+  {
+    "state": "report",
+    "width": 375,
+    "scrollWidth": 375,
+    "textLength": 6947
+  },
+  {
+    "state": "footer",
+    "width": 375,
+    "covered": []
+  },
+  {
+    "state": "plan",
+    "width": 375,
+    "scrollWidth": 375,
+    "rows": [
+      {
+        "width": 227,
+        "scroll": 227
+      },
+      {
+        "width": 227,
+        "scroll": 227
+      },
+      {
+        "width": 227,
+        "scroll": 227
+      }
+    ]
+  },
+  {
+    "state": "report",
+    "width": 768,
+    "scrollWidth": 768,
+    "textLength": 6947
+  },
+  {
+    "state": "footer",
+    "width": 768,
+    "covered": []
+  },
+  {
+    "state": "plan",
+    "width": 768,
+    "scrollWidth": 768,
+    "rows": [
+      {
+        "width": 620,
+        "scroll": 620
+      },
+      {
+        "width": 620,
+        "scroll": 620
+      },
+      {
+        "width": 620,
+        "scroll": 620
+      }
+    ]
+  },
+  {
+    "state": "report",
+    "width": 1280,
+    "scrollWidth": 1280,
+    "textLength": 6947
+  },
+  {
+    "state": "footer",
+    "width": 1280,
+    "covered": []
+  },
+  {
+    "state": "plan",
+    "width": 1280,
+    "scrollWidth": 1280,
+    "rows": [
+      {
+        "width": 1100,
+        "scroll": 1100
+      },
+      {
+        "width": 1100,
+        "scroll": 1100
+      },
+      {
+        "width": 1100,
+        "scroll": 1100
+      }
+    ]
+  }
+]
