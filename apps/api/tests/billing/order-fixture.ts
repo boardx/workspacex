@@ -15,7 +15,7 @@ import { toOrgId } from "../../src/domain/org-id";
 export const user = "f04-order-user", other = "f04-order-other";
 export const org = toOrgId("f04-order-org"), otherOrg = toOrgId("f04-order-other-org");
 export type Mode = "success" | "non2xx" | "bad-signature" | "wrong-rsa" | "tampered" | "missing-signature" | "missing-nonce" | "missing-time" | "stale" | "unknown-key" | "missing-qr" | "bad-qr" | "malformed" | "redirect" | "oversize" | "timeout-headers" | "timeout-body";
-export async function orderFixture() {
+export async function orderFixture(beforeListen?: (app: NestExpressApplication) => void) {
   ensureDatabase(); await migrateOnce();
   const merchant = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const platform = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -84,6 +84,7 @@ export async function orderFixture() {
           return id ? { userId: id, orgId: org } : null;
         } } }, { provide: APP_GUARD, useClass: PrincipalGuard },
       ] }, { logger: false, abortOnError: false });
+      beforeListen?.(app);
       await app.listen(0, "127.0.0.1");
     } finally {
       for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
@@ -99,7 +100,8 @@ export async function orderFixture() {
       await c.query("DELETE FROM credentials WHERE user_id IN ($1,$2)", [user, other]);
     });
     return {
-      app, state, cleanup,
+      app, state, cleanup, base,
+      crypto: { platformPrivateKey: platform.privateKey, apiV3Key: env.WECHAT_PAY_API_V3_KEY! },
       async reset() {
         await cleanup(); state.mode = "success"; state.calls = 0; state.signedRequests = 0; state.requests = []; state.onRequest = null;
         await asOwner(async c => {
@@ -112,8 +114,8 @@ export async function orderFixture() {
         return nativeFetch(`${base}${path}`, { method: body ? "POST" : "GET", headers: { ...(token ? { authorization: `Bearer ${token}` } : {}), "content-type": "application/json" }, ...(body ? { body: JSON.stringify(body) } : {}) });
       },
       create(extra: Record<string, unknown> = {}, token = "f04-user") { return this.request("/billing/orders", { ownerType: "user", packageId: "f04-order-basic", provider: "wechat", ...extra }, token); },
-      async close() {
-        try { await cleanup(); } finally { await release(); }
+      async close(options?: { preserveData?: boolean }) {
+        try { if (!options?.preserveData) await cleanup(); } finally { await release(); }
       },
     };
   } catch (error) { await release(); throw error; }

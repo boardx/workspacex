@@ -93,14 +93,14 @@
       "notes": "覆盖 V1/V9/V17 的查询侧（UC-BC-5/6）；I-3 账实相符的查询侧断言（balance == Σ流水 credits×direction）。组织成员可见性为开放问题 Q5（契约暂按 owner/admin + 平台管理员）。被收银台/管理端/组织区块三处 UI 共用，查询能力只此一处实现（横切收敛，不重复计点）。"
     },
     {
-      "id": "F-TBD-wechat-notify",
+      "id": "F05",
       "priority": 5,
       "area": "billing-credits",
       "title": "微信支付回调：验签解密、原子抢占与幂等入账",
       "user_visible_behavior": "微信服务端回调到达 raw body 端点后：验签/解密失败直接应答 FAIL 且不入账并记安全审计；验签通过的 SUCCESS 回调经一致性校验（订单存在、金额与快照一致）后原子抢占 PENDING→PROCESSING，钱包增加基础额度+赠送额度两笔流水、订单置 SUCCESS 并写 paid_at/notify_at；重复回调按 provider_event_id 幂等、并发回调至多入账一次；已关闭订单收到成功回调按资金真实性优先入账并留痕告警；处理中回调应答 FAIL 促使微信重试（崩溃重启后重试按幂等继续，不丢单不双记）。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "05",
+      "owner": "coord-voice",
       "capability": "CAP-DATA",
       "spec_ref": "02-payment-order-notify.md#R3",
       "depends_on": [
@@ -152,7 +152,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "02-payment-order-notify.md#R4",
       "depends_on": [
-        "F-TBD-wechat-notify"
+        "F05"
       ],
       "points": 3,
       "wave": 3,
