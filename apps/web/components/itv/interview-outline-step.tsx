@@ -66,6 +66,13 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
   const navigationExperts = groups.length ? groups.map((group) => ({ expertId: group.expertId, displayName: group.displayName, headingId: group.headingId }))
     : confirmedExperts.map((expert) => ({ expertId: expert.expertId, displayName: expert.displayName, headingId: `pending-${expert.expertId}` }));
   const groupRefs = React.useRef(new Map<string, HTMLElement>());
+  const questionRefs = React.useRef(new Map<string, HTMLInputElement>());
+  const addedQuestion = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (pending || !addedQuestion.current) return;
+    const input = questionRefs.current.get(addedQuestion.current);
+    if (input) { addedQuestion.current = null; input.focus(); input.select(); }
+  }, [document.markdown, pending]);
   const chosen = groups.find((block) => block.headingId === active) ?? groups[0];
   const move = (direction: -1 | 1) => chosen ? moveOutlineGroup(document, chosen.headingId, direction) : null;
   const generationLabel = `正在为 ${confirmedExperts.length} 位专家生成问题`;
@@ -78,7 +85,7 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
           <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-semibold">{group.displayName}</h3><div className="flex gap-1">{([-1, 1] as const).map((direction) => <Button key={direction} variant="ghost" size="icon" disabled={pending || moveOutlineGroup(document, group.headingId, direction) === null} aria-label={`${direction === -1 ? "上移" : "下移"}专家 ${group.displayName}`} onClick={() => { const next = moveOutlineGroup(document, group.headingId, direction); if (next !== null) onChange(next); }}>{direction === -1 ? <ArrowUp className="size-4" aria-hidden /> : <ArrowDown className="size-4" aria-hidden />}</Button>)}</div></div>
           {questions.length > 0 && <ol aria-label={`${group.title}访谈问题`} className="mt-4 divide-y divide-border rounded-xl border border-border">{questions.map((question, index) => <li key={question.start} className="flex items-center gap-2 px-3 py-2">
             <span className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-sm font-semibold">{index + 1}</span>
-            <input aria-label={`编辑问题 ${index + 1}`} disabled={pending} value={question.text} onChange={(event) => onChange(document.markdown.slice(0, question.textStart) + event.target.value + document.markdown.slice(question.textEnd))} className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <input ref={node => { const key = `${group.headingId}:${index}`; if (node) questionRefs.current.set(key, node); else questionRefs.current.delete(key); }} aria-label={`编辑问题 ${index + 1}`} disabled={pending} value={question.text} onChange={(event) => onChange(document.markdown.slice(0, question.textStart) + event.target.value + document.markdown.slice(question.textEnd))} className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-sm leading-6 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
             {([-1, 1] as const).map((direction) => <Button key={direction} variant="ghost" size="icon" disabled={pending || index + direction < 0 || index + direction >= questions.length} aria-label={`${direction === -1 ? "上移" : "下移"}问题 ${index + 1}`} onClick={() => {
               const other = questions[index + direction]; if (!other) return;
               const first = direction === -1 ? other : question; const second = direction === -1 ? question : other;
@@ -93,6 +100,7 @@ export function InterviewOutlineStep({ document, directory = [], expertsDocument
           {questions.length === 0 && <p className="mt-6 rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">还没有访谈问题。</p>}
           <Button className="mt-3 w-full" variant="outline" disabled={pending} onClick={() => {
             const newline = document.markdown.includes("\r\n") ? "\r\n" : "\n";
+            addedQuestion.current = `${group.headingId}:${questions.length}`;
             onChange(document.markdown.slice(0, group.end) + `${newline}${questions.length + 1}. 新问题？${newline}` + document.markdown.slice(group.end));
           }}>添加问题</Button>
         </article>;
