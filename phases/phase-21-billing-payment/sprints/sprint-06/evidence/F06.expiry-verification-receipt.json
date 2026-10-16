@@ -1,0 +1,47 @@
+{
+  "testedSource": "7a39bfce4d975f59bc633ea19c429acbbe631b90",
+  "currentSourceCommentOnlyFollowup": "f694b6ffa",
+  "sourceReview": "SOURCE ACCEPT 7a39bfce4",
+  "actualBrowserPassed": 3,
+  "billingHttpIntercepted": false,
+  "uiPassed": 39,
+  "apiTypecheckExit": 0,
+  "webTypecheckExit": 0,
+  "apiLintExit": 0,
+  "webLintExit": 0,
+  "credentialScanExit": 0,
+  "firstBrowserRun": {
+    "exit": 1,
+    "passed": 1,
+    "failed": 2,
+    "reason": "fixture used string token instead of exported DI Symbol",
+    "businessRed": false
+  },
+  "firstApiLint": {
+    "exit": 1,
+    "reason": "missing owned wallet fixture cleanup declaration; actual reset/close already cleans owned rows"
+  },
+  "expiredCreationClock": "Date-only16min earlier in Vitest/API loopback process; finally restored after POST body",
+  "realTimersDatabaseBrowserNextClocks": true,
+  "orderTimestampMutation": false,
+  "dependencyPr": 5805,
+  "dependencyMainMerged": false,
+  "expiryReceipt": "actual-glue/expiry-receipt.json",
+  "manualReceipt": "actual-glue/manual-paid-receipt.json",
+  "ordinaryReceipt": "actual-glue/receipt.json",
+  "screenshots": {
+    "ordinary": "actual-glue/actual-success.png",
+    "expired": "actual-glue/expiry-closed.png",
+    "replacementPaid": "actual-glue/expiry-replacement-success.png",
+    "manualRecovery": "actual-glue/manual-paid-no-repayment.png"
+  },
+  "actualFinalScreenshot": "suite last page is manual recovery, not ordinary payment",
+  "ownedComposeProjectsAbsent": [
+    "wsx-865eb32c296bf908356d",
+    "wsx-402f221735b2c1c3a231"
+  ],
+  "historicalFormalSource": "baf90a5fe78284e0324107349f52d062b9488906",
+  "historicalFormalAppliesToCurrentSource": false,
+  "productionMerchantAccepted": false,
+  "devappDeployed": false
+}
