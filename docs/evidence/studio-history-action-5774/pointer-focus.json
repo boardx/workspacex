@@ -1,0 +1,38 @@
+[
+  {
+    "width": 375,
+    "entry": "rec-create-open",
+    "openFocus": "rec-create-name",
+    "closeFocus": "rec-create-open"
+  },
+  {
+    "width": 375,
+    "entry": "body-create",
+    "openFocus": "rec-create-name",
+    "closeFocus": "body-create"
+  },
+  {
+    "width": 768,
+    "entry": "rec-create-open",
+    "openFocus": "rec-create-name",
+    "closeFocus": "rec-create-open"
+  },
+  {
+    "width": 768,
+    "entry": "body-create",
+    "openFocus": "rec-create-name",
+    "closeFocus": "body-create"
+  },
+  {
+    "width": 1280,
+    "entry": "rec-create-open",
+    "openFocus": "rec-create-name",
+    "closeFocus": "rec-create-open"
+  },
+  {
+    "width": 1280,
+    "entry": "body-create",
+    "openFocus": "rec-create-name",
+    "closeFocus": "body-create"
+  }
+]
