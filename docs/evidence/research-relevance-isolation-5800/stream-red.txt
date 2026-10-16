@@ -1,0 +1,31 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ❯ tests/research/guided-three-step.test.ts (44 tests | 2 failed | 42 skipped) 384ms
+   × streams a completed report after discarding an invalid old source on retry 341ms
+     → expected 'failed' to be 'completed' // Object.is equality
+   × streams a completed report after discarding an invalid old source on generate_report 43ms
+     → expected 'failed' to be 'completed' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-three-step.test.ts > streams a completed report after discarding an invalid old source on retry
+ FAIL  tests/research/guided-three-step.test.ts > streams a completed report after discarding an invalid old source on generate_report
+AssertionError: expected 'failed' to be 'completed' // Object.is equality
+
+Expected: "completed"
+Received: "failed"
+
+ ❯ tests/research/guided-three-step.test.ts:500:30
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 42 skipped (44)
+   Start at  17:18:14
+   Duration  1.48s (transform 682ms, setup 0ms, collect 994ms, tests 384ms, environment 0ms, prepare 22ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-three-step.test.ts -t streams a completed report after discarding

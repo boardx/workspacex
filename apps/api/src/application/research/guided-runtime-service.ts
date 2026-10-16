@@ -1,4 +1,4 @@
-import { isUnresolvedPartialDraft } from "./guided-partial-report-recovery";
+import { canRecoverPartialReport, isUnresolvedPartialDraft } from "./guided-partial-report-recovery";
 import { toPublicResearchRuntime } from "./guided-runtime-persistence";
 import { executeComposite } from "./guided-composite-execution";
 import { executeTaskPipeline, tasksFromConfirmedQuestions, normalizedResearchUrl } from "./guided-task-pipeline";
@@ -299,13 +299,16 @@ export class GuidedRuntimeService {
     if (node === "report") {
       appendActivity(state, "reading", "读取并验证已接受来源", "started");
       await persist();
-      const allowPartial = Boolean(state.reportPartial);
+      let allowPartial = Boolean(state.reportPartial);
       const reusePreparedBasis = resume && state.reportCheckpoint?.basis === reportBasis(state, this.modelConfig, instruction ?? state.reportCheckpoint?.instruction);
       const preparationBudget = SearchBudget.perCall(GUIDED_REPORT_MODEL_BUDGET_MS, "RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED");
       try {
         if (!reusePreparedBasis) {
-          await this.reviewSources(state, persist, preparationBudget);
+          const discardedInvalid = await this.reviewSources(state, persist, preparationBudget);
           await this.readSourceDocuments(state, persist, { budget: preparationBudget });
+          // Invalid assessment is not a task verdict. Remaining verified documents
+          // may support an honest gap report, still subject to every quality gate.
+          if (discardedInvalid && canRecoverPartialReport(state)) allowPartial = true;
         }
       } finally { preparationBudget.dispose(); }
       appendActivity(state, "reading", "来源读取与可用性验证完成", "succeeded");
@@ -446,8 +449,9 @@ export class GuidedRuntimeService {
       { configurationIdentity: JSON.stringify({ model: this.modelConfig, adapter: this.model.configurationIdentity }) });
   }
   private async reviewSources(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
+    let discardedInvalid = false;
     const sources = await screenResearchSources(state, state.sources,
-      this.sourceScreenComplete(state, persist, budget));
+      this.sourceScreenComplete(state, persist, budget), { invalidOutput: "discard-batch", onDiscardInvalidBatch: () => { discardedInvalid = true; } });
     const affected = new Set(state.sources.flatMap((source) => {
       const retained = sources.find((item) => item.id === source.id);
       return sourceTaskIds(source).filter((taskId) => !retained || !sourceTaskIds(retained).includes(taskId));
@@ -463,6 +467,7 @@ export class GuidedRuntimeService {
     }
     state.sources = sources;
     await persist();
+    return discardedInvalid;
   }
   private async editSource(state: ResearchRuntime, command: RuntimeCommand) {
     if (command.node !== "research" || command.draft || command.message || command.proposalId) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");

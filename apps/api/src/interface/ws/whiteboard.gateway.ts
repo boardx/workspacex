@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { WhiteboardAdmission } from './whiteboard-admission';
 import type { Server } from 'node:http';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -9,9 +9,11 @@ import type { PrincipalResolverPort } from '../../application/ports/principal-re
 import type { WhiteboardRepository } from '../../application/whiteboard/ports';
 import { WhiteboardCollaborationError, type WhiteboardCollaborationStore, type WhiteboardPresenceIdentityResolver } from '../../application/whiteboard/collaboration-ports';
 import type { Principal } from '../../domain/principal';
+import type { LoggerPort } from '../../application/ports/logger.port';
+import { currentOperationTraceId, withOperationTrace } from '../../application/ports/operation-trace';
 
 type Peer = { ws: WebSocket; credentialKey: string; lifetime: AbortController; principal: Principal; boardId: string; token: string; ready: boolean; epoch: number; seq: number; role: string; archived: boolean; mirror: Y.Doc; presence: ReturnType<typeof WhiteboardPresence.parse>; checking: boolean };
-export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; identities?:WhiteboardPresenceIdentityResolver; }
+export interface WhiteboardGatewayDeps { principals: PrincipalResolverPort; boards: WhiteboardRepository; store: WhiteboardCollaborationStore; identities?:WhiteboardPresenceIdentityResolver; logger?: LoggerPort; }
 const encoded = (b: Uint8Array) => Buffer.from(b).toString('base64');
 const decoded = (s: string) => new Uint8Array(Buffer.from(s, 'base64'));
 /** Bounded WS transport. Database serializes writers; only committed updates are broadcast. */
@@ -33,7 +35,14 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
   function failFromError(ws: WebSocket, error: unknown) {
     const code=error instanceof WhiteboardCollaborationError?error.code:'DEPENDENCY_UNAVAILABLE';
     const transportCode=code==='NOT_FOUND'?'ACCESS_REVOKED':code==='ARCHIVED'?'BOARD_ARCHIVED':code==='INTEGRITY_FAILED'?'DEPENDENCY_UNAVAILABLE':code==='COMMENT_CONFLICT'||code==='INVALID_MENTION'?'VALIDATION_FAILED':code;
+    try { deps.logger?.error('whiteboard_operation_failed', { traceId: currentOperationTraceId() ?? randomUUID(), err: { code: transportCode } }); }
+    catch { /* Logging must not suppress the original failure frame and close. */ }
     fail(ws,transportCode);
+  }
+  function runOperation(ws: WebSocket, work: () => Promise<void>): Promise<void> {
+    return withOperationTrace(randomUUID(), async () => {
+      try { await work(); } catch (error) { failFromError(ws, error); }
+    });
   }
   function group(peer: Peer) { return [...peers].filter(p => p.ready && p.boardId===peer.boardId && p.principal.orgId===peer.principal.orgId); }
   function presence(peer: Peer) { const room=group(peer),now=Date.now(); const states=room.filter(p=>Date.parse(p.presence.expiresAt)>now).map(p=>p.presence); for (const p of room) send(p.ws,{type:'presence',peers:states}); }
@@ -70,7 +79,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
           try { message=WhiteboardClientMessage.parse(JSON.parse(bytes.toString())); }
           catch { fail(ws,'PROTOCOL_ERROR'); return; }
           waiting++;
-          queue=queue.then(async()=>{
+          queue=queue.then(()=>runOperation(ws,async()=>{
             if (ws.readyState!==ws.OPEN) return;
             if (message.type==='hello') {
               if(peer.ready) throw new WhiteboardCollaborationError('VALIDATION_FAILED');
@@ -116,7 +125,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
                 send(target.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)});
               }
             }
-          }).catch(error=>failFromError(ws,error)).finally(()=>{waiting--;});
+          })).finally(()=>{waiting--;});
         });
         ws.on('error',()=>ws.close());
         ws.on('close',()=>{lifetime.abort();clearTimeout(deadline);peers.delete(peer);peer.mirror.destroy();presence(peer);});
@@ -129,7 +138,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
     for(const peer of peers) {
       if(!peer.ready || peer.checking || peer.ws.readyState!==peer.ws.OPEN) continue;
       peer.checking=true;
-      void (async()=>{
+      void runOperation(peer.ws,async()=>{
         const current=await authentication.run(peer.credentialKey,()=>deps.principals.resolve({authorization:`Bearer ${peer.token}`}),peer.lifetime.signal);
         if(!current || current.userId!==peer.principal.userId || current.orgId!==peer.principal.orgId) { fail(peer.ws,'ACCESS_REVOKED');return; }
         const head=await admission.run(current.orgId,()=>deps.store.head(current,peer.boardId),peer.lifetime.signal);
@@ -138,7 +147,7 @@ export function attachWhiteboardGateway(server: Server, deps: WhiteboardGatewayD
         if(state.role!==peer.role || state.archived!==peer.archived) { fail(peer.ws,state.archived?'BOARD_ARCHIVED':'ACCESS_REVOKED');return; }
         if(peer.ws.readyState!==peer.ws.OPEN) return;
         if(state.seq>peer.seq) { const diff=await admission.run(current.orgId,()=>deps.store.load(current,peer.boardId,Y.encodeStateVector(peer.mirror)),peer.lifetime.signal); if(peer.ws.readyState!==peer.ws.OPEN) return; Y.applyUpdate(peer.mirror,diff.update);peer.seq=Math.max(peer.seq,diff.seq);send(peer.ws,{type:'update',epoch:diff.epoch,seq:diff.seq,update:encoded(diff.update)}); }
-      })().catch(error=>failFromError(peer.ws,error)).finally(()=>{peer.checking=false;});
+      }).finally(()=>{peer.checking=false;});
     }
   },1000);
   monitor.unref();

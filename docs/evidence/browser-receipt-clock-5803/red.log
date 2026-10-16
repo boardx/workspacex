@@ -1,0 +1,67 @@
+[stack-admission] load1=1.90 cores=10 perCore=0.19 running=0/2
+[test-isolation] id=run-mvawro0p-02d1a4a2-1171b45bc17e db=wsx_1171b45bc17edfc1beeb compose=wsx-1171b45bc17edfc1beeb pg=20411 redis=21411 api=24411 web=25411 sandbox=26411 model=27411 deep-agent=28411 asr=29411 vision=30411 loopback-sandbox=31411 mail=19411
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_1171b45bc17edfc1beeb capacity=100 current=6 required=32
+ ❯ tests/agent-runtime/browser-execution-receipts-real-db.test.ts (8 tests | 2 failed) 7375ms
+   × timeout rejects late completion and keeps an honest unknown receipt across restart (host clock offset -1000 ms) 34ms
+     → browser receipt refused
+   × timeout rejects late completion and keeps an honest unknown receipt across restart (host clock offset 1000 ms) 46ms
+     → promise resolved "{ kind: 'claimed' }" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-runtime/browser-execution-receipts-real-db.test.ts > timeout rejects late completion and keeps an honest unknown receipt across restart (host clock offset -1000 ms)
+error: browser receipt refused
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Object.query src/infrastructure/db/pg-database.ts:62:21
+     60|         async query<R = Record<string, unknown>>(sql: string, params: …
+     61|           assertConnected();
+     62|           const r = await client.query(sql, params as unknown[]);
+       |                     ^
+     63|           assertConnected();
+     64|           return { rows: r.rows as R[] } satisfies QueryResult<R>;
+ ❯ src/infrastructure/agent-run/pg-browser-execution-receipts.ts:31:20
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/agent-runtime/browser-execution-receipts-real-db.test.ts:53:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/agent-runtime/browser-execution-receipts-real-db.test.ts > timeout rejects late completion and keeps an honest unknown receipt across restart (host clock offset 1000 ms)
+AssertionError: promise resolved "{ kind: 'claimed' }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "kind": "claimed",
++ }
+
+ ❯ tests/agent-runtime/browser-execution-receipts-real-db.test.ts:52:73
+     50|  const clock=vi.spyOn(Date,'now').mockImplementation(()=>nativeNow()+o…
+     51|  try{
+     52|   await expect(store.claim(ctx,invocation,digest,new Date(Date.now()-1…
+       |                                                                         ^
+     53|   await store.claim(ctx,invocation,digest,new Date(Date.now()+100));
+     54|   await asApp(org,c=>c.query('SELECT pg_sleep(0.15)'));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  19:52:43
+   Duration  10.31s (transform 138ms, setup 5ms, collect 69ms, tests 7.38s, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_1171b45bc17edfc1beeb peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/agent-runtime/browser-execution-receipts-real-db.test.ts
+[timing] pnpm --filter api exec vitest run tests/agent-runtime/browser-execution-receipts-real-db.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：11s
+  清理：0s
+  总计：11s

@@ -1,0 +1,51 @@
+[stack-admission] load1=4.73 cores=10 perCore=0.47 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvau6l28-53c417ad-67ed25b58eda db=wsx_67ed25b58eda1bbbab21 compose=wsx-67ed25b58eda1bbbab21 pg=20933 redis=21933 api=24933 web=25933 sandbox=26933 model=27933 deep-agent=28933 asr=29933 vision=30933 loopback-sandbox=31933 mail=19933
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_67ed25b58eda1bbbab21 capacity=100 current=6 required=32
+ ❯ tests/whiteboard/validator-operation-trace.test.ts (6 tests | 2 failed) 514ms
+   × joins queued WebSocket 'load' failures without changing frames, sinkThrows=false 112ms
+     → expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(1) ] to have a length of 2 but got 4
+   × joins queued WebSocket 'load' failures without changing frames, sinkThrows=true 110ms
+     → expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(1) ] to have a length of 2 but got 4
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/validator-operation-trace.test.ts > joins queued WebSocket 'load' failures without changing frames, sinkThrows=false
+ FAIL  tests/whiteboard/validator-operation-trace.test.ts > joins queued WebSocket 'load' failures without changing frames, sinkThrows=true
+AssertionError: expected [ [ …(2) ], [ …(2) ], [ …(2) ], …(1) ] to have a length of 2 but got 4
+
+- Expected
++ Received
+
+- 2
++ 4
+
+ ❯ tests/whiteboard/validator-operation-trace.test.ts:108:24
+    106|   for (const [, fields] of enclosing) {
+    107|     const diagnostic = logs.mock.calls.filter(([name, detail]) => name…
+    108|     expect(diagnostic).toHaveLength(2);
+       |                        ^
+    109|     expect(new Set(diagnostic.map(([, detail]) => (detail.err as { val…
+    110|   }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 4 passed (6)
+   Start at  18:40:20
+   Duration  4.85s (transform 623ms, setup 5ms, collect 965ms, tests 514ms, environment 0ms, prepare 29ms)
+
+[db-isolation] db=wsx_67ed25b58eda1bbbab21 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/validator-operation-trace.test.ts
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-operation-trace.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：6s

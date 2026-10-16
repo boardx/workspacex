@@ -1,0 +1,54 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ❯ tests/research/guided-source-relevance.test.ts (90 tests | 2 failed) 178ms
+   × invalid relevance batch isolation > retains validated batches when another exhausts repair (adaptive=false) 4ms
+     → RESEARCH_SOURCE_RELEVANCE_INVALID
+   × invalid relevance batch isolation > retains validated batches when another exhausts repair (adaptive=true) 1ms
+     → RESEARCH_SOURCE_RELEVANCE_INVALID
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-source-relevance.test.ts > invalid relevance batch isolation > retains validated batches when another exhausts repair (adaptive=false)
+Error: RESEARCH_SOURCE_RELEVANCE_INVALID
+ ❯ parse src/application/research/guided-source-relevance.ts:168:34
+    166|         }) } : value;
+    167|       const parsed = sourceOutput.safeParse(normalized);
+    168|       if (!parsed.success) throw new InvalidRelevanceOutput(parsed.err…
+       |                                  ^
+    169|       const issues: OutputIssue[] = [];
+    170|       const add = (path: (string | number)[], code: SourceRelevanceSem…
+ ❯ src/application/research/guided-source-relevance.ts:212:106
+ ❯ tests/research/guided-source-relevance.test.ts:1027:7
+ ❯ evaluate src/application/research/guided-source-relevance.ts:212:29
+ ❯ worker src/application/research/guided-source-relevance.ts:94:30
+ ❯ screeningBatchWork src/application/research/guided-source-relevance.ts:98:3
+ ❯ Module.screenResearchSources src/application/research/guided-source-relevance.ts:249:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/research/guided-source-relevance.test.ts > invalid relevance batch isolation > retains validated batches when another exhausts repair (adaptive=true)
+Error: RESEARCH_SOURCE_RELEVANCE_INVALID
+ ❯ parse src/application/research/guided-source-relevance.ts:168:34
+    166|         }) } : value;
+    167|       const parsed = sourceOutput.safeParse(normalized);
+    168|       if (!parsed.success) throw new InvalidRelevanceOutput(parsed.err…
+       |                                  ^
+    169|       const issues: OutputIssue[] = [];
+    170|       const add = (path: (string | number)[], code: SourceRelevanceSem…
+ ❯ src/application/research/guided-source-relevance.ts:212:106
+ ❯ tests/research/guided-source-relevance.test.ts:1027:7
+ ❯ evaluate src/application/research/guided-source-relevance.ts:212:29
+ ❯ Module.screenResearchSources src/application/research/guided-source-relevance.ts:245:21
+ ❯ tests/research/guided-source-relevance.test.ts:1029:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 88 passed (90)
+   Start at  17:12:33
+   Duration  1.32s (transform 628ms, setup 0ms, collect 1.01s, tests 178ms, environment 0ms, prepare 33ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-source-relevance.test.ts
