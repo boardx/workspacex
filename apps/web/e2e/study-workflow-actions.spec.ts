@@ -51,7 +51,45 @@ test("research and interview use consistent command controls without model execu
     outline: [{ id: "chapter", title: "采购验证", questions: ["如何核验决策责任？"], enabled: true, order: 0 }],
     report: { title: "采购决策研究", summary: "核验预算授权与采购责任。", introduction: "本报告基于已保存资料。",
       sections: [{ sectionId: "chapter", body: "先追访采购负责人，再核对预算授权。", sourceIds: [] }], conclusion: "优先验证真实采购流程。" } });
-  await asApp(FULLSTACK_E2E.orgId, c => c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(saved)]));
+  await asApp(FULLSTACK_E2E.orgId, async c => {
+    await c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(saved)]);
+    // Match PgGuidedRuntimeStore.write's session projection in the same tenant transaction.
+    await c.query("UPDATE guided_research_sessions SET status='completed',stage='report',resume_stage='report',progress=100,source_count=0,brief=$3::jsonb,report_id=$4 WHERE org_id=$1 AND id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(saved.brief), `guided-${session.sessionId}-${saved.revision}`]);
+  });
+  // #5769: authenticated production routes backed by the owned tenant fixture.
+  // Observe saved state only; never submit a generation/export command.
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/research");
+    await expect(page.getByTestId(`research-history-${session.sessionId}`)).toBeVisible();
+    await page.getByTestId("research-history-search").fill("研究操作一致化验收");
+    await expect(page.getByTestId(`research-history-${session.sessionId}`)).toBeVisible();
+    await page.getByTestId("research-history-sort").click();
+    await expect(page.getByTestId("research-history-sort")).toContainText("最早更新");
+    expect(await page.getByTestId("research-create").evaluate(node => node.getBoundingClientRect().height)).toBe(36);
+    expect(await page.getByTestId(`research-view-${session.sessionId}`).evaluate(node => node.getBoundingClientRect().height)).toBe(36);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: resolve(output, `research-list-${width}.png`), fullPage: true });
+    await page.getByTestId(`research-history-actions-${session.sessionId}`).click();
+    await page.getByTestId(`research-history-edit-${session.sessionId}`).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await expect(page.getByTestId("research-edit-name")).toHaveValue("研究操作一致化验收");
+    await page.screenshot({ path: resolve(output, `research-edit-${width}.png`), fullPage: true });
+    await page.getByRole("button", { name: "取消", exact: true }).click();
+    await page.getByTestId("research-create").click();
+    await expect(page).toHaveURL(/\/research\/new$/);
+    await expect(page.getByTestId("research-confirm-brief")).toBeDisabled();
+    await page.getByTestId("research-flow-back").click();
+    await expect(page).toHaveURL(/\/research$/);
+    await page.getByTestId(`research-view-${session.sessionId}`).click();
+    await expect(page).toHaveURL(new RegExp(`/research/${session.sessionId}/report$`));
+    await page.goto(`/research/${session.sessionId}/plan`);
+    await expect(page.getByTestId("guided-research-plan-panel")).toBeVisible();
+    await expect(page.getByTestId("research-plan-actions")).toHaveCount(1);
+    await expect(page.getByTestId("research-plan-actions").locator('[data-workflow-action-role="primary"]')).toHaveCount(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: resolve(output, `research-plan-${width}.png`), fullPage: true });
+  }
   const itvCreated = await page.request.post("/__fullstack_api/interviews/digital", { headers, data: { name: "访谈操作一致化验收", tags: [],
     scope: { kind: "none", projectId: null, researchProjectId: null }, requestId: randomUUID() } });
   expect(itvCreated.ok()).toBeTruthy(); const { interviewId } = await itvCreated.json();

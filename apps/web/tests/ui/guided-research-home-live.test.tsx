@@ -234,7 +234,7 @@ describe("F168 guided research home live data", () => {
     render(<GuidedResearchFlow step="home" onStepChange={vi.fn()} />);
 
     const page = screen.getByTestId("research-home-page");
-    expect(page).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
+    expect(page).toHaveClass("max-w-screen-2xl", "px-4", "py-4");
     expect(await screen.findByTestId("research-history-grs-style")).toHaveClass("rounded-card", "hover:border-input", "h-full");
   });
 
