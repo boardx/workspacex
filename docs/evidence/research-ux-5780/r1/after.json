@@ -1,0 +1,26 @@
+{
+  "alerts": [
+    "时间范围最多 200 字，请在“完善研究信息”中修改。"
+  ],
+  "continueDisabled": true,
+  "limits": [
+    {
+      "field": "topic",
+      "maxLength": 200
+    },
+    {
+      "field": "time",
+      "maxLength": 201
+    },
+    {
+      "field": "region",
+      "maxLength": 200
+    },
+    {
+      "field": "focus",
+      "maxLength": 40000
+    }
+  ],
+  "maxLength": 201,
+  "timeLength": 201
+}
