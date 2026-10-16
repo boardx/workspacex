@@ -13,9 +13,10 @@ import { getBuiltinSurveyTemplates } from "@/lib/survey/builtin-templates";
 import type { SurveyCreationDraft } from "@/lib/survey/creation-draft";
 const TAG_LIMITS = tagInputLimits(surveySource.SurveyTagsSchema);
 
-export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
+export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags,onReturnFocus}: {
   /** 已有标签词表，给输入框做建议。 */
   knownTags?:ReadonlyMap<string,number>;
+  onReturnFocus?:()=>void;
   open:boolean;onOpenChange:(open:boolean)=>void;onCreated:(id:string|null,mode:"blank"|"ai"|"template",draft?:SurveyCreationDraft)=>void;
 }) {
   const [name,setName]=React.useState("");
@@ -28,8 +29,9 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
   const [loading,setLoading]=React.useState(false);
   const [busy,setBusy]=React.useState(false);
   const lock=React.useRef(false);
+  const navigated=React.useRef(false);
   const builtins=React.useMemo(()=>getBuiltinSurveyTemplates("question"),[]);
-  React.useEffect(()=>{if(open){setName("");setTags([]);setPendingTag("");setMode("blank");setSelected("");setError("");}},[open]);
+  React.useEffect(()=>{if(open){navigated.current=false;setName("");setTags([]);setPendingTag("");setMode("blank");setSelected("");setError("");}},[open]);
   React.useEffect(()=>{
     if(!open || mode!=="template"){setLoading(false);return;}
     let active=true;setLoading(true);setError("");
@@ -51,16 +53,17 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags}: {
     });
     if(!parsed.success){setError("请填写有效的问卷名称和标签。");return;}
     if(mode==="ai"){
+      navigated.current=true;
       onOpenChange(false);
       onCreated(null,"ai",{name:parsed.data.title,tags:parsed.data.tags??[]});
       return;
     }
     lock.current=true;setBusy(true);
-    try{const created=await surveyRequest("/surveys",{method:"POST",body:parsed.data},SurveyRuntimeSchema);onOpenChange(false);onCreated(created.id,mode);}
+    try{const created=await surveyRequest("/surveys",{method:"POST",body:parsed.data},SurveyRuntimeSchema);navigated.current=true;onOpenChange(false);onCreated(created.id,mode);}
     catch(e){setError(e instanceof Error?e.message:"创建失败，请重试");}
     finally{lock.current=false;setBusy(false);}
   }
-  return <Dialog open={open} onOpenChange={value=>{if(!lock.current)onOpenChange(value);}}><DialogContent className="max-w-2xl">
+  return <Dialog open={open} onOpenChange={value=>{if(!lock.current)onOpenChange(value);}}><DialogContent className="max-w-2xl" onCloseAutoFocus={event=>{if(onReturnFocus&&!navigated.current){event.preventDefault();onReturnFocus();}}}>
     <DialogTitle>新建问卷</DialogTitle><DialogDescription className="sr-only">填写名称并选择创建方式。</DialogDescription>
     <form className="space-y-5" onSubmit={event=>void create(event)}>
       <label className="block space-y-2 text-13">问卷名称<Input aria-label="问卷名称" disabled={busy} value={name} onChange={event=>setName(event.target.value)} autoFocus /></label>

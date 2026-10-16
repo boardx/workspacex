@@ -3,13 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Plus, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { INTERVIEW_PERSONA_CATEGORIES } from "@/lib/interview-personas/persona-library";
 import { InterviewExpertLibrary } from "./interview-expert-library";
 import { ExpertAvatarEditor } from "./expert-avatar";
 import { ResourceCard } from "@/components/ui/resource-card";
-import { StudioHistoryFilters, StudioHistoryCard, StudioHistoryCreateCard, type HistorySort } from "@/components/studio/studio-history";
+import { StudioHistoryFilters, StudioHistoryCard, type HistorySort } from "@/components/studio/studio-history";
 import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api-client";
 import { matchesQuery, matchesTags } from "@/lib/tag-utils";
@@ -141,22 +141,22 @@ export function InterviewStudioHome({
 
   return (
     <main className="min-w-0 flex-1 overflow-y-auto bg-background">
-      <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-5 py-6 md:px-8 lg:px-10">
-        <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-4" />
-        <header className="flex flex-wrap items-center justify-between gap-5">
+      <div data-testid="itv-home-page" className="mx-auto w-full max-w-screen-2xl px-4 py-4 md:px-6 lg:px-8">
+        <ProjectBreadcrumb projectId={projectId} sub="itv" className="mb-3" />
+        <header className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
 
             <h1 className="text-30 font-semibold tracking-tight text-foreground">用户访谈</h1>
 
           </div>
-          <div className="flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-3">
             {history.kind === "ready" && <span className="text-sm text-muted-foreground">共 {history.items.length} 次访谈</span>}
-            <Button type="button" variant="primary" size="lg" data-testid="itv-create" onClick={createInterview}><Plus className="size-4" aria-hidden />新建访谈</Button>
+            <ActionButton type="button" variant="primary" data-testid="itv-create" onClick={createInterview}><Plus className="size-4" aria-hidden />新建访谈</ActionButton>
           </div>
         </header>
 
         <Tabs value={tab} onValueChange={value => setTab(value as Tab)}>
-        <TabsList aria-label="访谈内容" className="mt-6 flex gap-6">
+        <TabsList aria-label="访谈内容" className="mt-4 flex gap-4">
           <TabsTrigger value="history" data-testid="itv-tab-history">
             历史访谈
           </TabsTrigger>
@@ -166,14 +166,14 @@ export function InterviewStudioHome({
         </TabsList>
 
         {tab === "history" ? (
-          <TabsContent value="history" aria-label="历史访谈" className="pt-6">
+          <TabsContent value="history" aria-label="历史访谈" className="pt-4">
             <StudioHistoryFilters business="访谈" prefix="itv-history" tags={availableTags} selectedTags={selectedTags} onTagsChange={setSelectedTags} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
             {notice && <p role="status" data-testid="itv-history-saved" className="mt-4 text-12 text-success">{notice}</p>}
-            <div className="mt-6"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} filtered={Boolean(query.trim() || selectedTags.length > 0)} onClearFilters={() => { setQuery(""); setSelectedTags([]); }} onRetry={() => setRevision(value => value + 1)} /></div>
+            <div className="mt-4"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} filtered={Boolean(query.trim() || selectedTags.length > 0)} onClearFilters={() => { setQuery(""); setSelectedTags([]); }} onRetry={() => setRevision(value => value + 1)} /></div>
           </TabsContent>
         ) : (
-          <TabsContent value="experts" aria-label="专家列表" className="pt-6">
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+          <TabsContent value="experts" aria-label="专家列表" className="pt-4">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
               <FilterBar>
                 {[undefined, ...expertDomains].map((value) => (
                   <FilterButton key={value ?? "all"} active={domain === value} onClick={() => setDomain(value)}>
@@ -185,7 +185,7 @@ export function InterviewStudioHome({
                 {visibleExperts.length + (includeMockPreviews ? 0 : libraryCount)} 位专家
               </p>
             </div>
-            {!includeMockPreviews && <div className="mb-8"><InterviewExpertLibrary domain={domain} onCount={setLibraryCount}/></div>}
+            {!includeMockPreviews && <div className="mb-4"><InterviewExpertLibrary domain={domain} onCount={setLibraryCount}/></div>}
             <ExpertContent
               state={experts.kind === "ready" ? { kind: "ready", items: visibleExperts } : experts}
               preview={includeMockPreviews}
@@ -255,12 +255,11 @@ function FilterButton({ active, onClick, children }: {
 
 function HistoryContent({ state, onChanged, onCreate, filtered, onClearFilters, onRetry }: { state: LoadState<DigitalInterviewHistoryRow>; onChanged: () => void; onCreate: () => void; filtered: boolean; onClearFilters: () => void; onRetry: () => void }) {
   if (state.kind === "loading") return <StatePanel>正在加载历史访谈…</StatePanel>;
-  if (state.kind === "error") return <StatePanel testId="itv-history-error"><p>暂时无法加载访谈，请稍后重试。</p><Button variant="outline" className="mt-4" onClick={onRetry}>重新加载访谈</Button></StatePanel>;
-  if (state.items.length === 0) return <StatePanel testId="itv-history-empty"><p>{filtered ? "没有符合条件的访谈，请调整标签或搜索条件。" : "还没有访谈，创建第一次访谈，开始了解用户。"}</p>{filtered ? <Button variant="outline" className="mt-4" onClick={onClearFilters}>清除筛选</Button> : <Button variant="primary" className="mt-4" onClick={onCreate}><Plus className="size-4" aria-hidden />新建访谈</Button>}</StatePanel>;
+  if (state.kind === "error") return <StatePanel testId="itv-history-error"><p>暂时无法加载访谈，请稍后重试。</p><ActionButton variant="outline" className="mt-4" onClick={onRetry}>重新加载访谈</ActionButton></StatePanel>;
+  if (state.items.length === 0) return <StatePanel testId="itv-history-empty"><p>{filtered ? "没有符合条件的访谈，请调整标签或搜索条件。" : "还没有访谈，创建第一次访谈，开始了解用户。"}</p>{filtered ? <ActionButton variant="outline" className="mt-4" onClick={onClearFilters}>清除筛选</ActionButton> : <ActionButton variant="primary" className="mt-4" onClick={onCreate}><Plus className="size-4" aria-hidden />新建访谈</ActionButton>}</StatePanel>;
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {state.items.map((item) => <HistoryCard key={item.interviewId} item={item} onChanged={onChanged} />)}
-      <StudioHistoryCreateCard business="访谈" testId="itv-create-card" onCreate={onCreate} />
     </div>
   );
 }
@@ -271,7 +270,7 @@ function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; on
   return <StudioHistoryCard testId={`itv-history-card-${item.interviewId}`} title={item.name}
     status={<Badge tone="neutral">{STATUS_LABEL[item.status]}</Badge>} description={item.topic} tags={item.tags}
     metadata={<><span className="inline-flex items-center gap-1.5"><Users className="size-4" aria-hidden />{item.expertCount > 0 ? `${item.completedExpertCount} / ${item.expertCount} 位专家完成` : "尚未选择专家"}</span><time dateTime={item.updatedAt} className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" aria-hidden />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
-    primaryAction={<Button asChild variant="primary" size="sm"><Link href={action.href}>{action.label}<ArrowRight className="size-4" aria-hidden /></Link></Button>}
+    primaryAction={<ActionButton asChild variant="primary"><Link href={action.href}>{action.label}<ArrowRight className="size-4" aria-hidden /></Link></ActionButton>}
     management={<InterviewHistoryCardActions item={item} onChanged={onChanged} />}>
     {completion !== null && <div className="flex items-center gap-3">
       <div role="progressbar" aria-label="专家访谈完成进度" aria-valuemin={0} aria-valuemax={item.expertCount} aria-valuenow={Math.min(item.completedExpertCount, item.expertCount)} aria-valuetext={`${item.completedExpertCount} / ${item.expertCount} 位专家完成`} className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
@@ -299,10 +298,10 @@ function historyPrimaryAction(item: DigitalInterviewHistoryRow): { readonly labe
 
 function ExpertContent({ state, preview = false, filtered, onRetry, onClearFilters }: { state: LoadState<DigitalExpertCatalogRow>; preview?: boolean; filtered: boolean; onRetry: () => void; onClearFilters: () => void }) {
   if (state.kind === "loading") return <StatePanel>正在加载专家…</StatePanel>;
-  if (state.kind === "error") return <StatePanel testId="itv-experts-error"><p>暂时无法加载专家，请稍后重试。</p><Button variant="outline" className="mt-4" onClick={onRetry}>重新加载专家</Button></StatePanel>;
-  if (state.items.length === 0) return <StatePanel testId="itv-experts-empty"><p>{filtered ? "当前分类暂无可用专家。" : "暂无组织已发布专家；可使用上方内置或自建模拟画像。"}</p>{filtered && <Button variant="outline" className="mt-4" onClick={onClearFilters}>查看全部专家</Button>}</StatePanel>;
+  if (state.kind === "error") return <StatePanel testId="itv-experts-error"><p>暂时无法加载专家，请稍后重试。</p><ActionButton variant="outline" className="mt-4" onClick={onRetry}>重新加载专家</ActionButton></StatePanel>;
+  if (state.items.length === 0) return <StatePanel testId="itv-experts-empty"><p>{filtered ? "当前分类暂无可用专家。" : "暂无组织已发布专家；可使用上方内置或自建模拟画像。"}</p>{filtered && <ActionButton variant="outline" className="mt-4" onClick={onClearFilters}>查看全部专家</ActionButton>}</StatePanel>;
   return (
-    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
       {state.items.map((expert) => (
         <ResourceCard
           key={expert.expertId}
@@ -313,12 +312,12 @@ function ExpertContent({ state, preview = false, filtered, onRetry, onClearFilte
           badges={preview ? <Badge tone="primary">Mock 专家</Badge> : undefined}
           actions={
             <>
-              <Button asChild size="sm" variant="primary">
+              <ActionButton asChild variant="primary">
                 <Link data-testid={`itv-quick-${expert.expertId}`} href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`}>快捷访谈</Link>
-              </Button>
-              <Button asChild size="sm" variant="outline">
+              </ActionButton>
+              <ActionButton asChild variant="outline">
                 <Link href={`/itv/experts/${expert.expertId}`}>查看专家</Link>
-              </Button>
+              </ActionButton>
             </>
           }
         >
@@ -334,5 +333,5 @@ function ExpertContent({ state, preview = false, filtered, onRetry, onClearFilte
 }
 
 function StatePanel({ testId, children }: { testId?: string; children: React.ReactNode }) {
-  return <div data-testid={testId} className="flex min-h-64 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card p-6 text-center text-12 text-muted-foreground">{children}</div>;
+  return <div data-testid={testId} className="flex min-h-40 flex-col items-center justify-center rounded-lg border border-dashed border-border bg-card p-4 text-center text-12 text-muted-foreground">{children}</div>;
 }

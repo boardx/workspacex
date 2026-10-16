@@ -44,6 +44,17 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(onRename).toHaveBeenCalledTimes(2);
   });
 
+  it("returns keyboard focus to the title after canceling or saving a rename", async () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onRename={vi.fn().mockResolvedValue(undefined)}
+      onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    fireEvent.keyDown(screen.getByRole("button", { name: "修改录音名称" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "录音名称" }), { key: "Escape" });
+    expect(screen.getByRole("button", { name: "修改录音名称" })).toHaveFocus();
+    fireEvent.keyDown(screen.getByRole("button", { name: "修改录音名称" }), { key: "Enter" });
+    fireEvent.keyDown(screen.getByRole("textbox", { name: "录音名称" }), { key: "Enter" });
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "修改录音名称" })).toHaveFocus());
+  });
+
   it("allows canceling the initial connection", () => {
     const onStop = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} streamState="connecting"
@@ -62,6 +73,73 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(stop).toHaveAttribute("aria-busy", "true");
     fireEvent.click(stop);
     expect(onStop).not.toHaveBeenCalled();
+  });
+
+  it("focuses the named editor on entry and restores the edit action after saving", async () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      onStart={vi.fn()} onStop={vi.fn()} onSaveContent={vi.fn().mockResolvedValue(undefined)} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    expect(screen.getByRole("textbox", { name: "逐字稿正文" })).toHaveFocus();
+    fireEvent.change(screen.getByRole("textbox", { name: "逐字稿正文" }), { target: { value: "修改正文" } });
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-edit")).toHaveFocus());
+  });
+
+  it("keeps failed save drafts editable and retries without an unhandled rejection", async () => {
+    const onSaveContent = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue(undefined);
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      onStart={vi.fn()} onStop={vi.fn()} onSaveContent={onSaveContent} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.change(screen.getByRole("textbox", { name: "逐字稿正文" }), { target: { value: "失败后保留草稿" } });
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("正文保存失败"));
+    expect(screen.getByRole("textbox", { name: "逐字稿正文" })).toHaveValue("失败后保留草稿");
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-edit")).toHaveFocus());
+    expect(onSaveContent).toHaveBeenNthCalledWith(2, "失败后保留草稿");
+  });
+
+  it("clears the local save error when failed editing is canceled", async () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()}
+      onStart={vi.fn()} onStop={vi.fn()} onSaveContent={vi.fn().mockRejectedValue(new Error("offline"))} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    await vi.waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("正文保存失败"));
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rec-live-edit")).toHaveFocus();
+  });
+
+  it("restores editor focus after transcription makes the edit action usable again", () => {
+    const props = { session: SESSION, onBack: vi.fn(), onStart: vi.fn(), onStop: vi.fn(), onSaveContent: vi.fn() };
+    const view = render(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="recording" />);
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    expect(screen.getByTestId("rec-live-edit")).toBeDisabled();
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    expect(screen.getByTestId("rec-live-edit")).toHaveFocus();
+  });
+
+  it("does not restore delayed edit focus after the user focuses another control", () => {
+    const props = { session: SESSION, onBack: vi.fn(), onStart: vi.fn(), onStop: vi.fn(), onSaveContent: vi.fn() };
+    const view = render(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="recording" />);
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    screen.getByTestId("rec-live-toggle").focus();
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    expect(screen.getByTestId("rec-live-toggle")).toHaveFocus();
+  });
+
+  it("discards delayed edit focus when the recording session changes", () => {
+    const props = { session: SESSION, onBack: vi.fn(), onStart: vi.fn(), onStop: vi.fn(), onSaveContent: vi.fn() };
+    const view = render(<RealtimeTranscriptionWorkspace {...props} streamState="idle" />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} streamState="recording" />);
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    view.rerender(<RealtimeTranscriptionWorkspace {...props} session={{ ...SESSION, sessionId: "another-session" }} streamState="idle" />);
+    expect(screen.getByTestId("rec-live-edit")).not.toHaveFocus();
   });
 
   it("keeps save pending and prevents duplicate submission through shared actions", async () => {

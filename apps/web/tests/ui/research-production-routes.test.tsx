@@ -194,3 +194,15 @@ it("retains invalid restored optional input and blocks submission until correcte
   fireEvent.click(screen.getByTestId("research-confirm-brief"));
   expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ timeRange: "近三年", goal: "核对输入边界" }));
 });
+
+it("keeps one primary intake action while retaining all optional research fields", () => {
+  render(<ResearchNewRoute />);
+  const goal = screen.getByRole("textbox", { name: "研究目标" });
+  expect(goal.getAttribute("placeholder")).not.toContain("•");
+  for (const name of ["研究主题", "时间范围", "地域范围", "重点关注"]) {
+    expect(screen.getByLabelText(name)).toBeInTheDocument();
+  }
+  expect(screen.queryByRole("heading", { name: "小提示" })).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-confirm-brief")).toHaveAttribute("data-workflow-action-role", "primary");
+  expect(screen.getByRole("button", { name: "上传文件" })).toHaveAttribute("data-workflow-action-role", "secondary");
+});
