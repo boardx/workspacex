@@ -1,0 +1,34 @@
+{
+  "source": "45d5a474f7c0eb46b29f2207b3e5f6f83d8bc446",
+  "independentReview": "SOURCE ACCEPT 45d5a474f7c0eb46b29f2207b3e5f6f83d8bc446",
+  "reviewThread": "PRRT_kwDOO5_Nyc6tMgIs",
+  "red": {
+    "exit": 1,
+    "failed": 1,
+    "passed": 8,
+    "failure": "browser receipt refused after deadline then150ms real checkout delay"
+  },
+  "green": {
+    "exit": 0,
+    "passed": 9
+  },
+  "apiTypecheckExit": 0,
+  "apiLintExit": 0,
+  "credentialScanExit": 0,
+  "productionChanged": false,
+  "deadlineBoundariesMs": [
+    -1,
+    100
+  ],
+  "postgresSleepMs": 150,
+  "connectionSetupInjectionMs": 150,
+  "sqlAndClaimIntercepted": false,
+  "osClockChanged": false,
+  "realTimersPreserved": true,
+  "ownedComposeProjectsAbsent": [
+    "wsx-0dff87003ec85c53641e",
+    "wsx-e287a48863cb3fde08cb"
+  ],
+  "historicalF07FormalSource": "c2c33c8ea1414024489b1e0a16609dec7fdf55a4",
+  "historicalF07FormalAppliesToCurrentSource": false
+}
