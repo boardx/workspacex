@@ -106,7 +106,7 @@ async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, 
  * admits that scope. It does not certify answers to every question, completeness,
  * or absence of contradictory omitted material. Report evidence/quality gates
  * remain independent; adaptive scheduling must never write question coverage. */
-export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal; negativeCache?: NegativeSourceScreenCache } = {}): Promise<Source[]> {
+export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal; negativeCache?: NegativeSourceScreenCache; invalidOutput?: "discard-batch" } = {}): Promise<Source[]> {
   options.signal?.throwIfAborted();
   // Legacy warnings also carried the failed-request cache. Migrate before any
   // success clears their active scope, without adding a public contract field.
@@ -148,6 +148,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
   const batches: Chunk[][] = options.adaptive ? [] : sourceScreenBatches(chunks);
   let hadRepair = false;
   let hadRejection = false;
+  let hadDiscardedOutput = false;
   const evaluate = async (batch: Chunk[], checkBatch: () => void) => {
     const check = () => { options.signal?.throwIfAborted(); checkBatch(); };
     const parse = (value: unknown) => {
@@ -224,7 +225,15 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
       } catch (error) {
         if (error instanceof ModelCallError && error.contentRejection === "content-policy") return rejectBatch();
         // Provider/persistence failures must never be retried as malformed output.
-        if (!(error instanceof InvalidRelevanceOutput) || attempt === 1) throw error;
+        if (!(error instanceof InvalidRelevanceOutput)) throw error;
+        if (attempt === 1) {
+          check();
+          if (options.invalidOutput !== "discard-batch") throw error;
+          // An invalid assessment admits no evidence. Keep independent validated
+          // batches moving; this is neither a negative verdict nor a refusal.
+          hadDiscardedOutput = true;
+          return [];
+        }
         check();
         hadRepair = true;
         repairIssues = error.issues;
@@ -258,7 +267,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
     }
   }
   options.signal?.throwIfAborted();
-  if (options.negativeCache && !hadRepair && !hadRejection) {
+  if (options.negativeCache && !hadRepair && !hadRejection && !hadDiscardedOutput) {
     const scanned = new Set(batches.flat().map(chunk => chunk.chunkId));
     for (const source of candidates) {
       const sourceChunks = chunks.filter(chunk => chunk.sourceId === source.id), key = keys.get(source.id);

@@ -447,7 +447,7 @@ export class GuidedRuntimeService {
   }
   private async reviewSources(state: ResearchRuntime, persist: RuntimePersistence, budget?: SearchBudget) {
     const sources = await screenResearchSources(state, state.sources,
-      this.sourceScreenComplete(state, persist, budget));
+      this.sourceScreenComplete(state, persist, budget), { invalidOutput: "discard-batch" });
     const affected = new Set(state.sources.flatMap((source) => {
       const retained = sources.find((item) => item.id === source.id);
       return sourceTaskIds(source).filter((taskId) => !retained || !sourceTaskIds(retained).includes(taskId));

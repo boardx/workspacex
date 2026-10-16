@@ -94,3 +94,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - #5546 最终验收：独立普通/缺口审核共享明确 supported_answer / explicit_evidence_gap / omitted_answer wire 含义，成功响应先严格 schema 后映射 canonical；格式修复前同源映射已有负 verdict，防止改写成 gap 假绿。完整段落注册表让 reviewer 检查正文而非只查引文。上一版正式报告须跨失败/续写保留，现有 history reader 必须实际挂在 report 页（包含生成中），previous-锚点/导出动作与当前文档隔离。真实 v10 正常从头生成4章32题，38调用，7坏引用弃用，刷新保持当前/上一版hash；初次v2不可变响应经最终guard离线复核，不能宣称v2运行了后来wire协议（出处：issue #5546、docs/evidence/research-organizing-5546/README.md）。
 
 - #5639：正式保存与检索覆盖必须分离。质量通过且逐题解释证据局限的 reportPartial 报告自动正式交付；保存完成判断依据 formal report、completed 与 validation completed，不由历史来源读取失败、排除批次或终态检索局限反转。真实质量草稿、未保存与执行错误继续阻断完成。实际新会话四章32题本地首次/重新生成通过，重新生成含精确响应复用，不能冒充两个全新模型运行或线上部署验收（出处：docs/evidence/research-formal-completion-5639/README.md）。
+
+- 2026-10-16：旧来源重新评估的某批结果两次严格校验失败，只排除该批，独立健康批继续；不能把格式/语义无效评估写入确定无关缓存或供应商拒绝记录。新候选保留 task 级失败边界，资料全被排除仍不可伪造完成。controller+真实runtime的受控 NDJSON retry/重新生成反证与恢复见 docs/evidence/research-relevance-isolation-5800/README.md（#5800），不代表该线上会话已恢复。

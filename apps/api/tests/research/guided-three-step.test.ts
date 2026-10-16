@@ -470,3 +470,37 @@ describe("generated brief subject authority", () => {
     expect(f.model.complete).toHaveBeenCalledTimes(3); expect(f.search).not.toHaveBeenCalled();
   });
 });
+
+it.each(["retry", "generate_report"])("streams a completed report after discarding an invalid old source on %s", async action => {
+  const { GuidedResearchController } = await import("../../src/interface/controllers/guided-research.controller");
+  const f = fixture(); await f.run("prepare_plan");
+  const published = await f.run("generate_report", "outline");
+  expect(published.completed).toBe(true);
+  const healthy = published.sources[0]!;
+  const invalidSource = { ...healthy, id: "invalid-old-assessment", url: "https://example.org/invalid-old-assessment" };
+  delete invalidSource.relevanceBasis;
+  const existing = f.latest();
+  f.set({ ...existing, sources: [...existing.sources, invalidSource], ...(action === "retry" ? {
+    completed: false, errorCode: "RESEARCH_SOURCE_RELEVANCE_INVALID", report: null, reportDraft: null, reportCheckpoint: null,
+    generatedNodes: existing.generatedNodes.filter(node => node !== "report"), reportTimeline: [],
+  } : {}) });
+  const complete = f.model.complete.getMockImplementation()!;
+  f.model.complete.mockImplementation(async input => {
+    const context = JSON.parse(input.user);
+    if (context.researchStage === "source_relevance" && context.chunks.some((chunk: { sourceId: string }) => chunk.sourceId === invalidSource.id)) return { text: "{}" };
+    expect(input.user).not.toContain(invalidSource.id);
+    return complete(input);
+  });
+  const controller = new GuidedResearchController({} as never, {} as never, {} as never, {} as never, {} as never, f.service);
+  vi.spyOn(controller as never, "current" as never).mockResolvedValue(f.session as never);
+  const frames: string[] = [];
+  const response = { setHeader: vi.fn(), flushHeaders: vi.fn(), on: vi.fn(), off: vi.fn(), end: vi.fn(), write: (frame: string) => { frames.push(frame); return true; }, writableLength: 0, destroyed: false };
+  await controller.streamRuntime(f.actor, f.session.sessionId, { requestId: `continue-${action}`, expectedVersion: f.latest().version, node: "report", action }, response as never, { headers: { accept: "application/x-ndjson" } } as never);
+  const events = frames.filter(frame => frame.trim()).map(frame => JSON.parse(frame));
+  expect(events.at(-1).type).toBe("completed");
+  expect(events.some(event => event.type === "failed")).toBe(false);
+  expect(f.latest()).toMatchObject({ completed: true, errorCode: null, currentNode: "report" });
+  expect(f.latest().report).not.toBeNull();
+  expect(f.latest().sources.every(source => source.id !== invalidSource.id)).toBe(true);
+  expect(f.latest().reportTimeline?.every(step => step.status === "completed")).toBe(true);
+});
