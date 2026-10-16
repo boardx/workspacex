@@ -126,7 +126,9 @@ describe("F07 actual PostgreSQL expiry and payment races", () => {
   it("never closes an order already claimed by a verified payment receipt", async () => {
     const id = await seed(), notice = f.notice(id);
     const verifier = new DeploymentWechatNoticeVerifier(f.app.get(DeploymentBillingConfig));
-    await f.app.get<BillingCreditingStore>(BILLING_CREDITING_STORE).accept(await verifier.verify(Buffer.from(notice.body),notice.headers));
+    // Match Node's HTTP headers; fetch normally performs this normalization.
+    const headers = Object.fromEntries(Object.entries(notice.headers).map(([key,value]) => [key.toLowerCase(),value]));
+    await f.app.get<BillingCreditingStore>(BILLING_CREDITING_STORE).accept(verifier.verify(notice.body,headers));
     expect((await read(id)).status).toBe("PROCESSING"); expect(await store.closeExpired()).toBe(0);
     expect((await f.post(notice.body,notice.headers)).status).toBe(200);
     expect(await read(id)).toEqual({ status: "SUCCESS", closed_at: null });
