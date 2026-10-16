@@ -47,7 +47,7 @@ export function GuidedResearchPlanEditor({ value, disabled, onSave, onDirtyChang
           onChange={(event) => setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, title: event.target.value } : entry))}
           onKeyDown={(event) => { if (event.key === "Enter") setEditing(null); }} />
           : <button type="button" aria-label={`编辑计划 ${index + 1}：${researchPlanTitle(item.title)}`} disabled={locked}
-            onClick={() => setEditing(item.id)} className="min-h-11 min-w-0 flex-1 rounded-lg border bg-card px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+            onClick={() => setEditing(item.id)} className="min-h-11 min-w-0 flex-1 break-words rounded-lg border bg-card px-4 py-3 text-left text-sm font-medium transition-colors hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
             {researchPlanTitle(item.title)}
           </button>}
         <Button variant="ghost" size="icon" aria-label={`删除计划 ${index + 1}`} disabled={locked || visible.length <= 1}

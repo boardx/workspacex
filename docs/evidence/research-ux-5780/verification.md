@@ -1,0 +1,11 @@
+# Shared research UX verification ownership
+
+The only shared focused spec is apps/web/e2e/research-ux-rounds.spec.ts, with the thin playwright.research-ux.config.ts reusing the standard fullstack fixture and resource admission/cleanup. R4 owns these files; other round PRs do not copy helpers.
+
+Default scope is R4, independently valid for the wrapping-only product head. Explicit --grep=R1/R2/R3 selects that round only when its product change is present. The full suite is selected only with WX_RESEARCH_UX_ALL=1 and requires all product fixes (input PR5792, feedback PR5793, recovery PR5794, and the wrapping PR). Do not attribute a combined receipt to an independent product head.
+
+WX_RESEARCH_UX_PRODUCTION=1 keeps the existing fresh next build/next start servers. Without it local round iteration uses Next dev, still with real login/API/tenant PG. Development receipts are labelled accordingly. A final production receipt must list the assembled Git SHA and constituent fixes; source editing is not permitted while the execution owns its resource slot.
+
+R1 checks empty/space input, canonical limits and normal keyboard boundary without submission. R2 delays then forwards one actual save, verifies active-control feedback, API/PG acknowledgement and reload. R3 injects controlled failures for explicit keep/retry and cancellation; it never claims upstream failure. R4 reads synthetic long saved content at375/768/1280, keyboard navigation/file focus and report-footer assistant intersections without generation. No production tasks, microphone or paid model calls are used.
+
+Use the existing wrapper from the repository root: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.research-ux.config.ts. Evidence output environment variables must point to an owned absolute directory. Historical round commands in checkpoint evidence correspond to their original checkpoint configurations; the current filter/mode rules are defined here and in the shared config.
