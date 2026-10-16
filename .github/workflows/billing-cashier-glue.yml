@@ -48,7 +48,7 @@ jobs:
         run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts
       - name: Preserve integration evidence, including failures
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: billing-cashier-glue-${{ github.run_id }}
           path: phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue/
