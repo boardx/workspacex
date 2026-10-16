@@ -1,0 +1,29 @@
+[stack-admission] load1=26.16 cores=10 perCore=2.62 running=0/2
+[stack-admission] 排队中：机器每核负载 2.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 5s
+[test-isolation] id=run-mvalqjn5-8fe85158-3ea919e7689d db=wsx_3ea919e7689d1e1bf4ca compose=wsx-3ea919e7689d1e1bf4ca pg=20607 redis=21607 api=24607 web=25607 sandbox=26607 model=27607 deep-agent=28607 asr=29607 vision=30607 loopback-sandbox=31607 mail=19607
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_3ea919e7689d1e1bf4ca capacity=100 current=6 required=32
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-77bebea8-e008-4af4-98f8-ea864f01b771","orderNo":"bg20261016064412duoFKD"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-ece6666c-d316-4b66-bc24-ecb3539d911c","orderNo":"bg2026101606441228pOyI","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-593e927c-c585-496f-96bd-266b74c1a8e5","orderNo":"bg20261016064412MRSYBM","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-b4fe3c9c-bee4-4cc6-acbe-e517920c6699","orderNo":"bg20261016064412BCInKM","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-e205c3de-be9d-4315-9a3e-97252ad1dbb8","orderNo":"bg20261016064412KqZKUx","reason":"wallet_limit"}
+ ✓ tests/billing/wechat-notify-outcomes.test.ts (6 tests) 8502ms
+   ✓ F05 terminal timestamps and durable paid-funds recovery > durably records CLOSED paid funds exceeding balance capacity without partial credit 372ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  14:44:00
+   Duration  12.74s (transform 611ms, setup 4ms, collect 1.11s, tests 8.50s, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_3ea919e7689d1e1bf4ca peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-outcomes.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：5s
+  命令执行：13s
+  清理：1s
+  总计：19s

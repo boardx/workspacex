@@ -75,6 +75,7 @@ describe("F05 durable idempotent PostgreSQL crediting", () => {
       await c.query("CREATE TRIGGER f05_ledger_fault BEFORE INSERT ON credit_transactions FOR EACH ROW EXECUTE FUNCTION f05_ledger_fault()");
     });
     expect((await f.post(n.body, n.headers)).status).toBe(503); expect((await wallet()).balance).toBe(0); expect(await transactions(order.orderNo)).toHaveLength(0);
+    expect((await (await f.request(`/billing/orders/${order.orderNo}`)).json()).order).toMatchObject({ status: "PROCESSING", paidAt: null, notifyAt: null });
     const pending = await asOwner(c => c.query("SELECT state FROM billing_payment_receipts WHERE provider_event_id=$1", [n.eventId])); expect(pending.rows[0]?.state).toBe("pending");
     await asOwner(async c => { await c.query("DROP TRIGGER f05_ledger_fault ON credit_transactions"); await c.query("DROP FUNCTION f05_ledger_fault()"); });
     await f.close({ preserveData: true }); f = await notifyFixture(true);
