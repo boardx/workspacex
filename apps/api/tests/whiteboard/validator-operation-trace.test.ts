@@ -66,18 +66,28 @@ it('joins concurrent HTTP validator calls to the real middleware/filter trace de
 });
 function originOf(app: NestExpressApplication) { return `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`; }
 
-it.each([false, true])('joins queued WebSocket failures without changing frames when the enclosing log sink throws=%s', async sinkThrows => {
+it.each([
+  { stage: 'append', sinkThrows: false }, { stage: 'append', sinkThrows: true },
+  { stage: 'load', sinkThrows: false }, { stage: 'load', sinkThrows: true },
+])('joins queued WebSocket $stage failures without changing frames, sinkThrows=$sinkThrows', async ({ stage, sinkThrows }) => {
   const logs = vi.spyOn(ConsoleLogger.prototype, 'error').mockImplementation(name => {
     if (sinkThrows && name === 'whiteboard_operation_failed') throw new Error('PRIVATE_LOG_SINK');
   });
   const doc = createWhiteboardDocument(); cleanup.push(async () => doc.destroy());
   const state = { epoch: 1, seq: 0, role: 'owner', archived: false };
-  const store = { head: async () => state, load: async () => { await pause(); return { ...state, update: Y.encodeStateAsUpdate(doc) }; }, append: failTwice } as unknown as WhiteboardCollaborationStore;
+  let releaseHellos!: () => void, receivedHellos = 0;
+  const bothHellos = new Promise<void>(resolve => { releaseHellos = resolve; });
+  let loading = 0, maximumLoading = 0;
+  const store = { head: async () => state, load: async () => {
+    loading++; maximumLoading = Math.max(maximumLoading, loading);
+    try { await bothHellos; await pause(); if (stage === 'load') return await failTwice(); return { ...state, update: Y.encodeStateAsUpdate(doc) }; }
+    finally { loading--; }
+  }, append: failTwice } as unknown as WhiteboardCollaborationStore;
   const boardId = randomUUID();
   const boards = { get: async () => ({ id: boardId, role: 'owner', archived: false }) } as unknown as WhiteboardRepository;
   const server = createServer();
   cleanup.push(() => new Promise<void>(resolve => server.close(() => resolve())));
-  attachWhiteboardGateway(server, { store, boards, principals: { resolve: async () => principal }, logger: new ConsoleLogger() });
+  const gateway = attachWhiteboardGateway(server, { store, boards, principals: { resolve: async () => principal }, logger: new ConsoleLogger() });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const sockets = [0, 1].map(() => new WebSocket(`ws://127.0.0.1:${(server.address() as AddressInfo).port}/whiteboards/${boardId}/sync`, [WHITEBOARD_SYNC.protocol, `${WHITEBOARD_SYNC.bearerSubprotocolPrefix}isolated-token`]));
   cleanup.push(async () => { for (const ws of sockets) ws.terminate(); });
@@ -86,11 +96,18 @@ it.each([false, true])('joins queued WebSocket failures without changing frames 
     ws.on('message', bytes => messages[index]!.push(WhiteboardServerMessage.parse(JSON.parse(bytes.toString()))));
     ws.once('open', resolve); ws.once('error', reject);
   })));
+  expect(gateway.clients.size).toBe(2);
+  // Observe actual delivery without intercepting it. First load stays occupied
+  // until both hello messages have entered the real transport queue.
+  for (const peer of gateway.clients) peer.on('message', bytes => {
+    if (JSON.parse(bytes.toString()).type === 'hello' && ++receivedHellos === 2) releaseHellos();
+  });
   for (const ws of sockets) {
     ws.send(JSON.stringify({ type: 'hello', stateVector: Buffer.from(Y.encodeStateVector(doc)).toString('base64') }));
     ws.send(JSON.stringify({ type: 'update', epoch: 1, updateId: randomUUID(), gestureId: randomUUID(), update: Buffer.from([0, 0]).toString('base64') }));
   }
   await expect.poll(() => messages.map(items => items.some(item => item.type === 'error'))).toEqual([true, true]);
+  expect(maximumLoading).toBe(1); // Same tenant: the second hello actually waits in admission.
   const enclosing = logs.mock.calls.filter(([name]) => name === 'whiteboard_operation_failed');
   expect(enclosing).toHaveLength(2);
   expect(new Set(enclosing.map(([, fields]) => fields.traceId)).size).toBe(2);
@@ -100,7 +117,7 @@ it.each([false, true])('joins queued WebSocket failures without changing frames 
     expect(new Set(diagnostic.map(([, detail]) => (detail.err as { validatorCallId: string }).validatorCallId)).size).toBe(2);
   }
   for (const items of messages) {
-    expect(items[0]?.type).toBe('sync');
+    expect(items[0]?.type).toBe(stage === 'load' ? 'error' : 'sync');
     expect(items.find(item => item.type === 'error')).toEqual({ type: 'error', code: 'VALIDATOR_UNAVAILABLE', recoverable: true });
   }
   expect(JSON.stringify(logs.mock.calls)).not.toMatch(/isolated-token|isolated-trace-user|isolated-trace-org|PRIVATE_LOG_SINK/);
