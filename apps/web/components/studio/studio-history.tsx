@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Plus, Search, ArrowDownWideNarrow } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
 import { Input } from "@/components/ui/input";
 import { TagFilterBar } from "@/components/ui/tag-filter-bar";
 import { searchPlaceholder } from "@/lib/tag-utils";
@@ -11,13 +12,13 @@ import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 export type HistorySort = "recent" | "oldest";
 
 export function StudioHistoryHeader({ business, title, count, createTestId, countTestId, onCreate }: {
-  business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: () => void;
+  business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: React.MouseEventHandler<HTMLButtonElement>;
 }) {
   return <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0 space-y-2">
       <div className="flex items-center gap-2"><h1 className="text-30 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
     </div>
-    <Button type="button" variant="primary" size="lg" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />新建{business}</Button>
+    <WorkflowActionButton type="button" variant="primary" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />新建{business}</WorkflowActionButton>
   </header>;
 }
 

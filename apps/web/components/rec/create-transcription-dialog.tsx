@@ -19,9 +19,10 @@ export interface NewTranscriptionDraft {
 }
 
 export function CreateTranscriptionDialog({
-  open, onOpenChange, onCreate, knownTags,
+  open, onOpenChange, onCreate, knownTags, openerRef,
 }: {
   open: boolean;
+  openerRef?: React.RefObject<HTMLElement>;
   onOpenChange: (open: boolean) => void;
   onCreate: (draft: NewTranscriptionDraft) => void | Promise<void>;
   /** 已有标签词表（`标签 → 用量`），给输入框做建议；不给就没有建议。 */
@@ -32,6 +33,9 @@ export function CreateTranscriptionDialog({
   const [tagDraft, setTagDraft] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [submitError, setSubmitError] = React.useState(false);
+  const opener = React.useRef<HTMLElement | null>(null);
+  const nameInput = React.useRef<HTMLInputElement | null>(null);
+  const created = React.useRef(false);
 
   function reset() {
     setName(DEFAULT_TRANSCRIPTION_NAME);
@@ -54,6 +58,7 @@ export function CreateTranscriptionDialog({
     setSubmitError(false);
     try {
       await onCreate({ name: nextName, tags: submittedTags });
+      created.current = true;
       changeOpen(false);
     } catch {
       setSubmitError(true);
@@ -68,6 +73,20 @@ export function CreateTranscriptionDialog({
         <Dialog.Overlay className="fixed inset-0 z-40 bg-background-foreground/35 backdrop-blur-sm animate-in fade-in" />
         <Dialog.Content
           data-testid="rec-create-dialog"
+          onOpenAutoFocus={(event) => {
+            event.preventDefault();
+            created.current = false;
+            opener.current = openerRef?.current ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+            nameInput.current?.focus();
+          }}
+          onCloseAutoFocus={(event) => {
+            // This controlled dialog has no Radix Trigger. Cancel restores the
+            // actual opener; successful creation leaves navigation focus alone.
+            event.preventDefault();
+            const target = opener.current;
+            if (!created.current && target?.isConnected && !target.matches(":disabled,[aria-disabled=true]") && !target.closest("[hidden],[inert]") && target.matches("button:not(:disabled),a[href],input:not(:disabled),[tabindex]:not([tabindex='-1'])")) target.focus();
+            opener.current = null;
+          }}
           className="fixed left-1/2 top-1/2 z-50 w-[calc(100%_-_2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <div className="flex items-start justify-between gap-4">
@@ -94,7 +113,7 @@ export function CreateTranscriptionDialog({
                 value={name}
                 maxLength={100}
                 placeholder="例如：欧洲市场进入讨论"
-                autoFocus
+                ref={nameInput}
                 onChange={(event) => setName(event.target.value)}
                 className="h-10"
               />

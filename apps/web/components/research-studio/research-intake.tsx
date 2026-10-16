@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { ResearchPrototypeTips } from "./research-prototype-tips";
+import { WorkflowActionButton, WorkflowActionBar } from "./research-workflow-actions";
 import { ResearchLoading } from "./guided-research-presentation";
 import { GuidedResearchStepLayout } from "./guided-research-step-layout";
 import type { GuidedResearchCreateDraft } from "./create-guided-research-dialog";
@@ -200,30 +200,29 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     >
       {submitting ? <ResearchLoading node="directions" /> : <div className="flex min-w-0 flex-col gap-4" data-density="compact-step">
       {sessionId && <p className="rounded-md border border-warning/30 bg-warning/5 p-3 text-12 text-warning-foreground">重新确认后，后续演示结果将重新生成。</p>}
-      <div className="grid items-stretch gap-4 lg:min-h-[calc(100dvh-17rem)] lg:grid-cols-[minmax(0,2.05fr)_minmax(19rem,1fr)]">
-        <Card className="flex rounded-xl"><CardContent className="flex w-full flex-col gap-3 p-5">
+      <div className="min-w-0">
+        <Card className="flex rounded-xl"><CardContent className="flex w-full flex-col gap-3 p-4 sm:p-5">
           <h2 className="text-xl font-bold">告诉 AI 你想研究什么</h2>
           <div className="flex min-h-56 flex-1 flex-col rounded-lg border border-border p-4">
-            <Textarea value={voicePreview ? (brief.goal ? `${brief.goal}\n\n${voicePreview}` : voicePreview) : brief.goal} readOnly={voiceBusy || importBusy} maxLength={Math.max(goalLimit, brief.goal.length)} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-48 flex-1 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder={"请描述你的研究需求，例如：\n\n• 研究目标：你希望解决什么问题？\n• 研究区域 / 对象：研究的行业、地区、人群或具体对象是？\n• 时间范围：关注的时间段是什么？\n• 重点关注：你最关心哪些方面？\n• 关键问题：你希望从研究中获得哪些核心结论或答案？\n\n你也可以直接粘贴相关文档内容。"} />
+            <Textarea value={voicePreview ? (brief.goal ? `${brief.goal}\n\n${voicePreview}` : voicePreview) : brief.goal} readOnly={voiceBusy || importBusy} maxLength={Math.max(goalLimit, brief.goal.length)} onChange={(event) => patch("goal", event.target.value)} data-testid="research-brief-goal" aria-label="研究目标" className="min-h-48 flex-1 resize-y border-0 p-0 text-sm leading-relaxed shadow-none focus-visible:ring-2" placeholder="描述研究目标、关注的问题，也可粘贴相关材料。" />
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <InterviewVoiceInput sessionToken={authSession?.sessionToken ?? ""} disabled={submitting || importBusy} onAppend={appendInput} onPreview={setVoicePreview} onBusyChange={setVoiceBusy} />
-              <Button variant="primary" className="h-9 px-4 text-sm" disabled={submitting || voiceBusy || importBusy} onClick={() => fileInput.current?.click()}><Upload className="mr-2 size-4" />{importBusy ? "正在导入…" : "上传文件"}</Button>
+              <WorkflowActionButton variant="outline" disabled={submitting || voiceBusy || importBusy} onClick={() => fileInput.current?.click()}><Upload className="mr-2 size-4" />{importBusy ? "正在导入…" : "上传文件"}</WorkflowActionButton>
               <input ref={fileInput} type="file" accept=".txt,.md,.markdown,.csv" aria-label="上传需求文件" className="sr-only" disabled={submitting || voiceBusy || importBusy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void importFile(file); }} />
               <span className="ml-auto text-xs text-muted-foreground">{brief.goal.length} / {goalLimit}</span>
             </div>
             {inputError && <p role="alert" className="mt-2 text-sm text-destructive">{inputError}</p>}
           </div>
-          <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">完善研究信息</summary><div className="mt-4 space-y-4">
+          <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">完善研究信息</summary><div className="mt-3 space-y-3">
           <Field label={optionalBriefLabels.topic}><Input value={brief.topic} {...fieldConstraints("topic")} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
           <div className="grid gap-4 md:grid-cols-2"><Field label={optionalBriefLabels.timeRange}><Input value={brief.timeRange} {...fieldConstraints("timeRange")} onChange={(event) => patch("timeRange", event.target.value)} data-testid="research-brief-time" aria-label="时间范围" /></Field><Field label={optionalBriefLabels.region}><Input value={brief.region} {...fieldConstraints("region")} onChange={(event) => patch("region", event.target.value)} data-testid="research-brief-region" aria-label="地域范围" /></Field></div>
           <Field label={optionalBriefLabels.focus}><Textarea value={brief.focus} {...fieldConstraints("focus")} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
           </div></details>
           {optionalErrors.map((key) => <p key={key} id={`research-brief-${key}-error`} role="alert" className="text-sm text-destructive">{optionalBriefLabels[key]}最多 {briefShape[key].maxLength} 字，请在“完善研究信息”中修改。</p>)}
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || voiceBusy || importBusy || !briefValid || brief.goal.length > goalLimit || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：研究计划"}<ArrowRight className="size-4" aria-hidden /></Button></div>
+          <WorkflowActionBar placement="footer"><WorkflowActionButton variant="primary" disabled={submitting || voiceBusy || importBusy || !briefValid || brief.goal.length > goalLimit || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：研究计划"}<ArrowRight className="size-4" aria-hidden /></WorkflowActionButton></WorkflowActionBar>
           {brief.goal.length > goalLimit && <p role="alert" className="text-sm text-destructive">需求超过 {goalLimit} 字，请精简后继续。导入内容已保留。</p>}
         </CardContent></Card>
-        <ResearchPrototypeTips />
       </div>
       </div>}
     </GuidedResearchStepLayout>

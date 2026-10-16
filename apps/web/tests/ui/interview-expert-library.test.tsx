@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { render,screen,fireEvent,cleanup } from '@testing-library/react';
+import { render,screen,fireEvent,cleanup,within,waitFor,act } from '@testing-library/react';
 import { afterEach,beforeEach,it,expect,vi } from 'vitest';
 import { InterviewExpertLibrary } from '@/components/itv/interview-expert-library';
 import { INTERVIEW_PERSONAS,personaAnchorId } from '@/lib/interview-personas/persona-library';
@@ -61,4 +61,22 @@ it('shows custom profile details without the retired boundary section and marks 
 it('offers the same full profile fields when creating a private expert',async()=>{
  render(<InterviewExpertLibrary/>);fireEvent.click(screen.getByRole('button',{name:'添加专家'}));
  for(const label of ['分类','所在地','年龄','职业','目标','兴趣','痛点','动机','影响因素','服务价值','典型建议','内向—外向','分析—创造','忙碌—时间充裕'])expect(screen.getByLabelText(label,{exact:true})).toBeInTheDocument();
+});
+
+it('returns focus to the add-expert action after closing the long profile form',async()=>{
+ render(<InterviewExpertLibrary/>);const trigger=screen.getByRole('button',{name:'添加专家'});trigger.focus();fireEvent.click(trigger);
+ const dialog=screen.getByRole('dialog',{name:'添加专家画像'});
+ await waitFor(()=>expect(within(dialog).getByLabelText('名称',{exact:true})).toHaveFocus());
+ fireEvent.click(within(dialog).getByRole('button',{name:'关闭'}));
+ await waitFor(()=>expect(trigger).toHaveFocus());
+});
+
+it('shows real pending state only during a save and preserves the editable profile after failure',async()=>{
+ let rejectSave!:(reason:Error)=>void;api.createCustomInterviewExpert.mockImplementationOnce(()=>new Promise((_,reject)=>{rejectSave=reject;}));
+ render(<InterviewExpertLibrary/>);fireEvent.click(screen.getByRole('button',{name:'添加专家'}));
+ for(const [label,key] of Object.entries({'名称':'name','专业角色':'role','专业领域':'domains','研究关注':'focus','观点风格':'style','能力简介':'bio','局限与材料边界':'limits'}))fireEvent.change(screen.getByLabelText(label,{exact:true}),{target:{value:profile.fields[key as keyof typeof profile.fields]}});
+ fireEvent.click(screen.getByRole('button',{name:'保存专家'}));
+ const pending=await screen.findByRole('button',{name:'保存中…'});expect(pending).toBeDisabled();expect(pending).toHaveAttribute('aria-busy','true');fireEvent.click(pending);expect(api.createCustomInterviewExpert).toHaveBeenCalledOnce();
+ await act(async()=>rejectSave(new Error('unavailable')));expect(await screen.findByRole('alert')).toHaveTextContent('输入已保留');
+ expect(screen.getByLabelText('名称',{exact:true})).toHaveValue(profile.fields.name);expect(screen.getByRole('button',{name:'保存专家'})).not.toHaveAttribute('aria-busy','true');
 });
