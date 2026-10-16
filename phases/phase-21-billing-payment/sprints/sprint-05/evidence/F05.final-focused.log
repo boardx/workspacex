@@ -1,0 +1,53 @@
+[stack-admission] load1=3.30 cores=10 perCore=0.33 running=0/2
+[test-isolation] id=run-mv9jpoq0-18a61347-809cb08a51ea db=wsx_809cb08a51ea4aef719e compose=wsx-809cb08a51ea4aef719e pg=20458 redis=21458 api=24458 web=25458 sandbox=26458 model=27458 deep-agent=28458 asr=29458 vision=30458 loopback-sandbox=31458 mail=19458
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_809cb08a51ea4aef719e capacity=100 current=6 required=32
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-d2cb7082-34f3-4d92-92dc-5f56f7da81d5","orderNo":"bg20261015125941xl9aZ3"}
+{"level":"info","msg":"database_connection_error","traceId":"database","code":"unknown"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-56ba61e3-7a56-4fd8-b6c8-1153a862bf99","detail":{"providerEventId":"f05-56ba61e3-7a56-4fd8-b6c8-1153a862bf99","code":"57P01"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-3b4200b6-4e02-4201-a483-61e8538b8055","detail":{"providerEventId":"f05-3b4200b6-4e02-4201-a483-61e8538b8055","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-50748404-1d44-4c1b-a240-c0725842325d","detail":{"providerEventId":"f05-50748404-1d44-4c1b-a240-c0725842325d","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-66aba1ba-d4c7-4fe5-b283-5a4ad2300a29","detail":{"providerEventId":"f05-66aba1ba-d4c7-4fe5-b283-5a4ad2300a29","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-bfb5e6f7-6445-478f-a8e6-6da58286c8e5","detail":{"providerEventId":"f05-bfb5e6f7-6445-478f-a8e6-6da58286c8e5","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-3139f7ce-af0f-413e-aacf-0331811a2c1b","detail":{"providerEventId":"f05-3139f7ce-af0f-413e-aacf-0331811a2c1b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-89965476-d63a-4f1f-9761-be352d1adf3b","detail":{"providerEventId":"f05-89965476-d63a-4f1f-9761-be352d1adf3b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-fda9a722-5fbd-4438-981d-6ab3e5469e21","detail":{"providerEventId":"f05-fda9a722-5fbd-4438-981d-6ab3e5469e21","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-55365778-4374-433e-8e12-9dd64530ccd6","detail":{"providerEventId":"f05-55365778-4374-433e-8e12-9dd64530ccd6","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-92642ec9-7109-4241-b204-192b602e8dfc","detail":{"providerEventId":"f05-92642ec9-7109-4241-b204-192b602e8dfc","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b61f1c07-8a92-4b29-9d15-8728cc9db892","detail":{"providerEventId":"f05-b61f1c07-8a92-4b29-9d15-8728cc9db892","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-3b4200b6-4e02-4201-a483-61e8538b8055","detail":{"providerEventId":"f05-3b4200b6-4e02-4201-a483-61e8538b8055","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-50748404-1d44-4c1b-a240-c0725842325d","detail":{"providerEventId":"f05-50748404-1d44-4c1b-a240-c0725842325d","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-66aba1ba-d4c7-4fe5-b283-5a4ad2300a29","detail":{"providerEventId":"f05-66aba1ba-d4c7-4fe5-b283-5a4ad2300a29","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-bfb5e6f7-6445-478f-a8e6-6da58286c8e5","detail":{"providerEventId":"f05-bfb5e6f7-6445-478f-a8e6-6da58286c8e5","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-3139f7ce-af0f-413e-aacf-0331811a2c1b","detail":{"providerEventId":"f05-3139f7ce-af0f-413e-aacf-0331811a2c1b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-89965476-d63a-4f1f-9761-be352d1adf3b","detail":{"providerEventId":"f05-89965476-d63a-4f1f-9761-be352d1adf3b","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-fda9a722-5fbd-4438-981d-6ab3e5469e21","detail":{"providerEventId":"f05-fda9a722-5fbd-4438-981d-6ab3e5469e21","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-55365778-4374-433e-8e12-9dd64530ccd6","detail":{"providerEventId":"f05-55365778-4374-433e-8e12-9dd64530ccd6","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-92642ec9-7109-4241-b204-192b602e8dfc","detail":{"providerEventId":"f05-92642ec9-7109-4241-b204-192b602e8dfc","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b61f1c07-8a92-4b29-9d15-8728cc9db892","detail":{"providerEventId":"f05-b61f1c07-8a92-4b29-9d15-8728cc9db892","code":"event_conflict"}}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-a125f357-591a-4540-8815-9803e5ef2434","orderNo":"bg20261015125948WlIoN2","reason":"wallet_limit"}
+ ✓ tests/billing/wechat-notify-crediting.test.ts (11 tests) 14924ms
+   ✓ F05 durable idempotent PostgreSQL crediting > recovers a connection crash before commit from a durable receipt after a new app/pool starts 5554ms
+   ✓ F05 durable idempotent PostgreSQL crediting > does not let ten conflicting receipts starve a later valid crash-recovery receipt 496ms
+ ✓ tests/billing/order-core.test.ts (25 tests) 18476ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-headers 8059ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-body 8105ms
+ ✓ tests/billing/wechat-notify-verify.test.ts (13 tests) 1815ms
+ ✓ tests/billing/order-ownership.test.ts (6 tests) 841ms
+ ✓ tests/billing/billing-global-boundary.test.ts (9 tests) 3ms
+
+ Test Files  5 passed (5)
+      Tests  64 passed (64)
+   Start at  20:59:29
+   Duration  41.66s (transform 655ms, setup 20ms, collect 2.39s, tests 36.06s, environment 1ms, prepare 168ms)
+
+[db-isolation] db=wsx_809cb08a51ea4aef719e peak_connections=7
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-verify.test.ts tests/billing/wechat-notify-crediting.test.ts tests/billing/order-core.test.ts tests/billing/order-ownership.test.ts tests/billing/billing-global-boundary.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：42s
+  清理：1s
+  总计：43s

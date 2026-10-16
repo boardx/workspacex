@@ -1,0 +1,314 @@
+[stack-admission] load1=5.03 cores=10 perCore=0.50 running=0/2
+[test-isolation] id=run-mv9i8003-c96118fa-cb5eb2808250 db=wsx_cb5eb280825049bdf11e compose=wsx-cb5eb280825049bdf11e pg=20928 redis=21928 api=24928 web=25928 sandbox=26928 model=27928 deep-agent=28928 asr=29928 vision=30928 loopback-sandbox=31928 mail=19928
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_cb5eb280825049bdf11e capacity=100 current=6 required=32
+ ❯ tests/billing/wechat-notify-crediting.test.ts (8 tests | 8 failed) 8290ms
+   × F05 durable idempotent PostgreSQL crediting > credits base and bonus separately using total price rather than coupon-discounted payer_total 53ms
+     → expected 404 to be 200 // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > credits once under duplicate and distinct concurrent provider events for one order 83ms
+     → expected false to be true // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > does not reuse an event id for a different receipt or order 67ms
+     → expected 404 to be 200 // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > honors genuine paid funds after local closure and retains the previous close audit 75ms
+     → expected 404 to be 200 // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > does not create a zero-credit bonus ledger entry 58ms
+     → expected 404 to be 200 // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > recovers a connection crash before commit from a durable receipt after a new app/pool starts 98ms
+     → expected 404 to be 503 // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > does not double credit when the committed success ACK is lost on the network 93ms
+     → expected +0 to be 1320 // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > records an explicit permanent wallet limit for manual recovery without partial credit 72ms
+     → expected 404 to be 200 // Object.is equality
+ ❯ tests/billing/wechat-notify-verify.test.ts (13 tests | 13 failed) 1144ms
+   × F05 raw WeChat callback cryptographic boundary > accepts authentic whitespace and UTF8 bytes without requiring a user session 53ms
+     → expected 404 to be 200 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects tampered before crediting, without poisoning the real event id 60ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects missing-signature before crediting, without poisoning the real event id 60ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects missing-nonce before crediting, without poisoning the real event id 58ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects stale before crediting, without poisoning the real event id 58ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects unknown-key before crediting, without poisoning the real event id 56ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects wrong-rsa before crediting, without poisoning the real event id 86ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > does not trust a valid outer signature when AES-GCM authentication fails 53ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"appid":"other-app"} 69ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"mchid":"9999999999"} 68ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"amount":{"total":9901,"currency":"CNY"}} 64ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"amount":{"total":9900,"currency":"USD"}} 66ms
+     → expected 404 to be 400 // Object.is equality
+   × F05 raw WeChat callback cryptographic boundary > rejects signed malformed JSON with only the protocol failure body 55ms
+     → expected 404 to be 400 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 21 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > credits base and bonus separately using total price rather than coupon-discounted payer_total
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:16:54
+     14|   it("credits base and bonus separately using total price rather than …
+     15|     const order = await f.createOrder(), n = f.notice(order.orderNo, {…
+     16|     expect((await f.post(n.body, n.headers)).status).toBe(200);
+       |                                                      ^
+     17|     expect(await wallet()).toMatchObject({ balance: 1320, totalPurchas…
+     18|     expect(await transactions(order.orderNo)).toEqual([{ type: "purcha…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/21]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > credits once under duplicate and distinct concurrent provider events for one order
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:25:150
+     23|     const order = await f.createOrder(), first = f.notice(order.orderN…
+     24|     const notices = Array.from({ length: 12 }, (_, i) => i % 2 ? first…
+     25|     const results = await Promise.all(notices.map(n => f.post(n.body, …
+       |                                                                                                                                                      ^
+     26|     await f.worker?.runOnce(); expect((await f.post(first.body, first.…
+     27|     expect(await wallet()).toMatchObject({ balance: 1320, totalPurchas…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/21]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > does not reuse an event id for a different receipt or order
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:31:54
+     29|   it("does not reuse an event id for a different receipt or order", as…
+     30|     const a = await f.createOrder(), b = await f.createOrder(), n = f.…
+     31|     expect((await f.post(n.body, n.headers)).status).toBe(200);
+       |                                                      ^
+     32|     const conflict = f.notice(b.orderNo, {}, { eventId: n.eventId });
+     33|     expect((await f.post(conflict.body, conflict.headers)).status).toB…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/21]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > honors genuine paid funds after local closure and retains the previous close audit
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:37:89
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/21]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > does not create a zero-credit bonus ledger entry
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:44:120
+     42|   it("does not create a zero-credit bonus ledger entry", async () => {
+     43|     await asOwner(c => c.query("UPDATE credit_packages SET bonus_credi…
+     44|     const order = await f.createOrder(), n = f.notice(order.orderNo); …
+       |                                                                                                                        ^
+     45|     expect(await transactions(order.orderNo)).toEqual([{ type: "purcha…
+     46|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/21]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > recovers a connection crash before commit from a durable receipt after a new app/pool starts
+AssertionError: expected 404 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 404
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:53:54
+     51|       await c.query("CREATE TRIGGER f05_ledger_fault BEFORE INSERT ON …
+     52|     });
+     53|     expect((await f.post(n.body, n.headers)).status).toBe(503); expect…
+       |                                                      ^
+     54|     const pending = await asOwner(c => c.query("SELECT state FROM bill…
+     55|     await asOwner(async c => { await c.query("DROP TRIGGER f05_ledger_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/21]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > does not double credit when the committed success ACK is lost on the network
+AssertionError: expected +0 to be 1320 // Object.is equality
+
+- Expected
++ Received
+
+- 1320
++ 0
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:63:97
+     61|   it("does not double credit when the committed success ACK is lost on…
+     62|     const order = await f.createOrder(), n = f.notice(order.orderNo); …
+     63|     await expect(f.post(n.body, n.headers)).rejects.toThrow(); expect(…
+       |                                                                                                 ^
+     64|     expect((await f.post(n.body, n.headers)).status).toBe(200); expect…
+     65|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/21]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > records an explicit permanent wallet limit for manual recovery without partial credit
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:71:120
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/21]⎯
+
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > accepts authentic whitespace and UTF8 bytes without requiring a user session
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ tests/billing/wechat-notify-verify.test.ts:16:79
+     14|   it("accepts authentic whitespace and UTF8 bytes without requiring a …
+     15|     const order = await f.createOrder(), n = f.notice(order.orderNo);
+     16|     const response = await f.post(n.body, n.headers); expect(response.…
+       |                                                                               ^
+     17|   });
+     18|   for (const defect of ["tampered", "missing-signature", "missing-nonc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/21]⎯
+
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects tampered before crediting, without poisoning the real event id
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects missing-signature before crediting, without poisoning the real event id
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects missing-nonce before crediting, without poisoning the real event id
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects stale before crediting, without poisoning the real event id
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects unknown-key before crediting, without poisoning the real event id
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects wrong-rsa before crediting, without poisoning the real event id
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ tests/billing/wechat-notify-verify.test.ts:28:77
+     26|       if (defect === "unknown-key") headers["Wechatpay-Serial"] = "PUB…
+     27|       if (defect === "wrong-rsa") Object.assign(headers, f.signed(body…
+     28|       const response = await f.post(body, headers); expect(response.st…
+       |                                                                             ^
+     29|       expect((await asOwner(c => c.query("SELECT count(*)::int AS n FR…
+     30|       expect((await f.post(n.body, n.headers)).status).toBe(200);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/21]⎯
+
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > does not trust a valid outer signature when AES-GCM authentication fails
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ tests/billing/wechat-notify-verify.test.ts:35:79
+     33|   it("does not trust a valid outer signature when AES-GCM authenticati…
+     34|     const order = await f.createOrder(), n = f.notice(order.orderNo, {…
+     35|     const response = await f.post(n.body, n.headers); expect(response.…
+       |                                                                               ^
+     36|   });
+     37|   for (const override of [{ appid: "other-app" }, { mchid: "9999999999…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/21]⎯
+
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"appid":"other-app"}
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"mchid":"9999999999"}
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"amount":{"total":9901,"currency":"CNY"}}
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects a signed receipt inconsistent with merchant or order: {"amount":{"total":9900,"currency":"USD"}}
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ tests/billing/wechat-notify-verify.test.ts:40:81
+     38|     it(`rejects a signed receipt inconsistent with merchant or order: …
+     39|       const order = await f.createOrder(), n = f.notice(order.orderNo,…
+     40|       const response = await f.post(n.body, n.headers); expect(respons…
+       |                                                                                 ^
+     41|     });
+     42|   }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/21]⎯
+
+ FAIL  tests/billing/wechat-notify-verify.test.ts > F05 raw WeChat callback cryptographic boundary > rejects signed malformed JSON with only the protocol failure body
+AssertionError: expected 404 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 404
+
+ ❯ tests/billing/wechat-notify-verify.test.ts:44:121
+     42|   }
+     43|   it("rejects signed malformed JSON with only the protocol failure bod…
+     44|     const body = Buffer.from("{not-json"); const response = await f.po…
+       |                                                                                                                         ^
+     45|   });
+     46| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/21]⎯
+
+ Test Files  2 failed (2)
+      Tests  21 failed (21)
+   Start at  20:17:44
+   Duration  14.49s (transform 621ms, setup 7ms, collect 1.45s, tests 9.43s, environment 0ms, prepare 58ms)
+
+[db-isolation] db=wsx_cb5eb280825049bdf11e peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wechat-notify-verify.test.ts tests/billing/wechat-notify-crediting.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-verify.test.ts tests/billing/wechat-notify-crediting.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：15s
+  清理：0s
+  总计：16s

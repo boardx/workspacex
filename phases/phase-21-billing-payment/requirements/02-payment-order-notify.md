@@ -25,13 +25,13 @@
 4. **幂等**：若订单已是「成功」→ 直接按成功应答（不重复入账）；若为「处理中」→ 应答失败让微信稍后重试。
 5. **原子抢占**：订单从「待支付」→「处理中」（条件更新，防并发双入账）。
 6. **入账**：钱包余额增加（基础额度、赠送额度分别记流水）；写支付时间、通知时间；订单置「成功」。
-7. 应答微信「成功」；若入账过程异常 → 订单置「失败」并留痕（见 E3）。
+7. ACK success only after a known committed crediting outcome. Determinate non-retryable business failures become FAILED; transient or unknown database outcomes remain recoverable (E3).
 
 ## R4 备选流程与异常流程
 
 - **E1 验签失败 / 解密失败**：拒绝应答 + 记录安全事件；**不得入账**。
 - **E2 一致性校验失败**（金额不符 / 订单不存在 / 商户号不符）：拒绝 + 告警级留痕（可能为篡改或配置错误）。
-- **E3 入账过程异常**（数据库错误等）：订单置「失败」，错误信息留痕；资金已在微信侧收取的情况由平台管理员按 04 手工发额度救济，并保留补单记录。
+- **E3 Crediting failures**: a determinate non-retryable business invariant (such as wallet integer capacity) becomes FAILED with durable deterministic recovery information for the admin remedy in requirement 04. Connection loss, contention, temporary database unavailability and unknown COMMIT outcomes return HTTP 503 and retain the verified durable receipt for restart-safe retries through the same atomic crediting function. Unknown outcomes must never become false FAILED or a successful ACK; retries must not duplicate credits.
 - **E4 重复回调 / 微信重试**：幂等保证同一订单至多入账一次；应答语义符合微信协议（成功才停止重试）。
 - **E5 已关闭订单收到成功回调**：**资金真实性优先**——校验通过则执行入账、订单转「成功」，同时留痕告警（用于发现"过期后仍完成支付"的异常流量）。
 - **E6 非生产环境调用 mock 接口**：直接推进订单到成功（走与回调相同的入账函数）；**生产环境硬拒绝（403）**且不得改变任何订单状态。

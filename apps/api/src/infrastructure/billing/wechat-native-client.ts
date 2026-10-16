@@ -1,9 +1,10 @@
 import type { LoggerPort } from "../../application/ports/logger.port";
-import { randomBytes, sign, verify } from "node:crypto";
+import { randomBytes, sign } from "node:crypto";
 import { BillingOrderError, type OrderDraft, type WechatNativePort } from "../../application/billing/billing-order-service";
-import type { DeploymentBillingConfig, WechatDeployment } from "./deployment-billing-config";
+import type { DeploymentBillingConfig } from "./deployment-billing-config";
+import { verifyWechatSignature } from "./wechat-signature";
 const path = "/v3/pay/transactions/native";
-async function boundedBody(response: Response, signal: AbortSignal): Promise<string> {
+async function boundedBody(response: Response, signal: AbortSignal): Promise<Buffer> {
   if (!response.body) throw new Error("empty_response");
   const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
   const abort = () => { void reader.cancel().catch(() => undefined); };
@@ -18,17 +19,7 @@ async function boundedBody(response: Response, signal: AbortSignal): Promise<str
       chunks.push(next.value);
     }
   } finally { signal.removeEventListener("abort", abort); reader.releaseLock(); }
-  return Buffer.concat(chunks).toString("utf8");
-}
-function verified(config: WechatDeployment, response: Response, raw: string) {
-  const timestamp = response.headers.get("Wechatpay-Timestamp") ?? "";
-  const nonce = response.headers.get("Wechatpay-Nonce") ?? "";
-  const serial = response.headers.get("Wechatpay-Serial") ?? "";
-  const signature = response.headers.get("Wechatpay-Signature") ?? "";
-  const matchesKey = config.platformKeyId.startsWith("PUB_KEY_ID_") ? serial === config.platformKeyId : serial.toUpperCase() === config.platformKeyId;
-  return matchesKey && /^\d{10}$/.test(timestamp) && Math.abs(Date.now() / 1000 - Number(timestamp)) <= 300
-    && nonce.length > 0 && nonce.length <= 256 && /^[A-Za-z0-9+/]+={0,2}$/.test(signature)
-    && verify("RSA-SHA256", Buffer.from(`${timestamp}\n${nonce}\n${raw}\n`), config.platformKey, Buffer.from(signature, "base64"));
+  return Buffer.concat(chunks);
 }
 function qr(value: unknown): value is string {
   if (typeof value !== "string" || value.length > 4096) return false;
@@ -41,10 +32,10 @@ export class WechatNativeClient implements WechatNativePort {
   async createNativeOrder(order: OrderDraft, traceId = "no-trace"): Promise<string> {
     const config = this.deployment.getWechat();
     if (!config) throw new BillingOrderError("payment_provider_not_configured");
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
     let stage = "request";
     let status: number | undefined;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
     try {
       const body = JSON.stringify({ appid: config.appId, mchid: config.mchId, description: `WorkspaceX ${order.baseCredits + order.bonusCredits} credits`, out_trade_no: order.orderNo,
         time_expire: order.expiredAt, notify_url: config.notifyUrl, amount: { total: order.amountFen, currency: order.currency } });
@@ -56,11 +47,11 @@ export class WechatNativeClient implements WechatNativePort {
       stage = "body";
       const raw = await boundedBody(response, controller.signal);
       stage = "signature";
-      if (!verified(config, response, raw)) throw new Error("untrusted_response");
+      if (!verifyWechatSignature(config, name => response.headers.get(name), raw)) throw new Error("untrusted_response");
       stage = "http";
       if (!response.ok) throw new Error("upstream_http_error");
       stage = "json";
-      const decoded: unknown = JSON.parse(raw);
+      const decoded: unknown = JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(raw));
       stage = "qr";
       if (!decoded || typeof decoded !== "object" || !("code_url" in decoded) || !qr(decoded.code_url)) throw new Error("missing_native_qr");
       return decoded.code_url;
@@ -69,6 +60,7 @@ export class WechatNativeClient implements WechatNativePort {
       const reason = timeout ? "request_timeout" : ({ signature: "response_signature_invalid", http: "upstream_http_error", json: "response_json_invalid", qr: "response_qr_invalid", body: "response_body_invalid" } as Record<string, string>)[stage] ?? "request_failed";
       this.logger.error("billing_native_failed", { traceId, err: { stage, reason, status, orderNo: order.orderNo } });
       throw new BillingOrderError("wechat_upstream_failed");
-    } finally { clearTimeout(timer); }
+    }
+    finally { clearTimeout(timer); }
   }
 }

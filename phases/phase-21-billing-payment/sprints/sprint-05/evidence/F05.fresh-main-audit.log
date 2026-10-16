@@ -1,0 +1,34 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+
+ ✓ .harness/scripts/lint-feature-transition.test.ts (19 tests) 32250ms
+   ✓ 真仓库端到端 > 合法迁移（真 appendFingerprint 产出的证据）⇒ 退 0 2719ms
+   ✓ 真仓库端到端 > 手改 passing（status 翻了、evidence 写人话、没有日志）⇒ 退 1 3103ms
+   ✓ 真仓库端到端 > 手改 passing 但借用一份合法旧日志（最终树三道门全绿）⇒ 退 1 4508ms
+   ✓ 真仓库端到端 > 复制一份别人的合法日志冒充自己的证据 ⇒ 退 1 2707ms
+   ✓ 真仓库端到端 > 改写日志正文 + 重算指纹（checkFingerprint 返回 ok）⇒ 仍然退 1 2046ms
+   ✓ 真仓库端到端 > 只改正文、不重算尾行 ⇒ evidence_tampered 1929ms
+   ✓ 真仓库端到端 > passing 退回 in_progress ⇒ status_irreversible 1544ms
+   ✓ 真仓库端到端 > 归档搬家（live → feature_list.archive.json）不算记录消失 ⇒ 退 0 1417ms
+   ✓ 真仓库端到端 > 不碰 feature 的改动 ⇒ 判定为空转，退 0 1108ms
+   ✓ 反向反证：门不是永远红的 > 真仓库 HEAD~1 → HEAD 必须退 0 3134ms
+   ✓ squash 的完整树出处证明 > 真 squash 保留完整源树，见证属于源历史 ⇒ 退 0 1275ms
+   ✓ squash 的完整树出处证明 > squash 后的后续 HEAD 仍能证明已集成 ⇒ 退 0 1531ms
+   ✓ squash 的完整树出处证明 > 日志相同但源代码树不同，不是完整 squash ⇒ 退 1 1290ms
+   ✓ squash 的完整树出处证明 > 等价源树不属于日志见证的后代 ⇒ 退 1 1438ms
+   ✓ squash 的完整树出处证明 > 无关见证的后代回退到共同 base，不能借用不含当前证据的旧等价树 ⇒ 退 1 1256ms
+   ✓ squash 的完整树出处证明 > squash 不能放行指纹被篡改的日志 ⇒ 退 1 1170ms
+ ✓ .harness/scripts/lib/pr-issue-finalization.test.ts (20 tests) 5687ms
+   ✓ pending current PR issue finalization > warns only the current closing issue without clearing other failures or allowing sync closure 481ms
+   ✓ pending current PR issue finalization > accepts exact head and exact two-parent synthetic merge 392ms
+   ✓ pending current PR issue finalization > fails closed for truncated 316ms
+   ✓ pending current PR issue finalization > rejects checkout beyond head, unrelated checkout and wrong merge parents 463ms
+   ✓ pending current PR issue finalization > only exempts the exact same-repo closing issue and unmerged head evidence 421ms
+   ✓ pending current PR issue finalization > does not accept evidence made only in the synthetic merge 362ms
+
+ Test Files  2 passed (2)
+      Tests  39 passed (39)
+   Start at  11:36:43
+   Duration  39.28s (transform 315ms, setup 0ms, collect 413ms, tests 37.94s, environment 0ms, prepare 126ms)
+

@@ -1,7 +1,7 @@
 ---
 bundle: billing-credits
 phase: "21"
-covers: [F01, F02, F04, F03, F-TBD-wechat-notify, F-TBD-order-close-task, F-TBD-mock-paid, F-TBD-admin-grant, F-TBD-org-billing-setting, F-TBD-cashier-ui, F-TBD-admin-ui, F-TBD-org-billing-ui]
+covers: [F01, F02, F04, F03, F05, F-TBD-order-close-task, F-TBD-mock-paid, F-TBD-admin-grant, F-TBD-org-billing-setting, F-TBD-cashier-ui, F-TBD-admin-ui, F-TBD-org-billing-ui]
 status: confirmed
 confirmed_by: "usamshen"
 confirmed_at: "2026-10-01T03:23:47Z"
@@ -22,7 +22,7 @@ confirmed_via: "人类对话确认（2026-10-01；agent 按人类指示代为回
 | F02 | 渠道配置读模型 + 旧骨架收敛（未配置不阻塞启动） |
 | F04 | 套餐列表 / 创建订单（无金额入参）/ 订单查询归属 |
 | F03 | 钱包与流水查询（账实相符的查询侧） |
-| F-TBD-wechat-notify | 回调验签解密 / 原子抢占 / 幂等入账（含 CLOSED 兜底） |
+| F05 | 回调验签解密 / 原子抢占 / 幂等入账（含 CLOSED 兜底） |
 | F-TBD-order-close-task | 15 分钟过期关单任务（CLOSED 唯一触发者） |
 | F-TBD-mock-paid | 非生产 mock 通道（复用同一入账内核） |
 | F-TBD-admin-grant | 管理端查钱包 + 人工发放（原因必填、留痕） |

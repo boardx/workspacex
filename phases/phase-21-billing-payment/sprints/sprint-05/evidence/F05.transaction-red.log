@@ -1,0 +1,68 @@
+[stack-admission] load1=7.70 cores=10 perCore=0.77 running=0/2
+[test-isolation] id=run-mv9jlqlv-9de26d4e-7050b421dd62 db=wsx_7050b421dd62f7fcbd8a compose=wsx-7050b421dd62f7fcbd8a pg=20185 redis=21185 api=24185 web=25185 sandbox=26185 model=27185 deep-agent=28185 asr=29185 vision=30185 loopback-sandbox=31185 mail=19185
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_7050b421dd62f7fcbd8a capacity=100 current=6 required=32
+ ❯ tests/billing/wechat-notify-crediting.test.ts (11 tests | 2 failed | 9 skipped) 7341ms
+   × F05 durable idempotent PostgreSQL crediting > rejects a merchant transaction reused on a different order 88ms
+     → expected 200 to be 400 // Object.is equality
+   × F05 durable idempotent PostgreSQL crediting > credits at most one order when one merchant transaction races across orders 87ms
+     → expected [ …(2) ] to have a length of 1 but got 2
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > rejects a merchant transaction reused on a different order
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:44:63
+     42|     expect((await f.post(first.body,first.headers)).status).toBe(200);
+     43|     const reused=f.notice(b.orderNo,{transaction_id:"f05-shared-mercha…
+     44|     expect((await f.post(reused.body,reused.headers)).status).toBe(400…
+       |                                                               ^
+     45|     expect(await transactions(b.orderNo)).toHaveLength(0);
+     46|     expect((await wallet()).balance).toBe(1320);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > credits at most one order when one merchant transaction races across orders
+AssertionError: expected [ …(2) ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/billing/wechat-notify-crediting.test.ts:53:49
+     51|     const responses=await Promise.all(notices.map(n=>f.post(n.body,n.h…
+     52|     expect(responses.every(r=>[200,400,503].includes(r.status))).toBe(…
+     53|     expect(responses.filter(r=>r.status===200)).toHaveLength(1);
+       |                                                 ^
+     54|     for(const n of notices) await f.post(n.body,n.headers);
+     55|     await f.worker?.runOnce();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 9 skipped (11)
+   Start at  20:56:25
+   Duration  11.75s (transform 591ms, setup 5ms, collect 1.05s, tests 7.34s, environment 0ms, prepare 28ms)
+
+[db-isolation] db=wsx_7050b421dd62f7fcbd8a peak_connections=4
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wechat-notify-crediting.test.ts -t merchant transaction
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-crediting.test.ts -t merchant transaction
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：12s
+  清理：0s
+  总计：13s

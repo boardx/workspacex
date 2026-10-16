@@ -1,0 +1,56 @@
+[stack-admission] load1=3.20 cores=10 perCore=0.32 running=0/2
+[test-isolation] id=run-mv9iwwsm-5fb52f3b-dfba89e466a6 db=wsx_dfba89e466a62f6f61fc compose=wsx-dfba89e466a62f6f61fc pg=20164 redis=21164 api=24164 web=25164 sandbox=26164 model=27164 deep-agent=28164 asr=29164 vision=30164 loopback-sandbox=31164 mail=19164
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_dfba89e466a62f6f61fc capacity=100 current=6 required=32
+ ❯ tests/billing/order-core.test.ts (25 tests | 1 failed) 196732ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-headers 8061ms
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-body 60077ms
+     → Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+{"level":"info","msg":"database_connection_error","traceId":"database","code":"unknown"}
+ ❯ tests/billing/wechat-notify-crediting.test.ts (8 tests | 1 failed) 6760ms
+   ✓ F05 durable idempotent PostgreSQL crediting > recovers a connection crash before commit from a durable receipt after a new app/pool starts 5628ms
+   × F05 durable idempotent PostgreSQL crediting > records an explicit permanent wallet limit for manual recovery without partial credit 111ms
+     → Cannot read properties of undefined (reading 'status')
+ ✓ tests/billing/wechat-notify-verify.test.ts (13 tests) 1409ms
+ ✓ tests/billing/order-ownership.test.ts (6 tests) 713ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/order-core.test.ts [ tests/billing/order-core.test.ts ]
+Error: Hook timed out in 120000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-body
+Error: Test timed out in 60000ms.
+If this is a long-running test, pass a timeout value as the last argument or configure it globally with "testTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/billing/wechat-notify-crediting.test.ts > F05 durable idempotent PostgreSQL crediting > records an explicit permanent wallet limit for manual recovery without partial credit
+TypeError: Cannot read properties of undefined (reading 'status')
+ ❯ tests/billing/wechat-notify-crediting.test.ts:74:87
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  2 failed | 2 passed (4)
+      Tests  2 failed | 50 passed (52)
+   Start at  20:37:07
+   Duration  211.23s (transform 604ms, setup 10ms, collect 2.01s, tests 205.61s, environment 0ms, prepare 101ms)
+
+[db-isolation] db=wsx_dfba89e466a62f6f61fc peak_connections=7
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/wechat-notify-verify.test.ts tests/billing/wechat-notify-crediting.test.ts tests/billing/order-core.test.ts tests/billing/order-ownership.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/wechat-notify-verify.test.ts tests/billing/wechat-notify-crediting.test.ts tests/billing/order-core.test.ts tests/billing/order-ownership.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：3m32s
+  清理：0s
+  总计：3m32s

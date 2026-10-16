@@ -19,10 +19,22 @@ import { PgBillingOrderRepository } from "./infrastructure/billing/pg-billing-or
 import { WechatNativeClient } from "./infrastructure/billing/wechat-native-client";
 import { BillingOrderController } from "./interface/controllers/billing-order.controller";
 
+import { BillingWechatNotifyController } from "./interface/controllers/billing-wechat-notify.controller";
+import { BillingWechatNotifyService } from "./application/billing/billing-wechat-notify-service";
+import { BILLING_CREDITING_STORE, BILLING_RECEIPT_WORKER, type BillingCreditingStore } from "./application/billing/billing-notify-ports";
+import { PgBillingCreditingStore } from "./infrastructure/billing/pg-billing-crediting-store";
+import { DeploymentWechatNoticeVerifier } from "./infrastructure/billing/wechat-notice-verifier";
+import { BillingReceiptWorker } from "./infrastructure/billing/billing-receipt-worker";
+
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [BillingConfigController, BillingWalletController, BillingOrderController],
+  controllers: [BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
+    { provide: BILLING_CREDITING_STORE, useFactory: (db: DatabasePort) => new PgBillingCreditingStore(db), inject: [DATABASE_PORT] },
+    { provide: BillingWechatNotifyService, useFactory: (config: DeploymentBillingConfig, store: BillingCreditingStore) =>
+      new BillingWechatNotifyService(new DeploymentWechatNoticeVerifier(config), store, new ConsoleLogger()), inject: [DeploymentBillingConfig, BILLING_CREDITING_STORE] },
+    { provide: BILLING_RECEIPT_WORKER, useFactory: (store: BillingCreditingStore, service: BillingWechatNotifyService) =>
+      new BillingReceiptWorker(store, service), inject: [BILLING_CREDITING_STORE, BillingWechatNotifyService] },
     { provide: LOGGER_PORT, useFactory: () => new ConsoleLogger() },
     { provide: DeploymentBillingConfig, useFactory: () => new DeploymentBillingConfig() },
     { provide: BILLING_CONFIG_PORT, useExisting: DeploymentBillingConfig },
