@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+
+ ✓ .harness/scripts/workflow-actions-node24.test.ts (11 tests) 76ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  09:00:31
+   Duration  394ms (transform 29ms, setup 0ms, collect 53ms, tests 76ms, environment 0ms, prepare 29ms)
+
