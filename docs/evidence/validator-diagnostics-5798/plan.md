@@ -11,8 +11,11 @@ flowchart TD
   S2[Define deterministic safe-diagnostic counterexamples]
   S3[Add fixed-code failure diagnostics]
   S4[Run unchanged real worker and PostgreSQL growth cases]
+  S6[Share exhaustive worker input protocol]
+  S7[Correlate HTTP and WebSocket operations]
+  S8[Restore trace across queued admission]
   S5[Independent review and separate PR]
-  G --> S1 --> S2 --> S3 --> S4 --> S5
+  G --> S1 --> S2 --> S3 --> S6 --> S7 --> S8 --> S4 --> S5
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
@@ -24,6 +27,12 @@ flowchart TD
   %% evidence S2: diagnostics-red.log -7fail1pass; non-error-red.log -2fail; diagnostics-green.log -12pass
   class S3 done
   class S4 tested
-  %% evidence S4: real-focused.log:6files46tests including unchanged real5k/10k/PG; APItype/lint/OSS0 atf60a9f1ae. Original fault not reproduced.
+  %% evidence S4: review-final-focused.log13files84tests; APItype/lint/OSS0 atcd85446e25a4c97fb010fdcb24151207ddde4f06; original fault not reproduced.
   class S5 doing
+  class S6 tested
+  %% evidence S6: review-shared-input-green.log and review-shared-input-workers.log: static contract and10 real worker tests passed.
+  class S7 tested
+  %% evidence S7: review-final-focused.log: actual concurrent HTTP and queued WS operation correlation, unchanged public errors.
+  class S8 tested
+  %% evidence S8: review-queued-trace-red.log two load failures then review-queued-trace-green.log15pass; review-final-focused.log84pass.
 ```

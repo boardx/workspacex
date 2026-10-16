@@ -6,18 +6,21 @@ import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
 import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { WhiteboardCollaborationError, type WhiteboardDeletionChange, type WhiteboardDeletionProof, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 import { ConsoleLogger } from '../logging/console-logger';
+import type { WorkerValidationInput } from './update-validator-input';
+import { currentOperationTraceId } from '../../application/ports/operation-trace';
 
-type ValidationMode = 'compensate' | 'restore-deletion' | 'objects' | 'object-ids' | 'update' | 'commands' | 'diff';
-type DiagnosticContext = { traceId: string; startedAt: number; inputBytes: number; mode?: ValidationMode };
+type ValidationMode = WorkerValidationInput['mode'];
+type DiagnosticContext = { traceId: string; validatorCallId: string; startedAt: number; inputBytes: number; mode?: ValidationMode };
 type UnavailableReason = 'queue_capacity' | 'queue_deadline' | 'invalid_deadline' | 'worker_deadline' | 'worker_error' | 'worker_exit';
 const diagnosticLogger = new ConsoleLogger();
 function diagnosticContext(inputBytes: number, mode?: ValidationMode): DiagnosticContext {
-  return { traceId: randomUUID(), startedAt: performance.now(), inputBytes, mode };
+  const validatorCallId = randomUUID();
+  return { traceId: currentOperationTraceId() ?? validatorCallId, validatorCallId, startedAt: performance.now(), inputBytes, mode };
 }
 function unavailable(context: DiagnosticContext, reason: UnavailableReason, extra: { queueElapsedMs?: number; workerElapsedMs?: number; errorCode?: string; exitCode?: number } = {}) {
   // Never include workerData, stdout/stderr, raw errors or document identifiers.
   try { diagnosticLogger.error('whiteboard_validator_unavailable', { traceId: context.traceId, err: {
-    reason, mode: context.mode, inputBytes: context.inputBytes,
+    reason, validatorCallId: context.validatorCallId, mode: context.mode, inputBytes: context.inputBytes,
     elapsedMs: Math.max(0, Math.round(performance.now() - context.startedAt)), ...extra,
   } }); } catch { /* Diagnostic sink failure must preserve the validator rejection. */ }
   return new WhiteboardCollaborationError('VALIDATOR_UNAVAILABLE');
@@ -88,7 +91,7 @@ export class WorkerWhiteboardUpdateValidator implements WhiteboardUpdateValidato
     if (vector) assertBytes(vector, WHITEBOARD_VALIDATOR_LIMITS.vectorBytes);
     return this.run({ mode: 'diff', snapshot, vector }) as Promise<Uint8Array>;
   }
-  private async run(payload: { snapshot: Uint8Array; mode: ValidationMode; [key: string]: unknown }): Promise<unknown> {
+  private async run(payload: WorkerValidationInput): Promise<unknown> {
     assertBytes(payload.snapshot, WHITEBOARD_UPDATE_LIMITS.documentBytes);
     if (!Number.isFinite(this.timeoutMs) || this.timeoutMs < 1) throw unavailable(diagnosticContext(payload.snapshot.byteLength, payload.mode), 'invalid_deadline');
     const inputBytes = Object.values(payload).reduce<number>((total, value) => total + (value instanceof Uint8Array ? value.byteLength : typeof value === 'object' && value !== undefined ? Buffer.byteLength(JSON.stringify(value)) : 0), 0);

@@ -1,0 +1,71 @@
+[stack-admission] load1=3.94 cores=10 perCore=0.39 running=0/2
+[test-isolation] id=run-mvatwbva-cb633b68-3bd92d921697 db=wsx_3bd92d9216971280c278 compose=wsx-3bd92d9216971280c278 pg=20722 redis=21722 api=24722 web=25722 sandbox=26722 model=27722 deep-agent=28722 asr=29722 vision=30722 loopback-sandbox=31722 mail=19722
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_3bd92d9216971280c278 capacity=100 current=6 required=32
+ ❯ tests/whiteboard/validator-operation-trace.test.ts (2 tests | 2 failed) 208ms
+   × joins concurrent HTTP validator calls to the real middleware/filter trace despite controller exception wrapping 149ms
+     → expected { …(2) } to deeply equal { error: 'service_unavailable', …(1) }
+   × joins queued WebSocket operation failures to their validator calls without changing public frames 59ms
+     → expected [] to have a length of 2 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/whiteboard/validator-operation-trace.test.ts > joins concurrent HTTP validator calls to the real middleware/filter trace despite controller exception wrapping
+AssertionError: expected { …(2) } to deeply equal { error: 'service_unavailable', …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "error": "service_unavailable",
++   "error": "dependency_unavailable",
+    "traceId": "0f066093-4818-4dae-aedf-063fdd0f5376",
+  }
+
+ ❯ tests/whiteboard/validator-operation-trace.test.ts:57:35
+     55|     expect(response.status).toBe(503);
+     56|     const traceId = response.headers.get('x-trace-id')!; traces.add(tr…
+     57|     expect(await response.json()).toEqual({ error: 'service_unavailabl…
+       |                                   ^
+     58|     expect(traceId).toMatch(/^[0-9a-f-]{36}$/);
+     59|     const diagnostic = logs.mock.calls.filter(([name, fields]) => name…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/whiteboard/validator-operation-trace.test.ts > joins queued WebSocket operation failures to their validator calls without changing public frames
+AssertionError: expected [] to have a length of 2 but got +0
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ tests/whiteboard/validator-operation-trace.test.ts:94:21
+     92|   await expect.poll(() => messages.map(items => items.some(item => ite…
+     93|   const enclosing = logs.mock.calls.filter(([name]) => name === 'white…
+     94|   expect(enclosing).toHaveLength(2);
+       |                     ^
+     95|   expect(new Set(enclosing.map(([, fields]) => fields.traceId)).size).…
+     96|   for (const [, fields] of enclosing) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  18:32:22
+   Duration  4.75s (transform 692ms, setup 4ms, collect 1.10s, tests 208ms, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_3bd92d9216971280c278 peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/whiteboard/validator-operation-trace.test.ts
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-operation-trace.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5s
+  清理：0s
+  总计：6s

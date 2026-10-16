@@ -8,6 +8,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { NextFunction, Request, Response } from "express";
+import { withOperationTrace } from "../../application/ports/operation-trace";
 
 export const TRACE_HEADER = "x-trace-id";
 
@@ -19,7 +20,7 @@ export function traceMiddleware(req: TracedRequest, res: Response, next: NextFun
   const id = randomUUID();
   req.traceId = id;
   res.setHeader(TRACE_HEADER, id);
-  next();
+  withOperationTrace(id, next);
 }
 
 export function traceIdOf(req: unknown): string {
