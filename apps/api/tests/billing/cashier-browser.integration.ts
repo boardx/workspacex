@@ -1,6 +1,7 @@
 /** Real Next → BillingModule/PG → signed loopback merchant and callback → real UI reads.
  * Only identity display is a browser fixture; no billing request or response is intercepted.
  */
+// @global-scope-fixture table:credit_wallets: only f04-order-user; notifyFixture.reset/close deletes owned wallet and ledger between cases and on teardown.
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { chromium, type Browser, type Page } from "playwright";
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
