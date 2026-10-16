@@ -75,6 +75,8 @@ export interface CommitOracle {
   readonly exists: (sha: string) => boolean;
   /** 该 sha 是否是 head 的祖先。仅在 exists 为 true 时被调用。 */
   readonly isAncestorOfHead: (sha: string) => boolean;
+  /** Full-tree equivalence proves a descendant of this witness was squash-integrated. */
+  readonly isSquashIntegrated?: (sha: string, logPath: string | null, evidenceBlob: string | null) => boolean;
 }
 
 export type TransitionRule =
@@ -92,7 +94,7 @@ export type TransitionRule =
   | "evidence_unattested"
   /** 尾行哈希与正文对不上 —— 落盘之后被改过 */
   | "evidence_tampered"
-  /** 尾行 commit 不指向本分支血统里的真实 commit */
+  /** 尾行 commit 无法经祖先关系或完整树等价证明已集成 */
   | "attestation_unverifiable"
   /** 已 passing 的日志正文被改写，而 status/evidence 指针一动没动 —— 重算指纹的签名 */
   | "evidence_rewritten"
@@ -226,11 +228,12 @@ function checkProvenance(
         `verify 当时不在 git 仓库里跑，这份日志没有可追溯的见证。`
     );
   }
-  if (oracle.exists(commit) && !oracle.isAncestorOfHead(commit)) {
+  if (oracle.exists(commit) && !oracle.isAncestorOfHead(commit) &&
+      !oracle.isSquashIntegrated?.(commit, h.logPath, h.evidenceBlob)) {
     return mk(
       "attestation_unverifiable",
       `\`evidence/${h.id}.verify.log\` 的尾行 commit ${commit.slice(0, 12)} 存在，但不在 head 的血统里——` +
-        `这份证据见证的是另一条历史，不是本次改动。`
+        `也没有完整树等价的 squash 集成证明。这份证据见证的是另一条历史，不是本次改动。`
     );
   }
   if (!oracle.exists(commit)) {

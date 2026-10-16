@@ -73,6 +73,11 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [query, setQuery] = React.useState("");
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
+  const createOpener = React.useRef<HTMLButtonElement | null>(null);
+  const openCreate: React.MouseEventHandler<HTMLButtonElement> = (event) => {
+    createOpener.current = event.currentTarget;
+    setCreateOpen(true);
+  };
   const [editItem, setEditItem] = React.useState<TranscriptionHistoryItem | null>(null);
   const [deleteItem, setDeleteItem] = React.useState<TranscriptionHistoryItem | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
@@ -148,7 +153,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
         setOperationError("PROJECT_LINK_FAILED");
       }
     }
-    setNotice(`已创建“${draft.name}”，正在进入实时转录`);
+    setNotice(`已创建“${draft.name}”`);
     setActiveSession({ ...summary, content: "" });
     await refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
@@ -410,7 +415,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     <section data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
       <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4">
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
-        <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={() => setCreateOpen(true)} />
+        <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={openCreate} />
         <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 
         {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
@@ -419,7 +424,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
           uiState={loadError ? "dep-failed" : loading && uiState === "default" ? "loading" : uiState}
           items={sort === "recent" ? items : [...items].reverse()}
           filtered={activeTag !== undefined || !!query.trim()}
-          onCreate={() => setCreateOpen(true)}
+          onCreate={openCreate}
           onOpen={(item) => void openTranscription(item)}
           onEdit={setEditItem}
           onStop={(item) => void stopLegacyTranscription(item)}
@@ -427,7 +432,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
         />
       </div>
 
-      <CreateTranscriptionDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={createTranscription} knownTags={new Map(tags.map((t) => [t, 0] as const))} />
+      <CreateTranscriptionDialog openerRef={createOpener} open={createOpen} onOpenChange={setCreateOpen} onCreate={createTranscription} knownTags={new Map(tags.map((t) => [t, 0] as const))} />
       {editItem && <EditTranscriptionDialog open initialName={editItem.title} initialTags={editItem.tags}
         onOpenChange={(open) => { if (!open) setEditItem(null); }}
         onSave={(draft) => saveMetadata(editItem, draft)} />}
@@ -465,7 +470,7 @@ function HistoryState({
   uiState: UiState;
   filtered: boolean;
   items: readonly TranscriptionHistoryItem[];
-  onCreate: () => void;
+  onCreate: React.MouseEventHandler<HTMLButtonElement>;
   onOpen: (item: TranscriptionHistoryItem) => void;
   onEdit: (item: TranscriptionHistoryItem) => void;
   onStop: (item: TranscriptionHistoryItem) => void;

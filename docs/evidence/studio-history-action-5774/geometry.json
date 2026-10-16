@@ -1,0 +1,32 @@
+[
+  {
+    "bodyHeight": 36,
+    "headerHeight": 36,
+    "headerWidth": 343,
+    "samePrimaryToken": true,
+    "scrollWidth": 375,
+    "width": 375,
+    "openFocus": "rec-create-name",
+    "closeFocus": "rec-create-open"
+  },
+  {
+    "bodyHeight": 36,
+    "headerHeight": 36,
+    "headerWidth": 112,
+    "samePrimaryToken": true,
+    "scrollWidth": 768,
+    "width": 768,
+    "openFocus": "rec-create-name",
+    "closeFocus": "rec-create-open"
+  },
+  {
+    "bodyHeight": 36,
+    "headerHeight": 36,
+    "headerWidth": 112,
+    "samePrimaryToken": true,
+    "scrollWidth": 1280,
+    "width": 1280,
+    "openFocus": "rec-create-name",
+    "closeFocus": "rec-create-open"
+  }
+]

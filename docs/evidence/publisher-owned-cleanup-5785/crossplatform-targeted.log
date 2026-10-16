@@ -1,0 +1,24 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on TERM
+publisher lifecycle observation {"scenario":"TERM","elapsedMs":93,"stages":[{"elapsedMs":4,"text":"[lifecycle:0] names=()\n[lifecycle:0] trap cleanup_owned_builds EXIT\n[lifecycle:0] trap 'exit 143' TERM\n[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":24,"text":"[lifecycle:0] wait 38755\n"},{"elapsedMs":36,"text":"[[lifecycle:0] exit 143\n[lifecycle:0] cleanup_owned_builds\n"},{"elapsedMs":36,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -TERM -- -38755\n"},{"elapsedMs":90,"text":"[lifecycle:0] alive=0\n[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -0 -- -38755\n[lifecycle:0] ((  alive == 1  ))\n[lifecycle:0] break\n[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -KILL -- -38755\n"},{"elapsedMs":90,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] wait 38755\n"},{"elapsedMs":90,"text":"[lifecycle:0] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-b3ERWt/work\n"},{"elapsedMs":93,"text":"[lifecycle:0] exit 143\n"}]}
+
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on INT
+publisher lifecycle observation {"scenario":"INT","elapsedMs":80,"stages":[{"elapsedMs":3,"text":"[lifecycle:0] trap cleanup_owned_builds EXIT\n"},{"elapsedMs":4,"text":"[lifecycle:0] trap 'exit 143' TERM\n"},{"elapsedMs":4,"text":"[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":22,"text":"[lifecycle:0] wait 38788\n"},{"elapsedMs":22,"text":"[[lifecycle:0] exit 130\n"},{"elapsedMs":22,"text":"[lifecycle:0] cleanup_owned_builds\n"},{"elapsedMs":22,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -TERM -- -38788\n"},{"elapsedMs":77,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] kill -KILL -- -38788\n"},{"elapsedMs":77,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] wait 38788\n"},{"elapsedMs":77,"text":"[lifecycle:0] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-C7PiXg/work\n"},{"elapsedMs":79,"text":"[lifecycle:0] exit 130\n"}]}
+
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on EXIT
+publisher lifecycle observation {"scenario":"EXIT","elapsedMs":78,"stages":[{"elapsedMs":4,"text":"[lifecycle:0] trap cleanup_owned_builds EXIT\n"},{"elapsedMs":4,"text":"[lifecycle:0] trap 'exit 143' TERM\n"},{"elapsedMs":4,"text":"[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":18,"text":"[lifecycle:0] exit 17\n"},{"elapsedMs":18,"text":"[lifecycle:0] cleanup_owned_builds\n"},{"elapsedMs":18,"text":"[lifecycle:0] kill -TERM -- -38821\n"},{"elapsedMs":74,"text":"[lifecycle:0] kill -KILL -- -38821\n"},{"elapsedMs":74,"text":"[lifecycle:0] for pid in '\"${pids[@]}\"'\n[lifecycle:0] wait 38821\n"},{"elapsedMs":74,"text":"[lifecycle:0] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-6tva2O/work\n"},{"elapsedMs":77,"text":"[lifecycle:0] exit 17\n"}]}
+
+stdout | .harness/scripts/vm/publish-cn-release.test.ts > publisher owned build lifecycle > joins only owned children before cleanup on TERM-resistant
+publisher lifecycle observation {"scenario":"TERM-resistant","elapsedMs":1743,"stages":[{"elapsedMs":5,"text":"[lifecycle:0] trap cleanup_owned_builds EXIT\n"},{"elapsedMs":5,"text":"[lifecycle:0] trap 'exit 143' TERM\n"},{"elapsedMs":5,"text":"[lifecycle:0] trap 'exit 130' INT\n"},{"elapsedMs":24,"text":"[lifecycle:0] wait 38854\n"},{"elapsedMs":35,"text":"[[lifecycle:0] exit 143\n"},{"elapsedMs":35,"text":"[lifecycle:0] cleanup_owned_builds\n"},{"elapsedMs":35,"text":"[lifecycle:0] kill -TERM -- -38854\n"},{"elapsedMs":1737,"text":"[lifecycle:2] kill -KILL -- -38854\n"},{"elapsedMs":1737,"text":"[lifecycle:2] wait 38854\n"},{"elapsedMs":1738,"text":"[lifecycle:2] names=()\n[lifecycle:2] rm -rf /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/cn-publisher-lifecycle-sqgoDa/work\n"},{"elapsedMs":1742,"text":"[lifecycle:2] exit 143\n"}]}
+
+ ✓ .harness/scripts/vm/publish-cn-release.test.ts (18 tests) 2015ms
+   ✓ publisher owned build lifecycle > joins only owned children before cleanup on TERM-resistant 1747ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  05:20:29
+   Duration  2.31s (transform 25ms, setup 0ms, collect 25ms, tests 2.02s, environment 0ms, prepare 33ms)
+
