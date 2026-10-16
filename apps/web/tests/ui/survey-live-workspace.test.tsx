@@ -83,6 +83,18 @@ describe('live survey workspace persistence',()=>{
   await screen.findByText('修改已保存');
   expect(request).toHaveBeenLastCalledWith('/surveys/saved-survey/source',expect.objectContaining({body:expect.objectContaining({documents:expect.objectContaining({publication:serializeSurveyPublicationMarkdown({responseLimitScope:'browser',successMessageMarkdown:'# 感谢反馈'})})})}),expect.anything());
  });
+ it('keeps title focus while saving without permitting concurrent edits',async()=>{
+  let finish!:(value:SurveyRuntime)=>void;
+  request.mockResolvedValueOnce(runtime()).mockImplementationOnce(()=>new Promise<SurveyRuntime>(resolve=>{finish=resolve;}));
+  render(<LiveSurveyWorkspace surveyId="saved-survey"/>);
+  const title=await screen.findByLabelText('问卷名称');title.focus();
+  fireEvent.change(title,{target:{value:'保存中保留焦点'}});
+  await flushAutosave();
+  expect(screen.getByText('正在自动保存…')).toBeInTheDocument();
+  expect(title).toHaveFocus();expect(title).not.toBeDisabled();expect(title).toHaveAttribute('readonly');
+  await act(async()=>finish(runtime({title:'保存中保留焦点',version:5})));
+  expect(title).toHaveFocus();expect(title).not.toHaveAttribute('readonly');
+ });
  it('automatically persists applied valid changes on an existing draft',async()=>{
   request.mockResolvedValueOnce(runtime()).mockResolvedValueOnce(runtime({title:'自动保存后的标题',version:5}));
   render(<LiveSurveyWorkspace surveyId="saved-survey"/>);

@@ -100,13 +100,35 @@ describe("LiveSurveyLibrary", () => {
     request.mockResolvedValueOnce([]);
     render(<LiveSurveyLibrary />);
     expect(await screen.findByRole("heading", { name: "还没有问卷" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(2);
-    const create = within(screen.getByTestId("empty")).getByRole("button", { name: "新建问卷" });
+    expect(screen.getAllByRole("button", { name: "新建问卷" })).toHaveLength(1);
+    const create = screen.getByTestId("survey-create-primary");
     expect(create).toHaveClass("bg-primary");
     fireEvent.click(create);
     expect(screen.getByRole("dialog", { name: "新建问卷" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
     expect(screen.getByRole("link", { name: "问卷模板" })).toHaveAttribute("href", "/studio/survey?tab=modules");
+  });
+  it("returns keyboard focus to the header create control after cancelling", async () => {
+    request.mockResolvedValueOnce([]);
+    render(<LiveSurveyLibrary />);
+    await screen.findByRole("heading", { name: "还没有问卷" });
+    const create = screen.getByTestId("survey-create-primary");
+    create.focus(); fireEvent.click(create);
+    await waitFor(() => expect(screen.getByLabelText("问卷名称")).toHaveFocus());
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(create).toHaveFocus());
+  });
+  it("does not request opener focus after successful AI navigation", async () => {
+    const returnFocus = vi.fn(); const created = vi.fn(); const close = vi.fn();
+    const props = { onOpenChange: close, onCreated: created, onReturnFocus: returnFocus };
+    const view = render(<CreateSurveyDialog open {...props} />);
+    fireEvent.change(screen.getByLabelText("问卷名称"), { target: { value: "AI 导入" } });
+    fireEvent.click(screen.getByRole("radio", { name: /AI 导入创建/ }));
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(created).toHaveBeenCalled();
+    view.rerender(<CreateSurveyDialog open={false} {...props} />);
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(returnFocus).not.toHaveBeenCalled();
   });
   it("filters by real tags and keeps templates optional without status filters", async () => {
     request.mockResolvedValueOnce([survey({tags:['客户调研']}),survey({id:'survey-2',title:'员工体验',tags:['员工体验'],publication:null,responses:[]})]);

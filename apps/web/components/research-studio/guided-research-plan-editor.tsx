@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { research as C } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WorkflowActionButton } from "./research-workflow-actions";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { prepareResearchOutline, researchPlanTitle, researchQuestionsForTitle } from "@/lib/guided-research-markdown";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
@@ -63,7 +64,7 @@ export function GuidedResearchPlanEditor({ value, persistedValue = value, disabl
         const id = crypto.randomUUID();
         setItems((current) => [...current, { id, title: "新计划", enabled: true, order: current.length, questions: researchQuestionsForTitle("新计划") }]); setEditing(id);
       }}><Plus className="mr-2 size-4" />新增计划</Button>
-      {dirty && <div className="flex gap-2"><Button variant="outline" disabled={locked} onClick={() => { setItems(persistedValue); setEditing(null); setError(null); onCancel?.(); }}>取消</Button><Button variant="primary" disabled={locked || !valid} onClick={() => setConfirm(true)}>保存计划</Button></div>}
+      {dirty && <div className="flex gap-2"><Button variant="outline" disabled={locked} onClick={() => { setItems(persistedValue); setEditing(null); setError(null); onCancel?.(); }}>取消</Button><WorkflowActionButton variant="primary" loading={saving} disabled={locked || !valid} onClick={() => setConfirm(true)}>保存计划</WorkflowActionButton></div>}
     </div>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <Dialog open={confirm} onOpenChange={setConfirm}><DialogContent><DialogTitle>确认修改研究计划</DialogTitle><DialogDescription>保存后需要重新确认计划并更新相关研究资料，已有历史报告会保留。</DialogDescription><div className="flex justify-end gap-2"><Button variant="outline" onClick={() => setConfirm(false)}>继续编辑</Button><Button variant="primary" onClick={() => void save()}>确认保存</Button></div></DialogContent></Dialog>

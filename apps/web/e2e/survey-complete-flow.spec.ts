@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
@@ -220,6 +222,133 @@ test('紧凑问卷输入与发布设置在桌面平板手机保持可操作',asy
    }
    expect(await page.locator('body').evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(width);
    await page.screenshot({path:testInfo.outputPath(`survey-compact-publish-${width}.png`),fullPage:true});
+ }
+});
+
+test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({page},testInfo)=>{
+ test.setTimeout(120000);
+ const identityResponse=page.waitForResponse(response=>new URL(response.url()).pathname.endsWith('/identity/me')&&response.request().method()==='GET');
+ await loginAsAdmin(page);
+ // Read a fresh authenticated response after login navigation; Chromium may release
+ // response bodies from the old document during that navigation.
+ const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));expect(token).toBeTruthy();
+ const identity=await page.request.get((await identityResponse).url(),{headers:{Authorization:`Bearer ${token}`}});expect(identity.ok()).toBeTruthy();
+ const authenticated=await identity.json() as {org:{id:string};orgRole:string};
+ expect(authenticated.org.id).toBe(FULLSTACK_E2E.orgId);expect(authenticated.orgRole).toBe('admin');
+ // Earlier tests create surveys in this same ephemeral organization. Reset through
+ // the real UI only inside the standard local isolated stack, never on a live host.
+ expect(process.env.WORKSPACEX_ISOLATION_ID).toBeTruthy();expect(new URL(page.url()).hostname).toBe('127.0.0.1');
+ const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');
+ await page.goto('/studio/survey');const response=await loaded;expect(response.ok()).toBeTruthy();
+ const surveys=await response.json() as {id:string}[];
+ for(const survey of surveys){
+   const card=page.getByTestId(`survey-card-${survey.id}`);await card.getByRole('button',{name:/更多操作：/}).click();
+   page.once('dialog',dialog=>dialog.accept());
+   const removed=page.waitForResponse(result=>result.url().includes(`/surveys/${survey.id}`)&&result.request().method()==='DELETE');
+   await page.getByRole('menuitem',{name:'删除问卷',exact:true}).click();expect((await removed).ok()).toBeTruthy();await expect(card).toHaveCount(0);
+ }
+ await expect(page.getByRole('heading',{name:'还没有问卷',exact:true})).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('r1-empty-list.png'),fullPage:true});
+ await expect(page.getByRole('button',{name:'新建问卷',exact:true})).toHaveCount(1);
+ const create=page.getByTestId('survey-create-primary');await create.focus();await create.press('Enter');
+ const dialog=page.getByRole('dialog',{name:'新建问卷',exact:true});
+ await expect(dialog.getByLabel('问卷名称',{exact:true})).toBeFocused();
+ await expect(dialog.getByRole('button',{name:'下一步',exact:true})).toBeDisabled();
+ await dialog.getByLabel('问卷名称',{exact:true}).fill('R1 合成问卷');
+ await expect(dialog.getByRole('button',{name:'下一步',exact:true})).toBeEnabled();
+ await dialog.getByRole('button',{name:'取消',exact:true}).click();await expect(dialog).toHaveCount(0);
+ await expect(create).toBeFocused();
+ await page.screenshot({path:testInfo.outputPath('r1-cancel-focus.png'),fullPage:true});
+ await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).press('Escape');
+ await expect(dialog).toHaveCount(0);await expect(create).toBeFocused();
+ await create.press('Enter');await dialog.getByLabel('问卷名称',{exact:true}).fill('R1 成功导航');
+ await dialog.getByRole('radio',{name:/AI 导入创建/}).check();
+ await dialog.getByRole('button',{name:'下一步',exact:true}).click();
+ await expect(page).toHaveURL(/\/studio\/survey\/new\/import\?draft=/);
+ await expect(page.getByLabel('问卷需求')).toBeVisible();
+ await page.screenshot({path:testInfo.outputPath('r1-created-ai-entry.png'),fullPage:true});
+});
+
+test('R1 问卷体验：读取失败后直接重选同一文件保留原文',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R1 文件重试',tags:[]})));
+ await page.getByLabel('问卷需求').fill('保留手动输入的研究目标');
+ await page.evaluate(()=>{
+   const read=FileReader.prototype.readAsDataURL;let attempts=0;
+   FileReader.prototype.readAsDataURL=function(blob:Blob){
+     attempts++;if(attempts===1){setTimeout(()=>this.dispatchEvent(new ProgressEvent('error')),0);return;}
+     return read.call(this,blob);
+   };
+ });
+ const source=testInfo.outputPath('r1-source.md');await mkdir(dirname(source),{recursive:true});await writeFile(source,'合成研究资料：关注最近一次使用体验。');
+ const select=async()=>{const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'添加文件',exact:true}).click();await(await chooser).setFiles(source);};
+ await select();await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toHaveText('文件读取失败，请重新选择。');
+ await page.screenshot({path:testInfo.outputPath('r1-file-read-error.png'),fullPage:true});
+ await select();await expect(page.getByRole('button',{name:'移除文件 r1-source.md',exact:true})).toBeVisible();
+ await expect(page.getByLabel('问卷需求')).toHaveValue('保留手动输入的研究目标');
+ await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toHaveCount(0);
+ await page.screenshot({path:testInfo.outputPath('r1-file-reselected.png'),fullPage:true});
+});
+
+test('R2 问卷体验：自动保存保留标题焦点并可刷新恢复',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);await page.request.get('/studio/survey/ux-route-warmup/design');await page.goto('/studio/survey?tab=modules');
+ const template=page.locator('article').filter({has:page.getByRole('heading',{name:TEMPLATE_TITLE,exact:true})});
+ await template.getByRole('button',{name:'使用并创建问卷'}).click();
+ const title=page.getByRole('textbox',{name:'问卷名称',exact:true});await expect(title).toBeVisible();
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/surveys/*/source',async route=>{
+   if(route.request().method()!=='PUT'){await route.continue();return;}
+   const response=await route.fetch();await gate;await route.fulfill({response});
+ });
+ try{
+   await title.fill('R2 自动保存后恢复的问卷');await expect(page.getByText('正在自动保存…',{exact:true})).toBeVisible();
+   await expect(title).toBeFocused();await page.screenshot({path:testInfo.outputPath('r2-saving-focus.png'),fullPage:true});
+ }finally{release();}
+ await expect(page.getByText('正在自动保存…',{exact:true})).toHaveCount(0);await expect(title).toBeFocused();
+ await page.unroute('**/surveys/*/source');await page.reload();
+ await expect(page.getByRole('textbox',{name:'问卷名称',exact:true})).toHaveValue('R2 自动保存后恢复的问卷');
+ await page.screenshot({path:testInfo.outputPath('r2-refreshed-title.png'),fullPage:true});
+});
+
+test('R3 问卷体验：生成失败重试与取消保留原文且未应用提案',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R3 异常恢复',tags:[]})));
+ const input=page.getByLabel('问卷需求');const original='保留原文：了解最近一次会议的改进机会';await input.fill(original);
+ let attempts=0;let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ let finished!:()=>void;const lateFinished=new Promise<void>(resolve=>{finished=resolve;});
+ await page.route('**/surveys/markdown-proposals',async route=>{
+   attempts++;if(attempts===1){await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'controlled unavailable'})});return;}
+   const delayed=attempts===2;if(delayed)await gate;
+   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({markdown:'# R3 合成提案\n\n## recent [open]\n请描述最近一次体验\n',execution:{id:'85f6e172-8b43-4a75-a917-0e91742d1e8c',provider:'controlled-test',modelId:'synthetic',generatedAt:'2026-09-28T00:00:00.000Z'},source:{kind:'text',sha256:'a'.repeat(64)}})}).catch(()=>{});if(delayed)finished();
+ });
+ const generate=page.getByRole('button',{name:'生成问卷',exact:true});await generate.click();
+ await expect(page.getByRole('region',{name:'AI 问卷生成'}).getByRole('alert')).toContainText('生成失败');await expect(input).toHaveValue(original);
+ await page.screenshot({path:testInfo.outputPath('r3-generation-error.png'),fullPage:true});
+ try{await generate.click();await expect(page.getByRole('button',{name:'正在生成…',exact:true})).toBeDisabled();
+ await expect.poll(()=>attempts).toBe(2);await page.getByRole('button',{name:'取消生成',exact:true}).click();await expect(generate).toBeEnabled();await expect(input).toHaveValue(original);
+ }finally{release();}
+ await lateFinished;await expect(page.getByRole('dialog',{name:'Markdown 预览与校对'})).toHaveCount(0);
+ await generate.click();const preview=page.getByRole('dialog',{name:'Markdown 预览与校对'});await expect(preview).toBeVisible();
+ await expect(page).toHaveURL(/\/new\/import/);await preview.getByRole('button',{name:'返回输入',exact:true}).click();
+ await expect(preview).toHaveCount(0);await expect(input).toHaveValue(original);
+ await page.screenshot({path:testInfo.outputPath('r3-recovered-input.png'),fullPage:true});
+});
+
+test('R4 问卷体验：长需求在手机平板桌面保持单层输入与键盘工具入口',async({page},testInfo)=>{
+ test.setTimeout(120000);await loginAsAdmin(page);
+ await page.goto('/studio/survey/new/import?draft='+encodeURIComponent(JSON.stringify({name:'R4 长内容',tags:[]})));
+ const text='了解用户最近一次使用体验、主要困难与下一步改进建议。'.repeat(240);
+ const input=page.getByRole('textbox',{name:'问卷需求'});await input.fill(text);
+ for(const width of [375,768,1280]){
+   await page.setViewportSize({width,height:width===375?812:1000});await input.focus();await expect(input).toBeFocused();
+   await expect(input).toHaveValue(text);await expect(input).toHaveCSS('border-top-width','0px');
+   await input.press('Tab');await expect(page.getByRole('button',{name:'添加文件',exact:true})).toBeFocused();
+   const composer=page.getByTestId('survey-intake-composer');
+   for(const label of ['添加文件','语音输入','选择已保存录音'])await expect(composer.getByRole('button',{name:label,exact:true})).toBeVisible();
+   const generate=page.getByRole('button',{name:'生成问卷',exact:true});await expect(generate).toBeEnabled();await generate.scrollIntoViewIfNeeded();
+   expect(await page.locator('body').evaluate(el=>el.scrollWidth)).toBeLessThanOrEqual(width);
+   if(width===375){const action=await generate.boundingBox();const nav=await page.getByRole('navigation',{name:'主导航（移动端）'}).boundingBox();expect(action&&nav&&action.y+action.height<=nav.y).toBeTruthy();}
+   await page.screenshot({path:testInfo.outputPath(`r4-long-input-${width}.png`),fullPage:true});
  }
 });
 

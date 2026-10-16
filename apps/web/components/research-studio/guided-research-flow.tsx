@@ -1,4 +1,5 @@
 "use client";
+import { WorkflowActionButton } from "./research-workflow-actions";
 
 import { tagInputLimits, research as researchTagContract } from "@repo/contracts";
 
@@ -341,13 +342,13 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
   const visible = (history ?? []).filter(item => guidedResearchMatchesHomeFilter(item, statusFilter) && matchesTags(item.tags, selectedTags) &&
     matchesQuery(query, [item.title, item.brief.goal], item.tags))
     .sort((a, b) => (Date.parse(b.updatedAt) - Date.parse(a.updatedAt)) * (sort === "recent" ? 1 : -1));
-  return <section data-testid="research-home-page" data-reference-layout="research-list" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-5 py-6 md:px-8 lg:px-10">
-    <header className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+  return <section data-testid="research-home-page" data-reference-layout="research-list" className="mx-auto flex w-full max-w-screen-2xl flex-col gap-4 px-4 py-4 lg:px-6">
+    <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="min-w-0 space-y-2">
         <div className="flex items-baseline gap-2"><h1 className="text-30 font-semibold tracking-tight">研究列表</h1>{history && <span className="text-sm text-muted-foreground">{history.length} 个研究项目</span>}</div>
 
       </div>
-<div className="flex gap-3"><label className="relative flex-1 md:w-96"><span className="sr-only">搜索研究</span><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input data-testid="research-history-search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={searchPlaceholder("研究")} className="h-10 pl-9 text-14" /></label><Button type="button" variant="primary" className="h-10 px-4 text-14" data-testid="research-create" asChild><a href="/research/new" onClick={startResearch}><Plus className="size-5" aria-hidden />新建研究</a></Button></div>
+<div className="flex gap-3"><label className="relative flex-1 md:w-96"><span className="sr-only">搜索研究</span><Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden /><Input data-testid="research-history-search" maxLength={100} value={query} onChange={event => setQuery(event.target.value)} placeholder={searchPlaceholder("研究")} className="h-9 pl-9 text-14" /></label><WorkflowActionButton type="button" variant="primary" data-testid="research-create" asChild><a href="/research/new" onClick={startResearch}><Plus className="size-5" aria-hidden />新建研究</a></WorkflowActionButton></div>
     </header>
     <div className="flex flex-wrap items-center gap-3"><TagFilterBar tags={tags.map(tag => ({ tag }))} selected={selectedTags} onChange={setSelectedTags} prefix="research-history" business="研究" /><Button variant="ghost" className="ml-auto" data-testid="research-history-sort" aria-label={`当前${sort === "recent" ? "最近更新" : "最早更新"}，点击切换排序`} onClick={() => setSort(sort === "recent" ? "oldest" : "recent")}>{sort === "recent" ? "最近更新" : "最早更新"}</Button></div>
     {history && history.length > 0 && <details><summary className="cursor-pointer text-sm text-muted-foreground">研究状态筛选</summary><div className="mt-3"><GuidedResearchHomeSummary sessions={history} selectedFilter={statusFilter} onFilterChange={setStatusFilter} /></div></details>}
@@ -360,12 +361,12 @@ function ResearchHome({ onNavigate }: { onNavigate: (step: GuidedResearchStep, s
         status={<Badge tone={presentation.statusTone}>{presentation.statusLabel}</Badge>}
         description={item.brief.goal} tags={item.tags}
         metadata={<><span>{item.sourceCount} 个来源</span><time>更新于 {new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
-        primaryAction={<Button variant="primary" size="sm" onClick={() => onNavigate(item.status === "completed" ? "report" : stageToStep(item.resumeStage), item.sessionId)} data-testid={`${item.status === "completed" ? "research-view" : "research-continue"}-${item.sessionId}`}>{presentation.action}</Button>}
+        primaryAction={<WorkflowActionButton variant="primary" onClick={() => onNavigate(item.status === "completed" ? "report" : stageToStep(item.resumeStage), item.sessionId)} data-testid={`${item.status === "completed" ? "research-view" : "research-continue"}-${item.sessionId}`}>{presentation.action}</WorkflowActionButton>}
         management={<StudioHistoryManagement tagLimits={tagInputLimits(researchTagContract.GuidedResearchMetadata.shape.tags)} business="研究" prefix="research" id={item.sessionId} name={item.title} tags={item.tags} knownTags={new Map(tags.map(t => [t, 0] as const))} deleteDescription="将从首页移除，已引用的研究证据将保留。"
           onSave={async draft => { await updateGuidedResearchMetadata(item.sessionId, { title: draft.name, tags: [...draft.tags] }); setNotice("研究已修改"); setRevision(value => value + 1); }}
           onDelete={async () => { await deleteGuidedResearchSession(item.sessionId); setHistory(current => current?.filter(row => row.sessionId !== item.sessionId) ?? null); setNotice("研究已从首页移除"); }} />}>
         <GuidedResearchCardProgress session={item} />
-      </ResearchHistoryCard>; })}<Button asChild variant="outline" className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><a href="/research/new" data-testid="research-create-card" onClick={startResearch}><Plus className="size-6" aria-hidden /><span>新建研究</span></a></Button></div>}
+      </ResearchHistoryCard>; })}<Button asChild variant="outline" className="h-auto min-h-36 flex-col gap-2 border-dashed p-4"><a href="/research/new" data-testid="research-create-card" onClick={startResearch}><Plus className="size-6" aria-hidden /><span>新建研究</span></a></Button></div>}
     </section>
   </section>;
 }
