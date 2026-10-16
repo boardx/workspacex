@@ -1,0 +1,28 @@
+{
+  "attempts": 2,
+  "persistedOutline": [
+    {
+      "id": "chapter",
+      "title": "采购验证",
+      "questions": [
+        "如何核验审批？"
+      ],
+      "enabled": true,
+      "order": 0
+    },
+    {
+      "id": "3ad15d6c-c4c4-4ff9-a0bf-a7fbbc6cff95",
+      "title": "重试时的新计划标题",
+      "questions": [
+        "「重试时的新计划标题」有哪些关键事实、影响因素和可执行结论？"
+      ],
+      "enabled": true,
+      "order": 1
+    }
+  ],
+  "persistedVersion": 2,
+  "modelAfter": {
+    "runs": 0,
+    "requests": 0
+  }
+}
