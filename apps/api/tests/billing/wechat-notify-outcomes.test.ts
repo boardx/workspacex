@@ -72,4 +72,30 @@ describe("F05 terminal timestamps and durable paid-funds recovery", () => {
     expect(await snapshot()).toEqual(before);
     expect(await read(order.orderNo)).toEqual(outcome);
   });
+
+  it.each(["PENDING", "CLOSED"])("keeps %s manual recovery authoritative when a distinct event arrives after capacity is released", async initial => {
+    await asOwner(c => c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance,total_granted) VALUES('user',$1,2147483640,2147483640)", [user]));
+    const order = await f.createOrder();
+    if (initial === "CLOSED") await close(order.orderNo);
+    const first = f.notice(order.orderNo);
+    expect((await f.post(first.body, first.headers)).status).toBe(200);
+    const manualOrder = await read(order.orderNo);
+    // A later capacity change must not reopen automatic crediting while an
+    // already-persisted manual recovery may be handled by an administrator.
+    await asOwner(c => c.query("UPDATE credit_wallets SET balance=0 WHERE owner_type='user' AND owner_id=$1", [user]));
+    const second = f.notice(order.orderNo, first.payment);
+    expect(second.eventId).not.toBe(first.eventId);
+    expect((await f.post(second.body, second.headers)).status).toBe(200);
+    await f.worker?.runOnce();
+    expect(await read(order.orderNo)).toEqual(manualOrder);
+    const state = await asOwner(async c => ({
+      wallet: (await c.query("SELECT balance,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [user])).rows,
+      ledger: (await c.query("SELECT txn_id FROM credit_transactions WHERE source_id=$1", [order.orderNo])).rows,
+      receipts: (await c.query("SELECT state,recovery_source_id FROM billing_payment_receipts WHERE provider_event_id=ANY($1::text[])", [[first.eventId, second.eventId]])).rows,
+    }));
+    expect(state.wallet).toEqual([{ balance: 0, total_purchased: 0 }]);
+    expect(state.ledger).toEqual([]);
+    expect(state.receipts).toHaveLength(2);
+    for (const receipt of state.receipts) expect(receipt).toEqual({ state: "failed", recovery_source_id: `payment-recovery:${order.orderNo}` });
+  });
 });
