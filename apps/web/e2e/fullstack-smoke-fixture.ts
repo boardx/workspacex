@@ -25,6 +25,12 @@ export const FULLSTACK_E2E = {
   adminPassword: "Fullstack-E2E-admin-458!",
   adminUserId: `user-fullstack-admin-${scope}`,
 
+  /** Feedback chat counterexample: org admin with explicit team/project memberships.
+   * Keep the original admin without either membership for permission/catalog-empty tests. */
+  feedbackAdminEmail: `fullstack-feedback-admin-${scope}@example.test`,
+  feedbackAdminPassword: "Fullstack-E2E-feedback-admin-5766!",
+  feedbackAdminUserId: `user-fullstack-feedback-admin-${scope}`,
+
   /**
    * #458 自己的非管理员，**不复用上面那位 consultant**。
    *

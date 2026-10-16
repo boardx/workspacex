@@ -1,3 +1,4 @@
+import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
 /** Controlled PG fixture for #387's login -> projects -> overview -> Files browser gate. */
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
 import {
@@ -30,6 +31,9 @@ const sentinelFile = required("FULLSTACK_E2E_SENTINEL_FILE");
 const adminEmail = required("FULLSTACK_E2E_ADMIN_EMAIL");
 const adminPassword = required("FULLSTACK_E2E_ADMIN_PASSWORD");
 const adminUserId = required("FULLSTACK_E2E_ADMIN_USER_ID");
+const feedbackAdminEmail = required("FULLSTACK_E2E_FEEDBACK_ADMIN_EMAIL");
+const feedbackAdminPassword = required("FULLSTACK_E2E_FEEDBACK_ADMIN_PASSWORD");
+const feedbackAdminUserId = required("FULLSTACK_E2E_FEEDBACK_ADMIN_USER_ID");
 /** #458: a non-admin of its own, so no account is shared across parallel spec files. */
 const memberEmail = required("FULLSTACK_E2E_MEMBER_EMAIL");
 const memberPassword = required("FULLSTACK_E2E_MEMBER_PASSWORD");
@@ -75,8 +79,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail],
     ],
   );
 });
@@ -89,6 +93,11 @@ await addOrgMember(orgId, userId, "consultant", fixture.teams.fullstack ?? null)
 await addProjectMember(orgId, projectId, userId, "facilitator", null, true);
 
 await addOrgMember(orgId, adminUserId, "admin", null);
+// #5766 tests admin feedback from real chat. Org admin alone grants neither project
+// writes nor visibility of the team-only mounted skill. Supply those prerequisites
+// to a separate account; never broaden the original admin's negative-test scope.
+await addOrgMember(orgId, feedbackAdminUserId, "admin", fixture.teams.fullstack ?? null);
+await addProjectMember(orgId, projectId, feedbackAdminUserId, "facilitator", null, false);
 // PJ-01 / #976: the only role `createProject` accepts. No project membership is granted --
 // "creating does not grant a project role" is a ruled invariant (Q-4②), and seeding one
 // here would erase the very edge `project-create-smoke.spec.ts` walks over.
@@ -102,6 +111,7 @@ await addOrgMember(orgId, securityReviewerUserId, "consultant", fixture.teams.fu
 const hasher = new BcryptPasswordHasher();
 const passwordHash = await hasher.hash(password);
 const adminPasswordHash = await hasher.hash(adminPassword);
+const feedbackAdminPasswordHash = await hasher.hash(feedbackAdminPassword);
 const memberPasswordHash = await hasher.hash(memberPassword);
 const securityReviewerPasswordHash = await hasher.hash(securityReviewerPassword);
 const leadPasswordHash = await hasher.hash(leadPassword);
@@ -109,7 +119,7 @@ await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
      VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()), ($13,$14,$15,$16,now()),
-            ($17,$18,$19,$20,now())`,
+            ($17,$18,$19,$20,now()), ($21,$22,$23,$24,now())`,
     [
       userId, email, "Fullstack E2E", passwordHash,
       adminUserId, adminEmail, "Fullstack E2E admin", adminPasswordHash,
@@ -117,6 +127,7 @@ await asOwner(async (client) => {
       securityReviewerUserId, securityReviewerEmail, "Fullstack E2E security reviewer",
       securityReviewerPasswordHash,
       leadUserId, leadEmail, "Fullstack E2E lead", leadPasswordHash,
+      feedbackAdminUserId, feedbackAdminEmail, "Fullstack E2E feedback admin", feedbackAdminPasswordHash,
     ],
   );
 });
@@ -569,5 +580,7 @@ try {
 // Board AI operation E2E uses a pre-registered immutable runtime identity. Product callers
 // have no write grant on this registry; only the controlled fixture owner seeds it.
 await asOwner(client=>client.query(`INSERT INTO whiteboard_actor_identities(org_id,actor_id,kind,delegated_by,scopes,model_snapshot,skill_snapshot,enabled) VALUES($1,$2,'ai',$3,$4,'loopback/e2e','board-cluster-e2e',true) ON CONFLICT(org_id,actor_id) DO UPDATE SET delegated_by=EXCLUDED.delegated_by,scopes=EXCLUDED.scopes,model_snapshot=EXCLUDED.model_snapshot,skill_snapshot=EXCLUDED.skill_snapshot,enabled=true`,[orgId,agentId,userId,['board:read','board:write','artifact:read','board:present']]));
+
+await seedChatPublicShare(orgId,userId);
 
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);

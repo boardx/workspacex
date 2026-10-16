@@ -299,9 +299,11 @@ test("用户可从模板完整走通创建、发布、答题、查看答卷和�
   await expect(page.getByText('所有修改已保存',{exact:true})).toHaveCount(0);
   const publishAction=page.locator('header').getByRole('button',{name:'发布回收',exact:true});
   await expect(publishAction).toBeEnabled();
-  const colors=await publishAction.evaluate(element=>({background:getComputedStyle(element).backgroundColor,color:getComputedStyle(element).color}));
   // PAPER primary = hsl(30 6% 12%), converted to rounded sRGB channels.
-  expect(colors).toEqual({background:'rgb(32, 31, 29)',color:'rgb(255, 255, 255)'});
+  // Becoming enabled can precede Button's color transition completing. Keep
+  // both exact final colors in one observation, using the default assertion budget.
+  await expect.poll(()=>publishAction.evaluate(element=>({background:getComputedStyle(element).backgroundColor,color:getComputedStyle(element).color})))
+    .toEqual({background:'rgb(32, 31, 29)',color:'rgb(255, 255, 255)'});
   // Check the resting paint after moving away from the newly positioned canvas.
   await page.getByLabel('问卷名称').hover();
   await expect(page.locator('[data-survey-inline-edit]').first()).toHaveCSS('background-color','rgba(0, 0, 0, 0)');
