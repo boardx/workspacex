@@ -5,12 +5,13 @@ import base from "./playwright.fullstack-smoke.config";
 // avoids rebuilding the production bundle for each separately audited UX round.
 const servers = Array.isArray(base.webServer) ? base.webServer : [base.webServer!];
 const production = process.env.WX_RESEARCH_UX_PRODUCTION === "1";
+const explicitRoundFilter = process.argv.some(argument => argument === "--grep" || argument.startsWith("--grep=") || argument === "-g" || argument.startsWith("-g="));
 export default defineConfig({
   ...base,
   workers: 1,
   // Independent R4 delivery tests only its own round by default. The full
   // R2/R3/R4 suite requires the explicitly assembled product-fix combination.
-  grep: process.env.WX_RESEARCH_UX_ALL === "1" ? undefined : /R4 /,
+  grep: process.env.WX_RESEARCH_UX_ALL === "1" || explicitRoundFilter ? undefined : /R4 /,
   outputDir: "test-results/research-ux",
   projects: [{ ...base.projects?.find(project => project.name === "seeded"), name: "research-ux", testMatch: "research-ux-rounds.spec.ts" }],
   webServer: production ? servers : servers.map((server, index) => index === servers.length - 1 ? {
