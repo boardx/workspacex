@@ -16,7 +16,9 @@ import type { GuidedResearchCreateDraft } from "./create-guided-research-dialog"
 import { createGuidedResearchSession, getResearchRuntime, confirmResearchBrief, executeGuidedResearchNodeCommand, getGuidedResearchSession, runGuidedResearchSkillTurn, type GuidedResearchSession, type GuidedResearchWorkflowProjection } from "@/lib/guided-research-api";
 type Brief = GuidedResearchSession["brief"];
 type Step = "home" | "brief" | "directions" | "outline" | "search" | "report";
-const goalLimit = researchContract.GuidedResearchBrief.shape.goal.maxLength!;
+const briefShape = researchContract.GuidedResearchBrief.shape;
+const goalLimit = briefShape.goal.maxLength!;
+const optionalBriefLabels = { topic: "研究主题", timeRange: "时间范围", region: "地域范围", focus: "重点关注" } as const;
 const EMPTY_BRIEF: Brief = { topic: "", goal: "", timeRange: "", region: "", focus: "" };
 function requestId(prefix: string) { return prefix + "-" + crypto.randomUUID(); }
 function workflowGraphVersion(workflow: GuidedResearchWorkflowProjection | null) { return workflow?.graphVersion ?? null; }
@@ -77,6 +79,14 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
   onNavigate: (step: Step, sessionId?: string) => void;
 }) {
   const [brief, setBrief] = React.useState(initialBrief);
+  const optionalErrors = (Object.keys(optionalBriefLabels) as (keyof typeof optionalBriefLabels)[])
+    .filter((key) => brief[key].trim().length > briefShape[key].maxLength!);
+  const briefValid = researchContract.GuidedResearchBrief.safeParse({ ...brief, topic: brief.topic.trim() || DEFAULT_RESEARCH_NAME }).success;
+  const fieldConstraints = (key: keyof typeof optionalBriefLabels) => ({
+    maxLength: Math.max(briefShape[key].maxLength!, brief[key].length),
+    "aria-invalid": optionalErrors.includes(key) || undefined,
+    "aria-describedby": optionalErrors.includes(key) ? `research-brief-${key}-error` : undefined,
+  });
   const authSession = useOptionalSession()?.session;
   const [voicePreview, setVoicePreview] = React.useState("");
   const [voiceBusy, setVoiceBusy] = React.useState(false);
@@ -122,7 +132,7 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
     if (session) setBrief({ ...session.brief });
   }, [session]);
   const confirm = async () => {
-    if (submitting || voiceBusy || importBusy || brief.goal.length > goalLimit || !brief.goal.trim()) return;
+    if (submitting || voiceBusy || importBusy || !briefValid || brief.goal.length > goalLimit || !brief.goal.trim()) return;
     // Preserve the full requirement as the goal. The saved model brief will supply a topic.
     const confirmedBrief = { ...brief, topic: brief.topic.trim() || DEFAULT_RESEARCH_NAME };
     if (onConfirmBrief) { onConfirmBrief(confirmedBrief); return; }
@@ -204,12 +214,13 @@ export function ResearchIntake({ sessionId, session, workflow, onSession, onWork
             {inputError && <p role="alert" className="mt-2 text-sm text-destructive">{inputError}</p>}
           </div>
           <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">完善研究信息</summary><div className="mt-4 space-y-4">
-          <Field label="研究主题"><Input value={brief.topic} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
-          <div className="grid gap-4 md:grid-cols-2"><Field label="时间范围"><Input value={brief.timeRange} onChange={(event) => patch("timeRange", event.target.value)} data-testid="research-brief-time" aria-label="时间范围" /></Field><Field label="地域范围"><Input value={brief.region} onChange={(event) => patch("region", event.target.value)} data-testid="research-brief-region" aria-label="地域范围" /></Field></div>
-          <Field label="重点关注"><Textarea value={brief.focus} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
+          <Field label={optionalBriefLabels.topic}><Input value={brief.topic} {...fieldConstraints("topic")} onChange={(event) => patch("topic", event.target.value)} data-testid="research-brief-topic" aria-label="研究主题" /></Field>
+          <div className="grid gap-4 md:grid-cols-2"><Field label={optionalBriefLabels.timeRange}><Input value={brief.timeRange} {...fieldConstraints("timeRange")} onChange={(event) => patch("timeRange", event.target.value)} data-testid="research-brief-time" aria-label="时间范围" /></Field><Field label={optionalBriefLabels.region}><Input value={brief.region} {...fieldConstraints("region")} onChange={(event) => patch("region", event.target.value)} data-testid="research-brief-region" aria-label="地域范围" /></Field></div>
+          <Field label={optionalBriefLabels.focus}><Textarea value={brief.focus} {...fieldConstraints("focus")} onChange={(event) => patch("focus", event.target.value)} data-testid="research-brief-focus" aria-label="重点关注" /></Field>
           </div></details>
+          {optionalErrors.map((key) => <p key={key} id={`research-brief-${key}-error`} role="alert" className="text-sm text-destructive">{optionalBriefLabels[key]}最多 {briefShape[key].maxLength} 字，请在“完善研究信息”中修改。</p>)}
           {submitFailed && <p className="text-11 text-destructive" role="alert">研究创建失败，请重试。再次提交不会重复创建。</p>}
-          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || voiceBusy || importBusy || brief.goal.length > goalLimit || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：研究计划"}<ArrowRight className="size-4" aria-hidden /></Button></div>
+          <div className="mt-auto flex justify-end"><Button variant="primary" className="h-9 px-5 text-sm" disabled={submitting || voiceBusy || importBusy || !briefValid || brief.goal.length > goalLimit || !brief.goal.trim() || Boolean(sessionId && !brief.topic.trim())} onClick={() => void confirm()} data-testid="research-confirm-brief">{submitting ? "正在创建…" : "下一步：研究计划"}<ArrowRight className="size-4" aria-hidden /></Button></div>
           {brief.goal.length > goalLimit && <p role="alert" className="text-sm text-destructive">需求超过 {goalLimit} 字，请精简后继续。导入内容已保留。</p>}
         </CardContent></Card>
         <ResearchPrototypeTips />

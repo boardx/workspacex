@@ -180,3 +180,17 @@ it("does not supply a placeholder title when stage metadata fails", async () => 
   await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalled());
   expect(screen.getByTestId("production-live")).not.toHaveAttribute("data-name");
 });
+
+
+it("retains invalid restored optional input and blocks submission until corrected", () => {
+  const confirm = vi.fn();
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "核对输入边界", timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} onConfirmBrief={confirm} />);
+  expect(screen.getByLabelText("时间范围")).toHaveValue("甲".repeat(201));
+  expect(screen.getByRole("alert")).toHaveTextContent("时间范围最多 200 字");
+  expect(screen.getByTestId("research-confirm-brief")).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("时间范围"), { target: { value: "近三年" } });
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByTestId("research-confirm-brief")).toBeEnabled();
+  fireEvent.click(screen.getByTestId("research-confirm-brief"));
+  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ timeRange: "近三年", goal: "核对输入边界" }));
+});
