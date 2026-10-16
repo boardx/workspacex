@@ -23,6 +23,7 @@ flowchart TD
   class S2 tested
   %% evidence S2: diagnostics-red.log -7fail1pass; non-error-red.log -2fail; diagnostics-green.log -12pass
   class S3 done
-  class S4 doing
-  class S5 todo
+  class S4 tested
+  %% evidence S4: real-focused.log:6files46tests including unchanged real5k/10k/PG; APItype/lint/OSS0 atf60a9f1ae. Original fault not reproduced.
+  class S5 doing
 ```
