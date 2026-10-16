@@ -153,7 +153,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
         setOperationError("PROJECT_LINK_FAILED");
       }
     }
-    setNotice(`已创建“${draft.name}”，正在进入实时转录`);
+    setNotice(`已创建“${draft.name}”`);
     setActiveSession({ ...summary, content: "" });
     await refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
