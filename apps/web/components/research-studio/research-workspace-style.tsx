@@ -5,15 +5,19 @@ import { cn } from "@/lib/utils";
 const workspaceWidth = "mx-auto max-w-[1440px]";
 export const researchWorkspaceStyle = {
   header: "top-0 z-20 bg-background/95 backdrop-blur md:sticky",
-  brandBar: "border-b bg-card px-4 py-2 lg:px-8",
+  brandBar: "border-b bg-card px-4 py-1.5 lg:px-6",
   width: workspaceWidth,
-  heading: `${workspaceWidth} px-4 pt-4 lg:px-8`,
-  main: `${workspaceWidth} min-w-0 px-4 pt-1 lg:px-8`,
-  timeline: "flex flex-wrap items-center gap-y-3 lg:flex-nowrap",
+  page: `${workspaceWidth} px-4 py-4 lg:px-6`,
+  section: "space-y-3",
+  card: "p-4 sm:p-5",
+  cardBody: "space-y-3",
+  heading: `${workspaceWidth} px-4 pt-3 lg:px-6`,
+  main: `${workspaceWidth} min-w-0 px-4 pt-1 lg:px-6`,
+  timeline: "flex flex-wrap items-center gap-y-2 lg:flex-nowrap",
   step: "flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0",
   command: "h-auto justify-start gap-2 bg-transparent p-1 text-left text-sm transition-colors hover:bg-transparent",
   connector: "mx-2 hidden min-w-3 flex-1 border-t border-border lg:block",
-  report: "grid min-w-0 items-start gap-8 bg-card text-card-foreground xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-10",
+  report: "grid min-w-0 items-start gap-6 bg-card text-card-foreground xl:grid-cols-[12rem_minmax(0,1fr)] xl:gap-x-8",
 } as const;
 
 export function ResearchWorkspaceStepIndicator({ number, active, completed, running, animateRunning = true }: {

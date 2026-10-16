@@ -1,7 +1,7 @@
 import * as React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { WorkflowActionButton } from "@/components/research-studio/research-workflow-actions";
+import { WorkflowActionButton, WorkflowActionBar } from "@/components/research-studio/research-workflow-actions";
 
 describe("shared research/interview workflow commands", () => {
   it("blocks repeated activation during loading without changing its accessible action name", () => {
@@ -46,4 +46,17 @@ it("blocks auxiliary link activation while loading and restores callbacks and ta
  rerender(<WorkflowActionButton asChild onAuxClick={parent}><a href="/research" tabIndex={0} onAuxClick={child}>返回</a></WorkflowActionButton>);
  expect(link).toHaveAttribute('tabindex','0');
  fireEvent(link,new MouseEvent('auxclick',{bubbles:true,cancelable:true,button:1}));expect(parent).toHaveBeenCalledTimes(1);expect(child).toHaveBeenCalledTimes(1);
+});
+
+it("keeps responsive roles on nested export buttons and the actual asChild action", () => {
+  const clicked=vi.fn();
+  const renderBar=(loading=false,variant:'primary'|'outline'='primary')=><WorkflowActionBar placement="footer" aria-label="报告操作"><div role="group" aria-label="文件"><WorkflowActionButton>生成 PDF</WorkflowActionButton><WorkflowActionButton>生成 Word</WorkflowActionButton></div><span className="contents"><WorkflowActionButton asChild variant={variant} loading={loading} onClick={clicked}><a href="#next">下一步</a></WorkflowActionButton></span></WorkflowActionBar>;
+  const {rerender}=render(renderBar());
+  const action=screen.getByRole('link',{name:'下一步'});
+  expect(action).toHaveAttribute('data-workflow-action-role','primary');
+  expect(screen.getByRole('button',{name:'生成 PDF'})).toHaveAttribute('data-workflow-action-role','secondary');
+  expect(action.parentElement).not.toHaveAttribute('data-workflow-action-role');
+  fireEvent.click(action);expect(clicked).toHaveBeenCalledTimes(1);
+  rerender(renderBar(true));fireEvent.click(action);expect(clicked).toHaveBeenCalledTimes(1);expect(action).toHaveAttribute('aria-busy','true');
+  rerender(renderBar(false,'outline'));expect(action).toHaveAttribute('data-workflow-action-role','secondary');expect(action).not.toHaveAttribute('aria-busy','true');
 });

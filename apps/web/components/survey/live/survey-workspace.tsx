@@ -362,7 +362,8 @@ export function LiveSurveyWorkspace({
           <Input
             aria-label="问卷名称"
             className="max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
-            disabled={busy || !draft}
+            disabled={!draft}
+            readOnly={busy}
             value={draft?.title ?? ""}
             onChange={(e) =>
               draft && (() => { const next = { ...draft, title: e.target.value }; setDraft(next); setMarkdown((text) => text.replace(/^#\s+.*$/m, () => `# ${e.target.value}`)); })()

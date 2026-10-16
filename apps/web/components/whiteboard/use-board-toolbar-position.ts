@@ -49,7 +49,6 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
   const [toolbarSize, setToolbarSize] = useState<Size>({ width: 640, height: 54 });
   const [submenuHeight, setSubmenuHeight] = useState(0);
   const submenuOwner = useRef<HTMLElement|null>(null);
-  const hasGeometry = Boolean(geometry);
   useLayoutEffect(() => {
     const reserve = (event: Event) => {
       const detail = (event as CustomEvent<{trigger?: unknown;height?: unknown}>).detail;
@@ -70,7 +69,13 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
     const update = () => {
       const parent = ref.current?.offsetParent ?? ref.current?.closest('[data-testid="collaborative-editor"]');
       const frame = parent?.getBoundingClientRect();
-      setWindowSize({ width: frame?.width || window.innerWidth, height: frame?.height || window.innerHeight });
+      // A window resize can fire before the offset parent has reflowed. Clamp
+      // to the currently visible window as well as observing the parent itself.
+      const size = {
+        width: Math.min(frame?.width || window.innerWidth, Math.max(1, window.innerWidth - Math.max(0, frame?.left ?? 0))),
+        height: Math.min(frame?.height || window.innerHeight, Math.max(1, window.innerHeight - Math.max(0, frame?.top ?? 0))),
+      };
+      setWindowSize(current => current.width === size.width && current.height === size.height ? current : size);
       const controlRoot = ref.current?.closest('[data-testid="collaborative-editor"]') ?? parent;
       const controls = controlLayoutKey ? Array.from(controlRoot?.querySelectorAll<HTMLElement>("[data-testid^='board-connector-handle-'][data-handle-kind]") ?? []) : [];
       const boundsInFrame = [...Array.from(document.querySelectorAll<HTMLElement>("[data-board-chrome]")), ...controls].map((element) => { const rect = element.getBoundingClientRect(); return { x: rect.left - (frame?.left ?? 0), y: rect.top - (frame?.top ?? 0), width: rect.width, height: rect.height }; }).filter((rect) => rect.width > 0 && rect.height > 0);
@@ -81,10 +86,14 @@ export function useBoardToolbarPosition(geometry: Geometry | undefined, viewport
     update();
     const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(update) : null;
     if (ref.current) observer?.observe(ref.current);
+    const parent = ref.current?.offsetParent ?? ref.current?.closest('[data-testid="collaborative-editor"]');
+    if (parent instanceof Element) observer?.observe(parent);
     document.querySelectorAll("[data-board-chrome]").forEach((element) => observer?.observe(element));
     if (controlLayoutKey) (ref.current?.closest('[data-testid="collaborative-editor"]') ?? ref.current?.offsetParent)?.querySelectorAll("[data-testid^='board-connector-handle-'][data-handle-kind]").forEach(element => observer?.observe(element));
     window.addEventListener("resize", update);
     return () => { observer?.disconnect(); window.removeEventListener("resize", update); };
-  }, [hasGeometry, controlLayoutKey]);
+    // The ref can move to a newly keyed object toolbar while hasGeometry stays
+    // true. Rebind after commit so its real dimensions replace the prior node's.
+  });
   return { ref, style: geometry ? boardToolbarPosition(geometry, viewport, windowSize, toolbarSize, chrome, submenuHeight) : undefined };
 }

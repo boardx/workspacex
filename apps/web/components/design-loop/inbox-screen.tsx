@@ -153,7 +153,11 @@ export function DesignLoopInboxScreen({
   onOpenWorkbench,
   openId: initialOpenId = null,
   onOpenLinked,
+  onNewFeedback,
+  savedFeedbackId,
 }: {
+  onNewFeedback?: () => void;
+  savedFeedbackId?: string | null;
   state?: UiState;
   onDeepen?: (projectId: string) => void;
   onOpenWorkbench?: (inboxCode: string) => void;
@@ -190,6 +194,23 @@ export function DesignLoopInboxScreen({
   const [loadingMore, setLoadingMore] = React.useState(false);
   const [counts, setCounts] = React.useState<GetInboxCountsOut | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(initialOpenId);
+  React.useEffect(() => { setOpenId(initialOpenId); }, [initialOpenId]);
+  // Only an explicitly saved feedback opens a fresh submission view. Linked navigation
+  // merely changes openId and retains already loaded pages, filters and scroll state.
+  const handledSubmission = React.useRef(savedFeedbackId === initialOpenId ? savedFeedbackId : null);
+  const [submissionRefresh, setSubmissionRefresh] = React.useState(0);
+  React.useEffect(() => {
+    if (savedFeedbackId == null || savedFeedbackId !== initialOpenId || handledSubmission.current === savedFeedbackId) return;
+    handledSubmission.current = savedFeedbackId;
+    setKindFilter("all");
+    setShowExceptionsInAll(false);
+    setStageFilter("all");
+    setInboxView("active");
+    setTagFilter(null);
+    setQueryInput("");
+    setQuery("");
+    setSubmissionRefresh((version) => version + 1);
+  }, [savedFeedbackId, initialOpenId]);
   const [openDeclineOnOpen, setOpenDeclineOnOpen] = React.useState(false);
   /** 2026-09-05——从「开始处理」/拖进「进行中」进来的反馈（尚无 issue）：直接展开 issue 确认表单。 */
   const [openIssueFormOnOpen, setOpenIssueFormOnOpen] = React.useState(false);
@@ -248,7 +269,7 @@ export function DesignLoopInboxScreen({
   React.useEffect(() => {
     if (state !== "default") return;
     void reload();
-  }, [reload, state]);
+  }, [reload, state, submissionRefresh]);
 
   React.useEffect(() => {
     if (state !== "default") return;
@@ -703,6 +724,15 @@ export function DesignLoopInboxScreen({
     }
   };
 
+  const savedTargetUnavailable = savedFeedbackId != null && initialOpenId === savedFeedbackId;
+  const savedRecovery = savedTargetUnavailable ? (
+    <p role="status" data-testid="inbox-saved-open-failed">
+      已保存，无法打开收件箱。反馈编号：{savedFeedbackId}。
+      <a href={`/platform-admin/inbox?open=${encodeURIComponent(savedFeedbackId)}`}>重新打开这条反馈</a>
+      ，或从导航栏「提反馈」的「我提过的」回看，无需重新提交。
+    </p>
+  ) : null;
+
   // ── 七态：loading / denied / dep-failed 走保留态面板；empty 数据驱动 ──────────
   if (state === "loading" || (state === "default" && load.kind === "loading")) {
     return (
@@ -723,6 +753,7 @@ export function DesignLoopInboxScreen({
   if (state === "denied") {
     return (
       <div className="flex flex-col items-center gap-2 p-16 text-center" data-testid="denied">
+        {savedRecovery}
         <ShieldAlert aria-hidden className="h-8 w-8 text-muted-foreground" />
         <p className="text-14 font-medium">运营收件箱仅平台运营可见</p>
         <p className="max-w-sm text-12 text-muted-foreground">
@@ -740,6 +771,7 @@ export function DesignLoopInboxScreen({
         <p className="max-w-sm text-12 text-muted-foreground">
           反馈、系统异常与设计方案的合并数据源这次没取到{reason !== null ? `（${reason}）` : ""}，条目没有丢。稍后重试，或检查后台服务状态。
         </p>
+        {savedRecovery}
         <Button size="sm" variant="outline" className="mt-1" onClick={() => void reload()} data-testid="inbox-retry">重试</Button>
       </div>
     );
@@ -747,6 +779,7 @@ export function DesignLoopInboxScreen({
 
   return (
     <div className="flex h-full flex-col" data-testid="design-loop-inbox">
+      {open === null && savedRecovery}
       {saved !== null && (
         <div
           className="mx-4 mt-3 rounded-card bg-success px-3 py-1.5 text-12 text-success-foreground"
@@ -773,6 +806,7 @@ export function DesignLoopInboxScreen({
       )}
       {/* 工具条：视图切换 + 类型 chip + 归档箱 + 搜索 */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+        {onNewFeedback && <Button size="sm" variant="primary" onClick={onNewFeedback} data-testid="inbox-new-feedback">新建反馈并分诊</Button>}
         <div className="flex items-center gap-0.5 rounded-control border border-border p-0.5">
           <ViewToggle active={view === "board" && !archivedView} disabled={archivedView} onClick={() => setView("board")} testid="inbox-view-board" icon={Columns3} label="看板" />
           <ViewToggle active={view === "list" || archivedView} onClick={() => setView("list")} testid="inbox-view-list" icon={LayoutList} label="列表" />
