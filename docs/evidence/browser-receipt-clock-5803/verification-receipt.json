@@ -1,0 +1,30 @@
+{
+  "source": "93099761e61d6ca94e6914c111bba988ade2b1ed",
+  "base": "8f72c9ee2",
+  "independentReview": "SOURCE ACCEPT 93099761e61d6ca94e6914c111bba988ade2b1ed",
+  "testsPassed": 8,
+  "redFailed": 2,
+  "redPassed": 6,
+  "probeTestsPassed": 6,
+  "probeHostMinusDbBoundsMs": [
+    -4,
+    2
+  ],
+  "historicalFailureRootCauseConfirmed": false,
+  "controlledClockMechanismReproduced": true,
+  "productionChanged": false,
+  "deadlineBoundariesMs": [
+    -1,
+    100
+  ],
+  "postgresSleepMs": 150,
+  "realTimersPreserved": true,
+  "osClockChanged": false,
+  "apiTypecheckExit": 0,
+  "apiLintExit": 0,
+  "credentialScanExit": 0,
+  "ownedResourcesCleaned": true,
+  "originalFullLogSha256": "15cb1a40d08996ffc4abab887de45d3f499b3d2170388ee67c388c3ad2461808",
+  "originalSource": "9697455adb57cab9c0784000b00cc614bbf59c8e",
+  "originalActualOuterExit": 130
+}

@@ -1,4 +1,4 @@
-import {afterAll,beforeAll,expect,it} from 'vitest';
+import {afterAll,beforeAll,expect,it,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
 import {PgDatabase} from '../../src/infrastructure/db/pg-database';
 import {appConfig} from '../../src/infrastructure/db/pg-config';
@@ -13,6 +13,11 @@ let db:PgDatabase;
 const invocation={toolName:'browser_navigate',toolArgs:{url:'https://example.com/'}} as const;
 const digest='a'.repeat(64),result:BrowserInvocationOutput={pageRef:'page:'+'b'.repeat(64),url:'https://example.com/',title:'Fixture',generation:1};
 const deadline=()=>new Date(Date.now()+30000);
+// The SQL receipt guard owns deadline comparison; Node and the DB VM need not
+// agree within a millisecond. Keep the original -1/+100ms boundaries and150ms wait.
+async function databaseDeadline(offsetMs:number):Promise<Date>{
+ return asApp(org,async c=>(await c.query<{deadline:Date}>("SELECT clock_timestamp()+$1::integer*interval '1 millisecond' AS deadline",[offsetMs])).rows[0]!.deadline);
+}
 async function context():Promise<BrowserContext>{
  const run='browser-run-'+randomUUID();await seedAgentRun({orgId:org,id:run,threadId:thread,authorId:'actor',status:'running'});
  await asApp(org,async c=>{
@@ -44,13 +49,17 @@ it('wrong attempt, lease and organization cannot claim or publish another runnin
  for(const patch of [{attemptId:ctx.parentRunId+':99'},{leaseEpoch:2},{orgId:other}])await expect(store.succeed({...ctx,...patch},invocation,digest,result)).rejects.toThrow('unconfirmed');
  await store.succeed(ctx,invocation,digest,result);
 });
-it('timeout rejects late completion and keeps an honest unknown receipt across restart',async()=>{
- const ctx=await context(),store=new PgBrowserExecutionReceipts(db);
- await expect(store.claim(ctx,invocation,digest,new Date(Date.now()-1))).rejects.toThrow('refused');
- await store.claim(ctx,invocation,digest,new Date(Date.now()+100));
- await asApp(org,c=>c.query('SELECT pg_sleep(0.15)'));
- await expect(store.succeed(ctx,invocation,digest,result)).rejects.toThrow('unconfirmed');
- expect(await new PgBrowserExecutionReceipts(db).claim(ctx,invocation,digest,deadline())).toEqual({kind:'unconfirmed'});
+it.each([-1000,0,1000])('timeout rejects late completion and keeps an honest unknown receipt across restart (host clock offset %i ms)',async offset=>{
+ const ctx=await context(),store=new PgBrowserExecutionReceipts(db),nativeNow=Date.now.bind(Date);
+ // Controlled Node-only skew; database clocks and all real timers stay unchanged.
+ const clock=vi.spyOn(Date,'now').mockImplementation(()=>nativeNow()+offset);
+ try{
+  await expect(store.claim(ctx,invocation,digest,await databaseDeadline(-1))).rejects.toThrow('refused');
+  await store.claim(ctx,invocation,digest,await databaseDeadline(100));
+  await asApp(org,c=>c.query('SELECT pg_sleep(0.15)'));
+  await expect(store.succeed(ctx,invocation,digest,result)).rejects.toThrow('unconfirmed');
+  expect(await new PgBrowserExecutionReceipts(db).claim(ctx,invocation,digest,deadline())).toEqual({kind:'unconfirmed'});
+ }finally{clock.mockRestore();}
 });
 it('parent cancellation committed before settlement denies late output and any new execution',async()=>{
  const ctx=await context(),store=new PgBrowserExecutionReceipts(db);await store.claim(ctx,invocation,digest,deadline());
