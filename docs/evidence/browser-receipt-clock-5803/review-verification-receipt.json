@@ -30,5 +30,15 @@
     "wsx-e287a48863cb3fde08cb"
   ],
   "historicalF07FormalSource": "c2c33c8ea1414024489b1e0a16609dec7fdf55a4",
-  "historicalF07FormalAppliesToCurrentSource": false
+  "historicalF07FormalAppliesToCurrentSource": false,
+  "integration": {
+    "testedSource": "aa30fc7ebe0d6b62d019ccb1d6494158e4c0fdb0",
+    "sameTreeSource": "787e6c3b9b8c2baac9978a76b278836f2a9fae3f",
+    "actualFocusedPassed": 9,
+    "dependencyPr": 5799,
+    "dependencyHead": "6c8f681b232555594b2948663eace730e54b5663",
+    "productionDiagnosticsIdenticalTo": "cd85446e25a4c97fb010fdcb24151207ddde4f06",
+    "main": "8f72c9ee2",
+    "ownedComposeProjectAbsent": "wsx-18f98a3e76aa8fdde98e"
+  }
 }
