@@ -7,18 +7,20 @@ import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
 import { WhiteboardCollaborationError, type WhiteboardDeletionChange, type WhiteboardDeletionProof, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 import { ConsoleLogger } from '../logging/console-logger';
 import type { WorkerValidationInput } from './update-validator-input';
+import { currentOperationTraceId } from '../../application/ports/operation-trace';
 
 type ValidationMode = WorkerValidationInput['mode'];
-type DiagnosticContext = { traceId: string; startedAt: number; inputBytes: number; mode?: ValidationMode };
+type DiagnosticContext = { traceId: string; validatorCallId: string; startedAt: number; inputBytes: number; mode?: ValidationMode };
 type UnavailableReason = 'queue_capacity' | 'queue_deadline' | 'invalid_deadline' | 'worker_deadline' | 'worker_error' | 'worker_exit';
 const diagnosticLogger = new ConsoleLogger();
 function diagnosticContext(inputBytes: number, mode?: ValidationMode): DiagnosticContext {
-  return { traceId: randomUUID(), startedAt: performance.now(), inputBytes, mode };
+  const validatorCallId = randomUUID();
+  return { traceId: currentOperationTraceId() ?? validatorCallId, validatorCallId, startedAt: performance.now(), inputBytes, mode };
 }
 function unavailable(context: DiagnosticContext, reason: UnavailableReason, extra: { queueElapsedMs?: number; workerElapsedMs?: number; errorCode?: string; exitCode?: number } = {}) {
   // Never include workerData, stdout/stderr, raw errors or document identifiers.
   try { diagnosticLogger.error('whiteboard_validator_unavailable', { traceId: context.traceId, err: {
-    reason, mode: context.mode, inputBytes: context.inputBytes,
+    reason, validatorCallId: context.validatorCallId, mode: context.mode, inputBytes: context.inputBytes,
     elapsedMs: Math.max(0, Math.round(performance.now() - context.startedAt)), ...extra,
   } }); } catch { /* Diagnostic sink failure must preserve the validator rejection. */ }
   return new WhiteboardCollaborationError('VALIDATOR_UNAVAILABLE');
