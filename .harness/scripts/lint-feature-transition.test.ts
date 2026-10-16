@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { sh } from "./lib/sh";
 import { REPO_ROOT } from "./lib/paths";
 import { appendFingerprint } from "./lib/evidence-fingerprint";
+import { squashIntegrationOracle } from "./lint-feature-transition";
 
 const PHASE_DIR = "phase-99-demo";
 const FL = `phases/${PHASE_DIR}/feature_list.json`;
@@ -228,5 +229,120 @@ describe("反向反证：门不是永远红的", () => {
     const r = runGate(base, head, REPO_ROOT);
     expect(r.out).not.toContain("[direct_passing_edit]");
     expect(r.code).toBe(0);
+  });
+});
+
+describe("squash 的完整树出处证明", () => {
+  it("Git 查询失败时拒绝，且目标树与见证结果只查询一次", () => {
+    const calls: string[] = [];
+    const proves = squashIntegrationOracle((cmd) => {
+      calls.push(cmd);
+      return cmd.startsWith("log --format")
+        ? { code: 0, out: "target-tree\n" }
+        : { code: 1, out: "target-tree\n" };
+    }, "head");
+    expect(proves("witness", LOG_REL, "blob")).toBe(false);
+    expect(proves("witness", LOG_REL, "blob")).toBe(false);
+    expect(proves("other-witness", LOG_REL, "blob")).toBe(false);
+    expect(calls.filter((cmd) => cmd.startsWith("log --format"))).toHaveLength(1);
+    expect(calls.filter((cmd) => cmd.includes("witness.."))).toHaveLength(2);
+  });
+
+  it("目标历史查询失败，即使源查询有输出也拒绝", () => {
+    const proves = squashIntegrationOracle((cmd) => cmd.startsWith("log --format")
+      ? { code: 1, out: "same-tree\n" }
+      : { code: 0, out: "same-tree\n" }, "missing-head");
+    expect(proves("witness", LOG_REL, "blob")).toBe(false);
+  });
+
+  it("旧 blob 的证明不能缓存后借给新 blob 或不同日志路径", () => {
+    const proves = squashIntegrationOracle((cmd) => {
+      if (cmd.startsWith("log ")) return { code: 0, out: "source-tree\n" };
+      return { code: 0, out: cmd.includes("different.verify.log") ? "other-blob\n" : "old-blob\n" };
+    }, "head");
+    expect(proves("witness", LOG_REL, "old-blob")).toBe(true);
+    expect(proves("witness", LOG_REL, "new-blob")).toBe(false);
+    expect(proves("witness", "evidence/different.verify.log", "old-blob")).toBe(false);
+  });
+
+  function squashFixture(): { base: string; head: string; witness: string } {
+    const base = commit("base");
+    git("checkout -q -b source");
+    write("implementation.ts", "export const implemented = true;\n");
+    const witness = commit("implementation under verification");
+    writeAttestedLog("$ pnpm test\n[exit 0]\nall good");
+    writeFeatures([verifiedPassing()]);
+    commit("verified source");
+    git("checkout -q main");
+    git("merge --squash source");
+    return { base, head: commit("squash source"), witness };
+  }
+
+  it("真 squash 保留完整源树，见证属于源历史 ⇒ 退 0", () => {
+    const { base, head } = squashFixture();
+    expect(runGate(base, head).code).toBe(0);
+  });
+
+  it("squash 后的后续 HEAD 仍能证明已集成 ⇒ 退 0", () => {
+    const { base } = squashFixture();
+    write("later.txt", "later change\n");
+    const head = commit("downstream change");
+    expect(runGate(base, head).code).toBe(0);
+  });
+
+  it("日志相同但源代码树不同，不是完整 squash ⇒ 退 1", () => {
+    const { base } = squashFixture();
+    // Remove the only integrated equivalent tree from target ancestry.
+    git(`reset -q --soft ${base}`);
+    write("implementation.ts", "export const implemented = false;\n");
+    const head = commit("same evidence but different implementation");
+    const r = runGate(base, head);
+    expect(r.out).toContain("attestation_unverifiable");
+    expect(r.code).toBe(1);
+  });
+
+  it("等价源树不属于日志见证的后代 ⇒ 退 1", () => {
+    const { base } = squashFixture();
+    git("checkout -q -b unrelated main");
+    write("unrelated.txt", "foreign witness\n");
+    const foreign = commit("unrelated witness");
+    git("checkout -q main");
+    // A valid fingerprint with a different witness cannot borrow source's proof.
+    const original = readFileSync(join(repo, LOG_REL), "utf8");
+    write(LOG_REL, original.replace(/commit=[0-9a-f]{40}/, `commit=${foreign}`));
+    const head = commit("foreign attestation");
+    const r = runGate(base, head);
+    expect(r.out).toContain("attestation_unverifiable");
+    expect(r.code).toBe(1);
+  });
+
+  it("无关见证的后代回退到共同 base，不能借用不含当前证据的旧等价树 ⇒ 退 1", () => {
+    const base = commit("common base");
+    git("checkout -q -b foreign");
+    write("foreign.ts", "unrelated implementation\n");
+    commit("foreign witness");
+    writeAttestedLog("$ pnpm test\n[exit 0]\nforeign result");
+    const foreignLog = readFileSync(join(repo, LOG_REL), "utf8");
+    git("add -A");
+    git(`read-tree --reset -u ${base}`);
+    commit("foreign descendant restores common base tree");
+    expect(git("rev-parse HEAD^{tree}")).toBe(git(`rev-parse ${base}^{tree}`));
+    git("checkout -q main");
+    write("implementation.ts", "different implementation\n");
+    write(LOG_REL, foreignLog);
+    writeFeatures([verifiedPassing()]);
+    const head = commit("borrow foreign witness after its revert");
+    const r = runGate(base, head);
+    expect(r.out).toContain("attestation_unverifiable");
+    expect(r.code).toBe(1);
+  });
+
+  it("squash 不能放行指纹被篡改的日志 ⇒ 退 1", () => {
+    const { base } = squashFixture();
+    write(LOG_REL, readFileSync(join(repo, LOG_REL), "utf8").replace("all good", "changed body"));
+    const head = commit("tamper after squash");
+    const r = runGate(base, head);
+    expect(r.out).toContain("evidence_tampered");
+    expect(r.code).toBe(1);
   });
 });

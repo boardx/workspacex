@@ -112,6 +112,39 @@ function evidenceLogPath(phaseDir: string, f: RawFeature): string | null {
   return `phases/${phaseDir}/sprints/sprint-${sprint}/evidence/${id}.verify.log`;
 }
 
+/**
+ * Squash changes commit ancestry, but preserves the complete source tree. A witness
+ * is integrated only when one of its descendants has exactly a tree on head's
+ * history, containing the exact evidence blob at its current path. The latter
+ * prevents borrowing a common ancestor tree from before this evidence existed.
+ * Matching a log, patch or commit message alone is deliberately insufficient.
+ * Git failures fail closed; the target tree set is loaded once for all features.
+ */
+export function squashIntegrationOracle(git: Git, head: string): NonNullable<CommitOracle["isSquashIntegrated"]> {
+  let headTrees: Set<string> | undefined;
+  const results = new Map<string, boolean>();
+  return (witness, logPath, evidenceBlob) => {
+    if (!logPath || !evidenceBlob) return false;
+    const key = JSON.stringify([witness, logPath, evidenceBlob]);
+    const cached = results.get(key);
+    if (cached !== undefined) return cached;
+    if (!headTrees) {
+      const target = git(`log --format=%T ${head}`);
+      headTrees = new Set(target.code === 0 ? target.out.trim().split(/\s+/).filter(Boolean) : []);
+    }
+    const source = git(`log --all --ancestry-path ${witness}.. --format=%T`);
+    const targetTrees = headTrees;
+    const integrated = source.code === 0 && source.out.trim().split(/\s+/).some((tree) => {
+      if (!targetTrees.has(tree)) return false;
+      const object = `${tree}:${logPath}`.replace(/'/g, "'\\''");
+      const blob = git(`rev-parse --verify '${object}'`);
+      return blob.code === 0 && blob.out.trim() === evidenceBlob;
+    });
+    results.set(key, integrated);
+    return integrated;
+  };
+}
+
 export function lintFeatureTransition(args: Args): void {
   const baseRef = req(args, "base");
   const headRef = args.opts["head"] ?? "HEAD";
@@ -135,6 +168,7 @@ export function lintFeatureTransition(args: Args): void {
   const oracle: CommitOracle = {
     exists: (sha) => git(`cat-file -e ${sha}^{commit}`).code === 0,
     isAncestorOfHead: (sha) => git(`merge-base --is-ancestor ${sha} ${head}`).code === 0,
+    isSquashIntegrated: squashIntegrationOracle(git, head),
   };
 
   const blobs = { base: evidenceBlobsAt(git, base), head: evidenceBlobsAt(git, head) };
