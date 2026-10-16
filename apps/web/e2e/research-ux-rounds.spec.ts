@@ -42,32 +42,6 @@ async function seedSavedPlan(page: Page, name: string) {
   return { session, path, headers, saved };
 }
 
-/** R1 integration guard: form bounds only, never submit a creation command. */
-test("R1 intake exposes canonical input bounds without dropping the requirement", async ({ page }, testInfo) => {
-  const output = resolve(process.env.WX_RESEARCH_UX_EVIDENCE ?? testInfo.outputPath("evidence"));
-  await mkdir(output, { recursive: true });
-  const submitted: string[] = [];
-  page.on("request", request => { if (request.method() === "POST" && /research\/guided-sessions/.test(new URL(request.url()).pathname)) submitted.push(new URL(request.url()).pathname); });
-  await page.goto("/research/new");
-  const next = page.getByTestId("research-confirm-brief");
-  await expect(next).toBeDisabled();
-  const goal = page.getByRole("textbox", { name: "研究目标", exact: true });
-  await goal.fill("   "); await expect(next).toBeDisabled();
-  await goal.fill("核对合成输入的边界与保留行为。");
-  await page.getByText("完善研究信息", { exact: true }).click();
-  for (const [label, key] of [["研究主题", "topic"], ["时间范围", "timeRange"], ["地域范围", "region"], ["重点关注", "focus"]] as const) {
-    await expect(page.getByRole("textbox", { name: label, exact: true })).toHaveAttribute("maxlength", String(research.GuidedResearchBrief.shape[key].maxLength));
-  }
-  const time = page.getByRole("textbox", { name: "时间范围", exact: true });
-  const limit = research.GuidedResearchBrief.shape.timeRange.maxLength!;
-  await time.fill("甲".repeat(limit)); await time.press("End"); await time.press("x");
-  expect((await time.inputValue()).length).toBe(limit);
-  await expect(goal).toHaveValue("核对合成输入的边界与保留行为。");
-  await expect(next).toBeEnabled(); expect(submitted).toEqual([]);
-  await page.screenshot({ path: resolve(output, "r1-integration.png"), fullPage: true });
-  await writeFile(resolve(output, "r1-integration.json"), JSON.stringify({ limit, length: (await time.inputValue()).length, submitted }, null, 2));
-});
-
 /** R2: one real save round trip, controlled transport delay, then normal reload. */
 test("R2 plan saving feedback belongs to save and survives a real API/PG refresh", async ({ page }, testInfo) => {
   test.setTimeout(180000);

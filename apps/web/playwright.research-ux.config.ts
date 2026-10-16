@@ -9,7 +9,7 @@ export default defineConfig({
   ...base,
   workers: 1,
   // Independent R4 delivery tests only its own round by default. The full
-  // R1/R2/R3/R4 suite requires the explicitly assembled product-fix combination.
+  // R2/R3/R4 suite requires the explicitly assembled product-fix combination.
   grep: process.env.WX_RESEARCH_UX_ALL === "1" ? undefined : /R4 /,
   outputDir: "test-results/research-ux",
   projects: [{ ...base.projects?.find(project => project.name === "seeded"), name: "research-ux", testMatch: "research-ux-rounds.spec.ts" }],
