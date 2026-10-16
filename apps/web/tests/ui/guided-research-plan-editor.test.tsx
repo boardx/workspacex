@@ -64,3 +64,26 @@ it("does not overwrite unsaved input when acknowledged values arrive as fresh ob
   expect(screen.queryByRole("button", { name: "保存计划" })).not.toBeInTheDocument();
   expect(JSON.stringify(acknowledged)).toBe(original);
 });
+
+it("prepares a failed new plan against acknowledgement when retry changes its title", async () => {
+  const acknowledged = runtimeFixture("outline").outline.map(item => ({ ...item, questions: ["已保存的自定义核对问题"] }));
+  const save = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+  const { rerender } = render(<GuidedResearchPlanEditor value={acknowledged} persistedValue={acknowledged} disabled={false} onSave={save} />);
+  fireEvent.click(screen.getByRole("button", { name: "新增计划" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "计划 2" }), { target: { value: "失败前的新计划标题" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存计划" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  await screen.findByText("计划未保存，请重试。");
+  const retained = save.mock.calls[0]![0];
+  rerender(<GuidedResearchPlanEditor value={retained} persistedValue={acknowledged} disabled={false} onSave={save} />);
+  fireEvent.click(screen.getByRole("button", { name: /编辑计划 2/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: "计划 2" }), { target: { value: "重试时的新计划标题" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存计划" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
+  await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+  const retried = save.mock.calls[1]![0];
+  expect(retried[0].questions).toEqual(acknowledged[0]!.questions);
+  expect(retried[1].questions[0]).toContain("重试时的新计划标题");
+  expect(retried[1].questions[0]).not.toContain("失败前的新计划标题");
+});

@@ -38,7 +38,7 @@ export function GuidedResearchPlanEditor({ value, persistedValue = value, disabl
   async function save() {
     setConfirm(false); setSaving(true); setError(null);
     try {
-      if (await onSave(prepareResearchOutline(items, value))) setEditing(null);
+      if (await onSave(prepareResearchOutline(items, persistedValue))) setEditing(null);
       else setError("计划未保存，请重试。");
     } catch { setError("计划未保存，请重试。"); }
     finally { setSaving(false); }
