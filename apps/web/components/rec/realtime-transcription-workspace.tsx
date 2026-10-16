@@ -54,13 +54,24 @@ export function RealtimeTranscriptionWorkspace({
   selectedDeviceId?: string | null;
   onSelectDevice?: (deviceId: string | null) => void;
 }) {
+  const recording = reconnecting || streamState === "recording" || streamState === "stopping" || session.status === "recording";
+  const busy = streamState === "connecting" || streamState === "stopping";
   const [renaming, setRenaming] = React.useState(false);
   const [nameDraft, setNameDraft] = React.useState(session.name);
   const [nameError, setNameError] = React.useState<string | null>(null);
   const [savingName, setSavingName] = React.useState(false);
   const renamePending = React.useRef(false);
+  const titleButtonRef = React.useRef<HTMLButtonElement>(null);
+  const restoreTitleFocus = React.useRef(false);
+  React.useEffect(() => {
+    if (renaming || !restoreTitleFocus.current) return;
+    restoreTitleFocus.current = false;
+    const button = titleButtonRef.current;
+    if (button?.isConnected && !button.disabled) button.focus();
+  }, [renaming]);
   const beginRename = () => {
     if (!onRename || renamePending.current || recording || busy) return;
+    restoreTitleFocus.current = true;
     setNameDraft(session.name); setNameError(null); setRenaming(true);
   };
   async function saveName() {
@@ -75,14 +86,33 @@ export function RealtimeTranscriptionWorkspace({
     finally { renamePending.current = false; setSavingName(false); }
   }
   const [editing, setEditing] = React.useState(false);
+  const editButtonRef = React.useRef<HTMLButtonElement>(null);
+  const restoreEditFocus = React.useRef(false);
+  const editSessionRef = React.useRef(session.sessionId);
+  React.useEffect(() => {
+    if (editing || !restoreEditFocus.current) return;
+    if (editSessionRef.current !== session.sessionId) {
+      restoreEditFocus.current = false;
+      return;
+    }
+    const button = editButtonRef.current;
+    if (!button?.isConnected) return;
+    if (button.disabled) {
+      // User navigation takes priority over a delayed restoration after recording.
+      const cancelRestore = () => { restoreEditFocus.current = false; };
+      document.addEventListener("focusin", cancelRestore);
+      return () => document.removeEventListener("focusin", cancelRestore);
+    }
+    restoreEditFocus.current = false;
+    if (document.activeElement === document.body || document.activeElement === button) button.focus();
+  }, [editing, recording, busy, onSaveContent, session.sessionId]);
   const [draft, setDraft] = React.useState(session.content);
   const [saving, setSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
   const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);
-  const recording = reconnecting || streamState === "recording" || streamState === "stopping" || session.status === "recording";
-  const busy = streamState === "connecting" || streamState === "stopping";
   const canStop = recording || streamState === "connecting";
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
 
@@ -95,9 +125,12 @@ export function RealtimeTranscriptionWorkspace({
   async function saveContent() {
     if (!onSaveContent) return;
     setSaving(true);
+    setSaveError(null);
     try {
       await onSaveContent(draft);
       setEditing(false);
+    } catch {
+      setSaveError("正文保存失败，请稍后重试。");
     } finally {
       setSaving(false);
     }
@@ -125,7 +158,7 @@ export function RealtimeTranscriptionWorkspace({
                   <Button size="icon" variant="ghost" aria-label="取消修改名称" disabled={savingName} onClick={() => { setRenaming(false); setNameError(null); }}><X aria-hidden className="h-4 w-4" /></Button>
                   {nameError && <p role="alert" className="text-12 text-destructive">{nameError}</p>}
                 </div> : <h1 data-testid="rec-live-title" onDoubleClick={beginRename} className="truncate text-24 font-semibold tracking-tight">
-                  {onRename ? <button type="button" aria-label="修改录音名称" disabled={recording || busy}
+                  {onRename ? <button ref={titleButtonRef} type="button" aria-label="修改录音名称" disabled={recording || busy}
                     title={recording || busy ? "停止转录后可修改录音名称" : "双击修改录音名称"}
                     className="max-w-full truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); beginRename(); } }}>{session.name}</button> : session.name}
@@ -166,7 +199,7 @@ export function RealtimeTranscriptionWorkspace({
           </div>
         </header>
 
-        {errorMessage && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage}</p>}
+        {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || saveError}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}
 
         <Card className="min-h-64 p-4" data-testid="rec-live-transcript">
@@ -179,8 +212,8 @@ export function RealtimeTranscriptionWorkspace({
                   {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
                   {copied ? "已复制" : "复制全文"}
                 </Button>
-                {!editing && <Button data-testid="rec-live-edit" type="button" size="md" variant="outline"
-                  disabled={recording || busy || !onSaveContent} onClick={() => { setDraft(session.content); setEditing(true); }}>
+                {!editing && <Button ref={editButtonRef} data-testid="rec-live-edit" type="button" size="md" variant="outline"
+                  disabled={recording || busy || !onSaveContent} onClick={() => { editSessionRef.current = session.sessionId; restoreEditFocus.current = true; setSaveError(null); setDraft(session.content); setEditing(true); }}>
                   <Pencil aria-hidden className="h-4 w-4" />编辑
                 </Button>}
               </div>
@@ -189,10 +222,10 @@ export function RealtimeTranscriptionWorkspace({
 
           {editing ? (
             <div className="mt-4">
-              <textarea data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
+              <textarea autoFocus aria-label="逐字稿正文" data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
                 className="min-h-72 w-full resize-y rounded-lg border border-border bg-background p-4 text-13 leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
               <WorkflowActionBar placement="footer">
-                <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => setEditing(false)}>
+                <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => { setSaveError(null); setEditing(false); }}>
                   <X aria-hidden className="h-4 w-4" />取消
                 </WorkflowActionButton>
                 <WorkflowActionButton data-testid="rec-live-save" type="button" variant="primary" disabled={saving} loading={saving}
@@ -201,7 +234,7 @@ export function RealtimeTranscriptionWorkspace({
             </div>
           ) : visibleContent ? (
             <div className="mt-4 rounded-lg bg-card p-1">
-              <p data-testid="rec-live-content" className="whitespace-pre-wrap text-14 leading-8">{session.content}
+              <p data-testid="rec-live-content" className="whitespace-pre-wrap break-words text-14 leading-8">{session.content}
                 {session.content && interimSegment ? " " : ""}
                 {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
               </p>

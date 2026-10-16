@@ -1,0 +1,13 @@
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:7427) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [seeded] › e2e/study-workflow-actions.spec.ts:24:5 › research and interview use consistent command controls without model execution (1.2m)
+
+  1 passed (6.3m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded study-workflow-actions.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6m17s
+  清理：4s
+  总计：6m22s

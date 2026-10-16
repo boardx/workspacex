@@ -115,7 +115,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
   it("uses the shared Studio list-page density and tag treatment", async () => {
     render(<InterviewStudioHome initialTab="history" />);
 
-    expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl", "px-5", "py-6");
+    expect(screen.getByTestId("itv-home-page")).toHaveClass("max-w-screen-2xl");
     const card = await screen.findByTestId("itv-history-card-itv-1");
     // PAPER 标准 ResourceCard：圆角、悬停边框反馈、整格等高，保留真实操作入口。
     expect(card).toHaveClass("rounded-card", "hover:border-input", "h-full");
@@ -143,7 +143,7 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("尚未选择专家")).toBeInTheDocument();
   });
 
-  it.each([{ projectId: null }, { projectId: "project night" }])("new creation entries require name and tags before creating a scoped interview $projectId", async ({ projectId }) => {
+  it.each([{ projectId: null }, { projectId: "project night" }])("the header entry opens and reopens scoped creation without a duplicate creation tile $projectId", async ({ projectId }) => {
     render(<InterviewStudioHome initialTab="history" projectId={projectId} />);
     await screen.findByTestId("itv-history-card-itv-1");
     fireEvent.click(screen.getByTestId("itv-create"));
@@ -151,10 +151,21 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(screen.getByTestId("itv-create-scope")).toHaveTextContent(projectId ? "本项目访谈" : "独立访谈");
     expect(push).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "取消" }));
-    fireEvent.click(screen.getByTestId("itv-create-card"));
+    expect(screen.queryByTestId("itv-create-card")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("itv-create"));
     expect(screen.getByTestId("itv-create-dialog")).toBeVisible();
     expect(push).not.toHaveBeenCalled();
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+  });
+
+  it("returns keyboard focus to the header after dismissing creation", async () => {
+    render(<InterviewStudioHome />);
+    await screen.findByTestId("itv-history-card-itv-1");
+    const trigger = screen.getByTestId("itv-create"); trigger.focus();
+    fireEvent.click(trigger);
+    await waitFor(() => expect(screen.getByLabelText("访谈名称")).toHaveFocus());
+    fireEvent.click(screen.getByRole("button", {name:"取消"}));
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("history resumes the saved canonical source step rather than inferring it from legacy status", async () => {
