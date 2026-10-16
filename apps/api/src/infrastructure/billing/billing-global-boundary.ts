@@ -1,5 +1,11 @@
-/** Single-source literal statements for the verified receipt transaction. No caller-supplied SQL is admitted. */
+/** Single-source global billing statements for verified receipts and order expiry. No caller-supplied SQL is admitted. */
 export const BILLING_GLOBAL_SQL = Object.freeze({
+  closeExpiredOrders: `WITH due AS (
+    SELECT order_no FROM billing_orders
+    WHERE status='PENDING' AND created_at<=now()-interval '15 minutes' AND expired_at<=now()
+    ORDER BY expired_at,order_no LIMIT 100 FOR UPDATE SKIP LOCKED
+  ) UPDATE billing_orders o SET status='CLOSED',closed_at=now()
+    FROM due WHERE o.order_no=due.order_no AND o.status='PENDING' RETURNING o.order_no`,
   transactionOwner: "SELECT order_no FROM billing_orders WHERE provider='wechat' AND channel_order_no=$1 AND order_no<>$2",
   bindClosedOrder: "UPDATE billing_orders SET channel_order_no=$2,notify_at=now() WHERE order_no=$1",
   lockOrder: "SELECT * FROM billing_orders WHERE order_no=$1 FOR UPDATE",

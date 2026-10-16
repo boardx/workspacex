@@ -34,8 +34,9 @@ export interface DatabasePort {
    * zero rows and looks like "no data" rather than "error" -- the hardest class of bug
    * to track down.
    * Narrow billing exception: verified cross-owner payment receipt recovery/crediting
-   * and rejected-webhook security audit operate only on owner-global billing tables.
-   * PgBillingCreditingStore shares this pool and enforces billing-global-boundary;
+   * and rejected-webhook security audit, plus conditional expired-PENDING order
+   * maintenance, operate only on owner-global billing tables. Both crediting and
+   * expiry stores share this pool and enforce billing-global-boundary;
    * it must never read organization settings, identity, or other tenant content.
    */
   withoutTenant<T>(fn: (s: TenantSession) => Promise<T>): Promise<T>;
