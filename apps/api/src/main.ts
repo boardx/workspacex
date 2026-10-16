@@ -1,4 +1,5 @@
 import { registerBillingRawBodyParser } from "./interface/middleware/billing-raw-body-parser";
+import { LOGGER_PORT } from "./application/ports/logger.port";
 import { registerGuidedResearchBodyParsers } from "./interface/middleware/guided-research-body-parser";
 import { WHITEBOARD_COLLABORATION_STORE } from './application/whiteboard/collaboration-ports';
 import { WHITEBOARD_REPOSITORY } from './application/whiteboard/ports';
@@ -200,6 +201,7 @@ function loadLocalEnvFileForDev(): void {
 export function attachStreamingSurfaces(app: NestExpressApplication, options: { realtimeConfig?: RealtimeModelConfig } = {}): void {
   const realtimeConfig = options.realtimeConfig ?? readRealtimeModelConfig();
   attachWhiteboardGateway(app.getHttpServer(), {
+    logger: app.get(LOGGER_PORT),
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     boards: app.get(WHITEBOARD_REPOSITORY),
     store: app.get(WHITEBOARD_COLLABORATION_STORE),

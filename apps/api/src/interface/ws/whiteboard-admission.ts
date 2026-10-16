@@ -1,4 +1,5 @@
 import { WhiteboardCollaborationError } from '../../application/whiteboard/collaboration-ports';
+import { bindOperationTrace } from '../../application/ports/operation-trace';
 type Job = { start: () => void };
 type Shared = { controller: AbortController; promise: Promise<unknown>; waiters: number };
 /** Round-robin across authenticated tenants. Running canceled operations retain their slot. */
@@ -24,13 +25,13 @@ export class WhiteboardAdmission {
         reject(new WhiteboardCollaborationError('DEPENDENCY_UNAVAILABLE'));
         this.drain();
       };
-      const job: Job = { start: () => {
+      const job: Job = { start: bindOperationTrace(() => {
         started = true; this.running++; this.active.add(tenant);
         Promise.resolve().then(() => { signal.throwIfAborted(); return work(); }).then(resolve, reject).finally(() => {
           signal.removeEventListener('abort', cancel);
           this.running--; this.active.delete(tenant); this.drain();
         });
-      } };
+      }) };
       const queue = this.queues.get(tenant) ?? [];
       queue.push(job); this.queues.set(tenant, queue); this.waiting++;
       signal.addEventListener('abort', cancel, { once: true }); this.drain();
