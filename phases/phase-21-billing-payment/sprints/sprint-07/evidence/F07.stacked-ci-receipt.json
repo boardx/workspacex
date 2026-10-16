@@ -1,0 +1,15 @@
+{
+  "source": "b6c3cdb6b1543f45d99eff4cd9cfcf5fef1c76ce",
+  "run": 38932662022,
+  "job": 117080262240,
+  "conclusion": "FAILURE",
+  "firstFailure": "doctor F07 passing but issue5797 OPEN while base is prerequisite branch",
+  "apiAssertionFailureClaimed": false,
+  "rawLogSha256": "a9d8921325874a45d935695c8fb8a917fe633136715aa75f59f8847c403979a5",
+  "rawLogSource": "https://github.com/boardx/workspacex/actions/runs/38932662022/job/117080262240",
+  "priorFormalStillBoundTo": "c2c33c8ea1414024489b1e0a16609dec7fdf55a4",
+  "manualStatusChange": false,
+  "manualIssueClose": false,
+  "gateBypass": false,
+  "pendingMainPrerequisite": 5807
+}
