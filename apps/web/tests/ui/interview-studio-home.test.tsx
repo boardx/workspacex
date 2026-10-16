@@ -158,6 +158,13 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(vi.mocked(fetch).mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
   });
 
+  it("selects the default name so typing immediately replaces it", async () => {
+    render(<InterviewStudioHome initialCreateOpen />);
+    const input = await screen.findByLabelText("访谈名称") as HTMLInputElement;
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input.value.slice(input.selectionStart ?? 0, input.selectionEnd ?? 0)).toBe("未命名访谈");
+  });
+
   it("returns keyboard focus to the header after dismissing creation", async () => {
     render(<InterviewStudioHome />);
     await screen.findByTestId("itv-history-card-itv-1");
@@ -366,7 +373,8 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     fireEvent.keyDown(screen.getByTestId("itv-create-tag-input"), { key: "Enter" });
 
     fireEvent.click(screen.getByTestId("itv-create-submit"));
-    expect(await screen.findByRole("alert")).toHaveTextContent("DEPENDENCY_UNAVAILABLE");
+    expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时不可用");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
     expect(screen.getByTestId("itv-create-name")).toHaveValue("保留的创建输入");
     fireEvent.click(screen.getByTestId("itv-create-submit"));
     await waitFor(() => {

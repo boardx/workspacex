@@ -66,7 +66,10 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
       close();
       push(withProjectId(`/itv/${created.interviewId}/intake`, projectId));
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.reasonCode ?? cause.message : cause instanceof Error ? cause.message : "DEPENDENCY_UNAVAILABLE");
+      setError(cause instanceof ApiError && cause.status === 401 ? "登录已失效，请重新登录"
+        : cause instanceof ApiError && cause.status === 403 ? "当前账号无权创建访谈"
+          : cause instanceof ApiError && [400, 422].includes(cause.status) ? "请检查访谈名称与标签"
+            : "服务暂时不可用");
       setBusy(false);
     }
   }
@@ -75,7 +78,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
     <Dialog.Root open={open} onOpenChange={(next) => next ? onOpenChange(true) : close()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-background-foreground/35 backdrop-blur-sm animate-in fade-in" />
-        <Dialog.Content onOpenAutoFocus={event => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; event.preventDefault(); nameInput.current?.focus(); }} onCloseAutoFocus={event => { if (returnFocus.current?.isConnected) { event.preventDefault(); returnFocus.current.focus(); } }} data-testid="itv-create-dialog" className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Dialog.Content onOpenAutoFocus={event => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; event.preventDefault(); nameInput.current?.focus(); if (nameInput.current?.value === DEFAULT_INTERVIEW_NAME) nameInput.current.select(); }} onCloseAutoFocus={event => { if (returnFocus.current?.isConnected) { event.preventDefault(); returnFocus.current.focus(); } }} data-testid="itv-create-dialog" className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-5 text-card-foreground shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <Dialog.Title className="text-20 font-semibold tracking-tight">新建访谈</Dialog.Title>
