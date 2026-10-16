@@ -1,0 +1,25 @@
+{
+  "identity": "isolated principal fixture",
+  "merchant": "independent RSA loopback",
+  "initialCreationClock": "Date-only16minutes earlier; restored after response body",
+  "realTimersAndDatabaseClock": true,
+  "billingHttpIntercepted": false,
+  "orderTimestampsMutated": false,
+  "expiredOrderNo": "bg20261016165137GYN8VB",
+  "replacementOrderNo": "bg20261016170740oEccJ0",
+  "closure": {
+    "beforeStatus": "PENDING",
+    "afterStatus": "CLOSED",
+    "closedAt": "2026-10-16T17:07:37.559Z",
+    "worker": "actual DI lifecycle worker; automatic sweep may have won before observation"
+  },
+  "nativeRequests": 2,
+  "signedNativeRequests": 2,
+  "callbackStatus": 200,
+  "duplicateCallbackStatus": 200,
+  "balance": 1320,
+  "creditedSource": "bg20261016170740oEccJ0",
+  "expiredSourceLedgerRows": 0,
+  "ledgerRows": 2,
+  "productionMerchantAccepted": false
+}
