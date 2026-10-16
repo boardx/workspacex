@@ -11,7 +11,7 @@
 
 ## 决策提案
 
-采纳 [Stripe 状态与付款恢复契约补充](../../phases/phase-21-billing-payment/design-deltas/stripe-state-recovery/contract.md) 中的唯一状态/资格映射。有效权益、可创建新订阅、可管理已有账单分别建模，公开状态原样保存；枚举增补与 UI/用例/持久化约束同步。既有操作形状、错误码与 webhook 唯写者不变。具体状态集合和表格只在补充提案维护，本 ADR 不重复。
+采纳 [Stripe 状态与付款恢复契约补充](../../phases/phase-21-billing-payment/design-deltas/stripe-state-recovery/contract.md) 中的唯一状态/资格映射。有效权益、可创建新订阅、可管理已有账单分别建模，公开状态原样保存；枚举增补与 UI/用例/持久化约束同步。既有操作形状、错误码与 webhook 唯写者不变。具体状态集合和表格只在补充提案维护，本 ADR 不重复。用户级绑定代次防止已退休订阅的迟到事件覆盖新订阅；当前状态无法确认时保留历史快照但按补充提案503拒绝当前权益/链接，不能将旧 active 冒充当前确认状态。
 
 当前为提案，不修改现有设计签核、契约或运行时。采纳记录不能由 agent 冒充人类签核。
 
