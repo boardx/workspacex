@@ -45,14 +45,14 @@
       "notes": "依据 00 R2-3（未启用渠道配置缺失不得卡启动）与 R10（骨架并入或重写）；契约 domain.md 现状基线：GET /billing/config 返回 [] 不用 HTTP 错误表达未配置（覆盖 V2/V4 的 API 侧）。契约文件 billing-credits.ts / billing-subscription.ts 已存在并 export（packages/contracts/src/index.ts），本 feature 负责删除旧 payment.ts、校验单源与挂载路由。连带门：/billing/* 路径落地时同步 apps/web/lib/navigation.ts 与 nav-reachability 配置（contract-design「物化③连带门」）。"
     },
     {
-      "id": "F-TBD-credit-order-core",
+      "id": "F04",
       "priority": 3,
       "area": "billing-credits",
       "title": "充值订单主链路：套餐列表、创建订单、订单查询",
       "user_visible_behavior": "已登录用户 GET /billing/packages 只看到 enabled 且匹配主体类型（个人/组织）的套餐；POST /billing/orders 只传 packageId 与主体（前端不传任何金额字段）即创建 PENDING 订单，返回 15 分钟有效期的二维码链接与套餐快照；微信 Native 下单失败时订单不落库、返回 wechat_upstream_failed 可重试；GET /billing/orders/:orderNo 按归属校验，他人订单或不存在一律 order_not_found；组织普通成员下单 403、套餐下架 package_disabled、未配置渠道 payment_provider_not_configured。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "passing",
+      "sprint": "04",
+      "owner": "coord-voice",
       "capability": "CAP-DATA",
       "spec_ref": "01-credits-topup.md#R3",
       "depends_on": [
@@ -66,8 +66,8 @@
         "pnpm --filter api exec vitest run tests/billing/order-core.test.ts",
         "pnpm --filter api exec vitest run tests/billing/order-ownership.test.ts"
       ],
-      "evidence": "",
-      "notes": "覆盖 V1/V3/V6/V7/V8 的 API 侧（UC-BC-2/3/4 + 内部端口 UC-BC-I4 WechatPayClient.createNativeOrder，测试用 mock 上游不依赖真实商户号）；I-5 套餐快照、I-13 无假二维码（微信下单失败不落库）、I-9 归属收敛。org_billing_disabled 校验分支（I-12）由 F-TBD-org-billing-setting 接入，本 feature 在 createPaymentOrder 预留开关读取点。金额精度：分（整数），前端金额字段一律忽略并记录可疑请求（01 R7-1）。"
+      "evidence": "evidence/F04.verify.log @ 2026-10-15T11:27:47.118Z",
+      "notes": "覆盖 V1/V3/V6/V7/V8 的 API 侧（UC-BC-2/3/4 + 内部端口 UC-BC-I4 WechatPayClient.createNativeOrder，测试用 mock 上游不依赖真实商户号）；I-5 套餐快照、I-13 无假二维码（微信下单失败不落库）、I-9 归属收敛。org_billing_disabled 校验分支（I-12）由 F-TBD-org-billing-setting 接入，本 feature 在 createPaymentOrder 预留开关读取点。金额精度：分（整数）；跨束契约strict输入为权威，额外金额字段400拒绝。组织开关读取已接入已有行，写接口属后续feature。Native响应必须验签；网络/保存失败不自动新建第二意图，不承诺请求级幂等。"
     },
     {
       "id": "F03",
@@ -198,7 +198,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "04-billing-admin.md#R7",
       "depends_on": [
-        "F-TBD-credit-order-core"
+        "F04"
       ],
       "points": 4,
       "wave": 3,
@@ -221,7 +221,7 @@
       "capability": "CAP-WEB",
       "spec_ref": "01-credits-topup.md#R8",
       "depends_on": [
-        "F-TBD-credit-order-core",
+        "F04",
         "F03",
         "F02"
       ],

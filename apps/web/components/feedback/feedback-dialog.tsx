@@ -186,7 +186,11 @@ export function FeedbackDialog({
   targetLabel,
   onClose,
   onDraftSaved,
+  afterSubmit,
+  onSubmitted,
 }: {
+  afterSubmit?: "inbox";
+  onSubmitted?: (feedbackId: string) => void;
   target: FeedbackTarget;
   targetLabel: string | null;
   onClose: () => void;
@@ -574,7 +578,11 @@ export function FeedbackDialog({
     }
   };
 
+  const sending = React.useRef(false);
+  const [inboxOpenFailed, setInboxOpenFailed] = React.useState(false);
   const send = async () => {
+    if (sending.current) return;
+    sending.current = true;
     setBusy(true);
     setError(null);
     try {
@@ -600,12 +608,24 @@ export function FeedbackDialog({
         appVersion,
         ...(attachmentIds.length > 0 ? { attachmentIds } : {}),
       });
+      if (!out.feedbackId.trim()) throw new Error("提交响应缺少反馈编号");
       setJustSubmitted(out.feedbackId);
       resetForm();
       setTab("mine");
+      if (afterSubmit === "inbox") {
+        // The save is complete. Navigation failures must never enter the submit-error path.
+        try {
+          onSubmitted?.(out.feedbackId);
+          router.push(`/platform-admin/inbox?open=${encodeURIComponent(out.feedbackId)}`);
+          onClose();
+        } catch {
+          setInboxOpenFailed(true);
+        }
+      }
     } catch (err) {
       setError(describeFailure(err));
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   };
@@ -1044,7 +1064,16 @@ export function FeedbackDialog({
             )}
           </div>
         ) : (
-          <MyFeedbackList highlightId={justSubmitted} />
+          <>
+            {inboxOpenFailed && justSubmitted !== null && (
+              <p role="status" className="p-3 text-12" data-testid="feedback-inbox-open-failed">
+                已保存，无法打开收件箱。反馈编号：{justSubmitted}。
+                <Link href={`/platform-admin/inbox?open=${encodeURIComponent(justSubmitted)}`}>打开已保存的反馈</Link>
+                ，也可在下方「我提过的」回看，无需重新提交。
+              </p>
+            )}
+            <MyFeedbackList highlightId={justSubmitted} />
+          </>
         )}
       </div>
       {/* issue #2679 ③——点开待提交附件的预览；本地 blob URL 已经在浏览器里，不需要再发请求。 */}
