@@ -35,3 +35,20 @@ it("derives a newly added plan's research question from its final edited title",
   expect(saved[1].questions[0]).toContain("欧洲储能并网审批风险");
   expect(saved[1].questions[0]).not.toContain("需要回答什么问题");
 });
+
+it("marks the save action busy and blocks duplicates until its save finishes", async () => {
+  let finish!: (ok: boolean) => void;
+  const save = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+  render(<GuidedResearchPlanEditor value={runtimeFixture("outline").outline} disabled={false} onSave={save} />);
+  fireEvent.click(screen.getByRole("button", { name: /编辑计划 1/ }));
+  fireEvent.change(screen.getByRole("textbox", { name: "计划 1" }), { target: { value: "保存反馈验证" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存计划" }));
+  fireEvent.click(screen.getByRole("button", { name: "确认保存" }));
+  const action = screen.getByRole("button", { name: "保存计划" });
+  expect(action).toHaveAttribute("aria-busy", "true");
+  expect(action).toBeDisabled();
+  fireEvent.click(action);
+  expect(save).toHaveBeenCalledTimes(1);
+  finish(true);
+  await waitFor(() => expect(action).not.toHaveAttribute("aria-busy"));
+});
