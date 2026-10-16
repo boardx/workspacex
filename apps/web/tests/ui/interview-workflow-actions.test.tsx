@@ -34,3 +34,23 @@ it('keeps report generation idle while a simulation command is pending',()=>{
  rerender(<InterviewRunsStep runs={[]} pending generatingReport onGenerateReport={vi.fn()}/>);
  expect(screen.getByRole('button',{name:'正在生成报告…'})).toHaveAttribute('aria-busy','true');
 });
+
+it('focuses only the newly added question and selects its placeholder for immediate typing', async()=>{
+ function Harness(){const [markdown,setMarkdown]=React.useState('# 问题\n\n## [模拟专家](#expert-virtual-actions)\n\n1. 谁负责预算？\n');return <InterviewOutlineStep document={{...document,step:'outline',markdown}} pending={false} onChange={setMarkdown} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()}/>;}
+ render(<Harness/>);
+ const first=screen.getByRole('textbox',{name:'编辑问题 1'}) as HTMLInputElement;first.focus();fireEvent.change(first,{target:{value:'谁负责最终预算？'}});expect(first).toHaveFocus();
+ const add=screen.getByRole('button',{name:'添加问题'});add.focus();fireEvent.click(add);
+ const created=screen.getByRole('textbox',{name:'编辑问题 2'}) as HTMLInputElement;
+ await waitFor(()=>expect(created).toHaveFocus());
+ expect(created.value.slice(created.selectionStart??0,created.selectionEnd??0)).toBe('新问题？');
+ expect(first).toHaveValue('谁负责最终预算？');
+});
+
+it('allows wrapped long-question editing while keeping each question one canonical line',()=>{
+ const onChange=vi.fn();
+ render(<InterviewOutlineStep document={{...document,step:'outline',markdown:'# 问题\n\n## [模拟专家](#expert-virtual-actions)\n\n1. 谁负责预算审批与跨部门协作？'}} pending={false} onChange={onChange} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()}/>);
+ const question=screen.getByRole('textbox',{name:'编辑问题 1'});
+ expect(question.tagName).toBe('TEXTAREA');
+ fireEvent.change(question,{target:{value:'谁负责\n预算？'}});
+ expect(onChange).toHaveBeenCalledWith('# 问题\n\n## [模拟专家](#expert-virtual-actions)\n\n1. 谁负责预算？');
+});
