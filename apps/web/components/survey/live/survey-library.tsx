@@ -119,6 +119,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
   const [query, setQuery] = React.useState("");
   const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
   const [creating, setCreating] = React.useState(false);
+  const createControl = React.useRef<HTMLButtonElement>(null);
   const tagMap = React.useMemo(() => aggregateTags(items), [items]);
   const visibleItems = items
     .filter((item) => matchesTags(item.tags ?? [], selectedTags) && matchesQuery(query, [item.title], item.tags ?? []))
@@ -173,7 +174,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <Button variant="primary" data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
+          <Button ref={createControl} variant="primary" data-testid="survey-create-primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
         </div>
       </header>
 
@@ -220,13 +221,12 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
             <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center">
               <h2 className="text-18 font-semibold">还没有问卷</h2>
               <p className="text-14 text-muted-foreground">创建第一份问卷，或从问卷模板中选择合适的结构。</p>
-              <Button variant="primary" onClick={() => setCreating(true)}><Plus aria-hidden="true" className="h-4 w-4" />新建问卷</Button>
             </div>
           )}
         </section>
       </div>
 
-      <CreateSurveyDialog knownTags={tagMap} open={creating} onOpenChange={setCreating} onCreated={async (id, mode, draft) => {
+      <CreateSurveyDialog onReturnFocus={()=>{const control=createControl.current;if(control?.isConnected&&!control.disabled&&control.getAttribute("aria-disabled")!=="true")control.focus();}} knownTags={tagMap} open={creating} onOpenChange={setCreating} onCreated={async (id, mode, draft) => {
         if (mode === "ai" && draft) {
           router.push(withProjectId(`/studio/survey/new/import?draft=${encodeURIComponent(encodeSurveyCreationDraft(draft))}`, projectId));
           return;
