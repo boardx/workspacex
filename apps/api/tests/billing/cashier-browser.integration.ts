@@ -99,7 +99,9 @@ it("creates through the real UI, credits through a verified callback and never d
   }, { userId: user, orgId: org });
   await page.route(url => url.origin === origin && url.pathname === "/__fullstack_api/identity/me", route => route.fulfill({ json: { org: { id: org, name: "Isolated billing acceptance", kind: "organization", team: null, modelPolicy: "any", avatarUrl: null }, orgRole: "admin", teamId: null, projectRole: null, groupId: null, displayName: "Isolated payer", avatarUrl: null } }));
   await page.goto(`${origin}/billing`);
-  await page.getByRole("button", { name: "购买额度", exact: true }).click();
+  await page.getByTestId("rail-profile-menu").click();
+  await page.getByTestId("billing-menu-purchase").click();
+  await expect.poll(() => page.getByTestId("billing-cashier-dialog").count()).toBe(1);
   await page.locator('input[type="radio"][value="f04-order-basic"]').check();
   const created = page.waitForResponse(response => new URL(response.url()).pathname === "/__fullstack_api/billing/orders" && response.request().method() === "POST");
   await page.getByTestId("billing-generate-qr").click();

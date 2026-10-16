@@ -169,6 +169,8 @@ describe("F06 refreshed accounting and stale result protection",()=>{
 });
 
 import { CashierLedgerHistory } from "@/components/billing/cashier-ledger-history";
+import { renderHook } from "@testing-library/react";
+import { useCashierOrder } from "@/components/billing/use-cashier-order";
 const txn={txnId:"t1",type:"purchase",direction:1,credits:100,balanceAfter:100,sourceType:"payment_order",sourceId:order.orderNo,operatorId:null,reason:null,createdAt:"2026-10-16T00:00:00Z"} as const;
 describe("F06 full ledger pagination",()=>{
  it("keeps existing records and cursor through an error, then deduplicates the last page",async()=>{
@@ -204,5 +206,55 @@ describe("F06 payment confirmation safety",()=>{
   live({get:()=>reply({order:{...order,status:"PROCESSING"}})});await generate();await screen.findByTestId("billing-qr-code-area");
   fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-processing-hint");
   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();expect(screen.queryByTestId("billing-success-badge")).toBeNull();
+ });
+});
+
+describe("F06 closed paid-funds recovery and legal late-payment transitions",()=>{
+ it.each(["invalid_amount","wechat_upstream_failed"])("retains closed %s orders without a repay action or success claim",async lastErrorCode=>{
+  const f=live({get:()=>reply({order:{...order,status:"CLOSED",closedAt:new Date().toISOString(),lastErrorCode}})});
+  await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));
+  expect(await screen.findByTestId("billing-manual-recovery")).toBeTruthy();
+  expect(screen.getByTestId("billing-order-no").textContent).toContain(order.orderNo);
+  expect(screen.queryByTestId("billing-regenerate")).toBeNull();
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  expect(screen.queryByTestId("billing-success-badge")).toBeNull();
+  expect(screen.getByTestId("billing-refresh-status")).toBeTruthy();
+  expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(1);
+  expect(f.credited).not.toHaveBeenCalled();
+ });
+ it.each(["invalid_amount","wechat_upstream_failed",null])("enforces closed recovery eligibility inside the hook for %s",async lastErrorCode=>{
+  const closed={...order,status:"CLOSED",closedAt:new Date().toISOString(),lastErrorCode};
+  const fetcher=vi.fn((_url:string,init:RequestInit)=>reply({order:init.method==="POST"?order:closed}));
+  vi.stubGlobal("fetch",fetcher);
+  const {result}=renderHook(()=>useCashierOrder({ownerType:"user",ownerId:"user-a"},"cashier-test-session",true));
+  await act(async()=>{await result.current.create("p1");});
+  await act(async()=>{await result.current.refresh();});
+  expect(result.current.order).toMatchObject(closed);
+  act(()=>result.current.regenerate());
+  if(lastErrorCode!==null)expect(result.current.order).toMatchObject(closed);
+  else expect(result.current.order).toBeNull();
+  await act(async()=>{await result.current.create("p1");});
+  expect(fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(lastErrorCode===null?2:1);
+ });
+ it.each(["PENDING","PROCESSING","FAILED"])("rejects CLOSED regression to %s and preserves the existing order",async status=>{
+  let reads=0;
+  live({get:()=>reply({order:{...order,status:++reads===1?"CLOSED":status,closedAt:new Date().toISOString()}})});
+  await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-regenerate");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-refresh-hint");
+  expect(screen.getByTestId("billing-order-status").textContent).toBe("已关闭");
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  expect(screen.queryByTestId("billing-success-badge")).toBeNull();
+ });
+ it("accepts late SUCCESS after CLOSED and refreshes accounting instead of blocking real funds",async()=>{
+  let reads=0,walletReads=0;
+  const f=live({wallet:()=>reply({wallet:{...wallet,balance:++walletReads===1?100:220}}),get:()=>reply({order:{...order,status:++reads===1?"CLOSED":"SUCCESS",closedAt:reads===1?new Date().toISOString():null,paidAt:reads===1?null:new Date().toISOString()}})});
+  await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-regenerate");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-success-badge");
+  await waitFor(()=>expect(screen.getByTestId("billing-updated-balance").textContent).toContain("220"));
+  expect(walletReads).toBe(2);expect(f.credited).toHaveBeenCalledTimes(1);
+  expect(screen.queryByTestId("billing-regenerate")).toBeNull();
  });
 });

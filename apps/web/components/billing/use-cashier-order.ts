@@ -5,6 +5,10 @@ import { billingCredits as billing } from "@repo/contracts";
 import { apiRequest, ApiError } from "@/lib/api-client";
 export type CashierOwner = { ownerType: "user" | "team"; ownerId: string };
 export type LiveOrder = z.infer<typeof billing.BillingOrder>;
+/** Only a normal server-confirmed closure permits a new payment intent. */
+export function canRegenerateOrder(order: LiveOrder | null): boolean {
+  return order?.status === "CLOSED" && order.lastErrorCode === null;
+}
 export function billingFailure(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return "登录已失效，请重新登录。";
@@ -51,6 +55,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
       const raw = await apiRequest<unknown>(path, { sessionToken, signal: controller.signal });
       const fresh = validateOrder(raw, { ownerType: owner.ownerType, ownerId: owner.ownerId }, order);
       if ((order.status === "SUCCESS" || order.status === "FAILED") && fresh.status !== order.status) throw new Error("ORDER_STATE_REGRESSION");
+      if (order.status === "CLOSED" && fresh.status !== "CLOSED" && fresh.status !== "SUCCESS") throw new Error("ORDER_STATE_REGRESSION");
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) { setAccessError(null); setState(value => ({ ...value, order: fresh, message: null })); }
     } catch (error) {
       if (!controller.signal.aborted && currentScope.current === scope && error instanceof ApiError && [401, 403, 404].includes(error.status)) setAccessError(billingFailure(error));
@@ -83,7 +88,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     } finally { if (pending.current === controller) pending.current = null; }
   }
   function regenerate() {
-    if (latest.current.order?.status === "CLOSED" && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
+    if (canRegenerateOrder(latest.current.order) && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
   }
   return { ...active, accessError, refresh, create, regenerate, revoke: () => setAccessError("Access denied") };
 }
