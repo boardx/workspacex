@@ -1,0 +1,9 @@
+{
+  "attempts": 2,
+  "persistedTitle": "失败后保留的计划",
+  "persistedVersion": 2,
+  "modelAfter": {
+    "runs": 0,
+    "requests": 0
+  }
+}
