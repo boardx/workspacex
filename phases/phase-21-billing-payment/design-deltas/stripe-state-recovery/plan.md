@@ -34,9 +34,10 @@ flowchart TD
   class G doing
   class S1 done
   class S2 done
-  class S3 doing
-  class S4 todo
-  class S5 todo
+  class S3 done
+  class S4 tested
+  %% evidence S4: source56b9653d3 plan-check/OSS/scope-links exit0; verification.md and rawtxt; document ACCEPT, no runtime acceptance.
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
