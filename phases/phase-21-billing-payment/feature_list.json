@@ -123,7 +123,7 @@
       "area": "billing-credits",
       "title": "过期订单定时关闭任务",
       "user_visible_behavior": "创建超过 15 分钟仍未支付的 PENDING 订单被服务端定时任务自动置为 CLOSED 并写入 closed_at（用户重新打开收银台看到「已过期，请重新生成」）；任务幂等且只动 PENDING 订单，未到期的 PENDING 订单与任何终态订单不受影响。",
-      "status": "in_progress",
+      "status": "passing",
       "sprint": "07",
       "owner": "coord-voice",
       "capability": "CAP-WORKFLOW",
@@ -138,7 +138,7 @@
       "verification": [
         "pnpm --filter api exec vitest run tests/billing/order-close-task.test.ts"
       ],
-      "evidence": "",
+      "evidence": "evidence/F07.verify.log @ 2026-10-16T16:03:39.459Z",
       "notes": "覆盖 V4/V15 的 PENDING→CLOSED 边（I-10：created_at+15min≤now 才可关、只动 PENDING；状态迁移必须写 closed_at，I-14）。参考实现没有这个任务（00 R2-2 禁止照搬缺失），本 feature 必须实现。运行通道（pg-boss 作业 vs 进程内定时器）与周期（建议 ≤5 分钟）为开放问题 Q3，落地时与仓库既有基础设施对齐。"
     },
     {
