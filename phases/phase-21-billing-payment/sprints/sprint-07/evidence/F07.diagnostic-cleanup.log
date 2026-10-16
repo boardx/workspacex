@@ -1,0 +1,12 @@
+ Container wsx-e5451680993057b296d1-redis-1 Stopping 
+ Container wsx-e5451680993057b296d1-postgres-1 Stopping 
+ Container wsx-e5451680993057b296d1-redis-1 Stopped 
+ Container wsx-e5451680993057b296d1-redis-1 Removing 
+ Container wsx-e5451680993057b296d1-postgres-1 Stopped 
+ Container wsx-e5451680993057b296d1-postgres-1 Removing 
+ Container wsx-e5451680993057b296d1-redis-1 Removed 
+ Container wsx-e5451680993057b296d1-postgres-1 Removed 
+ Network wsx-e5451680993057b296d1_default Removing 
+ Network wsx-e5451680993057b296d1_default Removed 
+
+Source d40c6cf0fb23b784ef9b514eca1390163b9c969f; session 62837 exit 130; interrupted for new verified prerequisite review blockers. API partial 851 passed files; no full PASS; owned process groups 24124/24568 empty.
