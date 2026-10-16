@@ -106,7 +106,7 @@ async function screeningBatchWork<T, R>(items: readonly T[], compute: (item: T, 
  * admits that scope. It does not certify answers to every question, completeness,
  * or absence of contradictory omitted material. Report evidence/quality gates
  * remain independent; adaptive scheduling must never write question coverage. */
-export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal; negativeCache?: NegativeSourceScreenCache; invalidOutput?: "discard-batch" } = {}): Promise<Source[]> {
+export async function screenResearchSources(state: ResearchRuntime, sources: Source[], complete: Complete, options: { adaptive?: boolean; signal?: AbortSignal; negativeCache?: NegativeSourceScreenCache; invalidOutput?: "discard-batch"; onDiscardInvalidBatch?: () => void } = {}): Promise<Source[]> {
   options.signal?.throwIfAborted();
   // Legacy warnings also carried the failed-request cache. Migrate before any
   // success clears their active scope, without adding a public contract field.
@@ -232,6 +232,7 @@ export async function screenResearchSources(state: ResearchRuntime, sources: Sou
           // An invalid assessment admits no evidence. Keep independent validated
           // batches moving; this is neither a negative verdict nor a refusal.
           hadDiscardedOutput = true;
+          options.onDiscardInvalidBatch?.();
           return [];
         }
         check();

@@ -96,3 +96,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - #5639：正式保存与检索覆盖必须分离。质量通过且逐题解释证据局限的 reportPartial 报告自动正式交付；保存完成判断依据 formal report、completed 与 validation completed，不由历史来源读取失败、排除批次或终态检索局限反转。真实质量草稿、未保存与执行错误继续阻断完成。实际新会话四章32题本地首次/重新生成通过，重新生成含精确响应复用，不能冒充两个全新模型运行或线上部署验收（出处：docs/evidence/research-formal-completion-5639/README.md）。
 
 - 2026-10-16：旧来源重新评估的某批结果两次严格校验失败，只排除该批，独立健康批继续；不能把格式/语义无效评估写入确定无关缓存或供应商拒绝记录。新候选保留 task 级失败边界，资料全被排除仍不可伪造完成。controller+真实runtime的受控 NDJSON retry/重新生成反证与恢复见 docs/evidence/research-relevance-isolation-5800/README.md（#5800），不代表该线上会话已恢复。
+
+- #5800 补充：旧源弃批若令任务失去全部来源，报告准备须在本次 invalid-output 弃批且 canRecoverPartialReport 验证真实保留文档后，才转既有 reportPartial 路径；保留失败任务、局限说明及独立全文质量门。普通 negative 不触发此恢复，空章节/审核拒绝仍失败；受控 controller 的保存重读反证见同份证据。
