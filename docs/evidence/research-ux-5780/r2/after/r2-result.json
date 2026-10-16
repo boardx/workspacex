@@ -1,0 +1,18 @@
+{
+  "feedback": {
+    "saveBusy": "true",
+    "generateBusy": null,
+    "saveSpinners": 1,
+    "generateSpinners": 0
+  },
+  "modelBefore": {
+    "runs": 0,
+    "requests": 0
+  },
+  "modelAfter": {
+    "runs": 0,
+    "requests": 0
+  },
+  "persistedVersion": 2,
+  "persistedTitle": "审批责任验证"
+}

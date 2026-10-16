@@ -19,17 +19,37 @@ test('built-in experts and private custom experts persist and can be selected in
  test.setTimeout(120_000);
  await page.goto('/login');await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/u);
  const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));const headers={authorization:`Bearer ${token}`};
+ for(const width of [375,768,1280]){
+  await page.setViewportSize({width,height:900});await page.goto('/itv');
+  const create=page.getByTestId('itv-create');await expect(create).toBeEnabled();
+  await expect(page.getByTestId('itv-create-card')).toHaveCount(0);
+  expect(await create.evaluate(el=>el.getBoundingClientRect().height)).toBe(36);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath(`history-compact-${width}.png`)});
+  await create.click();const creation=page.getByRole('dialog',{name:'新建访谈',exact:true});
+  await expect(creation.getByLabel('访谈名称',{exact:true})).toBeFocused();
+  await page.keyboard.press('Tab');await expect(creation.getByLabel('添加标签',{exact:true})).toBeFocused();
+  const primary=creation.getByRole('button',{name:'开始访谈',exact:true});
+  expect(await primary.evaluate(el=>el.getBoundingClientRect().height)).toBe(36);
+  const primarySize=await primary.evaluate(el=>({width:el.getBoundingClientRect().width,available:el.closest('[data-workflow-action-bar="footer"]')!.clientWidth}));
+  expect(primarySize.width).toBeGreaterThanOrEqual(112);
+  if(width<768)expect(primarySize.width).toBe(primarySize.available);
+  else expect(primarySize.width).toBeLessThan(primarySize.available);
+  expect(await creation.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath(`create-compact-${width}.png`)});
+  await page.keyboard.press('Escape');await expect(creation).not.toBeVisible();await expect(create).toBeFocused();
+ }
  await page.goto('/itv?tab=experts');
  const builtin=INTERVIEW_PERSONAS[0]!;await expect(page.getByTestId(`itv-library-${personaAnchorId(builtin)}`)).toBeVisible();
  await page.getByTestId(`itv-library-${personaAnchorId(builtin)}`).getByRole('button',{name:`查看画像 ${builtin.name}`,exact:true}).click();
  const builtInDialog=page.getByRole('dialog',{name:builtin.name,exact:true});
  for(const value of [builtin.personality.locations,String(builtin.personality.age),builtin.personality.occupation,...builtin.goals,...builtin.interests,...builtin.pain_points,...builtin.motivations,...builtin.influences,builtin.service_value,builtin.typical_advice])await expect(builtInDialog).toContainText(value);
  await expect(builtInDialog).not.toContainText('局限与材料边界');await expect(builtInDialog).not.toContainText('背景与建议未经独立验证');
- for(const width of [375,1280]){await page.setViewportSize({width,height:900});expect(await builtInDialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);const box=await builtInDialog.boundingBox();expect(box).not.toBeNull();if(width===1280)expect(box!.width).toBeGreaterThanOrEqual(700);else expect(box!.width).toBeLessThanOrEqual(width-24);await builtInDialog.getByText(builtin.typical_advice,{exact:true}).scrollIntoViewIfNeeded();await expect(builtInDialog.getByText(builtin.typical_advice,{exact:true})).toBeVisible();await page.screenshot({path:testInfo.outputPath(`builtin-full-${width}.png`)});}
+ for(const width of [375,768,1280]){await page.setViewportSize({width,height:900});expect(await builtInDialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);const box=await builtInDialog.boundingBox();expect(box).not.toBeNull();if(width===1280)expect(box!.width).toBeGreaterThanOrEqual(700);else expect(box!.width).toBeLessThanOrEqual(width-24);await builtInDialog.getByText(builtin.typical_advice,{exact:true}).scrollIntoViewIfNeeded();await expect(builtInDialog.getByText(builtin.typical_advice,{exact:true})).toBeVisible();await page.screenshot({path:testInfo.outputPath(`builtin-full-${width}.png`)});}
  await builtInDialog.getByRole('button',{name:'关闭',exact:true}).click();await expect(builtInDialog).not.toBeVisible();await expect(page.getByTestId(`itv-library-${personaAnchorId(builtin)}`).getByRole('button',{name:`查看画像 ${builtin.name}`,exact:true})).toBeFocused();
  const name=builtin.name;
  await page.getByTestId('itv-add-library-expert').click();const dialog=page.getByRole('dialog',{name:'添加专家画像'});
- for(const width of [375,1280]){await page.setViewportSize({width,height:900});const box=await dialog.boundingBox();expect(box).not.toBeNull();if(width===1280)expect(box!.width).toBeGreaterThanOrEqual(700);else expect(box!.width).toBeLessThanOrEqual(width-24);expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await dialog.getByRole('button',{name:'保存专家',exact:true}).scrollIntoViewIfNeeded();await expect(dialog.getByRole('button',{name:'保存专家',exact:true})).toBeVisible();await dialog.getByRole('heading',{name:'添加专家画像',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:testInfo.outputPath(`add-expert-${width}.png`)});}
+ for(const width of [375,768,1280]){await page.setViewportSize({width,height:900});const box=await dialog.boundingBox();expect(box).not.toBeNull();if(width===1280)expect(box!.width).toBeGreaterThanOrEqual(700);else expect(box!.width).toBeLessThanOrEqual(width-24);expect(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await dialog.getByRole('button',{name:'保存专家',exact:true}).scrollIntoViewIfNeeded();await expect(dialog.getByRole('button',{name:'保存专家',exact:true})).toBeVisible();if(width===375){await dialog.getByRole('button',{name:'保存专家',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('请填写完整');await page.screenshot({path:testInfo.outputPath('expert-form-validation-error-375.png')});}await dialog.getByRole('heading',{name:'添加专家画像',exact:true}).scrollIntoViewIfNeeded();await page.screenshot({path:testInfo.outputPath(`add-expert-${width}.png`)});}
  for(const [label,value] of Object.entries({'名称':name,'专业角色':'采购决策顾问','专业领域':'采购','研究关注':'预算和决策责任','观点风格':'通过反例验证','能力简介':`自建验收 ${randomUUID()}`}))await dialog.getByLabel(label,{exact:true}).fill(value);
  const fullProfile={'分类':'技术','所在地':'深圳','年龄':'42','职业':'研究员','目标':'理解需求\n验证假设','兴趣':'设计','痛点':'资料不足','动机':'改进体验','影响因素':'同行','内向—外向':'3','分析—创造':'7','忙碌—时间充裕':'5','服务价值':'检验假设','典型建议':'先验证问题'};
  for(const [label,value] of Object.entries(fullProfile))await dialog.getByLabel(label,{exact:true}).fill(value);
@@ -48,6 +68,16 @@ test('built-in experts and private custom experts persist and can be selected in
  await page.goto(`/itv/${interviewId}/experts`);await page.getByTestId(`itv-library-${custom.expertId}`).getByRole('button',{name:`添加画像 ${name}`,exact:true}).click();
  await expect.poll(async()=>{const current=await(await page.request.get(path,{headers})).json();return current.documents.find((doc:{step:string})=>doc.step==='experts')?.markdown??'';}).toContain(`#expert-${custom.expertId}`);
  await page.reload();const current=await(await page.request.get(path,{headers})).json();const markdown=current.documents.find((doc:{step:string})=>doc.step==='experts').markdown;expect(markdown).toContain('采购决策顾问');for(const value of Object.values(fullProfile))expect(markdown).toContain(value);expect(markdown).toContain('不作为真人访谈证据');
+ const reportResponse=await page.request.post(`${path}/report`,{headers,data:{markdown:'# 紧凑报告界面验收\n\n模拟研究资料，需真人验证。',expectedVersion:current.version,expectedDocumentVersion:0}});expect(reportResponse.status()).toBe(201);
+ for(const width of [375,768,1280]){
+  await page.setViewportSize({width,height:900});await page.goto(`/itv/${interviewId}/report`);
+  const footer=page.locator('[data-workflow-action-bar="footer"]');await expect(footer).toHaveCount(1);
+  const nested=footer.getByTestId('report-file-actions');await expect(nested).toBeVisible();
+  for(const label of ['生成 PDF','生成 Word','分享报告']){const action=footer.getByRole('button',{name:label,exact:true});await expect(action).toBeEnabled();expect(await action.evaluate(el=>el.getBoundingClientRect().height)).toBe(36);expect(await action.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(96);}
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(await footer.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await footer.scrollIntoViewIfNeeded();await page.screenshot({path:testInfo.outputPath(`report-nested-actions-${width}.png`),fullPage:true});
+ }
 });
 
 /** Final production check for creation/editing/recovery, followed by R4 multi-viewport walk. No model command. */

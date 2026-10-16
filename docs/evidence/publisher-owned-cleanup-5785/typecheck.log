@@ -1,0 +1,6 @@
+Validation receipt (successful tsc emitted no output; not synthesized compiler output)
+Source:48bd32561678172ea45abca059003234950d9a2d
+Command:pnpm exec tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution Bundler --skipLibCheck --esModuleInterop .harness/scripts/vm/publish-cn-release.test.ts
+Original execution session:47485
+Terminal result chunk:e385e7 exit_code:0
+Recorded from the validator execution report without a rerun.

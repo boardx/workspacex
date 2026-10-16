@@ -1,0 +1,56 @@
+[
+  {
+    "assistant": {
+      "height": 48,
+      "width": 134.8203125,
+      "x": 20,
+      "y": 832
+    },
+    "editorHeight": 192,
+    "primary": {
+      "height": 36,
+      "width": 309,
+      "x": 33,
+      "y": 692
+    },
+    "scrollWidth": 375,
+    "tips": false,
+    "width": 375
+  },
+  {
+    "assistant": {
+      "height": 48,
+      "width": 134.8203125,
+      "x": 40,
+      "y": 832
+    },
+    "editorHeight": 192,
+    "primary": {
+      "height": 36,
+      "width": 154,
+      "x": 577,
+      "y": 620
+    },
+    "scrollWidth": 768,
+    "tips": false,
+    "width": 768
+  },
+  {
+    "assistant": {
+      "height": 48,
+      "width": 134.8203125,
+      "x": 40,
+      "y": 832
+    },
+    "editorHeight": 192,
+    "primary": {
+      "height": 36,
+      "width": 154,
+      "x": 1073,
+      "y": 620
+    },
+    "scrollWidth": 1280,
+    "tips": false,
+    "width": 1280
+  }
+]
