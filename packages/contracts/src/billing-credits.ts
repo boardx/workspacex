@@ -197,7 +197,10 @@ export const operations = {
         packageId: z.string().min(1),
         provider: BillingProvider,
       })
-      .strict(),
+      .strict()
+      .refine(value => value.ownerType !== "team" || value.ownerId !== undefined, {
+        message: "ownerId is required for a team order", path: ["ownerId"],
+      }),
     out: z.object({ order: BillingOrder }).strict(),
     err: [
       "payment_provider_not_configured",

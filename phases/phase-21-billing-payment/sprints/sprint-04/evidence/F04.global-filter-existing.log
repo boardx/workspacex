@@ -1,0 +1,23 @@
+[stack-admission] load1=20.52 cores=10 perCore=2.05 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mv9u2kus-d9a8aa62-74d9f981e6cb db=wsx_74d9f981e6cb0446e54c compose=wsx-74d9f981e6cb0446e54c pg=20241 redis=21241 api=24241 web=25241 sandbox=26241 model=27241 deep-agent=28241 asr=29241 vision=30241 loopback-sandbox=31241 mail=19241
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_74d9f981e6cb0446e54c capacity=100 current=6 required=32
+ ✓ tests/logging/all-exceptions-filter-error-log.test.ts (6 tests) 69ms
+ ✓ tests/logging/all-exceptions-filter-headers-sent.test.ts (2 tests) 15ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  01:49:38
+   Duration  59.63s (transform 9.80s, setup 120ms, collect 12.51s, tests 83ms, environment 1ms, prepare 831ms)
+
+[db-isolation] db=wsx_74d9f981e6cb0446e54c peak_connections=1
+[timing] pnpm --filter api exec vitest run tests/logging/all-exceptions-filter-error-log.test.ts tests/logging/all-exceptions-filter-headers-sent.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m11s
+  清理：3s
+  总计：1m14s

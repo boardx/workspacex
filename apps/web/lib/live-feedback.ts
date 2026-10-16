@@ -62,7 +62,8 @@ export async function submitFeedback(input: {
   readonly structured?: FeedbackStructured;
   readonly tags?: readonly string[];
 }): Promise<SubmitFeedbackOut> {
-  return apiRequest<SubmitFeedbackOut>("/feedback", { method: "POST", body: input });
+  const out = await apiRequest<SubmitFeedbackOut>("/feedback", { method: "POST", body: input, expectedStatus: 201 });
+  return feedbackLoop.operations.submitFeedback.out.parse(out);
 }
 
 /**

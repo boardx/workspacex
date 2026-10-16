@@ -1,0 +1,297 @@
+[stack-admission] load1=44.08 cores=10 perCore=4.41 running=1/2
+[stack-admission] 排队中：机器每核负载 4.41（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.44（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.13（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.65（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.42（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.17（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.08（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.45（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.07（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 51s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.26（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 56s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.58（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 61s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.47（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 66s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.60（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 71s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.29（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 76s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.99（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 81s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 86s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 91s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.57（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 96s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.51（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 101s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.38（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 106s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.55（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 111s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 116s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.09（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 121s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.35（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 126s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 131s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.66（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 136s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 5.06（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 141s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.82（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 146s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.53（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 151s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 156s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.52（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 161s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.24（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 166s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.97（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 171s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 176s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.50（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 181s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.28（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 186s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.07（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 191s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.90（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 196s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.91（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 201s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.93（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 206s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 211s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 216s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.55（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 221s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 226s
+[test-isolation] id=run-mv9tgyxj-49f17573-3b71edc569d8 db=wsx_3b71edc569d840723c48 compose=wsx-3b71edc569d840723c48 pg=20181 redis=21181 api=24181 web=25181 sandbox=26181 model=27181 deep-agent=28181 asr=29181 vision=30181 loopback-sandbox=31181 mail=19181
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_3b71edc569d840723c48 capacity=100 current=6 required=32
+{"level":"error","msg":"http exception","traceId":"52bde279-ef83-4efe-8104-45f769a27d16","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"1025d920-1cfa-4a4f-b927-6784961b76f6","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"http exception","traceId":"e93685b4-849b-4a72-af89-d5b4a615621c","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"eaee8839-e09d-4f09-bfcf-c6d8a8ddc205","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"5ee3871d-3cc5-44c4-a812-0e163b921652","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"b20258e7-cc1c-4a26-911e-93be3aaeebf5","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"09bf1585-3947-487e-890a-8e154cc5e649","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"e0277e65-1d6d-49a4-9491-32ea497799e5","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"d6a67a19-5a76-471a-9c52-48287c4e6fa3","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"2a36121b-1e4a-4022-a5dd-9f57f639beed","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"fd1df110-130e-48e2-95f8-be95b2b7323a","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"fb129fdf-2f58-4642-807a-9231d6525578","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"12816a0d-5050-4806-8906-ba49e530696d","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"abc53d14-6cb1-4189-81b3-2017adb8dc72","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"ad951c67-b05d-47ce-b34c-5356892a8a30","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"c06740b0-b9ac-401d-9cdb-9440f3158051","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"5049ede0-fe82-48a3-bb0f-0cfb70ff157c","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"349ee148-600d-4f87-9726-3743e90e89ef","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"449d6d43-7c8f-4116-a455-fefbabf0c702","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)"}}
+{"level":"error","msg":"unhandled exception","traceId":"dcb88c1c-dc66-4784-a046-571909789514","detail":{"name":"error","message":"insert or update on table \"billing_orders\" violates foreign key constraint \"billing_orders_package_id_fkey\"","stack":"error: insert or update on table \"billing_orders\" violates foreign key constraint \"billing_orders_package_id_fkey\"\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at Object.query (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/infrastructure/db/pg-database.ts:62:21)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/infrastructure/billing/pg-billing-order-repository.ts:37:22\n    at PgDatabase.inTx (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/infrastructure/db/pg-database.ts:74:19)\n    at BillingOrderService.create (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/application/billing/billing-order-service.ts:79:61)\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:12:18)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"1498f9d6-a3e7-420e-8923-136c03aa9c3a","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+{"level":"error","msg":"http exception","traceId":"c7e8d134-c961-4e64-b100-2a5185dae2c6","detail":{"name":"HttpException","message":"Http Exception","stack":"HttpException: Http Exception\n    at BillingOrderController.mapped (/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/src/interface/controllers/billing-order.controller.ts:17:15)\n    at processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-execution-context.js:46:28\n    at /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/router/router-proxy.js:9:17"}}
+ ❯ tests/billing/order-core.test.ts (25 tests | 19 failed) 108752ms
+   ✓ F04 real Native order HTTP and PostgreSQL > creates a persisted PENDING order from server snapshot and a verified QR 631ms
+   ✓ F04 real Native order HTTP and PostgreSQL > rejects client money before contacting the merchant 316ms
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on non2xx 494ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-signature 446ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on wrong-rsa 387ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on tampered 525ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-signature 933ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-nonce 1555ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-time 255ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on stale 392ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on unknown-key 339ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-qr 274ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-qr 318ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on malformed 321ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on redirect 276ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on oversize 273ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-headers 8462ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-body 8223ms
+     → expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > does not contact WeChat or create an order when the deployment is unconfigured 204ms
+     → expected { …(2) } to match object { Object (code) }
+(2 matching properties omitted from actual)
+   ✓ F04 real Native order HTTP and PostgreSQL > keeps the original package snapshot when the catalog changes during Native dispatch 399ms
+   ✓ F04 real Native order HTTP and PostgreSQL > does not report success or silently create a second intent after a real INSERT failure 684ms
+   ✓ F04 real Native order HTTP and PostgreSQL > reads an expired order without closing it and preserves reads after billing is disabled 564ms
+   × F04 real Native order HTTP and PostgreSQL > filters catalog scopes and permits members to browse without granting permission to buy 343ms
+     → expected { error: 'conflict', …(1) } to match object { code: 'package_disabled' }
+(2 matching properties omitted from actual)
+   × F04 real Native order HTTP and PostgreSQL > blocks disabled packages and organization billing before network dispatch 269ms
+     → expected { error: 'conflict', …(1) } to match object { code: 'package_disabled' }
+(2 matching properties omitted from actual)
+ ❯ tests/billing/native-failure-diagnostics.test.ts (4 tests | 4 failed) 12259ms
+   × Native merchant failure diagnostics > retains safe non2xx cause and trace without signed bodies or credentials 211ms
+     → expected [] to deep equally contain ObjectContaining{…}
+   × Native merchant failure diagnostics > retains safe bad-signature cause and trace without signed bodies or credentials 316ms
+     → expected [] to deep equally contain ObjectContaining{…}
+   × Native merchant failure diagnostics > retains safe malformed cause and trace without signed bodies or credentials 302ms
+     → expected [] to deep equally contain ObjectContaining{…}
+   × Native merchant failure diagnostics > retains safe timeout-headers cause and trace without signed bodies or credentials 8444ms
+     → expected [] to deep equally contain ObjectContaining{…}
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 23 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/native-failure-diagnostics.test.ts > Native merchant failure diagnostics > retains safe non2xx cause and trace without signed bodies or credentials
+ FAIL  tests/billing/native-failure-diagnostics.test.ts > Native merchant failure diagnostics > retains safe bad-signature cause and trace without signed bodies or credentials
+ FAIL  tests/billing/native-failure-diagnostics.test.ts > Native merchant failure diagnostics > retains safe malformed cause and trace without signed bodies or credentials
+ FAIL  tests/billing/native-failure-diagnostics.test.ts > Native merchant failure diagnostics > retains safe timeout-headers cause and trace without signed bodies or credentials
+AssertionError: expected [] to deep equally contain ObjectContaining{…}
+
+- Expected: 
+ObjectContaining {
+  "fields": ObjectContaining {
+    "err": ObjectContaining {
+      "reason": "upstream_http_error",
+    },
+    "traceId": "native-safe-trace",
+  },
+  "msg": "billing_native_failed",
+}
+
++ Received: 
+Array []
+
+ ❯ tests/billing/native-failure-diagnostics.test.ts:22:21
+     20|     await expect(client.createNativeOrder({...order,createdBy:user},"n…
+     21|     const entries=f.requestLogger.drain();
+     22|     expect(entries).toContainEqual(expect.objectContaining({msg:"billi…
+       |                     ^
+     23|     const log=JSON.stringify(entries);
+     24|     expect(log).not.toContain("WECHATPAY2-SHA256-RSA2048");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/23]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on non2xx
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-signature
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on wrong-rsa
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on tampered
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-signature
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-nonce
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-time
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on stale
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on unknown-key
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on missing-qr
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on bad-qr
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on malformed
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on redirect
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on oversize
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-headers
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not persist a fake order on timeout-body
+AssertionError: expected { error: 'internal_error', …(1) } to match object { code: 'wechat_upstream_failed' }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "code": "wechat_upstream_failed",
++   "error": "internal_error",
++   "traceId": "e93685b4-849b-4a72-af89-d5b4a615621c",
+  }
+
+ ❯ tests/billing/order-core.test.ts:38:37
+     36|     it(`does not persist a fake order on ${mode}`, async () => {
+     37|       f.state.mode = mode; const response = await f.create(); expect(r…
+     38|       expect(await response.json()).toMatchObject({ code: "wechat_upst…
+       |                                     ^
+     39|       const result = await asOwner(c => c.query("SELECT count(*)::int …
+     40|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/23]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > does not contact WeChat or create an order when the deployment is unconfigured
+AssertionError: expected { …(2) } to match object { Object (code) }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "code": "payment_provider_not_configured",
++   "error": "dependency_unavailable",
++   "traceId": "449d6d43-7c8f-4116-a455-fefbabf0c702",
+  }
+
+ ❯ tests/billing/order-core.test.ts:46:107
+     44|     const unavailable = vi.spyOn(config, "getPublicConfig").mockReturn…
+     45|     try {
+     46|       const response = await f.create(); expect(response.status).toBe(…
+       |                                                                                                           ^
+     47|       expect(f.state.calls).toBe(0);
+     48|       expect((await asOwner(c => c.query("SELECT count(*)::int AS n FR…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/23]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > filters catalog scopes and permits members to browse without granting permission to buy
+AssertionError: expected { error: 'conflict', …(1) } to match object { code: 'package_disabled' }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "code": "package_disabled",
++   "error": "conflict",
++   "traceId": "1498f9d6-a3e7-420e-8923-136c03aa9c3a",
+  }
+
+ ❯ tests/billing/order-core.test.ts:78:45
+     76|     const team = await f.request("/billing/packages?ownerType=team", u…
+     77|     expect(operations.listPackages.out.parse(await team.json()).items[…
+     78|     expect(await (await f.create()).json()).toMatchObject({ code: "pac…
+       |                                             ^
+     79|   });
+     80|   it("blocks disabled packages and organization billing before network…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/23]⎯
+
+ FAIL  tests/billing/order-core.test.ts > F04 real Native order HTTP and PostgreSQL > blocks disabled packages and organization billing before network dispatch
+AssertionError: expected { error: 'conflict', …(1) } to match object { code: 'package_disabled' }
+(2 matching properties omitted from actual)
+
+- Expected
++ Received
+
+  Object {
+-   "code": "package_disabled",
++   "error": "conflict",
++   "traceId": "c7e8d134-c961-4e64-b100-2a5185dae2c6",
+  }
+
+ ❯ tests/billing/order-core.test.ts:82:45
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/23]⎯
+
+ Test Files  2 failed (2)
+      Tests  23 failed | 6 passed (29)
+   Start at  01:36:28
+   Duration  147.02s (transform 3.68s, setup 44ms, collect 9.47s, tests 121.01s, environment 0ms, prepare 314ms)
+
+[db-isolation] db=wsx_3b71edc569d840723c48 peak_connections=3
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/order-core.test.ts tests/billing/native-failure-diagnostics.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/order-core.test.ts tests/billing/native-failure-diagnostics.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：3m46s
+  命令执行：2m31s
+  清理：4s
+  总计：6m21s
