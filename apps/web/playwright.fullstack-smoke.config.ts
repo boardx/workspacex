@@ -516,7 +516,14 @@ export default defineConfig({
       grepInvert: EMPTY_DB_TAG_RE,
       // Official imports must follow seeded empty-catalog checks and precede
       // later mutation journeys; dependency ordering also survives parallel CI.
-      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress", "board-unified-mobile"],
+      dependencies: ["official-role-workflow", "realtime-voice", "board-image-ingress", "board-unified-mobile", "research-ux-r4"],
+    },
+    {
+      // R4 has no dependency on the separately delivered R2/R3 product changes.
+      name: "research-ux-r4",
+      testMatch: ["research-ux-rounds.spec.ts"],
+      grep: /R4 /,
+      dependencies: ["seeded"],
     },
     {
       // New Board regressions use the existing fresh runtime after empty-state checks.
