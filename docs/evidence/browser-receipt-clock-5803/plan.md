@@ -19,8 +19,8 @@ flowchart TD
   class S2 tested
   %% evidence S2: probe.log6pass not historical reproduction; red.log controlledskew2fail6pass establishes fixture mechanism.
   class S3 tested
-  %% evidence S3: green.log8pass at93099761e; only test boundary clock changed, original timing budgets intact.
+  %% evidence S3: review-red.log 1fail8pass then review-green.log9pass at45d5a474f; same-session clock+claim preserves100ms/150ms.
   class S4 tested
-  %% evidence S4: green.log8pass,typecheck/lint/oss exit0; verification-receipt.json and cleanup.json.
+  %% evidence S4: review-verification-receipt.json: realPG9pass/typecheck/lint/OSS0/SOURCE ACCEPT45d5a474f; ownedstacksabsent.
   class S5 doing
 ```

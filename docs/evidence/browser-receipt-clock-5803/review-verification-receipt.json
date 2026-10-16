@@ -1,0 +1,44 @@
+{
+  "source": "45d5a474f7c0eb46b29f2207b3e5f6f83d8bc446",
+  "independentReview": "SOURCE ACCEPT 45d5a474f7c0eb46b29f2207b3e5f6f83d8bc446",
+  "reviewThread": "PRRT_kwDOO5_Nyc6tMgIs",
+  "red": {
+    "exit": 1,
+    "failed": 1,
+    "passed": 8,
+    "failure": "browser receipt refused after deadline then150ms real checkout delay"
+  },
+  "green": {
+    "exit": 0,
+    "passed": 9
+  },
+  "apiTypecheckExit": 0,
+  "apiLintExit": 0,
+  "credentialScanExit": 0,
+  "productionChanged": false,
+  "deadlineBoundariesMs": [
+    -1,
+    100
+  ],
+  "postgresSleepMs": 150,
+  "connectionSetupInjectionMs": 150,
+  "sqlAndClaimIntercepted": false,
+  "osClockChanged": false,
+  "realTimersPreserved": true,
+  "ownedComposeProjectsAbsent": [
+    "wsx-0dff87003ec85c53641e",
+    "wsx-e287a48863cb3fde08cb"
+  ],
+  "historicalF07FormalSource": "c2c33c8ea1414024489b1e0a16609dec7fdf55a4",
+  "historicalF07FormalAppliesToCurrentSource": false,
+  "integration": {
+    "testedSource": "aa30fc7ebe0d6b62d019ccb1d6494158e4c0fdb0",
+    "sameTreeSource": "787e6c3b9b8c2baac9978a76b278836f2a9fae3f",
+    "actualFocusedPassed": 9,
+    "dependencyPr": 5799,
+    "dependencyHead": "6c8f681b232555594b2948663eace730e54b5663",
+    "productionDiagnosticsIdenticalTo": "cd85446e25a4c97fb010fdcb24151207ddde4f06",
+    "main": "8f72c9ee2",
+    "ownedComposeProjectAbsent": "wsx-18f98a3e76aa8fdde98e"
+  }
+}
