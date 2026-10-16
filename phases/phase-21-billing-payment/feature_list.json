@@ -118,18 +118,19 @@
       "notes": "覆盖 V9–V14 与 I-1/I-2/I-5/I-6/I-7/I-14；UC-BC-7 + 内部端口 UC-BC-I5（验签/解密）、UC-BC-I1（条件更新抢占）、UC-BC-I2（入账内核，单事务不部分入账）。raw body 不进通用 JSON 解析（参考 main.ts 的 raw 先例）；密钥（API v3 密钥/商户私钥/平台公钥证书）只从部署配置读取；应答 <5s（先占单再入账、处理与应答分离，02 R7）。入账内核是本束唯一实现，F-TBD-mock-paid 复用而非重写（横切收敛）。验签跳过是参考实现的已知缺陷（00 R2-1），任何分支禁止进入生产。"
     },
     {
-      "id": "F-TBD-order-close-task",
+      "id": "F07",
       "priority": 6,
       "area": "billing-credits",
       "title": "过期订单定时关闭任务",
       "user_visible_behavior": "创建超过 15 分钟仍未支付的 PENDING 订单被服务端定时任务自动置为 CLOSED 并写入 closed_at（用户重新打开收银台看到「已过期，请重新生成」）；任务幂等且只动 PENDING 订单，未到期的 PENDING 订单与任何终态订单不受影响。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "07",
+      "owner": "coord-voice",
       "capability": "CAP-WORKFLOW",
       "spec_ref": "02-payment-order-notify.md#R6",
       "depends_on": [
-        "F01"
+        "F01",
+        "F05"
       ],
       "points": 3,
       "wave": 2,

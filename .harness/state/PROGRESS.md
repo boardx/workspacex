@@ -23,6 +23,6 @@
 | 18 | org-brain-knowledge-graph | not_started | 17 | 0 | 0 | 0 |
 | 19 | board-visual-workspace | not_started | 31 | 1 | 0 | 0 |
 | 20 | work-stack-foundation | not_started | 36 | 0 | 0 | 0 |
-| 21 | billing-payment | not_started | 10 | 0 | 0 | 5 |
+| 21 | billing-payment | not_started | 9 | 1 | 0 | 5 |
 
-_最近聚合:2026-10-16T00:21:11.722Z_
+_最近聚合:2026-10-16T04:48:40.715Z_

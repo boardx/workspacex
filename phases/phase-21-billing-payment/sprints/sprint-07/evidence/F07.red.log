@@ -1,0 +1,33 @@
+[stack-admission] load1=4.50 cores=10 perCore=0.45 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvagnd0l-9cffd48f-4bf186687018 db=wsx_4bf186687018234b71ce compose=wsx-4bf186687018234b71ce pg=20784 redis=21784 api=24784 web=25784 sandbox=26784 model=27784 deep-agent=28784 asr=29784 vision=30784 loopback-sandbox=31784 mail=19784
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_4bf186687018234b71ce capacity=100 current=6 required=32
+ ❯ tests/billing/order-close-task.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/order-close-task.test.ts [ tests/billing/order-close-task.test.ts ]
+Error: Failed to load url ../../src/application/billing/billing-order-expiry.port (resolved id: ../../src/application/billing/billing-order-expiry.port) in /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api/tests/billing/order-close-task.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  12:21:28
+   Duration  5.63s (transform 609ms, setup 7ms, collect 0ms, tests 0ms, environment 0ms, prepare 30ms)
+
+[db-isolation] db=wsx_4bf186687018234b71ce peak_connections=1
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/order-close-task.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/order-close-task.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6s
+  清理：0s
+  总计：7s
