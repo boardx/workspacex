@@ -1,0 +1,60 @@
+[stack-admission] load1=2.68 cores=10 perCore=0.27 running=0/2
+[test-isolation] id=run-mvaqgwfc-2c7c90f4-1a6160117251 db=wsx_1a6160117251728a1120 compose=wsx-1a6160117251728a1120 pg=20201 redis=21201 api=24201 web=25201 sandbox=26201 model=27201 deep-agent=28201 asr=29201 vision=30201 loopback-sandbox=31201 mail=19201
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_1a6160117251728a1120 capacity=100 current=6 required=32
+ ✓ tests/whiteboard/collaboration-persistence.test.ts (8 tests) 21000ms
+   ✓ whiteboard collaboration durable transactions > commits one sequence for concurrent retries and recovers on a fresh DB connection 566ms
+   ✓ whiteboard collaboration durable transactions > #4197: only the authenticated deleting actor restores the durable original identity 1366ms
+   ✓ whiteboard collaboration durable transactions > #4197: a winning concurrent delete invalidates the original actor receipt 1170ms
+   ✓ whiteboard collaboration durable transactions > merges offline concurrent updates and state-vector reads 890ms
+   ✓ whiteboard collaboration durable transactions > denies wrong tenant, viewer writes, stale epoch, revoked members and archives 457ms
+   ✓ whiteboard collaboration durable transactions > rejected updates leave no sequence and rate limits allow idempotent replay 729ms
+   ✓ whiteboard collaboration durable transactions > stores and reloads all 5000 public minimal objects through real validation and PostgreSQL 8019ms
+ ✓ tests/whiteboard/validator-diagnostics.test.ts (12 tests) 7ms
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > decodes all 10000 complete canonical objects under bounded worker budgets
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":399}
+
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > validates a real incremental text edit on a 10000-object document
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":399,"validateMs":842}
+
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > admits the final normal-sized command batch up to 10000 and rejects one object beyond it
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":399,"validateMs":842,"commandsMs":785}
+
+ ✓ tests/whiteboard/validator-capacity.test.ts (5 tests) 4182ms
+   ✓ 10k canonical board in real resource-limited validator workers > decodes all 10000 complete canonical objects under bounded worker budgets 401ms
+   ✓ 10k canonical board in real resource-limited validator workers > validates a real incremental text edit on a 10000-object document 1232ms
+   ✓ 10k canonical board in real resource-limited validator workers > admits the final normal-sized command batch up to 10000 and rejects one object beyond it 1657ms
+   ✓ 10k canonical board in real resource-limited validator workers > rejects an oversized persisted document on read, diff and raw-update validation 639ms
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"d213f8dc-ba2f-4082-a469-a10af5aa7aeb","detail":{"reason":"worker_deadline","mode":"diff","inputBytes":2,"elapsedMs":1,"queueElapsedMs":0,"workerElapsedMs":1}}
+ ✓ tests/whiteboard/update-validator.test.ts (7 tests) 8168ms
+   ✓ isolated whiteboard Yjs validator > returns only live object IDs through the isolated validator 580ms
+   ✓ bounded worker admission > bounds a fifty-request burst, drains rejected admissions and releases all capacity 3461ms
+   ✓ bounded worker admission > drains fifty real initial-connect validations through four concurrent clients 3420ms
+ ✓ tests/whiteboard/pgsql-metadata-only-growth.test.ts (11 tests) 12888ms
+   ✓ whiteboard collaboration durable transactions > commits one sequence for concurrent retries and recovers on a fresh DB connection 415ms
+   ✓ whiteboard collaboration durable transactions > #4197: only the authenticated deleting actor restores the durable original identity 1152ms
+   ✓ whiteboard collaboration durable transactions > #4197: a winning concurrent delete invalidates the original actor receipt 992ms
+   ✓ whiteboard collaboration durable transactions > merges offline concurrent updates and state-vector reads 803ms
+   ✓ whiteboard collaboration durable transactions > denies wrong tenant, viewer writes, stale epoch, revoked members and archives 395ms
+   ✓ whiteboard collaboration durable transactions > rejected updates leave no sequence and rate limits allow idempotent replay 628ms
+   ✓ whiteboard collaboration durable transactions > stores and reloads all 5000 public minimal objects through real validation and PostgreSQL 7607ms
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"7173567b-d716-4759-8274-011b593957dc","detail":{"reason":"queue_capacity","inputBytes":1,"elapsedMs":0}}
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"3d96b831-3e65-4326-88dd-90e18a584754","detail":{"reason":"queue_capacity","inputBytes":1,"elapsedMs":0}}
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"08f4a175-8225-4ecf-8c47-76563313d5ae","detail":{"reason":"queue_deadline","inputBytes":8,"elapsedMs":0}}
+ ✓ tests/whiteboard/validator-queue.test.ts (3 tests) 3ms
+
+ Test Files  6 passed (6)
+      Tests  46 passed (46)
+   Start at  16:56:23
+   Duration  52.85s (transform 712ms, setup 16ms, collect 1.47s, tests 46.25s, environment 1ms, prepare 163ms)
+
+[db-isolation] db=wsx_1a6160117251728a1120 peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/whiteboard/validator-diagnostics.test.ts tests/whiteboard/validator-capacity.test.ts tests/whiteboard/validator-queue.test.ts tests/whiteboard/pgsql-metadata-only-growth.test.ts tests/whiteboard/update-validator.test.ts tests/whiteboard/collaboration-persistence.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：53s
+  清理：1s
+  总计：54s
