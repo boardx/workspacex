@@ -22,9 +22,11 @@ flowchart TD
   A4[A4 迁移及回读：SQL兼容性未知，禁止执行]
   A5[A5 部署切流：image-only仍需前序门禁]
   A6[A6 最终业务验收：待真实证据]
-  B0[固定候选重建：GitHub attempt 2 进行中]
+  B0[固定候选重建：GitHub attempt 2 完成，未生产验收]
   K0[工具包上传及安装：未开始]
   I0[应用镜像上传生产：未开始]
+  C0[生产依赖门禁：现有通道及新批准对象未证实]
+  C0 -.-> A0
   B0 -.-> A0
   K0 -.-> A0
   I0 -.-> A5
@@ -34,7 +36,9 @@ flowchart TD
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
-  class B0 doing
+  class C0 blocked
+  %% blocked C0: 现有 secrets/runner 元数据读取403；匹配新根批准、输入原件及SQL兼容证据未证实；未提交生产调用
+  class B0 done
   class K0 todo
   class I0 todo
   class A0 todo
@@ -352,3 +356,42 @@ Therefore production mutation is stopped at its prerequisite gate while the inde
 artifact verification proceed. Seven production steps remain gray. Build artifacts stored on GitHub,
 toolkit transfer/install, application-image transfer and production execution are distinct states.
 The final six business journeys remain required. The rebuild alone cannot establish production readiness.
+
+
+### Rebuild terminal result and exact stop point
+
+Run 38852606085 attempt 2 completed **success** at 2026-10-17T10:55:14Z with unchanged
+5ace control. All five exports and collect passed. The original existing collect job downloaded
+all five archives inside its GitHub runner and passed `Validate complete non-authorizing candidate
+collection`; it uploaded set artifact **12098488839**, 5237 bytes. This is the existing build's
+normal collection, not an alternate download endpoint or a production transfer.
+
+The updated metadata inspector exited 0 and admitted exactly twelve unique nonempty unexpired
+attempt-2 artifact names. See [metadata.json](evidence/fixed-bc-rebuild-20261017/metadata.json),
+[artifacts.json](evidence/fixed-bc-rebuild-20261017/artifacts.json) and
+[build-run.json](evidence/fixed-bc-rebuild-20261017/build-run.json). It deliberately reports
+ready=false, sourceBytesVerified=false, downloadVerified=false, productionExecuted=false.
+The log-only summary preserves reported image/archive hashes and candidate expiry but is explicitly
+**not** original artifact bytes or a canonical consumer input; no candidate JSON is reconstructed
+from logs to bypass the failed download.
+
+The build's candidate receipt expires **2026-10-17 11:48:36.413148 UTC**, earlier than the ZIP
+retention (Oct 18). That TTL is never refreshed or interpreted as the ZIP's retention time.
+Logged releaseReady=false and productionReady=false remain unchanged.
+
+Code SHA **72737b5de6584cc1146d3a3e7c87d8047ee03560** passed exact-head dedicated CI
+[39026516292](https://github.com/boardx/workspacex/actions/runs/39026516292): 24 remote + 9 archive +
+11 admission/orchestration + 13 publisher tests (57 total), plus the real Docker six-stage fixture,
+cleanupVerified=true, sourceIsBC=false and productionAccepted=false. The extra 18 canonical-driver
+regressions passed locally (75 local tests total). Repository-wide CI remains independent.
+
+**Production invocation count remains zero.** A0–A6 were not executed. Production image transfer,
+toolkit upload/install and live business verification are unstarted. The dependent action stopped
+is fixed-root `release-run` on Shanghai ECS i-uf6ga92ewloganobbln6: original downloaded inputs,
+existing authenticated transport/runner availability, matching fresh root-installed approval/closure,
+current baseline/backup/restore evidence and genuine four-migration compatibility are unproven.
+The ordinary release authorization is preserved; no second confirmation is being requested for
+ordinary release, and no expanded permission/SQL/probe action is substituted for missing gates.
+A future authorized operator must supply those existing-channel proofs through protected stores;
+secrets or new credential values must not be pasted into chat. No production call was denied or
+left uncertain because none was submitted. The one build submission was confirmed and completed.

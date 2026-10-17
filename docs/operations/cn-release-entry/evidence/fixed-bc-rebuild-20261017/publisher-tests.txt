@@ -1,0 +1,18 @@
+test_slow_health_has_wall_clock_deadline_and_restores_timer (test_minimal_docker_release.DeadlineTests.test_slow_health_has_wall_clock_deadline_and_restores_timer) ... ok
+test_apply_success_real_cli_http_no_forbidden_commands (test_minimal_docker_release.Tests.test_apply_success_real_cli_http_no_forbidden_commands) ... ok
+test_compose_env_drift_rejected (test_minimal_docker_release.Tests.test_compose_env_drift_rejected) ... ok
+test_default_plan_real_cli_never_switches (test_minimal_docker_release.Tests.test_default_plan_real_cli_never_switches) ... ok
+test_empty_schema_is_not_compatibility (test_minimal_docker_release.Tests.test_empty_schema_is_not_compatibility) ... ok
+test_existing_canonical_lock_busy_zero_docker_calls (test_minimal_docker_release.Tests.test_existing_canonical_lock_busy_zero_docker_calls) ... ok
+test_http_failure_preserves_failure_receipt_no_retry (test_minimal_docker_release.Tests.test_http_failure_preserves_failure_receipt_no_retry) ... ok
+test_late_health_success_is_rejected (test_minimal_docker_release.Tests.test_late_health_success_is_rejected) ... ok
+test_live_wrong_image_is_immediate_failure (test_minimal_docker_release.Tests.test_live_wrong_image_is_immediate_failure) ... ok
+test_schema_drift_rejects_before_switch (test_minimal_docker_release.Tests.test_schema_drift_rejects_before_switch) ... ok
+test_starting_then_healthy_does_not_repeat_up (test_minimal_docker_release.Tests.test_starting_then_healthy_does_not_repeat_up) ... ok
+test_unhealthy_deadline_never_repeats_up (test_minimal_docker_release.Tests.test_unhealthy_deadline_never_repeats_up) ... ok
+test_wrong_source_rejects_before_switch (test_minimal_docker_release.Tests.test_wrong_source_rejects_before_switch) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 35.255s
+
+OK

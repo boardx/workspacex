@@ -66,3 +66,30 @@ The user-approved source/control remain unchanged. This does not install code on
 75 relevant local tests passed. They do not exercise production or prove access/SQL compatibility.
 Exact new PR-head CI is reported independently once observed. Prior 459900a6b final 7-workflow
 result (6 success, 1 skipped) and 55-test Docker fixture are historical, not assigned to this change.
+
+
+## Terminal build and metadata result
+
+Rebuild attempt 2 completed success at 2026-10-17T10:55:14Z. Plan, five exports and collect all
+passed on fixed control. Collect downloaded the five actual archive artifacts within its original
+GitHub workflow and passed canonical complete non-authorizing collection validation. Set artifact
+12098488839, ZIP 5237 bytes, SHA256 01ee74accbe74e2a61950d1c2d58475a550c6ca06c5c5b2c579414acea5c0aae.
+Metadata snapshot: twelve unique unexpired nonempty attempt-2 entries, exact fixed run/control.
+`python3 scripts/fixed-cn-release.py inspect` exited 0; ready=false, downloadVerified=false,
+sourceBytesVerified=false, productionExecuted=false. These are metadata guarantees only.
+
+The authenticated job-log summary reports candidate expiry 2026-10-17T11:48:36.413148+00:00,
+releaseReady=false, productionReady=false. The summary is not original downloaded bytes and cannot
+serve as canonical release input. ZIP retention to Oct 18 does not extend that one-hour receipt.
+No reconstruction, download retry, alternate endpoint, blob proxy or production transfer was used.
+
+Exact adapter code 72737b5de6584cc1146d3a3e7c87d8047ee03560 was checked out in dedicated GitHub
+run 39026516292 and passed 24+9+11+13 tests plus real Docker six-stage fixture; raw checkout and
+unit summaries were inspected. Cleanup passed, sourceIsBC=false, productionAccepted=false.
+No result from those synthetic images is used as BC production acceptance. Other repo CI pending.
+
+Stopped dependent action: release-run on fixed Shanghai ECS. No matching approved root request,
+existing authenticated channel/runner proof or fresh installed closure was obtained; four SQL
+compatibility results and baseline/restore proof remain unknown. Production command count is zero,
+with no submitted production mutation and therefore no production uncertain operation to replay.
+The normal build rerun was confirmed accepted and terminal success; it is never submitted again.

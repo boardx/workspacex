@@ -1,0 +1,41 @@
+{
+  "kind": "authenticated-build-log-summary-only",
+  "run": 38852606085,
+  "runAttempt": 2,
+  "job": 117378754263,
+  "originalArtifactBytesObtained": false,
+  "canonicalConsumerInput": false,
+  "producedAt": "2026-10-17T10:48:36.413148+00:00",
+  "expiresAt": "2026-10-17T11:48:36.413148+00:00",
+  "identity": "c41a9a410ca4e4c96706bdf7b6c46ac997ffc784f4014cd3c0f84607926998f4",
+  "planRawSha256": "70b84cf4b9462d725f85a3466bda0209f694edb236e0bb6c8b73c17e5bbba30d",
+  "releaseReady": false,
+  "productionReady": false,
+  "images": {
+    "agent": {
+      "imageId": "sha256:4d6cd7465f351d7698abb62a321288b7d591d25afe1c52c9f61c9731c4c3b0b3",
+      "sha256": "d03566589311151011a8686b8335e608f1f312de06b72a8771c1ac381ac2d31c",
+      "size": 410869760
+    },
+    "api": {
+      "imageId": "sha256:074bac922ad31ca0d8f581a9483c6db29607239e962e3754a2fd7adce0dd24bf",
+      "sha256": "85d62247ef185964afdf2fd384500202b39cc3685445a384411cbd847865ff79",
+      "size": 984186880
+    },
+    "postgres": {
+      "imageId": "sha256:f4b2ebab180ab4263000f2ecd32400cc92dba231735cd8319bac895bad83102c",
+      "sha256": "a57a27799d45cf4fd37a57177d713eea5b6f94a6636c285128385bc9535ce6b9",
+      "size": 460154880
+    },
+    "sandbox": {
+      "imageId": "sha256:017d4080e611df46db8890ace89dc5229e66fe97b5b0b61e5bf758fc7890f2ef",
+      "sha256": "5aecce0cee7fcf991f7ce5ccb80eb3275bea57a26ea3c2ed2d4cc761164fc628",
+      "size": 1577543680
+    },
+    "web": {
+      "imageId": "sha256:a9f2dae7fa9bbff96eb4cc863581920336d1035fe4db5fdb5d7908dde48d8ff6",
+      "sha256": "08bd2b306e42b17b32e17c3b1c772354dbc30acdf72636bd7e85bfc962938579",
+      "size": 394178560
+    }
+  }
+}
