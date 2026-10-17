@@ -7,10 +7,12 @@ m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 def snapshot(v):
     # Values remain in memory; receipts contain a whole-configuration fingerprint only.
     config={k:x for k,x in v['Config'].items() if k not in ('Image','Labels','Hostname')}
+    host=dict(v.get('HostConfig',{}))
+    if isinstance(host.get('Binds'),list):host['Binds']=sorted(host['Binds'])
     return {'id':v['Id'],'image':v['Image'],'startedAt':v['State'].get('StartedAt'),'running':v['State']['Running'],
-            'configuration':m.digest(m.encoded(config)),'mounts':m.digest(m.encoded(v.get('Mounts',[]))),
+            'configuration':m.digest(m.encoded(config)),'mounts':m.digest(m.encoded(sorted(v.get('Mounts',[]),key=m.encoded))),
             'networks':sorted(v.get('NetworkSettings',{}).get('Networks',{})),
-            'hostConfiguration':m.digest(m.encoded(v.get('HostConfig',{})))}
+            'hostConfiguration':m.digest(m.encoded(host))}
 
 def resolved_hashes(d,base,project):
     # Compose 2.40 config --hash skips env_file resolution; up resolves it first.
@@ -145,7 +147,9 @@ def release(config,output,apply=False):
                 m.need(restored[c['webService']]['image']==before[c['webService']]['image'],'ROLLBACK_IMAGE_MISMATCH')
                 for k in ('configuration','mounts','networks','hostConfiguration'):m.need(restored[c['webService']][k]==before[c['webService']][k],'ROLLBACK_CONFIGURATION_CHANGED')
                 result['rollbackBrowser']=browser(c['browser'],out/'rollback-browser','baseline');result['status']='ROLLED_BACK'
-            except Exception:result['rollback']='UNPROVEN'
+            except Exception as recovery_error:
+                result['rollback']='UNPROVEN'
+                result['rollbackCode']=str(recovery_error) if isinstance(recovery_error,m.Rejected) else 'OPERATION_FAILED'
         m.save(out/'receipt.json',result);return result
     finally:
         if lock is not None:os.close(lock)
