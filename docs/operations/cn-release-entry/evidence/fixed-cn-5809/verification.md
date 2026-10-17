@@ -139,3 +139,19 @@ ZIP; eleven required entries were absent. Its listed expiry remained 04:57:52 UT
 snapshot [artifact-incomplete.json](artifact-incomplete.json) is not a download proof. No original
 bytes were obtained, no forbidden download retried, and no candidate rebuilt or replaced.
 No production call, dispatch, migration, restore, production cleanup, cancellation or merge occurred.
+
+### Exact takeover-source GitHub result
+
+[Dedicated run 39004591383](https://github.com/boardx/workspacex/actions/runs/39004591383)
+completed successfully on exact checkout `44bdd04b16dde9eb3fa920a3e68e0ca1e951ea6b` (checkout
+and `git log -1 --format=%H` lines inspected). It passed 23+8+11+13 tests and the real Docker
+six-stage fixture, with actual save/copy/Compose/HTTP and `cleanupVerified=true`. Synthetic
+application identity remains `sourceIsBC=false`, `productionAccepted=false`. Artifact 12090985288,
+225116 bytes, expires 2026-10-24T05:01:01Z, ZIP SHA256
+`7b594ac1545f9cad287bf775715d5b685546ecd57bbc26e6863c57dfe7f267c5`.
+The additional 18 canonical-driver regressions were run locally, not attributed to that CI job.
+
+The final documentation-only update records the fixed build's empty artifact list observed at
+2026-10-17 05:09:11 UTC, and clarifies root-driver versus argv-only transfer entry boundaries.
+No source/test/workflow file changes after the tested code commit. Whole-repository workflows
+remain independently reported on PR #5810; direct-head fixture success does not preempt them.

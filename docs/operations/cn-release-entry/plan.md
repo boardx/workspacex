@@ -277,3 +277,28 @@ are separately unexecuted. Four SQL migrations remain unknown and blocked.
 Takeover test commands, failures and final results are in the verification receipt. The coordination
 lease was not claimed: `harness tick` failed because COORD_GATEWAY_URL is absent. No credential or
 permission was created to repair it. The user-directed scope remains PR #5810 / issue #5809.
+
+### Final artifact and invocation boundary update
+
+The parent independently observed an empty artifact list at 05:03 UTC. This worktree's read-only
+GitHub connector recheck at **2026-10-17 05:09:11 UTC** also returned `artifacts: []` for build
+38852606085: [artifact-empty.json](evidence/fixed-cn-5809/artifact-empty.json). The earlier one-entry
+snapshot remains historical evidence, not availability. No byte download was retried. Recovering
+approved original bytes or explicitly choosing a new candidate/build is a future user decision;
+the implementation never substitutes either automatically.
+
+The callable main path is `fixed_cn_receipts.run_approved_pipeline`: its approved `release-run`
+invokes the already protected fixed root driver, whose ordered `consume`, `publication-stage`,
+`check-plan`, `publish` stages reuse canonical acquisition/publication before the later A0–A6 gates.
+Two separately approved readbacks follow only after full driver completion. Toolkit installation,
+installed SDK/browser closure and all fixed host requests/approvals must already exist. The four
+low-level download/publication operations are **argv-only** in this increment: direct `execute`
+rejects them with `REMOTE_ENTRY_AUTHORITY_UNSUPPORTED`. They are not standalone runnable adapters,
+and they are not required by the main path because the protected root driver owns those effects.
+
+Code source `44bdd04b16dde9eb3fa920a3e68e0ca1e951ea6b` passed direct-head CI
+[39004591383](https://github.com/boardx/workspacex/actions/runs/39004591383): 55 isolated tests and
+the real Docker six-stage fixture; checkout/git-log lines confirmed that SHA. The fixture reports
+`sourceIsBC=false`, `productionAccepted=false`, `cleanupVerified=true`. This final update changes
+documentation/evidence only. Repository-wide CI and direct-head results are kept distinct in the
+same draft PR; no production node changes color.
