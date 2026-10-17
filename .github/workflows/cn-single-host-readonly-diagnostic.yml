@@ -1,0 +1,27 @@
+# One user-approved invocation; future runs require fresh approval.
+name: CN single-host read-only diagnostic
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: workspacex-cn-production-deploy
+  cancel-in-progress: false
+  queue: max
+jobs:
+  observe:
+    if: github.ref == 'refs/heads/main'
+    environment: production-cn-promotion
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify reviewed bytes and collect metadata once without elevation
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' "2f2adc6b0bbc12e3cb07e7140abd1a376749ce1e82499deaa9902bbfae13d813" scripts/cn-single-host-readonly-diagnostic.py | sha256sum --check --strict
+          exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C /usr/bin/timeout --signal=TERM --kill-after=1s 58s /usr/bin/python3 -I -S -B scripts/cn-single-host-readonly-diagnostic.py

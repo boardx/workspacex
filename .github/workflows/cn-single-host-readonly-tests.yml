@@ -1,0 +1,21 @@
+name: CN read-only diagnostic isolated tests
+on:
+  pull_request:
+    paths:
+      - scripts/cn-single-host-readonly-diagnostic.py
+      - tests/test_cn_single_host_readonly_diagnostic.py
+      - .github/workflows/cn-single-host-readonly-diagnostic.yml
+      - .github/workflows/cn-single-host-readonly-tests.yml
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Offline fake-host tests and immutable approval pin
+        run: python3 -B -m unittest discover -s tests -p 'test_cn_single_host_readonly_diagnostic.py' -v
