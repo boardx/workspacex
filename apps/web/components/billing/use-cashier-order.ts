@@ -9,7 +9,11 @@ export type LiveOrder = z.infer<typeof billing.BillingOrder>;
 export function canRegenerateOrder(order: LiveOrder | null): boolean {
   return order?.status === "CLOSED" && order.lastErrorCode === null;
 }
+function upstreamCreationRejected(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 502 && error.raw !== null && typeof error.raw === "object" && "code" in error.raw && error.raw.code === "wechat_upstream_failed";
+}
 export function billingFailure(error: unknown): string {
+  if (upstreamCreationRejected(error)) return "微信下单失败，未生成可支付订单。请重试生成二维码。";
   if (error instanceof ApiError) {
     if (error.status === 401) return "登录已失效，请重新登录。";
     if (error.status === 403) return "你没有此账户的购买权限。";
@@ -82,7 +86,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     } catch (error) {
       if (mounted.current && currentScope.current === scope) {
         // Only explicit pre-intent client rejections are safe to resubmit. A lost reply is unknown.
-        const rejected = error instanceof ApiError && [400, 401, 403, 404, 409].includes(error.status);
+        const rejected = upstreamCreationRejected(error) || error instanceof ApiError && [400, 401, 403, 404, 409].includes(error.status);
         setState({ scope, order: null, creating: false, uncertain: !rejected, message: controller.signal.aborted ? "请求已中断，结果待确认。请联系支持，勿重复付款。" : billingFailure(error) });
       }
     } finally { if (pending.current === controller) pending.current = null; }

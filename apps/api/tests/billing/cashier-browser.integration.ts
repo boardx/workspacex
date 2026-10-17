@@ -267,3 +267,23 @@ it("buys again after confirmed success without reloading or replaying the first 
   await page.screenshot({path:resolve(evidence,"repeat-purchase-success.png"),fullPage:true});
   writeFileSync(resolve(evidence,"repeat-purchase-receipt.json"),JSON.stringify({firstOrderNo:first.orderNo,secondOrderNo:second.orderNo,reloadedBetweenPurchases:false,billingHttpIntercepted:false,nativeRequests:2,signedNativeRequests:2,balance:2640,totalPurchased:2400,ledgerRowsPerOrder:2,replayedCallbacksStable:true,productionMerchantAccepted:false},null,2));
 },120000);
+
+it("retries an explicit Native rejection only on user action with no fake persisted order",async()=>{
+ const f=fixture!,page=await browser!.newPage({viewport:{width:1280,height:900}});
+ await openCashier(page);f.state.mode="non2xx";
+ await page.locator('input[type="radio"][value="f04-order-basic"]').check();
+ const failed=page.waitForResponse(r=>new URL(r.url()).pathname==="/__fullstack_api/billing/orders"&&r.request().method()==="POST");
+ await page.getByTestId("billing-generate-qr").click();
+ const response=await failed;expect(response.status()).toBe(502);expect(await response.json()).toMatchObject({code:"wechat_upstream_failed"});
+ await expect.poll(()=>page.getByTestId("billing-generate-qr").isEnabled()).toBe(true);
+ expect(await page.getByTestId("billing-qr-code-area").count()).toBe(0);expect(f.state.calls).toBe(1);
+ const empty=await asOwner(c=>c.query("SELECT count(*)::int AS n FROM billing_orders WHERE created_by=$1",[user]));expect(empty.rows[0]?.n).toBe(0);
+ f.state.mode="success";const order=await createFromUi(page);
+ await expect.poll(()=>page.getByTestId("billing-qr-code-area").count()).toBe(1);
+ expect(f.state.calls).toBe(2);expect(f.state.signedRequests).toBe(2);
+ const notice=f.notice(order.orderNo);expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ await expect.poll(()=>page.getByTestId("billing-updated-balance").textContent(),{timeout:15000}).toContain("1320");
+ expect((await sourceAccounting(order.orderNo)).ledger).toHaveLength(2);
+ await page.screenshot({path:resolve(evidence,"upstream-retry-success.png"),fullPage:true});
+ writeFileSync(resolve(evidence,"upstream-retry-receipt.json"),JSON.stringify({failureStatus:502,code:"wechat_upstream_failed",ordersAfterFailure:0,qrAfterFailure:false,retryExplicit:true,billingHttpIntercepted:false,nativeRequests:2,signedNativeRequests:2,successfulOrderNo:order.orderNo,balance:1320,ledgerRows:2,productionMerchantAccepted:false},null,2));
+},120000);

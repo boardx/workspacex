@@ -283,3 +283,24 @@ describe("F06 confirmed repeat purchase",()=>{
   expect(screen.queryByRole("button",{name:"再次购买"})).toBeNull();
  });
 });
+
+
+describe("F06 explicit creation rejection",()=>{
+ it("allows a manual retry after structured upstream rejection without showing a fake QR",async()=>{
+  let posts=0;const f=live({post:()=>++posts===1?reply({error:"bad_gateway",code:"wechat_upstream_failed"},502):reply({order})});
+  await generate();await screen.findByTestId("billing-refresh-hint");
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  expect((screen.getByTestId("billing-generate-qr") as HTMLButtonElement).disabled).toBe(false);
+  expect(posts).toBe(1);
+  fireEvent.click(screen.getByTestId("billing-generate-qr"));
+  expect(await screen.findByTestId("billing-qr-code-area")).toBeTruthy();expect(posts).toBe(2);
+  expect(f.credited).not.toHaveBeenCalled();
+ });
+ it.each([{error:"bad_gateway"},{code:"unknown"}])("keeps an unclassified 502 uncertain: %j",async body=>{
+  const f=live({post:()=>reply(body,502)});await generate();await screen.findByTestId("billing-refresh-hint");
+  expect((screen.getByTestId("billing-generate-qr") as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByTestId("billing-generate-qr"));
+  expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(1);
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+ });
+});
