@@ -1,0 +1,11 @@
+test_actual_packages_all_stages_bind_prior_and_authority (test_cn_release_stage_router.RouterTests.test_actual_packages_all_stages_bind_prior_and_authority) ... ok
+test_context_tamper_blocks_lookup (test_cn_release_stage_router.RouterTests.test_context_tamper_blocks_lookup) ... ok
+test_generated_verifier_executes_the_pinned_source_bytes (test_cn_release_stage_router.RouterTests.test_generated_verifier_executes_the_pinned_source_bytes) ... ok
+test_generation_failure_not_retried (test_cn_release_stage_router.RouterTests.test_generation_failure_not_retried) ... ok
+test_other_publication_attempt_same_source_rejected (test_cn_release_stage_router.RouterTests.test_other_publication_attempt_same_source_rejected) ... ok
+test_real_entry_process_chain_pauses_at_a5_and_resumes_without_replay (test_cn_release_stage_router.RouterTests.test_real_entry_process_chain_pauses_at_a5_and_resumes_without_replay) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.332s
+
+OK

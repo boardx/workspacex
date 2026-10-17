@@ -36,7 +36,7 @@ flowchart TD
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   class C0 todo
-  %% C0 灰色阻塞说明：普通发布已批准；set原件下载Forbidden，HK传输仍仅接attempt1，A3/A4/A5云端闭环及现场证据未证实；未提交生产调用
+  %% C0 灰色阻塞说明：普通发布已批准；set原件下载Forbidden，attempt2适配代码待安装验真，A3/A4/A5现场证据未证实；候选已过期；未提交生产调用
   class B0 done
   class K0 todo
   class I0 todo
@@ -541,6 +541,7 @@ chart remains unchanged in semantics: completed build green, unresolved C0 and A
 state and no production acceptance purple. The existing 75 local/57 CI fixture results remain
 historical bounded evidence, not a live production feasibility attestation.
 
+
 ## Candidate window expired; development only (2026-10-17 11:49 UTC)
 
 Build attempt 2 remains a successful historical build (B0 green), but its original candidate
@@ -549,3 +550,44 @@ No receipt deadline was refreshed, no new candidate build or production action w
 A0–A6 remain gray. Subsequent tool-code fixes and isolated tests do not reopen this execution window.
 The frozen handoff patch ac98711c5a0fe6f2c0d7c6dae72ad8ffb7e75852ae38fd5fcd4086f13f4d5aa2
 is retained unchanged; work continues in the same original worktree, with no replacement writer.
+
+
+## Code repair handoff — isolated implementation, production still NO-GO
+
+The earlier review sections above describe the then-current source. This increment repairs those
+code contracts; it does not supersede the expired candidate or any production admission gate.
+See [phase-adapter.md](phase-adapter.md) for callable interfaces, required protected inputs and
+failure/recovery boundaries. No stored real plan, grant or historical artifact pin was rewritten.
+
+- HK original-byte acquisition/proof now explicitly binds v3 attempt 1 or 2; legacy plans remain
+  attempt 1. Actual authenticated attempt-2 downloads, HK object writes and production image
+  transfer have **not** succeeded here. The recorded Forbidden is not retried or routed around.
+- BC root routing requires independently approved A3 isolated restore and A4 four-file SQL
+  compatibility receipts from the actual A2 backup epoch **before switch staging and switch**.
+  Original raw provider/readback/schema/SQL/authorization bytes must be present and hash-match.
+  Nonempty migration diffs remain blocked; this increment neither executes nor waives migrations.
+- Explicit cloud-call phase adapters preserve original identity/window and actual held receipt hashes.
+  An A3/A4 pause can advance only with a fresh approved packet; a held-health pause needs a fresh
+  actual-hash A5 writer approval and fresh continuation packet. BC conditional auto-approval is disabled.
+  A6 still uses the canonical six-journey observer and two identical original-byte readbacks.
+- Lost acknowledgement remains uncertain and cannot be replayed in a different output directory.
+  A persisted acknowledged invocation can be reconciled read-only; restoring its pause record cannot
+  approve or resume anything. Same packet/same private journal rejects repeat submission.
+- Source installation closure includes the adapters and protected evidence directory proposal.
+  The offline proposal generator retains explicit safety policy/tool/journal inputs and grants no
+  authority. No root tool installation, sudo change, identity or access configuration was performed.
+
+Production remains NO-GO: expired candidate; inaccessible original artifact bytes; absent verified
+existing cloud identity/capability; unverified installed tool/probe closure; absent current baseline,
+actual A2/A3 receipts, four-SQL compatibility evidence and same-epoch A5 approval; six real business
+journeys unexecuted. Ordinary once-only release approval does not authorize any new safety change.
+B0 stays historically green; tool upload, application image upload and A0–A6 remain gray.
+
+
+Isolated repair validation: 22 local suites / 229 tests plus canonical legacy-attempt-1 and
+BC-v3-attempt-2 proof integration modes passed on frozen Python bytes. The expanded legacy
+conditional-writer suite is environment-limited locally (`UNSAFE_PARENT`, foreign-owned `/`);
+its original failure is retained. Exact-head GitHub expanded regression and real Docker fixture
+are required before marking this code increment tested. See
+[evidence/contract-repair-20261017/verification.md](evidence/contract-repair-20261017/verification.md).
+These code-test results never change the production diagram.

@@ -26,10 +26,12 @@ OPERATIONS = {'download-check','image-download','publication-check','image-publi
 
 class CommandFailed(a.Rejected):
     """Verified terminal process failure; it never proves release terminality."""
-    def __init__(self, output, exit_code):
+    def __init__(self, output, exit_code, started_at, finished_at):
         super().__init__('REMOTE_COMMAND_FAILED')
         self.output = output
         self.exit_code = exit_code
+        self.started_at = started_at
+        self.finished_at = finished_at
 
 
 def save(root, name, raw):
@@ -180,7 +182,7 @@ def poll(rpc, ack, approval, deadline, *, monotonic=time.monotonic, wait=time.sl
                 output=base64.b64decode(row['Output'],validate=True)
                 a.require(0<len(output)<=65536,'REMOTE_OUTPUT_BOUND')
                 if status!='Success' or row['ExitCode']!=0:
-                    raise CommandFailed(output,row['ExitCode'])
+                    raise CommandFailed(output,row['ExitCode'],started.isoformat(),finished.isoformat())
                 if terminal is not None:terminal['completedAt']=finished.isoformat()
                 return output
             a.require(status in ('Pending','Running','Success'),'REMOTE_TERMINAL_FAILURE')
@@ -195,6 +197,14 @@ def result_receipt(approval,pin,previous,ack,result,completed_at):
             previousReceiptSha256=previous,invokeId=ack['InvokeId'],commandId=ack['CommandId'],
             outputSha256=a.sha(result),completedAt=completed_at,
             remoteCommandTerminal=True,productionAccepted=False,automaticRetry=False))
+
+
+def failed_record(approval_sha,ack,error):
+    return a.json_bytes(dict(status='COMMAND_FAILED',approvalSha256=approval_sha,
+        invokeId=ack['InvokeId'],commandId=ack['CommandId'],exitCode=error.exit_code,
+        outputSha256=a.sha(error.output),providerStartedAt=error.started_at,providerFinishedAt=error.finished_at,
+        remoteCommandTerminal=True,releaseCompleted=False,productionAccepted=False,
+        automaticRetry=False,requiresIndependentReview=True))
 
 
 def execute(raw, pin, plan_raw, plan_sha, previous, rpc, output, *, entry_approval_raw=None,
@@ -232,11 +242,7 @@ def execute(raw, pin, plan_raw, plan_sha, previous, rpc, output, *, entry_approv
         # Retain the exact bounded stdout without issuing a success receipt or
         # treating process exit as proof that all release effects are terminal.
         save(root,'failed-output.json',error.output)
-        save(root,'failed-command.json',a.json_bytes(dict(status='COMMAND_FAILED',
-            approvalSha256=pin,invokeId=ack['InvokeId'],commandId=ack['CommandId'],
-            exitCode=error.exit_code,outputSha256=a.sha(error.output),
-            remoteCommandTerminal=True,releaseCompleted=False,productionAccepted=False,
-            automaticRetry=False,requiresIndependentReview=True)))
+        save(root,'failed-command.json',failed_record(pin,ack,error))
         raise
     except BaseException as error:
         save(root,'uncertain.json',a.json_bytes(dict(status='RECONCILE_REQUIRED',automaticRetry=False,
@@ -256,7 +262,14 @@ def reconcile(root, rpc, approval_sha, *, max_seconds=30):
     intent=a.decode((root/'intent.json').read_bytes())
     a.require(intent['approvalSha256']==approval_sha,'RECONCILE_INTENT_PIN')
     terminal={}
-    result=poll(rpc,ack,approval,time.monotonic()+max_seconds,terminal=terminal)
+    try:
+        result=poll(rpc,ack,approval,time.monotonic()+max_seconds,terminal=terminal)
+    except CommandFailed as error:
+        for name,value in (('failed-output.json',error.output),('failed-command.json',failed_record(approval_sha,ack,error))):
+            path=root/name
+            if path.exists():a.require(path.read_bytes()==value,'RECONCILE_EXISTING_BYTES_CHANGED')
+            else:save(root,name,value)
+        raise
     # Validate historical execution at its actual finish time. This does not
     # reopen the original approval for a new submission or advance any stage.
     entry=a.decode((root/'entry-approval.json').read_bytes())

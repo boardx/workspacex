@@ -65,6 +65,7 @@ class Remote(unittest.TestCase):
             completed=[dict(stage=s,requestSha256=a.sha((s+'request').encode()),receiptSha256=a.sha(s.encode())) for s in self.stages],
             productionAcceptanceClaimedByDriver=False)
         self.calls=[];self.commands={};self.failure=None;self.row_updates={};self.second_changed=False
+        self.responses={};self.result_rows={}
         outer=self
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
@@ -76,14 +77,14 @@ class Remote(unittest.TestCase):
                     if outer.failure=='lost-ack':self.connection.shutdown(2);return
                 else:
                     ident=params['InvokeId'].split('-')[1]
-                    value=outer.chain if ident=='1' else outer.business
+                    value=outer.responses.get(ident,outer.chain if ident=='1' else outer.business)
                     if ident=='3' and outer.second_changed:value={**value,'runtimeInventorySha256':'f'*64}
                     row=dict(InstanceId=r.FIXED.TARGET,InvokeId='t-'+ident,CommandId='c-'+ident,
                         InvocationStatus='Success',InvokeRecordStatus='Finished',ExitCode=0,Dropped=0,
                         StartTime=(outer.now-dt.timedelta(seconds=10)).isoformat(),
                         FinishedTime=outer.now.isoformat(),
                         Output=base64.b64encode(a.json_bytes(value)).decode())
-                    row.update(outer.row_updates)
+                    row.update(outer.row_updates);row.update(outer.result_rows.get(ident,{}))
                     body={'Invocation':{'InvocationResults':{'InvocationResult':[row]}}}
                 raw=json.dumps(body).encode();self.send_response(200);self.end_headers();self.wfile.write(raw)
             def log_message(self,*args):pass

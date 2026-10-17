@@ -35,7 +35,7 @@ def remote_result(receipt_raw, output_raw, approval_raw, approval_sha, plan_raw,
     return v
 
 
-def authorities(release_raw, release_sha, writer_raw, writer_sha, plan_raw, plan_sha, provenance_raw, migration_raw):
+def release_authorities(release_raw, release_sha, plan_raw, plan_sha, provenance_raw, migration_raw):
     a.require(a.sha(plan_raw)==plan_sha,'BUSINESS_PLAN_PIN')
     root=Path(__file__).resolve().parent
     spec=importlib.util.spec_from_file_location('fixed_canonical_driver',root/'cn-release-fixed-driver.py')
@@ -54,6 +54,18 @@ def authorities(release_raw, release_sha, writer_raw, writer_sha, plan_raw, plan
               and migration['baselineRevision']==identity['baselineRevision']
               and migration['changedFiles']==[] and migration['schemaMigrationRequired'] is False,
               'CANONICAL_NO_MIGRATION_ROUTE_ONLY')
+    inputs=release['acquire']['requests']['consume']['inputs']
+    a.require(inputs['plan']==plan_sha and a.sha(provenance_raw)==inputs['policy'],'BUSINESS_ACQUIRE_PINS')
+    provenance=a.decode(provenance_raw)
+    a.require(provenance['runId']==remote.FIXED.RUN and provenance['runAttempt']==remote.FIXED.RUN_ATTEMPT
+              and provenance['sourceRevision']==remote.FIXED.SOURCE and provenance['controlRevision']==remote.FIXED.CONTROL,
+              'BUSINESS_FIXED_BUILD_RUN')
+    a.require(a.hex_string(inputs['set'],64),'BUSINESS_CANDIDATE_PIN')
+    return release,identity,driver
+
+
+def authorities(release_raw, release_sha, writer_raw, writer_sha, plan_raw, plan_sha, provenance_raw, migration_raw):
+    release,identity,driver=release_authorities(release_raw,release_sha,plan_raw,plan_sha,provenance_raw,migration_raw)
     a.require(a.sha(writer_raw)==writer_sha,'WRITER_APPROVAL_HASH')
     writer=a.decode(writer_raw)
     fields={'kind','scope','releaseSha256','identity','target','issuedAt','expiresAt','bindingSha256',
@@ -71,18 +83,23 @@ def authorities(release_raw, release_sha, writer_raw, writer_sha, plan_raw, plan
     start,end=a.timestamp(writer['issuedAt']),a.timestamp(writer['expiresAt'])
     a.require(a.timestamp(identity['requestedAt'])<=start<end<=a.timestamp(identity['deadlineAt'])
               and end-start<=dt.timedelta(minutes=30),'WRITER_APPROVAL_WINDOW')
-    inputs=release['acquire']['requests']['consume']['inputs']
-    a.require(inputs['plan']==plan_sha and a.sha(provenance_raw)==inputs['policy'],'BUSINESS_ACQUIRE_PINS')
-    provenance=a.decode(provenance_raw)
-    a.require(provenance['runId']==remote.FIXED.RUN and provenance['runAttempt']==remote.FIXED.RUN_ATTEMPT
-              and provenance['sourceRevision']==remote.FIXED.SOURCE and provenance['controlRevision']==remote.FIXED.CONTROL,
-              'BUSINESS_FIXED_BUILD_RUN')
-    a.require(a.hex_string(inputs['set'],64),'BUSINESS_CANDIDATE_PIN')
     return release,identity,writer,start,end,driver
 
 
+def safety_completion(release,release_sha,completed,checkpoint):
+    if not release.get('safetyGates'):return
+    a.require(type(checkpoint)is dict,'SAFETY_CHECKPOINT_REQUIRED')
+    value=completed['safetyEvidence']
+    a.require(value['kind']=='cn-a3-a4-evidence-consumed-v1' and value['releaseSha256']==release_sha
+              and value['identity']==release['identity'] and value['target']==remote.TARGET
+              and value['productionAccepted']is False,'SAFETY_COMPLETION_SCOPE')
+    for key in ('restoreReceiptSha256','sqlReceiptSha256','hostBackupSha256','rdsBackupSha256','holdGeneration'):
+        a.require(value[key]==checkpoint[key],'SAFETY_COMPLETION_CHANGED')
+    a.require(value['approvalSha256']==checkpoint['safetyApprovalSha256'],'SAFETY_COMPLETION_APPROVAL')
+
+
 def business(release_raw, release_sha, writer_raw, writer_sha, chain, observed, readback,
-             plan_raw, plan_sha, predecessor, provenance_raw, migration_raw):
+             plan_raw, plan_sha, predecessor, provenance_raw, migration_raw, *, safety_checkpoint=None):
     """Structural validation only; supplied JSON does not authenticate its origin.
 
     Each result tuple: (receipt bytes, output bytes, approved packet, packet pin).
@@ -96,6 +113,7 @@ def business(release_raw, release_sha, writer_raw, writer_sha, chain, observed, 
     a.require(root_result['operation']=='release-run' and root_result['entryApprovalSha256']==release_sha,
               'BUSINESS_RELEASE_OPERATION')
     completed=a.decode(chain[1])
+    safety_completion(release,release_sha,completed,safety_checkpoint)
     a.require(completed['status']=='CHAIN_COMPLETED' and not completed.get('terminalProposal'),
               'FULL_RELEASE_CHAIN_REQUIRED')
     a.require([row['stage'] for row in completed['completed']]==list(driver.e.STAGES),
@@ -142,7 +160,7 @@ def business(release_raw, release_sha, writer_raw, writer_sha, chain, observed, 
 
 def run_approved_pipeline(packets, plan_raw, plan_sha, release_raw, release_sha,
                           writer_raw, writer_sha, provenance_raw, migration_raw, rpc, output,
-                          *, authorization_evidence_raw=None):
+                          *, authorization_evidence_raw=None, _initial_previous=None, _safety_checkpoint=None):
     """Effectful library entry. Explicit approved packets + existing RPC required.
 
     The existing fixed root driver owns all A0–A6 mutations. Only independent
@@ -151,17 +169,18 @@ def run_approved_pipeline(packets, plan_raw, plan_sha, release_raw, release_sha,
     """
     a.require(len(packets)==3,'THREE_APPROVED_PACKETS_REQUIRED')
     release,_,_,writer_start,writer_end,_=authorities(release_raw,release_sha,writer_raw,writer_sha,plan_raw,plan_sha,provenance_raw,migration_raw)
+    a.require(not release.get('safetyGates') or (_initial_previous is not None and type(_safety_checkpoint)is dict),'PREPARATION_REQUIRED')
     a.require(dt.datetime.now(dt.timezone.utc)<a.timestamp(release['expiresAt']),'ROOT_EXECUTION_APPROVAL_EXPIRED')
     a.require(writer_start<=dt.datetime.now(dt.timezone.utc)<writer_end,'WRITER_EXECUTION_APPROVAL_EXPIRED')
     for index,(raw,pin) in enumerate(packets):
-        policy,_=remote.admit(raw,pin,plan_raw,plan_sha,None if index==0 else '0'*64)
+        policy,_=remote.admit(raw,pin,plan_raw,plan_sha,_initial_previous if index==0 else '0'*64)
         remote.entry_authority(policy,release_raw,plan_raw,plan_sha)
         remote.authorization_evidence(policy,authorization_evidence_raw)
         a.require(policy['principalArn']==rpc.principal_arn,'REMOTE_PRINCIPAL_MISMATCH')
         a.require(policy['sequence']==index and policy['operation']==('release-run' if index==0 else 'business-readback') and policy['entryApprovalSha256']==release_sha
                   and policy['candidateSha256']==release['acquire']['requests']['consume']['inputs']['set'],'PIPELINE_APPROVED_SCOPE')
     root=Path(output);root.mkdir(mode=0o700,parents=False,exist_ok=False)
-    results=[];previous=None
+    results=[];previous=_initial_previous
     for index,(raw,pin) in enumerate(packets):
         policy,_=remote.admit(raw,pin,plan_raw,plan_sha,previous)
         expected='release-run' if index==0 else 'business-readback'
@@ -173,11 +192,12 @@ def run_approved_pipeline(packets, plan_raw, plan_sha, release_raw, release_sha,
         if index==0:
             value=a.decode(body)
             a.require(value.get('status')=='CHAIN_COMPLETED' and not value.get('terminalProposal'),'ROOT_CHAIN_NOT_COMPLETED')
+            safety_completion(release,release_sha,value,_safety_checkpoint)
             stages=['consume','publication-stage','check-plan','publish','hold-stage','hold','stop-stage','stop','sessions',
                     'backup-stage','backup','rds-backup','switch-stage','switch','acceptance','clear-hold','observe']
             a.require([v['stage'] for v in value['completed']]==stages,'ROOT_STAGE_ORDER')
         results.append((receipt,body,raw,pin));previous=a.sha(receipt)
-    result=business(release_raw,release_sha,writer_raw,writer_sha,*results,plan_raw,plan_sha,None,provenance_raw,migration_raw)
+    result=business(release_raw,release_sha,writer_raw,writer_sha,*results,plan_raw,plan_sha,_initial_previous,provenance_raw,migration_raw,safety_checkpoint=_safety_checkpoint)
     result['providerQueriesPerformed']=True
     remote.save(root,'evidence-consumed.json',a.json_bytes(result))
     return result
