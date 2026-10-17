@@ -90,5 +90,8 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
   function regenerate() {
     if (canRegenerateOrder(latest.current.order) && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
   }
-  return { ...active, accessError, refresh, create, regenerate, revoke: () => setAccessError("Access denied") };
+  function buyAgain() {
+    if (open && !accessError && latest.current.order?.status === "SUCCESS" && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
+  }
+  return { ...active, accessError, refresh, create, regenerate, buyAgain, revoke: () => setAccessError("Access denied") };
 }

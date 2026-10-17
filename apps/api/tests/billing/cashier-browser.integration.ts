@@ -234,3 +234,36 @@ it("keeps a late paid capacity failure manual and prevents a second payment in t
   await page.screenshot({ path: resolve(evidence, "manual-paid-no-repayment.png"), fullPage: true });
   writeFileSync(resolve(evidence, "manual-paid-receipt.json"), JSON.stringify({ identity: "isolated principal fixture", merchant: "independent RSA loopback", initialCreationClock: "Date-only16minutes earlier; restored", ownedCapacityFixture: 2147483640, billingHttpIntercepted: false, orderTimestampsMutated: false, orderNo: order.orderNo, closure, callbackStatus, duplicateCallbackStatus, status: "CLOSED", lastErrorCode: "invalid_amount", regenerateVisible: false, qrVisible: false, successVisible: false, nativeRequests: f.state.calls, signedNativeRequests: f.state.signedRequests, ledgerRows: 0, productionMerchantAccepted: false }, null, 2));
 }, 120000);
+
+it("buys again after confirmed success without reloading or replaying the first payment", async () => {
+  const f=fixture!, page=await browser!.newPage({viewport:{width:1280,height:900}});
+  await openCashier(page);
+  const first=await createFromUi(page), firstNotice=f.notice(first.orderNo);
+  expect((await f.post(firstNotice.body,firstNotice.headers)).status).toBe(200);
+  await expect.poll(()=>page.getByTestId("billing-success-badge").count(),{timeout:15000}).toBe(1);
+  await expect.poll(()=>page.getByTestId("billing-updated-balance").textContent()).toContain("1320");
+  await page.getByTestId("billing-cashier-dialog").getByRole("button",{name:"关闭",exact:true}).click();
+  await page.getByRole("button",{name:"购买额度",exact:true}).click();
+  await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
+  expect(f.state.calls).toBe(1);
+  await page.getByTestId("billing-buy-again").click();
+  await expect.poll(()=>page.getByTestId("billing-generate-qr").count()).toBe(1);
+  expect(f.state.calls).toBe(1);
+  const second=await createFromUi(page);expect(second.orderNo).not.toBe(first.orderNo);
+  await expect.poll(()=>page.getByTestId("billing-qr-code-area").count()).toBe(1);
+  expect((await f.post(firstNotice.body,firstNotice.headers)).status).toBe(200);
+  expect((await sourceAccounting(second.orderNo)).order.status).toBe("PENDING");
+  expect(await page.getByTestId("billing-order-no").textContent()).toContain(second.orderNo);
+  const secondNotice=f.notice(second.orderNo);
+  expect((await f.post(secondNotice.body,secondNotice.headers)).status).toBe(200);
+  await expect.poll(()=>page.getByTestId("billing-success-badge").count(),{timeout:15000}).toBe(1);
+  await expect.poll(()=>page.getByTestId("billing-updated-balance").textContent()).toContain("2640");
+  const before=await sourceAccounting(second.orderNo);
+  expect(before.wallet).toEqual([{balance:2640,total_purchased:2400}]);
+  expect((await sourceAccounting(first.orderNo)).ledger).toHaveLength(2);expect(before.ledger).toHaveLength(2);
+  expect((await f.post(secondNotice.body,secondNotice.headers)).status).toBe(200);
+  expect(await sourceAccounting(second.orderNo)).toEqual(before);
+  expect(f.state.calls).toBe(2);expect(f.state.signedRequests).toBe(2);
+  await page.screenshot({path:resolve(evidence,"repeat-purchase-success.png"),fullPage:true});
+  writeFileSync(resolve(evidence,"repeat-purchase-receipt.json"),JSON.stringify({firstOrderNo:first.orderNo,secondOrderNo:second.orderNo,reloadedBetweenPurchases:false,billingHttpIntercepted:false,nativeRequests:2,signedNativeRequests:2,balance:2640,totalPurchased:2400,ledgerRowsPerOrder:2,replayedCallbacksStable:true,productionMerchantAccepted:false},null,2));
+},120000);

@@ -258,3 +258,28 @@ describe("F06 closed paid-funds recovery and legal late-payment transitions",()=
   expect(screen.queryByTestId("billing-regenerate")).toBeNull();
  });
 });
+
+
+describe("F06 confirmed repeat purchase",()=>{
+ it("retains SUCCESS on reopen until an explicit buy again, then creates a distinct order",async()=>{
+  let posts=0;
+  const next={...order,orderNo:"bg20261016000000ghijkl",qrCodeUrl:"weixin://wxpay/bizpayurl?pr=second-intent"};
+  const f=live({post:()=>reply({order:++posts===1?order:next}),get:()=>reply({order:{...order,status:"SUCCESS",paidAt:new Date().toISOString()}})});
+  await generate();await screen.findByTestId("billing-qr-code-area");
+  fireEvent.click(screen.getByTestId("billing-refresh-status"));await screen.findByTestId("billing-success-badge");
+  f.view.rerender(<LiveCashierDialog {...f.props} open={false}/>);
+  f.view.rerender(<LiveCashierDialog {...f.props}/>);
+  expect(await screen.findByTestId("billing-success-badge")).toBeTruthy();expect(posts).toBe(1);
+  fireEvent.click(screen.getByRole("button",{name:"再次购买"}));
+  expect(await screen.findByRole("radio")).toBeTruthy();expect(posts).toBe(1);
+  expect(screen.queryByTestId("billing-success-badge")).toBeNull();
+  await generate();expect(await screen.findByTestId("billing-order-no")).toHaveProperty("textContent",`订单号：${next.orderNo}`);
+  expect(posts).toBe(2);expect(f.credited).toHaveBeenCalledTimes(1);
+ });
+ it.each(["PENDING","PROCESSING","FAILED","CLOSED"] as const)("does not offer another purchase for %s",async status=>{
+  live({get:()=>reply({order:{...order,status,lastErrorCode:status==="CLOSED"?"invalid_amount":null}})});
+  await generate();await screen.findByTestId("billing-qr-code-area");fireEvent.click(screen.getByTestId("billing-refresh-status"));
+  await waitFor(()=>expect(screen.getByTestId("billing-order-status").textContent).toBe(({PENDING:"待支付",PROCESSING:"确认到账中",FAILED:"到账处理失败",CLOSED:"等待人工处理"})[status]));
+  expect(screen.queryByRole("button",{name:"再次购买"})).toBeNull();
+ });
+});

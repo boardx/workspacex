@@ -57,7 +57,7 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent data-testid="billing-cashier-dialog" onOpenAutoFocus={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected && returnFocus.current !== document.body) returnFocus.current.focus(); else focusFallback?.(); }} className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
     <DialogTitle>购买额度</DialogTitle><DialogDescription>{owner.ownerType === "team" ? "为当前组织充值" : "为个人账户充值"}，使用微信扫码支付。关闭窗口会保留当前订单。</DialogDescription>
     {denied ? <div data-testid="billing-cashier-denied"><p role="status">登录已失效或你没有此账户的访问权限。请重新登录或联系管理员。</p><Button variant="outline" onClick={retryAll}>重新验证权限</Button></div> : <>
-      {payment.order ? <LiveQrPanel order={payment.order} refresh={() => { void payment.refresh(); }} regenerate={payment.regenerate} /> : <>
+      {payment.order ? <><LiveQrPanel order={payment.order} refresh={() => { void payment.refresh(); }} regenerate={payment.regenerate} />{payment.order.status === "SUCCESS" && <Button data-testid="billing-buy-again" onClick={payment.buyAgain}>再次购买</Button>}</> : <>
         {config.result.state === "loading" && <p role="status">正在查询支付渠道…</p>}
         {config.result.state === "error" && <p role="status">支付渠道暂时无法查询。<Button variant="outline" onClick={config.retry}>重试渠道</Button></p>}
         {config.result.state === "ready" && !configured && <p data-testid="billing-cashier-unavailable" role="status">微信支付暂未开通。</p>}
