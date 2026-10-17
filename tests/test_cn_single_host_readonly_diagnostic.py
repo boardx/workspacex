@@ -7,6 +7,10 @@ import io
 import json
 from pathlib import Path
 import stat
+import re
+import subprocess
+import sys
+import time
 import types
 import unittest
 from unittest.mock import Mock,patch
@@ -158,5 +162,46 @@ class ReviewedMaterialTests(unittest.TestCase):
             self.assertIn(clause,value)
         for forbidden in ('sudo ','id-token:','secrets.','prepare-cn-release','promote-cn-production','workflow_run:','push:'):
             self.assertNotIn(forbidden,value)
+
+class PendingQueueAndHardTimeoutTests(unittest.TestCase):
+    def workflow(self):
+        return (ROOT/'.github/workflows/cn-single-host-readonly-diagnostic.yml').read_text()
+    def test_shared_group_uses_max_queue_without_pending_replacement(self):
+        value=self.workflow()
+        block=re.search(r'(?m)^concurrency:\n((?:  [^\n]*\n)+)',value).group(1)
+        settings=dict(re.findall(r'^  ([a-z-]+): ([^\n]+)$',block,re.M))
+        self.assertEqual(settings,{'group':'workspacex-cn-production-deploy',
+                                  'cancel-in-progress':'false','queue':'max'})
+        self.assertNotIn('queue: single',block)
+        # GitHub, not this suite, implements queue admission. The documented max
+        # queue preserves existing pending runs; saturation rejects the new run.
+    def test_duration_plus_kill_grace_is_strictly_below_sixty(self):
+        value=self.workflow()
+        match=re.search(r'/usr/bin/timeout --signal=TERM --kill-after=(\d+)s (\d+)s ',value)
+        grace,duration=map(int,match.groups())
+        self.assertEqual((duration,grace),(58,1))
+        self.assertLessEqual(duration,58);self.assertLess(duration+grace,60)
+        self.assertEqual(p.DEADLINE_SECONDS,55) # Internal soft timer is unchanged.
+    def test_real_timeout_kills_an_offline_child_ignoring_term(self):
+        started=time.monotonic()
+        result=subprocess.run(['/usr/bin/timeout','--signal=TERM','--kill-after=0.2s','0.2s',
+            sys.executable,'-I','-S','-B','-c',
+            'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(10)'],
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=3)
+        self.assertIn(result.returncode,(-9,137))
+        self.assertLess(time.monotonic()-started,3)
+        self.assertEqual(result.stdout,b'')
+    def test_metadata_deadline_is_soft_and_cannot_replace_external_timeout(self):
+        host=p.Host();f=Fake()
+        with patch.object(host,'trusted',side_effect=p.Rejected('GLOBAL_DEADLINE')):
+            f.metadata=lambda path,code=False:host.metadata(path,True)if code else {'status':'PRESENT'}
+            result=p.collect(f)
+        self.assertEqual(result['status'],'PARTIAL')
+        self.assertTrue(all(v['status']=='GLOBAL_DEADLINE'for v in result['code'].values()))
+        self.assertIn(('GET',p.HEALTH),f.calls)
+        self.assertEqual(len([c for c in f.calls if c[0]=='DOCKER_LIST']),2)
+        self.assertFalse(result['productionReady'])
+        # Reproduces the approved probe's catch behavior. We cannot silently
+        # alter its bytes; the separately tested wrapper supplies the hard stop.
 
 if __name__=='__main__':unittest.main(verbosity=2)
