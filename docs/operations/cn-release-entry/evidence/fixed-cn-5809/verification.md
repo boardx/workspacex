@@ -43,8 +43,8 @@ in `/tmp/cn-toolchain` using `npm_config_cache=/tmp/cn-npm`, then the exact succ
 init command above resolved it. Initial `inspect` exposed old gh 2.46.0 lacking `--slurp`;
 the implementation now uses bounded single-page API reads and refuses incomplete inventory.
 
-Raw test logs: [orchestration-tests.log](orchestration-tests.log),
-[publisher-tests.log](publisher-tests.log). Isolated negative-case receipts are summarized in
+Raw test logs: [orchestration-tests.txt](orchestration-tests.txt),
+[publisher-tests.txt](publisher-tests.txt). Isolated negative-case receipts are summarized in
 [scenarios.json](scenarios.json). Full per-stage intents/evidence/hash receipts live in
 `/tmp/fixed-cn-simulation-evidence` and are uploaded by the PR workflow for seven days.
 No fixture receipt is a production receipt. Live artifact download remains blocked as recorded
