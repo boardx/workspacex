@@ -15,6 +15,8 @@ import fixed_cn_remote as remote
 import fixed_cn_receipts as receipts
 
 
+PRE_SWITCH_PAUSES=('switch-stage','switch')
+
 RUNNER_FILES=('fixed_cn_phases.py','fixed_cn_receipts.py','fixed_cn_remote.py','fixed_cn_bundle.py',
               'fixed_cn_host_commands.py','fixed-cn-release.py','cn-release-safety-gates.py')
 
@@ -37,8 +39,8 @@ def policy(release):
 def checkpoint(value,release,release_sha,driver):
     a.require(value['status'] in ('WAITING_FOR_A3_A4_EVIDENCE','WAITING_FOR_WRITER_APPROVAL'),'PHASE_WAIT_STATUS')
     c=value['checkpoint'];stage=value['stage']
-    expected='switch-stage' if value['status']=='WAITING_FOR_A3_A4_EVIDENCE' else 'clear-hold'
-    a.require(stage==expected and value['intentCreated'] is False,'PHASE_WAIT_BOUNDARY')
+    allowed=PRE_SWITCH_PAUSES if value['status']=='WAITING_FOR_A3_A4_EVIDENCE' else ('clear-hold',)
+    a.require(stage in allowed and value['intentCreated'] is False,'PHASE_WAIT_BOUNDARY')
     prefix=list(driver.e.STAGES[:list(driver.e.STAGES).index(stage)])
     a.require([v['stage'] for v in value['completed']]==prefix,'PHASE_COMPLETED_PREFIX')
     a.require(all(a.hex_string(v[k],64) for v in value['completed'] for k in ('requestSha256','receiptSha256')),'PHASE_PREFIX_PINS')
@@ -95,7 +97,7 @@ def begin(packet,plan_raw,plan_sha,release_raw,release_sha,provenance_raw,migrat
     if previous_pause is not None:
         old,_=paused(*previous_pause);previous=previous_pause[1]
         a.require(Path(previous_pause[0])==Path(release['orchestrationJournalRoot'])/old['transportApprovalSha256'],'PHASE_JOURNAL_LOCATION')
-        a.require(old['releaseSha256']==release_sha and old['checkpoint']['stage']=='switch-stage','PHASE_CONTINUATION_SCOPE')
+        a.require(old['releaseSha256']==release_sha and old['checkpoint']['stage']in PRE_SWITCH_PAUSES,'PHASE_CONTINUATION_SCOPE')
     raw,pin=packet;approved,_=remote.admit(raw,pin,plan_raw,plan_sha,previous)
     a.require(approved['operation']=='release-run' and approved['sequence']==0
               and approved['entryApprovalSha256']==release_sha and approved['toolRevision']==release['toolRevision']
@@ -133,6 +135,7 @@ def save_pause(root,approved,pin,release,release_sha,driver,body,previous,old=No
     if old:
         a.require(all(c[k]==old['checkpoint'][k] for k in ('hostBackupSha256','rdsBackupSha256','holdGeneration','backupId'))
                   and a.timestamp(c['checkpointAt'])>=a.timestamp(old['checkpoint']['checkpointAt']),'PHASE_EPOCH_CHANGED')
+        a.require(driver.e.STAGES.index(c['stage'])>=driver.e.STAGES.index(old['checkpoint']['stage']),'PHASE_STAGE_REGRESSED')
     result=dict(kind='fixed-cn-paused-release-v1',releaseSha256=release_sha,
         candidateSha256=approved['candidateSha256'],toolRevision=approved['toolRevision'],transportApprovalSha256=pin,
         previousPauseSha256=previous,failedCommandSha256=a.sha((root/'transport/failed-command.json').read_bytes()),
@@ -158,7 +161,7 @@ def recover(packet,plan_raw,plan_sha,release_raw,release_sha,provenance_raw,migr
     if previous_pause is not None:
         old,_=paused(*previous_pause)
         a.require(previous==previous_pause[1] and old['releaseSha256']==release_sha
-                  and old['checkpoint']['stage']=='switch-stage','PHASE_CONTINUATION_SCOPE')
+                  and old['checkpoint']['stage']in PRE_SWITCH_PAUSES,'PHASE_CONTINUATION_SCOPE')
     a.require(previous is None or old is not None,'PHASE_PREDECESSOR_CONTEXT_REQUIRED')
     try:remote.reconcile(root/'transport',rpc,pin,max_seconds=max_seconds)
     except remote.CommandFailed as error:

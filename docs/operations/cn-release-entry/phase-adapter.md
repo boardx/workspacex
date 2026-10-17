@@ -15,7 +15,7 @@ acquires credentials nor exposes dispatch through the PR workflow. No Mac runtim
 | Python API | Required inputs | Boundary/result |
 |---|---|---|
 | `begin(packet, plan_raw, plan_sha, release_raw, release_sha, provenance_raw, migration_raw, rpc, output, authorization_evidence_raw=...)` | Independently approved original bytes; existing authenticated RPC; pinned installed tool; private durable journal | Exactly one `RunCommand`. Verified driver exit 2 at A3/A4 or held-health produces immutable `pause.json`; no automatic continuation |
-| `begin(..., previous_pause=(directory, pause_sha))` | Actual prior A3/A4 pause and new packet issued after its provider finish, same principal/root/candidate/backup epoch | One explicit continuation; waits for A5 after actual switch/held-health |
+| `begin(..., previous_pause=(directory, pause_sha))` | Actual prior A3/A4 pause at `switch-stage` (12 completed stages) or `switch` (13), and new packet issued after its provider finish, same principal/root/candidate/backup epoch | One explicit continuation; waits for A5 after actual switch/held-health |
 | `recover(packet, ..., rpc, output, previous_pause=..., max_seconds=30)` | Existing persisted approval, intent and acknowledged invocation | Read-only provider queries; restores exact missing failed-output/failed-command/pause bytes; never submits or advances |
 | `resume(packets, preparation, ..., writer_raw, writer_sha, ..., rpc, output, authorization_evidence_raw=...)` | Actual held-health pause, independently approved actual-hash writer bytes, three fresh approved packets | Same root chain continues; canonical A6 witness plus two separate read-only invocations returning identical original receipt bytes |
 
@@ -105,3 +105,18 @@ The PR workflow has only `contents: read`, tests exact PR head on Linux and invo
 adapter, secret, dispatch or provider SDK. The Docker fixture remains GitHub-Linux-only; local
 HTTP/fake-provider/SQL observations prove contracts, not live cloud access, real SQL compatibility,
 restore correctness, business journey success or the 30-minute production target.
+
+
+### Revocation between staging and switch
+
+A3/A4 evidence can be revoked after `switch-stage` completes. The root then returns
+`WAITING_FOR_A3_A4_EVIDENCE` at `switch`, with 13 actual completed stages and no switch intent.
+This is a supported pre-switch pause in checkpoint, explicit continuation and read-only recovery;
+it is not rewritten as a 12-stage pause. Continuing while evidence remains revoked pauses again.
+Only the same valid independently approved evidence, revalidated by the root, can permit switch;
+changed immutable evidence fails closed. A fresh transport packet binds the actual pause and
+original backup epoch/window. Later A5 still requires actual held hashes and fresh approval.
+No automatic approval, replay, backup restart or original-clock refresh is introduced.
+`test_actual_root_switch_revocation_pause_recovery_and_explicit_resume` composes the actual root
+loop/router checkpoint with phase/RPC save, recover, repeat wait and final explicit A5 continuation.
+External stage execution, filesystem protection and live gate observations remain fixture seams.

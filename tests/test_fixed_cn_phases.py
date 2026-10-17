@@ -3,6 +3,9 @@ import copy
 import datetime as dt
 from pathlib import Path
 import unittest
+from unittest.mock import Mock,patch
+import test_cn_release_fixed_driver as root_fixture
+from test_cn_release_phase_gates import router_module
 
 import test_fixed_cn_remote as fixtures
 from test_cn_release_safety_gates import Evidence,safety_policy,enc,sha
@@ -83,6 +86,88 @@ class Phases(unittest.TestCase):
         self.assertEqual(a.decode(second)['previousPauseSha256'],prior[1]);self.assertEqual(len(f.commands),2)
         self.respond(3,self.chain);result=self.resume((self.journal/next_packet[1],sha(second)))
         self.assertFalse(result['productionAccepted']);self.assertEqual(len(f.commands),5)
+    def test_actual_root_switch_revocation_pause_recovery_and_explicit_resume(self):
+        f=self.f;root=root_fixture.DriverTests();root.setUp();root.a=self.release
+        r=router_module.Router(f.release_sha,self.release,f.release);r.base=f.root/'root-state';r.base.mkdir()
+        r.safety_evidence=Mock(return_value=self.safe)
+        r.conditional_writer=Mock(side_effect=AssertionError('no automatic approval'))
+        evidence={'backup':enc(self.e.host),'rds-backup':enc(self.e.rds),'acceptance':b'actual fixture held health'}
+        r.evidence=lambda stage,*args:evidence[stage]
+        terminal={k:('actual fixture '+k).encode()for k in ('binding','hold','switchReceipt')}
+        r.terminal_inputs=lambda:terminal
+        root.router.safety_required=r.safety_required;root.router.admission=r.admission
+        root.router.waiting_checkpoint=r.waiting_checkpoint;root.router.completed_safety=r.completed_safety
+        original_execute=root.execute
+        def execute(mode,request,attempt):
+            result=original_execute(mode,request,attempt)
+            if mode=='advance' and request==root_fixture.m.e.digest(b'switch-stage'):
+                r.safety_evidence.return_value=None
+            return result
+        root.execute=execute;protected={}
+        exists=Path.exists
+        def read(path,*args):
+            return protected[str(path)] if str(path)in protected else Path(path).read_bytes()
+        def run_root(seconds):
+            with patch.object(router_module.e,'now',return_value=f.now+dt.timedelta(seconds=seconds)), \
+                 patch.object(root_fixture.m,'package_identity'):
+                return root_fixture.m.coordinate(f.release_sha,self.release,root.router,
+                    executor=root.execute,clock=lambda:f.now)
+        def reply(number,value,start,finish):
+            f.responses[str(number)]=value
+            f.result_rows[str(number)]=dict(InvocationStatus='Failed',InvokeRecordStatus='Finished',ExitCode=2,
+                StartTime=(f.now+dt.timedelta(seconds=start)).isoformat(),
+                FinishedTime=(f.now+dt.timedelta(seconds=finish)).isoformat())
+        # Only filesystem protection/external stage execution are fixture seams.
+        # Real coordinate, Router.admission/checkpoint and phase/RPC run together.
+        with patch.object(router_module.e,'read',side_effect=read), \
+             patch.object(router_module.e,'directory'),patch.object(router_module.e,'fsync_dir'), \
+             patch.object(router_module.e,'create',side_effect=lambda path,raw:Path(path).write_bytes(raw)), \
+             patch.object(Path,'exists',lambda path:str(path)in protected or exists(path)):
+            waiting=run_root(-9)
+            self.assertEqual(waiting['stage'],'switch');self.assertEqual(len(waiting['completed']),13)
+            self.assertNotIn('switch',root.requests)
+            reply(1,waiting,-10,-8);packet=f.packet();raw=self.begin(packet)
+            pause=(self.journal/packet[1],sha(raw));self.assertEqual(a.decode(raw)['checkpoint'],waiting['checkpoint'])
+            (pause[0]/'pause.json').unlink()
+            recovered=phases.recover(packet,f.plan_raw,f.plan_sha,f.release,f.release_sha,f.provenance,f.migration,f.rpc,pause[0])
+            self.assertEqual(raw,recovered);self.assertEqual(len(f.commands),1)
+            # Explicit fresh call while revocation persists still cannot switch.
+            waiting_again=run_root(-5);reply(2,waiting_again,-6,-4)
+            fresh=f.packet(previous=pause[1],issuedAt=(f.now-dt.timedelta(seconds=7)).isoformat())
+            raw2=self.begin(fresh,pause);pause2=(self.journal/fresh[1],sha(raw2))
+            self.assertEqual(a.decode(raw2)['checkpoint']['stage'],'switch');self.assertNotIn('switch',root.requests)
+            recovered2=phases.recover(fresh,f.plan_raw,f.plan_sha,f.release,f.release_sha,f.provenance,
+                f.migration,f.rpc,pause2[0],previous_pause=pause)
+            self.assertEqual(raw2,recovered2);self.assertEqual(len(f.commands),2)
+            # Restoring the same independently approved evidence permits the root
+            # to reach held-health, but never publishes its own writer approval.
+            r.safety_evidence.return_value=self.safe
+            held=run_root(-1.5);self.assertEqual(held['stage'],'clear-hold')
+            reply(3,held,-2,-1)
+            fresh3=f.packet(previous=pause2[1],issuedAt=(f.now-dt.timedelta(seconds=3)).isoformat())
+            raw3=self.begin(fresh3,pause2);held_pause=(self.journal/fresh3[1],sha(raw3))
+            writer=a.decode(f.writer)
+            for key in ('bindingSha256','holdRawSha256','switchReceiptSha256','heldHealthSha256','holdGeneration'):
+                writer[key]=held['checkpoint'][key]
+            writer['issuedAt']=(f.now-dt.timedelta(seconds=.5)).isoformat();f.writer=enc(writer);f.writer_sha=sha(f.writer)
+            base='/etc/workspacex-cn/writer-resume-approvals/'
+            protected[base+'by-release/'+f.release_sha+'.json']=enc(dict(approvalSha256=f.writer_sha))
+            protected[base+f.writer_sha+'.json']=f.writer
+            for key in ('bindingSha256','switchReceiptSha256','holdGeneration'):f.business[key]=writer[key]
+            f.business['observedAt']=(f.now-dt.timedelta(seconds=.1)).isoformat()
+            completed=run_root(0);self.assertEqual(completed['status'],'CHAIN_COMPLETED');self.respond(4,completed)
+            self.assertEqual(completed['requestedAt'],f.identity['requestedAt'])
+            self.assertEqual(completed['deadlineAt'],f.identity['deadlineAt'])
+            issued=(f.now-dt.timedelta(seconds=.25)).isoformat()
+            packets=[f.packet(previous=held_pause[1],issuedAt=issued),
+                f.packet('business-readback','@previous',sequence=1,issuedAt=issued),
+                f.packet('business-readback','@previous',sequence=2,issuedAt=issued)]
+            result=self.resume(held_pause,packets);self.assertFalse(result['productionAccepted'])
+            self.assertEqual(len(f.commands),6)
+            self.assertEqual(len([v for v in root.calls if v[0]=='advance']),17)
+            before=len(f.calls)
+            with self.assertRaises(FileExistsError):self.resume(held_pause,packets)
+            self.assertEqual(len(f.calls),before);r.conditional_writer.assert_not_called()
     def test_no_future_writer_hash_or_pre_hold_approval(self):
         f=self.f;pause=self.held_pause();before=len(f.calls)
         writer=a.decode(f.writer);writer['switchReceiptSha256']='f'*64;f.writer=enc(writer);f.writer_sha=sha(f.writer)

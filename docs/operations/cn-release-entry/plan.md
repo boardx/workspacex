@@ -594,3 +594,28 @@ cleanup verified, synthetic source, productionAccepted=false. This includes the 
 that were environment-limited locally. Wider repository checks are tracked separately. See
 [evidence/contract-repair-20261017/verification.md](evidence/contract-repair-20261017/verification.md).
 These code-test results never change the production diagram.
+
+
+### Follow-up audit: switch-boundary pause contract
+
+Independent review found that the root's post-staging A3/A4 revocation pause (`switch`, 13 completed
+stages) was rejected by the caller, which accepted only `switch-stage` (12). This failed closed but
+left that pause outside explicit recovery/continuation. The follow-up aligns checkpoint, begin and
+recover to both actual pre-switch boundaries, rejects stage regression, and adds a root-return →
+phase save/recover → still-revoked wait → restored same-evidence → A5 explicit-resume regression.
+Prior 241-test CI receipts remain historical for their exact commits; they do not attest this edit.
+
+A3/A4 remains an independently approved evidence **consumer**, not a provider-specific parser or
+restore executor. Authentic live capture, installed closure/executor, candidate bytes, current
+baseline and real business acceptance are still missing. No real timing proves that backup, isolated
+restore, SQL review, independent approvals and final acceptance fit the original 30-minute window.
+Code and fixture durations cannot establish production feasibility. Candidate remains expired;
+A0–A6 remain gray, production calls 0, NO-GO.
+
+
+Follow-up frozen local regression passed **22 suites / 230 tests**, both canonical proof modes,
+compilation, diagram and diff checks. The new phase suite has 12 tests, including the composed
+13-stage pause/recovery/explicit-resume case. Commands and logs:
+[evidence/switch-pause-repair-20261017](evidence/switch-pause-repair-20261017/verification.md).
+New exact-head GitHub CI and real Docker results must be taken from the PR checks/receipt comment;
+the earlier 241-test result is not attributed to this follow-up. No production status changes.
