@@ -1,0 +1,62 @@
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3701034Z   1) [seeded] › e2e/survey-complete-flow.spec.ts:228:5 › R1 问卷体验：空列表单一主入口与创建键盘校验 ───────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3702055Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3702998Z     Error: response.json: Protocol error (Network.getResponseBody): No resource with given identifier found
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3705217Z     Response body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3706298Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3707269Z       241 |  const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3708912Z       242 |  await page.goto('/studio/survey');const response=await loaded;expect(response.ok()).toBeTruthy();
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3710192Z     > 243 |  const surveys=await response.json() as {id:string}[];
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3711010Z           |                               ^
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3711785Z       244 |  for(const survey of surveys){
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3713644Z       245 |    const card=page.getByTestId(`survey-card-${survey.id}`);await card.getByRole('button',{name:/更多操作：/}).click();
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3715129Z       246 |    page.once('dialog',dialog=>dialog.accept());
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3716269Z         at /home/runner/work/workspacex/workspacex/apps/web/e2e/survey-complete-flow.spec.ts:243:31
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3717103Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3718056Z     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3719807Z     test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded/test-failed-1.png
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3721511Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3722298Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3723545Z     Error Context: test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded/error-context.md
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3724948Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3725949Z     attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3727509Z     test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3728512Z     Usage:
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3728868Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3730107Z         pnpm exec playwright show-trace test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3731151Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3731974Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3732673Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3733526Z     Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3735141Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3736014Z     Error: response.json: Protocol error (Network.getResponseBody): No resource with given identifier found
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3737762Z     Response body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3738836Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3739735Z       241 |  const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3741407Z       242 |  await page.goto('/studio/survey');const response=await loaded;expect(response.ok()).toBeTruthy();
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3742674Z     > 243 |  const surveys=await response.json() as {id:string}[];
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3743562Z           |                               ^
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3744644Z       244 |  for(const survey of surveys){
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3746255Z       245 |    const card=page.getByTestId(`survey-card-${survey.id}`);await card.getByRole('button',{name:/更多操作：/}).click();
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3747640Z       246 |    page.once('dialog',dialog=>dialog.accept());
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3748928Z         at /home/runner/work/workspacex/workspacex/apps/web/e2e/survey-complete-flow.spec.ts:243:31
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3750103Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3751436Z     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3753162Z     test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1/test-failed-1.png
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3755148Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3755968Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3757285Z     Error Context: test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1/error-context.md
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3758408Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3759436Z     attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3761239Z     test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3762442Z     Usage:
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3762853Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:07:15.3764566Z         pnpm exec playwright show-trace test-results/fullstack-smoke/survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6343150Z   1 failed
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6346026Z     [seeded] › e2e/survey-complete-flow.spec.ts:228:5 › R1 问卷体验：空列表单一主入口与创建键盘校验 ────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6346921Z   93 did not run
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6347365Z   126 passed (13.2m)
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6792977Z undefined
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6801573Z /home/runner/work/workspacex/workspacex/apps/web:
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6803193Z  ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:15.6988953Z  ELIFECYCLE  Command failed with exit code 1.
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-17T18:08:16.2081980Z [timing] pnpm run verify:fullstack-smoke:raw
