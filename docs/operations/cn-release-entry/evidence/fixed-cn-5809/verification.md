@@ -52,3 +52,25 @@ in [availability.json](availability.json); metadata observation is not availabil
 
 Commit and remote CI evidence are reported in the draft PR and final handoff; this file does
 not mark checks that have not run as passed. Merge and production execution remain prohibited.
+
+## Follow-up implementation and baseline correction
+
+The first dedicated CI run 39000739379 tested the PR synthetic merge commit
+`123c02ea…` associated with head `cc6e0ce58…`; it did not directly checkout that head.
+Its successful results remain valid for that merge baseline. Revised dedicated CI explicitly
+checks out `${{ github.event.pull_request.head.sha }}`. The real fixture still uses synthetic
+application revision `aaaa…`, `sourceIsBC=false` and `productionAccepted=false`.
+
+New local command `python3 -B -m unittest discover -s tests -p 'test_fixed_cn_bundle.py' -v`
+passes 8 tests, exit 0, including real tar parsing/copy/reverification/manifest conversion,
+actual `stage-local` CLI, tamper/race/expiry/identity/replay failure and exact existing protected
+host-command generation. Log: [bundle-tests.txt](bundle-tests.txt). The revised 11 orchestration
+tests also pass, exit 0, and now invoke this real-byte transfer adapter. Python syntax,
+shell syntax, embedded probe Python syntax, YAML/exact-head-ref assertions, diagram and diff
+checks pass. Updated real Docker six-stage chain runs only in the revised GitHub CI;
+its result must be observed before claiming success.
+
+The replacement probe's updated digest is [probe.sha256](probe.sha256). It has **not** run
+on ECS. Adding current container/image identity, config/downloader hashes and fixed loopback
+health does not inherit the old probe's approval. Actual native upload / protected ECS commands
+were not invoked. See the plan's follow-up section for remaining implementation versus access gaps.

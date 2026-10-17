@@ -15,6 +15,10 @@ spec.loader.exec_module(m)
 # Avoid unittest discovering the imported fixture twice.
 del DockerFixture
 import test_minimal_docker_release as fixture
+import test_cn_image_candidate as archive_fixture
+import fixed_cn_bundle as bundle_adapter
+import cn_image_candidate as candidate
+import cn_image_archive as archive
 
 
 def metadata():
@@ -61,16 +65,25 @@ class Integration(unittest.TestCase):
                        'envHash': m.sha((self.root / 'existing.env').read_bytes())}
             self.assertEqual(before, self.f.statepath.read_bytes())
         elif stage == 'image-transfer':
-            # Files stand for synthetic archive bytes, never production images.
-            dest = self.root / 'transferred'; dest.mkdir()
-            details = {}
-            for role in m.ROLES:
-                source = self.root / (role + '.fixture-archive')
-                source.write_bytes(('synthetic archive ' + role).encode())
-                shutil.copyfile(source, dest / source.name)
-                pin = m.sha(source.read_bytes())
-                self.assertEqual(pin, m.sha((dest / source.name).read_bytes()))
-                details[role] = pin
+            source = self.root / 'original-archives'; source.mkdir()
+            plan = archive_fixture.plan()
+            plan.update(sourceRevision=m.SOURCE, controlRevision=m.CONTROL)
+            labels = {'org.opencontainers.image.revision': m.SOURCE,
+                      candidate.LABEL: candidate.identity(plan)}
+            images = {role: archive_fixture.archive(source / (role + '.tar'), plan, role, labels)
+                      for role in m.ROLES}
+            plan_raw = archive.json_bytes(plan)
+            candidate_raw = archive.json_bytes(archive_fixture.receipt(plan, images))
+            run, inventory = metadata()
+            observation = m.admission(run, inventory, dt.datetime.now(dt.timezone.utc))
+            dest = self.root / 'transferred'
+            details = bundle_adapter.stage(source, plan_raw, m.sha(plan_raw),
+                candidate_raw, m.sha(candidate_raw), observation, dest)
+            self.f.manifest = json.loads((dest / 'manifest.json').read_bytes())
+            self.f.mp.write_bytes((dest / 'manifest.json').read_bytes())
+            self.f.config['manifestSha256'] = m.sha(self.f.mp.read_bytes())
+            self.f.cp.write_text(json.dumps(self.f.config))
+            self.f.state['new'] = {role: row['imageId'] for role,row in self.f.manifest['images'].items()}
         elif stage == 'compose-image-only':
             proc, result = self.f.run_cli(True)
             self.assertEqual(proc.returncode, 0, result)

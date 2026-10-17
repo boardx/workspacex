@@ -126,13 +126,26 @@ def simulate(output, adapter, source=SOURCE):
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument('mode', choices=('inspect', 'probe-hash'))
+    p.add_argument('mode', choices=('inspect', 'probe-hash', 'stage-local'))
+    p.add_argument('--request', help='Reviewed local stage request JSON; no network or Docker')
     a = p.parse_args()
     try:
         if a.mode == 'probe-hash':
             probe = Path(__file__).with_name('fixed-cn-readonly-probe.sh')
             result = {'path': str(probe), 'sha256': sha(probe.read_bytes()),
                       'executionApproved': False, 'productionExecuted': False}
+        elif a.mode == 'stage-local':
+            import sys
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import fixed_cn_bundle
+            need(a.request is not None, 'STAGE_REQUEST_REQUIRED')
+            request_raw = Path(a.request).read_bytes()
+            need(len(request_raw) <= 16384, 'STAGE_REQUEST_SIZE')
+            request = json.loads(request_raw)
+            need(set(request) == {'bundle', 'plan', 'planSha256', 'candidate', 'candidateSha256', 'inventory', 'output'}, 'STAGE_REQUEST_FIELDS')
+            result = fixed_cn_bundle.stage(request['bundle'], Path(request['plan']).read_bytes(),
+                request['planSha256'], Path(request['candidate']).read_bytes(), request['candidateSha256'],
+                json.loads(Path(request['inventory']).read_bytes()), request['output'])
         else:
             result = inspect()
         print(raw(result).decode(), end='')

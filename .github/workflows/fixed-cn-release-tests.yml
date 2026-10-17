@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - scripts/fixed-cn-*
+      - scripts/fixed_cn_*.py
+      - scripts/cn_image_candidate.py
+      - scripts/cn_image_archive.py
+      - tests/test_fixed_cn_bundle.py
       - scripts/minimal-docker-release.py
       - tests/test_fixed_cn_release.py
       - tests/test_minimal_docker_release*.py
@@ -17,11 +21,13 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Static checks and isolated stage integration
         run: |
           python3 -m py_compile scripts/fixed-cn-release.py tests/test_fixed_cn_release.py
           sh -n scripts/fixed-cn-readonly-probe.sh
           python3 scripts/fixed-cn-release.py probe-hash
+          python3 -m unittest discover -s tests -p 'test_fixed_cn_bundle.py' -v
           python3 -m unittest discover -s tests -p 'test_fixed_cn_release.py' -v
           python3 -m unittest discover -s tests -p 'test_minimal_docker_release.py' -v
       - name: Real isolated Docker fixture
@@ -32,6 +38,7 @@ jobs:
           name: fixed-cn-simulation-${{ github.run_id }}
           path: |
             /tmp/fixed-cn-simulation-evidence
-            ${{ runner.temp }}/fixed-cn-real
+            ${{ runner.temp }}/fixed-cn-real/**/*.json
+            ${{ runner.temp }}/fixed-cn-real/*.log
           retention-days: 7
           if-no-files-found: error

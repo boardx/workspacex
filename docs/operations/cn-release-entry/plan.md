@@ -47,16 +47,16 @@ changes; production SQL compatibility remains unknown. No migration is applied, 
 `python3 scripts/fixed-cn-release.py inspect` is a bounded GitHub metadata read. It checks the exact
 control/run/workflow/attempt and all 12 required artifact names, sizes and expiry times. It prints
 `ready=false`, never source-byte verification. It does not call the Docker publisher's plan.
-`probe-hash` hashes the new probe source without running it. The old missing probe hash
+`probe-hash` hashes the new probe source without running it. The probe now inspects only current container/image/project/service fields, hashes admitted Compose/downloader files, and performs a bounded loopback API health GET without printing env or body contents. The old missing probe hash
 `35fceac81a43100fb7ce84381dcf5e9b6cfd12b6150b0109016a37c98d57c799` grants no authority to this replacement.
 New probe source: `scripts/fixed-cn-readonly-probe.sh`, fixed SHA256
-`23e947f697dfbad285ffde94bf45f57bdb0d9042c02c4dceef475133b4192f8d`.
+`b4545e0f468bff7e381426c8e9670867d84ee0cd48dc85008639de9291855159`.
 Any byte change requires fresh review and pin. The new probe has not run on production.
 
 The offline stage engine is test-only Python API; there is deliberately no production adapter, arbitrary
 command option, apply CLI or dispatch workflow. Its real CLI publisher integration reuses
 `scripts/minimal-docker-release.py` and `tests/test_minimal_docker_release.py` with fake Docker and
-loopback HTTP. The fixture copies and hashes five **synthetic files**, then calls the actual image-only
+loopback HTTP. The fixture now copies five real Docker-save-format tar fixtures through canonical candidate admission, then calls the actual image-only
 Compose CLI, verifies health, and creates/reads a synthetic business artifact. This tests orchestration
 and failure gates; it does not validate the real archive transfer/importer or production business journeys.
 Existing `cn_image_archive.py` / `cn_candidate_publication.py` / `cn-release-fixed-driver.py`
@@ -122,3 +122,49 @@ IAM/OIDC/token/runner authorization, secret copy or permission expansion is crea
 
 None of those production actions is authorized by mock success or this PR. This is a reviewable,
 tested orchestration skeleton, not an executable approved end-to-end production release.
+
+## Follow-up adapter completion and exact-head CI correction
+
+The first PR revision lacked implementation glue, not merely credentials: its transfer stage copied
+synthetic text and its business stage read a local JSON file. That revision is not the completed
+process. The following code is now implemented without production calls:
+
+- `scripts/fixed_cn_bundle.py`: canonical plan/set/tar verification, fixed source/control/run binding,
+  five bounded archive copies, reparse/rehash destination, retained partial intent on failure,
+  original receipt expiry enforcement, and conversion into the existing image-only publisher manifest.
+  `fixed-cn-release.py stage-local --request REQUEST.json` is runnable with local original-format
+  inputs. The request has exactly `bundle`, `plan`, `planSha256`, `candidate`,
+  `candidateSha256`, `inventory`, `output`. Inventory is an inspect observation no older than five
+  minutes. Original independently reviewed hashes are required; no TTL refresh or new build occurs.
+- `scripts/fixed_cn_host_commands.py`: exact argv generation for the existing protected host
+  download-check/download and publication-check/publication entries. Each takes a separately
+  approved SHA; generation does not validate approval, installation or execute anything. Existing
+  root entries still enforce the actual authority. No arbitrary shell commands or destinations.
+- The real GitHub Docker fixture now traverses all six stages: actual running-image inspection,
+  config snapshot, five actual `docker image save` archives and byte-copy verification, actual
+  image-only Compose CLI, actual loopback HTTP health, and HTTP retrieval/validation of a synthetic
+  report output. It retains `sourceIsBC=false`, synthetic application revision `aaaa…`, and
+  `productionAccepted=false`. It exercises the orchestration with real Docker/HTTP, not the real app.
+
+Missing implementation still: automatic remote invocation for this fixed request, binding approved
+cloud upload/download/publication outputs into A0–A6, and an approved target-specific business
+acceptance driver. These are not just absent configuration. Existing native OSS upload, protected
+ECS download/publication and fixed seven-step drivers contain the underlying operations, but their
+complete fixed-request connection is not implemented or advertised as runnable. Concrete production
+commands cannot be finalized until independently approved original acquisition/policy/SDK/installed
+closure/approval hashes and current baseline/SQL evidence exist. No adapter removes those gates.
+
+Original network refusal: `gh api repos/boardx/workspacex/actions/artifacts/12026330469/zip`
+redirected to the GitHub Actions artifact store on `productionresultssa12.blob.core.windows.net`
+and returned Forbidden. No alternate URL, proxy, unauthenticated fallback or retry was used.
+The user would need to authorize the environment's normal authenticated GitHub artifact-blob
+network access; this is separate from approved read-only ECS access and from write operations.
+At the observed time all 12 API artifacts still reported expired=false; their listed expiration
+remains 2026-10-17 04:50:00–04:57:52 UTC, not a claim that they are already expired.
+
+CI correction: run 39000739379 was associated with PR head cc6e0ce58 but default checkout tested
+PR merge commit `123c02ea…`, not direct head. Its successful 11+13 tests and old standalone Docker
+fixture apply to that merge baseline. The workflow now explicitly checks out
+`${{ github.event.pull_request.head.sha }}` for future exact-head tests. Only the new run's observed
+result may establish the revised exact-head pass. Full repository checks still use their own
+configured checkout baseline; none is relabeled as exact-head.
