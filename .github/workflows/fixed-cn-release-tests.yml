@@ -7,6 +7,7 @@ on:
       - scripts/cn_image_candidate.py
       - scripts/cn_image_archive.py
       - tests/test_fixed_cn_bundle.py
+      - tests/test_fixed_cn_remote.py
       - scripts/minimal-docker-release.py
       - tests/test_fixed_cn_release.py
       - tests/test_minimal_docker_release*.py
@@ -27,6 +28,7 @@ jobs:
           python3 -m py_compile scripts/fixed-cn-release.py tests/test_fixed_cn_release.py
           sh -n scripts/fixed-cn-readonly-probe.sh
           python3 scripts/fixed-cn-release.py probe-hash
+          python3 -m unittest discover -s tests -p 'test_fixed_cn_remote.py' -v
           python3 -m unittest discover -s tests -p 'test_fixed_cn_bundle.py' -v
           python3 -m unittest discover -s tests -p 'test_fixed_cn_release.py' -v
           python3 -m unittest discover -s tests -p 'test_minimal_docker_release.py' -v

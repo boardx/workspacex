@@ -74,3 +74,23 @@ The replacement probe's updated digest is [probe.sha256](probe.sha256). It has *
 on ECS. Adding current container/image identity, config/downloader hashes and fixed loopback
 health does not inherit the old probe's approval. Actual native upload / protected ECS commands
 were not invoked. See the plan's follow-up section for remaining implementation versus access gaps.
+
+
+## Remote/approval/business adapter implementation
+
+`python3 -B -m unittest discover -s tests -p 'test_fixed_cn_remote.py' -v`
+→ exit 0, **16 tests**, 2026-10-17 04:47 UTC. Raw log: [remote-tests.txt](remote-tests.txt).
+This executes the real RPC marshaling/transport/receipt/pipeline code against an actual loopback
+HTTP provider fixture. It never executes received commands or contacts Alibaba Cloud. Covered:
+full approved root-chain + two independent readbacks, authority/principal/source/run/command/
+predecessor binding, A5 and provenance/candidate mismatch before effects, SQL unknown/changed
+rejection before submission, lost ack and repeat rejection, provider identity/exit/truncation failure,
+root waiting or missing stages stopping business calls, six-journey rejection, changed readback,
+no ambient credential fallback, no IAM/cancellation API, running deadline + read-only reconcile,
+and late-success rejection. Existing production browser/SDK installation remains unverified.
+
+Before this adapter change, e2cd22818c1f0a9a41efbcc71e0a75d2424d5424 completed all PR checks:
+7 workflows terminal (6 success, 1 skipped), including dedicated direct-head run 39001273184 and
+harness-verify 39001272952. The existing read-only watch ended exit 0. Those results are **not**
+attributed to this later change; the new head needs its own CI. New standalone API queries at
+04:21 returned HTTP 401 Bad credentials; no login/new token/credential fallback was attempted.

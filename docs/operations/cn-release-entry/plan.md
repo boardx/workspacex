@@ -146,13 +146,11 @@ process. The following code is now implemented without production calls:
   report output. It retains `sourceIsBC=false`, synthetic application revision `aaaa…`, and
   `productionAccepted=false`. It exercises the orchestration with real Docker/HTTP, not the real app.
 
-Missing implementation still: automatic remote invocation for this fixed request, binding approved
-cloud upload/download/publication outputs into A0–A6, and an approved target-specific business
-acceptance driver. These are not just absent configuration. Existing native OSS upload, protected
-ECS download/publication and fixed seven-step drivers contain the underlying operations, but their
-complete fixed-request connection is not implemented or advertised as runnable. Concrete production
-commands cannot be finalized until independently approved original acquisition/policy/SDK/installed
-closure/approval hashes and current baseline/SQL evidence exist. No adapter removes those gates.
+The three earlier implementation gaps are now implemented in `scripts/fixed_cn_remote.py` and
+`scripts/fixed_cn_receipts.py`; they are effectful library adapters, not production calls made by this PR.
+The existing fixed root driver still owns acquisition/publication and A0–A6. No new runner or authority
+is introduced. Runtime readiness remains unverified until independently approved originals, existing
+credential capability, installed protected closure, baseline/SQL evidence and A5 approval exist.
 
 Original network refusal: `gh api repos/boardx/workspacex/actions/artifacts/12026330469/zip`
 redirected to the GitHub Actions artifact store on `productionresultssa12.blob.core.windows.net`
@@ -168,3 +166,67 @@ fixture apply to that merge baseline. The workflow now explicitly checks out
 `${{ github.event.pull_request.head.sha }}` for future exact-head tests. Only the new run's observed
 result may establish the revised exact-head pass. Full repository checks still use their own
 configured checkout baseline; none is relabeled as exact-head.
+
+## Executable remote and business adapters (current revision)
+
+`fixed_cn_remote.EcsRpc.from_existing_credential(existing_credential, approved_principal_arn)`
+constructs the official SDK with explicit existing credentials, HTTPS endpoint pinning, disabled
+redirects/proxies/retries, and a bounded STS GetCallerIdentity check for the exact approved principal
+and account. It does not discover default credentials, create tokens, IAM, OIDC, policies or runners.
+Its mutation API is only RunCommand on the one Shanghai ECS; its result API is only
+DescribeInvocationResults. RunCommand accepts only a fixed protected-entry command generated from
+reviewed inputs. There is no arbitrary shell command field or production CLI dispatch.
+
+`fixed_cn_remote.execute(...)` consumes an independently pinned
+`fixed-cn-transport-approval-v1` packet and the original plan. Required fields are visible in `admit`:
+fixed source/control/run/target, approved principal, operation/sequence, original plan/set hashes,
+protected-entry approval hash, tool revision, command hash, bounded issue/expiry/maxSeconds,
+predecessor hash and user-authorization evidence hash. These packets are consumed, never issued by
+this code. The host's independent protected root approvals remain mandatory.
+
+The executor fsyncs approval/intent before one RunCommand, uses the packet hash as the provider's
+**idempotency request key** (not an authentication token), persists invocation IDs, polls only those
+IDs/target, rejects foreign/duplicate/truncated/nonzero/late results and hashes original output.
+Lost submission responses preserve an uncertain journal with no resubmit or cancellation.
+`reconcile` requires the original approval pin and only queries a known persisted invocation;
+an absent ack requires independent provider reconciliation. A repeated output directory rejects
+before any remote call. No toolkit upload or installation is mixed into these operations.
+
+`fixed_cn_receipts.run_approved_pipeline(...)` is the actual callable orchestration entry:
+
+1. Validate the separately approved original root release and A5 writer approval, plan/set/provenance
+   pins, exact original build run, fixed identity and **pinned canonical migration-diff evidence**.
+   Unknown, changed or migration-required SQL is rejected before any RPC. This runtime image-only
+   route does not apply, remove or bypass the four migrations; a migration release remains a separate
+   approved route. Current real compatibility is still unknown and therefore blocked.
+2. Consume the approved `release-run` packet and invoke `/usr/local/bin/workspacex-cn-fixed-release`.
+   The existing driver owns its complete ordered 17 stages, including backups, hold/clear and actual
+   six-journey execution. A waiting/A5/partial/MVP response stops; the adapter does not advance it.
+3. Make two separately approved `business-readback` calls through the already protected canonical
+   observer. These read existing owned-run/terminal state, never log in or repeat journeys. Distinct
+   sequence values produce distinct approved request keys and invocation IDs. The fixed observer
+   path is bound to the approved installed tool revision. `@previous` is supported only for these
+   read-only packets; each actual predecessor hash is derived from the preceding validated receipt.
+4. Strictly consume the unchanged canonical business receipt, all six exact checks, three distinct
+   owned runs, stable-window/live-inventory hashes, A5 binding/hold/switch identity, original clock
+   and ordered root-stage evidence. A health response or handwritten passed flag is insufficient.
+   The final evidence-consumed result does not assert that this development environment executed
+   or accepted production.
+
+Callers supply the existing credential capability, original approved input bytes/pins, the three
+approved transport packet tuples, original root/A5/provenance/migration bytes, and a new output
+folder. Tests show the exact call in `tests/test_fixed_cn_remote.py`. The PR workflow only runs those
+isolated tests; it never constructs a live credential object or invokes this production entry.
+
+**Remaining blockers are runtime inputs/access and verification**, rather than those three adapters:
+original artifact bytes/independent provenance, restored normal authenticated GitHub artifact-blob
+read access, existing approved principal/channel, root-installed exact driver/SDK/browser closure,
+protected independent approvals, current baseline and genuine SQL compatibility/restore/readback
+proof. Full canonical journeys and provider behavior have not been exercised on production. The
+existing root preflight may discover additional target capability gaps; those must stop the chain.
+No production step changes color on the strength of the isolated protocol tests.
+
+Protocol references checked against the official API contract:
+[RunCommand](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-runcommand),
+[DescribeInvocationResults](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-describeinvocationresults).
+This is not a proposal to grant those permissions: none was created or expanded.
