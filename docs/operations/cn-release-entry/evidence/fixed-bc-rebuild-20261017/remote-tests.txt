@@ -1,0 +1,29 @@
+test_actual_nonzero_wait_preserves_output_without_success_or_retry (test_fixed_cn_remote.Remote.test_actual_nonzero_wait_preserves_output_without_success_or_retry) ... ok
+test_bad_approval_or_scope_zero_calls (test_fixed_cn_remote.Remote.test_bad_approval_or_scope_zero_calls) ... ok
+test_bad_writer_and_build_proof_before_effects (test_fixed_cn_remote.Remote.test_bad_writer_and_build_proof_before_effects) ... ok
+test_business_approval_late_or_candidate_packet_mismatch (test_fixed_cn_remote.Remote.test_business_approval_late_or_candidate_packet_mismatch) ... ok
+test_business_failures_not_health_success (test_fixed_cn_remote.Remote.test_business_failures_not_health_success) ... ok
+test_business_readback_bytes_must_match (test_fixed_cn_remote.Remote.test_business_readback_bytes_must_match) ... ok
+test_complete_approved_pipeline_actual_rpc_and_readback (test_fixed_cn_remote.Remote.test_complete_approved_pipeline_actual_rpc_and_readback) ... ok
+test_expired_approval_readonly_recovery_preserves_original_execution_window (test_fixed_cn_remote.Remote.test_expired_approval_readonly_recovery_preserves_original_execution_window) ... ok
+test_expired_original_build_attempt_cannot_authorize_rebuild (test_fixed_cn_remote.Remote.test_expired_original_build_attempt_cannot_authorize_rebuild) ... ok
+test_late_success_is_not_accepted (test_fixed_cn_remote.Remote.test_late_success_is_not_accepted) ... ok
+test_later_principal_and_expired_writer_rejected_before_effects (test_fixed_cn_remote.Remote.test_later_principal_and_expired_writer_rejected_before_effects) ... ok
+test_lost_submit_response_never_retries (test_fixed_cn_remote.Remote.test_lost_submit_response_never_retries) ... ok
+test_no_ambient_credential_fallback (test_fixed_cn_remote.Remote.test_no_ambient_credential_fallback) ... ok
+test_no_missing_or_reordered_a0_a6_stage (test_fixed_cn_remote.Remote.test_no_missing_or_reordered_a0_a6_stage) ... ok
+test_original_authorization_evidence_required_before_effects (test_fixed_cn_remote.Remote.test_original_authorization_evidence_required_before_effects) ... ok
+test_provider_failure_identity_truncation_and_exit (test_fixed_cn_remote.Remote.test_provider_failure_identity_truncation_and_exit) ... ok
+test_readonly_reconcile_never_submits (test_fixed_cn_remote.Remote.test_readonly_reconcile_never_submits) ... ok
+test_reconcile_never_overwrites_changed_original_receipt (test_fixed_cn_remote.Remote.test_reconcile_never_overwrites_changed_original_receipt) ... ok
+test_root_waiting_stops_before_any_business_call (test_fixed_cn_remote.Remote.test_root_waiting_stops_before_any_business_call) ... ok
+test_running_deadline_preserves_ack_then_readonly_reconcile (test_fixed_cn_remote.Remote.test_running_deadline_preserves_ack_then_readonly_reconcile) ... ok
+test_sdk_debug_rejected_before_sdk_import_or_identity_call (test_fixed_cn_remote.Remote.test_sdk_debug_rejected_before_sdk_import_or_identity_call) ... ok
+test_standalone_entry_original_and_candidate_binding_before_effects (test_fixed_cn_remote.Remote.test_standalone_entry_original_and_candidate_binding_before_effects) ... ok
+test_unknown_or_changed_sql_blocks_before_remote_submit (test_fixed_cn_remote.Remote.test_unknown_or_changed_sql_blocks_before_remote_submit) ... ok
+test_unsupported_iam_or_cancel_never_sent (test_fixed_cn_remote.Remote.test_unsupported_iam_or_cancel_never_sent) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 12.386s
+
+OK

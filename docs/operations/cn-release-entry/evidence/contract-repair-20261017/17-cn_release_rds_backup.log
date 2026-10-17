@@ -1,0 +1,36 @@
+test_changed_or_extra_or_missing_file_rejected (test_cn_release_rds_backup.SdkManifestTests.test_changed_or_extra_or_missing_file_rejected) ... ok
+test_directory_symlink_even_unlisted_rejected (test_cn_release_rds_backup.SdkManifestTests.test_directory_symlink_even_unlisted_rejected) ... ok
+test_exact_private_manifest_and_files_pass (test_cn_release_rds_backup.SdkManifestTests.test_exact_private_manifest_and_files_pass) ... ok
+test_file_symlink_and_mode_rejected (test_cn_release_rds_backup.SdkManifestTests.test_file_symlink_and_mode_rejected) ... ok
+test_large_real_file_map_external_authority_stays_small (test_cn_release_rds_backup.SdkManifestTests.test_large_real_file_map_external_authority_stays_small) ... ok
+test_manifest_bound_and_path_escape_rejected (test_cn_release_rds_backup.SdkManifestTests.test_manifest_bound_and_path_escape_rejected) ... ok
+test_manifest_hash_schema_and_inline_map_rejected (test_cn_release_rds_backup.SdkManifestTests.test_manifest_hash_schema_and_inline_map_rejected) ... ok
+test_unlisted_file_rejected (test_cn_release_rds_backup.SdkManifestTests.test_unlisted_file_rejected) ... ok
+test_unsafe_directory_and_manifest_link_rejected (test_cn_release_rds_backup.SdkManifestTests.test_unsafe_directory_and_manifest_link_rejected) ... ok
+test_absent_dispatch_cannot_be_reconciled_from_other_snapshot (test_cn_release_rds_backup.Tests.test_absent_dispatch_cannot_be_reconciled_from_other_snapshot) ... ok
+test_action_budget_uses_original_deadline_not_fixed_120 (test_cn_release_rds_backup.Tests.test_action_budget_uses_original_deadline_not_fixed_120) ... ok
+test_action_polls_reads_without_second_create (test_cn_release_rds_backup.Tests.test_action_polls_reads_without_second_create) ... ok
+test_backup_pending_after_120_seconds_can_finish_once (test_cn_release_rds_backup.Tests.test_backup_pending_after_120_seconds_can_finish_once) ... ok
+test_create_once_unknown_does_not_retry (test_cn_release_rds_backup.Tests.test_create_once_unknown_does_not_retry) ... ok
+test_cross_minute_completion (test_cn_release_rds_backup.Tests.test_cross_minute_completion) ... ok
+test_exact_job_mapping_and_independent_observer (test_cn_release_rds_backup.Tests.test_exact_job_mapping_and_independent_observer) ... ok
+test_fixed_verifier_rechecks_observer_and_manifest (test_cn_release_rds_backup.Tests.test_fixed_verifier_rechecks_observer_and_manifest) ... ok
+test_malformed_job_missing_backup_id_rejected (test_cn_release_rds_backup.Tests.test_malformed_job_missing_backup_id_rejected) ... ok
+test_minute_precision_backup_start (test_cn_release_rds_backup.Tests.test_minute_precision_backup_start) ... ok
+test_other_success_snapshot_does_not_match_job (test_cn_release_rds_backup.Tests.test_other_success_snapshot_does_not_match_job) ... ok
+test_paginated_original_responses_preserved (test_cn_release_rds_backup.Tests.test_paginated_original_responses_preserved) ... ok
+test_pending_and_failed_observer_reject (test_cn_release_rds_backup.Tests.test_pending_and_failed_observer_reject) ... ok
+test_pending_at_deadline_stops_no_retry (test_cn_release_rds_backup.Tests.test_pending_at_deadline_stops_no_retry) ... ok
+test_permission_missing_blocks_before_cloud (test_cn_release_rds_backup.Tests.test_permission_missing_blocks_before_cloud) ... ok
+test_preflight_checks_both_read_apis (test_cn_release_rds_backup.Tests.test_preflight_checks_both_read_apis) ... ok
+test_provider_counts_reject_bool_negative_and_nondecimal (test_cn_release_rds_backup.Tests.test_provider_counts_reject_bool_negative_and_nondecimal) ... ok
+test_same_second_precision_and_minute_upper_bound (test_cn_release_rds_backup.Tests.test_same_second_precision_and_minute_upper_bound) ... ok
+test_saved_receipt_flags_and_evidence_tamper_reject (test_cn_release_rds_backup.Tests.test_saved_receipt_flags_and_evidence_tamper_reject) ... ok
+test_stale_stop_blocks_before_intent (test_cn_release_rds_backup.Tests.test_stale_stop_blocks_before_intent) ... ok
+test_wrong_input_hash_blocks_create (test_cn_release_rds_backup.Tests.test_wrong_input_hash_blocks_create) ... ok
+test_wrong_job_response_reject (test_cn_release_rds_backup.Tests.test_wrong_job_response_reject) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 0.145s
+
+OK

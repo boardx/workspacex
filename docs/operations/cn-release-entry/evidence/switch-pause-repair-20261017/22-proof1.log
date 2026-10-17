@@ -1,0 +1,1 @@
+attempt 1: PASS real --acquire reuse + --cached verifier with synthetic 7ZIP/fake metadata; proof admission + all tar verification; original bytes unchanged; no cloud

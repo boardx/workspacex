@@ -71,6 +71,13 @@ CONTROL_FILES = (
     'scripts/cn-release-runtime-stage.py',
     'scripts/cn-release-stage-contract.py',
     'scripts/cn-release-stage-router.py',
+    'scripts/cn-release-safety-gates.py',
+    'scripts/fixed_cn_phases.py',
+    'scripts/fixed_cn_receipts.py',
+    'scripts/fixed_cn_remote.py',
+    'scripts/fixed_cn_bundle.py',
+    'scripts/fixed_cn_host_commands.py',
+    'scripts/fixed-cn-release.py',
     'scripts/cn-release-terminal-delegation.py',
     'scripts/cn_candidate_revalidation.py',
     'scripts/cn_image_archive.py',
@@ -151,6 +158,9 @@ def closure_status():
 
 
 INSTALLATION_DIRECTORIES = (
+    '/etc/workspacex-cn/release-safety-approvals',
+    '/etc/workspacex-cn/release-safety-approvals/by-release',
+    '/var/lib/workspacex-cn/release-safety-evidence',
     '/etc/workspacex-cn/mvp-approval-blueprints',
     '/etc/workspacex-cn/mvp-approval-blueprints/objects',
     '/var/lib/workspacex-cn/release-generated/mvp-approval',

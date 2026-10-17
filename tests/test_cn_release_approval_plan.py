@@ -76,6 +76,20 @@ class ApprovalPlanTests(unittest.TestCase):
  def test_mvp_cannot_label_an_old_acquire_as_new_build(self):
   self.parameters['mvp']={'acceptanceScope':'mvp-non-model','contentManifestSha256':'f'*64,'buildRunId':self.parameters['acquireRequests']['consume']['runId']+1,'transferRunId':13}
   with self.assertRaisesRegex(Exception,'MVP_ACQUIRE_BUILD_BINDING'):p.generate(self.parameters,self.probe)
+ def test_phase_proposal_preserves_independent_policy_and_journal_without_grant(self):
+  import test_cn_release_safety_gates as gate
+  self.parameters.update(safetyGates=gate.safety_policy(),toolRevision='d'*40,
+   orchestrationJournalRoot='/var/lib/workspacex-cn/release-orchestration/'+self.parameters['identity']['attemptId'])
+  raw,_,report=p.generate(self.parameters,self.probe);a=json.loads(raw)
+  for key in ('safetyGates','toolRevision','orchestrationJournalRoot'):self.assertEqual(a[key],self.parameters[key])
+  self.assertFalse(json.loads(report)['approvalGranted'])
+  self.parameters['orchestrationJournalRoot']='/tmp/replay'
+  with self.assertRaisesRegex(Exception,'PHASE_JOURNAL_ROOT'):p.generate(self.parameters,self.probe)
+  del self.parameters['toolRevision']
+  with self.assertRaisesRegex(Exception,'PHASE_PARAMETERS_INCOMPLETE'):p.generate(self.parameters,self.probe)
+ def test_fixed_bc_requires_explicit_phase_policy_before_proposal(self):
+  self.parameters['identity']['sourceRevision']=p.module('safety-gates').SOURCE
+  with self.assertRaisesRegex(Exception,'BC_PHASE_PARAMETERS_REQUIRED'):p.generate(self.parameters,self.probe)
  def test_complete_request_limit_cannot_be_hidden_by_small_manifest_reference(self):
   self.parameters['rds']['principalArn']='x'*65536
   with self.assertRaisesRegex(Exception,'COMPLETE_APPROVAL_TOO_LARGE'):p.generate(self.parameters,self.probe)

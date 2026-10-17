@@ -1,0 +1,10 @@
+test_cloud_rebuild_pins_entire_canonical_package_without_workstation_path (test_cn_mvp_installation_closure.CloudWrappers.test_cloud_rebuild_pins_entire_canonical_package_without_workstation_path) ... ok
+test_unapproved_arguments_reject_before_any_privileged_file_or_import (test_cn_mvp_installation_closure.CloudWrappers.test_unapproved_arguments_reject_before_any_privileged_file_or_import) ... ok
+test_denied_duplicate_symlink_and_invalid_hash_never_verify_old_state (test_cn_mvp_installation_closure.ProbeInstallationContract.test_denied_duplicate_symlink_and_invalid_hash_never_verify_old_state) ... ok
+test_real_collect_result_consumed_by_installation_generator (test_cn_mvp_installation_closure.ProbeInstallationContract.test_real_collect_result_consumed_by_installation_generator) ... ok
+test_valid_hash_and_legacy_probe_shapes (test_cn_mvp_installation_closure.ProbeInstallationContract.test_valid_hash_and_legacy_probe_shapes) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.103s
+
+OK

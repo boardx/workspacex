@@ -1,0 +1,71 @@
+{
+  "after": {
+    "agent": {
+      "containerId": "3cf6044a71166aaa381b5e8d649efec89420a969587b8cbd02c88c82d7636dfe",
+      "imageId": "sha256:e6a7afeb950f9a5c9fdefb1a8807d9a221111d1359c648d1a3d46aedcfd4bfaa",
+      "running": true
+    },
+    "api": {
+      "containerId": "72be790f09d02dce95f2bbfbb809c0799ed3cf81884d594899f5a995fc0c53a4",
+      "imageId": "sha256:9c46f35c7823ac448431ea9c632fbfe5a57467d3d479587a02917aac2ec364dc",
+      "running": true
+    },
+    "sandbox": {
+      "containerId": "b5484380d63f342dc5385900d2f8287827100f8699b3c6646d7e4f2d0db93457",
+      "imageId": "sha256:ce8a719066f07da227ea7cc5edc17a6adca8a06c26ec53d9605068348c5ad638",
+      "running": true
+    },
+    "sandbox-sessions": {
+      "containerId": "912b81c7cfeda031b121843e8b3bb500133ff674b8659124d19e4308916629b0",
+      "imageId": "sha256:ce8a719066f07da227ea7cc5edc17a6adca8a06c26ec53d9605068348c5ad638",
+      "running": true
+    },
+    "web": {
+      "containerId": "f560d786bf44e727684ea07e4a5da728cb6240f2c0a2d36d090d199e9abae447",
+      "imageId": "sha256:50dc14b2f699b38c62ffc15659583cf447bf76a97d82038da08e1dafcf6e5e9d",
+      "running": true
+    }
+  },
+  "baselineSource": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "before": {
+    "agent": {
+      "containerId": "b48076f2bd3b1e12cdf562d935de8877e51e3b9fa6d3c27af3e7e966b6d98ae2",
+      "imageId": "sha256:3f9a7569ad1d081f366544f69f748f1fa696bb153e3208733a2b245feeb86c10",
+      "running": true
+    },
+    "api": {
+      "containerId": "44e3d8a66f0052f24ec9acaed0b8a5bb50af582b325015b350adbd9769918f39",
+      "imageId": "sha256:4b4a3cdb9fc3ed2d0013bac0f3269b094956db278f0af3a16ab11d69e23797ae",
+      "running": true
+    },
+    "sandbox": {
+      "containerId": "b45c669d0e4079642ec827dc9ff5f1e9b83dc8348c6006251c3639eec0a4ea65",
+      "imageId": "sha256:7577265bbb926b66748fd510ccc21737a43fe4ae97ffb39c34caf9fb9497703f",
+      "running": true
+    },
+    "sandbox-sessions": {
+      "containerId": "5d0d5c3ffc3806ac5b8f13fb2eba7b28bf845f074f7c960b566a59fce94f1634",
+      "imageId": "sha256:7577265bbb926b66748fd510ccc21737a43fe4ae97ffb39c34caf9fb9497703f",
+      "running": true
+    },
+    "web": {
+      "containerId": "e85b8e96233db948c86c372fd4cd701c0bafb923654adcff344da8cc9c262720",
+      "imageId": "sha256:f44e6884fb16620e21a50b0c3ce2da9be1ead566ab465ddb8fa5293ca72aa03d",
+      "running": true
+    }
+  },
+  "candidateSource": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cleanupVerified": true,
+  "elapsedSeconds": 26.244910412999957,
+  "productionAccepted": false,
+  "realCompose": true,
+  "realDocker": true,
+  "realDockerSaveTransfer": true,
+  "realHttp": true,
+  "realHttpBusinessOutput": true,
+  "schemaDriftRejectedWithoutSwitch": true,
+  "sixStageChain": "SIMULATION_PASSED",
+  "sourceIsBC": false,
+  "status": "PASSED",
+  "syntheticImageProvenance": true
+}

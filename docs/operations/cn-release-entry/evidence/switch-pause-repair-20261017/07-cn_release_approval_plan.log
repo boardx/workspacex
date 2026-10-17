@@ -1,0 +1,15 @@
+test_complete_parameters_and_code_closure_fit_and_contract_paths_match (test_cn_release_approval_plan.ApprovalPlanTests.test_complete_parameters_and_code_closure_fit_and_contract_paths_match) ... ok
+test_complete_request_limit_cannot_be_hidden_by_small_manifest_reference (test_cn_release_approval_plan.ApprovalPlanTests.test_complete_request_limit_cannot_be_hidden_by_small_manifest_reference) ... ok
+test_fixed_bc_requires_explicit_phase_policy_before_proposal (test_cn_release_approval_plan.ApprovalPlanTests.test_fixed_bc_requires_explicit_phase_policy_before_proposal) ... ok
+test_inline_sdk_and_missing_static_inputs_rejected (test_cn_release_approval_plan.ApprovalPlanTests.test_inline_sdk_and_missing_static_inputs_rejected) ... ok
+test_inventory_rejects_missing_and_symlinked_dependencies (test_cn_release_approval_plan.ApprovalPlanTests.test_inventory_rejects_missing_and_symlinked_dependencies) ... ok
+test_mvp_cannot_label_an_old_acquire_as_new_build (test_cn_release_approval_plan.ApprovalPlanTests.test_mvp_cannot_label_an_old_acquire_as_new_build) ... ok
+test_mvp_metadata_preserves_canonical_driver_and_acquire_compatibility (test_cn_release_approval_plan.ApprovalPlanTests.test_mvp_metadata_preserves_canonical_driver_and_acquire_compatibility) ... ok
+test_phase_proposal_preserves_independent_policy_and_journal_without_grant (test_cn_release_approval_plan.ApprovalPlanTests.test_phase_proposal_preserves_independent_policy_and_journal_without_grant) ... ok
+test_single_inventory_pins_wrappers_code_and_source_runtime_boundary (test_cn_release_approval_plan.ApprovalPlanTests.test_single_inventory_pins_wrappers_code_and_source_runtime_boundary) ... ok
+test_stage_input_schema_pinned_and_arbitrary_paths_rejected (test_cn_release_approval_plan.ApprovalPlanTests.test_stage_input_schema_pinned_and_arbitrary_paths_rejected) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 1.158s
+
+OK

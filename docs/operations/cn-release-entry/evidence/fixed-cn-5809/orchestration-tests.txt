@@ -1,0 +1,16 @@
+test_expired_even_if_github_flag_false (test_fixed_cn_release.Admission.test_expired_even_if_github_flag_false) ... ok
+test_metadata_does_not_claim_ready (test_fixed_cn_release.Admission.test_metadata_does_not_claim_ready) ... ok
+test_missing_duplicate_and_empty_artifacts (test_fixed_cn_release.Admission.test_missing_duplicate_and_empty_artifacts) ... ok
+test_wrong_control_or_run (test_fixed_cn_release.Admission.test_wrong_control_or_run) ... ok
+test_candidate_mismatch_no_calls (test_fixed_cn_release.Integration.test_candidate_mismatch_no_calls) ... ok
+test_complete_chain (test_fixed_cn_release.Integration.test_complete_chain) ... ok
+test_each_stage_failure_stops (test_fixed_cn_release.Integration.test_each_stage_failure_stops) ... ok
+test_missing_evidence (test_fixed_cn_release.Integration.test_missing_evidence) ... ok
+test_repeat_cannot_replay (test_fixed_cn_release.Integration.test_repeat_cannot_replay) ... ok
+test_stage_timeout (test_fixed_cn_release.Integration.test_stage_timeout) ... ok
+test_wrong_evidence_binding (test_fixed_cn_release.Integration.test_wrong_evidence_binding) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 5.754s
+
+OK
