@@ -1,0 +1,37 @@
+name: Fixed CN release isolated tests
+on:
+  pull_request:
+    paths:
+      - scripts/fixed-cn-*
+      - scripts/minimal-docker-release.py
+      - tests/test_fixed_cn_release.py
+      - tests/test_minimal_docker_release*.py
+      - .github/workflows/fixed-cn-release-tests.yml
+permissions:
+  contents: read
+jobs:
+  simulation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Static checks and isolated stage integration
+        run: |
+          python3 -m py_compile scripts/fixed-cn-release.py tests/test_fixed_cn_release.py
+          sh -n scripts/fixed-cn-readonly-probe.sh
+          python3 scripts/fixed-cn-release.py probe-hash
+          python3 -m unittest discover -s tests -p 'test_fixed_cn_release.py' -v
+          python3 -m unittest discover -s tests -p 'test_minimal_docker_release.py' -v
+      - name: Real isolated Docker fixture
+        run: python3 -I -B tests/test_minimal_docker_release_real.py --output "$RUNNER_TEMP/fixed-cn-real"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: fixed-cn-simulation-${{ github.run_id }}
+          path: |
+            /tmp/fixed-cn-simulation-evidence
+            ${{ runner.temp }}/fixed-cn-real
+          retention-days: 7
+          if-no-files-found: error
