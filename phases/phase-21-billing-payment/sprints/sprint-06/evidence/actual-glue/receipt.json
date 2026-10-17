@@ -1,0 +1,14 @@
+{
+  "merchant": "independent RSA loopback",
+  "identity": "isolated HTTP principal fixture",
+  "billingHttpIntercepted": false,
+  "database": "real isolated PostgreSQL",
+  "orderNo": "bg20261017151031FuNiwo",
+  "nativeRequests": 1,
+  "signedNativeRequests": 1,
+  "callbackStatus": 200,
+  "duplicateCallbackStatus": 200,
+  "balance": 1320,
+  "ledgerRows": 2,
+  "productionMerchantAccepted": false
+}

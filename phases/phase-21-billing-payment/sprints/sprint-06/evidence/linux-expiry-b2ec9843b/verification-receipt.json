@@ -1,0 +1,17 @@
+{
+  "source": "b2ec9843b4d0da7b2161f1267780410df67f6714",
+  "workflowRun": 38936936168,
+  "job": 117094683853,
+  "jobConclusion": "SUCCESS",
+  "actualCasesPassed": 3,
+  "artifact": 12061282506,
+  "artifactReceiptSha256": {
+    "receipt.json": "8daf0d1221583e40328de918ed36f1af76251a97686dee7e87a5bb616bd4e91e",
+    "expiry-receipt.json": "d3e193591e009f752f2e80e3327db67d38109c660ada6c49d59ad98f3a77e734",
+    "manual-paid-receipt.json": "51a5a69911ca49594e51b8d4228069643a1b56566a6c7a96f714a4a4bf64403b"
+  },
+  "rawJobLogSha256": "cf7d5a4311720dcec929016b78f22fa2e1b5e49aee8bd17786e322efae188baa",
+  "jobUrl": "https://github.com/boardx/workspacex/actions/runs/38936936168/job/117094683853",
+  "backendOverallPrGreen": false,
+  "productionMerchantAccepted": false
+}

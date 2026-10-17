@@ -1,0 +1,38 @@
+{
+  "source": "6581a64bfafcc2f811cbd0e466d804b415a2eb83",
+  "reviewThread": "PRRT_kwDOO5_Nyc6tczCL",
+  "uiRed": {
+    "exit": 1,
+    "failed": 1,
+    "passed": 36,
+    "reason": "missing explicit buy-again button after retained SUCCESS"
+  },
+  "uiGreen": {
+    "exit": 0,
+    "files": 2,
+    "passed": 44
+  },
+  "actualBrowser": {
+    "exit": 0,
+    "files": 1,
+    "passed": 4,
+    "newCase": "close/reopen SUCCESS -> explicit buy again -> distinct order -> old replay leaves new PENDING -> second credit -> balance2640, purchased2400, 2ledger/source -> second replay stable"
+  },
+  "webTypeExit": 0,
+  "webLintExit": 0,
+  "apiTypeExit": 0,
+  "ownedCompose": "wsx-fb67634e31b3e457bea8",
+  "ownedComposeRemaining": 0,
+  "productionMerchantAccepted": false,
+  "currentSourceCi": "pending",
+  "logSha256": {
+    "ui-red": "9afcbd03b2105163470cbeed2dd0a7de6f801c109a2d5747fc5fc05d9bf85e44",
+    "ui-green": "640f4c039ab751ba5d75ce9294e1bceea486e33efb482b68be38bf2ea3229b24",
+    "actual-browser": "a6ba05fdff73e36395e83fc0ed51b97ccfab1231f2581f85a025889d25dae68f",
+    "web-type": "60767e0ef9d6c2f5348fe7831122320c9d9925ded8a95b480ce97fb3de1d12da",
+    "web-lint": "7caf661c2902931a51b05130267ddb944bf9790f91a6683dfe3a5da64139f77f",
+    "api-type": "2812155c4bbc761179141fe59bf1061c5e1f9a826d2386202d1179673ea4fb3f"
+  },
+  "sourceReview": "SOURCE ACCEPT 6581a64bfafcc2f811cbd0e466d804b415a2eb83",
+  "ossExit": 0
+}
