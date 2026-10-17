@@ -12,6 +12,7 @@ import time
 SOURCE = 'bc3d1254ce05c915801fb73fe6698072730a051c'
 CONTROL = '5acebbb6741ed13c6379407aa0529c0eb8695b72'
 RUN = 38852606085
+RUN_ATTEMPT = 2  # Same fixed source/control, explicitly authorized expired-build rerun.
 TARGET = 'i-uf6ga92ewloganobbln6'
 ROLES = ('api', 'web', 'agent', 'sandbox', 'postgres')
 STAGES = ('candidate', 'readonly-preflight', 'image-transfer', 'compose-image-only', 'health', 'business')
@@ -38,7 +39,7 @@ def utc():
 
 def admission(run, artifacts, now):
     """Metadata-only: availability is NOT download, archive or image verification."""
-    need(run['id'] == RUN and run['head_sha'] == CONTROL and run['run_attempt'] == 1,
+    need(run['id'] == RUN and run['head_sha'] == CONTROL and run['run_attempt'] == RUN_ATTEMPT,
          'FIXED_CONTROL_RUN_MISMATCH')
     need(run['status'] == 'completed' and run['conclusion'] == 'success', 'BUILD_NOT_SUCCESSFUL')
     need(run['path'] == '.github/workflows/build-cn-image-candidates.yml', 'BUILD_WORKFLOW_MISMATCH')
@@ -47,7 +48,7 @@ def admission(run, artifacts, now):
              + ['cn-image-candidate-metadata-' + r for r in ROLES])
     rows = []
     for name in names:
-        matches = [a for a in artifacts if a['name'] == f'{name}-{RUN}-1']
+        matches = [a for a in artifacts if a['name'] == f'{name}-{RUN}-{RUN_ATTEMPT}']
         need(len(matches) == 1, 'ARTIFACT_MISSING_OR_DUPLICATE')
         a = matches[0]
         expiry = dt.datetime.fromisoformat(a['expires_at'].replace('Z', '+00:00'))
@@ -55,7 +56,7 @@ def admission(run, artifacts, now):
         need(a['size_in_bytes'] > 0, 'ARTIFACT_EMPTY')
         rows.append({k: a[k] for k in ('id', 'name', 'expires_at', 'size_in_bytes')})
     return {'kind': 'github-metadata-only', 'observedAt': now.isoformat(),
-            'expectedSource': SOURCE, 'control': CONTROL, 'run': RUN, 'artifacts': rows,
+            'expectedSource': SOURCE, 'control': CONTROL, 'run': RUN, 'runAttempt': RUN_ATTEMPT, 'artifacts': rows,
             'sourceBytesVerified': False, 'downloadVerified': False, 'ready': False,
             'productionExecuted': False, 'blockers': BLOCKERS}
 

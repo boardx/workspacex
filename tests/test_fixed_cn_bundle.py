@@ -23,10 +23,10 @@ class Bundle(unittest.TestCase):
                        for r in b.fixed.ROLES}
         self.pr = a.json_bytes(self.plan)
         self.cr = a.json_bytes(fixtures.receipt(self.plan, self.images))
-        self.inventory = dict(kind='github-metadata-only', run=b.fixed.RUN,
+        self.inventory = dict(kind='github-metadata-only', run=b.fixed.RUN, runAttempt=b.fixed.RUN_ATTEMPT,
             control=b.fixed.CONTROL, expectedSource=b.fixed.SOURCE,
             observedAt=dt.datetime.now(dt.timezone.utc).isoformat(),
-            artifacts=[dict(id=i+1, name=f'cn-image-candidate-{r}-{b.fixed.RUN}-1',
+            artifacts=[dict(id=i+1, name=f'cn-image-candidate-{r}-{b.fixed.RUN}-{b.fixed.RUN_ATTEMPT}',
                             expires_at='2030-01-01T00:00:00Z') for i,r in enumerate(b.fixed.ROLES)])
 
     def tearDown(self):
@@ -35,6 +35,11 @@ class Bundle(unittest.TestCase):
     def stage(self, out='staged'):
         return b.stage(self.src, self.pr, a.sha(self.pr), self.cr, a.sha(self.cr),
                        self.inventory, self.root / out)
+
+    def test_prior_build_attempt_rejected_before_output(self):
+        self.inventory['runAttempt']=1
+        with self.assertRaisesRegex(a.Rejected,'FIXED_INVENTORY_IDENTITY'):self.stage()
+        self.assertFalse((self.root/'staged').exists())
 
     def test_real_bytes_manifest_and_replay(self):
         result = self.stage()

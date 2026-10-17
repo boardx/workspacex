@@ -34,7 +34,8 @@ def stage(bundle, plan_raw, plan_sha, candidate_raw, candidate_sha, inventory, o
     a.require(plan['sourceRevision'] == fixed.SOURCE and plan['controlRevision'] == fixed.CONTROL,
               'FIXED_BUNDLE_IDENTITY')
     a.require(inventory.get('kind') == 'github-metadata-only'
-              and inventory.get('run') == fixed.RUN and inventory.get('control') == fixed.CONTROL
+              and inventory.get('run') == fixed.RUN and inventory.get('runAttempt') == fixed.RUN_ATTEMPT
+              and inventory.get('control') == fixed.CONTROL
               and inventory.get('expectedSource') == fixed.SOURCE, 'FIXED_INVENTORY_IDENTITY')
     a.require(type(timeout) is int and 1 <= timeout <= 120, 'FIXED_COPY_TIMEOUT')
     deadline = time.monotonic() + timeout
@@ -66,7 +67,7 @@ def stage(bundle, plan_raw, plan_sha, candidate_raw, candidate_sha, inventory, o
             fresh()
             row = receipt['images'][role]
             matches = [r for r in inventory['artifacts']
-                       if r['name'] == f'cn-image-candidate-{role}-{fixed.RUN}-1']
+                       if r['name'] == f'cn-image-candidate-{role}-{fixed.RUN}-{fixed.RUN_ATTEMPT}']
             a.require(len(matches) == 1 and type(matches[0]['id']) is int and matches[0]['id'] > 0,
                       'FIXED_ARCHIVE_ARTIFACT_ID')
             digest = hashlib.sha256(); copied = 0

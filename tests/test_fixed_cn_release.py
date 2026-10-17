@@ -22,12 +22,12 @@ import cn_image_archive as archive
 
 
 def metadata():
-    run = dict(id=m.RUN, head_sha=m.CONTROL, run_attempt=1, status='completed',
+    run = dict(id=m.RUN, head_sha=m.CONTROL, run_attempt=m.RUN_ATTEMPT, status='completed',
                conclusion='success', path='.github/workflows/build-cn-image-candidates.yml')
     names = (['cn-image-candidate-set', 'cn-candidate-plan']
              + ['cn-image-candidate-' + r for r in m.ROLES]
              + ['cn-image-candidate-metadata-' + r for r in m.ROLES])
-    artifacts = [dict(id=i + 1, name=f'{n}-{m.RUN}-1', expired=False,
+    artifacts = [dict(id=i + 1, name=f'{n}-{m.RUN}-{m.RUN_ATTEMPT}', expired=False,
                       expires_at='2030-01-01T00:00:00Z', size_in_bytes=20)
                  for i, n in enumerate(names)]
     return run, artifacts
@@ -202,7 +202,7 @@ class Admission(unittest.TestCase):
                     m.admission(r, a, dt.datetime.now(dt.timezone.utc))
 
     def test_wrong_control_or_run(self):
-        for field, value in [('head_sha', 'a' * 40), ('id', 1), ('run_attempt', 2),
+        for field, value in [('head_sha', 'a' * 40), ('id', 1), ('run_attempt', 1),
                              ('conclusion', 'failure'), ('path', 'other.yml')]:
             with self.subTest(field=field):
                 r, a = metadata(); r[field] = value

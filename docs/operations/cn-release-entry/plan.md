@@ -9,7 +9,7 @@ Historical implementation details remain in [fixed-driver.md](fixed-driver.md).
 
 Source `bc3d1254ce05c915801fb73fe6698072730a051c`; control
 `5acebbb6741ed13c6379407aa0529c0eb8695b72`; build
-[38852606085](https://github.com/boardx/workspacex/actions/runs/38852606085), attempt 1.
+[38852606085](https://github.com/boardx/workspacex/actions/runs/38852606085), original attempt 1 (expired), authorized rebuild attempt 2.
 Target Shanghai ECS `i-uf6ga92ewloganobbln6`. These pins never follow main and this increment
 never dispatches builds or production workflows. All production steps remain unstarted.
 
@@ -22,12 +22,21 @@ flowchart TD
   A4[A4 迁移及回读：SQL兼容性未知，禁止执行]
   A5[A5 部署切流：image-only仍需前序门禁]
   A6[A6 最终业务验收：待真实证据]
+  B0[固定候选重建：GitHub attempt 2 进行中]
+  K0[工具包上传及安装：未开始]
+  I0[应用镜像上传生产：未开始]
+  B0 -.-> A0
+  K0 -.-> A0
+  I0 -.-> A5
   A0 --> A1 --> A2 --> A3 --> A4 --> A5 --> A6
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+  class B0 doing
+  class K0 todo
+  class I0 todo
   class A0 todo
   class A1 todo
   class A2 todo
@@ -302,3 +311,44 @@ the real Docker six-stage fixture; checkout/git-log lines confirmed that SHA. Th
 `sourceIsBC=false`, `productionAccepted=false`, `cleanupVerified=true`. This final update changes
 documentation/evidence only. Repository-wide CI and direct-head results are kept distinct in the
 same draft PR; no production node changes color.
+
+
+## Same-source rebuild authorization and production gate check (2026-10-17)
+
+The user now explicitly authorized continuing and one ordinary release after the expired same-source
+rebuild, subject to all existing gates. This supersedes the earlier no-rebuild instruction for this
+fixed source only; it grants no new IAM/runner/credential/probe/toolkit installation/SQL authority.
+Application source remains BC and control remains 5ace. Main and PR source are not candidates.
+
+Duplicate readback found original build run 38852606085 attempt 1 completed/success and no fixed
+release workflow runs. The original plan log (job 116816952492) confirmed the exact BC source,
+5ace control and original pinned bases/source contracts. Current main differs, so dispatching the
+main-only workflow would not preserve fixed control. Instead one full rerun of the existing build-only
+run was submitted at 10:46 UTC. GitHub preserves original SHA/ref/inputs/privileges for reruns.
+Submission returned exit 0 and `{}`; independent readback confirmed **attempt 2** queued then running,
+with unchanged head SHA. [Build attempt 2](https://github.com/boardx/workspacex/actions/runs/38852606085/attempts/2).
+The exclusive local intent and submission response are preserved in
+[evidence/fixed-bc-rebuild-20261017](evidence/fixed-bc-rebuild-20261017/intent.json). No second submit,
+production run, workflow dispatch from moving main, debug logging or security-setting change occurred.
+
+The fixed-request metadata, archive and provenance adapters now pin `RUN_ATTEMPT=2` in one source
+constant, not either attempt or a moving latest value. Original attempt-1 inventories/provenance
+remain rejected. Fresh plan/set hashes and root-installed approvals will be required; no old receipt
+or TTL is relabeled as current. This source-only change does not install the adapters on production.
+
+Channel checks are **blocked/unverified**, not evidence that an identity or runner is absent:
+
+- `GET /repos/boardx/workspacex/actions/secrets` returned HTTP 403, Resource not accessible by
+  integration. No retry, alternate secrets endpoint, token creation or permission expansion.
+- `GET /repos/boardx/workspacex/actions/runners` returned the same HTTP 403. No retry or runner change.
+- Existing environment metadata shows production-cn-promotion requires reviewer approval plus a
+  branch policy. The existing fixed release workflow uses the dedicated self-hosted
+  `workspacex-cn-production` runner and a separately approved root-installed `release_sha256`.
+  Neither actual runner availability nor a matching fresh root approval/installed closure is proven.
+- The four migration compatibility results remain unknown. The ordinary image-only approval cannot
+  authorize migration, RLS/GRANT changes, data cleanup, new credentials or a new probe.
+
+Therefore production mutation is stopped at its prerequisite gate while the independent build and
+artifact verification proceed. Seven production steps remain gray. Build artifacts stored on GitHub,
+toolkit transfer/install, application-image transfer and production execution are distinct states.
+The final six business journeys remain required. The rebuild alone cannot establish production readiness.

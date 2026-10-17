@@ -74,7 +74,7 @@ def authorities(release_raw, release_sha, writer_raw, writer_sha, plan_raw, plan
     inputs=release['acquire']['requests']['consume']['inputs']
     a.require(inputs['plan']==plan_sha and a.sha(provenance_raw)==inputs['policy'],'BUSINESS_ACQUIRE_PINS')
     provenance=a.decode(provenance_raw)
-    a.require(provenance['runId']==remote.FIXED.RUN and provenance['runAttempt']==1
+    a.require(provenance['runId']==remote.FIXED.RUN and provenance['runAttempt']==remote.FIXED.RUN_ATTEMPT
               and provenance['sourceRevision']==remote.FIXED.SOURCE and provenance['controlRevision']==remote.FIXED.CONTROL,
               'BUSINESS_FIXED_BUILD_RUN')
     a.require(a.hex_string(inputs['set'],64),'BUSINESS_CANDIDATE_PIN')

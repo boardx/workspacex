@@ -1,0 +1,65 @@
+{
+  "attemptId": "cn-five-bc3d1254-20261016-044915-33be0e",
+  "baseImages": {
+    "node": "docker.io/library/node@sha256:efd0ab5780c2d9ab1f0f869571a00d5edb17793bff4cce4a2792e3eb0ffc7562",
+    "postgres": "docker.io/pgvector/pgvector@sha256:a97d77306ff47cc1d8add4d000cec2207da2e110746318df3137ce53c337ca30",
+    "python": "docker.io/library/python@sha256:e529028263dbe6910a2d96f7d2b8f5266385e917fd45d286ef166977c094a51e"
+  },
+  "budgetProfile": "formal-4g-v1",
+  "controlRevision": "5acebbb6741ed13c6379407aa0529c0eb8695b72",
+  "kind": "cn-image-candidate-v2",
+  "maxArchiveBytes": 4294967296,
+  "maxTotalBytes": 10737418240,
+  "platform": "linux/amd64",
+  "schemaVersion": 2,
+  "sourceContracts": {
+    "agent": {
+      "bases": [
+        "python"
+      ],
+      "context": "apps/deep-agent-service",
+      "dockerfile": "apps/deep-agent-service/Dockerfile",
+      "dockerfileSha256": "c01bd55a886bcb4a96aeca017df367481ed5ab08620a4ca5b45603790b841956",
+      "repository": "deep-agent"
+    },
+    "api": {
+      "bases": [
+        "node"
+      ],
+      "context": ".",
+      "dockerfile": "deploy/aliyun/images/api.Dockerfile",
+      "dockerfileSha256": "2fd9def96f8367d25442fce0fad7722eb6641934f8e8ac643e0ab6f88dfb5f8e",
+      "repository": "api"
+    },
+    "postgres": {
+      "bases": [
+        "postgres"
+      ],
+      "context": "apps/api/docker/postgres-age",
+      "dockerfile": "apps/api/docker/postgres-age/Dockerfile",
+      "dockerfileSha256": "e9355af209603410faeb210c3ce40b3eaf5416f9dd80f4808e24668e443fd06f",
+      "repository": "postgres-age"
+    },
+    "sandbox": {
+      "bases": [
+        "node",
+        "python"
+      ],
+      "context": "apps/skill-sandbox",
+      "dockerfile": "apps/skill-sandbox/Dockerfile",
+      "dockerfileSha256": "4099af3e0c11725d2174f4f587c91c61235e06a8563ea25c993ed0a312612fbe",
+      "repository": "skill-sandbox"
+    },
+    "web": {
+      "bases": [
+        "node"
+      ],
+      "context": ".",
+      "dockerfile": "deploy/aliyun/images/web.Dockerfile",
+      "dockerfileSha256": "ef5e4ee73e6339cc7c8b8a5387c466a75743c7452c35a254f7601712dcc8bc40",
+      "repository": "web"
+    }
+  },
+  "sourceRevision": "bc3d1254ce05c915801fb73fe6698072730a051c",
+  "storageMarginBytes": 2147483648
+}

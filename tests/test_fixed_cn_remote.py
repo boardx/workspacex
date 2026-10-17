@@ -34,7 +34,7 @@ class Remote(unittest.TestCase):
         self.authorization=b'isolated independently pinned user authorization evidence'
         self.plan=fixtures.plan();self.plan.update(sourceRevision=r.FIXED.SOURCE,controlRevision=r.FIXED.CONTROL)
         self.plan_raw=a.json_bytes(self.plan);self.plan_sha=a.sha(self.plan_raw)
-        self.provenance=a.json_bytes(dict(runId=r.FIXED.RUN,runAttempt=1,
+        self.provenance=a.json_bytes(dict(runId=r.FIXED.RUN,runAttempt=r.FIXED.RUN_ATTEMPT,
             sourceRevision=r.FIXED.SOURCE,controlRevision=r.FIXED.CONTROL))
         self.identity=dict(sourceRevision=r.FIXED.SOURCE,baselineRevision='b'*40,controlRevision=r.FIXED.CONTROL,
             publicationAttemptId=self.plan['attemptId'],attemptId='fixed-isolated',
@@ -190,6 +190,17 @@ class Remote(unittest.TestCase):
         self.assertEqual(self.calls,[]);self.writer_sha=original
         self.provenance=a.json_bytes(dict(runId=1,runAttempt=1,sourceRevision=r.FIXED.SOURCE,controlRevision=r.FIXED.CONTROL))
         with self.assertRaises(a.Rejected):self.pipeline()
+        self.assertEqual(self.calls,[])
+
+    def test_expired_original_build_attempt_cannot_authorize_rebuild(self):
+        provenance=a.decode(self.provenance);provenance['runAttempt']=1
+        self.provenance=a.json_bytes(provenance)
+        release=a.decode(self.release)
+        release['acquire']['requests']['consume']['inputs']['policy']=a.sha(self.provenance)
+        self.release=a.json_bytes(release);self.release_sha=a.sha(self.release)
+        writer=a.decode(self.writer);writer['releaseSha256']=self.release_sha
+        self.writer=a.json_bytes(writer);self.writer_sha=a.sha(self.writer)
+        with self.assertRaisesRegex(a.Rejected,'BUSINESS_FIXED_BUILD_RUN'):self.pipeline()
         self.assertEqual(self.calls,[])
 
     def test_lost_submit_response_never_retries(self):
