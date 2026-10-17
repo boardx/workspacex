@@ -16,8 +16,8 @@ never dispatches builds or production workflows. All production steps remain uns
 ```mermaid
 flowchart TD
   A0[A0 准备：固定候选、只读预检、镜像传输]
-  A1[A1 停写排空：待批准]
-  A2[A2 备份：待批准]
+  A1[A1 停写排空：未执行，缺实际排空准入证据]
+  A2[A2 备份：未执行，缺当前基线及备份准入证据]
   A3[A3 隔离恢复演练：延期，未验收]
   A4[A4 迁移及回读：SQL兼容性未知，禁止执行]
   A5[A5 部署切流：image-only仍需前序门禁]
@@ -25,7 +25,7 @@ flowchart TD
   B0[固定候选重建：GitHub attempt 2 完成，未生产验收]
   K0[工具包上传及安装：未开始]
   I0[应用镜像上传生产：未开始]
-  C0[生产依赖门禁：现有通道及新批准对象未证实]
+  C0[普通固定BC发布已获批准；现有通道及根批准证据未具备]
   C0 -.-> A0
   B0 -.-> A0
   K0 -.-> A0
@@ -35,9 +35,8 @@ flowchart TD
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
-  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
-  class C0 blocked
-  %% blocked C0: 现有 secrets/runner 元数据读取403；匹配新根批准、输入原件及SQL兼容证据未证实；未提交生产调用
+  class C0 todo
+  %% C0 灰色阻塞说明：普通发布已批准；现有 secrets/runner 元数据读取403，匹配新根批准、输入原件及SQL兼容证据未证实；未提交生产调用
   class B0 done
   class K0 todo
   class I0 todo
@@ -50,7 +49,9 @@ flowchart TD
   class A6 todo
 ```
 
-Yellow means actually executing, green completed, purple acceptance evidence, gray not started / awaiting approval.
+本图按用户指定只使用四种状态：黄=实际执行；灰=未开始、具体权限/门禁证据未具备；绿=完成；紫=有验收证据。
+普通固定 BC 发布已获用户批准，不重复等待普通发布批准。C0 的灰色表示具体依赖阻塞，原因见节点下方说明及本文门禁清单。
+构建完成只标 B0 绿色；生产 A0–A6 均为灰色，没有生产验收紫色。
 Mock success never changes the production diagram. A1–A4 are outside this minimal simulation,
 **deferred**, not passed or not applicable to the actual candidate. Four migrations include permission
 changes; production SQL compatibility remains unknown. No migration is applied, removed or bypassed.
@@ -112,7 +113,7 @@ The expiry check always uses the current UTC time and the API flag; this ledger 
 claim. After expiry, original artifacts are blockers. Preservation/transfer of originals was not performed.
 A replacement build or candidate requires explicit user direction, not automatic fallback.
 
-## Minimum permissions and approval actions still pending
+## Ordinary release approved; specific permission and evidence gates remain
 
 Current work uses only existing GitHub authentication. No Mac channel or keys, Aliyun identity,
 IAM/OIDC/token/runner authorization, secret copy or permission expansion is created.
@@ -120,20 +121,22 @@ IAM/OIDC/token/runner authorization, secret copy or permission expansion is crea
 1. GitHub: existing repository read for code, Actions run/artifact read for inventory/download, and
    branch/PR write for review. CI here declares only `contents: read`, uses GitHub-hosted Linux,
    no secrets, no environments, no id-token or self-hosted runner.
-2. Separately approve exact new probe bytes and a bounded invocation on this ECS. A future read-only
-   channel should scope Describe/command access to the one Shanghai target and command digest;
-   an ability to execute arbitrary root commands is broader than a read-only identity. No such channel
-   currently exists; do not assume approval or grant it automatically.
-3. Separately review and approve toolkit upload/install (exact paths/hash/owner/CAS), then separately
-   approve application image upload/import for the five original pinned archives and fixed destination.
-   Object write/registry push and host image load are distinct from probe access; retain each receipt.
-4. Approve A1–A4 only after actual baseline/env/mount/DB inventory, current-epoch backup, isolated
-   recovery and the four migrations' SQL/permission compatibility review. Keep existing env, mounts,
-   secrets and database services unchanged. An image-only diff does not exempt these gates.
-5. Separately approve A5 exact image-only deployment/cutover after preceding evidence; then A6 real
-   business/browser acceptance. An uncertain A5 must be reconciled before separately approved recovery.
+2. 普通固定 BC 发布已获用户批准；新的探针执行不在该普通批准内。当前没有已验证的固定 ECS
+   只读通道证据，不能将 secrets/runner 元数据读取 403 解释为通道不存在，也不能自动创建通道、
+   新凭据或扩大权限。若需新探针，仍缺该探针精确字节及有界执行范围的独立批准。
+3. 工具包上传/安装尚缺精确路径、哈希、owner/CAS 及根安装准入回执；应用镜像上传/导入尚缺
+   原始制品字节、匹配哈希、固定目标和受保护入口的范围绑定。两者分开记录，不重复询问普通发布
+   批准，也不把普通批准当作工具安装、对象写入或镜像导入所需安全权限的替代。
+4. A1–A4 均未执行。缺实际 baseline/env/mount/DB 清单、当前 epoch 的排空及备份证据、隔离恢复
+   证据和四份 SQL/权限兼容性证据。保持现有 env、挂载、密钥及数据库服务不变；普通镜像发布
+   批准不授权数据库迁移、RLS/GRANT 调整或数据清理。
+5. A5 普通固定版本 image-only 发布/切流的用户批准已记录；尚缺前序门禁、匹配的新根批准对象及
+   已安装闭包证据，故未调用。A6 仍须完整真实业务/浏览器验收，不缩减六条旅程。若 A5 状态不确定，
+   先按原意图只读对账，不能自动重放；恢复动作也不能借普通发布批准自动执行。
 
-None of those production actions is authorized by mock success or this PR. This is reviewable adapter code with isolated evidence; it is not an approved or verified production release.
+Mock success and this PR neither grant additional safety permissions nor satisfy these evidence gates.
+The ordinary fixed-BC release has user authorization; this document does not ask for it again.
+Implementation, completed builds, isolated tests and production acceptance remain distinct.
 
 ## Follow-up adapter completion and exact-head CI correction
 
@@ -395,3 +398,30 @@ ordinary release, and no expanded permission/SQL/probe action is substituted for
 A future authorized operator must supply those existing-channel proofs through protected stores;
 secrets or new credential values must not be pasted into chat. No production call was denied or
 left uncertain because none was submitted. The one build submission was confirmed and completed.
+
+
+## Four-color plan clarification and timestamped handoff
+
+This documentation-only update follows the user's explicit four-color status vocabulary. C0 is gray
+with its concrete blocker description, not a new red state. The ordinary fixed-BC release is already
+authorized; no repeated ordinary-release confirmation is implied by A1/A2 or the gate list. Original
+A0–A6 and the complete final business acceptance scope are preserved. Build/test success is not
+production acceptance, and there is no production purple node.
+
+At **2026-10-17 11:13:56 UTC**, the parent's independent CI check for source head
+**1b08a4cb78cff670832ce1be0864c92afd8ef61c** reported **5 success, 1 skipped**, with
+[harness run 39026827015](https://github.com/boardx/workspacex/actions/runs/39026827015) still running.
+This is a timestamped observation, not a claim that later heads or all repository checks have passed.
+
+The parent separately reported that the original Mac session performed a read-only ESA `GetRoutine`
+successfully at **2026-10-17 11:11:45 UTC**. That observation proves only the website's ESA
+authentication for that read; it does **not** verify the production ECS channel, dedicated runner,
+root approval objects, installed closure or SQL compatibility. This documentation task did not read
+that Mac session, access a Mac, run ESA/ECS calls, modify the website, trigger a build or invoke
+production. Its scope is solely this plan and diagram.
+
+Validation for this four-color user override: one Mermaid graph, only todo/doing/done/tested node
+states and style definitions, C0/A0–A6 gray, B0 completed rather than accepted, all seven stage labels
+preserved, and whitespace checks. The repository's generic five-color plan checker requires an
+unused red definition; that template requirement is superseded here by the user's explicit
+four-color instruction. No checker, source, test or workflow file is modified.
