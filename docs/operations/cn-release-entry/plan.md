@@ -22,7 +22,7 @@ flowchart TD
   A4[A4 迁移及回读：SQL兼容性未知，禁止执行]
   A5[A5 部署切流：image-only仍需前序门禁]
   A6[A6 最终业务验收：待真实证据]
-  B0[固定候选重建：GitHub attempt 2 完成，未生产验收]
+  B0[构建成功；候选执行窗口已于11:48:36UTC过期]
   K0[工具包上传及安装：未开始]
   I0[应用镜像上传生产：未开始]
   C0[普通BC发布已批；纯云传输契约及现场证据未闭环]
@@ -540,3 +540,12 @@ or authorization configuration changes; no build/rebuild or production dispatch.
 chart remains unchanged in semantics: completed build green, unresolved C0 and A0–A6 gray, no red
 state and no production acceptance purple. The existing 75 local/57 CI fixture results remain
 historical bounded evidence, not a live production feasibility attestation.
+
+## Candidate window expired; development only (2026-10-17 11:49 UTC)
+
+Build attempt 2 remains a successful historical build (B0 green), but its original candidate
+execution window ended at **2026-10-17T11:48:36.413148Z**. Current disposition remains NO-GO.
+No receipt deadline was refreshed, no new candidate build or production action was started, and
+A0–A6 remain gray. Subsequent tool-code fixes and isolated tests do not reopen this execution window.
+The frozen handoff patch ac98711c5a0fe6f2c0d7c6dae72ad8ffb7e75852ae38fd5fcd4086f13f4d5aa2
+is retained unchanged; work continues in the same original worktree, with no replacement writer.
