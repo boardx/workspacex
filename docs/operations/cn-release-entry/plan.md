@@ -25,7 +25,7 @@ flowchart TD
   B0[固定候选重建：GitHub attempt 2 完成，未生产验收]
   K0[工具包上传及安装：未开始]
   I0[应用镜像上传生产：未开始]
-  C0[普通固定BC发布已获批准；现有通道及根批准证据未具备]
+  C0[普通BC发布已批；纯云传输契约及现场证据未闭环]
   C0 -.-> A0
   B0 -.-> A0
   K0 -.-> A0
@@ -36,7 +36,7 @@ flowchart TD
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   class C0 todo
-  %% C0 灰色阻塞说明：普通发布已批准；现有 secrets/runner 元数据读取403，匹配新根批准、输入原件及SQL兼容证据未证实；未提交生产调用
+  %% C0 灰色阻塞说明：普通发布已批准；set原件下载Forbidden，HK传输仍仅接attempt1，A3/A4/A5云端闭环及现场证据未证实；未提交生产调用
   class B0 done
   class K0 todo
   class I0 todo
@@ -163,8 +163,9 @@ process. The following code is now implemented without production calls:
 
 The three earlier implementation gaps are now implemented in `scripts/fixed_cn_remote.py` and
 `scripts/fixed_cn_receipts.py`; they are effectful library adapters, not production calls made by this PR.
-The existing fixed root driver still owns acquisition/publication and A0–A6. No new runner or authority
-is introduced. Runtime readiness remains unverified until independently approved originals, existing
+The existing fixed root driver owns acquisition/publication and its seventeen normal stages.
+It does not itself establish A3 isolated-restore acceptance or the missing A4 compatibility decision;
+those original-scope gates must be independently closed. No new runner or authority is introduced. Runtime readiness remains unverified until independently approved originals, existing
 credential capability, installed protected closure, baseline/SQL evidence and A5 approval exist.
 
 Original network refusal: `gh api repos/boardx/workspacex/actions/artifacts/12026330469/zip`
@@ -425,3 +426,117 @@ states and style definitions, C0/A0–A6 gray, B0 completed rather than accepted
 preserved, and whitespace checks. The repository's generic five-color plan checker requires an
 unused red definition; that template requirement is superseded here by the user's explicit
 four-color instruction. No checker, source, test or workflow file is modified.
+
+
+## Pure-cloud overall design review — NO-GO (2026-10-17 11:22 UTC)
+
+The user's latest prerequisite is **review the entire design before execution**. Current disposition
+is **NO-GO for starting the current formal production route**. Ordinary fixed-BC publication already has user authorization; this
+verdict is about unresolved implementation/evidence gates, not another request for that approval.
+This review made no production, rebuild, workflow-dispatch, role-assumption or permission-change call.
+
+Every formal BC stage must run exclusively on GitHub Actions or Aliyun services: inspection,
+credential use, original artifact acquisition/transit, approvals/receipts, deployment and real browser
+acceptance. Mac execution, Mac credentials, Mac downloads/relay and a Mac-dependent fallback are
+excluded. This workspace is a code/evidence review client, not a proven GitHub/Aliyun production
+runner. The separately reported website ESA read is not BC ECS identity evidence and is not reused.
+The independent website work is outside this plan and is not paused or modified by this review.
+
+### Verified facts versus missing production evidence
+
+| Area | Verified within its actual scope | Concrete gap / GO prerequisite |
+|---|---|---|
+| Fixed identity | BC application SHA, producer control 5ace, run 38852606085 attempt 2 completed success; original plan/source checkout and canonical build collection bind them | Separately freeze orchestration workflow revision and installed tool/SDK/browser revision; do not conflate either with the application or producer control. No application checkout may follow main |
+| Twelve artifacts | Read-only current API check still lists twelve attempt-2 entries, all unexpired; the existing build collect job validated real archives inside GitHub | This review client's normal set ZIP download of artifact 12098488839 failed Forbidden/0 bytes at 11:19:09 UTC. No retry/alternate endpoint. Consumer must obtain original plan/set/five ZIP bytes through a proven normally authorized GitHub/Aliyun route, hash before/after transfer and reparse archives; metadata or reconstructed log JSON cannot substitute |
+| Deadline | Candidate receipt expiry is 2026-10-17T11:48:36.413148Z; ZIP retention is longer | No clock reset, relabeled receipt, silent proof refresh or automatic rebuild. Admission and each dependent action must remain within genuine original deadlines; stop if insufficient time, never rush through a gate |
+| GitHub→HK OSS transfer | Existing workflow uses hosted Linux, protected production-cn-build and an existing OIDC role name | The reviewed uploader and proof generator still require sourceRunAttempt=1, suffix -1, provider attempts/1 and prefix runs/<run>/1. They do not admit this run's attempt 2. Its checked-in plan is for old f0eb/run38386036159, not BC. The recorded role policy scopes still older run38146134231/1 objects; it is not a live RAM policy attestation. A reviewed exact attempt-2 closure/plan and actual permission evidence are missing |
+| Other acquisition code | cn_candidate_github.py supports an explicit runAttempt in its provider policy | This is not proof that a protected installed cloud path actually selects and executes that route for BC attempt 2. Supply its complete pinned cloud workflow/entry closure, original inputs, authority and cloud receipts before treating it as an alternative; no ad hoc relay around the denied download |
+| Cloud execution identity | Fixed release workflow declares production-cn-promotion and a self-hosted Linux label | Labels/main-only scheduling do not prove Aliyun location, runner online status, Cloud Assistant capability or root-entry installation. Need current account/region/instance and principal identity, exact root-owned entry/closure hashes and matching approved request. Prior secrets/runner list 403 is not retried and is not proof of absence. Website ESA authentication proves none of these |
+| A1/A2 baseline/drain/backup | Fixed driver has hold/stop/sessions, host backup and RDS backup stages | Need current baseline image/config/env/mount/DB inventory, same-epoch drain/session-zero, immutable host manifest and actual completed RDS backup ID/readback. Actual DB resource ID/permissions and live success remain unverified |
+| A3 isolated restore | Source exposes separate PG/restore capabilities, and the driver has backup stages | The 17 normal stages contain no explicit isolated restore rehearsal. Host-backup readback explicitly requires restoreTested=false, not restore acceptance. Require an independently approved cloud isolated-restore receipt tied to the same baseline, backup bytes/IDs, original epoch, target isolation and successful readback. No restore is executed or implicitly authorized by this review |
+| A4 four SQL compatibility | Image-only adapter validates pinned migration evidence and rejects changedFiles != [] or schemaMigrationRequired != false | Current production baseline/schema/migration inventory, four-file compatibility and required permission decisions are unknown. Never forge an empty diff or remove SQL. This adapter is usable only if the canonical diff is genuinely empty and no schema migration is required. Even a compatible live schema does not make an honest four-file source diff empty: a nonempty diff still needs a separately reviewed admission/route. Any actual migration needs separate approval and remains prohibited here |
+| Rollback/recovery | Source has separately approved recovery, durable lock/status/reconcile and baseline business contracts | Need actual baseline digests/pointers, preserved env/mount/data scope, installed recovery closure and same-epoch recovery/old-version business evidence. Post-clear A6 failure may require separately authorized rehold/stop; held-only rollback does not establish safety. No automatic DB restore, cleanup or recovery is authorized |
+| A5 timing/authority | Protected driver can wait for a writer approval or use an independently installed conditional-writer mechanism | One-shot run_approved_pipeline requires writer approval before its first RPC, including switchReceipt/heldHealth/holdRaw/binding hashes generated only by an earlier switch. It is not a proven from-zero closed loop. Need verified actual predecessor plus approved cloud continuation, or a complete cloud two-phase handoff/installed conditional policy; never invent future hashes |
+| Failure/idempotency | Tested code persists intent/ack, uses fixed IDs, stops on uncertainty, avoids replay and permits bounded read-only reconciliation | Need proof the actual cloud runtime durably preserves approved scope and journals despite runner loss, and has a legitimate read-only locator when submit ack is lost. Local fsync/fixtures alone do not prove a recoverable cloud operation. Never re-submit under a new attempt to hide uncertainty |
+| A6 actual acceptance | Contract retains login, hello, ASR, GitHub feedback read, skill tool and PDF download; three distinct owned runs, stability window and original readback | Need real cloud browser/model/provider runtime, exact BC running-image inventory, scoped QA authority/credentials, original six-journey receipt plus three persisted runs and stable-window/live readbacks. CI/Docker fixtures, health=200 and caller-supplied JSON are not production acceptance |
+
+The complete A0–A6 scope is mandatory. In particular, **17-stage CHAIN_COMPLETED alone cannot
+establish A3/A4**: those independent original-scope receipts/decisions must exist and be bound into
+the overall admission. No production step changes color based on source files or synthetic tests.
+
+Source-checkable findings (immutable reviewed source; no invocation):
+
+- [HK uploader metadata/plan/source binding](https://github.com/boardx/workspacex/blob/41aa8271cd6d312af01ce5fece2b1c96f40b4e0f/scripts/cn-hk-original-artifact-upload.py#L43): explicit attempt-1 suffix, sourceRunAttempt==1, prefix and provider path. [Proof generator](https://github.com/boardx/workspacex/blob/916e25ddb42009c05c02720c8cc831c6ea17ad51/scripts/cn-hk-generate-proof.py#L13) also pins runAttempt==1.
+- [Normal 17 stages](https://github.com/boardx/workspacex/blob/916e25ddb42009c05c02720c8cc831c6ea17ad51/.harness/scripts/vm/cn-release-advance.py#L26) and [backup restoreTested=false checks](https://github.com/boardx/workspacex/blob/916e25ddb42009c05c02720c8cc831c6ea17ad51/scripts/cn-release-runtime-readback.py#L148).
+- [Image-only SQL gate and A5 bound fields](https://github.com/boardx/workspacex/blob/916e25ddb42009c05c02720c8cc831c6ea17ad51/scripts/fixed_cn_receipts.py#L50), followed by [pre-RPC writer authority admission](https://github.com/boardx/workspacex/blob/916e25ddb42009c05c02720c8cc831c6ea17ad51/scripts/fixed_cn_receipts.py#L151).
+- [New normal download failure](evidence/cloud-review-20261017/set-download-result.json). It is a single new target check, not a retry of the previously denied plan ZIP; no bytes were obtained and no provider error body or signed URL is serialized.
+
+### Required cloud phase boundary before any production GO
+
+1. **Preparation only:** select the actually supported, reviewed attempt-2 cloud acquisition route;
+   prove normal original-byte access, actual existing identity and installed closure; freeze all
+   application/producer/orchestration/tool revisions, artifact IDs/hashes and immutable scope. Supply
+   current baseline/SQL facts and verified backup/isolated-restore/rollback capabilities, resource
+   scope and stage gates for the original seven steps. Actual current-epoch A2/A3 receipts must be
+   produced at their proper stages, not invented before execution. Merely editing the outer metadata
+   RUN_ATTEMPT constant does not repair the HK uploader/proof/installed-route contract.
+2. **Protected staged execution, only after plan GO:** the reviewed cloud controller must execute
+   A1/A2, then stop before switch until A3 has a genuine independent same-epoch isolated-restore
+   receipt and A4 has the real compatibility decision. Current 17-stage one-shot sequencing does
+   not prove that pause/admission exists; it must be closed before plan GO. Only then use the exact
+   installed root scope/cloud caller for held switch and bind actual switch/health/hold receipts; a genuine
+   WAITING_FOR_WRITER_APPROVAL exit remains incomplete and preserves failed stdout/intent. It is not
+   success and never automatically restarts under a new request. The original clock stays unchanged.
+3. **Approval/continuation handoff:** a protected cloud reader must retrieve the actual same-attempt
+   receipt bytes and independently approved A5 object. If a preinstalled conditional policy is used,
+   prove its exact approved raw hash, live-chain revalidation, atomic one-time materialization and
+   installed pointer; do not precompute its future derived writer bytes. Current library calls and
+   local fixtures do not demonstrate that end-to-end live handoff.
+4. **Continuation plus A6:** only a separately scoped valid continuation may advance the same durable
+   root request after actual status review. Never replay an uncertain submission. Prove all six real
+   business journeys and two canonical original-byte readbacks from the cloud. If the handoff cannot
+   finish within original root/candidate windows, stop; do not move hashes or deadlines forward.
+
+This is an implementation/admission checklist, **not approval to perform those phases now**. No
+source or workflow fix is made in this review, and no production, restore or migration is executed.
+
+### Conditional minimum cloud-access proposal — not configured or authorized
+
+First prefer proving an already authorized existing channel. Do **not** request GitHub secret/admin
+runner listing permission merely to work around the earlier 403s. The actual minimum cannot be
+activated until current principal, protected command/request pins, ACR/RDS resource IDs and installed
+closure are known; an environment label or a saved policy JSON is insufficient.
+
+| Need, only if existing scope is insufficient | Exact bounded resource/action proposal | Lifetime and risk/control |
+|---|---|---|
+| Original-byte acquisition | Existing GitHub-hosted job's native token with contents:read/actions:read for boardx/workspacex, run38852606085 attempt2 and its recorded artifact IDs. Only normal authenticated artifact API download and its normal signed HTTPS redirect; no Mac, token export, proxy, alternate endpoint or log reconstruction | Single job, no permanent credential or new identity. Must establish why normal authorization succeeds on the intended cloud principal; current review-client Forbidden is not silently bypassed |
+| HK object transfer | Existing bucket workspacex-hk-release-cache-1177216024653153 in cn-hongkong; bucket GetBucketInfo/GetBucketAcl and object PutObject/GetObject only for runs/38852606085/2/{plan,set,api,web,agent,sandbox,postgres}.zip and {proof,policy}.json | Any change to current live policy requires explicit security confirmation first. No List/Delete/ACL/bucket policy mutation; no-overwrite writes and hash readback. Expiry no later than 11:48:36.413148 UTC for this candidate, at most 30 minutes, and insufficient time means NO-GO. Existing attempt-1 code must be fixed/reviewed before this route is usable |
+| Shanghai fixed-entry invocation/status | Existing approved principal only, target acs:ecs:cn-shanghai:1177216024653153:instance/i-uf6ga92ewloganobbln6. Current adapter uses ecs:RunCommand plus ecs:DescribeInvocationResults, with a fixed protected-entry argv/request hash and principal bound in the packet | RunCommand is root-capable command execution, not merely read-only access. RAM instance scope alone does not enforce a script digest. Require immutable protected entry, exact command/approval hashes, protected GitHub review, one target/one invocation/no retry, and explicit safety confirmation for any additional grant. No SSH/AK/IAM/OIDC/runner/root installation is created by this proposal |
+
+The [official RunCommand authorization contract](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-runcommand)
+supports instance scoping and run-as conditions; it does not turn arbitrary root shell authority into
+a digest-limited read. An already installed immutable command-ID route could be narrower, but no
+actual command ID/current installed policy has been supplied and the current adapter does not
+implement that alternative. It must not be advertised as executable or silently substituted.
+
+No new ACR/RDS privilege is proposed with wildcard resources: their exact live resource IDs and
+required existing grants are still missing. SQL/RLS/GRANT, restore/cleanup, new credential/OIDC/IAM,
+new runner and root/probe installation remain separate safety decisions. The parent must obtain
+security confirmation on a complete exact change before any such configuration; ordinary release
+approval is not that confirmation. This review does not issue new credentials or assumptions.
+
+### Review result and validation
+
+**Overall plan NO-GO:** preserve the ordinary once-only release approval, but stop production until
+pre-execution identity/input/compatibility/capability gates have current matching evidence and the
+attempt-2, A2→A3→A4→switch and A5 cloud phase contracts are actually closed. Plan GO would permit
+only the staged execution already authorized, not claim that future backup/restore/business results
+already exist. During execution, each stage must wait for actual prior receipts; final acceptance GO
+requires completed A6. No future receipt hash is an entry precondition that can be filled by fiction. The parent's separate website line continues independently.
+There is no submitted production mutation or new uncertain production outcome to replay.
+
+Only this plan and the sanitized failed-download evidence are changed. No source, workflow, runtime
+or authorization configuration changes; no build/rebuild or production dispatch. The four-color
+chart remains unchanged in semantics: completed build green, unresolved C0 and A0–A6 gray, no red
+state and no production acceptance purple. The existing 75 local/57 CI fixture results remain
+historical bounded evidence, not a live production feasibility attestation.
