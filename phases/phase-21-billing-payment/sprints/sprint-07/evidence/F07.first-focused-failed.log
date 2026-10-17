@@ -1,0 +1,41 @@
+[stack-admission] load1=4.31 cores=10 perCore=0.43 running=0/2
+[test-isolation] id=run-mvagr5u8-5929e5c2-5c310075df6b db=wsx_5c310075df6bf2d58992 compose=wsx-5c310075df6bf2d58992 pg=20253 redis=21253 api=24253 web=25253 sandbox=26253 model=27253 deep-agent=28253 asr=29253 vision=30253 loopback-sandbox=31253 mail=19253
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_5c310075df6bf2d58992 capacity=100 current=6 required=32
+{"level":"info","msg":"billing_orders_expired","traceId":"billing-order-expiry:b27ec616-b9c5-42c4-b271-418fa222a92c","closedCount":1}
+{"level":"error","msg":"billing_order_expiry_failed","traceId":"billing-order-expiry:6be01f95-edad-45e7-acd2-dc7a3750f305","detail":{"stage":"expiry_sweep","code":"other"}}
+{"level":"info","msg":"billing_orders_expired","traceId":"billing-order-expiry:4f2e6033-794a-432b-b1f4-2bc3bc65a8bf","closedCount":2}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-cdca46b6-840e-4244-9516-9a11b7d30312","orderNo":"bg202610160000009a6d85"}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-0f4194f0-ab81-4fe2-9abf-82d19fd250b0","orderNo":"bg2026101600000009c9b0"}
+ ❯ tests/billing/order-close-task.test.ts (10 tests | 1 failed) 8751ms
+   × F07 actual PostgreSQL expiry and payment races > never closes an order already claimed by a verified payment receipt 65ms
+     → signature_invalid
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/order-close-task.test.ts > F07 actual PostgreSQL expiry and payment races > never closes an order already claimed by a verified payment receipt
+Error: signature_invalid
+ ❯ DeploymentWechatNoticeVerifier.verify src/infrastructure/billing/wechat-notice-verifier.ts:19:153
+
+ ❯ tests/billing/order-close-task.test.ts:129:91
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 9 passed (10)
+   Start at  12:24:25
+   Duration  13.02s (transform 634ms, setup 5ms, collect 1.05s, tests 8.75s, environment 0ms, prepare 32ms)
+
+[db-isolation] db=wsx_5c310075df6bf2d58992 peak_connections=9
+undefined
+/Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/order-close-task.test.ts
+[timing] pnpm --filter api exec vitest run tests/billing/order-close-task.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：14s
+  清理：1s
+  总计：14s

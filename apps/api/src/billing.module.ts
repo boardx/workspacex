@@ -25,11 +25,16 @@ import { BILLING_CREDITING_STORE, BILLING_RECEIPT_WORKER, type BillingCreditingS
 import { PgBillingCreditingStore } from "./infrastructure/billing/pg-billing-crediting-store";
 import { DeploymentWechatNoticeVerifier } from "./infrastructure/billing/wechat-notice-verifier";
 import { BillingReceiptWorker } from "./infrastructure/billing/billing-receipt-worker";
+import { BILLING_ORDER_EXPIRY_WORKER } from "./application/billing/billing-order-expiry.port";
+import { BillingOrderExpiryWorker } from "./infrastructure/billing/billing-order-expiry-worker";
+import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-order-expiry-store";
 
 @Module({
   imports: [IdentityPersistenceModule],
   controllers: [BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
+    { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
+      new BillingOrderExpiryWorker(new PgBillingOrderExpiryStore(db), logger), inject: [DATABASE_PORT, LOGGER_PORT] },
     { provide: BILLING_CREDITING_STORE, useFactory: (db: DatabasePort) => new PgBillingCreditingStore(db), inject: [DATABASE_PORT] },
     { provide: BillingWechatNotifyService, useFactory: (config: DeploymentBillingConfig, store: BillingCreditingStore) =>
       new BillingWechatNotifyService(new DeploymentWechatNoticeVerifier(config), store, new ConsoleLogger()), inject: [DeploymentBillingConfig, BILLING_CREDITING_STORE] },

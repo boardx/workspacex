@@ -1,0 +1,26 @@
+[stack-admission] load1=3.57 cores=10 perCore=0.36 running=0/2
+[test-isolation] id=run-mvb6hwbm-b9cb3947-4d210bf6fac0 db=wsx_4d210bf6fac07c18110b compose=wsx-4d210bf6fac07c18110b pg=20382 redis=21382 api=24382 web=25382 sandbox=26382 model=27382 deep-agent=28382 asr=29382 vision=30382 loopback-sandbox=31382 mail=19382
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_4d210bf6fac07c18110b capacity=100 current=6 required=32
+{"level":"info","msg":"billing_orders_expired","traceId":"billing-order-expiry:4f7312d3-d085-40eb-a839-0664521ade12","closedCount":1}
+{"level":"error","msg":"billing_order_expiry_failed","traceId":"billing-order-expiry:5161ff1a-042e-4323-9af1-023e7f144bf6","detail":{"stage":"expiry_sweep","code":"other"}}
+{"level":"info","msg":"billing_orders_expired","traceId":"billing-order-expiry:29d16b07-4234-4039-a1e3-dd010811172d","closedCount":2}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-457290aa-921a-4461-8d5e-91b9339c1541","orderNo":"bg20261016000000bc42fa"}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-b0d048ef-57d1-401d-a4cf-7f68142dcade","orderNo":"bg2026101600000098c570"}
+ ✓ tests/billing/order-close-task.test.ts (10 tests) 7830ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  00:25:03
+   Duration  12.33s (transform 612ms, setup 4ms, collect 1.06s, tests 7.83s, environment 0ms, prepare 28ms)
+
+[db-isolation] db=wsx_4d210bf6fac07c18110b peak_connections=7
+[timing] pnpm --filter api exec vitest run tests/billing/order-close-task.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：13s
+  清理：0s
+  总计：13s
