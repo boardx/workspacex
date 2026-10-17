@@ -94,3 +94,48 @@ Before this adapter change, e2cd22818c1f0a9a41efbcc71e0a75d2424d5424 completed a
 harness-verify 39001272952. The existing read-only watch ended exit 0. Those results are **not**
 attributed to this later change; the new head needs its own CI. New standalone API queries at
 04:21 returned HTTP 401 Bad credentials; no login/new token/credential fallback was attempted.
+
+## Independent takeover review and isolated regression
+
+The stopped worker's final remote commit `e147fbb975a9eb9acd6d3904ec64784466213ac1`
+was fetched and verified as one commit ahead of e2cd228, without divergence. An independent
+worktree `/workspace/cn-release-review` retained all remote changes. Its direct-head dedicated
+CI [39003972970](https://github.com/boardx/workspacex/actions/runs/39003972970) checked out
+that exact SHA (checkout and git-log lines inspected): 16+8+11+13 tests passed, as did the real
+Docker six-stage fixture, with `cleanupVerified=true`, `sourceIsBC=false`, `productionAccepted=false`.
+Artifact ID 12089493864, 224967 bytes, ZIP digest
+`9eb9826709cb5b8da9d51d64f72313efb945bc860d37785f342cb63385762c7a`.
+Those results apply to that prior head, not automatically to the takeover patch.
+
+Takeover fixes: original entry and user-authorization byte binding before effects; all-packet
+principal/current A5-window admission; SDK debug rejection; actual nonzero driver-wait output
+retention; historical-window read-only local receipt recovery; no overwrite or stage advancement;
+and structural-only offline business validation without an A6-verified claim.
+
+| Exact command in takeover worktree | Exit | Result |
+|---|---:|---|
+| `PATH=/tmp/cn-review-toolchain/node_modules/.bin:$PATH XDG_DATA_HOME=/tmp/cn-review-data npm_config_cache=/tmp/cn-review-npm npm_config_ignore_scripts=true ./init.sh` | 0 | pinned pnpm 9.15.0, dependency/fast-health init; lifecycle scripts disabled; not full repo verification |
+| `python3 -B -m unittest discover -s tests -p 'test_fixed_cn_remote.py' -v` | 0 | 23 isolated tests; [takeover-remote-tests.txt](takeover-remote-tests.txt); loopback provider only, received commands never execute |
+| `python3 -B -m unittest discover -s tests -p 'test_fixed_cn_bundle.py' -v` | 0 | 8 archive/manifest/argv tests |
+| `python3 -B -m unittest discover -s tests -p 'test_fixed_cn_release.py' -v` | 0 | 11 orchestration/admission tests |
+| `python3 -B -m unittest discover -s tests -p 'test_minimal_docker_release.py' -v` | 0 | 13 publisher tests, fake Docker and loopback HTTP |
+| `python3 -B -m unittest discover -s tests -p 'test_cn_release_fixed_driver.py' -v` | 0 | 18 canonical driver tests, including actual CLI nonzero waiting and no repeat mutation |
+| `python3 -m py_compile scripts/fixed_cn_remote.py scripts/fixed_cn_receipts.py tests/test_fixed_cn_remote.py` | 0 | syntax |
+| `sh -n scripts/fixed-cn-readonly-probe.sh` | 0 | syntax only, probe never executed |
+| `node .harness/scripts/execution-plan.mjs check docs/operations/cn-release-entry/plan.md` | 0 | seven production steps remain gray |
+| `git diff --check` | 0 | whitespace |
+| `PATH=/tmp/cn-review-toolchain/node_modules/.bin:$PATH pnpm harness readiness` | 0 | queue read; work remains user-directed #5809 |
+| `PATH=/tmp/cn-review-toolchain/node_modules/.bin:$PATH pnpm harness tick` | 1 | COORD_GATEWAY_URL missing; no gateway lease or credential created |
+
+Initial `npm_config_ignore_scripts=true ./init.sh` used ambient pnpm 11.19.0 and failed at the
+unwritable default cache; pinned pnpm 9.15.0 with explicit /tmp cache/data paths resolved the basic
+state. No source edits were made before the pinned init passed. The local Docker fixture is
+GitHub-Linux-only; no environment-variable spoofing or production Docker command was used here.
+The new commit still requires its own direct-head GitHub Docker fixture and CI; its observation
+will be recorded on the same draft PR. No workflow dispatch or new runner permission is used.
+
+At 2026-10-17 04:57:39 UTC the fixed original build listed only one artifact, the candidate-set
+ZIP; eleven required entries were absent. Its listed expiry remained 04:57:52 UTC. The metadata
+snapshot [artifact-incomplete.json](artifact-incomplete.json) is not a download proof. No original
+bytes were obtained, no forbidden download retried, and no candidate rebuilt or replaced.
+No production call, dispatch, migration, restore, production cleanup, cancellation or merge occurred.

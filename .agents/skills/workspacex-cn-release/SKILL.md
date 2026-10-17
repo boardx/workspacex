@@ -82,6 +82,12 @@ in `tests/test_cn_release_fixed_driver.py` check the process exit, not only a
 returned dictionary. `CHAIN_COMPLETED` still does not itself claim business
 acceptance.
 
+A Cloud Assistant command ending with driver exit 2 is a terminal process, not a completed
+release. Preserve the bounded original stdout and failed-command evidence; never turn it into
+a success receipt or automatically resubmit. Read-only reconciliation may restore missing local
+receipts for execution within its original approval window after expiry, but cannot advance stages.
+`tests/test_fixed_cn_remote.py` covers this boundary and raw approval/evidence binding.
+
 A failed HK PUT may already have reached OSS. Always retain the bounded sanitized
 intent, worker result, and pipeline/proof failure records for one day, including
 on workflow failure. Never upload ZIPs, credentials, raw SDK errors, or temporary

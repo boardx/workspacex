@@ -24,6 +24,14 @@ OPERATIONS = {'download-check','image-download','publication-check','image-publi
               'release-run','release-status','release-reconcile','business-readback'}
 
 
+class CommandFailed(a.Rejected):
+    """Verified terminal process failure; it never proves release terminality."""
+    def __init__(self, output, exit_code):
+        super().__init__('REMOTE_COMMAND_FAILED')
+        self.output = output
+        self.exit_code = exit_code
+
+
 def save(root, name, raw):
     with (root/name).open('xb') as f:
         os.chmod(f.name,0o600); f.write(raw); f.flush(); os.fsync(f.fileno())
@@ -72,6 +80,29 @@ def admit(raw, pin, plan_raw, plan_sha, previous, now=None):
     return v,argv
 
 
+def entry_authority(approval, raw, plan_raw, plan_sha):
+    """Bind transport annotations to original protected driver approval bytes."""
+    a.require(approval['operation'] in {'release-run','release-status','release-reconcile','business-readback'},
+              'REMOTE_ENTRY_AUTHORITY_UNSUPPORTED')
+    a.require(type(raw) is bytes and len(raw)<=1048576
+              and a.sha(raw)==approval['entryApprovalSha256'],'REMOTE_ENTRY_APPROVAL_BYTES')
+    value=a.decode(raw);plan=bundle.c.validate_plan(a.decode(plan_raw))
+    a.require(value['kind']=='cn-fixed-release-approval-v1' and value['target']==TARGET
+              and not value.get('mvp'),'REMOTE_ENTRY_SCOPE')
+    identity=value['identity']
+    a.require(identity['sourceRevision']==FIXED.SOURCE and identity['controlRevision']==FIXED.CONTROL
+              and identity['publicationAttemptId']==plan['attemptId'],'REMOTE_ENTRY_IDENTITY')
+    pins=value['acquire']['requests']['consume']['inputs']
+    a.require(pins['plan']==plan_sha and pins['set']==approval['candidateSha256'],
+              'REMOTE_ENTRY_CANDIDATE_BINDING')
+
+
+def authorization_evidence(approval, raw):
+    a.require(type(raw) is bytes and 0<len(raw)<=1048576
+              and a.sha(raw)==approval['userAuthorizationEvidenceSha256'],
+              'REMOTE_AUTHORIZATION_EVIDENCE_BYTES')
+
+
 class EcsRpc:
     """Concrete official SDK adapter; explicit existing credentials, no default chain."""
     def __init__(self, client, request_factory, principal_arn):
@@ -80,6 +111,7 @@ class EcsRpc:
     @classmethod
     def from_existing_credential(cls, credential, expected_principal_arn):
         a.require(credential is not None,'EXISTING_CREDENTIAL_REQUIRED')
+        a.require(os.environ.get('DEBUG','').lower()!='sdk','AUTH_SDK_DEBUG_FORBIDDEN')
         from aliyunsdkcore.client import AcsClient
         from aliyunsdkcore.request import CommonRequest
         from requests.adapters import HTTPAdapter
@@ -122,7 +154,7 @@ class EcsRpc:
         return a.decode(raw)
 
 
-def poll(rpc, ack, approval, deadline, *, monotonic=time.monotonic, wait=time.sleep):
+def poll(rpc, ack, approval, deadline, *, monotonic=time.monotonic, wait=time.sleep, terminal=None):
     while monotonic()<deadline:
         result=rpc.call('DescribeInvocationResults',dict(RegionId='cn-shanghai',
             InvokeId=ack['InvokeId'],CommandId=ack['CommandId'],InstanceId=FIXED.TARGET,
@@ -137,22 +169,39 @@ def poll(rpc, ack, approval, deadline, *, monotonic=time.monotonic, wait=time.sl
             a.require(row.get('InstanceId')==FIXED.TARGET and row.get('InvokeId')==ack['InvokeId']
                       and row.get('CommandId')==ack['CommandId'],'REMOTE_RESULT_BINDING')
             status=row.get('InvocationStatus')
-            if status=='Success' and row.get('InvokeRecordStatus') in ('Success','Finished'):
-                a.require(type(row.get('ExitCode')) is int and row['ExitCode']==0
+            if ((status=='Success' and row.get('InvokeRecordStatus') in ('Success','Finished'))
+                    or (status=='Failed' and row.get('InvokeRecordStatus') in ('Failed','Finished'))):
+                a.require(type(row.get('ExitCode')) is int
                           and row.get('Dropped')==0,'REMOTE_EXIT_OR_TRUNCATION')
                 started,finished=a.timestamp(row['StartTime']),a.timestamp(row['FinishedTime'])
-                a.require(a.timestamp(approval['issuedAt'])<=started<=finished<=a.timestamp(approval['expiresAt']),
+                a.require(a.timestamp(approval['issuedAt'])<=started<=finished<=a.timestamp(approval['expiresAt'])
+                          and finished<=dt.datetime.now(dt.timezone.utc),
                           'REMOTE_RESULT_TIME_WINDOW')
                 output=base64.b64decode(row['Output'],validate=True)
                 a.require(0<len(output)<=65536,'REMOTE_OUTPUT_BOUND')
+                if status!='Success' or row['ExitCode']!=0:
+                    raise CommandFailed(output,row['ExitCode'])
+                if terminal is not None:terminal['completedAt']=finished.isoformat()
                 return output
             a.require(status in ('Pending','Running','Success'),'REMOTE_TERMINAL_FAILURE')
         wait(min(1,max(0,deadline-monotonic())))
     raise a.Rejected('REMOTE_DEADLINE_UNCERTAIN')
 
 
-def execute(raw, pin, plan_raw, plan_sha, previous, rpc, output, *, monotonic=time.monotonic, wait=time.sleep):
+def result_receipt(approval,pin,previous,ack,result,completed_at):
+    return a.json_bytes(dict(kind='fixed-cn-remote-stage-v1',source=FIXED.SOURCE,control=FIXED.CONTROL,run=FIXED.RUN,
+            target=TARGET,principalArn=approval['principalArn'],operation=approval['operation'],sequence=approval['sequence'],approvalSha256=pin,
+            entryApprovalSha256=approval['entryApprovalSha256'],candidateSha256=approval['candidateSha256'],
+            previousReceiptSha256=previous,invokeId=ack['InvokeId'],commandId=ack['CommandId'],
+            outputSha256=a.sha(result),completedAt=completed_at,
+            remoteCommandTerminal=True,productionAccepted=False,automaticRetry=False))
+
+
+def execute(raw, pin, plan_raw, plan_sha, previous, rpc, output, *, entry_approval_raw=None,
+            authorization_evidence_raw=None,monotonic=time.monotonic, wait=time.sleep):
     approval,argv=admit(raw,pin,plan_raw,plan_sha,previous)
+    entry_authority(approval,entry_approval_raw,plan_raw,plan_sha)
+    authorization_evidence(approval,authorization_evidence_raw)
     a.require(rpc.principal_arn==approval['principalArn'],'REMOTE_PRINCIPAL_MISMATCH')
     root=Path(output);root.mkdir(mode=0o700,parents=False,exist_ok=False)
     seconds=min(approval['maxSeconds'],int((a.timestamp(approval['expiresAt'])-dt.datetime.now(dt.timezone.utc)).total_seconds()))
@@ -163,6 +212,7 @@ def execute(raw, pin, plan_raw, plan_sha, previous, rpc, output, *, monotonic=ti
         Timeout=str(seconds),ClientToken=pin)
     deadline=monotonic()+seconds
     save(root,'approval.json',raw)
+    save(root,'entry-approval.json',entry_approval_raw)
     save(root,'intent.json',a.json_bytes(dict(approvalSha256=pin,payload=payload,previousReceiptSha256=previous,
                                             automaticRetry=False)))
     try:
@@ -171,16 +221,23 @@ def execute(raw, pin, plan_raw, plan_sha, previous, rpc, output, *, monotonic=ti
         a.require(all(isinstance(ack.get(k),str) and re.fullmatch('[A-Za-z0-9_-]{1,128}',ack[k])
                       for k in ('InvokeId','CommandId')),'REMOTE_ACK')
         save(root,'ack.json',a.json_bytes({k:ack[k] for k in ('InvokeId','CommandId')}))
-        result=poll(rpc,ack,approval,deadline,monotonic=monotonic,wait=wait)
+        terminal={}
+        result=poll(rpc,ack,approval,deadline,monotonic=monotonic,wait=wait,terminal=terminal)
         save(root,'output.json',result)
-        receipt=dict(kind='fixed-cn-remote-stage-v1',source=FIXED.SOURCE,control=FIXED.CONTROL,run=FIXED.RUN,
-            target=TARGET,principalArn=approval['principalArn'],operation=approval['operation'],sequence=approval['sequence'],approvalSha256=pin,
-            entryApprovalSha256=approval['entryApprovalSha256'],candidateSha256=approval['candidateSha256'],
-            previousReceiptSha256=previous,invokeId=ack['InvokeId'],commandId=ack['CommandId'],
-            outputSha256=a.sha(result),completedAt=dt.datetime.now(dt.timezone.utc).isoformat(),
-            remoteCommandTerminal=True,productionAccepted=False,automaticRetry=False)
-        encoded=a.json_bytes(receipt);save(root,'receipt.json',encoded)
+        encoded=result_receipt(approval,pin,previous,ack,result,terminal['completedAt'])
+        save(root,'receipt.json',encoded)
         return encoded,result
+    except CommandFailed as error:
+        # Root driver deliberately exits 2 for WAITING_FOR_WRITER_APPROVAL.
+        # Retain the exact bounded stdout without issuing a success receipt or
+        # treating process exit as proof that all release effects are terminal.
+        save(root,'failed-output.json',error.output)
+        save(root,'failed-command.json',a.json_bytes(dict(status='COMMAND_FAILED',
+            approvalSha256=pin,invokeId=ack['InvokeId'],commandId=ack['CommandId'],
+            exitCode=error.exit_code,outputSha256=a.sha(error.output),
+            remoteCommandTerminal=True,releaseCompleted=False,productionAccepted=False,
+            automaticRetry=False,requiresIndependentReview=True)))
+        raise
     except BaseException as error:
         save(root,'uncertain.json',a.json_bytes(dict(status='RECONCILE_REQUIRED',automaticRetry=False,
             instruction='Do not replay or cancel. Read existing invocation by persisted ack; absent ack requires independent provider reconciliation.')))
@@ -196,4 +253,19 @@ def reconcile(root, rpc, approval_sha, *, max_seconds=30):
     a.require(rpc.principal_arn==approval['principalArn'],'RECONCILE_PRINCIPAL')
     a.require(approval['source']==FIXED.SOURCE and approval['control']==FIXED.CONTROL and approval['run']==FIXED.RUN and approval['target']==TARGET,'RECONCILE_SCOPE')
     a.require(type(max_seconds) is int and 1<=max_seconds<=60,'RECONCILE_TIMEOUT')
-    return poll(rpc,ack,approval,time.monotonic()+max_seconds)
+    intent=a.decode((root/'intent.json').read_bytes())
+    a.require(intent['approvalSha256']==approval_sha,'RECONCILE_INTENT_PIN')
+    terminal={}
+    result=poll(rpc,ack,approval,time.monotonic()+max_seconds,terminal=terminal)
+    # Validate historical execution at its actual finish time. This does not
+    # reopen the original approval for a new submission or advance any stage.
+    entry=a.decode((root/'entry-approval.json').read_bytes())
+    a.require(a.sha((root/'entry-approval.json').read_bytes())==approval['entryApprovalSha256']
+              and entry['acquire']['requests']['consume']['inputs']['set']==approval['candidateSha256'],
+              'RECONCILE_ENTRY_PIN')
+    expected=result_receipt(approval,approval_sha,intent['previousReceiptSha256'],ack,result,terminal['completedAt'])
+    for name,value in (('output.json',result),('receipt.json',expected)):
+        path=root/name
+        if path.exists():a.require(path.read_bytes()==value,'RECONCILE_EXISTING_BYTES_CHANGED')
+        else:save(root,name,value)
+    return result

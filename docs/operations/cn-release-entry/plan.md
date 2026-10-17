@@ -53,8 +53,8 @@ New probe source: `scripts/fixed-cn-readonly-probe.sh`, fixed SHA256
 `b4545e0f468bff7e381426c8e9670867d84ee0cd48dc85008639de9291855159`.
 Any byte change requires fresh review and pin. The new probe has not run on production.
 
-The offline stage engine is test-only Python API; there is deliberately no production adapter, arbitrary
-command option, apply CLI or dispatch workflow. Its real CLI publisher integration reuses
+The offline stage engine is test-only Python API. Separate, explicitly approved library adapters
+are described below; there is no arbitrary command option, production apply CLI or dispatch workflow. Its real CLI publisher integration reuses
 `scripts/minimal-docker-release.py` and `tests/test_minimal_docker_release.py` with fake Docker and
 loopback HTTP. The fixture now copies five real Docker-save-format tar fixtures through canonical candidate admission, then calls the actual image-only
 Compose CLI, verifies health, and creates/reads a synthetic business artifact. This tests orchestration
@@ -74,7 +74,7 @@ no replacement build was dispatched, and no existing workflow/production configu
 |---|---|---:|---|
 | candidate | fixed source/control/run, unique full artifact inventory, unexpired | 60 s | metadata observation; bytes remain unverified; expired originals block, never rebuild silently |
 | readonly-preflight | trusted existing config and env hash snapshots in fixture | 30 s | snapshot hashes; actual host probe separately approved; never run publisher plan as read-only |
-| image-transfer | five fixture archives | 120 s | destination byte hashes; actual GitHub→ECS/registry transfer unimplemented pending channel and admission |
+| image-transfer | five fixture archives | 120 s | destination byte hashes; actual fixed-driver transfer adapter implemented; original bytes/channel/admission remain blocked |
 | compose-image-only | existing publisher config/manifest, loaded exact image IDs, equal schema inventory | 180 s | existing publisher intent/receipt, one up, no build/pull/data-service change; uncertain writes require readback, no automatic retry |
 | health | exact running image IDs and loopback health body | 30 s | publisher HTTP/version receipt; never replaces business acceptance |
 | business | synthetic create/read artifact | 60 s | artifact hash, explicitly simulation; production requires canonical journeys/browser/output evidence |
@@ -120,8 +120,7 @@ IAM/OIDC/token/runner authorization, secret copy or permission expansion is crea
 5. Separately approve A5 exact image-only deployment/cutover after preceding evidence; then A6 real
    business/browser acceptance. An uncertain A5 must be reconciled before separately approved recovery.
 
-None of those production actions is authorized by mock success or this PR. This is a reviewable,
-tested orchestration skeleton, not an executable approved end-to-end production release.
+None of those production actions is authorized by mock success or this PR. This is reviewable adapter code with isolated evidence; it is not an approved or verified production release.
 
 ## Follow-up adapter completion and exact-head CI correction
 
@@ -210,12 +209,12 @@ before any remote call. No toolkit upload or installation is mixed into these op
 4. Strictly consume the unchanged canonical business receipt, all six exact checks, three distinct
    owned runs, stable-window/live-inventory hashes, A5 binding/hold/switch identity, original clock
    and ordered root-stage evidence. A health response or handwritten passed flag is insufficient.
-   The final evidence-consumed result does not assert that this development environment executed
-   or accepted production.
+   The result reports only `sixJourneyReceiptFieldsValid` and `canonicalReadbackBytesMatch`;
+   `productionAccepted=false` is mandatory. Offline JSON validation does not authenticate its source.
 
 Callers supply the existing credential capability, original approved input bytes/pins, the three
-approved transport packet tuples, original root/A5/provenance/migration bytes, and a new output
-folder. Tests show the exact call in `tests/test_fixed_cn_remote.py`. The PR workflow only runs those
+approved transport packet tuples, original root/A5/provenance/migration bytes, original authorization
+evidence bytes (`authorization_evidence_raw`), and a new output folder. Tests show the exact call in `tests/test_fixed_cn_remote.py`. The PR workflow only runs those
 isolated tests; it never constructs a live credential object or invokes this production entry.
 
 **Remaining blockers are runtime inputs/access and verification**, rather than those three adapters:
@@ -230,3 +229,51 @@ Protocol references checked against the official API contract:
 [RunCommand](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-runcommand),
 [DescribeInvocationResults](https://www.alibabacloud.com/help/en/ecs/developer-reference/api-ecs-2014-05-26-describeinvocationresults).
 This is not a proposal to grant those permissions: none was created or expanded.
+
+
+## Independent takeover review (2026-10-17)
+
+Remote `e147fbb975a9eb9acd6d3904ec64784466213ac1` was verified as one commit ahead of
+`e2cd22818c1f0a9a41efbcc71e0a75d2424d5424`, with the latter as merge base. Its changes
+were retained in an independent cloud worktree. Dedicated exact-head CI
+[39003972970](https://github.com/boardx/workspacex/actions/runs/39003972970) passed
+16+8+11+13 tests and the real Docker six-stage fixture (synthetic source, no production acceptance).
+
+The independent review adds these gates and recovery behavior:
+
+- Every effectful `execute` call must receive original root-entry approval bytes and original user
+  authorization evidence bytes. Hash, candidate-set, plan, target and fixed source/control bindings
+  are checked before creating output or making RPC calls. The implemented execution authority
+  supports only the fixed root driver and canonical business readback; four low-level download/
+  publication operations still offer argv generation but fail execution authority admission. The
+  root driver owns those transfers. No generic root command channel is introduced.
+- All three packet principals and the current A5 approval window are checked before the first RPC.
+  SDK debug mode is rejected before importing the SDK or making an identity call.
+- A verified failed process retains bounded original stdout and a private failed-command record.
+  In particular the actual driver's exit-2 `WAITING_FOR_WRITER_APPROVAL` stops without readbacks,
+  a success receipt, automatic retry, cancellation or a release-complete claim. Unknown/truncated/
+  mismatched outcomes still retain uncertainty. Process termination does not prove release terminality.
+- The one-shot pipeline requires an already valid independently installed A5 approval. A first run
+  awaiting that approval is a distinct reviewed phase; inspect its persisted failed output and actual
+  host state, obtain the independently scoped A5 approval, then separately approve any continuation.
+  Never invent future switch/hold hashes or automatically resubmit a waiting/uncertain command.
+- `reconcile` queries only the persisted invocation, verifies actual start/finish within the original
+  approval window, and restores exact missing local output/success receipt bytes without overwrite.
+  It may retrieve a timely original execution after approval expiry, but never starts or advances a
+  stage. Offline receipt validation uses the original completion time; new execution still requires
+  a currently valid approval. All journals remain local evidence, not signed attestations.
+- `business()` is a pure structural/byte validator and returns no A6-verified claim. Only the effectful
+  pipeline adds `providerQueriesPerformed=true`, and that is still not production acceptance. Its RPC
+  capability must come from the explicit authenticated official SDK adapter in a protected runtime;
+  injected fixture clients or caller-supplied JSON do not establish live provider provenance.
+
+Original artifacts are now incomplete: at 04:57:39 UTC only the candidate-set metadata ZIP was listed,
+with the other eleven required entries absent. The remaining set listed expiry 04:57:52 UTC. See
+[artifact-incomplete.json](evidence/fixed-cn-5809/artifact-incomplete.json). No original bytes were
+downloaded, preserved, replaced or rebuilt. This is an independent hard blocker in addition to the
+prior Forbidden response. A0–A6 remain gray; toolkit upload/install and application image transfer
+are separately unexecuted. Four SQL migrations remain unknown and blocked.
+
+Takeover test commands, failures and final results are in the verification receipt. The coordination
+lease was not claimed: `harness tick` failed because COORD_GATEWAY_URL is absent. No credential or
+permission was created to repair it. The user-directed scope remains PR #5810 / issue #5809.

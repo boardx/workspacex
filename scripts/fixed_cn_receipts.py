@@ -12,8 +12,10 @@ import fixed_cn_remote as remote
 
 
 def remote_result(receipt_raw, output_raw, approval_raw, approval_sha, plan_raw, plan_sha, previous):
-    policy,_=remote.admit(approval_raw,approval_sha,plan_raw,plan_sha,previous)
     v=a.decode(receipt_raw)
+    completed=a.timestamp(v['completedAt'])
+    a.require(completed<=dt.datetime.now(dt.timezone.utc),'REMOTE_RECEIPT_TIME')
+    policy,_=remote.admit(approval_raw,approval_sha,plan_raw,plan_sha,previous,now=completed)
     fields={'kind','source','control','run','target','principalArn','operation','sequence','approvalSha256','entryApprovalSha256',
             'candidateSha256','previousReceiptSha256','invokeId','commandId','outputSha256',
             'completedAt','remoteCommandTerminal','productionAccepted','automaticRetry'}
@@ -81,7 +83,9 @@ def authorities(release_raw, release_sha, writer_raw, writer_sha, plan_raw, plan
 
 def business(release_raw, release_sha, writer_raw, writer_sha, chain, observed, readback,
              plan_raw, plan_sha, predecessor, provenance_raw, migration_raw):
-    """Each result tuple: (receipt bytes, output bytes, approved packet, packet pin).
+    """Structural validation only; supplied JSON does not authenticate its origin.
+
+    Each result tuple: (receipt bytes, output bytes, approved packet, packet pin).
 
     Readback is a distinct approved, read-only invocation of the existing root
     observer; it returns the unchanged original A6 receipt only after verifying
@@ -132,12 +136,13 @@ def business(release_raw, release_sha, writer_raw, writer_sha, chain, observed, 
     return dict(kind='fixed-cn-business-evidence-consumed-v1',source=remote.FIXED.SOURCE,
         releaseSha256=release_sha,writerApprovalSha256=writer_sha,
         businessReceiptSha256=a.sha(observed[1]),observationReceiptSha256=a.sha(observed[0]),
-        readbackReceiptSha256=a.sha(readback[0]),sixJourneysVerified=True,
-        canonicalReadbackVerified=True,productionExecutionPerformedByConsumer=False)
+        readbackReceiptSha256=a.sha(readback[0]),sixJourneyReceiptFieldsValid=True,
+        canonicalReadbackBytesMatch=True,productionAccepted=False)
 
 
 def run_approved_pipeline(packets, plan_raw, plan_sha, release_raw, release_sha,
-                          writer_raw, writer_sha, provenance_raw, migration_raw, rpc, output):
+                          writer_raw, writer_sha, provenance_raw, migration_raw, rpc, output,
+                          *, authorization_evidence_raw=None):
     """Effectful library entry. Explicit approved packets + existing RPC required.
 
     The existing fixed root driver owns all A0–A6 mutations. Only independent
@@ -145,10 +150,14 @@ def run_approved_pipeline(packets, plan_raw, plan_sha, release_raw, release_sha,
     writers itself. Neither CLI nor PR workflow invokes this production API.
     """
     a.require(len(packets)==3,'THREE_APPROVED_PACKETS_REQUIRED')
-    release,*_=authorities(release_raw,release_sha,writer_raw,writer_sha,plan_raw,plan_sha,provenance_raw,migration_raw)
+    release,_,_,writer_start,writer_end,_=authorities(release_raw,release_sha,writer_raw,writer_sha,plan_raw,plan_sha,provenance_raw,migration_raw)
     a.require(dt.datetime.now(dt.timezone.utc)<a.timestamp(release['expiresAt']),'ROOT_EXECUTION_APPROVAL_EXPIRED')
+    a.require(writer_start<=dt.datetime.now(dt.timezone.utc)<writer_end,'WRITER_EXECUTION_APPROVAL_EXPIRED')
     for index,(raw,pin) in enumerate(packets):
         policy,_=remote.admit(raw,pin,plan_raw,plan_sha,None if index==0 else '0'*64)
+        remote.entry_authority(policy,release_raw,plan_raw,plan_sha)
+        remote.authorization_evidence(policy,authorization_evidence_raw)
+        a.require(policy['principalArn']==rpc.principal_arn,'REMOTE_PRINCIPAL_MISMATCH')
         a.require(policy['sequence']==index and policy['operation']==('release-run' if index==0 else 'business-readback') and policy['entryApprovalSha256']==release_sha
                   and policy['candidateSha256']==release['acquire']['requests']['consume']['inputs']['set'],'PIPELINE_APPROVED_SCOPE')
     root=Path(output);root.mkdir(mode=0o700,parents=False,exist_ok=False)
@@ -158,7 +167,8 @@ def run_approved_pipeline(packets, plan_raw, plan_sha, release_raw, release_sha,
         expected='release-run' if index==0 else 'business-readback'
         a.require(policy['operation']==expected and policy['entryApprovalSha256']==release_sha,
                   'PIPELINE_FIXED_OPERATION')
-        receipt,body=remote.execute(raw,pin,plan_raw,plan_sha,previous,rpc,root/str(index))
+        receipt,body=remote.execute(raw,pin,plan_raw,plan_sha,previous,rpc,root/str(index),
+            entry_approval_raw=release_raw,authorization_evidence_raw=authorization_evidence_raw)
         remote_result(receipt,body,raw,pin,plan_raw,plan_sha,previous)
         if index==0:
             value=a.decode(body)
@@ -168,5 +178,6 @@ def run_approved_pipeline(packets, plan_raw, plan_sha, release_raw, release_sha,
             a.require([v['stage'] for v in value['completed']]==stages,'ROOT_STAGE_ORDER')
         results.append((receipt,body,raw,pin));previous=a.sha(receipt)
     result=business(release_raw,release_sha,writer_raw,writer_sha,*results,plan_raw,plan_sha,None,provenance_raw,migration_raw)
+    result['providerQueriesPerformed']=True
     remote.save(root,'evidence-consumed.json',a.json_bytes(result))
     return result
