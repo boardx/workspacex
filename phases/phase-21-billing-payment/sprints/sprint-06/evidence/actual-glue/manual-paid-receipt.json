@@ -5,11 +5,11 @@
   "ownedCapacityFixture": 2147483640,
   "billingHttpIntercepted": false,
   "orderTimestampsMutated": false,
-  "orderNo": "bg20261016162936TNA9wB",
+  "orderNo": "bg20261017142115ONENj7",
   "closure": {
     "beforeStatus": "PENDING",
     "afterStatus": "CLOSED",
-    "closedAt": "2026-10-16T16:45:36.942Z",
+    "closedAt": "2026-10-17T14:37:16.183Z",
     "worker": "actual DI lifecycle worker; automatic sweep may have won before observation"
   },
   "callbackStatus": 200,

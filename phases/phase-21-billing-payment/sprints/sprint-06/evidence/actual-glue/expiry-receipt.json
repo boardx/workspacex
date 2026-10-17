@@ -5,12 +5,12 @@
   "realTimersAndDatabaseClock": true,
   "billingHttpIntercepted": false,
   "orderTimestampsMutated": false,
-  "expiredOrderNo": "bg20261016162929XY9xtg",
-  "replacementOrderNo": "bg20261016164532Ksr3fq",
+  "expiredOrderNo": "bg20261017142106o0Iys8",
+  "replacementOrderNo": "bg20261017143709OlQKqT",
   "closure": {
     "beforeStatus": "PENDING",
     "afterStatus": "CLOSED",
-    "closedAt": "2026-10-16T16:45:29.602Z",
+    "closedAt": "2026-10-17T14:37:06.549Z",
     "worker": "actual DI lifecycle worker; automatic sweep may have won before observation"
   },
   "nativeRequests": 2,
@@ -18,7 +18,7 @@
   "callbackStatus": 200,
   "duplicateCallbackStatus": 200,
   "balance": 1320,
-  "creditedSource": "bg20261016164532Ksr3fq",
+  "creditedSource": "bg20261017143709OlQKqT",
   "expiredSourceLedgerRows": 0,
   "ledgerRows": 2,
   "productionMerchantAccepted": false
