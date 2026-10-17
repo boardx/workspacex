@@ -240,7 +240,10 @@ test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({pa
  expect(process.env.WORKSPACEX_ISOLATION_ID).toBeTruthy();expect(new URL(page.url()).hostname).toBe('127.0.0.1');
  const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');
  await page.goto('/studio/survey');const response=await loaded;expect(response.ok()).toBeTruthy();
- const surveys=await response.json() as {id:string}[];
+ // The observed GET can belong to the document replaced by goto. Read its URL
+ // through the authenticated request context, whose body survives navigation.
+ const list=await page.request.get(response.url(),{headers:{Authorization:`Bearer ${token}`}});expect(list.ok()).toBeTruthy();
+ const surveys=await list.json() as {id:string}[];
  for(const survey of surveys){
    const card=page.getByTestId(`survey-card-${survey.id}`);await card.getByRole('button',{name:/更多操作：/}).click();
    page.once('dialog',dialog=>dialog.accept());

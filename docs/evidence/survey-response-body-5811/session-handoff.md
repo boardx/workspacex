@@ -1,0 +1,1 @@
+source 17b3733cbbc40d6aa7a1138f5e80ef2d13265061 只修survey R1的浏览器响应生命周期：观察原GET后通过已认证APIRequestContext读取真实列表。原CI首次及retry失败均保留，实际隔离R1/type/lint退出0；不宣称整个fullstack本地通过。新PR/CI/main与支付89a6更新尚待完成。
