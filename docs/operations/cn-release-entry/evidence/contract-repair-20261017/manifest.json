@@ -20,5 +20,24 @@
     "legacy-attempt-1",
     "BC-v3-attempt-2"
   ],
-  "frozenHandoffPatchSha256": "ac98711c5a0fe6f2c0d7c6dae72ad8ffb7e75852ae38fd5fcd4086f13f4d5aa2"
+  "frozenHandoffPatchSha256": "ac98711c5a0fe6f2c0d7c6dae72ad8ffb7e75852ae38fd5fcd4086f13f4d5aa2",
+  "githubSourceValidation": {
+    "head": "384c3b7830cfb2afcdb7eee70f30f37d08fe50c8",
+    "run": 39031167276,
+    "attempt": 1,
+    "job": 117391736657,
+    "conclusion": "success",
+    "suiteCount": 23,
+    "testCases": 241,
+    "requiredTestsSkipped": 0,
+    "canonicalProofModesPassed": [
+      "legacy-attempt-1",
+      "BC-v3-attempt-2"
+    ],
+    "realDockerSixStage": "PASSED",
+    "cleanupVerified": true,
+    "productionAccepted": false,
+    "sourceIsBC": false,
+    "originalLogSha256": "9f9d406842750efc1a14efa6b29a4693d0621a1ed0ba2997d3a1ac5e5187db7e"
+  }
 }

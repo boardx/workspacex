@@ -587,7 +587,10 @@ B0 stays historically green; tool upload, application image upload and A0–A6 r
 Isolated repair validation: 22 local suites / 229 tests plus canonical legacy-attempt-1 and
 BC-v3-attempt-2 proof integration modes passed on frozen Python bytes. The expanded legacy
 conditional-writer suite is environment-limited locally (`UNSAFE_PARENT`, foreign-owned `/`);
-its original failure is retained. Exact-head GitHub expanded regression and real Docker fixture
-are required before marking this code increment tested. See
+its original failure is retained. Exact source `384c3b7830cfb2afcdb7eee70f30f37d08fe50c8`
+subsequently passed GitHub run [39031167276](https://github.com/boardx/workspacex/actions/runs/39031167276):
+23 suites / 241 tests, both canonical proof modes and the real Docker six-stage fixture;
+cleanup verified, synthetic source, productionAccepted=false. This includes the 12 legacy tests
+that were environment-limited locally. Wider repository checks are tracked separately. See
 [evidence/contract-repair-20261017/verification.md](evidence/contract-repair-20261017/verification.md).
 These code-test results never change the production diagram.

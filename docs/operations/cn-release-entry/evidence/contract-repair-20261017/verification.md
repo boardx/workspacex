@@ -10,11 +10,20 @@ One additional local suite ran 12 tests but failed (5 errors, 1 failure) because
 conditional writer store rejects this container's foreign-owned root ancestry. Original failure log
 `19-cn_release_conditional_writer_adapter.log` is retained. `legacy-fixture-environment.json` records
 UID/mode and unchanged protected source. No production check was weakened or test silently skipped.
-The complete suite must pass on standard GitHub Linux before this increment is reported tested.
+The same 12-test suite subsequently passed on standard GitHub Linux, exact source below. The local
+failure remains retained and is not relabeled as a local success.
 
-Real Docker fixture has not run in this local non-GitHub environment. The PR workflow must run the
-exact source head, all expanded Python suites and `test_minimal_docker_release_real.py --output
-"$RUNNER_TEMP/fixed-cn-real"`; record its run/head/attempt/job/result separately after completion.
+Real Docker was run on GitHub Linux, not this local non-GitHub environment. Exact source
+`384c3b7830cfb2afcdb7eee70f30f37d08fe50c8`, [run 39031167276](https://github.com/boardx/workspacex/actions/runs/39031167276),
+attempt 1 / job 117391736657, completed SUCCESS at 2026-10-17T12:08:04Z.
+All 23 suites / 241 tests passed, no required tests skipped; both canonical bootstrap modes passed.
+`python3 -I -B tests/test_minimal_docker_release_real.py --output "$RUNNER_TEMP/fixed-cn-real"`
+passed the real Docker/Compose/save-transfer/HTTP six-stage simulation in 26.245 fixture seconds,
+with `cleanupVerified=true`, `sourceIsBC=false`, `syntheticImageProvenance=true`,
+`productionAccepted=false`. See original `github-source.log` and parsed `github-docker-result.json`.
+The wider repository checks were still pending when this evidence was recorded; the saved snapshot
+is explicitly partial, not an all-checks-green claim. Subsequent evidence-only commits retain these
+source bytes; do not attribute this source run to a different head.
 The pre-push hook runs typecheck/lint but reported zero matching tasks for this Python/doc scope;
 it is not the test receipt. `./init.sh` succeeded before implementation.
 
