@@ -101,7 +101,8 @@ class ToolBudgetMiddleware(AgentMiddleware):
         if self.scope_messages and published_report(self.scope_messages((getattr(request,'state',None) or {}).get('messages',[]))):
             # The host has staged this job's unique output. Request the ordinary final
             # without another read/todo loop; grading and host writeback still run.
-            return request.override(tools=[],tool_choice='none')
+            return request.override(tools=[],tool_choice='none',
+                model_settings={**(getattr(request,'model_settings',None) or {}),'tool_choice':'none'})
         tools = getattr(request, "tools", None)
         if not tools:
             return request
