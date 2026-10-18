@@ -44,7 +44,8 @@ function writeFeatures(features: Feat[]): void {
 }
 
 function git(cmd: string): string {
-  const r = sh(`git ${cmd}`, repo);
+  // Every fixture Git command (including merges) has a process-local identity.
+  const r = sh(`git -c user.email=t@t -c user.name=t ${cmd}`, repo);
   if (r.code !== 0) throw new Error(`git ${cmd} 失败:\n${r.stdout}`);
   return r.stdout.trim();
 }
