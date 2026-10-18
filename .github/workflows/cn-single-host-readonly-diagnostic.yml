@@ -19,6 +19,8 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
+          sparse-checkout: scripts/cn-single-host-readonly-diagnostic.py
+          sparse-checkout-cone-mode: false
       - name: Verify reviewed bytes and collect metadata once without elevation
         shell: bash
         run: |
