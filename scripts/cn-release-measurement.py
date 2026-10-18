@@ -49,7 +49,7 @@ def pairs(items):
 def decode(raw):
     try:
         return json.loads(raw, object_pairs_hook=pairs)
-    except (ValueError, UnicodeError):
+    except (ValueError, UnicodeError, RecursionError):
         raise Rejected('JSON_INVALID') from None
 
 

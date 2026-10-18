@@ -187,7 +187,7 @@ Corrected only test helper/explicit disposable subtree seam; production director
 These are offline/source results, not the30m production or full-scale recovery acceptance.
 
 Independent review follow-up: receipt/intent JSON arrays/null/scalars now reject explicitly before
-field access.17 tests pass, including10 CLI malformed-object cases returning only fixed rejection
+field access.18 tests pass, including10 CLI malformed-object cases and a1100-level JSON rejection returning only fixed rejection
 JSON, exit2 and empty stderr. The original16-test hosted CI passed run39093477759/job117574936393.
 This reader is only a transport timing lower bound, not a complete end-to-end timer. A trusted
 collector still must correlate actual GitHub request/run/attempt times and owner, exact cloud
