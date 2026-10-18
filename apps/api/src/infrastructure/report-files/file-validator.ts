@@ -53,6 +53,14 @@ export function validateReportContent(format: FileRequest['format'], extracted: 
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');
   }
   if (!canonical.includes(normalizeReportText('文件生成披露')) && text.includes(normalizeReportText('文件生成披露'))) throw new ReportFileError('INVALID_FILE');
+  for (const notice of [...source.notices, source.reportHash]) {
+    const normalized = normalizeReportText(notice);
+    if (normalized && !canonical.includes(normalized) && text.includes(normalized)) throw new ReportFileError('INVALID_FILE');
+  }
+  for (const line of extracted.split(/\r?\n/u)) {
+    if (/^\s*(?:#{1,6}\s*)?(?:文档版本\s*[:：\d]|内容哈希\s*[:：]|(?:审核|审阅|复核)状态\s*[:：])/u.test(line)
+      && !canonical.includes(normalizeReportText(line))) throw new ReportFileError('INVALID_FILE');
+  }
   const urls = normalizeReportText(extracted + relationUrls.join(' '));
   if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
   const title = normalizeReportText(required.title ?? source.title);
