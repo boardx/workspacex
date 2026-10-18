@@ -21,27 +21,30 @@ export function parseSquashReconstructions(body: string): SquashReconstruction[]
  * No overridden merge base, conflict strategy, path filter or partial-tree comparison.
  */
 export function reconstructedSquash(git: ProofGit, head: string, witness: string, logPath: string,
-  evidenceBlob: string, proofs: SquashReconstruction[]): boolean {
+  evidenceBlob: string, proofs: SquashReconstruction[], diagnose:(stage:string)=>void=()=>{}): boolean {
+  const reject=(stage:string)=>{diagnose("SQUASH_PROOF_REJECTED "+stage);return false;};
   if (![head,witness,evidenceBlob].every(oid) || !/^phases\/[a-zA-Z0-9_./-]+\.verify\.log$/.test(logPath) ||
-      logPath.split("/").includes("..")) return false;
+      logPath.split("/").includes("..")) return reject("INPUT_IDENTITY");
   return proofs.some(p => {
-    if (![p.source,p.squash,p.parent].every(oid) ||
-        git(`cat-file -e ${witness}^{commit}`).code !== 0 ||
-        git(`cat-file -e ${p.source}^{commit}`).code !== 0 ||
-        git(`cat-file -e ${p.parent}^{commit}`).code !== 0 ||
-        git(`cat-file -e ${p.squash}^{commit}`).code !== 0 ||
-        git(`merge-base --is-ancestor ${witness} ${p.source}`).code !== 0 ||
-        git(`merge-base --is-ancestor ${p.squash} ${head}`).code !== 0) return false;
-    const parents = git(`rev-list --parents -n 1 ${p.squash}`);
-    if (parents.code !== 0 || parents.out.trim() !== p.squash + " " + p.parent) return false;
-    for (const ref of [p.source,p.squash]) {
-      const blob = git(`rev-parse --verify ${ref}:${logPath}`);
-      if (blob.code !== 0 || blob.out.trim() !== evidenceBlob) return false;
+    if (![p.source,p.squash,p.parent].every(oid)) return reject("CANDIDATE_IDENTITY");
+    for(const [label,sha] of [["WITNESS",witness],["SOURCE",p.source],["PARENT",p.parent],["SQUASH",p.squash]]){
+      if(git(`cat-file -e ${sha}^{commit}`).code!==0)return reject("MISSING_"+label);
     }
-    const target = git(`rev-parse --verify ${p.squash}^{tree}`);
-    if (target.code !== 0 || !oid(target.out.trim())) return false;
-    const rebuilt = git(`merge-tree --write-tree --no-messages ${p.parent} ${p.source}`);
-    return rebuilt.code === 0 && oid(rebuilt.out.trim()) && rebuilt.out.trim() === target.out.trim();
+    if(git(`merge-base --is-ancestor ${witness} ${p.source}`).code!==0)return reject("WITNESS_ANCESTRY");
+    if(git(`merge-base --is-ancestor ${p.squash} ${head}`).code!==0)return reject("TARGET_ANCESTRY");
+    const parents=git(`rev-list --parents -n 1 ${p.squash}`);
+    if(parents.code!==0||parents.out.trim()!==p.squash+" "+p.parent)return reject("ACTUAL_PARENT");
+    for(const [label,ref] of [["SOURCE",p.source],["SQUASH",p.squash]]){
+      const blob=git(`rev-parse --verify ${ref}:${logPath}`);
+      if(blob.code!==0||blob.out.trim()!==evidenceBlob)return reject(label+"_EVIDENCE_BLOB");
+    }
+    const target=git(`rev-parse --verify ${p.squash}^{tree}`);
+    if(target.code!==0||!oid(target.out.trim()))return reject("TARGET_TREE");
+    const rebuilt=git(`merge-tree --write-tree --no-messages ${p.parent} ${p.source}`);
+    if(rebuilt.code!==0)return reject("MERGE_TREE_EXIT");
+    if(!oid(rebuilt.out.trim()))return reject("MERGE_TREE_OUTPUT");
+    if(rebuilt.out.trim()!==target.out.trim())return reject("COMPLETE_TREE_MISMATCH");
+    diagnose("SQUASH_PROOF_MATCH "+p.source+" "+p.squash+" "+target.out.trim());return true;
   });
 }
 /** Keep the PR source, advancing main and synthetic integration as separate audited deltas. */

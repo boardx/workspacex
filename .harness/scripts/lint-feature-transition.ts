@@ -142,7 +142,7 @@ export function squashIntegrationOracle(git: Git, head: string, reconstructions:
       const blob = git(`rev-parse --verify '${object}'`);
       return blob.code === 0 && blob.out.trim() === evidenceBlob;
     });
-    const proved = integrated || reconstructedSquash(git, head, witness, logPath, evidenceBlob, reconstructions);
+    const proved = integrated || reconstructedSquash(git, head, witness, logPath, evidenceBlob, reconstructions, stage=>console.error(stage));
     results.set(key, proved);
     return proved;
   };
