@@ -220,7 +220,7 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
       p = WorkflowInstanceProjection.parse((await settled(started.instanceId)).body);
     }
     expect(approvedGates).toEqual(["frame_gate", "target_gate", "solution_gate", "prd_gate"]);
-    expect(p.status).toBe("succeeded");
+    expect(p.status, JSON.stringify({ stages: p.stages.map(s => ({ stageId: s.stageId, status: s.status, reasonCode: s.reasonCode })), effects: p.effects })).toBe("succeeded");
     expect(p.stages.every((s) => s.status === "succeeded")).toBe(true);
 
     // Skill 调用顺序与版本固定（ADR-118 #9：来自实例冻结的 pinnedSkills），经生产 ModelCallPort 到回环模型。
@@ -271,10 +271,10 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
     expect(prd.metrics.map((m) => m.name)).toEqual(["KPI-1 首次导入成功率"]);
     expect(body.file?.markdown).toContain(prd.problem.text);
     expect(body.file?.markdown).toContain("REQ-2 [should]");
-    const version = await asApp(ORG, c => c.query<{ content_hash: string; source: string; synthesized: boolean }>(
-      "SELECT v.content_hash, a.source, a.synthesized FROM artifact_versions v JOIN artifacts a ON a.id=v.artifact_id AND a.org_id=v.org_id WHERE v.org_id=$1 AND v.id=$2",
+    const version = await asApp(ORG, c => c.query<{ content_hash: string; source: string; synthesized: boolean; creator_kind: string; agent_run_id: string | null }>(
+      "SELECT v.content_hash, a.source, a.synthesized, v.creator_kind, v.agent_run_id FROM artifact_versions v JOIN artifacts a ON a.id=v.artifact_id AND a.org_id=v.org_id WHERE v.org_id=$1 AND v.id=$2",
       [ORG, body.file!.versionId]));
-    expect(version.rows).toEqual([{ content_hash: body.file!.contentHash, source: "ai-generated", synthesized: true }]);
+    expect(version.rows).toEqual([{ content_hash: body.file!.contentHash, source: "ai-generated", synthesized: true, creator_kind: "user", agent_run_id: null }]);
     const reopened = await pm().get(outputPath(started.instanceId));
     expect(reopened.status).toBe(200);
     expect(wc.getInstanceOutput.out.parse(reopened.body).file).toEqual(body.file);

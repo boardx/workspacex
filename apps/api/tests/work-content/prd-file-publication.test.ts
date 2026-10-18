@@ -39,8 +39,9 @@ describe("W029 saved PRD bytes", () => {
       expect(first.file).not.toHaveProperty("materializedKeys");
       expect(await getContentInstanceOutput(deps, "org-w029-file", "w029-file-author", "w029-file-instance")).toEqual(first);
       expect(repo.createVersion).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(repo.createVersion).mock.calls[0]![0]).toMatchObject({ creatorKind: "user", pinnedBy: "w029-file-author" });
       const provenance = JSON.parse(Buffer.from((await files.store.get(published.file.materializedKeys[1]!))!).toString());
-      expect(provenance).toMatchObject({ workflowId: "W029", prdDigest: prd.digest, semanticSupportVerified: false });
+      expect(provenance).toMatchObject({ workflowId: "W029", prdDigest: prd.digest, producerKind: "workflow", semanticSupportVerified: false });
       await writeFile(resolveObjectPath(root, published.file.materializedKeys[0]!), "changed after save");
       await expect(getContentInstanceOutput(deps, "org-w029-file", "w029-file-author", "w029-file-instance")).rejects.toThrow("unreadable or changed");
       const denied = { ...deps, runtime: { get: async () => { throw new Error("workflow_not_found"); } } };

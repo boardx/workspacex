@@ -55,6 +55,7 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-18：Workflow 实例不是 agent_runs 行。F44 的 artifact_versions_agent_run_id_iff_agent 要求 creator_kind=agent 当且仅当有真实 agent_run_id；工作流文件由发起人提交版本，source=ai-generated、synthesized 与 producerKind=workflow 保留生成来源，不能伪造 run 或放宽数据库约束。W029 的真实 PG CI 暴露了文件系统 fake 仓储未覆盖的约束缺口（Refs #5820 / PR #5821）。
 - 2026-10-18：W029 原 publishPrdArtifact 仅返回工作流 JSON URL，不能据此宣称文件保存。使用现有 artifact.write 回执保存物化文件引用，按实例可见性重开并校验真实 Markdown/provenance 字节；无文件引用的历史实例不展示保存态。无 project 的物化文件不走 F32 项目文件下载（它会拒绝），复用实例输出权限提供已校验文本（Refs #5820）。
 - 2026-10-14：W027 的旧 G1 放在生成阶段上，但 runtime 在 work 之前开门，不能审阅尚不存在的计划。新不可变 v2 把生成与 review 分节点，门预览从已提交输出读取并绑定服务器摘要；判据 SHA256 由服务器确定性计算，不能要求语言模型猜算。真实 PG 固定方法导入/审批拒绝/恢复验证与真实模型专业质量分开，缺提纲/田野适配器显式失败（Refs #4922，digital-phase-one-20261014）。
 - 2026-10-05：能力图新增当前发布版本元数据读取时，仓储守卫应按方法限制表与精确 SELECT 列；创建/克隆/列表不能一起放宽。复用已守卫的目录 pin resolver 可避免新增权限豁免，仍需真实 PG 跨组织、未发布及历史版本反例证明边界（PR #5389 / issue #5386）。

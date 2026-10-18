@@ -25,10 +25,12 @@ export async function publishPrdArtifact(deps: MaterializeDeps, args: {
     "", "## 衡量指标", ...prd.metrics.map(m => `- ${m.name}：${m.definition}`), ""].join("\n");
   const file = await materializeArtifact(deps, {
     orgId: toOrgId(args.orgId), projectId: null, source: "ai-generated", title: prd.title,
-    actorId: args.initiatorUserId, versionCreatorKind: "agent", versionChangeSource: "materialize",
+    // A workflow instance is not an agent_runs row. The initiator commits this generated
+    // version; claiming creatorKind=agent without a real agentRunId violates F44's constraint.
+    actorId: args.initiatorUserId, versionCreatorKind: "user", versionChangeSource: "materialize",
     parts: { "content.md": Buffer.from(markdown, "utf8"), "provenance.json": Buffer.from(JSON.stringify({
       workflowId: "W029", instanceId: args.instanceId, prdDigest: prd.digest,
-      synthesized: true, semanticSupportVerified: false,
+      synthesized: true, producerKind: "workflow", initiatorUserId: args.initiatorUserId, semanticSupportVerified: false,
     }) + "\n", "utf8") },
   });
   return { artifactRef: prdArtifactRefOf(args.instanceId), file: workContent.PrdFileReceipt.parse(file) };
