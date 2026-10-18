@@ -180,3 +180,14 @@ it('serializes concurrent fresh request IDs for one representation and does not 
  expect(await store.findReusable(key)).toBeNull();
  expect(await store.insert({...records[0]!,requestId:randomUUID(),job:{...records[0]!.job,id:randomUUID()}})).toBe(true);
 });
+it('invalidates only the same proven-broken successful file and frees its representation slot',async()=>{
+ const record=await accept(collaborator);const store=new PgReportFileJobStore(db);
+ const job={...record.job,status:'succeeded' as const,skill:record.skill,file:{filename:'report.pdf',mediaType:'application/pdf',sizeBytes:123,sha256:'a'.repeat(64)}};
+ const successful={...record,job};
+ await asApp(org,c=>c.query(`UPDATE report_skill_file_jobs SET state='succeeded',metadata=$3::jsonb WHERE org_id=$1 AND id=$2`,[org,job.id,JSON.stringify(successful)]));
+ expect(await store.invalidateFile({...successful,actor:{...successful.actor,userId:observer}})).toBe(false);
+ expect(await store.invalidateFile({...successful,job:{...job,file:{...job.file,sha256:'b'.repeat(64)}}})).toBe(false);
+ expect(await store.invalidateFile(successful)).toBe(true);
+ expect((await store.get(successful.actor,job.id))?.job).toMatchObject({status:'failed',errorCode:'INVALID_FILE'});
+ expect(await store.findReusable({actor:successful.actor,source:job.source,format:job.format,bindingKey:successful.bindingKey,renderHash:successful.renderHash})).toBeNull();
+});

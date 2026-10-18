@@ -27,7 +27,7 @@ def test_only_real_current_turn_report_receipt_removes_mutating_tools(receipt,st
  req=Request([{'name':'execute'},{'name':'read_file'},{'name':'wx_artifact_publish'}],{'messages':messages(receipt,status)},'execute')
  result=ToolBudgetMiddleware(excluded=frozenset(),scope_messages=_current_turn_messages)._pruned(req)
  if receipt==RECEIPT and status=='success':
-  assert result.tools==[{'name':'read_file'}] and result.tool_choice is None
+  assert result.tools==[] and result.tool_choice=='none'
  else:assert result is req
 
 def test_old_turn_and_model_text_are_not_completion_authority():
@@ -83,11 +83,18 @@ def anyio_backend():return "asyncio"
 
 @pytest.mark.anyio
 async def test_native_graph_reaches_final_and_grader_after_report_publication(monkeypatch):
- from test_native_graph import model,sandbox
+ from test_native_graph import model,sandbox,ScriptedModel
  from deep_agent_service.native_graph import create_native_graph
  from deep_agent_service import native_artifact_publish
  from deep_agent_service.native_artifact_publish import artifact_publish_tool
- published=False;effects=[]
+ published=False;effects=[];grader_results=[]
+ original_generate=ScriptedModel._generate
+ def observe_generate(self,*args,**kwargs):
+  result=original_generate(self,*args,**kwargs)
+  if any(call.get('name')=='GraderResponse' for generation in result.generations for call in getattr(generation.message,'tool_calls',[])):
+   grader_results.append(result)
+  return result
+ monkeypatch.setattr(ScriptedModel,'_generate',observe_generate)
  class Authority:
   def check(self,call):raise AssertionError('async graph expected')
   async def acheck(self,call):
@@ -110,3 +117,21 @@ async def test_native_graph_reaches_final_and_grader_after_report_publication(mo
  assert any(isinstance(m,ToolMessage) and m.tool_call_id=='late' and m.status=='error' for m in result['messages'])
  assert isinstance(result['messages'][-1],AIMessage) and not result['messages'][-1].tool_calls
  assert result['messages'][-1].content=='The report file is staged for normal writeback.'
+ assert grader_results, 'The ordinary rubric grader must actually execute after the final'
+
+
+def test_successful_report_stage_requests_a_normal_final_without_read_or_todo_loop():
+ req=Request([{'name':'read_file'},{'name':'write_todos'},{'name':'execute'}],{'messages':messages()},'auto')
+ result=ToolBudgetMiddleware(excluded=frozenset(),scope_messages=_current_turn_messages)._pruned(req)
+ assert result.tools==[] and result.tool_choice=='none'
+ assert result.state is req.state  # No synthetic final or altered grader/agent state.
+
+def test_final_only_request_is_serializable_by_the_existing_openai_adapter(monkeypatch):
+ from deep_agent_service.model import build_chat_model
+ monkeypatch.setenv('KERNEL_MODEL_BASE_URL','https://example.invalid/v1')
+ monkeypatch.setenv('KERNEL_MODEL_API_KEY','fixture-not-secret')
+ monkeypatch.setenv('KERNEL_DEEP_AGENT_MODEL_ID','fixture-model')
+ req=Request([{'name':'read_file'},{'name':'write_todos'}],{'messages':messages()},'auto')
+ final=ToolBudgetMiddleware(excluded=frozenset(),scope_messages=_current_turn_messages)._pruned(req)
+ payload=build_chat_model()._get_request_payload([HumanMessage(content='finish')],tool_choice=final.tool_choice)
+ assert payload['tool_choice']=='none' and not payload.get('tools')

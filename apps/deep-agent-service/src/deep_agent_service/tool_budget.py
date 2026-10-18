@@ -18,7 +18,7 @@ is byte-for-byte what it was.
 from __future__ import annotations
 
 import os
-from .report_file_completion import published_report,POST_PUBLISH_TOOLS
+from .report_file_completion import published_report
 from typing import TYPE_CHECKING, Any
 
 from langchain.agents.middleware.types import AgentMiddleware
@@ -99,8 +99,9 @@ class ToolBudgetMiddleware(AgentMiddleware):
 
     def _pruned(self, request: "ModelRequest") -> "ModelRequest":
         if self.scope_messages and published_report(self.scope_messages((getattr(request,'state',None) or {}).get('messages',[]))):
-            tools=prune_tools(list(getattr(request,'tools',None) or []),self._excluded | per_run_excluded_tools())
-            return request.override(tools=[tool for tool in tools if _tool_name(tool) in POST_PUBLISH_TOOLS],tool_choice=None)
+            # The host has staged this job's unique output. Request the ordinary final
+            # without another read/todo loop; grading and host writeback still run.
+            return request.override(tools=[],tool_choice='none')
         tools = getattr(request, "tools", None)
         if not tools:
             return request

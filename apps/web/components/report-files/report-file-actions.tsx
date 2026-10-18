@@ -51,6 +51,9 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
       if (job.status === 'failed') update({ job, error: job.errorCode === 'REPORT_CHANGED' ? '报告已更新，请基于当前版本重新生成。' : '文件生成失败，请重试。' });
       else { update({ job, pending: true }); await downloadReportFile(job, controller.signal); update({ job }); }
     } catch {
+      if (current() && job?.status === 'succeeded') {
+        try { const refreshed = await getReportFileJob(job.id, controller.signal); if (refreshed.status === 'failed') job = refreshed; } catch { /* A transient read failure must not invalidate a valid cached file. */ }
+      }
       update({ job, error: '文件暂时无法生成或下载，请确认当前报告后重试。' });
     } finally { if (current()) controllers.current.delete(format); }
   }

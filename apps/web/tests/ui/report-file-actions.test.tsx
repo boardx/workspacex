@@ -63,3 +63,31 @@ it('retrieves a server-cached current file after remount and downloads without a
  render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});
  expect(downloadReportFile).toHaveBeenCalledTimes(2);
 });
+it('stops long polling with a resumable job instead of leaving an endless spinner',async()=>{
+ const {getReportFileJob}=await import('@/lib/report-files-api');
+ const running={id:success.id,source,format:'pdf' as const,createdAt:success.createdAt,status:'running' as const};
+ vi.useFakeTimers();
+ const view=render(<ReportFileActions source={source}/>);
+ try {
+  vi.mocked(generateReportFile).mockResolvedValue(running);vi.mocked(getReportFileJob).mockResolvedValue(running);
+  fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(302000);});
+  expect(screen.getByRole('button',{name:'查看 PDF 进度'})).toBeEnabled();
+  expect(screen.getByRole('alert')).toHaveTextContent('任务仍在处理中');
+  expect(generateReportFile).toHaveBeenCalledTimes(1);expect(downloadReportFile).not.toHaveBeenCalled();
+ } finally {view.unmount();vi.useRealTimers();}
+});
+it('refreshes a broken cached file status before offering a new generation',async()=>{
+ const {getReportFileJob}=await import('@/lib/report-files-api');
+ vi.mocked(generateReportFile).mockResolvedValue(success);vi.mocked(downloadReportFile).mockRejectedValueOnce(new Error('invalid cached file'));
+ vi.mocked(getReportFileJob).mockResolvedValue({id:success.id,source,format:'pdf',createdAt:success.createdAt,status:'failed',errorCode:'INVALID_FILE'});
+ render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));
+ const retry=await screen.findByRole('button',{name:'重新生成 PDF'});fireEvent.click(retry);
+ await screen.findByRole('button',{name:'下载 PDF'});expect(generateReportFile).toHaveBeenCalledTimes(2);
+});
+it('keeps an existing file on a transient download and status outage',async()=>{
+ const {getReportFileJob}=await import('@/lib/report-files-api');
+ vi.mocked(generateReportFile).mockResolvedValue(success);vi.mocked(downloadReportFile).mockRejectedValueOnce(new Error('temporary outage'));vi.mocked(getReportFileJob).mockRejectedValue(new Error('unavailable'));
+ render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));await screen.findByRole('alert');
+ fireEvent.click(screen.getByRole('button',{name:'下载 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});expect(generateReportFile).toHaveBeenCalledTimes(1);
+});

@@ -143,6 +143,8 @@ afterAll(async () => {
     } catch { /* Diagnostic staged bytes never imply successful report delivery. */ }
   }
 
+  const requestCounts = await Promise.all(acceptedRunIds.map(async runId => ({runId, actualModelRequests:Number((await asApp(org,c=>c.query<{count:string}>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[org,runId]))).rows[0]!.count)})));
+  await writeFile(join(evidence,'request-counts.json'),JSON.stringify(requestCounts,null,2),{mode:0o600}).catch(()=>undefined);
   await writeFile(join(evidence, 'receipts.json'), JSON.stringify(receipts, null, 2), { mode: 0o600 }).catch(() => undefined);
   let redacted = deepOutput; for (const key of ['KERNEL_MODEL_API_KEY', 'DASHSCOPE_API_KEY', 'DEEP_AGENT_SERVICE_INTERNAL_KEY', 'NATIVE_SESSION_BINDING_KEY']) { const value = process.env[key]; if (value) redacted = redacted.replaceAll(value, '[redacted]'); }
   await writeFile(join(evidence, 'deep-service.log'), redacted, { mode: 0o600 }).catch(() => undefined);
