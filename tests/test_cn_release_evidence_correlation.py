@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('correlation', ROOT/'scripts/cn-release-evidence-correlation.py')
@@ -131,6 +132,19 @@ class CorrelationTests(unittest.TestCase):
         for value in [[],None,True,12,'string']:
             with self.subTest(value=value),self.assertRaises(c.m.Rejected):c.object_value(raw(value))
         with self.assertRaises(c.m.Rejected):c.object_value(b'['*1100+b']'*1100)
+
+    def test_changes_after_closure_cannot_enter_correlation(self):
+        original_inspect=c.closure.inspect
+        for name in ['identity.json','16-observe.evidence.json','16-observe.intent.json',
+                     '16-observe.receipt.json','16-observe.admission.json']:
+            path=self.root/name; original=path.read_bytes()
+            def replacing(*args,**kwargs):
+                result=original_inspect(*args,**kwargs)
+                path.write_bytes(original+b' ')
+                return result
+            with self.subTest(name=name),patch.object(c.closure,'inspect',replacing),self.assertRaisesRegex(c.m.Rejected,'CORRELATION_SNAPSHOT_CHANGED'):
+                self.correlate()
+            path.write_bytes(original)
 
 
 if __name__ == '__main__':unittest.main()

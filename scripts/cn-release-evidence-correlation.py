@@ -41,6 +41,13 @@ def correlate(attempt_dir, packages_dir, github_run_raw, github_jobs_raw, expect
                             user_requested_at=user_requested_at, observed_at=observed_at)
     m.need(graph['completeTransportSnapshot'], 'COMPLETE_ORIGINAL_SNAPSHOT_REQUIRED')
     root, packages = Path(attempt_dir), Path(packages_dir)
+    def pinned(area, name, request=None):
+        rows = [item for item in graph['files'] if item['area'] == area and item['name'] == name and
+                (area == 'attempt' or item.get('requestSha256') == request)]
+        m.need(len(rows) == 1, 'CORRELATION_INVENTORY_ENTRY')
+        raw = m.read(root if area == 'attempt' else packages/request, name)
+        m.need(m.digest(raw) == rows[0]['sha256'], 'CORRELATION_SNAPSHOT_CHANGED')
+        return raw
     run, jobs = object_value(github_run_raw), object_value(github_jobs_raw)
     m.need(run.get('id') == expected['runId'] and type(run.get('id')) is int and
            run.get('run_attempt') == expected['runAttempt'] and type(run.get('run_attempt')) is int, 'GITHUB_ATTEMPT_DRIFT')
@@ -62,18 +69,18 @@ def correlate(attempt_dir, packages_dir, github_run_raw, github_jobs_raw, expect
     m.need(job.get('status') == 'completed' and job.get('conclusion') == 'success', 'JOB_NOT_SUCCESSFUL')
     final = graph['stages'][-1]
     m.need(final['stage'] == 'observe', 'FINAL_OBSERVER_REQUIRED')
-    manifest = object_value(m.read(packages/final['requestSha256'], 'manifest.json'))
-    approval_raw = m.read(packages/final['requestSha256'], 'authorization.json')
+    manifest = object_value(pinned('package', 'manifest.json', final['requestSha256']))
+    approval_raw = pinned('package', 'authorization.json', final['requestSha256'])
     approval = object_value(approval_raw)
     m.need(approval.get('kind') == 'cn-fixed-release-approval-v1' and approval.get('target') == observer.TARGET, 'TARGET_SCOPE_DRIFT')
     m.need(type(approval.get('identity')) is dict and type(approval.get('business')) is dict, 'APPROVAL_OBJECTS')
-    identity = object_value(m.read(root, 'identity.json'))
+    identity = object_value(pinned('attempt', 'identity.json'))
     m.need(set(approval['identity']) == (set(identity)-{'scope'}) | {'publicationAttemptId'}, 'APPROVAL_IDENTITY_FIELDS')
     m.need(isinstance(approval['identity']['publicationAttemptId'], str) and
            m.entry.ATTEMPT.fullmatch(approval['identity']['publicationAttemptId']), 'PUBLICATION_ATTEMPT')
     for key, value in identity.items():
         if key != 'scope': m.need(approval['identity'].get(key) == value, 'APPROVAL_IDENTITY_DRIFT')
-    raw_a6 = m.read(root, '16-observe.evidence.json')
+    raw_a6 = pinned('attempt', '16-observe.evidence.json')
     a6 = object_value(raw_a6)
     m.need(all(a6.get(k) == v for k, v in approval['identity'].items()), 'A6_IDENTITY_DRIFT')
     m.need(a6.get('kind') == 'cn-independent-business-acceptance-v1' and a6.get('mode') == 'observe', 'A6_MODE')
@@ -89,9 +96,9 @@ def correlate(attempt_dir, packages_dir, github_run_raw, github_jobs_raw, expect
     m.need(type(samples) is list and len(samples) >= 2 and all(isinstance(s, str) and m.entry.HEX.fullmatch(s) for s in samples), 'A6_STABLE_SAMPLES')
     created, started = m.instant(run['created_at']), m.instant(job['started_at'])
     finished, accepted = m.instant(job['completed_at']), m.instant(a6['observedAt'])
-    intent = object_value(m.read(root, '16-observe.intent.json'))
-    receipt = object_value(m.read(root, '16-observe.receipt.json'))
-    first_intent = object_value(m.read(root, '00-consume.intent.json'))
+    intent = object_value(pinned('attempt', '16-observe.intent.json'))
+    receipt = object_value(pinned('attempt', '16-observe.receipt.json'))
+    first_intent = object_value(pinned('attempt', '00-consume.intent.json'))
     m.need(m.instant(github_accepted_at) <= created <= started <= m.instant(first_intent['createdAt']) <=
            m.instant(intent['createdAt']) <= accepted <= m.instant(receipt['finishedAt']) <= finished, 'CROSS_SOURCE_CLOCK_ORDER')
     m.need((accepted-m.instant(intent['createdAt'])).total_seconds() >= stable, 'STABLE_WINDOW_TIME')
@@ -99,7 +106,7 @@ def correlate(attempt_dir, packages_dir, github_run_raw, github_jobs_raw, expect
                 runId=expected['runId'], runAttempt=expected['runAttempt'], owner=expected['owner'],
                 jobId=expected['jobId'], sourceRevision=identity['sourceRevision'], controlRevision=identity['controlRevision'],
                 target=approval['target'], approvalRawSha256=m.digest(approval_raw), finalA6RawSha256=m.digest(raw_a6),
-                canonicalAdmissionRawSha256=m.digest(m.read(root, '16-observe.admission.json')),
+                canonicalAdmissionRawSha256=m.digest(pinned('attempt', '16-observe.admission.json')),
                 githubRunRawSha256=m.digest(github_run_raw), githubJobsRawSha256=m.digest(github_jobs_raw),
                 workflowCreationToA6Seconds=(accepted-created).total_seconds(), stableWindowSeconds=stable,
                 consistencyChecked=True, sourceAuthorityVerified=False, crossHostClockErrorVerified=False,

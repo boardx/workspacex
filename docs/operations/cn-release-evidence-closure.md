@@ -64,13 +64,15 @@ hashes. Workflow/job/intent/A6/receipt times must be consistent; even a fully re
 attempt or failed/skipped journey is rejected. No sample content, command, token or raw provider
 response is output or executed. No arbitrary verifier or trusted=true parameter is accepted.
 
-8 correlation tests demonstrate both rejection and the crucial limit: completely self-generated,
+9 correlation tests demonstrate both rejection and the crucial limit: completely self-generated,
 internally consistent files still return UNVERIFIED_SOURCE, productionAccepted=false and
 thirtyMinuteProductionProven=false. The proposal derives workflowCreationToA6Seconds from GitHub
 shaped bytes but does not call it verified request-to-A6 lead time. Request acceptance, authenticated
 provider capture, cross-host clock error and actual protected canonical verifier execution remain
 false/unverified. Raw GitHub JSON captured by this local API has no source attestation; hashes alone
 cannot establish provenance. Root readback and real runtime/output evidence are still required.
+Every correlation-layer read is pinned again to the captured inventory hash; a regression replaces
+identity, A6 evidence, intent, receipt or admission after closure validation and requires rejection.
 
 Next operational dependency is one supported existing GitHub manual-dispatch interface followed
 by existing production-cn-promotion review, and an already approved protected evidence collector
