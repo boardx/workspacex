@@ -269,6 +269,17 @@ describe("CT06 · 产品线端到端（生产合成 + HTTP）：问题到 PRD（
       { id: "REQ-2", text: "导入失败时给出可操作的修复提示（绑定 KPI-1）", priority: "should" },
     ]);
     expect(prd.metrics.map((m) => m.name)).toEqual(["KPI-1 首次导入成功率"]);
+    expect(body.file?.markdown).toContain(prd.problem.text);
+    expect(body.file?.markdown).toContain("REQ-2 [should]");
+    const version = await asApp(ORG, c => c.query<{ content_hash: string; source: string; synthesized: boolean }>(
+      "SELECT v.content_hash, a.source, a.synthesized FROM artifact_versions v JOIN artifacts a ON a.id=v.artifact_id AND a.org_id=v.org_id WHERE v.org_id=$1 AND v.id=$2",
+      [ORG, body.file!.versionId]));
+    expect(version.rows).toEqual([{ content_hash: body.file!.contentHash, source: "ai-generated", synthesized: true }]);
+    const reopened = await pm().get(outputPath(started.instanceId));
+    expect(reopened.status).toBe(200);
+    expect(wc.getInstanceOutput.out.parse(reopened.body).file).toEqual(body.file);
+    const receiptFile = receipts.rows.find(row => row.stable_response.result.file)?.stable_response.result.file;
+    expect(receiptFile).toMatchObject({ artifactId: body.file!.artifactId, versionId: body.file!.versionId });
 
     // 可见性同 getInstance：同组织非发起人、非管理员看不到 = 404。
     expect((await as(e, PEER, ORG).get(outputPath(started.instanceId))).status).toBe(404);
