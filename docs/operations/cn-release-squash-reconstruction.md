@@ -17,7 +17,7 @@ wrong source or merely matching paths reject. Git can create unreferenced object
 refs, index or worktree. No log, test outcome, SQL, production setting or permission changes.
 
 PR CI validates synthetic head's two parents and source identity, then independently checks
-event-base to PR source, event-base to actual first parent (advancing main), and actual first parent
+merge-base(event-base, PR source) to PR source, event-base to actual first parent (advancing main), and actual first parent
 to synthetic head. Main's new transitions remain checked. Existing whole-source-tree proofs remain.
 
 Validation is pending: authored through GitHub while this worker's shell recovery is unconfirmed.
@@ -29,3 +29,5 @@ foreign witness, conflicts, strict manifest and separate PR/main deltas. No prod
 Git contract: https://git-scm.com/docs/git-merge-tree
 
 Review follow-up: the final provenance judge now rejects missing witness objects instead of emitting a warning. Two actual CLI cases cover missing and existing-but-unreachable witnesses. PR parent validation allows a source branched before the event base: it requires event-base ancestry to actual main and a real common merge-base between main and source, not the invalid requirement that new main be the source's ancestor. A real-Git CLI regression covers this normal lagging-PR shape. These follow-up tests remain unexecuted until an exact-source receipt is obtained.
+
+Additional review correction: the PR-only delta uses the unique actual merge-base of event base and PR source. This prevents new-main passing records absent from an older PR source from being mistaken for PR deletions. Multiple/unknown merge bases reject. The main-advance and actual integration deltas remain separate. Three actual CLI negative cases independently introduce an illegal passing transition in source, main advancement or synthetic integration. No history or acceptance log is altered. Follow-up tests still await execution.

@@ -446,8 +446,22 @@ describe("final CLI missing and unreachable witnesses fail closed",()=>{
   git("checkout -q main");write("main.txt","new main change\n");const eventBase=commit("main advances after PR branched");
   git('merge --no-ff pr -m "synthetic integration"');const head=git("rev-parse HEAD");
   const query=(cmd:string)=>{const r=sh("git "+cmd,repo);return {code:r.code,out:r.stdout};};
-  expect(prTransitionPairs(query,eventBase,source,head)).toEqual([[eventBase,source],[eventBase,eventBase],[eventBase,head]]);
+  expect(prTransitionPairs(query,eventBase,source,head)).toEqual([[base,source],[eventBase,eventBase],[eventBase,head]]);
   const r=sh(`pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition --base ${eventBase} --pr-source ${source} --head ${head} --repo ${repo}`,REPO_ROOT);
   expect(r.code).toBe(0);expect(base).not.toBe(eventBase);
+ });
+});
+
+describe("all three PR migration deltas retain their own rejection",()=>{
+ it.each(["source","main","integration"] as const)("rejects illegal passing introduced only in %s",where=>{
+  const base=commit("base");
+  const invalid=()=>writeFeatures([inProgress,{...verifiedPassing(),id:"F02",evidence:"manual completion without a log"}]);
+  git("checkout -q -b pr");write("pr.txt","source\n");if(where==="source")invalid();const source=commit("PR source");
+  git("checkout -q main");write("main.txt","advanced main\n");if(where==="main")invalid();commit("main advance");
+  git('merge --no-ff pr -m "synthetic integration"');
+  if(where==="integration"){invalid();git("add -A");git('-c user.email=t@t -c user.name=t commit --amend -q -m "invalid integration"');}
+  const head=git("rev-parse HEAD");
+  const r=sh(`pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition --base ${base} --pr-source ${source} --head ${head} --repo ${repo}`,REPO_ROOT);
+  expect(r.code).toBe(1);expect(r.stdout).toContain("direct_passing_edit");expect(r.stdout).toContain("F02");
  });
 });
