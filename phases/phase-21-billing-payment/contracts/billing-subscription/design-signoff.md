@@ -1,7 +1,7 @@
 ---
 bundle: billing-subscription
 phase: "21"
-covers: [F-TBD-subscription-backend, F-TBD-stripe-webhook-sync, F-TBD-subscription-ui]
+covers: [F08, F-TBD-stripe-webhook-sync, F-TBD-subscription-ui]
 status: confirmed
 confirmed_by: "usamshen"
 confirmed_at: "2026-10-01T03:23:47Z"
@@ -17,7 +17,7 @@ confirmed_via: "人类对话确认（2026-10-01；agent 按人类指示代为回
 
 | feature | 能力边界 |
 |---|---|
-| F-TBD-subscription-backend | 订阅状态 / 升级链接 / 管理链接 + `billing_subscriptions` 迁移 |
+| F08 | 订阅状态 / 升级链接 / 管理链接 + `billing_subscriptions` 迁移 |
 | F-TBD-stripe-webhook-sync | webhook 验签 / 事件幂等 / 唯一写者 upsert / 未知事件 ignored |
 | F-TBD-subscription-ui | 订阅弹窗五变体 + 菜单 Pro 徽标 / 升级与管理入口 |
 

@@ -22,8 +22,27 @@ export const SubscriptionStatus = z.enum([
   "canceled",
   "incomplete",
   "unpaid",
+  "paused",
+  "incomplete_expired",
 ]);
 export type SubscriptionStatus = z.infer<typeof SubscriptionStatus>;
+
+/** ADR-123：权益、新购与账单恢复分别判断。未知状态须先拒绝解析；
+ * 同步异常由调用方返回503。管理还要求服务端验证的customer绑定。
+ */
+export function subscriptionEligibility(status: SubscriptionStatus): {
+  hasEffectivePro: boolean;
+  canCreateSubscription: boolean;
+  canManageSubscription: boolean;
+} {
+  const canCreateSubscription = status === "none" || status === "canceled" || status === "incomplete_expired";
+  return {
+    hasEffectivePro: status === "active" || status === "trialing",
+    canCreateSubscription,
+    canManageSubscription: !canCreateSubscription,
+  };
+}
+
 
 /** 订阅失败码（HTTP 失败）。 */
 export const SubscriptionErrorCode = z.enum([

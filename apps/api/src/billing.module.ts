@@ -1,3 +1,7 @@
+import { BillingSubscriptionService } from "./application/billing/billing-subscription-service";
+import { PgBillingSubscriptionRepository } from "./infrastructure/billing/pg-billing-subscription-repository";
+import { StripePortalClient } from "./infrastructure/billing/stripe-portal-client";
+import { BillingSubscriptionController } from "./interface/controllers/billing-subscription.controller";
 import { LOGGER_PORT, type LoggerPort } from "./application/ports/logger.port";
 import { ConsoleLogger } from "./infrastructure/logging/console-logger";
 // Billing composition root: infrastructure credentials remain outside application/interface layers.
@@ -31,8 +35,9 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
 
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
+  controllers: [BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
+    { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger)), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
       new BillingOrderExpiryWorker(new PgBillingOrderExpiryStore(db), logger), inject: [DATABASE_PORT, LOGGER_PORT] },
     { provide: BILLING_CREDITING_STORE, useFactory: (db: DatabasePort) => new PgBillingCreditingStore(db), inject: [DATABASE_PORT] },

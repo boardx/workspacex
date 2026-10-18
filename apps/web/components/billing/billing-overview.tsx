@@ -70,6 +70,7 @@ function ReadNotice({ state, name, label, retry }: { state: ReadState<unknown>; 
 
 const subscriptionLabels: Record<billingSubscription.SubscriptionStatus, string> = {
   none: "暂无订阅", active: "已订阅", trialing: "试用中", past_due: "付款逾期", canceled: "已取消", incomplete: "待完成付款", unpaid: "待支付",
+  paused: "订阅已暂停", incomplete_expired: "首次付款已过期",
 };
 function periodLabel(value: string | null): string | null {
   if (!value) return null;

@@ -1,0 +1,3 @@
+
+> @repo/contracts@0.0.0 typecheck /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/packages/contracts
+> tsc --noEmit

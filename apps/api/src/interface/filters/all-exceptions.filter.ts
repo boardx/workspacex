@@ -1,3 +1,5 @@
+import { SubscriptionHttpException } from "../controllers/subscription-http-exception";
+import { SubscriptionErrorCode } from "@repo/contracts/billing-subscription";
 import { BillingErrorCode } from "@repo/contracts/billing-credits";
 import { BillingHttpException } from "../controllers/billing-http-exception";
 /**
@@ -97,6 +99,7 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   413: "payload_too_large",
   415: "unsupported_media_type",
   422: "unprocessable",
+  429: "rate_limited",
   503: "dependency_unavailable",
 };
 
@@ -696,6 +699,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
         ...(exception instanceof BillingHttpException && BillingErrorCode.safeParse(exception.billingCode).success ? { code: exception.billingCode } : {}),
+        ...(exception instanceof SubscriptionHttpException && SubscriptionErrorCode.safeParse(exception.subscriptionCode).success ? { code: exception.subscriptionCode } : {}),
         ...permissionReasonOf(exception),
         ...surveyErrorOf(exception),
         ...researchConflictDetailOf(exception),

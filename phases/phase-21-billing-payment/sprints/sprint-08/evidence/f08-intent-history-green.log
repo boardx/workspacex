@@ -1,0 +1,23 @@
+[stack-admission] load1=2.98 cores=10 perCore=0.30 running=0/2
+[test-isolation] id=run-mvdx6zoq-46c563c1-3cba31c63af8 db=wsx_3cba31c63af8b76754fa compose=wsx-3cba31c63af8b76754fa pg=20398 redis=21398 api=24398 web=25398 sandbox=26398 model=27398 deep-agent=28398 asr=29398 vision=30398 loopback-sandbox=31398 mail=19398
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/api
+
+[db-isolation] db=wsx_3cba31c63af8b76754fa capacity=100 current=6 required=32
+ ✓ tests/billing/subscription-links.test.ts (33 tests) 24932ms
+   ✓ F08 real subscription HTTP/PG > rejects unsafe provider response timeout without mutating subscription 8031ms
+   ✓ F08 real subscription HTTP/PG > rejects unsafe provider response headers-timeout without mutating subscription 8040ms
+
+ Test Files  1 passed (1)
+      Tests  33 passed (33)
+   Start at  22:27:56
+   Duration  28.53s (transform 705ms, setup 4ms, collect 1.06s, tests 24.93s, environment 0ms, prepare 27ms)
+
+[db-isolation] db=wsx_3cba31c63af8b76754fa peak_connections=7
+[timing] pnpm --filter api exec vitest run tests/billing/subscription-links.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：29s
+  清理：1s
+  总计：30s

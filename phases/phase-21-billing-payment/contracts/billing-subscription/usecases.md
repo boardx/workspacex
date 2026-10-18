@@ -13,18 +13,18 @@
   无订阅记录 → `status: "none"`（**不是错误**，I-4）。
 - pre: 登录。
 - 用途：用户菜单/升级弹窗/回跳后的状态读取；**纯读**（I-1/I-4：回跳不得写状态）。
-- err: 无。
+- err: 无领域错误；数据读取失败或当前绑定同步不确定 → 通用503 `dependency_unavailable`，不得返回 none 或旧权益。
 
 ### UC-BS-2 取升级链接 — `getUpgradeLink`（GET `/billing/subscription/upgrade-link`）
 - in: 无。
 - out: `{ url }`（Stripe 托管支付链接，含用户引用与语言等预填参数）。
-- pre: 登录；Stripe 已启用（否则 `payment_provider_not_configured`，I-6）；当前未订阅（I-5）。
+- pre: 登录；Stripe 已启用（否则 `payment_provider_not_configured`，I-6）；满足 ADR-123 新购资格（I-5）。
 - err: `payment_provider_not_configured` | `already_subscribed`（前端应改用管理入口，要求 R4-E6）。
 
 ### UC-BS-3 取管理链接 — `getManagementLink`（GET `/billing/subscription/management-link`）
 - in: 无。
 - out: `{ url }`（Billing 门户会话链接）。
-- pre: 登录；Stripe 已启用；当前已订阅（I-5）。
+- pre: 登录；Stripe 已启用；满足 ADR-123 管理资格且有经验证 customer（I-5）。
 - err: `payment_provider_not_configured` | `not_subscribed`（前端应改用升级入口）。
 
 ### UC-BS-4 Stripe webhook — `stripeWebhook`（POST `/billing/webhooks/stripe`）
@@ -51,3 +51,11 @@
 - **Q2** webhook 事件清单的最小集：建议 `checkout.session.completed` + `customer.subscription.created/updated/deleted`（实现 PR 内最终敲定并列证据）；是否还覆盖 `invoice.payment_failed`（对应 `past_due` 呈现）需裁决。
 - **Q3** 管理门户形态：静态门户 URL 配置 vs 运行时创建 portal session（参考实现是运行时创建）；本契约不限定，由实现按配置能力选型，但契约输出恒为 `{ url }`。
 - **Q4** 试用（trial）展示语义：`trialing` 是否在 UI 上等同 `active`（参考 web 把它当已订阅）；本契约按"已订阅"处理，签核人确认。
+
+## ADR-123 已采纳补充（2026-10-18）
+
+三个用户接口的状态资格与未知状态恢复语义统一引用 [状态与付款恢复契约](../../design-deltas/stripe-state-recovery/contract.md)。升级和管理的读取/同步异常均通用503，不返回旧 Pro 或可购买链接；原领域错误枚举不变。trialing 仅承诺试用中，不能虚构未公开的 trialEnd。
+
+### 升级链接资源边界
+
+签发意图受服务端每用户有效未消费数量限额约束，超限为通用HTTP429 `rate_limited`，不新增订阅领域错误码；仍有效的链接不失效。过期意图禁止自动推进订阅，但保留hash→user/绑定代次关联供晚到付款核对，不能把“已过期”当“可删除付款线索”。历史保留不是自动恢复权益，也不证明F09人工恢复已实现。
