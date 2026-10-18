@@ -77,13 +77,13 @@ approval, cache hit or rerun.
 
 | Phase | Planning budget | Required evidence |
 |---|---:|---|
-| A0 source/preflight/build/seal and independent transfers |600s|original build attempts, cache hit/miss, five verified images, toolkit receipt, current baseline|
+| A0 source/preflight/build/seal and independent transfers |360s|original build attempts, cache hit/miss, five verified images, toolkit receipt, current baseline|
 | A1 stop/drain |60s|actual hold/drain/session observation|
-| A2 backup |120s|same-epoch backup association and completion|
+| A2 backup |180s|same-epoch backup association and completion|
 | A3 isolated restore |240s|independent restored-state consistency proof|
 | A4 compatibility/migration/readback |180s|four SQL hashes, actual restored rehearsal and approved target readback|
-| A5 prepare/switch/readback |120s|CAS, image-only diff, exact runtime and rollback evidence|
-| A6 six journeys/stability |300s|canonical browser/output receipt and stable window|
+| A5 prepare/switch/readback |180s|CAS, image-only diff, exact runtime and rollback evidence|
+| A6 six journeys/stability |420s|canonical browser/output receipt and frozen stable window|
 | Queue, approvals, gaps and measurement reserve |180s|separate intervals included in1800s total|
 
 Sum=1800s; these are engineering targets, **not measured promises**. Active phase time is the union
@@ -95,6 +95,11 @@ completion. The existing driver's1800s deadline begins at its requestedAt and do
 prove this user clock or upstream build/queue time. Current unknown SQL invokes SOP maintenance
 window budgets60–120m: until compatibility and safety are independently resolved, a30m production
 claim is blocked. Never skip backup/restore or shorten browser stability to meet the target.
+The approved business contract permits stableWindowSeconds30–300; this attempt's exact frozen
+value has not been verified. The earlier300s total A6 allocation left no journey/persistence margin
+when the stable window itself was300s. Revised420s allocates at most120s for journeys and durable
+evidence at that maximum, still unmeasured and potentially insufficient. Recompute after obtaining
+the actual pinned approval and measuring all six journeys; never reduce its stable window.
 A30m overrun is a performance failure, never permission to hard-kill necessary safety recovery.
 After writes, a stale backup must not overwrite new production data. Isolated restores prohibit
 real outbound notifications and connections to production consumers. Capacity insufficient for
@@ -180,3 +185,11 @@ Workflow YAML parsed and diff whitespace checked. Initial14-test run exited1 wit
 errors (sandbox root owner65534 and duplicate helper keyword); retained here rather than hidden.
 Corrected only test helper/explicit disposable subtree seam; production directory protection unchanged.
 These are offline/source results, not the30m production or full-scale recovery acceptance.
+
+Independent review follow-up: receipt/intent JSON arrays/null/scalars now reject explicitly before
+field access.17 tests pass, including10 CLI malformed-object cases returning only fixed rejection
+JSON, exit2 and empty stderr. The original16-test hosted CI passed run39093477759/job117574936393.
+This reader is only a transport timing lower bound, not a complete end-to-end timer. A trusted
+collector still must correlate actual GitHub request/run/attempt times and owner, exact cloud
+target/scope and canonical root admission with the final A6 stable evidence. Local hash closure
+cannot establish those facts; completeTransportChain/performanceVerdict never advances admission.

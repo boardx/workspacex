@@ -123,6 +123,7 @@ def report(root, *, github_accepted_at, user_requested_at, observed_at=None, wai
         receipt = decode(receipt_raw)
         intent_raw = read(root, prefix+'.intent.json')
         intent = decode(intent_raw)
+        need(type(receipt) is dict and type(intent) is dict, 'RECEIPT_INTENT_OBJECT')
         need(all(receipt.get(k) == v for k, v in identity.items()), 'IDENTITY_DRIFT')
         need(receipt.get('stage') == intent.get('stage') == stage, 'STAGE_DRIFT')
         need(receipt.get('previousReceiptSha256') == intent.get('previousReceiptSha256') == previous, 'CHAIN_DRIFT')
