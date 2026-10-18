@@ -143,6 +143,8 @@ afterAll(async () => {
     } catch { /* Diagnostic staged bytes never imply successful report delivery. */ }
   }
 
+  const requestCounts = await Promise.all(acceptedRunIds.map(async runId => ({runId, actualModelRequests:Number((await asApp(org,c=>c.query<{count:string}>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2',[org,runId]))).rows[0]!.count)})));
+  await writeFile(join(evidence,'request-counts.json'),JSON.stringify(requestCounts,null,2),{mode:0o600}).catch(()=>undefined);
   await writeFile(join(evidence, 'receipts.json'), JSON.stringify(receipts, null, 2), { mode: 0o600 }).catch(() => undefined);
   let redacted = deepOutput; for (const key of ['KERNEL_MODEL_API_KEY', 'DASHSCOPE_API_KEY', 'DEEP_AGENT_SERVICE_INTERNAL_KEY', 'NATIVE_SESSION_BINDING_KEY']) { const value = process.env[key]; if (value) redacted = redacted.replaceAll(value, '[redacted]'); }
   await writeFile(join(evidence, 'deep-service.log'), redacted, { mode: 0o600 }).catch(() => undefined);
@@ -204,5 +206,15 @@ for (const format of formats) for (const kind of ['interview', 'research'] as co
   const starts = await asApp(org, c => c.query<{ count: string }>('SELECT count(*) FROM model_request_starts WHERE org_id=$1 AND run_id=$2', [org, runId]));
   expect(Number(starts.rows[0]!.count)).toBeGreaterThan(0);
   expect(Number(starts.rows[0]!.count), 'final ledger must remain within the configured evidence budget').toBeLessThanOrEqual(requestBudget);
+  const beforeReuse = (await asApp(org,c=>c.query<{runs:number;requests:number}>(
+    'SELECT (SELECT count(*)::int FROM agent_runs WHERE org_id=$1) AS runs,(SELECT count(*)::int FROM model_request_starts WHERE org_id=$1) AS requests',[org]))).rows[0]!;
+  const reused=ReportFileJob.parse(await json('/report-files',{source:{kind,id:binding.id,reportVersion:source.reportVersion,reportHash:source.reportHash},format,requestId:randomUUID()}));
+  expect(reused.id).toBe(job.id);expect(reused.status).toBe('succeeded');
+  const cachedDownload=await fetch(`${base}/report-files/${reused.id}/download`,{headers});expect(cachedDownload.status).toBe(200);
+  expect(sha(new Uint8Array(await cachedDownload.arrayBuffer()))).toBe(job.file.sha256);
+  const afterReuse=(await asApp(org,c=>c.query<{runs:number;requests:number}>(
+    'SELECT (SELECT count(*)::int FROM agent_runs WHERE org_id=$1) AS runs,(SELECT count(*)::int FROM model_request_starts WHERE org_id=$1) AS requests',[org]))).rows[0]!;
+  expect(afterReuse).toEqual(beforeReuse);
+  await writeFile(join(evidence,`${kind}-${format}-reuse.json`),JSON.stringify({jobId:job.id,beforeReuse,afterReuse,downloadHash:job.file.sha256},null,2),{mode:0o600});
   receipts.push({ sourceHead: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoRoot, encoding: 'utf8' }).trim(), kind, format, requestBudget, source, job, attachmentId: output[0]!.id, actualModelRequests: Number(starts.rows[0]!.count) });
 }, 600000);

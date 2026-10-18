@@ -165,3 +165,29 @@ it('binds publication to the genuine accepted report job and preserves normal re
   expect((await asApp(org,c=>c.query('SELECT status FROM agent_runs WHERE id=$1',[record.runId]))).rows[0]!.status).toBe('succeeded');
  }finally{await rm(root,{recursive:true,force:true});}
 });
+
+it('serializes concurrent fresh request IDs for one representation and does not reuse failed work',async()=>{
+ const original=await accept(collaborator);const store=new PgReportFileJobStore(db);
+ const records=Array.from({length:6},()=>({...original,requestId:randomUUID(),threadId:undefined,runId:undefined,attachmentId:undefined,
+   bindingKey:`${original.bindingKey}/concurrency`,job:{...original.job,id:randomUUID(),status:'queued' as const,execution:undefined}}));
+ const inserted=await Promise.all(records.map(record=>store.insert(record)));
+ expect(inserted.filter(Boolean)).toHaveLength(1);
+ const key={actor:original.actor,source:original.job.source,format:original.job.format,bindingKey:records[0]!.bindingKey,renderHash:original.renderHash};
+ const found=await store.findReusable(key);expect(found).not.toBeNull();
+ expect(await store.findReusable({...key,actor:{...key.actor,userId:observer}})).toBeNull();
+ expect(await store.findReusable({...key,renderHash:'f'.repeat(64)})).toBeNull();
+ await asApp(org,c=>c.query(`UPDATE report_skill_file_jobs SET state='failed',metadata=jsonb_set(metadata,'{job}',jsonb_build_object('id',id,'source',metadata->'job'->'source','format',metadata->'job'->'format','createdAt',metadata->'job'->'createdAt','status','failed','errorCode','GENERATION_FAILED')) WHERE org_id=$1 AND id=$2`,[org,found!.job.id]));
+ expect(await store.findReusable(key)).toBeNull();
+ expect(await store.insert({...records[0]!,requestId:randomUUID(),job:{...records[0]!.job,id:randomUUID()}})).toBe(true);
+});
+it('invalidates only the same proven-broken successful file and frees its representation slot',async()=>{
+ const record=await accept(collaborator);const store=new PgReportFileJobStore(db);
+ const job={...record.job,status:'succeeded' as const,skill:record.skill,file:{filename:'report.pdf',mediaType:'application/pdf',sizeBytes:123,sha256:'a'.repeat(64)}};
+ const successful={...record,job};
+ await asApp(org,c=>c.query(`UPDATE report_skill_file_jobs SET state='succeeded',metadata=$3::jsonb WHERE org_id=$1 AND id=$2`,[org,job.id,JSON.stringify(successful)]));
+ expect(await store.invalidateFile({...successful,actor:{...successful.actor,userId:observer}})).toBe(false);
+ expect(await store.invalidateFile({...successful,job:{...job,file:{...job.file,sha256:'b'.repeat(64)}}})).toBe(false);
+ expect(await store.invalidateFile(successful)).toBe(true);
+ expect((await store.get(successful.actor,job.id))?.job).toMatchObject({status:'failed',errorCode:'INVALID_FILE'});
+ expect(await store.findReusable({actor:successful.actor,source:job.source,format:job.format,bindingKey:successful.bindingKey,renderHash:successful.renderHash})).toBeNull();
+});

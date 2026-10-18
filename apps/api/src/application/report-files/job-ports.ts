@@ -17,13 +17,19 @@ export interface StoredReportFileJob {
   readonly attachmentId?: string;
 }
 export interface ClaimedReportFileJob { readonly record: StoredReportFileJob; readonly leaseToken: string }
+export interface ReportFileReuseKey {
+  readonly actor: ReportFileActor; readonly source: FileRequest["source"]; readonly format: FileRequest["format"];
+  readonly bindingKey: string; readonly renderHash: string;
+}
 export interface ReportFileJobStore {
+  findReusable(key: ReportFileReuseKey): Promise<StoredReportFileJob | null>;
   findByRequest(actor: ReportFileActor, requestId: string): Promise<StoredReportFileJob | null>;
   insert(record: StoredReportFileJob): Promise<boolean>;
   get(actor: ReportFileActor, id: string): Promise<StoredReportFileJob | null>;
   claim(actor: ReportFileActor, id: string): Promise<ClaimedReportFileJob | null>;
   saveThread(claim: ClaimedReportFileJob, threadId: string): Promise<boolean>;
   update(record: StoredReportFileJob): Promise<boolean>;
+  invalidateFile(record: StoredReportFileJob): Promise<boolean>;
   finish(claim: ClaimedReportFileJob, result: StoredReportFileJob): Promise<boolean>;
 }
 /** Thin adapter to existing Chat acceptance, AgentRun reads and attachment download. */
