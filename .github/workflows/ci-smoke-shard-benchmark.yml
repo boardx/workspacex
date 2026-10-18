@@ -1,0 +1,99 @@
+name: CI full smoke isolation and coverage benchmark
+on:
+  pull_request:
+    paths:
+      - .harness/scripts/ci-smoke-shards.mjs
+      - .harness/scripts/ci-smoke-shards.test.mjs
+      - .harness/scripts/ci-fullstack-runtime.mjs
+      - .github/workflows/ci-smoke-shard-benchmark.yml
+permissions:
+  contents: read
+env:
+  WSX_SMOKE_SOURCE_SHA: ${{ github.event.pull_request.head.sha }}
+jobs:
+  unit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - run: node --test .harness/scripts/ci-smoke-shards.test.mjs
+  benchmark:
+    needs: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [0, 1, 2]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Full baseline or dependency-preserving shard in a fresh hosted VM
+        env:
+          PART: ${{ matrix.part }}
+          WSX_SMOKE_BENCHMARK: '1'
+          WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$WSX_SMOKE_SOURCE_SHA"
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          export WORKSPACEX_ISOLATION_SEED="ci-smoke-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$PART"
+          if [ "$PART" = 0 ]; then
+            node .harness/scripts/ci-fullstack-runtime.mjs run -- pnpm run verify:fullstack-smoke 2>&1 | tee smoke-benchmark.log
+          else
+            export WSX_SMOKE_SHARD="$PART/2"
+            node .harness/scripts/ci-fullstack-runtime.mjs shard -- pnpm run verify:fullstack-smoke:shard 2>&1 | tee smoke-benchmark.log
+          fi
+      - name: Retain sanitized case timing and actual namespace observation
+        if: always()
+        run: node .harness/scripts/ci-smoke-shards.mjs report ${{ matrix.part }} 2
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: ci-smoke-part-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.part }}
+          path: phases/phase-01-run-a-project/evidence/ci/smoke-shards/part-${{ matrix.part }}.json
+          if-no-files-found: error
+  coverage:
+    needs: [unit, benchmark]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: ci-smoke-part-${{ github.run_id }}-${{ github.run_attempt }}-*
+          path: phases/phase-01-run-a-project/evidence/ci/smoke-shards/parts
+          merge-multiple: true
+      - name: Require complete220 unique cases and isolated prerequisite replay
+        env:
+          BENCHMARK_JOB_RESULT: ${{ needs.benchmark.result }}
+          UNIT_JOB_RESULT: ${{ needs.unit.result }}
+        run: node .harness/scripts/ci-smoke-shards.mjs aggregate 0 2
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: ci-smoke-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: phases/phase-01-run-a-project/evidence/ci/smoke-shards/aggregate.json
+          if-no-files-found: error

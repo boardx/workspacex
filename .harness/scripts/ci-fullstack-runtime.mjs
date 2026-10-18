@@ -26,18 +26,19 @@ export function pnpmPackageRoot(executable) {
   throw new Error('PNPM_PACKAGE_ENTRYPOINT_NOT_FOUND');
 }
 
-export function runtimeCommand(geometry, sticky = false, directory = false) {
+export function runtimeCommand(geometry, sticky = false, directory = false, shard = false) {
+  if (shard) return ['pnpm', 'run', 'verify:fullstack-smoke:shard'];
   if (directory) return ['pnpm', 'run', 'verify:digital-directory-cards'];
   if (sticky) return ['pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts'];
   return geometry ? ['pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'] : ['pnpm', 'run', 'verify:fullstack-smoke'];
 }
 
 export function assertRuntimeCommand(mode, argv) {
-  const expected = ['--', ...runtimeCommand(mode === 'geometry', mode === 'sticky', mode === 'directory')];
+  const expected = ['--', ...runtimeCommand(mode === 'geometry', mode === 'sticky', mode === 'directory', mode === 'shard')];
   if (JSON.stringify(argv) !== JSON.stringify(expected)) throw new Error('RUNTIME_COMMAND_CONTRACT_MISMATCH');
 }
 
-export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, unzip, socketGid, env, geometry = false, sticky = false, directory = false }) {
+export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, docker, compose, unzip, socketGid, env, geometry = false, sticky = false, directory = false, shard = false }) {
   if (![uid, gid].every(v => Number.isInteger(v) && v >= 0)) throw new Error('INVALID_RUNTIME_IDENTITY');
   if (!/^mcr\.microsoft\.com\/playwright@sha256:[a-f0-9]{64}$/.test(image)) throw new Error('UNSEALED_RUNTIME_IMAGE');
   if (!Number.isInteger(socketGid) || socketGid < 0) throw new Error('INVALID_DOCKER_SOCKET_GROUP');
@@ -53,12 +54,27 @@ export function runtimeArgs({ root, home, tools, uid, gid, image, node, pnpm, do
   for (const key of ['CI', 'GITHUB_SHA', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'FULLSTACK_E2E_SERVER_TIMEOUT_MS']) {
     if (env[key]) args.push('--env', `${key}=${env[key]}`);
   }
+  // Benchmark opt-in: fixed shard indices and fresh fixture seed, never arbitrary commands.
+  if (shard) {
+    if (env.WSX_SMOKE_BENCHMARK !== '1') throw new Error('SMOKE_BENCHMARK_REQUIRED');
+    if (!/^[1-4]\/[24]$/.test(env.WSX_SMOKE_SHARD ?? '')) throw new Error('SMOKE_SHARD_SCOPE');
+    const [index, total] = env.WSX_SMOKE_SHARD.split('/').map(Number);
+    if (index > total) throw new Error('SMOKE_SHARD_SCOPE');
+    args.push('--env', 'WSX_SMOKE_SHARD=' + env.WSX_SMOKE_SHARD);
+  }
+  if (env.WSX_SMOKE_BENCHMARK === '1') {
+    if (env.RUNNER_ENVIRONMENT !== 'github-hosted' || !/^[a-f0-9]{40}$/.test(env.WSX_SMOKE_SOURCE_SHA ?? '') || !/^[1-9][0-9]*$/.test(env.GITHUB_RUN_ID ?? '') || !/^[1-9][0-9]*$/.test(env.GITHUB_RUN_ATTEMPT ?? '')) throw new Error('SMOKE_HOSTED_SCOPE');
+    args.push('--env', 'WSX_SMOKE_BENCHMARK=1', '--env', 'RUNNER_ENVIRONMENT=github-hosted', '--env', 'WSX_SMOKE_SOURCE_SHA=' + env.WSX_SMOKE_SOURCE_SHA);
+    const index = shard ? env.WSX_SMOKE_SHARD.split('/')[0] : '0';
+    if (geometry || sticky || directory || env.WORKSPACEX_ISOLATION_SEED !== 'ci-smoke-' + env.GITHUB_RUN_ID + '-' + env.GITHUB_RUN_ATTEMPT + '-' + index) throw new Error('SMOKE_SEED_SCOPE');
+    args.push('--env', 'WORKSPACEX_ISOLATION_SEED=' + env.WORKSPACEX_ISOLATION_SEED);
+  }
   // Public-repository read credential only; Docker inherits the value without exposing it in argv.
   if (!geometry && !sticky && !directory && env.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN) {
     args.push('--env', 'WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN');
   }
   args.push(image, 'bash', '-euc',
-    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry, sticky, directory).join(' '));
+    'docker version >/dev/null; docker compose version; if apt-get --version >/dev/null 2>&1; then exit 78; fi; node .harness/scripts/ci-fullstack-runtime.mjs browser; exec ' + runtimeCommand(geometry, sticky, directory, shard).join(' '));
   return args;
 }
 
@@ -87,7 +103,7 @@ async function main(mode) {
     } finally { await browser.close(); }
     return;
   }
-  if (!['run', 'geometry', 'sticky', 'directory'].includes(mode) || process.platform !== 'linux' || process.arch !== 'x64') throw new Error('LINUX_AMD64_RUNNER_REQUIRED');
+  if (!['run', 'geometry', 'sticky', 'directory', 'shard'].includes(mode) || process.platform !== 'linux' || process.arch !== 'x64') throw new Error('LINUX_AMD64_RUNNER_REQUIRED');
   assertRuntimeCommand(mode, process.argv.slice(3));
   const catalog = JSON.parse(readFileSync(new URL('../playwright-runtime-images.json', import.meta.url), 'utf8'));
   const image = sealedImage(version, catalog);
@@ -111,7 +127,7 @@ async function main(mode) {
   for (const path of ['bin/node', 'bin/docker', 'bin/unzip']) writeFileSync(resolve(tools, path), '', { mode: 0o600 });
   console.log(JSON.stringify({ runtimeImage: image, playwrightVersion: version, network: 'host', uid: process.getuid(), aptInstall: false }));
   const args = runtimeArgs({ root, home, tools, uid: process.getuid(), gid: process.getgid(), image,
-    node: realpathSync(process.execPath), pnpm, docker, compose, unzip: which('unzip'), socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry', sticky: mode === 'sticky', directory: mode === 'directory' });
+    node: realpathSync(process.execPath), pnpm, docker, compose, unzip: which('unzip'), socketGid: statSync('/var/run/docker.sock').gid, env: process.env, geometry: mode === 'geometry', sticky: mode === 'sticky', directory: mode === 'directory', shard: mode === 'shard' });
   const child = spawn(docker, args, { stdio: 'inherit' });
   const forward = signal => child.kill(signal);
   const term = () => forward('SIGTERM');
