@@ -31,3 +31,7 @@
 ## 三、开放问题
 
 见 `usecases.md` 末节 Q1–Q4（计划展示名、webhook 事件最小集、管理门户形态、trial 展示语义）。
+
+## ADR-123 已采纳补充（2026-10-18）
+
+状态、权益、新购和恢复入口按 [状态与付款恢复契约](../../design-deltas/stripe-state-recovery/contract.md) 验收。覆盖全部公开状态、到期取消、无可信 customer、同步不确定503和恢复；异常状态不显示已确认 Pro 或新购入口，trialing 只显示试用中。F08/F09/UI 各自留证，不以配置或单测替代线上验收。

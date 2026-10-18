@@ -1,6 +1,6 @@
-# Stripe 状态与付款恢复契约补充提案
+# Stripe 状态与付款恢复契约补充
 
-状态：Proposed；Refs #5806；决策记录见 [ADR-123](../../../../docs/adr/ADR-123-stripe-subscription-state-and-recovery-eligibility.md)。本提案尚未改变已确认契约、签核状态、运行时或数据库。
+状态：Accepted（2026-10-18 人类在本会话明确采纳）；Refs #5806；决策记录见 [ADR-123](../../../../docs/adr/ADR-123-stripe-subscription-state-and-recovery-eligibility.md)。本次采纳授权补齐契约与实现；不改写原签核记录，也不代表实现或线上验收通过。
 
 ## 用户目标与已确认约束
 
@@ -8,7 +8,7 @@
 
 现有 `SubscriptionStatus` 遗漏 Stripe 的 paused/incomplete_expired，且 domain I-5 的“已订阅”同时指权益与管理资格。提议明确为以下单义规则。
 
-## 状态与入口（提议的语义权威）
+## 状态与入口（语义权威）
 
 | webhook 状态 | 用户看到的状态 | 有效 Pro | 可创建新订阅 | 可管理已有订阅 |
 |---|---|---|---|---|

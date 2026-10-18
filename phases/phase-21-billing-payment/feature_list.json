@@ -286,14 +286,14 @@
       "notes": "覆盖 V19 的 UI 侧 + 01 R8 的组织购买入口（UI 先行已合并 01/04 两个入口为同一区块）；testid billing-org-*（ui.md §二）。生产挂载点（org-admin 哪个子页）为待确认项（ui-preview README 待确认清单，原型独立成屏）。「为组织购买」打开收银台走 F-TBD-cashier-ui 的组织主体形态。"
     },
     {
-      "id": "F-TBD-subscription-backend",
+      "id": "F08",
       "priority": 13,
       "area": "billing-subscription",
       "title": "Stripe 订阅读模型：状态查询、升级与管理链接",
       "user_visible_behavior": "已登录用户 GET /billing/subscription 得到订阅状态（无记录返回 none 而非错误；绝不在有记录时把已订阅报成 none）；免费用户 GET /billing/subscription/upgrade-link 得到带用户引用与语言预填的 Stripe 托管支付链接（已订阅返回 already_subscribed、Stripe 未配置返回 payment_provider_not_configured）；已订阅用户 GET /billing/subscription/management-link 得到 Billing 门户链接（未订阅返回 not_subscribed）；Stripe 密钥配置缺失时 api 服务照常启动。",
-      "status": "not_started",
-      "sprint": null,
-      "owner": null,
+      "status": "in_progress",
+      "sprint": "08",
+      "owner": "coord-voice",
       "capability": "CAP-DATA",
       "spec_ref": "03-subscription-stripe.md#R3",
       "depends_on": [
@@ -321,7 +321,7 @@
       "capability": "CAP-DATA",
       "spec_ref": "03-subscription-stripe.md#R7",
       "depends_on": [
-        "F-TBD-subscription-backend"
+        "F08"
       ],
       "points": 5,
       "wave": 3,
@@ -344,7 +344,7 @@
       "capability": "CAP-WEB",
       "spec_ref": "03-subscription-stripe.md#R8",
       "depends_on": [
-        "F-TBD-subscription-backend",
+        "F08",
         "F02"
       ],
       "points": 6,

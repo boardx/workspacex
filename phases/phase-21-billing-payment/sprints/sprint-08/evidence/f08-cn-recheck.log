@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex
+
+ ✓ .harness/scripts/vm/cn-frozen-release-cli.test.ts (23 tests | 22 skipped) 8243ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > accepts root-verified governance adapter when workflow token cannot see bypass fields 8243ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 22 skipped (23)
+   Start at  17:32:50
+   Duration  8.55s (transform 76ms, setup 0ms, collect 109ms, tests 8.24s, environment 0ms, prepare 25ms)
+
