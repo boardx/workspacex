@@ -23,3 +23,7 @@
 - 原主线HEAD的历史迁移门问题在本候选19项通过；没有修改旧F06状态或篡改历史见证。独立 exact-SHA SOURCE ACCEPT。
 - 微信真实只读GET certificates返回406，未取得可验平台材料；仅证明仍缺可信验签材料，不据此断言公钥模式。未创建订单/支付。
 - PR后继续跟踪CI；本次文档/证据后续提交没有生产源码差异，不能把源SHA与证据SHA混为一谈。
+
+## PR #5822 CI 修复
+- PR: https://github.com/boardx/workspacex/pull/5822 。71b0952候选本地完整门控通过；CI simulation(all)在真实恢复catalog拒绝新迁移。artifact证明为UNREVIEWED_MIGRATION_SUFFIX，不是支付业务测试失败，也不是可忽略红灯。
+- 显式把已审subscription迁移追加到recovery reviewedSuffix；历史prefix/完整suffix/排序/未来未知拒绝均保留。catalog先RED后2case通过，Python fixture wrapper9项通过。Linux完整迁移恢复仍以新CI为准。
