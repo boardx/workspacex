@@ -443,7 +443,7 @@ describe("final CLI missing and unreachable witnesses fail closed",()=>{
  it("PR based before event-base remains valid when actual main contains that base",()=>{
   const base=commit("base");git("checkout -q -b pr");
   write("pr.txt","PR change\n");const source=commit("PR source");
-  git("checkout -q main");write("main.txt","new main change\n");const eventBase=commit("main advances after PR branched");
+  git("checkout -q main");write("main.txt","new main change\n");writeAttestedLog("$ pnpm test\n[exit 0]\nmain accepted");writeFeatures([verifiedPassing()]);const eventBase=commit("main advances to passing after PR branched");
   git('merge --no-ff pr -m "synthetic integration"');const head=git("rev-parse HEAD");
   const query=(cmd:string)=>{const r=sh("git "+cmd,repo);return {code:r.code,out:r.stdout};};
   expect(prTransitionPairs(query,eventBase,source,head)).toEqual([[base,source],[eventBase,eventBase],[eventBase,head]]);

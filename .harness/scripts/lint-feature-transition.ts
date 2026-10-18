@@ -152,7 +152,7 @@ export function lintFeatureTransition(args: Args): void {
   if (args.opts["pr-source"]) {
     const git = gitIn(args.opts["repo"] ?? REPO_ROOT);
     const pairs = prTransitionPairs(git, req(args,"base"), args.opts["pr-source"], req(args,"head"));
-    const { "pr-source": _source, ...opts } = args.opts;
+    const opts = { ...args.opts }; delete opts["pr-source"];
     for (const [base,head] of pairs) lintFeatureTransition({ ...args, opts: { ...opts,base,head } });
     return;
   }
