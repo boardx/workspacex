@@ -109,11 +109,12 @@ export class PgReportFileJobStore implements ReportFileJobStore {
   }
   async invalidateFile(record: StoredReportFileJob) {
     if(record.job.status!=='succeeded')return false;
+    const fileHash=record.job.file.sha256;
     return this.db.withTenant(record.actor.orgId,async session=>(await session.query(
       `UPDATE report_skill_file_jobs SET state='failed',metadata=jsonb_set(jsonb_set(metadata,'{job,status}','"failed"'::jsonb),'{job,errorCode}','"INVALID_FILE"'::jsonb)
        #- '{job,file}' #- '{job,skill}'
        WHERE org_id=$1 AND actor_user_id=$2 AND id=$3 AND state='succeeded' AND metadata->'job'->'file'->>'sha256'=$4 RETURNING id`,
-      [record.actor.orgId,record.actor.userId,record.job.id,record.job.file.sha256])).rows.length===1);
+      [record.actor.orgId,record.actor.userId,record.job.id,fileHash])).rows.length===1);
   }
   async finish(claim: ClaimedReportFileJob, record: StoredReportFileJob) {
     const { actor, job } = claim.record;
