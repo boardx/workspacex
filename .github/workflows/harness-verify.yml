@@ -328,6 +328,7 @@ jobs:
         run: |
           pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition \
             --base "${{ github.event.pull_request.base.sha }}" \
+            --pr-source "${{ github.event.pull_request.head.sha }}" \
             --head "${{ github.sha }}"
       # 对契约的否定性断言不得说谎（#473）。
       # 2026-08-04 实测：`chat/live/page.tsx` 里逐字写着「契约里没有这个写端口」，而

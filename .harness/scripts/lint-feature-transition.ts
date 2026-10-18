@@ -3,7 +3,7 @@
 //   pnpm harness lint-feature-transition --base <ref> [--head <ref>] [--repo <dir>] [--json]
 //
 // 判定逻辑全在 lib/feature-transition.ts（纯函数，可单测）；本文件只做三件事：
-// ① 从两个 ref 里把 feature 清单和证据日志读出来（`git show`，不切工作树、不写一个字节）；
+// ① 从两个 ref 里把 feature 清单和证据日志读出来（`git show`，不切工作树；完整树重建只可写无引用 Git 对象）；
 // ② 把"哪些文件在这次改动里变过"作为读日志的过滤器——只判迁移，不审全树；
 // ③ 打印 + 决定退出码。
 //
@@ -20,6 +20,8 @@ import {
   type FeatureSnapshot,
   type PhaseDiff,
 } from "./lib/feature-transition";
+
+import { parseSquashReconstructions, reconstructedSquash, prTransitionPairs, type SquashReconstruction } from "./lib/squash-integration-proof";
 
 const VERIFY_LOG_RE = /\.verify\.log$/;
 
@@ -120,7 +122,7 @@ function evidenceLogPath(phaseDir: string, f: RawFeature): string | null {
  * Matching a log, patch or commit message alone is deliberately insufficient.
  * Git failures fail closed; the target tree set is loaded once for all features.
  */
-export function squashIntegrationOracle(git: Git, head: string): NonNullable<CommitOracle["isSquashIntegrated"]> {
+export function squashIntegrationOracle(git: Git, head: string, reconstructions: SquashReconstruction[] = []): NonNullable<CommitOracle["isSquashIntegrated"]> {
   let headTrees: Set<string> | undefined;
   const results = new Map<string, boolean>();
   return (witness, logPath, evidenceBlob) => {
@@ -140,12 +142,20 @@ export function squashIntegrationOracle(git: Git, head: string): NonNullable<Com
       const blob = git(`rev-parse --verify '${object}'`);
       return blob.code === 0 && blob.out.trim() === evidenceBlob;
     });
-    results.set(key, integrated);
-    return integrated;
+    const proved = integrated || reconstructedSquash(git, head, witness, logPath, evidenceBlob, reconstructions);
+    results.set(key, proved);
+    return proved;
   };
 }
 
 export function lintFeatureTransition(args: Args): void {
+  if (args.opts["pr-source"]) {
+    const git = gitIn(args.opts["repo"] ?? REPO_ROOT);
+    const pairs = prTransitionPairs(git, req(args,"base"), args.opts["pr-source"], req(args,"head"));
+    const { "pr-source": _source, ...opts } = args.opts;
+    for (const [base,head] of pairs) lintFeatureTransition({ ...args, opts: { ...opts,base,head } });
+    return;
+  }
   const baseRef = req(args, "base");
   const headRef = args.opts["head"] ?? "HEAD";
   const asJson = args.flags["json"] === true;
@@ -165,10 +175,14 @@ export function lintFeatureTransition(args: Args): void {
   if (diff.code !== 0) die(`git diff ${base}..${head} 失败——两个 ref 之间没有共同历史？`);
   const touched = new Set(diff.out.split("\n").map((s) => s.trim()).filter(Boolean));
 
+  // Configuration selects immutable candidates only; every proof is recomputed.
+  // Read the actual checked-out control tree, also for the advancing-main delta.
+  const proofBody = showFile(git, "HEAD", ".harness/config/squash-integration-proofs.json");
+  const reconstructions = proofBody === null ? [] : parseSquashReconstructions(proofBody);
   const oracle: CommitOracle = {
     exists: (sha) => git(`cat-file -e ${sha}^{commit}`).code === 0,
     isAncestorOfHead: (sha) => git(`merge-base --is-ancestor ${sha} ${head}`).code === 0,
-    isSquashIntegrated: squashIntegrationOracle(git, head),
+    isSquashIntegrated: squashIntegrationOracle(git, head, reconstructions),
   };
 
   const blobs = { base: evidenceBlobsAt(git, base), head: evidenceBlobsAt(git, head) };

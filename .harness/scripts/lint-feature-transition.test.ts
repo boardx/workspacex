@@ -16,6 +16,7 @@ import { join } from "node:path";
 import { sh } from "./lib/sh";
 import { REPO_ROOT } from "./lib/paths";
 import { appendFingerprint } from "./lib/evidence-fingerprint";
+import { reconstructedSquash, parseSquashReconstructions, prTransitionPairs, type SquashReconstruction } from "./lib/squash-integration-proof";
 import { squashIntegrationOracle } from "./lint-feature-transition";
 
 const PHASE_DIR = "phase-99-demo";
@@ -345,4 +346,79 @@ describe("squash 的完整树出处证明", () => {
     expect(r.out).toContain("evidence_tampered");
     expect(r.code).toBe(1);
   });
+});
+
+describe("advanced-base complete-tree reconstruction",()=>{
+ const query=(cmd:string)=>{const r=sh("git "+cmd,repo);return {code:r.code,out:r.stdout};};
+ function fixture(){
+  const base=commit("common base");git("checkout -q -b verified");
+  write("implementation.ts","export const implemented=true;\n");const witness=commit("implementation witness");
+  writeAttestedLog("$ pnpm test\n[exit 0]\nall good");writeFeatures([verifiedPassing()]);const source=commit("verified source");
+  git("checkout -q main");write("diagnostic.ts","independent advanced-main change\n");const parent=commit("advance main");
+  git("merge --squash verified");const squash=commit("integrate on advanced main");
+  const proof:SquashReconstruction={source,squash,parent},blob=git("rev-parse "+source+":"+LOG_REL);
+  return {base,witness,source,parent,squash,proof,blob};
+ }
+ it("advanced base preserves complete rebuilt tree and exact log",()=>{
+  const f=fixture();expect(git("rev-parse "+f.source+"^{tree}")).not.toBe(git("rev-parse "+f.squash+"^{tree}"));
+  expect(reconstructedSquash(query,f.squash,f.witness,LOG_REL,f.blob,[f.proof])).toBe(true);
+ });
+ it("target history may advance again",()=>{
+  const f=fixture();write("later.txt","later\n");const head=commit("later target");
+  expect(reconstructedSquash(query,head,f.witness,LOG_REL,f.blob,[f.proof])).toBe(true);
+ });
+ it("wrong source with identical log cannot borrow partial tree matching",()=>{
+  const f=fixture();git("checkout -q verified");write("implementation.ts","export const implemented=false;\n");const source=commit("wrong source");
+  git("checkout -q main");expect(reconstructedSquash(query,f.squash,f.witness,LOG_REL,f.blob,[{...f.proof,source}])).toBe(false);
+ });
+ it("altered blob and different evidence path reject",()=>{
+  const f=fixture();
+  expect(reconstructedSquash(query,f.squash,f.witness,LOG_REL,"f".repeat(40),[f.proof])).toBe(false);
+  expect(reconstructedSquash(query,f.squash,f.witness,LOG_REL.replace("F01","F02"),f.blob,[f.proof])).toBe(false);
+ });
+ it("missing witness or source parent target and mismatched parent reject",()=>{
+  const f=fixture(),missing="f".repeat(40);
+  expect(reconstructedSquash(query,f.squash,missing,LOG_REL,f.blob,[f.proof])).toBe(false);
+  for(const key of ["source","parent","squash"] as const)
+   expect(reconstructedSquash(query,f.squash,f.witness,LOG_REL,f.blob,[{...f.proof,[key]:missing}])).toBe(false);
+  expect(reconstructedSquash(query,f.squash,f.witness,LOG_REL,f.blob,[{...f.proof,parent:f.base}])).toBe(false);
+ });
+ it("foreign witness and squash outside target history reject",()=>{
+  const f=fixture();git("checkout -q -b foreign "+f.base);write("foreign.txt","foreign\n");const foreign=commit("foreign");
+  expect(reconstructedSquash(query,f.squash,foreign,LOG_REL,f.blob,[f.proof])).toBe(false);
+  expect(reconstructedSquash(query,foreign,f.witness,LOG_REL,f.blob,[f.proof])).toBe(false);
+ });
+ it("Git errors and uncertain output reject even with expected tree",()=>{
+  const f=fixture(),tree=git("rev-parse "+f.squash+"^{tree}");
+  for(const result of [{code:1,out:tree},{code:0,out:tree+"\nCONFLICT"}]){
+   const failed=(cmd:string)=>cmd.startsWith("merge-tree ")?result:query(cmd);
+   expect(reconstructedSquash(failed,f.squash,f.witness,LOG_REL,f.blob,[f.proof])).toBe(false);
+  }
+ });
+ it("strict candidate manifest supports real CLI without replacing original log",()=>{
+  const f=fixture();expect(reconstructedSquash(query,f.squash,f.witness,LOG_REL,f.blob,[])).toBe(false);
+  write(".harness/config/squash-integration-proofs.json",JSON.stringify({version:1,proofs:[f.proof]}));
+  const head=commit("record immutable inputs");expect(runGate(f.base,head).code).toBe(0);
+  for(const bad of [{version:2,proofs:[f.proof]},{version:1,proofs:[{...f.proof,source:"main"}]},
+   {version:1,proofs:[{...f.proof,waive:true}]}])expect(()=>parseSquashReconstructions(JSON.stringify(bad))).toThrow("SQUASH_PROOF_CONFIG");
+ });
+ it("PR source and advancing main remain separate audited deltas",()=>{
+  const f=fixture();git("checkout -q -b pr "+f.base);write("pr.txt","requested change\n");const source=commit("PR source");
+  git("checkout -q main");git('merge --no-ff pr -m "synthetic integration"');const head=git("rev-parse HEAD");
+  expect(prTransitionPairs(query,f.base,source,head)).toEqual([[f.base,source],[f.base,f.squash],[f.squash,head]]);
+  expect(()=>prTransitionPairs(query,f.base,f.parent,head)).toThrow("PR_TRANSITION_PARENTS");
+  expect(()=>prTransitionPairs(query,f.base,source,source)).toThrow("PR_TRANSITION_PARENTS");
+  const r=sh(`pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition --base ${f.base} --pr-source ${source} --head ${head} --repo ${repo}`,REPO_ROOT);
+  expect(r.code).toBe(1);expect(r.stdout).toContain("attestation_unverifiable");
+ });
+ it("actual conflict cannot prove an arbitrary partial integration",()=>{
+  commit("base");write("shared.txt","base\n");commit("common");
+  git("checkout -q -b conflicting");write("shared.txt","source\n");const witness=commit("source witness");
+  writeAttestedLog("$ pnpm test\n[exit 0]\nall good");writeFeatures([verifiedPassing()]);const source=commit("source log");
+  git("checkout -q main");write("shared.txt","target\n");const parent=commit("target conflict");
+  write(LOG_REL,git("show "+source+":"+LOG_REL)+"\n");writeFeatures([verifiedPassing()]);
+  const squash=commit("arbitrary integration"),blob=git("rev-parse "+squash+":"+LOG_REL);
+  expect(query("merge-tree --write-tree --no-messages "+parent+" "+source).code).not.toBe(0);
+  expect(reconstructedSquash(query,squash,witness,LOG_REL,blob,[{source,squash,parent}])).toBe(false);
+ });
 });
