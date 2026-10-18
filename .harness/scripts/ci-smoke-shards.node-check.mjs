@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { context, shard, reduceReport, aggregate, expectedIsolation, safeFailureSummary } from './ci-smoke-shards.mjs';
+import { context, shard, reduceReport, aggregate, expectedIsolation, safeFailureSummary, safeRejectionReason, ShardError } from './ci-smoke-shards.mjs';
 const source='a'.repeat(40);
 const env={WSX_SMOKE_SOURCE_SHA:source,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',RUNNER_ENVIRONMENT:'github-hosted'};
 function report(ids, part) {
@@ -140,4 +140,10 @@ test('failure summary bounds collection depth case rows attempts and malformed n
  assert.equal(safeFailureSummary(r).cases[0].line,null);
  let x=r.suites[0];for(let n=0;n<70;n++){x.suites=[{specs:[]}];x=x.suites[0];}
  assert.equal(safeFailureSummary(r).truncated,true);assert.equal(safeFailureSummary(null).truncated,true);
+});
+
+test('CLI rejection diagnostics use bounded invariant codes without raw error messages',()=>{
+ assert.equal(safeRejectionReason(new ShardError('COVERAGE_MISSING')),'COVERAGE_MISSING');
+ for(const e of [new Error('PRIVATE-TOKEN'),new SyntaxError('PRIVATE-TOKEN'),new ShardError('PRIVATE-TOKEN'),
+   new ShardError('x'.repeat(100))])assert.equal(safeRejectionReason(e),'INPUT_UNAVAILABLE_OR_INVALID');
 });

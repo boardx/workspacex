@@ -9,6 +9,9 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const OUT = resolve(ROOT, 'phases/phase-01-run-a-project/evidence/ci/smoke-shards');
 const PRIMARY = 'seeded-github-import';
 export class ShardError extends Error {}
+export function safeRejectionReason(error) {
+  return error instanceof ShardError && /^[A-Z][A-Z0-9_]{0,63}$/.test(error.message) ? error.message : 'INPUT_UNAVAILABLE_OR_INVALID';
+}
 const need = (v, code) => { if (!v) throw new ShardError(code); };
 const obj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const sha = v => createHash('sha256').update(v).digest('hex');
@@ -212,7 +215,8 @@ function main() {
     save('aggregate.json',aggregate(parts,meta)); return 0;
   } catch (error) {
     if (!(error instanceof ShardError || error instanceof SyntaxError || error instanceof RangeError || ['ENOENT','ELOOP','EACCES'].includes(error.code))) throw error;
-    save(mode==='aggregate'?'aggregate.json':'part-'+part+'.json',{kind:'ci-smoke-part-v1',...meta,status:'REJECTED',reason:error instanceof ShardError ? error.message : 'INPUT_UNAVAILABLE_OR_INVALID',diagnostic:mode==='report'?safeFailureSummary(failedReport):null,productionAccepted:false,thirtyMinuteProductionProven:false});
+    save(mode==='aggregate'?'aggregate.json':'part-'+part+'.json',{kind:'ci-smoke-part-v1',...meta,status:'REJECTED',reason:safeRejectionReason(error),diagnostic:mode==='report'?safeFailureSummary(failedReport):null,productionAccepted:false,thirtyMinuteProductionProven:false});
+    console.error('SMOKE_BENCHMARK_REJECTED '+safeRejectionReason(error));
     return 1;
   }
 }
