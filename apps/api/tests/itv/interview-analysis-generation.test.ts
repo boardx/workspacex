@@ -16,3 +16,13 @@ it.each([{text:'## 研究建议\n待补充'},{text:complete(),truncated:true},{t
  const model={complete:vi.fn(async()=>response)};
  await expect(repairInterviewAnalysis(model,request,'# 科普\n晚睡有危害。')).rejects.toThrow('AI_GENERATION_UNAVAILABLE');expect(model.complete).toHaveBeenCalledTimes(1);
 });
+
+it('limits deterministic loopback analysis to the explicit interview operation',async()=>{
+ const {loopbackInterviewAnalysis}=await import('../../scripts/loopback-interview-analysis');
+ const system='你是专业用户研究员。只输出 Markdown';
+ expect(loopbackInterviewAnalysis(system,'操作：generate_report')).toBeNull();
+ expect(loopbackInterviewAnalysis('ordinary chat','操作：generate_analysis')).toBeNull();
+ const body=loopbackInterviewAnalysis(system,'# 访谈模型上下文\n操作：generate_analysis\n');
+ expect(body).toContain('确定性测试提案');
+ expect(body).not.toBeNull();
+});

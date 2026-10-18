@@ -45,6 +45,7 @@
  * `loopback-deep-agent-provider.ts` 用两次状态轮询让真实轮询循环真的转一圈
  * 是同一种取证纪律：制造的是「一定会经过的中间态」，不是伪造内容本身。
  */
+import { loopbackInterviewAnalysis } from "./loopback-interview-analysis";
 import { guidedResearchReply } from "./loopback-guided-research";
 import { contentSkillReply, isContentSkillRequest } from "./loopback-content-skill";
 import { createServer } from "node:http";
@@ -632,7 +633,7 @@ const server = createServer((req, res) => {
      */
     // 内容线 Skill 阶段（W029 等）：runner 只收单个 JSON 对象，回显前缀会让阶段必然失败。
     const contentReply = isContentSkillRequest(researchSystem) ? contentSkillReply(echoed) : null;
-    const fullText = contentReply ?? surveyReply ?? researchReply ?? (isKgExtractionRequest(parsed.messages)
+    const fullText = contentReply ?? surveyReply ?? loopbackInterviewAnalysis(typeof researchSystem === "string" ? researchSystem : "", echoed) ?? researchReply ?? (isKgExtractionRequest(parsed.messages)
       ? EMPTY_KG_EXTRACTION_REPLY
       : isFollowUpSuggestionsRequest(parsed.messages)
       ? followUpSuggestionsReply(parsed.messages)

@@ -385,7 +385,7 @@ export function projectInterviewAnalysis(document: InterviewMarkdownDocument) {
   let coveredUntil = -1;
   projection.blocks.forEach((block, index) => {
     if (block.start < coveredUntil) return;
-    const rule = INTERVIEW_ANALYSIS_SECTIONS.find(item => item.heading.test(block.title));
+    const rule = block.depth === 2 ? INTERVIEW_ANALYSIS_SECTIONS.find(item => item.heading.test(block.title)) : undefined;
     const end = rule ? block.end : projection.blocks[index + 1]?.start ?? document.markdown.length;
     const markdown = document.markdown.slice(block.contentStart, end).trim();
     const nodes = (parser.parse(markdown) as MarkdownNode).children ?? [];

@@ -21,3 +21,10 @@ it('does not mistake a filled-out heading template for actionable recommendation
  const template=INTERVIEW_ANALYSIS_SECTIONS.map(s=>`## ${s.title}\n\n进一步研究本次需求，补充信息并验证结果。`).join('\n\n');
  expect(projectInterviewAnalysis(doc(template)).missing).toContain('recommendations');
 });
+
+it('does not let a matching H1 title consume required H2 sections',()=>{
+ const body=INTERVIEW_ANALYSIS_SECTIONS.map(s=>`## ${s.title}\n\n${s.kind==='recommendations'?'1. 追问最近一次具体决策的参与人和时间线，核验实际发生的行为。\n2. 比较不同场景下的真实经历与约束，寻找能交叉核对的材料。\n3. 追问与初步假设不一致的反例，避免只收集支持性意见。':'这是待人工审阅的研究提案，需要实际访谈材料进一步核实。'}`).join('\n\n');
+ const result=projectInterviewAnalysis(doc(`# 研究目标\n\n输入主题说明。\n\n${body}`));
+ expect(result.missing).toEqual([]);expect(result.sections.filter(s=>s.kind)).toHaveLength(7);
+ expect(result.sections.find(s=>s.title==='研究目标'&&s.kind===null)?.markdown).toBe('输入主题说明。');
+});

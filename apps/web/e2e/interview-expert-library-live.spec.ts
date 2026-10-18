@@ -128,7 +128,7 @@ test('four rounds of interview interaction with isolated saved data', async({pag
 test('contextual analysis advice survives persistence and responsive rendering',async({page},testInfo)=>{
  test.setTimeout(120_000);
  const {readFile}=await import('node:fs/promises');
- const markdown=await readFile(resolve(process.cwd(),'../../evidence/interview-analysis-5819/live-analysis.md'),'utf8');
+ const markdown=await readFile(process.env.WX_ANALYSIS_RENDER_FILE ?? resolve(process.cwd(),'../../evidence/interview-analysis-5819/live-analysis.md'),'utf8');
  await page.goto('/login');await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/u);
  const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));const headers={authorization:`Bearer ${token}`};
  await page.goto('/itv');await page.getByTestId('itv-create').click();await page.getByLabel('访谈名称',{exact:true}).fill('合成晚睡研究分析验收');await page.getByTestId('itv-create-submit').click();await expect(page).toHaveURL(/\/itv\/[^/]+\/intake/u);
@@ -138,7 +138,7 @@ test('contextual analysis advice survives persistence and responsive rendering',
  for(const width of [375,768,1280]){
   await page.setViewportSize({width,height:900});await page.goto(`/itv/${interviewId}/analysis`);
   for(const title of ['研究建议','待验证假设','适用边界'])await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
-  await expect(page.getByText('采用关键事件技术（CIT）进行开放式回溯',{exact:false})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'研究目标',exact:true})).toBeVisible();
   await expect(page.getByText('当前文档未单列建议',{exact:false})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`analysis-live-${width}.png`),fullPage:true});
