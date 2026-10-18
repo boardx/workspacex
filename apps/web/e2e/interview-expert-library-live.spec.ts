@@ -138,7 +138,8 @@ test('contextual analysis advice survives persistence and responsive rendering',
  for(const width of [375,768,1280]){
   await page.setViewportSize({width,height:900});await page.goto(`/itv/${interviewId}/analysis`);
   for(const title of ['研究建议','待验证假设','适用边界'])await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
-  await expect(page.getByRole('heading',{name:'研究目标',exact:true})).toBeVisible();
+  await expect(page.locator('aside').getByText(/关键事件/u).first()).toBeVisible();
+  expect(await page.locator('aside ol').first().locator(':scope > li').count()).toBeGreaterThanOrEqual(3);
   await expect(page.getByText('当前文档未单列建议',{exact:false})).toHaveCount(0);
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   await page.screenshot({path:testInfo.outputPath(`analysis-live-${width}.png`),fullPage:true});
