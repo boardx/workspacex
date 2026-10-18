@@ -50,7 +50,7 @@ Benchmark source is frozen on their a41a266 lineage, not an admitted production 
 main3eb7d004 billing changes are not overwritten. All production stages remain unverified.
 
 Commands used by hosted CI:
-- node --test .harness/scripts/ci-smoke-shards.test.mjs
+- node --test .harness/scripts/ci-smoke-shards.node-check.mjs
 - baseline: existing fixed runtime run command
 - shards: fixed runtime shard command, then original with-test-isolation
 - sanitized report and complete220-case aggregate
