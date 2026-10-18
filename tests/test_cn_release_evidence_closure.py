@@ -121,6 +121,29 @@ class ClosureTests(unittest.TestCase):
             if path.name != 'identity.json': path.unlink()
         with self.assertRaisesRegex(c.m.Rejected, 'NO_ORIGINAL_STAGE_EVIDENCE'): self.inspect()
 
+    def test_swap_between_timing_and_inventory_is_rejected(self):
+        original_report = c.m.report
+        for suffix in ['evidence', 'terminal-observation', 'admission', 'intent', 'receipt']:
+            path = self.root/('00-consume.'+suffix+'.json'); raw = path.read_bytes()
+            def replacing(*args, **kwargs):
+                value = original_report(*args, **kwargs)
+                data = json.loads(raw); data['injectedAfterTiming'] = True
+                path.write_bytes(native.e.encode(data))
+                return value
+            with self.subTest(suffix=suffix), patch.object(c.m, 'report', replacing), self.assertRaises(c.m.Rejected):
+                self.inspect()
+            path.write_bytes(raw)
+
+    def test_deep_json_cli_is_fixed_rejection(self):
+        (self.root/'identity.json').write_bytes(b'['*1100+b']'*1100)
+        result = subprocess.run([sys.executable, '-B', str(ROOT/'scripts/cn-release-evidence-closure.py'),
+            '--attempt-dir', str(self.root), '--packages-dir', str(self.case.requests),
+            '--github-accepted-at', self.identity['requestedAt'],
+            '--user-requested-at', self.identity['requestedAt']], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stderr, '')
+        self.assertEqual(json.loads(result.stdout)['error'], 'CLOSURE_REJECTED')
+
     def test_cli_error_is_bounded_and_cannot_admit(self):
         result = subprocess.run([sys.executable, '-B', str(ROOT/'scripts/cn-release-evidence-closure.py'),
                                  '--attempt-dir', str(self.root), '--packages-dir', '/missing',

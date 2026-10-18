@@ -154,6 +154,15 @@ class MeasurementTests(unittest.TestCase):
         (self.root/'identity.json').write_text('{"attemptId":"one","attemptId":"two"}')
         with self.assertRaises(m.Rejected): self.report()
 
+    def test_deep_json_cli_returns_fixed_rejection(self):
+        (self.root/'identity.json').write_bytes(b'['*1100+b']'*1100)
+        result = subprocess.run([sys.executable, '-B', str(ROOT/'scripts/cn-release-measurement.py'),
+            '--attempt-dir', str(self.root), '--github-accepted-at', stamp(10),
+            '--user-requested-at', stamp(0)], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stderr, '')
+        self.assertEqual(json.loads(result.stdout)['error'], 'MEASUREMENT_REJECTED')
+
     def test_non_object_receipt_and_intent_cli_fail_with_only_fixed_json(self):
         self.chain(1)
         for suffix in ['receipt', 'intent']:

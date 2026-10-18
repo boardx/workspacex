@@ -20,21 +20,29 @@ def inspect(attempt_dir, packages_dir, *, github_accepted_at, user_requested_at,
                       user_requested_at=user_requested_at, observed_at=observed_at)
     m.need(timing['stages'], 'NO_ORIGINAL_STAGE_EVIDENCE')
     identity_raw = m.read(root, 'identity.json')
+    m.need(m.digest(identity_raw) == timing['identityRawSha256'], 'TIMING_IDENTITY_CHANGED')
     identity = m.decode(identity_raw)
     inventory = [{'area': 'attempt', 'name': 'identity.json', 'sha256': m.digest(identity_raw), 'bytes': len(identity_raw)}]
     stages = []
     seen_packages = set()
     for index, row in enumerate(timing['stages']):
         prefix = '%02d-%s' % (index, row['stage'])
-        original = {}
+        original, originals_raw = {}, {}
         for suffix in ('.intent.json', '.receipt.json', '.process.json', '.terminal.json',
                        '.evidence.json', '.terminal-observation.json', '.admission.json'):
             raw = m.read(root, prefix+suffix)
             value = m.decode(raw)
             m.need(type(value) is dict and value, 'EMPTY_OR_NON_OBJECT_EVIDENCE')
             original[suffix] = value
+            originals_raw[suffix] = raw
             inventory.append(dict(area='attempt', name=prefix+suffix, sha256=m.digest(raw), bytes=len(raw)))
         receipt, intent = original['.receipt.json'], original['.intent.json']
+        m.need(m.digest(originals_raw['.receipt.json']) == row['receiptSha256'], 'TIMING_RECEIPT_CHANGED')
+        m.need(m.digest(originals_raw['.intent.json']) == row['intentSha256'], 'TIMING_INTENT_CHANGED')
+        for suffix, key in (('.evidence.json', 'evidenceSha256'),
+                            ('.terminal-observation.json', 'terminalObservationSha256'),
+                            ('.admission.json', 'admissionSha256')):
+            m.need(m.digest(originals_raw[suffix]) == receipt[key], 'INVENTORY_PROOF_CHANGED')
         process, terminal = original['.process.json'], original['.terminal.json']
         request = receipt['requestSha256']  # strict64 hex validated by measurement reader
         m.need(request not in seen_packages, 'PACKAGE_REUSED')

@@ -4,7 +4,9 @@ on:
     paths:
       - scripts/cn-release-evidence-closure.py
       - scripts/cn-release-measurement.py
+      - scripts/cn-release-evidence-correlation.py
       - tests/test_cn_release_evidence_closure.py
+      - tests/test_cn_release_evidence_correlation.py
       - tests/test_cn_release_entry.py
       - .harness/scripts/vm/cn-release-advance.py
       - .github/workflows/cn-release-evidence-closure-tests.yml
@@ -20,4 +22,4 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
       - name: Original harmless executor closure and tampering tests
-        run: python3 -B -m unittest discover -s tests -p test_cn_release_evidence_closure.py -v
+        run: python3 -B -m unittest discover -s tests -p 'test_cn_release_evidence_*.py' -v
