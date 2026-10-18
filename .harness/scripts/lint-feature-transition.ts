@@ -11,6 +11,7 @@
 // （手改 passing 指向旧日志 / 改写日志正文重算指纹）在最终树上都是自洽的，
 // 只有 base→head 的差分里才有破绽。详见 lib/feature-transition.ts 头注。
 import { sh } from "./lib/sh";
+import {runMergeTreeDiagnostic} from "./lib/merge-tree-diagnostic";
 import { log, die } from "./lib/log";
 import { req, type Args } from "./lib/args";
 import { REPO_ROOT } from "./lib/paths";
@@ -40,6 +41,8 @@ type Git = (cmd: string) => { code: number; out: string };
 
 function gitIn(repoRoot: string): Git {
   return (cmd) => {
+    const merge = /^merge-tree --write-tree --no-messages ([a-f0-9]{40}) ([a-f0-9]{40})$/.exec(cmd);
+    if (merge) return runMergeTreeDiagnostic(repoRoot,merge[1]!,merge[2]!);
     const r = sh(`git ${cmd}`, repoRoot);
     return { code: r.code, out: r.stdout };
   };
