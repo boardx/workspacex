@@ -55,6 +55,7 @@
     "verify:digital-directory-cards": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.digital-directory-cards.config.ts",
     "verify:fullstack-smoke": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:fullstack-smoke:raw",
     "verify:fullstack-smoke:raw": "pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import",
+    "verify:fullstack-smoke:shard": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node .harness/scripts/ci-smoke-shards.mjs execute",
     "verify:prototype-audit": "tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.prototype-audit.config.ts",
     "verify:design-loop": "tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.design-loop.config.ts",
     "verify:core-loop": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:core-loop:raw",
