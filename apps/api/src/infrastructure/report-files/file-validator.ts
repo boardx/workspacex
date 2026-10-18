@@ -1,3 +1,4 @@
+import { docxParagraphText } from './docx-paragraph-text';
 import { reportFileContentRequirements } from '@repo/contracts/report-file-content';
 import { inspectDocx, unzip } from '@repo/skill-sandbox/ooxml';
 import { AnydocAttachmentToMarkdown } from '../chat/anydoc-attachment-to-markdown';
@@ -34,7 +35,8 @@ export class ReportGeneratedFileValidator implements ReportFileValidator {
       if (!types || !document || /<!DOCTYPE|<!ENTITY/i.test(types + document)) throw new Error();
       if (!types.includes('wordprocessingml.document.main+xml') || !/<w:body[\s>]/.test(document)) throw new Error();
       const relationUrls = unzip(Buffer.from(bytes)).filter(file => file.name.endsWith('.rels')).flatMap(file => [...file.bytes.toString('utf8').matchAll(/Target="(https?:[^"]+)"/g)].map(match => match[1]!.replaceAll('&amp;', '&')));
-      const text = inspectDocx(Buffer.from(bytes)).textRuns.join(' ');
+      inspectDocx(Buffer.from(bytes));
+      const text = docxParagraphText(document);
       validateReportContent(format, text, source, relationUrls);
     } catch { throw new ReportFileError('INVALID_FILE'); }
   }

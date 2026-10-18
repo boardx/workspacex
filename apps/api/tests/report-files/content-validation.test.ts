@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Document, Packer, Paragraph } from 'docx';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { expect, it } from 'vitest';
 import { ReportGeneratedFileValidator, validateReportContent } from '../../src/infrastructure/report-files/file-validator';
 const markdown = '# 中文报告\n\n用户需要可下载和编辑的真实报告文件。';
@@ -112,4 +112,17 @@ it.each(['审核状态：未批准',source.notices[0],`内容哈希：${reportHa
  expect(()=>validateReportContent('pdf',`中文报告 用户需要可下载和编辑的真实报告文件。\n${line}`,source)).toThrow();
  const saved={...source,markdown:source.markdown+`\n\n${line}`};
  expect(()=>validateReportContent('pdf',`中文报告 用户需要可下载和编辑的真实报告文件。\n${line}`,saved)).not.toThrow();
+});
+
+it('rejects an extra DOCX review paragraph even when the status is split across runs',async()=>{
+ const bytes=await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('中文报告'),new Paragraph('用户需要可下载和编辑的真实报告文件。'),new Paragraph({children:[new TextRun('审核状'),new TextRun('态：已批准')]})]}]}));
+ await expect(new ReportGeneratedFileValidator().validate('docx',bytes,source)).rejects.toMatchObject({code:'INVALID_FILE'});
+ const saved={...source,markdown:source.markdown+'\n\n审核状态：已批准'};
+ await expect(new ReportGeneratedFileValidator().validate('docx',bytes,saved)).resolves.toBeUndefined();
+});
+it('keeps ordinary split DOCX words together while preserving actual paragraph boundaries',async()=>{
+ const markdown='# Research report\n\nBehavioral evidence remains unchanged in the original report.';
+ const saved={...source,title:'Research report',markdown,reportHash:createHash('sha256').update(markdown).digest('hex')};
+ const bytes=await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('Research report'),new Paragraph({children:[new TextRun('Behav'),new TextRun('ioral evidence remains unchanged in the original report.')]})]}]}));
+ await expect(new ReportGeneratedFileValidator().validate('docx',bytes,saved)).resolves.toBeUndefined();
 });
