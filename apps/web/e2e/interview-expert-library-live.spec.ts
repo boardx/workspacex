@@ -123,3 +123,27 @@ test('four rounds of interview interaction with isolated saved data', async({pag
  await page.goto('/itv?tab=experts');const builtin=INTERVIEW_PERSONAS[0]!;const viewBuiltin=page.getByTestId(`itv-library-${personaAnchorId(builtin)}`).getByRole('button',{name:`查看画像 ${builtin.name}`,exact:true});await viewBuiltin.click();await expect(page.getByRole('dialog',{name:builtin.name,exact:true})).toContainText(builtin.service_value);await page.keyboard.press('Escape');await expect(viewBuiltin).toBeFocused();await checkpoint('r4-expert-keyboard',{completeData:true,focusRestored:true});
  const modelAfter=await modelActivity();expect(modelAfter).toEqual(modelBefore);expect(modelCommands).toEqual([]);await fs.writeFile(`${dir}/model-activity.json`,JSON.stringify({before:modelBefore,after:modelAfter,commands:modelCommands},null,2));
 });
+
+/** Renders the sanitized actual model output; deliberately does not dispatch a model. */
+test('contextual analysis advice survives persistence and responsive rendering',async({page},testInfo)=>{
+ test.setTimeout(120_000);
+ const {readFile}=await import('node:fs/promises');
+ const markdown=await readFile(process.env.WX_ANALYSIS_RENDER_FILE ?? resolve(process.cwd(),'../../evidence/interview-analysis-5819/live-analysis.md'),'utf8');
+ await page.goto('/login');await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/u);
+ const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));const headers={authorization:`Bearer ${token}`};
+ await page.goto('/itv');await page.getByTestId('itv-create').click();await page.getByLabel('访谈名称',{exact:true}).fill('合成晚睡研究分析验收');await page.getByTestId('itv-create-submit').click();await expect(page).toHaveURL(/\/itv\/[^/]+\/intake/u);
+ const interviewId=new URL(page.url()).pathname.split('/')[2]!;const path=`/__fullstack_api/interviews/digital/${interviewId}/markdown`;
+ const save=async(body:string)=>{const current=await(await page.request.get(path,{headers})).json();const result=await page.request.post(`${path}/analysis`,{headers,data:{markdown:body,expectedVersion:current.version,expectedDocumentVersion:current.documents.find((d:{step:string})=>d.step==='analysis')?.version??0}});expect(result.ok()).toBe(true);};
+ await save(markdown);
+ for(const width of [375,768,1280]){
+  await page.setViewportSize({width,height:900});await page.goto(`/itv/${interviewId}/analysis`);
+  for(const title of ['研究建议','待验证假设','适用边界'])await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();
+  await expect(page.locator('aside').getByText(/关键事件/u).first()).toBeVisible();
+  expect(await page.locator('aside ol').first().locator(':scope > li').count()).toBeGreaterThanOrEqual(3);
+  await expect(page.getByText('当前文档未单列建议',{exact:false})).toHaveCount(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  await page.screenshot({path:testInfo.outputPath(`analysis-live-${width}.png`),fullPage:true});
+ }
+ const saved=await(await page.request.get(path,{headers})).json();expect(saved.documents.find((d:{step:string})=>d.step==='analysis').markdown).toBe(markdown);
+ await save('## 每天晚睡的主要弊端\n\n长期晚睡可能影响日常生活，尚需访谈核验。');await page.reload();await expect(page.getByRole('button',{name:'重新生成分析',exact:true})).toBeEnabled();await expect(page.getByText('缺少研究建议',{exact:false})).toBeVisible();
+});
