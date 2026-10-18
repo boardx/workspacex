@@ -53,6 +53,6 @@ export function prTransitionPairs(git: ProofGit, eventBase: string, source: stri
     throw new Error("PR_TRANSITION_PARENTS");
   const actualBase = parts[1];
   if (git(`merge-base --is-ancestor ${eventBase} ${actualBase}`).code !== 0 ||
-      git(`merge-base --is-ancestor ${eventBase} ${source}`).code !== 0) throw new Error("PR_TRANSITION_BASE");
+      git(`merge-base ${actualBase} ${source}`).code !== 0) throw new Error("PR_TRANSITION_BASE");
   return [[eventBase,source],[eventBase,actualBase],[actualBase,head]];
 }

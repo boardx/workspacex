@@ -422,3 +422,32 @@ describe("advanced-base complete-tree reconstruction",()=>{
   expect(reconstructedSquash(query,squash,witness,LOG_REL,blob,[{source,squash,parent}])).toBe(false);
  });
 });
+
+describe("final CLI missing and unreachable witnesses fail closed",()=>{
+ it("valid fingerprint with missing commit must exit1 rather than warning",()=>{
+  const base=commit("base");
+  writeAttestedLog("$ pnpm test\n[exit 0]\nall good");writeFeatures([verifiedPassing()]);
+  write(LOG_REL,readFileSync(join(repo,LOG_REL),"utf8").replace(/commit=[a-f0-9]{40}/,"commit="+"f".repeat(40)));
+  const head=commit("missing witness");
+  const r=runGate(base,head);expect(r.code).toBe(1);expect(r.out).toContain("attestation_unverifiable");
+ });
+ it("existing but unreachable original witness cannot be borrowed",()=>{
+  const base=commit("base");
+  const witness=git("-c user.name=t -c user.email=t@t commit-tree HEAD^{tree} -p HEAD -m unreachable");
+  expect(sh("git cat-file -e "+witness+"^{commit}",repo).code).toBe(0);
+  writeAttestedLog("$ pnpm test\n[exit 0]\nall good");writeFeatures([verifiedPassing()]);
+  write(LOG_REL,readFileSync(join(repo,LOG_REL),"utf8").replace(/commit=[a-f0-9]{40}/,"commit="+witness));
+  const head=commit("borrow unreachable witness");
+  const r=runGate(base,head);expect(r.code).toBe(1);expect(r.out).toContain("attestation_unverifiable");
+ });
+ it("PR based before event-base remains valid when actual main contains that base",()=>{
+  const base=commit("base");git("checkout -q -b pr");
+  write("pr.txt","PR change\n");const source=commit("PR source");
+  git("checkout -q main");write("main.txt","new main change\n");const eventBase=commit("main advances after PR branched");
+  git('merge --no-ff pr -m "synthetic integration"');const head=git("rev-parse HEAD");
+  const query=(cmd:string)=>{const r=sh("git "+cmd,repo);return {code:r.code,out:r.stdout};};
+  expect(prTransitionPairs(query,eventBase,source,head)).toEqual([[eventBase,source],[eventBase,eventBase],[eventBase,head]]);
+  const r=sh(`pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition --base ${eventBase} --pr-source ${source} --head ${head} --repo ${repo}`,REPO_ROOT);
+  expect(r.code).toBe(0);expect(base).not.toBe(eventBase);
+ });
+});

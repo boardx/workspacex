@@ -27,3 +27,5 @@ subsequent target advance, wrong source, altered/missing evidence, missing objec
 foreign witness, conflicts, strict manifest and separate PR/main deltas. No production/30min claim.
 
 Git contract: https://git-scm.com/docs/git-merge-tree
+
+Review follow-up: the final provenance judge now rejects missing witness objects instead of emitting a warning. Two actual CLI cases cover missing and existing-but-unreachable witnesses. PR parent validation allows a source branched before the event base: it requires event-base ancestry to actual main and a real common merge-base between main and source, not the invalid requirement that new main be the source's ancestor. A real-Git CLI regression covers this normal lagging-PR shape. These follow-up tests remain unexecuted until an exact-source receipt is obtained.
