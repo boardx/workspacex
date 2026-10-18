@@ -1,3 +1,4 @@
+import { INTERVIEW_ANALYSIS_INSTRUCTIONS, repairInterviewAnalysis } from "./workflow/interview-analysis-quality";
 import { buildReportEvidenceIndex, reportEvidenceContext } from "./workflow/interview-report-grounding";
 import { generateReportWithRecovery } from "./workflow/interview-report-recovery";
 import type { DebugTracePort } from "../ports/debug-trace.port";
@@ -33,7 +34,7 @@ export interface InterviewMarkdownGenerator {
 
 const requiredSource = { analysis: "intake", experts: "analysis", outline: "experts", report: "runs" } as const;
 const instructions = {
-  analysis: "包含研究目标、专家类型、研究范围、成功标准、建议、待验证假设。不要假装研究已经完成，不预设产品有效，问题应开放且非诱导。",
+  analysis: INTERVIEW_ANALYSIS_INSTRUCTIONS,
   experts: "建议 3–5 位互补的虚拟专业角色，每位使用二级标题 ## [角色名称](#expert-稳定ID)，稳定ID只含英文字母、数字、下划线和连字符且唯一。包含专业角色、领域、方法、能回答的问题、局限性。不得编造真实姓名、机构任职、荣誉或业绩。",
   outline: "按输入所有专家分组，每组只保留二级标题 ## [角色名称](#expert-稳定ID) 和一组连续编号的问题，不新增专家ID。每行严格使用“1. 问题？”格式，只写受访者可以直接回答的简短问题；不要输出背景、目的、说明、分类标题或问题解析。问题应覆盖最近一次行为、具体案例、反例和未来判断。",
   report: `${INTERVIEW_REPORT_THEME_GUIDANCE}仅使用输入已有事实和引用，不编造来源，不把模拟内容宣称为真人证据。\n${INTERVIEW_REPORT_ANALYSIS_REQUIREMENTS}`,
@@ -197,6 +198,7 @@ export async function generateInterviewMarkdown(
       const body = (retry?.markdown ?? "") + response.text;
       return body;
     });
+    if (input.step === "analysis") markdown = await repairInterviewAnalysis(deps.model, request, markdown);
     }
   }
   // saveDraft rechecks visibility and the aggregate/document versions under the lock.
