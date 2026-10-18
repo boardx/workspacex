@@ -20,7 +20,7 @@ const user = "f08-sub-user", other = "f08-sub-other", org = toOrgId("f08-sub-org
 let app: NestExpressApplication, server: Server, base: string;
 const diagnostics: { msg: string; fields: Record<string, unknown> }[] = [];
 let sinkFails = false;
-let databaseFault: "read" | "insert" | "unknown" | null = null;
+let databaseFault: "read" | "insert" | "intent-count" | "unknown" | null = null;
 const privateFixtureValues: string[] = [];
 const state = { mode: "ok", calls: [] as { body: URLSearchParams; version: string | undefined }[] };
 async function request(path: string, who: string = user, requestOrg = "f08-sub-org") {
@@ -71,7 +71,8 @@ beforeAll(async () => {
       const owned = params?.includes(user) === true;
       const reading = owned && sql.includes("FROM billing_subscriptions WHERE user_id=$1");
       const inserting = owned && sql.includes("INSERT INTO billing_purchase_intents");
-      if ((databaseFault === "read" && reading) || (databaseFault === "insert" && inserting)) await session.query("SELECT 1/0");
+      const counting = owned && sql.includes("count(*)") && sql.includes("billing_purchase_intents");
+      if ((databaseFault === "read" && reading) || (databaseFault === "insert" && inserting) || (databaseFault === "intent-count" && counting)) await session.query("SELECT 1/0");
       const result = await session.query<R>(sql, params);
       return databaseFault === "unknown" && reading ? { rows: result.rows.map(row => ({ ...row, status: "future_unknown" })) } : result;
     },
@@ -212,8 +213,63 @@ describe("F08 real subscription HTTP/PG", () => {
     } finally { databaseFault = null; }
     expect((await asOwner(c => c.query("SELECT status FROM billing_subscriptions WHERE user_id=$1", [user]))).rows[0]?.status).toBe("active");
   });
+  it("bounds concurrent abandoned purchases to twenty without invalidating existing links", async () => {
+    const responses = await Promise.all(Array.from({ length: 25 }, () => request("/upgrade-link")));
+    expect(responses.filter(response => response.status === 200)).toHaveLength(20);
+    const limited = responses.filter(response => response.status === 429); expect(limited).toHaveLength(5);
+    for (const response of limited) expect(await response.json()).toMatchObject({ error: "rate_limited" });
+    const tokens = await Promise.all(responses.filter(response => response.status === 200).map(async response => new URL((await response.json()).url).searchParams.get("client_reference_id")!));
+    const stored = await asOwner(c => c.query("SELECT intent_hash FROM billing_purchase_intents WHERE user_id=$1", [user]));
+    expect(stored.rows.map(row => row.intent_hash).sort()).toEqual(tokens.map(token => createHash("sha256").update(token).digest("hex")).sort());
+    await asOwner(c => c.query(`INSERT INTO billing_purchase_intents(intent_hash,user_id,created_at,expires_at,expected_generation,consumed_subscription_ref)
+      VALUES (repeat('e',64),$1,now()-interval '2 days',now()-interval '1 day',7,NULL),
+      (repeat('f',64),$1,now()-interval '2 days',now()-interval '1 day',11,'sub_f08limit_history'),
+      (repeat('d',64),$2,now()-interval '2 days',now()-interval '1 day',5,NULL)`, [user,other]));
+    expect((await request("/upgrade-link")).status).toBe(429);
+    expect((await asOwner(c => c.query("SELECT intent_hash,user_id,expected_generation FROM billing_purchase_intents WHERE intent_hash=repeat('e',64)"))).rows)
+      .toEqual([{ intent_hash: "e".repeat(64), user_id: user, expected_generation: "7" }]);
+    expect((await asOwner(c => c.query("SELECT count(*)::int AS n FROM billing_purchase_intents WHERE user_id=$1 AND consumed_subscription_ref IS NULL AND expires_at>now()", [user]))).rows[0]?.n).toBe(20);
+    expect((await request("/upgrade-link", other)).status).toBe(200);
+    expect((await asOwner(c => c.query("SELECT intent_hash,user_id,expected_generation,consumed_subscription_ref FROM billing_purchase_intents WHERE intent_hash IN (repeat('d',64),repeat('e',64),repeat('f',64)) ORDER BY intent_hash"))).rows).toEqual([
+      { intent_hash: "d".repeat(64), user_id: other, expected_generation: "5", consumed_subscription_ref: null },
+      { intent_hash: "e".repeat(64), user_id: user, expected_generation: "7", consumed_subscription_ref: null },
+      { intent_hash: "f".repeat(64), user_id: user, expected_generation: "11", consumed_subscription_ref: "sub_f08limit_history" },
+    ]);
+  });
+  it("retains expired and consumed correlation history for both users while issuing a fresh intent", async () => {
+    const first = await request("/upgrade-link"); const token = new URL((await first.json()).url).searchParams.get("client_reference_id")!;
+    const activeHash = createHash("sha256").update(token).digest("hex");
+    await asOwner(c => c.query(`INSERT INTO billing_purchase_intents(intent_hash,user_id,created_at,expires_at,expected_generation,consumed_subscription_ref)
+      VALUES (repeat('a',64),$1,now()-interval '2 days',now()-interval '1 day',7,NULL),
+      (repeat('b',64),$1,now()-interval '2 days',now()-interval '1 day',9,'sub_f08history'),
+      (repeat('c',64),$2,now()-interval '2 days',now()-interval '1 day',5,NULL)`, [user, other]));
+    expect((await request("/upgrade-link")).status).toBe(200);
+    const retained = await asOwner(c => c.query("SELECT intent_hash FROM billing_purchase_intents WHERE user_id=$1", [user]));
+    expect(retained.rows.map(row => row.intent_hash)).toContain(activeHash);
+    expect(retained.rows.map(row => row.intent_hash)).toContain("b".repeat(64));
+    expect(retained.rows.map(row => row.intent_hash)).toContain("a".repeat(64));
+    expect(retained.rows).toHaveLength(4);
+    const history = await asOwner(c => c.query("SELECT intent_hash,user_id,expected_generation,consumed_subscription_ref FROM billing_purchase_intents WHERE intent_hash IN (repeat('a',64),repeat('b',64),repeat('c',64)) ORDER BY intent_hash"));
+    expect(history.rows).toEqual([
+      { intent_hash: "a".repeat(64), user_id: user, expected_generation: "7", consumed_subscription_ref: null },
+      { intent_hash: "b".repeat(64), user_id: user, expected_generation: "9", consumed_subscription_ref: "sub_f08history" },
+      { intent_hash: "c".repeat(64), user_id: other, expected_generation: "5", consumed_subscription_ref: null },
+    ]);
+    expect((await asOwner(c => c.query("SELECT count(*)::int AS n FROM billing_purchase_intents WHERE user_id=$1", [other]))).rows[0]?.n).toBe(1);
+  });
+  it.each(["intent-count", "insert"] as const)("%s transaction failure returns 503 and retains prior correlation history without issuing a link", async fault => {
+    await asOwner(c => c.query(`INSERT INTO billing_purchase_intents(intent_hash,user_id,created_at,expires_at,expected_generation)
+      VALUES (repeat('d',64),$1,now()-interval '2 days',now()-interval '1 day',0)`, [user]));
+    databaseFault = fault;
+    try {
+      const response = await request("/upgrade-link"); expect(response.status).toBe(503);
+      const body = await response.json(); expect(body).toMatchObject({ error: "dependency_unavailable" }); expect(body).not.toHaveProperty("url");
+      expect((await asOwner(c => c.query("SELECT intent_hash FROM billing_purchase_intents WHERE user_id=$1", [user]))).rows).toEqual([{ intent_hash: "d".repeat(64) }]);
+    } finally { databaseFault = null; }
+  });
   it("app role can read snapshots but cannot write them; intent owner/expiry/digest are immutable", async () => {
     await seed("active"); await expect(asApp(org, c => c.query("UPDATE billing_subscriptions SET status='canceled' WHERE user_id=$1", [user]))).rejects.toThrow(/permission denied/);
     await cleanup(); await request("/upgrade-link"); await expect(asApp(org, c => c.query("UPDATE billing_purchase_intents SET user_id=$1", [other]))).rejects.toThrow(/permission denied/);
+    await expect(asApp(org, c => c.query("DELETE FROM billing_purchase_intents WHERE user_id=$1", [user]))).rejects.toThrow(/permission denied/);
   });
 });

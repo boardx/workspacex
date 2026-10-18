@@ -9,3 +9,5 @@
 授权：2026-10-18 用户采纳ADR123，并允许使用参考后端配置来源；之后又提供主仓.env.local，但里面没有支付或devapp连接。密钥不入Git/聊天/命令参数。未执行merchant调用、secret写入、部署或付款。
 
 后续F09/订阅UI/token均还未做。安全配置探针草案在/tmp/wsx-billing-runtime-probe，无repo变更、无dispatch。心跳tick缺COORD_GATEWAY_URL已记录，不冒充租约。
+
+升级链接现有20个有效未消费意图限额，超限通用429。不要删除过期hash→user/generation：这仍是迟到付款人工核对线索。F09自动绑定必须检查expiry/用户锁/当前代次；未知或过期来源不能擅自授予权益；人工核对流程未实现。最新专项33项，不把原29项数当最终覆盖数。

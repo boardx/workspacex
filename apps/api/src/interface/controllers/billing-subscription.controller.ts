@@ -1,18 +1,19 @@
 import { traceIdOf } from "../middleware/trace";
 import { SubscriptionHttpException } from "./subscription-http-exception";
-import { Controller, Get, Header, Inject, Req, Query, ServiceUnavailableException } from "@nestjs/common";
+import { Controller, Get, Header, Inject, Req, Query, ServiceUnavailableException, HttpException } from "@nestjs/common";
 import { operations } from "@repo/contracts/billing-subscription";
 import type { z } from "zod";
 import type { Principal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
 import { ZodBodyPipe } from "../pipes/zod-body.pipe";
-import { BillingSubscriptionService, SubscriptionError } from "../../application/billing/billing-subscription-service";
+import { BillingSubscriptionService, SubscriptionIntentLimitError, SubscriptionError } from "../../application/billing/billing-subscription-service";
 @Controller()
 export class BillingSubscriptionController {
   constructor(@Inject(BillingSubscriptionService) private readonly service: BillingSubscriptionService) {}
   private async mapped<T>(run: () => Promise<T>) {
     try { return await run(); }
     catch (error) {
+      if (error instanceof SubscriptionIntentLimitError) throw new HttpException("rate_limited", 429);
       if (error instanceof SubscriptionError) {
         if (error.code === "dependency_unavailable") throw new ServiceUnavailableException();
         throw new SubscriptionHttpException(error.code, error.code === "payment_provider_not_configured" ? 503 : 409);

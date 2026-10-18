@@ -99,6 +99,7 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   413: "payload_too_large",
   415: "unsupported_media_type",
   422: "unprocessable",
+  429: "rate_limited",
   503: "dependency_unavailable",
 };
 

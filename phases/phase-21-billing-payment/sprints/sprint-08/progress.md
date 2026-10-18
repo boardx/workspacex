@@ -27,3 +27,8 @@
 ## PR #5822 CI 修复
 - PR: https://github.com/boardx/workspacex/pull/5822 。71b0952候选本地完整门控通过；CI simulation(all)在真实恢复catalog拒绝新迁移。artifact证明为UNREVIEWED_MIGRATION_SUFFIX，不是支付业务测试失败，也不是可忽略红灯。
 - 显式把已审subscription迁移追加到recovery reviewedSuffix；历史prefix/完整suffix/排序/未来未知拒绝均保留。catalog先RED后2case通过，Python fixture wrapper9项通过。Linux完整迁移恢复仍以新CI为准。
+
+## 升级意图限流 / 付款关联保留
+- PR review PRRT_kwDOO5_Nyc6tqYdL指出重复GET可无限签发intent。用户锁内增加20个有效未消费意图的限额，超限通用429 rate_limited（不扩订阅领域枚举）。
+- 初稿删除expired关联，被独立review拒绝：静态付款链接不会自动随意图过期，迟到付款仍需hash→user/generation人工核对线索。最终移除删除与DELETE权限，所有历史保留。限额只约束未消费创建速率，不声称历史总量硬上限，也不声称晚到付款人工恢复已实现。
+- RED保留关联失败2项，修后真实HTTP/PG33项通过，API typecheck/lint通过；包含并发25请求仅20成功、其他用户不受影响、超限后旧有效链接/expired/consumed历史保持、count/insert真实PG异常503。

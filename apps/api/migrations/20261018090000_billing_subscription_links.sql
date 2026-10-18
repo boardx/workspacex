@@ -29,7 +29,9 @@ CREATE TABLE IF NOT EXISTS billing_purchase_intents (
 );
 CREATE INDEX IF NOT EXISTS billing_purchase_intents_user_idx ON billing_purchase_intents(user_id,created_at DESC);
 COMMENT ON TABLE billing_subscriptions IS 'kernel-no-tenant-data: owner-global Stripe subscription snapshot keyed by user, app_rw SELECT only in F08; compromised app role can read customer/subscription refs and billing status across users. HTTP access filters trusted principal user_id.';
-COMMENT ON TABLE billing_purchase_intents IS 'kernel-no-tenant-data: owner-global principal-bound SHA256 purchase intent digests, expiry and expected generation; no raw bearer token. Compromised app role can read/insert intents for arbitrary users; trusted HTTP principal is the ownership boundary.';
+COMMENT ON TABLE billing_purchase_intents IS 'kernel-no-tenant-data: owner-global principal-bound SHA256 purchase intent digests, expiry and expected generation; no raw bearer token. Compromised app role can read/insert intents for arbitrary users; trusted HTTP principal is the ownership boundary. app_rw cannot UPDATE or DELETE correlation history. Expired/consumed hashes retain user and generation for late-payment reconciliation; retention policy is separate.';
 REVOKE ALL ON billing_subscriptions,billing_purchase_intents FROM app_rw;
 GRANT SELECT ON billing_subscriptions TO app_rw;
+-- F09 must reject expired authorization without deleting the hash/user/generation correlation.
+-- Unknown or late payments require explicit reconciliation; intent retention is not automatic authorization.
 GRANT SELECT,INSERT ON billing_purchase_intents TO app_rw;

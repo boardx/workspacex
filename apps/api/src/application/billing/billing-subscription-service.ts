@@ -13,6 +13,11 @@ export interface SubscriptionProvider {
   purchaseLink(intent: string): string;
   portal(customerRef: string, traceId?: string): Promise<string>;
 }
+/** Internal resource bound; HTTP maps this to the generic 429 error, not a subscription enum member. */
+export const MAX_ACTIVE_PURCHASE_INTENTS = 20;
+export class SubscriptionIntentLimitError extends Error {
+  constructor() { super("subscription_intent_rate_limited"); }
+}
 export class SubscriptionError extends Error {
   constructor(readonly code: SubscriptionErrorCode | "dependency_unavailable") { super(code); }
 }
