@@ -69,3 +69,5 @@ matching existing canonical job order. It does not add credentials or bypass a c
 runs must finish before its expected-old non-force head update, so no existing run is canceled.
 
 Independent review found that the wrapper logs a derived ID rather than the input seed. The reducer now invokes the existing deriveTestIsolation function for the same mounted worktree and compares ID, database and Compose project exactly. A regression test rejects raw-seed observations and each independently altered resource. The new 18-test suite remains unverified until exact-head hosted execution completes.
+
+Hosted control-plane checks on the initial head also exposed Vitest collecting the Node builtin test file and an unaudited download-artifact reference. The explicit Node suite is now named ci-smoke-shards.node-check.mjs and still required by the benchmark unit dependency; download-artifact uses the repository-required immutable audited commit. Neither failure is waived.

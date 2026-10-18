@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - .harness/scripts/ci-smoke-shards.mjs
-      - .harness/scripts/ci-smoke-shards.test.mjs
+      - .harness/scripts/ci-smoke-shards.node-check.mjs
       - .harness/scripts/ci-fullstack-runtime.mjs
       - .github/workflows/ci-smoke-shard-benchmark.yml
 permissions:
@@ -24,7 +24,7 @@ jobs:
         with:
           node-version-file: .nvmrc
       - run: pnpm install --frozen-lockfile
-      - run: node --test .harness/scripts/ci-smoke-shards.test.mjs
+      - run: node --test .harness/scripts/ci-smoke-shards.node-check.mjs
   benchmark:
     needs: unit
     runs-on: ubuntu-24.04
@@ -84,7 +84,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: ci-smoke-part-${{ github.run_id }}-${{ github.run_attempt }}-*
           path: phases/phase-01-run-a-project/evidence/ci/smoke-shards/parts
