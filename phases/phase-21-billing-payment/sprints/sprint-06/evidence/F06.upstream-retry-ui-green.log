@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ✓ tests/ui/billing-overview.test.tsx (7 tests) 1421ms
+   ✓ 真实计费入口与账户状态 > 个人菜单始终可发现账户入口，不依赖支付凭据 933ms
+ ✓ tests/ui/billing-cashier.test.tsx (40 tests) 4093ms
+   ✓ F06 live cashier entry > opens real package selection from configured account 594ms
+   ✓ F06 live cashier entry > does not invent packages for an empty catalog 559ms
+
+ Test Files  2 passed (2)
+      Tests  47 passed (47)
+   Start at  23:08:52
+   Duration  21.81s (transform 4.89s, setup 1.56s, collect 14.12s, tests 5.51s, environment 15.94s, prepare 590ms)
+

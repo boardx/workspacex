@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/eaa4/workspacex/apps/web
+
+ ✓ tests/ui/billing-overview.test.tsx (7 tests) 195ms
+ ✓ tests/ui/billing-cashier.test.tsx (37 tests) 731ms
+
+ Test Files  2 passed (2)
+      Tests  44 passed (44)
+   Start at  22:32:40
+   Duration  2.86s (transform 643ms, setup 494ms, collect 2.09s, tests 927ms, environment 1.20s, prepare 86ms)
+

@@ -1,0 +1,5 @@
+2026-10-16T17:07:48.7651782Z  [32m✓[39m tests/billing/cashier-browser.integration.ts [2m([22m[2m3 tests[22m[2m)[22m[33m 40965[2mms[22m[39m
+2026-10-16T17:07:48.7652957Z    [33m[2m✓[22m[39m creates through the real UI, credits through a verified callback and never double credits [33m5328[2mms[22m[39m
+2026-10-16T17:07:48.7653520Z    [33m[2m✓[22m[39m naturally observes real expiry, regenerates a new order and credits only the replacement [33m7631[2mms[22m[39m
+2026-10-16T17:07:48.7654065Z    [33m[2m✓[22m[39m keeps a late paid capacity failure manual and prevents a second payment in the real UI [33m4440[2mms[22m[39m
+2026-10-16T17:07:48.7988765Z [2m      Tests [22m [1m[32m3 passed[39m[22m[90m (3)[39m

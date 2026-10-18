@@ -1,7 +1,7 @@
 ---
 bundle: billing-credits
 phase: "21"
-covers: [F01, F02, F04, F03, F05, F07, F-TBD-mock-paid, F-TBD-admin-grant, F-TBD-org-billing-setting, F-TBD-cashier-ui, F-TBD-admin-ui, F-TBD-org-billing-ui]
+covers: [F01, F02, F04, F03, F05, F07, F-TBD-mock-paid, F-TBD-admin-grant, F-TBD-org-billing-setting, F06, F-TBD-admin-ui, F-TBD-org-billing-ui]
 status: confirmed
 confirmed_by: "usamshen"
 confirmed_at: "2026-10-01T03:23:47Z"
@@ -27,7 +27,7 @@ confirmed_via: "人类对话确认（2026-10-01；agent 按人类指示代为回
 | F-TBD-mock-paid | 非生产 mock 通道（复用同一入账内核） |
 | F-TBD-admin-grant | 管理端查钱包 + 人工发放（原因必填、留痕） |
 | F-TBD-org-billing-setting | 组织计费开关 + 下单 I-12 校验分支 |
-| F-TBD-cashier-ui | 收银台弹窗（套餐 / 二维码 / 轮询 / 五终态） |
+| F06 | 收银台弹窗（套餐 / 二维码 / 轮询 / 五终态） |
 | F-TBD-admin-ui | 计费管理端 UI（钱包卡 / 流水表 / 发放二次确认） |
 | F-TBD-org-billing-ui | 组织计费区块 UI（钱包 / 购买入口 / 开关） |
 

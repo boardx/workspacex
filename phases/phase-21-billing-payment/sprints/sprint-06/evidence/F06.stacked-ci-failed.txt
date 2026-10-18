@@ -1,0 +1,18 @@
+2026-10-16T17:08:07.7122656Z F04: PR #5757@6c439585: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T17:08:10.2082484Z F03: PR #5744@215152fa: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T17:08:10.2084443Z F03: PR #5750@2a54fe60: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T17:08:11.6424907Z F05: PR #5773@cf6bdf03: DEFERRED: visual-deferred status=COMPLETED conclusion=SKIPPED; outside this iteration's acceptance, never counted as PASS
+2026-10-16T17:08:11.8362111Z ✗ [21] F07 是 passing 但 issue #5797 仍 OPEN —— 跑 sync --apply，或确认 PR 是否带了 `Closes #5797`
+2026-10-16T17:08:11.8363520Z ✗ [21] F06 是 passing 但 issue #5775 仍 OPEN —— 跑 sync --apply，或确认 PR 是否带了 `Closes #5775`
+2026-10-16T17:08:11.8365789Z ✗ 审计链存在断裂（2 FAIL）。FAIL 项修复前不要开 PR / 交 review——reviewer 会用同样的标准 Block。
+2026-10-16T17:08:11.8383326Z ⚠ [21] roadmap 标 not_started 但已有 7 个 passing——阶段状态漂移，对齐一下（惯例见 fb9307d）
+2026-10-16T17:08:11.8384659Z ⚠ [21] runtime/E2E readiness：runtime/E2E NOT READY: 7/15 features passing; passing count is not readiness
+2026-10-16T17:08:11.8386231Z · [-] 8 条 not_started 的 feature 尚未认领（owner=null，正常待领状态，非欠债）
+2026-10-16T17:08:11.8387198Z · [-] evidence-legacy.json：3 条历史豁免仍然生效（00/F01 至 2026-12-31、00/F14 至 2026-12-31、00/F18 至 2026-12-31）——只减不增，过期即判红
+2026-10-16T17:08:11.8388374Z doctor：体检 1 个 phase — 2 FAIL / 2 WARN / 0 权威缺口 ⇒ FAIL
+2026-10-16T17:08:11.8642196Z  ELIFECYCLE  Command failed with exit code 1.
+2026-10-16T17:08:11.8996681Z ##[error]Process completed with exit code 1.
+2026-10-16T17:08:11.9097344Z Post job cleanup.
+2026-10-16T17:08:12.0564567Z Pruning is unnecessary.
+2026-10-16T17:08:12.0731708Z Post job cleanup.
+2026-10-16T17:08:12.1647726Z [command]/usr/bin/git version
