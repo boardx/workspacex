@@ -134,6 +134,48 @@ export function aggregate(parts, expected) {
     productionAccepted: false, thirtyMinuteProductionProven: false,
     note: 'Case-duration sums are not release wall time; intentional dependency re-execution is explicit.' };
 }
+/** Fixed enums, bounded counts and SHA256 identities only. Never raw report text. */
+export function safeFailureSummary(report) {
+  const statuses = new Set(['passed','failed','timedOut','skipped','interrupted','expected','unexpected','flaky']);
+  const status = v => statuses.has(v) ? v : 'unknown';
+  const count = v => integer(v) && v <= 10000000 ? v : null;
+  const hashText = v => typeof v === 'string' && v.length <= 4096 ? sha(v) : null;
+  const summary = { kind: 'ci-smoke-failure-summary-v1', testCount: 0, nonFirstPassCount: 0,
+    globalErrorCount: Array.isArray(report?.errors) ? count(report.errors.length) : null,
+    cases: [], truncated: false };
+  let visited = 0;
+  function walk(suites, depth) {
+    if (!Array.isArray(suites) || depth > 64 || visited >= 10000) { summary.truncated = true; return; }
+    for (const suite of suites) {
+      if (!obj(suite) || visited++ >= 10000) { summary.truncated = true; break; }
+      if (Array.isArray(suite.specs)) for (const spec of suite.specs) {
+        if (visited++ >= 10000) { summary.truncated = true; return; }
+        if (!obj(spec) || !Array.isArray(spec.tests)) continue;
+        for (const test of spec.tests) {
+          if (visited++ >= 10000) { summary.truncated = true; return; }
+          if (!obj(test) || summary.testCount >= 10000) { summary.truncated = true; break; }
+          summary.testCount++;
+          const results = Array.isArray(test.results) ? test.results : [];
+          const firstPass = test.expectedStatus === 'passed' && test.status === 'expected' &&
+            results.length === 1 && results[0]?.status === 'passed' && results[0]?.retry === 0;
+          if (firstPass) continue;
+          summary.nonFirstPassCount++;
+          if (summary.cases.length >= 20) { summary.truncated = true; continue; }
+          summary.cases.push({ projectSha256: hashText(test.projectName), fileSha256: hashText(spec.file),
+            line: count(spec.line), column: count(spec.column), status: status(test.status),
+            expectedStatus: status(test.expectedStatus), attemptCount: count(results.length),
+            attempts: results.slice(0,4).map(result => ({
+              status: status(result?.status), retry: count(result?.retry), durationMs: count(result?.duration)
+            })) });
+        }
+      }
+      if (suite.suites !== undefined) walk(suite.suites, depth + 1);
+    }
+  }
+  if (obj(report)) walk(report.suites, 0);
+  else summary.truncated = true;
+  return summary;
+}
 function bounded(path, limit = 64 * 1024 * 1024) {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try { const a=fstatSync(fd); need(a.isFile() && a.nlink===1 && a.size<=limit,'INPUT_BOUND');
@@ -156,10 +198,12 @@ function main() {
   }
   const part=Number(process.argv[3]),total=Number(process.argv[4]);
   const meta=context(process.env,part,total);
+  let failedReport;
   try {
     if (mode==='report') {
       const raw=bounded(resolve(ROOT,'apps/web/test-results/fullstack-smoke.json'));
-      const value=reduceReport(JSON.parse(raw.toString('utf8')),meta,bounded(resolve(ROOT,'smoke-benchmark.log')).toString('utf8'));
+      failedReport=JSON.parse(raw.toString('utf8'));
+      const value=reduceReport(failedReport,meta,bounded(resolve(ROOT,'smoke-benchmark.log')).toString('utf8'));
       value.originalReportSha256=sha(raw); save('part-'+part+'.json',value); return 0;
     }
     need(mode==='aggregate' && part===0,'MODE');
@@ -168,7 +212,7 @@ function main() {
     save('aggregate.json',aggregate(parts,meta)); return 0;
   } catch (error) {
     if (!(error instanceof ShardError || error instanceof SyntaxError || error instanceof RangeError || ['ENOENT','ELOOP','EACCES'].includes(error.code))) throw error;
-    save(mode==='aggregate'?'aggregate.json':'part-'+part+'.json',{kind:'ci-smoke-part-v1',...meta,status:'REJECTED',reason:'SMOKE_BENCHMARK_REJECTED',productionAccepted:false,thirtyMinuteProductionProven:false});
+    save(mode==='aggregate'?'aggregate.json':'part-'+part+'.json',{kind:'ci-smoke-part-v1',...meta,status:'REJECTED',reason:error instanceof ShardError ? error.message : 'INPUT_UNAVAILABLE_OR_INVALID',diagnostic:mode==='report'?safeFailureSummary(failedReport):null,productionAccepted:false,thirtyMinuteProductionProven:false});
     return 1;
   }
 }

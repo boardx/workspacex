@@ -71,3 +71,13 @@ runs must finish before its expected-old non-force head update, so no existing r
 Independent review found that the wrapper logs a derived ID rather than the input seed. The reducer now invokes the existing deriveTestIsolation function for the same mounted worktree and compares ID, database and Compose project exactly. A regression test rejects raw-seed observations and each independently altered resource. The new 18-test suite remains unverified until exact-head hosted execution completes.
 
 Hosted control-plane checks on the initial head also exposed Vitest collecting the Node builtin test file and an unaudited download-artifact reference. The explicit Node suite is now named ci-smoke-shards.node-check.mjs and still required by the benchmark unit dependency; download-artifact uses the repository-required immutable audited commit. Neither failure is waived.
+
+
+Failure-diagnostic follow-up: the baseline on64c1037e returned219passed+1flaky; first-pass rejection is retained.
+Only sanitized part evidence is uploaded. Raw JSON, trace ZIP, screenshots, request headers, bodies,
+attachments and error text are not added to artifacts. The rejection now preserves its fixed invariant
+code plus bounded counts, fixed status enums, file/project SHA256 identities and attempt durations.
+Unknown statuses become unknown; raw titles/names/messages never leave the reducer. At most20 failing
+case rows and4 attempts per row are included. This helps distinguish a flaky case from namespace/schema
+errors without expanding raw-trace collection. It does not explain the survey report's underlying delay.
+The prior raw failure-artifact proposaldfb002a6 is superseded and must not be applied.

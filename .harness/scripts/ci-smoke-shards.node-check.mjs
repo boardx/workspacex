@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { context, shard, reduceReport, aggregate, expectedIsolation } from './ci-smoke-shards.mjs';
+import { context, shard, reduceReport, aggregate, expectedIsolation, safeFailureSummary } from './ci-smoke-shards.mjs';
 const source='a'.repeat(40);
 const env={WSX_SMOKE_SOURCE_SHA:source,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',RUNNER_ENVIRONMENT:'github-hosted'};
 function report(ids, part) {
@@ -113,4 +113,31 @@ test('canonical wrapper derivation binds seed worktree and all three resources',
  }
  assert.throws(()=>reduceReport(report(range(0,220),0),expected,
   '[test-isolation] id='+expected.isolationSeed+' db='+d.database+' compose='+d.composeProject,'host'),/ISOLATION_OBSERVATION/);
+});
+
+test('failure diagnostics preserve retries with fixed enums and hashed identities',()=>{
+ const r=report([80],0);const v=r.suites[0].specs[0].tests[0];
+ v.status='flaky';v.results.unshift({...v.results[0],status:'failed'});v.results[1].retry=1;
+ const d=safeFailureSummary(r);assert.equal(d.testCount,1);assert.equal(d.nonFirstPassCount,1);
+ assert.equal(d.cases[0].status,'flaky');assert.equal(d.cases[0].attemptCount,2);
+ assert.match(d.cases[0].fileSha256,/^[a-f0-9]{64}$/);
+ assert.deepEqual(d.cases[0].attempts.map(x=>x.status),['failed','passed']);
+});
+test('diagnostics exclude headers tokens titles errors bodies attachments and raw names',()=>{
+ const r=report([80],0),p=r.suites[0].specs[0],v=p.tests[0];
+ p.title='PRIVATE-MARKER';p.file='PRIVATE-MARKER';v.projectName='PRIVATE-MARKER';v.status='PRIVATE-MARKER';
+ v.expectedStatus='PRIVATE-MARKER';v.results[0].status='PRIVATE-MARKER';
+ v.results[0].errors=[{message:'PRIVATE-MARKER'}];v.results[0].headers={Authorization:'PRIVATE-MARKER'};
+ v.results[0].attachments=[{body:'PRIVATE-MARKER'}];v.results[0].stdout=[{text:'PRIVATE-MARKER'}];
+ r.errors=[{message:'PRIVATE-MARKER'}];
+ assert.equal(JSON.stringify(safeFailureSummary(r)).includes('PRIVATE-MARKER'),false);
+ assert.equal(safeFailureSummary(r).cases[0].status,'unknown');
+});
+test('failure summary bounds collection depth case rows attempts and malformed numbers',()=>{
+ const r=report(range(80,180),0);for(const p of r.suites[0].specs)p.tests[0].status='unexpected';
+ const d=safeFailureSummary(r);assert.equal(d.nonFirstPassCount,100);assert.equal(d.cases.length,20);assert.equal(d.truncated,true);
+ const p=r.suites[0].specs[0];p.line='PRIVATE-MARKER';p.tests[0].results[0].duration=Infinity;
+ assert.equal(safeFailureSummary(r).cases[0].line,null);
+ let x=r.suites[0];for(let n=0;n<70;n++){x.suites=[{specs:[]}];x=x.suites[0];}
+ assert.equal(safeFailureSummary(r).truncated,true);assert.equal(safeFailureSummary(null).truncated,true);
 });
