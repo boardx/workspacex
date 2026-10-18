@@ -11,7 +11,7 @@ import {ensureDatabase,migrateOnce,asApp} from '../support/db';
 const hash=(text:string)=>createHash('sha256').update(text).digest('hex');
 beforeAll(async()=>{await ensureDatabase();await migrateOnce();await ensurePlatformOrgSeeded();});
 it('packages original creation recipes and fixed immutable hashes without rewriting the engine',()=>{
- for(const spec of OFFICIAL_SKILLS){const result=officeSkillPackage(spec);expect(result.package.files).toHaveLength(4);
+ for(const spec of OFFICIAL_SKILLS){const result=officeSkillPackage(spec);expect(result.package.files).toHaveLength(spec.stableName==='pdf-create'?5:4);
  expect(Buffer.from(result.package.files[0]!.contentBase64,'base64').toString()).toContain(spec.content);
  const body=Buffer.from(result.package.files[0]!.contentBase64,'base64').toString();
  expect(body.indexOf(`Read /skills/${spec.stableName}/references/editing-and-qa.md`)).toBeLessThan(body.indexOf(spec.content));

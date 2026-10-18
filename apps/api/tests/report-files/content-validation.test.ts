@@ -10,8 +10,8 @@ it('rejects structurally real DOCX with read-error placeholders before publicati
   const bytes = await Packer.toBuffer(new Document({ sections: [{ children: [new Paragraph('读取失败 ENOENT /work/input/report.md'), ...source.notices.map(note => new Paragraph(note))] }] }));
   await expect(new ReportGeneratedFileValidator().validate('docx', bytes, source)).rejects.toMatchObject({ code: 'INVALID_FILE' });
 });
-it('requires complete Word report body, fixed notices and canonical hash', async () => {
-  const bytes = await Packer.toBuffer(new Document({ sections: [{ children: [new Paragraph(source.title), new Paragraph('用户需要可下载和编辑的真实报告文件。'), ...source.notices.map(note => new Paragraph(note))] }] }));
+it('requires complete canonical Word report body without appended system notices', async () => {
+  const bytes = await Packer.toBuffer(new Document({ sections: [{ children: [new Paragraph(source.title), new Paragraph('用户需要可下载和编辑的真实报告文件。')] }] }));
   await expect(new ReportGeneratedFileValidator().validate('docx', bytes, source)).resolves.toBeUndefined();
   expect(() => validateReportContent('docx', source.notices.join(' '), source)).toThrow();
 });
@@ -70,7 +70,7 @@ it.each(['pdf','docx'] as const)('validates rendered HTML breaks in table cells 
  const text=`Saved report High Verify the complete approved purchasing budget.\nRecord the responsible decision owner. ${saved.notices.join(' ')}`;
  expect(()=>validateReportContent(format,text,saved)).not.toThrow();
  expect(()=>validateReportContent(format,text.replace('Record the responsible decision owner.',''),saved)).toThrow();
- expect(()=>validateReportContent(format,text.replace(saved.notices[0]!,''),saved)).toThrow();
+ expect(()=>validateReportContent(format,text.replace(saved.notices[0]!,''),saved)).not.toThrow();
  expect(()=>validateReportContent(format,text+' Verify the complete approved purchasing budget. Record the responsible decision owner.',saved)).toThrow();
 });
 it('keeps literal HTML break text in code as required visible data',()=>{
@@ -85,7 +85,7 @@ it.each(['<br>','<BR/>','<br />','<br\t>'])('projects only actual HTML break nod
  const rendered=`Saved report The first complete visible sentence.\nThe second complete visible sentence. ${reportHash}`;
  expect(()=>validateReportContent('pdf',rendered,saved)).not.toThrow();
  expect(()=>validateReportContent('pdf',rendered.replace('The second complete visible sentence.',''),saved)).toThrow();
- expect(()=>validateReportContent('pdf',rendered.replace(reportHash,''),saved)).toThrow();
+ expect(()=>validateReportContent('pdf',rendered.replace(reportHash,''),saved)).not.toThrow();
 });
 it('preserves literal break text inside inline code',()=>{
  const markdown='# Saved report\n\nThe inline code `<br>` is visible literal data.';
@@ -101,4 +101,12 @@ it.each(['pdf','docx'] as const)('accepts real %s bytes with a correctly rendere
  if(format==='docx')bytes=await Packer.toBuffer(new Document({sections:[{children:lines.map(line=>new Paragraph(line))}]}));
  else{const {PDFDocument,StandardFonts}=await import('pdf-lib');const pdf=await PDFDocument.create(),page=pdf.addPage(),font=await pdf.embedFont(StandardFonts.Helvetica);lines.forEach((line,index)=>page.drawText(line,{x:40,y:780-index*30,size:9,font}));bytes=await pdf.save();}
  await expect(new ReportGeneratedFileValidator().validate(format,bytes,saved)).resolves.toBeUndefined();
+});
+
+it('rejects an injected disclosure section but preserves it if it was part of the saved report',()=>{
+ const body='中文报告 用户需要可下载和编辑的真实报告文件。';
+ expect(()=>validateReportContent('pdf',body+' 文件生成披露 文档版本 1',source)).toThrow();
+ expect(()=>validateReportContent('pdf',body,source)).not.toThrow();
+ const saved={...source,markdown:source.markdown+'\n\n## 文件生成披露\n用户原文中的真实说明内容必须保留。'};
+ expect(()=>validateReportContent('pdf',body+' 文件生成披露 用户原文中的真实说明内容必须保留。',saved)).not.toThrow();
 });

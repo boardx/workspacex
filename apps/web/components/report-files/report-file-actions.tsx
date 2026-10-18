@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
+import { ApiError } from '@/lib/api-client';
 import { WorkflowActionButton } from '@/components/research-studio/research-workflow-actions';
 import { generateReportFile, getReportFileJob, downloadReportFile, type ReportFileSource, type ReportFileFormat, type ReportFileJobState } from '@/lib/report-files-api';
 const MAX_STATUS_POLLS = 150;
@@ -52,7 +53,7 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
       else { update({ job, pending: true }); await downloadReportFile(job, controller.signal); update({ job }); }
     } catch {
       if (current() && job?.status === 'succeeded') {
-        try { const refreshed = await getReportFileJob(job.id, controller.signal); if (refreshed.status === 'failed') job = refreshed; } catch { /* A transient read failure must not invalidate a valid cached file. */ }
+        try { const refreshed = await getReportFileJob(job.id, controller.signal); if (refreshed.status === 'failed') job = refreshed; } catch (error) { if (error instanceof ApiError && error.reasonCode === 'REPORT_CHANGED') job = undefined; /* Transient reads keep a valid cached file. */ }
       }
       update({ job, error: '文件暂时无法生成或下载，请确认当前报告后重试。' });
     } finally { if (current()) controllers.current.delete(format); }

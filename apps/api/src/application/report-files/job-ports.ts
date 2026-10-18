@@ -15,6 +15,7 @@ export interface StoredReportFileJob {
   readonly threadId?: string;
   readonly runId?: string;
   readonly attachmentId?: string;
+  readonly downloadFilename?: string;
 }
 export interface ClaimedReportFileJob { readonly record: StoredReportFileJob; readonly leaseToken: string }
 export interface ReportFileReuseKey {
