@@ -2,7 +2,7 @@
 
 当前唯一工作树继续使用，不重复创建。F08状态in_progress，issue #5818。先读 progress.md 与 evidence/；不能声称线上支付已可用。
 
-源码与29真实HTTP/PG测试、10契约测试已实现；数据库只读快照权限与用户级购买intent锁；没有 webhook 写者。独立review已闭合两个BLOCK。所有修改未推送，需完整门控后建PR。
+源码与29真实HTTP/PG测试、10契约测试已实现；数据库只读快照权限与用户级购买intent锁；没有 webhook 写者。独立review已闭合两个BLOCK。实现源码已在 daaac6855 推送且完整高风险门控退出0，证据见candidate-results.txt/candidate-verify；接下来创建PR并跟CI。
 
 完整门控第一次被新测试共享授权挡住，已修；第二次2517通过/2失败，其中现有HEAD的F06证据血统不匹配、CN夹具全套运行失效（单独重跑绿）。不要修改旧passing来绕过，不复用旧SHA证据到新候选。
 

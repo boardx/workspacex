@@ -1,7 +1,7 @@
 # 进度日志 — Sprint 21/08
 
 ## 当前已验证状态
-- F08 / issue #5818，分支 worker/coord-voice-21-f08；未 passing、未提交 PR。
+- F08 / issue #5818，分支 worker/coord-voice-21-f08；未 passing；实现候选 daaac6855e66b5f027a30517d6b08fce8a048ed5 已推送，PR 待创建。
 - 2026-10-18 人类明确采纳 ADR-123；状态枚举与共享资格、用例已补齐。原签核记录未改写。
 - 订阅读取/升级/管理 API、只读订阅快照、哈希购买意图、固定版本 Portal 已实现。
 - 真实 HTTP/PG 专项29通过；contracts10通过；既有计费 UI 回归47通过；API lint/typecheck、web/contracts typecheck、init 快速路径退出0。日志在 evidence/。
@@ -17,3 +17,9 @@
 ## 下一步
 - 提交可审查的F08源码，复验真正候选SHA的完整门控，PR并跟到绿；不把测试当线上通过。
 - 找到devapp安全配置入口后配置独立回调；Stripe webhook和UI仍按独立feature交付。
+
+## 候选验证通过
+- `pnpm harness verify --phase 21 --feature F08` 在 daaac6855 上退出0；包括 high_risk `pnpm -w run verify:release`。API 15305+独占4通过，Web8178通过，其他包和控制平面门控均由完整命令通过证明；保留真实skip/todo计数见candidate-results.txt。
+- 原主线HEAD的历史迁移门问题在本候选19项通过；没有修改旧F06状态或篡改历史见证。独立 exact-SHA SOURCE ACCEPT。
+- 微信真实只读GET certificates返回406，未取得可验平台材料；仅证明仍缺可信验签材料，不据此断言公钥模式。未创建订单/支付。
+- PR后继续跟踪CI；本次文档/证据后续提交没有生产源码差异，不能把源SHA与证据SHA混为一谈。
