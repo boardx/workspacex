@@ -17,7 +17,12 @@ export interface StoredReportFileJob {
   readonly attachmentId?: string;
 }
 export interface ClaimedReportFileJob { readonly record: StoredReportFileJob; readonly leaseToken: string }
+export interface ReportFileReuseKey {
+  readonly actor: ReportFileActor; readonly source: FileRequest["source"]; readonly format: FileRequest["format"];
+  readonly bindingKey: string; readonly renderHash: string;
+}
 export interface ReportFileJobStore {
+  findReusable(key: ReportFileReuseKey): Promise<StoredReportFileJob | null>;
   findByRequest(actor: ReportFileActor, requestId: string): Promise<StoredReportFileJob | null>;
   insert(record: StoredReportFileJob): Promise<boolean>;
   get(actor: ReportFileActor, id: string): Promise<StoredReportFileJob | null>;

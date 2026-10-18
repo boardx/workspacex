@@ -8,9 +8,9 @@ import {REPORT_FILE_FORMATS} from '@repo/contracts/report-files';
 import {reportFilePublication} from '../../application/report-files/publication';
 import type {ToolExecutionCheck} from '../../application/agent-run/tool-execution-authority';
 import { ReportFileJob } from '@repo/contracts/report-files';
-import type { DatabasePort } from '../../application/ports/database.port';
+import type { DatabasePort, TenantSession } from '../../application/ports/database.port';
 import type { ReportFileActor } from '../../application/report-files/ports';
-import type { ClaimedReportFileJob, ReportFileJobStore, StoredReportFileJob } from '../../application/report-files/job-ports';
+import type { ClaimedReportFileJob, ReportFileJobStore, ReportFileReuseKey, StoredReportFileJob } from '../../application/report-files/job-ports';
 /** Tenant/actor filters on every access; request IDs cannot silently cross actor or tenant. */
 export class PgReportFileJobStore implements ReportFileJobStore {
   constructor(private readonly db: DatabasePort) {}
@@ -48,11 +48,30 @@ export class PgReportFileJobStore implements ReportFileJobStore {
       return rows[0] ? this.parse(rows[0].metadata) : null;
     });
   }
+  private async reusable(session: TenantSession, key: ReportFileReuseKey) {
+    const rows = (await session.query<{metadata: StoredReportFileJob}>(
+      `SELECT metadata FROM report_skill_file_jobs WHERE org_id=$1 AND actor_user_id=$2
+       AND metadata->'job'->'source'=$3::jsonb AND metadata->'job'->>'format'=$4
+       AND metadata->>'bindingKey'=$5 AND metadata->>'renderHash'=$6
+       AND state IN ('queued','running','succeeded') ORDER BY (state='succeeded') DESC,created_at DESC LIMIT 1`,
+      [key.actor.orgId,key.actor.userId,JSON.stringify(key.source),key.format,key.bindingKey,key.renderHash])).rows;
+    return rows[0] ? this.parse(rows[0].metadata) : null;
+  }
+  async findReusable(key: ReportFileReuseKey) {
+    return this.db.withTenant(key.actor.orgId, session => this.reusable(session,key));
+  }
   async insert(record: StoredReportFileJob) {
-    return this.db.withTenant(record.actor.orgId, async session => (await session.query(
-      `INSERT INTO report_skill_file_jobs(id,org_id,actor_user_id,request_id,metadata,state)
-       VALUES($1,$2,$3,$4,$5::jsonb,'queued') ON CONFLICT(request_id) DO NOTHING RETURNING id`,
-      [record.job.id, record.actor.orgId, record.actor.userId, record.requestId, JSON.stringify(record)])).rows.length === 1);
+    const key = {actor:record.actor,source:record.job.source,format:record.job.format,bindingKey:record.bindingKey,renderHash:record.renderHash};
+    return this.db.withTenant(record.actor.orgId, async session => {
+      // Cross-process serialization of one authorized representation. Failed jobs release the slot.
+      await session.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',
+        [JSON.stringify([record.actor.orgId,record.actor.userId,record.job.source.kind,record.job.source.id,record.job.source.reportVersion,record.job.source.reportHash,record.job.format,record.bindingKey,record.renderHash])]);
+      if (await this.reusable(session,key)) return false;
+      return (await session.query(
+        `INSERT INTO report_skill_file_jobs(id,org_id,actor_user_id,request_id,metadata,state)
+         VALUES($1,$2,$3,$4,$5::jsonb,'queued') ON CONFLICT(request_id) DO NOTHING RETURNING id`,
+        [record.job.id,record.actor.orgId,record.actor.userId,record.requestId,JSON.stringify(record)])).rows.length===1;
+    });
   }
   async get(actor: ReportFileActor, id: string) {
     return this.db.withTenant(actor.orgId, async session => {

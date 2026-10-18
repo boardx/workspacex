@@ -14,7 +14,7 @@ it('invokes the product generation API and exposes download only after verified 
   fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
   const download = await screen.findByRole('button', { name: '下载 PDF' });
   expect(generateReportFile).toHaveBeenCalledWith(source, 'pdf', expect.any(String), expect.any(AbortSignal));
-  expect(downloadReportFile).not.toHaveBeenCalled();
+  expect(downloadReportFile).toHaveBeenCalledTimes(1);
   fireEvent.click(download);
   expect(downloadReportFile).toHaveBeenCalledWith(success, expect.any(AbortSignal));
 });
@@ -46,4 +46,20 @@ it('shows the real Chat permission route while keeping an unfinished run unavail
   expect(screen.queryByRole('button', { name: '下载 PDF' })).not.toBeInTheDocument();
   expect(downloadReportFile).not.toHaveBeenCalled();
   unmount();
+});
+it('checks an awaiting-permission job again instead of creating another conversion',async()=>{
+ const {getReportFileJob}=await import('@/lib/report-files-api');
+ vi.mocked(generateReportFile).mockResolvedValue({id:success.id,source,format:'pdf',createdAt:success.createdAt,status:'running',execution:{runId:'real-run',threadId:'real-thread',status:'awaiting_tool_permission'}});
+ vi.mocked(getReportFileJob).mockResolvedValue(success);
+ render(<ReportFileActions source={source}/>);
+ fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));
+ fireEvent.click(await screen.findByRole('button',{name:'查看 PDF 进度'}));
+ await screen.findByRole('button',{name:'下载 PDF'});
+ expect(generateReportFile).toHaveBeenCalledTimes(1);expect(getReportFileJob).toHaveBeenCalledWith(success.id,expect.any(AbortSignal));expect(downloadReportFile).toHaveBeenCalledTimes(1);
+});
+it('retrieves a server-cached current file after remount and downloads without another click',async()=>{
+ vi.mocked(generateReportFile).mockResolvedValue(success);
+ const view=render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});view.unmount();
+ render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});
+ expect(downloadReportFile).toHaveBeenCalledTimes(2);
 });

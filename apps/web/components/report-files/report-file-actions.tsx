@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { WorkflowActionButton } from '@/components/research-studio/research-workflow-actions';
 import { generateReportFile, getReportFileJob, downloadReportFile, type ReportFileSource, type ReportFileFormat, type ReportFileJobState } from '@/lib/report-files-api';
+const MAX_STATUS_POLLS = 150;
 const labels: Record<ReportFileFormat, string> = { pdf: 'PDF', docx: 'Word' };
 type State = { job?: ReportFileJobState; pending?: boolean; error?: string };
 function delay(signal: AbortSignal) {
@@ -32,17 +33,25 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
     const current = () => generation === epoch.current.generation && !controller.signal.aborted;
     const update = (state: State) => { if (current()) setStates(prev => ({ ...prev, [format]: state })); };
     update({ ...states[format], pending: true, error: undefined });
+    let job = states[format]?.job;
     try {
-      const existing = states[format]?.job;
+      const existing = job;
       if (existing?.status === 'succeeded') { await downloadReportFile(existing, controller.signal); update({ job: existing }); return; }
-      let job = await generateReportFile(source, format, crypto.randomUUID(), controller.signal);
+      job = existing && (existing.status === "queued" || existing.status === "running")
+        ? await getReportFileJob(existing.id, controller.signal)
+        : await generateReportFile(source, format, crypto.randomUUID(), controller.signal);
+      let polls = 0;
       while (current() && (job.status === 'queued' || job.status === 'running')) {
+        if (job.execution?.status === "awaiting_tool_permission" || polls++ >= MAX_STATUS_POLLS) {
+          update({ job, error: job.execution?.status === "awaiting_tool_permission" ? undefined : "任务仍在处理中，可稍后查看进度，无需重复生成。" }); return;
+        }
         update({ job, pending: true }); await delay(controller.signal); job = await getReportFileJob(job.id, controller.signal);
       }
+      if (!current()) return;
       if (job.status === 'failed') update({ job, error: job.errorCode === 'REPORT_CHANGED' ? '报告已更新，请基于当前版本重新生成。' : '文件生成失败，请重试。' });
-      else update({ job });
+      else { update({ job, pending: true }); await downloadReportFile(job, controller.signal); update({ job }); }
     } catch {
-      update({ error: '文件暂时无法生成或下载，请确认当前报告后重试。' });
+      update({ job, error: '文件暂时无法生成或下载，请确认当前报告后重试。' });
     } finally { if (current()) controllers.current.delete(format); }
   }
   return <div className="space-y-2" data-testid="report-file-actions">
@@ -50,7 +59,7 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
       const state = states[format];
       return <WorkflowActionButton key={format} variant="outline" loading={state?.pending} disabled={disabled || state?.pending} onClick={() => void act(format)}>
 
-        {state?.pending ? `正在${state.job?.status === 'succeeded' ? '下载' : '生成'} ${labels[format]}…` : state?.job?.status === 'succeeded' ? `下载 ${labels[format]}` : state?.error ? `重新生成 ${labels[format]}` : `生成 ${labels[format]}`}
+        {state?.pending ? `正在${state.job?.status === 'succeeded' ? '下载' : '生成'} ${labels[format]}…` : state?.job?.status === 'succeeded' ? `下载 ${labels[format]}` : state?.job && (state.job.status === 'queued' || state.job.status === 'running') ? `查看 ${labels[format]} 进度` : state?.error ? `重新生成 ${labels[format]}` : `生成 ${labels[format]}`}
       </WorkflowActionButton>;
     })}</div>
     {Object.entries(states).filter(([, state]) => state.job?.execution?.status === 'awaiting_tool_permission').map(([format, state]) => <p role="status" key={format} className="text-12 text-muted-foreground">{labels[format as ReportFileFormat]}：需要确认工具权限。<a className="underline" href={`/chat/${encodeURIComponent(state.job!.execution!.threadId)}`} target="_blank" rel="noopener noreferrer">打开对话继续</a></p>)}
