@@ -16,6 +16,7 @@ function fixture() {
     get: vi.fn(async (who: typeof actor, id: string) => { const r = records.get(id); return r?.actor.userId === who.userId && r.actor.orgId === who.orgId ? r : null; }),
     claim: vi.fn(async (_who: typeof actor, id: string) => { const record = records.get(id)!; return record.job.status === 'queued' ? { record, leaseToken: 'lease-1' } : null; }),
     saveThread: vi.fn(async (claim: {record:StoredReportFileJob}, threadId: string) => { const r = records.get(claim.record.job.id)!; records.set(r.job.id, { ...r, threadId }); return true; }),
+    invalidateFile: vi.fn(async (r:StoredReportFileJob)=>{records.set(r.job.id,{...r,job:{id:r.job.id,source:r.job.source,format:r.job.format,createdAt:r.job.createdAt,status:'failed',errorCode:'INVALID_FILE'}});return true;}),
     update: vi.fn(async (r: StoredReportFileJob) => { records.set(r.job.id, r); return true; }),
     finish: vi.fn(async (_claim: unknown, r: StoredReportFileJob) => { records.set(r.job.id, r); return true; }),
   };
@@ -97,4 +98,16 @@ it('generates a new file only after the current report or rendering notices chan
  const markdown='# 报告\n新版正文';f.setSnapshot({reportVersion:2,markdown,reportHash:hash(markdown),bindingKey:'revision-1/document-2/2'});
  const third=await f.service.start(f.actor,{...f.request,source:{...f.request.source,reportVersion:2,reportHash:hash(markdown)},requestId:'4cd11bc4-bc03-4c39-ad14-c290a6074d9a'});
  expect(third.id).not.toBe(second.id);expect(f.runtime.accept).toHaveBeenCalledTimes(3);
+});
+
+it('invalidates proven corrupt cached bytes so a subsequent request can recover, but not on transient storage errors',async()=>{
+ const f=fixture();await f.service.start(f.actor,f.request);
+ f.runtime.download.mockRejectedValueOnce(new Error('temporary outage'));
+ await expect(f.service.start(f.actor,{...f.request,requestId:'3cd11bc4-bc03-4c39-ad14-c290a6074d9a'})).rejects.toThrow();
+ expect(f.store.invalidateFile).not.toHaveBeenCalled();
+ f.runtime.download.mockResolvedValueOnce({filename:'report.pdf',mime:'application/pdf',bytes:Buffer.from('broken')});
+ await expect(f.service.start(f.actor,{...f.request,requestId:'4cd11bc4-bc03-4c39-ad14-c290a6074d9a'})).rejects.toMatchObject({code:'STORAGE_UNAVAILABLE'});
+ expect(f.store.invalidateFile).toHaveBeenCalledTimes(1);
+ const recovered=await f.service.start(f.actor,{...f.request,requestId:'5cd11bc4-bc03-4c39-ad14-c290a6074d9a'});
+ expect(recovered.status).toBe('succeeded');expect(f.runtime.accept).toHaveBeenCalledTimes(2);
 });

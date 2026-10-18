@@ -29,6 +29,7 @@ export interface ReportFileJobStore {
   claim(actor: ReportFileActor, id: string): Promise<ClaimedReportFileJob | null>;
   saveThread(claim: ClaimedReportFileJob, threadId: string): Promise<boolean>;
   update(record: StoredReportFileJob): Promise<boolean>;
+  invalidateFile(record: StoredReportFileJob): Promise<boolean>;
   finish(claim: ClaimedReportFileJob, result: StoredReportFileJob): Promise<boolean>;
 }
 /** Thin adapter to existing Chat acceptance, AgentRun reads and attachment download. */

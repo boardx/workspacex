@@ -88,9 +88,20 @@ export class ReportFileService {
   async download(actor: ReportFileActor, id: string) {
     const record = await this.readCurrent(actor, id);
     if (record.job.status !== 'succeeded' || !record.attachmentId) throw new ReportFileError('REPORT_UNAVAILABLE');
-    const content = await this.deps.runtime.download(record);
+    let content;
+    try { content = await this.deps.runtime.download(record); }
+    catch(error) {
+      if(error instanceof ReportFileError && error.code==='INVALID_FILE') {
+        await this.readCurrent(actor,id); await this.deps.store.invalidateFile(record);
+        throw new ReportFileError('STORAGE_UNAVAILABLE');
+      }
+      throw error;
+    }
     const file = record.job.file;
-    if (content.filename !== file.filename || content.mime !== file.mediaType || content.bytes.byteLength !== file.sizeBytes || sha(content.bytes) !== file.sha256) throw new ReportFileError('STORAGE_UNAVAILABLE');
+    if (content.filename !== file.filename || content.mime !== file.mediaType || content.bytes.byteLength !== file.sizeBytes || sha(content.bytes) !== file.sha256) {
+      await this.readCurrent(actor,id); await this.deps.store.invalidateFile(record);
+      throw new ReportFileError('STORAGE_UNAVAILABLE');
+    }
     await this.readCurrent(actor, id);
     return { bytes: content.bytes, file };
   }

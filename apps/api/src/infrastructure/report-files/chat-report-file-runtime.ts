@@ -9,7 +9,7 @@ import { readAgentRun } from '../../application/agent-run/read-run';
 import { acceptHumanMessage } from '../../application/chat/message-roundtrip';
 import { mutateThread, type MutateThreadDeps } from '../../application/chat/mutate-thread';
 import { uploadAttachment, type UploadAttachmentDeps } from '../../application/chat/upload-attachment';
-import { getAttachmentContent, type GetAttachmentContentDeps } from '../../application/chat/get-attachment-content';
+import { ObjectMissingError, getAttachmentContent, type GetAttachmentContentDeps } from '../../application/chat/get-attachment-content';
 import { listThreadAttachments } from '../../application/chat/list-thread-attachments';
 import type { DefaultAgentResolver } from '../../application/chat/message-command-ports';
 import type { ReportFileChatRuntime, FileRequest, StoredReportFileJob } from '../../application/report-files/job-ports';
@@ -98,7 +98,8 @@ export class ChatReportFileRuntime implements ReportFileChatRuntime {
   }
   async download(record: StoredReportFileJob) {
     if (!record.threadId || !record.attachmentId) throw new ReportFileError('REPORT_UNAVAILABLE');
-    return getAttachmentContent(this.deps.attachments, { ...record.actor, threadId: record.threadId, attachmentId: record.attachmentId });
+    try { return await getAttachmentContent(this.deps.attachments, { ...record.actor, threadId: record.threadId, attachmentId: record.attachmentId }); }
+    catch(error) { if(error instanceof ObjectMissingError) throw new ReportFileError("INVALID_FILE"); throw error; }
   }
 }
 
