@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { context, shard, reduceReport, aggregate, expectedIsolation, safeFailureSummary, safeRejectionReason, ShardError } from './ci-smoke-shards.mjs';
+import { context, shard, reduceReport, aggregate, expectedIsolation, safeFailureSummary, safeRejectionReason, ShardError, bootFingerprint } from './ci-smoke-shards.mjs';
 const source='a'.repeat(40);
 const env={WSX_SMOKE_SOURCE_SHA:source,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',RUNNER_ENVIRONMENT:'github-hosted'};
 function report(ids, part) {
@@ -11,7 +11,7 @@ function report(ids, part) {
 }
 const range=(a,b)=>Array.from({length:b-a},(_,i)=>a+i);
 function isolationLog(meta) { const d=expectedIsolation(meta.isolationSeed); return '[test-isolation] id='+d.id+' db='+d.database+' compose='+d.composeProject; }
-function part(ids,n) {const m=context(env,n,2);return reduceReport(report(ids,n),m,isolationLog(m),'host'+n);}
+function part(ids,n) {const m=context(env,n,2);return reduceReport(report(ids,n),m,isolationLog(m),'host'+n,bootFingerprint(()=> '00000000-0000-4000-8000-00000000000'+n));}
 function parts() {return [part(range(0,220),0),part([...range(0,80),...range(80,150)],1),part([...range(0,80),...range(150,220)],2)];}
 const expected=context(env,0,2);
 test('full220 union, primary once, dependency replication explicit',()=>{
@@ -26,8 +26,8 @@ test('wrongsource attempt and missingpart reject',()=>{
  for(const key of ['source','run','attempt']) {const p=parts();p[1][key]='other';assert.throws(()=>aggregate(p,expected),/PART_IDENTITY/);}
  assert.throws(()=>aggregate(parts().slice(1),expected),/PART_COUNT/);
 });
-test('host database and compose collisions reject',()=>{
- for(const key of ['hostSha256','database','composeProject']){const p=parts();p[2][key]=p[1][key];assert.throws(()=>aggregate(p,expected),/FIXTURE_CONFLICT/);}
+test('kernel boot database and compose collisions reject',()=>{
+ for(const key of ['hostBootSha256','database','composeProject']){const p=parts();p[2][key]=p[1][key];assert.throws(()=>aggregate(p,expected),/FIXTURE_CONFLICT/);}
 });
 test('failed skipped retry and expected-failure never count as pass',()=>{
  for(const mutation of [t=>t.status='skipped',t=>t.status='flaky',t=>t.expectedStatus='failed',
@@ -146,4 +146,26 @@ test('CLI rejection diagnostics use bounded invariant codes without raw error me
  assert.equal(safeRejectionReason(new ShardError('COVERAGE_MISSING')),'COVERAGE_MISSING');
  for(const e of [new Error('PRIVATE-TOKEN'),new SyntaxError('PRIVATE-TOKEN'),new ShardError('PRIVATE-TOKEN'),
    new ShardError('x'.repeat(100))])assert.equal(safeRejectionReason(e),'INPUT_UNAVAILABLE_OR_INVALID');
+});
+
+test('same hostname with different observed kernel boots remains isolated',()=>{
+ const p=parts();p[1].hostSha256=p[0].hostSha256;p[2].hostSha256=p[0].hostSha256;
+ assert.equal(aggregate(p,expected).hostIdentityKind,'linux-boot-id-sha256-v1');
+});
+test('different hostnames cannot hide shared kernel boot identity',()=>{
+ const p=parts();p[2].hostBootSha256=p[1].hostBootSha256;
+ assert.notEqual(p[2].hostSha256,p[1].hostSha256);
+ assert.throws(()=>aggregate(p,expected),/FIXTURE_CONFLICT/);
+});
+test('boot identity has no hostname seed environment or random fallback',()=>{
+ assert.throws(()=>bootFingerprint(()=>{throw new Error('PRIVATE-TOKEN');}),/BOOT_ID_UNAVAILABLE/);
+ for(const value of ['',null,'runnervm','PRIVATE-TOKEN','00000000-0000-4000-8000-000000000001\nPRIVATE-TOKEN'])
+  assert.throws(()=>bootFingerprint(()=>value),/BOOT_ID_INVALID/);
+ const p=parts();delete p[1].hostBootSha256;assert.throws(()=>aggregate(p,expected),/BOOT_IDENTITY/);
+});
+test('boot digest is domain-separated stable and contains no raw UUID',()=>{
+ const raw='00000000-0000-4000-8000-000000000001';
+ const value=bootFingerprint(()=>raw+'\n');assert.match(value,/^[a-f0-9]{64}$/);
+ assert.equal(value,bootFingerprint(()=>raw.toUpperCase()));assert.equal(value.includes(raw),false);
+ assert.notEqual(value,bootFingerprint(()=> '00000000-0000-4000-8000-000000000002'));
 });

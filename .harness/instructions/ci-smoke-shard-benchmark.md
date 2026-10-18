@@ -81,3 +81,19 @@ Unknown statuses become unknown; raw titles/names/messages never leave the reduc
 case rows and4 attempts per row are included. This helps distinguish a flaky case from namespace/schema
 errors without expanding raw-trace collection. It does not explain the survey report's underlying delay.
 The prior raw failure-artifact proposaldfb002a6 is superseded and must not be applied.
+
+
+Host identity follow-up: run39108737566 had220/196/194 clean passes but aggregate FIXTURE_CONFLICT.
+Its new safe part artifacts12130815436/12129923964/12130412041 were obtained normally with all ZIP
+SHA256 checks; DB/Compose/seed differ, but all hostname SHA256 values match. This does not prove shared
+or independent kernels: hostname alone was an insufficient instance identity. The old Forbidden
+artifact was not retried or used.
+
+Part/coverage schema v2 now requires a domain-separated SHA256 of the actual Linux
+/proc/sys/kernel/random/boot_id read in the hosted report process. Raw UUID is not emitted.
+Hostname hash remains diagnostic metadata. Shared boot identity, DB or Compose still rejects,
+even if hostnames differ; repeated hostnames with distinct observed boots may pass. Missing,
+malformed or inaccessible boot identity rejects, with no seed/run/random/env fallback.
+The original isolation wrapper/ports/project dependencies/220-case checks remain intact.
+This change needs new exact-source hosted evidence; the previous run cannot be retrospectively
+certified because boot identities were not captured then. No performance or production proof follows.

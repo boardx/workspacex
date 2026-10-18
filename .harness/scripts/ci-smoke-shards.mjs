@@ -45,7 +45,15 @@ export function expectedIsolation(seed, worktreePath = resolve(ROOT)) {
   }
   return isolationCache.get(key);
 }
-export function reduceReport(report, meta, log, host = hostname()) {
+/** Kernel boot identity: shared containers report the same value, independent of hostname. */
+export function bootFingerprint(read = () => readFileSync('/proc/sys/kernel/random/boot_id','utf8')) {
+  let raw;
+  try { raw = read(); } catch { throw new ShardError('BOOT_ID_UNAVAILABLE'); }
+  need(typeof raw === 'string' && raw.length <= 128 &&
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(raw.trim()), 'BOOT_ID_INVALID');
+  return sha('linux-boot-id-v1\0'+raw.trim().toLowerCase());
+}
+export function reduceReport(report, meta, log, host = hostname(), boot = bootFingerprint()) {
   need(obj(report) && obj(report.config) && obj(report.stats) && Array.isArray(report.suites), 'REPORT_SHAPE');
   need(Array.isArray(report.errors) && report.errors.length === 0, 'REPORT_ERRORS');
   const observedShard = report.config.shard;
@@ -84,10 +92,11 @@ export function reduceReport(report, meta, log, host = hostname()) {
   need(matches.length === 1 && matches[0][1] === derived.id &&
     matches[0][2] === derived.database && matches[0][3] === derived.composeProject, 'ISOLATION_OBSERVATION');
   need(typeof host === 'string' && host.length > 0, 'HOST_FINGERPRINT');
-  return { kind: 'ci-smoke-part-v1', ...meta, status: 'PASSED', primaryProject: PRIMARY,
+  need(typeof boot === 'string' && /^[a-f0-9]{64}$/.test(boot), 'BOOT_IDENTITY');
+  return { kind: 'ci-smoke-part-v2', ...meta, status: 'PASSED', primaryProject: PRIMARY,
     observedShard: observedShard ?? null, startedAt: report.stats.startTime,
     finishedAt: new Date(start + report.stats.duration).toISOString(), testReportDurationMs: report.stats.duration,
-    database: matches[0][2], composeProject: matches[0][3], hostSha256: sha(host),
+    database: matches[0][2], composeProject: matches[0][3], hostSha256: sha(host), hostBootSha256: boot, hostIdentityKind: 'linux-boot-id-sha256-v1',
     records, productionAccepted: false, thirtyMinuteProductionProven: false,
     clockScope: 'runner test report; excludes pre-job queue and release phases' };
 }
@@ -95,9 +104,10 @@ export function aggregate(parts, expected) {
   need(Array.isArray(parts) && parts.length === expected.total + 1, 'PART_COUNT');
   const byPart = new Map();
   for (const p of parts) {
-    need(obj(p) && p.kind === 'ci-smoke-part-v1' && p.status === 'PASSED' &&
+    need(obj(p) && p.kind === 'ci-smoke-part-v2' && p.status === 'PASSED' &&
       p.source === expected.source && p.run === expected.run && p.attempt === expected.attempt &&
       p.total === expected.total && integer(p.part) && p.part <= p.total && Array.isArray(p.records), 'PART_IDENTITY');
+    need(p.hostIdentityKind === 'linux-boot-id-sha256-v1' && /^[a-f0-9]{64}$/.test(p.hostBootSha256 ?? '') && /^[a-f0-9]{64}$/.test(p.hostSha256 ?? ''), 'BOOT_IDENTITY');
     need(p.records.every(r => obj(r) && /^[a-f0-9]{64}$/.test(r.id ?? '') && typeof r.project === 'string' && typeof r.file === 'string' && integer(r.durationMs)), 'RECORD_SHAPE');
     need(!byPart.has(p.part), 'DUPLICATE_PART'); byPart.set(p.part, p);
     need(p.isolationSeed === 'ci-smoke-' + p.run + '-' + p.attempt + '-' + p.part, 'ISOLATION_SEED');
@@ -112,7 +122,7 @@ export function aggregate(parts, expected) {
   let executions = 0;
   for (let n = 0; n <= expected.total; n++) {
     const p = byPart.get(n); need(p, 'MISSING_PART');
-    for (const [set, value] of [[hosts,p.hostSha256],[dbs,p.database],[stacks,p.composeProject]]) {
+    for (const [set, value] of [[hosts,p.hostBootSha256],[dbs,p.database],[stacks,p.composeProject]]) {
       need(typeof value === 'string' && value.length > 0 && !set.has(value), 'FIXTURE_CONFLICT'); set.add(value);
     }
     stamp(p.startedAt); stamp(p.finishedAt); need(stamp(p.finishedAt) >= stamp(p.startedAt), 'CLOCK_ORDER');
@@ -128,10 +138,10 @@ export function aggregate(parts, expected) {
     need([...dependencies].every(id => local.has(id)) && [...local].some(id => primary.has(id)), 'DEPENDENCY_OR_PRIMARY_MISSING');
   }
   need(primary.size === seen.size && [...primary].every(id => seen.has(id)), 'COVERAGE_MISSING');
-  return { kind: 'ci-smoke-coverage-v1', source: expected.source, run: expected.run, attempt: expected.attempt,
+  return { kind: 'ci-smoke-coverage-v2', source: expected.source, run: expected.run, attempt: expected.attempt,
     baselineUnique: 220, shardedUnique: dependencies.size + seen.size, shardExecutions: executions,
     repeatedDependencyExecutions: executions - 220, coverageSetEqual: true,
-    fixtureNamespacesDistinct: true, hostFingerprintsDistinct: true,
+    fixtureNamespacesDistinct: true, hostFingerprintsDistinct: true, hostIdentityKind: 'linux-boot-id-sha256-v1',
     files: [...new Set(baseline.records.map(r => r.file))].sort().map(file => ({
       file, baselineCaseMs: baseline.records.filter(r => r.file === file).reduce((sum,r) => sum + r.durationMs,0) })),
     productionAccepted: false, thirtyMinuteProductionProven: false,
@@ -215,7 +225,7 @@ function main() {
     save('aggregate.json',aggregate(parts,meta)); return 0;
   } catch (error) {
     if (!(error instanceof ShardError || error instanceof SyntaxError || error instanceof RangeError || ['ENOENT','ELOOP','EACCES'].includes(error.code))) throw error;
-    save(mode==='aggregate'?'aggregate.json':'part-'+part+'.json',{kind:'ci-smoke-part-v1',...meta,status:'REJECTED',reason:safeRejectionReason(error),diagnostic:mode==='report'?safeFailureSummary(failedReport):null,productionAccepted:false,thirtyMinuteProductionProven:false});
+    save(mode==='aggregate'?'aggregate.json':'part-'+part+'.json',{kind:'ci-smoke-part-v2',...meta,status:'REJECTED',reason:safeRejectionReason(error),diagnostic:mode==='report'?safeFailureSummary(failedReport):null,productionAccepted:false,thirtyMinuteProductionProven:false});
     console.error('SMOKE_BENCHMARK_REJECTED '+safeRejectionReason(error));
     return 1;
   }
