@@ -59,3 +59,11 @@ Official contracts:
 - https://playwright.dev/docs/test-sharding (file-level granularity unless fullyParallel)
 - https://playwright.dev/docs/api/class-reporter
 - Playwright1.62.0 is the version observed in the original measured job.
+
+
+First hosted execution failure retained: run39097870699/unit job117587955679 failed in setup-node
+before any unit test. The action resolved .nvmrc to22 then tried to locate pnpm before it was set up.
+Coverage bootstrap failed similarly and benchmark was skipped by needs:unit. No test/coverage/speed
+pass is claimed. The fix installs the repository-pinned pnpm before setup-node in unit and coverage,
+matching existing canonical job order. It does not add credentials or bypass a check. Old active PR
+runs must finish before its expected-old non-force head update, so no existing run is canceled.
