@@ -13,7 +13,7 @@ env:
 jobs:
   unit:
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
         with:
@@ -23,6 +23,7 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
+      - run: pnpm install --frozen-lockfile
       - run: node --test .harness/scripts/ci-smoke-shards.test.mjs
   benchmark:
     needs: unit

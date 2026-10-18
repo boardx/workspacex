@@ -67,3 +67,5 @@ Coverage bootstrap failed similarly and benchmark was skipped by needs:unit. No 
 pass is claimed. The fix installs the repository-pinned pnpm before setup-node in unit and coverage,
 matching existing canonical job order. It does not add credentials or bypass a check. Old active PR
 runs must finish before its expected-old non-force head update, so no existing run is canceled.
+
+Independent review found that the wrapper logs a derived ID rather than the input seed. The reducer now invokes the existing deriveTestIsolation function for the same mounted worktree and compares ID, database and Compose project exactly. A regression test rejects raw-seed observations and each independently altered resource. The new 18-test suite remains unverified until exact-head hosted execution completes.

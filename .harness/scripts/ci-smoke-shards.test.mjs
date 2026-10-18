@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { context, shard, reduceReport, aggregate } from './ci-smoke-shards.mjs';
+import { context, shard, reduceReport, aggregate, expectedIsolation } from './ci-smoke-shards.mjs';
 const source='a'.repeat(40);
 const env={WSX_SMOKE_SOURCE_SHA:source,GITHUB_RUN_ID:'123',GITHUB_RUN_ATTEMPT:'1',RUNNER_ENVIRONMENT:'github-hosted'};
 function report(ids, part) {
@@ -10,7 +10,8 @@ function report(ids, part) {
         results:[{status:'passed',retry:0,duration:1,startTime:'2026-10-18T00:00:00Z'}]}]}))}]};
 }
 const range=(a,b)=>Array.from({length:b-a},(_,i)=>a+i);
-function part(ids,n) {const m=context(env,n,2);return reduceReport(report(ids,n),m,'[test-isolation] id='+m.isolationSeed+' db=db'+n+' compose=stack'+n,'host'+n);}
+function isolationLog(meta) { const d=expectedIsolation(meta.isolationSeed); return '[test-isolation] id='+d.id+' db='+d.database+' compose='+d.composeProject; }
+function part(ids,n) {const m=context(env,n,2);return reduceReport(report(ids,n),m,isolationLog(m),'host'+n);}
 function parts() {return [part(range(0,220),0),part([...range(0,80),...range(80,150)],1),part([...range(0,80),...range(150,220)],2)];}
 const expected=context(env,0,2);
 test('full220 union, primary once, dependency replication explicit',()=>{
@@ -67,7 +68,7 @@ test('depth and malformed report shape reject',()=>{
 test('raw titles provider bodies and attachments do not leave reducer',()=>{
  const r=report(range(0,220),0);const spec=r.suites[0].specs[0];spec.title='PRIVATE-MARKER';
  spec.tests[0].results[0].stdout=[{text:'PRIVATE-MARKER'}];spec.tests[0].results[0].attachments=[{body:'PRIVATE-MARKER'}];
- const v=reduceReport(r,expected,'[test-isolation] id='+expected.isolationSeed+' db=db compose=stack','host');
+ const v=reduceReport(r,expected,isolationLog(expected),'host');
  assert.equal(JSON.stringify(v).includes('PRIVATE-MARKER'),false);
 });
 
@@ -94,6 +95,22 @@ test('canonical nonbenchmark seed behavior stays unchanged',()=>{
 test('nested describe groups at same source location remain different cases',()=>{
  const r=report([80],0);const spec=r.suites[0].specs[0];
  r.suites=[{title:'group-one',specs:[spec]},{title:'group-two',specs:[structuredClone(spec)]}];r.stats.expected=2;
- const v=reduceReport(r,expected,'[test-isolation] id='+expected.isolationSeed+' db=db compose=stack','host');
+ const v=reduceReport(r,expected,isolationLog(expected),'host');
  assert.notEqual(v.records[0].id,v.records[1].id);
+});
+
+test('canonical wrapper derivation binds seed worktree and all three resources',()=>{
+ const d=expectedIsolation(expected.isolationSeed);
+ assert.notEqual(d.id,expected.isolationSeed);
+ assert.match(d.id,/^ci-smoke-123-1-0-[a-f0-9]{12}$/);
+ assert.match(d.database,/^wsx_[a-f0-9]{20}$/);
+ assert.equal(d.composeProject,'wsx-'+d.database.slice(4));
+ assert.notDeepEqual(expectedIsolation(expected.isolationSeed,'/different-worktree'),d);
+ for(const key of ['id','database','composeProject']) {
+  const wrong={...d,[key]:'foreign'};
+  assert.throws(()=>reduceReport(report(range(0,220),0),expected,
+   '[test-isolation] id='+wrong.id+' db='+wrong.database+' compose='+wrong.composeProject,'host'),/ISOLATION_OBSERVATION/);
+ }
+ assert.throws(()=>reduceReport(report(range(0,220),0),expected,
+  '[test-isolation] id='+expected.isolationSeed+' db='+d.database+' compose='+d.composeProject,'host'),/ISOLATION_OBSERVATION/);
 });

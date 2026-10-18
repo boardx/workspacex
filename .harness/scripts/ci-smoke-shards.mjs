@@ -27,6 +27,21 @@ export function context(env, part, total) {
   return { source: env.WSX_SMOKE_SOURCE_SHA, run: env.GITHUB_RUN_ID, attempt: env.GITHUB_RUN_ATTEMPT,
     part, total, isolationSeed: 'ci-smoke-' + env.GITHUB_RUN_ID + '-' + env.GITHUB_RUN_ATTEMPT + '-' + part };
 }
+const isolationCache = new Map();
+export function expectedIsolation(seed, worktreePath = resolve(ROOT)) {
+  need(typeof seed === 'string' && /^ci-smoke-[1-9][0-9]*-[1-9][0-9]*-[0-4]$/.test(seed), 'ISOLATION_SEED');
+  const key = JSON.stringify([seed, worktreePath]);
+  if (!isolationCache.has(key)) {
+    const code = 'import { deriveTestIsolation } from ' + JSON.stringify(resolve(ROOT, '.harness/scripts/lib/test-isolation.ts')) +
+      '; console.log(JSON.stringify(deriveTestIsolation(' + JSON.stringify({ isolationId: seed, worktreePath }) + ')))';
+    const result = spawnSync('pnpm', ['exec', 'tsx', '--eval', code], { cwd: ROOT, encoding: 'utf8', timeout: 15000, maxBuffer: 65536 });
+    need(!result.error && result.status === 0, 'ISOLATION_DERIVATION');
+    const value = JSON.parse(result.stdout.trim());
+    need(obj(value) && value.WORKSPACEX_ISOLATION_SEED === seed, 'ISOLATION_DERIVATION');
+    isolationCache.set(key, Object.freeze({ id: value.WORKSPACEX_ISOLATION_ID, database: value.WORKSPACEX_DB, composeProject: value.COMPOSE_PROJECT_NAME }));
+  }
+  return isolationCache.get(key);
+}
 export function reduceReport(report, meta, log, host = hostname()) {
   need(obj(report) && obj(report.config) && obj(report.stats) && Array.isArray(report.suites), 'REPORT_SHAPE');
   need(Array.isArray(report.errors) && report.errors.length === 0, 'REPORT_ERRORS');
@@ -62,7 +77,9 @@ export function reduceReport(report, meta, log, host = hostname()) {
   need(records.length > 0 && records.some(r => r.project === PRIMARY) && records.length <= 10000, 'EMPTY_COLLECTION');
   need(report.stats.expected === records.length && report.stats.unexpected === 0 && report.stats.skipped === 0 && report.stats.flaky === 0, 'REPORT_COUNTS');
   const matches = [...log.matchAll(/\[test-isolation\] id=([a-zA-Z0-9_-]+) db=([a-zA-Z0-9_-]+) compose=([a-zA-Z0-9_-]+)/g)];
-  need(matches.length === 1 && matches[0][1] === meta.isolationSeed, 'ISOLATION_OBSERVATION');
+  const derived = expectedIsolation(meta.isolationSeed);
+  need(matches.length === 1 && matches[0][1] === derived.id &&
+    matches[0][2] === derived.database && matches[0][3] === derived.composeProject, 'ISOLATION_OBSERVATION');
   need(typeof host === 'string' && host.length > 0, 'HOST_FINGERPRINT');
   return { kind: 'ci-smoke-part-v1', ...meta, status: 'PASSED', primaryProject: PRIMARY,
     observedShard: observedShard ?? null, startedAt: report.stats.startTime,
