@@ -23,3 +23,11 @@ Verification: API research, shared file service, web affected tests, both packag
 - Broad chapter reads 6 approved sources for 6 distinct confirmed questions, caps 12-question discovery at 9, deduplicates repeated section/subsection questions and URLs. Legacy per-question task keeps the prior three-document window. Empty question plan still refuses coverage; existing failed read, cancellation, retained-document retry and evidence/quality regressions PASS.
 
 `report-completed.png` shows the controlled formal report before injected export failures. `requests.json` records only canonical request identities, never credentials. No deployment, live report regeneration, or new paid native run performed. Existing saved references are unchanged; the broader pool applies to subsequent authorized generation.
+
+## Full CI regression correction
+
+The first CI head (`9a8c854dc8318842b5078b18f8a7bb13066682f9`) had 24 successful checks and one failed full-stack check. This was directly related to the change: the old `guided-research-runtime.spec.ts:102` still clicked the now intentionally removed **completed-report** source accordion. Both attempts timed out; this was not an environment failure. 128 preceding full-stack cases passed, 93 were not run after that failure.
+
+The existing complete spec now asserts that the duplicate entry/workspace is absent and verifies a real inline citation bound to `/research-evidence` with its accessible name; it also retains the later exact named reference assertion after reload (`Research E2E policy evidence`), all original per-question evidence, quality, persistence and recovery controls. It does not skip the test or change its timeout.
+
+`pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded guided-research-runtime.spec.ts`: **1 PASS**, production build, actual UI/API/PostgreSQL with the standard controlled loopback model; 3m44s including cleanup1s. This is a complete report-generation/control-flow fixture, not a paid live-provider semantic evaluation or new native file-byte generation. See `full-flow-green.txt` and the original CI failure excerpt.

@@ -1,0 +1,67 @@
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2432173Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2432335Z     Test timeout of 180000ms exceeded.
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2432530Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2432720Z     Error: locator.click: Test timeout of 180000ms exceeded.
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2433309Z     Call log:
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2433701Z       - waiting for getByText(/^查看研究资料 ·/)
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2433904Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2434118Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2434504Z       100 |   expect(submittedCommands.filter(command => command.action === "generate_report")).toHaveLength(1);
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2435392Z       101 |   await expect(page.getByTestId("guided-research-report-workspace")).toHaveAttribute("data-reference-layout", "report-document");
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2436118Z     > 102 |   await page.getByText(/^查看研究资料 ·/).click();
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2436467Z           |                                     ^
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2436941Z       103 |   const sourceWorkspace = page.getByTestId("guided-research-source-workspace");
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2437613Z       104 |   await expect(sourceWorkspace).toHaveAttribute("data-reference-layout", "research-sources");
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2438579Z       105 |   await expect(page.getByTestId("guided-research-source-chapters")).toHaveCount(0); // testid-gate: absent 章节编辑移至报告工作区，资料区不得重复呈现。
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2439517Z         at /home/runner/work/workspacex/workspacex/apps/web/e2e/guided-research-runtime.spec.ts:102:37
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2439901Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2440316Z     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2441320Z     test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded/test-failed-1.png
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2442258Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2442540Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2443353Z     Error Context: test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded/error-context.md
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2444113Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2444814Z     attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2445878Z     test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2446719Z     Usage:
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2446911Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2447497Z         pnpm exec playwright show-trace test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2448052Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2448430Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2448704Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2449051Z     Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2449333Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2449466Z     Test timeout of 180000ms exceeded.
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2449644Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2449824Z     Error: locator.click: Test timeout of 180000ms exceeded.
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2450147Z     Call log:
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2450449Z       - waiting for getByText(/^查看研究资料 ·/)
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2450654Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2450660Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2451011Z       100 |   expect(submittedCommands.filter(command => command.action === "generate_report")).toHaveLength(1);
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2452041Z       101 |   await expect(page.getByTestId("guided-research-report-workspace")).toHaveAttribute("data-reference-layout", "report-document");
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2452746Z     > 102 |   await page.getByText(/^查看研究资料 ·/).click();
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2453307Z           |                                     ^
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2453786Z       103 |   const sourceWorkspace = page.getByTestId("guided-research-source-workspace");
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2454439Z       104 |   await expect(sourceWorkspace).toHaveAttribute("data-reference-layout", "research-sources");
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2455373Z       105 |   await expect(page.getByTestId("guided-research-source-chapters")).toHaveCount(0); // testid-gate: absent 章节编辑移至报告工作区，资料区不得重复呈现。
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2456177Z         at /home/runner/work/workspacex/workspacex/apps/web/e2e/guided-research-runtime.spec.ts:102:37
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2456658Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2457048Z     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2457851Z     test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded-retry1/test-failed-1.png
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2458693Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2458970Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2459482Z     Error Context: test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded-retry1/error-context.md
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2460179Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2460660Z     attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2461636Z     test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded-retry1/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2462367Z     Usage:
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2462508Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2463353Z         pnpm exec playwright show-trace test-results/fullstack-smoke/guided-research-runtime-re-1cfd3--real-UI-API-and-PostgreSQL-seeded-retry1/trace.zip
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2464187Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2464649Z     ────────────────────────────────────────────────────────────────────────────────────────────────
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2465013Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.2465021Z 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.3602909Z   1 failed
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.3604591Z     [seeded] › e2e/guided-research-runtime.spec.ts:4:5 › research persists the confirmed-question pipeline through the real UI, API and PostgreSQL 
+fullstack-smoke	Execute trusted full-stack smoke	2026-10-19T04:39:04.3605383Z   93 did not run
