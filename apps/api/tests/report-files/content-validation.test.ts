@@ -162,3 +162,12 @@ it('anchors optional markers to canonical reference positions even when code bec
     expect(() => validateReportContent('pdf', bad, saved)).toThrow();
   }
 });
+
+it('handles many adjacent optional references without regex backtracking', () => {
+  const refs = '[^1]'.repeat(64);
+  const markdown = `# Saved research\n\nComplete canonical evidence${refs} requires this exact ending.\n\n[^1]: Verified source https://example.com/proof`;
+  const saved = { ...source, title: 'Saved research', markdown };
+  const extracted = `Saved research\nComplete canonical evidence${'[^1]'.repeat(32)} requires this exact ending.\nVerified source https://example.com/proof`;
+  expect(() => validateReportContent('pdf', extracted, saved)).not.toThrow();
+  expect(() => validateReportContent('pdf', extracted.replace('exact ending', 'wrong ending'), saved)).toThrow();
+});

@@ -67,17 +67,42 @@ export function validateReportContent(format: FileRequest['format'], extracted: 
   if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
   const title = normalizeReportText(required.title ?? source.title);
   if (title && (!text.includes(title) || text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1))) throw new ReportFileError('INVALID_FILE');
-  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const [index, rawParagraph] of required.paragraphs.entries()) {
     const paragraph = normalizeReportText(rawParagraph);
     if (paragraph.length < 12) continue;
     // Only actual canonical reference positions may carry an optional printed
     // marker. Literal code markers remain required even if PDF loses its fences.
-    const pattern = required.paragraphParts[index]!.map(part => 'text' in part
-      ? escape(normalizeReportText(part.text))
-      : `(?:${escape(normalizeReportText(`[^${part.footnoteId}]`))})?`).join('');
-    const matches = [...text.matchAll(new RegExp(pattern, 'g'))].length;
+    const parts = required.paragraphParts[index]!.map(part => 'text' in part
+      ? { text: normalizeReportText(part.text), optional: false }
+      : { text: normalizeReportText(`[^${part.footnoteId}]`), optional: true });
+    const matches = countParagraphMatches(text, parts);
     const count = (value: string, needle: string) => value.split(needle).length - 1;
     if (!matches || matches > count(canonical, paragraph)) throw new ReportFileError('INVALID_FILE');
   }
+}
+
+/** Exact literal matching with deduplicated offsets. No dynamic regex or
+ * exponential backtracking across adjacent optional reference markers. */
+function countParagraphMatches(text: string, parts: readonly { text: string; optional: boolean }[]): number {
+  const first = parts.findIndex(part => !part.optional && part.text.length > 0);
+  if (first < 0) return 0;
+  const tokens = parts.slice(first);
+  let matches = 0, from = 0;
+  while (from < text.length) {
+    const start = text.indexOf(tokens[0]!.text, from);
+    if (start < 0) break;
+    let offsets = new Set([start]);
+    for (const token of tokens) {
+      const next = new Set<number>();
+      for (const offset of offsets) {
+        if (token.optional) next.add(offset);
+        if (text.startsWith(token.text, offset)) next.add(offset + token.text.length);
+      }
+      offsets = next;
+      if (!offsets.size) break;
+    }
+    if (offsets.size) { matches++; from = Math.max(...offsets); }
+    else from = start + 1;
+  }
+  return matches;
 }

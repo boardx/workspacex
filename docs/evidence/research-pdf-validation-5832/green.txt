@@ -1,14 +1,14 @@
 RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
 
- ✓ tests/report-files/content-validation.test.ts (31 tests) 166ms
+ ✓ tests/report-files/content-validation.test.ts (32 tests) 149ms
  ✓ tests/report-files/service.test.ts (11 tests) 9ms
- ✓ tests/report-files/tool-completion.test.ts (4 tests) 4ms
- ✓ tests/report-files/pdf-title-layout.test.ts (3 tests | 1 skipped) 18ms
- ✓ tests/report-files/presentation.test.ts (4 tests) 118ms
- ✓ tests/report-files/saved-input.test.ts (2 tests) 2ms
+ ✓ tests/report-files/tool-completion.test.ts (4 tests) 3ms
+ ✓ tests/report-files/pdf-title-layout.test.ts (3 tests | 1 skipped) 15ms
+ ✓ tests/report-files/presentation.test.ts (4 tests) 69ms
+ ✓ tests/report-files/saved-input.test.ts (2 tests) 1ms
  ✓ tests/report-files/safe-errors.test.ts (1 test) 3ms
 
  Test Files  7 passed (7)
-      Tests  55 passed | 1 skipped (56)
-   Start at  16:58:48
-   Duration  2.78s (transform 593ms, setup 0ms, collect 1.78s, tests 320ms, environment 1ms, prepare 169ms)
+      Tests  56 passed | 1 skipped (57)
+   Start at  17:00:18
+   Duration  2.25s (transform 488ms, setup 0ms, collect 1.39s, tests 249ms, environment 0ms, prepare 157ms)
