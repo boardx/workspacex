@@ -91,11 +91,11 @@ describe('preinstalled fullstack CI runtime', () => {
   it('retains full commands and evidence within a bounded complete-run budget', () => {
     const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
     const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('  # #2084:'));
-    // Full execution plus setup/evidence exceeded the old 20-minute deadline.
+    // The 222-case execution plus setup/evidence exhausted 40m (#5832).
     // Validate a bounded operational budget rather than duplicating its exact value.
     const budget = Number(lane.match(/^    timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
     expect(budget).toBeGreaterThanOrEqual(30);
-    expect(budget).toBeLessThanOrEqual(45);
+    expect(budget).toBeLessThanOrEqual(50);
     expect(lane).toContain('persist-credentials: false');
     expect(lane).toContain('GH_TOKEN: ${{ github.token }}');
     expect(lane).toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}');

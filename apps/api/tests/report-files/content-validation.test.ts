@@ -126,3 +126,48 @@ it('keeps ordinary split DOCX words together while preserving actual paragraph b
  const bytes=await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('Research report'),new Paragraph({children:[new TextRun('Behav'),new TextRun('ioral evidence remains unchanged in the original report.')]})]}]}));
  await expect(new ReportGeneratedFileValidator().validate('docx',bytes,saved)).resolves.toBeUndefined();
 });
+
+ it('compares PDF footnotes as presentation without losing prose, URLs or literal code', () => {
+  const url='https://example.com/verified-source';
+  const body='The complete approved research conclusion remains supported by the original evidence.';
+  const markdown=`# Saved research\n\n${body.replace(' remains','[^1] remains')}\n\nLiteral code \`[^1]\` must remain visible in this saved report.\n\n[^1]: [Verified source](${url})`;
+  const saved={...source,title:'Saved research',markdown};
+  const extracted=`# Saved research\n\n${body.replace(' remains','[^ 1] remains')}\n\nLiteral code \`[^1]\` must remain visible in this saved report.\n\n[^1]: [Verified source](${url})`;
+  expect(()=>validateReportContent('pdf',extracted,saved)).not.toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replaceAll('`',''),saved)).not.toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replace('original evidence',''),saved)).toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replace(url,''),saved)).toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replace('code `[^1]`','code ``'),saved)).toThrow();
+ });
+
+it('validates real PDF bytes with a wrapped canonical footnote marker', async () => {
+  const { PDFDocument, StandardFonts } = await import('pdf-lib');
+  const url = 'https://example.com/verified-source';
+  const markdown = `# Saved research\n\nThe complete approved research[^1] conclusion remains supported by original evidence.\n\n[^1]: Verified source ${url}`;
+  const saved = { ...source, title: 'Saved research', markdown };
+  const pdf = await PDFDocument.create(), page = pdf.addPage(), font = await pdf.embedFont(StandardFonts.Helvetica);
+  ['Saved research', 'The complete approved research[^ 1] conclusion remains supported by original evidence.', `[^1]: Verified source ${url}`]
+    .forEach((line, index) => page.drawText(line, { x: 30, y: 780 - index * 35, size: 8, font }));
+  await expect(new ReportGeneratedFileValidator().validate('pdf', await pdf.save(), saved)).resolves.toBeUndefined();
+});
+
+it('anchors optional markers to canonical reference positions even when code becomes plain text', () => {
+  const markdown = '# Saved research\n\nEvidence[^1] remains complete; literal `[^1]` must remain visible.\n\n```txt\nLiteral fenced marker [^1] remains required.\n```\n\n[^1]: Verified source https://example.com/proof';
+  const saved = { ...source, title: 'Saved research', markdown };
+  const extracted = 'Saved research\n\nEvidence[^ \n1] remains complete; literal [^1] must remain visible.\n\nLiteral fenced marker [^1] remains required.\n\nVerified source https://example.com/proof';
+  expect(() => validateReportContent('pdf', extracted, saved)).not.toThrow();
+  for (const bad of [extracted.replace('literal [^1]', 'literal'), extracted.replace('marker [^1]', 'marker'),
+    extracted.replace('Evidence[^ \n1]', 'Evidence[^8]'), extracted.replace('remains complete', 'complete remains'),
+    extracted + '\nEvidence[^1] remains complete; literal [^1] must remain visible.']) {
+    expect(() => validateReportContent('pdf', bad, saved)).toThrow();
+  }
+});
+
+it('handles many adjacent optional references without regex backtracking', () => {
+  const refs = '[^1]'.repeat(64);
+  const markdown = `# Saved research\n\nComplete canonical evidence${refs} requires this exact ending.\n\n[^1]: Verified source https://example.com/proof`;
+  const saved = { ...source, title: 'Saved research', markdown };
+  const extracted = `Saved research\nComplete canonical evidence${'[^1]'.repeat(32)} requires this exact ending.\nVerified source https://example.com/proof`;
+  expect(() => validateReportContent('pdf', extracted, saved)).not.toThrow();
+  expect(() => validateReportContent('pdf', extracted.replace('exact ending', 'wrong ending'), saved)).toThrow();
+});
