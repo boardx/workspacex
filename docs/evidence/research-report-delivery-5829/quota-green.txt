@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ✓ tests/research/guided-progressive-candidates.test.ts (19 tests) 25ms
+ ✓ tests/research/guided-supplement-task-scope.test.ts (12 tests) 40ms
+
+ Test Files  2 passed (2)
+      Tests  31 passed (31)
+   Start at  13:34:36
+   Duration  1.88s (transform 629ms, setup 0ms, collect 1.52s, tests 65ms, environment 0ms, prepare 88ms)

@@ -31,3 +31,21 @@ The first CI head (`9a8c854dc8318842b5078b18f8a7bb13066682f9`) had 24 successful
 The existing complete spec now asserts that the duplicate entry/workspace is absent and verifies a real inline citation bound to `/research-evidence` with its accessible name; it also retains the later exact named reference assertion after reload (`Research E2E policy evidence`), all original per-question evidence, quality, persistence and recovery controls. It does not skip the test or change its timeout.
 
 `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded guided-research-runtime.spec.ts`: **1 PASS**, production build, actual UI/API/PostgreSQL with the standard controlled loopback model; 3m44s including cleanup1s. This is a complete report-generation/control-flow fixture, not a paid live-provider semantic evaluation or new native file-byte generation. See `full-flow-green.txt` and the original CI failure excerpt.
+
+## P2 remaining-quota review correction
+
+Review thread `discussion_r4310289429` identified a real limit bug in the initial pool expansion: a supplement counted only its own new query results, so an existing5/target6 chapter could admit six more. Five failing counterexamples reproduced the bug. The fix recomputes remaining capacity from committed, accepted document URLs for the same chapter before each supplemental batch and sizes the batch to that allowance. Normalized duplicates, unread/excluded documents and rejected candidates do not fill it. Legacy question-scoped supplements also respect the task's three-document budget. Primary/recovery attempts still count material approved in that attempt, so retained documents cannot short-circuit retry validation.
+
+- `quota-red.txt`: 5 RED counterexamples /11 existing PASS before the fix.
+- `quota-green.txt`: 31 PASS (19 progressive/quota +12 exact scope cases), including5/6 and8/9 admitting exactly1, duplicates over multiple queries, negative/unread/excluded material, legacy3 and a partial last primary batch.
+- `quota-api-green.txt`: full research 38 files /889 PASS.
+- `quota-typecheck.txt`, `quota-lint.txt`: API typecheck/lint PASS.
+- `quota-full-flow-green.txt`: original complete production-build UI/API/PostgreSQL controlled-loopback spec PASS, 6m52s, cleanup1s. No new native or live-provider generation.
+
+The test for publishing a first partial batch still checks the same persisted boundary; it now reads5 candidates instead of6 because only two further approvals are needed after the first accepted document. It does not admit an extra fourth document for a target of three.
+
+## Optional CI cancellation boundary
+
+On36717d1797b4ca1beef18df22812bfcca9ffd3cd, run39201160326 attempt1 recorded222 full-stack cases PASS (31.6m), Fabric1 PASS and trace geometry7 PASS, with successful evidence upload. The job nevertheless concludedCANCELLED. The check-run annotation explicitly says `The job has exceeded the maximum execution time of 40m0s`. This is not a successful job conclusion and is not counted as acceptancePASS. The source result lines are retained in `ci-36717d1-verification-results.txt` and the primary run URL is https://github.com/boardx/workspacex/actions/runs/39201160326/job/117894407988.
+
+Attempt2 of the old36717d1 run was separately started as a bounded retry, then explicitly cancelled by the main coordinator to avoid redundant old-head work while this P2 fix was prepared. It must not be confused with attempt1's time-limit cancellation. No shared workflow timeout, Board code, check policy or assertion was changed. Final acceptance uses the new head, resolved review, actual required checks and official `harness pr-queue`; optional cancellation remains an advisory rather than a fabricatedPASS.

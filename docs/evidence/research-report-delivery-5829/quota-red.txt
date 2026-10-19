@@ -1,0 +1,85 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ❯ tests/research/guided-progressive-candidates.test.ts (16 tests | 5 failed) 26ms
+   × fills only one remaining chapter document (6 target, 5 existing) 3ms
+     → expected "spy" to be called 1 times, but got 6 times
+   × fills only one remaining chapter document (9 target, 8 existing) 1ms
+     → expected "spy" to be called 1 times, but got 9 times
+   × does not spend a remaining quota on duplicate URLs across supplemental queries 1ms
+     → expected "spy" to be called 1 times, but got 6 times
+   × does not count rejected supplemental material as the remaining approved document 1ms
+     → expected "spy" to be called 2 times, but got 9 times
+   × keeps a legacy question at three documents when its supplement needs only one 1ms
+     → expected "spy" to be called 1 times, but got 3 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > fills only one remaining chapter document (6 target, 5 existing)
+AssertionError: expected "spy" to be called 1 times, but got 6 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:158:18
+    156|   existingDocuments(f, existing);
+    157|   try { await f.run(); } finally { f.budget.dispose(); }
+    158|   expect(f.read).toHaveBeenCalledTimes(1);
+       |                  ^
+    159|   expect(f.search.search).toHaveBeenCalledTimes(1);
+    160|   expect(f.state.sources.filter(source => source.decision === 'accepte…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > fills only one remaining chapter document (9 target, 8 existing)
+AssertionError: expected "spy" to be called 1 times, but got 9 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:158:18
+    156|   existingDocuments(f, existing);
+    157|   try { await f.run(); } finally { f.budget.dispose(); }
+    158|   expect(f.read).toHaveBeenCalledTimes(1);
+       |                  ^
+    159|   expect(f.search.search).toHaveBeenCalledTimes(1);
+    160|   expect(f.state.sources.filter(source => source.decision === 'accepte…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > does not spend a remaining quota on duplicate URLs across supplemental queries
+AssertionError: expected "spy" to be called 1 times, but got 6 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:169:18
+    167|   f.search.search.mockResolvedValueOnce([duplicate, duplicate]).mockRe…
+    168|   try { await f.run(); } finally { f.budget.dispose(); }
+    169|   expect(f.read).toHaveBeenCalledTimes(1);
+       |                  ^
+    170|   expect(f.search.search).toHaveBeenCalledTimes(3);
+    171|   expect(f.state.sources.filter(source => source.decision === 'accepte…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > does not count rejected supplemental material as the remaining approved document
+AssertionError: expected "spy" to be called 2 times, but got 9 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:178:18
+    176|   existingDocuments(f, 5);
+    177|   try { await f.run(); } finally { f.budget.dispose(); }
+    178|   expect(f.read).toHaveBeenCalledTimes(2);
+       |                  ^
+    179|   expect(f.state.sources.filter(source => source.decision === 'accepte…
+    180| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > keeps a legacy question at three documents when its supplement needs only one
+AssertionError: expected "spy" to be called 1 times, but got 3 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:186:18
+    184|   existingDocuments(f, 2);
+    185|   try { await f.run(); } finally { f.budget.dispose(); }
+    186|   expect(f.read).toHaveBeenCalledTimes(1);
+       |                  ^
+    187|   expect(f.state.sources.filter(source => source.decision === 'accepte…
+    188| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 11 passed (16)
+   Start at  13:32:22
+   Duration  1.03s (transform 539ms, setup 0ms, collect 878ms, tests 26ms, environment 0ms, prepare 31ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-progressive-candidates.test.ts
