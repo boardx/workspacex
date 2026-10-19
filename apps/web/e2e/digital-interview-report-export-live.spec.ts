@@ -68,3 +68,34 @@ test("Skill file controls use the current saved canonical source and reject an o
   expect(await stale.text()).toContain("REPORT_CHANGED");
   await expect(page.getByTestId("itv-source-report-markdown")).toContainText(currentBody);
 });
+
+/** Controlled completed-job responses test browser filename/byte delivery, not native generation. */
+test('browser downloads use the canonical Chinese title for PDF and Word',async({page})=>{
+ const {createRequire}=await import('node:module');const {resolve}=await import('node:path');
+ const requireApi=createRequire(resolve(process.cwd(),'../api/package.json'));
+ const {PDFDocument,StandardFonts}=requireApi('pdf-lib');const {Document,Packer,Paragraph}=requireApi('docx');
+ await page.goto('/login');await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/u);
+ const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));const headers={authorization:`Bearer ${token}`};
+ const created=await page.request.post('/__fullstack_api/interviews/digital',{headers,data:{name:'导出命名验收',tags:[],scope:{kind:'none',projectId:null,researchProjectId:null},requestId:randomUUID()}});expect(created.ok()).toBe(true);
+ const {interviewId}=await created.json();const path=`/__fullstack_api/interviews/digital/${interviewId}/markdown`;
+ let envelope=await(await page.request.get(path,{headers})).json();envelope=await(await page.request.post(`${path}/initialize`,{headers,data:{expectedVersion:envelope.version}})).json();
+ const title='系统韧性与体验优化研究报告';
+ const saved=await page.request.post(`${path}/report`,{headers,data:{markdown:`# ${title}\n\n报告本身的模拟材料说明保持不变。`,expectedVersion:envelope.version,expectedDocumentVersion:0}});expect(saved.ok()).toBe(true);
+ const document=(await saved.json()).documents.find((d:{step:string})=>d.step==='report');
+ const source={kind:'interview',id:interviewId,reportVersion:document.version,reportHash:document.contentHash};
+ const pdf=await PDFDocument.create();const font=await pdf.embedFont(StandardFonts.Helvetica);pdf.addPage().drawText('Filename delivery fixture',{font,size:12});
+ const binaries={pdf:Buffer.from(await pdf.save()),docx:Buffer.from(await Packer.toBuffer(new Document({sections:[{children:[new Paragraph(title),new Paragraph('报告本身的模拟材料说明保持不变。')]}]})))};
+ const jobs=Object.fromEntries((['pdf','docx'] as const).map(format=>[format,{id:randomUUID(),source,format,createdAt:new Date().toISOString(),status:'succeeded',skill:{stableName:format==='pdf'?'pdf-create':'docx-create',versionId:'controlled-browser-job',digest:'a'.repeat(64)},file:{filename:`${title}.${format}`,mediaType:format==='pdf'?'application/pdf':'application/vnd.openxmlformats-officedocument.wordprocessingml.document',sizeBytes:binaries[format].length,sha256:createHash('sha256').update(binaries[format]).digest('hex')}}]));
+ await page.route('**/report-files',async route=>{const format=route.request().postDataJSON().format as 'pdf'|'docx';await route.fulfill({status:201,contentType:'application/json',body:JSON.stringify(jobs[format])});});
+ for(const format of ['pdf','docx'] as const){
+  const job=jobs[format]!;
+  await page.route(`**/report-files/${job.id}`,route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(job)}));
+  await page.route(`**/report-files/${job.id}/download`,route=>route.fulfill({status:200,contentType:job.file.mediaType,body:binaries[format],headers:{'Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(job.file.filename)}`}}));
+ }
+ await page.goto(`/itv/${interviewId}/report`);
+ for(const [format,label] of [['pdf','PDF'],['docx','Word']] as const){
+  const event=page.waitForEvent('download');await page.getByRole('button',{name:`生成 ${label}`,exact:true}).click();const downloaded=await event;
+  expect(downloaded.suggestedFilename()).toBe(`${title}.${format}`);
+  const {readFile}=await import('node:fs/promises');expect(createHash('sha256').update(await readFile((await downloaded.path())!)).digest('hex')).toBe(jobs[format]!.file.sha256);
+ }
+});

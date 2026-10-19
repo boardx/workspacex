@@ -231,6 +231,24 @@ ${COMMON_PREAMBLE("pptxgenjs")}
 
 export const PDF_CREATE_SKILL_MD = `# PDF 文档生成（pdf-create）
 
+## 标题与正文必须按实际字体换行
+
+长标题不得直接用单行 drawText，也不得截短或越过页边距。原生模式必须使用包内
+/skills/pdf-create/scripts/pdf-text-layout.cjs 的 drawWrappedText：它通过实际嵌入字体
+widthOfTextAtSize 量宽，兼容中文、混排与无空格英文长串，保留全文并在空间不足时分页。
+最大行宽是页面宽减左右页边距。标题换行后的返回 y 才是后续正文排版起点，不能继续用
+旧的固定 y 坐标，否则正文会盖在第二行标题上。示例（font 是已嵌入的真实字体）：
+
+\`\`\`js
+const { drawWrappedText } = require('/skills/pdf-create/scripts/pdf-text-layout.cjs');
+let cursor = drawWrappedText(page, reportTitle, {font, size:24, x:50, y:page.getHeight()-50, rightMargin:50});
+cursor = drawWrappedText(cursor.page, reportBody, {font, size:12, x:50, y:cursor.y-16, rightMargin:50});
+\`\`\`
+
+旧脚本运行模式不能使用 /skills 路径时，沿用相同的逐字符实际字体量宽方法，不能按固定字数
+猜测宽度。所有字号的标题均需此处理，渲染后检查每页左右边界与段落重叠。
+
+
 用这个 skill 从零创建一份 PDF 文件（\`.pdf\`），适合排版好的说明文档、简单报告、
 带基础图形/表格线条的单页或多页文档。
 

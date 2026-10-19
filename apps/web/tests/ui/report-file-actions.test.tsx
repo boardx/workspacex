@@ -91,3 +91,11 @@ it('keeps an existing file on a transient download and status outage',async()=>{
  render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));await screen.findByRole('alert');
  fireEvent.click(screen.getByRole('button',{name:'下载 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});expect(generateReportFile).toHaveBeenCalledTimes(1);
 });
+it('drops an obsolete render-policy job after the server confirms REPORT_CHANGED',async()=>{
+ const {ApiError}=await import('@/lib/api-client');const {getReportFileJob}=await import('@/lib/report-files-api');
+ vi.mocked(generateReportFile).mockResolvedValue(success);vi.mocked(downloadReportFile).mockRejectedValueOnce(new Error('stale representation'));
+ vi.mocked(getReportFileJob).mockRejectedValue(new ApiError(409,'REPORT_CHANGED',{}));
+ render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));
+ fireEvent.click(await screen.findByRole('button',{name:'重新生成 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});
+ expect(generateReportFile).toHaveBeenCalledTimes(2);
+});

@@ -1,3 +1,4 @@
+import { REPORT_EXPORT_RENDER_POLICY, reportDownloadFilename } from './presentation';
 import { createHash, randomUUID } from 'node:crypto';
 import { ReportFileJob, ReportFileRequest, REPORT_FILE_FORMATS, type ReportFileErrorCode } from '@repo/contracts/report-files';
 import type { z } from 'zod';
@@ -9,7 +10,7 @@ export class ReportFileError extends Error {
 }
 const sha = (bytes: Uint8Array | string) => createHash('sha256').update(bytes).digest('hex');
 export function reportRenderHash(snapshot: ReportFileSourceSnapshot): string {
-  return sha(JSON.stringify([snapshot.title, snapshot.markdown, snapshot.appendixMarkdown ?? '', snapshot.notices, snapshot.projectId]));
+  return sha(JSON.stringify([REPORT_EXPORT_RENDER_POLICY,snapshot.title, snapshot.markdown, snapshot.appendixMarkdown ?? '', snapshot.notices, snapshot.projectId]));
 }
 export interface ReportFileServiceDeps {
   readonly store: ReportFileJobStore;
@@ -48,7 +49,7 @@ export class ReportFileService {
     }
     const skill = await this.deps.runtime.pin(actor, request.format);
     if (skill.stableName !== REPORT_FILE_FORMATS[request.format].skillStableName) throw new ReportFileError('SKILL_UNAVAILABLE');
-    const record: StoredReportFileJob = { actor, projectId: snapshot.projectId, requestId: request.requestId, bindingKey: snapshot.bindingKey, renderHash: reportRenderHash(snapshot), skill,
+    const record: StoredReportFileJob = { actor, downloadFilename:reportDownloadFilename(snapshot.title,request.format), projectId: snapshot.projectId, requestId: request.requestId, bindingKey: snapshot.bindingKey, renderHash: reportRenderHash(snapshot), skill,
       job: { id: (this.deps.newId ?? randomUUID)(), source: request.source, format: request.format, status: 'queued', createdAt: (this.deps.now ?? (() => new Date().toISOString()))() } };
     if (!await this.deps.store.insert(record)) {
       const raced = await this.deps.store.findByRequest(actor, request.requestId);

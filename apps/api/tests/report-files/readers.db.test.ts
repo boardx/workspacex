@@ -160,8 +160,8 @@ it('binds publication to the genuine accepted report job and preserves normal re
   await repo.storeOutputAwaitingWriteback(org,record.runId,{text:'Report file staged.',finalStepSeq:2,files:staged});
   const pending=(await repo.claimWritebackPending(org,1))[0]!;
   await repo.commitWriteback(org,{runId:record.runId,threadId:pending.threadId,inputMessageId:pending.inputMessageId,agentId:pending.agentId,text:pending.text,startedAt:new Date().toISOString(),endedAt:new Date().toISOString(),outputDigest:'a'.repeat(64),files:staged});
-  const attachments=await db.withTenant(org,s=>s.query<{storage_ref:string}>('SELECT a.storage_ref FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,record.runId]));
-  expect(attachments.rows).toHaveLength(1);expect(await objects.get(attachments.rows[0]!.storage_ref)).toEqual(new Uint8Array(bytes));
+  const attachments=await db.withTenant(org,s=>s.query<{storage_ref:string;filename:string}>('SELECT a.storage_ref,a.filename FROM chat_message_attachments a JOIN chat_messages m ON m.id=a.message_id AND m.org_id=a.org_id WHERE m.org_id=$1 AND m.agent_run_id=$2',[org,record.runId]));
+  expect(attachments.rows).toHaveLength(1);expect(attachments.rows[0]!.filename).toBe(record.downloadFilename);expect(await objects.get(attachments.rows[0]!.storage_ref)).toEqual(new Uint8Array(bytes));
   expect((await asApp(org,c=>c.query('SELECT status FROM agent_runs WHERE id=$1',[record.runId]))).rows[0]!.status).toBe('succeeded');
  }finally{await rm(root,{recursive:true,force:true});}
 });

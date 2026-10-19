@@ -1,3 +1,4 @@
+import { docxParagraphText } from './docx-paragraph-text';
 import { reportFileContentRequirements } from '@repo/contracts/report-file-content';
 import { inspectDocx, unzip } from '@repo/skill-sandbox/ooxml';
 import { AnydocAttachmentToMarkdown } from '../chat/anydoc-attachment-to-markdown';
@@ -34,7 +35,8 @@ export class ReportGeneratedFileValidator implements ReportFileValidator {
       if (!types || !document || /<!DOCTYPE|<!ENTITY/i.test(types + document)) throw new Error();
       if (!types.includes('wordprocessingml.document.main+xml') || !/<w:body[\s>]/.test(document)) throw new Error();
       const relationUrls = unzip(Buffer.from(bytes)).filter(file => file.name.endsWith('.rels')).flatMap(file => [...file.bytes.toString('utf8').matchAll(/Target="(https?:[^"]+)"/g)].map(match => match[1]!.replaceAll('&amp;', '&')));
-      const text = inspectDocx(Buffer.from(bytes)).textRuns.join(' ');
+      inspectDocx(Buffer.from(bytes));
+      const text = docxParagraphText(document);
       validateReportContent(format, text, source, relationUrls);
     } catch { throw new ReportFileError('INVALID_FILE'); }
   }
@@ -52,7 +54,15 @@ export function validateReportContent(format: FileRequest['format'], extracted: 
   for (const match of extracted.matchAll(/(?:ENOENT|no such file or directory|读取失败|SKILL_SANDBOX_INPUT_DIR|\/work\/input)/gi)) {
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');
   }
-  if (!text.includes(source.reportHash) || source.notices.some(note => !text.includes(normalizeReportText(note)))) throw new ReportFileError('INVALID_FILE');
+  if (!canonical.includes(normalizeReportText('文件生成披露')) && text.includes(normalizeReportText('文件生成披露'))) throw new ReportFileError('INVALID_FILE');
+  for (const notice of [...source.notices, source.reportHash]) {
+    const normalized = normalizeReportText(notice);
+    if (normalized && !canonical.includes(normalized) && text.includes(normalized)) throw new ReportFileError('INVALID_FILE');
+  }
+  for (const line of extracted.split(/\r?\n/u)) {
+    if (/^\s*(?:#{1,6}\s*)?(?:文档版本\s*[:：\d]|内容哈希\s*[:：]|(?:审核|审阅|复核)状态\s*[:：])/u.test(line)
+      && !canonical.includes(normalizeReportText(line))) throw new ReportFileError('INVALID_FILE');
+  }
   const urls = normalizeReportText(extracted + relationUrls.join(' '));
   if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
   const title = normalizeReportText(required.title ?? source.title);
