@@ -6,6 +6,8 @@ the existing shared release lock. Agent, sandbox, sessions, DB, Redis, env files
 mounts, network, TLS and AppArmor remain unchanged. Compose uses explicit api/web
 services with `--no-deps --no-build --pull never`; no orphan cleanup is requested.
 API replacement can interrupt requests. This is not zero downtime.
+Each check/switch/recovery reuses the existing bounded IMDSv2 ECS identity helper;
+the instance, Shanghai region and public origin are fixed, with no insecure fallback.
 
 ## Boundaries and admission
 
@@ -31,6 +33,10 @@ Before the release window, the controlled preparation process must supply:
   four passed evidence references for unchanged schema, mutation-free startup,
   backward read/write compatibility and unchanged environment/security, plus a
   fresh observation/expiry window no longer than one hour. Missing/unknown fails.
+  `requestedAt` is the original recorded release request, not approval completion;
+  expiry cannot exceed that request by 30 minutes. Activation leaves at least
+  120 seconds for recovery and refuses an exhausted window. Never reset this clock
+  to hide queue/build/approval delay; a new attempt is explicitly a new request.
   A SQL diff alone is insufficient. The existing effective API environment must
   already have `KERNEL_PLATFORM_SKILL_SELFHEAL=off`; the release never sets it.
   This flag alone does not prove startup mutation freedom: other startup hooks

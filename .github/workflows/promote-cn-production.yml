@@ -379,5 +379,8 @@ jobs:
             echo "### CN production release accepted"
             echo "- Exact SHA: \`${REVISION}\`"
             echo "- Production: trusted activation and browser gate passed"
+            if [[ "${RELEASE_MODE}" == app-only ]]; then
+              echo "- Scope: lightweight Web/API availability; full business acceptance is not claimed"
+            fi
             echo "- main-cn: strict GraphQL CAS completed after production acceptance"
           } >> "${GITHUB_STEP_SUMMARY}"

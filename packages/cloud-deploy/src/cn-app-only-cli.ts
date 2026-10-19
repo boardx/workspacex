@@ -7,6 +7,8 @@ import { open, rename, unlink, lstat } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { assertTrustedPath } from "./trusted-path";
 import { captureProvisionCommand } from "./command";
+import { deploymentConfigSchema } from "./config";
+import { verifyEcsIdentity } from "./preflight";
 import { appOnlyInputSchema, baselineSchema, switchAppOnly, appServices, type AppContext } from "./cn-app-only";
 
 const sha = (value: Buffer | string) => createHash("sha256").update(value).digest("hex");
@@ -79,6 +81,12 @@ async function main() {
   }
   try {
     const result = await switchAppOnly(rawRequest, prepared, manifest, baselineBytes, nginxBytes, {
+      verifyHost: async context => {
+        const config = deploymentConfigSchema.parse(JSON.parse((await bytes(`/etc/workspacex-cn/candidate-configs/${revision}/${attempt}/deployment.json`)).toString()));
+        if (config.environment.ecsInstanceId !== "i-uf6ga92ewloganobbln6" || config.environment.regionId !== "cn-shanghai" ||
+          config.environment.publicUrl !== "https://app.boardx.com.cn") throw new Error("APP_ONLY_TARGET");
+        await verifyEcsIdentity(config, bounded(context));
+      },
       execute,
       snapshot: async context => {
         const images: Record<string, string> = {};

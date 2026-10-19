@@ -18,7 +18,7 @@ function fixture() {
   const request = { schemaVersion: 1, mode: "app-only", sourceRevision: source, baselineSourceRevision: old, attemptId: "once",
     baselineSha256: baselineFingerprint([baselineBytes, nginx]), runtimeConfigSha256: "c".repeat(64),
     compatibility: { schemaUnchanged: gate(), startupMutationFree: gate(), backwardReadWrite: gate(), unchangedEnvironmentAndSecurity: gate() },
-    observedAt: "2026-10-19T11:59:00.000Z", expiresAt: "2026-10-19T12:30:00.000Z" };
+    requestedAt: "2026-10-19T11:59:00.000Z", observedAt: "2026-10-19T11:59:00.000Z", expiresAt: "2026-10-19T12:29:00.000Z" };
   const prepared = { schemaVersion: 1, status: "prepared", sourceRevision: source, release: "1.2.3", baselineSha256: request.baselineSha256,
     manifestSha256: hash(manifestBytes), images: Object.fromEntries(["api", "web", "agent", "sandbox"].map(s => [s, manifest.images[s]!.image.split("@")[1]])),
     diff: { migrationRisk: "none", pendingMigrationCount: 0, changedServices: ["api", "web"] },
@@ -30,6 +30,7 @@ function fixture() {
   let switched = false, failStart = false, failSmoke = false, failRollback = false;
   const actualId = (service: string) => service === "api" ? image("5") : image("6");
   const io: AppOnlyIO = {
+    verifyHost: async () => {},
     configuration: async () => ({ nginxBytes: nginx, runtimeConfigSha256: request.runtimeConfigSha256 }),
     snapshot: async () => ({ baselineBytes: Buffer.from(JSON.stringify({ ...baseline, images: switched ? { ...images, api: actualId("api"), web: actualId("web") } : images }) + "\n"),
       nginxBytes: nginx, runtimeConfigSha256: request.runtimeConfigSha256 }),
@@ -79,6 +80,10 @@ describe("app-only release (isolated executor, no production authority)", () => 
     const f = fixture(); expect((await f.run("check")).status).toBe("ready");
     expect(f.writes).toEqual([]); expect(f.events).toEqual([]);
   });
+  it("refuses a host identity failure before switching", async () => {
+    const f = fixture(); f.io.verifyHost = async () => { throw new Error("target unknown"); };
+    await expect(f.run()).rejects.toThrow("APP_ONLY_NOT_READY"); expect(f.writes).toEqual([]);
+  });
   it("rejects unknown compatibility before any command", async () => {
     const f = fixture(); delete (f.request.compatibility as Partial<typeof f.request.compatibility>).startupMutationFree;
     await expect(f.run()).rejects.toThrow(); expect(f.commands).toEqual([]); expect(f.writes).toEqual([]);
@@ -95,6 +100,11 @@ describe("app-only release (isolated executor, no production authority)", () => 
     const f = fixture(); f.request.expiresAt = "2026-10-19T11:59:30.000Z";
     f.prepared.checks.migrationAssessed.evidenceSha256 = hash(JSON.stringify(f.request));
     await expect(f.run()).rejects.toThrow("APP_ONLY_EVIDENCE_EXPIRED"); expect(f.writes).toEqual([]);
+  });
+  it("refuses to switch when the thirty-minute request window lacks recovery time", async () => {
+    const f = fixture(); f.request.expiresAt = "2026-10-19T12:01:00.000Z";
+    f.prepared.checks.migrationAssessed.evidenceSha256 = hash(JSON.stringify(f.request));
+    await expect(f.run()).rejects.toThrow("APP_ONLY_WINDOW_EXHAUSTED"); expect(f.writes).toEqual([]);
   });
   it("does not overwrite a changed baseline", async () => {
     const f = fixture(); f.io.snapshot = async () => ({ baselineBytes: Buffer.from("{}"), nginxBytes: f.nginx, runtimeConfigSha256: f.request.runtimeConfigSha256 });

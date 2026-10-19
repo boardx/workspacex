@@ -18,12 +18,13 @@ export const appOnlyInputSchema = z.object({
   // inferred from an empty SQL diff or supplied through workflow boolean inputs.
   compatibility: z.object({ schemaUnchanged: proof, startupMutationFree: proof,
     backwardReadWrite: proof, unchangedEnvironmentAndSecurity: proof }).strict(),
-  observedAt: z.string().datetime(), expiresAt: z.string().datetime(),
+  requestedAt: z.string().datetime(), observedAt: z.string().datetime(), expiresAt: z.string().datetime(),
 }).strict();
 export const baselineSchema = z.object({ schemaVersion: z.literal(1), composeFile: z.string().regex(/^\/var\/lib\/workspacex-cn\/runtime\/[a-f0-9]{40}\/compose.json$/),
   images: z.object({ api: image, web: image, agent: image, sandbox: image }).strict(), nginxSha256: sha }).strict();
 export type AppContext = { signal: AbortSignal; remainingMs: () => number };
 export interface AppOnlyIO {
+  verifyHost(context: AppContext): Promise<void>;
   execute(argv: readonly string[], context: AppContext): Promise<string>;
   snapshot(context: AppContext): Promise<{ baselineBytes: Buffer; nginxBytes: Buffer; runtimeConfigSha256: string }>;
   configuration(context: AppContext): Promise<{ nginxBytes: Buffer; runtimeConfigSha256: string }>;
@@ -79,8 +80,11 @@ export async function switchAppOnly(input: unknown, prepared: unknown, manifestB
     classifyReleaseFailures(receipt.failures, now).blocked.length === 0, "APP_ONLY_COMPATIBILITY_UNKNOWN");
   requireValue(receipt.checks.migrationAssessed.evidenceSha256 === digest(requestBytes), "APP_ONLY_REQUEST_NOT_FROZEN");
   const observed = Date.parse(request.observedAt), expiry = Date.parse(request.expiresAt);
+  const requested = Date.parse(request.requestedAt);
   requireValue(observed <= now.getTime() && expiry > now.getTime() && expiry > observed && expiry - observed <= 3600000 &&
+    requested <= observed && expiry - requested <= 1800000 &&
     Date.parse(receipt.expiresAt) > now.getTime(), "APP_ONLY_EVIDENCE_EXPIRED");
+  requireValue(expiry - now.getTime() > 120000, "APP_ONLY_WINDOW_EXHAUSTED");
   const compose = ["docker", "compose", "--project-name", "workspacex-cn", "--file", baseline.composeFile];
   const target = { api: manifest.images.api.image, web: manifest.images.web.image };
   const previous = { api: baseline.images.api, web: baseline.images.web };
@@ -104,6 +108,7 @@ export async function switchAppOnly(input: unknown, prepared: unknown, manifestB
   const rollback = async () => {
     const recovery = context(120000);
     try {
+      await io.verifyHost(recovery.value);
       // Config/TLS/DB are never restored or overwritten. Refuse configuration drift.
       const live = await io.configuration(recovery.value);
       requireValue(digest(live.nginxBytes) === baseline.nginxSha256 &&
@@ -123,9 +128,10 @@ export async function switchAppOnly(input: unknown, prepared: unknown, manifestB
     finally { recovery.close(); }
   };
   if (operation === "rollback") { await rollback(); return { status: "rolled-back", fullBusinessAcceptance: false }; }
-  const activation = context(300000);
+  const activation = context(Math.min(300000, expiry - now.getTime() - 120000));
   let switching = false;
   try {
+    await io.verifyHost(activation.value);
     if (operation !== "verify") await ensureBaseline(activation.value);
     for (const service of operation === "verify" ? [] : changedServices) {
       const label = await io.execute(["docker", "image", "inspect", "--format", '{{json (index .Config.Labels "org.opencontainers.image.revision")}}', baseline.images[service]], activation.value);
