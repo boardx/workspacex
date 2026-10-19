@@ -7,6 +7,10 @@ preflight_flags=()
 if [[ ${1:-} == --operational ]]; then operational=1; preflight_flags=(--operational); shift; fi
 mode=deploy
 case ${1:-} in
+  --app-only) mode=app-only; shift ;;
+  --app-only-check) mode=app-only-check; shift ;;
+  --app-only-rollback) mode=app-only-rollback; shift ;;
+  --app-only-commit) mode=app-only-commit; shift ;;
   --check-prepare-inputs) mode=check-prepare-inputs; shift ;;
   --prepare) mode=prepare; shift ;;
   --rollback) mode=rollback; shift ;;
@@ -202,6 +206,37 @@ flock -n 9 || fail "another deployment is active"
 MAINTENANCE_HOLD_HELPER=/usr/local/lib/workspacex-cn/cn_maintenance_hold.py
 [[ -f "$MAINTENANCE_HOLD_HELPER" && ! -L "$MAINTENANCE_HOLD_HELPER" && "$(stat -c '%u:%g:%a:%h' "$MAINTENANCE_HOLD_HELPER")" == 0:0:700:1 ]] || fail "trusted maintenance hold helper unavailable"
 python3 "$MAINTENANCE_HOLD_HELPER" admit "$RUNTIME_ROOT" >/dev/null || fail "maintenance hold blocks ordinary release"
+# A partial app switch or uncertain remote CAS must not admit another release.
+if [[ -e "$RUNTIME_ROOT/app-only-inflight.json" && "$mode" != app-only-rollback && "$mode" != app-only-commit ]]; then
+  fail "app-only switch requires exact-attempt reconciliation"
+fi
+if [[ -e "$PREPARATIONS_DIR/$revision.app-only.$attempt_id.json" && "$mode" != app-only* ]]; then
+  fail "app-only preparation cannot enter standard provision"
+fi
+if [[ "$mode" == app-only* ]]; then
+  [[ "$operational" == 0 ]] || fail "app-only cannot adopt operational/maintenance authority"
+  unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_CONFIG GIT_CONFIG_COUNT GIT_CONFIG_PARAMETERS GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
+  export GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_NO_REPLACE_OBJECTS=1 GIT_NO_LAZY_FETCH=1
+  git -C "$REPOSITORY_DIR" merge-base --is-ancestor "$revision" origin/main || fail "app-only revision is outside admitted main"
+  if [[ "$mode" == app-only || "$mode" == app-only-commit ]]; then
+    [[ "$(git -C "$REPOSITORY_DIR" rev-parse origin/main-cn)" == "$revision" ]] || fail "app-only local promotion CAS is missing"
+  fi
+  private_root_file "$PREPARATIONS_DIR/$revision.app-only.$attempt_id.json"
+  [[ -d "$release_checkout" && ! -L "$release_checkout" ]] || fail "app-only trusted offline tool closure is not staged"
+  source="$release_checkout/packages/cloud-deploy/src/cn-app-only-cli.ts"
+  [[ -f "$source" && ! -L "$source" && "$(stat -c '%u' "$source")" == 0 ]] || fail "app-only trusted CLI unavailable"
+  guard=/usr/local/lib/workspacex-cn/cn-app-only-guard.py
+  [[ -f "$guard" && ! -L "$guard" && "$(stat -c '%u:%a' "$guard")" == 0:755 ]] || fail "app-only guard is not installed"
+  /usr/bin/python3 -I -S -B "$guard" "$release_checkout" "$revision" || fail "app-only tool closure rejected"
+  case "$mode" in
+    app-only) app_action=activate ;;
+    app-only-check) app_action=check ;;
+    app-only-rollback) app_action=rollback ;;
+    app-only-commit) app_action=commit ;;
+  esac
+  cd "$release_checkout"
+  exec /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx "$source" "$app_action" "$revision" "$attempt_id"
+fi
 # Hosted imports publish a pending marker before either artifact. A partial import
 # cannot be adopted by prepare; ordinary publisher releases have no marker.
 if [[ "$mode" == prepare && ( -e "$RELEASES_DIR/$revision.hosted-import.json" || -L "$RELEASES_DIR/$revision.hosted-import.json" ) ]]; then

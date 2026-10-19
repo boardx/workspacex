@@ -2,11 +2,13 @@ import { z } from "zod";
 import { requiredReleaseImages, validateReleaseManifest, type ReleaseExecutor, type ReleaseProfile } from "./release.js";
 
 /** Ask running containers, not only the image cache, which release is actually deployed. */
-export async function verifyRunningRelease(input: unknown, profile: ReleaseProfile, containerIds: Record<string, string>, execute: ReleaseExecutor) {
+export async function verifyRunningRelease(input: unknown, profile: ReleaseProfile, containerIds: Record<string, string>, execute: ReleaseExecutor, scope: "all" | "web-api" = "all") {
+  if (scope !== "all" && scope !== "web-api") throw new Error("INVALID_RELEASE_SCOPE");
   const manifest = validateReleaseManifest(input);
-  const expected: Array<{ service: string; image: string }> = requiredReleaseImages(manifest, profile);
+  const expected: Array<{ service: string; image: string }> = requiredReleaseImages(manifest, profile)
+    .filter(item => scope !== "web-api" || item.service === "web" || item.service === "api");
   // Native sessions and one-shot tools use the same sandbox image but distinct containers.
-  expected.push({ service: "sandbox-sessions", image: manifest.images.sandbox.image });
+  if (scope === "all") expected.push({ service: "sandbox-sessions", image: manifest.images.sandbox.image });
   const checked: string[] = [];
   for (const item of expected) {
     const service = item.service;

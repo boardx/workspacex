@@ -29,10 +29,12 @@ export function requiredReleaseImages(manifest: ReleaseManifest, profile: Releas
 export type ReleaseExecutor = (argv: readonly string[]) => Promise<string>;
 
 /** Checks the local Docker daemon, never the registry. No pull/build is permitted here. */
-export async function verifyPrewarmedRelease(manifestInput: unknown, profile: ReleaseProfile, execute: ReleaseExecutor) {
+export async function verifyPrewarmedRelease(manifestInput: unknown, profile: ReleaseProfile, execute: ReleaseExecutor, scope: "all" | "web-api" = "all") {
+  if (scope !== "all" && scope !== "web-api") throw new Error("INVALID_RELEASE_SCOPE");
   const manifest = validateReleaseManifest(manifestInput);
   const checked: ReleaseService[] = [];
   for (const { service, image } of requiredReleaseImages(manifest, profile)) {
+    if (scope === "web-api" && service !== "web" && service !== "api") continue;
     let raw: unknown;
     try { raw = JSON.parse(await execute(["docker", "image", "inspect", image])); }
     catch { throw new Error(`RELEASE_IMAGE_UNAVAILABLE: ${service}`); }
