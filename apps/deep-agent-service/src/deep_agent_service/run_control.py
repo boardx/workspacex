@@ -12,6 +12,15 @@ import httpx
 from langgraph.config import get_config
 
 
+# Only callback connection establishment is recoverable. This window covers the
+# observed 16s API deployment gap without replaying model/tool/publication work.
+CONTROL_CONNECT_RECOVERY_SECONDS = 20.0
+_CONTROL_CONNECT_BACKOFF_SECONDS = 0.5
+_monotonic = time.monotonic
+_sleep = time.sleep
+_asleep = asyncio.sleep
+
+
 def _request(state: dict) -> tuple[str, dict, dict] | None:
     try:
         callback = (get_config().get("configurable") or {}).get("run_control_callback")
@@ -62,16 +71,24 @@ def poll_interjections(state: dict, *, pause_at_boundary: bool = False) -> list[
     if request is None:
         return []
     url, headers, body = request
-    # Only connection setup may be retried. Poll/ACK uses checkpointed IDs and is
-    # idempotent; no tool dispatch or publication is replayed. At most two attempts
-    # with the existing 5s HTTP timeout; persistent failure still fails closed.
-    for attempt in range(2):
+    # Poll/ACK carries only checkpointed IDs and is idempotent. Never retry a
+    # response/read/write error, denial, model call, tool dispatch or publication.
+    deadline = _monotonic() + CONTROL_CONNECT_RECOVERY_SECONDS
+    last_connection_error = None
+    while True:
+        remaining = deadline - _monotonic()
+        if remaining <= 0:
+            raise last_connection_error or httpx.ConnectTimeout("Control callback connection deadline exceeded")
         try:
-            result = httpx.post(url, headers=headers, json=body, timeout=5.0)
-        except (httpx.ConnectError, httpx.ConnectTimeout):
-            if attempt == 1:
+            result = httpx.post(url, headers=headers, json=body, timeout=min(5.0, remaining))
+        except (httpx.ConnectError, httpx.ConnectTimeout) as error:
+            last_connection_error = error
+            remaining = deadline - _monotonic()
+            if remaining <= 0:
                 raise
-            time.sleep(0.1)
+            _sleep(min(_CONTROL_CONNECT_BACKOFF_SECONDS, remaining))
+            if _monotonic() >= deadline:
+                raise
             continue
         return _values(result, pause_at_boundary)
 
@@ -81,13 +98,30 @@ async def apoll_interjections(state: dict, *, pause_at_boundary: bool = False) -
     if request is None:
         return []
     url, headers, body = request
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        for attempt in range(2):
-            try:
-                result = await client.post(url, headers=headers, json=body)
-            except (httpx.ConnectError, httpx.ConnectTimeout):
-                if attempt == 1:
-                    raise
-                await asyncio.sleep(0.1)
-                continue
-            return _values(result, pause_at_boundary)
+    deadline = _monotonic() + CONTROL_CONNECT_RECOVERY_SECONDS
+    # The async production path additionally bounds slow response phases by the
+    # same total deadline. External task cancellation always propagates.
+    last_connection_error = None
+    try:
+        async with asyncio.timeout(CONTROL_CONNECT_RECOVERY_SECONDS):
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                while True:
+                    remaining = deadline - _monotonic()
+                    if remaining <= 0:
+                        raise last_connection_error or httpx.ConnectTimeout("Control callback connection deadline exceeded")
+                    try:
+                        result = await client.post(url, headers=headers, json=body, timeout=min(5.0, remaining))
+                    except (httpx.ConnectError, httpx.ConnectTimeout) as error:
+                        last_connection_error = error
+                        remaining = deadline - _monotonic()
+                        if remaining <= 0:
+                            raise
+                        await _asleep(min(_CONTROL_CONNECT_BACKOFF_SECONDS, remaining))
+                        if _monotonic() >= deadline:
+                            raise
+                        continue
+                    return _values(result, pause_at_boundary)
+    except TimeoutError:
+        if last_connection_error is not None:
+            raise last_connection_error from None
+        raise
