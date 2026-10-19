@@ -74,7 +74,8 @@ it('stops long polling with a resumable job instead of leaving an endless spinne
   fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));
   await act(async()=>{await vi.advanceTimersByTimeAsync(302000);});
   expect(screen.getByRole('button',{name:'查看 PDF 进度'})).toBeEnabled();
-  expect(screen.getByRole('alert')).toHaveTextContent('任务仍在处理中');
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('任务仍在处理中');
   expect(generateReportFile).toHaveBeenCalledTimes(1);expect(downloadReportFile).not.toHaveBeenCalled();
  } finally {view.unmount();vi.useRealTimers();}
 });
@@ -120,4 +121,59 @@ it('keeps one user request through StrictMode setup and cleanup', async () => {
  await screen.findByRole('button', { name: '下载 PDF' });
  expect(generateReportFile).toHaveBeenCalledTimes(1);
  expect(downloadReportFile).toHaveBeenCalledTimes(1);
+});
+
+it.each(['network', 'server'] as const)('keeps a running conversion resumable after a status %s failure without claiming generation failed', async failure => {
+ const { ApiError } = await import('@/lib/api-client');
+ const { getReportFileJob } = await import('@/lib/report-files-api');
+ const running = { id: success.id, source, format: 'pdf' as const, createdAt: success.createdAt, status: 'running' as const };
+ vi.useFakeTimers();
+ const view = render(<ReportFileActions source={source} />);
+ try {
+  vi.mocked(generateReportFile).mockResolvedValue(running);
+  vi.mocked(getReportFileJob).mockRejectedValueOnce(failure === 'network' ? new TypeError('Failed to fetch') : new ApiError(503, 'unavailable', {})).mockResolvedValue(success);
+  fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  expect(screen.getByRole('status')).toHaveTextContent('暂时无法更新进度');
+  fireEvent.click(screen.getByRole('button', { name: '查看 PDF 进度' }));
+  await act(async () => {});
+  expect(screen.getByRole('button', { name: '下载 PDF' })).toBeEnabled();
+  expect(generateReportFile).toHaveBeenCalledTimes(1);
+  expect(downloadReportFile).toHaveBeenCalledTimes(1);
+ } finally { view.unmount(); vi.useRealTimers(); }
+});
+
+it('still reports a confirmed terminal generation failure after reconnecting to the same job', async () => {
+ const { getReportFileJob } = await import('@/lib/report-files-api');
+ const running = { id: success.id, source, format: 'pdf' as const, createdAt: success.createdAt, status: 'running' as const };
+ vi.useFakeTimers(); const view = render(<ReportFileActions source={source} />);
+ try {
+  vi.mocked(generateReportFile).mockResolvedValue(running);
+  vi.mocked(getReportFileJob).mockRejectedValueOnce(new TypeError('Failed to fetch'))
+   .mockResolvedValue({ ...running, status: 'failed', errorCode: 'GENERATION_FAILED' });
+  fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  fireEvent.click(screen.getByRole('button', { name: '查看 PDF 进度' }));
+  await act(async () => {});
+  expect(screen.getByRole('alert')).toHaveTextContent('文件生成失败');
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(generateReportFile).toHaveBeenCalledTimes(1);
+  expect(downloadReportFile).not.toHaveBeenCalled();
+ } finally { view.unmount(); vi.useRealTimers(); }
+});
+
+it('does not turn a status authorization failure into a transient progress notice', async () => {
+ const { ApiError } = await import('@/lib/api-client');
+ const { getReportFileJob } = await import('@/lib/report-files-api');
+ vi.useFakeTimers(); const view = render(<ReportFileActions source={source} />);
+ try {
+  vi.mocked(generateReportFile).mockResolvedValue({ id: success.id, source, format: 'pdf', createdAt: success.createdAt, status: 'running' });
+  vi.mocked(getReportFileJob).mockRejectedValue(new ApiError(403, 'forbidden', {}));
+  fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+  await act(async () => { await vi.advanceTimersByTimeAsync(2000); });
+  expect(screen.getByRole('alert')).toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(downloadReportFile).not.toHaveBeenCalled();
+ } finally { view.unmount(); vi.useRealTimers(); }
 });

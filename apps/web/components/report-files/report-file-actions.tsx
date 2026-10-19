@@ -5,7 +5,7 @@ import { WorkflowActionButton } from '@/components/research-studio/research-work
 import { generateReportFile, getReportFileJob, downloadReportFile, type ReportFileSource, type ReportFileFormat, type ReportFileJobState } from '@/lib/report-files-api';
 const MAX_STATUS_POLLS = 150;
 const labels: Record<ReportFileFormat, string> = { pdf: 'PDF', docx: 'Word' };
-type State = { job?: ReportFileJobState; pending?: boolean; error?: string };
+type State = { job?: ReportFileJobState; pending?: boolean; error?: string; notice?: string };
 function delay(signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     const abort = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')); };
@@ -45,14 +45,20 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
       let polls = 0;
       while (current() && (job.status === 'queued' || job.status === 'running')) {
         if (job.execution?.status === "awaiting_tool_permission" || polls++ >= MAX_STATUS_POLLS) {
-          update({ job, error: job.execution?.status === "awaiting_tool_permission" ? undefined : "任务仍在处理中，可稍后查看进度，无需重复生成。" }); return;
+          update({ job, notice: job.execution?.status === "awaiting_tool_permission" ? undefined : "任务仍在处理中，可稍后查看进度，无需重复生成。" }); return;
         }
         update({ job, pending: true }); await delay(controller.signal); job = await getReportFileJob(job.id, controller.signal);
       }
       if (!current()) return;
       if (job.status === 'failed') update({ job, error: job.errorCode === 'REPORT_CHANGED' ? '报告已更新，请基于当前版本重新生成。' : '文件生成失败，请重试。' });
       else { update({ job, pending: true }); await downloadReportFile(job, controller.signal); update({ job }); }
-    } catch {
+    } catch (error) {
+      // A failed read cannot turn the last known live job into a failed conversion.
+      // Keep its identity so the next click reads the same job, never resubmits it.
+      if (current() && job && (job.status === 'queued' || job.status === 'running')
+        && (error instanceof TypeError || error instanceof ApiError && error.status >= 500)) {
+        update({ job, notice: '暂时无法更新进度，可稍后查看，当前任务无需重复生成。' }); return;
+      }
       if (current() && job?.status === 'succeeded') {
         try { const refreshed = await getReportFileJob(job.id, controller.signal); if (refreshed.status === 'failed') job = refreshed; } catch (error) { if (error instanceof ApiError && error.reasonCode === 'REPORT_CHANGED') job = undefined; /* Transient reads keep a valid cached file. */ }
       }
@@ -68,6 +74,7 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
       </WorkflowActionButton>;
     })}</div>
     {Object.entries(states).filter(([, state]) => state.job?.execution?.status === 'awaiting_tool_permission').map(([format, state]) => <p role="status" key={format} className="text-12 text-muted-foreground">{labels[format as ReportFileFormat]}：需要确认工具权限。<a className="underline" href={`/chat/${encodeURIComponent(state.job!.execution!.threadId)}`} target="_blank" rel="noopener noreferrer">打开对话继续</a></p>)}
+    {Object.entries(states).filter(([, state]) => state.notice).map(([format, state]) => <p role="status" key={format} className="text-12 text-muted-foreground">{labels[format as ReportFileFormat]}：{state.notice}</p>)}
     {Object.entries(states).filter(([, state]) => state.error).map(([format, state]) => <p role="alert" key={format} className="text-12 text-destructive">{labels[format as ReportFileFormat]}：{state.error}</p>)}
   </div>;
 }
