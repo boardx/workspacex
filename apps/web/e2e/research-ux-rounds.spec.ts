@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import { test, expect, type Page } from "@playwright/test";
 import { research } from "@repo/contracts";
+import { ReportFileRequest } from "@repo/contracts/report-files";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 interface AuditClient { query(sql: string, params: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }> }
@@ -251,4 +252,41 @@ test("R4 saved long research content and file controls remain readable and keybo
   expect(final.report).toEqual(complete.report);
   expect(forbidden).toEqual([]); expect(await activity()).toEqual(before);
   await writeFile(resolve(output, "r4-result.json"), JSON.stringify({ modelBefore: before, modelAfter: await activity(), version: final.version, reportCharacters: final.report?.sections.reduce((sum, section) => sum + section.body.length, 0), forbidden }, null, 2));
+});
+
+/** Controlled file transport; genuine saved report/binding, no native model dispatch. */
+test('R5 report completion removes source diagnostics and submits both strict file requests', async ({ page }, testInfo) => {
+  test.setTimeout(180000);
+  const output = testInfo.outputPath('evidence');
+  await mkdir(output, { recursive: true });
+  const { session, saved } = await seedSavedPlan(page, '研究报告交付 5829');
+  const complete = research.GuidedResearchRuntime.parse({ ...saved, version: 2, currentNode: 'report', completed: true,
+    availableNodes: ['brief', 'directions', 'outline', 'research', 'report'], generatedNodes: ['brief', 'directions', 'outline', 'research', 'report'],
+    sources: [{ id: 'source-5829', taskId: 'task', title: 'Controlled evidence', url: 'https://example.org/evidence', content: 'Controlled evidence', decision: 'accepted', retrievedAt: '2026-10-19', documentError: 'unavailable' }],
+    reportTimeline: [{ id: 'validation', stage: 'validation', status: 'completed', attempts: 1 }],
+    report: { title: 'Controlled report', summary: 'Controlled saved report for transport verification.', sections: [{ sectionId: 'chapter', body: 'Saved conclusion [[source:source-5829]].', sourceIds: ['source-5829'] }] } });
+  await asApp(async c => {
+    await c.query('UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2', [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(complete)]);
+    await c.query("UPDATE guided_research_sessions SET stage='report',resume_stage='report',status='completed',progress=100,source_count=1,report_id=$3 WHERE org_id=$1 AND id=$2", [FULLSTACK_E2E.orgId, session.sessionId, `guided-${session.sessionId}-2`]);
+  });
+  const submissions: unknown[] = [];
+  // Return an explicit controlled server verdict: the regression was *before*
+  // POST and cannot be tested by mocking generateReportFile in a component.
+  await page.route('**/report-files', async route => {
+    const body = route.request().postDataJSON();
+    ReportFileRequest.parse(body); submissions.push(body);
+    await route.fulfill({ status: 200, json: { id: randomUUID(), source: body.source, format: body.format, status: 'failed', errorCode: 'INVALID_FILE', createdAt: new Date().toISOString() } });
+  });
+  await page.goto(`/research/${session.sessionId}/report`);
+  await expect(page.getByText(/查看研究资料/)).toHaveCount(0);
+  await expect(page.getByTestId('execution-documents')).toHaveText('读取并整理真实来源已完成');
+  await expect(page.getByRole('heading', { name: '参考来源', exact: true })).toBeVisible();
+  await page.screenshot({ path: resolve(output, 'report-completed.png'), fullPage: true });
+  for (const label of ['PDF', 'Word']) {
+    await page.getByRole('button', { name: `生成 ${label}`, exact: true }).click();
+    await expect(page.getByText(`${label}：文件生成失败，请重试。`, { exact: true })).toBeVisible();
+  }
+  expect(submissions).toHaveLength(2);
+  await writeFile(resolve(output, 'requests.json'), JSON.stringify(submissions, null, 2));
+  await page.screenshot({ path: resolve(output, 'report.png'), fullPage: true });
 });

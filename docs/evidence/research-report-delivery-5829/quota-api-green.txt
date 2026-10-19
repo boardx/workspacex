@@ -1,0 +1,69 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (147 tests) 3525ms
+   ✓ chapter-based report generation > rejects callbacks retained by a failed stream attempt during retry 509ms
+   ✓ chapter-based report generation > caps synthesis body context at 60000 characters across thirty long chapters 314ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 506ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 505ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 503ms
+ ✓ tests/research/guided-source-relevance.test.ts (92 tests) 530ms
+ ✓ tests/research/guided-search-recovery.test.ts (68 tests) 964ms
+ ✓ tests/research/guided-three-step.test.ts (52 tests) 8956ms
+   ✓ three visible stages with durable composite execution > automatically delivers a formal Chinese report with honest search limitations 426ms
+   ✓ three visible stages with durable composite execution > automatically delivers a formal English report with honest search limitations 399ms
+   ✓ three visible stages with durable composite execution > delivers a newly validated report from retained evidence while preserving failed search facts (partial=false) 486ms
+   ✓ three visible stages with durable composite execution > delivers a newly validated report from retained evidence while preserving failed search facts (partial=true) 395ms
+   ✓ three visible stages with durable composite execution > archives the old report and clears its completed timeline before fresh source preparation publishes 583ms
+   ✓ three visible stages with durable composite execution > stamps new planning and reading activity with the claim version without relabelling old attempt history 436ms
+   ✓ retains report gates on retry (task loses evidence=false, quality rejects=false, valid negative=false, empty chapter=false) 1548ms
+   ✓ retains report gates on generate_report (task loses evidence=false, quality rejects=false, valid negative=false, empty chapter=false) 401ms
+   ✓ retains report gates on retry (task loses evidence=true, quality rejects=false, valid negative=false, empty chapter=false) 372ms
+   ✓ retains report gates on generate_report (task loses evidence=true, quality rejects=false, valid negative=false, empty chapter=false) 322ms
+   ✓ retains report gates on generate_report (task loses evidence=true, quality rejects=true, valid negative=false, empty chapter=false) 326ms
+   ✓ retains report gates on generate_report (task loses evidence=true, quality rejects=false, valid negative=false, empty chapter=true) 340ms
+ ✓ tests/research/guided-report-partial-coverage.test.ts (62 tests) 109ms
+ ✓ tests/research/guided-runtime-delta.test.ts (26 tests) 911ms
+   ✓ strips cache hints from command execution and returns only changed fields 560ms
+ ✓ tests/research/guided-runtime-diagnostics.test.ts (31 tests) 148ms
+ ✓ tests/research/guided-report-evidence.test.ts (23 tests) 224ms
+ ✓ tests/research/guided-evidence-ledger.test.ts (25 tests) 132ms
+ ✓ tests/research/guided-progressive-candidates.test.ts (19 tests) 95ms
+ ✓ tests/research/google-guided-search.test.ts (42 tests) 1144ms
+ ✓ tests/research/guided-plan-repair.test.ts (13 tests) 407ms
+ ✓ tests/research/guided-research-trust.test.ts (30 tests) 26ms
+ ✓ tests/research/guided-runtime-orchestration.test.ts (6 tests) 128ms
+ ✓ tests/research/guided-supplement-task-scope.test.ts (12 tests) 95ms
+ ✓ tests/research/guided-negative-screen-cache.test.ts (22 tests) 206ms
+ ✓ tests/research/guided-serial-plan-search.test.ts (10 tests) 61ms
+ ✓ tests/research/guided-provider-content-filter-runtime.test.ts (10 tests) 6453ms
+   ✓ handles 'filter' on first/regenerated report (false) 2730ms
+   ✓ handles 'filter' on first/regenerated report (true) 1873ms
+   ✓ handles '400' on first/regenerated report (true) 355ms
+ ✓ tests/research/guided-partial-report-recovery.test.ts (13 tests) 42ms
+ ✓ tests/research/guided-runtime-private-ledger.test.ts (10 tests) 508ms
+   ✓ private evidence never crosses the public runtime boundary > controller GET, commands, SSE and polling exclude ledger with knownFields=false 466ms
+ ✓ tests/research/guided-source-documents.test.ts (8 tests) 34ms
+ ✓ tests/research/guided-generation-stream.test.ts (8 tests) 408ms
+   ✓ negotiates NDJSON at the HTTP boundary and keeps runtime data off the public wire 401ms
+ ✓ tests/research/guided-source-document-references.test.ts (11 tests) 20ms
+ ✓ tests/agent-runtime/model-response-schema.test.ts (13 tests) 119ms
+ ✓ tests/research/guided-runtime-progress.test.ts (7 tests) 92ms
+ ✓ tests/research/guided-stream-transport.test.ts (18 tests) 271ms
+ ✓ tests/research/guided-search-recovery-query-scope.test.ts (24 tests) 21ms
+ ✓ tests/research/guided-provider-content-rejection.test.ts (17 tests) 167ms
+ ✓ tests/research/guided-question-chapter-output.test.ts (15 tests) 33ms
+ ✓ tests/research/guided-negative-screen-cache-pipeline.test.ts (2 tests) 71ms
+ ✓ tests/research/guided-report-history.test.ts (5 tests) 12ms
+ ✓ tests/research/guided-research-design.test.ts (7 tests) 10ms
+ ✓ tests/research/guided-chapter-citation-repair.test.ts (7 tests) 10ms
+ ✓ tests/research/guided-report-citation-discard.test.ts (12 tests) 16ms
+ ✓ tests/research/guided-report-quality.test.ts (5 tests) 4ms
+ ✓ tests/research/guided-review-rewrite-feedback.test.ts (10 tests) 6ms
+ ✓ tests/research/guided-call-budget.test.ts (4 tests) 10ms
+ ✓ tests/research/guided-question-paragraph-stream.test.ts (3 tests) 16ms
+
+ Test Files  38 passed (38)
+      Tests  889 passed (889)
+   Start at  13:35:43
+   Duration  68.46s (transform 3.12s, setup 0ms, collect 29.87s, tests 25.99s, environment 9ms, prepare 3.10s)

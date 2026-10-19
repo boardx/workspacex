@@ -36,15 +36,13 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   // persisted, quality-passed current publication proves execution completion.
   const finished = Boolean(state.report && state.completed && validation === 'completed' && !state.reportDraft && !state.reportQualityWarnings?.length && !state.busy && !state.errorCode && !interrupted && state.controlStatus !== 'paused');
   const rows: ExecutionRow[] = [
-    { id: 'search', title: '检索资料', status: active(search), ...(searching && failedSearch ? { detail: '部分检索失败' } : {}) },
-    { id: 'documents', title: '读取并整理真实来源', status: active(document), ...(reading && failedDocument ? { detail: '部分来源读取失败' } : {}) },
+    { id: 'search', title: '检索资料', status: active(search) },
+    { id: 'documents', title: '读取并整理真实来源', status: active(document) },
     { id: 'chapters', title: '章节撰写与检查', status: active(aggregate(chapterStatuses)) },
     { id: 'synthesis', title: '综合结论', status: active(aggregate(timeline.filter(step => step.stage === 'synthesis').map(step => step.status))) },
     { id: 'validation', title: '质量检查与保存', status: active(warnings ? 'warning' : validation === 'completed' && !state.report ? 'pending' : validation) },
   ];
   if (finished) for (const row of rows) {
-    if (row.id === 'search' && failedSearch) row.detail = '检索局限已在报告说明';
-    if (row.id === 'documents' && failedDocument) row.detail = '不可用来源已排除';
     row.status = 'completed';
   }
   const runningGoal = leasedWork && state.executionGoal === 'report';

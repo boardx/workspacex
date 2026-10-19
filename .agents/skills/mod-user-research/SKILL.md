@@ -98,3 +98,9 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-16：旧来源重新评估的某批结果两次严格校验失败，只排除该批，独立健康批继续；不能把格式/语义无效评估写入确定无关缓存或供应商拒绝记录。新候选保留 task 级失败边界，资料全被排除仍不可伪造完成。controller+真实runtime的受控 NDJSON retry/重新生成反证与恢复见 docs/evidence/research-relevance-isolation-5800/README.md（#5800），不代表该线上会话已恢复。
 
 - #5800 补充：旧源弃批若令任务失去全部来源，报告准备须在本次 invalid-output 弃批且 canRecoverPartialReport 验证真实保留文档后，才转既有 reportPartial 路径；保留失败任务、局限说明及独立全文质量门。普通 negative 不触发此恢复，空章节/审核拒绝仍失败；受控 controller 的保存重读反证见同份证据。
+
+- 2026-10-19：研究导出 GET SourceInfo 的 title/notices 不能直接作为严格 POST source；与访谈一样显式投影 kind/id/reportVersion/reportHash，否则 HTTP 前即失败。来源池目标按同源确认问题数扩展到3–9，legacy逐题任务仍只取三源窗口；这是发现目标，不是引用条数或逐题证据完成保证。自动处理的来源细节不叠加到用户进度，正式正文后移除重复资料折叠；真实阻断与正文局限保留。受控浏览器/HTTP双格式证据见 docs/evidence/research-report-delivery-5829/README.md（#5829），不代表新原生文件或线上部署验收。
+
+- #5829 P2复审：补搜必须按当前章节已提交的 accepted document normalized URL 数重算剩余名额，并据此缩小本批读取窗口；已有5/6或8/9只补1。重复URL、未读/排除和否定候选不占新名额；legacy逐题补搜另保留三源预算，primary/recovery仍按本次实际批准材料停，不用历史来源跳过重试验证。RED5/定向31/研究889/原完整生产受控UI/API/PG链路证据见同份README。
+
+- #5829 首击生命周期：异步SourceInfo绑定后，DOM按钮存在不代表passive初始化已完成；共享导出控件若稍后epoch++/abort/clear，会丢掉已发出的合法首次请求。epoch初始化/失效移到轻量layout effect，保留同样source/disabled依赖与卸载保护。真实wrapper+Profiler首commit单击、HTTP-onlymock双格式RED2（POST先通过，结果被清空），完整Web8192/943文件、禁用/卸载晚返回/StrictMode和productionR5证据见同份README；不能只加等待或双击掩盖。

@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { createHash } from "node:crypto";
 import type { ResearchRuntime } from "../../src/application/research/guided-runtime-ports";
 import { SearchBudget } from "../../src/application/research/guided-search-budget";
 import { executeTaskPipeline } from "../../src/application/research/guided-task-pipeline";
@@ -45,7 +46,7 @@ it("publishes approved sources before a later candidate batch finishes", async (
     expect(f.state.sources).toHaveLength(1);
     expect(f.snapshots.some(snapshot => snapshot.sources.length === 1 && snapshot.tasks[0]!.status === "running")).toBe(true);
   } finally { release(); await execution; f.budget.dispose(); }
-  expect(f.read).toHaveBeenCalledTimes(6);
+  expect(f.read).toHaveBeenCalledTimes(5); // Only two additional approvals are needed after the first partial batch.
 });
 it("retains published approved documents when a later screening batch fails", async () => {
   screen.mockImplementation(async (_state, candidates) => {
@@ -89,4 +90,117 @@ it("does not stop a retry on retained documents when the current window has no a
   expect(f.read).toHaveBeenCalledTimes(6);
   expect(f.state.tasks[0]!.status).toBe("succeeded");
   expect(f.state.tasks[0]!.errorCode).toBeNull();
+});
+it('continues beyond three documents for a chapter with six confirmed questions', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Confirmed question ${i}?`);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(6);
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(6);
+  expect(f.search.search).toHaveBeenCalledTimes(1);
+});
+it('bounds broader chapters to nine approved documents instead of reading every hit', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 12 }, (_, i) => `Confirmed question ${i}?`);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(9);
+  expect(f.search.search).toHaveBeenCalledTimes(1);
+});
+
+it('uses distinct confirmed subsection questions without inflating duplicate question text', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  const questions = Array.from({ length: 6 }, (_, i) => `Subsection question ${i}?`);
+  f.state.outline[0]!.questions = questions;
+  f.state.outline[0]!.subsections = [{ id: 'sub', title: 'Confirmed subsection', questions }];
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(6);
+});
+it('refuses a plan without confirmed questions instead of claiming coverage', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture(); f.state.outline[0]!.questions = [];
+  try { await expect(f.run()).rejects.toThrow(); } finally { f.budget.dispose(); }
+  expect(f.state.completed).toBe(false);
+  expect(f.state.report).toBeNull();
+});
+it('does not multiply the per-question legacy task window by the whole chapter size', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Legacy question ${i}?`);
+  f.state.tasks[0]!.questionId = 'chapter:0/question:0';
+  f.state.tasks[0]!.objective = f.state.outline[0]!.questions[0];
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(3);
+});
+it('deduplicates discovery URLs across bounded supplements without claiming report coverage', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Question ${i}?`);
+  f.search.search.mockResolvedValue(Array.from({ length: 10 }, () => ({ title: 'Same page', url: 'https://example.org/same', content: 'Policy evidence' })));
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(1);
+  expect(f.search.search.mock.calls.length).toBeLessThanOrEqual(7);
+  expect(f.state.completed).toBe(false);
+});
+
+function existingDocuments(f: ReturnType<typeof fixture>, count: number) {
+  f.state.tasks[0]!.status = 'succeeded';
+  f.state.sources = Array.from({ length: count }, (_, i) => ({ id: `approved-${i}`, taskId: 'task-a', taskIds: ['task-a'], title: `Approved ${i}`, url: `https://example.org/approved-${i}`,
+    content: 'Previously approved document', document: { text: 'Previously approved document', contentHash: createHash('sha256').update('Previously approved document').digest('hex'), contentKind: 'text' as const,
+      url: `https://example.org/approved-${i}`, retrievedAt: '2026-10-19T00:00:00Z', truncated: false }, retrievedAt: '2026-10-19T00:00:00Z', decision: 'accepted' as const }));
+}
+it.each([[6, 5], [9, 8]])('fills only one remaining chapter document (%i target, %i existing)', async (target, existing) => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture(); f.state.outline[0]!.questions = Array.from({ length: target }, (_, i) => `Question ${i}?`);
+  existingDocuments(f, existing);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(1);
+  expect(f.search.search).toHaveBeenCalledTimes(1);
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(target);
+});
+it('does not spend a remaining quota on duplicate URLs across supplemental queries', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture(); f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Question ${i}?`);
+  existingDocuments(f, 5);
+  const duplicate = { title: 'Already counted', url: f.state.sources[0]!.url, content: 'Previously approved document' };
+  f.search.search.mockResolvedValueOnce([duplicate, duplicate]).mockResolvedValueOnce([duplicate]);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(1);
+  expect(f.search.search).toHaveBeenCalledTimes(3);
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(6);
+});
+it('does not count rejected supplemental material as the remaining approved document', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates.filter((source: { url: string }) => !source.url.endsWith('/0')));
+  const f = fixture(); f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Question ${i}?`);
+  existingDocuments(f, 5);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(2);
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(6);
+});
+it('keeps a legacy question at three documents when its supplement needs only one', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture(); f.state.tasks[0]!.questionId = 'chapter:0/question:0'; f.state.tasks[0]!.objective = f.state.outline[0]!.questions[0];
+  existingDocuments(f, 2);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(1);
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(3);
+});
+it.each(['unread', 'excluded'] as const)('does not count an %s retained source toward supplemental quota', async kind => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture(); f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Question ${i}?`);
+  existingDocuments(f, 5);
+  if (kind === 'excluded') f.state.sources[0]!.decision = 'excluded';
+  else { delete f.state.sources[0]!.document; f.state.sources[0]!.documentError = 'unsupported'; }
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(2);
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(6);
+});
+it('sizes the last primary batch to its remaining approved target', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture(); f.state.outline[0]!.questions = Array.from({ length: 4 }, (_, i) => `Question ${i}?`);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(4);
+  expect(f.state.sources).toHaveLength(4);
 });

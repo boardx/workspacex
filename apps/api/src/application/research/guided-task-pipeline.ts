@@ -21,7 +21,14 @@ export type PipelineComplete = (system: string, context: unknown, validate: (val
 const TASK_WORKERS = 3;
 const MODEL_WORKERS = 2;
 const READ_WORKERS = 3;
-const CHAPTER_SOURCE_TARGET = 3;
+const MIN_SOURCE_TARGET = 3;
+/** Broader confirmed plans need a broader evidence pool. This is a discovery
+ * target, never proof that each question has support; extraction and review
+ * remain authoritative. Keep the legacy three-source floor and bounded reads. */
+function chapterSourceTarget(state: ResearchRuntime, sectionId: string): number {
+  const section = state.outline.find(item => item.id === sectionId && item.enabled);
+  return section ? Math.max(MIN_SOURCE_TARGET, Math.min(9, reportQuestions([section]).length)) : MIN_SOURCE_TARGET;
+}
 
 export function normalizedResearchUrl(value: string): string {
   try {
@@ -179,7 +186,17 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     check();
     return [...screened.filter(source => !denied.some(item => item.id === source.id)), ...retained];
   };
-  const compute = async (task: Task, query: string): Promise<{ sources: Source[]; errorCode: string | null; release: () => void }> => {
+  const readableUrls = (taskIds: readonly string[]) => {
+    const scope = new Set(taskIds);
+    return new Set(state.sources.filter(source => source.decision === "accepted" && source.document
+      && sourceTaskIds(source).some(id => scope.has(id))).map(source => normalizedResearchUrl(source.url)));
+  };
+  const chapterUrls = (sectionId: string) => readableUrls(state.tasks.filter(task => task.sectionId === sectionId).map(task => task.id));
+  const supplementAllowance = (task: Task) => Math.max(0, Math.min(
+    chapterSourceTarget(state, task.sectionId) - chapterUrls(task.sectionId).size,
+    task.questionId ? MIN_SOURCE_TARGET - readableUrls([task.id]).size : Infinity,
+  ));
+  const compute = async (task: Task, query: string, primary: boolean): Promise<{ sources: Source[]; errorCode: string | null; release: () => void }> => {
     check();
     const hits = await budget.run(() => search.search(query, { signal })); check();
     if (!hits.length) return { sources: [], errorCode: "RESEARCH_SEARCH_EMPTY", release: () => {} };
@@ -196,19 +213,24 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       // Read provider-ranked candidates in small windows. Once enough approved
       // documents exist, remaining discovery hits need no download or model scan.
       // Every admitted source still passes the complete relevance gate.
-      const windowSize = search.read ? READ_WORKERS : candidates.length;
-      for (let offset = 0; offset < candidates.length; offset += windowSize) {
+      const target = task.questionId ? MIN_SOURCE_TARGET : chapterSourceTarget(state, task.sectionId);
+      for (let offset = 0; offset < candidates.length;) {
         check();
-        const screened = await readAndScreen(candidates.slice(offset, offset + windowSize), task);
+        // Supplements fill the chapter's current remaining quota after every
+        // committed batch. Primary/recovery attempts still validate their own
+        // material; stale retained documents cannot short-circuit a retry.
+        const approved = new Set(sources.filter(source => source.decision === "accepted" && source.document
+          && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url))).size;
+        const remaining = !primary && search.read ? supplementAllowance(task) : target - approved;
+        if (search.read && remaining <= 0) break;
+        const windowSize = search.read ? Math.min(READ_WORKERS, remaining) : candidates.length;
+        const batch = candidates.slice(offset, offset + windowSize); offset += batch.length;
+        const screened = await readAndScreen(batch, task);
         sources.push(...screened);
         await commit(async () => {
           merge(screened); await save();
           if (screened.some(source => source.decision === "accepted") && firstSourceMs === null) firstSourceMs = Date.now() - started;
         });
-        // Stopping and success both use material approved in this attempt.
-        // Retained documents may need a new scope/material validation on retry.
-        const readable = new Set(sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url)));
-        if (readable.size >= CHAPTER_SOURCE_TARGET) break;
       }
       return { sources, errorCode: sources.some(source => source.decision !== "excluded" && sourceTaskIds(source).includes(task.id)) ? null : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES", release };
     } catch (error) { release(); throw error; }
@@ -223,7 +245,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
     });
     let result: { sources: Source[]; errorCode: string | null };
     let release = () => {};
-    try { const computed = await compute(task, query); result = computed; release = computed.release; }
+    try { const computed = await compute(task, query, primary); result = computed; release = computed.release; }
     catch (error) { check(); result = { sources: [], errorCode: taskError(error) }; }
     try { await commit(async () => {
       merge(result.sources);
@@ -306,9 +328,10 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       // The chapter's existing supplements finish in the same boundary. Shared
       // provider/read/cache limits still belong to the entire execution.
       if (search.read && section?.enabled) {
-        const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
+        const count = () => chapterUrls(section.id).size;
         for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
-          check(); if (count() >= CHAPTER_SOURCE_TARGET) break;
+          check(); if (count() >= chapterSourceTarget(state, section.id)) break;
+          if (!supplementAllowance(task)) continue;
           if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
           await attempt(task, query, false);
         }

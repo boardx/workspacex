@@ -1,0 +1,22 @@
+[
+  {
+    "source": {
+      "kind": "research",
+      "id": "grs_5bff3751c48c4783a78bb74a4e3dbf7b",
+      "reportVersion": 2,
+      "reportHash": "2b4c686e715c329230f4759200206b701c82b2a71f73b4a0a97582dbfdf2149e"
+    },
+    "format": "pdf",
+    "requestId": "d1314167-957e-4b42-9bf8-246a54583a32"
+  },
+  {
+    "source": {
+      "kind": "research",
+      "id": "grs_5bff3751c48c4783a78bb74a4e3dbf7b",
+      "reportVersion": 2,
+      "reportHash": "2b4c686e715c329230f4759200206b701c82b2a71f73b4a0a97582dbfdf2149e"
+    },
+    "format": "docx",
+    "requestId": "2e04ede3-ceb1-41d1-a980-51a43b51b3c6"
+  }
+]

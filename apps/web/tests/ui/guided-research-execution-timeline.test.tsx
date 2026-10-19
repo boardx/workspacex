@@ -13,6 +13,8 @@ it('treats saved formal report limitations as completed after generation and rel
   };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByRole('status')).toHaveTextContent('执行完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('已完成');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('不可用');
   expect(screen.queryByText('部分未完成')).not.toBeInTheDocument();
   expect(screen.getByTestId('execution-validation')).toHaveTextContent('已完成');
   view.rerender(<GuidedResearchExecutionTimeline state={JSON.parse(JSON.stringify(state))} />);
@@ -43,7 +45,7 @@ it('shows active siblings alongside partial search failures', () => {
   ] };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-search')).toHaveTextContent('部分检索失败');
+  expect(screen.getByTestId('execution-search')).not.toHaveTextContent('失败');
   expect(screen.getByRole('status')).toHaveTextContent('正在执行研究计划');
   view.rerender(<GuidedResearchExecutionTimeline state={structuredClone(state)} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
@@ -60,7 +62,7 @@ it('recognizes a running recovery attempt without erasing its failed task', () =
   }] };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByTestId('execution-search')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-search')).toHaveTextContent('部分检索失败');
+  expect(screen.getByTestId('execution-search')).not.toHaveTextContent('失败');
   for (const terminal of [{ ...state, busy: false }, { ...state, controlStatus: 'paused' as const }, { ...state, leaseUntil: '2000-01-01T00:00:00Z' }]) {
     view.rerender(<GuidedResearchExecutionTimeline state={terminal} />);
     expect(screen.getByTestId('execution-search')).not.toHaveTextContent('执行中');
@@ -77,9 +79,9 @@ it('keeps live reading visible alongside a source error and preserves report pro
   };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
   expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分来源读取失败');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('失败');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, busy: false }} />);
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分未完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待继续整理');
   expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
   expect(state.report).toEqual(base.report);
 });
@@ -91,7 +93,7 @@ it('does not turn a historical reading failure into active reading during a sear
     sources: [{ ...base.sources[0]!, documentError: 'unavailable' }],
     activity: [{ id: 'old', sequence: 1, stage: 'reading', taskId: null, summary: 'old read', occurredAt: '2000-01-01', status: 'started' }],
   }} />);
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分未完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待继续整理');
   expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('执行中');
 });
 
@@ -121,10 +123,10 @@ it('requires the current execution stamp after reclaim instead of relabeling old
     activity: [{ id: 'old', sequence: 1, stage: 'reading' as const, taskId: null, summary: 'old read', occurredAt: '2000-01-01', status: 'started' as const, executionVersion: base.version }],
   };
   const view = render(<GuidedResearchExecutionTimeline state={state} />);
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分未完成');
+  expect(screen.getByTestId('execution-documents')).toHaveTextContent('待继续整理');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, activity: [{ ...state.activity[0]!, executionVersion: state.version }] }} />);
   expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
-  expect(screen.getByTestId('execution-documents')).toHaveTextContent('部分来源读取失败');
+  expect(screen.getByTestId('execution-documents')).not.toHaveTextContent('失败');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, activity: [{ ...state.activity[0]!, executionVersion: state.version }], revision: state.revision + 1, leaseUntil: '2099-01-02T00:00:00Z' }} />);
   expect(screen.getByTestId('execution-documents')).toHaveTextContent('执行中');
   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, progress: { ...state.progress, executionVersion: state.version } }} />);

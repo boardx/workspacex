@@ -99,21 +99,21 @@ test("research persists the confirmed-question pipeline through the real UI, API
   await expect(page.getByTestId("research-report")).toContainText("并网政策报告", { timeout: 60000 });
   expect(submittedCommands.filter(command => command.action === "generate_report")).toHaveLength(1);
   await expect(page.getByTestId("guided-research-report-workspace")).toHaveAttribute("data-reference-layout", "report-document");
-  await page.getByText(/^查看研究资料 ·/).click();
+  await expect(page.getByText(/^查看研究资料 ·/)).toHaveCount(0); // Completed reports expose sources through actual citations.
   const sourceWorkspace = page.getByTestId("guided-research-source-workspace");
-  await expect(sourceWorkspace).toHaveAttribute("data-reference-layout", "research-sources");
+  await expect(sourceWorkspace).toHaveCount(0);
   await expect(page.getByTestId("guided-research-source-chapters")).toHaveCount(0); // testid-gate: absent 章节编辑移至报告工作区，资料区不得重复呈现。
-  const sourceLink = page.getByTestId("guided-research-source-evidence").locator('a[href$="/research-evidence"]');
+  const sourceLink = page.getByTestId("research-report").locator('sup a[href$="/research-evidence"]').first();
   await expect(sourceLink).toBeVisible();
   await expect(sourceLink).toHaveAttribute("href", /\/research-evidence$/);
-  await expect(sourceLink).toHaveAttribute("title", /\S/);
+  await expect(sourceLink).toHaveAttribute("aria-label", /\S/);
   await expect(page.getByRole("link", { name: /vehicle-inventory$/ })).toHaveCount(0);
   await expect(page.getByTestId("guided-research-source-activity")).toHaveCount(0); // testid-gate: absent 资料区不呈现旧活动卡，原缺席断言保留。
   await expect(page.getByTestId("research-search-summary")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "添加来源" })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("research-sources-mobile.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("research-report-mobile.png"), fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   const runtimeResponse = await page.request.get(streamResponse.url().replace(/\/commands\/stream$/, ""), { headers: { authorization: streamResponse.request().headers()["authorization"]! } });
   expect(runtimeResponse.ok()).toBeTruthy();

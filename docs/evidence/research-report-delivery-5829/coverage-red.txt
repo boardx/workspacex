@@ -1,0 +1,43 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ❯ tests/research/guided-progressive-candidates.test.ts (7 tests | 2 failed) 15ms
+   × continues beyond three documents for a chapter with six confirmed questions 3ms
+     → expected "spy" to be called 6 times, but got 3 times
+   × bounds broader chapters to nine approved documents instead of reading every hit 1ms
+     → expected "spy" to be called 9 times, but got 3 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > continues beyond three documents for a chapter with six confirmed questions
+AssertionError: expected "spy" to be called 6 times, but got 3 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:98:18
+     96|   f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => …
+     97|   try { await f.run(); } finally { f.budget.dispose(); }
+     98|   expect(f.read).toHaveBeenCalledTimes(6);
+       |                  ^
+     99|   expect(f.state.sources.filter(source => source.decision === 'accepte…
+    100|   expect(f.search.search).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > bounds broader chapters to nine approved documents instead of reading every hit
+AssertionError: expected "spy" to be called 9 times, but got 3 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:107:18
+    105|   f.state.outline[0]!.questions = Array.from({ length: 12 }, (_, i) =>…
+    106|   try { await f.run(); } finally { f.budget.dispose(); }
+    107|   expect(f.read).toHaveBeenCalledTimes(9);
+       |                  ^
+    108|   expect(f.search.search).toHaveBeenCalledTimes(1);
+    109| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  12:09:16
+   Duration  991ms (transform 532ms, setup 0ms, collect 834ms, tests 15ms, environment 0ms, prepare 34ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-progressive-candidates.test.ts
