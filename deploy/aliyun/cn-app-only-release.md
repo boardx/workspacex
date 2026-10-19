@@ -120,3 +120,11 @@ candidate selection and an isolated/then explicitly authorized live rehearsal re
 uncompleted. The old fixed BC candidate has expired and is not silently rebuilt or
 replaced. The last unprivileged diagnostic PermissionError neither proves nor
 disproves the existing root deploy identity; no permission change is inferred.
+
+After commit removes the inflight marker, the durable committed attempt remains
+readable by same-attempt readiness reconciliation. Its exact source, attempt,
+request, prepared receipt and manifest hashes must all match. This path only
+re-verifies the actual candidate; it never reactivates, refreshes a deadline or
+authorizes late publication. Committed state cannot authorize rollback. A fresh
+attempt without that exact durable state still requires normal baseline/freshness
+admission. A different inflight marker always takes precedence and blocks it.

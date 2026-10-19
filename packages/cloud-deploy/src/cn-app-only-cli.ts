@@ -9,7 +9,7 @@ import { assertTrustedPath } from "./trusted-path";
 import { captureProvisionCommand } from "./command";
 import { deploymentConfigSchema } from "./config";
 import { verifyEcsIdentity } from "./preflight";
-import { appOnlyInputSchema, appContainerImage, baselineSchema, switchAppOnly, appServices, type AppContext } from "./cn-app-only";
+import { appOnlyInputSchema, appOnlyOperation, type AppOnlyMode, appContainerImage, baselineSchema, switchAppOnly, appServices, type AppContext } from "./cn-app-only";
 
 const sha = (value: Buffer | string) => createHash("sha256").update(value).digest("hex");
 const canonical = (v: unknown): string => Array.isArray(v) ? `[${v.map(canonical).join(",")}]` :
@@ -61,15 +61,16 @@ async function main() {
   const replace = async (path: string, value: unknown) => {
     const temporary = `${path}.${randomUUID()}.tmp`; await write(temporary, value); await rename(temporary, path); await syncParent(path);
   };
-  let operation = mode === "commit" ? "verify" : mode;
-  if (mode === "activate" || mode === "check") {
-    try {
-      await lstat(marker);
-      if (mode === "activate") throw new Error("APP_ONLY_INFLIGHT");
-      operation = "verify";
-    }
-    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
-  }
+  const optionalState = async (path: string): Promise<unknown> => {
+    // Test existence before bytes(): trusted-path deliberately masks filesystem
+    // errors, so a missing optional record must be distinguished here only.
+    try { await lstat(path); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined; throw error; }
+    return JSON.parse((await bytes(path)).toString());
+  };
+  const intent = await optionalState(marker);
+  const operation = appOnlyOperation(mode as AppOnlyMode, intent, intent === undefined ? await optionalState(state) : undefined,
+    { sourceRevision: revision!, attemptId: attempt!, requestSha256: sha(rawRequest), preparedSha256: sha(preparedBytes), manifestSha256: sha(manifest) });
   const configuration = async (context: AppContext) => {
     const nginxBytes = await bytes("/etc/nginx/conf.d/workspacex-cn.conf");
     const config = JSON.parse(await execute(["docker", "compose", "--project-name", "workspacex-cn", "--file", baseline.composeFile, "config", "--format", "json"], context));
@@ -78,13 +79,6 @@ async function main() {
     delete config.services.api.image; delete config.services.web.image;
     return { nginxBytes, runtimeConfigSha256: sha(canonical(config)) };
   };
-  if (mode === "rollback" || mode === "commit" || operation === "verify") {
-    let intent;
-    try { intent = JSON.parse((await bytes(marker)).toString()); }
-    catch { intent = JSON.parse((await bytes(state)).toString()); if ((mode !== "commit" && mode !== "verify") || intent.status !== "committed") throw new Error("APP_ONLY_INTENT_REQUIRED"); }
-    if (intent.sourceRevision !== revision || intent.attemptId !== attempt || intent.requestSha256 !== sha(rawRequest) ||
-      intent.preparedSha256 !== sha(preparedBytes) || intent.manifestSha256 !== sha(manifest)) throw new Error("APP_ONLY_INTENT_MISMATCH");
-  }
   try {
     const result = await switchAppOnly(rawRequest, prepared, manifest, baselineBytes, nginxBytes, {
       signal: cancelled.signal,
@@ -136,7 +130,7 @@ async function main() {
         await replace(state, value);
         if (status === "rolled-back") { await unlink(marker); await syncParent(marker); }
       },
-    }, operation as "activate" | "rollback" | "verify" | "check");
+    }, operation);
     if (mode === "commit") {
       const value = { sourceRevision: revision, attemptId: attempt, requestSha256: sha(rawRequest), preparedSha256: sha(preparedBytes), manifestSha256: sha(manifest), status: "committed", observedAt: new Date().toISOString(), fullBusinessAcceptance: false };
       await replace(state, value);

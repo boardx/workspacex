@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { appContainerImage, baselineFingerprint, bindAppOnlyPreparation, switchAppOnly, type AppOnlyIO } from "../src/cn-app-only";
+import { appOnlyOperation, appContainerImage, baselineFingerprint, bindAppOnlyPreparation, switchAppOnly, type AppOnlyIO } from "../src/cn-app-only";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -134,6 +134,36 @@ describe("app-only release (isolated executor, no production authority)", () => 
     const result = await f.run("verify", new Date("2026-10-19T14:00:00Z"));
     expect(result.status).toBe("verified"); expect(result.publicationWindowOpen).toBe(false); expect(f.writes).toHaveLength(1);
     await expect(f.run("check", new Date("2026-10-19T14:00:00Z"))).rejects.toThrow("APP_ONLY_EVIDENCE_EXPIRED");
+  });
+  it("reconciles committed same-attempt readiness after marker removal and expiry without reactivation", async () => {
+    const f = fixture(); await f.run();
+    const binding = { sourceRevision: source, attemptId: f.request.attemptId, requestSha256: hash(JSON.stringify(f.request)),
+      preparedSha256: hash(JSON.stringify(f.prepared)), manifestSha256: hash(f.manifestBytes) };
+    const committed = { ...binding, status: "committed" };
+    const operation = appOnlyOperation("check", undefined, committed, binding);
+    expect(operation).toBe("verify");
+    const result = await f.run(operation, new Date("2026-10-19T14:00:00Z"));
+    expect(result.status).toBe("verified"); expect(result.publicationWindowOpen).toBe(false);
+    expect(result.publicationDeadline).toBe(f.request.expiresAt);
+    expect(f.writes).toHaveLength(1); expect(f.events.filter(e => e === "switching")).toHaveLength(1);
+  });
+  it("refuses another attempt or changed receipt/request/manifest in committed reconciliation", () => {
+    const binding = { sourceRevision: source, attemptId: "once", requestSha256: "1".repeat(64),
+      preparedSha256: "2".repeat(64), manifestSha256: "3".repeat(64) };
+    for (const key of Object.keys(binding)) {
+      const committed = { ...binding, [key]: "different", status: "committed" };
+      expect(() => appOnlyOperation("check", undefined, committed, binding)).toThrow("APP_ONLY_INTENT_MISMATCH");
+    }
+  });
+  it("committed state never permits activation or rollback and fresh attempts retain normal admission", () => {
+    const binding = { sourceRevision: source, attemptId: "once", requestSha256: "1".repeat(64),
+      preparedSha256: "2".repeat(64), manifestSha256: "3".repeat(64) };
+    const committed = { ...binding, status: "committed" };
+    expect(() => appOnlyOperation("activate", undefined, committed, binding)).toThrow("APP_ONLY_ALREADY_COMMITTED");
+    expect(() => appOnlyOperation("rollback", undefined, committed, binding)).toThrow("APP_ONLY_INTENT_REQUIRED");
+    expect(appOnlyOperation("check", undefined, undefined, binding)).toBe("check");
+    expect(appOnlyOperation("activate", undefined, undefined, binding)).toBe("activate");
+    expect(() => appOnlyOperation("check", { ...committed, attemptId: "other" }, committed, binding)).toThrow("APP_ONLY_INTENT_MISMATCH");
   });
   it("cancels activation but gives scoped recovery a fresh bounded signal", async () => {
     const f = fixture(), external = new AbortController(); f.io.signal = external.signal;

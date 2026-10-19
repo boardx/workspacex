@@ -28,6 +28,27 @@ export function appContainerImage(value: unknown, service: string, composeFile: 
   requireValue(row[3] === service && row[6] === composeFile, "APP_ONLY_LIVE_CONTAINER_CONFIG");
   return row[0];
 }
+export type AppOnlyMode = "activate" | "rollback" | "commit" | "verify" | "check";
+export type AppOnlyBinding = {
+  sourceRevision: string; attemptId: string; requestSha256: string; preparedSha256: string; manifestSha256: string;
+};
+/** Reconcile only the exact durable attempt. Committed state survives marker
+ * removal; it authorizes readonly verification, never a second activation. */
+export function appOnlyOperation(mode: AppOnlyMode, marker: unknown, state: unknown, binding: AppOnlyBinding) {
+  const committed = typeof state === "object" && state !== null && "status" in state && state.status === "committed";
+  if (mode === "activate") {
+    requireValue(marker === undefined, "APP_ONLY_INFLIGHT");
+    requireValue(!committed, "APP_ONLY_ALREADY_COMMITTED");
+    return "activate";
+  }
+  const operation = mode === "commit" || (mode === "check" && (marker !== undefined || committed)) ? "verify" : mode;
+  if (mode === "rollback" || operation === "verify") {
+    const intent = marker ?? (mode !== "rollback" && committed ? state : undefined);
+    requireValue(typeof intent === "object" && intent !== null, "APP_ONLY_INTENT_REQUIRED");
+    requireValue(Object.entries(binding).every(([key, value]) => (intent as Record<string, unknown>)[key] === value), "APP_ONLY_INTENT_MISMATCH");
+  }
+  return operation;
+}
 export type AppContext = { signal: AbortSignal; remainingMs: () => number };
 export interface AppOnlyIO {
   signal?: AbortSignal;
