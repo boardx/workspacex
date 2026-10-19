@@ -67,7 +67,7 @@ describe("GitHub-based CN production promotion", () => {
 
   it("prepares before approval and rejects incomplete evidence without a fallback", () => {
     const readiness = workflow.indexOf("  readiness:");
-    const verify = workflow.indexOf('workspacex-cn-verify-promotion "${REVISION}" "${EXPECTED_MAIN_CN}"');
+    const verify = workflow.indexOf('workspacex-cn-verify-promotion "${verify_flags[@]}" "${REVISION}" "${EXPECTED_MAIN_CN}"');
     const approval = workflow.indexOf("environment: production-cn-promotion");
     const recheck = workflow.indexOf("Require a complete immutable preparation receipt");
     const activate = workflow.indexOf("Activate, browser-verify, then compare-and-swap main-cn");
