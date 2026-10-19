@@ -14,7 +14,7 @@ jobs:
           set -euo pipefail
           docker inspect --format '{"created":{{json .Created}},"startedAt":{{json .State.StartedAt}},"restartCount":{{.RestartCount}}}' workspacex-deep-agent
           docker exec -i workspacex-deep-agent python - <<'PY'
-          import os,json,re
+          import os,json
           import psycopg
           from psycopg.rows import dict_row
           target='e0b7e5d6-09af-4613-9c38-b4f9bee05164'
@@ -25,9 +25,10 @@ jobs:
                   connection.execute("SET LOCAL statement_timeout = '5s'")
                   rows=connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at FROM wsx_agent_runs WHERE request #>> '{config,configurable,run_control_callback,run_id}' = %s ORDER BY created_at DESC LIMIT 2",(target,)).fetchall()
                   safe=[]
+                  allowed_errors={'runtime_restarted','TimeoutError','ReadTimeout','ConnectTimeout','RemoteProtocolError','APIConnectionError','APIStatusError','AuthenticationError','PermissionDeniedError','BadRequestError','RateLimitError','InternalServerError','GraphRecursionError','InvalidUpdateError','ValueError','TypeError','KeyError','RuntimeError','NotFoundError','ToolAuthorityError','CancelledError'}
                   for row in rows:
                       error=row.get('error') or ''
-                      safe.append({'run_id':row['run_id'],'thread_id':row['thread_id'],'status':row['status'],'error_class':error if re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,100}',error) else ('none' if not error else 'unclassified'),'created_at':str(row['created_at']),'updated_at':str(row['updated_at'])})
+                      safe.append({'run_id':row['run_id'],'thread_id':row['thread_id'],'status':row['status'],'error_class':error if error in allowed_errors else ('none' if not error else 'unclassified'),'created_at':str(row['created_at']),'updated_at':str(row['updated_at'])})
                   print(json.dumps({'target':target,'matched':len(safe),'runs':safe}))
           except Exception as error:
               print(json.dumps({'target':target,'diagnostic_error_class':type(error).__name__}))
