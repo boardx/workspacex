@@ -12,17 +12,18 @@
 
 只重试已有run控制回调的连接建立失败（ConnectError/ConnectTimeout），同一org/ACK IDs，不重复模型、工具或发布。单源20秒连接恢复窗口对照16.2秒实证间隔；每次请求timeout clamp到min(5s,剩余)，固定0.5s间隔。持续失败仍fail-closed。ReadTimeout、WriteError、HTTP拒绝/服务器响应和非法body不自动重试；pause/cancel响应维持checkpoint语义。
 
-异步生产路径另外通过asyncio.timeout限制整个poll为20秒，任务取消不被吞掉。同步路径界定连接失败与重试等待窗口；连接成功后的响应继续遵守httpx各阶段timeout，不宣称同步慢响应绝对wall20秒。未改全run预算、权限/租约判断、发布或全文校验门。
+异步生产路径另外通过asyncio.timeout限制整个poll为20秒，任务取消不被吞掉。同步路径界定连接失败与重试等待窗口；连接成功后的响应继续遵守httpx各阶段timeout，不宣称同步慢响应绝对wall20秒。同步/异步均拒绝deadline后到达的成功响应，不允许迟到200继续派发模型/工具。未改全run预算、权限/租约判断、发布或全文校验门。
 
 ## 本地证据
 
 - 旧实现双ConnectError同步/异步RED2：在第三次恢复前抛异常。
 - 新实现受控双拒绝后恢复，原ACK IDs完整相同。
+- 迟到200同步/异步反证额外RED2→GREEN，过期成功响应抛ReadTimeout、不继续执行。
 - 永久ConnectError/ConnectTimeout同步/异步虚拟时钟：恢复窗口20秒，单次timeout不超过剩余窗口；持续异常仍抛出，不冒充成功。
 - 异步等待期间任务cancel立即终止，无后续请求。
 - 实际LangGraph+InMemorySaver的同步/异步×正常/pause/cancel六条链路：断连后继续/暂停/取消，已完成工具恰好一次，checkpoint恢复不重放工具。
 - 非法body不重试；原ReadTimeout/WriteError、401/403/503拒绝反证保留。
-- `apps/deep-agent-service/.venv/bin/python -m pytest apps/deep-agent-service/tests/test_run_control.py apps/deep-agent-service/tests/test_run_control_reconnect.py apps/deep-agent-service/tests/test_harness.py apps/deep-agent-service/tests/test_self_hosted_runtime.py apps/deep-agent-service/tests/golden/test_tc7_interjection_replan.py -q`：144通过（两条既有依赖弃用告警）。
+- `apps/deep-agent-service/.venv/bin/python -m pytest apps/deep-agent-service/tests/test_run_control.py apps/deep-agent-service/tests/test_run_control_reconnect.py apps/deep-agent-service/tests/test_harness.py apps/deep-agent-service/tests/test_self_hosted_runtime.py apps/deep-agent-service/tests/golden/test_tc7_interjection_replan.py -q`：146通过（两条既有依赖弃用告警）。
 - 同会话main65bea baseline init退出0；diff-check退出0。
 
 没有真实模型调用，没有线上旧任务/附件修改，没有部署。本证据不代表线上PDF下载已通过，也不保证超过20秒停机仍能成功。

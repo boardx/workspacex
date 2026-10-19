@@ -159,3 +159,25 @@ def test_invalid_callback_body_is_not_retried(monkeypatch, asynchronous):
         else:
             run_control.poll_interjections({'messages': []})
     assert calls == [1]
+
+
+@pytest.mark.parametrize('asynchronous', [False, True])
+def test_late_success_response_never_allows_execution_past_deadline(monkeypatch, asynchronous):
+    monkeypatch.setattr(run_control, 'get_config', lambda: {'configurable': {'run_control_callback': CALLBACK}})
+    now = [0.0]
+    calls = []
+    def post(*args, **kwargs):
+        calls.append(1)
+        now[0] = run_control.CONTROL_CONNECT_RECOVERY_SECONDS + 1
+        return response()
+    async def apost(self, *args, **kwargs):
+        return post(*args, **kwargs)
+    monkeypatch.setattr(run_control, '_monotonic', lambda: now[0])
+    monkeypatch.setattr(run_control.httpx, 'post', post)
+    monkeypatch.setattr(run_control.httpx.AsyncClient, 'post', apost)
+    with pytest.raises(httpx.ReadTimeout):
+        if asynchronous:
+            asyncio.run(run_control.apoll_interjections({'messages': []}))
+        else:
+            run_control.poll_interjections({'messages': []})
+    assert calls == [1]

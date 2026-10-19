@@ -90,6 +90,8 @@ def poll_interjections(state: dict, *, pause_at_boundary: bool = False) -> list[
             if _monotonic() >= deadline:
                 raise
             continue
+        if _monotonic() >= deadline:
+            raise httpx.ReadTimeout("Control callback response arrived after recovery deadline")
         return _values(result, pause_at_boundary)
 
 
@@ -120,6 +122,8 @@ async def apoll_interjections(state: dict, *, pause_at_boundary: bool = False) -
                         if _monotonic() >= deadline:
                             raise
                         continue
+                    if _monotonic() >= deadline:
+                        raise httpx.ReadTimeout("Control callback response arrived after recovery deadline")
                     return _values(result, pause_at_boundary)
     except TimeoutError:
         if last_connection_error is not None:
