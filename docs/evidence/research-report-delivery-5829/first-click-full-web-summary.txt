@@ -1,0 +1,12 @@
+Command: WORKSPACEX_WEB_TEST_MAX_WORKERS=2 pnpm --filter web test
+Curated result lines from the complete run; exit code 0.
+ ✓ tests/ui/guided-research-execution-timeline.test.tsx (20 tests) 190ms
+ ✓ tests/ui/report-file-actions.test.tsx (13 tests) 286ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (8 tests) 754ms
+ ✓ tests/ui/interview-report-skill-files.test.tsx (8 tests) 304ms
+ ✓ tests/ui/research-report-file-source.test.tsx (4 tests) 170ms
+ ✓ tests/report-files-rewrite.test.ts (2 tests) 3ms
+ Test Files  943 passed (943)
+      Tests  8192 passed | 5 skipped (8197)
+   Start at  14:06:13
+   Duration  543.03s (transform 13.84s, setup 71.74s, collect 285.88s, tests 284.03s, environment 303.76s, prepare 35.41s)

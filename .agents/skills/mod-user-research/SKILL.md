@@ -102,3 +102,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-19：研究导出 GET SourceInfo 的 title/notices 不能直接作为严格 POST source；与访谈一样显式投影 kind/id/reportVersion/reportHash，否则 HTTP 前即失败。来源池目标按同源确认问题数扩展到3–9，legacy逐题任务仍只取三源窗口；这是发现目标，不是引用条数或逐题证据完成保证。自动处理的来源细节不叠加到用户进度，正式正文后移除重复资料折叠；真实阻断与正文局限保留。受控浏览器/HTTP双格式证据见 docs/evidence/research-report-delivery-5829/README.md（#5829），不代表新原生文件或线上部署验收。
 
 - #5829 P2复审：补搜必须按当前章节已提交的 accepted document normalized URL 数重算剩余名额，并据此缩小本批读取窗口；已有5/6或8/9只补1。重复URL、未读/排除和否定候选不占新名额；legacy逐题补搜另保留三源预算，primary/recovery仍按本次实际批准材料停，不用历史来源跳过重试验证。RED5/定向31/研究889/原完整生产受控UI/API/PG链路证据见同份README。
+
+- #5829 首击生命周期：异步SourceInfo绑定后，DOM按钮存在不代表passive初始化已完成；共享导出控件若稍后epoch++/abort/clear，会丢掉已发出的合法首次请求。epoch初始化/失效移到轻量layout effect，保留同样source/disabled依赖与卸载保护。真实wrapper+Profiler首commit单击、HTTP-onlymock双格式RED2（POST先通过，结果被清空），完整Web8192/943文件、禁用/卸载晚返回/StrictMode和productionR5证据见同份README；不能只加等待或双击掩盖。

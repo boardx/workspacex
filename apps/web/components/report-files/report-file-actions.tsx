@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { ApiError } from '@/lib/api-client';
 import { WorkflowActionButton } from '@/components/research-studio/research-workflow-actions';
 import { generateReportFile, getReportFileJob, downloadReportFile, type ReportFileSource, type ReportFileFormat, type ReportFileJobState } from '@/lib/report-files-api';
@@ -20,7 +20,8 @@ export function ReportFileActions({ source, disabled = false }: { source: Report
   const epoch = useRef({ generation: 0 });
   const controllers = useRef(new Map<ReportFileFormat, AbortController>());
   const sourceKey = JSON.stringify([source.kind, source.id, source.reportVersion, source.reportHash]);
-  useEffect(() => {
+  // Establish/retire the source epoch before committed controls can receive input.
+  useLayoutEffect(() => {
     const lifecycle = epoch.current;
     const activeControllers = controllers.current;
     lifecycle.generation++;

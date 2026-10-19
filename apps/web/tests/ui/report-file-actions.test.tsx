@@ -1,3 +1,4 @@
+import { StrictMode } from 'react';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { expect, it, vi, beforeEach } from 'vitest';
 import { ReportFileActions } from '@/components/report-files/report-file-actions';
@@ -98,4 +99,25 @@ it('drops an obsolete render-policy job after the server confirms REPORT_CHANGED
  render(<ReportFileActions source={source}/>);fireEvent.click(screen.getByRole('button',{name:'生成 PDF'}));
  fireEvent.click(await screen.findByRole('button',{name:'重新生成 PDF'}));await screen.findByRole('button',{name:'下载 PDF'});
  expect(generateReportFile).toHaveBeenCalledTimes(2);
+});
+
+it.each(['disabled', 'unmount'] as const)('invalidates pending file work immediately on %s', async mode => {
+ let complete!: (value: typeof success) => void;
+ vi.mocked(generateReportFile).mockImplementation(() => new Promise(resolve => { complete = resolve; }));
+ const view = render(<ReportFileActions source={source} />);
+ fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+ const signal = vi.mocked(generateReportFile).mock.calls[0]![3]!;
+ if (mode === 'disabled') view.rerender(<ReportFileActions source={source} disabled />); else view.unmount();
+ expect(signal.aborted).toBe(true);
+ await act(async () => complete(success));
+ expect(downloadReportFile).not.toHaveBeenCalled();
+ expect(screen.queryByRole('button', { name: '下载 PDF' })).not.toBeInTheDocument();
+});
+it('keeps one user request through StrictMode setup and cleanup', async () => {
+ vi.mocked(generateReportFile).mockResolvedValue(success);
+ render(<StrictMode><ReportFileActions source={source} /></StrictMode>);
+ fireEvent.click(screen.getByRole('button', { name: '生成 PDF' }));
+ await screen.findByRole('button', { name: '下载 PDF' });
+ expect(generateReportFile).toHaveBeenCalledTimes(1);
+ expect(downloadReportFile).toHaveBeenCalledTimes(1);
 });
