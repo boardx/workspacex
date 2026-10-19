@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { expect, it } from 'vitest';
-import { reportFileExtractedText } from '@repo/contracts/report-file-content';
 import { ReportGeneratedFileValidator, validateReportContent } from '../../src/infrastructure/report-files/file-validator';
 const markdown = '# 中文报告\n\n用户需要可下载和编辑的真实报告文件。';
 const reportHash = createHash('sha256').update(markdown).digest('hex');
@@ -135,6 +134,7 @@ it('keeps ordinary split DOCX words together while preserving actual paragraph b
   const saved={...source,title:'Saved research',markdown};
   const extracted=`# Saved research\n\n${body.replace(' remains','[^ 1] remains')}\n\nLiteral code \`[^1]\` must remain visible in this saved report.\n\n[^1]: [Verified source](${url})`;
   expect(()=>validateReportContent('pdf',extracted,saved)).not.toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replaceAll('`',''),saved)).not.toThrow();
   expect(()=>validateReportContent('pdf',extracted.replace('original evidence',''),saved)).toThrow();
   expect(()=>validateReportContent('pdf',extracted.replace(url,''),saved)).toThrow();
   expect(()=>validateReportContent('pdf',extracted.replace('code `[^1]`','code ``'),saved)).toThrow();
@@ -151,8 +151,14 @@ it('validates real PDF bytes with a wrapped canonical footnote marker', async ()
   await expect(new ReportGeneratedFileValidator().validate('pdf', await pdf.save(), saved)).resolves.toBeUndefined();
 });
 
-it('removes only source-bound text markers, retaining wrong IDs and literal code', () => {
-  const text='正文甲[^ \n7]正文乙[^8]后续中文。 `[^7]`\n\n```txt\n[^7]\n```';
-  expect(reportFileExtractedText(text,['7'])).toBe('正文甲正文乙[^8]后续中文。 `[^7]`\n\n```txt\n[^7]\n```');
-  expect(reportFileExtractedText('ordinary [7] and ^7 and [^unknown] text',['7'])).toBe('ordinary [7] and ^7 and [^unknown] text');
+it('anchors optional markers to canonical reference positions even when code becomes plain text', () => {
+  const markdown = '# Saved research\n\nEvidence[^1] remains complete; literal `[^1]` must remain visible.\n\n```txt\nLiteral fenced marker [^1] remains required.\n```\n\n[^1]: Verified source https://example.com/proof';
+  const saved = { ...source, title: 'Saved research', markdown };
+  const extracted = 'Saved research\n\nEvidence[^ \n1] remains complete; literal [^1] must remain visible.\n\nLiteral fenced marker [^1] remains required.\n\nVerified source https://example.com/proof';
+  expect(() => validateReportContent('pdf', extracted, saved)).not.toThrow();
+  for (const bad of [extracted.replace('literal [^1]', 'literal'), extracted.replace('marker [^1]', 'marker'),
+    extracted.replace('Evidence[^ \n1]', 'Evidence[^8]'), extracted.replace('remains complete', 'complete remains'),
+    extracted + '\nEvidence[^1] remains complete; literal [^1] must remain visible.']) {
+    expect(() => validateReportContent('pdf', bad, saved)).toThrow();
+  }
 });

@@ -1,5 +1,5 @@
 import { docxParagraphText } from './docx-paragraph-text';
-import { reportFileContentRequirements, reportFileExtractedText } from '@repo/contracts/report-file-content';
+import { reportFileContentRequirements } from '@repo/contracts/report-file-content';
 import { inspectDocx, unzip } from '@repo/skill-sandbox/ooxml';
 import { AnydocAttachmentToMarkdown } from '../chat/anydoc-attachment-to-markdown';
 import type { ReportFileSourceSnapshot } from '../../application/report-files/ports';
@@ -49,7 +49,7 @@ export function normalizeReportText(text: string): string {
 export function validateReportContent(format: FileRequest['format'], extracted: string, source: ReportFileSourceSnapshot, relationUrls: readonly string[] = []): void {
   const completeInput = `${source.markdown}\n\n${source.appendixMarkdown ?? ''}`;
   const required = reportFileContentRequirements(completeInput);
-  const text = normalizeReportText(reportFileExtractedText(extracted, required.footnoteIds));
+  const text = normalizeReportText(extracted);
   const canonical = normalizeReportText(required.visibleText);
   for (const match of extracted.matchAll(/(?:ENOENT|no such file or directory|读取失败|SKILL_SANDBOX_INPUT_DIR|\/work\/input)/gi)) {
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');
@@ -67,9 +67,17 @@ export function validateReportContent(format: FileRequest['format'], extracted: 
   if (required.urls.some(url => !urls.includes(normalizeReportText(url)))) throw new ReportFileError('INVALID_FILE');
   const title = normalizeReportText(required.title ?? source.title);
   if (title && (!text.includes(title) || text.split(title).length - 1 > Math.max(1, canonical.split(title).length - 1))) throw new ReportFileError('INVALID_FILE');
-  for (const paragraph of required.paragraphs.map(normalizeReportText).filter(value => value.length >= 12)) {
-    if (!text.includes(paragraph)) throw new ReportFileError('INVALID_FILE');
+  const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  for (const [index, rawParagraph] of required.paragraphs.entries()) {
+    const paragraph = normalizeReportText(rawParagraph);
+    if (paragraph.length < 12) continue;
+    // Only actual canonical reference positions may carry an optional printed
+    // marker. Literal code markers remain required even if PDF loses its fences.
+    const pattern = required.paragraphParts[index]!.map(part => 'text' in part
+      ? escape(normalizeReportText(part.text))
+      : `(?:${escape(normalizeReportText(`[^${part.footnoteId}]`))})?`).join('');
+    const matches = [...text.matchAll(new RegExp(pattern, 'g'))].length;
     const count = (value: string, needle: string) => value.split(needle).length - 1;
-    if (count(text, paragraph) > count(canonical, paragraph)) throw new ReportFileError('INVALID_FILE');
+    if (!matches || matches > count(canonical, paragraph)) throw new ReportFileError('INVALID_FILE');
   }
 }
