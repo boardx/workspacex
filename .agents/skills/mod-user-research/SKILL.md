@@ -108,3 +108,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-19：PDF原生run成功但导出INVALID_FILE时，须用同次真实附件和精确input hash重放validator；canonical AST去脚注而提取文本保留 `[^1]`/换行 `[^ 7]` 会把完整段落误判缺失。只按canonical实际脚注ID清理提取AST文本/引用节点的呈现符号，保留代码字面量、原文件和全文/URL/重复/权限门。真实4301927字节PDF离线通过，无新模型调用；旧终态任务不会自动恢复（#5832，docs/evidence/research-pdf-validation-5832/README.md）。
 
 - #5832 review修正：提取器可能不重建代码backticks/fences，不能全局移除同IDmarker。最终保留提取文本不改，以canonical逐段AST text/reference segments精确匹配，仅真实reference位置允许可选打印标记，代码字面量即使成为plain text仍必需。旧patch plain-code RED1、同段引用/代码与错ID/重排/重复反证见同份证据。
+
+- 2026-10-19：报告文件任务仍running时单次GET网络/5xx错误不等于转换失败；保留job身份，用中性进度提示，后续点击只GET原任务。轮询上限也是未完成状态，真实failed/拒绝/下载校验仍走错误路径。GENERATION_FAILED/RUN_INTERRUPTED与旧INVALID_FILE不同，须读取同run工具与安全远端error类别后归因；生成/渲染中间文件不能当作已发布产物（#5837，docs/evidence/research-export-interrupted-5837/README.md）。
