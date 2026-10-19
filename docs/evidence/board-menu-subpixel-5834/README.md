@@ -5,3 +5,7 @@ PR #5833 head42ccb9d7a fullstack run39227014524/job117975930347: sole failure at
 Only the two nominal36px dimensions change to toBeCloseTo(36,3): error strictly less than0.0005 CSS px. No product layout, workflow, timeout, retries or other assertions changed. precision.txt uses actual Playwright expect, confirms old strict assertion fails observed value, new assertion passes, and35.99/35/36.01/37 remain rejected.
 
 First local browser attempt was rejected by runtimeSourceIdentity's clean-source guard before the test body, due to not yet committed changes. It is not accepted as behavioral verification. The fix is committed before rerunning original full spec on fresh production/API/PG at390 and1440. No new models or online state changes.
+
+## Verified browser result
+
+Exact clean runtime source `ca3da788b` (full SHA in menu-layout runtime receipt). Original full spec passed at1440px (7.6s) and390px (6.4s), fresh production build+real API/PG,2PASS/2.3m,cleanup1s. `browser-green.txt` is actual output. `clean-source-guard.txt` preserves rejected precommit attempt. Later evidence-only commit does not alter tested source; verify git diff ca3da788b -- apps packages is empty.
