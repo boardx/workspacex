@@ -14,7 +14,7 @@ jobs:
           set -euo pipefail
           docker inspect --format '{"created":{{json .Created}},"startedAt":{{json .State.StartedAt}},"restartCount":{{.RestartCount}}}' workspacex-deep-agent
           docker exec -i workspacex-deep-agent python - <<'PY'
-          import os,json
+          import os,json,builtins
           import psycopg
           from psycopg.rows import dict_row
           target='e0b7e5d6-09af-4613-9c38-b4f9bee05164'
@@ -26,6 +26,8 @@ jobs:
                   rows=connection.execute("SELECT run_id,thread_id,status,error,created_at,updated_at FROM wsx_agent_runs WHERE request #>> '{config,configurable,run_control_callback,run_id}' = %s ORDER BY created_at DESC LIMIT 2",(target,)).fetchall()
                   safe=[]
                   allowed_errors={'runtime_restarted','TimeoutError','ReadTimeout','ConnectTimeout','RemoteProtocolError','APIConnectionError','APIStatusError','AuthenticationError','PermissionDeniedError','BadRequestError','RateLimitError','InternalServerError','GraphRecursionError','InvalidUpdateError','ValueError','TypeError','KeyError','RuntimeError','NotFoundError','ToolAuthorityError','CancelledError'}
+                  allowed_errors.update(["AttributeError","UnboundLocalError","NotImplementedError","ValidationError","HTTPStatusError","OutputParserException","StructuredOutputValidationError","MultipleStructuredOutputsError","InvalidToolCall","ExceptionGroup","SkillActivityError","SkillDraftError","DeepAgentModelConfigError","StandardRememberError","StandardMemoryError","ToolBudgetError","NativeToolAuthorityError","ToolAuthorityError","ReportOutputPublished","NativeSandboxError","NativeInputError","ConnectError","ReadError","WriteError","WriteTimeout","PoolTimeout","ProtocolError","APIError","APIResponseValidationError","InternalServerError"])
+                  allowed_errors.update(name for name in dir(builtins) if isinstance(getattr(builtins,name),type) and issubclass(getattr(builtins,name),BaseException))
                   for row in rows:
                       error=row.get('error') or ''
                       safe.append({'run_id':row['run_id'],'thread_id':row['thread_id'],'status':row['status'],'error_class':error if error in allowed_errors else ('none' if not error else 'unclassified'),'created_at':str(row['created_at']),'updated_at':str(row['updated_at'])})
