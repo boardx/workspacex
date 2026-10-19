@@ -563,10 +563,11 @@ jobs:
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest
-    # 147 browser cases take ~19m including application startup; installation,
-    # geometry checks and evidence upload also count toward the job deadline.
-    # #5704 adds a fresh isolated directory runtime (measured 5m17s on CI).
-    timeout-minutes: 40
+    # #5832: the current 222-case suite takes ~31m; setup plus the fresh directory
+    # runtime takes ~8m, followed by geometry, evidence upload and post-job cleanup.
+    # Runs 39201160326 and 39240395565 exhausted 40m despite completed test steps.
+    # Keep bounded headroom for the whole job; individual test limits stay unchanged.
+    timeout-minutes: 50
     # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
     # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
     # 但 evidence/日志仍然照常上传，供人回看）。真正阻塞发布的是 backend-gates.yml 的
