@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { baselineFingerprint, bindAppOnlyPreparation, switchAppOnly, type AppOnlyIO } from "../src/cn-app-only";
+import { appContainerImage, baselineFingerprint, bindAppOnlyPreparation, switchAppOnly, type AppOnlyIO } from "../src/cn-app-only";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 const hash = (raw: string | Buffer) => createHash("sha256").update(raw).digest("hex");
 const source = "a".repeat(40), old = "b".repeat(40), image = (s: string) => `sha256:${s.repeat(64)}`;
@@ -62,10 +65,19 @@ function fixture() {
   };
   return { request, prepared, manifestBytes, baselineBytes, nginx, commands, events, writes, io,
     failStart: () => { failStart = true; }, failSmoke: () => { failSmoke = true; }, failRollback: () => { failRollback = true; },
-    run: (operation: "activate" | "rollback" | "verify" | "check" = "activate") => switchAppOnly(request, prepared, manifestBytes, baselineBytes, nginx, io, operation, now) };
+    run: (operation: "activate" | "rollback" | "verify" | "check" = "activate", at = now) => switchAppOnly(request, prepared, manifestBytes, baselineBytes, nginx, io, operation, at) };
 }
 
 describe("app-only release (isolated executor, no production authority)", () => {
+  it("rejects restarting/OOM or a different actual Compose baseline", () => {
+    const file = `/var/lib/workspacex-cn/runtime/${old}/compose.json`;
+    const row = [image("1"), true, "workspacex-cn", "api", false, false, file];
+    expect(appContainerImage(row, "api", file)).toBe(image("1"));
+    for (const patch of [{ index: 4, value: true }, { index: 5, value: true }, { index: 6, value: "/another/compose.json" }]) {
+      const changed = [...row]; changed[patch.index] = patch.value;
+      expect(() => appContainerImage(changed, "api", file)).toThrow();
+    }
+  });
   it("switches only api/web by immutable image and keeps full acceptance false", async () => {
     const f = fixture(); const result = await f.run();
     expect(result).toEqual({ status: "activated", fullBusinessAcceptance: false });
@@ -106,6 +118,37 @@ describe("app-only release (isolated executor, no production authority)", () => 
     f.prepared.checks.migrationAssessed.evidenceSha256 = hash(JSON.stringify(f.request));
     await expect(f.run()).rejects.toThrow("APP_ONLY_WINDOW_EXHAUSTED"); expect(f.writes).toEqual([]);
   });
+  it("permits existing-intent recovery after publication evidence expires", async () => {
+    const f = fixture();
+    expect((await f.run("rollback", new Date("2026-10-19T14:00:00Z"))).status).toBe("rolled-back");
+    expect(f.writes).toEqual([{ api: image("1"), web: image("2") }]);
+  });
+  it("allows readonly verification near cutoff but still refuses a new switch", async () => {
+    const f = fixture(); await f.run();
+    expect((await f.run("verify", new Date("2026-10-19T12:28:00Z"))).status).toBe("verified");
+    await expect(f.run("activate", new Date("2026-10-19T12:28:00Z"))).rejects.toThrow("APP_ONLY_WINDOW_EXHAUSTED");
+    expect(f.writes).toHaveLength(1);
+  });
+  it("expired matching-intent verification is readonly and cannot authorize late publication", async () => {
+    const f = fixture(); await f.run();
+    const result = await f.run("verify", new Date("2026-10-19T14:00:00Z"));
+    expect(result.status).toBe("verified"); expect(result.publicationWindowOpen).toBe(false); expect(f.writes).toHaveLength(1);
+    await expect(f.run("check", new Date("2026-10-19T14:00:00Z"))).rejects.toThrow("APP_ONLY_EVIDENCE_EXPIRED");
+  });
+  it("cancels activation but gives scoped recovery a fresh bounded signal", async () => {
+    const f = fixture(), external = new AbortController(); f.io.signal = external.signal;
+    const execute = f.io.execute; let startCount = 0;
+    f.io.execute = async (argv, context) => {
+      if (argv.includes("up")) {
+        startCount++;
+        if (startCount === 1) { external.abort(); expect(context.signal.aborted).toBe(true); throw new Error("cancelled client settled"); }
+        expect(context.signal.aborted).toBe(false); expect(context.remainingMs()).toBeLessThanOrEqual(120000);
+      }
+      return execute(argv, context);
+    };
+    await expect(f.run()).rejects.toThrow("APP_ONLY_ACTIVATION_FAILED_ROLLED_BACK");
+    expect(external.signal.aborted).toBe(true); expect(startCount).toBe(2); expect(f.events.at(-1)).toBe("rolled-back");
+  });
   it("does not overwrite a changed baseline", async () => {
     const f = fixture(); f.io.snapshot = async () => ({ baselineBytes: Buffer.from("{}"), nginxBytes: f.nginx, runtimeConfigSha256: f.request.runtimeConfigSha256 });
     await expect(f.run()).rejects.toThrow("APP_ONLY_NOT_READY"); expect(f.writes).toEqual([]);
@@ -145,6 +188,31 @@ describe("app-only release (isolated executor, no production authority)", () => 
     const guard = new URL("../../../.harness/scripts/vm/cn-app-only-guard.py", import.meta.url);
     const result = spawnSync("python3", ["-I", "-S", "-B", guard.pathname, "/tmp/NOT_A_PRODUCTION_TOOL_ROOT", source], { encoding: "utf8" });
     expect(result.status).toBe(2); expect(result.stdout).toBe(""); expect(result.stderr.trim()).toBe("CN_APP_ONLY_TOOLS_UNAVAILABLE");
+  });
+  it("app-only-check opens the existing shared lock without setup or permission writes", () => {
+    const shell = readFileSync(new URL("../../../.harness/scripts/vm/deploy-cn-production.sh", import.meta.url), "utf8");
+    const start = shell.indexOf('if [[ "$mode" == app-only* ]]; then\n  for directory');
+    const end = shell.indexOf('\n# Maintenance admission', start);
+    expect(start).toBeGreaterThan(0); expect(end).toBeGreaterThan(start);
+    const dir = mkdtempSync(join(tmpdir(), "cn-app-lock-"));
+    try {
+      for (const name of ["runtime", "preparations", "releases"]) mkdirSync(join(dir, name), { mode: 0o700 });
+      const lock = join(dir, "runtime/release.lock"); writeFileSync(lock, "PRESERVED_LOCK", { mode: 0o600 });
+      const result = spawnSync("bash", ["-c", `set -euo pipefail
+mode=app-only-check
+RUNTIME_ROOT="$FIXTURE/runtime"; PREPARATIONS_DIR="$FIXTURE/preparations"; RELEASE_TREE_ROOT="$FIXTURE/releases"
+fail(){ exit 90; }
+private_root_file(){ test -f "$1"; }
+stat(){ echo 0:0:700; }
+install(){ echo FORBIDDEN_SETUP; exit 91; }
+chmod(){ echo FORBIDDEN_MODE; exit 92; }
+chown(){ echo FORBIDDEN_OWNER; exit 93; }
+${shell.slice(start, end)}
+test "$(cat "$RUNTIME_ROOT/release.lock")" = PRESERVED_LOCK
+`], { encoding: "utf8", env: { ...process.env, FIXTURE: dir } });
+      expect(result.status, result.stderr).toBe(0); expect(result.stdout).not.toContain("FORBIDDEN");
+      expect(readFileSync(lock, "utf8")).toBe("PRESERVED_LOCK");
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
   it("retains standard path and the existing shared lock/approval/CAS", () => {
     const shell = readFileSync(new URL("../../../.harness/scripts/vm/deploy-cn-production.sh", import.meta.url), "utf8");

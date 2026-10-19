@@ -22,8 +22,15 @@ export const appOnlyInputSchema = z.object({
 }).strict();
 export const baselineSchema = z.object({ schemaVersion: z.literal(1), composeFile: z.string().regex(/^\/var\/lib\/workspacex-cn\/runtime\/[a-f0-9]{40}\/compose.json$/),
   images: z.object({ api: image, web: image, agent: image, sandbox: image }).strict(), nginxSha256: sha }).strict();
+export function appContainerImage(value: unknown, service: string, composeFile: string) {
+  const row = z.tuple([image, z.literal(true), z.literal("workspacex-cn"), z.enum(appServices),
+    z.literal(false), z.literal(false), z.string()]).parse(value);
+  requireValue(row[3] === service && row[6] === composeFile, "APP_ONLY_LIVE_CONTAINER_CONFIG");
+  return row[0];
+}
 export type AppContext = { signal: AbortSignal; remainingMs: () => number };
 export interface AppOnlyIO {
+  signal?: AbortSignal;
   verifyHost(context: AppContext): Promise<void>;
   execute(argv: readonly string[], context: AppContext): Promise<string>;
   snapshot(context: AppContext): Promise<{ baselineBytes: Buffer; nginxBytes: Buffer; runtimeConfigSha256: string }>;
@@ -49,11 +56,14 @@ export function baselineFingerprint(files: readonly Buffer[]) {
   for (const raw of files) hash.update(`${raw.length}:${digest(raw)}\n`);
   return hash.digest("hex");
 }
-function context(budget: number) {
+function context(budget: number, parent?: AbortSignal) {
   const started = performance.now(), controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), budget);
+  const cancel = () => controller.abort();
+  parent?.addEventListener("abort", cancel, { once: true });
+  if (parent?.aborted) cancel();
   return { value: { signal: controller.signal, remainingMs: () => Math.max(0, budget - performance.now() + started) },
-    close: () => clearTimeout(timer) };
+    close: () => { clearTimeout(timer); parent?.removeEventListener("abort", cancel); } };
 }
 function requireValue(ok: unknown, code: string): asserts ok { if (!ok) throw new Error(code); }
 
@@ -77,14 +87,14 @@ export async function switchAppOnly(input: unknown, prepared: unknown, manifestB
     "APP_ONLY_BASELINE_MISMATCH");
   requireValue(receipt.diff.migrationRisk === "none" && receipt.diff.pendingMigrationCount === 0 &&
     (prepared as { diff: { changedServices: string[] } }).diff.changedServices.every(s => s === "api" || s === "web") &&
-    classifyReleaseFailures(receipt.failures, now).blocked.length === 0, "APP_ONLY_COMPATIBILITY_UNKNOWN");
+    (["rollback", "verify"].includes(operation) || classifyReleaseFailures(receipt.failures, now).blocked.length === 0), "APP_ONLY_COMPATIBILITY_UNKNOWN");
   requireValue(receipt.checks.migrationAssessed.evidenceSha256 === digest(requestBytes), "APP_ONLY_REQUEST_NOT_FROZEN");
   const observed = Date.parse(request.observedAt), expiry = Date.parse(request.expiresAt);
   const requested = Date.parse(request.requestedAt);
-  requireValue(observed <= now.getTime() && expiry > now.getTime() && expiry > observed && expiry - observed <= 3600000 &&
-    requested <= observed && expiry - requested <= 1800000 &&
-    Date.parse(receipt.expiresAt) > now.getTime(), "APP_ONLY_EVIDENCE_EXPIRED");
-  requireValue(expiry - now.getTime() > 120000, "APP_ONLY_WINDOW_EXHAUSTED");
+  requireValue(observed <= now.getTime() && expiry > observed && expiry - observed <= 3600000 &&
+    requested <= observed && expiry - requested <= 1800000, "APP_ONLY_EVIDENCE_EXPIRED");
+  if (operation === "activate" || operation === "check") requireValue(expiry > now.getTime() && Date.parse(receipt.expiresAt) > now.getTime(), "APP_ONLY_EVIDENCE_EXPIRED");
+  if (operation === "activate") requireValue(expiry - now.getTime() > 120000, "APP_ONLY_WINDOW_EXHAUSTED");
   const compose = ["docker", "compose", "--project-name", "workspacex-cn", "--file", baseline.composeFile];
   const target = { api: manifest.images.api.image, web: manifest.images.web.image };
   const previous = { api: baseline.images.api, web: baseline.images.web };
@@ -128,7 +138,8 @@ export async function switchAppOnly(input: unknown, prepared: unknown, manifestB
     finally { recovery.close(); }
   };
   if (operation === "rollback") { await rollback(); return { status: "rolled-back", fullBusinessAcceptance: false }; }
-  const activation = context(Math.min(300000, expiry - now.getTime() - 120000));
+  const phaseStarted = performance.now();
+  const activation = context(operation === "verify" ? 120000 : Math.min(300000, expiry - now.getTime() - (operation === "activate" ? 120000 : 0)), io.signal);
   let switching = false;
   try {
     await io.verifyHost(activation.value);
@@ -154,7 +165,10 @@ export async function switchAppOnly(input: unknown, prepared: unknown, manifestB
     await io.smoke(activation.value);
     requireValue(!activation.value.signal.aborted && activation.value.remainingMs() > 0, "APP_ONLY_DEADLINE");
     if (operation !== "verify") await io.record("activated");
-    return { status: operation === "verify" ? "verified" : "activated", fullBusinessAcceptance: false };
+    const checkedAt = now.getTime() + performance.now() - phaseStarted;
+    return operation === "verify"
+      ? { status: "verified", publicationWindowOpen: Date.parse(receipt.expiresAt) > checkedAt && expiry > checkedAt, publicationDeadline: new Date(Math.min(expiry, Date.parse(receipt.expiresAt))).toISOString(), fullBusinessAcceptance: false }
+      : { status: "activated", fullBusinessAcceptance: false };
   } catch {
     activation.close();
     if (switching) await rollback();

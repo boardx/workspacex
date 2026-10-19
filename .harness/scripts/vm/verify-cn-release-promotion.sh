@@ -100,11 +100,17 @@ else
   protected_file "$fast_safe_receipt"
   guard=/usr/local/lib/workspacex-cn/cn-app-only-guard.py
   [[ -f "$guard" && ! -L "$guard" && "$(stat -c '%u:%a' "$guard")" == 0:755 ]] || fail "app-only guard is not installed"
+  cmp --silent "$release_checkout/.harness/scripts/vm/cn-app-only-guard.py" "$guard" || fail "app-only guard version drift"
   /usr/bin/python3 -I -S -B "$guard" "$release_checkout" "$revision" || fail "app-only tool closure rejected"
 fi
 
-exec 9>"$RUNTIME_ROOT/release.lock"
-chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+if [[ "$app_only" == 1 ]]; then
+  protected_file "$RUNTIME_ROOT/release.lock"
+  exec 9<"$RUNTIME_ROOT/release.lock"
+else
+  exec 9>"$RUNTIME_ROOT/release.lock"
+  chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+fi
 flock -n 9 || fail "another release operation is active"
 release=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.release)' "$manifest")
 if [[ "$app_only" == 0 ]]; then
@@ -114,22 +120,36 @@ if [[ "$app_only" == 0 ]]; then
 else
   app_action=check
   [[ "$current_main_cn" != "$revision" ]] || app_action=verify
-  (cd "$release_checkout"; /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx packages/cloud-deploy/src/cn-app-only-cli.ts "$app_action" "$revision" "$attempt_id") >/dev/null || fail "app-only compatibility or runtime rejected"
+  app_result=$(cd "$release_checkout"; /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx packages/cloud-deploy/src/cn-app-only-cli.ts "$app_action" "$revision" "$attempt_id") || fail "app-only compatibility or runtime rejected"
+  app_state=$(printf '%s' "$app_result" | node -e 'let s="";process.stdin.on("data",v=>s+=v);process.stdin.on("end",()=>{let v=JSON.parse(s);if(!["ready","verified"].includes(v.status))process.exit(1);process.stdout.write(v.status)})') || fail "invalid app-only runtime state"
 fi
 
 current_dir=$(mktemp -d "$runtime/.promotion-baseline.XXXXXX")
 trap 'rm -rf -- "$current_dir"' EXIT
 current_baseline="$current_dir/baseline.json"
 capture_baseline "$current_baseline"
-baseline_sha=$(pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$current_baseline" "$NGINX_CONFIG")
-if [[ "$app_only" == 1 && "$current_main_cn" == "$revision" ]]; then
+if [[ "$app_only" == 1 ]]; then
+  baseline_sha=$(cd "$release_checkout"; /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx packages/cloud-deploy/src/cn-fast-safe-release-cli.ts fingerprint "$current_baseline" "$NGINX_CONFIG")
+else
+  baseline_sha=$(pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$current_baseline" "$NGINX_CONFIG")
+fi
+if [[ "$app_only" == 1 && "${app_state:-}" == verified ]]; then
   # The actual candidate runtime was just verified, including the exact attempt.
   # Keep the frozen previous baseline identity for the immutable admission envelope.
   baseline_sha=$(node -e 'process.stdout.write(require(process.argv[1]).baselineSha256)' "$fast_safe_receipt")
 fi
+if [[ "$app_only" == 1 && "${app_state:-}" == verified ]]; then
+  # This is readonly reconciliation of a hash-bound existing intent. The app CLI
+  # verified the immutable receipt and actual runtime; it does not renew expiry.
+  # A new remote CAS still requires the original publication window below.
+  :
+elif [[ "$app_only" == 1 ]]; then
+  (cd "$release_checkout"; /usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/root LC_ALL=C /usr/bin/node --import tsx packages/cloud-deploy/src/cn-fast-safe-release-cli.ts validate "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest") >/dev/null || fail "prepared app-only evidence differs"
+else
 pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release validate \
   "$fast_safe_receipt" "$revision" "$baseline_sha" "$manifest" >/dev/null \
   || fail "prepared receipt, baseline, or manifest differs"
+fi
 
 # Frozen-tag requests require independently collected Devapp runtime/browser evidence.
 # This file is staged by the controlled producer, never by a workflow boolean.

@@ -85,6 +85,17 @@ exact-attempt reconciliation. Successful activation also retains intent until th
 existing strict remote main-cn CAS is confirmed. Commit re-verifies the actual
 candidate runtime before clearing intent. A lost CAS response retains intent;
 it does not blindly roll back possibly accepted production or repeat the switch.
+Read-only checks may verify only the matching existing intent instead of rejecting
+it as a new release. A fresh remote ref read selects CAS reconciliation without a
+second switch; a different attempt is still rejected. Publication expiry blocks
+new activation/CAS admission, not restoration of that intent's fixed old images.
+Expired intent verification reports its closed publication window; it cannot
+authorize a new CAS. Immediately before a new remote CAS, promotion rechecks that
+window and bounds the network call by the remaining time. Readonly confirmation
+of an already advanced ref is distinct from publishing after the deadline.
+SIGTERM/SIGINT cancels the activation client; recovery starts only after that
+action settles and uses a separate 120-second signal. It never inherits a permanently
+aborted activation signal, gains new authority or disables the recovery deadline.
 
 The browser smoke is the existing login plus authenticated notifications request.
 It is **lightweight availability acceptance**, not full business acceptance; reports

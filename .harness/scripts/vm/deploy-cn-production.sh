@@ -74,7 +74,9 @@ NODE
   exit 0
 fi
 pnpm() { COREPACK_ENABLE_NETWORK=0 /usr/bin/corepack pnpm@9.15.0 "$@"; }
-[[ "$(pnpm --version)" == 9.15.0 ]] || fail "declared pnpm toolchain is unavailable offline"
+if [[ "$mode" != app-only* ]]; then
+  [[ "$(pnpm --version)" == 9.15.0 ]] || fail "declared pnpm toolchain is unavailable offline"
+fi
 resolve_browser_executable() {
   local candidate path
   for candidate in chromium-browser chromium google-chrome; do
@@ -196,18 +198,25 @@ runner_readable_manifest "$manifest"
 runner_readable_manifest "$seal"
 private_root_file "$AGENT_ENV_FILE"
 [[ -x "$PREFLIGHT_VERIFIER" && ! -L "$PREFLIGHT_VERIFIER" ]] || fail "trusted preflight verifier is unavailable"
-install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$EVENTS_ROOT"
-install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
-
-exec 9>"$RUNTIME_ROOT/release.lock"
-chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+if [[ "$mode" == app-only* ]]; then
+  for directory in "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$RELEASE_TREE_ROOT"; do
+    [[ -d "$directory" && ! -L "$directory" && "$(stat -c '%u:%g:%a' "$directory")" == 0:0:700 ]] || fail "app-only directories are not pre-staged"
+  done
+  private_root_file "$RUNTIME_ROOT/release.lock"
+  exec 9<"$RUNTIME_ROOT/release.lock"
+else
+  install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$EVENTS_ROOT"
+  install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
+  exec 9>"$RUNTIME_ROOT/release.lock"
+  chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+fi
 flock -n 9 || fail "another deployment is active"
 # Maintenance admission runs under the canonical release lock before mutations.
 MAINTENANCE_HOLD_HELPER=/usr/local/lib/workspacex-cn/cn_maintenance_hold.py
 [[ -f "$MAINTENANCE_HOLD_HELPER" && ! -L "$MAINTENANCE_HOLD_HELPER" && "$(stat -c '%u:%g:%a:%h' "$MAINTENANCE_HOLD_HELPER")" == 0:0:700:1 ]] || fail "trusted maintenance hold helper unavailable"
 python3 "$MAINTENANCE_HOLD_HELPER" admit "$RUNTIME_ROOT" >/dev/null || fail "maintenance hold blocks ordinary release"
 # A partial app switch or uncertain remote CAS must not admit another release.
-if [[ -e "$RUNTIME_ROOT/app-only-inflight.json" && "$mode" != app-only-rollback && "$mode" != app-only-commit ]]; then
+if [[ -e "$RUNTIME_ROOT/app-only-inflight.json" && "$mode" != app-only-rollback && "$mode" != app-only-commit && "$mode" != app-only-check ]]; then
   fail "app-only switch requires exact-attempt reconciliation"
 fi
 if [[ -e "$PREPARATIONS_DIR/$revision.app-only.$attempt_id.json" && "$mode" != app-only* ]]; then
@@ -227,6 +236,7 @@ if [[ "$mode" == app-only* ]]; then
   [[ -f "$source" && ! -L "$source" && "$(stat -c '%u' "$source")" == 0 ]] || fail "app-only trusted CLI unavailable"
   guard=/usr/local/lib/workspacex-cn/cn-app-only-guard.py
   [[ -f "$guard" && ! -L "$guard" && "$(stat -c '%u:%a' "$guard")" == 0:755 ]] || fail "app-only guard is not installed"
+  cmp --silent "$release_checkout/.harness/scripts/vm/cn-app-only-guard.py" "$guard" || fail "app-only guard version drift"
   /usr/bin/python3 -I -S -B "$guard" "$release_checkout" "$revision" || fail "app-only tool closure rejected"
   case "$mode" in
     app-only) app_action=activate ;;
