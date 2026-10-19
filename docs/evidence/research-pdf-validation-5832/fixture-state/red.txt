@@ -1,0 +1,37 @@
+EE
+======================================================================
+ERROR: test_killed_fixture_writer_preserves_complete_old_state (__main__.FixtureStateTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/shenyangjun/.codex/worktrees/799b/workspacex/tests/test_minimal_docker_release.py", line 177, in test_killed_fixture_writer_preserves_complete_old_state
+    def test_killed_fixture_writer_preserves_complete_old_state(self):self.exercise_interrupted_write(kill=True)
+  File "/Users/shenyangjun/.codex/worktrees/799b/workspacex/tests/test_minimal_docker_release.py", line 165, in exercise_interrupted_write
+    self.assertEqual(json.loads(statepath.read_text()),initial)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+======================================================================
+ERROR: test_reader_observes_complete_old_or_new_state (__main__.FixtureStateTests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/shenyangjun/.codex/worktrees/799b/workspacex/tests/test_minimal_docker_release.py", line 176, in test_reader_observes_complete_old_or_new_state
+    def test_reader_observes_complete_old_or_new_state(self):self.exercise_interrupted_write()
+  File "/Users/shenyangjun/.codex/worktrees/799b/workspacex/tests/test_minimal_docker_release.py", line 165, in exercise_interrupted_write
+    self.assertEqual(json.loads(statepath.read_text()),initial)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/__init__.py", line 346, in loads
+    return _default_decoder.decode(s)
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py", line 337, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/json/decoder.py", line 355, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.150s
+
+FAILED (errors=2)

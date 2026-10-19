@@ -1,0 +1,13 @@
+............F..
+======================================================================
+FAIL: test_starting_then_healthy_does_not_repeat_up (__main__.Tests)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/shenyangjun/.codex/worktrees/799b/workspacex/tests/test_minimal_docker_release.py", line 111, in test_starting_then_healthy_does_not_repeat_up
+    p,r=self.run_cli(True,starting=True);self.assertEqual(p.returncode,0);self.assertGreaterEqual(r['health']['readinessPolls'],2);self.assertEqual(sum('up'in a for a in self.actual['calls']),1)
+AssertionError: 1 != 0
+
+----------------------------------------------------------------------
+Ran 15 tests in 69.779s
+
+FAILED (failures=1)

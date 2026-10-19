@@ -6,10 +6,15 @@ def release_module():
  spec=importlib.util.spec_from_file_location('minimal_release',SCRIPT)
  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
 FAKE=r'''#!PYTHON
-import io,json,pathlib,sys,tarfile
+import io,json,os,pathlib,sys,tarfile
 P=pathlib.Path(STATE); state=json.loads(P.read_text());args=sys.argv[1:];state['calls'].append(args)
+def persist():
+ temporary=P.with_name(P.name+'.'+str(os.getpid())+'.tmp')
+ try:
+  temporary.write_text(json.dumps(state));os.replace(temporary,P)
+ finally:temporary.unlink(missing_ok=True)
 def done(value=None):
- P.write_text(json.dumps(state))
+ persist()
  if value is not None: print(value if isinstance(value,str) else json.dumps(value))
  raise SystemExit(0)
 def obj(cid):
@@ -40,7 +45,7 @@ if args[0]=='cp':
  data=io.BytesIO()
  with tarfile.open(fileobj=data,mode='w')as t:
   info=tarfile.TarInfo(name);info.size=len(raw);t.addfile(info,io.BytesIO(raw))
- P.write_text(json.dumps(state));sys.stdout.buffer.write(data.getvalue());raise SystemExit(0)
+ persist();sys.stdout.buffer.write(data.getvalue());raise SystemExit(0)
 if args[0]=='rm':
  assert args[1] in state['probes'];del state['probes'][args[1]];done()
 if args[0]=='compose':
@@ -137,4 +142,43 @@ class DeadlineTests(unittest.TestCase):
    self.assertIs(signal.getsignal(signal.SIGALRM),previous)
    remaining,_=signal.getitimer(signal.ITIMER_REAL);self.assertGreater(remaining,28);self.assertLess(remaining,30)
   finally:signal.setitimer(signal.ITIMER_REAL,0);signal.signal(signal.SIGALRM,original)
+class FixtureStateTests(unittest.TestCase):
+ def exercise_interrupted_write(self,kill=False):
+  # Pause the actual fake Docker write after opening/truncating its destination.
+  # The parent reads while the writer is held, without timing-based retries.
+  with tempfile.TemporaryDirectory() as directory:
+   statepath=pathlib.Path(directory)/'state.json'
+   initial={'calls':[],'applied':False,'probes':{}}
+   statepath.write_text(json.dumps(initial))
+   fake=FAKE.replace('PYTHON',sys.executable).replace('STATE',repr(str(statepath)))
+   wrapper="""import pathlib,sys
+original=pathlib.Path.write_text
+def held_write(self,value,*args,**kwargs):
+ with self.open('w') as stream:
+  print('WRITE_OPEN',flush=True)
+  sys.stdin.buffer.read(1)
+  return stream.write(value)
+pathlib.Path.write_text=held_write
+sys.argv=['docker','compose','up']
+exec(FAKE_CODE)
+""".replace('FAKE_CODE',repr(fake))
+   process=subprocess.Popen([sys.executable,'-I','-B','-c',wrapper],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+   try:
+    import select
+    self.assertTrue(select.select([process.stdout],[],[],5)[0],'fake writer did not reach the held write')
+    self.assertEqual(process.stdout.readline(),b'WRITE_OPEN\n')
+    self.assertEqual(json.loads(statepath.read_text()),initial)
+    if kill:
+     process.kill();process.communicate(timeout=5)
+     self.assertEqual(json.loads(statepath.read_text()),initial)
+    else:
+     _,errors=process.communicate(b'x',timeout=5)
+     self.assertEqual(process.returncode,0,errors.decode())
+     self.assertEqual(json.loads(statepath.read_text()),{'calls':[['compose','up']],'applied':True,'probes':{}})
+   finally:
+    if process.poll() is None:process.kill()
+    process.communicate(timeout=5)
+ def test_reader_observes_complete_old_or_new_state(self):self.exercise_interrupted_write()
+ def test_killed_fixture_writer_preserves_complete_old_state(self):self.exercise_interrupted_write(kill=True)
+
 if __name__=='__main__':unittest.main()
