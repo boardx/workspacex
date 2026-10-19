@@ -149,3 +149,5 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
    没回流的，补写。
 3. **结构变更**（新增章节/重组）走正常 review；追加"踩坑与经验"条目可随任意 PR 顺带。
 4. 开源贡献者同权：任何人对本模块的经验修订都走 PR，以可验证事实为准，不看资历。
+
+- 2026-10-19：原生run安全错误ConnectError与PDF内容INVALID_FILE应分开取证，不能只凭中文RUN_INTERRUPTED说明或部署重叠判runtime重启。控制边界poll/ACK可仅对连接建立失败进行有界恢复，同org/ACK IDs不变，不重放model/tools/publish；pause/cancel/拒绝和未知执行结果保持fail-closed。同步/异步真checkpoint工具恰好一次与线上证据边界见docs/evidence/run-control-connect-recovery-5837/README.md（#5837）。
