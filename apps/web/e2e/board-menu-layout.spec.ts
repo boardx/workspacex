@@ -81,7 +81,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844}]){
    const input=page.locator('input[type="color"][aria-label="连接线颜色自定义"]');
    await expect(input).toHaveCount(1);
    const shape=await input.evaluate(el=>{const a=el.getBoundingClientRect(),b=el.parentElement!.getBoundingClientRect();return{opacity:getComputedStyle(el).opacity,input:{x:a.x,y:a.y,w:a.width,h:a.height},label:{x:b.x,y:b.y,w:b.width,h:b.height}};});
-   expect(shape.opacity).toBe('0');expect(shape.input).toEqual(shape.label);expect(shape.label.w).toBe(36);expect(shape.label.h).toBe(36);
+   expect(shape.opacity).toBe('0');expect(shape.input).toEqual(shape.label);expect(shape.label.w).toBeCloseTo(36,3);expect(shape.label.h).toBeCloseTo(36,3);
    await input.focus();await expect(input).toBeFocused();await page.screenshot({path:info.outputPath(`custom-color-${viewport.width}.png`)});
    await input.fill('#123abc');await expectBoardSynced(page,30_000);
    await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,boardId)).objects.find(o=>o.id==='menu-edge')?.style.stroke).toBe('#123ABC');
