@@ -104,28 +104,23 @@ async def apoll_interjections(state: dict, *, pause_at_boundary: bool = False) -
     # The async production path additionally bounds slow response phases by the
     # same total deadline. External task cancellation always propagates.
     last_connection_error = None
-    try:
-        async with asyncio.timeout(CONTROL_CONNECT_RECOVERY_SECONDS):
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                while True:
+    async with asyncio.timeout(CONTROL_CONNECT_RECOVERY_SECONDS):
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            while True:
+                remaining = deadline - _monotonic()
+                if remaining <= 0:
+                    raise last_connection_error or httpx.ConnectTimeout("Control callback connection deadline exceeded")
+                try:
+                    result = await client.post(url, headers=headers, json=body, timeout=min(5.0, remaining))
+                except (httpx.ConnectError, httpx.ConnectTimeout) as error:
+                    last_connection_error = error
                     remaining = deadline - _monotonic()
                     if remaining <= 0:
-                        raise last_connection_error or httpx.ConnectTimeout("Control callback connection deadline exceeded")
-                    try:
-                        result = await client.post(url, headers=headers, json=body, timeout=min(5.0, remaining))
-                    except (httpx.ConnectError, httpx.ConnectTimeout) as error:
-                        last_connection_error = error
-                        remaining = deadline - _monotonic()
-                        if remaining <= 0:
-                            raise
-                        await _asleep(min(_CONTROL_CONNECT_BACKOFF_SECONDS, remaining))
-                        if _monotonic() >= deadline:
-                            raise
-                        continue
+                        raise
+                    await _asleep(min(_CONTROL_CONNECT_BACKOFF_SECONDS, remaining))
                     if _monotonic() >= deadline:
-                        raise httpx.ReadTimeout("Control callback response arrived after recovery deadline")
-                    return _values(result, pause_at_boundary)
-    except TimeoutError:
-        if last_connection_error is not None:
-            raise last_connection_error from None
-        raise
+                        raise
+                    continue
+                if _monotonic() >= deadline:
+                    raise httpx.ReadTimeout("Control callback response arrived after recovery deadline")
+                return _values(result, pause_at_boundary)

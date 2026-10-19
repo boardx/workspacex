@@ -181,3 +181,19 @@ def test_late_success_response_never_allows_execution_past_deadline(monkeypatch,
         else:
             run_control.poll_interjections({'messages': []})
     assert calls == [1]
+
+
+def test_later_inflight_timeout_is_not_replaced_by_an_older_connect_error(monkeypatch):
+    monkeypatch.setattr(run_control, 'get_config', lambda: {'configurable': {'run_control_callback': CALLBACK}})
+    monkeypatch.setattr(run_control, 'CONTROL_CONNECT_RECOVERY_SECONDS', 0.05)
+    monkeypatch.setattr(run_control, '_CONTROL_CONNECT_BACKOFF_SECONDS', 0.005)
+    calls = []
+    async def post(self, *args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise httpx.ConnectError('old refused connection')
+        await asyncio.Event().wait()  # connected, now waiting for a response
+    monkeypatch.setattr(run_control.httpx.AsyncClient, 'post', post)
+    with pytest.raises(TimeoutError):
+        asyncio.run(run_control.apoll_interjections({'messages': []}))
+    assert len(calls) == 2

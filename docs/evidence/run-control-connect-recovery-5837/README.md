@@ -23,7 +23,11 @@
 - 异步等待期间任务cancel立即终止，无后续请求。
 - 实际LangGraph+InMemorySaver的同步/异步×正常/pause/cancel六条链路：断连后继续/暂停/取消，已完成工具恰好一次，checkpoint恢复不重放工具。
 - 非法body不重试；原ReadTimeout/WriteError、401/403/503拒绝反证保留。
-- `apps/deep-agent-service/.venv/bin/python -m pytest apps/deep-agent-service/tests/test_run_control.py apps/deep-agent-service/tests/test_run_control_reconnect.py apps/deep-agent-service/tests/test_harness.py apps/deep-agent-service/tests/test_self_hosted_runtime.py apps/deep-agent-service/tests/golden/test_tc7_interjection_replan.py -q`：146通过（两条既有依赖弃用告警）。
+- `apps/deep-agent-service/.venv/bin/python -m pytest apps/deep-agent-service/tests/test_run_control.py apps/deep-agent-service/tests/test_run_control_reconnect.py apps/deep-agent-service/tests/test_harness.py apps/deep-agent-service/tests/test_self_hosted_runtime.py apps/deep-agent-service/tests/golden/test_tc7_interjection_replan.py -q`：147通过（两条既有依赖弃用告警）。
 - 同会话main65bea baseline init退出0；diff-check退出0。
 
 没有真实模型调用，没有线上旧任务/附件修改，没有部署。本证据不代表线上PDF下载已通过，也不保证超过20秒停机仍能成功。
+
+## #5839 机器P2复审
+
+后续请求已连接但响应等待触发整体deadline时，不得用早先的ConnectError替换真实TimeoutError。真实事件循环0.05s总界、首次ConnectError/第二次await响应反证旧实现RED1，移除该outer异常转换后GREEN；其他连接恢复、取消和phase错误边界保持。完整同5suite最终147通过，未新调用模型或线上重试。
