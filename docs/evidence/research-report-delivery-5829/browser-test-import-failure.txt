@@ -31,29 +31,29 @@
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
 [WebServer] (node:80470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
-[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
 [WebServer] #1 [internal] load local bake definitions
 [WebServer] #1 reading from stdin 668B done
 [WebServer] #1 DONE 0.0s
-[WebServer] 
+[WebServer]
 [WebServer] #2 [internal] load build definition from Dockerfile
 [WebServer] #2 transferring dockerfile: 2.76kB done
 [WebServer] #2 DONE 0.1s
-[WebServer] 
+[WebServer]
 [WebServer] #3 [internal] load metadata for docker.io/pgvector/pgvector:pg16
 [WebServer] #3 DONE 0.6s
-[WebServer] 
+[WebServer]
 [WebServer] #4 [internal] load .dockerignore
 [WebServer] #4 transferring context: 2B done
 [WebServer] #4 DONE 0.0s
-[WebServer] 
+[WebServer]
 [WebServer] #5 [1/2] FROM docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2
 [WebServer] #5 resolve docker.io/pgvector/pgvector:pg16@sha256:ad2e18408bf447f62092a8a5259e7df10505c5a0360bd1a1853ac8b8b0763da2 done
 [WebServer] #5 DONE 0.0s
-[WebServer] 
+[WebServer]
 [WebServer] #6 [2/2] RUN set -eux;     apt_host="deb.debian.org"; apt_host="${apt_host%%/*}";     sed -Ei "s#//deb\.debian\.org#//${apt_host}#g" /etc/apt/sources.list.d/debian.sources;     apt-get update;     apt-get install -y --no-install-recommends       build-essential ca-certificates git flex bison postgresql-server-dev-16;     git init /tmp/age;     git -C /tmp/age fetch --depth 1 "https://github.com/apache/age.git" "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     git -C /tmp/age checkout FETCH_HEAD;     test "$(git -C /tmp/age rev-parse HEAD)" = "2db2f060c4c9265a14d40f007eb8c56febf31e4c";     make -C /tmp/age;     make -C /tmp/age install;     rm -rf /tmp/age;     apt-get purge -y --auto-remove build-essential git flex bison postgresql-server-dev-16;     rm -rf /var/lib/apt/lists/*
 [WebServer] #6 CACHED
-[WebServer] 
+[WebServer]
 [WebServer] #7 exporting to image
 [WebServer] #7 exporting layers 0.0s done
 [WebServer] #7 exporting manifest sha256:d13b87c192f0789cb5d8c5bf38e40adf6a5031a2cf7d2ac3ce847142d267c679 0.0s done
@@ -64,30 +64,30 @@
 [WebServer] #7 naming to localhost/workspacex-postgres-age:pg16-age1.6.0 done
 [WebServer] #7 unpacking to localhost/workspacex-postgres-age:pg16-age1.6.0 0.0s done
 [WebServer] #7 DONE 0.1s
-[WebServer] 
+[WebServer]
 [WebServer] #8 resolving provenance for metadata file
 [WebServer] #8 DONE 0.0s
-[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
-[WebServer]  Network wsx-9d92fae943a591cb17f8_default Creating 
-[WebServer]  Network wsx-9d92fae943a591cb17f8_default Created 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Creating 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Creating 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Creating 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Created 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Created 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Created 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Starting 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Starting 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Starting 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Started 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Started 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Started 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Waiting 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Waiting 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Waiting 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Healthy 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Healthy 
-[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Healthy 
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+[WebServer]  Network wsx-9d92fae943a591cb17f8_default Creating
+[WebServer]  Network wsx-9d92fae943a591cb17f8_default Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Creating
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Creating
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Creating
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Created
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Starting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Starting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Starting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Started
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Started
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Started
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Waiting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Waiting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Waiting
+[WebServer]  Container wsx-9d92fae943a591cb17f8-minio-1 Healthy
+[WebServer]  Container wsx-9d92fae943a591cb17f8-redis-1 Healthy
+[WebServer]  Container wsx-9d92fae943a591cb17f8-postgres-1 Healthy
 [WebServer] (node:80567) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
 [WebServer] (node:80569) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
@@ -119,14 +119,14 @@
 [WebServer]   - Network:      http://127.0.0.1:25401
 [WebServer]   - Experiments (use with caution):
 [WebServer]     · proxyTimeout
-[WebServer] 
+[WebServer]
 [WebServer]  ✓ Starting...
-[WebServer] 
+[WebServer]
 [WebServer]    We detected TypeScript in your project and reconfigured your tsconfig.json file for you. Strict-mode is set to false by default.
 [WebServer]    The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
-[WebServer] 
+[WebServer]
 [WebServer]    	- include was updated to add '.next-research-ux-5780/types/**/*.ts'
-[WebServer] 
+[WebServer]
 [WebServer]  ✓ Ready in 2.9s
 [WebServer]  ○ Compiling /login ...
 [WebServer]  ✓ Compiled /login in 9.4s (1384 modules)
@@ -153,7 +153,7 @@ Running 1 test using 1 worker
   ✘  1 [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests (33.9s)
 
 
-  1) [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests 
+  1) [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests
 
     SyntaxError: The requested module './wave2-runtime' does not provide an export named 'AgentRunStatus'
 
@@ -202,11 +202,11 @@ Running 1 test using 1 worker
     ────────────────────────────────────────────────────────────────────────────────────────────────
 
   1 failed
-    [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests 
+    [research-ux] › e2e/research-ux-rounds.spec.ts:257:5 › R5 report completion removes source diagnostics and submits both strict file requests
 undefined
 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web:
- ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.research-ux.config.ts -g R5 
-[timing] pnpm --filter web exec playwright test --config playwright.research-ux.config.ts -g R5 
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.research-ux.config.ts -g R5
+[timing] pnpm --filter web exec playwright test --config playwright.research-ux.config.ts -g R5
   等待重e2e互斥锁：0s
   环境预留：0s
   等待资源：0s

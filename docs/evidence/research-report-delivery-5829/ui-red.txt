@@ -52,7 +52,7 @@ Received:
 expected document not to contain element, found <summary
   class="cursor-pointer text-sm font-medium"
 >
-  查看研究资料 · 
+  查看研究资料 ·
   1
    个来源
 </summary> instead
@@ -167,7 +167,7 @@ Error: expect(element).not.toBeInTheDocument()
 expected document not to contain element, found <summary
   class="cursor-pointer text-sm font-medium"
 >
-  查看研究资料 · 
+  查看研究资料 ·
   1
    个来源
 </summary> instead
