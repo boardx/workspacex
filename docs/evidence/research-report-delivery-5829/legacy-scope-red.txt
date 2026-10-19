@@ -1,0 +1,29 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ❯ tests/research/guided-progressive-candidates.test.ts (11 tests | 1 failed) 36ms
+   × does not multiply the per-question legacy task window by the whole chapter size 6ms
+     → expected "spy" to be called 3 times, but got 6 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-progressive-candidates.test.ts > does not multiply the per-question legacy task window by the whole chapter size
+AssertionError: expected "spy" to be called 3 times, but got 6 times
+ ❯ tests/research/guided-progressive-candidates.test.ts:134:18
+    132|   f.state.tasks[0]!.objective = f.state.outline[0]!.questions[0];
+    133|   try { await f.run(); } finally { f.budget.dispose(); }
+    134|   expect(f.read).toHaveBeenCalledTimes(3);
+       |                  ^
+    135| });
+    136| it('deduplicates discovery URLs across bounded supplements without cla…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  12:14:01
+   Duration  1.97s (transform 1.12s, setup 0ms, collect 1.72s, tests 36ms, environment 0ms, prepare 54ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-progressive-candidates.test.ts

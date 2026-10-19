@@ -1,0 +1,191 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web
+
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx (20 tests | 6 failed) 116ms
+   × treats saved formal report limitations as completed after generation and reload 60ms
+     → expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  不可用
+Received:
+  读取并整理真实来源已完成（不可用来源已排除）
+   × shows active siblings alongside partial search failures 2ms
+     → expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  失败
+Received:
+  检索资料执行中（部分检索失败）
+   × recognizes a running recovery attempt without erasing its failed task 1ms
+     → expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  失败
+Received:
+  检索资料执行中（部分检索失败）
+   × keeps live reading visible alongside a source error and preserves report prose 1ms
+     → expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  失败
+Received:
+  读取并整理真实来源执行中（部分来源读取失败）
+   × does not turn a historical reading failure into active reading during a search retry 1ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  待继续整理
+Received:
+  读取并整理真实来源部分未完成
+   × requires the current execution stamp after reclaim instead of relabeling old progress 3ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  待继续整理
+Received:
+  读取并整理真实来源部分未完成
+ ❯ tests/ui/guided-research-visual-contract.test.tsx (8 tests | 1 failed) 525ms
+   × F180 signed guided-research visual contract > keeps the signed search and report information hierarchy 33ms
+     → expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <summary
+  class="cursor-pointer text-sm font-medium"
+>
+  查看研究资料 · 
+  1
+   个来源
+</summary> instead
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > treats saved formal report limitations as completed after generation and reload
+Error: expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  不可用
+Received:
+  读取并整理真实来源已完成（不可用来源已排除）
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:17:57
+     15|   expect(screen.getByRole('status')).toHaveTextContent('执行完成');
+     16|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+     17|   expect(screen.getByTestId('execution-documents')).not.toHaveTextCont…
+       |                                                         ^
+     18|   expect(screen.queryByText('部分未完成')).not.toBeInTheDocument();
+     19|   expect(screen.getByTestId('execution-validation')).toHaveTextContent…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > shows active siblings alongside partial search failures
+Error: expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  失败
+Received:
+  检索资料执行中（部分检索失败）
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:48:54
+     46|   const view = render(<GuidedResearchExecutionTimeline state={state} /…
+     47|   expect(screen.getByTestId('execution-search')).toHaveTextContent('执…
+     48|   expect(screen.getByTestId('execution-search')).not.toHaveTextContent…
+       |                                                      ^
+     49|   expect(screen.getByRole('status')).toHaveTextContent('正在执行研究计…
+     50|   view.rerender(<GuidedResearchExecutionTimeline state={structuredClon…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > recognizes a running recovery attempt without erasing its failed task
+Error: expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  失败
+Received:
+  检索资料执行中（部分检索失败）
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:65:54
+     63|   const view = render(<GuidedResearchExecutionTimeline state={state} /…
+     64|   expect(screen.getByTestId('execution-search')).toHaveTextContent('执…
+     65|   expect(screen.getByTestId('execution-search')).not.toHaveTextContent…
+       |                                                      ^
+     66|   for (const terminal of [{ ...state, busy: false }, { ...state, contr…
+     67|     view.rerender(<GuidedResearchExecutionTimeline state={terminal} />…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > keeps live reading visible alongside a source error and preserves report prose
+Error: expect(element).not.toHaveTextContent()
+
+Expected element not to have text content:
+  失败
+Received:
+  读取并整理真实来源执行中（部分来源读取失败）
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:82:57
+     80|   const view = render(<GuidedResearchExecutionTimeline state={state} /…
+     81|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+     82|   expect(screen.getByTestId('execution-documents')).not.toHaveTextCont…
+       |                                                         ^
+     83|   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, bu…
+     84|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > does not turn a historical reading failure into active reading during a search retry
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  待继续整理
+Received:
+  读取并整理真实来源部分未完成
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:96:53
+     94|     activity: [{ id: 'old', sequence: 1, stage: 'reading', taskId: nul…
+     95|   }} />);
+     96|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+       |                                                     ^
+     97|   expect(screen.getByTestId('execution-documents')).not.toHaveTextCont…
+     98| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > requires the current execution stamp after reclaim instead of relabeling old progress
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  待继续整理
+Received:
+  读取并整理真实来源部分未完成
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:126:53
+    124|   };
+    125|   const view = render(<GuidedResearchExecutionTimeline state={state} /…
+    126|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+       |                                                     ^
+    127|   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, ac…
+    128|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/ui/guided-research-visual-contract.test.tsx > F180 signed guided-research visual contract > keeps the signed search and report information hierarchy
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <summary
+  class="cursor-pointer text-sm font-medium"
+>
+  查看研究资料 · 
+  1
+   个来源
+</summary> instead
+ ❯ tests/ui/guided-research-visual-contract.test.tsx:185:46
+    183|     const report = screen.getByTestId("research-report");
+    184|     expect(report).toHaveAttribute("data-layout", "full-width-report");
+    185|     expect(screen.queryByText(/查看研究资料/)).not.toBeInTheDocument();
+       |                                              ^
+    186|     expect(screen.getByRole("heading", { name: "报告目录" })).toBeInTh…
+    187|     expect(screen.getAllByRole("heading", { name: "政策研究报告" }).le…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 21 passed (28)
+   Start at  12:08:44
+   Duration  3.66s (transform 981ms, setup 160ms, collect 1.69s, tests 642ms, environment 924ms, prepare 60ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/guided-research-execution-timeline.test.tsx tests/ui/guided-research-visual-contract.test.tsx --maxWorkers=1 --minWorkers=1

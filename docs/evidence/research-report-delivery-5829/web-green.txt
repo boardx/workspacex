@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-execution-timeline.test.tsx (20 tests) 261ms
+ ✓ tests/ui/guided-research-visual-contract.test.tsx (8 tests) 854ms
+   ✓ F180 signed guided-research visual contract > keeps one work canvas and a collapsible assistant on guided steps 392ms
+ ✓ tests/ui/report-file-actions.test.tsx (10 tests) 296ms
+ ✓ tests/ui/interview-report-skill-files.test.tsx (8 tests) 282ms
+ ✓ tests/ui/research-report-file-source.test.tsx (2 tests) 124ms
+ ✓ tests/report-files-rewrite.test.ts (2 tests) 3ms
+
+ Test Files  6 passed (6)
+      Tests  50 passed (50)
+   Start at  12:12:26
+   Duration  10.04s (transform 1.64s, setup 630ms, collect 3.10s, tests 1.82s, environment 3.02s, prepare 286ms)
+

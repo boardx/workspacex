@@ -90,3 +90,56 @@ it("does not stop a retry on retained documents when the current window has no a
   expect(f.state.tasks[0]!.status).toBe("succeeded");
   expect(f.state.tasks[0]!.errorCode).toBeNull();
 });
+it('continues beyond three documents for a chapter with six confirmed questions', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Confirmed question ${i}?`);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(6);
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(6);
+  expect(f.search.search).toHaveBeenCalledTimes(1);
+});
+it('bounds broader chapters to nine approved documents instead of reading every hit', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 12 }, (_, i) => `Confirmed question ${i}?`);
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(9);
+  expect(f.search.search).toHaveBeenCalledTimes(1);
+});
+
+it('uses distinct confirmed subsection questions without inflating duplicate question text', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  const questions = Array.from({ length: 6 }, (_, i) => `Subsection question ${i}?`);
+  f.state.outline[0]!.questions = questions;
+  f.state.outline[0]!.subsections = [{ id: 'sub', title: 'Confirmed subsection', questions }];
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(6);
+});
+it('refuses a plan without confirmed questions instead of claiming coverage', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture(); f.state.outline[0]!.questions = [];
+  try { await expect(f.run()).rejects.toThrow(); } finally { f.budget.dispose(); }
+  expect(f.state.completed).toBe(false);
+  expect(f.state.report).toBeNull();
+});
+it('does not multiply the per-question legacy task window by the whole chapter size', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Legacy question ${i}?`);
+  f.state.tasks[0]!.questionId = 'chapter:0/question:0';
+  f.state.tasks[0]!.objective = f.state.outline[0]!.questions[0];
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.read).toHaveBeenCalledTimes(3);
+});
+it('deduplicates discovery URLs across bounded supplements without claiming report coverage', async () => {
+  screen.mockImplementation(async (_state, candidates) => candidates);
+  const f = fixture();
+  f.state.outline[0]!.questions = Array.from({ length: 6 }, (_, i) => `Question ${i}?`);
+  f.search.search.mockResolvedValue(Array.from({ length: 10 }, () => ({ title: 'Same page', url: 'https://example.org/same', content: 'Policy evidence' })));
+  try { await f.run(); } finally { f.budget.dispose(); }
+  expect(f.state.sources.filter(source => source.decision === 'accepted' && source.document)).toHaveLength(1);
+  expect(f.search.search.mock.calls.length).toBeLessThanOrEqual(7);
+  expect(f.state.completed).toBe(false);
+});

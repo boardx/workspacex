@@ -98,3 +98,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - 2026-10-16：旧来源重新评估的某批结果两次严格校验失败，只排除该批，独立健康批继续；不能把格式/语义无效评估写入确定无关缓存或供应商拒绝记录。新候选保留 task 级失败边界，资料全被排除仍不可伪造完成。controller+真实runtime的受控 NDJSON retry/重新生成反证与恢复见 docs/evidence/research-relevance-isolation-5800/README.md（#5800），不代表该线上会话已恢复。
 
 - #5800 补充：旧源弃批若令任务失去全部来源，报告准备须在本次 invalid-output 弃批且 canRecoverPartialReport 验证真实保留文档后，才转既有 reportPartial 路径；保留失败任务、局限说明及独立全文质量门。普通 negative 不触发此恢复，空章节/审核拒绝仍失败；受控 controller 的保存重读反证见同份证据。
+
+- 2026-10-19：研究导出 GET SourceInfo 的 title/notices 不能直接作为严格 POST source；与访谈一样显式投影 kind/id/reportVersion/reportHash，否则 HTTP 前即失败。来源池目标按同源确认问题数扩展到3–9，legacy逐题任务仍只取三源窗口；这是发现目标，不是引用条数或逐题证据完成保证。自动处理的来源细节不叠加到用户进度，正式正文后移除重复资料折叠；真实阻断与正文局限保留。受控浏览器/HTTP双格式证据见 docs/evidence/research-report-delivery-5829/README.md（#5829），不代表新原生文件或线上部署验收。

@@ -182,6 +182,7 @@ describe("F180 signed guided-research visual contract", () => {
     await screen.findByTestId("research-flow-report");
     const report = screen.getByTestId("research-report");
     expect(report).toHaveAttribute("data-layout", "full-width-report");
+    expect(screen.queryByText(/查看研究资料/)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "报告目录" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "政策研究报告" }).length).toBeGreaterThan(0);
   });

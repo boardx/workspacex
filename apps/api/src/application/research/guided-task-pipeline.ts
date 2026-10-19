@@ -21,7 +21,13 @@ export type PipelineComplete = (system: string, context: unknown, validate: (val
 const TASK_WORKERS = 3;
 const MODEL_WORKERS = 2;
 const READ_WORKERS = 3;
-const CHAPTER_SOURCE_TARGET = 3;
+/** Broader confirmed plans need a broader evidence pool. This is a discovery
+ * target, never proof that each question has support; extraction and review
+ * remain authoritative. Keep the legacy three-source floor and bounded reads. */
+function chapterSourceTarget(state: ResearchRuntime, sectionId: string): number {
+  const section = state.outline.find(item => item.id === sectionId && item.enabled);
+  return section ? Math.max(3, Math.min(9, reportQuestions([section]).length)) : 3;
+}
 
 export function normalizedResearchUrl(value: string): string {
   try {
@@ -208,7 +214,9 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
         // Stopping and success both use material approved in this attempt.
         // Retained documents may need a new scope/material validation on retry.
         const readable = new Set(sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).includes(task.id)).map(source => normalizedResearchUrl(source.url)));
-        if (readable.size >= CHAPTER_SOURCE_TARGET) break;
+        // A legacy question-scoped task still owns only that question. Do not
+        // multiply its window by all sibling questions in the chapter.
+        if (readable.size >= (task.questionId ? 3 : chapterSourceTarget(state, task.sectionId))) break;
       }
       return { sources, errorCode: sources.some(source => source.decision !== "excluded" && sourceTaskIds(source).includes(task.id)) ? null : "RESEARCH_SEARCH_NO_RELEVANT_SOURCES", release };
     } catch (error) { release(); throw error; }
@@ -308,7 +316,7 @@ export async function executeTaskPipeline(state: ResearchRuntime, persist: Runti
       if (search.read && section?.enabled) {
         const count = () => new Set(state.sources.filter(source => source.decision === "accepted" && source.document && sourceTaskIds(source).some(id => state.tasks.find(item => item.id === id)?.sectionId === section.id)).map(source => normalizedResearchUrl(source.url))).size;
         for (const { task, query } of scopedSupplementQueries(state, section, ordered)) {
-          check(); if (count() >= CHAPTER_SOURCE_TARGET) break;
+          check(); if (count() >= chapterSourceTarget(state, section.id)) break;
           if ((task.searchAttempts ?? []).some(record => record.query.trim().toLowerCase() === query.trim().toLowerCase()) || (task.searchAttempts?.length ?? 0) >= C.GUIDED_RESEARCH_SEARCH_ATTEMPT_LIMIT) continue;
           await attempt(task, query, false);
         }
