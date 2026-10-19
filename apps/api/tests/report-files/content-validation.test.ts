@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { expect, it } from 'vitest';
+import { reportFileExtractedText } from '@repo/contracts/report-file-content';
 import { ReportGeneratedFileValidator, validateReportContent } from '../../src/infrastructure/report-files/file-validator';
 const markdown = '# 中文报告\n\n用户需要可下载和编辑的真实报告文件。';
 const reportHash = createHash('sha256').update(markdown).digest('hex');
@@ -148,4 +149,10 @@ it('validates real PDF bytes with a wrapped canonical footnote marker', async ()
   ['Saved research', 'The complete approved research[^ 1] conclusion remains supported by original evidence.', `[^1]: Verified source ${url}`]
     .forEach((line, index) => page.drawText(line, { x: 30, y: 780 - index * 35, size: 8, font }));
   await expect(new ReportGeneratedFileValidator().validate('pdf', await pdf.save(), saved)).resolves.toBeUndefined();
+});
+
+it('removes only source-bound text markers, retaining wrong IDs and literal code', () => {
+  const text='正文甲[^ \n7]正文乙[^8]后续中文。 `[^7]`\n\n```txt\n[^7]\n```';
+  expect(reportFileExtractedText(text,['7'])).toBe('正文甲正文乙[^8]后续中文。 `[^7]`\n\n```txt\n[^7]\n```');
+  expect(reportFileExtractedText('ordinary [7] and ^7 and [^unknown] text',['7'])).toBe('ordinary [7] and ^7 and [^unknown] text');
 });
