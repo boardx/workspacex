@@ -1,5 +1,5 @@
 import { docxParagraphText } from './docx-paragraph-text';
-import { reportFileContentRequirements } from '@repo/contracts/report-file-content';
+import { reportFileContentRequirements, reportFileExtractedText } from '@repo/contracts/report-file-content';
 import { inspectDocx, unzip } from '@repo/skill-sandbox/ooxml';
 import { AnydocAttachmentToMarkdown } from '../chat/anydoc-attachment-to-markdown';
 import type { ReportFileSourceSnapshot } from '../../application/report-files/ports';
@@ -47,9 +47,9 @@ export function normalizeReportText(text: string): string {
 }
 /** Data completeness only. Never repair/rewrite the canonical report with another model. */
 export function validateReportContent(format: FileRequest['format'], extracted: string, source: ReportFileSourceSnapshot, relationUrls: readonly string[] = []): void {
-  const text = normalizeReportText(extracted);
   const completeInput = `${source.markdown}\n\n${source.appendixMarkdown ?? ''}`;
   const required = reportFileContentRequirements(completeInput);
+  const text = normalizeReportText(reportFileExtractedText(extracted, required.footnoteIds));
   const canonical = normalizeReportText(required.visibleText);
   for (const match of extracted.matchAll(/(?:ENOENT|no such file or directory|读取失败|SKILL_SANDBOX_INPUT_DIR|\/work\/input)/gi)) {
     if (!source.markdown.includes(match[0])) throw new ReportFileError('INVALID_FILE');

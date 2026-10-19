@@ -1,0 +1,1 @@
+{"result":"PASS","bytes":4301927,"pdfSha256":"c7dccf3ebe91501cf83b667900840dcf45c027d87c445c660f8c70378c516e79","reportHash":"0dc10db9adac47ae905a7e300ad4b63c8d01497c42dbc57e9415a2eeb90346ee","validation":"real PDF structure + actual anydoc extraction + complete saved content","newModelCalls":0}

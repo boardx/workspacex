@@ -126,3 +126,26 @@ it('keeps ordinary split DOCX words together while preserving actual paragraph b
  const bytes=await Packer.toBuffer(new Document({sections:[{children:[new Paragraph('Research report'),new Paragraph({children:[new TextRun('Behav'),new TextRun('ioral evidence remains unchanged in the original report.')]})]}]}));
  await expect(new ReportGeneratedFileValidator().validate('docx',bytes,saved)).resolves.toBeUndefined();
 });
+
+ it('compares PDF footnotes as presentation without losing prose, URLs or literal code', () => {
+  const url='https://example.com/verified-source';
+  const body='The complete approved research conclusion remains supported by the original evidence.';
+  const markdown=`# Saved research\n\n${body.replace(' remains','[^1] remains')}\n\nLiteral code \`[^1]\` must remain visible in this saved report.\n\n[^1]: [Verified source](${url})`;
+  const saved={...source,title:'Saved research',markdown};
+  const extracted=`# Saved research\n\n${body.replace(' remains','[^ 1] remains')}\n\nLiteral code \`[^1]\` must remain visible in this saved report.\n\n[^1]: [Verified source](${url})`;
+  expect(()=>validateReportContent('pdf',extracted,saved)).not.toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replace('original evidence',''),saved)).toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replace(url,''),saved)).toThrow();
+  expect(()=>validateReportContent('pdf',extracted.replace('code `[^1]`','code ``'),saved)).toThrow();
+ });
+
+it('validates real PDF bytes with a wrapped canonical footnote marker', async () => {
+  const { PDFDocument, StandardFonts } = await import('pdf-lib');
+  const url = 'https://example.com/verified-source';
+  const markdown = `# Saved research\n\nThe complete approved research[^1] conclusion remains supported by original evidence.\n\n[^1]: Verified source ${url}`;
+  const saved = { ...source, title: 'Saved research', markdown };
+  const pdf = await PDFDocument.create(), page = pdf.addPage(), font = await pdf.embedFont(StandardFonts.Helvetica);
+  ['Saved research', 'The complete approved research[^ 1] conclusion remains supported by original evidence.', `[^1]: Verified source ${url}`]
+    .forEach((line, index) => page.drawText(line, { x: 30, y: 780 - index * 35, size: 8, font }));
+  await expect(new ReportGeneratedFileValidator().validate('pdf', await pdf.save(), saved)).resolves.toBeUndefined();
+});

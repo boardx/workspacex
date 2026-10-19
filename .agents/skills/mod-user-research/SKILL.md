@@ -104,3 +104,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - #5829 P2复审：补搜必须按当前章节已提交的 accepted document normalized URL 数重算剩余名额，并据此缩小本批读取窗口；已有5/6或8/9只补1。重复URL、未读/排除和否定候选不占新名额；legacy逐题补搜另保留三源预算，primary/recovery仍按本次实际批准材料停，不用历史来源跳过重试验证。RED5/定向31/研究889/原完整生产受控UI/API/PG链路证据见同份README。
 
 - #5829 首击生命周期：异步SourceInfo绑定后，DOM按钮存在不代表passive初始化已完成；共享导出控件若稍后epoch++/abort/clear，会丢掉已发出的合法首次请求。epoch初始化/失效移到轻量layout effect，保留同样source/disabled依赖与卸载保护。真实wrapper+Profiler首commit单击、HTTP-onlymock双格式RED2（POST先通过，结果被清空），完整Web8192/943文件、禁用/卸载晚返回/StrictMode和productionR5证据见同份README；不能只加等待或双击掩盖。
+
+- 2026-10-19：PDF原生run成功但导出INVALID_FILE时，须用同次真实附件和精确input hash重放validator；canonical AST去脚注而提取文本保留 `[^1]`/换行 `[^ 7]` 会把完整段落误判缺失。只按canonical实际脚注ID清理提取AST文本/引用节点的呈现符号，保留代码字面量、原文件和全文/URL/重复/权限门。真实4301927字节PDF离线通过，无新模型调用；旧终态任务不会自动恢复（#5832，docs/evidence/research-pdf-validation-5832/README.md）。

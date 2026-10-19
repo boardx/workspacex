@@ -1,0 +1,35 @@
+RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api
+
+ ❯ tests/report-files/content-validation.test.ts (29 tests | 1 failed) 150ms
+   × compares PDF footnotes as presentation without losing prose, URLs or literal code 4ms
+     → expected [Function] to not throw an error but 'Error: INVALID_FILE' was thrown
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/report-files/content-validation.test.ts > compares PDF footnotes as presentation without losing prose, URLs or literal code
+AssertionError: expected [Function] to not throw an error but 'Error: INVALID_FILE' was thrown
+
+- Expected:
+undefined
+
++ Received:
+"Error: INVALID_FILE"
+
+ ❯ tests/report-files/content-validation.test.ts:136:64
+    134|   const saved={...source,title:'Saved research',markdown};
+    135|   const extracted=`# Saved research\n\n${body.replace(' remains','[^ 1…
+    136|   expect(()=>validateReportContent('pdf',extracted,saved)).not.toThrow…
+       |                                                                ^
+    137|   expect(()=>validateReportContent('pdf',extracted.replace('original e…
+    138|   expect(()=>validateReportContent('pdf',extracted.replace(url,''),sav…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 28 passed (29)
+   Start at  16:46:20
+   Duration  953ms (transform 89ms, setup 0ms, collect 699ms, tests 150ms, environment 0ms, prepare 29ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/799b/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.report-files-unit.config.ts tests/report-files/content-validation.test.ts
