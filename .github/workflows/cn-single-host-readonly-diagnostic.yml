@@ -9,10 +9,9 @@ concurrency:
   cancel-in-progress: false
   queue: max
 jobs:
-  observe:
+  materialize:
     if: github.ref == 'refs/heads/main'
-    environment: production-cn-promotion
-    runs-on: [self-hosted, linux, workspacex-cn-production]
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - uses: actions/checkout@v5
@@ -21,9 +20,32 @@ jobs:
           persist-credentials: false
           sparse-checkout: scripts/cn-single-host-readonly-diagnostic.py
           sparse-checkout-cone-mode: false
-      - name: Verify reviewed bytes and collect metadata once without elevation
+      - name: Verify approved script before transport
         shell: bash
         run: |
           set -euo pipefail
           printf '%s  %s\n' "2f2adc6b0bbc12e3cb07e7140abd1a376749ce1e82499deaa9902bbfae13d813" scripts/cn-single-host-readonly-diagnostic.py | sha256sum --check --strict
-          exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C /usr/bin/timeout --signal=TERM --kill-after=1s 58s /usr/bin/python3 -I -S -B scripts/cn-single-host-readonly-diagnostic.py
+      - uses: actions/upload-artifact@v6
+        with:
+          name: cn-approved-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: scripts/cn-single-host-readonly-diagnostic.py
+          if-no-files-found: error
+          retention-days: 1
+  observe:
+    needs: materialize
+    if: github.ref == 'refs/heads/main'
+    environment: production-cn-promotion
+    runs-on: [self-hosted, linux, workspacex-cn-production]
+    timeout-minutes: 3
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-approved-probe-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/cn-approved-probe-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Verify reviewed bytes and collect metadata once without elevation
+        shell: bash
+        working-directory: ${{ runner.temp }}/cn-approved-probe-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          printf '%s  %s\n' "2f2adc6b0bbc12e3cb07e7140abd1a376749ce1e82499deaa9902bbfae13d813" cn-single-host-readonly-diagnostic.py | sha256sum --check --strict
+          exec /usr/bin/env -i PATH=/usr/bin:/bin LC_ALL=C /usr/bin/timeout --signal=TERM --kill-after=1s 58s /usr/bin/python3 -I -S -B cn-single-host-readonly-diagnostic.py
