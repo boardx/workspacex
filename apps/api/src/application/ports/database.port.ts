@@ -34,7 +34,8 @@ export interface DatabasePort {
    * zero rows and looks like "no data" rather than "error" -- the hardest class of bug
    * to track down.
    * Narrow billing exception: verified cross-owner payment receipt recovery/crediting
-   * and rejected-webhook security audit, plus conditional expired-PENDING order
+   * and rejected-webhook security audit, verified Stripe subscription synchronization
+   * through a narrow database capability, plus conditional expired-PENDING order
    * maintenance, operate only on owner-global billing tables. Both crediting and
    * expiry stores share this pool and enforce billing-global-boundary;
    * it must never read organization settings, identity, or other tenant content.

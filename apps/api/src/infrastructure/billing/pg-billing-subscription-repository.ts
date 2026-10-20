@@ -7,6 +7,13 @@ import { MAX_ACTIVE_PURCHASE_INTENTS, SubscriptionIntentLimitError, Subscription
 type Row = { status: string; plan_ref: string | null; current_period_end: Date | null; cancel_at_period_end: boolean;
   customer_ref: string | null; subscription_ref: string; binding_generation: string; synchronization_uncertain: boolean };
 async function snapshot(session: TenantSession, userId: string): Promise<SubscriptionSnapshot | null> {
+  // The latest verified binding can be unresolved before its first supported snapshot.
+  // Returning none or the previous terminal subscription would incorrectly allow rebuy.
+  const uncertain = await session.query(`SELECT 1 FROM billing_stripe_bindings b
+    LEFT JOIN billing_subscriptions s ON s.user_id=b.user_id
+    WHERE b.user_id=$1 AND b.synchronization_uncertain
+      AND b.binding_generation>=COALESCE(s.binding_generation,0) LIMIT 1`, [userId]);
+  if (uncertain.rows.length) throw new SubscriptionError("dependency_unavailable");
   const row = (await session.query<Row>(`SELECT status,plan_ref,current_period_end,cancel_at_period_end,customer_ref,subscription_ref,binding_generation,synchronization_uncertain
     FROM billing_subscriptions WHERE user_id=$1`, [userId])).rows[0];
   if (!row) return null;

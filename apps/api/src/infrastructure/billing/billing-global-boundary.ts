@@ -1,5 +1,10 @@
-/** Single-source global billing statements for verified receipts and order expiry. No caller-supplied SQL is admitted. */
+/** Single-source global billing statements for verified receipts, Stripe subscription synchronization and order expiry. No caller-supplied SQL is admitted. */
 export const BILLING_GLOBAL_SQL = Object.freeze({
+  stripeEventLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+  stripeUserLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
+  stripeIntentOwner: "SELECT user_id FROM billing_purchase_intents WHERE intent_hash=$1",
+  stripeBindingOwner: "SELECT user_id,customer_ref FROM billing_stripe_bindings WHERE subscription_ref=$1",
+  stripeApply: "SELECT billing_apply_stripe_event($1,$2,$3,$4,$5::jsonb,$6) AS result",
   closeExpiredOrders: `WITH due AS (
     SELECT order_no FROM billing_orders
     WHERE status='PENDING' AND created_at<=now()-interval '15 minutes' AND expired_at<=now()

@@ -14,6 +14,7 @@ on:
       - 'apps/api/tests/billing/**'
       - 'apps/api/tests/support/**'
       - 'apps/api/vitest.billing-cashier.config.ts'
+      - 'apps/web/e2e/billing-subscription-live.spec.ts'
       - 'apps/web/app/billing/**'
       - 'apps/web/components/billing/**'
       - 'apps/web/components/shell/personal-menu.tsx'
@@ -51,5 +52,7 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: billing-cashier-glue-${{ github.run_id }}
-          path: phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue/
+          path: |
+            phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue/
+            apps/api/test-results/billing-stripe/
           if-no-files-found: warn
