@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ❯ tests/research/guided-report-work-queue.test.ts (4 tests | 1 failed) 126ms
+   × starts the full provider budget only after a queued report request is admitted 56ms
+     → expected Error: RESEARCH_REPORT_MODEL_TIME_BUDGET_… { reasonCode: '…' } to be undefined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-work-queue.test.ts > starts the full provider budget only after a queued report request is admitted
+AssertionError: expected Error: RESEARCH_REPORT_MODEL_TIME_BUDGET_… { reasonCode: '…' } to be undefined
+
+- Expected: 
+undefined
+
++ Received: 
+[Error: RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED]
+
+ ❯ tests/research/guided-report-work-queue.test.ts:105:26
+    103|     await vi.runAllTimersAsync();
+    104|     const result = await running;
+    105|     expect(result.error).toBeUndefined();
+       |                          ^
+    106|     expect(result.report?.sections).toHaveLength(3);
+    107|     expect(firstScopeAttempts).toHaveLength(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  00:24:51
+   Duration  1.07s (transform 518ms, setup 0ms, collect 824ms, tests 126ms, environment 0ms, prepare 32ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-report-work-queue.test.ts

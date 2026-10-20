@@ -303,5 +303,7 @@
   "baselineRevision": "305c629c4",
   "configurationNote": "Authorized local model file, production ConfiguredModelProvider with existing withGuidedThinkingPolicy. Secrets are never included.",
   "acceptanceBoundary": "Direct generateReportChapters comparison with schema/citation/chapter review gates. Does not run source preparation, full API/DB publication readiness or browser acceptance.",
-  "evidenceCountingNote": "Initial evidence requests and evidence_revision requests are separate. Baseline repair count was not recorded (null), never inferred as zero. Total model calls include all actual requests."
+  "evidenceCountingNote": "Initial evidence requests and evidence_revision requests are separate. Baseline repair count was not recorded (null), never inferred as zero. Total model calls include all actual requests.",
+  "measuredProductRevision": "e4bca695bb32f08b6f3ff9bad7291259cb29fbf2",
+  "subsequentChangeNote": "A later queue-budget correction was validated with fake-clock and cancellation tests; these timings were not rerun on that revision."
 }

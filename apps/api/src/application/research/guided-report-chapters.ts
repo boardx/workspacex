@@ -1,7 +1,6 @@
 import { reportPerformance, type ReportPerformanceSink } from "./guided-report-performance";
-import { reportWorkQueue } from "./guided-report-work-queue";
+import { reportWorkQueue, queuedReportRequest } from "./guided-report-work-queue";
 import { inlineReportSources, validateGeneratedChapter, validateChapterOutput, chapterValidationIssues } from "./guided-chapter-citation-validation";
-import { SearchBudget, GUIDED_REPORT_MODEL_BUDGET_MS } from "./guided-search-budget";
 import { orderedChapterWork } from "./guided-report-chapter-work";
 import type { EvidenceAttemptDiagnostic } from "./guided-report-evidence-validation";
 import { initializeReportTimeline, updateReportTimeline, failActiveReportTimeline } from "./guided-report-timeline";
@@ -141,15 +140,21 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         let result;
         const callStarted = performance.now();
         let attemptOpen = true;
-        const callBudget = new SearchBudget(GUIDED_REPORT_MODEL_BUDGET_MS, "RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED", input.signal);
-        const boundedInput = { ...input, signal: callBudget.signal };
         try {
-          result = await callBudget.run(() => requests.run(() => publish && model.completeStream ? model.completeStream(boundedInput, async (delta) => {
-            if (!attemptOpen) throw new ResearchRuntimeError("RESEARCH_EXECUTION_INTERRUPTED");
-            callBudget.check();
-            try { seen ||= Boolean(delta); await publish(delta); }
-            catch (error) { callbackFailed = true; callbackError = error; throw error; }
-          }) : model.complete(boundedInput), callBudget.signal));
+          // Queueing retains parent cancellation, but consumes no provider budget.
+          result = await queuedReportRequest(requests, async (callBudget) => {
+            const boundedInput = { ...input, signal: callBudget.signal };
+            try {
+              return await (publish && model.completeStream ? model.completeStream(boundedInput, async (delta) => {
+                // Observe provider settlement before a retained callback writes.
+                await Promise.resolve();
+                if (!attemptOpen) throw new ResearchRuntimeError("RESEARCH_EXECUTION_INTERRUPTED");
+                callBudget.check();
+                try { seen ||= Boolean(delta); await publish(delta); }
+                catch (error) { callbackFailed = true; callbackError = error; throw error; }
+              }) : model.complete(boundedInput));
+            } finally { attemptOpen = false; }
+          }, input.signal);
         } catch (error) {
           attemptOpen = false;
           // Adapters can wrap observer/persistence errors as transport failures.
@@ -161,7 +166,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
           await new Promise((resolve) => setTimeout(resolve, 500));
           continue;
         } finally {
-          attemptOpen = false; callBudget.dispose();
+          attemptOpen = false;
           metrics.record({ stage: context.reportStage, ...(context.section ? { sectionId: context.section.id } : {}),
             durationMs: Math.max(0, performance.now() - callStarted), failed: !result,
             inputCharacters: input.system.length + input.user.length, outputCharacters: result?.text.length ?? 0 });

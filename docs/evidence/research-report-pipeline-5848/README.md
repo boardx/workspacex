@@ -14,7 +14,7 @@ Private diagnostics record source preparation/model stage durations, first real 
 
 ## Validation
 
-- Full research suite: **40 files / 911 tests PASS**; baseline before changes889 PASS.
+- Full research suite: **40 files / 914 tests PASS**; baseline before changes889 PASS.
 - UI: **2 files / 35 tests PASS**.
 - Real local Chromium: desktop1280/mobile375, **2 tests PASS**, approved prose and progress survive reload; routed runtime fixture, not database/model acceptance.
 - Full API and Web TypeScript PASS; API lint and affected Web ESLint PASS; spec-to-CI coverage PASS; init.sh fast health PASS (not full-repository validation).
@@ -87,3 +87,9 @@ All3 generator calls returned schema-valid reports after existing citation/chapt
 This does not reproduce the screenshot43-source report. A second read-only browser attempt to that original session also timed out; no report action was sent. Cold source preparation remains global. The implementation meets the approved first-prose/repeated-evidence goal, while original-session cold total performance remains unverified.
 
 Evidence counting review: initial evidence requests exclude evidence_revision. Real cold has2 initial +1 repair evidence request; baseline repair count was not recorded and is not treated as zero. Total model calls already include every request. Reproduction now records both fields and exits nonzero if any generator case fails.
+
+## Queue deadline review correction
+
+GitHub independent P2 discussion_r4326140399 identified a per-call90s budget beginning before permit admission. A fake-clock regression reproduced failure with80s valid queue wait followed by89s actual provider work. queuedReportRequest now creates its budget only after admission, while parent cancellation can still cancel queue wait. Caller timeout is raced outside the queue-owned actual provider promise: a provider ignoring abort retains its permit until settlement, keeping actual concurrency at4. A second RED test exposed the naive inside-queue timeout race releasing a permit early; the admission bridge fixes it. Provider settlement retires retained streaming callbacks before they may write.
+
+Full research40files914PASS; queue6tests include waiting-budget, abort-ignoring provider, parent cancellation, retained source-heavy extraction and cache reuse. API typecheckPASS; final push repeats full affected type/lint. The archived real-model timings measured product revision e4bca695b before this queue correction; they are historical measurements, not a fresh run of the final revision. No additional real-model speed claim is made.
