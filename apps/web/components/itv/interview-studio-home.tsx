@@ -272,7 +272,7 @@ function HistoryCard({ item, onChanged }: { item: DigitalInterviewHistoryRow; on
     metadata={<><span className="inline-flex items-center gap-1.5"><Users className="size-4" aria-hidden />{item.expertCount > 0 ? `${item.completedExpertCount} / ${item.expertCount} 位专家完成` : "尚未选择专家"}</span><time dateTime={item.updatedAt} className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" aria-hidden />{new Date(item.updatedAt).toLocaleDateString("zh-CN")}</time></>}
     primaryAction={<ActionButton asChild variant="primary"><Link href={action.href}>{action.label}<ArrowRight className="size-4" aria-hidden /></Link></ActionButton>}
     management={<InterviewHistoryCardActions item={item} onChanged={onChanged} />}>
-    {completion !== null && <div className="flex items-center gap-3">
+    {completion !== null && item.status !== "completed" && <div className="flex items-center gap-3">
       <div role="progressbar" aria-label="专家访谈完成进度" aria-valuemin={0} aria-valuemax={item.expertCount} aria-valuenow={Math.min(item.completedExpertCount, item.expertCount)} aria-valuetext={`${item.completedExpertCount} / ${item.expertCount} 位专家完成`} className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
         <div className="h-full rounded-full bg-foreground" style={{ width: `${completion}%` }} />
       </div>

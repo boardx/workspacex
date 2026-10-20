@@ -40,7 +40,7 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
   return <div data-testid="itv-markdown-intake">
     <InterviewStepHeader title="导入需求" />
     <section className="rounded-2xl border border-border bg-card p-4 lg:p-5">
-      <label htmlFor="interview-demand-markdown" className="sr-only">研究需求 Markdown</label>
+      <label htmlFor="interview-demand-markdown" className="text-sm font-medium">研究需求 Markdown</label>
       <div className="mt-3 rounded-xl border border-input bg-background p-4">
         <textarea id="interview-demand-markdown" value={voicePreview ? (markdown ? `${markdown}\n\n${voicePreview}` : voicePreview) : markdown} onChange={(event) => onChange(event.target.value)} disabled={busy} readOnly={readOnly}
           placeholder={"请描述你的研究需求，例如：\n\n## 研究目标\n你希望解决什么问题？\n\n## 目标用户\n你希望了解谁的实际行为？\n\n## 关键问题\n最近一次具体场景发生了什么？"}

@@ -1,0 +1,53 @@
+{
+  "sha": "304d22a23da0e5e035b1aa439c4be4f8828fcb07",
+  "baseURL": "http://localhost:35843",
+  "boundary": "Real Chromium + local Next pages. HTTP/session fixtures; no live auth, DB or model.",
+  "checks": [
+    {
+      "round": "R1",
+      "width": 1280,
+      "check": "Completed card shows report CTA and no progressbar",
+      "pass": true
+    },
+    {
+      "round": "R2",
+      "width": 1280,
+      "check": "Initial focus; empty name hint + disabled submit; 503 preserves input + focuses alert; retry; Escape closes",
+      "pass": true
+    },
+    {
+      "round": "R1",
+      "width": 375,
+      "check": "Completed card shows report CTA and no progressbar",
+      "pass": true
+    },
+    {
+      "round": "R2",
+      "width": 375,
+      "check": "Initial focus; empty name hint + disabled submit; 503 preserves input + focuses alert; retry; Escape closes",
+      "pass": true
+    },
+    {
+      "round": "R3",
+      "width": 375,
+      "check": "empty state",
+      "text": "用户访谈\n共 0 次访谈\n新建访谈\n历史访谈\n专家列表\n搜索访谈\n最近更新\n\n还没有访谈，创建第一次访谈，开始了解用户。\n\n新建访谈",
+      "pass": true
+    },
+    {
+      "round": "R3",
+      "width": 375,
+      "check": "error state",
+      "text": "用户访谈\n新建访谈\n历史访谈\n专家列表\n搜索访谈\n最近更新\n\n暂时无法加载访谈，请稍后重试。\n\n重新加载访谈",
+      "pass": true
+    }
+  ],
+  "longTags": {
+    "top": -36.75,
+    "bottom": 703.75,
+    "viewport": 667,
+    "scrollHeight": 739,
+    "clientHeight": 739
+  },
+  "posts": 5
+}

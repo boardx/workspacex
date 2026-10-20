@@ -1,0 +1,58 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/c3a4/workspacex/apps/web
+
+ ✓ tests/ui/interview-create-feedback.test.tsx (2 tests) 4821ms
+   ✓ announces and focuses a failed create without losing the name or retry identity 4228ms
+   ✓ explains why an empty name cannot be submitted 592ms
+ ✓ tests/ui/interview-create-project-scope.test.tsx (3 tests) 7080ms
+   ✓ B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目 > 面包屑回项目、scope 是 project、创建后 intake 页续上 projectId 3862ms
+   ✓ B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目 > shows readable failure, preserves inputs and retries the same idempotent request 2238ms
+   ✓ B2-S2 访谈 Studio 带 ?projectId= 新建 ⇒ 访谈归到项目 > 没有 projectId ⇒ 仍是独立访谈，没有面包屑 973ms
+ ✓ tests/ui/interview-markdown-intake.test.tsx (9 tests) 10513ms
+   ✓ places input tools beside the editor while keeping confirmation in the footer 3088ms
+   ✓ native file input saves imported Markdown through the sole source API 1941ms
+   ✓ uploads the first research file without attempting to save a blank intake 638ms
+   ✓ importsTextAsMarkdown keeps Markdown editable without a structured research copy 473ms
+   ✓ loads the persisted partial analysis after a failed generation before retrying 1697ms
+   ✓ fileFailureKeepsDraft and reports a recovery action 1049ms
+   ✓ microphoneDeniedCanUseText without losing the existing demand 524ms
+   ✓ confirmation persists Markdown first and generates analysis without a JSON research-body copy 924ms
+ ✓ tests/ui/interview-workflow-actions.test.tsx (6 tests) 11978ms
+   ✓ keeps one revision and confirmation footer and blocks duplicate confirmation while truly working 4805ms
+   ✓ does not confuse read-only expert controls with active loading 2861ms
+   ✓ uses the same footer for question actions without moving local delete controls 579ms
+   ✓ focuses only the newly added question and selects its placeholder for immediate typing 1615ms
+   ✓ allows wrapped long-question editing while keeping each question one canonical line 1793ms
+ ✓ tests/ui/interview-studio-home.test.tsx (28 tests) 50688ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > renders saved account SVG avatars and edit controls in the expert directory 9359ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 默认显示历史卡，一级标签只有历史访谈与专家列表，新建按钮完整单行 3019ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > uses the shared Studio list-page density and tag treatment 1175ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > exposes saved expert completion rather than a fabricated workflow percentage 977ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > completed cards emphasize the report without repeating a full progress indicator 580ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > does not imply expert completion when no experts have been selected 425ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > the header entry opens and reopens scoped creation without a duplicate creation tile null 1897ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > the header entry opens and reopens scoped creation without a duplicate creation tile 'project night' 2303ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > selects the default name so typing immediately replaces it 967ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > returns keyboard focus to the header after dismissing creation 1091ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 从全部历史记录动态派生 Tag 并在客户端单选过滤 958ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 忽略空 Tag 并按首次出现顺序显示去重后的 Tag 320ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 搜索和标签组合过滤，排序按更新时间切换 563ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 正式访谈依服务端 canManage 显示菜单，修改和删除调用真实 API client 3277ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 通过真实创建接口提交名称、标签和可见范围，再用服务端 ID 恢复流程 1905ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 创建依赖失败时保留输入，并用同一个 requestId 重试相同 payload 849ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 返回历史访谈后可以看到并继续本地 Mock 草稿 899ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 旧版 Mock 草稿缺少流程字段时仍可恢复为确认主题卡片 1206ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 本地 Mock 历史卡可编辑名称和标签，无权限的服务端记录隐藏菜单 2467ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 管理访谈菜单可在完整指针事件序列后再次关闭 442ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 删除本地 Mock 历史卡前需要确认 2175ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 专家列表同时显示维护的内置画像与正式专家目录 6772ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 本地 Mock 草稿只在显式预览模式出现 594ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 专家加载失败可重试且不泄露内部错误码 5000ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > 首次使用提供主操作，筛选无结果可恢复全部访谈 877ms
+
+ Test Files  5 passed (5)
+      Tests  48 passed (48)
+   Start at  12:53:56
+   Duration  96.49s (transform 31.14s, setup 5.77s, collect 121.75s, tests 85.08s, environment 42.41s, prepare 5.33s)
+
