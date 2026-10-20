@@ -112,6 +112,23 @@ describe("live Stripe subscription", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(0); });
     expect(fetcher.mock.calls.filter(([url]) => new URL(url).pathname === "/billing/subscription")).toHaveLength(8);
   });
+  it.each(["cleared", "unavailable"])("allows explicit restart after an uncorrelated %s-storage return times out", async (storage) => {
+    window.history.replaceState({}, "", "/billing?subscription_return=1");
+    const unavailable = storage === "unavailable" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("storage unavailable"); }) : null;
+    vi.useFakeTimers(); const fetcher = setup();
+    try {
+      mount(); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect((screen.getByRole("button", { name: "订阅 Pro" }) as HTMLButtonElement).disabled).toBe(true);
+      for (let n = 0; n < 6; n++) await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+      const restart = screen.getByRole("button", { name: "重新开始订阅" }) as HTMLButtonElement;
+      expect(restart.disabled).toBe(false);
+      expect(screen.getByTestId("billing-subscription-status").textContent).toBe("付款结果确认中");
+      expect(fetcher.mock.calls.filter(([url]) => url.includes("upgrade-link"))).toHaveLength(0);
+      fireEvent.click(restart); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      expect(fetcher.mock.calls.filter(([url]) => url.includes("upgrade-link"))).toHaveLength(1);
+      expect(navigateToStripe).toHaveBeenCalledTimes(1);
+    } finally { unavailable?.mockRestore(); }
+  });
   it("confirms Pro only after a stored active response and cancels remaining poll timers", async () => {
     window.history.replaceState({}, "", "/billing?subscription_return=1");
     vi.useFakeTimers(); const fetcher = setup(); const initial = fetcher.getMockImplementation()!;

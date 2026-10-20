@@ -59,4 +59,15 @@ test("configured Stripe checkout, return confirmation, Portal and uncertain stat
   await expect(page.getByRole("button", { name: "处理订阅付款" })).toHaveCount(0);
   await expect(page.getByText("Pro 权益已生效")).toHaveCount(0);
   expect(upgrades).toBe(1);
+  // A return in another tab/storage context must recover after bounded confirmation.
+  status = "none"; failRead = false;
+  await page.evaluate(() => sessionStorage.clear());
+  await page.goto(`${baseURL}/billing?subscription_return=1`);
+  await expect(page.getByRole("button", { name: "订阅 Pro", exact: true })).toBeDisabled();
+  const restart = page.getByRole("button", { name: "重新开始订阅", exact: true });
+  await expect(restart).toBeEnabled({ timeout: 25_000 });
+  expect(upgrades).toBe(1);
+  await restart.click();
+  await expect(page).toHaveURL("https://checkout.stripe.com/c/pay/browser-evidence");
+  expect(upgrades).toBe(2);
 });

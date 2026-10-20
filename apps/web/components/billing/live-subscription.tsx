@@ -55,6 +55,8 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
   const checkoutUnconfirmed = !!pending && eligibility?.canCreateSubscription;
   const waiting = returning && (state.status !== "ready" || state.data.status === "none" || state.data.status === "incomplete" || !!checkoutUnconfirmed);
 
+  const canRestart = waiting && !pending && polls >= POLL_LIMIT && state.status === "ready" && state.data.status === "none";
+
   React.useEffect(() => {
     if (state.status !== "ready") return;
     const newlyTerminal = pending && ["canceled", "incomplete_expired"].includes(state.data.status)
@@ -119,11 +121,11 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
       {end && !Number.isNaN(end.valueOf()) && <p className="text-13">本期结束：{end.toLocaleDateString("zh-CN")}</p>}
       {state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">将在本期结束后取消</p>}
       {eligibility?.canManageSubscription && !eligibility.hasEffectivePro && <p className="text-13 text-muted-foreground">当前 Pro 权益未生效，可前往账单页面处理付款或恢复订阅。</p>}
-      {stripeEnabled && <Button disabled={busy || (!!error && !checkoutUnconfirmed) || (waiting && !!eligibility?.canCreateSubscription && !pending)} onClick={() => void openHostedPage()}>
-        {busy ? "正在打开…" : eligibility?.canManageSubscription ? (eligibility.hasEffectivePro ? "管理订阅" : "处理订阅付款") : pending ? "继续订阅付款" : "订阅 Pro"}
+      {stripeEnabled && <Button disabled={busy || (!!error && !checkoutUnconfirmed) || (waiting && !!eligibility?.canCreateSubscription && !pending && !canRestart)} onClick={() => void openHostedPage()}>
+        {busy ? "正在打开…" : eligibility?.canManageSubscription ? (eligibility.hasEffectivePro ? "管理订阅" : "处理订阅付款") : pending ? "继续订阅付款" : canRestart ? "重新开始订阅" : "订阅 Pro"}
       </Button>}
     </div>}
-    {waiting && <p role="status" className="text-13 text-muted-foreground">{polls >= POLL_LIMIT ? "付款结果尚未确认，可稍后刷新状态。请勿重复购买。" : "正在确认付款结果，请稍候。订阅权益以账户同步结果为准。"}</p>}
+    {waiting && <p role="status" className="text-13 text-muted-foreground">{polls >= POLL_LIMIT ? (canRestart ? "付款结果尚未确认。如确认尚未付款，可重新开始订阅；已付款请勿重复购买。" : "付款结果尚未确认，可稍后刷新状态。请勿重复购买。") : "正在确认付款结果，请稍候。订阅权益以账户同步结果为准。"}</p>}
     {error && <p role="alert" className="text-13 text-muted-foreground">{error}</p>}
     {state.status === "ready" && <Button variant="outline" size="sm" onClick={refresh} disabled={busy}>刷新订阅状态</Button>}
     {!stripeEnabled && <p className="text-12 text-muted-foreground">订阅购买与账单管理暂不可用，请稍后再试。</p>}
