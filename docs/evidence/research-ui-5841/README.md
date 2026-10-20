@@ -56,11 +56,15 @@ apps/web/components/research-studio/research-floating-assistant.tsx
 apps/web/components/research-studio/research-intake.tsx
 apps/web/e2e/research-ui-consistency.config.ts
 apps/web/e2e/research-ui-consistency.spec.ts
+apps/web/playwright.prototype-audit.config.ts
 apps/web/tests/research-ui-consistency.tsconfig.json
 apps/web/tests/ui/guided-research-conversation-live.test.tsx
 apps/web/tests/ui/research-production-routes.test.tsx
 apps/web/tests/ui/research-ui-consistency.test.tsx
 docs/evidence/research-ui-5841/README.md
+docs/evidence/research-ui-5841/ci-control-plane-failure.txt
+docs/evidence/research-ui-5841/ci-prototype-test-list.txt
+docs/evidence/research-ui-5841/ci-spec-coverage-green.txt
 docs/evidence/research-ui-5841/init-final.txt
 docs/evidence/research-ui-5841/lint-affected.txt
 docs/evidence/research-ui-5841/lint-design-final.txt
@@ -109,3 +113,7 @@ docs/evidence/research-ui-5841/unit-final.txt
 
 ## 推送门禁增量
 0333a9562推送时，仓库pre-push完整Web `typecheck` 与完整 `lint` 全部exit0（4/4 Turbo任务成功，1m34.832s），见pre-push-full-web.txt。此前本地主动中止的记录只是历史，不再是最终验证缺口。当前产品差异仍为已审查的2b00fd678；后续只更新证据。
+
+## CI覆盖修复（无产品源码新增）
+PR #5845 在 head 5c1006481 的 verify-control-plane（run39374284856/job118469131649）明确将新增研究spec判为unrun。修复仅在 apps/web/playwright.prototype-audit.config.ts 的testMatch中加入research-ui-consistency，接入已有无DB单worker CI车道，不添加豁免。
+本地 `node .harness/scripts/lint-spec-gate-coverage.mjs` 显示该spec covered并通过；现有CI配置 `playwright test --config playwright.prototype-audit.config.ts --list` 收集36项/3文件，含本模块7项（ci-spec-coverage-green.txt、ci-prototype-test-list.txt）。独立只读复核配置修复未发现明显问题。随后等待CI实际跑绿。

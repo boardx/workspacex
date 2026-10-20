@@ -33,6 +33,16 @@
       "exitCode": 0,
       "tasksPassed": 4,
       "evidence": "pre-push-full-web.txt"
+    },
+    "ciSpecCoverage": {
+      "exitCode": 0,
+      "evidence": "ci-spec-coverage-green.txt"
+    },
+    "ciTestCollection": {
+      "exitCode": 0,
+      "total": 36,
+      "researchTests": 7,
+      "evidence": "ci-prototype-test-list.txt"
     }
   },
   "limits": [
