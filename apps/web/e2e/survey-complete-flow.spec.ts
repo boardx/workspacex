@@ -574,3 +574,101 @@ test('新建弹窗可从真实模板创建并在刷新后保留名称',async({pa
   await expect(page.getByText('题目目录 · 8')).toBeVisible();await page.reload();
   await expect(page.getByLabel('问卷名称')).toHaveValue('模板弹窗创建验证');
 });
+
+test("5840 三轮列表状态验收：真实创建、筛选、失败恢复与窄屏", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(FULLSTACK_E2E.adminEmail);
+  await page.getByTestId("login-password").fill(FULLSTACK_E2E.adminPassword);
+  const loginResponse = page.waitForResponse(response => response.url().endsWith("/auth/login") && response.request().method() === "POST");
+  await page.getByTestId("login-submit").click();
+  expect((await loginResponse).ok()).toBeTruthy();
+  await page.waitForURL(/\/home$/);
+  await expect(page).toHaveURL(/\/home$/);
+  await page.goto("/studio/survey");
+  await expect(page.getByRole("status", { name: "问卷数量" })).toBeVisible();
+  if (await page.getByTestId("empty").isVisible()) {
+    await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-empty.png"), fullPage: true });
+  }
+  const title = `5840 客户体验与长期使用反馈 ${"长内容核对".repeat(15)}`;
+  await page.getByTestId("survey-create-primary").click();
+  await page.getByLabel("问卷名称", { exact: true }).fill(title);
+  await page.getByLabel("添加标签", { exact: true }).fill("5840验收");
+  await page.getByLabel("添加标签", { exact: true }).press("Enter");
+  const created = page.waitForResponse(response => /\/surveys$/.test(response.url()) && response.request().method() === "POST");
+  await page.getByRole("button", { name: "下一步", exact: true }).click();
+  const response = await created;
+  expect(response.ok()).toBeTruthy();
+  const record = await response.json() as { id: string };
+  await expect(page).toHaveURL(new RegExp(`/studio/survey/${record.id}/design`));
+  await page.goto("/studio/survey");
+  const card = page.getByTestId(`survey-card-${record.id}`);
+  await expect(card).toBeVisible();
+  await expect(card.getByRole("heading", { level: 2 })).toBeVisible();
+  await page.reload();
+  await expect(card.getByRole("link", { name: title, exact: true })).toBeVisible();
+  const search = page.getByRole("textbox", { name: "搜索问卷" });
+  await search.fill("5840 客户体验");
+  await page.getByRole("button", { name: /^5840验收/ }).click();
+  await expect(page.getByRole("status", { name: "问卷数量" })).toContainText("匹配 1 / 共");
+  await page.getByRole("button", { name: "个人菜单", exact: true }).click();
+  await page.getByTestId("personal-menu-theme").click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(card.getByRole("link", { name: title, exact: true })).toHaveCSS("color",
+    await page.getByRole("heading", { name: "问卷", exact: true }).evaluate(element => getComputedStyle(element).color));
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-results-dark.png"), fullPage: true });
+  await page.getByRole("button", { name: "个人菜单", exact: true }).click();
+  await page.getByTestId("personal-menu-theme").click();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("html")).not.toHaveClass(/dark/);
+  await expect(card.getByRole("link", { name: title, exact: true })).toHaveCSS("color",
+    await page.getByRole("heading", { name: "问卷", exact: true }).evaluate(element => getComputedStyle(element).color));
+  for (const width of [1280, 768, 375]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(card).toBeVisible();
+    expect(await page.locator("body").evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(width);
+    await page.screenshot({ animations: "disabled", path: testInfo.outputPath(`5840-results-${width}.png`), fullPage: true });
+  }
+  await search.fill("5840-零匹配");
+  await expect(page.getByText("没有符合筛选条件的问卷")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "为该问卷设计报告模板" })).toHaveCount(0);
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-no-results-375.png"), fullPage: true });
+  const clear = page.getByRole("button", { name: "清除筛选" });
+  await clear.focus(); await clear.press("Enter");
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue("");
+  await search.fill("5840 客户体验");
+
+  // Only list failure/loading is injected. Login, creation, reload and recovery use the real API.
+  await page.route("**/surveys", async route => {
+    if (route.request().method() === "GET") await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ message: "问卷服务暂时不可用", code: "SERVICE_UNAVAILABLE" }) });
+    else await route.continue();
+  });
+  await page.reload();
+  const retry = page.getByRole("button", { name: "重新加载", exact: true });
+  await expect(retry).toBeVisible();
+  await search.fill("5840 客户体验");
+  await retry.click();
+  await expect(retry).toBeEnabled();
+  await expect(page.getByTestId("err-survey-library")).toBeVisible();
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-error-375.png"), fullPage: true });
+  await page.unroute("**/surveys");
+  let releaseList!: () => void;
+  const listGate = new Promise<void>(resolve => { releaseList = resolve; });
+  await page.route("**/surveys", async route => { await listGate; await route.continue(); });
+  await retry.focus(); await retry.press("Enter");
+  await expect(page.getByRole("button", { name: "重新加载中…" })).toBeDisabled();
+  await expect(page.getByTestId("survey-library-loading")).toBeVisible();
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-loading-375.png"), fullPage: true });
+  releaseList();
+  await expect(card).toBeVisible();
+  await expect(search).toHaveValue("5840 客户体验");
+  await expect(search).toBeFocused();
+  await expect(page.getByTestId("err-survey-library")).toHaveCount(0);
+  await page.unroute("**/surveys");
+  await card.getByRole("button", { name: "查看答卷" }).click();
+  await expect(page).toHaveURL(new RegExp(`/studio/survey/${record.id}/responses`));
+  await expect(page.getByText("没有符合条件的答卷。")).toBeVisible();
+  await page.screenshot({ animations: "disabled", path: testInfo.outputPath("5840-response-empty-375.png"), fullPage: true });
+});

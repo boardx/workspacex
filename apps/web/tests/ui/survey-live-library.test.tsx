@@ -82,6 +82,32 @@ describe("LiveSurveyLibrary", () => {
     expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("发布中");
   });
 
+  it("reports matching results and keeps optional templates out of an empty search", async () => {
+    request.mockResolvedValueOnce([survey(), survey({ id: "survey-2", title: "员工体验" })]);
+    render(<LiveSurveyLibrary />);
+    await screen.findByTestId("survey-card-survey-1");
+    fireEvent.change(screen.getByLabelText("搜索问卷"), { target: { value: "不存在的问卷" } });
+    expect(screen.getByRole("status", { name: "问卷数量" })).toHaveTextContent("匹配 0 / 共 2 个问卷");
+    expect(screen.queryByRole("heading", { name: "为该问卷设计报告模板" })).not.toBeInTheDocument();
+    expect(screen.getByText("没有符合筛选条件的问卷")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByRole("status", { name: "问卷数量" })).toHaveTextContent("共 2 个问卷");
+    expect(screen.getByTestId("survey-card-survey-1")).toBeVisible();
+  });
+
+  it("does not announce a zero count before loading completes", () => {
+    request.mockReturnValueOnce(new Promise(() => undefined));
+    render(<LiveSurveyLibrary />);
+    expect(screen.queryByText("共 0 个问卷")).not.toBeInTheDocument();
+  });
+
+  it("places survey card headings directly below the page heading", async () => {
+    request.mockResolvedValueOnce([survey()]);
+    render(<LiveSurveyLibrary />);
+    const card = await screen.findByTestId("survey-card-survey-1");
+    expect(within(card).getByRole("heading", { level: 2, name: "客户满意度" })).toBeVisible();
+  });
+
   it("uses a structured loading skeleton while the real survey list is pending", () => {
     request.mockReturnValueOnce(new Promise(() => undefined));
     render(<LiveSurveyLibrary />);
@@ -94,6 +120,40 @@ describe("LiveSurveyLibrary", () => {
     render(<LiveSurveyLibrary />);
     expect(await screen.findByRole("alert")).toHaveTextContent("无访问权限");
     expect(screen.queryByText("还没有问卷")).not.toBeInTheDocument();
+  });
+
+  it("retries a failed list request with feedback and returns focus after recovery", async () => {
+    let resolveRetry!: (value: unknown) => void;
+    request.mockRejectedValueOnce(new Error("网络暂时不可用"))
+      .mockReturnValueOnce(new Promise(resolve => { resolveRetry = resolve; }));
+    render(<LiveSurveyLibrary />);
+    const retry = await screen.findByRole("button", { name: "重新加载" });
+    fireEvent.change(screen.getByLabelText("搜索问卷"), { target: { value: "客户" } });
+    retry.focus(); fireEvent.click(retry); fireEvent.click(retry);
+    expect(screen.getByRole("button", { name: "重新加载中…" })).toBeDisabled();
+    expect(request).toHaveBeenCalledTimes(2);
+    await act(async () => { resolveRetry([survey()]); });
+    expect(await screen.findByTestId("survey-card-survey-1")).toBeVisible();
+    expect(screen.getByLabelText("搜索问卷")).toHaveValue("客户");
+    expect(screen.getByLabelText("搜索问卷")).toHaveFocus();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps a recoverable error after another failure and returns search focus when clearing", async () => {
+    request.mockRejectedValueOnce(new Error("第一次失败"))
+      .mockRejectedValueOnce(new Error("仍然不可用"))
+      .mockResolvedValueOnce([survey({ tags: ["客户调研"] })]);
+    render(<LiveSurveyLibrary />);
+    fireEvent.click(await screen.findByRole("button", { name: "重新加载" }));
+    expect(await screen.findByText("仍然不可用")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "重新加载" }));
+    await screen.findByTestId("survey-card-survey-1");
+    fireEvent.click(screen.getByRole("button", { name: /^客户调研/ }));
+    fireEvent.change(screen.getByLabelText("搜索问卷"), { target: { value: "无匹配" } });
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByLabelText("搜索问卷")).toHaveFocus();
+    expect(screen.getByLabelText("搜索问卷")).toHaveValue("");
+    expect(screen.getByRole("button", { name: /^客户调研/ })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("renders a focused empty state with create and template actions", async () => {

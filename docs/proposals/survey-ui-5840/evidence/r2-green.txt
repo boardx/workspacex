@@ -1,0 +1,17 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/e7f9/workspacex/apps/web
+
+ ✓ tests/ui/survey-route-layout.test.tsx (9 tests) 774ms
+   ✓ Survey route layout > modules 入口加载真实模板库 422ms
+ ✓ tests/ui/survey-live-library.test.tsx (22 tests) 3230ms
+   ✓ LiveSurveyLibrary > creates a named draft with a pending tag and navigates only after persistence 1174ms
+ ✓ tests/ui/survey-create-dialog.test.tsx (3 tests) 864ms
+   ✓ SurveyCreateDialog > 空白问卷要求名称并提交规范化的多个标签 414ms
+   ✓ SurveyCreateDialog > 模块创建保留元数据并且只能选择一个模块 323ms
+
+ Test Files  3 passed (3)
+      Tests  34 passed (34)
+   Start at  12:52:57
+   Duration  12.12s (transform 2.31s, setup 943ms, collect 8.57s, tests 4.87s, environment 3.67s, prepare 207ms)
+

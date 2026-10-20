@@ -66,6 +66,7 @@ function SurveyCard({
   const includedResponses = item.responses.filter((response) => response.analysis !== "excluded").length;
   return (
     <ResourceCard
+      headingLevel={2}
       testId={`survey-card-${item.id}`}
       title={
         <Link
@@ -120,17 +121,25 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
   const [selectedTags, setSelectedTags] = React.useState<readonly string[]>([]);
   const [creating, setCreating] = React.useState(false);
   const createControl = React.useRef<HTMLButtonElement>(null);
+  const searchControl = React.useRef<HTMLInputElement>(null);
+  const refreshing = React.useRef(false);
   const tagMap = React.useMemo(() => aggregateTags(items), [items]);
+  const filtering = Boolean(query.trim() || selectedTags.length);
   const visibleItems = items
     .filter((item) => matchesTags(item.tags ?? [], selectedTags) && matchesQuery(query, [item.title], item.tags ?? []))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
-  const refresh = React.useCallback(async () => {
+  const refresh = React.useCallback(async (restoreFocus = false) => {
+    if (refreshing.current) return;
+    refreshing.current = true;
     setBusy(true);
-    setError("");
-    try { setItems(await surveyRequest<SurveyRuntime[]>("/surveys")); }
+    try {
+      setItems(await surveyRequest<SurveyRuntime[]>("/surveys"));
+      setError("");
+      if (restoreFocus) searchControl.current?.focus();
+    }
     catch (reason) { setError((reason as Error).message); }
-    finally { setBusy(false); }
+    finally { refreshing.current = false; setBusy(false); }
   }, []);
 
   React.useEffect(() => { void refresh(); }, [refresh]);
@@ -167,6 +176,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           <div className="relative min-w-0 sm:w-72">
             <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={searchControl}
               className="w-full pl-9"
               aria-label="搜索问卷"
               placeholder={searchPlaceholder("问卷")}
@@ -181,13 +191,18 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
       <div className="flex flex-col gap-6">
         <SurveyLibraryNav active="surveys" />
 
-        <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
+        <section className="min-w-0 space-y-5" aria-label="我的问卷列表" aria-busy={busy}>
           <div className="flex flex-wrap items-center gap-2">
             <TagFilterBar tags={[...tagMap.entries()].map(([t, count]) => ({ tag: t, count }))} selected={selectedTags} onChange={setSelectedTags} prefix="survey" business="问卷" maxVisible={7} />
-            <span className="ml-auto text-12 text-muted-foreground">共 {items.length} 个问卷</span>
+            {!busy && !error && <span role="status" aria-label="问卷数量" className="ml-auto text-12 text-muted-foreground">
+              {filtering ? `匹配 ${visibleItems.length} / 共 ${items.length} 个问卷` : `共 ${items.length} 个问卷`}
+            </span>}
           </div>
 
-          {error && <div role="alert" data-testid="err-survey-library" className="rounded-lg border border-destructive bg-card p-4 text-13 text-destructive">{error}</div>}
+          {error && <div role="alert" data-testid="err-survey-library" className="flex flex-col items-start gap-3 rounded-lg border border-destructive bg-card p-4 text-13 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0 break-words"><p className="font-medium">暂时无法加载问卷</p><p className="mt-1 text-muted-foreground">{error}</p></div>
+            <Button variant="outline" className="shrink-0" disabled={busy} onClick={() => void refresh(true)}>{busy ? "重新加载中…" : "重新加载"}</Button>
+          </div>}
           {busy && <LibraryLoading />}
           {!busy && !error && (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -202,7 +217,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
                   onResponses={(value) => router.push(withProjectId(surveyPath(value.id, "responses"), projectId))}
                 />
               ))}
-              {items.length > 0 && (
+              {items.length > 0 && !filtering && (
                 <aside className="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm">
                   <div className="relative z-10 max-w-md">
                     <p className="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground">报告模板（可选）</p>
@@ -215,7 +230,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           )}
 
           {!busy && !error && items.length > 0 && visibleItems.length === 0 && (
-            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setSelectedTags([]); }}>清除筛选</Button></div>
+            <div role="status" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center text-muted-foreground"><p>没有符合筛选条件的问卷</p><Button variant="outline" onClick={() => { setQuery(""); setSelectedTags([]); searchControl.current?.focus(); }}>清除筛选</Button></div>
           )}
           {!busy && !error && items.length === 0 && (
             <div data-testid="empty" className="space-y-4 rounded-xl border border-dashed border-border p-6 py-16 text-center">
