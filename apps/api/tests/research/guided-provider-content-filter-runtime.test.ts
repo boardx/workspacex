@@ -36,14 +36,14 @@ function answer(context: any) {
 // Fixed semantic verdicts and clone storage test refusal isolation/save calls,
 // not real-model quality or database durability. All HTTP stays on loopback.
 it.each([false,true].flatMap(regenerated => ["filter", "400", "401", "stop-empty", "unknown-empty"].map(responseKind => ({regenerated,responseKind}))))("handles $responseKind on first/regenerated report ($regenerated)",async ({regenerated,responseKind})=>{
- const f=fixture();prepareGeometry(f.state);const batches:number[]=[];const refusedBatchIndex=15;
+ const f=fixture();prepareGeometry(f.state);const batches:number[]=[];const requestKeys:string[]=[];const refusedBatchIndex=15;
  const previous={title:"Previous report",summary:"Saved",sections:f.state.outline.map(s=>({sectionId:s.id,body:body(f.state.sources[0]!.id),sourceIds:[f.state.sources[0]!.id]}))};
  if(regenerated)f.state.report=previous;
  const server=createServer((request,response)=>{
   let raw="";request.on("data",chunk=>{raw+=chunk;});request.on("end",()=>{
    try{const wire=JSON.parse(raw);const context=JSON.parse(wire.messages.find((m:{role:string})=>m.role==="user").content);
     response.writeHead(context.reportStage==="evidence" && context.batchIndex===refusedBatchIndex && ["400","401"].includes(responseKind) ? Number(responseKind) : 200,{"content-type":"application/json"});
-    if(context.reportStage==="evidence")batches.push(context.batchIndex);
+    if(context.reportStage==="evidence"){batches.push(context.batchIndex);requestKeys.push(JSON.stringify([context.batchIndex,context.questions.map((q:any)=>q.id)]));}
     if(context.reportStage==="evidence"&&context.batchIndex===refusedBatchIndex){
      const refusal=responseKind==="filter" ? {choices:[{message:{content:null},finish_reason:"content_filter"}],usage:{prompt_tokens:12,completion_tokens:0}} : ["400","401"].includes(responseKind) ? {error:{code:"invalid_parameter"}} : {choices:[{message:{content:null},finish_reason:responseKind==="stop-empty" ? "stop" : "unknown_filter"}]};
      response.end(JSON.stringify(refusal));return;
@@ -64,6 +64,7 @@ it.each([false,true].flatMap(regenerated => ["filter", "400", "401", "stop-empty
     expect(result.report).toBeNull();
     expect(result.reportEvidenceWarnings??[]).toEqual([]);
     expect(batches.filter(i=>i===refusedBatchIndex)).toHaveLength(1);
+    expect(new Set(requestKeys).size).toBe(requestKeys.length);
     if(regenerated)expect(result.reportPrevious?.report).toEqual(previous);
     return;
   }
@@ -74,9 +75,10 @@ it.each([false,true].flatMap(regenerated => ["filter", "400", "401", "stop-empty
   expect(result.reportQualityWarnings??[]).toEqual([]);
   expect(new Set(result.questionEvidence?.map(q=>q.questionId)).size).toBe(32);
   expect(f.writes.at(-1)?.report).toEqual(result.report);
-  expect(batches).toHaveLength(23);
+  expect(batches).toHaveLength(23); // Source-heavy extraction stays shared across all four chapters.
   expect(batches.filter(i=>i===refusedBatchIndex)).toHaveLength(1);
+    expect(new Set(requestKeys).size).toBe(requestKeys.length);
   expect(result.reportEvidenceWarnings?.find(w=>w.batchIndex===refusedBatchIndex)?.reason).toBe("batch_provider_content_rejected");
   if(regenerated)expect(result.reportPrevious?.report).toEqual(previous);
  }finally{await new Promise<void>(resolve=>server.close(()=>resolve()));}
-});
+}, 15000);

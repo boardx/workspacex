@@ -1,0 +1,40 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx (22 tests | 1 failed | 21 skipped) 120ms
+   × shows elapsed time only from a current persisted execution start 117ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  /已用时 2 分/
+Received:
+  研究执行过程正在执行研究计划检索资料已完成读取并整理真实来源执行中（已读取 0/1 个来源）章节撰写与检查待执行综合结论待执行质量检查与保存待执行
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > shows elapsed time only from a current persisted execution start
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  /已用时 2 分/
+Received:
+  研究执行过程正在执行研究计划检索资料已完成读取并整理真实来源执行中（已读取 0/1 个来源）章节撰写与检查待执行综合结论待执行质量检查与保存待执行
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:190:61
+    188|   };
+    189|   const view = render(<GuidedResearchExecutionTimeline state={state} /…
+    190|   expect(screen.getByTestId('research-execution-timeline')).toHaveText…
+       |                                                             ^
+    191|   view.rerender(<GuidedResearchExecutionTimeline state={{ ...state, ve…
+    192|   expect(screen.getByTestId('research-execution-timeline')).not.toHave…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 21 skipped (22)
+   Start at  22:04:44
+   Duration  13.31s (transform 597ms, setup 1.89s, collect 469ms, tests 120ms, environment 6.62s, prepare 406ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/guided-research-execution-timeline.test.tsx -t shows elapsed time

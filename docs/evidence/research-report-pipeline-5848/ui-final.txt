@@ -1,0 +1,13 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-execution-timeline.test.tsx (22 tests) 1247ms
+   ✓ treats saved formal report limitations as completed after generation and reload 573ms
+ ✓ tests/ui/guided-research-report-timeline.test.tsx (13 tests) 1791ms
+   ✓ continuous generation timeline > resumes an expired failed attempt once and preserves its checkpoint 1390ms
+
+ Test Files  2 passed (2)
+      Tests  35 passed (35)
+   Start at  22:05:34
+   Duration  62.35s (transform 24.76s, setup 3.20s, collect 45.00s, tests 3.04s, environment 16.02s, prepare 1.92s)

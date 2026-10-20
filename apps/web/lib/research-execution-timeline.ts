@@ -24,7 +24,8 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   // Legacy history has no execution identity and cannot prove active work.
   const preparingSources = lastReading?.executionVersion === state.version && lastReading.status === 'started';
   const reading = displayWork && state.currentNode === 'report' && (currentProgress && state.progress?.stage === 'organizing' || preparingSources);
-  const document: ExecutionStatus = accepted.length && accepted.every(source => source.document) && !failedDocument ? 'completed' : reading ? 'running' : failedDocument ? 'warning' : 'pending';
+  const evidenceRunning = displayWork && timeline.some(step => step.stage === 'evidence' && ['running', 'retrying'].includes(step.status));
+  const document: ExecutionStatus = evidenceRunning ? 'running' : accepted.length && accepted.every(source => source.document) && !failedDocument ? 'completed' : reading ? 'running' : failedDocument ? 'warning' : 'pending';
   const chapterStatuses = timeline.filter(step => step.stage === 'chapter').map(chapter => {
     const review = timeline.find(step => step.stage === 'review' && step.sectionId === chapter.sectionId);
     if (chapter.status === 'completed' && review?.status === 'pending') return 'running';
@@ -37,8 +38,10 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   const finished = Boolean(state.report && state.completed && validation === 'completed' && !state.reportDraft && !state.reportQualityWarnings?.length && !state.busy && !state.errorCode && !interrupted && state.controlStatus !== 'paused');
   const rows: ExecutionRow[] = [
     { id: 'search', title: '检索资料', status: active(search) },
-    { id: 'documents', title: '读取并整理真实来源', status: active(document) },
-    { id: 'chapters', title: '章节撰写与检查', status: active(aggregate(chapterStatuses)) },
+    { id: 'documents', title: '读取并整理真实来源', status: active(document), ...(accepted.length ? { detail: `已读取 ${accepted.filter(source => source.document).length}/${accepted.length} 个来源` } : {}) },
+    { id: 'chapters', title: '章节撰写与检查', status: active(aggregate(chapterStatuses)),
+      detail: timeline.filter(step => (step.stage === 'chapter' || step.stage === 'review') && ['running', 'retrying'].includes(step.status))
+        .map(step => state.outline.find(section => section.id === step.sectionId)?.title).filter((title, index, titles) => title && titles.indexOf(title) === index).join('、') || undefined },
     { id: 'synthesis', title: '综合结论', status: active(aggregate(timeline.filter(step => step.stage === 'synthesis').map(step => step.status))) },
     { id: 'validation', title: '质量检查与保存', status: active(warnings ? 'warning' : validation === 'completed' && !state.report ? 'pending' : validation) },
   ];

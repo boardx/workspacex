@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ❯ tests/research/guided-report-work-queue.test.ts (5 tests | 1 failed) 130ms
+   × holds all four permits until ignored-abort provider promises actually settle 4ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-work-queue.test.ts > holds all four permits until ignored-abort provider promises actually settle
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/research/guided-report-work-queue.test.ts:132:26
+    130|     expect((await expired).every(result => result.status === "rejected…
+    131|     expect(active).toBe(4);
+    132|     expect(fifthStarted).toBe(false);
+       |                          ^
+    133|     release();
+    134|     expect(await fifth).toBe("admitted");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  00:30:24
+   Duration  1.09s (transform 535ms, setup 0ms, collect 845ms, tests 130ms, environment 0ms, prepare 30ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-report-work-queue.test.ts
