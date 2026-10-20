@@ -1,0 +1,53 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ❯ tests/ui/research-production-routes.test.tsx (24 tests | 1 failed) 20611ms
+   ✓ imports a text file into the requirement while preserving existing input 3360ms
+   ✓ reports unsupported files without losing the requirement 780ms
+   ✓ lets a visual embedding own confirmation without creating persisted research 534ms
+   ✓ starts intake empty instead of loading a demonstration brief 551ms
+   ✓ keeps a typed intake when returning to the list is cancelled 1672ms
+   ✓ preserves the creation key on failure and resumes the actual server node 2027ms
+   ✓ accepts the prototype's single description without requiring a hidden topic field 879ms
+   ✓ only applies a real assistant proposal after explicit user adoption 3250ms
+   ✓ creates research from a 123-character requirement using a contract-valid default title 556ms
+   ✓ creates research from a 200-character requirement using a contract-valid default title 468ms
+   ✓ creates research from a 2000-character requirement using a contract-valid default title 556ms
+   ✓ creates research from a 11540-character requirement using a contract-valid default title 680ms
+   ✓ creates research from a 40000-character requirement using a contract-valid default title 1473ms
+   ✓ bounds a default title derived from a prefilled topic while preserving the topic 361ms
+   ✓ preserves an over-limit requirement and prevents submission 485ms
+   ✓ keeps one primary intake action while retaining all optional research fields 1085ms
+   × shows a single named assistant heading when the intake panel is open 809ms
+     → expected [ <h2 …(1)></h2>, …(1) ] to have a length of 1 but got 2
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-production-routes.test.tsx > shows a single named assistant heading when the intake panel is open
+AssertionError: expected [ <h2 …(1)></h2>, …(1) ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/ui/research-production-routes.test.tsx:222:73
+    220|   render(<ResearchIntake session={null} workflow={null} onSession={vi.…
+    221|   fireEvent.click(screen.getByRole("button", { name: "AI 助手", exact:…
+    222|   expect(screen.getAllByRole("heading", { name: "研究助手", exact: tru…
+       |                                                                         ^
+    223| });
+    224| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 23 passed (24)
+   Start at  12:58:58
+   Duration  53.50s (transform 9.71s, setup 3.32s, collect 16.69s, tests 20.61s, environment 10.25s, prepare 465ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/research-production-routes.test.tsx

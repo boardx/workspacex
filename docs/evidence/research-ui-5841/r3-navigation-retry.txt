@@ -1,0 +1,46 @@
+
+Running 1 test using 1 worker
+
+(node:58792) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution (16.8s)
+
+
+  1) e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('guided-research-report-body')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByTestId('guided-research-report-body')
+
+
+      64 |   await expect(page).toHaveURL(/stage=research/);
+      65 |   await page.getByRole("button", { name: /生成报告/ }).click();
+    > 66 |   await expect(page.getByTestId("guided-research-report-body")).toBeVisible();
+         |                                                                 ^
+      67 |   await page.screenshot({ path: info.outputPath("fixture-navigation.png"), fullPage: true });
+      68 | });
+      69 |
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:66:65
+
+    Error Context: ../../docs/evidence/research-ui-5841/navigation-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/navigation-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/navigation-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution 
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config e2e/research-ui-consistency.config.ts --grep fixture navigation --output /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/docs/evidence/research-ui-5841/navigation-results

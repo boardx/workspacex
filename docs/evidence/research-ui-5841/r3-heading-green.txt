@@ -1,0 +1,30 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ✓ tests/ui/research-production-routes.test.tsx (24 tests) 17095ms
+   ✓ imports a text file into the requirement while preserving existing input 3384ms
+   ✓ reports unsupported files without losing the requirement 809ms
+   ✓ lets a visual embedding own confirmation without creating persisted research 606ms
+   ✓ starts intake empty instead of loading a demonstration brief 338ms
+   ✓ keeps a typed intake when returning to the list is cancelled 1752ms
+   ✓ preserves the creation key on failure and resumes the actual server node 1881ms
+   ✓ accepts the prototype's single description without requiring a hidden topic field 938ms
+   ✓ only applies a real assistant proposal after explicit user adoption 2437ms
+   ✓ creates research from a 101-character requirement using a contract-valid default title 507ms
+   ✓ creates research from a 123-character requirement using a contract-valid default title 457ms
+   ✓ creates research from a 200-character requirement using a contract-valid default title 514ms
+   ✓ creates research from a 2000-character requirement using a contract-valid default title 662ms
+   ✓ creates research from a 11540-character requirement using a contract-valid default title 580ms
+   ✓ bounds a default title derived from a prefilled topic while preserving the topic 480ms
+   ✓ preserves an over-limit requirement and prevents submission 421ms
+   ✓ retains invalid restored optional input and blocks submission until corrected 432ms
+   ✓ keeps one primary intake action while retaining all optional research fields 343ms
+ ✓ tests/ui/research-ui-consistency.test.tsx (2 tests) 1076ms
+   ✓ research report navigation > lets narrow-screen readers reveal the directory without putting it before the report by default 868ms
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  13:00:17
+   Duration  69.31s (transform 17.15s, setup 3.89s, collect 30.43s, tests 18.17s, environment 14.46s, prepare 755ms)
+

@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ✓ tests/ui/guided-research-conversation-live.test.tsx (11 tests) 6125ms
+   ✓ restores the conversation draft on the right and uses it for the next message without applying 3202ms
+   ✓ preserves the preview draft when a follow-up model request fails 391ms
+   ✓ supports prompt selection, multiline input and Chinese composition without accidental sends 527ms
+   ✓ previews report content and requires applying it before completing research 849ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  13:02:19
+   Duration  38.37s (transform 11.50s, setup 1.19s, collect 19.45s, tests 6.12s, environment 7.71s, prepare 858ms)
+

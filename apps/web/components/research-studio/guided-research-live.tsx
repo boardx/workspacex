@@ -485,7 +485,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
       window.history.pushState({}, "", guidedResearchRoute(sessionId, stage));
     }
   };
-  const conversation = <GuidedResearchConversation node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}
+  const conversation = <GuidedResearchConversation embedded node={node} messages={state.messages} message={message} onMessageChange={setMessage} busy={busy} processing={processing}
     onSend={(text) => { if (text.trim()) void run("message", { message: text.trim(), ...(draft ? { draft } : {}) }); }}
     proposal={proposal} proposalEdited={proposalEdited} onApply={() => void run("apply", { proposalId: proposal?.id })}
     preview={proposal ? <ProposalPreview draft={proposal.draft} /> : null} />;

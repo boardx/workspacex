@@ -1,0 +1,4 @@
+Result summary (TypeScript emits no stdout on success)
+Command: pnpm --filter web exec tsc --noEmit --project tests/research-ui-consistency.tsconfig.json
+Observed exit code: 0
+Observed via functions.write_stdin session 71171.

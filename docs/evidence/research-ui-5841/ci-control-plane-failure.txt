@@ -1,0 +1,5 @@
+PR #5845 head 5c1006481, run 39374284856 job 118469131649
+Excerpt from completed job log (not a baseline failure):
+2026-10-20T05:25:47.5548425Z   - apps/web/e2e/research-ui-consistency.spec.ts 不被任何门控跑到：它红了没人会发现。把它接进某条 CI 可达的 playwright config，或加进 lint-spec-gate-coverage.mjs 的 EXEMPTIONS 并写明理由。
+2026-10-20T05:25:47.5683620Z   ❌ apps/web/e2e/research-ui-consistency.spec.ts  [unrun]
+2026-10-20T05:25:47.5710668Z ##[error]Process completed with exit code 1.

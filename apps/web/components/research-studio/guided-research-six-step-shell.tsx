@@ -1,7 +1,8 @@
 import * as React from "react";
 import { DEFAULT_RESEARCH_NAME } from "@/lib/guided-research-heading";
-import { ArrowLeft, Search, Bot } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { researchWorkspaceStyle as workspace, ResearchWorkspaceStepIndicator } from "./research-workspace-style";
+import { ResearchFloatingAssistant } from "./research-floating-assistant";
 import { Button } from "@/components/ui/button";
 import { WorkflowActionButton } from "./research-workflow-actions";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -120,7 +121,7 @@ export function GuidedResearchSixStepShell({
       </header>
       <main className={cn(workspace.main, assistant ? "pb-24 md:pb-8" : "pb-8")} data-reference-region="work-canvas" data-testid="guided-research-six-step-main">{main}</main>
       <Dialog open={Boolean(leaveAction)} onOpenChange={(open) => { if (!open) setLeaveAction(null); }}><DialogContent><DialogTitle>研究内容尚未保存</DialogTitle><DialogDescription>离开会放弃当前页面未保存的修改。已保存的研究和报告不会被删除。</DialogDescription><div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setLeaveAction(null)}>继续编辑</Button><Button variant="primary" onClick={() => { const action = leaveAction; setLeaveAction(null); action?.(); }}>放弃修改并离开</Button></div></DialogContent></Dialog>
-      {assistant && <div className="fixed bottom-4 right-4 z-30 md:bottom-5 md:left-10 md:right-auto"><Button variant="primary" className="h-10 rounded-full px-5 text-base shadow-lg" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Bot className="mr-2 size-6" />AI 助手</Button>{assistantOpen && <aside className="absolute bottom-14 right-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border bg-card p-5 shadow-xl md:left-0 md:right-auto" data-testid="guided-research-six-step-assistant">{assistant}</aside>}</div>}
+      {assistant && <ResearchFloatingAssistant open={assistantOpen} onOpenChange={setAssistantOpen}>{assistant}</ResearchFloatingAssistant>}
     </div>
   );
 }
