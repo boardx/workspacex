@@ -4,27 +4,27 @@ import { expect, test } from "@playwright/test";
 test("configured Stripe checkout, return confirmation, Portal and uncertain status", async ({ page, baseURL }) => {
   test.setTimeout(120_000);
   expect(new URL(baseURL!).hostname).toBe("localhost");
-  const api = `${baseURL}/api`;
   let status = "none", failRead = false, upgrades = 0, management = 0;
   await page.addInitScript(() => {
     localStorage.setItem("wsx.sessionToken", "billing-browser-session");
     localStorage.setItem("wsx.session", JSON.stringify({ version: 1, userId: "billing-browser-user", orgs: ["billing-browser-org"], currentOrgId: "billing-browser-org", expiresAt: "2099-01-01T00:00:00Z" }));
   });
-  await page.route(`${api}/**`, async (route) => {
-    const req = route.request(), path = new URL(req.url()).pathname;
-    if (path === "/api/identity/me") return route.fulfill({ json: { org: { id: "billing-browser-org", name: "计费验证组织", kind: "organization", team: null, modelPolicy: "any", avatarUrl: null }, orgRole: "consultant", teamId: null, projectRole: null, groupId: null, displayName: "计费验证用户", avatarUrl: null } });
-    if (path === "/api/billing/config") return route.fulfill({ json: { enabledProviders: ["stripe"] } });
-    if (path === "/api/billing/wallet") return route.fulfill({ json: { wallet: { ownerType: "user", ownerId: "billing-browser-user", balance: 1250, totalPurchased: 1200, totalGranted: 50, updatedAt: new Date().toISOString() } } });
-    if (path === "/api/billing/subscription") return failRead ? route.fulfill({ status: 503, json: { error: "unavailable" } }) : route.fulfill({ json: { status, planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false } });
-    if (path === "/api/billing/subscription/upgrade-link") {
+  await page.route(`${baseURL}/**`, async (route) => {
+    const req = route.request(), path = new URL(req.url()).pathname.replace(/^\/api(?=\/)/, "");
+    if (path === "/identity/me") return route.fulfill({ json: { org: { id: "billing-browser-org", name: "计费验证组织", kind: "organization", team: null, modelPolicy: "any", avatarUrl: null }, orgRole: "consultant", teamId: null, projectRole: null, groupId: null, displayName: "计费验证用户", avatarUrl: null } });
+    if (path === "/billing/config") return route.fulfill({ json: { enabledProviders: ["stripe"] } });
+    if (path === "/billing/wallet") return route.fulfill({ json: { wallet: { ownerType: "user", ownerId: "billing-browser-user", balance: 1250, totalPurchased: 1200, totalGranted: 50, updatedAt: new Date().toISOString() } } });
+    if (path === "/billing/subscription") return failRead ? route.fulfill({ status: 503, json: { error: "unavailable" } }) : route.fulfill({ json: { status, planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false } });
+    if (path === "/billing/subscription/upgrade-link") {
       expect(new URL(req.url()).search).toBe(""); expect(req.postData()).toBeNull(); upgrades++;
       return route.fulfill({ json: { url: "https://checkout.stripe.com/c/pay/browser-evidence" } });
     }
-    if (path === "/api/billing/subscription/management-link") {
+    if (path === "/billing/subscription/management-link") {
       expect(new URL(req.url()).search).toBe(""); management++;
       return route.fulfill({ json: { url: "https://billing.stripe.com/p/session/browser-evidence" } });
     }
-    return route.fulfill({ status: 404, json: {} });
+    if (["fetch", "xhr"].includes(req.resourceType())) return route.fulfill({ status: 404, json: {} });
+    return route.continue();
   });
   // Browser navigation crosses the provider origin, while the destination is controlled locally.
   await page.route("https://checkout.stripe.com/**", (route) => route.fulfill({ contentType: "text/html", body: "<h1>Controlled hosted checkout destination</h1>" }));
@@ -51,7 +51,7 @@ test("configured Stripe checkout, return confirmation, Portal and uncertain stat
   for (const width of [375, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: `/tmp/billing-front-completion-stripe-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `test-results/prototype-audit/billing-stripe-${width}.png`, fullPage: true });
   }
   failRead = true;
   await page.getByRole("button", { name: "刷新订阅状态" }).click();
