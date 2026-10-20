@@ -30,7 +30,7 @@ R3产品与测试SHA：2b00fd67879bfcaeb1939c802687832d1f044293。
 - `pnpm --filter web exec playwright test --config e2e/research-ui-consistency.config.ts --max-failures=1` → exit 0，7项，r3-browser-green.txt。实测时使用本会话手动启动、已核实归属的3284服务；配置默认禁止复用其他服务，显式RESEARCH_UI_5841_OWNED_SERVER=1仅供自己拥有的既有服务。
 - `pnpm --filter web exec tsc --noEmit --project tests/research-ui-consistency.tsconfig.json` → exit 0。该配置覆盖全部7个产品文件、变更测试和依赖图，包含setup-dom matcher类型；typecheck-affected-green.txt记录工具观察到的退出码（TypeScript成功时无stdout）。初次漏setup-dom及测试误用exact参数的失败输出保留，随后已修复。
 - 7个产品文件的 `next lint --file ...` → exit 0，lint-affected.txt；`pnpm --filter web lint:design` → exit 0，lint-design-final.txt。
-- 全web `pnpm --filter web typecheck`曾运行后由本会话主动终止以限制本机并发资源，未声称通过；本轮以可复现的受影响类型检查收口，全包交CI。
+- 全web `pnpm --filter web typecheck`曾运行后由本会话主动终止以限制本机并发资源，未声称通过；本轮以可复现的受影响类型检查收口，随后pre-push完整Web检查已通过（见下方增量）。
 - 浏览器覆盖1280/768/375、空输入/长内容、格式错误后修正、未登录创建失败后的内容保留、助手开关/Escape/焦点返回、目录开关/无横向溢出。所有截图为真实本地Chromium；报告为既有固定fixture，未运行研究引擎、模型或数据库。
 - fixture导航中的资料页与报告页同属第三步骤，激活步骤不推进引擎；最终测试验证输入→主题→计划编辑保存→资料页，再单独读取固定报告样本。不得称为真实报告生成/持久化验收。
 - 既有恢复会话状态卡的完整重设计不在本次实现；本次实际范围收敛为助手、表单反馈、报告目录三处一致性修复，保留原API/业务权限/状态。无新增feature passing、无人类签核代签。
@@ -104,3 +104,6 @@ docs/evidence/research-ui-5841/typecheck-affected.txt
 docs/evidence/research-ui-5841/typecheck.txt
 docs/evidence/research-ui-5841/unit-final.txt
 ```
+
+## 推送门禁增量
+0333a9562推送时，仓库pre-push完整Web `typecheck` 与完整 `lint` 全部exit0（4/4 Turbo任务成功，1m34.832s），见pre-push-full-web.txt。此前本地主动中止的记录只是历史，不再是最终验证缺口。当前产品差异仍为已审查的2b00fd678；后续只更新证据。

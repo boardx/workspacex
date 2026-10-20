@@ -28,11 +28,15 @@
     "designLint": {
       "exitCode": 0,
       "evidence": "lint-design-final.txt"
+    },
+    "fullWebPrePush": {
+      "exitCode": 0,
+      "tasksPassed": 4,
+      "evidence": "pre-push-full-web.txt"
     }
   },
   "limits": [
     "fixture report, no engine or DB acceptance",
-    "role unauthenticated, credentials missing",
-    "full web typecheck interrupted, not claimed passing"
+    "role unauthenticated, credentials missing"
   ]
 }
