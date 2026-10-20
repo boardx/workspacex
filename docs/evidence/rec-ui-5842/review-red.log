@@ -1,0 +1,71 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx (28 tests | 2 failed) 11356ms
+   × RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is idle 1250ms
+     → expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  aria-describedby="rec-return-hint"
+  aria-label="返回历史转录"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+  data-testid="rec-live-back"
+  disabled=""
+  type="button"
+/>
+   × RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is error 286ms
+     → expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  aria-describedby="rec-return-hint"
+  aria-label="返回历史转录"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+  data-testid="rec-live-back"
+  disabled=""
+  type="button"
+/>
+   ✓ RealtimeTranscriptionWorkspace > reports clipboard denial and allows a successful retry 1569ms
+   ✓ RealtimeTranscriptionWorkspace > explains unavailable return during recording 824ms
+   ✓ RealtimeTranscriptionWorkspace > requires stopping before renaming because metadata cannot change during a capture 581ms
+   ✓ RealtimeTranscriptionWorkspace > renames by double click or keyboard, retains failed input, and cancels with Escape 2048ms
+   ✓ RealtimeTranscriptionWorkspace > returns keyboard focus to the title after canceling or saving a rename 1671ms
+   ✓ RealtimeTranscriptionWorkspace > does not restore delayed edit focus after the user focuses another control 311ms
+   ✓ RealtimeTranscriptionWorkspace > keeps save pending and prevents duplicate submission through shared actions 321ms
+   ✓ RealtimeTranscriptionWorkspace > opens a recoverable error dialog and reconnects without hiding durable text 349ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is idle
+ FAIL  tests/ui/realtime-transcription-workspace.test.tsx > RealtimeTranscriptionWorkspace > allows leaving stale server recording state when the local stream is error
+Error: expect(element).toBeEnabled()
+
+Received element is not enabled:
+  <button
+  aria-describedby="rec-return-hint"
+  aria-label="返回历史转录"
+  class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-8 w-8 p-0"
+  data-testid="rec-live-back"
+  disabled=""
+  type="button"
+/>
+ ❯ tests/ui/realtime-transcription-workspace.test.tsx:16:49
+     14|     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, stat…
+     15|       reconnecting={false} onBack={onBack} onStart={vi.fn()} onStop={v…
+     16|     expect(screen.getByTestId("rec-live-back")).toBeEnabled();
+       |                                                 ^
+     17|     fireEvent.click(screen.getByTestId("rec-live-back"));
+     18|     expect(onBack).toHaveBeenCalledOnce();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 26 passed (28)
+   Start at  13:00:28
+   Duration  56.05s (transform 12.78s, setup 3.70s, collect 23.34s, tests 11.36s, environment 13.24s, prepare 651ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/realtime-transcription-workspace.test.tsx
