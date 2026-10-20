@@ -110,3 +110,5 @@ description: 用户研究计划、资料检索、来源证据和研究报告；�
 - #5832 review修正：提取器可能不重建代码backticks/fences，不能全局移除同IDmarker。最终保留提取文本不改，以canonical逐段AST text/reference segments精确匹配，仅真实reference位置允许可选打印标记，代码字面量即使成为plain text仍必需。旧patch plain-code RED1、同段引用/代码与错ID/重排/重复反证见同份证据。
 
 - 2026-10-19：报告文件任务仍running时单次GET网络/5xx错误不等于转换失败；保留job身份，用中性进度提示，后续点击只GET原任务。轮询上限也是未完成状态，真实failed/拒绝/下载校验仍走错误路径。GENERATION_FAILED/RUN_INTERRUPTED与旧INVALID_FILE不同，须读取同run工具与安全远端error类别后归因；生成/渲染中间文件不能当作已发布产物（#5837，docs/evidence/research-export-interrupted-5837/README.md）。
+
+- 2026-10-20：研究创建与已保存会话的浮动助手复用研究域 ResearchFloatingAssistant，嵌入式对话用 embedded 去掉重复标题/卡片；目录窄屏可折叠、字段错误须展开并关联。1280/768/375 本地浏览器7项与组件63项留证于 docs/evidence/research-ui-5841/README.md；固定报告样本不代表引擎或数据库验收（#5841、PR #5845）。

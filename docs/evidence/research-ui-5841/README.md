@@ -42,10 +42,11 @@ R3产品与测试SHA：2b00fd67879bfcaeb1939c802687832d1f044293。
 
 ## 资源与交接
 本会话的3284 Next服务已停止；未创建数据库或Docker栈；只移除自己启动的Next所加tsconfig include hunk，apps/web/tsconfig.json无diff。专属worktree依人类长期会话指令保留。
-下一步：创建Closes #5841的PR并负责CI至绿，不自行合并。认证/租约仍因缺合法协调凭据而未知；这不被报告为认证成功。
+PR已创建：https://github.com/boardx/workspacex/pull/5845（Closes #5841）。下一步负责CI至绿，不自行合并。认证/租约仍因缺合法协调凭据而未知；这不被报告为认证成功。
 
 ## 完整 base..HEAD 文件清单（包含本报告与证据）
 ```text
+.agents/skills/mod-user-research/SKILL.md
 apps/web/components/research-studio/guided-research-conversation.tsx
 apps/web/components/research-studio/guided-research-live.tsx
 apps/web/components/research-studio/guided-research-report-workspace.tsx
@@ -64,6 +65,7 @@ docs/evidence/research-ui-5841/init-final.txt
 docs/evidence/research-ui-5841/lint-affected.txt
 docs/evidence/research-ui-5841/lint-design-final.txt
 docs/evidence/research-ui-5841/lint-design.txt
+docs/evidence/research-ui-5841/pre-push-full-web.txt
 docs/evidence/research-ui-5841/progress.md
 docs/evidence/research-ui-5841/r1-green.txt
 docs/evidence/research-ui-5841/r1-red.txt

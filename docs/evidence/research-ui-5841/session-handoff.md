@@ -6,4 +6,4 @@
 
 边界：固定报告样本不代表引擎/模型/DB验收；完整web类型检查与完整lint随后在pre-push通过，见pre-push-full-web.txt。角色凭据缺失，租约未知。3284服务已停止，无自建数据库/容器。
 
-下一步：推送worker/coord-deep-research-5841-ui，创建Closes #5841 PR并盯CI到绿，主会话验收后由协调者决定合并。不得自行合并、标passing或代签。
+PR #5845 已创建并推送。下一步盯CI到绿，主会话验收后由协调者决定合并。不得自行合并、标passing或代签。
