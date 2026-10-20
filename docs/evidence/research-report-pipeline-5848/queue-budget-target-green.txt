@@ -1,10 +1,10 @@
 
  RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
 
- ✓ tests/research/guided-report-work-queue.test.ts (6 tests) 128ms
+ ✓ tests/research/guided-report-work-queue.test.ts (7 tests) 129ms
 
  Test Files  1 passed (1)
-      Tests  6 passed (6)
-   Start at  00:31:27
-   Duration  1.10s (transform 586ms, setup 0ms, collect 864ms, tests 128ms, environment 0ms, prepare 26ms)
+      Tests  7 passed (7)
+   Start at  00:40:41
+   Duration  1.04s (transform 510ms, setup 0ms, collect 803ms, tests 129ms, environment 0ms, prepare 29ms)
 

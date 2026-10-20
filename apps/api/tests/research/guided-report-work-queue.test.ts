@@ -149,3 +149,11 @@ it("cancels admission before a provider budget or external request starts", asyn
   finally { release(); await occupied; }
   expect(await queuedReportRequest(queue, async () => "available")).toBe("available");
 });
+
+it("does not dispatch when cancellation arrives after permit grant but before provider start", async () => {
+  const queue = reportWorkQueue(4); const parent = new AbortController(); let started = false;
+  const waiting = queuedReportRequest(queue, async () => { started = true; }, parent.signal);
+  parent.abort();
+  await expect(waiting).rejects.toMatchObject({ name: "AbortError" });
+  expect(started).toBe(false);
+});

@@ -39,8 +39,11 @@ export async function queuedReportRequest<T>(queue: ReturnType<typeof reportWork
   const admitted = new Promise<SearchBudget>((resolve, reject) => { admit = resolve; rejectAdmission = reject; });
   const request = queue.run(async () => {
     const budget = new SearchBudget(GUIDED_REPORT_MODEL_BUDGET_MS, "RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED", signal);
-    admit(budget);
-    try { return await work(budget); }
+    try {
+      budget.check();
+      admit(budget);
+      return await work(budget);
+    }
     finally { budget.dispose(); }
   }, signal);
   // Parent cancellation may reject a queued request before any budget exists.

@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ❯ tests/research/guided-report-work-queue.test.ts (7 tests | 1 failed) 132ms
+   × does not dispatch when cancellation arrives after permit grant but before provider start 3ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-work-queue.test.ts > does not dispatch when cancellation arrives after permit grant but before provider start
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/research/guided-report-work-queue.test.ts:158:19
+    156|   parent.abort();
+    157|   await expect(waiting).rejects.toMatchObject({ name: "AbortError" });
+    158|   expect(started).toBe(false);
+       |                   ^
+    159| });
+    160| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  00:38:35
+   Duration  1.15s (transform 542ms, setup 0ms, collect 875ms, tests 132ms, environment 0ms, prepare 33ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-report-work-queue.test.ts
