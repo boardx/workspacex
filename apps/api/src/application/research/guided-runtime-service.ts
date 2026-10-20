@@ -1,3 +1,4 @@
+import { reportPerformance } from "./guided-report-performance";
 import { canRecoverPartialReport, isUnresolvedPartialDraft } from "./guided-partial-report-recovery";
 import { toPublicResearchRuntime } from "./guided-runtime-persistence";
 import { executeComposite } from "./guided-composite-execution";
@@ -295,6 +296,11 @@ export class GuidedRuntimeService {
       reportPartial: state.reportPartial ?? false, messages: state.messages.slice(-20) };
   }
   private async generate(state: ResearchRuntime, node: Node, persist: RuntimePersistence, instruction?: string, resume = false) {
+    const reportStarted = performance.now();
+    const reportMetrics = reportPerformance(event => this.debugTrace?.record({
+      traceId: persist.requestId ?? state.sessionId, kind: "research.report.performance", level: event.failed ? "warn" : "info",
+      msg: "Report performance", durationMs: event.durationMs, data: { sessionId: state.sessionId, ...event },
+    }));
     if (node === "research") { await this.plan(state, persist); return; }
     if (node === "report") {
       appendActivity(state, "reading", "读取并验证已接受来源", "started");
@@ -302,6 +308,7 @@ export class GuidedRuntimeService {
       let allowPartial = Boolean(state.reportPartial);
       const reusePreparedBasis = resume && state.reportCheckpoint?.basis === reportBasis(state, this.modelConfig, instruction ?? state.reportCheckpoint?.instruction);
       const preparationBudget = SearchBudget.perCall(GUIDED_REPORT_MODEL_BUDGET_MS, "RESEARCH_REPORT_MODEL_TIME_BUDGET_EXCEEDED");
+      let preparationFailed = true;
       try {
         if (!reusePreparedBasis) {
           const discardedInvalid = await this.reviewSources(state, persist, preparationBudget);
@@ -310,7 +317,11 @@ export class GuidedRuntimeService {
           // may support an honest gap report, still subject to every quality gate.
           if (discardedInvalid && canRecoverPartialReport(state)) allowPartial = true;
         }
-      } finally { preparationBudget.dispose(); }
+        preparationFailed = false;
+      } finally {
+        preparationBudget.dispose();
+        reportMetrics.record({ stage: "source_preparation", durationMs: Math.max(0, performance.now() - reportStarted), failed: preparationFailed });
+      }
       appendActivity(state, "reading", "来源读取与可用性验证完成", "succeeded");
       state.reportPartial = allowPartial;
       acceptPendingSources(state); this.requireResearchBasis(state, allowPartial);
@@ -322,7 +333,8 @@ export class GuidedRuntimeService {
     const value = node === "report" ? await generateReportChapters(state, this.reportModel, this.modelConfig, persist, instruction, resume, (event) => this.debugTrace?.record({
       traceId: persist.requestId ?? state.sessionId, kind: "research.report.evidence_attempt", level: event.failed ? "warn" : "info",
       msg: "Report evidence validation attempt", durationMs: event.durationMs, data: { sessionId: state.sessionId, ...event },
-    })) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${node === "brief" ? '{"topic":string}' : shapes[node]}. ${node === "brief" ? "Do not repeat goal, focus, timeRange or region; the server retains the complete original brief. " : ""}${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { brief: state.brief, ...(node === "outline" ? { directions: state.directions.filter((item) => item.enabled) } : {}), instruction }, persist, (generated) => {
+    }), event => reportMetrics.record({ ...event, ...(["first_prose", "first_approved_chapter", "report"].includes(event.stage)
+      ? { durationMs: Math.max(0, performance.now() - reportStarted) } : {}) })) : await this.completeJson(state, node, `Generate the ${node} step. Output exactly ${node === "brief" ? '{"topic":string}' : shapes[node]}. ${node === "brief" ? "Do not repeat goal, focus, timeRange or region; the server retains the complete original brief. " : ""}${researchDesignInstruction(node)} For reports cover every enabled outline section exactly once; cite only provided accepted source IDs in sourceIds; do not put URLs or bracket citation markers in prose; state evidence limitations. When reportPartial is true, explicitly identify failed-query coverage gaps from evidenceGaps and do not claim exhaustive research.`, { brief: state.brief, ...(node === "outline" ? { directions: state.directions.filter((item) => item.enabled) } : {}), instruction }, persist, (generated) => {
       const candidate = C.GuidedResearchRuntimeDraft.safeParse({ node, value: node === "brief"
         ? { ...state.brief, topic: (generated as Partial<ResearchRuntime["brief"]> | null)?.topic } : generated });
       if (!candidate.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
@@ -351,6 +363,7 @@ export class GuidedRuntimeService {
     if (node === "report") state.reportStream = null;
     if (node === "report") appendActivity(state, "validating", "报告证据与发布条件验证完成", "succeeded");
     if (!state.generatedNodes.includes(node)) state.generatedNodes.push(node);
+    if (node === "report") reportMetrics.milestone("report_validated");
   }
   private async readSourceDocuments(state: ResearchRuntime, persist: RuntimePersistence, options: { retryTransient?: boolean; budget?: SearchBudget } = {}) {
     if (!this.search.read) return;

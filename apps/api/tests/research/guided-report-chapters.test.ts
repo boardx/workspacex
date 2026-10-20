@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { preservePreviousReport } from "../../src/application/research/guided-report-history";
 import { reviewChapter } from "../../src/application/research/guided-report-quality";
 import { research as C } from "@repo/contracts";
@@ -143,6 +144,59 @@ function answer(context: any) {
   if (["chapter", "chapter_revision"].includes(context.reportStage)) return { sectionId: context.section.id, body: body(context.sources[0].id), sourceIds: [context.sources[0].id] };
   return { introduction: "This study compares policy requirements using retrieved excerpts, with incomplete implementation coverage.", conclusion: "Prioritize local verification before investment, balancing entry speed against uncertain regulatory obligations.", title: "Evidence-based findings", summary: `The chapters support a cautious comparison. [[source:${context.chapters[0].sourceIds[0]}]]` };
 }
+it("starts first-chapter prose while later chapter evidence is still pending", async () => {
+  const f = fixture();
+  f.state.outline.push({ ...f.state.outline[2]!, id: "c", order: 3, questions: ["What does c establish?"] });
+  for (const source of f.state.sources) source.document = { url: source.url, text: source.content, contentHash: createHash("sha256").update(source.content).digest("hex"), retrievedAt: source.retrievedAt, contentKind: "text", truncated: false, summary: source.content };
+  let release!: () => void;
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  let firstProse!: () => void;
+  const prose = new Promise<void>(resolve => { firstProse = resolve; });
+  const order: string[] = []; const scopes: string[][] = [];
+  const model: ModelCallPort = { complete: async input => {
+    const c = JSON.parse(input.user);
+    if (c.reportStage === "evidence") scopes.push([...new Set<string>(c.questions.map((q: any) => q.sectionId))]);
+    if (c.reportStage === "evidence" && c.questions.some((q: any) => q.sectionId === "a")) {
+      order.push("later-evidence-start"); await delayed; order.push("later-evidence-done");
+    }
+    if (c.reportStage === "chapter" && c.section.id === "b") { order.push("first-prose"); firstProse(); }
+    return { text: JSON.stringify(answer(c)) };
+  } };
+  const running = generateReportChapters(f.state, model, config, f.persist);
+  try {
+    await Promise.race([prose, new Promise((_, reject) => setTimeout(() => reject(new Error("first chapter blocked by unrelated evidence")), 1000))]);
+    expect(order).toContain("later-evidence-start");
+    expect(order).not.toContain("later-evidence-done");
+  } finally { release(); await running; }
+  expect(f.state.reportCheckpoint?.chapters.map(chapter => chapter.sectionId)).toEqual(["b", "a", "c"]);
+  expect(scopes).toEqual([["b"], ["a", "c"]]);
+});
+
+it("measures real report requests and milestones without recording content", async () => {
+  const f = fixture(); const metrics: any[] = []; let checkedEnvelope = false;
+  const model: ModelCallPort = {
+    complete: async input => ({ text: JSON.stringify(answer(JSON.parse(input.user))) }),
+    completeStream: async (input, emit) => {
+      const c = JSON.parse(input.user); const text = JSON.stringify(answer(c));
+      if (c.reportStage === "chapter" && !checkedEnvelope) {
+        checkedEnvelope = true;
+        const opening = text.indexOf('"body":"') + 8;
+        await emit(text.slice(0, opening));
+        expect(metrics.some(event => event.stage === "first_prose")).toBe(false);
+        await emit(text.slice(opening));
+      } else await emit(text);
+      return { text };
+    },
+  };
+  await generateReportChapters(f.state, model, config, f.persist, undefined, false, undefined, event => { metrics.push(event); });
+  expect(metrics.filter(event => event.stage === "first_prose")).toHaveLength(1);
+  expect(metrics.filter(event => event.stage === "first_approved_chapter")).toHaveLength(1);
+  expect(metrics.at(-1)).toMatchObject({ stage: "report", failed: false });
+  expect(metrics.some(event => event.stage === "quality" && event.inputCharacters > 0)).toBe(true);
+  expect(metrics.every(event => event.durationMs >= 0)).toBe(true);
+  expect(JSON.stringify(metrics)).not.toMatch(/Evidence for|Policy|system|prompt/);
+});
+
 describe("confirmed chapter question coverage", () => {
   it("keeps main and subsection questions in first generation and targeted repair", async () => {
     const f = fixture();
@@ -299,7 +353,7 @@ describe("chapter-based report generation", () => {
           checked = true;
           const writes = f.writes.length;
           await expect(old("stale output")).rejects.toThrow("RESEARCH_EXECUTION_INTERRUPTED");
-          expect(f.writes.length).toBe(writes);
+          expect(f.writes.slice(writes).some(write => write.reportStream?.text.includes("stale output"))).toBe(false);
         }
         const text = JSON.stringify(answer(context));
         await emit(text);
@@ -1043,8 +1097,9 @@ describe("report evidence debug recorder wiring", () => {
     const session = { sessionId: "s", brief: f.state.brief, directions: { versions: [] }, outline: { versions: [] }, sourceCount: 0, status: "draft", resumeStage: "brief" } as any;
     const result = await service.execute(actor, session, { sessionId: "s", requestId: "diagnostic", node: "report", action: "generate", expectedVersion: 4 });
     expect(result.errorCode).toBeNull(); expect(result.report?.sections).toHaveLength(2);
-    expect(events).toHaveLength(1); expect(events[0]).toMatchObject({ traceId: "diagnostic", kind: "research.report.evidence_attempt", level: "info", data: { sessionId: "s", attempt: 1, suppliedChunks: 2, validChunks: 2, retryChunks: 0, reasonCounts: {}, failed: false } });
-    expect(events[0].durationMs).toBeGreaterThanOrEqual(0); expect(JSON.stringify(events)).not.toContain("Evidence for");
+    const evidenceEvents = events.filter(event => event.kind === "research.report.evidence_attempt");
+    expect(evidenceEvents).toHaveLength(1); expect(evidenceEvents[0]).toMatchObject({ traceId: "diagnostic", kind: "research.report.evidence_attempt", level: "info", data: { sessionId: "s", attempt: 1, suppliedChunks: 2, validChunks: 2, retryChunks: 0, reasonCounts: {}, failed: false } });
+    expect(evidenceEvents[0].durationMs).toBeGreaterThanOrEqual(0); expect(JSON.stringify(events)).not.toContain("Evidence for");
   });
 });
 

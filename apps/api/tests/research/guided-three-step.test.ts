@@ -375,7 +375,10 @@ describe("three visible stages with durable composite execution", () => {
     try {
       await entered;
       const fresh = f.writes.slice(offset); expect(fresh.length).toBeGreaterThan(0);
-      expect(fresh.every(state => !state.reportTimeline?.some(step => step.status === "completed"))).toBe(true);
+      expect(fresh[0]?.reportTimeline?.some(step => step.status === "completed") ?? false).toBe(false);
+      // Matching evidence may now finish from validated private coverage before
+      // the first fresh prose call; prior chapter/synthesis completion cannot survive.
+      expect(fresh.every(state => !state.reportTimeline?.some(step => step.stage !== "evidence" && step.status === "completed"))).toBe(true);
       expect(fresh[0]?.completed).toBe(false);
       expect(fresh[0]?.reportPrevious?.report).toEqual(previous.report);
       expect(fresh[0]?.sources).toEqual(previous.sources);

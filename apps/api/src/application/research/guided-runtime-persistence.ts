@@ -5,6 +5,9 @@ import { z } from "zod";
 /** Internal persisted JSON. Never use this schema for a response. */
 export const PersistedResearchRuntimeSchema = C.GuidedResearchRuntime.extend({
   privateLedger: GuidedEvidenceLedger.optional(),
+  privateReportEvidenceBatches: z.array(z.object({
+    basis: z.string().regex(/^[a-f0-9]{64}$/), evidenceIds: z.array(z.string().min(1)).max(16384),
+  }).strict()).max(512).optional(),
   // One digest per actual rejected request, like the durable model-call history.
   // Active warnings may be reconciled; these tombstones must never be evicted.
   privateSourceScreenRejectedRequests: z.array(C.GuidedResearchProviderBatchRejection.shape.requestBasis).optional(),

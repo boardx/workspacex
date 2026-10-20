@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ❯ tests/research/guided-report-chapters.test.ts (149 tests | 1 failed | 148 skipped) 126ms
+   × measures real report requests and milestones without recording content 120ms
+     → expected [] to have a length of 1 but got +0
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/research/guided-report-chapters.test.ts > measures real report requests and milestones without recording content
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/research/guided-report-chapters.test.ts:179:66
+    177|   };
+    178|   await generateReportChapters(f.state, model, config, f.persist, unde…
+    179|   expect(metrics.filter(event => event.stage === "first_prose")).toHav…
+       |                                                                  ^
+    180|   expect(metrics.filter(event => event.stage === "first_approved_chapt…
+    181|   expect(metrics.at(-1)).toMatchObject({ stage: "report", failed: fals…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 148 skipped (149)
+   Start at  21:58:31
+   Duration  14.12s (transform 7.21s, setup 0ms, collect 13.07s, tests 126ms, environment 0ms, prepare 278ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.research-unit.config.ts tests/research/guided-report-chapters.test.ts -t measures real report

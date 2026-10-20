@@ -1,0 +1,47 @@
+{
+  "controlled": true,
+  "realModel": false,
+  "baselineRevision": "305c629c4",
+  "latencyModel": "20ms evidence overhead plus 30/150/150ms per chapter; 15ms per prose/review/synthesis",
+  "results": [
+    {
+      "label": "baseline scheduler",
+      "firstProseMs": 485.2836249999999,
+      "firstApprovedMs": 527.00525,
+      "totalMs": 575.1328750000001,
+      "calls": 8,
+      "evidenceCalls": 1,
+      "peak": 2,
+      "inputCharacters": 43884,
+      "outputCharacters": 3350,
+      "chapters": 3,
+      "qualityWarnings": 0
+    },
+    {
+      "label": "pipeline cold",
+      "firstProseMs": 71.28762499999993,
+      "firstApprovedMs": 87.46862499999997,
+      "totalMs": 380.018292,
+      "calls": 9,
+      "evidenceCalls": 2,
+      "peak": 2,
+      "inputCharacters": 46145,
+      "outputCharacters": 3666,
+      "chapters": 3,
+      "qualityWarnings": 0
+    },
+    {
+      "label": "pipeline matching evidence",
+      "firstProseMs": 24.201624999999922,
+      "firstApprovedMs": 41.69566699999996,
+      "totalMs": 94.14775000000009,
+      "calls": 7,
+      "evidenceCalls": 0,
+      "peak": 2,
+      "inputCharacters": 41437,
+      "outputCharacters": 1726,
+      "chapters": 3,
+      "qualityWarnings": 0
+    }
+  ]
+}

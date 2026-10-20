@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx (21 tests | 1 failed | 20 skipped) 171ms
+   × shows actual readable source count and current chapter while preparation overlaps writing 168ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  已读取 1/2 个来源
+Received:
+  读取并整理真实来源待执行
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/guided-research-execution-timeline.test.tsx > shows actual readable source count and current chapter while preparation overlaps writing
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  已读取 1/2 个来源
+Received:
+  读取并整理真实来源待执行
+ ❯ tests/ui/guided-research-execution-timeline.test.tsx:176:53
+    174|   };
+    175|   const view = render(<GuidedResearchExecutionTimeline state={state} /…
+    176|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+       |                                                     ^
+    177|   expect(screen.getByTestId('execution-chapters')).toHaveTextContent('…
+    178|   expect(screen.getByTestId('execution-documents')).toHaveTextContent(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 skipped (21)
+   Start at  22:01:36
+   Duration  22.58s (transform 758ms, setup 2.32s, collect 1.01s, tests 171ms, environment 12.03s, prepare 1.19s)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/guided-research-execution-timeline.test.tsx -t shows actual readable

@@ -1,3 +1,5 @@
+import { research } from "@repo/contracts";
+import { runtimeFixture } from "../tests/guided-runtime-fixture";
 import { test, expect } from "@playwright/test";
 
 for (const width of [1280, 768, 375]) {
@@ -68,4 +70,42 @@ test("R3 fixture intake and plan editing reach sources; report reading is a sepa
   await page.goto("/research?preview=prototype-fidelity&stage=report");
   await expect(page.getByTestId("guided-research-report-body")).toBeVisible();
   await page.screenshot({ path: info.outputPath("fixture-navigation.png"), fullPage: true });
+});
+
+for (const width of [1280, 375]) test(`report pipeline progress and saved prose survive reload at ${width}`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  const base = runtimeFixture("report", "pipeline-browser");
+  const state = research.GuidedResearchRuntime.parse({ ...base, report: null, busy: true, leaseUntil: "2099-01-01T00:00:00Z",
+    outline: [...base.outline, { ...base.outline[0], id: "o2", title: "实施风险章节", order: 1 }],
+    sources: [{ ...base.sources[0], document: { text: "Controlled source document", contentKind: "text", contentHash: "a".repeat(64), url: base.sources[0]!.url, retrievedAt: base.sources[0]!.retrievedAt, truncated: false } },
+      { ...base.sources[0], id: "pending-source" }],
+    reportCheckpoint: { basis: "b".repeat(64), chapters: base.report!.sections },
+    activity: [{ id: "start", sequence: 1, stage: "reading", status: "started", summary: "开始读取", taskId: null, executionVersion: base.version, occurredAt: new Date(Date.now() - 125000).toISOString() }],
+    reportTimeline: [
+      { id: "evidence", stage: "evidence", status: "running", attempts: 1, completed: 1, total: 2 },
+      { id: "chapter:o1", stage: "chapter", sectionId: "o1", status: "completed", attempts: 1 },
+      { id: "review:o1", stage: "review", sectionId: "o1", status: "completed", attempts: 1 },
+      { id: "chapter:o2", stage: "chapter", sectionId: "o2", status: "running", attempts: 1 },
+    ],
+  });
+  await page.route("**/research/guided-sessions/pipeline-browser**", async route => {
+    const path = new URL(route.request().url()).pathname;
+    let body: unknown = state;
+    if (path.endsWith("/progress")) body = research.GuidedResearchRuntimeProgress.parse({
+      ...Object.fromEntries(research.GuidedResearchRuntimeProgress.keyof().options.map(key => [key, (state as any)[key]])), stream: null,
+    });
+    else if (!path.endsWith("/runtime")) body = research.GuidedResearchSession.parse({ sessionId: state.sessionId, title: "报告流水验证", brief: state.brief,
+      stage: "report", resumeStage: "report", status: "active", progress: 60, sourceCount: 2, reportId: null, createdAt: "2026-10-20", updatedAt: "2026-10-20" });
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+  await page.goto("/research/pipeline-browser/report");
+  for (let iteration = 0; iteration < 2; iteration++) {
+    await expect(page.getByTestId("execution-documents")).toContainText("已读取 1/2 个来源");
+    await expect(page.getByTestId("execution-chapters")).toContainText("实施风险章节");
+    await expect(page.getByTestId("research-execution-elapsed")).toContainText("已用时 2 分");
+    await expect(page.getByTestId("research-report-preview-text")).toContainText("有来源支持的结论");
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (!iteration) await page.reload();
+  }
+  await page.screenshot({ path: info.outputPath(`pipeline-progress-${width}.png`), fullPage: true });
 });

@@ -1,0 +1,19 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (149 tests) 7249ms
+   ✓ chapter-based report generation > rejects callbacks retained by a failed stream attempt during retry 535ms
+   ✓ chapter-based report generation > caps synthesis body context at 60000 characters across thirty long chapters 1014ms
+   ✓ chapter-based report generation > retries a recoverable chapter stream from the approved prefix 518ms
+   ✓ chapter-based report generation > retries a recoverable synthesis stream from the approved prefix 514ms
+   ✓ chapter-based report generation > bounds provider HTTP 503 attempts at 2 505ms
+ ✓ tests/research/guided-report-evidence.test.ts (23 tests) 1947ms
+   ✓ verified report evidence coverage > keeps healthy chunks of a partially rejected source in the original 23-batch geometry 1837ms
+ ✓ tests/research/guided-report-evidence-cache.test.ts (10 tests) 222ms
+ ✓ tests/research/guided-report-work-queue.test.ts (2 tests) 26ms
+
+ Test Files  4 passed (4)
+      Tests  184 passed (184)
+   Start at  21:58:54
+   Duration  34.03s (transform 5.97s, setup 0ms, collect 19.02s, tests 9.44s, environment 2ms, prepare 1.53s)
+
