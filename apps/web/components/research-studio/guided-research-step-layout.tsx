@@ -1,6 +1,5 @@
 import * as React from "react";
-import { Bot } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ResearchFloatingAssistant } from "./research-floating-assistant";
 
 export function GuidedResearchStepLayout({
   assistant,
@@ -22,12 +21,9 @@ export function GuidedResearchStepLayout({
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const reportAssistantOpen = assistantOpen ?? internalAssistantOpen;
   const setReportAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
-  if (floatingAssistant) return <div className="min-w-0">
+  if (floatingAssistant) return <div className="min-w-0 pb-24 md:pb-8">
     <main className="min-w-0" data-testid="research-step-main">{children}</main>
-    {assistant && <div className="fixed bottom-5 left-5 z-40 max-w-[calc(100vw-2.5rem)] md:left-10">
-      <Button variant="primary" className="h-12 rounded-full px-5 text-lg shadow-lg" aria-expanded={reportAssistantOpen} onClick={() => setReportAssistantOpen(!reportAssistantOpen)}><Bot className="mr-2 size-6" />AI 助手</Button>
-      {reportAssistantOpen && <aside data-testid="guided-research-six-step-assistant" className="absolute bottom-14 left-0 h-[min(32rem,70vh)] w-80 overflow-auto rounded-xl border border-border bg-card shadow-xl">{assistant}</aside>}
-    </div>}
+    {assistant && <ResearchFloatingAssistant open={reportAssistantOpen} onOpenChange={setReportAssistantOpen}>{assistant}</ResearchFloatingAssistant>}
   </div>;
   if (reading) return <div className="min-w-0 space-y-4" data-layout="report-reading">
     <div className={reportAssistantOpen ? "grid min-w-0 gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]" : "min-w-0"}>
