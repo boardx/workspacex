@@ -101,6 +101,13 @@ describe("LiveSurveyLibrary", () => {
     expect(screen.queryByText("共 0 个问卷")).not.toBeInTheDocument();
   });
 
+  it("places survey card headings directly below the page heading", async () => {
+    request.mockResolvedValueOnce([survey()]);
+    render(<LiveSurveyLibrary />);
+    const card = await screen.findByTestId("survey-card-survey-1");
+    expect(within(card).getByRole("heading", { level: 2, name: "客户满意度" })).toBeVisible();
+  });
+
   it("uses a structured loading skeleton while the real survey list is pending", () => {
     request.mockReturnValueOnce(new Promise(() => undefined));
     render(<LiveSurveyLibrary />);

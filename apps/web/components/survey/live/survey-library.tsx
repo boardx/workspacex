@@ -66,6 +66,7 @@ function SurveyCard({
   const includedResponses = item.responses.filter((response) => response.analysis !== "excluded").length;
   return (
     <ResourceCard
+      headingLevel={2}
       testId={`survey-card-${item.id}`}
       title={
         <Link
