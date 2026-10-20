@@ -45,7 +45,8 @@ See controlled-benchmark.json. This compares the old305c629c4 scheduler and new 
 | First approved chapter |403ms|92ms|39ms|
 | Total generation |457ms|438ms|94ms|
 | Model calls |8|9|7|
-| Evidence calls |1|2|0|
+| Initial evidence requests |1|2|0|
+| Evidence repair requests |not recorded|1|0|
 | Input characters |43884|46145|41437|
 
 Cold costs one extra evidence scope, about5% extra input characters in this fixture; actual overhead depends on source length and chapter questions. No token estimate is presented as metered usage. Benchmark times are a single controlled observation, not a production SLA.
@@ -77,10 +78,13 @@ Human supplied an authorized local model configuration. Reused the production Co
 | First approved chapter |68.3s|60.5s|51.1s|
 | Complete report |86.8s|91.9s|73.4s|
 | Model calls |12|14|10|
-| Evidence calls |1|2|0|
+| Initial evidence requests |1|2|0|
+| Evidence repair requests |not recorded|1|0|
 | Input characters |104463|123071|92336|
 | Provider-reported total tokens |34194|39999|30637|
 
 All3 generator calls returned schema-valid reports after existing citation/chapter-review checks,2 chapters and0 quality warnings. This direct application benchmark does not run source reading, API/DB publication readiness or browser paint acceptance. This is a single sequential nondeterministic observation: repair/review work varied. Current cold completed5.8% slower, despite an earlier approved first chapter; matching regeneration avoided extraction and finished20.2% sooner than current cold. Do not attribute the entire difference to scheduling/cache or claim a universal cold speedup. Current real first prose was5.6s (matching1.1s); baseline recorded first provider delta13.1s, which may include its JSON envelope and is not an equivalent prose measurement.
 
 This does not reproduce the screenshot43-source report. A second read-only browser attempt to that original session also timed out; no report action was sent. Cold source preparation remains global. The implementation meets the approved first-prose/repeated-evidence goal, while original-session cold total performance remains unverified.
+
+Evidence counting review: initial evidence requests exclude evidence_revision. Real cold has2 initial +1 repair evidence request; baseline repair count was not recorded and is not treated as zero. Total model calls already include every request. Reproduction now records both fields and exits nonzero if any generator case fails.

@@ -41,11 +41,12 @@
       "firstApprovedMs": 68281.30375,
       "totalMs": 86838.39600000001,
       "calls": 12,
-      "evidenceCalls": 1,
       "inputCharacters": 104463,
       "reportedTokens": 34194,
       "peak": 2,
-      "events": []
+      "events": [],
+      "initialEvidenceCalls": 1,
+      "evidenceRepairCalls": null
     },
     {
       "label": "current cold",
@@ -56,7 +57,6 @@
       "firstApprovedMs": 60466.34575000001,
       "totalMs": 91894.58762500001,
       "calls": 14,
-      "evidenceCalls": 2,
       "inputCharacters": 123071,
       "reportedTokens": 39999,
       "peak": 2,
@@ -184,7 +184,9 @@
           "failed": false,
           "durationMs": 91892.97458299999
         }
-      ]
+      ],
+      "initialEvidenceCalls": 2,
+      "evidenceRepairCalls": 1
     },
     {
       "label": "current matching evidence",
@@ -195,7 +197,6 @@
       "firstApprovedMs": 51093.224749999994,
       "totalMs": 73356.582084,
       "calls": 10,
-      "evidenceCalls": 0,
       "inputCharacters": 92336,
       "reportedTokens": 30637,
       "peak": 2,
@@ -294,10 +295,13 @@
           "failed": false,
           "durationMs": 73356.430792
         }
-      ]
+      ],
+      "initialEvidenceCalls": 0,
+      "evidenceRepairCalls": 0
     }
   ],
   "baselineRevision": "305c629c4",
   "configurationNote": "Authorized local model file, production ConfiguredModelProvider with existing withGuidedThinkingPolicy. Secrets are never included.",
-  "acceptanceBoundary": "Direct generateReportChapters comparison with schema/citation/chapter review gates. Does not run source preparation, full API/DB publication readiness or browser acceptance."
+  "acceptanceBoundary": "Direct generateReportChapters comparison with schema/citation/chapter review gates. Does not run source preparation, full API/DB publication readiness or browser acceptance.",
+  "evidenceCountingNote": "Initial evidence requests and evidence_revision requests are separate. Baseline repair count was not recorded (null), never inferred as zero. Total model calls include all actual requests."
 }
