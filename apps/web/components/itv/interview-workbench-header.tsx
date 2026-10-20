@@ -81,7 +81,7 @@ export function InterviewWorkbenchHeader({
     </div>
     </div>
     <div className={workspace.heading}>
-    <h1 className="truncate text-2xl font-bold tracking-tight">{name}</h1>
+    <h1 className="break-words text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">{name}</h1>
     <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
       <ol data-testid="itv-workbench-timeline" className={workspace.timeline}>{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; const executing = runningStep === step.id; return <li key={step.id} className={workspace.step}>
         <Button variant="ghost" size="sm" data-testid={`itv-workbench-step-${step.id}`} data-state={executing ? "running" : state} aria-busy={executing} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={cn(workspace.command, "text-background-foreground", (state === "current" || executing) && "font-bold")}>

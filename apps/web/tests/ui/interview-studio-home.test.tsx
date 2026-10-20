@@ -134,6 +134,17 @@ describe("F02 第 3 组 UI：访谈 Studio 首屏", () => {
     expect(within(card).getByText("2026/8/12")).toHaveAttribute("datetime", "2026-08-12T03:00:00.000Z");
   });
 
+  it("completed cards emphasize the report without repeating a full progress indicator", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(json({ items: [{ interviewId: "itv-done", kind: "batch", name: "完成访谈", tags: [], topic: null,
+      status: "completed", expertCount: 3, completedExpertCount: 3, primaryAction: "view_report", sourceStep: "report", updatedAt: "2026-10-20T01:00:00.000Z" }] }));
+    render(<InterviewStudioHome />);
+    const card = await screen.findByTestId("itv-history-card-itv-done");
+    expect(within(card).getByText("已完成")).toBeInTheDocument();
+    expect(within(card).getByText("3 / 3 位专家完成")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: /查看报告/ })).toHaveAttribute("href", "/itv/itv-done/report");
+    expect(within(card).queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
   it("does not imply expert completion when no experts have been selected", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(json({ items: [{ interviewId: "itv-zero", kind: "batch", name: "新研究", tags: [], topic: null,
       status: "draft", expertCount: 0, completedExpertCount: 0, primaryAction: "confirm_topic", updatedAt: "2026-09-28T01:00:00.000Z" }] }));

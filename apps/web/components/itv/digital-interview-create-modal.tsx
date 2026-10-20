@@ -101,7 +101,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
               {...TAG_LIMITS}
               testIdPrefix="itv-create-tag"
             />
-            <div data-testid="itv-create-scope" className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-12 text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>{projectId ? "本项目访谈" : "独立访谈"}</div>
+            <div data-testid="itv-create-scope" className="text-xs leading-relaxed text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>{projectId ? "本项目访谈" : "独立访谈"}</div>
             {error && <p role="alert" className="text-12 text-destructive">创建失败：{error}。当前输入已保留，可重试。</p>}
             <WorkflowActionBar placement="footer">
               <WorkflowActionButton type="button" variant="outline" onClick={close}>取消</WorkflowActionButton>
