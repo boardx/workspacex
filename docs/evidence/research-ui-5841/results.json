@@ -1,0 +1,38 @@
+{
+  "base": "0acfa6628f9380c64ece5732c066e999d2e57651",
+  "rounds": {
+    "R1": "f80cdc5d2",
+    "R2": "44cca8288",
+    "R3": "2b00fd67879bfcaeb1939c802687832d1f044293"
+  },
+  "results": {
+    "browser": {
+      "exitCode": 0,
+      "passed": 7,
+      "evidence": "r3-browser-green.txt"
+    },
+    "unit": {
+      "exitCode": 0,
+      "passed": 63,
+      "evidence": "unit-final.txt"
+    },
+    "affectedTypecheck": {
+      "exitCode": 0,
+      "toolSession": "71171",
+      "evidence": "typecheck-affected-green.txt"
+    },
+    "affectedEslint": {
+      "exitCode": 0,
+      "evidence": "lint-affected.txt"
+    },
+    "designLint": {
+      "exitCode": 0,
+      "evidence": "lint-design-final.txt"
+    }
+  },
+  "limits": [
+    "fixture report, no engine or DB acceptance",
+    "role unauthenticated, credentials missing",
+    "full web typecheck interrupted, not claimed passing"
+  ]
+}

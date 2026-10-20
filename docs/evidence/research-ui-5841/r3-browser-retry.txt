@@ -1,0 +1,225 @@
+
+Running 7 tests using 1 worker
+
+(node:53037) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 1280 (13.3s)
+(node:53116) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  2 e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 1280 (1.6m)
+(node:54853) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  3 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 768 (1.6m)
+(node:55470) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  4 e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 768 (51.0s)
+(node:55785) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  5 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 375 (15.1s)
+(node:55928) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  6 e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 375 (6.9s)
+  ✘  7 e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution (19.1s)
+
+
+  1) e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 1280 ─────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('alert')
+    Expected substring: "请选择 TXT"
+    Error: strict mode violation: getByRole('alert') resolved to 2 elements:
+        1) <p role="alert" class="mt-2 text-sm text-destructive">请选择 TXT、Markdown 或 CSV 文本文件</p> aka getByText('请选择 TXT、Markdown 或 CSV 文本文件')
+        2) <div role="alert" aria-live="assertive" id="__next-route-announcer__"></div> aka locator('[id="__next-route-announcer__"]')
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for getByRole('alert')
+
+
+      19 |     await expect(page.getByRole("button", { name: "AI 助手", exact: true })).toBeFocused();
+      20 |     await page.locator('input[type="file"]').setInputFiles({ name: "unsupported.pdf", mimeType: "application/pdf", buffer: Buffer.from("invalid fixture") });
+    > 21 |     await expect(page.getByRole("alert")).toContainText("请选择 TXT");
+         |                                           ^
+      22 |     await expect(goal).toHaveValue("研究长内容与可访问性。".repeat(60));
+      23 |     await page.screenshot({ path: info.outputPath(`input-error-${width}.png`), fullPage: true });
+      24 |     await page.locator('input[type="file"]').setInputFiles({ name: "requirements.txt", mimeType: "text/plain", buffer: Buffer.from("补充研究边界") });
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:21:43
+
+    Error Context: ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-00ad6-rrors-and-assistant-at-1280/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-00ad6-rrors-and-assistant-at-1280/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-00ad6-rrors-and-assistant-at-1280/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 1280 ───
+
+    Test timeout of 90000ms exceeded.
+
+    Error: page.goto: net::ERR_ABORTED; maybe frame was detached?
+    Call log:
+      - navigating to "http://127.0.0.1:3284/research?preview=prototype-fidelity&stage=report", waiting until "load"
+
+
+      34 |   test(`R3 report directory and reference sample at ${width}`, async ({ page }, info) => {
+      35 |     await page.setViewportSize({ width, height: 900 });
+    > 36 |     await page.goto("/research?preview=prototype-fidelity&stage=report");
+         |                ^
+      37 |     await expect(page.getByTestId("guided-research-report-body")).toBeVisible();
+      38 |     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      39 |     const toggle = page.getByRole("button", { name: "报告目录", exact: true });
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:36:16
+
+    Error Context: ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-5a294-nd-reference-sample-at-1280/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-5a294-nd-reference-sample-at-1280/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-5a294-nd-reference-sample-at-1280/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 768 ──────
+
+    Test timeout of 90000ms exceeded.
+
+    Error: page.goto: net::ERR_ABORTED; maybe frame was detached?
+    Call log:
+      - navigating to "http://127.0.0.1:3284/research/new", waiting until "load"
+
+
+      4 |   test(`R3 research entry, errors and assistant at ${width}`, async ({ page }, info) => {
+      5 |     await page.setViewportSize({ width, height: 900 });
+    > 6 |     await page.goto("/research/new");
+        |                ^
+      7 |     const goal = page.getByRole("textbox", { name: "研究目标", exact: true });
+      8 |     await expect(goal).toBeVisible();
+      9 |     const next = page.getByTestId("research-confirm-brief");
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:6:16
+
+    Error Context: ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-550ee-errors-and-assistant-at-768/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-550ee-errors-and-assistant-at-768/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-550ee-errors-and-assistant-at-768/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 768 ────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByTestId('guided-research-report-body')
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByTestId('guided-research-report-body')
+
+
+      35 |     await page.setViewportSize({ width, height: 900 });
+      36 |     await page.goto("/research?preview=prototype-fidelity&stage=report");
+    > 37 |     await expect(page.getByTestId("guided-research-report-body")).toBeVisible();
+         |                                                                   ^
+      38 |     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      39 |     const toggle = page.getByRole("button", { name: "报告目录", exact: true });
+      40 |     if (width < 1280) {
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:37:67
+
+    Error Context: ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-45836-and-reference-sample-at-768/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-45836-and-reference-sample-at-768/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-45836-and-reference-sample-at-768/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 375 ──────
+
+    Error: expect(locator).toContainText(expected) failed
+
+    Locator: getByRole('alert')
+    Expected substring: "请选择 TXT"
+    Error: strict mode violation: getByRole('alert') resolved to 2 elements:
+        1) <p role="alert" class="mt-2 text-sm text-destructive">请选择 TXT、Markdown 或 CSV 文本文件</p> aka getByText('请选择 TXT、Markdown 或 CSV 文本文件')
+        2) <div role="alert" aria-live="assertive" id="__next-route-announcer__"></div> aka locator('[id="__next-route-announcer__"]')
+
+    Call log:
+      - Expect "toContainText" with timeout 5000ms
+      - waiting for getByRole('alert')
+
+
+      19 |     await expect(page.getByRole("button", { name: "AI 助手", exact: true })).toBeFocused();
+      20 |     await page.locator('input[type="file"]').setInputFiles({ name: "unsupported.pdf", mimeType: "application/pdf", buffer: Buffer.from("invalid fixture") });
+    > 21 |     await expect(page.getByTestId("research-step-main").getByRole("alert")).toContainText("请选择 TXT");
+         |                                           ^
+      22 |     await expect(goal).toHaveValue("研究长内容与可访问性。".repeat(60));
+      23 |     await page.screenshot({ path: info.outputPath(`input-error-${width}.png`), fullPage: true });
+      24 |     await page.locator('input[type="file"]').setInputFiles({ name: "requirements.txt", mimeType: "text/plain", buffer: Buffer.from("补充研究边界") });
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:21:43
+
+    Error Context: ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-5729f-errors-and-assistant-at-375/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-5729f-errors-and-assistant-at-375/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-5729f-errors-and-assistant-at-375/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution 
+
+    Error: expect(page).toHaveURL(expected) failed
+
+    Expected pattern: /stage=research/
+    Received string:  "http://127.0.0.1:3284/research?preview=prototype-fidelity&stage=plan"
+    Timeout: 5000ms
+
+    Call log:
+      - Expect "toHaveURL" with timeout 5000ms
+        11 × locator resolved to <html lang="zh-CN" data-edition="cloud">…</html>
+           - unexpected value "http://127.0.0.1:3284/research?preview=prototype-fidelity&stage=plan"
+
+
+      57 |   await expect(page).toHaveURL(/stage=plan/);
+      58 |   await page.getByTestId("research-plan-actions").getByRole("button", { name: "生成报告" }).click();
+    > 59 |   await expect(page).toHaveURL(/stage=research/);
+         |                      ^
+      60 |   await page.getByRole("button", { name: /生成报告/ }).click();
+      61 |   await expect(page.getByTestId("guided-research-report-body")).toBeVisible();
+      62 |   await page.screenshot({ path: info.outputPath("fixture-navigation.png"), fullPage: true });
+        at /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web/e2e/research-ui-consistency.spec.ts:59:22
+
+    Error Context: ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/trace.zip
+    Usage:
+
+        pnpm exec playwright show-trace ../../docs/evidence/research-ui-5841/browser-results/research-ui-consistency-R3-9b4d6-nts-without-model-execution/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6 failed
+    e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 1280 ──────
+    e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 1280 ────
+    e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 768 ───────
+    e2e/research-ui-consistency.spec.ts:34:7 › R3 report directory and reference sample at 768 ─────
+    e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 375 ───────
+    e2e/research-ui-consistency.spec.ts:51:5 › R3 fixture navigation uses the real intake, plan and report components without model execution 
+  1 passed (7.3m)
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config e2e/research-ui-consistency.config.ts

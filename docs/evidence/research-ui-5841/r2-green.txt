@@ -1,0 +1,27 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ✓ tests/ui/research-ui-consistency.test.tsx (2 tests) 1752ms
+   ✓ research report navigation > lets narrow-screen readers reveal the directory without putting it before the report by default 1202ms
+   ✓ research assistant keyboard recovery > names the panel and returns focus to its launcher after Escape or explicit close 548ms
+ ✓ tests/ui/guided-research-skill-assistant.test.tsx (6 tests) 1053ms
+   ✓ guided research skill assistant > only changes the editor after explicit application and restores it on undo 783ms
+ ✓ tests/ui/guided-research-reference-layout.test.tsx (20 tests) 4218ms
+   ✓ guided research reference layout > keeps topic essentials and offers a three-row freeform other field 1225ms
+   ✓ guided research reference layout > explains when preset focus choices make the combined focus exceed the contract limit 417ms
+   ✓ guided research reference layout > derives questions from edited new chapter and subchapter titles while preserving existing questions 354ms
+   ✓ guided research reference layout > requires explicit discard before header navigation leaves unsaved content 845ms
+ ✓ tests/ui/research-production-routes.test.tsx (23 tests) 6835ms
+   ✓ imports a text file into the requirement while preserving existing input 1531ms
+   ✓ keeps a typed intake when returning to the list is cancelled 1178ms
+   ✓ preserves the creation key on failure and resumes the actual server node 480ms
+   ✓ only applies a real assistant proposal after explicit user adoption 619ms
+   ✓ creates research from a 123-character requirement using a contract-valid default title 302ms
+   ✓ creates research from a 200-character requirement using a contract-valid default title 604ms
+
+ Test Files  4 passed (4)
+      Tests  51 passed (51)
+   Start at  12:53:13
+   Duration  21.28s (transform 5.96s, setup 2.43s, collect 22.28s, tests 13.86s, environment 14.53s, prepare 2.14s)
+

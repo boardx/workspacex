@@ -1,0 +1,234 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ❯ tests/ui/research-ui-consistency.test.tsx (2 tests | 1 failed) 414ms
+   ✓ research report navigation > lets narrow-screen readers reveal the directory without putting it before the report by default 351ms
+   × research assistant keyboard recovery > names the panel and returns focus to its launcher after Escape or explicit close 62ms
+     → Unable to find an accessible element with the role "complementary" and name "研究助手"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "AI 助手":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"true"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] h-10 rounded-full px-5 text-base shadow-lg"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "":
+  [36m<aside[39m
+    [33mclass[39m=[32m"absolute bottom-14 right-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-xl md:left-0 md:right-auto"[39m
+    [33mdata-testid[39m=[32m"guided-research-six-step-assistant"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "向助手提问":
+  [36m<input[39m
+    [33maria-label[39m=[32m"向助手提问"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed bottom-4 right-4 z-30 max-w-[calc(100vw-2rem)] md:bottom-5 md:left-10 md:right-auto"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33maria-expanded[39m=[32m"true"[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] h-10 rounded-full px-5 text-base shadow-lg"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-bot mr-2 size-5"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M12 8V4H8"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"12"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"16"[39m
+            [33mx[39m=[32m"4"[39m
+            [33my[39m=[32m"8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M2 14h2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 14h2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M15 13v2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M9 13v2"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0mAI 助手[0m
+      [36m</button>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"absolute bottom-14 right-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-xl md:left-0 md:right-auto"[39m
+        [33mdata-testid[39m=[32m"guided-research-six-step-assistant"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"向助手提问"[39m
+        [36m/>[39m
+      [36m</aside>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ tests/ui/research-production-routes.test.tsx (23 tests | 1 failed) 1187ms
+   ✓ imports a text file into the requirement while preserving existing input 334ms
+   × reveals invalid optional research fields and associates overlong requirements with their error 18ms
+     → expect(element).toHaveAttribute("open") // element.hasAttribute("open")
+
+Expected the element to have attribute:
+  open
+Received:
+  null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-production-routes.test.tsx > reveals invalid optional research fields and associates overlong requirements with their error
+Error: expect(element).toHaveAttribute("open") // element.hasAttribute("open")
+
+Expected the element to have attribute:
+  open
+Received:
+  null
+ ❯ tests/ui/research-production-routes.test.tsx:213:35
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/research-ui-consistency.test.tsx > research assistant keyboard recovery > names the panel and returns focus to its launcher after Escape or explicit close
+TestingLibraryElementError: Unable to find an accessible element with the role "complementary" and name "研究助手"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "AI 助手":
+  [36m<button[39m
+    [33maria-expanded[39m=[32m"true"[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] h-10 rounded-full px-5 text-base shadow-lg"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  complementary:
+
+  Name "":
+  [36m<aside[39m
+    [33mclass[39m=[32m"absolute bottom-14 right-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-xl md:left-0 md:right-auto"[39m
+    [33mdata-testid[39m=[32m"guided-research-six-step-assistant"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  textbox:
+
+  Name "向助手提问":
+  [36m<input[39m
+    [33maria-label[39m=[32m"向助手提问"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"fixed bottom-4 right-4 z-30 max-w-[calc(100vw-2rem)] md:bottom-5 md:left-10 md:right-auto"[39m
+    [36m>[39m
+      [36m<button[39m
+        [33maria-expanded[39m=[32m"true"[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] h-10 rounded-full px-5 text-base shadow-lg"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-bot mr-2 size-5"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M12 8V4H8"[39m
+          [36m/>[39m
+          [36m<rect[39m
+            [33mheight[39m=[32m"12"[39m
+            [33mrx[39m=[32m"2"[39m
+            [33mwidth[39m=[32m"16"[39m
+            [33mx[39m=[32m"4"[39m
+            [33my[39m=[32m"8"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M2 14h2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M20 14h2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M15 13v2"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M9 13v2"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0mAI 助手[0m
+      [36m</button>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"absolute bottom-14 right-0 max-h-[70dvh] w-[min(24rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-4 shadow-xl md:left-0 md:right-auto"[39m
+        [33mdata-testid[39m=[32m"guided-research-six-step-assistant"[39m
+      [36m>[39m
+        [36m<input[39m
+          [33maria-label[39m=[32m"向助手提问"[39m
+        [36m/>[39m
+      [36m</aside>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-ui-consistency.test.tsx:33:26
+     31|     const launcher = screen.getByRole("button", { name: "AI 助手" });
+     32|     fireEvent.click(launcher);
+     33|     const panel = screen.getByRole("complementary", { name: "研究助手"…
+       |                          ^
+     34|     expect(launcher).toHaveAttribute("aria-controls", panel.id);
+     35|     const close = screen.getByRole("button", { name: "关闭研究助手" });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 23 passed (25)
+   Start at  12:52:47
+   Duration  8.77s (transform 2.11s, setup 898ms, collect 3.63s, tests 1.60s, environment 4.89s, prepare 360ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/research-ui-consistency.test.tsx tests/ui/research-production-routes.test.tsx

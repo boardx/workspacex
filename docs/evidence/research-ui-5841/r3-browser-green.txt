@@ -1,0 +1,14 @@
+
+Running 7 tests using 1 worker
+
+(node:58933) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 1280 (4.8s)
+  ✓  2 e2e/research-ui-consistency.spec.ts:35:7 › R3 report directory and reference sample at 1280 (7.4s)
+  ✓  3 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 768 (8.0s)
+  ✓  4 e2e/research-ui-consistency.spec.ts:35:7 › R3 report directory and reference sample at 768 (7.0s)
+  ✓  5 e2e/research-ui-consistency.spec.ts:4:7 › R3 research entry, errors and assistant at 375 (4.5s)
+  ✓  6 e2e/research-ui-consistency.spec.ts:35:7 › R3 report directory and reference sample at 375 (4.9s)
+  ✓  7 e2e/research-ui-consistency.spec.ts:52:5 › R3 fixture intake and plan editing reach sources; report reading is a separate fixed sample (21.8s)
+
+  7 passed (1.0m)

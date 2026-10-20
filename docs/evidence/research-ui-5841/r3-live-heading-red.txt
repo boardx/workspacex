@@ -1,0 +1,42 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ❯ tests/ui/guided-research-conversation-live.test.tsx (11 tests | 1 failed) 4761ms
+   × restores the conversation draft on the right and uses it for the next message without applying 935ms
+     → expected [ <h2 …(1)></h2>, …(1) ] to have a length of 1 but got 2
+   ✓ does not apply an old suggestion after the right-hand draft was edited 427ms
+   ✓ does not present stale proposals as current drafts 355ms
+   ✓ does not present error proposals as current drafts 528ms
+   ✓ preserves the preview draft when a follow-up model request fails 423ms
+   ✓ previews report content and requires applying it before completing research 1158ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/guided-research-conversation-live.test.tsx > restores the conversation draft on the right and uses it for the next message without applying
+AssertionError: expected [ <h2 …(1)></h2>, …(1) ] to have a length of 1 but got 2
+
+- Expected
++ Received
+
+- 1
++ 2
+
+ ❯ tests/ui/guided-research-conversation-live.test.tsx:17:73
+     15|   await screen.findByDisplayValue("德国储能市场");
+     16|   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+     17|   expect(screen.getAllByRole("heading", { name: "研究助手", exact: tru…
+       |                                                                         ^
+     18|   expect(executeResearchRuntime).not.toHaveBeenCalled();
+     19|   fireEvent.change(screen.getByLabelText("研究对话"), { target: { valu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  13:00:48
+   Duration  42.15s (transform 8.80s, setup 2.23s, collect 15.79s, tests 4.76s, environment 8.66s, prepare 915ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/guided-research-conversation-live.test.tsx
