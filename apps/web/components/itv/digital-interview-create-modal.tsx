@@ -38,6 +38,8 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
   const [tagDraft, setTagDraft] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState("");
+  const errorRef = React.useRef<HTMLParagraphElement | null>(null);
+  React.useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
   const requestAttempt = React.useRef<{ readonly fingerprint: string; readonly requestId: string } | null>(null);
 
   function close() {
@@ -89,7 +91,8 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
           <form onSubmit={submit} className="mt-4 flex flex-col gap-3">
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between gap-3"><Label htmlFor="itv-create-name" className="text-13">访谈名称</Label><span className="text-11 text-muted-foreground">{name.length}/100</span></div>
-              <Input id="itv-create-name" data-testid="itv-create-name" maxLength={100} ref={nameInput} value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-9" />
+              <Input id="itv-create-name" data-testid="itv-create-name" aria-describedby={!name.trim() ? "itv-create-name-hint" : undefined} maxLength={100} ref={nameInput} value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：欧洲市场进入讨论" className="h-9" />
+              {!name.trim() && <p id="itv-create-name-hint" className="text-xs text-muted-foreground">请输入访谈名称后继续。</p>}
             </div>
             <TagField
               value={tags}
@@ -102,7 +105,7 @@ export function DigitalInterviewCreateModal({ open, onOpenChange, projectId = nu
               testIdPrefix="itv-create-tag"
             />
             <div data-testid="itv-create-scope" className="text-xs leading-relaxed text-muted-foreground"><span className="font-medium text-background-foreground">访谈范围：</span>{projectId ? "本项目访谈" : "独立访谈"}</div>
-            {error && <p role="alert" className="text-12 text-destructive">创建失败：{error}。当前输入已保留，可重试。</p>}
+            {error && <p ref={errorRef} tabIndex={-1} role="alert" className="rounded-md text-sm text-destructive focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">创建失败：{error}。当前输入已保留，可重试。</p>}
             <WorkflowActionBar placement="footer">
               <WorkflowActionButton type="button" variant="outline" onClick={close}>取消</WorkflowActionButton>
               <WorkflowActionButton data-testid="itv-create-submit" type="submit" variant="primary" loading={busy} disabled={!name.trim() || busy}>{busy ? "创建中…" : "开始访谈"}</WorkflowActionButton>
