@@ -413,7 +413,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
 
   return (
     <section data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={openCreate} />
         <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
