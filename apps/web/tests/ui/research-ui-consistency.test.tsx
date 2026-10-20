@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { ResearchFloatingAssistant } from "@/components/research-studio/research-floating-assistant";
 import { describe, expect, it } from "vitest";
 import { GuidedResearchReportWorkspace } from "@/components/research-studio/guided-research-report-workspace";
 
@@ -16,5 +18,28 @@ describe("research report navigation", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByRole("heading", { name: "报告正文" })).toBeInTheDocument();
+  });
+});
+
+function Assistant() {
+  const [open, setOpen] = useState(false);
+  return <ResearchFloatingAssistant open={open} onOpenChange={setOpen}><input aria-label="向助手提问" /></ResearchFloatingAssistant>;
+}
+describe("research assistant keyboard recovery", () => {
+  it("names the panel and returns focus to its launcher after Escape or explicit close", () => {
+    render(<Assistant />);
+    const launcher = screen.getByRole("button", { name: "AI 助手" });
+    fireEvent.click(launcher);
+    const panel = screen.getByRole("complementary", { name: "研究助手" });
+    expect(launcher).toHaveAttribute("aria-controls", panel.id);
+    const close = screen.getByRole("button", { name: "关闭研究助手" });
+    expect(close).toHaveFocus();
+    screen.getByRole("textbox").focus();
+    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Escape" });
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+    expect(launcher).toHaveFocus();
+    fireEvent.click(launcher);
+    fireEvent.click(screen.getByRole("button", { name: "关闭研究助手" }));
+    expect(launcher).toHaveFocus();
   });
 });

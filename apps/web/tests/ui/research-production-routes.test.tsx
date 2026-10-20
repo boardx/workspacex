@@ -206,3 +206,12 @@ it("keeps one primary intake action while retaining all optional research fields
   expect(screen.getByTestId("research-confirm-brief")).toHaveAttribute("data-workflow-action-role", "primary");
   expect(screen.getByRole("button", { name: "上传文件" })).toHaveAttribute("data-workflow-action-role", "secondary");
 });
+
+it("reveals invalid optional research fields and associates overlong requirements with their error", () => {
+  render(<ResearchIntake initialBrief={{ topic: "研究", goal: "甲".repeat(40001), timeRange: "甲".repeat(201), region: "", focus: "" }} session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} renderAssistant={() => null} />);
+  const time = screen.getByRole("textbox", { name: "时间范围" });
+  expect(time.closest("details")).toHaveAttribute("open");
+  const goal = screen.getByRole("textbox", { name: "研究目标" });
+  expect(goal).toHaveAttribute("aria-invalid", "true");
+  expect(document.getElementById(goal.getAttribute("aria-describedby")!)).toHaveTextContent("需求超过");
+});
