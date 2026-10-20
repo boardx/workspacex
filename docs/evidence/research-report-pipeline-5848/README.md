@@ -55,3 +55,7 @@ Cold costs one extra evidence scope, about5% extra input characters in this fixt
 No legitimately configured real-model keys or approved .env.local were available; no real-model/live-devapp timing or production deployment is claimed. Screenshot session grs_376014878c404d289522371c116e0d32 was not modified. Source reading remains globally prepared and can still dominate cold latency; new metrics identify it separately. Quality gates, question coverage, citation validation, prior formal report preservation and source exclusion behavior remain enforced by tests. Actual production timing/quality must be checked after authorized deployment with genuine model configuration.
 
 Final dynamic CI/PR state belongs to GitHub, not this static report. No merge or feature passing status is claimed here.
+
+## CI-only baseline fixture repair
+
+verify-affected on4bd090a75 passed8224 Web tests but failed one unchanged survey publishing test: the active-collection fixture expiresAt was fixed to2026-10-20T10:00:00Z, already past the14:44Z CI run. The same isolated test failed locally, and git diff from305c629c4 and current origin/main confirmed the survey test was unchanged. The fixture now expires24hours after the test clock; all21 survey publishing tests pass. No survey production code, expiration behavior, assertion or retry threshold was changed. This minimal test-clock repair is necessary for the required all-green PR gate; see survey-expired-fixture-red/green.txt.

@@ -1,0 +1,516 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web
+
+ ❯ tests/ui/survey-live-publishing.test.tsx (21 tests | 1 failed) 2116ms
+   × live survey trusted publishing > shows real valid-response counts and recent activity in the right column 1014ms
+     → Unable to find an element with the text: 正在回收 · 2 份答卷. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <main
+      class="min-w-0 bg-background "
+    >
+      <header
+        class="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"
+        >
+          ← 返回列表
+        </button>
+        <div
+          class="min-w-48 flex-1"
+        >
+          <input
+            aria-label="问卷名称"
+            class="flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
+            value="客户体验问卷"
+          />
+          <p
+            class="mt-1 text-10 text-muted-foreground"
+          >
+            已保存 · 2026/9/24 16:00:00
+          </p>
+        </div>
+        <div
+          class="relative"
+        >
+          <button
+            aria-controls="survey-secondary-actions"
+            aria-expanded="false"
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          >
+            更多操作
+          </button>
+        </div>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+          disabled=""
+        >
+          保存修改
+        </button>
+      </header>
+      <nav
+        aria-label="问卷工作流"
+        class="border-b border-border bg-card"
+      >
+        <div
+          class="mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"
+        >
+          <button
+            aria-label="1. 设计问卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              1
+            </span>
+            设计问卷
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-current="step"
+            aria-label="2. 发布回收"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              2
+            </span>
+            发布回收
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-label="3. 查看答卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              3
+            </span>
+            查看答卷
+          </button>
+        </div>
+      </nav>
+      <fieldset
+        class="min-w-0 "
+      >
+        <section
+          class="mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"
+        >
+          <h1
+            class="text-20 font-semibold"
+          >
+            发布与回收
+          </h1>
+          <div
+            class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"
+          >
+            <div
+              class="space-y-4"
+            >
+              <section
+                aria-label="问卷回收状态"
+                class="rounded-lg b...
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <main
+      class="min-w-0 bg-background "
+    >
+      <header
+        class="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"
+        >
+          ← 返回列表
+        </button>
+        <div
+          class="min-w-48 flex-1"
+        >
+          <input
+            aria-label="问卷名称"
+            class="flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
+            value="客户体验问卷"
+          />
+          <p
+            class="mt-1 text-10 text-muted-foreground"
+          >
+            已保存 · 2026/9/24 16:00:00
+          </p>
+        </div>
+        <div
+          class="relative"
+        >
+          <button
+            aria-controls="survey-secondary-actions"
+            aria-expanded="false"
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          >
+            更多操作
+          </button>
+        </div>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+          disabled=""
+        >
+          保存修改
+        </button>
+      </header>
+      <nav
+        aria-label="问卷工作流"
+        class="border-b border-border bg-card"
+      >
+        <div
+          class="mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"
+        >
+          <button
+            aria-label="1. 设计问卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              1
+            </span>
+            设计问卷
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-current="step"
+            aria-label="2. 发布回收"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              2
+            </span>
+            发布回收
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-label="3. 查看答卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              3
+            </span>
+            查看答卷
+          </button>
+        </div>
+      </nav>
+      <fieldset
+        class="min-w-0 "
+      >
+        <section
+          class="mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"
+        >
+          <h1
+            class="text-20 font-semibold"
+          >
+            发布与回收
+          </h1>
+          <div
+            class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"
+          >
+            <div
+              class="space-y-4"
+            >
+              <section
+                aria-label="问卷回收状态"
+                class="rounded-lg b...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/survey-live-publishing.test.tsx > live survey trusted publishing > shows real valid-response counts and recent activity in the right column
+TestingLibraryElementError: Unable to find an element with the text: 正在回收 · 2 份答卷. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <main
+      class="min-w-0 bg-background "
+    >
+      <header
+        class="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"
+        >
+          ← 返回列表
+        </button>
+        <div
+          class="min-w-48 flex-1"
+        >
+          <input
+            aria-label="问卷名称"
+            class="flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
+            value="客户体验问卷"
+          />
+          <p
+            class="mt-1 text-10 text-muted-foreground"
+          >
+            已保存 · 2026/9/24 16:00:00
+          </p>
+        </div>
+        <div
+          class="relative"
+        >
+          <button
+            aria-controls="survey-secondary-actions"
+            aria-expanded="false"
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          >
+            更多操作
+          </button>
+        </div>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+          disabled=""
+        >
+          保存修改
+        </button>
+      </header>
+      <nav
+        aria-label="问卷工作流"
+        class="border-b border-border bg-card"
+      >
+        <div
+          class="mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"
+        >
+          <button
+            aria-label="1. 设计问卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              1
+            </span>
+            设计问卷
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-current="step"
+            aria-label="2. 发布回收"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              2
+            </span>
+            发布回收
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-label="3. 查看答卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              3
+            </span>
+            查看答卷
+          </button>
+        </div>
+      </nav>
+      <fieldset
+        class="min-w-0 "
+      >
+        <section
+          class="mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"
+        >
+          <h1
+            class="text-20 font-semibold"
+          >
+            发布与回收
+          </h1>
+          <div
+            class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"
+          >
+            <div
+              class="space-y-4"
+            >
+              <section
+                aria-label="问卷回收状态"
+                class="rounded-lg b...
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <main
+      class="min-w-0 bg-background "
+    >
+      <header
+        class="flex flex-wrap items-center gap-3 border-b border-border bg-card px-5 py-3"
+      >
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-9 px-3.5 text-13"
+        >
+          ← 返回列表
+        </button>
+        <div
+          class="min-w-48 flex-1"
+        >
+          <input
+            aria-label="问卷名称"
+            class="flex h-9 min-w-0 w-full rounded-control border px-3 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed max-w-xl border-transparent bg-transparent text-18 font-semibold shadow-none focus-visible:border-border"
+            value="客户体验问卷"
+          />
+          <p
+            class="mt-1 text-10 text-muted-foreground"
+          >
+            已保存 · 2026/9/24 16:00:00
+          </p>
+        </div>
+        <div
+          class="relative"
+        >
+          <button
+            aria-controls="survey-secondary-actions"
+            aria-expanded="false"
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+          >
+            更多操作
+          </button>
+        </div>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-9 px-3.5 text-13"
+          disabled=""
+        >
+          保存修改
+        </button>
+      </header>
+      <nav
+        aria-label="问卷工作流"
+        class="border-b border-border bg-card"
+      >
+        <div
+          class="mx-auto flex max-w-4xl items-center overflow-x-auto px-5 py-2"
+        >
+          <button
+            aria-label="1. 设计问卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              1
+            </span>
+            设计问卷
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-current="step"
+            aria-label="2. 发布回收"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-primary bg-muted font-semibold text-primary"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              2
+            </span>
+            发布回收
+          </button>
+          <span
+            aria-hidden="true"
+            class="mx-1 h-px min-w-5 flex-1 bg-border"
+          />
+          <button
+            aria-label="3. 查看答卷"
+            class="flex min-w-32 shrink-0 items-center justify-center gap-2 rounded-control border-b-2 px-3 py-2 text-13 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-w-28 sm:flex-1 border-transparent text-muted-foreground hover:bg-muted"
+            type="button"
+          >
+            <span
+              class="text-12 tabular-nums"
+            >
+              3
+            </span>
+            查看答卷
+          </button>
+        </div>
+      </nav>
+      <fieldset
+        class="min-w-0 "
+      >
+        <section
+          class="mx-auto max-w-screen-2xl space-y-4 p-4 sm:p-5 lg:p-6"
+        >
+          <h1
+            class="text-20 font-semibold"
+          >
+            发布与回收
+          </h1>
+          <div
+            class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(18rem,1fr)]"
+          >
+            <div
+              class="space-y-4"
+            >
+              <section
+                aria-label="问卷回收状态"
+                class="rounded-lg b...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/survey-live-publishing.test.tsx:178:25
+    176|     client.request.mockResolvedValueOnce({ ...published, responses: [r…
+    177|     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publi…
+    178|     expect(await screen.findByText("正在回收 · 2 份答卷")).toBeInTheDo…
+       |                         ^
+    179|     const metrics = await screen.findByRole("region", { name: "回收数…
+    180|     expect(within(metrics).getByText("有效答卷").parentElement).toHave…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 passed (21)
+   Start at  22:46:54
+   Duration  4.59s (transform 672ms, setup 139ms, collect 1.39s, tests 2.12s, environment 731ms, prepare 45ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/survey-live-publishing.test.tsx

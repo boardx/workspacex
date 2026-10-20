@@ -171,7 +171,10 @@ describe("live survey trusted publishing", () => {
   });
 
   it("shows real valid-response counts and recent activity in the right column", async () => {
-    const published = runtime({ status: "collecting", publication: { token: "token", status: "collecting", version: 4, expiresAt: "2026-10-20T10:00:00.000Z", questions: runtime().questions } });
+    // This case tests active collection metrics, not expiration. Keep its
+    // publication valid relative to the test clock instead of a calendar date.
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const published = runtime({ status: "collecting", publication: { token: "token", status: "collecting", version: 4, expiresAt, questions: runtime().questions } });
     const response = { id: "answer-1", submittedAt: "2026-09-28T08:00:00.000Z", durationSeconds: 45, answers: [], quality: "review" as const, analysis: "included" as const };
     client.request.mockResolvedValueOnce({ ...published, responses: [response, { ...response, id: "answer-2", quality: "normal" }] });
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
