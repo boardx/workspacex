@@ -115,6 +115,40 @@ describe("LiveSurveyLibrary", () => {
     expect(screen.queryByText("还没有问卷")).not.toBeInTheDocument();
   });
 
+  it("retries a failed list request with feedback and returns focus after recovery", async () => {
+    let resolveRetry!: (value: unknown) => void;
+    request.mockRejectedValueOnce(new Error("网络暂时不可用"))
+      .mockReturnValueOnce(new Promise(resolve => { resolveRetry = resolve; }));
+    render(<LiveSurveyLibrary />);
+    const retry = await screen.findByRole("button", { name: "重新加载" });
+    fireEvent.change(screen.getByLabelText("搜索问卷"), { target: { value: "客户" } });
+    retry.focus(); fireEvent.click(retry); fireEvent.click(retry);
+    expect(screen.getByRole("button", { name: "重新加载中…" })).toBeDisabled();
+    expect(request).toHaveBeenCalledTimes(2);
+    await act(async () => { resolveRetry([survey()]); });
+    expect(await screen.findByTestId("survey-card-survey-1")).toBeVisible();
+    expect(screen.getByLabelText("搜索问卷")).toHaveValue("客户");
+    expect(screen.getByLabelText("搜索问卷")).toHaveFocus();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps a recoverable error after another failure and returns search focus when clearing", async () => {
+    request.mockRejectedValueOnce(new Error("第一次失败"))
+      .mockRejectedValueOnce(new Error("仍然不可用"))
+      .mockResolvedValueOnce([survey({ tags: ["客户调研"] })]);
+    render(<LiveSurveyLibrary />);
+    fireEvent.click(await screen.findByRole("button", { name: "重新加载" }));
+    expect(await screen.findByText("仍然不可用")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "重新加载" }));
+    await screen.findByTestId("survey-card-survey-1");
+    fireEvent.click(screen.getByRole("button", { name: /^客户调研/ }));
+    fireEvent.change(screen.getByLabelText("搜索问卷"), { target: { value: "无匹配" } });
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByLabelText("搜索问卷")).toHaveFocus();
+    expect(screen.getByLabelText("搜索问卷")).toHaveValue("");
+    expect(screen.getByRole("button", { name: /^客户调研/ })).toHaveAttribute("aria-pressed", "false");
+  });
+
   it("renders a focused empty state with create and template actions", async () => {
     request.mockResolvedValueOnce([]);
     render(<LiveSurveyLibrary />);
