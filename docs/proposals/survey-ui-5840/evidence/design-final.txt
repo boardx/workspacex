@@ -1,0 +1,6 @@
+
+> web@0.1.0 lint:design /Users/shenyangjun/.codex/worktrees/e7f9/workspacex/apps/web
+> ./scripts/lint-design.sh
+
+
+✅ lint-design：全部通过（扫描 app components lib）
