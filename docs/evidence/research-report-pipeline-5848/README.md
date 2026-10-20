@@ -46,7 +46,6 @@ See controlled-benchmark.json. This compares the old305c629c4 scheduler and new 
 | Total generation |457ms|438ms|94ms|
 | Model calls |8|9|7|
 | Initial evidence requests |1|2|0|
-| Evidence repair requests |not recorded|1|0|
 | Input characters |43884|46145|41437|
 
 Cold costs one extra evidence scope, about5% extra input characters in this fixture; actual overhead depends on source length and chapter questions. No token estimate is presented as metered usage. Benchmark times are a single controlled observation, not a production SLA.
