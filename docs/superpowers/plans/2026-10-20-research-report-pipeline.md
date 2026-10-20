@@ -102,3 +102,7 @@ flowchart LR
  style C fill:#ddd
  style D fill:#ddd
 ```
+
+## Measured scheduling refinement
+
+Fixed per-request latency with43 source documents exposed a regression from two simultaneous2-worker scopes: evidence requests doubled6→12 and first prose slowed. Final policy keeps shared4-worker extraction above4 batches. At most4 batches use first-scope4 workers then tail2 workers, overlapping prose/review within global4. This deliberately makes no source-heavy cold speedup claim; cache reuse and diagnostics remain useful. The controlled question-dependent scenario demonstrates earlier first prose but only small cold total improvement; real-model acceptance remains pending.

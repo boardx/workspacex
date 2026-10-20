@@ -122,7 +122,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.version).toBe(streamResponse.request().postDataJSON().expectedVersion + 1);
   expect(runtime.busy).toBe(false);
   expect(runtime.tasks.every((task: { status: string }) => task.status === "succeeded")).toBe(true);
-  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length * 2 + 3);
+
   expect(runtime.researchPlan).toBeNull();
   const enabledSections = runtime.outline.filter((section: { enabled: boolean }) => section.enabled)
     .sort((a: { order: number }, b: { order: number }) => a.order - b.order);
@@ -145,6 +145,9 @@ test("research persists the confirmed-question pipeline through the real UI, API
   // fixture response; both repair automatically without a second UI command.
   expect(runtime.sources.some((source: { document?: unknown }) => source.document)).toBe(true);
   const evidenceScopes = Math.min(2, enabledSections.length);
+  // One prose + independent review per chapter, one invalid extraction + repair
+  // per scope in this small fixture, and one final synthesis.
+  expect(runtime.modelCalls.filter((call: { node: string }) => call.node === "report")).toHaveLength(enabledSections.length * 2 + evidenceScopes * 2 + 1);
   expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(evidenceScopes);
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);

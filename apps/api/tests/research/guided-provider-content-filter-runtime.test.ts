@@ -63,7 +63,7 @@ it.each([false,true].flatMap(regenerated => ["filter", "400", "401", "stop-empty
     expect(result.errorCode).toBe("RESEARCH_WORKFLOW_UNAVAILABLE");
     expect(result.report).toBeNull();
     expect(result.reportEvidenceWarnings??[]).toEqual([]);
-    expect(batches.filter(i=>i===refusedBatchIndex)).toHaveLength(2);
+    expect(batches.filter(i=>i===refusedBatchIndex)).toHaveLength(1);
     expect(new Set(requestKeys).size).toBe(requestKeys.length);
     if(regenerated)expect(result.reportPrevious?.report).toEqual(previous);
     return;
@@ -75,8 +75,8 @@ it.each([false,true].flatMap(regenerated => ["filter", "400", "401", "stop-empty
   expect(result.reportQualityWarnings??[]).toEqual([]);
   expect(new Set(result.questionEvidence?.map(q=>q.questionId)).size).toBe(32);
   expect(f.writes.at(-1)?.report).toEqual(result.report);
-  expect(batches).toHaveLength(46); // First chapter plus one shared tail, independent of four chapter count.
-  expect(batches.filter(i=>i===refusedBatchIndex)).toHaveLength(2);
+  expect(batches).toHaveLength(23); // Source-heavy extraction stays shared across all four chapters.
+  expect(batches.filter(i=>i===refusedBatchIndex)).toHaveLength(1);
     expect(new Set(requestKeys).size).toBe(requestKeys.length);
   expect(result.reportEvidenceWarnings?.find(w=>w.batchIndex===refusedBatchIndex)?.reason).toBe("batch_provider_content_rejected");
   if(regenerated)expect(result.reportPrevious?.report).toEqual(previous);

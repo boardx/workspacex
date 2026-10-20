@@ -103,10 +103,13 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     let writes = Promise.resolve();
     let evidenceCompleted = 0;
     const remaining = sections.slice(chapters.length).filter(section => !reusable.has(section.id));
-    const pipelineEvidence = canonicalEvidenceSources(state).some(source => source.document);
+    // Splitting a source-heavy extraction duplicates requests and can delay both
+    // first prose and completion. Keep its shared four-worker preparation.
+    const allScope = new Set(remaining.map(section => section.id));
+    const pipelineEvidence = canonicalEvidenceSources(state).some(source => source.document)
+      && reportEvidenceBatchCount(state, allScope) <= 4;
     // Bound repeated source context independently of report length: the first
     // chapter gets its own preparation, all remaining chapters share one scope.
-    const evidenceScopes = pipelineEvidence ? Math.min(2, remaining.length) : Number(remaining.length > 0);
     const firstScope = new Set(remaining.slice(0, 1).map(section => section.id));
     const tailScope = new Set(remaining.slice(1).map(section => section.id));
     const evidenceTotal = !remaining.length ? 0 : pipelineEvidence
@@ -208,19 +211,20 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
     // Legacy excerpt-only sessions retain their existing shared extraction semantics.
     const legacyEvidence = !pipelineEvidence && remaining.length ? await extractReportEvidence(state, config, audited,
       new Set(remaining.map(section => section.id)), aliases, diagnostic, model.configurationIdentity, { persist: evidencePersist }) : undefined;
+    let firstScopeEvidence: ReturnType<typeof extractReportEvidence> | undefined;
     let sharedTailEvidence: ReturnType<typeof extractReportEvidence> | undefined;
     let frontIndex = approved.length;
     const workSections = sections.slice(approved.length);
     const chapterStates = new Map<number, ResearchRuntime>();
     try { await orderedChapterWork(workSections, async (section, workIndex) => {
       const index = approved.length + workIndex;
-      const prepareEvidence = (sectionIds: Set<string>) => extractReportEvidence(state, config, audited, sectionIds, aliases, diagnostic, model.configurationIdentity, {
-        concurrency: evidenceScopes > 1 ? 2 : 4, persist: evidencePersist,
+      const prepareEvidence = (sectionIds: Set<string>, concurrency = 4) => extractReportEvidence(state, config, audited, sectionIds, aliases, diagnostic, model.configurationIdentity, {
+        concurrency, persist: evidencePersist,
       });
       const extracted = legacyEvidence ?? (reusable.has(section.id)
         ? { questions: [], sources: canonicalEvidenceSources(state), matches: new Map() }
-        : section.id === remaining[0]?.id ? await prepareEvidence(firstScope)
-        : await (sharedTailEvidence ??= prepareEvidence(tailScope)));
+        : section.id === remaining[0]?.id ? await (firstScopeEvidence ??= prepareEvidence(firstScope))
+        : await (sharedTailEvidence ??= (firstScopeEvidence ??= prepareEvidence(firstScope)).then(() => prepareEvidence(tailScope, 2))));
       const chapterState = structuredClone(state);
       chapterStates.set(index, chapterState);
       chapterState.modelCalls = [];

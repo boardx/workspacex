@@ -24,7 +24,7 @@ function fixture(): ResearchRuntime {
       url: `https://example.org/${id}`, retrievedAt: "2026-10-20", decision: "accepted", document: { text, url: `https://example.org/${id}`, contentHash: createHash("sha256").update(text).digest("hex"), retrievedAt: "2026-10-20", contentKind: "text", truncated: false, summary: text } })),
     report: null, completed: false, busy: true, leaseUntil: null, errorCode: null, generatedNodes: [], messages: [], proposal: null, modelCalls: [] };
 }
-async function sample(label: string, generate: typeof generateReportChapters, state = fixture()) {
+async function sample(label: string, generate: typeof generateReportChapters, state = fixture(), fixedLatency = false) {
   const started = performance.now();
   let firstProse: number | undefined, firstApproved: number | undefined, active = 0, peak = 0, calls = 0, evidenceCalls = 0, inputCharacters = 0, outputCharacters = 0;
   const reply = async (input: ModelCallInput, emit?: (delta: string) => Promise<void>) => {
@@ -32,7 +32,7 @@ async function sample(label: string, generate: typeof generateReportChapters, st
     try {
       const c = JSON.parse(input.user);
       const sections = [...new Set<string>((c.questions ?? []).map((q: { sectionId: string }) => q.sectionId))];
-      const delay = c.reportStage === "evidence" ? (evidenceCalls++, 20 + sections.reduce((sum, id) => sum + (id === "first" ? 30 : 150), 0)) : 15;
+      const delay = c.reportStage === "evidence" ? (evidenceCalls++, fixedLatency ? 80 : 20 + sections.reduce((sum, id) => sum + (id === "first" ? 30 : 150), 0)) : 15;
       await new Promise(resolve => setTimeout(resolve, delay));
       const text = guidedResearchReply(input.system, input.user);
       if (!text) throw new Error("Unsupported controlled request");
@@ -55,5 +55,16 @@ try {
   const baseline = await sample("baseline scheduler", old);
   const cold = await sample("pipeline cold", generateReportChapters);
   const warm = await sample("pipeline matching evidence", generateReportChapters, cold.state);
-  console.log(JSON.stringify({ controlled: true, realModel: false, baselineRevision: base, latencyModel: "20ms evidence overhead plus 30/150/150ms per chapter; 15ms per prose/review/synthesis", results: [baseline.result, cold.result, warm.result] }, null, 2));
+  const many = () => {
+    const state = fixture(); const original = state.sources[0]!;
+    state.sources = Array.from({ length: 43 }, (_, i) => {
+      const text = `${original.document!.text} Unique source ${i}.`;
+      return { ...structuredClone(original), id: `source-${i}`, url: `https://example.org/source-${i}`,
+        document: { ...original.document!, text, contentHash: createHash("sha256").update(text).digest("hex") } };
+    });
+    return state;
+  };
+  const manyBaseline = await sample("43 sources baseline fixed request latency", old, many(), true);
+  const manyCold = await sample("43 sources pipeline fixed request latency", generateReportChapters, many(), true);
+  console.log(JSON.stringify({ controlled: true, realModel: false, baselineRevision: base, latencyModel: "20ms evidence overhead plus 30/150/150ms per chapter; 15ms per prose/review/synthesis; source-heavy scenario uses fixed80ms per evidence request", results: [baseline.result, cold.result, warm.result, manyBaseline.result, manyCold.result] }, null, 2));
 } finally { await unlink(baselineFile).catch(() => {}); }
