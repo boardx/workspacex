@@ -56,7 +56,7 @@ A fixed80ms/request fixture with43 unique sources produces6 evidence batches. Th
 
 ## Limits and handoff
 
-No legitimately configured real-model keys or approved .env.local were available; no real-model/live-devapp timing or production deployment is claimed. Screenshot session grs_376014878c404d289522371c116e0d32 was not modified. Source reading remains globally prepared and can still dominate cold latency; new metrics identify it separately. Quality gates, question coverage, citation validation, prior formal report preservation and source exclusion behavior remain enforced by tests. Actual production timing/quality must be checked after authorized deployment with genuine model configuration.
+Initial validation had no authorized model configuration. The human later supplied a local configuration path; the subsequent real-model comparison is recorded below. No live-devapp timing or production deployment is claimed. Screenshot session grs_376014878c404d289522371c116e0d32 was not modified. Source reading remains globally prepared and can still dominate cold latency; new metrics identify it separately. Quality gates, question coverage, citation validation, prior formal report preservation and source exclusion behavior remain enforced by tests. Actual production timing/quality must be checked after authorized deployment with genuine model configuration.
 
 Final dynamic CI/PR state belongs to GitHub, not this static report. No merge or feature passing status is claimed here.
 
@@ -67,3 +67,20 @@ verify-affected on4bd090a75 passed8224 Web tests but failed one unchanged survey
 ## Fullstack count assertion follow-up
 
 CI fullstack-smoke on5f8887c5f generated the report but failed a second stale total-model-call assertion (7 expected vs9 actual). The already corrected per-scope failure/retry assertions were consistent; total count now uses chapters*2 + evidenceScopes*2 +1 for this small repair fixture. No report quality/citation assertions were removed. Final CI is required again.
+
+## Subsequent real-model comparison
+
+Human supplied an authorized local model configuration. Reused the production ConfiguredModelProvider and existing thinking-off research policy, model qwen3.8-max. Fixed3 official MIT-licensed LangChain code excerpts and2 chapters; same current validators for both schedulers, no DB or production report writes. See real-model-results.json, reproducible real-model-comparison.mts and real-model-materials.json (upstream license retained).
+
+| Metric | Old scheduler | Current cold | Current matching evidence |
+| --- | ---: | ---: | ---: |
+| First approved chapter |68.3s|60.5s|51.1s|
+| Complete report |86.8s|91.9s|73.4s|
+| Model calls |12|14|10|
+| Evidence calls |1|2|0|
+| Input characters |104463|123071|92336|
+| Provider-reported total tokens |34194|39999|30637|
+
+All3 generator calls returned schema-valid reports after existing citation/chapter-review checks,2 chapters and0 quality warnings. This direct application benchmark does not run source reading, API/DB publication readiness or browser paint acceptance. This is a single sequential nondeterministic observation: repair/review work varied. Current cold completed5.8% slower, despite an earlier approved first chapter; matching regeneration avoided extraction and finished20.2% sooner than current cold. Do not attribute the entire difference to scheduling/cache or claim a universal cold speedup. Current real first prose was5.6s (matching1.1s); baseline recorded first provider delta13.1s, which may include its JSON envelope and is not an equivalent prose measurement.
+
+This does not reproduce the screenshot43-source report. A second read-only browser attempt to that original session also timed out; no report action was sent. Cold source preparation remains global. The implementation meets the approved first-prose/repeated-evidence goal, while original-session cold total performance remains unverified.
