@@ -114,7 +114,10 @@ export function RealtimeTranscriptionWorkspace({
   const [copied, setCopied] = React.useState(false);
   const [copyError, setCopyError] = React.useState<string | null>(null);
   const [copying, setCopying] = React.useState(false);
-  const returnBlocked = streamState === "recording" || streamState === "stopping";
+  const captureReturnBlocked = streamState === "recording" || streamState === "stopping";
+  const returnBlocked = captureReturnBlocked || editing;
+  const returnHint = captureReturnBlocked ? "停止转录并完成收尾后可返回历史。"
+    : saving ? "正文正在保存，请稍候再返回历史。" : "保存或取消编辑后可返回历史。";
   const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);
@@ -214,7 +217,7 @@ export function RealtimeTranscriptionWorkspace({
           </div>
         </header>
 
-        {returnBlocked && <p id="rec-return-hint" className="text-12 text-muted-foreground">停止转录并完成收尾后可返回历史。</p>}
+        {returnBlocked && <p id="rec-return-hint" className="text-12 text-muted-foreground">{returnHint}</p>}
         {copyError && <p role="alert" data-testid="rec-live-copy-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{copyError}</p>}
         {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || saveError}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}

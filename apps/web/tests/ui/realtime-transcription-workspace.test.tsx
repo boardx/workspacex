@@ -18,6 +18,37 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(onBack).toHaveBeenCalledOnce();
   });
 
+  it("keeps an unsaved transcript in place until editing is saved or canceled", () => {
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()}
+      onSaveContent={vi.fn().mockResolvedValue(undefined)} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.change(screen.getByRole("textbox", { name: "逐字稿正文" }), { target: { value: "尚未保存的草稿" } });
+    expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescription(/保存或取消/);
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "逐字稿正文" })).toHaveValue("尚未保存的草稿");
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    expect(screen.getByTestId("rec-live-back")).toBeEnabled();
+  });
+
+  it("prevents leaving during a pending save and enables return after it settles", async () => {
+    let finishSave: () => void = () => undefined;
+    const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { finishSave = resolve; }));
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()}
+      onSaveContent={onSaveContent} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescription(/保存/);
+    finishSave();
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-back")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
   it("reports clipboard denial and allows a successful retry", async () => {
     const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });

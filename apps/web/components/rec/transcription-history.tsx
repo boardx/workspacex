@@ -72,6 +72,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [query, setQuery] = React.useState("");
+  const historyRef = React.useRef<HTMLElement>(null);
+  const focusSearch = () => historyRef.current?.querySelector<HTMLInputElement>('[data-testid="rec-history-search"]')?.focus();
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
   const createOpener = React.useRef<HTMLButtonElement | null>(null);
   const openCreate: React.MouseEventHandler<HTMLButtonElement> = (event) => {
@@ -412,7 +414,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   }
 
   return (
-    <section data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
+    <section ref={historyRef} data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
       <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={openCreate} />
@@ -424,8 +426,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
           uiState={loadError ? "dep-failed" : loading && uiState === "default" ? "loading" : uiState}
           items={sort === "recent" ? items : [...items].reverse()}
           filtered={activeTag !== undefined || !!query.trim()}
-          onRetry={() => setListRevision((current) => current + 1)}
-          onClearFilters={() => { setQuery(""); setActiveTag(undefined); }}
+          onRetry={() => { setListRevision((current) => current + 1); focusSearch(); }}
+          onClearFilters={() => { setQuery(""); setActiveTag(undefined); focusSearch(); }}
           onCreate={openCreate}
           onOpen={(item) => void openTranscription(item)}
           onEdit={setEditItem}

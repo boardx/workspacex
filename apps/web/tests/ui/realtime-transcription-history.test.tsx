@@ -134,6 +134,17 @@ function renderHistory() {
 }
 
 describe("实时转录历史工作台", () => {
+  it("does not move focus when an in-flight history request finishes", async () => {
+    let finishList: (result: { items: readonly typeof EUROPE[]; nextCursor: null }) => void = () => undefined;
+    api.list.mockImplementationOnce(() => new Promise((resolve) => { finishList = resolve; }));
+    renderHistory();
+    const sort = screen.getByTestId("rec-history-sort");
+    sort.focus();
+    finishList({ items: [EUROPE], nextCursor: null });
+    await screen.findByTestId("rec-history-open-europe-entry");
+    expect(sort).toHaveFocus();
+  });
+
   it("allows returning after a stale recording cannot be stopped", async () => {
     api.read.mockResolvedValueOnce({ ...EUROPE, status: "recording", content: "已有正文" });
     api.stopTranscription.mockRejectedValueOnce(new Error("offline"));
@@ -152,7 +163,9 @@ describe("实时转录历史工作台", () => {
     renderHistory();
     const retry = await screen.findByRole("button", { name: "重新加载" });
     expect(screen.getAllByRole("alert")).toHaveLength(1);
+    retry.focus();
     fireEvent.click(retry);
+    expect(screen.getByTestId("rec-history-search")).toHaveFocus();
     expect(await screen.findByTestId("rec-history-open-europe-entry")).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -162,7 +175,10 @@ describe("实时转录历史工作台", () => {
     await screen.findByTestId("rec-history-open-europe-entry");
     api.list.mockResolvedValueOnce({ items: [], nextCursor: null });
     fireEvent.change(screen.getByTestId("rec-history-search"), { target: { value: "没有的转录" } });
-    fireEvent.click(await screen.findByRole("button", { name: "清除筛选" }));
+    const clear = await screen.findByRole("button", { name: "清除筛选" });
+    clear.focus();
+    fireEvent.click(clear);
+    expect(screen.getByTestId("rec-history-search")).toHaveFocus();
     expect(screen.getByTestId("rec-history-search")).toHaveValue("");
     expect(await screen.findByTestId("rec-history-open-europe-entry")).toBeVisible();
     expect(api.create).not.toHaveBeenCalled();
