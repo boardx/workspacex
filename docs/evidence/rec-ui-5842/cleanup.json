@@ -1,0 +1,13 @@
+{
+  "product_sha": "d350e07593f3f1c7732a16d256b4e8c5b84dfab7",
+  "compose": "wsx-3b4190a1b63b20658b71",
+  "remaining_containers": [],
+  "checked_final_ports": {
+    "20434": [],
+    "21434": [],
+    "24434": [],
+    "25434": [],
+    "29434": []
+  },
+  "scope": "read-only confirmation; other sessions untouched"
+}

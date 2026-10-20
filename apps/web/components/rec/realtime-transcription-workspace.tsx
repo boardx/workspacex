@@ -7,6 +7,8 @@ import type { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { WorkflowActionButton, WorkflowActionBar } from "@/components/research-studio/research-workflow-actions";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { MicDevicePicker } from "@/components/chat/chat-composer-pickers";
 import type { AudioInputDevice } from "@/lib/live-recording";
@@ -110,6 +112,12 @@ export function RealtimeTranscriptionWorkspace({
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const [copyError, setCopyError] = React.useState<string | null>(null);
+  const [copying, setCopying] = React.useState(false);
+  const captureReturnBlocked = streamState === "recording" || streamState === "stopping";
+  const returnBlocked = captureReturnBlocked || editing;
+  const returnHint = captureReturnBlocked ? "停止转录并完成收尾后可返回历史。"
+    : saving ? "正文正在保存，请稍候再返回历史。" : "保存或取消编辑后可返回历史。";
   const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);
@@ -117,9 +125,19 @@ export function RealtimeTranscriptionWorkspace({
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
 
   async function copyContent() {
-    await navigator.clipboard.writeText(visibleContent);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1_500);
+    if (copying) return;
+    setCopying(true);
+    setCopied(false);
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(visibleContent);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1_500);
+    } catch {
+      setCopyError("复制失败，请允许剪贴板访问后重试，或手动选择正文复制。");
+    } finally {
+      setCopying(false);
+    }
   }
 
   async function saveContent() {
@@ -138,26 +156,26 @@ export function RealtimeTranscriptionWorkspace({
 
   return (
     <section data-testid="rec-live-workspace" className="min-h-full bg-background px-4 py-4 md:px-6">
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
         <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-3 md:flex-1">
-            <Button data-testid="rec-live-back" type="button" variant="ghost" size="icon" aria-label="返回历史转录" onClick={onBack}>
+            <Button data-testid="rec-live-back" type="button" variant="ghost" size="icon" aria-label="返回历史转录" disabled={returnBlocked} aria-describedby={returnBlocked ? "rec-return-hint" : undefined} onClick={onBack}>
               <ArrowLeft aria-hidden className="h-4 w-4" />
             </Button>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 {renaming ? <div className="flex flex-wrap items-center gap-2">
-                  <input aria-label="录音名称" autoFocus maxLength={C.operations.updatePersonalTranscriptionMetadata.in.shape.name.maxLength ?? undefined} disabled={savingName}
+                  <Input aria-label="录音名称" autoFocus maxLength={C.operations.updatePersonalTranscriptionMetadata.in.shape.name.maxLength ?? undefined} disabled={savingName}
                     value={nameDraft} onChange={(event) => setNameDraft(event.target.value)}
                     onKeyDown={(event) => {
                       if (event.nativeEvent.isComposing) return;
                       if (event.key === "Enter") { event.preventDefault(); void saveName(); }
                       if (event.key === "Escape" && !savingName) { setRenaming(false); setNameError(null); }
-                    }} className="min-w-0 max-w-full rounded-md border border-input bg-background px-2 py-1 text-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                    }} className="min-w-0 max-w-full text-20" />
                   <Button size="icon" variant="ghost" aria-label="保存录音名称" disabled={savingName} onClick={() => void saveName()}><Check aria-hidden className="h-4 w-4" /></Button>
                   <Button size="icon" variant="ghost" aria-label="取消修改名称" disabled={savingName} onClick={() => { setRenaming(false); setNameError(null); }}><X aria-hidden className="h-4 w-4" /></Button>
                   {nameError && <p role="alert" className="text-12 text-destructive">{nameError}</p>}
-                </div> : <h1 data-testid="rec-live-title" onDoubleClick={beginRename} className="truncate text-24 font-semibold tracking-tight">
+                </div> : <h1 data-testid="rec-live-title" onDoubleClick={beginRename} className="min-w-0 truncate text-24 font-semibold tracking-tight md:text-30">
                   {onRename ? <button ref={titleButtonRef} type="button" aria-label="修改录音名称" disabled={recording || busy}
                     title={recording || busy ? "停止转录后可修改录音名称" : "双击修改录音名称"}
                     className="max-w-full truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -199,6 +217,8 @@ export function RealtimeTranscriptionWorkspace({
           </div>
         </header>
 
+        {returnBlocked && <p id="rec-return-hint" className="text-12 text-muted-foreground">{returnHint}</p>}
+        {copyError && <p role="alert" data-testid="rec-live-copy-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{copyError}</p>}
         {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || saveError}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}
 
@@ -206,24 +226,24 @@ export function RealtimeTranscriptionWorkspace({
           <div className="border-b border-border pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-16 font-semibold">实时逐字稿</h2>
-              <div className="flex items-center gap-2">
-                <Button data-testid="rec-live-copy" type="button" size="md" variant="outline"
-                  disabled={!visibleContent} onClick={() => void copyContent()}>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <WorkflowActionButton data-testid="rec-live-copy" type="button" variant="outline"
+                  disabled={!visibleContent} loading={copying} onClick={() => void copyContent()}>
                   {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
                   {copied ? "已复制" : "复制全文"}
-                </Button>
-                {!editing && <Button ref={editButtonRef} data-testid="rec-live-edit" type="button" size="md" variant="outline"
+                </WorkflowActionButton>
+                {!editing && <WorkflowActionButton ref={editButtonRef} data-testid="rec-live-edit" type="button" variant="outline"
                   disabled={recording || busy || !onSaveContent} onClick={() => { editSessionRef.current = session.sessionId; restoreEditFocus.current = true; setSaveError(null); setDraft(session.content); setEditing(true); }}>
                   <Pencil aria-hidden className="h-4 w-4" />编辑
-                </Button>}
+                </WorkflowActionButton>}
               </div>
             </div>
           </div>
 
           {editing ? (
             <div className="mt-4">
-              <textarea autoFocus aria-label="逐字稿正文" data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
-                className="min-h-72 w-full resize-y rounded-lg border border-border bg-background p-4 text-13 leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+              <Textarea autoFocus aria-label="逐字稿正文" data-testid="rec-live-editor" value={draft} onChange={(event) => setDraft(event.target.value)}
+                className="min-h-72 w-full resize-y text-14 leading-8" />
               <WorkflowActionBar placement="footer">
                 <WorkflowActionButton type="button" variant="outline" disabled={saving} onClick={() => { setSaveError(null); setEditing(false); }}>
                   <X aria-hidden className="h-4 w-4" />取消

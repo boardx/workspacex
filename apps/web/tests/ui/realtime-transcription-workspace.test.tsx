@@ -9,6 +9,68 @@ const SESSION = {
 };
 
 describe("RealtimeTranscriptionWorkspace", () => {
+  it.each(["idle", "error"] as const)("allows leaving stale server recording state when the local stream is %s", (streamState) => {
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState={streamState}
+      reconnecting={false} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-back")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it("keeps an unsaved transcript in place until editing is saved or canceled", () => {
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()}
+      onSaveContent={vi.fn().mockResolvedValue(undefined)} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.change(screen.getByRole("textbox", { name: "逐字稿正文" }), { target: { value: "尚未保存的草稿" } });
+    expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescription(/保存或取消/);
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "逐字稿正文" })).toHaveValue("尚未保存的草稿");
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    expect(screen.getByTestId("rec-live-back")).toBeEnabled();
+  });
+
+  it("prevents leaving during a pending save and enables return after it settles", async () => {
+    let finishSave: () => void = () => undefined;
+    const onSaveContent = vi.fn(() => new Promise<void>((resolve) => { finishSave = resolve; }));
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()}
+      onSaveContent={onSaveContent} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescription(/保存/);
+    finishSave();
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-back")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it("reports clipboard denial and allows a successful retry", async () => {
+    const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("rec-live-copy"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("复制失败");
+    expect(screen.queryByText("已复制")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("rec-live-copy"));
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-copy")).toHaveTextContent("已复制"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(writeText).toHaveBeenLastCalledWith(SESSION.content);
+  });
+
+  it.each(["recording", "stopping"] as const)("explains unavailable return during %s", (streamState) => {
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} streamState={streamState} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescription(/返回历史/);
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
   it("requires stopping before renaming because metadata cannot change during a capture", () => {
     const onRename = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState="recording"

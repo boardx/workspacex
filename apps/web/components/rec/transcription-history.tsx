@@ -72,6 +72,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   const [tags, setTags] = React.useState<readonly string[]>([]);
   const [sort, setSort] = React.useState<HistorySort>("recent");
   const [query, setQuery] = React.useState("");
+  const historyRef = React.useRef<HTMLElement>(null);
+  const focusSearch = () => historyRef.current?.querySelector<HTMLInputElement>('[data-testid="rec-history-search"]')?.focus();
   const [createOpen, setCreateOpen] = React.useState(initialCreateOpen);
   const createOpener = React.useRef<HTMLButtonElement | null>(null);
   const openCreate: React.MouseEventHandler<HTMLButtonElement> = (event) => {
@@ -412,18 +414,20 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   }
 
   return (
-    <section data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
-      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4">
+    <section ref={historyRef} data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
+      <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
         <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={openCreate} />
         <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 
         {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
-        {(loadError || operationError) && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{loadError ? "历史转录读取失败，请稍后重试。" : "操作失败，请重试。已加载的转录仍可继续使用。"}</p>}
+        {operationError && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">操作失败，请重试。已加载的转录仍可继续使用。</p>}
         <HistoryState
           uiState={loadError ? "dep-failed" : loading && uiState === "default" ? "loading" : uiState}
           items={sort === "recent" ? items : [...items].reverse()}
           filtered={activeTag !== undefined || !!query.trim()}
+          onRetry={() => { setListRevision((current) => current + 1); focusSearch(); }}
+          onClearFilters={() => { setQuery(""); setActiveTag(undefined); focusSearch(); }}
           onCreate={openCreate}
           onOpen={(item) => void openTranscription(item)}
           onEdit={setEditItem}
@@ -465,10 +469,12 @@ function streamErrorText(reason: string): string {
 }
 
 function HistoryState({
-  uiState, items, filtered, onCreate, onOpen, onEdit, onStop, onDelete,
+  uiState, items, filtered, onRetry, onClearFilters, onCreate, onOpen, onEdit, onStop, onDelete,
 }: {
   uiState: UiState;
   filtered: boolean;
+  onRetry: () => void;
+  onClearFilters: () => void;
   items: readonly TranscriptionHistoryItem[];
   onCreate: React.MouseEventHandler<HTMLButtonElement>;
   onOpen: (item: TranscriptionHistoryItem) => void;
@@ -483,19 +489,20 @@ function HistoryState({
       </div>
     );
   }
-  if (uiState === "dep-failed" || uiState === "denied" || uiState === "invalid") {
-    return (
-      <div role="alert" data-testid="rec-history-error" className="rounded-lg border border-destructive bg-card p-4 text-13 text-destructive">
-        历史转录暂时无法读取，请稍后重试。
-      </div>
-    );
-  }
+  const errorState = uiState === "dep-failed" || uiState === "denied" || uiState === "invalid";
+  const errorPanel = errorState ? (
+    <div role="alert" data-testid="rec-history-error" className="flex flex-col items-start gap-3 rounded-lg border border-destructive bg-card p-4 text-13 text-destructive sm:flex-row sm:items-center sm:justify-between">
+      <p>历史转录暂时无法读取，请重新加载。</p>
+      {uiState === "dep-failed" && <WorkflowActionButton variant="outline" onClick={onRetry}>重新加载</WorkflowActionButton>}
+    </div>
+  ) : null;
+  if (errorState) return errorPanel;
   if (uiState === "empty" || items.length === 0) {
     return (
       <div data-testid="rec-history-empty" className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg bg-card p-4 text-center">
         <Clock3 aria-hidden className="h-8 w-8 text-muted-foreground" />
         <div><p className="text-14 font-medium">{filtered ? "没有符合条件的转录" : "还没有转录"}</p><p className="mt-1 text-12 text-muted-foreground">{filtered ? "请调整标签或搜索条件。" : "新建转录即可开始记录。"}</p></div>
-        <WorkflowActionButton variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />新建转录</WorkflowActionButton>
+        {filtered ? <WorkflowActionButton variant="outline" onClick={onClearFilters}>清除筛选</WorkflowActionButton> : <WorkflowActionButton variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />新建转录</WorkflowActionButton>}
       </div>
     );
   }
