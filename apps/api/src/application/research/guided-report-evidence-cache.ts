@@ -1,3 +1,4 @@
+import { GUIDED_REPORT_EVIDENCE_CACHE_LIMIT } from "./guided-runtime-persistence";
 import { createHash } from "node:crypto";
 import { ledgerBasis, ledgerQuestionKey, reconcileEvidenceLedger, recordVerifiedEvidence } from "./guided-evidence-ledger";
 import { GUIDED_EVIDENCE_MATCH_LIMIT, GUIDED_EVIDENCE_VALIDATOR_VERSION, type GuidedEvidenceLedgerRecord } from "./guided-evidence-ledger-record";
@@ -55,5 +56,5 @@ export function rememberEvidenceBatch(state: ResearchRuntime, basis: string | un
   if (records.size > GUIDED_EVIDENCE_MATCH_LIMIT) return;
   state.privateLedger = { validatorVersion: GUIDED_EVIDENCE_VALIDATOR_VERSION, records: [...records.values()] };
   state.privateReportEvidenceBatches = [...(state.privateReportEvidenceBatches ?? []).filter(batch => batch.basis !== basis),
-    { basis, evidenceIds: verified.map(record => record!.evidenceId) }].slice(-512);
+    { basis, evidenceIds: verified.map(record => record!.evidenceId) }].slice(-GUIDED_REPORT_EVIDENCE_CACHE_LIMIT);
 }
