@@ -141,8 +141,11 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.reportCheckpoint.chapters).toHaveLength(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).length);
   expect(runtime.report.sections.every((section: { sourceIds: string[] }) => section.sourceIds.every((id) => runtime.sources.some((source: { id: string }) => source.id === id)))).toBe(true);
   expect(runtime.outline[0].title).toBe("核实政策适用范围与实施约束");
-  // One deliberately invalid evidence response is repaired automatically without a second UI command.
-  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(1);
+  // Each independently prepared evidence scope receives one deliberately invalid
+  // fixture response; both repair automatically without a second UI command.
+  expect(runtime.sources.some((source: { document?: unknown }) => source.document)).toBe(true);
+  const evidenceScopes = Math.min(2, enabledSections.length);
+  expect(runtime.modelCalls.filter((call: { node: string; status: string }) => call.node === "report" && call.status === "failed")).toHaveLength(evidenceScopes);
   expect(runtime.errorCode).toBeNull();
   expect(runtime.reportEvidenceWarnings).toEqual([]);
   expect(runtime.intent).toBeFalsy();
@@ -155,7 +158,7 @@ test("research persists the confirmed-question pipeline through the real UI, API
   expect(runtime.activity.filter((item: { stage: string }) => item.stage === "planning").map((item: { status: string }) => item.status)).toEqual(expect.arrayContaining(["started", "succeeded"]));
   expect(runtime.reportTimeline.map((step: { stage: string }) => step.stage)).toEqual(["evidence", "chapter", "review", "chapter", "review", "synthesis", "validation"]);
   expect(runtime.reportTimeline.every((step: { status: string }) => step.status === "completed")).toBe(true);
-  expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(2);
+  expect(runtime.reportTimeline.find((step: { stage: string }) => step.stage === "evidence").attempts).toBe(evidenceScopes * 2);
   await expect(page.getByRole("button", { name: "继续生成剩余章节", exact: true })).toHaveCount(0);
   expect(runtime.report.sections.map((section: { sectionId: string }) => section.sectionId)).toEqual(runtime.outline.filter((section: { enabled: boolean }) => section.enabled).map((section: { id: string }) => section.id));
   expect(runtime.report.introduction).toContain("检索摘要");

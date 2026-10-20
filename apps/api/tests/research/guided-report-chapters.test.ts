@@ -197,6 +197,24 @@ it("measures real report requests and milestones without recording content", asy
   expect(JSON.stringify(metrics)).not.toMatch(/Evidence for|Policy|system|prompt/);
 });
 
+it("repairs one invalid evidence reply per independently prepared real-document scope", async () => {
+  const f = fixture();
+  for (const source of f.state.sources) source.document = { url: source.url, text: source.content, contentHash: createHash("sha256").update(source.content).digest("hex"), retrievedAt: source.retrievedAt, contentKind: "text", truncated: false, summary: source.content };
+  const requests: string[] = [];
+  const model: ModelCallPort = { complete: async input => {
+    const c = JSON.parse(input.user); requests.push(c.reportStage);
+    if (c.reportStage === "evidence") return { text: JSON.stringify({ evaluations: [{ sourceId: "unknown", chunkId: c.chunks[0].chunkId, irrelevant: true, matches: [] }] }) };
+    return { text: JSON.stringify(answer({ ...c, reportStage: c.reportStage === "evidence_revision" ? "evidence" : c.reportStage })) };
+  } };
+  const report = await generateReportChapters(f.state, model, config, f.persist);
+  expect(report.sections).toHaveLength(2);
+  expect(requests.filter(stage => stage === "evidence")).toHaveLength(2);
+  expect(requests.filter(stage => stage === "evidence_revision")).toHaveLength(2);
+  expect(f.state.modelCalls.filter(call => call.status === "failed")).toHaveLength(2);
+  expect(f.state.reportTimeline?.find(step => step.stage === "evidence")).toMatchObject({ attempts: 4, completed: 2, total: 2, status: "completed" });
+  expect(f.state.reportEvidenceWarnings).toEqual([]);
+});
+
 describe("confirmed chapter question coverage", () => {
   it("keeps main and subsection questions in first generation and targeted repair", async () => {
     const f = fixture();

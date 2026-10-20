@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/8ebc/workspacex/apps/api
+
+ ✓ tests/research/guided-report-chapters.test.ts (150 tests | 149 skipped) 17ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 149 skipped (150)
+   Start at  22:24:39
+   Duration  1.25s (transform 687ms, setup 0ms, collect 1.10s, tests 17ms, environment 0ms, prepare 35ms)
