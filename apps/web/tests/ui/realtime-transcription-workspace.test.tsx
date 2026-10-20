@@ -9,6 +9,28 @@ const SESSION = {
 };
 
 describe("RealtimeTranscriptionWorkspace", () => {
+  it("reports clipboard denial and allows a successful retry", async () => {
+    const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("rec-live-copy"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("复制失败");
+    expect(screen.queryByText("已复制")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("rec-live-copy"));
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-copy")).toHaveTextContent("已复制"));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(writeText).toHaveBeenLastCalledWith(SESSION.content);
+  });
+
+  it.each(["recording", "stopping"] as const)("explains unavailable return during %s", (streamState) => {
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} streamState={streamState} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-back")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-back")).toHaveAccessibleDescription(/返回历史/);
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
   it("requires stopping before renaming because metadata cannot change during a capture", () => {
     const onRename = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState="recording"

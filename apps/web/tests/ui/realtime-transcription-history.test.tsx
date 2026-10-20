@@ -134,6 +134,27 @@ function renderHistory() {
 }
 
 describe("实时转录历史工作台", () => {
+  it("offers a single list error and reloads without leaving the page", async () => {
+    api.list.mockRejectedValueOnce(new Error("offline"));
+    renderHistory();
+    const retry = await screen.findByRole("button", { name: "重新加载" });
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    fireEvent.click(retry);
+    expect(await screen.findByTestId("rec-history-open-europe-entry")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("clears an unsuccessful search instead of creating an unrelated transcription", async () => {
+    renderHistory();
+    await screen.findByTestId("rec-history-open-europe-entry");
+    api.list.mockResolvedValueOnce({ items: [], nextCursor: null });
+    fireEvent.change(screen.getByTestId("rec-history-search"), { target: { value: "没有的转录" } });
+    fireEvent.click(await screen.findByRole("button", { name: "清除筛选" }));
+    expect(screen.getByTestId("rec-history-search")).toHaveValue("");
+    expect(await screen.findByTestId("rec-history-open-europe-entry")).toBeVisible();
+    expect(api.create).not.toHaveBeenCalled();
+  });
+
   it("persists a title rename without replacing live transcript content or tags", async () => {
     renderHistory();
     fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));

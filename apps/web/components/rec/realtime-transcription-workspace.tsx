@@ -112,6 +112,9 @@ export function RealtimeTranscriptionWorkspace({
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const [copyError, setCopyError] = React.useState<string | null>(null);
+  const [copying, setCopying] = React.useState(false);
+  const returnBlocked = streamState === "recording" || streamState === "stopping" || (!reconnecting && session.status === "recording");
   const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);
@@ -119,9 +122,19 @@ export function RealtimeTranscriptionWorkspace({
   const visibleContent = [session.content, interimSegment].filter(Boolean).join(session.content && interimSegment ? " " : "");
 
   async function copyContent() {
-    await navigator.clipboard.writeText(visibleContent);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1_500);
+    if (copying) return;
+    setCopying(true);
+    setCopied(false);
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(visibleContent);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1_500);
+    } catch {
+      setCopyError("复制失败，请允许剪贴板访问后重试，或手动选择正文复制。");
+    } finally {
+      setCopying(false);
+    }
   }
 
   async function saveContent() {
@@ -143,7 +156,7 @@ export function RealtimeTranscriptionWorkspace({
       <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
         <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex min-w-0 items-center gap-3 md:flex-1">
-            <Button data-testid="rec-live-back" type="button" variant="ghost" size="icon" aria-label="返回历史转录" onClick={onBack}>
+            <Button data-testid="rec-live-back" type="button" variant="ghost" size="icon" aria-label="返回历史转录" disabled={returnBlocked} aria-describedby={returnBlocked ? "rec-return-hint" : undefined} onClick={onBack}>
               <ArrowLeft aria-hidden className="h-4 w-4" />
             </Button>
             <div className="min-w-0 flex-1">
@@ -201,6 +214,8 @@ export function RealtimeTranscriptionWorkspace({
           </div>
         </header>
 
+        {returnBlocked && <p id="rec-return-hint" className="text-12 text-muted-foreground">停止转录并完成收尾后可返回历史。</p>}
+        {copyError && <p role="alert" data-testid="rec-live-copy-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{copyError}</p>}
         {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || saveError}</p>}
         {connectionNotice && <p role="status" className="text-12 text-muted-foreground">{connectionNotice}</p>}
 
@@ -210,7 +225,7 @@ export function RealtimeTranscriptionWorkspace({
               <h2 className="text-16 font-semibold">实时逐字稿</h2>
               <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
                 <WorkflowActionButton data-testid="rec-live-copy" type="button" variant="outline"
-                  disabled={!visibleContent} onClick={() => void copyContent()}>
+                  disabled={!visibleContent} loading={copying} onClick={() => void copyContent()}>
                   {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
                   {copied ? "已复制" : "复制全文"}
                 </WorkflowActionButton>
