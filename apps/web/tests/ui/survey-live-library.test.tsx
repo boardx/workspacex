@@ -82,6 +82,25 @@ describe("LiveSurveyLibrary", () => {
     expect(screen.getByTestId("survey-status-survey-1")).toHaveTextContent("发布中");
   });
 
+  it("reports matching results and keeps optional templates out of an empty search", async () => {
+    request.mockResolvedValueOnce([survey(), survey({ id: "survey-2", title: "员工体验" })]);
+    render(<LiveSurveyLibrary />);
+    await screen.findByTestId("survey-card-survey-1");
+    fireEvent.change(screen.getByLabelText("搜索问卷"), { target: { value: "不存在的问卷" } });
+    expect(screen.getByRole("status", { name: "问卷数量" })).toHaveTextContent("匹配 0 / 共 2 个问卷");
+    expect(screen.queryByRole("heading", { name: "为该问卷设计报告模板" })).not.toBeInTheDocument();
+    expect(screen.getByText("没有符合筛选条件的问卷")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "清除筛选" }));
+    expect(screen.getByRole("status", { name: "问卷数量" })).toHaveTextContent("共 2 个问卷");
+    expect(screen.getByTestId("survey-card-survey-1")).toBeVisible();
+  });
+
+  it("does not announce a zero count before loading completes", () => {
+    request.mockReturnValueOnce(new Promise(() => undefined));
+    render(<LiveSurveyLibrary />);
+    expect(screen.queryByText("共 0 个问卷")).not.toBeInTheDocument();
+  });
+
   it("uses a structured loading skeleton while the real survey list is pending", () => {
     request.mockReturnValueOnce(new Promise(() => undefined));
     render(<LiveSurveyLibrary />);

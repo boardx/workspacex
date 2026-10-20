@@ -121,6 +121,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
   const [creating, setCreating] = React.useState(false);
   const createControl = React.useRef<HTMLButtonElement>(null);
   const tagMap = React.useMemo(() => aggregateTags(items), [items]);
+  const filtering = Boolean(query.trim() || selectedTags.length);
   const visibleItems = items
     .filter((item) => matchesTags(item.tags ?? [], selectedTags) && matchesQuery(query, [item.title], item.tags ?? []))
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -184,7 +185,9 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
         <section className="min-w-0 space-y-5" aria-label="我的问卷列表">
           <div className="flex flex-wrap items-center gap-2">
             <TagFilterBar tags={[...tagMap.entries()].map(([t, count]) => ({ tag: t, count }))} selected={selectedTags} onChange={setSelectedTags} prefix="survey" business="问卷" maxVisible={7} />
-            <span className="ml-auto text-12 text-muted-foreground">共 {items.length} 个问卷</span>
+            {!busy && !error && <span role="status" aria-label="问卷数量" className="ml-auto text-12 text-muted-foreground">
+              {filtering ? `匹配 ${visibleItems.length} / 共 ${items.length} 个问卷` : `共 ${items.length} 个问卷`}
+            </span>}
           </div>
 
           {error && <div role="alert" data-testid="err-survey-library" className="rounded-lg border border-destructive bg-card p-4 text-13 text-destructive">{error}</div>}
@@ -202,7 +205,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
                   onResponses={(value) => router.push(withProjectId(surveyPath(value.id, "responses"), projectId))}
                 />
               ))}
-              {items.length > 0 && (
+              {items.length > 0 && !filtering && (
                 <aside className="relative min-h-64 overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm">
                   <div className="relative z-10 max-w-md">
                     <p className="inline-flex rounded-full bg-muted px-3 py-1 text-11 text-muted-foreground">报告模板（可选）</p>
