@@ -1,0 +1,58 @@
+{
+  "sha": "b7b0e6e87ec66423e3d2e8521f2b5b8a4b0b84ce",
+  "baseURL": "http://localhost:35843",
+  "boundary": "Real Chromium + local Next pages. HTTP/session fixtures; no live auth, DB or model.",
+  "checks": [
+    {
+      "round": "R1",
+      "width": 1280,
+      "check": "Completed card shows report CTA and no progressbar",
+      "pass": true
+    },
+    {
+      "round": "R2",
+      "width": 1280,
+      "check": "Initial focus; empty name hint + disabled submit; 503 preserves input + focuses alert; retry; Escape closes",
+      "pass": true
+    },
+    {
+      "round": "R1",
+      "width": 375,
+      "check": "Completed card shows report CTA and no progressbar",
+      "pass": true
+    },
+    {
+      "round": "R2",
+      "width": 375,
+      "check": "Initial focus; empty name hint + disabled submit; 503 preserves input + focuses alert; retry; Escape closes",
+      "pass": true
+    },
+    {
+      "round": "R3",
+      "check": "Controlled pending HTTP displays loading DOM then resolves",
+      "pass": true
+    },
+    {
+      "round": "R3",
+      "width": 375,
+      "check": "empty state (explicit DOM + no overflow; empty opens create; error reload recovers)",
+      "text": "用户访谈\n共 0 次访谈\n新建访谈\n历史访谈\n专家列表\n搜索访谈\n最近更新\n\n还没有访谈，创建第一次访谈，开始了解用户。\n\n新建访谈",
+      "pass": true
+    },
+    {
+      "round": "R3",
+      "width": 375,
+      "check": "error state (explicit DOM + no overflow; empty opens create; error reload recovers)",
+      "text": "用户访谈\n新建访谈\n历史访谈\n专家列表\n搜索访谈\n最近更新\n\n暂时无法加载访谈，请稍后重试。\n\n重新加载访谈",
+      "pass": true
+    }
+  ],
+  "longTags": {
+    "top": 16,
+    "bottom": 651,
+    "viewport": 667,
+    "scrollHeight": 739,
+    "clientHeight": 633
+  },
+  "posts": 6
+}

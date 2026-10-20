@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:58861) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/digital-interview-research-quality.spec.ts:307:5 › a failed report keeps its partial content and exposes retry in a real browser (16.3s)
+
+  1 passed (20.0s)
