@@ -114,7 +114,7 @@ export function RealtimeTranscriptionWorkspace({
   const [copied, setCopied] = React.useState(false);
   const [copyError, setCopyError] = React.useState<string | null>(null);
   const [copying, setCopying] = React.useState(false);
-  const returnBlocked = streamState === "recording" || streamState === "stopping" || (!reconnecting && session.status === "recording");
+  const returnBlocked = streamState === "recording" || streamState === "stopping";
   const [errorDialogDismissed, setErrorDialogDismissed] = React.useState(false);
   React.useEffect(() => { if (!editing) setDraft(session.content); }, [editing, session.content]);
   React.useEffect(() => { if (errorMessage) setErrorDialogDismissed(false); }, [errorMessage]);

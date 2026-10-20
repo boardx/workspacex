@@ -9,6 +9,15 @@ const SESSION = {
 };
 
 describe("RealtimeTranscriptionWorkspace", () => {
+  it.each(["idle", "error"] as const)("allows leaving stale server recording state when the local stream is %s", (streamState) => {
+    const onBack = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState={streamState}
+      reconnecting={false} onBack={onBack} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-back")).toBeEnabled();
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
   it("reports clipboard denial and allows a successful retry", async () => {
     const writeText = vi.fn().mockRejectedValueOnce(new Error("denied")).mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });

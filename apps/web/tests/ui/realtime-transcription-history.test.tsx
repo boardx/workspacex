@@ -134,6 +134,19 @@ function renderHistory() {
 }
 
 describe("实时转录历史工作台", () => {
+  it("allows returning after a stale recording cannot be stopped", async () => {
+    api.read.mockResolvedValueOnce({ ...EUROPE, status: "recording", content: "已有正文" });
+    api.stopTranscription.mockRejectedValueOnce(new Error("offline"));
+    renderHistory();
+    fireEvent.click(await screen.findByTestId("rec-history-open-europe-entry"));
+    fireEvent.click(await screen.findByTestId("rec-live-toggle"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("无法结束遗留转录状态");
+    fireEvent.click(screen.getByTestId("rec-live-back"));
+    expect(await screen.findByTestId("rec-history-page")).toBeVisible();
+    expect(api.stopTranscription).toHaveBeenCalledOnce();
+    expect(api.openAsr).not.toHaveBeenCalled();
+  });
+
   it("offers a single list error and reloads without leaving the page", async () => {
     api.list.mockRejectedValueOnce(new Error("offline"));
     renderHistory();
