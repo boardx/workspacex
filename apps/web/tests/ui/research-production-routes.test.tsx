@@ -215,3 +215,9 @@ it("reveals invalid optional research fields and associates overlong requirement
   expect(goal).toHaveAttribute("aria-invalid", "true");
   expect(document.getElementById(goal.getAttribute("aria-describedby")!)).toHaveTextContent("需求超过");
 });
+
+it("shows a single named assistant heading when the intake panel is open", () => {
+  render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  expect(screen.getAllByRole("heading", { name: "研究助手" })).toHaveLength(1);
+});

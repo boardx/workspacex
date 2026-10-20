@@ -21,7 +21,8 @@ const placeholders: Record<Runtime["currentNode"], string> = {
   report: "例如：让结论更具体，保留来源引用并说明证据缺口…",
 };
 const actions = { save: "应用建议", generate: "批准生成", start: "批准开始检索", retry: "批准重试", confirm: "批准确认并继续", complete: "批准完成当前步骤" };
-export function GuidedResearchConversation({ node, messages, message, onMessageChange, busy, processing, onSend, proposal, proposalEdited, onApply, preview }: {
+export function GuidedResearchConversation({ node, messages, message, onMessageChange, busy, processing, onSend, proposal, proposalEdited, onApply, preview, embedded = false }: {
+  embedded?: boolean;
   node: Runtime["currentNode"]; messages: Runtime["messages"]; message: string; onMessageChange: (value: string) => void;
   busy: boolean; processing: boolean; onSend: (value: string) => void; proposal: Runtime["proposal"]; proposalEdited: boolean; onApply: () => void; preview: React.ReactNode;
 }) {
@@ -29,8 +30,8 @@ export function GuidedResearchConversation({ node, messages, message, onMessageC
   const composing = React.useRef(false);
   React.useEffect(() => { end.current?.scrollIntoView?.({ block: "nearest" }); }, [messages.length, proposal?.id, processing]);
   function send() { if (!busy && message.trim()) onSend(message); }
-  return <section className="flex h-full min-h-0 flex-col rounded-xl border border-border bg-card p-5 shadow-sm" data-testid="research-skill-assistant">
-    <h2 className="font-semibold">研究助手</h2>
+  return <section className={embedded ? "flex h-full min-h-0 flex-col" : "flex h-full min-h-0 flex-col rounded-xl border border-border bg-card p-5 shadow-sm"} data-testid="research-skill-assistant">
+    {!embedded && <h2 className="font-semibold">研究助手</h2>}
     <p className="mt-2 text-12 text-muted-foreground">直接说出需求，助手会生成右侧内容；继续对话即可修改，确认后推进下一步。</p>
     <div className="my-4 min-h-32 flex-1 space-y-3 overflow-y-auto" data-testid="research-skill-messages">
       {!messages.length && <div className="rounded-md bg-muted p-3 text-12"><p className="font-medium">我们一起完成这项研究</p><p className="mt-2">从你的问题开始，我会帮你梳理主题、研究方向和大纲，再检索资料并生成有来源支持的报告。</p></div>}

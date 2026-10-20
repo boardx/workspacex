@@ -253,5 +253,5 @@ function useIntakeAssistant(brief: Brief, onApply: (brief: Brief) => void) {
       if (result.proposal.node === "brief") setProposal(result.proposal.value);
     } catch { setError(true); } finally { setPending(false); }
   }
-  return <div className="space-y-4"><h2 className="font-semibold">研究助手</h2><p className="text-sm text-muted-foreground">建议只有点击应用后才会修改研究内容。</p><Textarea aria-label="和研究助手讨论" maxLength={2000} value={message} onChange={(event) => setMessage(event.target.value)} /><Button disabled={pending || !message.trim()} onClick={() => void send()}>{pending ? "正在生成…" : "发送"}</Button>{error && <p role="alert">助手暂时不可用，请重试。</p>}{reply && <p className="whitespace-pre-wrap">{reply}</p>}{proposal && <Button onClick={() => { onApply(proposal); setProposal(null); }}>应用建议</Button>}</div>;
+  return <div className="space-y-4"><p className="text-sm text-muted-foreground">建议只有点击应用后才会修改研究内容。</p><Textarea aria-label="和研究助手讨论" maxLength={2000} value={message} onChange={(event) => setMessage(event.target.value)} /><Button disabled={pending || !message.trim()} onClick={() => void send()}>{pending ? "正在生成…" : "发送"}</Button>{error && <p role="alert">助手暂时不可用，请重试。</p>}{reply && <p className="whitespace-pre-wrap">{reply}</p>}{proposal && <Button onClick={() => { onApply(proposal); setProposal(null); }}>应用建议</Button>}</div>;
 }

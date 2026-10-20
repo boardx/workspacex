@@ -14,6 +14,7 @@ it("restores the conversation draft on the right and uses it for the next messag
   render(<GuidedResearchLive sessionId={base.sessionId} onBack={vi.fn()} />);
   await screen.findByDisplayValue("德国储能市场");
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
+  expect(screen.getAllByRole("heading", { name: "研究助手" })).toHaveLength(1);
   expect(executeResearchRuntime).not.toHaveBeenCalled();
   fireEvent.change(screen.getByLabelText("研究对话"), { target: { value: "再增加法国" } });
   fireEvent.keyDown(screen.getByLabelText("研究对话"), { key: "Enter" });
