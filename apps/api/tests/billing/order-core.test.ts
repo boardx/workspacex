@@ -29,6 +29,12 @@ describe("F04 real Native order HTTP and PostgreSQL", () => {
     expect((await read.json()).order.amountFen).toBe(9900);
     await expect(asOwner(c => c.query("UPDATE billing_orders SET amount_fen=1 WHERE order_no=$1", [order.orderNo]))).rejects.toThrow(/immutable/);
   });
+  it("selects the trusted platform key and a supported language on the actual merchant request", async () => {
+    const response = await f.create(); expect(response.status).toBe(201);
+    expect(f.state.requestHeaders).toHaveLength(1);
+    expect(f.state.requestHeaders[0]).toMatchObject({ "accept-language": "zh-CN", "wechatpay-serial": "PUB_KEY_ID_f04" });
+    expect(f.state.signedRequests).toBe(1);
+  });
   it("rejects client money before contacting the merchant", async () => {
     expect((await f.create({ amountFen: 1, baseCredits: 999999 })).status).toBe(400); expect(f.state.calls).toBe(0);
   });

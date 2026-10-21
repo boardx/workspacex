@@ -116,9 +116,17 @@ redact_deploy_diagnostics() {
   WORKSPACEX_DEPLOY_SCRUBBER="$scrubber" node --import "$loader" --input-type=module -e '
     import { pathToFileURL } from "node:url";
     import { createInterface } from "node:readline";
-    const { scrubSecrets } = await import(pathToFileURL(process.env.WORKSPACEX_DEPLOY_SCRUBBER).href);
-    for await (const line of createInterface({ input: process.stdin, crlfDelay: Infinity })) {
-      console.log(scrubSecrets(line).replaceAll("<REDACTED>", "<redacted>"));
+    let evidence;
+    try { evidence = await import(pathToFileURL(process.env.WORKSPACEX_DEPLOY_SCRUBBER).href); } catch {}
+    const scrubSecrets = evidence?.scrubSecrets ?? evidence?.default?.scrubSecrets;
+    const lines = createInterface({ input: process.stdin, crlfDelay: Infinity });
+    if (typeof scrubSecrets !== "function") {
+      for await (const line of lines) { /* Drain without exposing unredacted input. */ }
+      console.log("<redacted> diagnostics suppressed: shared scrubber unavailable");
+    } else {
+      for await (const line of lines) {
+        console.log(scrubSecrets(line).replaceAll("<REDACTED>", "<redacted>"));
+      }
     }
   ' 2>/dev/null
 }
@@ -236,4 +244,307 @@ run_post_restart_smoke() {
     return 1
   fi
   echo "  ✓ 探针面未对外暴露"
+}
+
+# A payment-only root operation. The Python source is part of the installed trusted
+# helper; stdin is data only. No checkout code, shell evaluation, or caller paths.
+configure_devapp_billing() {
+  /usr/bin/python3 -I -c "$(cat <<'BILLING_RUNTIME_PYTHON'
+# BILLING_RUNTIME_PYTHON_BEGIN
+import base64
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import select
+import shlex
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.request
+
+LIMIT = 65536
+ENV_PATH = Path('/etc/workspacex-billing/billing.env')
+DROPIN_PATH = Path('/etc/systemd/system/workspacex-api.service.d/90-billing.conf')
+SERVICE = 'workspacex-api.service'
+WECHAT = {'WECHAT_PAY_APP_ID', 'WECHAT_PAY_MCH_ID', 'WECHAT_PAY_API_V3_KEY',
+          'WECHAT_PAY_MCH_SERIAL_NO', 'WECHAT_PAY_PRIVATE_KEY',
+          'WECHAT_PAY_PLATFORM_PUBLIC_KEY', 'WECHAT_PAY_PLATFORM_KEY_ID', 'WECHAT_PAY_NOTIFY_URL'}
+STRIPE = {'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PAYMENT_LINK',
+          'STRIPE_MANAGEMENT_PORTAL', 'STRIPE_RETURN_URL'}
+
+
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError('duplicate key')
+        result[key] = value
+    return result
+
+
+def match(pattern, value):
+    return re.fullmatch(pattern, value) is not None
+
+
+def pem_shape(value, labels):
+    normalized = value.replace('\\n', '\n').strip()
+    for label in labels:
+        prefix, suffix = '-----BEGIN ' + label + '-----\n', '\n-----END ' + label + '-----'
+        if normalized.startswith(prefix) and normalized.endswith(suffix):
+            try:
+                der = base64.b64decode(''.join(normalized[len(prefix):-len(suffix)].splitlines()), validate=True)
+                return len(der) >= 256 and der[0] == 0x30
+            except ValueError:
+                return False
+    return False
+
+
+def validate_payload(raw, previous):
+    if len(raw) > LIMIT:
+        raise ValueError('payload too large')
+    data = json.loads(raw, object_pairs_hook=unique_object)
+    if (not isinstance(data, dict) or set(data) != {'schemaVersion', 'target', 'environment'}
+            or type(data['schemaVersion']) is not int or data['schemaVersion'] != 1 or data['target'] != 'devapp'):
+        raise ValueError('invalid envelope')
+    update = data['environment']
+    if not isinstance(update, dict) or not update or set(update) - (WECHAT | STRIPE):
+        raise ValueError('unsupported environment keys')
+    for key, value in update.items():
+        if (not isinstance(value, str) or len(value.encode()) > 16384 or not value.strip()
+                or any(ord(char) < 32 and char != '\n' for char in value)
+                or ('\n' in value and key not in {'WECHAT_PAY_PRIVATE_KEY', 'WECHAT_PAY_PLATFORM_PUBLIC_KEY'})):
+            raise ValueError('invalid environment value')
+    config = dict(previous, **update)
+    providers = set()
+    if set(update) & WECHAT:
+        providers.add('wechat')
+        if not WECHAT <= set(config):
+            raise ValueError('incomplete WeChat configuration')
+        if (not match(r'wx[A-Za-z0-9]+', config['WECHAT_PAY_APP_ID'])
+                or not match(r'[0-9]{6,32}', config['WECHAT_PAY_MCH_ID'])
+                or not match(r'[A-Za-z0-9]{32}', config['WECHAT_PAY_API_V3_KEY'])
+                or not match(r'[A-Fa-f0-9]{1,128}', config['WECHAT_PAY_MCH_SERIAL_NO'])
+                or not pem_shape(config['WECHAT_PAY_PRIVATE_KEY'], ['PRIVATE KEY', 'RSA PRIVATE KEY'])
+                or not pem_shape(config['WECHAT_PAY_PLATFORM_PUBLIC_KEY'], ['PUBLIC KEY', 'CERTIFICATE'])
+                or not match(r'(PUB_KEY_ID_[A-Za-z0-9_]+|[A-Fa-f0-9]{1,128})', config['WECHAT_PAY_PLATFORM_KEY_ID'])
+                or config['WECHAT_PAY_NOTIFY_URL'] != 'https://devapp.boardx.us/api/billing/webhooks/wechat'):
+            raise ValueError('invalid WeChat configuration')
+    if set(update) & STRIPE:
+        providers.add('stripe')
+        if not STRIPE - {'STRIPE_MANAGEMENT_PORTAL'} <= set(config):
+            raise ValueError('incomplete Stripe configuration')
+        if (not match(r'sk_(test|live)_[A-Za-z0-9]+', config['STRIPE_SECRET_KEY'])
+                or not match(r'whsec_[A-Za-z0-9]+', config['STRIPE_WEBHOOK_SECRET'])
+                or not match(r'https://buy\.stripe\.com/[A-Za-z0-9_]+', config['STRIPE_PAYMENT_LINK'])
+                or ('STRIPE_MANAGEMENT_PORTAL' in config and not match(r'https://billing\.stripe\.com/p/login/[A-Za-z0-9_]+', config['STRIPE_MANAGEMENT_PORTAL']))
+                or config['STRIPE_RETURN_URL'] != 'https://devapp.boardx.us/billing?subscription_return=1'):
+            raise ValueError('invalid Stripe configuration')
+    if len(encode_environment(config)) > LIMIT:
+        raise ValueError('merged configuration too large')
+    return config, providers
+
+
+def encode_environment(config):
+    # systemd EnvironmentFile quoting: literal PEM newlines remain inside quotes.
+    # Dollar/backtick characters are never evaluated by systemd or this parser.
+    return ''.join(key + '="' + value.replace('\\', '\\\\').replace('"', '\\"') + '"\n'
+                   for key, value in sorted(config.items())).encode()
+
+
+def decode_environment(raw):
+    tokens = shlex.split(raw.decode(), comments=False, posix=True)
+    result = dict(token.split('=', 1) for token in tokens)
+    if set(result) - (WECHAT | STRIPE) or encode_environment(result) != raw:
+        raise ValueError('invalid stored environment')
+    return result
+
+
+def check_directory(path, owner=0):
+    info = path.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != owner or info.st_mode & 0o022:
+        raise ValueError('unsafe configuration directory')
+
+
+def prepare_directory(path):
+    for directory in reversed([path] + list(path.parents)):
+        if not directory.exists() and not directory.is_symlink():
+            directory.mkdir(mode=0o700)
+        check_directory(directory)
+
+
+def read_owned(path):
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        return None
+    with os.fdopen(fd, 'rb') as stream:
+        info = os.fstat(stream.fileno())
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o077 or info.st_nlink != 1:
+            raise ValueError('unsafe configuration file')
+        data = stream.read(LIMIT + 1)
+        if len(data) > LIMIT:
+            raise ValueError('stored configuration too large')
+        return data
+
+
+def atomic_write(path, data):
+    fd, name = tempfile.mkstemp(prefix='.billing-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(name, path)
+        directory = os.open(path.parent, os.O_DIRECTORY | os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if os.path.exists(name):
+            os.unlink(name)
+
+
+def command(*args):
+    return subprocess.run(['/usr/bin/systemctl', *args], check=True, stdout=subprocess.PIPE,
+                          stderr=subprocess.DEVNULL, timeout=5 if args[0] in {'show', 'is-active'} else 35,
+                          env={'PATH': '/usr/sbin:/usr/bin:/sbin:/bin', 'LANG': 'C'}).stdout.decode().strip()
+
+
+def invocation():
+    if command('is-active', SERVICE) != 'active':
+        raise RuntimeError('service inactive')
+    return command('show', SERVICE, '--property=InvocationID', '--value')
+
+
+def restart_service():
+    command('daemon-reload')
+    command('restart', SERVICE)
+
+
+def fetch(path):
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    with opener.open('http://127.0.0.1:3200' + path, timeout=2) as response:
+        raw = response.read(LIMIT + 1)
+        if len(raw) > LIMIT:
+            raise ValueError('response too large')
+        return json.loads(raw)
+
+
+def verify_process_environment(config):
+    pid = command('show', SERVICE, '--property=MainPID', '--value')
+    if not match(r'[1-9][0-9]*', pid):
+        raise RuntimeError('service has no process')
+    raw = Path('/proc/' + pid + '/environ').read_bytes()
+    environment = dict(item.split(b'=', 1) for item in raw.split(b'\0') if b'=' in item)
+    if any(environment.get(key.encode()) != value.encode() for key, value in config.items()):
+        raise RuntimeError('service environment did not update')
+
+
+def wait_ready(providers, old, invocation=invocation, fetch=fetch, sleep=time.sleep, attempts=30):
+    stable = 0
+    last = None
+    deadline = time.monotonic() + 90
+    for _ in range(attempts):
+        if time.monotonic() >= deadline:
+            break
+        try:
+            current = invocation()
+            if not current or current == old:
+                raise RuntimeError('service did not restart')
+            health = fetch('/healthz')
+            public = fetch('/billing/config')
+            if (health.get('trustworthy') is not True or health.get('rlsForced') is not True
+                    or health.get('appRoleIsOwner') is not False
+                    or not providers <= set(public.get('enabledProviders', [])) or invocation() != current):
+                raise RuntimeError('readiness rejected')
+            if current != last:
+                stable = 0
+            last = current
+            stable += 1
+            if stable == 3:
+                return
+        except Exception:
+            stable = 0
+        sleep(1)
+    raise RuntimeError('billing readiness failed')
+
+
+def configure_transaction(config, providers, env_path, dropin_path, restart, ready, old):
+    # Called only after the production entry checks root-owned ancestors/files.
+    previous = {path: path.read_bytes() if path.exists() else None for path in (env_path, dropin_path)}
+    try:
+        atomic_write(env_path, encode_environment(config))
+        atomic_write(dropin_path, ('[Service]\nEnvironmentFile=' + str(env_path) + '\n').encode())
+        restart()
+        ready(providers, old)
+    except BaseException:
+        for path, data in previous.items():
+            if data is None:
+                path.unlink(missing_ok=True)
+            else:
+                atomic_write(path, data)
+        try:
+            restart()
+        except Exception:
+            raise RuntimeError('billing failed; previous files restored but service recovery failed') from None
+        raise RuntimeError('billing failed; previous configuration restored') from None
+
+
+def read_stdin():
+    data = bytearray()
+    deadline = time.monotonic() + 20
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0 or not select.select([0], [], [], remaining)[0]:
+            raise ValueError('input timed out')
+        chunk = os.read(0, min(4096, LIMIT + 1 - len(data)))
+        if not chunk:
+            return bytes(data)
+        data.extend(chunk)
+        if len(data) > LIMIT:
+            raise ValueError('input too large')
+
+
+def main():
+    if os.geteuid() != 0:
+        raise ValueError('root required')
+    def interrupted(signum, frame):
+        raise RuntimeError('configuration interrupted')
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
+    raw = read_stdin()
+    prepare_directory(ENV_PATH.parent)
+    prepare_directory(DROPIN_PATH.parent)
+    # The lock lives inside a root-only directory, inaccessible to runner users.
+    lock_fd = os.open(ENV_PATH.parent / '.lock', os.O_CREAT | os.O_NOFOLLOW | os.O_RDWR, 0o600)
+    with os.fdopen(lock_fd, 'w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        previous = read_owned(ENV_PATH)
+        read_owned(DROPIN_PATH)
+        config, providers = validate_payload(raw, decode_environment(previous) if previous is not None else {})
+        old = invocation()
+        def ready(requested, previous_invocation):
+            verify_process_environment(config)
+            wait_ready(requested, previous_invocation)
+            verify_process_environment(config)
+        configure_transaction(config, providers, ENV_PATH, DROPIN_PATH, restart_service, ready, old)
+    print('Billing runtime configured; requested providers available: ' + ', '.join(sorted(providers)))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except BaseException:
+        # Exception details can contain credentials, URLs, or captured output.
+        print('Billing runtime configuration failed; inspect configuration and service state securely.', file=sys.stderr)
+        sys.exit(1)
+# BILLING_RUNTIME_PYTHON_END
+BILLING_RUNTIME_PYTHON
+)"
 }

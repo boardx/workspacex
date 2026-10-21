@@ -1,0 +1,65 @@
+# Install the reviewed trusted scripts first with devapp-install-trusted-scripts.
+# DEVAPP_BILLING_CONFIG_JSON belongs only to the protected environment below.
+# It is the versioned devapp envelope emitted by scripts/billing/prepare-runtime.mjs.
+name: devapp-configure-billing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspacex-devapp-deploy
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, workspacex]
+    environment: devapp-trusted-scripts
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Verify immutable main revision and installed trusted code
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +x
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          # Keep private-repository authentication in process env, never argv or git config on disk.
+          auth_header=$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')
+          main_revision=$(GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraheader GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth_header" git ls-remote --exit-code origin refs/heads/main)
+          unset auth_header
+          test "$main_revision" = "$(printf '%s\trefs/heads/main' "$GITHUB_SHA")"
+          check() {
+            local source=$1 installed=$2
+            test "$(git show "${GITHUB_SHA}:${source}" | sha256sum | cut -d' ' -f1)" = "$(sha256sum "$installed" | cut -d' ' -f1)"
+          }
+          check .harness/scripts/vm/deploy.sh /usr/local/bin/workspacex-deploy
+          check .harness/scripts/vm/deploy-readiness.sh /usr/local/lib/workspacex-deploy-readiness.sh
+
+      - name: Configure root owned payment environment and verify restarted API
+        shell: bash
+        env:
+          DEVAPP_BILLING_CONFIG_JSON: ${{ secrets.DEVAPP_BILLING_CONFIG_JSON }}
+        run: |
+          set +x
+          set -euo pipefail
+          test -n "$DEVAPP_BILLING_CONFIG_JSON"
+          printf '%s' "$DEVAPP_BILLING_CONFIG_JSON" | sudo -n /usr/local/bin/workspacex-deploy --configure-billing
+
+      - name: Activate the owned Stripe resources after runtime readiness
+        shell: bash
+        env:
+          DEVAPP_BILLING_CONFIG_JSON: ${{ secrets.DEVAPP_BILLING_CONFIG_JSON }}
+        run: |
+          set +x
+          set -euo pipefail
+          node scripts/billing/prepare-runtime.mjs --activate-from-env
