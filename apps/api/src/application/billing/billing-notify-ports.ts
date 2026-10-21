@@ -9,6 +9,7 @@ export interface VerifiedPaymentReceipt {
   readonly tradeState: string;
   readonly paidAt: string | null;
   readonly receiptHash: string;
+  readonly signatureVerified: boolean;
 }
 export class PaymentNoticeError extends Error {
   constructor(readonly reason: string, readonly signatureVerified: boolean, readonly orderNo: string | null = null) { super(reason); }

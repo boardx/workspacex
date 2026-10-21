@@ -8,7 +8,7 @@ export interface ReceiptWorker {
   runOnce(): Promise<void>;
   onModuleDestroy(): Promise<void>;
 }
-export async function notifyFixture(background = false) {
+export async function notifyFixture(background = false, options: { platformVerification?: boolean } = {}) {
   const network = { dropAck: false };
   const base = await orderFixture(app => {
     const server = app.getHttpAdapter().getInstance();
@@ -17,7 +17,7 @@ export async function notifyFixture(background = false) {
       if (network.dropAck) { network.dropAck = false; res.end = (() => { res.destroy(); return res; }) as typeof res.end; }
       next();
     });
-  });
+  }, options);
   let worker: ReceiptWorker | undefined;
   try { worker = base.app.get<ReceiptWorker>("BILLING_RECEIPT_WORKER"); } catch { /* Missing feature must fail route assertions, not fixture startup. */ }
   if (!background) await worker?.onModuleDestroy();

@@ -12,6 +12,8 @@ const WECHAT_URL = 'https://devapp.boardx.us/api/billing/webhooks/wechat';
 const EVENTS = ['checkout.session.completed', 'customer.subscription.created', 'customer.subscription.updated', 'customer.subscription.deleted', 'invoice.payment_failed'];
 const STRIPE = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'STRIPE_PAYMENT_LINK', 'STRIPE_MANAGEMENT_PORTAL', 'STRIPE_RETURN_URL'];
 const WECHAT = ['WECHAT_PAY_APP_ID', 'WECHAT_PAY_MCH_ID', 'WECHAT_PAY_API_V3_KEY', 'WECHAT_PAY_MCH_SERIAL_NO', 'WECHAT_PAY_PRIVATE_KEY', 'WECHAT_PAY_PLATFORM_PUBLIC_KEY', 'WECHAT_PAY_PLATFORM_KEY_ID', 'WECHAT_PAY_NOTIFY_URL'];
+const WECHAT_PLATFORM = ['WECHAT_PAY_PLATFORM_PUBLIC_KEY', 'WECHAT_PAY_PLATFORM_KEY_ID'];
+const WECHAT_REQUIRED = WECHAT.filter(key => !WECHAT_PLATFORM.includes(key));
 const fail = message => { const error = new Error(message); error.safe = true; throw error; };
 const same = (a, b) => JSON.stringify(Object.entries(a ?? {}).sort()) === JSON.stringify(Object.entries(b).sort());
 const owned = o => same(o?.metadata, OWNER);
@@ -103,15 +105,22 @@ export function validatePayload(p) {
             fail('Invalid Stripe management portal');
     }
     if (Object.keys(e).some(k => k.startsWith('WECHAT_PAY_'))) {
-        for (const k of WECHAT)
+        for (const k of WECHAT_REQUIRED)
             if (!e[k])
                 fail(`Missing environment fields: ${k}`);
         if (e.WECHAT_PAY_NOTIFY_URL !== WECHAT_URL || !/^\d+$/.test(e.WECHAT_PAY_MCH_ID) || !/^[a-fA-F0-9]+$/.test(e.WECHAT_PAY_MCH_SERIAL_NO))
             fail('Invalid WeChat configuration');
         try {
-            const privateKey = createPrivateKey(e.WECHAT_PAY_PRIVATE_KEY), publicKey = createPublicKey(e.WECHAT_PAY_PLATFORM_PUBLIC_KEY);
-            if (privateKey.asymmetricKeyType !== 'rsa' || publicKey.asymmetricKeyType !== 'rsa' || privateKey.asymmetricKeyDetails.modulusLength < 2048 || publicKey.asymmetricKeyDetails.modulusLength < 2048 || Buffer.byteLength(e.WECHAT_PAY_API_V3_KEY) !== 32 || !/^PUB_KEY_ID_[A-Za-z0-9_]+$/.test(e.WECHAT_PAY_PLATFORM_KEY_ID))
+            const privateKey = createPrivateKey(e.WECHAT_PAY_PRIVATE_KEY);
+            if (privateKey.asymmetricKeyType !== 'rsa' || privateKey.asymmetricKeyDetails.modulusLength < 2048 || Buffer.byteLength(e.WECHAT_PAY_API_V3_KEY) !== 32)
                 fail('Invalid WeChat configuration');
+            if (WECHAT_PLATFORM.some(key => e[key])) {
+                if (!WECHAT_PLATFORM.every(key => e[key]) || !/^PUB_KEY_ID_[A-Za-z0-9_]+$/.test(e.WECHAT_PAY_PLATFORM_KEY_ID))
+                    fail('Invalid WeChat configuration');
+                const publicKey = createPublicKey(e.WECHAT_PAY_PLATFORM_PUBLIC_KEY);
+                if (publicKey.asymmetricKeyType !== 'rsa' || publicKey.asymmetricKeyDetails.modulusLength < 2048)
+                    fail('Invalid WeChat configuration');
+            }
         }
         catch {
             fail('Invalid WeChat configuration');
@@ -164,12 +173,16 @@ function providerConfig(env, providers, baseDir) {
     for (const provider of providers)
         for (const k of provider === 'stripe' ? ['STRIPE_SECRET_KEY', 'STRIPE_PAYMENT_LINK'] : WECHAT.filter(k => k !== 'WECHAT_PAY_NOTIFY_URL')) {
             let value = env[k];
-            if (provider === 'wechat' && k.endsWith('_KEY') && env[`${k}_PATH`] && !value)
+            if (provider === 'wechat' && k.endsWith('_KEY') && env[`${k}_PATH`]?.trim() && !value?.trim()) {
                 value = readFileSync(resolve(baseDir, env[`${k}_PATH`]), 'utf8');
-            if (!value?.trim())
-                missing.push(k);
-            else
+                if (k === 'WECHAT_PAY_PLATFORM_PUBLIC_KEY' && !value.trim())
+                    fail('Invalid WeChat configuration');
+            }
+            if (!value?.trim()) {
+                if (!WECHAT_PLATFORM.includes(k)) missing.push(k);
+            } else {
                 out[k] = value.replace(/\\n/g, '\n');
+            }
         }
     if (providers.includes('stripe')) {
         out.STRIPE_RETURN_URL = RETURN_URL;
@@ -193,13 +206,7 @@ export async function prepare({ env, providers = ['stripe'], mutate = false, api
     }
     if (providers.includes('wechat')) {
         validatePayload({ schemaVersion: 1, target: 'devapp', environment: Object.fromEntries(Object.entries(out).filter(([k]) => k.startsWith('WECHAT_PAY_'))) });
-        try {
-            if (createPrivateKey(out.WECHAT_PAY_PRIVATE_KEY).asymmetricKeyType !== 'rsa' || createPublicKey(out.WECHAT_PAY_PLATFORM_PUBLIC_KEY).asymmetricKeyType !== 'rsa' || Buffer.byteLength(out.WECHAT_PAY_API_V3_KEY) !== 32 || !/^PUB_KEY_ID_[A-Za-z0-9_]+$/.test(out.WECHAT_PAY_PLATFORM_KEY_ID))
-                fail('Invalid WeChat configuration');
-        }
-        catch {
-            fail('Invalid WeChat configuration');
-        }
+
     }
     if (!providers.includes('stripe'))
         return mutate ? validatePayload({ schemaVersion: 1, target: 'devapp', environment: out }) : { ready: true, missing: [] };

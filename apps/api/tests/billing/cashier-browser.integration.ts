@@ -1,4 +1,4 @@
-/** Real Next → BillingModule/PG → signed loopback merchant and callback → real UI reads.
+/** Real Next → BillingModule/PG → reference-compatible loopback merchant/callback → real UI reads.
  * Only identity display is a browser fixture; no billing request or response is intercepted.
  */
 // @global-scope-fixture table:credit_wallets: only f04-order-user; notifyFixture.reset/close deletes owned wallet and ledger between cases and on teardown.
@@ -128,7 +128,7 @@ async function sourceAccounting(orderNo: string) {
 beforeAll(async () => {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Run through the standard test isolation wrapper with WORKSPACEX_WEB_PORT");
   mkdirSync(evidence, { recursive: true }); await assertAllocatedPortFree();
-  fixture = await notifyFixture(); await fixture.reset();
+  fixture = await notifyFixture(false, { platformVerification: false }); await fixture.reset();
   const require = createRequire(resolve(webRoot, "package.json"));
   const env: NodeJS.ProcessEnv = { ...process.env, NEXT_DIST_DIR: ".next-billing-cashier-glue", NEXT_PUBLIC_API_URL: "/__fullstack_api", FULLSTACK_E2E_API_ORIGIN: fixture.base };
   // The web test process never needs payment credentials, including any host configuration.

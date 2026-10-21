@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BillingWechatNotifyService } from "../../src/application/billing/billing-wechat-notify-service";
 import { PaymentNoticeError, type BillingCreditingStore, type VerifiedPaymentReceipt, type WechatNoticeVerifier } from "../../src/application/billing/billing-notify-ports";
 import type { LoggerPort, LogFields } from "../../src/application/ports/logger.port";
-const receipt: VerifiedPaymentReceipt = { providerEventId: "verified-event", orderNo: "bg20261015000000abcdef", appId: "app", mchId: "merchant", amountFen: 9900, currency: "CNY", transactionId: "transaction", tradeState: "SUCCESS", paidAt: "2026-10-15T00:00:00.000Z", receiptHash: "a".repeat(64) };
+const receipt: VerifiedPaymentReceipt = { providerEventId: "verified-event", orderNo: "bg20261015000000abcdef", appId: "app", mchId: "merchant", amountFen: 9900, currency: "CNY", transactionId: "transaction", tradeState: "SUCCESS", paidAt: "2026-10-15T00:00:00.000Z", signatureVerified: true, receiptHash: "a".repeat(64) };
 function fixture(stage: "accept" | "credit" | "audit_rejection" | "pending") {
   const entries: {msg: string; fields: LogFields}[] = [];
   const logger: LoggerPort = { info: (msg,fields)=>entries.push({msg,fields}), error:(msg,fields)=>entries.push({msg,fields}) };

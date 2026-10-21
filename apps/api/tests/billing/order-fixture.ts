@@ -19,7 +19,8 @@ import { toOrgId } from "../../src/domain/org-id";
 export const user = "f04-order-user", other = "f04-order-other";
 export const org = toOrgId("f04-order-org"), otherOrg = toOrgId("f04-order-other-org");
 export type Mode = "success" | "non2xx" | "bad-signature" | "wrong-rsa" | "tampered" | "missing-signature" | "missing-nonce" | "missing-time" | "stale" | "unknown-key" | "missing-qr" | "bad-qr" | "malformed" | "redirect" | "oversize" | "timeout-headers" | "timeout-body";
-export async function orderFixture(beforeListen?: (app: NestExpressApplication) => void) {
+export async function orderFixture(beforeListen?: (app: NestExpressApplication) => void, options: { platformVerification?: boolean } = {}) {
+  const platformVerification = options.platformVerification !== false;
   ensureDatabase(); await migrateOnce();
   const merchant = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const platform = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -28,7 +29,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
     const body = Buffer.concat(chunks).toString("utf8"); state.calls++;
     state.requestHeaders.push({ ...req.headers });
-    if (req.headers["accept-language"] !== "zh-CN" || req.headers["wechatpay-serial"] !== "PUB_KEY_ID_f04") {
+    if (req.headers["accept-language"] !== "zh-CN" || req.headers["wechatpay-serial"] !== (platformVerification ? "PUB_KEY_ID_f04" : undefined)) {
       res.statusCode = 406; res.end(JSON.stringify({ code: "PARAM_ERROR", message: "Unsupported merchant protocol headers" })); return;
     }
     const auth = req.headers.authorization ?? "";
@@ -80,9 +81,10 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     const env: Record<string, string> = {
       KERNEL_KEEP_LOGS: "1",
       WECHAT_PAY_APP_ID: "wx-f04-fixture", WECHAT_PAY_MCH_ID: "1900000001", WECHAT_PAY_API_V3_KEY: randomBytes(16).toString("hex"),
-      WECHAT_PAY_MCH_SERIAL_NO: "ABC123", WECHAT_PAY_PLATFORM_KEY_ID: "PUB_KEY_ID_f04",
+      WECHAT_PAY_MCH_SERIAL_NO: "ABC123", WECHAT_PAY_PLATFORM_KEY_ID: platformVerification ? "PUB_KEY_ID_f04" : "",
       WECHAT_PAY_PRIVATE_KEY: merchant.privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
-      WECHAT_PAY_PLATFORM_PUBLIC_KEY: platform.publicKey.export({ type: "spki", format: "pem" }).toString(),
+      WECHAT_PAY_PLATFORM_PUBLIC_KEY: platformVerification ? platform.publicKey.export({ type: "spki", format: "pem" }).toString() : "",
+      WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH: "",
       WECHAT_PAY_NOTIFY_URL: "https://billing.example.test/api/billing/webhooks/wechat",
     };
     const saved = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));

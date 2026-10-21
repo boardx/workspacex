@@ -26,7 +26,7 @@ export const BILLING_ENV_KEYS = Object.keys(readDeployment());
 type Deployment = Readonly<Record<string, string | undefined>>;
 export type WechatDeployment = Readonly<{
   appId: string; mchId: string; apiV3Key: string; mchSerialNo: string;
-  privateKey: KeyObject; platformKey: KeyObject; platformKeyId: string; notifyUrl: string;
+  privateKey: KeyObject; platformKey: KeyObject | null; platformKeyId: string | null; notifyUrl: string;
 }>;
 export type StripeDeployment = Readonly<{
   secretKey: string; webhookSecret: string; paymentLink: string; managementPortal: string; returnUrl?: string;
@@ -51,8 +51,13 @@ function wechat(env: Deployment): WechatDeployment | null {
     if (!appId || !/^\d+$/.test(mchId) || Buffer.byteLength(apiV3Key, "utf8") !== 32
       || !/^[a-fA-F0-9]+$/.test(mchSerialNo) || !httpsUrl(notifyUrl)) return null;
     const privateKey = createPrivateKey(pem(env, "WECHAT_PAY_PRIVATE_KEY", "WECHAT_PAY_PRIVATE_KEY_PATH"));
+    if (!rsa(privateKey)) return null;
     const platformPem = pem(env, "WECHAT_PAY_PLATFORM_PUBLIC_KEY", "WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH");
     let platformKeyId = text(env, "WECHAT_PAY_PLATFORM_KEY_ID");
+    // Reference backend compatibility: merchant signing and API-v3 callback
+    // decryption remain available without platform RSA verification material.
+    const platformConfigured = text(env, "WECHAT_PAY_PLATFORM_PUBLIC_KEY") || text(env, "WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH") || platformKeyId;
+    if (!platformConfigured) return Object.freeze({ appId, mchId, apiV3Key, mchSerialNo, privateKey, platformKey: null, platformKeyId: null, notifyUrl });
     let platformKey: KeyObject;
     if (platformPem.includes("-----BEGIN CERTIFICATE-----")) {
       const certificate = new X509Certificate(platformPem);
