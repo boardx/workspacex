@@ -52,6 +52,7 @@
     "test:local-desktop-unit": "vitest run --config vitest.local-desktop-unit.config.ts",
     "test:data": "vitest run --config vitest.data.config.ts",
     "test:document-skills-unit": "vitest run --config vitest.document-skills-unit.config.ts",
+    "test:standard-web-unit": "vitest run --config vitest.standard-web-unit.config.ts",
     "test:document-unit": "vitest run --config vitest.document-unit.config.ts",
     "test:export-unit": "vitest run --config vitest.export-unit.config.ts",
     "export:org": "tsx scripts/export-org-data.ts",
@@ -99,7 +100,6 @@
     "cron-parser": "5.10.0",
     "express": "4.22.1",
     "ioredis": "^5.4.1",
-    "jsdom": "30.0.1",
     "json5": "^2.2.3",
     "multer": "2.2.0",
     "pg": "^8.13.1",
@@ -117,7 +117,9 @@
     "zod-to-json-schema": "3.24.6",
     "@napi-rs/image": "1.15.0",
     "image-size": "2.0.4",
-    "omggif": "1.0.10"
+    "omggif": "1.0.10",
+    "domino": "2.1.8",
+    "tsx": "^4.19.0"
   },
   "devDependencies": {
     "@repo/dev-mode-accounts": "workspace:*",
@@ -136,7 +138,6 @@
     "jszip": "^3.10.1",
     "pdf-lib": "^1.17.1",
     "pptxgenjs": "^4.0.1",
-    "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^2.0.0",
     "@types/omggif": "1.0.5"

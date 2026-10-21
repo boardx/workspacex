@@ -13,7 +13,8 @@ RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/s
 ENV NEXT_PUBLIC_API_URL=/api API_INTERNAL_URL=http://api:3200
 RUN --network=none pnpm --filter @repo/contracts typecheck \
  && WORKSPACEX_RELEASE_BUILD=1 NODE_OPTIONS=--max-old-space-size=3072 pnpm --filter web build \
- && test -f apps/web/.next/standalone/apps/web/server.js
+ && test -f apps/web/.next/standalone/apps/web/server.js \
+ && node apps/web/scripts/assert-runtime-image-dependencies.mjs apps/web/.next/standalone
 # A clean runtime starts from the same pinned base: no builder dependencies/cache layers.
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /opt/workspacex

@@ -57,6 +57,16 @@ export default {
    * 300s 取自实测上界（开思考的最坏情况）再留一点余量，不是拍脑袋。
    */
   experimental: {
+    // Next 14 traces its optional optimizer's top-level require even when images
+    // are unoptimized. Exclude only that unused server-trace dependency family.
+    outputFileTracingExcludes: {
+      'next-server': [
+        '**/node_modules/sharp{,/**}',
+        '**/node_modules/.pnpm/sharp@*{,/**}',
+        '**/node_modules/@img/sharp-*{,/**}',
+        '**/node_modules/.pnpm/@img+sharp-*{,/**}',
+      ],
+    },
     proxyTimeout: 300_000,
     // The release builder shares constrained hosts with provisioning verification.
     // Keep compilers/traces sequential and static generation on one worker.

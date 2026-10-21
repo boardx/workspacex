@@ -517,5 +517,17 @@
       "count": 13,
       "contents": "13 platform binding artifacts; inspected workflow exports native/WASI binaries, no Cargo.lock or SBOM artifact declared."
     }
+  },
+  "apiDomReplacement": {
+    "package": "domino",
+    "version": "2.1.8",
+    "license": "BSD-2-Clause",
+    "dependencies": {},
+    "peerDependencies": {},
+    "source": "https://registry.npmjs.org/domino/2.1.8",
+    "upstream": "https://github.com/fgnass/domino",
+    "use": "Inert DOM for existing Mozilla Readability worker; no scripts/resources/native canvas. Worker deadline and resolution guard retained.",
+    "apiRuntimePackaging": "Separate clean source/runtime stages and --filter-prod selection prevent API developer workspaces and native canvas peers entering the runtime install.",
+    "scope": "Web developer/Fabric Node tests retain their existing canvas support; actual Web standalone excludes unused optional sharp trace and asserts forbidden imaging libraries absent."
   }
 }
