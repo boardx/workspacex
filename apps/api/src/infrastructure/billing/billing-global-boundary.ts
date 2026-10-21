@@ -15,11 +15,11 @@ export const BILLING_GLOBAL_SQL = Object.freeze({
   bindClosedOrder: "UPDATE billing_orders SET channel_order_no=$2 WHERE order_no=$1",
   lockOrder: "SELECT * FROM billing_orders WHERE order_no=$1 FOR UPDATE",
   insertReceipt: `INSERT INTO billing_payment_receipts(provider_event_id,order_no,app_id,mch_id,amount_fen,currency,transaction_id,trade_state,paid_at,receipt_hash,signature_verified)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,true) ON CONFLICT(provider_event_id) DO NOTHING`,
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(provider_event_id) DO NOTHING`,
   lockReceipt: "SELECT * FROM billing_payment_receipts WHERE provider_event_id=$1 FOR UPDATE",
   captureClosure: "UPDATE billing_payment_receipts SET previous_closed_at=COALESCE(previous_closed_at,$2) WHERE provider_event_id=$1",
   claimOrder: "UPDATE billing_orders SET status='PROCESSING',channel_order_no=$2 WHERE order_no=$1",
-  insertEvent: "INSERT INTO billing_webhook_events(provider,provider_event_id,order_no,signature_verified,result) VALUES('wechat',$1,$2,true,$3) ON CONFLICT(provider_event_id) DO NOTHING",
+  insertEvent: "INSERT INTO billing_webhook_events(provider,provider_event_id,order_no,signature_verified,result) VALUES('wechat',$1,$2,$4,$3) ON CONFLICT(provider_event_id) DO NOTHING",
   readEvent: "SELECT provider,order_no,signature_verified,result FROM billing_webhook_events WHERE provider_event_id=$1",
   finishReceipt: "UPDATE billing_payment_receipts SET state=$2,processed_at=now(),last_error=NULL WHERE provider_event_id=$1",
   tryLockReceipt: "SELECT * FROM billing_payment_receipts WHERE provider_event_id=$1 FOR UPDATE SKIP LOCKED",

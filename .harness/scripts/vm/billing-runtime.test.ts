@@ -18,7 +18,7 @@ describe("trusted devapp billing configuration", () => {
   it("validates, persists, verifies and rolls back payment-only configuration", () => {
     const result = spawnSync("python3", ["-m", "unittest", "discover", "-s", ".harness/scripts/vm/tests", "-p", "test_billing_runtime.py"],
       { cwd: root, encoding: "utf8", timeout: 15_000 });
-    expect(result.stderr + result.stdout).toContain("Ran 11 tests");
+    expect(result.stderr + result.stdout).toContain("Ran 12 tests");
     expect(result.status, result.stderr + result.stdout).toBe(0);
   });
 

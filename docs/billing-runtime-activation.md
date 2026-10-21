@@ -13,20 +13,20 @@ node scripts/billing/prepare-runtime.mjs --prepare-stripe --providers stripe --e
 
 Preparation uses a persistent `0600` `prepare.lock` inode with an OS advisory lock held by an isolated Python 3 child. Concurrent preparation fails immediately. Normal completion closes the lifetime pipe and waits for the child; a terminated owner also closes the pipe, so the OS lock releases without deleting the file. Retain the lock file when retrying.
 
-The first command reports readiness without creating resources. The second writes a `0600` payload and protected retry state under `.harness/state/.cache/billing/`. A Stripe-only payload can be installed while WeChat is incomplete; the root helper preserves any previously installed WeChat configuration.
+The first command reports readiness without creating resources. The second writes a `0600` payload and protected retry state under `.harness/state/.cache/billing/`. A Stripe-only payload can be installed independently; the root helper preserves any previously installed WeChat configuration.
 
 Stripe's [payment link creation API](https://docs.stripe.com/api/payment-link/create) does not accept `active=false`; its [webhook creation API](https://docs.stripe.com/api/webhook_endpoints/create) does not accept `disabled=true`. New objects therefore have an unavoidable active interval between creation and the immediate staging update. Keep the new link private until configuration completes. A crash or connection loss during that interval can require an operator to inspect and disable the owned objects before retrying; staging cannot guarantee that creation is inactive atomically.
 
 ## Deliver through the protected environment
 
-After the changes are merged and the normal main deployment has completed, configure required reviewers for the existing GitHub environment `devapp-trusted-scripts`. Store the payload as that environment's secret through stdin:
+After the changes are merged, install the updated trusted scripts before configuring billing. The API deployment must also include the compatibility migration. If the automatic main deployment stops at the trusted-copy drift check, finish the installer first and rerun that failed deployment. Use the existing GitHub environment `devapp-trusted-scripts` and store the payload as its secret through stdin:
 
 ```bash
 gh secret set DEVAPP_BILLING_CONFIG_JSON --env devapp-trusted-scripts < .harness/state/.cache/billing/devapp-stripe.json
 gh workflow run devapp-install-trusted-scripts.yml --ref main
 ```
 
-Approve the installer in GitHub and wait for its successful completion before dispatching billing configuration. To find and watch its run:
+Approve the installer in GitHub and wait for its successful completion. Confirm the matching main API deployment and migration have completed before dispatching billing configuration. To find and watch the runs:
 
 ```bash
 gh run list --workflow devapp-install-trusted-scripts.yml --branch main --limit 5
@@ -52,21 +52,23 @@ curl --fail --silent --show-error https://devapp.boardx.us/api/billing/config
 
 Expect `enabledProviders` to contain `stripe`. This confirms runtime availability, not a completed payment. A customer checkout and signed webhook that update the intended user's subscription are the separate end-to-end acceptance check. Stripe subscriptions do not add recharge credits.
 
-## Add WeChat when its public verification material is available
+## Add WeChat using the reference compatibility behavior
 
-The merchant private key signs outbound requests. The WeChat platform public key verifies payment notifications; obtain it and its matching `PUB_KEY_ID_...` from the merchant platform. The merchant signing public key cannot replace this platform verification key.
+Supply these mandatory `.env.local` fields: `WECHAT_PAY_APP_ID`, `WECHAT_PAY_MCH_ID`, `WECHAT_PAY_API_V3_KEY`, `WECHAT_PAY_MCH_SERIAL_NO`, and `WECHAT_PAY_PRIVATE_KEY` (or `WECHAT_PAY_PRIVATE_KEY_PATH`). The merchant private key signs outbound requests. Paths are resolved locally; the payload contains PEM contents and never arbitrary server file paths. The tool pins the notification URL to `https://devapp.boardx.us/api/billing/webhooks/wechat`.
 
-Supply all of these `.env.local` fields: `WECHAT_PAY_APP_ID`, `WECHAT_PAY_MCH_ID`, `WECHAT_PAY_API_V3_KEY`, `WECHAT_PAY_MCH_SERIAL_NO`, `WECHAT_PAY_PRIVATE_KEY` (or `WECHAT_PAY_PRIVATE_KEY_PATH`), `WECHAT_PAY_PLATFORM_PUBLIC_KEY` (or `WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH`), and `WECHAT_PAY_PLATFORM_KEY_ID`. Paths are resolved locally; the payload contains PEM contents and never arbitrary server file paths. The tool pins the notification URL to `https://devapp.boardx.us/api/billing/webhooks/wechat`.
+WeChat can be enabled when both platform verification fields are absent, matching `boardx-backend`, where callback RSA verification is commented out. This compatibility behavior requires no flag. Callback AES-GCM decryption and merchant, amount, and idempotency checks remain enforced. Without platform trust, callback RSA signatures are not verified.
+
+To enable callback RSA verification, provide both `WECHAT_PAY_PLATFORM_PUBLIC_KEY` (or `WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH`) and its matching `WECHAT_PAY_PLATFORM_KEY_ID`. A partial or malformed pair fails validation instead of falling back to compatibility. Obtain the platform public key and matching `PUB_KEY_ID_...` from the merchant platform; the merchant signing public key cannot replace it. Omitted fields preserve any previously installed valid verification pair.
 
 ```bash
 node scripts/billing/prepare-runtime.mjs --check --providers wechat --env .env.local
 ```
 
-If this reports missing platform public PEM or key ID, obtain those matching values before requesting WeChat activation. Once WeChat is ready, prepare both providers using the retained Stripe state, update the protected secret, and repeat the protected workflow sequence:
+After the check passes, prepare both providers using the retained Stripe state, update the protected secret, and repeat the protected workflow sequence:
 
 ```bash
 node scripts/billing/prepare-runtime.mjs --prepare-stripe --providers stripe,wechat --env .env.local --output .harness/state/.cache/billing/devapp-billing.json
 gh secret set DEVAPP_BILLING_CONFIG_JSON --env devapp-trusted-scripts < .harness/state/.cache/billing/devapp-billing.json
 ```
 
-Preparing both providers stages the owned Stripe resources again; finish the workflow sequence to restore their active state. Public configuration must then contain both `wechat` and `stripe`. WeChat merchant approval and an actual signed payment notification remain necessary for full payment acceptance.
+Preparing both providers stages the owned Stripe resources again; finish the workflow sequence to restore their active state. Public configuration must then contain both `wechat` and `stripe`. Merchant approval and an actual payment notification that credits the intended user remain the end-to-end acceptance check.

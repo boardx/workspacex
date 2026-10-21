@@ -323,17 +323,23 @@ def validate_payload(raw, previous):
     providers = set()
     if set(update) & WECHAT:
         providers.add('wechat')
-        if not WECHAT <= set(config):
+        trust_keys = {'WECHAT_PAY_PLATFORM_PUBLIC_KEY', 'WECHAT_PAY_PLATFORM_KEY_ID'}
+        if not WECHAT - trust_keys <= set(config):
             raise ValueError('incomplete WeChat configuration')
         if (not match(r'wx[A-Za-z0-9]+', config['WECHAT_PAY_APP_ID'])
                 or not match(r'[0-9]{6,32}', config['WECHAT_PAY_MCH_ID'])
                 or not match(r'[A-Za-z0-9]{32}', config['WECHAT_PAY_API_V3_KEY'])
                 or not match(r'[A-Fa-f0-9]{1,128}', config['WECHAT_PAY_MCH_SERIAL_NO'])
                 or not pem_shape(config['WECHAT_PAY_PRIVATE_KEY'], ['PRIVATE KEY', 'RSA PRIVATE KEY'])
-                or not pem_shape(config['WECHAT_PAY_PLATFORM_PUBLIC_KEY'], ['PUBLIC KEY', 'CERTIFICATE'])
-                or not match(r'(PUB_KEY_ID_[A-Za-z0-9_]+|[A-Fa-f0-9]{1,128})', config['WECHAT_PAY_PLATFORM_KEY_ID'])
                 or config['WECHAT_PAY_NOTIFY_URL'] != 'https://devapp.boardx.us/api/billing/webhooks/wechat'):
             raise ValueError('invalid WeChat configuration')
+        # Match the reference backend when both optional verification fields are
+        # absent. Supplied platform trust must remain a complete, valid pair.
+        if trust_keys & set(config):
+            if (not trust_keys <= set(config)
+                    or not pem_shape(config['WECHAT_PAY_PLATFORM_PUBLIC_KEY'], ['PUBLIC KEY', 'CERTIFICATE'])
+                    or not match(r'(PUB_KEY_ID_[A-Za-z0-9_]+|[A-Fa-f0-9]{1,128})', config['WECHAT_PAY_PLATFORM_KEY_ID'])):
+                raise ValueError('invalid WeChat platform trust')
     if set(update) & STRIPE:
         providers.add('stripe')
         if not STRIPE - {'STRIPE_MANAGEMENT_PORTAL'} <= set(config):

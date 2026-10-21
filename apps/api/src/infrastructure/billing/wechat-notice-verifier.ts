@@ -16,7 +16,8 @@ export class DeploymentWechatNoticeVerifier implements WechatNoticeVerifier {
   verify(rawBody: Buffer, headers: Readonly<Record<string,string|string[]|undefined>>): VerifiedPaymentReceipt {
     const config = this.deployment.getWechat();
     if (!config) throw new PaymentNoticeError("provider_unavailable",false);
-    if (!verifyWechatSignature(config,name => {const value=headers[name.toLowerCase()];return typeof value==="string"?value:undefined;},rawBody)) throw new PaymentNoticeError("signature_invalid",false);
+    const signatureVerified = config.platformKey !== null;
+    if (signatureVerified && !verifyWechatSignature(config,name => {const value=headers[name.toLowerCase()];return typeof value==="string"?value:undefined;},rawBody)) throw new PaymentNoticeError("signature_invalid",false);
     let orderNo: string|null=null;
     try {
       const envelope = object(JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(rawBody)));
@@ -39,7 +40,7 @@ export class DeploymentWechatNoticeVerifier implements WechatNoticeVerifier {
       let paidAt:string|null=null;
       if(tradeState==="SUCCESS") { const date=new Date(text(payment.success_time,64));if(!Number.isFinite(date.getTime()))throw new Error("invalid_paid_at");paidAt=date.toISOString(); }
       const facts={providerEventId,orderNo,appId:config.appId,mchId:config.mchId,amountFen:Number(amount.total),currency:"CNY",transactionId,tradeState,paidAt};
-      return {...facts,receiptHash:createHash("sha256").update(JSON.stringify(facts)).digest("hex")};
-    } catch { throw new PaymentNoticeError("receipt_invalid",true,orderNo); }
+      return {...facts,signatureVerified,receiptHash:createHash("sha256").update(JSON.stringify(facts)).digest("hex")};
+    } catch { throw new PaymentNoticeError("receipt_invalid",signatureVerified,orderNo); }
   }
 }

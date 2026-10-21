@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, statSync, symlinkSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { generateKeyPairSync } from 'node:crypto';
 import { prepare, activate, secureWrite, validatePayload, OWNER, RETURN_URL, WEBHOOK_URL } from './prepare-runtime.mjs';
 const syntheticSigningValue = 'whsec_' + 'fixture';
 const syntheticRecoveredSigningValue = 'whsec_' + 'new';
@@ -33,7 +34,7 @@ function fixture() {
 }
 test('default check has no mutations or secret output', async () => { const f = fixture(); const r = await prepare({ env, providers: ['stripe'], api: f.api }); assert.equal(f.calls.filter(c => c.method !== 'GET').length, 0); assert.ok(!JSON.stringify(r).includes(env.STRIPE_SECRET_KEY)); });
 test('preparation creates separate resources and persists webhook secret immediately', async () => { const f = fixture(); const states = []; const r = await prepare({ env, providers: ['stripe'], mutate: true, api: f.api, saveState: s => states.push(structuredClone(s)) }); assert.equal(r.environment.STRIPE_PAYMENT_LINK, f.link.url); assert.equal(states.at(-1).webhookSecret, syntheticSigningValue); assert.ok(f.calls.filter(c => c.method === 'POST').every(c => !c.path.includes('reference'))); assert.ok(f.calls.filter(c => c.method === 'POST').every(c => c.key)); });
-test('both providers fail before mutations when platform trust is absent', async () => { const f = fixture(); await assert.rejects(prepare({ env, providers: ['stripe', 'wechat'], mutate: true, api: f.api }), /WECHAT_PAY_PLATFORM_PUBLIC_KEY/); assert.equal(f.calls.length, 0); });
+test('both providers fail before mutations when merchant credentials are absent', async () => { const f = fixture(); await assert.rejects(prepare({ env, providers: ['stripe', 'wechat'], mutate: true, api: f.api }), /WECHAT_PAY_APP_ID/); assert.equal(f.calls.length, 0); });
 test('secure output has 0600 mode and rejects symlinks', () => { const d = mkdtempSync(join(realpathSync(tmpdir()), 'billing-test-')); const p = join(d, 'config'); secureWrite(p, { secret: 'fixture' }); assert.equal(statSync(p).mode & 0o777, 0o600); assert.equal(JSON.parse(readFileSync(p)).secret, 'fixture'); symlinkSync(p, join(d, 'link')); assert.throws(() => secureWrite(join(d, 'link'), {})); });
 test('closed payload rejects unknown keys and paths', () => { assert.throws(() => validatePayload({ schemaVersion: 1, target: 'devapp', environment: { STRIPE_UNKNOWN: 'x' } })); assert.throws(() => validatePayload({ schemaVersion: 1, target: 'devapp', environment: { WECHAT_PAY_PRIVATE_KEY_PATH: '/tmp/key' } })); });
 test('activation verifies ownership before mutation and rolls back link on endpoint failure', async () => { const f = fixture(); const payload = { schemaVersion: 1, target: 'devapp', environment: { ...env, STRIPE_PAYMENT_LINK: f.link.url, STRIPE_WEBHOOK_SECRET: syntheticSigningValue, STRIPE_RETURN_URL: RETURN_URL } }; const api = async (m, p, b, k) => { if (m === 'GET' && p === '/payment_links?limit=100')
@@ -190,4 +191,53 @@ test('runtime output cannot replace the shared advisory lock inode', async () =>
     const result = spawnSync(process.execPath, ['scripts/billing/prepare-runtime.mjs','--prepare-stripe','--env','/does/not/exist','--output','.harness/state/.cache/billing/prepare.lock'], {encoding:'utf8'});
     assert.equal(result.status, 1);
     assert.match(result.stderr, /Output must be inside/);
+});
+
+
+const syntheticWechatKeys = generateKeyPairSync('rsa', { modulusLength:2048,
+    privateKeyEncoding:{type:'pkcs8',format:'pem'}, publicKeyEncoding:{type:'spki',format:'pem'} });
+const wechatEnvironment = {
+    WECHAT_PAY_APP_ID:'wxFixture', WECHAT_PAY_MCH_ID:'12345678',
+    WECHAT_PAY_API_V3_KEY:'fixture'.padEnd(32,'0'), WECHAT_PAY_MCH_SERIAL_NO:'AABB0011',
+    WECHAT_PAY_PRIVATE_KEY:syntheticWechatKeys.privateKey,
+};
+test('WeChat without platform verification material is ready and prepares without Stripe calls', async () => {
+    let calls=0;
+    const api=async()=>{calls++;throw Error('Stripe must not be called');};
+    assert.deepEqual(await prepare({env:wechatEnvironment,providers:['wechat'],api}),{ready:true,missing:[]});
+    const payload=await prepare({env:wechatEnvironment,providers:['wechat'],mutate:true,api});
+    assert.equal(payload.environment.WECHAT_PAY_NOTIFY_URL,'https://devapp.boardx.us/api/billing/webhooks/wechat');
+    assert.equal(payload.environment.WECHAT_PAY_PRIVATE_KEY,syntheticWechatKeys.privateKey);
+    assert.ok(!Object.hasOwn(payload.environment,'WECHAT_PAY_PLATFORM_PUBLIC_KEY'));
+    assert.ok(!Object.hasOwn(payload.environment,'WECHAT_PAY_PLATFORM_KEY_ID'));
+    assert.equal(calls,0);
+    assert.equal(validatePayload(payload),payload);
+});
+test('WeChat provided platform verification material must form a valid pair', async () => {
+    for (const trust of [
+        {WECHAT_PAY_PLATFORM_PUBLIC_KEY:syntheticWechatKeys.publicKey},
+        {WECHAT_PAY_PLATFORM_KEY_ID:'PUB_KEY_ID_fixture'},
+        {WECHAT_PAY_PLATFORM_PUBLIC_KEY:'malformed',WECHAT_PAY_PLATFORM_KEY_ID:'PUB_KEY_ID_fixture'},
+        {WECHAT_PAY_PLATFORM_PUBLIC_KEY:syntheticWechatKeys.publicKey,WECHAT_PAY_PLATFORM_KEY_ID:'invalid'},
+    ]) {
+        await assert.rejects(prepare({env:{...wechatEnvironment,...trust},providers:['wechat']}),/Invalid WeChat configuration/);
+    }
+    const payload=await prepare({env:{...wechatEnvironment,WECHAT_PAY_PLATFORM_PUBLIC_KEY:syntheticWechatKeys.publicKey,WECHAT_PAY_PLATFORM_KEY_ID:'PUB_KEY_ID_fixture'},providers:['wechat'],mutate:true});
+    assert.equal(payload.environment.WECHAT_PAY_PLATFORM_PUBLIC_KEY,syntheticWechatKeys.publicKey);
+});
+test('WeChat compatibility still rejects invalid merchant signing credentials and API v3 key', async () => {
+    for (const invalid of [{WECHAT_PAY_PRIVATE_KEY:'malformed'},{WECHAT_PAY_API_V3_KEY:'short'}]) {
+        await assert.rejects(prepare({env:{...wechatEnvironment,...invalid},providers:['wechat']}),/Invalid WeChat configuration/);
+    }
+});
+test('configured platform PEM path cannot silently fall back when file is empty', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const directory = mkdtempSync(join(realpathSync(tmpdir()), 'billing-empty-platform-'));
+    const path = join(directory, 'platform.pem');
+    for (const content of ['', '  \n\t']) {
+        writeFileSync(path, content);
+        await assert.rejects(prepare({
+            env:{...wechatEnvironment,WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH:path},providers:['wechat'],
+        }), /Invalid WeChat configuration/);
+    }
 });

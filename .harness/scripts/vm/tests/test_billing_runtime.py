@@ -66,6 +66,27 @@ class BillingRuntimeTest(unittest.TestCase):
             with self.subTest(patch=patch), self.assertRaises(ValueError):
                 self.h['validate_payload'](payload(dict(config, **patch)), {})
 
+    def test_wechat_reference_compatibility_without_platform_trust(self):
+        import base64
+        merchant = {'WECHAT_PAY_APP_ID': 'wx123456', 'WECHAT_PAY_MCH_ID': '1900000000',
+                    'WECHAT_PAY_API_V3_KEY': 'a' * 32, 'WECHAT_PAY_MCH_SERIAL_NO': 'ABC123',
+                    'WECHAT_PAY_PRIVATE_KEY': pem('PRIVATE KEY', base64.b64encode(b'\x30' + b'x' * 300).decode()),
+                    'WECHAT_PAY_NOTIFY_URL': 'https://devapp.boardx.us/api/billing/webhooks/wechat'}
+        merged, providers = self.h['validate_payload'](payload(merchant), {})
+        self.assertEqual(merged, merchant)
+        self.assertEqual(providers, {'wechat'})
+        for required in ['WECHAT_PAY_PRIVATE_KEY', 'WECHAT_PAY_API_V3_KEY', 'WECHAT_PAY_MCH_ID']:
+            incomplete = dict(merchant)
+            del incomplete[required]
+            with self.subTest(required=required), self.assertRaises(ValueError):
+                self.h['validate_payload'](payload(incomplete), {})
+        for trust in [{'WECHAT_PAY_PLATFORM_KEY_ID': 'PUB_KEY_ID_FIXTURE'},
+                      {'WECHAT_PAY_PLATFORM_PUBLIC_KEY': pem('PUBLIC KEY', 'invalid')},
+                      {'WECHAT_PAY_PLATFORM_PUBLIC_KEY': pem('PUBLIC KEY', 'invalid'),
+                       'WECHAT_PAY_PLATFORM_KEY_ID': 'PUB_KEY_ID_FIXTURE'}]:
+            with self.subTest(trust=trust), self.assertRaises(ValueError):
+                self.h['validate_payload'](payload(dict(merchant, **trust)), {})
+
     def test_read_owned_rejects_symlink_without_reading_target(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)

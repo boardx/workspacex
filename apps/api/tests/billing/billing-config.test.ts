@@ -51,6 +51,19 @@ describe("reference Stripe configuration compatibility", () => {
 });
 
 describe("deployment billing configuration", () => {
+  it("enables reference WeChat compatibility when both platform verification fields are absent", () => {
+    const env = wechatEnv(); delete env.WECHAT_PAY_PLATFORM_PUBLIC_KEY; delete env.WECHAT_PAY_PLATFORM_KEY_ID;
+    expect(new DeploymentBillingConfig(env).getPublicConfig()).toEqual({ enabledProviders: ["wechat"] });
+    expect(new DeploymentBillingConfig(env).getWechat()?.platformKey).toBeNull();
+  });
+  it("does not select compatibility for an empty configured platform key file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "billing-empty-key-"));
+    try {
+      const path = join(dir, "platform.pem"); writeFileSync(path, "");
+      const env = wechatEnv(); delete env.WECHAT_PAY_PLATFORM_PUBLIC_KEY; delete env.WECHAT_PAY_PLATFORM_KEY_ID;
+      expect(new DeploymentBillingConfig({ ...env, WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH: path }).getWechat()).toBeNull();
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
   it.each([{}, { WECHAT_PAY_APP_ID: "partial" }, { STRIPE_SECRET_KEY: "partial" }])("partial deployment remains disabled: %j", (env) => {
     expect(new DeploymentBillingConfig(env).getPublicConfig()).toEqual({ enabledProviders: [] });
   });
