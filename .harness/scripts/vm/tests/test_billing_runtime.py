@@ -177,6 +177,53 @@ class BillingRuntimeTest(unittest.TestCase):
                                     'rlsForced': True, 'appRoleIsOwner': False},
                 sleep=lambda _: None, attempts=3)
 
+    def test_install_os_error_survives_rollback_without_leaking_details(self):
+        import contextlib
+        import io
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            env, dropin = root / 'billing.env', root / '90-billing.conf'
+            original = self.h['encode_environment'](stripe())
+            env.write_bytes(original)
+            atomic_write = self.h['atomic_write']
+            failed = False
+            calls = []
+            def write(path, data):
+                nonlocal failed
+                if path == env and not failed:
+                    failed = True
+                    raise PermissionError(13, 'sk_live_sensitive', '/private/path')
+                return atomic_write(path, data)
+            self.h['atomic_write'] = write
+            with self.assertRaises(PermissionError) as failure:
+                self.h['configure_transaction'](dict(stripe(), STRIPE_WEBHOOK_SECRET='whsec_new'),
+                    {'stripe'}, env, dropin, lambda: calls.append('restart'),
+                    lambda providers, old: self.fail('readiness must not run'), 'old')
+            self.assertEqual(env.read_bytes(), original)
+            self.assertFalse(dropin.exists())
+            self.assertEqual(calls, ['restart'])
+            stream = io.StringIO()
+            with contextlib.redirect_stderr(stream):
+                self.h['report_failure'](failure.exception)
+            self.assertIn('stage=write-environment code=os-error errno=13', stream.getvalue())
+            self.assertNotIn('sensitive', stream.getvalue())
+            self.assertNotIn('/private/path', stream.getvalue())
+
+    def test_failure_diagnostic_reports_stage_without_exception_contents(self):
+        import contextlib
+        import io
+        self.h['BILLING_STAGE'] = 'restart'
+        stream = io.StringIO()
+        with contextlib.redirect_stderr(stream):
+            self.h['report_failure'](RuntimeError('sk_live_sensitive /private/path'))
+        self.assertIn('stage=restart', stream.getvalue())
+        self.assertNotIn('sensitive', stream.getvalue())
+        self.assertNotIn('/private/path', stream.getvalue())
+        with contextlib.redirect_stderr(stream):
+            self.h['report_failure'](PermissionError(13, 'private secret', '/private/path'))
+        self.assertIn('errno=13', stream.getvalue())
+        self.assertNotIn('/private/path', stream.getvalue())
+
     def test_old_healthy_process_cannot_satisfy_readiness(self):
         with self.assertRaises(RuntimeError):
             self.h['wait_ready']({'stripe'}, 'old', invocation=lambda: 'old',

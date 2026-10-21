@@ -271,6 +271,22 @@ LIMIT = 65536
 ENV_PATH = Path('/etc/workspacex-billing/billing.env')
 DROPIN_PATH = Path('/etc/systemd/system/workspacex-api.service.d/90-billing.conf')
 SERVICE = 'workspacex-api.service'
+BILLING_STAGE = 'initialization'
+
+
+def report_failure(error):
+    # Only fixed stage identifiers and numeric errno escape the root boundary.
+    # Never print exception text, paths, provider responses, or process output.
+    stages = {'initialization', 'input', 'directories', 'lock', 'stored-files',
+              'validation', 'service-before', 'write-environment', 'write-dropin',
+              'restart', 'process-environment', 'readiness', 'rollback'}
+    stage = BILLING_STAGE if BILLING_STAGE in stages else 'unknown'
+    code = 'os-error' if isinstance(error, OSError) else 'operation-failed'
+    number = getattr(error, 'errno', None)
+    suffix = ' errno=' + str(number) if type(number) is int else ''
+    print('Billing runtime configuration failed: stage=' + stage + ' code=' + code + suffix,
+          file=sys.stderr)
+
 WECHAT = {'WECHAT_PAY_APP_ID', 'WECHAT_PAY_MCH_ID', 'WECHAT_PAY_API_V3_KEY',
           'WECHAT_PAY_MCH_SERIAL_NO', 'WECHAT_PAY_PRIVATE_KEY',
           'WECHAT_PAY_PLATFORM_PUBLIC_KEY', 'WECHAT_PAY_PLATFORM_KEY_ID', 'WECHAT_PAY_NOTIFY_URL'}
@@ -483,11 +499,16 @@ def wait_ready(providers, old, invocation=invocation, fetch=fetch, sleep=time.sl
 
 def configure_transaction(config, providers, env_path, dropin_path, restart, ready, old):
     # Called only after the production entry checks root-owned ancestors/files.
+    global BILLING_STAGE
     previous = {path: path.read_bytes() if path.exists() else None for path in (env_path, dropin_path)}
     try:
+        BILLING_STAGE = 'write-environment'
         atomic_write(env_path, encode_environment(config))
+        BILLING_STAGE = 'write-dropin'
         atomic_write(dropin_path, ('[Service]\nEnvironmentFile=' + str(env_path) + '\n').encode())
+        BILLING_STAGE = 'restart'
         restart()
+        BILLING_STAGE = 'readiness'
         ready(providers, old)
     except BaseException:
         for path, data in previous.items():
@@ -499,7 +520,8 @@ def configure_transaction(config, providers, env_path, dropin_path, restart, rea
             restart()
         except Exception:
             raise RuntimeError('billing failed; previous files restored but service recovery failed') from None
-        raise RuntimeError('billing failed; previous configuration restored') from None
+        # Keep the original type/errno for report_failure; it never prints exception text.
+        raise
 
 
 def read_stdin():
@@ -518,26 +540,37 @@ def read_stdin():
 
 
 def main():
+    global BILLING_STAGE
     if os.geteuid() != 0:
         raise ValueError('root required')
     def interrupted(signum, frame):
         raise RuntimeError('configuration interrupted')
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
+    BILLING_STAGE = 'input'
     raw = read_stdin()
+    BILLING_STAGE = 'directories'
     prepare_directory(ENV_PATH.parent)
     prepare_directory(DROPIN_PATH.parent)
     # The lock lives inside a root-only directory, inaccessible to runner users.
+    BILLING_STAGE = 'lock'
     lock_fd = os.open(ENV_PATH.parent / '.lock', os.O_CREAT | os.O_NOFOLLOW | os.O_RDWR, 0o600)
     with os.fdopen(lock_fd, 'w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        BILLING_STAGE = 'stored-files'
         previous = read_owned(ENV_PATH)
         read_owned(DROPIN_PATH)
+        BILLING_STAGE = 'validation'
         config, providers = validate_payload(raw, decode_environment(previous) if previous is not None else {})
+        BILLING_STAGE = 'service-before'
         old = invocation()
         def ready(requested, previous_invocation):
+            global BILLING_STAGE
+            BILLING_STAGE = 'process-environment'
             verify_process_environment(config)
+            BILLING_STAGE = 'readiness'
             wait_ready(requested, previous_invocation)
+            BILLING_STAGE = 'process-environment'
             verify_process_environment(config)
         configure_transaction(config, providers, ENV_PATH, DROPIN_PATH, restart_service, ready, old)
     print('Billing runtime configured; requested providers available: ' + ', '.join(sorted(providers)))
@@ -546,9 +579,8 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except BaseException:
-        # Exception details can contain credentials, URLs, or captured output.
-        print('Billing runtime configuration failed; inspect configuration and service state securely.', file=sys.stderr)
+    except BaseException as error:
+        report_failure(error)
         sys.exit(1)
 # BILLING_RUNTIME_PYTHON_END
 BILLING_RUNTIME_PYTHON
