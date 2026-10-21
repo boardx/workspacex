@@ -1,6 +1,6 @@
 # Devapp billing activation
 
-Target: `https://devapp.boardx.us`. Run the local commands from the repository root with Node 22+ and an authenticated GitHub CLI. The commands below prepare and activate real provider resources when executed. Keep the source `.env.local`, generated payload and preparation state private; never print them or attach them to an issue.
+Target: `https://devapp.boardx.us`. Run the local commands from the repository root with Node 22+, Python 3 on macOS or Linux, and an authenticated GitHub CLI. The commands below prepare and activate real provider resources when executed. Keep the source `.env.local`, generated payload and preparation state private; never print them or attach them to an issue.
 
 ## Prepare Stripe independently
 
@@ -10,6 +10,8 @@ The existing Stripe secret key and reference payment link in `.env.local` are in
 node scripts/billing/prepare-runtime.mjs --check --providers stripe --env .env.local
 node scripts/billing/prepare-runtime.mjs --prepare-stripe --providers stripe --env .env.local --output .harness/state/.cache/billing/devapp-stripe.json
 ```
+
+Preparation uses a persistent `0600` `prepare.lock` inode with an OS advisory lock held by an isolated Python 3 child. Concurrent preparation fails immediately. Normal completion closes the lifetime pipe and waits for the child; a terminated owner also closes the pipe, so the OS lock releases without deleting the file. Retain the lock file when retrying.
 
 The first command reports readiness without creating resources. The second writes a `0600` payload and protected retry state under `.harness/state/.cache/billing/`. A Stripe-only payload can be installed while WeChat is incomplete; the root helper preserves any previously installed WeChat configuration.
 

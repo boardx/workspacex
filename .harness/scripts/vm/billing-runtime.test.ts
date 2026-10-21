@@ -11,7 +11,7 @@ describe("trusted devapp billing configuration", () => {
     const result = spawnSync(process.execPath, ["--test", "scripts/billing/prepare-runtime.test.mjs"],
       { cwd: root, encoding: "utf8", timeout: 15_000 });
     expect(result.status, result.stderr + result.stdout).toBe(0);
-    expect(result.stdout).toContain("# pass 17");
+    expect(Number(result.stdout.match(/# pass (\d+)/)?.[1] ?? 0)).toBeGreaterThanOrEqual(17);
     expect(result.stdout).toContain("# fail 0");
   });
 

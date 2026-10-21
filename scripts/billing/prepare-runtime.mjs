@@ -4,6 +4,7 @@ import { createHash, randomUUID, createPrivateKey, createPublicKey } from 'node:
 import { constants, openSync, closeSync, writeFileSync, readFileSync, renameSync, lstatSync, mkdirSync, unlinkSync, fsyncSync } from 'node:fs';
 import { resolve, dirname, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { acquireLock } from './advisory-lock.mjs';
 export const OWNER = Object.freeze({ application: 'workspacex', target: 'devapp', config_version: '1' });
 export const RETURN_URL = 'https://devapp.boardx.us/billing?subscription_return=1';
 export const WEBHOOK_URL = 'https://devapp.boardx.us/api/billing/webhooks/stripe';
@@ -377,7 +378,7 @@ export async function main(args = process.argv.slice(2)) {
     let output;
     if (values.output) {
         output = resolve(values.output);
-        if (!output.startsWith(`${root}${sep}`) || output === resolve(root, 'stripe-preparation.json'))
+        if (!output.startsWith(`${root}${sep}`) || ['stripe-preparation.json', 'prepare.lock'].some(name => output === resolve(root, name)))
             fail('Output must be inside .harness/state/.cache/billing');
     }
     if (mutate && !output)
@@ -396,20 +397,22 @@ export async function main(args = process.argv.slice(2)) {
     const envPath = resolve(values.env);
     const env = parseEnv(readFileSync(envPath, 'utf8'));
     const statePath = resolve(root, 'stripe-preparation.json');
-    let state = {};
-    try {
-        state = secureRead(statePath);
-    }
-    catch (e) {
-        if (e.code !== 'ENOENT')
-            fail('Cannot read protected preparation state');
-    }
-    let lock;
+    let releaseLock;
     const lockPath = resolve(root, 'prepare.lock');
     try {
         if (mutate) {
             safeParents(lockPath);
-            lock = openSync(lockPath, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | constants.O_NOFOLLOW, 0o600);
+            releaseLock = await acquireLock(lockPath, () => {
+                console.error('Billing preparation lock was lost.');
+                process.exit(1);
+            });
+        }
+        // Recovery state must be read under the same lock as provider mutations.
+        let state = {};
+        try {
+            state = secureRead(statePath);
+        } catch (e) {
+            if (e.code !== 'ENOENT') fail('Cannot read protected preparation state');
         }
         const result = await prepare({ env, providers: values.providers.split(','), mutate, state, baseDir: dirname(envPath), saveState: s => secureWrite(statePath, s) });
         if (mutate) {
@@ -420,10 +423,7 @@ export async function main(args = process.argv.slice(2)) {
             console.log(JSON.stringify(result));
     }
     finally {
-        if (lock !== undefined) {
-            closeSync(lock);
-            unlinkSync(lockPath);
-        }
+        if (releaseLock) await releaseLock();
     }
 }
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url)

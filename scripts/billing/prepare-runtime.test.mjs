@@ -115,3 +115,79 @@ test('expired replay cleanup failure retries new endpoint and requires operator 
     assert.equal(newDisableAttempts, 2);
     assert.ok(f.calls.some(c=>c.path==='/webhook_endpoints/we_owned'&&c.body.disabled==='true'));
 });
+
+test('advisory lock excludes concurrent preparation and keeps its protected inode', async () => {
+    const { acquireLock } = await import('./advisory-lock.mjs');
+    const directory = mkdtempSync(join(realpathSync(tmpdir()), 'billing-lock-'));
+    const path = join(directory, 'prepare.lock');
+    const release = await acquireLock(path);
+    const inode = statSync(path).ino;
+    try {
+        assert.equal(statSync(path).mode & 0o777, 0o600);
+        await assert.rejects(acquireLock(path), /held or unavailable/);
+    } finally { await release(); }
+    assert.equal(statSync(path).ino, inode);
+    const releaseAgain = await acquireLock(path);
+    await releaseAgain();
+    assert.equal(statSync(path).ino, inode);
+});
+
+test('advisory lock releases after owner SIGKILL without removing the lock file', async () => {
+    const { acquireLock } = await import('./advisory-lock.mjs');
+    const { spawn } = await import('node:child_process');
+    const { once } = await import('node:events');
+    const { setTimeout: delay } = await import('node:timers/promises');
+    const directory = mkdtempSync(join(realpathSync(tmpdir()), 'billing-lock-crash-'));
+    const path = join(directory, 'prepare.lock');
+    const moduleUrl = new URL('./advisory-lock.mjs', import.meta.url).href;
+    const source = `import { acquireLock } from ${JSON.stringify(moduleUrl)}; await acquireLock(process.argv[1]); process.stdout.write('READY\\n'); process.stdin.resume();`;
+    const owner = spawn(process.execPath, ['--input-type=module', '-e', source, path], {stdio:['pipe','pipe','pipe']});
+    let timer;
+    try {
+        const ready = await Promise.race([once(owner.stdout, 'data'), new Promise((_, reject) => { timer = setTimeout(() => reject(Error('owner did not become ready')), 5000); })]);
+        clearTimeout(timer);
+        assert.match(ready[0].toString(), /READY/);
+        await assert.rejects(acquireLock(path), /held or unavailable/);
+        const exited = once(owner, 'close');
+        owner.kill('SIGKILL');
+        await exited;
+        let release;
+        const deadline = Date.now() + 2000;
+        while (!release) {
+            try { release = await acquireLock(path); }
+            catch (error) { if (Date.now() >= deadline) throw error; await delay(25); }
+        }
+        await release();
+        assert.equal(statSync(path).mode & 0o777, 0o600);
+    } finally { clearTimeout(timer); owner.kill('SIGKILL'); }
+});
+
+test('advisory lock rejects symlinks without changing their target', async () => {
+    const { acquireLock } = await import('./advisory-lock.mjs');
+    const directory = mkdtempSync(join(realpathSync(tmpdir()), 'billing-lock-symlink-'));
+    const target = join(directory, 'target');
+    secureWrite(target, {fixture:true});
+    const link = join(directory, 'prepare.lock');
+    symlinkSync(target, link);
+    await assert.rejects(acquireLock(link), /Unsafe billing preparation lock/);
+    assert.deepEqual(JSON.parse(readFileSync(target, 'utf8')), {fixture:true});
+});
+
+test('missing Python fails promptly without exposing paths', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const directory = mkdtempSync(join(realpathSync(tmpdir()), 'billing-lock-no-python-'));
+    const path = join(directory, 'prepare.lock');
+    const moduleUrl = new URL('./advisory-lock.mjs', import.meta.url).href;
+    const source = `import { acquireLock } from ${JSON.stringify(moduleUrl)}; try { await acquireLock(process.argv[1]); process.exitCode=2; } catch(error) { console.log(error.message); }`;
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', source, path], {encoding:'utf8',timeout:3000,env:{PATH:'/no-python-here'}});
+    assert.equal(child.status, 0, child.stderr);
+    assert.match(child.stdout, /held or unavailable; Python 3 is required/);
+    assert.ok(!child.stdout.includes(directory));
+});
+
+test('runtime output cannot replace the shared advisory lock inode', async () => {
+    const { spawnSync } = await import('node:child_process');
+    const result = spawnSync(process.execPath, ['scripts/billing/prepare-runtime.mjs','--prepare-stripe','--env','/does/not/exist','--output','.harness/state/.cache/billing/prepare.lock'], {encoding:'utf8'});
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /Output must be inside/);
+});
