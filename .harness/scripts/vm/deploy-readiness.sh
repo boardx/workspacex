@@ -272,6 +272,7 @@ ENV_PATH = Path('/etc/workspacex-billing/billing.env')
 DROPIN_PATH = Path('/etc/systemd/system/workspacex-api.service.d/90-billing.conf')
 SERVICE = 'workspacex-api.service'
 BILLING_STAGE = 'initialization'
+BILLING_ENVIRONMENT_MISMATCH = []
 
 
 def report_failure(error):
@@ -284,6 +285,9 @@ def report_failure(error):
     code = 'os-error' if isinstance(error, OSError) else 'operation-failed'
     number = getattr(error, 'errno', None)
     suffix = ' errno=' + str(number) if type(number) is int else ''
+    fields = sorted(set(BILLING_ENVIRONMENT_MISMATCH) & (WECHAT | STRIPE))
+    if stage == 'process-environment' and fields:
+        suffix += ' fields=' + ','.join(fields)
     print('Billing runtime configuration failed: stage=' + stage + ' code=' + code + suffix,
           file=sys.stderr)
 
@@ -459,16 +463,20 @@ def fetch(path):
 
 
 def verify_process_environment(config):
+    global BILLING_ENVIRONMENT_MISMATCH
     pid = command('show', SERVICE, '--property=MainPID', '--value')
     if not match(r'[1-9][0-9]*', pid):
         raise RuntimeError('service has no process')
     raw = Path('/proc/' + pid + '/environ').read_bytes()
     environment = dict(item.split(b'=', 1) for item in raw.split(b'\0') if b'=' in item)
-    if any(environment.get(key.encode()) != value.encode() for key, value in config.items()):
+    BILLING_ENVIRONMENT_MISMATCH = [key for key, value in config.items()
+                                    if environment.get(key.encode()) != value.encode()]
+    if BILLING_ENVIRONMENT_MISMATCH:
         raise RuntimeError('service environment did not update')
 
 
-def wait_ready(providers, old, invocation=invocation, fetch=fetch, sleep=time.sleep, attempts=30):
+def wait_ready(providers, old, invocation=invocation, fetch=fetch, sleep=time.sleep, attempts=30,
+               verify_environment=lambda: None):
     stable = 0
     last = None
     deadline = time.monotonic() + 90
@@ -479,6 +487,7 @@ def wait_ready(providers, old, invocation=invocation, fetch=fetch, sleep=time.sl
             current = invocation()
             if not current or current == old:
                 raise RuntimeError('service did not restart')
+            verify_environment()
             health = fetch('/healthz')
             public = fetch('/billing/config')
             if (health.get('trustworthy') is not True or health.get('rlsForced') is not True
@@ -566,12 +575,17 @@ def main():
         old = invocation()
         def ready(requested, previous_invocation):
             global BILLING_STAGE
-            BILLING_STAGE = 'process-environment'
-            verify_process_environment(config)
+            def verify_environment():
+                global BILLING_STAGE
+                BILLING_STAGE = 'process-environment'
+                verify_process_environment(config)
+                BILLING_STAGE = 'readiness'
+            # A simple systemd unit may return from restart before its child has
+            # received the requested environment. Retry within the same bounded
+            # readiness window; never accept an HTTP-only healthy process.
             BILLING_STAGE = 'readiness'
-            wait_ready(requested, previous_invocation)
-            BILLING_STAGE = 'process-environment'
-            verify_process_environment(config)
+            wait_ready(requested, previous_invocation, verify_environment=verify_environment)
+            verify_environment()
         configure_transaction(config, providers, ENV_PATH, DROPIN_PATH, restart_service, ready, old)
     print('Billing runtime configured; requested providers available: ' + ', '.join(sorted(providers)))
 

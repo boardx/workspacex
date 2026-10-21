@@ -223,6 +223,45 @@ class BillingRuntimeTest(unittest.TestCase):
             self.h['report_failure'](PermissionError(13, 'private secret', '/private/path'))
         self.assertIn('errno=13', stream.getvalue())
         self.assertNotIn('/private/path', stream.getvalue())
+        self.h['BILLING_STAGE'] = 'process-environment'
+        self.h['BILLING_ENVIRONMENT_MISMATCH'] = ['STRIPE_SECRET_KEY', 'private_secret_value']
+        with contextlib.redirect_stderr(stream):
+            self.h['report_failure'](RuntimeError('private_secret_value'))
+        self.assertIn('fields=STRIPE_SECRET_KEY', stream.getvalue())
+        self.assertNotIn('private_secret_value', stream.getvalue())
+
+    def test_environment_readiness_retries_cold_start_and_requires_three_matches(self):
+        calls = []
+        def environment():
+            calls.append('environment')
+            if len(calls) < 3:
+                raise RuntimeError('process environment did not update')
+        self.h['wait_ready']({'stripe'}, 'old', invocation=lambda: 'new',
+            fetch=lambda path: {'enabledProviders': ['stripe'], 'trustworthy': True,
+                                'rlsForced': True, 'appRoleIsOwner': False},
+            sleep=lambda _: None, attempts=5, verify_environment=environment)
+        self.assertEqual(len(calls), 5)
+
+    def test_persistently_wrong_environment_rolls_back_even_when_http_is_healthy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            env, dropin = root / 'billing.env', root / '90-billing.conf'
+            original = self.h['encode_environment'](stripe())
+            env.write_bytes(original)
+            restarts = []
+            def environment():
+                raise RuntimeError('process environment did not update')
+            def ready(providers, old):
+                self.h['wait_ready'](providers, old, invocation=lambda: 'new',
+                    fetch=lambda path: {'enabledProviders': ['stripe'], 'trustworthy': True,
+                                        'rlsForced': True, 'appRoleIsOwner': False},
+                    sleep=lambda _: None, attempts=3, verify_environment=environment)
+            with self.assertRaisesRegex(RuntimeError, 'billing readiness failed'):
+                self.h['configure_transaction'](dict(stripe(), STRIPE_WEBHOOK_SECRET='whsec_new'),
+                    {'stripe'}, env, dropin, lambda: restarts.append('restart'), ready, 'old')
+            self.assertEqual(env.read_bytes(), original)
+            self.assertFalse(dropin.exists())
+            self.assertEqual(restarts, ['restart', 'restart'])
 
     def test_old_healthy_process_cannot_satisfy_readiness(self):
         with self.assertRaises(RuntimeError):
