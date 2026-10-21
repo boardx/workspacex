@@ -8,6 +8,7 @@ export const reviewedSuffix = [
  '20261015120000_billing_payment_receipts.sql',
  '20261018090000_billing_subscription_links.sql',
  '20261021100000_billing_stripe_webhook.sql',
+ '20261021140000_wechat_reference_compatibility.sql',
 ];
 export function migrationScope(names:string[]) {
  assert.deepEqual(names,[...new Set(names)].sort(),'SORTED_UNIQUE_MIGRATIONS_REQUIRED');
