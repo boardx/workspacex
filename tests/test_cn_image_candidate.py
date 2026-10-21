@@ -33,6 +33,30 @@ def receipt(p,images,now=None):
     return dict(kind=c.KIND,schemaVersion=2,planRawSha256=a.sha(a.json_bytes(p)),planSha256=a.sha(a.json_bytes(p)),identity=c.identity(p),attemptId=p['attemptId'],producedAt=now.isoformat(),expiresAt=(now+timedelta(hours=1)).isoformat(),images=images,releaseReady=False,productionReady=False)
 
 class CandidateTests(unittest.TestCase):
+    def test_requested_app_source_selection_does_not_authorize_release(self):
+        p=plan();p['sourceRevision']='0acfa6628f9380c64ece5732c066e999d2e57651'
+        self.assertEqual(c.validate_plan(p),p)
+        with tempfile.TemporaryDirectory() as td:
+            folder=Path(td)
+            labels={'org.opencontainers.image.revision':p['sourceRevision'],c.LABEL:c.identity(p)}
+            images={s:archive(folder/(s+'.tar'),p,s,labels) for s in c.hosted.SERVICES}
+            value=receipt(p,images);raw=a.json_bytes(value)
+            self.assertEqual(c.verify_bundle(folder,p,raw,a.sha(raw),value['planRawSha256']),value)
+            for field in ('releaseReady','productionReady'):
+                self.assertFalse(value[field])
+                wrong=copy.deepcopy(value);wrong[field]=True;wrong_raw=a.json_bytes(wrong)
+                with self.assertRaisesRegex(a.Rejected,'CANDIDATE_NON_AUTHORIZING'):
+                    c.validate_receipt(wrong_raw,p,a.sha(wrong_raw))
+            path=folder/'plan.json';path.write_bytes(a.json_bytes(p))
+            checked=subprocess.run([sys.executable,'-I','-B',str(Path(b.__file__)),
+                '--plan',str(path),'--plan-sha256',a.sha(path.read_bytes()),'--check'],capture_output=True,text=True)
+            self.assertEqual(checked.returncode,0,checked.stderr)
+            self.assertEqual(json.loads(checked.stdout),{'kind':c.KIND,'identity':c.identity(p),
+                'releaseReady':False,'productionReady':False,'buildStarted':False})
+        with self.assertRaisesRegex(a.Rejected,'DIAGNOSTIC_SOURCE_NOT_ALLOWED'):c.validate_diagnostic_plan(p)
+        for source in ('0acfa6628f9380c64ece5732c066e999d2e57650',p['sourceRevision'].upper()):
+            wrong=copy.deepcopy(p);wrong['sourceRevision']=source
+            with self.subTest(source=source),self.assertRaisesRegex(a.Rejected,'CANDIDATE_EXACT_SHA'):c.validate_plan(wrong)
     def test_reviewed_devapp_source_builds_non_authorizing_candidate(self):
         p=plan();p['sourceRevision']='f0eb9d07398a66fdd5646a9e6b855fa1b940e571'
         for formal in (False,True):
