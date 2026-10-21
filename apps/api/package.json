@@ -119,13 +119,16 @@
     "image-size": "2.0.4",
     "omggif": "1.0.10",
     "domino": "2.1.8",
-    "tsx": "^4.19.0"
+    "tsx": "^4.19.0",
+    "@repo/fabric-markdown": "workspace:*",
+    "@repo/skill-sandbox": "workspace:*",
+    "pdf-lib": "^1.17.1",
+    "jszip": "^3.10.1",
+    "jsdom": "30.0.1"
   },
   "devDependencies": {
     "@repo/dev-mode-accounts": "workspace:*",
-    "@repo/fabric-markdown": "workspace:*",
     "@repo/local-asr-gateway": "workspace:*",
-    "@repo/skill-sandbox": "workspace:*",
     "@types/ali-oss": "6.23.3",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
@@ -135,8 +138,6 @@
     "docx": "^9.7.1",
     "exceljs": "^4.4.0",
     "fabric": "7.4.0",
-    "jszip": "^3.10.1",
-    "pdf-lib": "^1.17.1",
     "pptxgenjs": "^4.0.1",
     "typescript": "^5.6.0",
     "vitest": "^2.0.0",

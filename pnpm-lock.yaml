@@ -91,6 +91,12 @@ importers:
       '@repo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@repo/fabric-markdown':
+        specifier: workspace:*
+        version: link:../../packages/fabric-markdown
+      '@repo/skill-sandbox':
+        specifier: workspace:*
+        version: link:../skill-sandbox
       '@repo/whiteboard-core':
         specifier: workspace:*
         version: link:../../packages/whiteboard-core
@@ -118,15 +124,24 @@ importers:
       ioredis:
         specifier: ^5.4.1
         version: 5.11.1
+      jsdom:
+        specifier: 30.0.1
+        version: 30.0.1(canvas@3.2.3)
       json5:
         specifier: ^2.2.3
         version: 2.2.3
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       multer:
         specifier: 2.2.0
         version: 2.2.0
       omggif:
         specifier: 1.0.10
         version: 1.0.10
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       pg:
         specifier: ^8.13.1
         version: 8.22.0
@@ -173,15 +188,9 @@ importers:
       '@repo/dev-mode-accounts':
         specifier: workspace:*
         version: link:../../packages/dev-mode-accounts
-      '@repo/fabric-markdown':
-        specifier: workspace:*
-        version: link:../../packages/fabric-markdown
       '@repo/local-asr-gateway':
         specifier: workspace:*
         version: link:../local-asr-gateway
-      '@repo/skill-sandbox':
-        specifier: workspace:*
-        version: link:../skill-sandbox
       '@types/ali-oss':
         specifier: 6.23.3
         version: 6.23.3
@@ -212,12 +221,6 @@ importers:
       fabric:
         specifier: 7.4.0
         version: 7.4.0
-      jszip:
-        specifier: ^3.10.1
-        version: 3.10.1
-      pdf-lib:
-        specifier: ^1.17.1
-        version: 1.17.1
       pptxgenjs:
         specifier: ^4.0.1
         version: 4.0.1

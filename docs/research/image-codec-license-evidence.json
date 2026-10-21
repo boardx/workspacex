@@ -527,7 +527,16 @@
     "source": "https://registry.npmjs.org/domino/2.1.8",
     "upstream": "https://github.com/fgnass/domino",
     "use": "Inert DOM for existing Mozilla Readability worker; no scripts/resources/native canvas. Worker deadline and resolution guard retained.",
-    "apiRuntimePackaging": "Separate clean source/runtime stages and --filter-prod selection prevent API developer workspaces and native canvas peers entering the runtime install.",
-    "scope": "Web developer/Fabric Node tests retain their existing canvas support; actual Web standalone excludes unused optional sharp trace and asserts forbidden imaging libraries absent."
+    "apiRuntimePackaging": "Clean runtime stage installs production workspace closure. Runtime imports @repo/fabric-markdown, @repo/skill-sandbox, pdf-lib and jszip are declared as production dependencies. The same install layer removes only canvas@3.2.3 after proving no required dependency path reaches it; required paths or unreviewed versions fail closed. Other dependencies and original DOCX parser remain.",
+    "scope": "Web developer/Fabric Node tests retain their existing canvas support; actual Web standalone excludes unused optional sharp trace and asserts forbidden imaging libraries absent.",
+    "docxXml": "Keep jsdom@30.0.1 for the existing DOCX XML namespace parser; only its optional native canvas backend is omitted."
+  },
+  "optionalCanvasAssembly": {
+    "package": "canvas@3.2.3",
+    "knownNativeFamily": "Bundled Pango/GLib/librsvg; not used by browser Fabric or API text/XML parsing",
+    "tool": "apps/api/scripts/prune-optional-canvas-runtime.mjs",
+    "bounds": "Image assembly only, owned node_modules/.pnpm directory, exact optional package/version; required paths fail before deletion. No host data or production command.",
+    "verification": "Fresh production install: 600 required snapshots checked; one optional package and four references removed, known forbidden native library scan zero. Real PDF/DOCX validator, skill input/path boundary, canvas-source parser, article extraction and image decode passed without development dependencies.",
+    "limits": "These checks do not constitute a complete native SBOM, actual Docker image acceptance or production business acceptance."
   }
 }

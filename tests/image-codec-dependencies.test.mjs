@@ -37,14 +37,16 @@ test('Next uses the original-image path without its sharp optimizer', async () =
   assert.equal(config.images.unoptimized, true);
 });
 
-test('API text extraction and runtime installation cannot retain the native canvas peer', () => {
-  assert.deepEqual([...closure('apps/api')].filter(key => /^(?:canvas|jsdom)@/.test(key)), []);
+test('API text extraction and runtime packaging retain required modules and remove optional native canvas', () => {
+  // Fabric's documented optional backend may remain in the lock, but not the runtime artifact.
   const api = JSON.parse(readFileSync(new URL('apps/api/package.json', root), 'utf8'));
-  assert(api.dependencies.tsx); assert.equal(api.dependencies.domino, '2.1.8');
+  for (const name of ['tsx','@repo/fabric-markdown','@repo/skill-sandbox','pdf-lib','jszip']) assert(api.dependencies[name], name);
+  assert.equal(api.dependencies.domino, '2.1.8');
   assert(!lock.snapshots['domino@2.1.8'].dependencies);
   const docker = readFileSync(new URL('deploy/aliyun/images/api.Dockerfile', root), 'utf8');
   const runtime = docker.split('FROM sources AS runtime\n')[1]; assert(runtime);
   assert.match(runtime, /pnpm --filter-prod @repo\/api\.\.\. install --prod --frozen-lockfile/);
+  assert.match(runtime, /&& node apps\/api\/scripts\/prune-optional-canvas-runtime\.mjs \/opt\/workspacex/);
   assert.match(runtime, /COPY --from=build \/api-typecheck\.ok/);
   assert.doesNotMatch(runtime, /COPY --from=build .*node_modules/);
 });
@@ -64,5 +66,23 @@ test('standalone guard rejects physically retained native imaging dependencies',
     rmSync(join(folder, 'node_modules'), { recursive: true });
     mkdirSync(join(folder, 'node_modules/canvas'), { recursive: true }); writeFileSync(join(folder, 'node_modules/canvas/canvas.node'), 'fixture');
     assert.throws(() => assertRuntimeImageDependencies(folder), /FORBIDDEN_RUNTIME_IMAGE_DEPENDENCIES/);
+  } finally { rmSync(folder, { recursive: true }); }
+});
+
+test('optional native canvas pruning refuses required paths and preserves other dependencies', async () => {
+  const { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync, symlinkSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os'); const { join } = await import('node:path');
+  const { pruneOptionalCanvasRuntime } = await import('../apps/api/scripts/prune-optional-canvas-runtime.mjs');
+  const folder = mkdtempSync(join(tmpdir(), 'wsx-optional-canvas-'));
+  try {
+    mkdirSync(join(folder, 'apps/api'), { recursive: true }); writeFileSync(join(folder, 'apps/api/package.json'), '{"name":"@repo/api"}');
+    const native = join(folder, 'node_modules/.pnpm/canvas@3.2.3'); mkdirSync(native, { recursive: true }); writeFileSync(join(native, 'libpango.so'), 'fixture');
+    mkdirSync(join(folder, 'node_modules/.pnpm/keep@1'), { recursive: true });
+    symlinkSync('.pnpm/canvas@3.2.3', join(folder, 'node_modules/canvas'));
+    writeFileSync(join(folder, 'pnpm-lock.yaml'), 'importers:\n  apps/api:\n    dependencies:\n      canvas: {version: 3.2.3}\nsnapshots:\n  canvas@3.2.3: {}\n');
+    assert.throws(() => pruneOptionalCanvasRuntime(folder), /CANVAS_IS_REQUIRED/); assert(existsSync(native));
+    writeFileSync(join(folder, 'pnpm-lock.yaml'), 'importers:\n  apps/api:\n    optionalDependencies:\n      canvas: {version: 3.2.3}\nsnapshots:\n  canvas@3.2.3: {}\n');
+    assert.equal(pruneOptionalCanvasRuntime(folder).removedOptionalCanvasStores, 1);
+    assert(!existsSync(native)); assert(!existsSync(join(folder, 'node_modules/canvas'))); assert(existsSync(join(folder, 'node_modules/.pnpm/keep@1')));
   } finally { rmSync(folder, { recursive: true }); }
 });

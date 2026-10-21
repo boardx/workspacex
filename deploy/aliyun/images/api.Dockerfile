@@ -19,7 +19,8 @@ RUN --network=none pnpm --filter @repo/contracts typecheck \
  && printf typechecked > /api-typecheck.ok
 # Only production dependencies enter the distributed runtime layers.
 FROM sources AS runtime
-RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm --filter-prod @repo/api... install --prod --frozen-lockfile
+RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm --filter-prod @repo/api... install --prod --frozen-lockfile \
+ && node apps/api/scripts/prune-optional-canvas-runtime.mjs /opt/workspacex
 COPY --from=build /api-typecheck.ok /opt/workspacex/.api-typecheck.ok
 ARG SOURCE_REVISION
 RUN test "${#SOURCE_REVISION}" = 40
