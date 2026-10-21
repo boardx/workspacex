@@ -1,0 +1,190 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-10-21T02:49:31.820909+00:00",
+  "scope": "Replacement image-processing dependencies for Web/API; OS runtime libraries and Cloudflare development tooling are separate. Not a legal opinion or production image acceptance.",
+  "packages": {
+    "@napi-rs/image": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "sourceCommit": "7bad478bfe647bca75d4c05db8726ca3d5335e80",
+      "licenseSource": "https://github.com/Brooooooklyn/Image/blob/7bad478bfe647bca75d4c05db8726ca3d5335e80/LICENSE",
+      "nativeDependencyDeclarations": "https://github.com/Brooooooklyn/Image/blob/7bad478bfe647bca75d4c05db8726ca3d5335e80/packages/binding/Cargo.toml"
+    },
+    "image-size": {
+      "version": "2.0.4",
+      "license": "MIT",
+      "dependencies": {},
+      "source": "https://registry.npmjs.org/image-size/2.0.4"
+    },
+    "omggif": {
+      "version": "1.0.10",
+      "license": "MIT",
+      "dependencies": {},
+      "source": "https://github.com/deanm/omggif/blob/master/omggif.js"
+    }
+  },
+  "npmPlatformBindings": {
+    "@napi-rs/image": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-WtMwFCgKDPcWLKH3Ooy8pCTMmjwC3NNlBicb5Qaqx0PafOjbRQ/zx5ZEWlxnjTFfMWIW3ptskuX8wt4NXJvvVg==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-darwin-x64": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-CIEDQYJEjk81TIM2tpWj1T6R9RkzZU7rVwBw/6+El/tcER+v9HF4oZIp+YLUMT3G5kVXqoNtda8mRcTs9CUwMw==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-freebsd-x64": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-ztYxPGsPEpw8Odc2d9w6+gLkEe1Ocifjae938DFFKytYztRcFenFIq+6Ha6fsnr/4LtZHH70GnBwB0lhM8dwtQ==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-darwin-arm64": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-HHUDoMil1WONvbFs97FBtO2G0C6Xjzo7G4Ioywn/wmEgFFgWdlNO0n1ARp3WsnssH4j89rDEVHfkpjrwNa96OQ==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-android-arm64": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-BhW7Zyk0Y17FNWcrc+7bwK8Yo9gdt/OsB5AsK3yvu+z3pCvVtztjuANNfdwcC2KHolJkJWeu42ZfC0qwBYB57A==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-linux-x64-gnu": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-IiayUG47OTY89iPLiN/wtnIwqOqtHbO1W/h5aZdSzfQa7Ke0NlNuUsE4qkbLIkInYyd7gWSs1GiX8+VpewIhZw==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-linux-x64-musl": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-EqHJBpf+LXB47Andl5IWaP2Tdavb3ehH3a9/cLkBAZ3mW07h1PTnhNHtWbxP/O2RkBCr87gi92OVA+1J2KSJKg==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-win32-x64-msvc": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-3S4O+oJnLZ3MmWYhGLPwqlNoNLu2GP2ZIXlJrTXDvCqxq9Qpb4lh4ymAUKvztxkQn6CsPLUa4j2XR5GydFBrwg==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-linux-arm64-gnu": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-/4XHp1GbXNfVmMQYmyUAErMBXaAxGF3JZnv+Q73P9jhEwfOvgl3CUTCZwZEivScIbVjdxrcQnlWw9xSzZXsx3w==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-win32-ia32-msvc": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-SOs9Mc5/7cMMu3vXl97SwvlG2l4jcACcLTcPotl6N3u/Vi8N6Qc6rnxqol2L5KRzLkmULgs3nNx/OqFEvpPpsg==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-linux-arm64-musl": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-jjqW0eg09OY2rYZl07tHNKKXqwwHNgeuwQyU2/1OX34qFoc1nfmITaud2WAuaAjmVnxbYpigs0JQiAHYTs0koA==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-win32-arm64-msvc": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-n34XcQjrMAQZ8/O2uK/E+rqVo+G0h4Y6eDMvJduZWVL7c9fpcfiSWaUDdaw+6lz3RugauJ97ectCDk5LTlXnjg==",
+      "dependencies": {},
+      "error": null
+    },
+    "@napi-rs/image-linux-arm-gnueabihf": {
+      "version": "1.15.0",
+      "license": "MIT",
+      "integrity": "sha512-Pgnt8ekNnYmDX/dB2n+o3WABojL2u9vrceoSa85VFa1zs5fMy+k6z1UCjDgDwpQOSmq2AotTABedvL8vqZKDJA==",
+      "dependencies": {},
+      "error": null
+    }
+  },
+  "nativeComponentsBeyondNpmMetadata": [
+    {
+      "name": "resvg",
+      "version": "0.48.0",
+      "license": "Apache-2.0 OR MIT",
+      "source": "https://crates.io/api/v1/crates/resvg/0.48.0",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    },
+    {
+      "name": "image",
+      "version": "0.25.9",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://crates.io/api/v1/crates/image/0.25.9",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    },
+    {
+      "name": "libavif",
+      "version": "0.14.0",
+      "license": "BSD-2-Clause",
+      "source": "https://crates.io/api/v1/crates/libavif/0.14.0",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    },
+    {
+      "name": "libwebp-sys",
+      "version": "0.14.0",
+      "license": "MIT",
+      "source": "https://crates.io/api/v1/crates/libwebp-sys/0.14.0",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    },
+    {
+      "name": "mozjpeg-sys",
+      "version": "2.2.3",
+      "license": "IJG AND Zlib AND BSD-3-Clause",
+      "source": "https://crates.io/api/v1/crates/mozjpeg-sys/2.2.3",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    },
+    {
+      "name": "lodepng",
+      "version": "3.12.2",
+      "license": "Zlib",
+      "source": "https://crates.io/api/v1/crates/lodepng/3.12.2",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    },
+    {
+      "name": "oxipng",
+      "version": "10.0.0",
+      "license": "MIT",
+      "source": "https://crates.io/api/v1/crates/oxipng/10.0.0",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    },
+    {
+      "name": "fast_image_resize",
+      "version": "6.0.0",
+      "license": "MIT OR Apache-2.0",
+      "source": "https://crates.io/api/v1/crates/fast_image_resize/6.0.0",
+      "scope": "Official metadata for representative declared native component version; not a resolved binary SBOM"
+    }
+  ],
+  "nativeSourceManifestSha256": "d650a9aebc442781a8cbaa340ff0bc660238641538610d5b591f94508f4d1281",
+  "observations": {
+    "npm": "All 13 image wrapper/platform packages report MIT, exact 1.15.0 and integrity pinned; image-size/omggif have no dependencies.",
+    "native": "Reviewed upstream native component declarations and official licenses for image, resvg, libavif, libwebp-sys, mozjpeg-sys, lodepng, oxipng and fast_image_resize. No libvips dependency declared. Component examples are not an exact resolved Rust graph.",
+    "localBinary": "linux-x64-gnu native addon links only standard system runtime libraries, no dynamic libvips. This does not establish absence of statically linked components.",
+    "productClosure": "Repository inventory reports no shipped sharp/libvips packages and no installed shipped LGPL expressions. Uninstalled optional packages remain unjudged by the existing repository gate.",
+    "development": "Lockfile still contains sharp/libvips for Cloudflare miniflare development tools; neither Web nor API production dependency closure reaches them."
+  },
+  "limits": [
+    "Upstream source does not supply a tracked Cargo.lock at this release commit; representative crate versions do not prove exact transitive contents of the prebuilt native binary. No complete native binary SBOM was obtained; do not claim fully certified transitive license clearance.",
+    "Final Web/API images have not been built or inventoried.",
+    "Existing license policy/review records were not changed."
+  ]
+}

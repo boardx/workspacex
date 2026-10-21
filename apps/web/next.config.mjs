@@ -32,6 +32,8 @@ if (existsSync(monacoVsSrc) && !existsSync(monacoVsDest)) {
 /** @type {import('next').NextConfig} */
 export default {
   reactStrictMode: true,
+  // Serve original images without the optional sharp/libvips optimizer.
+  images: { unoptimized: true },
   // Only release images use a traced runtime; dev/e2e keep their current output.
   ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? { output: "standalone" } : {}),
   /**
