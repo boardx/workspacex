@@ -45,6 +45,10 @@ jobs:
           check .harness/scripts/vm/deploy.sh /usr/local/bin/workspacex-deploy
           check .harness/scripts/vm/deploy-readiness.sh /usr/local/lib/workspacex-deploy-readiness.sh
 
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+
       - name: Configure root owned payment environment and verify restarted API
         shell: bash
         env:
