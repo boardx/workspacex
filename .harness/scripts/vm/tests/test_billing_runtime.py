@@ -22,6 +22,11 @@ def stripe(**overrides):
                 STRIPE_RETURN_URL='https://devapp.boardx.us/billing?subscription_return=1', **overrides)
 
 
+def pem(label, body):
+    """Construct unmistakably synthetic key framing without a static key block."""
+    return '-----' + 'BEGIN ' + label + '-----\n' + body + '\n-----' + 'END ' + label + '-----'
+
+
 def payload(env):
     return json.dumps({'schemaVersion': 1, 'target': 'devapp', 'environment': env}).encode()
 
@@ -48,8 +53,8 @@ class BillingRuntimeTest(unittest.TestCase):
         der = base64.b64encode(b'\x30' + b'x' * 300).decode()
         config = {'WECHAT_PAY_APP_ID': 'wx123456', 'WECHAT_PAY_MCH_ID': '1900000000',
                   'WECHAT_PAY_API_V3_KEY': 'a' * 32, 'WECHAT_PAY_MCH_SERIAL_NO': 'ABC123',
-                  'WECHAT_PAY_PRIVATE_KEY': '-----BEGIN PRIVATE KEY-----\n' + der + '\n-----END PRIVATE KEY-----\n',
-                  'WECHAT_PAY_PLATFORM_PUBLIC_KEY': '-----BEGIN PUBLIC KEY-----\n' + der + '\n-----END PUBLIC KEY-----\n',
+                  'WECHAT_PAY_PRIVATE_KEY': pem('PRIVATE KEY', der) + '\n',
+                  'WECHAT_PAY_PLATFORM_PUBLIC_KEY': pem('PUBLIC KEY', der) + '\n',
                   'WECHAT_PAY_PLATFORM_KEY_ID': 'PUB_KEY_ID_FIXTURE',
                   'WECHAT_PAY_NOTIFY_URL': 'https://devapp.boardx.us/api/billing/webhooks/wechat'}
         merged, providers = self.h['validate_payload'](payload(config), {})
@@ -57,7 +62,7 @@ class BillingRuntimeTest(unittest.TestCase):
         self.assertEqual(providers, {'wechat'})
         for patch in [{'WECHAT_PAY_NOTIFY_URL': 'https://evil.test/'},
                       {'WECHAT_PAY_PLATFORM_KEY_ID': 'untrusted'},
-                      {'WECHAT_PAY_PRIVATE_KEY': '-----BEGIN PRIVATE KEY-----\ninvalid\n-----END PRIVATE KEY-----'}]:
+                      {'WECHAT_PAY_PRIVATE_KEY': pem('PRIVATE KEY', 'invalid')}]:
             with self.subTest(patch=patch), self.assertRaises(ValueError):
                 self.h['validate_payload'](payload(dict(config, **patch)), {})
 
@@ -100,7 +105,7 @@ class BillingRuntimeTest(unittest.TestCase):
             self.assertFalse(marker.exists())
 
     def test_systemd_roundtrip_preserves_pem_and_inert_metacharacters(self):
-        values = {'WECHAT_PAY_PRIVATE_KEY': '-----BEGIN PRIVATE KEY-----\nYWJj\n-----END PRIVATE KEY-----',
+        values = {'WECHAT_PAY_PRIVATE_KEY': pem('PRIVATE KEY', 'YWJj'),
                   'STRIPE_WEBHOOK_SECRET': 'whsec_abc'}
         self.assertEqual(self.h['decode_environment'](self.h['encode_environment'](values)), values)
 

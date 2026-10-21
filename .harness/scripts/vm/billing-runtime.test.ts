@@ -7,6 +7,14 @@ import { parse } from "yaml";
 const root = resolve(import.meta.dirname, "../../..");
 
 describe("trusted devapp billing configuration", () => {
+  it("checks Stripe staging, retry recovery and activation compensation in CI", () => {
+    const result = spawnSync(process.execPath, ["--test", "scripts/billing/prepare-runtime.test.mjs"],
+      { cwd: root, encoding: "utf8", timeout: 15_000 });
+    expect(result.status, result.stderr + result.stdout).toBe(0);
+    expect(result.stdout).toContain("# pass 17");
+    expect(result.stdout).toContain("# fail 0");
+  });
+
   it("validates, persists, verifies and rolls back payment-only configuration", () => {
     const result = spawnSync("python3", ["-m", "unittest", "discover", "-s", ".harness/scripts/vm/tests", "-p", "test_billing_runtime.py"],
       { cwd: root, encoding: "utf8", timeout: 15_000 });
