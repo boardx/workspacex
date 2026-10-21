@@ -520,7 +520,8 @@ def configure_transaction(config, providers, env_path, dropin_path, restart, rea
             restart()
         except Exception:
             raise RuntimeError('billing failed; previous files restored but service recovery failed') from None
-        raise RuntimeError('billing failed; previous configuration restored') from None
+        # Keep the original type/errno for report_failure; it never prints exception text.
+        raise
 
 
 def read_stdin():
