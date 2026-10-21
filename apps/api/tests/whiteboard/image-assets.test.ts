@@ -1,6 +1,6 @@
 import { describe,it,expect } from 'vitest';
 import { GifWriter } from 'omggif';
-import { rasterFixture } from '../support/image-fixture';
+import { rasterFixture, animatedWebpFixture } from '../support/image-fixture';
 import { DecodedBoardImageVerifier } from '../../src/infrastructure/whiteboard/image-verifier';
 const raster = rasterFixture;
 describe('verified board image bytes',()=>{
@@ -10,12 +10,17 @@ describe('verified board image bytes',()=>{
  it('rejects corrupted GIF data and excessive animation frames',async()=>{const v=new DecodedBoardImageVerifier(),gif=raster('gif');await expect(v.verify(gif.subarray(0,gif.length-1),'image/gif')).rejects.toMatchObject({code:'INVALID_IMAGE'});const bytes=Buffer.alloc(20000),writer=new GifWriter(bytes,2,2,{palette:[0,0xffffff]});for(let i=0;i<101;i++)writer.addFrame(0,0,2,2,Array<number>(4).fill(0));await expect(v.verify(bytes.subarray(0,writer.end()),'image/gif')).rejects.toMatchObject({code:'INVALID_IMAGE'});});
  it('decodes every GIF frame, including a corrupt later frame',async()=>{const bytes=Buffer.alloc(2000),writer=new GifWriter(bytes,2,2,{palette:[0,0xffffff]});writer.addFrame(0,0,2,2,Array<number>(4).fill(0));writer.addFrame(0,0,2,2,Array<number>(4).fill(0));const gif=bytes.subarray(0,writer.end());expect((await new DecodedBoardImageVerifier().verify(gif,'image/gif')).metadata.intrinsicWidth).toBe(2);const corrupt=Buffer.from(gif);corrupt[corrupt.length-4]=0xff;await expect(new DecodedBoardImageVerifier().verify(corrupt,'image/gif')).rejects.toMatchObject({code:'INVALID_IMAGE'});});
  it('decodes animated WebP frames and rejects corrupt later frames',async()=>{
-  const chunk=(type:string,data:Buffer)=>{const h=Buffer.alloc(8);h.write(type);h.writeUInt32LE(data.length,4);return Buffer.concat([h,data,Buffer.alloc(data.length%2)]);};
-  const source=raster('webp'),payload=source.subarray(12),extended=Buffer.alloc(10);extended[0]=2;extended.writeUIntLE(31,4,3);extended.writeUIntLE(23,7,3);
-  const frame=Buffer.alloc(16);frame.writeUIntLE(31,6,3);frame.writeUIntLE(23,9,3);frame.writeUIntLE(50,12,3);
-  const make=(second:Buffer)=>{const body=Buffer.concat([Buffer.from('WEBP'),chunk('VP8X',extended),chunk('ANIM',Buffer.alloc(6)),chunk('ANMF',Buffer.concat([frame,payload])),chunk('ANMF',Buffer.concat([frame,second]))]),h=Buffer.alloc(8);h.write('RIFF');h.writeUInt32LE(body.length,4);return Buffer.concat([h,body]);};
-  expect((await new DecodedBoardImageVerifier().verify(make(payload),'image/webp')).metadata.intrinsicWidth).toBe(32);
-  await expect(new DecodedBoardImageVerifier().verify(make(payload.subarray(0,10)),'image/webp')).rejects.toMatchObject({code:'INVALID_IMAGE'});
+  expect((await new DecodedBoardImageVerifier().verify(animatedWebpFixture(),'image/webp')).metadata.intrinsicWidth).toBe(32);
+  await expect(new DecodedBoardImageVerifier().verify(animatedWebpFixture(true),'image/webp')).rejects.toMatchObject({code:'INVALID_IMAGE'});
+ });
+ it.each(['missing','truncated','late','duplicate'] as const)('rejects %s ANIM control data in the original WebP container',async(mode)=>{
+  const good=animatedWebpFixture(),anim=good.subarray(30,44);let bytes:Buffer;
+  if(mode==='missing')bytes=Buffer.concat([good.subarray(0,30),good.subarray(44)]);
+  else if(mode==='late')bytes=Buffer.concat([good.subarray(0,30),good.subarray(44),anim]);
+  else if(mode==='duplicate')bytes=Buffer.concat([good.subarray(0,44),anim,good.subarray(44)]);
+  else{bytes=Buffer.from(good);bytes.writeUInt32LE(5,34);}
+  bytes.writeUInt32LE(bytes.length-8,4);
+  await expect(new DecodedBoardImageVerifier().verify(bytes,'image/webp')).rejects.toMatchObject({code:'INVALID_IMAGE'});
  });
  it('retains the concurrent decode limit',async()=>{const v=new DecodedBoardImageVerifier(),bytes=raster();const first=v.verify(bytes,'image/png'),second=v.verify(bytes,'image/png');await expect(v.verify(bytes,'image/png')).rejects.toMatchObject({code:'RATE_LIMITED'});await Promise.all([first,second]);});
  it('normalizes safe SVG and refuses external content and oversized decode',async()=>{const v=new DecodedBoardImageVerifier(),s=(x:string)=>new TextEncoder().encode(x);expect((await v.verify(s('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="30"><rect width="20" height="30" fill="red"/></svg>'),'image/svg+xml')).metadata).toMatchObject({mimeType:'image/png',intrinsicWidth:20,intrinsicHeight:30});for(const x of ['<svg><image href="https://example.com/a"/></svg>','<svg width="100000" height="100000"/>'])await expect(v.verify(s(x),'image/svg+xml')).rejects.toMatchObject({code:'INVALID_IMAGE'});});

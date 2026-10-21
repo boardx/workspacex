@@ -183,8 +183,339 @@
     "development": "Lockfile still contains sharp/libvips for Cloudflare miniflare development tools; neither Web nor API production dependency closure reaches them."
   },
   "limits": [
-    "Upstream source does not supply a tracked Cargo.lock at this release commit; representative crate versions do not prove exact transitive contents of the prebuilt native binary. No complete native binary SBOM was obtained; do not claim fully certified transitive license clearance.",
-    "Final Web/API images have not been built or inventoried.",
+    "The upstream source has no tracked Cargo.lock at this release commit. The 51 observed exact-version components and digest-bound decoded provenance improve evidence but do not establish an exhaustive native dependency closure; missing components cannot be inferred absent.",
+    "DSSE provenance signatures were not independently verified; digest/subject consistency was checked.",
+    "Final Web/API images have not been built or inventoried; no claim that the complete final image is free of LGPL.",
     "Existing license policy/review records were not changed."
-  ]
+  ],
+  "actualLinuxPrebuiltEvidence": {
+    "package": "@napi-rs/image-linux-x64-gnu",
+    "version": "1.15.0",
+    "archiveSha512": "2226b2506e3b39363cf623cb88dff0b67230a8eaad1db3b55bf879699752cdf41aeca7b436536e52c138aa46cb22422763277b8164acd46897f3e5697b022167",
+    "binarySha256": "2ebadf7ab89355b76580dda2dce9ad28df0873af62296862ebeaa94d8a87b4c5",
+    "matchesRegistryIntegrity": true,
+    "matchesInstalledBinary": true,
+    "decodedAttestationSubjectsMatch": true,
+    "attestationSignaturesIndependentlyVerified": false,
+    "attestationSource": "https://registry.npmjs.org/-/npm/v1/attestations/@napi-rs%2fimage-linux-x64-gnu@1.15.0",
+    "attestationResponseSha256": "d05086394aeeac9a8f0ee6a1b38c369e835199bca7ce300b4dd6846ae113ca4a",
+    "sourceCommit": "7bad478bfe647bca75d4c05db8726ca3d5335e80",
+    "provenanceRun": "https://github.com/Brooooooklyn/Image/actions/runs/35204594397/attempts/1",
+    "resolvedDependencyScope": "Decoded SLSA statement binds repository commit only; no resolved Rust dependency graph",
+    "elfInspection": "No .dep-v0 auditable dependency section; standard dynamic system libraries, no dynamic libvips. Static components are not disproved by this.",
+    "observedComponents": [
+      {
+        "name": "arrayvec",
+        "version": "0.7.8",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/arrayvec/0.7.8"
+      },
+      {
+        "name": "base64",
+        "version": "0.23.1",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/base64/0.23.1"
+      },
+      {
+        "name": "bytemuck",
+        "version": "1.25.2",
+        "license": "Zlib OR Apache-2.0 OR MIT",
+        "source": "https://crates.io/api/v1/crates/bytemuck/1.25.2"
+      },
+      {
+        "name": "crossbeam-deque",
+        "version": "0.8.8",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/crossbeam-deque/0.8.8"
+      },
+      {
+        "name": "crossbeam-epoch",
+        "version": "0.9.21",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/crossbeam-epoch/0.9.21"
+      },
+      {
+        "name": "data-url",
+        "version": "0.3.2",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/data-url/0.3.2"
+      },
+      {
+        "name": "fast_image_resize",
+        "version": "6.1.0",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/fast_image_resize/6.1.0"
+      },
+      {
+        "name": "fax",
+        "version": "0.2.7",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/fax/0.2.7"
+      },
+      {
+        "name": "fdeflate",
+        "version": "0.3.7",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/fdeflate/0.3.7"
+      },
+      {
+        "name": "flate2",
+        "version": "1.1.10",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/flate2/1.1.10"
+      },
+      {
+        "name": "fontdb",
+        "version": "0.24.0",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/fontdb/0.24.0"
+      },
+      {
+        "name": "gif",
+        "version": "0.14.2",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/gif/0.14.2"
+      },
+      {
+        "name": "harfrust",
+        "version": "0.12.0",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/harfrust/0.12.0"
+      },
+      {
+        "name": "hashbrown",
+        "version": "0.17.1",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/hashbrown/0.17.1"
+      },
+      {
+        "name": "image",
+        "version": "0.25.10",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/image/0.25.10"
+      },
+      {
+        "name": "image-webp",
+        "version": "0.2.4",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/image-webp/0.2.4"
+      },
+      {
+        "name": "imagesize",
+        "version": "0.15.0",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/imagesize/0.15.0"
+      },
+      {
+        "name": "indexmap",
+        "version": "2.14.2",
+        "license": "Apache-2.0 OR MIT",
+        "source": "https://crates.io/api/v1/crates/indexmap/2.14.2"
+      },
+      {
+        "name": "libavif",
+        "version": "0.14.0",
+        "license": "BSD-2-Clause",
+        "source": "https://crates.io/api/v1/crates/libavif/0.14.0"
+      },
+      {
+        "name": "libdeflater",
+        "version": "1.26.0",
+        "license": "Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/libdeflater/1.26.0"
+      },
+      {
+        "name": "lodepng",
+        "version": "3.12.2",
+        "license": "Zlib",
+        "source": "https://crates.io/api/v1/crates/lodepng/3.12.2"
+      },
+      {
+        "name": "memmap2",
+        "version": "0.9.11",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/memmap2/0.9.11"
+      },
+      {
+        "name": "napi",
+        "version": "3.12.6",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/napi/3.12.6"
+      },
+      {
+        "name": "num_cpus",
+        "version": "1.17.0",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/num_cpus/1.17.0"
+      },
+      {
+        "name": "once_cell",
+        "version": "1.21.4",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/once_cell/1.21.4"
+      },
+      {
+        "name": "oxipng",
+        "version": "10.2.1",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/oxipng/10.2.1"
+      },
+      {
+        "name": "png",
+        "version": "0.18.1",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/png/0.18.1"
+      },
+      {
+        "name": "rayon",
+        "version": "1.12.0",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/rayon/1.12.0"
+      },
+      {
+        "name": "rayon-core",
+        "version": "1.13.0",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/rayon-core/1.13.0"
+      },
+      {
+        "name": "read-fonts",
+        "version": "0.41.0",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/read-fonts/0.41.0"
+      },
+      {
+        "name": "resvg",
+        "version": "0.48.1",
+        "license": "Apache-2.0 OR MIT",
+        "source": "https://crates.io/api/v1/crates/resvg/0.48.1"
+      },
+      {
+        "name": "rexif",
+        "version": "0.7.5",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/rexif/0.7.5"
+      },
+      {
+        "name": "roxmltree",
+        "version": "0.20.0",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/roxmltree/0.20.0"
+      },
+      {
+        "name": "roxmltree",
+        "version": "0.21.1",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/roxmltree/0.21.1"
+      },
+      {
+        "name": "simplecss",
+        "version": "0.2.2",
+        "license": "Apache-2.0 OR MIT",
+        "source": "https://crates.io/api/v1/crates/simplecss/0.2.2"
+      },
+      {
+        "name": "skrifa",
+        "version": "0.44.0",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/skrifa/0.44.0"
+      },
+      {
+        "name": "slotmap",
+        "version": "1.1.1",
+        "license": "Zlib",
+        "source": "https://crates.io/api/v1/crates/slotmap/1.1.1"
+      },
+      {
+        "name": "smallvec",
+        "version": "1.16.1",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/smallvec/1.16.1"
+      },
+      {
+        "name": "svgtypes",
+        "version": "0.16.1",
+        "license": "Apache-2.0 OR MIT",
+        "source": "https://crates.io/api/v1/crates/svgtypes/0.16.1"
+      },
+      {
+        "name": "tiff",
+        "version": "0.11.3",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/tiff/0.11.3"
+      },
+      {
+        "name": "tiny-skia",
+        "version": "0.12.0",
+        "license": "BSD-3-Clause",
+        "source": "https://crates.io/api/v1/crates/tiny-skia/0.12.0"
+      },
+      {
+        "name": "tiny-skia-path",
+        "version": "0.12.0",
+        "license": "BSD-3-Clause",
+        "source": "https://crates.io/api/v1/crates/tiny-skia-path/0.12.0"
+      },
+      {
+        "name": "tinyvec",
+        "version": "1.13.3",
+        "license": "Zlib OR Apache-2.0 OR MIT",
+        "source": "https://crates.io/api/v1/crates/tinyvec/1.13.3"
+      },
+      {
+        "name": "unicode-bidi",
+        "version": "0.3.18",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/unicode-bidi/0.3.18"
+      },
+      {
+        "name": "unicode-script",
+        "version": "0.5.8",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/unicode-script/0.5.8"
+      },
+      {
+        "name": "usvg",
+        "version": "0.48.1",
+        "license": "Apache-2.0 OR MIT",
+        "source": "https://crates.io/api/v1/crates/usvg/0.48.1"
+      },
+      {
+        "name": "weezl",
+        "version": "0.1.12",
+        "license": "MIT OR Apache-2.0",
+        "source": "https://crates.io/api/v1/crates/weezl/0.1.12"
+      },
+      {
+        "name": "xmlwriter",
+        "version": "0.1.0",
+        "license": "MIT",
+        "source": "https://crates.io/api/v1/crates/xmlwriter/0.1.0"
+      },
+      {
+        "name": "zlib-rs",
+        "version": "0.6.8",
+        "license": "Zlib",
+        "source": "https://crates.io/api/v1/crates/zlib-rs/0.6.8"
+      },
+      {
+        "name": "zune-core",
+        "version": "0.5.3",
+        "license": "MIT OR Apache-2.0 OR Zlib",
+        "source": "https://crates.io/api/v1/crates/zune-core/0.5.3"
+      },
+      {
+        "name": "zune-jpeg",
+        "version": "0.5.15",
+        "license": "MIT OR Apache-2.0 OR Zlib",
+        "source": "https://crates.io/api/v1/crates/zune-jpeg/0.5.15"
+      }
+    ],
+    "observedLicenseResult": "51/51 exact versions queried from official crates registry; none declares an LGPL expression. This is a partial positive inventory from embedded source paths, not an exhaustive binary SBOM.",
+    "upstreamPublishedArtifacts": {
+      "run": 35204594397,
+      "count": 13,
+      "contents": "13 platform binding artifacts; inspected workflow exports native/WASI binaries, no Cargo.lock or SBOM artifact declared."
+    }
+  }
 }

@@ -11,3 +11,10 @@ export function rasterFixture(format: 'png' | 'jpeg' | 'webp' | 'gif' = 'png', w
   const image = Transformer.fromRgbaPixels(rgba, width, height);
   return format === 'png' ? image.pngSync() : format === 'jpeg' ? image.jpegSync() : image.webpLosslessSync();
 }
+
+export function animatedWebpFixture(corruptSecondFrame = false) {
+  const chunk=(type:string,data:Buffer)=>{const h=Buffer.alloc(8);h.write(type);h.writeUInt32LE(data.length,4);return Buffer.concat([h,data,Buffer.alloc(data.length%2)]);};
+  const source=rasterFixture('webp'),payload=source.subarray(12),extended=Buffer.alloc(10);extended[0]=2;extended.writeUIntLE(31,4,3);extended.writeUIntLE(23,7,3);
+  const frame=Buffer.alloc(16);frame.writeUIntLE(31,6,3);frame.writeUIntLE(23,9,3);frame.writeUIntLE(50,12,3);
+  const body=Buffer.concat([Buffer.from('WEBP'),chunk('VP8X',extended),chunk('ANIM',Buffer.alloc(6)),chunk('ANMF',Buffer.concat([frame,payload])),chunk('ANMF',Buffer.concat([frame,corruptSecondFrame?payload.subarray(0,10):payload]))]),h=Buffer.alloc(8);h.write('RIFF');h.writeUInt32LE(body.length,4);return Buffer.concat([h,body]);
+}

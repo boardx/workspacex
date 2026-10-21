@@ -11,30 +11,70 @@ function pixels(bytes, width, height) {
   if (info.width !== width || info.height !== height) throw Error('IMAGE_DIMENSIONS');
   if (image.rawPixelsSync().length < width * height) throw Error('IMAGE_PIXELS');
 }
-function webp(bytes, width, height) {
-  if (bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.readUInt32LE(4) + 8 !== bytes.length) throw Error('WEBP_LENGTH');
-  let count = 0, animated = false;
-  for (let offset = 12; offset < bytes.length;) {
+function chunks(bytes, start = 0) {
+  const result = [];
+  for (let offset = start; offset < bytes.length;) {
     if (offset + 8 > bytes.length) throw Error('WEBP_CHUNK');
     const type = bytes.toString('ascii', offset, offset + 4), size = bytes.readUInt32LE(offset + 4), end = offset + 8 + size;
-    if (end > bytes.length || end + (size & 1) > bytes.length) throw Error('WEBP_CHUNK');
-    if (type === 'VP8X') animated = Boolean(bytes[offset + 8] & 2);
-    if (type === 'ANMF') {
-      if (!animated || size < 16) throw Error('WEBP_FRAME');
-      count++; check(width, height, count);
-      const data = bytes.subarray(offset + 8, end), x = data.readUIntLE(0, 3) * 2, y = data.readUIntLE(3, 3) * 2;
-      const w = data.readUIntLE(6, 3) + 1, h = data.readUIntLE(9, 3) + 1;
-      if (x + w > width || y + h > height) throw Error('WEBP_FRAME');
-      const payload = data.subarray(16), header = Buffer.alloc(30);
-      header.write('RIFF'); header.writeUInt32LE(payload.length + 22, 4); header.write('WEBPVP8X', 8); header.writeUInt32LE(10, 16);
-      header[20] = payload.toString('ascii', 0, 4) === 'ALPH' ? 16 : 0;
-      header.writeUIntLE(w - 1, 24, 3); header.writeUIntLE(h - 1, 27, 3);
-      pixels(Buffer.concat([header, payload]), w, h);
-    }
+    if (end + (size & 1) > bytes.length || ((size & 1) && bytes[end] !== 0)) throw Error('WEBP_CHUNK');
+    result.push({ type, data: bytes.subarray(offset + 8, end), raw: bytes.subarray(offset, end + (size & 1)) });
     offset = end + (size & 1);
   }
-  if (animated && !count) throw Error('WEBP_FRAMES');
-  if (!animated) pixels(bytes, width, height);
+  return result;
+}
+function webp(bytes, width, height) {
+  // https://developers.google.com/speed/webp/docs/riff_container
+  if (bytes.toString('ascii', 0, 4) !== 'RIFF' || bytes.toString('ascii', 8, 12) !== 'WEBP' || bytes.readUInt32LE(4) + 8 !== bytes.length) throw Error('WEBP_LENGTH');
+  const parts = chunks(bytes, 12), extended = parts[0]?.type === 'VP8X' ? parts[0].data : null;
+  if (extended && (extended.length !== 10 || (extended[0] & 0xc1) || extended.readUIntLE(1, 3) !== 0 || extended.readUIntLE(4, 3) + 1 !== width || extended.readUIntLE(7, 3) + 1 !== height)) throw Error('WEBP_HEADER');
+  const animated = Boolean(extended && (extended[0] & 2));
+  let count = 0, control = false, color = false, image = false, alpha = false;
+  for (let i = 0; i < parts.length; i++) {
+    const { type, data } = parts[i];
+    if (type === 'VP8X' && i !== 0) throw Error('WEBP_HEADER');
+    if (type === 'ICCP') {
+      if (!extended || !(extended[0] & 32) || color || control || count || image) throw Error('WEBP_COLOR_ORDER');
+      color = true;
+    }
+    if (type === 'ANIM') {
+      if (!animated || control || count || image || data.length !== 6) throw Error('WEBP_ANIM');
+      control = true;
+    }
+    if (type === 'ANMF') {
+      if (!animated || !control || data.length < 16 || (data[15] & 0xfc)) throw Error('WEBP_FRAME');
+      count++; check(width, height, count);
+      const x = data.readUIntLE(0, 3) * 2, y = data.readUIntLE(3, 3) * 2, w = data.readUIntLE(6, 3) + 1, h = data.readUIntLE(9, 3) + 1;
+      if (x + w > width || y + h > height) throw Error('WEBP_FRAME');
+      let frameImage = false, frameAlpha = false;
+      const payload = [];
+      for (const part of chunks(data, 16)) {
+        if (part.type === 'ALPH') {
+          if (frameAlpha || frameImage) throw Error('WEBP_FRAME_ALPHA');
+          frameAlpha = true; payload.push(part.raw);
+        } else if (part.type === 'VP8 ' || part.type === 'VP8L') {
+          if (frameImage || (frameAlpha && part.type !== 'VP8 ')) throw Error('WEBP_FRAME_IMAGE');
+          frameImage = true; payload.push(part.raw);
+        } else if (['VP8X', 'ANIM', 'ANMF', 'ICCP'].includes(part.type)) throw Error('WEBP_FRAME_CHUNK');
+      }
+      if (!frameImage) throw Error('WEBP_FRAME_IMAGE');
+      const frameBytes = Buffer.concat(payload), header = Buffer.alloc(30);
+      header.write('RIFF'); header.writeUInt32LE(frameBytes.length + 22, 4); header.write('WEBPVP8X', 8); header.writeUInt32LE(10, 16); header[20] = frameAlpha ? 16 : 0;
+      header.writeUIntLE(w - 1, 24, 3); header.writeUIntLE(h - 1, 27, 3);
+      pixels(Buffer.concat([header, frameBytes]), w, h);
+    }
+    if (type === 'ALPH') {
+      if (animated || !extended || alpha || image) throw Error('WEBP_ALPHA_ORDER');
+      alpha = true;
+    }
+    if (type === 'VP8 ' || type === 'VP8L') {
+      if (animated || image || (alpha && type !== 'VP8 ')) throw Error('WEBP_IMAGE_ORDER');
+      image = true;
+    }
+  }
+  if (extended && (Boolean(extended[0] & 32) !== color)) throw Error('WEBP_COLOR');
+  if (animated ? (!control || !count || image) : !image) throw Error('WEBP_IMAGES');
+  // Decode the original container as well as every reconstructed animation frame.
+  pixels(bytes, width, height);
 }
 async function main() {
   const chunks = []; let length = 0;
