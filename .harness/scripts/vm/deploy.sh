@@ -31,6 +31,18 @@
 set +x
 set -euo pipefail
 
+# This exact mode is handled before ref/env processing. Its code and paths come
+# only from the installed root-owned helper, never the runner's checkout or env.
+if [[ "${1:-}" == --configure-billing ]]; then
+  [[ $# -eq 1 && $EUID -eq 0 ]] || { echo "billing configuration requires root and exactly one mode argument" >&2; exit 2; }
+  [[ -f /usr/local/lib/workspacex-deploy-readiness.sh && ! -L /usr/local/lib/workspacex-deploy-readiness.sh ]] || exit 1
+  [[ $(/usr/bin/stat -c '%u:%a' /usr/local/lib/workspacex-deploy-readiness.sh) == 0:644 ]] || exit 1
+  # shellcheck source=/dev/null
+  source /usr/local/lib/workspacex-deploy-readiness.sh
+  configure_devapp_billing
+  exit $?
+fi
+
 APP_DIR=${APP_DIR:-/opt/workspacex/app}
 ENV_FILE=${ENV_FILE:-/opt/workspacex/deploy.env}
 RUN_AS=${RUN_AS:-workspacex}

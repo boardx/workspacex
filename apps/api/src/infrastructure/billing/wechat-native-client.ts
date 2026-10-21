@@ -42,7 +42,7 @@ export class WechatNativeClient implements WechatNativePort {
       const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("hex");
       const signature = sign("RSA-SHA256", Buffer.from(`POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`), config.privateKey).toString("base64");
       const response = await fetch(`https://api.mch.weixin.qq.com${path}`, { method: "POST", redirect: "error", signal: controller.signal,
-        headers: { "Content-Type": "application/json", Accept: "application/json", Authorization: `WECHATPAY2-SHA256-RSA2048 mchid="${config.mchId}",nonce_str="${nonce}",timestamp="${timestamp}",serial_no="${config.mchSerialNo}",signature="${signature}"` }, body });
+        headers: { "Content-Type": "application/json", Accept: "application/json", "Accept-Language": "zh-CN", "Wechatpay-Serial": config.platformKeyId, Authorization: `WECHATPAY2-SHA256-RSA2048 mchid="${config.mchId}",nonce_str="${nonce}",timestamp="${timestamp}",serial_no="${config.mchSerialNo}",signature="${signature}"` }, body });
       status = response.status;
       stage = "body";
       const raw = await boundedBody(response, controller.signal);

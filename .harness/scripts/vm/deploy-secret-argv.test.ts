@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -50,4 +50,16 @@ it.each(["synthetic'password", "synthetic''end'", "synthetic\\$& spaced", "synth
 it("shared scrubSecrets redacts exact environment values and token shapes from diagnostics", () => {
   const run = spawnSync("bash", ["-euo", "pipefail", "-c", `source ${quote(join(vm,"deploy-readiness.sh"))}\nprintf '%s\\n' 'unlabelled synthetic-secret-value' 'TOKEN=fake-visible-token' | redact_deploy_diagnostics`], { env:{...process.env, APP_DIR:root, MODEL_CREDENTIAL_KEY:"synthetic-secret-value"}, encoding:"utf8" });
   expect(run.status,run.stderr).toBe(0); expect(run.stdout).not.toContain("synthetic-secret-value"); expect(run.stdout).not.toContain("fake-visible-token"); expect(run.stdout).toContain("<redacted>");
+});
+
+it.each(["export const scrubSecrets = 42;", "this is invalid module syntax"])("suppresses diagnostics when the shared scrubber cannot be used: %s", (source) => {
+  const dir = mkdtempSync(join(tmpdir(), "deploy-scrubber-")); temps.push(dir);
+  mkdirSync(join(dir, "apps/web/e2e/support"), { recursive: true });
+  symlinkSync(join(root, "node_modules"), join(dir, "node_modules"), "dir");
+  writeFileSync(join(dir, "apps/web/e2e/support/real-model-evidence.ts"), source);
+  const run = spawnSync("bash", ["-euo", "pipefail", "-c", `source ${quote(join(vm, "deploy-readiness.sh"))}\nprintf '%s\\n' 'synthetic-secret-value' | redact_deploy_diagnostics`],
+    { env: { ...process.env, APP_DIR: dir }, encoding: "utf8" });
+  expect(run.status, run.stderr).toBe(0);
+  expect(run.stdout).toContain("<redacted> diagnostics suppressed");
+  expect(run.stdout + run.stderr).not.toContain("synthetic-secret-value");
 });
