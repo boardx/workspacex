@@ -48,7 +48,7 @@ Verify public availability without credentials:
 curl --fail --silent --show-error https://devapp.boardx.us/api/billing/config
 ```
 
-Expect `enabledProviders` to contain `stripe`. This confirms runtime availability, not a completed payment. A customer checkout and signed webhook that credits the intended user are the separate end-to-end acceptance check.
+Expect `enabledProviders` to contain `stripe`. This confirms runtime availability, not a completed payment. A customer checkout and signed webhook that update the intended user's subscription are the separate end-to-end acceptance check. Stripe subscriptions do not add recharge credits.
 
 ## Add WeChat when its public verification material is available
 
