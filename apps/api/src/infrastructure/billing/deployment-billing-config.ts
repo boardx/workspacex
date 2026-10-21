@@ -18,6 +18,8 @@ function readDeployment() {
     STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
     STRIPE_PAYMENT_LINK: process.env.STRIPE_PAYMENT_LINK,
     STRIPE_MANAGEMENT_PORTAL: process.env.STRIPE_MANAGEMENT_PORTAL,
+    STRIPE_RETURN_URL: process.env.STRIPE_RETURN_URL,
+    STRIPE_RETURN_LINK: process.env.STRIPE_RETURN_LINK,
   };
 }
 export const BILLING_ENV_KEYS = Object.keys(readDeployment());
@@ -27,7 +29,7 @@ export type WechatDeployment = Readonly<{
   privateKey: KeyObject; platformKey: KeyObject; platformKeyId: string; notifyUrl: string;
 }>;
 export type StripeDeployment = Readonly<{
-  secretKey: string; webhookSecret: string; paymentLink: string; managementPortal: string;
+  secretKey: string; webhookSecret: string; paymentLink: string; managementPortal: string; returnUrl?: string;
 }>;
 function text(env: Deployment, name: string): string { return env[name]?.trim() ?? ""; }
 function httpsUrl(value: string): boolean {
@@ -71,9 +73,15 @@ function wechat(env: Deployment): WechatDeployment | null {
 function stripe(env: Deployment): StripeDeployment | null {
   const secretKey = text(env, "STRIPE_SECRET_KEY"), webhookSecret = text(env, "STRIPE_WEBHOOK_SECRET");
   const paymentLink = text(env, "STRIPE_PAYMENT_LINK"), managementPortal = text(env, "STRIPE_MANAGEMENT_PORTAL");
+  const returnUrl = text(env, "STRIPE_RETURN_URL") || text(env, "STRIPE_RETURN_LINK");
+  let validReturn = !returnUrl || httpsUrl(returnUrl);
+  if (!validReturn && returnUrl) {
+    try { const url = new URL(returnUrl); validReturn = url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) && !url.username && !url.password; }
+    catch { /* Invalid configured return URLs disable the provider. */ }
+  }
   if (!/^sk_(test|live)_[A-Za-z0-9]+$/.test(secretKey) || !/^whsec_.+$/.test(webhookSecret)
-    || !httpsUrl(paymentLink) || !httpsUrl(managementPortal)) return null;
-  return Object.freeze({ secretKey, webhookSecret, paymentLink, managementPortal });
+    || !httpsUrl(paymentLink) || (managementPortal && !httpsUrl(managementPortal)) || !validReturn) return null;
+  return Object.freeze({ secretKey, webhookSecret, paymentLink, managementPortal, ...(returnUrl ? { returnUrl } : {}) });
 }
 
 /** One immutable startup snapshot, shared by public availability and later payment adapters. */

@@ -1,5 +1,6 @@
 "use client";
 import { LiveCashierDialog } from "./live-cashier-dialog";
+import { LiveSubscription } from "./live-subscription";
 import * as React from "react";
 import Link from "next/link";
 import { billingCredits, billingSubscription } from "@repo/contracts";
@@ -68,16 +69,6 @@ function ReadNotice({ state, name, label, retry }: { state: ReadState<unknown>; 
   return null;
 }
 
-const subscriptionLabels: Record<billingSubscription.SubscriptionStatus, string> = {
-  none: "暂无订阅", active: "已订阅", trialing: "试用中", past_due: "付款逾期", canceled: "已取消", incomplete: "待完成付款", unpaid: "待支付",
-  paused: "订阅已暂停", incomplete_expired: "首次付款已过期",
-};
-function periodLabel(value: string | null): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? null : date.toLocaleDateString("zh-CN");
-}
-
 /** Account discovery remains available even when a deployment has no payment channel.
  * Each read fails independently; missing services never become fabricated zero balances.
  */
@@ -117,13 +108,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />个人订阅</CardTitle><CardDescription>订阅状态以实际到账同步结果为准</CardDescription></CardHeader>
         <CardContent className="space-y-4">
-          <ReadNotice state={subscription.state} name="subscription" label="订阅查询" retry={subscription.retry} />
-          {subscription.state.status === "ready" && <div className="space-y-3">
-            <Badge data-testid="billing-subscription-status" tone={subscription.state.data.status === "active" ? "success" : "neutral"}>{subscriptionLabels[subscription.state.data.status]}</Badge>
-            {periodLabel(subscription.state.data.currentPeriodEnd) && <p className="text-13">本期结束：{periodLabel(subscription.state.data.currentPeriodEnd)}</p>}
-            {subscription.state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">将在本期结束后取消</p>}
-          </div>}
-          <p className="text-12 text-muted-foreground">Stripe 订阅购买与管理暂未开放。</p>
+          <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} />
         </CardContent>
       </Card>
     </div>

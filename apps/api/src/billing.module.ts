@@ -1,3 +1,7 @@
+import { BillingStripeWebhookService } from "./application/billing/billing-stripe-webhook-service";
+import { StripeWebhookClient } from "./infrastructure/billing/stripe-webhook-client";
+import { PgBillingStripeWebhookStore } from "./infrastructure/billing/pg-billing-stripe-webhook-store";
+import { BillingStripeWebhookController } from "./interface/controllers/billing-stripe-webhook.controller";
 import { BillingSubscriptionService } from "./application/billing/billing-subscription-service";
 import { PgBillingSubscriptionRepository } from "./infrastructure/billing/pg-billing-subscription-repository";
 import { StripePortalClient } from "./infrastructure/billing/stripe-portal-client";
@@ -35,8 +39,12 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
 
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
+  controllers: [BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
+    { provide: BillingStripeWebhookService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => {
+      const client = new StripeWebhookClient(config);
+      return new BillingStripeWebhookService(client, client, new PgBillingStripeWebhookStore(db), logger);
+    }, inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger)), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
       new BillingOrderExpiryWorker(new PgBillingOrderExpiryStore(db), logger), inject: [DATABASE_PORT, LOGGER_PORT] },

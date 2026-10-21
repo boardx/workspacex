@@ -37,7 +37,7 @@ export class StripePortalClient implements SubscriptionProvider {
     try {
       const response = await fetch("https://api.stripe.com/v1/billing_portal/sessions", { method: "POST", redirect: "error", signal: controller.signal,
         headers: { Authorization: `Bearer ${config.secretKey}`, "Stripe-Version": STRIPE_API_VERSION, "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ customer: customerRef, locale: "auto" }).toString() });
+        body: new URLSearchParams({ customer: customerRef, locale: "auto", ...(config.returnUrl ? { return_url: config.returnUrl } : {}) }).toString() });
       status = response.status;
       stage = "http";
       if (!response.ok) { void response.body?.cancel().catch(() => undefined); throw new PortalFailure("upstream_http_error"); }

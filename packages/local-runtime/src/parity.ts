@@ -63,6 +63,8 @@ export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
   "STRIPE_WEBHOOK_SECRET",
   "STRIPE_PAYMENT_LINK",
   "STRIPE_MANAGEMENT_PORTAL",
+  "STRIPE_RETURN_URL",
+  "STRIPE_RETURN_LINK",
 ];
 
 export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
