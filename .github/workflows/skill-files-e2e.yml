@@ -8,7 +8,7 @@ permissions:
   contents: read
 concurrency:
   group: skill-files-e2e-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   skill-files-e2e:
     runs-on: ubuntu-latest

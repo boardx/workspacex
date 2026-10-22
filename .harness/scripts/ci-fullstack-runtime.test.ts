@@ -90,7 +90,7 @@ describe('preinstalled fullstack CI runtime', () => {
   });
   it('retains full commands and evidence within a bounded complete-run budget', () => {
     const workflow = readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8');
-    const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('  # #2084:'));
+    const lane = workflow.slice(workflow.indexOf('  fullstack-smoke:'), workflow.indexOf('\n  full-regression-core:'));
     // The 222-case execution plus setup/evidence exhausted 40m (#5832).
     // Validate a bounded operational budget rather than duplicating its exact value.
     const budget = Number(lane.match(/^    timeout-minutes:\s*(\d+)\s*$/m)?.[1]);
