@@ -8,7 +8,7 @@ import { nativeReceiptVerdict, NATIVE_RECEIPTS } from './lib/board-native-receip
 
 export const HEAVY_LANES = {
   'native-board': {
-    execute: ['Run complete native connector acceptance', 'Run complete native ordinary-file acceptance', 'Run complete native sync lifecycle acceptance'],
+    execute: ['Require all complete native shard producers', 'Verify complete native shard evidence'],
     upload: 'Retain bounded statistics and screenshots without private runtime credentials',
     artifact: 'board-native-acceptance-',
   },
