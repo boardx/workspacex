@@ -563,6 +563,8 @@ jobs:
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
     # #5832: the current 222-case suite takes ~31m; setup plus the fresh directory
     # runtime takes ~8m, followed by geometry, evidence upload and post-job cleanup.
     # Runs 39201160326 and 39240395565 exhausted 40m despite completed test steps.
@@ -603,6 +605,7 @@ jobs:
         run: node .harness/scripts/ci-skill-import-auth-probe.mjs
       # #5704: official imports need a fresh seeded catalog, separate from smoke.
       - name: Verify digital directory cards in isolated runtime
+        id: directory
         if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
@@ -611,6 +614,7 @@ jobs:
           node .harness/scripts/ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
       # Optional public-repository read-only credential; never substitute github.token.
       - name: Execute trusted full-stack smoke
+        id: smoke
         if: steps.dedup.outputs.run == 'true'
         env:
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
@@ -630,6 +634,7 @@ jobs:
           fi
           exit "$status"
       - name: Verify real Fabric sticky text containment
+        id: sticky
         if: always() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
@@ -638,6 +643,7 @@ jobs:
           node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
       # #3205: reuse this lane's browser installation and retain independent output.
       - name: Execute trace disclosure geometry
+        id: geometry
         if: always() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
@@ -645,6 +651,7 @@ jobs:
           set -o pipefail
           node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
       - name: Upload runtime evidence (success or failure)
+        id: evidence
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
         with:
@@ -653,13 +660,21 @@ jobs:
             phases/phase-01-run-a-project/evidence/ci/
             apps/web/test-results/
           if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
       - name: Preserve reused verification verdict
         if: always() && steps.dedup.outputs.run == 'false'
         env:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
-  # #2084: independent budgets and artifacts; verify:full remains serial internally.
+  # Full regression shares the sole smoke producer above; core retains the complete base suite.
   # Public journey commands each create and clean their own database isolation scope.
   full-regression-core:
     if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
@@ -708,20 +723,20 @@ jobs:
         if: steps.dedup.outputs.run == 'true'
         working-directory: apps/deep-agent-service
         run: uv sync --frozen --extra dev
-      - name: Execute uncached trusted full gate
+      - name: Execute uncached trusted base gate
         timeout-minutes: 80
         if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          TURBO_FORCE=true pnpm run verify:full 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
+          TURBO_FORCE=true pnpm run verify:base 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
             pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
               --phase 01 --kind e2e --commit "$GITHUB_SHA" \
-              --command "TURBO_FORCE=true pnpm run verify:full" \
+              --command "TURBO_FORCE=true pnpm run verify:base" \
               --log phases/phase-01-run-a-project/evidence/ci/e2e.log \
               --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
           fi
@@ -846,7 +861,7 @@ jobs:
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
     if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
-    needs: [full-regression-core, chat-read, self-service-profile]
+    needs: [fullstack-smoke, full-regression-core, chat-read, self-service-profile]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

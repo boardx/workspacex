@@ -6,14 +6,15 @@ import { LANES } from './ci-lane-dedup.mjs';
 export const FULL_REGRESSION_LANES = Object.keys(LANES).filter(name => LANES[name].fullRegression);
 
 export function failedLanes(results) {
-  return FULL_REGRESSION_LANES.filter(name => results?.[name]?.result !== 'success');
+  return FULL_REGRESSION_LANES.filter(name => results?.[name]?.result !== 'success' ||
+    (name === 'fullstack-smoke' && results?.[name]?.outputs?.verdict !== 'success'));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     const results = JSON.parse(process.env.CI_LANE_RESULTS ?? 'null');
     const failed = failedLanes(results);
-    const summary = FULL_REGRESSION_LANES.map(name => `- ${name}: ${results?.[name]?.result ?? 'missing'}`).join('\n');
+    const summary = FULL_REGRESSION_LANES.map(name => `- ${name}: ${results?.[name]?.result ?? 'missing'}${name === 'fullstack-smoke' ? `; actual verdict: ${results?.[name]?.outputs?.verdict ?? 'missing'}` : ''}`).join('\n');
     console.log(summary);
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Full regression\n\n${summary}\n`);
     if (failed.length) process.exitCode = 1;

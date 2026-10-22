@@ -4,13 +4,14 @@ import { pathToFileURL } from 'node:url';
 
 export const LANES = {
   'fullstack-smoke': {
-    execute: ['Execute trusted full-stack smoke', 'Execute trace disclosure geometry'],
+    fullRegression: true,
+    execute: ['Verify digital directory cards in isolated runtime', 'Execute trusted full-stack smoke', 'Verify real Fabric sticky text containment', 'Execute trace disclosure geometry'],
     upload: 'Upload runtime evidence (success or failure)',
     artifact: 'phase-01-fullstack-smoke-evidence-',
   },
   'full-regression-core': {
     fullRegression: true,
-    execute: ['Execute uncached trusted full gate'],
+    execute: ['Execute uncached trusted base gate'],
     upload: 'Upload E2E evidence (success or failure)',
     artifact: 'phase-01-e2e-full-evidence-',
   },
