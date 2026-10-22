@@ -1,7 +1,9 @@
+# Four complete native suites run on independent VMs; native-board retains the stable verdict.
 name: Board independent heavy acceptance
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       fresh_run:
@@ -24,7 +26,9 @@ jobs:
       meeting: ${{ steps.snapshot.outputs.meeting }}
     steps:
       - uses: actions/checkout@v5
-        with: {fetch-depth: 0, ref: "${{ github.sha }}"}
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
       - id: snapshot
         name: Freeze admitted main and coverage; inspect exact batch evidence
         env:
@@ -38,19 +42,22 @@ jobs:
           path: board-heavy-batch.json
           if-no-files-found: error
           retention-days: 14
-  native-board:
+  native-r01:
     needs: batch
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 45
+    outputs:
+      artifact: ${{ steps.publish.outputs.artifact }}
     env:
       NATIVE_POSTGRES_TOOL_ROOT: /private/tmp/wsx-pg16.15
       BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
-      # Functional R01 remains required; manual replay retains every visual assertion.
       BOARD_OBSERVATION_MODE: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'functional' }}
     steps:
       - if: needs.batch.outputs.run == 'true'
         uses: actions/checkout@v5
-        with: {fetch-depth: 0, ref: "${{ needs.batch.outputs.sha }}"}
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.batch.outputs.sha }}
       - if: needs.batch.outputs.run == 'true'
         uses: pnpm/action-setup@v4.4.0
       - if: needs.batch.outputs.run == 'true'
@@ -101,6 +108,67 @@ jobs:
         if: needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-r01
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-r01-existing-runtime.config.ts
+      - name: Publish frozen shard artifact identity
+        id: publish
+        if: needs.batch.outputs.run == 'true'
+        run: printf 'artifact=board-native-shard-r01-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Retain bounded shard evidence
+        if: always() && needs.batch.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-native-shard-r01-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /private/tmp/wsx-native-public-evidence/
+          if-no-files-found: error
+  native-connectors:
+    needs: batch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      artifact: ${{ steps.publish.outputs.artifact }}
+    env:
+      NATIVE_POSTGRES_TOOL_ROOT: /private/tmp/wsx-pg16.15
+      BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
+      BOARD_OBSERVATION_MODE: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'functional' }}
+    steps:
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.batch.outputs.sha }}
+      - if: needs.batch.outputs.run == 'true'
+        uses: pnpm/action-setup@v4.4.0
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Verify native listener ownership fences
+        if: needs.batch.outputs.run == 'true'
+        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs
+      - name: Prepare owned private native paths
+        if: needs.batch.outputs.run == 'true'
+        run: |
+          sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex libreadline-dev zlib1g-dev libssl-dev libicu-dev lsof
+      - name: Build exact native PostgreSQL and vector extension
+        if: needs.batch.outputs.run == 'true'
+        run: |
+          mkdir /private/tmp/wsx-native-tool-source
+          cd /private/tmp/wsx-native-tool-source
+          curl --fail --location --output postgresql.tar.bz2 https://ftp.postgresql.org/pub/source/v16.15/postgresql-16.15.tar.bz2
+          echo 'c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed  postgresql.tar.bz2' | sha256sum --check
+          tar -xjf postgresql.tar.bz2
+          cd postgresql-16.15
+          ./configure --prefix="$NATIVE_POSTGRES_TOOL_ROOT"
+          make -j2
+          make install
+          cd ..
+          curl --fail --location --output pgvector.tar.gz https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.6.tar.gz
+          echo '10bf9938906e5d643bbc4a7eea104b6f57ba4898e5b76b20e60484ea1d5a7f8f  pgvector.tar.gz' | sha256sum --check
+          tar -xzf pgvector.tar.gz
+          cd pgvector-0.8.6
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" -j2
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" install
       - name: Create exact connector source checkout
         id: connector_prepare
         if: always() && needs.batch.outputs.run == 'true'
@@ -114,6 +182,67 @@ jobs:
         if: always() && needs.batch.outputs.run == 'true' && steps.connector_prepare.outcome == 'success'
         working-directory: /private/tmp/wsx-native-connectors
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-connector-existing-runtime.config.ts
+      - name: Publish frozen shard artifact identity
+        id: publish
+        if: needs.batch.outputs.run == 'true'
+        run: printf 'artifact=board-native-shard-connectors-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Retain bounded shard evidence
+        if: always() && needs.batch.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-native-shard-connectors-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /private/tmp/wsx-native-public-evidence/
+          if-no-files-found: error
+  native-files:
+    needs: batch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      artifact: ${{ steps.publish.outputs.artifact }}
+    env:
+      NATIVE_POSTGRES_TOOL_ROOT: /private/tmp/wsx-pg16.15
+      BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
+      BOARD_OBSERVATION_MODE: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'functional' }}
+    steps:
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.batch.outputs.sha }}
+      - if: needs.batch.outputs.run == 'true'
+        uses: pnpm/action-setup@v4.4.0
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Verify native listener ownership fences
+        if: needs.batch.outputs.run == 'true'
+        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs
+      - name: Prepare owned private native paths
+        if: needs.batch.outputs.run == 'true'
+        run: |
+          sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex libreadline-dev zlib1g-dev libssl-dev libicu-dev lsof
+      - name: Build exact native PostgreSQL and vector extension
+        if: needs.batch.outputs.run == 'true'
+        run: |
+          mkdir /private/tmp/wsx-native-tool-source
+          cd /private/tmp/wsx-native-tool-source
+          curl --fail --location --output postgresql.tar.bz2 https://ftp.postgresql.org/pub/source/v16.15/postgresql-16.15.tar.bz2
+          echo 'c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed  postgresql.tar.bz2' | sha256sum --check
+          tar -xjf postgresql.tar.bz2
+          cd postgresql-16.15
+          ./configure --prefix="$NATIVE_POSTGRES_TOOL_ROOT"
+          make -j2
+          make install
+          cd ..
+          curl --fail --location --output pgvector.tar.gz https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.6.tar.gz
+          echo '10bf9938906e5d643bbc4a7eea104b6f57ba4898e5b76b20e60484ea1d5a7f8f  pgvector.tar.gz' | sha256sum --check
+          tar -xzf pgvector.tar.gz
+          cd pgvector-0.8.6
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" -j2
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" install
       - name: Create exact ordinary-file source checkout
         if: always() && needs.batch.outputs.run == 'true'
         run: |
@@ -126,6 +255,67 @@ jobs:
         if: always() && needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-files
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-files-completion.config.ts
+      - name: Publish frozen shard artifact identity
+        id: publish
+        if: needs.batch.outputs.run == 'true'
+        run: printf 'artifact=board-native-shard-files-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Retain bounded shard evidence
+        if: always() && needs.batch.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-native-shard-files-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /private/tmp/wsx-native-public-evidence/
+          if-no-files-found: error
+  native-sync:
+    needs: batch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      artifact: ${{ steps.publish.outputs.artifact }}
+    env:
+      NATIVE_POSTGRES_TOOL_ROOT: /private/tmp/wsx-pg16.15
+      BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
+      BOARD_OBSERVATION_MODE: ${{ github.event_name == 'workflow_dispatch' && 'all' || 'functional' }}
+    steps:
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.batch.outputs.sha }}
+      - if: needs.batch.outputs.run == 'true'
+        uses: pnpm/action-setup@v4.4.0
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Verify native listener ownership fences
+        if: needs.batch.outputs.run == 'true'
+        run: node --test apps/web/e2e/support/native-runtime/native-process-listeners.test.mjs apps/web/e2e/support/native-runtime/native-process-listeners-zombie.test.mjs
+      - name: Prepare owned private native paths
+        if: needs.batch.outputs.run == 'true'
+        run: |
+          sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
+          sudo apt-get update
+          sudo apt-get install -y build-essential bison flex libreadline-dev zlib1g-dev libssl-dev libicu-dev lsof
+      - name: Build exact native PostgreSQL and vector extension
+        if: needs.batch.outputs.run == 'true'
+        run: |
+          mkdir /private/tmp/wsx-native-tool-source
+          cd /private/tmp/wsx-native-tool-source
+          curl --fail --location --output postgresql.tar.bz2 https://ftp.postgresql.org/pub/source/v16.15/postgresql-16.15.tar.bz2
+          echo 'c1575341fa7bd40f5274ea465b34390f4dc64cdd0770af327005caaeb9f6b7ed  postgresql.tar.bz2' | sha256sum --check
+          tar -xjf postgresql.tar.bz2
+          cd postgresql-16.15
+          ./configure --prefix="$NATIVE_POSTGRES_TOOL_ROOT"
+          make -j2
+          make install
+          cd ..
+          curl --fail --location --output pgvector.tar.gz https://github.com/pgvector/pgvector/archive/refs/tags/v0.8.6.tar.gz
+          echo '10bf9938906e5d643bbc4a7eea104b6f57ba4898e5b76b20e60484ea1d5a7f8f  pgvector.tar.gz' | sha256sum --check
+          tar -xzf pgvector.tar.gz
+          cd pgvector-0.8.6
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" -j2
+          make PG_CONFIG="$NATIVE_POSTGRES_TOOL_ROOT/bin/pg_config" install
       - name: Create exact sync lifecycle source checkout
         if: always() && needs.batch.outputs.run == 'true'
         run: |
@@ -138,8 +328,72 @@ jobs:
         if: always() && needs.batch.outputs.run == 'true'
         working-directory: /private/tmp/wsx-native-sync
         run: node apps/web/scripts/run-board-native-acceptance.mjs -- pnpm --filter web exec playwright test --config e2e/board-peer-existing-runtime.config.ts
-      - name: Verify complete native receipts match frozen source
+      - name: Publish frozen shard artifact identity
+        id: publish
+        if: needs.batch.outputs.run == 'true'
+        run: printf 'artifact=board-native-shard-sync-%s-%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+      - name: Retain bounded shard evidence
         if: always() && needs.batch.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: board-native-shard-sync-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /private/tmp/wsx-native-public-evidence/
+          if-no-files-found: error
+  native-board:
+    needs:
+      - batch
+      - native-r01
+      - native-connectors
+      - native-files
+      - native-sync
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
+    steps:
+      - if: needs.batch.outputs.run == 'true'
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.batch.outputs.sha }}
+      - name: Require all complete native shard producers
+        if: needs.batch.outputs.run == 'true'
+        env:
+          EXPECTED_SHA: ${{ needs.batch.outputs.sha }}
+          CI_NATIVE_NEEDS: ${{ toJSON(needs) }}
+        run: node .harness/scripts/ci-board-native-shards.mjs
+      - name: Prepare owned public evidence path
+        if: needs.batch.outputs.run == 'true'
+        run: |
+          sudo install -d -m 1777 -o "$(id -u)" -g "$(id -g)" /private/tmp
+          mkdir -p "$BOARD_NATIVE_EVIDENCE"
+      - name: Collect r01 evidence
+        if: needs.batch.outputs.run == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.native-r01.outputs.artifact }}
+          path: /private/tmp/wsx-native-public-evidence/
+      - name: Collect connectors evidence
+        if: needs.batch.outputs.run == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.native-connectors.outputs.artifact }}
+          path: /private/tmp/wsx-native-public-evidence/
+      - name: Collect files evidence
+        if: needs.batch.outputs.run == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.native-files.outputs.artifact }}
+          path: /private/tmp/wsx-native-public-evidence/
+      - name: Collect sync evidence
+        if: needs.batch.outputs.run == 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ needs.native-sync.outputs.artifact }}
+          path: /private/tmp/wsx-native-public-evidence/
+      - name: Verify complete native shard evidence
+        if: needs.batch.outputs.run == 'true'
         env:
           EXPECTED_SHA: ${{ needs.batch.outputs.sha }}
         run: node .harness/scripts/lib/board-native-receipts.mjs "$BOARD_NATIVE_EVIDENCE" "$EXPECTED_SHA"
@@ -162,7 +416,9 @@ jobs:
     steps:
       - if: needs.batch.outputs.run == 'true'
         uses: actions/checkout@v5
-        with: {fetch-depth: 0, ref: "${{ needs.batch.outputs.sha }}"}
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.batch.outputs.sha }}
       - if: needs.batch.outputs.run == 'true'
         uses: pnpm/action-setup@v4.4.0
       - if: needs.batch.outputs.run == 'true'
