@@ -87,7 +87,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
       consumed.current = true; setCashierOpen(true); onPurchaseOpened?.();
     }
   }, [openOnReady, config.state, onPurchaseOpened]);
-  const number = (value: number) => value.toLocaleString("zh-CN");
+  const number = (value: number) => value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
   return <div data-testid="billing-overview" className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6">
     <header className="space-y-2">
       <h1 className="text-24 font-semibold">额度与订阅</h1>
@@ -100,6 +100,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
           <ReadNotice state={wallet.state} name="wallet" label="额度查询" retry={wallet.retry} />
           {wallet.state.status === "ready" && <>
             <div><p className="text-12 text-muted-foreground">当前余额</p><p data-testid="billing-wallet-balance" className="text-32 font-semibold tabular-nums">{number(wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">额度</span></p></div>
+            {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度</p>}
             <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">累计充值</dt><dd className="tabular-nums">{number(wallet.state.data.totalPurchased)}</dd></div><div><dt className="text-muted-foreground">累计发放</dt><dd className="tabular-nums">{number(wallet.state.data.totalGranted)}</dd></div></dl>
           </>}
           {providers.includes("wechat") ? <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>购买额度</Button> : <p className="text-12 text-muted-foreground">微信充值暂未开放。</p>}
