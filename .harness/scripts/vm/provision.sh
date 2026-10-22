@@ -257,6 +257,11 @@ ensure_env_key() {
 }
 
 gen_secret() { openssl rand -base64 24; }
+ensure_env_key WORKSPACEX_CREDIT_RECEIPT_DIR /opt/workspacex/credit-receipts
+# Financial metadata stays outside the checkout/build cache across releases.
+# Run as API user: a custom path cannot grant root writes or chown permissions.
+sudo -u "$APP_USER" env WORKSPACEX_CREDIT_RECEIPT_DIR="${WORKSPACEX_CREDIT_RECEIPT_DIR-/opt/workspacex/credit-receipts}" \
+  python3 "$APP_DIR/.harness/scripts/vm/ensure-credit-receipts.py"
 ensure_env_key DIAG_DB_USER app_diag_ro
 ensure_env_key DIAG_DB_PASSWORD "$(gen_secret)"
 NATIVE_RUNTIME_LIB="${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh"

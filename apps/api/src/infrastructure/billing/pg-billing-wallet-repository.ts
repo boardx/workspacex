@@ -17,18 +17,18 @@ function parseCursor(value:unknown):Cursor {
   if(!Number.isFinite(time.getTime()) || time.toISOString()!==`${row.timestamp.slice(0,23)}Z`) throw new BillingWalletCursorError();
   return {ownerType:ownerType.data,ownerId:row.ownerId,type:type.data,timestamp:row.timestamp,txnId:row.txnId};
 }
-type WalletRow = {owner_type:string;owner_id:string;balance:number;total_purchased:number;total_granted:number;updated_at:Date};
+type WalletRow = {owner_type:string;owner_id:string;balance:number;held_hundredths:string;total_purchased:number;total_granted:number;updated_at:Date};
 type TransactionRow = {txn_id:string;type:string;direction:number;credits:number;balance_after:number;source_type:string;source_id:string;operator_id:string|null;reason:string|null;created_at:Date;cursor_timestamp:string};
 export class PgBillingWalletRepository implements BillingWalletRepository {
   constructor(private readonly db: DatabasePort) {}
   async wallet(owner: BillingOwner) {
     return this.db.withTenant(owner.orgId, async s => {
-      const r=await s.query<WalletRow>(`SELECT owner_type,owner_id,balance,total_purchased,total_granted,updated_at
+      const r=await s.query<WalletRow>(`SELECT owner_type,owner_id,balance,held_hundredths::text,total_purchased,total_granted,updated_at
         FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2`,[owner.ownerType,owner.ownerId]);
       const row=r.rows[0];
       return {wallet:CreditWallet.parse(row ? {
-        ownerType:row.owner_type,ownerId:row.owner_id,balance:row.balance,totalPurchased:row.total_purchased,totalGranted:row.total_granted,updatedAt:row.updated_at.toISOString(),
-      } : {ownerType:owner.ownerType,ownerId:owner.ownerId,balance:0,totalPurchased:0,totalGranted:0,updatedAt:new Date().toISOString()})};
+        ownerType:row.owner_type,ownerId:row.owner_id,balance:Number(row.balance),reservedCredits:Number(row.held_hundredths)/100,availableBalance:Math.round((Number(row.balance)*100-Number(row.held_hundredths)))/100,totalPurchased:Number(row.total_purchased),totalGranted:Number(row.total_granted),updatedAt:row.updated_at.toISOString(),
+      } : {ownerType:owner.ownerType,ownerId:owner.ownerId,balance:0,reservedCredits:0,availableBalance:0,totalPurchased:0,totalGranted:0,updatedAt:new Date().toISOString()})};
     });
   }
   async transactions(owner: BillingOwner,input: LedgerQuery) {
@@ -51,7 +51,7 @@ export class PgBillingWalletRepository implements BillingWalletRepository {
       [owner.ownerType,owner.ownerId,input.type??null,cursor?.timestamp??null,cursor?.txnId??null,limit+1]);
       const page=r.rows.slice(0,limit), last=page.at(-1);
       const nextCursor=r.rows.length>limit && last ? Buffer.from(JSON.stringify({ownerType:owner.ownerType,ownerId:owner.ownerId,type:input.type??null,timestamp:last.cursor_timestamp,txnId:last.txn_id})).toString("base64url") : null;
-      return {items:page.map(row=>CreditTransaction.parse({txnId:row.txn_id,type:row.type,direction:row.direction,credits:row.credits,balanceAfter:row.balance_after,sourceType:row.source_type,sourceId:row.source_id,operatorId:row.operator_id,reason:row.reason,createdAt:row.created_at.toISOString()})),nextCursor};
+      return {items:page.map(row=>CreditTransaction.parse({txnId:row.txn_id,type:row.type,direction:row.direction,credits:Number(row.credits),balanceAfter:Number(row.balance_after),sourceType:row.source_type,sourceId:row.source_id,operatorId:row.operator_id,reason:row.reason,createdAt:row.created_at.toISOString()})),nextCursor};
     });
   }
 }

@@ -1,0 +1,18 @@
+/** Financial accounting failures must stop dispatch rather than silently provide free usage. */
+export class CreditConsumptionError extends Error {
+  readonly rechargePath: string;
+  constructor(readonly code: "credit_required" | "credit_accounting_unavailable", readonly ownerType: "user" | "team", readonly ownerId: string, message: string = code) {
+    super(message);
+    this.name = "CreditConsumptionError";
+    this.rechargePath = ownerType === "user" ? "/billing?purchase=1" : `/billing?ownerType=team&ownerId=${encodeURIComponent(ownerId)}&purchase=1`;
+  }
+}
+/** Exact integer hundredths: never use binary floating arithmetic to calculate a debit. */
+export function tokenCreditHundredths(tokens: number): bigint {
+  if (!Number.isSafeInteger(tokens) || tokens < 0) throw new Error("invalid_credit_token_quantity");
+  return (BigInt(tokens) + 9n) / 10n;
+}
+export function creditDecimal(hundredths: bigint): string {
+  const sign = hundredths < 0n ? "-" : "", magnitude = hundredths < 0n ? -hundredths : hundredths;
+  return `${sign}${magnitude / 100n}.${String(magnitude % 100n).padStart(2, "0")}`;
+}
