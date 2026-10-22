@@ -1,4 +1,5 @@
 "use client";
+import { WalletAvailability } from "./wallet-availability";
 import { LiveCashierDialog } from "./live-cashier-dialog";
 import { LiveSubscription } from "./live-subscription";
 import * as React from "react";
@@ -100,6 +101,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
           <ReadNotice state={wallet.state} name="wallet" label="额度查询" retry={wallet.retry} />
           {wallet.state.status === "ready" && <>
             <div><p className="text-12 text-muted-foreground">当前余额</p><p data-testid="billing-wallet-balance" className="text-32 font-semibold tabular-nums">{number(wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">额度</span></p></div>
+            <WalletAvailability reservedCredits={wallet.state.data.reservedCredits} availableBalance={wallet.state.data.availableBalance}/>
             {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度</p>}
             <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">累计充值</dt><dd className="tabular-nums">{number(wallet.state.data.totalPurchased)}</dd></div><div><dt className="text-muted-foreground">累计发放</dt><dd className="tabular-nums">{number(wallet.state.data.totalGranted)}</dd></div></dl>
           </>}

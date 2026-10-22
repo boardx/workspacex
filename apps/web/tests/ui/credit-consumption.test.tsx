@@ -81,3 +81,12 @@ it("native tariff rejects fractional native quantum without changing stored fee"
  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]}))));render(<NativeCreditTariffsPanel/>);fireEvent.change(screen.getByLabelText("费率组织 ID"),{target:{value:"org-a"}});fireEvent.click(screen.getByRole("button",{name:"查询组织费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});
  fireEvent.submit(screen.getByRole("form",{name:"保存原生用量费率"}));expect(screen.getByText(/请完整填写模型、版本及正整数用量与价格/)).toBeTruthy();expect(fetch).toHaveBeenCalledTimes(1);
 });
+import { WalletAvailability } from "@/components/billing/wallet-availability";
+it("temporary held credits are distinct from posted consumption and unavailable data stays absent",()=>{
+ const view=render(<WalletAvailability reservedCredits={0.03} availableBalance={0.07}/>);expect(screen.getByText("调用中暂留额度")).toBeTruthy();expect(screen.getByText("0.03")).toBeTruthy();expect(screen.getByText(/尚未记为消费/)).toBeTruthy();view.rerender(<WalletAvailability/>);expect(screen.queryByText("可用额度")).toBeNull();
+});
+it("organization recharge mounts real cashier and queries only the selected organization's account",async()=>{
+ const fetcher=vi.fn().mockImplementation((url:string)=>{const path=new URL(url).pathname;const body=path.endsWith("/wallet")?{wallet:{ownerType:"team",ownerId:"org-a",balance:1.23,reservedCredits:0.03,availableBalance:1.2,totalPurchased:0,totalGranted:0,updatedAt:"2026-10-22T00:00:00Z"}}:path.endsWith("/config")?{enabledProviders:["wechat"]}:path.endsWith("/packages")?{items:[]}:{items:[],nextCursor:null};return Promise.resolve(new Response(JSON.stringify(body)));});vi.stubGlobal("fetch",fetcher);
+ render(<TeamBillingOverview ownerId="org-a" sessionToken="s" openOnReady/>);await screen.findByTestId("billing-packages-empty");expect(screen.getByTestId("billing-cashier-dialog").textContent).toContain("为当前组织充值");
+ const walletRequests=fetcher.mock.calls.map(call=>new URL(call[0])).filter(url=>url.pathname.endsWith("/wallet"));expect(walletRequests.length).toBeGreaterThan(0);expect(walletRequests.every(url=>url.searchParams.get("ownerType")==="team"&&url.searchParams.get("ownerId")==="org-a")).toBe(true);
+});
