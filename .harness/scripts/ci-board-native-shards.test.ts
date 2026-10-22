@@ -28,6 +28,13 @@ describe('parallel native acceptance preserves complete measurement', () => {
     const w = parse(readFileSync(new URL('../../.github/workflows/board-native-acceptance.yml', import.meta.url), 'utf8'));
     expect(w.jobs['native-board'].needs).toEqual(['batch', ...NATIVE_SHARDS.map((name: string) => `native-${name}`)]);
     expect(w.jobs['native-board'].if).toContain('always()');
+    const guard = w.jobs['native-board'].steps[0];
+    expect(guard.name).toBe('Require successful batch admission');
+    expect(guard.if).toBeUndefined();
+    for (const [result, run, expected] of [['success', 'true', 0], ['success', 'false', 0], ['failure', '', 1], ['success', '', 1], ['cancelled', 'true', 1]]) {
+      const checked = spawnSync('bash', ['-c', guard.run], { env: { ...process.env, BATCH_RESULT: result, BATCH_RUN: run } });
+      expect(checked.status).toBe(expected);
+    }
     for (const name of NATIVE_SHARDS) {
       const j = w.jobs[`native-${name}`];
       expect(j.needs).toBe('batch'); expect(j['runs-on']).toBe('ubuntu-latest');

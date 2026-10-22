@@ -352,6 +352,15 @@ jobs:
     env:
       BOARD_NATIVE_EVIDENCE: /private/tmp/wsx-native-public-evidence
     steps:
+      - name: Require successful batch admission
+        env:
+          BATCH_RESULT: ${{ needs.batch.result }}
+          BATCH_RUN: ${{ needs.batch.outputs.run }}
+        run: |
+          if [[ "$BATCH_RESULT" != success || ( "$BATCH_RUN" != true && "$BATCH_RUN" != false ) ]]; then
+            echo "Native batch admission failed or returned no verdict" >&2
+            exit 1
+          fi
       - if: needs.batch.outputs.run == 'true'
         uses: actions/checkout@v5
         with:
