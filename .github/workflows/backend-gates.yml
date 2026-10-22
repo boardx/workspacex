@@ -156,7 +156,10 @@ jobs:
       # #115: 裸 `pnpm --filter api run typecheck` 绕过 turbo.json 的
       # `typecheck: { dependsOn: ["^build"] }`——@repo/fabric-markdown 的类型故意走
       # dist/*.d.ts，`pnpm turbo run` 会先跑它的 #build。
+      # PR static tasks have one producer: harness verify-full-compile.
+      # Push/manual retain standalone validation before the existing Devapp writer.
       - name: typecheck / lint
+        if: github.event_name != 'pull_request'
         run: pnpm turbo run typecheck lint --filter=@repo/api
 
       # --strict：把「passing 的实现必须已合入 main」升为 FAIL。
