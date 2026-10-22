@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CreditConsumptionNotice } from "@/components/billing/credit-consumption-notice";
 import { ConsumptionSettingsPanel } from "@/components/admin/consumption-settings-panel";
 import { notifyCreditFailure } from "@/lib/credit-guidance";
@@ -65,6 +65,19 @@ it("typed websocket credit failure closes intentionally without reconnect or rep
  class Socket extends EventTarget { close=vi.fn(()=>this.dispatchEvent(new Event("close"))); }
  const socket=new Socket();const close=vi.fn();const receive=vi.fn();render(<CreditConsumptionNotice/>);
  openAgentKernelRunEvents("r",null,"s",{onEvent:receive,onClose:close},{createSocket:()=>socket as unknown as WebSocket});
- fireEvent(socket,new MessageEvent("message",{data:JSON.stringify({code:"credit_required",ownerType:"user",ownerId:"u",rechargePath:"/billing?purchase=1"})}));
+ act(()=>{socket.dispatchEvent(new MessageEvent("message",{data:JSON.stringify({code:"credit_required",ownerType:"user",ownerId:"u",rechargePath:"/billing?purchase=1"})}));});
  expect(await screen.findByRole("link",{name:"前往充值"})).toBeTruthy();expect(close).toHaveBeenCalledWith({intentional:true});expect(socket.close).toHaveBeenCalledTimes(1);expect(receive).not.toHaveBeenCalled();
+});
+import { NativeCreditTariffsPanel } from "@/components/admin/native-credit-tariffs-panel";
+it("native tariff requires explicit configured price and keeps native units",async()=>{
+ const fetcher=vi.fn().mockImplementation((_url:string,options:RequestInit)=>Promise.resolve(new Response(JSON.stringify(options.method==="PUT"?JSON.parse(String(options.body)):{items:[]}))));vi.stubGlobal("fetch",fetcher);render(<NativeCreditTariffsPanel/>);
+ fireEvent.change(screen.getByLabelText("费率组织 ID"),{target:{value:"org-a"}});fireEvent.click(screen.getByRole("button",{name:"查询组织费率"}));await screen.findByText("尚无原生用量费率，请按商户定价填写。");
+ expect((screen.getByLabelText("每份价格（0.01 credit）") as HTMLInputElement).value).toBe("");
+ for(const [label,value] of [["模型供应商","provider"],["模型 ID","image-model"],["每份用量","1"],["每份价格（0.01 credit）","5"],["费率版本","v2"]])fireEvent.change(screen.getByLabelText(label!),{target:{value}});
+ fireEvent.click(screen.getByRole("button",{name:"保存模型费率"}));await screen.findByText("费率已保存，仅对后续新调用生效，历史用量仍保留原费率版本。");
+ expect(JSON.parse(fetcher.mock.calls[1]![1].body)).toEqual({orgId:"org-a",modelProvider:"provider",modelId:"image-model",unit:"image",quantum:"1",hundredthsPerQuantum:"5",version:"v2"});expect(screen.getByText(/每 1 图片收取 5/)).toBeTruthy();
+});
+it("native tariff rejects fractional native quantum without changing stored fee",async()=>{
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]}))));render(<NativeCreditTariffsPanel/>);fireEvent.change(screen.getByLabelText("费率组织 ID"),{target:{value:"org-a"}});fireEvent.click(screen.getByRole("button",{name:"查询组织费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});
+ fireEvent.submit(screen.getByRole("form",{name:"保存原生用量费率"}));expect(screen.getByText(/请完整填写模型、版本及正整数用量与价格/)).toBeTruthy();expect(fetch).toHaveBeenCalledTimes(1);
 });
