@@ -540,7 +540,9 @@ jobs:
 
   # API-fixture browser coverage for logged-in organization creation (#5494).
   organization-create:
-    runs-on: ubuntu-latest
+    # Keep browser dependency installation off the moving ubuntu-latest image.
+    # Run 39762945819 failed before tests: Ubuntu 26.04 Microsoft APT source 403.
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
