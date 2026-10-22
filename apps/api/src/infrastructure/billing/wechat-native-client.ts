@@ -29,6 +29,31 @@ function qr(value: unknown): value is string {
 /** Fixed merchant endpoint; never exposes credentials or accepts a browser-selected upstream. */
 export class WechatNativeClient implements WechatNativePort {
   constructor(private readonly deployment: DeploymentBillingConfig, private readonly logger: LoggerPort) {}
+  async closeNativeOrder(orderNo: string, traceId = "no-trace"): Promise<void> {
+    const config = this.deployment.getWechat();
+    if (!config) throw new BillingOrderError("payment_provider_not_configured");
+    const closePath = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(orderNo)}/close`;
+    const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const body = JSON.stringify({ mchid: config.mchId });
+      const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("hex");
+      const signature = sign("RSA-SHA256", Buffer.from(`POST\n${closePath}\n${timestamp}\n${nonce}\n${body}\n`), config.privateKey).toString("base64");
+      const response = await fetch(`https://api.mch.weixin.qq.com${closePath}`, { method: "POST", redirect: "error", signal: controller.signal,
+        headers: { "Content-Type": "application/json", Accept: "application/json", "Accept-Language": "zh-CN", ...(config.platformKeyId ? { "Wechatpay-Serial": config.platformKeyId } : {}), Authorization: `WECHATPAY2-SHA256-RSA2048 mchid="${config.mchId}",nonce_str="${nonce}",timestamp="${timestamp}",serial_no="${config.mchSerialNo}",signature="${signature}"` }, body });
+      const raw = response.status === 204 ? Buffer.alloc(0) : await boundedBody(response, controller.signal);
+      if (config.platformKey && !verifyWechatSignature(config, name => response.headers.get(name), raw)) throw Error("untrusted_response");
+      if (response.status === 204) return;
+      const result: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(raw));
+      const code = result && typeof result === "object" && "code" in result ? result.code : null;
+      if (response.status === 400 && code === "ORDERCLOSED") return;
+      if (response.status === 400 && code === "ORDERPAID") throw new BillingOrderError("order_not_cancelable");
+      throw Error("close_rejected");
+    } catch (error) {
+      if (error instanceof BillingOrderError) throw error;
+      this.logger.error("billing_close_failed", { traceId, err: { orderNo, reason: "merchant_closure_unconfirmed" } });
+      throw new BillingOrderError("wechat_upstream_failed");
+    } finally { clearTimeout(timer); }
+  }
   async createNativeOrder(order: OrderDraft, traceId = "no-trace"): Promise<string> {
     const config = this.deployment.getWechat();
     if (!config) throw new BillingOrderError("payment_provider_not_configured");

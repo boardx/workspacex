@@ -20,8 +20,9 @@ export interface BillingOrderRepository {
   insert(owner: BillingOwner, order: OrderDraft, qrCodeUrl: string): Promise<OrderView>;
   scope(orgId: OrgId, orderNo: string): Promise<Pick<BillingOwner, "ownerType" | "ownerId"> | null>;
   order(owner: BillingOwner, orderNo: string): Promise<OrderView | null>;
+  close(owner: BillingOwner, orderNo: string): Promise<OrderView | null>;
 }
-export interface WechatNativePort { createNativeOrder(order: OrderDraft, traceId?: string): Promise<string> }
+export interface WechatNativePort { createNativeOrder(order: OrderDraft, traceId?: string): Promise<string>; closeNativeOrder(orderNo: string, traceId?: string): Promise<void> }
 export class BillingOrderError extends Error {
   constructor(readonly code: BillingErrorCode) { super(code); }
 }
@@ -77,6 +78,18 @@ export class BillingOrderService {
     const qrCodeUrl = await this.native.createNativeOrder(order, traceId);
     // A failed INSERT is an uncertain intent, not permission to create another upstream order automatically.
     return operations.createPaymentOrder.out.parse({ order: await this.repository.insert(owner, order, qrCodeUrl) });
+  }
+  async cancel(principal: Principal, input: z.infer<typeof operations.cancelPaymentOrder.in>, traceId?: string) {
+    const { orderNo } = operations.cancelPaymentOrder.in.parse(input);
+    const { order } = await this.get(principal, { orderNo });
+    if (order.status === "CLOSED" && order.lastErrorCode === null) return operations.cancelPaymentOrder.out.parse({ order });
+    if (order.status !== "PENDING") throw new BillingOrderError("order_not_cancelable");
+    // No DB lock spans the upstream call. A concurrent paid callback wins the CAS below.
+    await this.native.closeNativeOrder(orderNo, traceId);
+    const owner = await this.owner(principal, order.ownerType, order.ownerId, true);
+    const current = await this.repository.close(owner, orderNo);
+    if (!current) throw new BillingOrderError("order_not_found");
+    return operations.cancelPaymentOrder.out.parse({ order: current });
   }
   async get(principal: Principal, input: z.infer<typeof operations.getPaymentOrder.in>) {
     assertPrincipal(principal);

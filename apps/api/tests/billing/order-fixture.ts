@@ -24,10 +24,10 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
   ensureDatabase(); await migrateOnce();
   const merchant = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const platform = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const state = { mode: "success" as Mode, calls: 0, signedRequests: 0, requests: [] as Record<string, unknown>[], requestHeaders: [] as Record<string, unknown>[], onRequest: null as null | (() => Promise<void>) };
+  const state = { mode: "success" as Mode, calls: 0, signedRequests: 0, requests: [] as Record<string, unknown>[], requestHeaders: [] as Record<string, unknown>[], closeMode: "success" as "success" | "paid" | "failed" | "closed", closeRequests: 0, onClose: null as null | (() => Promise<void>), onRequest: null as null | (() => Promise<void>) };
   const server: Server = createServer(async (req, res) => {
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
-    const body = Buffer.concat(chunks).toString("utf8"); state.calls++;
+    const body = Buffer.concat(chunks).toString("utf8"); const isClose = req.url?.endsWith("/close"); if (!isClose) state.calls++;
     state.requestHeaders.push({ ...req.headers });
     if (req.headers["accept-language"] !== "zh-CN" || req.headers["wechatpay-serial"] !== (platformVerification ? "PUB_KEY_ID_f04" : undefined)) {
       res.statusCode = 406; res.end(JSON.stringify({ code: "PARAM_ERROR", message: "Unsupported merchant protocol headers" })); return;
@@ -36,7 +36,15 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1];
     const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1];
     const signature = /signature="([^"]+)"/.exec(auth)?.[1];
-    if (nonce && timestamp && signature && verify("RSA-SHA256", Buffer.from(`POST\n/v3/pay/transactions/native\n${timestamp}\n${nonce}\n${body}\n`), merchant.publicKey, Buffer.from(signature, "base64"))) state.signedRequests++;
+    if (nonce && timestamp && signature && verify("RSA-SHA256", Buffer.from(`POST\n${req.url}\n${timestamp}\n${nonce}\n${body}\n`), merchant.publicKey, Buffer.from(signature, "base64"))) state.signedRequests++;
+    if (isClose) {
+      state.closeRequests++; await state.onClose?.();
+      const payload = state.closeMode === "success" ? "" : JSON.stringify({code:state.closeMode === "paid" ? "ORDERPAID" : state.closeMode === "closed" ? "ORDERCLOSED" : "SYSTEM_ERROR"});
+      const ts=String(Math.floor(Date.now()/1000)), responseNonce=randomBytes(16).toString("hex");
+      res.setHeader("Wechatpay-Timestamp",ts);res.setHeader("Wechatpay-Nonce",responseNonce);res.setHeader("Wechatpay-Serial","PUB_KEY_ID_f04");
+      res.setHeader("Wechatpay-Signature",state.mode === "bad-signature" ? "invalid-signature" : sign("RSA-SHA256",Buffer.from(`${ts}\n${responseNonce}\n${payload}\n`),platform.privateKey).toString("base64"));
+      res.statusCode=state.closeMode === "success" ? 204 : 400;res.end(payload);return;
+    }
     state.requests.push(JSON.parse(body) as Record<string, unknown>);
     await state.onRequest?.();
     if (state.mode === "timeout-headers") return;
@@ -73,7 +81,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     vi.stubGlobal("fetch", (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       if (url.origin === "https://api.mch.weixin.qq.com") {
-        if (url.pathname !== "/v3/pay/transactions/native") throw new Error("unexpected merchant operation");
+        if (url.pathname !== "/v3/pay/transactions/native" && !/^\/v3\/pay\/transactions\/out-trade-no\/bg[A-Za-z0-9]+\/close$/.test(url.pathname)) throw new Error("unexpected merchant operation");
         return nativeFetch(`http://127.0.0.1:${address.port}${url.pathname}`, init);
       }
       return nativeFetch(input, init);
@@ -123,7 +131,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
       app, state, cleanup, base, requestLogger,
       crypto: { platformPrivateKey: platform.privateKey, apiV3Key: env.WECHAT_PAY_API_V3_KEY! },
       async reset() {
-        await cleanup(); state.mode = "success"; state.calls = 0; state.signedRequests = 0; state.requests = []; state.requestHeaders = []; state.onRequest = null;
+        await cleanup(); state.mode = "success"; state.closeMode = "success"; state.closeRequests = 0; state.onClose = null; state.calls = 0; state.signedRequests = 0; state.requests = []; state.requestHeaders = []; state.onRequest = null;
         await asOwner(async c => {
           await c.query("INSERT INTO organizations(id,name,kind) VALUES($1,'F04 A','organization'),($2,'F04 B','organization')", [org, otherOrg]);
           await c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin'),($3,$2,'consultant'),($3,$4,'admin')", [user, org, other, otherOrg]);

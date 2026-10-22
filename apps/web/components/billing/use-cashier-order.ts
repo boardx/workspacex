@@ -41,11 +41,13 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
   const [state, setState] = React.useState<{ scope: string; order: LiveOrder | null; creating: boolean; uncertain: boolean; message: string | null }>({ scope, order: null, creating: false, uncertain: false, message: null });
   const active = state.scope === scope ? state : { scope, order: null, creating: false, uncertain: false, message: null };
   const pending = React.useRef<AbortController | null>(null);
+  const cancelRequest = React.useRef<AbortController | null>(null);
+  const [cancelling, setCancelling] = React.useState(false);
   const mounted = React.useRef(true);
   const latest = React.useRef(active); latest.current = active;
   React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; pending.current?.abort(); }; }, []);
   React.useEffect(() => {
-    setAccessError(null);
+    setAccessError(null); setCancelling(false); cancelRequest.current = null;
     setState({ scope, order: null, creating: false, uncertain: false, message: null });
     return () => { pending.current?.abort(); pending.current = null; };
   }, [scope]);
@@ -91,11 +93,36 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
       }
     } finally { if (pending.current === controller) pending.current = null; }
   }
+  async function cancel() {
+    const order = latest.current.order;
+    if (!open || !order || order.status !== "PENDING" || cancelRequest.current) return;
+    pending.current?.abort();
+    const controller = new AbortController(); pending.current = controller; cancelRequest.current = controller;
+    setCancelling(true);
+    try {
+      const path = billing.operations.cancelPaymentOrder.path.replace(":orderNo", encodeURIComponent(order.orderNo));
+      const raw = await apiRequest<unknown>(path, { method: "POST", body: {}, sessionToken, signal: controller.signal });
+      const fresh = validateOrder(raw, owner, order);
+      if (fresh.status === "PENDING") throw new Error("CANCELLATION_UNCONFIRMED");
+      if (!controller.signal.aborted && mounted.current && currentScope.current === scope) {
+        setState(value => ({ ...value, order: fresh, message: fresh.status === "CLOSED" ? "订单已取消，可重新选择套餐。" : "订单正在确认支付结果，请勿重复付款。" }));
+      }
+    } catch (error) {
+      if (mounted.current && currentScope.current === scope) {
+        if (error instanceof ApiError && [401,403,404].includes(error.status)) setAccessError(billingFailure(error));
+        setState(value => ({ ...value, message: "取消结果尚未确认，订单已保留。请刷新支付状态，勿重复付款。" }));
+      }
+    } finally {
+      if (pending.current === controller) pending.current = null;
+      if (cancelRequest.current === controller) cancelRequest.current = null;
+      if (mounted.current && currentScope.current === scope) setCancelling(false);
+    }
+  }
   function regenerate() {
     if (canRegenerateOrder(latest.current.order) && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
   }
   function buyAgain() {
     if (open && !accessError && latest.current.order?.status === "SUCCESS" && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
   }
-  return { ...active, accessError, refresh, create, regenerate, buyAgain, revoke: () => setAccessError("Access denied") };
+  return { ...active, accessError, cancelling, cancel, refresh, create, regenerate, buyAgain, revoke: () => setAccessError("Access denied") };
 }

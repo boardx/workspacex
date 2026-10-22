@@ -287,3 +287,27 @@ it("retries an explicit Native rejection only on user action with no fake persis
  await page.screenshot({path:resolve(evidence,"upstream-retry-success.png"),fullPage:true});
  writeFileSync(resolve(evidence,"upstream-retry-receipt.json"),JSON.stringify({failureStatus:502,code:"wechat_upstream_failed",ordersAfterFailure:0,qrAfterFailure:false,retryExplicit:true,billingHttpIntercepted:false,nativeRequests:2,signedNativeRequests:2,successfulOrderNo:order.orderNo,balance:1320,ledgerRows:2,productionMerchantAccepted:false},null,2));
 },120000);
+
+it("buys the reference one-yuan package and cancels through real UI/API/merchant/PG",async()=>{
+ const page=await browser!.newPage({viewport:{width:1280,height:900}});
+ await openCashier(page);
+ await page.locator('input[type="radio"][value="pkg-cn-100"]').check();
+ const created=page.waitForResponse(r=>new URL(r.url()).pathname==="/__fullstack_api/billing/orders"&&r.request().method()==="POST");
+ await page.getByTestId("billing-generate-qr").click();
+ const response=await created;expect(response.status()).toBe(201);
+ const {order}=billing.operations.createPaymentOrder.out.parse(await response.json());
+ expect(order).toMatchObject({amountFen:100,baseCredits:100,bonusCredits:0});
+ await page.getByTestId("billing-cancel-order").waitFor();
+ const canceled=page.waitForResponse(r=>new URL(r.url()).pathname.endsWith(`/billing/orders/${order.orderNo}/cancel`));
+ await page.getByTestId("billing-cancel-order").click();
+ expect((await canceled).status()).toBe(201);
+ await expect.poll(()=>page.getByTestId("billing-regenerate").count()).toBe(1);
+ expect(await page.getByTestId("billing-qr-code-area").count()).toBe(0);
+ expect(fixture!.state.closeRequests).toBe(1);
+ const facts=await sourceAccounting(order.orderNo);
+ expect(facts.order.status).toBe("CLOSED");expect(facts.ledger).toEqual([]);expect(facts.receipts).toEqual([]);
+ await page.screenshot({path:resolve(evidence,"customer-cancel-one-yuan.png"),fullPage:true});
+ await page.getByTestId("billing-regenerate").click();
+ await page.locator('input[type="radio"][value="pkg-cn-100"]').waitFor();
+ await page.close();
+},120000);

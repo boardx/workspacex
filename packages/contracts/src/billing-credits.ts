@@ -62,7 +62,8 @@ export const BillingErrorCode = z.enum([
   "package_not_found", // E8：套餐不存在
   "package_disabled", // E8：套餐已下架/禁用
   "org_billing_disabled", // I-12：组织计费开关关闭时不得新建订单
-  "order_not_found", // R5：订单不存在或调用者无归属权限（不泄露存在性）
+  "order_not_found",
+  "order_not_cancelable", // R5：订单不存在或调用者无归属权限（不泄露存在性）
   "forbidden", // 通用越权（组织主体非 owner/admin、非平台管理员等）
   "wechat_upstream_failed", // E2：微信 Native 下单失败（不落库为订单，I-13）
   "order_not_pending", // 状态机拒绝：目标订单不在可迁移态（含并发抢占失败）
@@ -219,6 +220,15 @@ export const operations = {
     in: z.object({ orderNo: OrderNo }).strict(),
     out: z.object({ order: BillingOrder }).strict(),
     err: ["order_not_found"] as const,
+  },
+
+  /** Cancel an owned unpaid order only after merchant closure is confirmed. */
+  cancelPaymentOrder: {
+    method: "POST",
+    path: "/billing/orders/:orderNo/cancel",
+    in: z.object({ orderNo: OrderNo }).strict(),
+    out: z.object({ order: BillingOrder }).strict(),
+    err: ["order_not_found", "order_not_cancelable", "payment_provider_not_configured", "wechat_upstream_failed"] as const,
   },
 
   /** UC-BC-5：钱包（无记录返回全零空钱包，不 404）。 */

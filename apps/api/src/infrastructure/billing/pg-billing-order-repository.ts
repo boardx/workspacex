@@ -40,6 +40,16 @@ export class PgBillingOrderRepository implements BillingOrderRepository {
       return orderView(result.rows[0]!);
     });
   }
+  async close(owner: BillingOwner, orderNo: string) {
+    return this.db.withTenant(owner.orgId, async s => {
+      const params = [orderNo, owner.ownerType, owner.ownerId];
+      const row = (await s.query<OrderRow>(`UPDATE billing_orders SET status='CLOSED',closed_at=now()
+        WHERE order_no=$1 AND owner_type=$2 AND owner_id=$3 AND status='PENDING' RETURNING *`, params)).rows[0];
+      if (row) return orderView(row);
+      const current = (await s.query<OrderRow>("SELECT * FROM billing_orders WHERE order_no=$1 AND owner_type=$2 AND owner_id=$3", params)).rows[0];
+      return current ? orderView(current) : null;
+    });
+  }
   async scope(orgId: OrgId, orderNo: string) {
     // Only identity metadata is read before authorization; QR, amount and timestamps require scoped order().
     return this.db.withTenant(orgId, async s => {
