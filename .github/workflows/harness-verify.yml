@@ -562,15 +562,79 @@ jobs:
           name: organization-create-api-fixture-${{ github.run_id }}
           path: evidence/org-create-5494/*.png
 
+  directory-smoke:
+    timeout-minutes: 30
+    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Independent runner: directory acceptance has its own fresh stack and evidence.
+    # PR remains informational; full regression requires the actual verdict below.
+    continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-directory-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      # #5704: official imports need a fresh seeded catalog, separate from smoke.
+      - name: Verify digital directory cards in isolated runtime
+        id: directory
+        timeout-minutes: 25
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
+      - name: Upload directory evidence (success or failure)
+        id: evidence
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-directory-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_LANE: directory-smoke
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
   fullstack-smoke:
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
-    # #5832: the current 222-case suite takes ~31m; setup plus the fresh directory
-    # runtime takes ~8m, followed by geometry, evidence upload and post-job cleanup.
-    # Runs 39201160326 and 39240395565 exhausted 40m despite completed test steps.
-    # Keep bounded headroom for the whole job; individual test limits stay unchanged.
+    # Directory acceptance runs independently; preserve the complete browser suite.
     timeout-minutes: 50
     # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
     # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
@@ -605,15 +669,6 @@ jobs:
         env:
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         run: node .harness/scripts/ci-skill-import-auth-probe.mjs
-      # #5704: official imports need a fresh seeded catalog, separate from smoke.
-      - name: Verify digital directory cards in isolated runtime
-        id: directory
-        if: steps.dedup.outputs.run == 'true'
-        shell: bash
-        run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
-          set -o pipefail
-          node .harness/scripts/ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
       # Optional public-repository read-only credential; never substitute github.token.
       - name: Execute trusted full-stack smoke
         id: smoke
@@ -863,7 +918,7 @@ jobs:
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
     if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
-    needs: [fullstack-smoke, full-regression-core, chat-read, self-service-profile]
+    needs: [fullstack-smoke, directory-smoke, full-regression-core, chat-read, self-service-profile]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -5,9 +5,17 @@ import { pathToFileURL } from 'node:url';
 export const LANES = {
   'fullstack-smoke': {
     fullRegression: true,
-    execute: ['Verify digital directory cards in isolated runtime', 'Execute trusted full-stack smoke', 'Verify real Fabric sticky text containment', 'Execute trace disclosure geometry'],
+    actualVerdict: true,
+    execute: [ 'Execute trusted full-stack smoke', 'Verify real Fabric sticky text containment', 'Execute trace disclosure geometry'],
     upload: 'Upload runtime evidence (success or failure)',
     artifact: 'phase-01-fullstack-smoke-evidence-',
+  },
+  'directory-smoke': {
+    fullRegression: true,
+    actualVerdict: true,
+    execute: ['Verify digital directory cards in isolated runtime'],
+    upload: 'Upload directory evidence (success or failure)',
+    artifact: 'phase-01-directory-smoke-evidence-',
   },
   'full-regression-core': {
     fullRegression: true,
