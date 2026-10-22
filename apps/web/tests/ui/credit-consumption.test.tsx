@@ -79,6 +79,7 @@ it("native tariff requires explicit configured price and keeps native units",asy
 });
 it("native tariff rejects fractional native quantum without changing stored fee",async()=>{
  vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({items:[]}))));render(<NativeCreditTariffsPanel/>);fireEvent.change(screen.getByLabelText("费率组织 ID"),{target:{value:"org-a"}});fireEvent.click(screen.getByRole("button",{name:"查询组织费率"}));await screen.findByRole("form",{name:"保存原生用量费率"});
+ for(const [label,value] of [["模型供应商","provider"],["模型 ID","image-model"],["每份用量","1.5"],["每份价格（0.01 credit）","5"],["费率版本","v2"]])fireEvent.change(screen.getByLabelText(label!),{target:{value}});
  fireEvent.submit(screen.getByRole("form",{name:"保存原生用量费率"}));expect(screen.getByText(/请完整填写模型、版本及正整数用量与价格/)).toBeTruthy();expect(fetch).toHaveBeenCalledTimes(1);
 });
 import { WalletAvailability } from "@/components/billing/wallet-availability";
