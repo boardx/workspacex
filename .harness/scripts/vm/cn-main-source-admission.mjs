@@ -36,8 +36,17 @@ export function validateMainSourceAdmission(source,repository,facts) {
  checks.push(...facts.sourceStatuses.map(s=>commitStatusToObservation({context:s.context,state:s.state,createdAt:s.created_at})));
  const deployNeeds=facts.deploymentWorkflow?.jobs?.deploy?.needs;
  if(!Array.isArray(deployNeeds)||!deployNeeds.length||deployNeeds.some(n=>typeof n!=='string'||!facts.deploymentWorkflow.jobs[n]))fail('MAIN_SOURCE_DEPLOY_OBLIGATIONS');
+ // Devapp admission is orchestration for develop, not a main runtime test.
+ // Exempt only this named non-main gate with its exact reviewed branch predicate;
+ // all original deploy/runtime/aggregate obligations remain mandatory.
+ const sourceDeployNeeds=deployNeeds.filter(name=>{
+  if(name!=='integration-acceptance')return true;
+  const condition=facts.deploymentWorkflow.jobs[name].if;
+  if(typeof condition!=='string'||condition.trim()!=="github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.gates-fast.outputs.skip_devapp != 'true'")fail('MAIN_SOURCE_INTEGRATION_GATE_SCOPE');
+  return false;
+ });
  const runtimePolicy=parsePolicy(facts.sourcePolicy);
- const obligations=[...new Set([...runtimePolicy.requiredChecks.filter(n=>n!=='merge-gate'&&!runtimePolicy.aggregates[n]),...Object.values(runtimePolicy.aggregates).flat(),...deployNeeds])];
+ const obligations=[...new Set([...runtimePolicy.requiredChecks.filter(n=>n!=='merge-gate'&&!runtimePolicy.aggregates[n]),...Object.values(runtimePolicy.aggregates).flat(),...sourceDeployNeeds])];
  let dynamicShardPlan=null;
  const runtimeChecks=obligations.flatMap(name=>{const job=facts.deploymentWorkflow.jobs[name],matrix=job?.strategy?.matrix;if(!matrix)return [job?.name??name];const keys=Object.keys(matrix);if(keys.length!==1||keys[0]!=='shard'||job.name)fail('MAIN_SOURCE_MATRIX_OBLIGATIONS');let shards=matrix.shard;
   if(typeof shards==='string') {

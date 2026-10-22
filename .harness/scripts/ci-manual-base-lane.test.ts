@@ -23,6 +23,6 @@ describe('explicit manual base validation avoids unrelated runners without false
   }
  });
  it('complete manual verification retains all full-regression producers and aggregate',()=>{
-  for(const name of ['directory-smoke','fullstack-smoke','full-regression-core','chat-read','self-service-profile','e2e-full'])expect(admitted(name,'workflow_dispatch',{verification_lane:'all',run_e2e_full:true})).toBe(true);
+  for(const name of ['directory-smoke','fullstack-smoke','board-smoke','full-regression-core','chat-read','self-service-profile','e2e-full'])expect(admitted(name,'workflow_dispatch',{verification_lane:'all',run_e2e_full:true})).toBe(true);
  });
 });

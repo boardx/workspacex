@@ -17,6 +17,13 @@ export const LANES = {
     upload: 'Upload directory evidence (success or failure)',
     artifact: 'phase-01-directory-smoke-evidence-',
   },
+  'board-smoke': {
+    fullRegression: true,
+    actualVerdict: true,
+    execute: ['Verify unified Board smoke in isolated runtime'],
+    upload: 'Upload Board evidence (success or failure)',
+    artifact: 'phase-01-board-smoke-evidence-',
+  },
   'full-regression-core': {
     fullRegression: true,
     execute: ['Execute uncached trusted base gate'],

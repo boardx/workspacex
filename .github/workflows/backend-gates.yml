@@ -565,8 +565,27 @@ jobs:
           CI_BACKEND_RESULTS: ${{ toJSON(needs) }}
         run: node .harness/scripts/ci-backend-required.mjs
 
+  integration-acceptance:
+    needs: gates-fast
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.gates-fast.outputs.skip_devapp != 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+      - name: Require exact-source complete integration before Devapp writes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-devapp-integration-gate.mjs
+
   deploy:
-    needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop, native-document-chain, native-runtime-lane]
+    needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop, native-document-chain, native-runtime-lane, integration-acceptance]
     # Develop is the Devapp integration branch (human instruction 2026-10-22).
     # Keep all runtime gates, exact-SHA deployment and the environment mutex.
     # PRs, merge groups, production branches and tags cannot auto-write Devapp.
@@ -579,6 +598,8 @@ jobs:
       needs.gates-runtime.result == 'success' && needs.e2e-core-loop.result == 'success' &&
       needs.native-document-chain.result == 'success' &&
       needs.native-runtime-lane.result == 'success' &&
+      (needs.integration-acceptance.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' && needs.integration-acceptance.result == 'skipped')) &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
        (github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview &&
         github.ref == 'refs/heads/codex/standard-capabilities') ||

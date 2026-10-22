@@ -31,7 +31,7 @@ describe("authorized Skill candidate deployment",()=>{
     expect(admitted({event:"merge_group",ref:"refs/heads/main"})).toBe(false);
   });
   it("keeps every existing gate and deployment serialization",()=>{
-    expect(deploy.needs).toEqual(["gates-fast","gates-test","gates-runtime","e2e-core-loop","native-document-chain","native-runtime-lane"]);
+    expect(deploy.needs).toEqual(["gates-fast","gates-test","gates-runtime","e2e-core-loop","native-document-chain","native-runtime-lane","integration-acceptance"]);
     for(const failed of deploy.needs)expect(admitted({failed})).toBe(false);
     expect(admitted({cancelled:true})).toBe(false);
     expect(deploy.concurrency).toEqual({group:"workspacex-devapp-deploy","cancel-in-progress":false});
