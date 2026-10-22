@@ -24,16 +24,18 @@ export function phaseIdsForPaths(paths){
   return [...phases].sort();
 }
 
-function changedPaths(){
-  const event=process.env.GITHUB_EVENT_NAME;
-  const ref=process.env.GITHUB_REF;
-  if(event==='workflow_dispatch' || (event==='push' && ref!=='refs/heads/main'))return null;
+export function changedPaths({
+  event=process.env.GITHUB_EVENT_NAME,
+  ref=process.env.GITHUB_REF,
+  base=process.env.CI_SCOPE_BASE_SHA??'',
+  git=args=>execFileSync('git',args,{encoding:'utf8'}),
+}={}){
+  if(event==='workflow_dispatch' || (event==='push' && !['refs/heads/develop','refs/heads/main'].includes(ref)))return null;
   if(!['pull_request','merge_group','push'].includes(event))throw new Error(`Unsupported CI event: ${event}`);
-  const base=process.env.CI_SCOPE_BASE_SHA??'';
   if(!shaPattern.test(base) || /^0+$/.test(base))throw new Error('Missing valid CI change-scope base SHA');
-  execFileSync('git',['cat-file','-e',`${base}^{commit}`]);
-  execFileSync('git',['merge-base','--is-ancestor',base,'HEAD']);
-  return execFileSync('git',['diff','--name-only','-z',base,'HEAD'],{encoding:'utf8'}).split('\0').filter(Boolean);
+  git(['cat-file','-e',`${base}^{commit}`]);
+  git(['merge-base','--is-ancestor',base,'HEAD']);
+  return git(['diff','--name-only','-z',base,'HEAD']).split('\0').filter(Boolean);
 }
 
 if(process.argv[1] && pathToFileURL(process.argv[1]).href===import.meta.url){
