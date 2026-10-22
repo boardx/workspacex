@@ -10,12 +10,14 @@ on:
   pull_request:
     paths:
       - "apps/devportal/**"
+      - ".github/scripts/devportal-artifact*"
       - ".github/workflows/deploy-devportal.yml"
       - "pnpm-lock.yaml"
   push:
     branches: [main]
     paths:
       - "apps/devportal/**"
+      - ".github/scripts/devportal-artifact*"
       - ".github/workflows/deploy-devportal.yml"
       - "pnpm-lock.yaml"
   workflow_dispatch: {}
@@ -27,6 +29,9 @@ concurrency:
   # PR 只取消同一 PR 的旧验证；main 发布共享固定 ref group、排队且永不互相取消。
   group: deploy-devportal-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DEVPORTAL_ARTIFACT_DIR: .ci-artifacts/devportal-pages
 
 jobs:
   validate:
@@ -48,6 +53,9 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --filter @repo/devportal...
 
+      - name: Verify artifact identity and workflow contracts
+        run: node --test .github/scripts/devportal-artifact.test.mjs
+
       - name: Typecheck / lint / test
         run: pnpm --filter @repo/devportal run typecheck && pnpm --filter @repo/devportal run lint && pnpm --filter @repo/devportal run test
 
@@ -62,6 +70,22 @@ jobs:
         run: |
           pnpm build
           pnpm run pages:build
+
+      - name: Seal validated Pages artifact
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p "$DEVPORTAL_ARTIFACT_DIR"
+          tar -czf "$DEVPORTAL_ARTIFACT_DIR/pages.tar.gz" -C apps/devportal/.vercel/output/static .
+          node .github/scripts/devportal-artifact.mjs seal
+
+      - name: Upload validated Pages artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v6
+        with:
+          name: devportal-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.DEVPORTAL_ARTIFACT_DIR }}/
+          if-no-files-found: error
+          retention-days: 7
 
   deploy:
     needs: validate
@@ -84,11 +108,19 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile --filter @repo/devportal...
 
-      - name: Build Pages artifact
-        working-directory: apps/devportal
+      - name: Download validated Pages artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: devportal-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ env.DEVPORTAL_ARTIFACT_DIR }}
+
+      - name: Verify immutable producer and archive bytes
+        run: node .github/scripts/devportal-artifact.mjs verify
+
+      - name: Restore validated Pages artifact without rebuilding
         run: |
-          pnpm build
-          pnpm run pages:build
+          mkdir -p apps/devportal/.vercel/output/static
+          tar -xzf "$DEVPORTAL_ARTIFACT_DIR/pages.tar.gz" -C apps/devportal/.vercel/output/static
 
       - name: Assert public-layer host configured (D13)
         working-directory: apps/devportal
