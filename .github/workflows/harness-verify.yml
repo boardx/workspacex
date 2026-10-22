@@ -552,6 +552,73 @@ jobs:
           name: organization-create-api-fixture-${{ github.run_id }}
           path: evidence/org-create-5494/*.png
 
+  board-smoke:
+    timeout-minutes: 30
+    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Independent runner: Board acceptance has its own fresh stack and evidence.
+    # PR remains informational; full regression requires the actual verdict below.
+    continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-board-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      # Independent fresh seeds; this branch never imports the official catalog.
+      - name: Verify unified Board smoke in isolated runtime
+        id: board
+        timeout-minutes: 25
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs board -- pnpm run verify:fullstack-board 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/board-smoke.log
+      - name: Upload Board evidence (success or failure)
+        id: evidence
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-board-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_LANE: board-smoke
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
   directory-smoke:
     timeout-minutes: 30
     if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
@@ -669,13 +736,13 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          node .harness/scripts/ci-fullstack-runtime.mjs run -- pnpm run verify:fullstack-smoke 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
+          node .harness/scripts/ci-fullstack-runtime.mjs product -- pnpm run verify:fullstack-product 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
             pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
               --phase 01 --kind runtime --commit "$GITHUB_SHA" \
-              --command "pnpm run verify:fullstack-smoke" \
+              --command "pnpm run verify:fullstack-product" \
               --log phases/phase-01-run-a-project/evidence/ci/runtime.log \
               --output phases/phase-01-run-a-project/evidence/ci/runtime-manifest.json
           fi
@@ -908,7 +975,7 @@ jobs:
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
     if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
-    needs: [fullstack-smoke, directory-smoke, full-regression-core, chat-read, self-service-profile]
+    needs: [fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

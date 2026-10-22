@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 export const SMOKE_STEPS = ['smoke', 'sticky', 'geometry', 'evidence'];
 
 export function smokeVerdict({ lane = 'fullstack-smoke', run, sourceResult, steps }) {
-  const required = lane === 'fullstack-smoke' ? SMOKE_STEPS : lane === 'directory-smoke' ? ['directory', 'evidence'] : null;
+  const required = lane === 'fullstack-smoke' ? SMOKE_STEPS : lane === 'directory-smoke' ? ['directory', 'evidence'] : lane === 'board-smoke' ? ['board', 'evidence'] : null;
   if (!required) return 'failure';
   if (run === 'false') {
     return steps?.dedup?.outcome === 'success' && sourceResult === 'success' ? 'success' : 'failure';

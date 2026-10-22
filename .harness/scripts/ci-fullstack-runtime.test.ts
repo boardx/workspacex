@@ -100,7 +100,7 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(lane).toContain('GH_TOKEN: ${{ github.token }}');
     expect(lane).toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}');
     expect(lane).not.toContain('WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ github.token }}');
-    expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs run');
+    expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs product');
     expect(lane).toContain('node .harness/scripts/ci-fullstack-runtime.mjs geometry');
     expect(lane).not.toContain('playwright install');
     expect(lane).toContain('status=${PIPESTATUS[0]}');

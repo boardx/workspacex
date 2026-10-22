@@ -259,7 +259,8 @@ describe("#387 trusted full-stack gate contract", () => {
     const workflow = read(".github/workflows/harness-verify.yml");
     expect(workflow).toMatch(/^  fullstack-smoke:\n/m);
     expect(workflow).toMatch(/^  e2e-full:\n/m);
-    expect(workflow).toContain("pnpm run verify:fullstack-smoke");
+    expect(workflow).toContain("pnpm run verify:fullstack-product");
+    expect(workflow).toContain("pnpm run verify:fullstack-board");
     expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:base");
     expect(workflow).not.toContain("TURBO_FORCE=true pnpm run verify:full");
     // Executed lanes upload after failures; reused lanes keep the source artifact link.
