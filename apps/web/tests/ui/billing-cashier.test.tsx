@@ -304,3 +304,27 @@ describe("F06 explicit creation rejection",()=>{
   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
  });
 });
+
+describe("customer cancellation",()=>{
+ it("closes the actual server order, hides its QR and allows selecting another package",async()=>{
+  const closed={...order,status:"CLOSED",closedAt:new Date().toISOString()};
+  const f=live({post:()=>reply({order})});await generate();
+  await screen.findByTestId("billing-qr-code-area");
+  f.fetcher.mockImplementation((url:string,init:RequestInit)=>{
+   if(new URL(url).pathname.endsWith("/cancel")&&init.method==="POST")return reply({order:closed});
+   return reply({order});
+  });
+  fireEvent.click(screen.getByRole("button",{name:/^取消订单$/}));
+  await screen.findByTestId("billing-regenerate");
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  expect(f.fetcher.mock.calls.some(([url,init])=>new URL(url).pathname.endsWith(`/billing/orders/${order.orderNo}/cancel`)&&init.method==="POST")).toBe(true);
+ });
+ it("keeps the original order when cancellation cannot be confirmed",async()=>{
+  const f=live();await generate();await screen.findByTestId("billing-qr-code-area");
+  f.fetcher.mockImplementation(()=>reply({code:"wechat_upstream_failed"},502));
+  fireEvent.click(screen.getByRole("button",{name:/^取消订单$/}));
+  await waitFor(()=>expect(screen.getByTestId("billing-refresh-hint").textContent).toContain("取消结果尚未确认"));
+  expect(screen.queryByTestId("billing-regenerate")).toBeNull();
+  expect(screen.getByTestId("billing-order-no").textContent).toContain(order.orderNo);
+ });
+});

@@ -3,14 +3,14 @@ import * as React from "react";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { canRegenerateOrder, type LiveOrder } from "./use-cashier-order";
-export function LiveQrPanel({ order, refresh, regenerate }: { order: LiveOrder; refresh: () => void; regenerate: () => void }) {
+export function LiveQrPanel({ order, refresh, regenerate, cancel, cancelling = false }: { order: LiveOrder; refresh: () => void; regenerate: () => void; cancel?: () => void; cancelling?: boolean }) {
   const canvas = React.useRef<HTMLCanvasElement>(null);
   const [now, setNow] = React.useState(Date.now);
   const [revision, redraw] = React.useReducer((x: number) => x + 1, 0);
   const [qrFailed, setQrFailed] = React.useState(false);
   const remaining = Math.max(0, Math.ceil((Date.parse(order.expiredAt) - now) / 1000));
   const waiting = order.status === "PENDING";
-  const visible = waiting && remaining > 0;
+  const visible = waiting && remaining > 0 && !cancelling;
   const manualClosed = order.status === "CLOSED" && !canRegenerateOrder(order);
   React.useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, [order.orderNo]);
   React.useEffect(() => {
@@ -26,7 +26,8 @@ export function LiveQrPanel({ order, refresh, regenerate }: { order: LiveOrder; 
     {!visible && <div data-testid="billing-qr-placeholder" className="sr-only">当前无可扫描二维码</div>}
     {visible && <div hidden={qrFailed} data-testid="billing-qr-code-area" className="mx-auto w-fit rounded-lg bg-white p-2"><canvas ref={canvas} role="img" aria-label="微信支付二维码" /></div>}
     {qrFailed && <p role="status">二维码暂时无法显示。<Button variant="outline" onClick={redraw}>重新绘制二维码</Button>此操作不会重新下单。</p>}
-    {waiting && <>
+    {cancelling && <p role="status">正在取消订单，请勿继续扫码付款…</p>}
+    {waiting && !cancelling && <>
       <p data-testid="billing-order-countdown" className="text-center text-13 tabular-nums">{remaining > 0 ? `请在 ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, "0")} 内完成支付` : "二维码已到期，支付结果待确认。请刷新状态，勿重复付款。"}</p>
       {remaining === 0 && <div data-testid="billing-qr-expired" className="rounded-lg bg-muted p-4 text-center text-13">二维码已隐藏，避免误扫。服务器确认关闭后可以重新生成。</div>}
     </>}
@@ -35,6 +36,7 @@ export function LiveQrPanel({ order, refresh, regenerate }: { order: LiveOrder; 
     {order.status === "FAILED" && <p role="alert" className="text-destructive">到账处理失败。款项可能已支付，请联系支持并提供订单号，勿再次付款。</p>}
     {manualClosed && <p data-testid="billing-manual-recovery" role="alert" className="rounded-lg bg-muted p-4 text-13">{order.lastErrorCode === "invalid_amount" ? "支付已收到，额度暂未到账。请联系支持并提供订单号，勿再次付款。" : "订单需要人工核对，请刷新状态或联系支持，勿再次付款。"}</p>}
     {canRegenerateOrder(order) && <div className="space-y-2"><p role="status">订单已关闭。如已扣款，请先刷新状态或联系支持，勿重复付款。</p><Button data-testid="billing-regenerate" variant="outline" onClick={regenerate}>选择套餐重新生成</Button></div>}
-    <Button data-testid="billing-refresh-status" variant="outline" onClick={refresh}>刷新支付状态</Button>
+    <div className="flex flex-wrap gap-2"><Button data-testid="billing-refresh-status" disabled={cancelling} variant="outline" onClick={refresh}>刷新支付状态</Button>
+    {waiting && cancel && <Button data-testid="billing-cancel-order" disabled={cancelling} variant="outline" onClick={cancel}>{cancelling ? "正在取消…" : "取消订单"}</Button>}</div>
   </section>;
 }

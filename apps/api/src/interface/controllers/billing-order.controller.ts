@@ -29,6 +29,10 @@ export class BillingOrderController {
   create(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(operations.createPaymentOrder.in)) input: z.infer<typeof operations.createPaymentOrder.in>) {
     return this.mapped(() => this.service.create(principal, input, traceIdOf(req)));
   }
+  @Post(operations.cancelPaymentOrder.path)
+  cancel(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Param(new ZodBodyPipe(operations.cancelPaymentOrder.in)) input: z.infer<typeof operations.cancelPaymentOrder.in>) {
+    return this.mapped(() => this.service.cancel(principal, input, traceIdOf(req)));
+  }
   @Get(operations.getPaymentOrder.path)
   get(@CurrentPrincipal() principal: Principal, @Param(new ZodBodyPipe(operations.getPaymentOrder.in)) input: z.infer<typeof operations.getPaymentOrder.in>) {
     return this.mapped(() => this.service.get(principal, input));
