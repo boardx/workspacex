@@ -11,6 +11,13 @@ function assertIdentity(identity) {
   }
 }
 
+export function verificationIdentity(env) {
+  const identity = { sourceSha: env.GITHUB_SHA, runId: env.GITHUB_RUN_ID,
+    runAttempt: env.DEVPORTAL_PRODUCER_ATTEMPT };
+  assertIdentity(identity);
+  return identity;
+}
+
 function withRegularFile(path, consume) {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
@@ -54,7 +61,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   try {
     const operation = process.argv[2];
     if (!['seal', 'verify'].includes(operation) || !process.env.DEVPORTAL_ARTIFACT_DIR) throw new Error('INVALID_ARTIFACT_OPERATION');
-    const identity = { sourceSha: process.env.GITHUB_SHA, runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT };
+    const identity = operation === 'verify' ? verificationIdentity(process.env) :
+      { sourceSha: process.env.GITHUB_SHA, runId: process.env.GITHUB_RUN_ID, runAttempt: process.env.GITHUB_RUN_ATTEMPT };
     (operation === 'seal' ? sealArchive : verifyArchive)(process.env.DEVPORTAL_ARTIFACT_DIR, identity);
     console.log(`Devportal artifact ${operation}: passed`);
   } catch {

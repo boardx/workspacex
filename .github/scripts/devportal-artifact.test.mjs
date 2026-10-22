@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
-import { sealArchive, verifyArchive } from './devportal-artifact.mjs';
+import { sealArchive, verifyArchive, verificationIdentity } from './devportal-artifact.mjs';
 
 const identity = { sourceSha: 'a'.repeat(40), runId: '123', runAttempt: '1' };
 function fixture(t) {
@@ -21,6 +21,13 @@ test('same source, run and attempt verifies exact archive bytes', t => {
   sealArchive(artifact, identity);
   assert.equal(verifyArchive(artifact, identity), true);
   assert.throws(() => sealArchive(artifact, identity));
+});
+test('failed-job retry uses the retained validate producer attempt, never the consumer attempt', t => {
+  const { artifact } = fixture(t); sealArchive(artifact, identity);
+  const env = { GITHUB_SHA: identity.sourceSha, GITHUB_RUN_ID: identity.runId,
+    GITHUB_RUN_ATTEMPT: '2', DEVPORTAL_PRODUCER_ATTEMPT: '1' };
+  assert.equal(verifyArchive(artifact, verificationIdentity(env)), true);
+  assert.throws(() => verificationIdentity({ ...env, DEVPORTAL_PRODUCER_ATTEMPT: '' }));
 });
 for (const [key, value] of [['sourceSha', 'b'.repeat(40)], ['runId', '124'], ['runAttempt', '2']]) {
   test(`rejects ${key} drift`, t => {
@@ -65,9 +72,11 @@ test('actual workflow builds once and verifies the same-run artifact before cuto
   assert.equal(deploy.filter(s => /pnpm (?:run )?(?:build|pages:build)/.test(s.run ?? '')).length, 0);
   const upload = validate.find(s => s.uses?.startsWith('actions/upload-artifact@'));
   const download = deploy.find(s => s.uses?.startsWith('actions/download-artifact@'));
-  assert.equal(upload.with.name, download.with.name);
+  assert.equal(w.jobs.validate.outputs.producer_attempt, '${{ steps.artifact-identity.outputs.attempt }}');
+  assert.match(download.with.name, /needs\.validate\.outputs\.producer_attempt/);
   assert.match(upload.with.name, /github\.run_id/); assert.match(upload.with.name, /github\.run_attempt/);
   const verification = deploy.findIndex(s => s.run?.includes('devportal-artifact.mjs verify'));
+  assert.equal(deploy[verification].env.DEVPORTAL_PRODUCER_ATTEMPT, '${{ needs.validate.outputs.producer_attempt }}');
   const extraction = deploy.findIndex(s => s.run?.includes('tar -xzf'));
   const cutover = deploy.findIndex(s => s.run?.includes('node scripts/pages-cutover.mjs'));
   assert.ok(verification >= 0 && extraction > verification && cutover > extraction);

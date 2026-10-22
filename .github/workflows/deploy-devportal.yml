@@ -37,6 +37,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      producer_attempt: ${{ steps.artifact-identity.outputs.attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -72,11 +74,13 @@ jobs:
           pnpm run pages:build
 
       - name: Seal validated Pages artifact
+        id: artifact-identity
         if: github.event_name == 'push'
         run: |
           mkdir -p "$DEVPORTAL_ARTIFACT_DIR"
           tar -czf "$DEVPORTAL_ARTIFACT_DIR/pages.tar.gz" -C apps/devportal/.vercel/output/static .
           node .github/scripts/devportal-artifact.mjs seal
+          printf 'attempt=%s\n' "$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
 
       - name: Upload validated Pages artifact
         if: github.event_name == 'push'
@@ -111,10 +115,12 @@ jobs:
       - name: Download validated Pages artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: devportal-pages-${{ github.run_id }}-${{ github.run_attempt }}
+          name: devportal-pages-${{ github.run_id }}-${{ needs.validate.outputs.producer_attempt }}
           path: ${{ env.DEVPORTAL_ARTIFACT_DIR }}
 
       - name: Verify immutable producer and archive bytes
+        env:
+          DEVPORTAL_PRODUCER_ATTEMPT: ${{ needs.validate.outputs.producer_attempt }}
         run: node .github/scripts/devportal-artifact.mjs verify
 
       - name: Restore validated Pages artifact without rebuilding
