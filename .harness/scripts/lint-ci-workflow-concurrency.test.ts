@@ -64,3 +64,15 @@ for (const name of workflows) {
     });
   });
 }
+
+for (const name of ['board-acceptance', 'skill-files-e2e']) {
+  describe(`${name} obsolete PR validation`, () => {
+    const policy = parse(readFileSync(join(ROOT, `.github/workflows/${name}.yml`), 'utf8')).concurrency;
+    it('cancels only superseded validation within the same PR namespace', () => {
+      expect(policy.group).toBe(`${name}-${'${{ github.ref }}'}`);
+      for (const event_name of ['pull_request', 'push', 'workflow_dispatch', 'merge_group']) {
+        expect(evaluate(policy['cancel-in-progress'], { event_name, ref: 'refs/pull/1/merge', run_id: 11, run_attempt: 1 })).toBe(event_name === 'pull_request');
+      }
+    });
+  });
+}
