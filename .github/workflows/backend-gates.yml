@@ -71,7 +71,7 @@ on:
   merge_group:
   push:
     tags: ["v*"]
-    branches: [main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
+    branches: [develop, main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
                          # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
     inputs:
@@ -565,31 +565,25 @@ jobs:
 
   deploy:
     needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop, native-document-chain, native-runtime-lane]
-    # ⚠ 2026-08-06：人类直接要求「消除人工打 tag 这一步」——merge 到 main 就该自动部署，
-    # 不再等人记得去打一个 tag。旧注释说「标签是人的显式动作，满足『有 CD 的目标不手动
-    # 部署』」——那句话本身没错，但「显式动作」现在改成了 merge 本身（PR review + merge
-    # 已经是人的显式动作），不需要再加一道「记得打 tag」。
-    # 打 tag 仍然可以触发部署（保留，给需要显式标记发布点的场景用），但不再是唯一路径。
-    # Every deployment, including the requested branch preview, requires all gates.
-    # #3238 第 1/6 条：候选组**不触发部署**。merge_group 的 ref 是
-    # `refs/heads/gh-readonly-queue/…`，下面的 ref 白名单本来就不会命中它；这一条
-    # 显式否定是防御性的——ref 白名单哪天被放宽（加个 startsWith 之类），部署一个
-    # 尚未合入、可能下一秒就被踢出队列的组合就会悄悄变成可能。发布仍然只认
-    # refs/heads/main 与 tag，且仍然要全部 gates 通过（第 6 条）。
+    # Develop is the Devapp integration branch (human instruction 2026-10-22).
+    # Keep all runtime gates, exact-SHA deployment and the environment mutex.
+    # PRs, merge groups, production branches and tags cannot auto-write Devapp.
+    # Explicit existing branch-preview dispatches retain their reviewed admission.
     if: >-
       always() && !cancelled() && github.event_name != 'merge_group' &&
-      !(github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      !(github.event_name == 'push' && github.ref == 'refs/heads/develop' &&
         needs.gates-fast.outputs.skip_devapp == 'true') &&
       needs.gates-fast.result == 'success' && needs.gates-test.result == 'success' &&
       needs.gates-runtime.result == 'success' && needs.e2e-core-loop.result == 'success' &&
       needs.native-document-chain.result == 'success' &&
       needs.native-runtime-lane.result == 'success' &&
-      ((startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main') ||
+      ((github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
        (github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview &&
         github.ref == 'refs/heads/codex/standard-capabilities') ||
        (github.event_name == 'workflow_dispatch' && inputs.deploy_skill_files_preview &&
         github.ref == 'refs/heads/codex/ai-capability-studio-live' &&
         inputs.expected_skill_files_sha == github.sha))
+    # Devapp follows develop. main/main-cn/main-us and tags never auto-deploy here.
     # Execution mirror of .harness/devapp-operation-policy.json; checked by #5040.
     concurrency:
       group: workspacex-devapp-deploy

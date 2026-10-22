@@ -2,7 +2,7 @@ name: Board acceptance lanes
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [develop, main]
   workflow_dispatch:
     inputs:
       acceptance_category:
