@@ -22,11 +22,11 @@ describe("authorized Skill candidate deployment",()=>{
     expect(admitted({event:"pull_request"})).toBe(false);
     expect(admitted({ref:"refs/heads/other"})).toBe(false);
   });
-  it("skips only a positive main push proof and preserves tag/manual paths",()=>{
-    expect(admitted({event:"push",ref:"refs/heads/main",skipDevapp:"true"})).toBe(false);
-    for(const skipDevapp of ["", "false", "True", "unknown"]) expect(admitted({event:"push",ref:"refs/heads/main",skipDevapp})).toBe(true);
-    expect(admitted({event:"push",ref:"refs/tags/v1",skipDevapp:"true"})).toBe(true);
-    expect(admitted({event:"workflow_dispatch",ref:"refs/heads/main",skipDevapp:"true"})).toBe(true);
+  it("skips only a positive develop push proof and rejects other automatic deployment refs",()=>{
+    expect(admitted({event:"push",ref:"refs/heads/develop",skipDevapp:"true"})).toBe(false);
+    for(const skipDevapp of ["", "false", "True", "unknown"]) expect(admitted({event:"push",ref:"refs/heads/develop",skipDevapp})).toBe(true);
+    for(const ref of ["refs/heads/main", "refs/heads/main-cn", "refs/heads/main-us", "refs/tags/v1"]) expect(admitted({event:"push",ref})).toBe(false);
+    expect(admitted({event:"workflow_dispatch",ref:"refs/heads/main",skipDevapp:"true"})).toBe(false);
     expect(admitted({skipDevapp:"true"})).toBe(true);
     expect(admitted({event:"merge_group",ref:"refs/heads/main"})).toBe(false);
   });
