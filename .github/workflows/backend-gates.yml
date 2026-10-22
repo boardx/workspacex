@@ -451,14 +451,13 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter web exec playwright install --with-deps chromium
 
       - name: 核心闭环八步（唯一接入发布门的浏览器 e2e spec）
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          pnpm run verify:core-loop 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/core-loop.log
+          node .harness/scripts/ci-fullstack-runtime.mjs core-loop -- pnpm run verify:core-loop 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/core-loop.log
           status=${PIPESTATUS[0]}
           set -e
           exit "$status"
