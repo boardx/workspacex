@@ -749,6 +749,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: steps.dedup.outputs.run == 'true'
+      # Reject known dependency admission failures before browser/Python preparation.
+      # The full base gate remains unchanged after this cheap fail-fast probe.
+      - name: Preflight dependency license admission
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm run lint:third-party-license 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/base-preflight.log
       - run: pnpm --filter web exec playwright install --with-deps chromium
         if: steps.dedup.outputs.run == 'true'
       # 2026-09-08（#2972）：`verify:full` → `verify:base:raw` → `turbo run test` 里包含
