@@ -13,7 +13,7 @@ const producer='pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --
 function validate(w,p){
  assert.deepEqual(p.deferredChecks,['visual-deferred']);
  assert.ok(Object.hasOwn(w.on,'pull_request'));
- assert.deepEqual(w.on.push.branches,['main']);
+ assert.deepEqual(w.on.push.branches,['develop','main']);
  const functional=w.jobs['board-ui-functional'],visual=w.jobs['visual-deferred'];
  assert.ok(functional&&visual);
  assert.equal(functional.needs,'scope');
