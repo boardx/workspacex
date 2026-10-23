@@ -3,6 +3,22 @@
  * remain mandatory. Supporting behavior tests do not substitute for these checks. */
 const exact=text=>new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
 export const modelMetadataPermissionBoundaries=new Map([
+  ["src/infrastructure/billing/pg-auxiliary-model-accounting.ts", {
+    tables:["auxiliary_model_operations","auxiliary_model_requests"],
+    reason:"#5894: private auxiliary operation/request rows contain only server-created payer identity, pinned model, finite expiry, immutable request hash/cap and timestamps. They contain no prompt, response or Artifact content and create no formal agent run/chat. Trusted gateway principal creates the owner; authenticated private callback resolves that persisted operation under tenant RLS, never a body-supplied payer. New starts require active operation and exact model/body binding; terminal receipts only resolve an admitted request, including after closure. Financial resolvePayer rechecks same-org membership and selects the wallet. private-auxiliary-credit-pg.test.ts proves zero HTTP at zero credit, actual reported usage debit/replay, foreign tenant/missing user refusal, changed body/model denial and closure/expiry fences. This exception is invalid if metadata expands to content or any listed authority/immutability check disappears.",
+    checks:[
+      [null,exact("this.db.withTenant(orgId")],
+      [null,exact("WHERE org_id=$1 AND id=$2 FOR UPDATE")],
+      [null,exact("if(!op?.active||op.model_provider!==provider||op.model_id!==input.modelId)")],
+      [null,exact("stored.body_hash!==createHash('sha256').update(input.serializedBody).digest('hex')||stored.output_cap!==input.outputTokenLimit||stored.operation_id!==id")],
+      [null,exact("if(!row.active||row.model_id!==input.modelId")],
+      [null,exact("WHERE r.org_id=$1 AND r.operation_id=$2 AND r.request_id=$3")],
+      [null,exact("new PgCreditConsumption(this.db).resolvePayer(orgId,row.user_id)")],
+      ["src/infrastructure/billing/credit-model-gateway.ts",exact("scope.userId !== userId")],
+      ["src/interface/controllers/auxiliary-model-usage.controller.ts",exact("!timingSafeEqual(expected,actual)")],
+      ["tests/billing/private-auxiliary-credit-pg.test.ts",exact("private credit refusal restores trusted recharge guidance, never matching arbitrary vendor text")],
+    ],
+  }],
   ["src/infrastructure/billing/credit-model-gateway.ts", {
     tables:["agent_runs","chat_messages","chat_threads","subtask_runs"],
     reason:"#5877: reads only persisted run payer and execution identity, never message content. Server principal must match same-org run author; the downstream atomic wallet reservation rechecks membership. Missing or mismatched subject prevents physical dispatch. credit-model-gateway.test.ts and credit-model-pg.integration.test.ts prove zero-dispatch refusal and actual receipt debit.",

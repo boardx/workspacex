@@ -1,3 +1,6 @@
+import {AuxiliaryModelUsageController} from './interface/controllers/auxiliary-model-usage.controller';
+import {AUXILIARY_MODEL_ACCOUNTING} from './application/billing/auxiliary-model-accounting';
+import {PgAuxiliaryModelAccounting} from './infrastructure/billing/pg-auxiliary-model-accounting';
 import {KnowledgeEmbeddingUsageController} from "./interface/controllers/knowledge-embedding-usage.controller";
 import {KNOWLEDGE_EMBEDDING_USAGE} from "./application/retrieval/knowledge-embedding-accounting";
 import {PgKnowledgeEmbeddingAccounting} from "./infrastructure/knowledge-graph/pg-knowledge-embedding-accounting";
@@ -1315,7 +1318,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    RuntimeModelUsageController, ArtifactEmbeddingUsageController, KnowledgeEmbeddingUsageController,
+    AuxiliaryModelUsageController, RuntimeModelUsageController, ArtifactEmbeddingUsageController, KnowledgeEmbeddingUsageController,
     ToolPermissionGrantController,
     WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
@@ -2512,6 +2515,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {provide:AI_QUOTA_RUNTIME_WIRING,useFactory:(configuration:AiQuotaRuntimeConfiguration|null,db:DatabasePort,identity:IdentityRepository,pool:ModelPoolRepository,model:ModelCallPort,usage:TokenUsageMeterPort,coreModels:OrgCoreModelAvailability)=>
       createAiQuotaRuntimeWiring(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",configuration,{db,identity,pool,model,usage,coreModels}),
       inject:[AI_QUOTA_RUNTIME_CONFIGURATION,DATABASE_PORT,IDENTITY_REPOSITORY,MODEL_POOL_REPOSITORY,MODEL_CALL_PORT,TOKEN_USAGE_METER,ORG_CORE_MODEL_AVAILABILITY]},
+    {provide:AUXILIARY_MODEL_ACCOUNTING,useFactory:(db:DatabasePort)=>new PgAuxiliaryModelAccounting(db),inject:[DATABASE_PORT]},
     {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort,wiring:AiQuotaRuntimeWiring|null,guard:CoreModelRuntimeGuard)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime,guard),inject:[DATABASE_PORT,TOKEN_USAGE_METER,AI_QUOTA_RUNTIME_WIRING,CORE_MODEL_RUNTIME_GUARD]},
     {
       provide: TOKEN_USAGE_METER,

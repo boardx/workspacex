@@ -90,7 +90,7 @@ def ownership() -> dict:
             raise ValueError()
         if not all(isinstance(value[k], str) and value[k] for k in ("key", "org_id")):
             raise ValueError()
-        if value.get("subject_kind") in ("artifact-index", "knowledge-index"):
+        if value.get("subject_kind") in ("artifact-index", "knowledge-index", "auxiliary-model"):
             uuid.UUID(value["operation_id"])
             if value.get("run_id") is not None or value.get("attempt_id") is not None or value.get("lease_epoch") is not None:
                 raise ValueError()
@@ -106,11 +106,11 @@ def ownership() -> dict:
 
 
 def subject_id(owner):
-    return owner["operation_id"] if owner.get("subject_kind") in ("artifact-index", "knowledge-index") else owner["run_id"]
+    return owner["operation_id"] if owner.get("subject_kind") in ("artifact-index", "knowledge-index", "auxiliary-model") else owner["run_id"]
 
 
 def callback_url(owner, resource_id, phase):
-    route = owner["subject_kind"] if owner.get("subject_kind") in ("artifact-index", "knowledge-index") else "agent-runs"
+    route = owner["subject_kind"] if owner.get("subject_kind") in ("artifact-index", "knowledge-index", "auxiliary-model") else "agent-runs"
     return f'{owner["base_url"]}/internal/{route}/{quote(resource_id, safe="")}/model-requests/{phase}'
 
 
@@ -515,7 +515,7 @@ def prepare(request):
     except Exception:
         raise RuntimeUsageError("usage_model_identity_invalid") from None
     body = {"orgId": owner["org_id"], "attemptId": owner.get("attempt_id"), "leaseEpoch": owner.get("lease_epoch"), "requestId": str(uuid.uuid4()), "startedAt": now(), "modelId": model, "callPurpose": owner.get("call_purpose") or "primary"}
-    if owner.get("subject_kind") in ("artifact-index", "knowledge-index"):
+    if owner.get("subject_kind") in ("artifact-index", "knowledge-index", "auxiliary-model"):
         body = {k:body[k] for k in ("orgId", "requestId", "startedAt", "modelId")}
     return owner, journal, body
 
@@ -553,7 +553,7 @@ def admission_payload(request, owner, start):
     # remain disabled here; a future retry coordinator must retain its own logical ID.
     # Hash only; no prompt or response is placed in durable identity metadata.
     digest = sha256(request.content).hexdigest()
-    logical = json.dumps([owner["run_id"],start["callPurpose"],start["requestId"],digest],separators=(",",":"))
+    logical = json.dumps([subject_id(owner),"auxiliary" if owner.get("subject_kind")=="auxiliary-model" else start["callPurpose"],start["requestId"],digest],separators=(",",":"))
     return start | {"logicalCallId":logical,"serializedBody":serialized,"outputTokenLimit":caps[0]}
 
 def apply_admitted_dispatch(request, start, acknowledgement):

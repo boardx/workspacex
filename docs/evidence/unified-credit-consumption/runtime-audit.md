@@ -38,6 +38,12 @@ Review found and repaired the VLM transport bypass, missing non-run auxiliary st
 
 The private runtime maps only the exact serialized `CreditRuntimeUsageError` class and stable accounting code to `CREDIT_REQUIRED` / `CREDIT_ACCOUNTING_UNAVAILABLE` in run polling and error SSE frames. Arbitrary provider messages and user content cannot assert these codes.
 
+## Non-chat private trials
+
+The full-stack check exposed an additional ownership gap: an imported Agent's trial uses the private runtime but intentionally has no Chat message or formal run. Such calls now receive a server-issued auxiliary operation with a persisted payer, pinned provider/model and expiry. Separate authenticated callbacks reserve and settle each physical request through the same credit ledger. Only request hashes and accounting metadata are stored. Replays must retain the request body hash and output cap; closure/expiry denies new dispatch while admitted late terminal receipts remain acceptable. Ordinary direct HTTP model calls retain their existing gateway path.
+
 ## Explicit operating limits
 
 `KERNEL_VISION_MAX_INPUT_TOKENS` must be an audited context bound for the configured VLM model. `KERNEL_IMAGE_MAX_BILLABLE_TOKENS` must bound the configured GPT image request. Missing bounds are not guessed: strict preflight refuses affected dispatches. Native fallback tariffs must be configured. ASR transport-queued PCM is an estimate; without authoritative vendor billed duration, its receipt remains pending with a hold and is not presented as settled native consumption. The external opaque research service remains unavailable until its own physical provider calls implement the private receipt protocol.
+
+Private auxiliary trials currently refuse dispatch when the separate organization product-quota feature (`KERNEL_AI_PRODUCT_QUOTA_ENABLED=1`) is enabled: its additional policy authority requires a formal run and cannot be fabricated for a trial. This does not disable credit accounting or alter the credit preflight switch; without that separate feature, auxiliary requests reserve/charge normally in either credit preflight mode.

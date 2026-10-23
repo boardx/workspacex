@@ -962,3 +962,26 @@ def test_typed_credit_denial_is_not_retried_or_converted_to_delivery_unknown(mon
         ORIGINAL_POST(OWNER, "run-A", "admit", {})
     assert len(callbacks) == 1
     assert error.value.payload == {"code":"credit_required", "ownerType":"team", "ownerId":"org-A"}
+
+
+def test_private_auxiliary_physical_chat_uses_operation_subject_and_no_formal_run(context,monkeypatch):
+    owner={**OWNER,'run_id':None,'attempt_id':None,'lease_epoch':None,'subject_kind':'auxiliary-model','operation_id':'84f45cd6-e5b7-432b-b8d6-70a377f01ddd','call_purpose':'auxiliary'}
+    monkeypatch.setattr(a,'ownership',lambda:dict(owner))
+    callbacks=[];paid=[]
+    async def callback(identity,subject,phase,body):
+        callbacks.append((a.callback_url(identity,subject,phase),dict(body)))
+    monkeypatch.setattr(a,'apost',callback)
+    def vendor(req):
+        assert callbacks[-1][0].endswith('/admit')
+        paid.append(req)
+        return response(json.dumps({'choices':[{'message':{'content':'ok'}}],'usage':{'total_tokens':11,'prompt_tokens':6,'completion_tokens':5}}).encode())
+    async def execute():
+        async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
+            await client.send(request())
+    asyncio.run(execute())
+    assert len(paid)==1 and len(callbacks)==2
+    assert all('/internal/auxiliary-model/'+owner['operation_id']+'/model-requests/' in url for url,_ in callbacks)
+    assert set(callbacks[0][1])=={'orgId','requestId','startedAt','modelId','logicalCallId','serializedBody','outputTokenLimit'}
+    assert json.loads(callbacks[0][1]['logicalCallId'])[:2]==[owner['operation_id'],'auxiliary']
+    assert callbacks[1][1]['usage']=={'total':11,'prompt':6,'completion':5}
+    assert not {'runId','attemptId','leaseEpoch','userId'} & set(callbacks[1][1])

@@ -13,6 +13,8 @@ function decimalHundredths(value:string):bigint {const [whole,fraction=""]=value
 /** Called inside the SAME transaction as durable starts and terminal usage receipts. */
 export class PgCreditConsumption {
  constructor(private readonly db:DatabasePort){}
+ /** Resolve wallet identity from the same audited membership metadata as admission. */
+ async resolvePayer(orgId:OrgId,userId:string):Promise<Payer>{return this.db.withTenant(orgId,s=>this.payer(s,orgId,userId));}
  private async payer(s:TenantSession,orgId:OrgId,userId:string):Promise<Payer>{
   const row=(await s.query<{kind:string}>(`SELECT o.kind FROM organizations o JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2`,[orgId,userId])).rows[0];
   if(!row)throw new CreditConsumptionError("credit_accounting_unavailable","team",orgId,"credit_payer_provenance_missing");

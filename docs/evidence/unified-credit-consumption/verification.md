@@ -46,6 +46,14 @@ All API database commands use `.harness/scripts/with-test-isolation.ts`; they do
 | Routing | `lint:rewrite-coverage`, `lint:contract-route-coverage`, `lint:body-path-param-leak` | Passed; no new route/proxy gap or shadow |
 | Recovery migration suffix | `tsx --test tests/fixtures/cn-application-recovery/migration-scope.test.ts` | Passed |
 
+## CI regression repairs — 2026-10-23
+
+The initial seven failing checks were repaired without weakening admission: financial fixtures now persist payer/start facts; the private browser fixture forwards its real callback address/key; the deploy-env backfill remains free of provisioning side effects; local accounting guidance points to local settings. On head `47d49eb47`, 39 remote checks passed and only the full-stack browser suite failed (189 passed, one imported-Agent trial failed for missing non-chat private ownership).
+
+The additional private auxiliary operation path is covered by 15 passing API gateway/real-HTTP/PostgreSQL tests (`/tmp/credit-private-aux-complete.log`) and 83 passing Python physical-accounting tests (`/tmp/credit-aux-python-final.log`). They verify zero vendor HTTP with zero balance in strict mode, actual 11 Token usage producing one 0.02 credit debit in permissive mode, immutable replay identity, tenant/model/payer rejection, expiry/closure, late settlement and trusted recharge guidance. This evidence does not establish a real merchant charge or deployment.
+
+The exact failed browser journey also passed against a fresh production Next/API/PostgreSQL stack: GitHub Agent import → edit instructions → publish → trial response (`/tmp/5894-aux-trial-browser-serial.log`, one test passed, actual browser journey 7.7 seconds). A local-only startup budget accommodated the measured 11-minute cold build; CI configuration and browser assertions were unchanged.
+
 ## Configuration and rollout
 
 The default preflight policy is OFF; configure it in platform operations (`/platform-admin/ops-status`). Native tariffs are operator-managed for each organization/provider/model/unit and recorded in an append-only audit. No default commercial price is invented.

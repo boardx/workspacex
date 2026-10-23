@@ -1044,6 +1044,8 @@ export interface ModelCallInput {
   /** Trusted executor identity, never sourced from model tool arguments. */
   readonly executionAttemptId?: string;
   readonly executionLeaseEpoch?: number;
+  /** Server-created metadata owner for private calls without a formal run. */
+  readonly auxiliaryModelOperation?: {readonly orgId:string;readonly operationId:string};
   readonly usageCallPurpose?: "auxiliary" | "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;

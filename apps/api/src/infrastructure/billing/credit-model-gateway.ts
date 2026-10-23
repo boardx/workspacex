@@ -1,3 +1,4 @@
+import {PgAuxiliaryModelAccounting} from './pg-auxiliary-model-accounting';
 import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import {ModelCallError, type ModelCallInput, type ModelCallPort, type TokenUsageMeterPort} from '../../application/agent-run/ports';
 import type {DatabasePort} from '../../application/ports/database.port';
@@ -29,8 +30,11 @@ export function creditModelGateway(model: ModelCallPort, db: DatabasePort, meter
     const userId = owner?.user_id ?? (!input.runId ? scope?.userId : undefined);
     if (!userId || (scope && owner && scope.userId !== userId)) throw unavailable('CREDIT_SUBJECT_UNAVAILABLE');
     const starts = new Map<string,{startedAt:string;maximumTokens:number|null}>();
+    const privateAuxiliary = !input.runId && input.modelProvider === 'deep-agent';
+    if(privateAuxiliary && process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')throw unavailable('AUXILIARY_PRODUCT_QUOTA_OWNERSHIP_UNSUPPORTED');
+    const auxiliaryModelOperation = privateAuxiliary ? await new PgAuxiliaryModelAccounting(db).open(orgId,userId,input.modelId) : undefined;
     const purpose = owner ? input.usageCallPurpose ?? 'primary' : 'auxiliary';
-    return {...input,outputTokenLimit:input.outputTokenLimit??4096,
+    return {...input,auxiliaryModelOperation,outputTokenLimit:input.outputTokenLimit??4096,
       beforeProviderDispatch: async request => {
         await input.beforeProviderDispatch?.(request);
         // UTF-8 bytes upper-bound text token count, never presented as measured usage.
@@ -76,10 +80,19 @@ export function creditModelGateway(model: ModelCallPort, db: DatabasePort, meter
       },
     };
   };
+  const invoke = async<T>(input:ModelCallInput,work:(bound:ModelCallInput)=>Promise<T>):Promise<T>=>{
+    const bound=await bind(input);
+    try{return await work(bound);}catch(error){
+      if(bound.auxiliaryModelOperation && error instanceof ModelCallError && (error.code==='CREDIT_REQUIRED'||error.code==='CREDIT_ACCOUNTING_UNAVAILABLE')){
+        throw await new PgAuxiliaryModelAccounting(db).failure(bound.auxiliaryModelOperation.orgId as OrgId,bound.auxiliaryModelOperation.operationId,error.code==='CREDIT_REQUIRED'?'credit_required':'credit_accounting_unavailable');
+      }
+      throw error;
+    }finally{if(bound.auxiliaryModelOperation)await new PgAuxiliaryModelAccounting(db).close(bound.auxiliaryModelOperation.orgId as OrgId,bound.auxiliaryModelOperation.operationId);}
+  };
   return new Proxy(model,{get(target,key){
-    if(key==='complete') return async(input:ModelCallInput)=>target.complete(await bind(input));
-    if(key==='completeStream' && target.completeStream) return async(input:ModelCallInput,...args:Parameters<NonNullable<ModelCallPort['completeStream']>> extends [unknown,...infer R]?R:never)=>target.completeStream!(await bind(input),...args);
-    if(key==='completeWithProgress' && target.completeWithProgress) return async(input:ModelCallInput,...args:Parameters<NonNullable<ModelCallPort['completeWithProgress']>> extends [unknown,...infer R]?R:never)=>target.completeWithProgress!(await bind(input),...args);
+    if(key==='complete') return async(input:ModelCallInput)=>invoke(input,bound=>target.complete(bound));
+    if(key==='completeStream' && target.completeStream) return async(input:ModelCallInput,...args:Parameters<NonNullable<ModelCallPort['completeStream']>> extends [unknown,...infer R]?R:never)=>invoke(input,bound=>target.completeStream!(bound,...args));
+    if(key==='completeWithProgress' && target.completeWithProgress) return async(input:ModelCallInput,...args:Parameters<NonNullable<ModelCallPort['completeWithProgress']>> extends [unknown,...infer R]?R:never)=>invoke(input,bound=>target.completeWithProgress!(bound,...args));
     const value=Reflect.get(target,key);return typeof value==='function'?value.bind(target):value;
   }});
 }
