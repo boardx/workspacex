@@ -65,7 +65,7 @@ const write = (
     { promptTokens: null, completionTokens: null },
 ) => {
   const eventId=randomUUID();
-  return repo.startRequest(toOrgId(ORG),{requestId:eventId,userId:ACTOR,runId:RUN,modelProvider:"test-provider",modelId:"test-model",startedAt:new Date().toISOString(),maximumTokens:tokensTotal}).then(()=>repo.record(toOrgId(ORG), {eventId,
+  return repo.startRequest(toOrgId(ORG),{requestId:eventId,executionAttemptId:null,projectId:null,userId:ACTOR,runId:RUN,modelProvider:"test-provider",modelId:"test-model",startedAt:new Date().toISOString(),maximumTokens:tokensTotal}).then(()=>repo.record(toOrgId(ORG), {eventId,
     userId: ACTOR, runId: RUN, modelProvider: "test-provider", modelId: "test-model",
     tokensTotal, outcome, ...split,
   }));
@@ -232,7 +232,7 @@ describe("receipt context and replay (requires migrated PostgreSQL)", () => {
       tokensTotal: 0, promptTokens: 0, completionTokens: 0, outcome: "succeeded" as const,
       totalSource: "reported" as const, projectId: PROJECT, threadId: THREAD, agentId: "agent-f159", callPurpose: "primary" as const,
     };
-    await repo.startRequest(toOrgId(ORG),{requestId:receipt.eventId,userId:ACTOR,runId:RUN,modelProvider:receipt.modelProvider,modelId:receipt.modelId,startedAt:"2026-10-04T00:00:00Z",maximumTokens:0,projectId:PROJECT,threadId:THREAD,agentId:"agent-f159",callPurpose:"primary"});
+    await repo.startRequest(toOrgId(ORG),{requestId:receipt.eventId,executionAttemptId:null,userId:ACTOR,runId:RUN,modelProvider:receipt.modelProvider,modelId:receipt.modelId,startedAt:"2026-10-04T00:00:00Z",maximumTokens:0,projectId:PROJECT,threadId:THREAD,agentId:"agent-f159",callPurpose:"primary"});
     await repo.record(toOrgId(ORG), receipt);
     await repo.record(toOrgId(ORG), receipt);
     const rows = await asApp(ORG, c => c.query(

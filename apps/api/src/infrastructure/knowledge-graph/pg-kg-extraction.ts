@@ -98,7 +98,7 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
           CASE WHEN m.author_kind='human' THEN m.author_id ELSE request.author_id END AS billing_user_id
           FROM chat_messages m LEFT JOIN agent_runs r ON r.org_id=m.org_id AND r.id=m.agent_run_id
           LEFT JOIN chat_messages request ON request.org_id=r.org_id AND request.id=r.input_message_id
-          WHERE m.org_id=$1 AND m.id=$2 AND m.visibility_scope IS NULL`, [orgId, messageId],
+          WHERE m.org_id = $1 AND m.id = $2 AND m.visibility_scope IS NULL`, [orgId, messageId],
       );
       const row = m.rows[0];
       if (row === undefined) return null;

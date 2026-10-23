@@ -45,6 +45,7 @@ let databasePort: PgDatabase;
 let base = "";
 let chatModelServer: Server;
 let deepResearchServer: Server;
+let deepResearchRequests = 0;
 let statusPollCount = 0;
 
 function ownerConfig(database: string) {
@@ -69,6 +70,7 @@ async function startChatModelServer(): Promise<string> {
 /** 真实实现 `deep-research-model-provider.ts` 依赖的四个端点形状，不是随便回 200。 */
 async function startDeepResearchServer(): Promise<string> {
   deepResearchServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+    deepResearchRequests += 1;
     const url = req.url ?? "";
     const respond = (status: number, body: unknown) => {
       res.writeHead(status, { "content-type": "application/json" });
@@ -142,7 +144,7 @@ afterAll(async () => {
 }, 30_000);
 
 describe("#662 直接后续：新组织 bootstrap 出来就有一个能用的 Deep Research agent", () => {
-  it("不做任何 agent 管理操作，直接进 chat → 选中 Deep Research → 发消息 → 真实走完轮询 → 报告写回", async () => {
+  it("未提供逐次模型用量的外部 Deep Research 在任何远程执行前明确拒绝", async () => {
     const bootstrap = await fetch(`${base}/auth/bootstrap`, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -184,19 +186,15 @@ describe("#662 直接后续：新组织 bootstrap 出来就有一个能用的 De
     expect(msgRes.status, await msgRes.clone().text()).toBe(202);
     const { agentRunId } = (await msgRes.json()) as { agentRunId: string };
 
-    /* ── ③ 驱动同一个生产执行器，真的走完"建线程→提交 run→轮询→读 state"全程 ── */
+    // Opaque external runtimes cannot prove per-physical-dispatch usage yet.
+    // Refuse before creating a remote thread, rather than make an uncharged call.
     await app.get<AgentRunExecutorPort>(AGENT_RUN_EXECUTOR).tick(toOrgId(orgId));
-
     const runRes = await fetch(`${base}/agent-runs/${agentRunId}`, { headers: principal });
-    const run = (await runRes.json()) as { status: string };
-    expect(run.status).toBe("succeeded");
-    // 轮询循环真的被走过，不是第一次查询就判定终态。
-    expect(statusPollCount).toBeGreaterThanOrEqual(3);
+    const run = (await runRes.json()) as { status: string; error: string | null };
+    expect(run.status).toBe("failed");
+    expect(run.error).toBe("CREDIT_ACCOUNTING_UNAVAILABLE");
+    expect(deepResearchRequests).toBe(0);
+    expect(statusPollCount).toBe(0);
 
-    /* ── ④ 最终报告真实写回了 chat 线程，不是一个占位符 ── */
-    const messagesRes = await fetch(`${base}/chat/threads/${threadId}/messages`, { headers: principal });
-    const { messages } = (await messagesRes.json()) as { messages: { authorKind: string; text: string }[] };
-    const reply = messages.find((m) => m.authorKind === "agent");
-    expect(reply?.text).toBe(FINAL_REPORT);
   });
 });

@@ -7,8 +7,8 @@ import {workbenchBoundaries,verifyWorkbenchBoundaries} from '../workbench-permis
 const api=fileURLToPath(new URL('../../',import.meta.url));
 const read=path=>readFileSync(api+path,'utf8');
 const tables=new Set([...workbenchBoundaries.values()].flatMap(rule=>rule.tables).concat(['chat_messages','artifacts']));
-test('all four reviewed metadata boundaries satisfy production checks',()=>{
- assert.equal(rules.size,4);assert.deepEqual(verifyWorkbenchBoundaries(read,tables),[]);
+test('all seven reviewed metadata boundaries satisfy production checks',()=>{
+ assert.equal(rules.size,7);assert.deepEqual(verifyWorkbenchBoundaries(read,tables),[]);
 });
 for(const [path,rule] of rules){
  test(`${path}: missing implementation invalidates registration`,()=>{
@@ -16,7 +16,7 @@ for(const [path,rule] of rules){
  });
  for(const [index,[file,pattern]] of rule.checks.entries())test(`${path}: removing premise ${index} invalidates registration`,()=>{
   const target=file??path,source=read(target),match=source.match(pattern);assert(match,`${target}: premise exists`);
-  const altered=source.replace(pattern,'');
+  const altered=source.replace(new RegExp(pattern.source,'g'),'');
   assert(verifyWorkbenchBoundaries(candidate=>candidate===target?altered:read(candidate),tables).some(f=>f.startsWith(path+':')));
  });
  for(const suffix of ['\nSELECT body FROM chat_messages','\nSELECT * FROM artifacts','\ndb.withoutTenant(async()=>{})'])test(`${path}: forbidden expansion ${suffix.trim()} is refused`,()=>{

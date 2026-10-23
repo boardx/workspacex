@@ -177,6 +177,9 @@ beforeAll(async () => {
   await migrateOnce();
   deepAgent = await startDeepAgentFake();
   process.env.KERNEL_DEEP_AGENT_BASE_URL = `http://127.0.0.1:${String(deepAgent.port)}`;
+  // Control-engine fixture performs no inner vendor calls; declare callback capability explicitly.
+  process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL = `http://127.0.0.1:${String(deepAgent.port)}`;
+  process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY = "private-control-fixture";
   process.env.KERNEL_DEEP_AGENT_POLL_INTERVAL_MS = "5";
   process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS = "10000";
   delete process.env.KERNEL_AGENT_RUN_AUTOSTART;

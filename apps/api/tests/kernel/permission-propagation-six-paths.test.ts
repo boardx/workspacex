@@ -1267,7 +1267,8 @@ describe("lint-permission-paths: counter-proof", () => {
       failures: string[]; rules: Array<{path: string; reason: string; checks: number; rejectsMissingImplementation: boolean}>;
     };
     expect(boundaryAudit.failures).toEqual([]);
-    expect(boundaryAudit.rules).toHaveLength(29);
+    // #5877 adds three narrowly checked financial metadata boundaries.
+    expect(boundaryAudit.rules).toHaveLength(32);
     for (const rule of boundaryAudit.rules) {
       expect(rule.reason.length, rule.path).toBeGreaterThan(40);
       expect(rule.checks, rule.path).toBeGreaterThan(0);

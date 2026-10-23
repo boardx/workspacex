@@ -1,3 +1,4 @@
+import {isLocalOrg} from "../../domain/identity/local-org";
 import {createHash} from "node:crypto";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
 import type {OrgId} from "../../domain/org-id";
@@ -15,7 +16,7 @@ export class PgCreditConsumption {
  private async payer(s:TenantSession,orgId:OrgId,userId:string):Promise<Payer>{
   const row=(await s.query<{kind:string}>(`SELECT o.kind FROM organizations o JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2`,[orgId,userId])).rows[0];
   if(!row)throw new CreditConsumptionError("credit_accounting_unavailable","team",orgId,"credit_payer_provenance_missing");
-  return row.kind==="personal-local"?{ownerType:"user",ownerId:userId}:{ownerType:"team",ownerId:orgId};
+  return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{ownerType:"team",ownerId:orgId};
  }
  private error(p:Payer,message:string,code:"credit_required"|"credit_accounting_unavailable"="credit_accounting_unavailable"){return new CreditConsumptionError(code,p.ownerType,p.ownerId,message);}
  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promise<void>{

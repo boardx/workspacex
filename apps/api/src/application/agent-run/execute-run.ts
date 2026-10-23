@@ -1257,7 +1257,9 @@ async function executeClaimed(
      * prompt tokens 并把 usage 放在错误体里，provider 把它挂在 `ModelCallError.usage`
      * 上传过来——报了就如实记，没报才是 0。
      */
-    if (modelInvocationStarted && !modelCompletionMetered && !requestAccounting) {
+    if (modelInvocationStarted && !modelCompletionMetered && !requestAccounting
+      && !(e instanceof CreditConsumptionError)
+      && !(e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED")) {
       await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
     }
     await closeOpenToolCalls("failed");

@@ -9,7 +9,7 @@ export const modelMetadataPermissionBoundaries=new Map([
     checks:[[null,exact("scope.orgId !== orgId")],[null,exact("scope.userId !== userId")],[null,exact("await meter.startRequest(orgId")]],
   }],
   ["src/infrastructure/billing/pg-credit-consumption.ts", {
-    tables:["organizations","org_memberships","credit_native_tariffs"],
+    tables:["organizations","org_memberships","credit_native_tariffs","ai_request_reservations"],
     reason:"#5877: financial configuration and authenticated same-org payer metadata have no Artifact content ACL. Admission rechecks persisted org membership, locks payer wallet, snapshots configured tariffs and validates immutable request facts. Settlement only uses an admitted request identity. credit-consumption-pg.test.ts covers cross-org wallets, concurrent holds, replay and revoked-member settlement.",
     checks:[[null,exact("JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2")],[null,exact("credit_start_replay_mismatch")],[null,exact("credit_receipt_provenance_mismatch")]],
   }],

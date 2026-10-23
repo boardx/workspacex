@@ -1,5 +1,5 @@
 import {CreditConsumptionError} from "../../application/billing/credit-consumption";
-import {type ModelCallInput, type ModelCallPort, type TokenUsageMeterPort} from '../../application/agent-run/ports';
+import {ModelCallError, type ModelCallInput, type ModelCallPort, type TokenUsageMeterPort} from '../../application/agent-run/ports';
 import type {DatabasePort} from '../../application/ports/database.port';
 import type {OrgId} from '../../domain/org-id';
 import {currentCreditSubject} from '../../application/billing/credit-execution-context';
@@ -8,6 +8,11 @@ import {currentCreditSubject} from '../../application/billing/credit-execution-c
 export function creditModelGateway(model: ModelCallPort, db: DatabasePort, meter: TokenUsageMeterPort): ModelCallPort {
   const bind = async (input: ModelCallInput): Promise<ModelCallInput> => {
     const unavailable=(reason:string)=>new CreditConsumptionError('credit_accounting_unavailable','team',String(input.orgId??currentCreditSubject()?.orgId??''),reason);
+    // Resolve configuration failures before accounting capability. No adapter is
+    // invoked for an unregistered provider, and no fallback provider is chosen.
+    if (model.registeredProviders && !model.registeredProviders().includes(input.modelProvider)) {
+      throw new ModelCallError('MODEL_PROVIDER_NOT_CONFIGURED', `provider "${input.modelProvider}" is not registered`);
+    }
     // Private runtimes report each internal physical request through the authenticated runtime ledger.
     if (!model.supportsRequestAccounting?.(input.modelProvider)) {
       throw unavailable('CREDIT_DISPATCH_ACCOUNTING_UNSUPPORTED');

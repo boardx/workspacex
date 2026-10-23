@@ -1,6 +1,6 @@
 import {afterAll,beforeAll,beforeEach,describe,expect,it} from "vitest";
 import {aiUsage as C} from "@repo/contracts";
-import {ensureDatabase,migrateOnce,resetOrgs,seedOrg,asApp} from "../support/db";
+import {ensureDatabase,migrateOnce,resetOrgs,seedOrg,asApp,addOrgMember} from "../support/db";
 import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {PgAsrRequestAccounting} from '../../src/infrastructure/auth/pg-asr-request-accounting';
@@ -10,20 +10,32 @@ import {PgTokenUsageRepository} from "../../src/infrastructure/auth/pg-token-usa
 import {toOrgId} from "../../src/domain/org-id";
 const ORG="org-usage-5261",OTHER="org-usage-5261-other",PROJECT="p-usage-5261";
 let db:PgDatabase,usage:PgTokenUsageRepository,report:PgAiUsageRepository;
+// Historical/reporting receipts still use real financial admission and settlement.
+async function recordUsage(orgId:ReturnType<typeof toOrgId>,receipt:Parameters<PgTokenUsageRepository["record"]>[1]){
+ const existing=await asApp(orgId,c=>c.query("SELECT id FROM model_request_starts WHERE id=$1",[receipt.eventId]));
+ if(!existing.rows.length){
+  const native=receipt.nativeUsage;
+  if(native)await asApp(orgId,c=>c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,$2,$3,$4,1,1,'report-fixture-v1') ON CONFLICT DO NOTHING",[orgId,receipt.modelProvider,receipt.modelId,native.unit]));
+  await usage.startRequest(orgId,{requestId:receipt.eventId!,userId:receipt.userId,runId:receipt.runId,executionAttemptId:null,projectId:receipt.projectId??null,modelProvider:receipt.modelProvider,modelId:receipt.modelId,startedAt:receipt.requestStartedAt??new Date().toISOString(),callPurpose:receipt.runId?undefined:"auxiliary",maximumTokens:10000,...(native?{nativeMaximum:{unit:native.unit,quantity:native.quantity??1n}}:{})});
+ }
+ await usage.record(orgId,receipt);
+}
 const now=Date.now(),start=new Date(now-3600000).toISOString(),end=new Date(now+3600000).toISOString();
 const query=C.Query.parse({start,end,timezone:"Etc/UTC"});
-beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());usage=new PgTokenUsageRepository(db);report=new PgAiUsageRepository(db);});
+beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());usage=new PgTokenUsageRepository(db);report=new PgAiUsageRepository(db);});
 beforeEach(async()=>{
  await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:PROJECT});await seedOrg({orgId:OTHER,projectId:"p-usage-5261-other"});
- await usage.startRequest(toOrgId(ORG),{requestId:"usage-r1",userId:"alice",runId:"r",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString()});
+ for(const org of [ORG,OTHER])for(const user of ["alice","bob"])await addOrgMember(org,user,"consultant",null);
+ await asApp(ORG,c=>c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'fixture-asr','actual','millisecond',1000,1,'asr-fixture-v1')",[ORG]));
+ await usage.startRequest(toOrgId(ORG),{requestId:"usage-r1",userId:"alice",runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString()});
  await usage.startRequest(toOrgId(ORG),{requestId:"usage-pending",userId:"alice",runId:"r",executionAttemptId:null,projectId:PROJECT,modelProvider:"p",modelId:"m",startedAt:new Date(now).toISOString()});
- await usage.record(toOrgId(ORG),{eventId:"usage-r1",userId:"alice",runId:null,modelProvider:"p",modelId:"m",projectId:PROJECT,
+ await recordUsage(toOrgId(ORG),{eventId:"usage-r1",userId:"alice",runId:null,modelProvider:"p",modelId:"m",projectId:PROJECT,
   tokensTotal:15,promptTokens:10,completionTokens:5,outcome:"succeeded",totalSource:"reported",requestStartedAt:new Date(now).toISOString()});
- await usage.record(toOrgId(ORG),{eventId:"usage-r2",userId:"bob",runId:null,modelProvider:"p",modelId:"m2",projectId:null,
+ await recordUsage(toOrgId(ORG),{eventId:"usage-r2",userId:"bob",runId:null,modelProvider:"p",modelId:"m2",projectId:null,
   tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"failed",totalSource:"unknown",requestStartedAt:new Date(now).toISOString()});
- await usage.record(toOrgId(ORG),{eventId:"usage-prev",userId:"alice",runId:null,modelProvider:"p",modelId:"m",projectId:PROJECT,
+ await recordUsage(toOrgId(ORG),{eventId:"usage-prev",userId:"alice",runId:null,modelProvider:"p",modelId:"m",projectId:PROJECT,
   tokensTotal:7,promptTokens:5,completionTokens:2,outcome:"succeeded",totalSource:"reported",requestStartedAt:new Date(now-5400000).toISOString()});
- await usage.record(toOrgId(OTHER),{eventId:"other-usage",userId:"alice",runId:null,modelProvider:"p",modelId:"m",
+ await recordUsage(toOrgId(OTHER),{eventId:"other-usage",userId:"alice",runId:null,modelProvider:"p",modelId:"m",
   tokensTotal:999,promptTokens:900,completionTokens:99,outcome:"succeeded",totalSource:"reported"});
 });
 afterAll(async()=>{await resetOrgs(ORG,OTHER);await db.close();});
@@ -61,7 +73,7 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
   const summary=await report.summary(toOrgId(ORG),query);
   expect(summary.current).toMatchObject({totalTokens:"15",inputTokens:"10",outputTokens:"5",callCount:2,unknownCalls:1,failedCalls:1});
   expect(summary.previous).toMatchObject({totalTokens:"7",callCount:1});
-  expect(summary.dispatchIntents).toBe(2);expect(summary.unsettledDispatchIntents).toBe(1);
+  expect(summary.dispatchIntents).toBe(3);expect(summary.unsettledDispatchIntents).toBe(1);
   expect(summary.projects.some(p=>p.projectId===null)).toBe(true);
   const detail=await report.calls(toOrgId(ORG),{...query,asOf:summary.asOf});
   expect(detail.calls.reduce((sum,c)=>sum+BigInt(c.totalTokens),0n)).toBe(15n);
@@ -81,7 +93,7 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
   expect(initial.nextCursor!.occurredAt).toMatch(/\.\d{6}Z$/);
   const next=await report.calls(toOrgId(ORG),{...query,asOf:initial.asOf,limit:1,cursorTime:initial.nextCursor!.occurredAt,cursorId:initial.nextCursor!.id});
   expect(next.calls).toHaveLength(1);expect(next.calls[0]!.id).not.toBe(initial.calls[0]!.id);
-  await usage.record(toOrgId(ORG),{eventId:"late-r",userId:"alice",runId:null,modelProvider:"p",modelId:"m",tokensTotal:3,promptTokens:2,completionTokens:1,outcome:"succeeded",totalSource:"reported"});
+  await recordUsage(toOrgId(ORG),{eventId:"late-r",userId:"alice",runId:null,modelProvider:"p",modelId:"m",tokensTotal:3,promptTokens:2,completionTokens:1,outcome:"succeeded",totalSource:"reported"});
   expect((await report.calls(toOrgId(ORG),{...query,asOf:initial.asOf})).calls.some(c=>c.id==="late-r")).toBe(false);
  });
  it("preserves microsecond snapshot bounds across report projections",async()=>{
@@ -93,7 +105,7 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
  });
  it("native dimensions keep original units, unknown provenance, and one receipt across report projections",async()=>{
   for(const [id,source,quantity] of [["native-estimated","estimated",2000n],["native-reported","reported",3n],["native-unknown","unknown",null]] as const){
-   await usage.record(toOrgId(ORG),{eventId:id,userId:"alice",runId:null,modelProvider:"p",modelId:"native",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",totalSource:"not-applicable",requestStartedAt:new Date(now).toISOString(),nativeUsage:{unit:"millisecond",quantity,source}});
+   await recordUsage(toOrgId(ORG),{eventId:id,userId:"alice",runId:null,modelProvider:"p",modelId:"native",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",totalSource:"not-applicable",requestStartedAt:new Date(now).toISOString(),nativeUsage:{unit:"millisecond",quantity,source}});
   }
   const summary=await report.summary(toOrgId(ORG),query);
   expect(summary.current).toMatchObject({totalTokens:"15",nativeCalls:3,reportedCalls:1,unknownCalls:1,callCount:5});
@@ -105,7 +117,7 @@ describe("same ledger reports — isolated PostgreSQL",()=>{
  });
  it("database constraints independently reject fabricated Token/native provenance and ledger mutation",async()=>{
   await expect(asApp(ORG,c=>c.query("INSERT INTO token_usage_events(id,org_id,user_id,model_provider,model_id,tokens_total,total_source,native_unit,native_quantity,native_source) VALUES('bad-native',$1,'alice','p','m',1,'not-applicable','image',1,'reported')",[ORG]))).rejects.toThrow();
-  await usage.record(toOrgId(ORG),{eventId:"immutable-native",userId:"alice",runId:null,modelProvider:"p",modelId:"native",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",totalSource:"not-applicable",nativeUsage:{unit:"image",quantity:1n,source:"reported"}});
+  await recordUsage(toOrgId(ORG),{eventId:"immutable-native",userId:"alice",runId:null,modelProvider:"p",modelId:"native",tokensTotal:0,promptTokens:null,completionTokens:null,outcome:"succeeded",totalSource:"not-applicable",nativeUsage:{unit:"image",quantity:1n,source:"reported"}});
   await expect(asApp(ORG,c=>c.query("UPDATE token_usage_events SET native_quantity=99 WHERE id='immutable-native'"))).rejects.toThrow();
  });
 
@@ -142,18 +154,18 @@ it("late original usage enriches one physical call, preserves raw base and histo
  const subject={eventId:"late-same-physical",userId:"alice",runId:null,modelProvider:"late-provider",modelId:"late-model",projectId:PROJECT,
   outcome:"failed" as const,requestStartedAt:new Date(now).toISOString(),requestEndedAt:new Date(now+1).toISOString()};
  const unknown={...subject,tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown" as const};
- await usage.record(toOrgId(ORG),unknown);
+ await recordUsage(toOrgId(ORG),unknown);
  const original=(await asApp(ORG,c=>c.query("SELECT * FROM token_usage_events WHERE id=$1",[subject.eventId]))).rows[0];
  // Reporting cutoffs currently serialize milliseconds; advance beyond the commit's microseconds.
  await asApp(ORG,c=>c.query("SELECT pg_sleep(0.002)"));
  const scoped={...query,modelId:"late-model"},before=await report.summary(toOrgId(ORG),scoped);
  expect(before.current).toMatchObject({callCount:1,totalTokens:"0",unknownCalls:1});
- await usage.record(toOrgId(ORG),{...unknown,promptTokens:3});
+ await recordUsage(toOrgId(ORG),{...unknown,promptTokens:3});
  await asApp(ORG,c=>c.query("SELECT pg_sleep(0.002)"));
  const partial=await report.summary(toOrgId(ORG),scoped);
  expect(partial.current).toMatchObject({callCount:1,inputTokens:"3",totalTokens:"0",unknownCalls:1});
  const reported={...subject,outcome:"succeeded" as const,requestEndedAt:new Date(now+2).toISOString(),tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported" as const,costMicros:500n,currency:"CNY",priceVersion:"original-price"};
- await usage.record(toOrgId(ORG),reported);await usage.record(toOrgId(ORG),reported);
+ await recordUsage(toOrgId(ORG),reported);await recordUsage(toOrgId(ORG),reported);
  await asApp(ORG,c=>c.query("SELECT pg_sleep(0.002)"));
  const after=await report.summary(toOrgId(ORG),scoped),calls=await report.calls(toOrgId(ORG),{...scoped,asOf:after.asOf});
  expect(after.current).toMatchObject({callCount:1,totalTokens:"5",inputTokens:"3",outputTokens:"2",reportedCalls:1,unknownCalls:0});
@@ -164,18 +176,18 @@ it("late original usage enriches one physical call, preserves raw base and histo
  expect((await asApp(ORG,c=>c.query("SELECT * FROM token_usage_events WHERE id=$1",[subject.eventId]))).rows[0]).toEqual(original);
  expect((await asApp(ORG,c=>c.query("SELECT revision::text FROM token_usage_enrichments WHERE request_id=$1 ORDER BY revision",[subject.eventId]))).rows).toEqual([{revision:"1"},{revision:"2"}]);
  expect((await asApp(OTHER,c=>c.query("SELECT id FROM effective_token_usage() WHERE id=$1",[subject.eventId]))).rows).toEqual([]);
- await expect(usage.record(toOrgId(OTHER),reported)).rejects.toBeDefined();
- await expect(usage.record(toOrgId(ORG),{...reported,requestStartedAt:new Date(now+1).toISOString()})).rejects.toBeDefined();
+ await expect(recordUsage(toOrgId(OTHER),reported)).rejects.toBeDefined();
+ await expect(recordUsage(toOrgId(ORG),{...reported,requestStartedAt:new Date(now+1).toISOString()})).rejects.toBeDefined();
  expect((await asApp(OTHER,c=>c.query("SELECT request_id FROM token_usage_enrichments WHERE request_id=$1",[subject.eventId]))).rows).toEqual([]);
  await expect(asApp(ORG,c=>c.query("UPDATE token_usage_events SET tokens_total=5 WHERE id=$1",[subject.eventId]))).rejects.toBeDefined();
  await expect(asApp(ORG,c=>c.query("UPDATE token_usage_enrichments SET facts='{}'::jsonb WHERE request_id=$1",[subject.eventId]))).rejects.toBeDefined();
 });
 it("reported zero and partial known zero cannot be replaced by contradictory late usage",async()=>{
  const subject={userId:"alice",runId:null,modelProvider:"late-provider",modelId:"zero-model",outcome:"failed" as const};
- await usage.record(toOrgId(ORG),{...subject,eventId:"reported-zero",tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:"reported",costMicros:0n,currency:"CNY",priceVersion:"zero-price"});
- await expect(usage.record(toOrgId(ORG),{...subject,eventId:"reported-zero",tokensTotal:1,promptTokens:1,completionTokens:0,totalSource:"reported",costMicros:1n,currency:"CNY",priceVersion:"zero-price"})).rejects.toBeDefined();
- await usage.record(toOrgId(ORG),{...subject,eventId:"partial-zero",tokensTotal:0,promptTokens:0,completionTokens:null,totalSource:"unknown"});
- await expect(usage.record(toOrgId(ORG),{...subject,eventId:"partial-zero",tokensTotal:2,promptTokens:1,completionTokens:1,totalSource:"reported"})).rejects.toBeDefined();
+ await recordUsage(toOrgId(ORG),{...subject,eventId:"reported-zero",tokensTotal:0,promptTokens:0,completionTokens:0,totalSource:"reported",costMicros:0n,currency:"CNY",priceVersion:"zero-price"});
+ await expect(recordUsage(toOrgId(ORG),{...subject,eventId:"reported-zero",tokensTotal:1,promptTokens:1,completionTokens:0,totalSource:"reported",costMicros:1n,currency:"CNY",priceVersion:"zero-price"})).rejects.toBeDefined();
+ await recordUsage(toOrgId(ORG),{...subject,eventId:"partial-zero",tokensTotal:0,promptTokens:0,completionTokens:null,totalSource:"unknown"});
+ await expect(recordUsage(toOrgId(ORG),{...subject,eventId:"partial-zero",tokensTotal:2,promptTokens:1,completionTokens:1,totalSource:"reported"})).rejects.toBeDefined();
  expect((await asApp(ORG,c=>c.query("SELECT id,tokens_total::text,tokens_prompt::text,total_source FROM effective_token_usage() WHERE model_id='zero-model' ORDER BY id"))).rows).toEqual([
   {id:"partial-zero",tokens_total:"0",tokens_prompt:"0",total_source:"unknown"},
   {id:"reported-zero",tokens_total:"0",tokens_prompt:"0",total_source:"reported"},
@@ -186,13 +198,13 @@ it("reported zero and partial known zero cannot be replaced by contradictory lat
 it("concurrent late counters merge once per field while contradictory known counters reject",async()=>{
  const subject={userId:"alice",runId:null,modelProvider:"late-provider",modelId:"concurrent-model",outcome:"failed" as const};
  const unknown={...subject,eventId:"concurrent-late",tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown" as const};
- await usage.record(toOrgId(ORG),unknown);
- await Promise.all([usage.record(toOrgId(ORG),{...unknown,promptTokens:3}),usage.record(toOrgId(ORG),{...unknown,completionTokens:2})]);
+ await recordUsage(toOrgId(ORG),unknown);
+ await Promise.all([recordUsage(toOrgId(ORG),{...unknown,promptTokens:3}),recordUsage(toOrgId(ORG),{...unknown,completionTokens:2})]);
  expect((await asApp(ORG,c=>c.query("SELECT tokens_total::text,tokens_prompt::text,tokens_completion::text,total_source FROM effective_token_usage() WHERE id='concurrent-late'"))).rows[0]).toEqual({tokens_total:"0",tokens_prompt:"3",tokens_completion:"2",total_source:"unknown"});
- await usage.record(toOrgId(ORG),{...unknown,tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported"});
+ await recordUsage(toOrgId(ORG),{...unknown,tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported"});
  expect((await asApp(ORG,c=>c.query("SELECT count(*)::int AS calls,sum(tokens_total)::text AS tokens FROM effective_token_usage() WHERE id='concurrent-late'"))).rows[0]).toEqual({calls:1,tokens:"5"});
- const conflict={...unknown,eventId:"concurrent-known-conflict"};await usage.record(toOrgId(ORG),conflict);
- const results=await Promise.allSettled([usage.record(toOrgId(ORG),{...conflict,promptTokens:3}),usage.record(toOrgId(ORG),{...conflict,promptTokens:4})]);
+ const conflict={...unknown,eventId:"concurrent-known-conflict"};await recordUsage(toOrgId(ORG),conflict);
+ const results=await Promise.allSettled([usage.record(toOrgId(ORG),{...conflict,promptTokens:3}),recordUsage(toOrgId(ORG),{...conflict,promptTokens:4})]);
  expect(results.filter(result=>result.status==="fulfilled")).toHaveLength(1);expect(results.filter(result=>result.status==="rejected")).toHaveLength(1);
  const effective=(await asApp(ORG,c=>c.query("SELECT tokens_prompt::text FROM effective_token_usage() WHERE id='concurrent-known-conflict'"))).rows[0];
  expect(["3","4"]).toContain(effective.tokens_prompt);
