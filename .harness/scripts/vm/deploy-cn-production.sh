@@ -2,6 +2,11 @@
 # Trusted root entrypoint used by deploy-cn-production.yml.
 set -euo pipefail
 
+if [[ ${1:-} == --auto-stage-source ]]; then
+  [[ ${EUID} -eq 0 && $# -eq 4 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ && "$4" =~ ^[a-f0-9]{64}$ ]] || exit 2
+  exec /usr/bin/python3 -I -B /usr/local/lib/workspacex-cn/cn_auto_source.py "$2" "$3" "$4"
+fi
+
 operational=0
 preflight_flags=()
 if [[ ${1:-} == --operational ]]; then operational=1; preflight_flags=(--operational); shift; fi

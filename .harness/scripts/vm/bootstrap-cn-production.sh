@@ -68,7 +68,7 @@ install -o root -g root -m 0755 "$candidate_script" "$TRUSTED_CANDIDATE_BIN"
 install -o root -g root -m 0755 "$promotion_script" "$TRUSTED_PROMOTION_BIN"
 
 # Runner receives only the read-only export wrapper, never cache staging arguments.
-for helper in stage-cn-offline-source-cache.sh export-cn-domestic-source.sh; do
+for helper in stage-cn-offline-source-cache.sh export-cn-domestic-source.sh cn_auto_source.py; do
   source="$REPOSITORY_DIR/.harness/scripts/vm/$helper"
   [[ -f "$source" && ! -L "$source" ]] || exit 1
   install -o root -g root -m 0755 "$source" "/usr/local/lib/workspacex-cn/$helper"
