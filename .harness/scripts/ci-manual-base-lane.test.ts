@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluateIf } from './lib/ci-job-conditions.mjs';
 const w=parse(readFileSync('.github/workflows/harness-verify.yml','utf8'));
 function admitted(name:string,eventName:string,inputs:Record<string,unknown>){
- const expression=(w.jobs[name].if??'').replace(/inputs\.([a-z0-9_]+)/g,(_:string,key:string)=>typeof inputs[key]==='string'?`'${inputs[key]}'`:String(inputs[key]??false));
+ const expression=(w.jobs[name].if??'').replaceAll('needs.doc-smoke-scope.outputs.full', "'true'").replace(/inputs\.([a-z0-9_]+)/g,(_:string,key:string)=>typeof inputs[key]==='string'?`'${inputs[key]}'`:String(inputs[key]??false));
  return evaluateIf(expression,{id:eventName,eventName,ref:'refs/heads/develop',baseBranch:'develop',label:eventName});
 }
 describe('explicit manual base validation avoids unrelated runners without false full acceptance',()=>{

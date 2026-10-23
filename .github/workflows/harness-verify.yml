@@ -110,6 +110,19 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  doc-smoke-scope:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions: {contents: read}
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0, persist-credentials: false}
+      - id: scope
+        run: node .harness/scripts/ci-doc-smoke-scope.mjs
+
   # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
   # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
   # typecheck/lint/test"（turbo --affected，唯一真正耗时的一步）串在一起跑。
@@ -561,7 +574,8 @@ jobs:
 
   board-smoke:
     timeout-minutes: 30
-    if: (github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: doc-smoke-scope
+    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -628,7 +642,8 @@ jobs:
 
   directory-smoke:
     timeout-minutes: 30
-    if: (github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: doc-smoke-scope
+    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -694,7 +709,8 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   fullstack-smoke:
-    if: (github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: doc-smoke-scope
+    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
