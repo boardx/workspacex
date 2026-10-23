@@ -29,8 +29,6 @@ REVISION=${revision}
 EXPECTED_MAIN_CN=${expected}
 PROMOTION_MODE=${mode}
 GITHUB_REPOSITORY=boardx/workspacex
-GITHUB_OUTPUT=/dev/stdout
-GITHUB_STEP_SUMMARY=/dev/stdout
 REMOTE_HEAD=${head}
 ATTEMPT_ID=gha-regression-1
 GITHUB_SHA=${sha}
@@ -55,7 +53,21 @@ sudo() {
   // macOS Bash 3.2 treats an empty array as unset under nounset. Preserve the
   // Linux runner's empty/nonempty argument semantics without dropping the gate.
   const compatible = block.replaceAll('"${verify_flags[@]}"', '${verify_flags[@]+"${verify_flags[@]}"}');
-  return spawnSync("bash", ["-c", mock + compatible], { encoding: "utf8", timeout: 5_000 });
+  // GitHub runner output channels are files. Node's captured stdout is a socket
+  // on Linux, so reopening /dev/stdout is not a portable substitute for them.
+  const channels = mkdtempSync(join(tmpdir(), "cn-promotion-channels-"));
+  const githubOutput = join(channels, "output");
+  const githubSummary = join(channels, "summary");
+  try {
+    for (const file of [githubOutput, githubSummary]) writeFileSync(file, "", { mode: 0o600 });
+    const result = spawnSync("bash", ["-c", mock + compatible], {
+      encoding: "utf8", timeout: 5_000,
+      env: { ...process.env, GITHUB_OUTPUT: githubOutput, GITHUB_STEP_SUMMARY: githubSummary },
+    });
+    return { ...result, githubOutput: readFileSync(githubOutput, "utf8"), githubSummary: readFileSync(githubSummary, "utf8") };
+  } finally {
+    rmSync(channels, { recursive: true, force: true });
+  }
 }
 
 describe("CN complete preparation before production approval", () => {
@@ -120,22 +132,26 @@ describe("CN complete preparation before production approval", () => {
     expect(result.status, result.stderr).toBe(0);
     expect(result.stderr).toContain("ACTIVE_PROBE_CALLED");
     expect(result.stderr).not.toContain("VERIFIER_CALLED");
-    expect(result.stdout).toContain("already_active=true");
+    expect(result.githubOutput).toBe("already_active=true\n");
+    expect(result.githubSummary).toContain("read-only browser verification passed");
     expect(jobs.admit.if).toBe("needs.readiness.outputs.already_active != 'true'");
   });
 
   it("does not report acceptance for a wrong attempt, drifting target, or untrusted deploy entrypoint", () => {
     const wrongAttempt = run(ready.replace("set -euo pipefail", "set -euo pipefail; ATTEMPT_ID=another-attempt"), 42, revision, revision, "branch-push", baseline, 0);
     expect(wrongAttempt.status).toBe(42);
-    expect(wrongAttempt.stdout).not.toContain("already_active=true");
+    expect(wrongAttempt.githubOutput).toBe("already_active=false\n");
+    expect(wrongAttempt.githubSummary).toBe("");
     const drift = run(ready, 42, revision, revision, "branch-push", baseline, 0, "c".repeat(40));
     expect(drift.status).toBe(3);
-    expect(drift.stdout).not.toContain("already_active=true");
+    expect(drift.githubOutput).toBe("");
+    expect(drift.githubSummary).toBe("");
     expect(drift.stderr).not.toContain("VERIFIER_CALLED");
     const untrusted = run(ready.replace("cmp --silent .harness/scripts/vm/deploy-cn-production.sh", "false"), 42, revision, revision, "branch-push", baseline, 0);
     expect(untrusted.status).toBe(1);
     expect(untrusted.stderr).not.toContain("ACTIVE_PROBE_CALLED");
-    expect(untrusted.stdout).not.toContain("already_active=true");
+    expect(untrusted.githubOutput).toBe("");
+    expect(untrusted.githubSummary).toBe("");
   });
 
   it("uses complete receipt verification, not an input-presence assertion", () => {

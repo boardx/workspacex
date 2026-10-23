@@ -187,3 +187,20 @@ it.each(["simulated", "participant", "mixed"] as const)("keeps evidence metadata
   expect(document.markdown).toBe(markdown);
   expect(document.evidenceMode).toBe(evidenceMode);
 });
+
+it("preserves saved execution and insights while question answers collapse independently", () => {
+  const markdown = "## [采购专家](#expert-purchase)\n\n### 采购如何退回？\n\n原始合成回答。\n\n### 关键观点\n\n- [退回需核实](#question-one)";
+  const document = { documentId: "runs-question-contract", step: "runs" as const, version: 2, contentHash: "c".repeat(64), evidenceMode: "simulated" as const, references: [], markdown };
+  render(<InterviewRunsStep runs={[{ expertId: "purchase", displayName: "采购专家", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} taskProgress pending={false} onGenerateReport={vi.fn()} />);
+  expect(screen.getByText("已完成专家 1/1")).toBeVisible();
+  expect(screen.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
+  const question = screen.getByRole("button", { name: "采购如何退回？" });
+  expect(question).toHaveAttribute("aria-expanded", "false");
+  expect(screen.getByText("原始合成回答。")).not.toBeVisible();
+  fireEvent.click(question);
+  expect(screen.getByText("原始合成回答。")).toBeVisible();
+  expect(screen.getAllByRole("link", { name: "退回需核实" })[0]).toHaveAttribute("href", "#question-one");
+  expect(document.markdown).toBe(markdown);
+  expect(document.version).toBe(2);
+  expect(document.contentHash).toBe("c".repeat(64));
+});
