@@ -47,6 +47,13 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-editor")).toBeVisible();
   });
 
+  it("does not claim an empty transcript is already saved and copyable", () => {
+    render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, content: "" }} onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-copy")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-reading-hint")).toHaveTextContent("开始转录");
+    expect(screen.getByTestId("rec-live-reading-hint")).not.toHaveTextContent("已保存");
+  });
+
   it.each(["idle", "error"] as const)("allows leaving stale server recording state when the local stream is %s", (streamState) => {
     const onBack = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState={streamState}
