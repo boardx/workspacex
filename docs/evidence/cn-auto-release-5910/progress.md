@@ -143,3 +143,11 @@ The user-opened ECS root Workbench window is visible. Native paste/type attempts
 in this continuation produced no terminal output, and tab binding timed out.
 An async request asks the user to verify manual `id -u` input; no key is needed.
 No production mutation was made in this continuation.
+
+Live GitHub reconciliation: #5912 was merged by usersyj at
+2026-10-23T18:30:31Z as d1096e3003e35d9eb0a9a446b8a0b0594d32ae3a.
+The local follow-up merged that current main into its existing worktree/branch;
+the three content conflicts retained the newer preparation tests and evidence.
+Post-merge workflow/baseline fixtures: 21 passed, two explicit Linux skips.
+Unfinished release completion now tracks #5913, rather than assuming #5912
+remains open or that its merge proves production readiness.

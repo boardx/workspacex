@@ -75,3 +75,8 @@ currently cannot use the develop-only Devapp deployment job. Review existing
 backend-gates and controlled-evidence contracts before expanding that path.
 User-visible root Workbench is connected, but current native inputs produce no
 output; manual id-u verification request is pending. No host mutation.
+
+GitHub live correction: #5912 is MERGED (usersyj, 2026-10-23T18:30:31Z),
+main d1096e300. Existing local branch merged that main as 6f75beff2 without a
+new worktree. Follow-up issue #5913 tracks the still-unfinished actual automatic
+preparation/release lane. Post-merge workflow/baseline tests21 pass/2 Linux skips.
