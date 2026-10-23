@@ -119,15 +119,22 @@ describe("tenant platform model test repository",()=>{
 
 describe("platform start receipt persistence",()=>{
  it.each([undefined,"0c479acf-6523-4d3c-84b8-1986a40255aa"])("persists optional formal platform provenance %s without fake run identities",async platformTestId=>{
-  const query=vi.fn(async()=>({rows:[]}));
+  const query=vi.fn(async(sql:string,_params?:readonly unknown[])=>{
+   if(sql.startsWith("SELECT o.kind"))return {rows:[{kind:"organization"}]};
+   if(sql.startsWith("SELECT wallet_id,balance"))return {rows:[{wallet_id:"fixture-wallet",balance:"0.00",held_hundredths:"0",unbounded_requests:"0"}]};
+   if(sql.startsWith("SELECT credit_preflight_enabled"))return {rows:[{credit_preflight_enabled:false}]};
+   return {rows:[]};
+  });
   const db={withTenant:async(_org:unknown,work:Function)=>work({query})} as unknown as DatabasePort;
-  await new PgTokenUsageRepository(db).startRequest(actor.orgId as never,{requestId:"receipt",userId:actor.operatorUserId,runId:null,executionAttemptId:null,projectId:null,modelProvider:"provider",modelId:"runtime",startedAt:new Date().toISOString(),callPurpose:"primary",...(platformTestId?{platformTestId}:{})});
-  const call=query.mock.calls[0] as unknown as [string,unknown[]];
+  await new PgTokenUsageRepository(db).startRequest(actor.orgId as never,{requestId:"receipt",userId:actor.operatorUserId,runId:null,executionAttemptId:null,projectId:null,modelProvider:"provider",modelId:"runtime",startedAt:new Date().toISOString(),maximumTokens:2,callPurpose:platformTestId?"primary":"auxiliary",...(platformTestId?{platformTestId}:{})});
+  expect(query.mock.calls.some(([sql])=>sql.startsWith("INSERT INTO credit_consumption_requests"))).toBe(true);
+  const call=query.mock.calls.find(([sql])=>sql.startsWith("INSERT INTO model_request_starts")) as unknown as [string,unknown[]];
   const baseParameterNames=["requestId","orgId","userId","runId","executionAttemptId","projectId","modelProvider","modelId","startedAt","threadId","agentId","callPurpose","leaseEpoch","subtaskId","artifactOperationId"];
-  const expectedParameterNames=platformTestId?[...baseParameterNames,"platformTestId"]:baseParameterNames;
+  const expectedParameterNames=platformTestId?[...baseParameterNames,"platformTestId","knowledgeOperationId"]:[...baseParameterNames,"knowledgeOperationId"];
   expect(call[1]).toHaveLength(expectedParameterNames.length);
   expect(call[1].slice(3,6)).toEqual([null,null,null]);
   expect(call[0].includes("platform_test_id")).toBe(Boolean(platformTestId));
-  if(platformTestId)expect(call[1].at(-1)).toBe(platformTestId);
+  if(platformTestId)expect(call[1].at(-2)).toBe(platformTestId);
+  expect(call[1].at(-1)).toBeNull();
  });
 });

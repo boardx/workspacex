@@ -124,7 +124,6 @@ import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
  */
 export const HISTORY_MAX_MESSAGES = 20;
 export const HISTORY_MAX_CHARS = 12_000;
-
 /**
  * F154 L2（08-chat/uc-8-7 R7，人类 2026-08-11 逐字签核「`HISTORY_MAX_MESSAGES` 不撑大」）——
  * `HISTORY_MAX_MESSAGES` 本身**不变**，它仍是 L1 概念上的行数上限；这个新常量只用来给 L2 的
@@ -134,7 +133,6 @@ export const HISTORY_MAX_CHARS = 12_000;
  * 本身变大。有界（不是无限翻查全史）：一次 run 最多为这个目的多读这么多行。
  */
 export const L2_CATCHUP_FETCH_LIMIT = 200;
-
 /**
  * Drop the OLDEST messages first until the remaining, still-chronologically-ordered suffix
  * fits `maxChars` of combined `content` length. `messages` is already oldest-first (what
