@@ -76,6 +76,7 @@ export class PgBillingCreditingStore implements BillingCreditingStore {
         if (o.status !== "PROCESSING" && o.status !== "CLOSED") throw new Error("payment_order_not_claimed");
         await s.query(BILLING_GLOBAL_SQL.ensureWallet, [o.owner_type,o.owner_id]);
         const w = (await s.query<{wallet_id: string; balance: number; total_purchased: number}>(BILLING_GLOBAL_SQL.lockWallet, [o.owner_type,o.owner_id])).rows[0]!;
+        w.balance = Number(w.balance); w.total_purchased = Number(w.total_purchased);
         const total = o.base_credits + o.bonus_credits;
         if (w.balance + total > 2147483647 || w.total_purchased + o.base_credits > 2147483647) {
           this.logger.info("billing_payment_manual_recovery", { traceId: id, orderNo: o.order_no, reason: "wallet_limit" });

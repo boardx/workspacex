@@ -428,7 +428,7 @@ export class ConfiguredRealtimeAsrProvider implements AsrProviderPort {
     return {
       pushAudio(frame) {
         if (finishRequested || closed || socket.readyState !== WebSocket.OPEN) return;
-        if(admitted&&(frame.byteLength%2!==0||queuedPcmDurationMs(queuedPcmBytes+frame.byteLength,audio)!>admitted.maximumDurationMs)){
+        if(receipt?.maximumDurationMs!==undefined&&(frame.byteLength%2!==0||queuedPcmDurationMs(queuedPcmBytes+frame.byteLength,audio)!>receipt.maximumDurationMs)){
           closed=true;socket.terminate();void account('failed');
           reportError(PROVIDER_UNAVAILABLE,"Audio session reached its admitted duration limit");return;
         }

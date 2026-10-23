@@ -828,6 +828,10 @@ export default defineConfig({
         // 诚实失败（该 provider 自己的 config 头注），自助发布的 agent 试跑会打不通。
         // 逐字同一条纪律见 `playwright.chat-read.config.ts` 的同一变量。
         KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
+        // The controlled engine makes no vendor calls; expose the same authenticated
+        // usage/context callback capability required by the production private runtime.
+        KERNEL_SUBTASK_CALLBACK_BASE_URL: `http://127.0.0.1:${apiPort}`,
+        DEEP_AGENT_SERVICE_INTERNAL_KEY: "fullstack-private-runtime-fixture-key",
         // F962（#1608）—— 不供这一条，`HttpSkillSandbox` 在调用时诚实抛
         // `SANDBOX_UNAVAILABLE`，试跑执行链在「生成脚本」之后的沙箱这一步打不通。
         // 逐字同一条纪律见上面 `KERNEL_DEEP_AGENT_BASE_URL` 那条注释。

@@ -1,9 +1,9 @@
+import {creditUsageMeter} from "../billing/credit-usage-meter";
 import type {PlatformModelTestAccounting,PlatformModelTestOperation} from "../../application/model/platform-model-test-ports";
 import type {DatabasePort} from "../../application/ports/database.port";
 import type {TokenUsageMeterPort} from "../../application/agent-run/ports";
 import {toOrgId} from "../../domain/org-id";
 import {PgAiAdmissionRepository} from "../auth/pg-ai-admission-repository";
-import {PgTokenUsageRepository} from "../auth/pg-token-usage-repository";
 import {recoverAiReceiptSettlement} from "../../application/agent-run/stage-two-receipt-recovery";
 import type {AiReservationInput} from "../../application/agent-run/ai-admission-ports";
 import type {PgPlatformModelTestRepository} from "./pg-platform-model-test-repository";
@@ -31,7 +31,7 @@ export class PlatformTestAccounting implements PlatformModelTestAccounting {
    const admission=await new PgAiAdmissionRepository(scoped).reserve(metadata.orgId,input);
    // Warning/degradation require their own explicit UX acknowledgement; tests do not bypass them.
    if(admission.decision!=="allowed"||admission.replay||admission.tokenWarning)throw new Error("TEST_ADMISSION_REFUSED");
-   await new PgTokenUsageRepository(scoped).startRequest(metadata.orgId,{requestId:input.requestId,userId:metadata.operatorUserId,
+   await creditUsageMeter(scoped).startRequest(metadata.orgId,{requestId:input.requestId,userId:metadata.operatorUserId,
     runId:null,platformTestId:operation.testId,executionAttemptId:null,projectId:null,threadId:null,agentId:null,modelProvider:input.modelProvider,
     modelId:input.modelId,startedAt:prepared.startedAt,callPurpose:prepared.callPurpose});
    return {physicalReceiptId:input.requestId,value:undefined};

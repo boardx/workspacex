@@ -13,7 +13,7 @@ function fixture(overrides:Partial<VerifiedImageAdmission>={},decision="allowed"
  const startRequest=vi.fn(async(..._args:Parameters<NonNullable<import("../../src/application/agent-run/ports").TokenUsageMeterPort["startRequest"]>>)=>{order.push("start");}),record=vi.fn(async(..._args:Parameters<import("../../src/application/agent-run/ports").TokenUsageMeterPort["record"]>)=>{});
  const admission=prepareImageAiAdmission({admission:{reserve,settle},usage:{startRequest,record},resolve:async(c,r)=>({
   orgId:c.orgId,userId:"user-a",runId:c.parentRunId,sourceRunId:c.parentRunId,subtaskId:null,executionAttemptId:c.attemptId,executionLeaseEpoch:c.leaseEpoch,
-  projectId:null,threadId:null,agentId:null,formalModelId:"formal-image",logicalCallId:c.toolCallId,
+  projectId:null,threadId:null,agentId:null,formalModelId:"formal-image",logicalCallId:c.toolCallId??"direct-image",
   windowStart:"2026-10-01T00:00:00Z",windowEnd:"2026-11-01T00:00:00Z",modelProvider:r.modelProvider,modelId:r.modelId,
   serializedBodySha256:createHash("sha256").update(r.serializedBody).digest("hex"),maximumQuantity:1n,
   price:{unit:"image",quantum:1n,microsPerQuantum:500n,currency:"CNY",version:"audited-price-1"},tokenBilling:"not-applicable",bindingVerified:true,...overrides})});
@@ -77,7 +77,7 @@ describe("stage two native image transport admission",()=>{
  });
  it("terminal failure blocks another dispatch in this instance",async()=>{
   const f=fixture();f.record.mockRejectedValue(new Error("ledger offline"));const fetcher=vi.fn(async(_url:unknown,opts?:RequestInit)=>Response.json(opts?.method==="POST"?{output:{task_id:"task_1"}}:{output:{task_status:"SUCCEEDED",results:[{url:"https://image.invalid/result.png"}]},usage:{image_count:1}}));vi.stubGlobal("fetch",fetcher);
-  const provider=new BailianImageProvider(bailianConfig,f.admission,true);await provider.generateImage("cat",undefined,context);
+  const provider=new BailianImageProvider(bailianConfig,f.admission,true);await expect(provider.generateImage("cat",undefined,context)).rejects.toThrow("ledger offline");
   await expect(provider.generateImage("cat",undefined,context)).rejects.toThrow();expect(fetcher).toHaveBeenCalledTimes(2);expect(f.settle).not.toHaveBeenCalled();
  });
  it("OpenAI optional native-only adapter is called before the synchronous HTTP boundary",async()=>{
@@ -125,7 +125,7 @@ describe("stage two native image transport admission",()=>{
  });
  it("supplier bound violation records actual count and blocks the next async submit",async()=>{
   const f=fixture(),fetcher=vi.fn(async(_url:unknown,opts?:RequestInit)=>Response.json(opts?.method==="POST"?{output:{task_id:"task_1"}}:{output:{task_status:"SUCCEEDED",results:[{url:"https://image.invalid/result.png"}]},usage:{image_count:2}}));vi.stubGlobal("fetch",fetcher);
-  const provider=new BailianImageProvider(bailianConfig,f.admission,true);await provider.generateImage("cat",undefined,context);
+  const provider=new BailianImageProvider(bailianConfig,f.admission,true);await expect(provider.generateImage("cat",undefined,context)).rejects.toThrow("AI_IMAGE_PROVIDER_BOUND_VIOLATED");
   expect(f.record.mock.calls[0]?.[1]).toMatchObject({nativeUsage:{quantity:2n},costMicros:1000n});
   await expect(provider.generateImage("cat",undefined,context)).rejects.toThrow();expect(fetcher).toHaveBeenCalledTimes(2);
  });
@@ -160,4 +160,12 @@ describe("stage two native image transport admission",()=>{
   expect(f.startRequest).toHaveBeenCalledTimes(1);expect(fetcher).toHaveBeenCalledTimes(1);expect(f.settle.mock.calls[0]?.[2]).toEqual({tokens:0n,costMicros:null});
  });
 
+});
+
+it("OpenAI native admission retains reported Tokens and the audited Token bound",async()=>{
+ const terminal=vi.fn().mockResolvedValue(undefined),start=vi.fn().mockResolvedValue({terminal});
+ const fetcher=vi.fn(async()=>Response.json({data:[{b64_json:Buffer.from("image").toString("base64")}],usage:{total_tokens:100,input_tokens:80,output_tokens:20}}));vi.stubGlobal("fetch",fetcher);
+ await new OpenAiImageProvider({...openaiConfig,modelId:"gpt-image-1",maximumBillableTokens:500},undefined,false,{start}).generateImage("cat",undefined,context);
+ expect(start).toHaveBeenCalledWith(context,expect.objectContaining({maximumTokens:500,tokenBoundRequired:true,quantity:1n}));
+ expect(terminal).toHaveBeenCalledWith(expect.objectContaining({quantity:null,usage:{total:100,prompt:80,completion:20}}));expect(fetcher).toHaveBeenCalledTimes(1);
 });

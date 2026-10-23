@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 /**
  * live-asr-draft.ts —— issue #726：composer 麦克风按钮的语音转录，**不落库**。
  *
@@ -132,7 +133,7 @@ export async function openAsrDraftStream(
     const frame = parsed.data;
     if (frame.type === "asr.partial") return handlers.onPartial(frame.text);
     if (frame.type === "asr.final") return handlers.onFinal(frame.text);
-    if (frame.type === "asr.error") return finish(frame.reason);
+    if (frame.type === "asr.error") { notifyCreditFailure(frame.credit ?? {code:frame.reason}); return finish(frame.reason); }
     finish();
   });
   socket.addEventListener("close", () => finish(stopRequested ? undefined : "ASR_PROVIDER_UNAVAILABLE"));
@@ -151,7 +152,7 @@ export async function openAsrDraftStream(
   }
   if (terminal) {
     await terminalDone;
-    throw new Error("asr_draft_stream_closed_during_capture_start");
+    throw new Error(terminalReason === "CREDIT_REQUIRED" || terminalReason === "CREDIT_ACCOUNTING_UNAVAILABLE" ? terminalReason : "asr_draft_stream_closed_during_capture_start");
   }
   // Cancellation owns startup only. Established streams must flush via handle.stop().
   deps.signal?.removeEventListener("abort", abort);

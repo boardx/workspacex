@@ -225,6 +225,9 @@ beforeAll(async () => {
   await migrateOnce();
   await startLanggraphServer();
   process.env.KERNEL_DEEP_AGENT_BASE_URL = langgraphBase;
+  // Control-engine fixture performs no inner vendor calls; declare callback capability explicitly.
+  process.env.KERNEL_SUBTASK_CALLBACK_BASE_URL = langgraphBase;
+  process.env.DEEP_AGENT_SERVICE_INTERNAL_KEY = "private-control-fixture";
   process.env.KERNEL_DEEP_AGENT_POLL_INTERVAL_MS = "5";
   process.env.KERNEL_DEEP_AGENT_TIMEOUT_MS = "10000";
   delete process.env.KERNEL_AGENT_RUN_AUTOSTART;

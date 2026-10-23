@@ -85,3 +85,14 @@ it('real repositories reuse one tenant connection and lifecycle lock precedes du
  await accounting.start({kind:'recording',orgId:context.orgId,userId:'principal',sessionId:'active'},{requestId:'single-connection',modelProvider:'p',modelId:'m',startedAt:new Date().toISOString()});
  expect(physicalConnections).toBe(1);expect(queries.filter(sql=>sql.includes('INTO model_request_starts'))).toHaveLength(1);expect(locked).toBe(false);
 });
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){} async settleInSession(){}
+}}));
+
+// SQL protocol unit fixture: durable filesystem replay has its own real-spool suite.
+vi.mock("../../src/infrastructure/billing/credit-usage-meter",async()=>{
+ const {PgTokenUsageRepository}=await import("../../src/infrastructure/auth/pg-token-usage-repository");
+ return {creditUsageMeter:(db:ConstructorParameters<typeof PgTokenUsageRepository>[0])=>Object.assign(new PgTokenUsageRepository(db),{prepareStart:async()=>undefined})};
+});

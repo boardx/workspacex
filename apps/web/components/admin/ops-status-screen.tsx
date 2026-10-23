@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { ConsumptionSettingsPanel } from "./consumption-settings-panel";
 import { Loader2 } from "lucide-react";
 import { AdminScreen } from "./admin-screen";
 import { PlatformExtractionSettingPanel } from "./platform-extraction-setting-panel";
@@ -54,6 +55,7 @@ export function OpsStatusScreen({ state }: { state: UiState }) {
       successMessage="操作已完成"
     >
       <div className="flex flex-col gap-4">
+        <ConsumptionSettingsPanel />
         <ServiceUptimePanel />
         <TestMailPanel />
         <PasswordResetThrottlePanel />

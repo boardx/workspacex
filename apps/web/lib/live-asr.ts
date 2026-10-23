@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 /**
  * live-asr.ts —— #466 步骤 7 的第二段：把采到的音频送上服务端 WS 面，把转录取回来。
  *
@@ -158,7 +159,7 @@ export async function openAsrStream(
         segmentId: frame.segmentId, text: frame.text, lowConfidence: frame.lowConfidence,
       });
     }
-    if (frame.type === "asr.error") return handlers.onError(frame.reason);
+    if (frame.type === "asr.error") { notifyCreditFailure(frame.credit ?? {code:frame.reason}); return handlers.onError(frame.reason); }
     handlers.onFinished();
   });
 

@@ -1,3 +1,4 @@
+import {createArtifactIndexProducer} from "../../src/infrastructure/retrieval/artifact-index-producer";
 import {PgArtifactEmbeddingAccounting} from '../../src/infrastructure/retrieval/pg-artifact-embedding-accounting';
 import {ArtifactEmbeddingOwnershipDenied} from '../../src/application/retrieval/artifact-embedding-accounting';
 import {execFile} from 'node:child_process';
@@ -32,11 +33,11 @@ const org=toOrgId('producer-'+randomUUID()),project='project-'+org;
 let db:PgDatabase,root:string,objects:FsObjectStore,artifacts:PgArtifactRepository,outbox:PgIngestionRepository,indexSource:PgArtifactIndexSource,indexer:IndexArtifactVersion,knowledge:PgOrganizationKnowledgeIndex;
 const ids={next:()=>randomUUID()},actor={orgId:org,userId:'publisher',threadId:'trusted',projectId:project};
 beforeAll(async()=>{
- await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());root=await mkdtemp(join(tmpdir(),'wx-index-'));objects=new FsObjectStore(root);artifacts=new PgArtifactRepository(db);outbox=new PgIngestionRepository(db);
+ await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());root=await mkdtemp(join(tmpdir(),'wx-index-'));vi.stubEnv('WORKSPACEX_CREDIT_RECEIPT_DIR',join(root,'receipts'));objects=new FsObjectStore(root);artifacts=new PgArtifactRepository(db);outbox=new PgIngestionRepository(db);
  await seedOrg({orgId:org,projectId:project});await addOrgMember(org,'publisher','consultant',null);await addProjectMember(org,project,'publisher','member',null);
  const identity={repo:new PgIdentityRepository(db),ids};indexSource=new PgArtifactIndexSource(db,artifacts,objects,identity);indexer=new IndexArtifactVersion(indexSource,new PgArtifactIndexWriter(db,indexSource));knowledge=new PgOrganizationKnowledgeIndex(db,identity);
 });
-afterAll(async()=>{await db?.close();await resetOrgs(org);if(root)await rm(root,{recursive:true,force:true});});
+afterAll(async()=>{vi.unstubAllEnvs();await db?.close();await resetOrgs(org);if(root)await rm(root,{recursive:true,force:true});});
 async function upload(text:string,filename='source.txt'){
  const result=await uploadArtifact({store:objects,repo:artifacts,ids,quarantine:new PgQuarantineRepository(db),alerts:{raise:async()=>{}}},{orgId:org,projectId:project,agendaSegmentId:null,confidential:false,actorId:'publisher',files:[{filename,bytes:Buffer.from(text)}]});
  const file=result.files[0]!;if(file.status!=='accepted')throw new Error('upload fixture rejected');return file;
@@ -187,7 +188,8 @@ it('valid foreign artifact operation cannot acknowledge a globally colliding hid
   // Distinct ID proves the foreign operation is valid; the denial below is a global
   // start collision behind RLS, rather than a nonexistent or unauthorized source.
   await accounting.start(foreign,other.operationId,{...request,requestId:randomUUID()});
-  await expect(accounting.start(foreign,other.operationId,request)).rejects.toBeInstanceOf(ArtifactEmbeddingOwnershipDenied);
+  // Durable receipt identity rejects cross-tenant reuse before the SQL collision path.
+  await expect(accounting.start(foreign,other.operationId,request)).rejects.toMatchObject({code:"credit_accounting_unavailable"});
   expect((await asApp(foreign,c=>c.query('SELECT id FROM model_request_starts WHERE id=$1',[request.requestId]))).rows).toEqual([]);
   expect((await asApp(org,c=>c.query('SELECT user_id,artifact_operation_id FROM model_request_starts WHERE id=$1',[request.requestId]))).rows).toEqual([{user_id:'publisher',artifact_operation_id:original.operationId}]);
  }finally{try{await resetOrgs(foreign);}finally{vi.unstubAllEnvs();}}
@@ -257,4 +259,20 @@ it('real input-only artifact admission serializes per-user budgets and keeps unk
   expect((await asApp(quotaOrg,c=>c.query('SELECT state,settled_tokens,settled_cost_micros FROM ai_request_reservations WHERE id=$1',[paid.requestId]))).rows).toEqual([{state:'settled',settled_tokens:'2',settled_cost_micros:'2'}]);
   expect((await asApp(org,c=>c.query('SELECT id FROM token_usage_events WHERE id=$1',[paid.requestId]))).rows).toEqual([]);
  }finally{try{await resetOrgs(quotaOrg);}finally{vi.unstubAllEnvs();}}
+});
+
+it.each([undefined,"0"])("production artifact producer always attaches persisted accounting with legacy flag %s",async flag=>{
+ if(flag===undefined)vi.stubEnv("KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED",undefined);else vi.stubEnv("KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED",flag);
+ try{
+  const file=await upload("MANDATORY ACCOUNTING "+randomUUID());
+  const model="mandatory-artifact-credit";await registerEmbeddingModel(migrationConfig(),model,org,2);
+  const references:unknown[]=[];
+  const producer=createArtifactIndexProducer(db,objects,{model,modelVersion:org,embed:async(_text,reference)=>{
+   references.push(reference);expect(reference).toMatchObject({kind:"artifact-index",orgId:String(org)});
+   if(!reference||!("operationId" in reference))throw new Error("missing artifact subject");
+   const operation=await asApp(org,c=>c.query("SELECT user_id,artifact_version_id FROM artifact_embedding_operations WHERE org_id=$1 AND id=$2",[org,reference.operationId]));
+   expect(operation.rows).toEqual([{user_id:"publisher",artifact_version_id:file.versionId}]);return [0.5,0.25];
+  }});
+  await drive(producer);expect(references.length).toBeGreaterThan(0);
+ }finally{vi.unstubAllEnvs();}
 });

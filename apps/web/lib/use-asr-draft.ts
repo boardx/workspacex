@@ -86,6 +86,8 @@ export interface UseAsrDraftResult {
 }
 
 const ERROR_TEXT: Record<AsrDraftErrorReason, string> = {
+  CREDIT_REQUIRED: "可用额度不足，请确认计费账户并充值后继续语音输入。",
+  CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，请稍后重试或联系管理员。",
   ASR_PROVIDER_UNAVAILABLE: "语音识别服务暂时不可用，请稍后重试。",
   ASR_NOT_CONFIGURED: "当前环境尚未配置语音转写服务，暂时无法使用语音输入，请手动输入。",
   AUDIO_FORMAT_REJECTED: "音频格式被服务拒绝，请刷新页面后重试。",
@@ -347,6 +349,10 @@ export function useAsrDraft({ onTranscript, getBaseText, sessionToken, deviceId,
       if (!current()) return;
       startingRef.current = false;
       handleRef.current = null;
+      if (caught instanceof Error && (caught.message === "CREDIT_REQUIRED" || caught.message === "CREDIT_ACCOUNTING_UNAVAILABLE")) {
+        policyRef.current?.cancel(); recoveryRef.current = false; setReconnecting(false);
+        setStatus("error"); setErrorReason(caught.message); setError(ERROR_TEXT[caught.message]); return;
+      }
       if (caught instanceof LiveRecordingError) {
         policyRef.current?.cancel(); recoveryRef.current = false; setReconnecting(false);
         // `live-recording.ts` 已经把权限被拒绝/无设备/采音起不来分成具名的中文提示，

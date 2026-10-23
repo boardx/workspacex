@@ -33,7 +33,7 @@ const CLAIM_COLUMNS = `c.id, c.statement, c.status, c.claim_kind, c.valid_to, c.
 export class PgKnowledgeRecall implements KnowledgeRecallPort {
   readonly evaluationMode = readKgRecallEvaluationMode();
   /** `embeddings`：部署的嵌入模型（F10 同一个 EMBEDDING_PORT）；null ⇒ 向量通道未配置（S9，#4366）。 */
-  constructor(private readonly db: DatabasePort, private readonly embeddings: EmbeddingPort | null = null, private readonly requestAccounting=false) {}
+  constructor(private readonly db: DatabasePort, private readonly embeddings: EmbeddingPort | null = null, _requestAccounting=true) {}
 
   async candidates(orgId: OrgId, userId: string, threadId: string) {
     return this.db.withTenant(orgId, async (s) => {
@@ -193,10 +193,10 @@ export class PgKnowledgeRecall implements KnowledgeRecallPort {
   ): Promise<readonly VectorHit[] | null> {
     if (this.embeddings === null) return null;
     if (limit < 1 || (Array.isArray(candidateIds) && candidateIds.length === 0)) return [];
-    if(this.requestAccounting&&accounting?.orgId!==String(orgId))throw new Error("retrieval_accounting_tenant_mismatch");
+    if(accounting?.orgId!==String(orgId))throw new Error("retrieval_accounting_tenant_mismatch");
     const model = { model: this.embeddings.model, modelVersion: this.embeddings.modelVersion };
     // 嵌入问题与读候选集并行（候选集还在读时就开始嵌入）。
-    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query,this.requestAccounting?accounting:undefined)]);
+    const [claimIds, q] = await Promise.all([candidateIds, this.embeddings.embed(query,accounting)]);
     if (claimIds.length === 0) return [];
     // pgvector 的文本输入格式就是 JSON 数组的写法。
     const vec = JSON.stringify(q);

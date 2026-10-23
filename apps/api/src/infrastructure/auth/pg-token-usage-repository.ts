@@ -1,3 +1,4 @@
+import {PgCreditConsumption} from "../billing/pg-credit-consumption";
 import {AI_NATIVE_UNITS} from "../../domain/agent-run/ai-billable-unit";
 /**
  * F159 —— `token_usage_events` 的唯一写入实现。
@@ -22,15 +23,16 @@ import type { OrgId } from "../../domain/org-id";
 import type { TokenUsageMeterPort, TokenUsageRecord } from "../../application/agent-run/ports";
 
 export class PgTokenUsageRepository implements TokenUsageMeterPort {
-  constructor(private readonly db: DatabasePort) {}
+  constructor(private readonly db: DatabasePort, private readonly credits = new PgCreditConsumption(db)) {}
 
   async startRequest(orgId: OrgId, input: Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1]): Promise<void> {
     await this.db.withTenant(orgId, async s => {
+      await this.credits.reserveInSession(s, orgId, input);
       await s.query(`INSERT INTO model_request_starts
-        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id,artifact_operation_id${input.platformTestId!==undefined?",platform_test_id":""})
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15${input.platformTestId!==undefined?",$16":""}) ON CONFLICT(id) DO NOTHING`,
+        (id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id,artifact_operation_id${input.platformTestId!==undefined?",platform_test_id":""},knowledge_operation_id)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15${input.platformTestId!==undefined?",$16":""},${input.platformTestId!==undefined?"$17":"$16"}) ON CONFLICT(id) DO NOTHING`,
         [input.requestId, orgId, input.userId, input.runId, input.executionAttemptId,
-          input.projectId, input.modelProvider, input.modelId, input.startedAt, input.threadId ?? null, input.agentId ?? null, input.callPurpose ?? null,input.executionLeaseEpoch??null,input.subtaskId??null,input.artifactOperationId??null,...(input.platformTestId!==undefined?[input.platformTestId]:[])]);
+          input.projectId, input.modelProvider, input.modelId, input.startedAt, input.threadId ?? null, input.agentId ?? null, input.callPurpose ?? null,input.executionLeaseEpoch??null,input.subtaskId??null,input.artifactOperationId??null,...(input.platformTestId!==undefined?[input.platformTestId]:[]),input.knowledgeOperationId??null]);
     });
   }
 
@@ -65,6 +67,7 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         await this.db.withTenant(orgId, async (s) => {
+          await this.credits.settleInSession(s, orgId, {...usage, eventId});
           await s.query(
             `INSERT INTO token_usage_events
            (id, org_id, user_id, run_id, model_provider, model_id,

@@ -6,21 +6,23 @@ import { execFileSync } from "node:child_process";
 import { test, expect, type Page } from "@playwright/test";
 import { research } from "@repo/contracts";
 import { ReportFileRequest } from "@repo/contracts/report-files";
+import { freshNoModelAccount } from "./no-model-account-fixture";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 
 interface AuditClient { query(sql: string, params: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }> }
 const { PgDatabase } = createRequire(resolve(process.cwd(), "../api/package.json"))("./src/infrastructure/db/pg-database.ts");
-async function asApp<T>(work: (client: AuditClient) => Promise<T>): Promise<T> {
+async function asApp<T>(orgId: string, work: (client: AuditClient) => Promise<T>): Promise<T> {
   if (!process.env.WORKSPACEX_ISOLATION_ID || !process.env.WORKSPACEX_DB?.startsWith("wsx_")) throw new Error("owned isolated database required");
   const config = JSON.parse(execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", "import {appConfig} from '../api/src/infrastructure/db/pg-config.ts'; process.stdout.write(JSON.stringify(appConfig()));"], { cwd: process.cwd(), encoding: "utf8" }));
   const db = new PgDatabase(config);
-  try { return await db.withTenant(FULLSTACK_E2E.orgId, work); } finally { await db.close(); }
+  try { return await db.withTenant(orgId, work); } finally { await db.close(); }
 }
 
-async function seedSavedPlan(page: Page, name: string) {
+async function seedSavedPlan(page: Page, name: string, account: {orgId:string;email:string;password:string}=FULLSTACK_E2E) {
+  const {orgId,email,password}=account;
   await page.goto("/login");
-  await page.getByTestId("login-email").fill(FULLSTACK_E2E.email);
-  await page.getByTestId("login-password").fill(FULLSTACK_E2E.password);
+  await page.getByTestId("login-email").fill(email);
+  await page.getByTestId("login-password").fill(password);
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/, { timeout: 30000 });
   const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
@@ -36,11 +38,11 @@ async function seedSavedPlan(page: Page, name: string) {
   const saved = research.GuidedResearchRuntime.parse({ ...initial, version: 1, currentNode: "outline", completed: false,
     availableNodes: ["brief", "directions", "outline"], generatedNodes: ["brief", "directions", "outline"],
     outline: [{ id: "chapter", title: "采购验证", questions: ["如何核验审批？"], enabled: true, order: 0 }] });
-  await asApp(async c => {
-    await c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(saved)]);
-    await c.query("UPDATE guided_research_sessions SET stage='outline',resume_stage='outline',status='active',progress=40,source_count=0,report_id=NULL,brief=$3::jsonb WHERE org_id=$1 AND id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(saved.brief)]);
+  await asApp(orgId, async c => {
+    await c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, session.sessionId, JSON.stringify(saved)]);
+    await c.query("UPDATE guided_research_sessions SET stage='outline',resume_stage='outline',status='active',progress=40,source_count=0,report_id=NULL,brief=$3::jsonb WHERE org_id=$1 AND id=$2", [orgId, session.sessionId, JSON.stringify(saved.brief)]);
   });
-  return { session, path, headers, saved };
+  return { orgId, session, path, headers, saved };
 }
 
 /** R2: one real save round trip, controlled transport delay, then normal reload. */
@@ -48,8 +50,6 @@ test("R2 plan saving feedback belongs to save and survives a real API/PG refresh
   test.setTimeout(180000);
   const output = resolve(process.env.WX_RESEARCH_UX_EVIDENCE ?? testInfo.outputPath("evidence"));
   await mkdir(output, { recursive: true });
-  const activity = () => asApp(c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [FULLSTACK_E2E.orgId])).then(result => result.rows[0]);
-  const before = await activity();
   const generationCommands: string[] = [];
   page.on("request", request => {
     if (request.method() !== "POST") return;
@@ -57,7 +57,10 @@ test("R2 plan saving feedback belongs to save and survives a real API/PG refresh
     if (/runtime\/commands/.test(path) && request.postDataJSON()?.action !== "save") generationCommands.push(path);
     if (/report-files|\/(?:generate|execute)(?:\/|$)/.test(path)) generationCommands.push(path);
   });
-  const { session, path, headers, saved } = await seedSavedPlan(page, "研究 R2 保存反馈");
+  const { orgId, session, path, headers, saved } = await seedSavedPlan(page, "研究 R2 保存反馈", await freshNoModelAccount(page));
+  const activity = () => asApp(orgId, c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [orgId])).then(result => result.rows[0]);
+  const before = await activity();
+  expect(before).toEqual({runs:0,requests:0});
   await page.goto(`/research/${session.sessionId}/plan`);
   await page.getByRole("button", { name: "编辑计划 1：采购验证", exact: true }).click();
   await page.getByRole("textbox", { name: "计划 1", exact: true }).fill("审批责任验证");
@@ -101,9 +104,10 @@ test("R3 a failed save keeps the plan draft available for explicit retry", async
   test.setTimeout(180000);
   const output = resolve(process.env.WX_RESEARCH_UX_EVIDENCE ?? testInfo.outputPath("evidence"));
   await mkdir(output, { recursive: true });
-  const activity = () => asApp(c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [FULLSTACK_E2E.orgId])).then(result => result.rows[0]);
+  const { orgId, session, path, headers } = await seedSavedPlan(page, "研究 R3 保存恢复", await freshNoModelAccount(page));
+  const activity = () => asApp(orgId, c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [orgId])).then(result => result.rows[0]);
   const before = await activity();
-  const { session, path, headers } = await seedSavedPlan(page, "研究 R3 保存恢复");
+  expect(before).toEqual({runs:0,requests:0});
   let attempts = 0;
   const generationCommands: string[] = [];
   await page.route("**/runtime/commands", async route => {
@@ -184,9 +188,10 @@ test("R4 saved long research content and file controls remain readable and keybo
   test.setTimeout(180000);
   const output = resolve(process.env.WX_RESEARCH_UX_R4_EVIDENCE ?? testInfo.outputPath("evidence"));
   await mkdir(output, { recursive: true });
-  const activity = () => asApp(c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [FULLSTACK_E2E.orgId])).then(result => result.rows[0]);
+  const { orgId, session, path, headers, saved } = await seedSavedPlan(page, "研究 R4 长内容与键盘", await freshNoModelAccount(page));
+  const activity = () => asApp(orgId, c => c.query("SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests", [orgId])).then(result => result.rows[0]);
   const before = await activity();
-  const { session, path, headers, saved } = await seedSavedPlan(page, "研究 R4 长内容与键盘");
+  expect(before).toEqual({runs:0,requests:0});
   const longTitle = "VeryLongResearchTitle".repeat(10).slice(0, 190);
   const outline = Array.from({ length: 3 }, (_, index) => ({ id: `long-${index}`, title: `${index + 1} ${longTitle}`, questions: ["如何核对审批责任？"], enabled: true, order: index }));
   const paragraph = "这是一段用于阅读交互验收的合成文本，说明审批步骤、核对责任与后续确认事项。";
@@ -194,9 +199,9 @@ test("R4 saved long research content and file controls remain readable and keybo
     availableNodes: ["brief", "directions", "outline", "research", "report"], generatedNodes: ["brief", "directions", "outline", "research", "report"], outline,
     report: { title: longTitle, summary: "合成长内容阅读验收，不代表真实研究结论。", introduction: "只验证保存后的阅读与导航。",
       sections: outline.map((item, index) => ({ sectionId: item.id, body: Array.from({ length: 24 }, (_, n) => `第${n + 1}段 ${paragraph.repeat(2)}`).join("\n\n") + ` R4-END-${index}`, sourceIds: [] })), conclusion: "需要真实来源验证后才能用于决策。" } });
-  await asApp(async c => {
-    await c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(complete)]);
-    await c.query("UPDATE guided_research_sessions SET stage='report',resume_stage='report',status='completed',progress=100,source_count=0,report_id=$3 WHERE org_id=$1 AND id=$2", [FULLSTACK_E2E.orgId, session.sessionId, `guided-${session.sessionId}-${complete.revision}`]);
+  await asApp(orgId, async c => {
+    await c.query("UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2", [orgId, session.sessionId, JSON.stringify(complete)]);
+    await c.query("UPDATE guided_research_sessions SET stage='report',resume_stage='report',status='completed',progress=100,source_count=0,report_id=$3 WHERE org_id=$1 AND id=$2", [orgId, session.sessionId, `guided-${session.sessionId}-${complete.revision}`]);
   });
   const forbidden: string[] = [];
   page.on("request", request => { if (request.method() === "POST" && /runtime\/commands|report-files|\/(?:generate|execute)(?:\/|$)/.test(new URL(request.url()).pathname)) forbidden.push(new URL(request.url()).pathname); });
@@ -259,15 +264,15 @@ test('R5 report completion removes source diagnostics and submits both strict fi
   test.setTimeout(180000);
   const output = testInfo.outputPath('evidence');
   await mkdir(output, { recursive: true });
-  const { session, saved } = await seedSavedPlan(page, '研究报告交付 5829');
+  const { orgId, session, saved } = await seedSavedPlan(page, '研究报告交付 5829');
   const complete = research.GuidedResearchRuntime.parse({ ...saved, version: 2, currentNode: 'report', completed: true,
     availableNodes: ['brief', 'directions', 'outline', 'research', 'report'], generatedNodes: ['brief', 'directions', 'outline', 'research', 'report'],
     sources: [{ id: 'source-5829', taskId: 'task', title: 'Controlled evidence', url: 'https://example.org/evidence', content: 'Controlled evidence', decision: 'accepted', retrievedAt: '2026-10-19', documentError: 'unavailable' }],
     reportTimeline: [{ id: 'validation', stage: 'validation', status: 'completed', attempts: 1 }],
     report: { title: 'Controlled report', summary: 'Controlled saved report for transport verification.', sections: [{ sectionId: 'chapter', body: 'Saved conclusion [[source:source-5829]].', sourceIds: ['source-5829'] }] } });
-  await asApp(async c => {
-    await c.query('UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2', [FULLSTACK_E2E.orgId, session.sessionId, JSON.stringify(complete)]);
-    await c.query("UPDATE guided_research_sessions SET stage='report',resume_stage='report',status='completed',progress=100,source_count=1,report_id=$3 WHERE org_id=$1 AND id=$2", [FULLSTACK_E2E.orgId, session.sessionId, `guided-${session.sessionId}-2`]);
+  await asApp(orgId, async c => {
+    await c.query('UPDATE guided_research_runtime SET state=$3::jsonb WHERE org_id=$1 AND session_id=$2', [orgId, session.sessionId, JSON.stringify(complete)]);
+    await c.query("UPDATE guided_research_sessions SET stage='report',resume_stage='report',status='completed',progress=100,source_count=1,report_id=$3 WHERE org_id=$1 AND id=$2", [orgId, session.sessionId, `guided-${session.sessionId}-2`]);
   });
   const submissions: unknown[] = [];
   // Return an explicit controlled server verdict: the regression was *before*

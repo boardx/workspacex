@@ -13,23 +13,18 @@ for(const kind of ["embedding","rerank"] as const)describe(`${kind} private acco
   const call=(accounting?:typeof ref)=>kind==="embedding"?(client as LangChainEmbeddingClient).embed("transient-query",accounting):(client as LangChainRerankClient).rerank("transient-query",[{id:"a",content:"authorized-evidence"}],accounting);
   return {fetch,call};
  }
- it("default-off protocol contains no accounting claim; enabled protocol carries only server authority reference",async()=>{
-  vi.stubEnv("KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED","0");vi.stubEnv("KERNEL_AI_PRODUCT_QUOTA_ENABLED","0");const f=fixture();await f.call();
-  const plain=JSON.parse(f.fetch.mock.calls[0]![1]!.body as string);expect(plain.accounting).toBeUndefined();
-  vi.stubEnv("KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED","1");await f.call(ref);
-  const body=JSON.parse(f.fetch.mock.calls[1]![1]!.body as string);expect(body.accounting).toEqual(ref);
+ it("accounting is mandatory even when old rollout flags are off",async()=>{
+  vi.stubEnv("KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED","0");vi.stubEnv("KERNEL_AI_PRODUCT_QUOTA_ENABLED","0");const f=fixture();
+  await expect(f.call()).rejects.toThrow("retrieval_accounting_owner_required");expect(f.fetch).not.toHaveBeenCalled();
+  await f.call(ref);
+  const body=JSON.parse(f.fetch.mock.calls[0]![1]!.body as string);expect(body.accounting).toEqual(ref);
   expect(Object.keys(body.accounting).sort()).toEqual(["attemptId","leaseEpoch","orgId","runId"]);
   expect(JSON.stringify(body)).not.toContain("private-service-key");
  });
- it("required accounting with missing/invalid owner or disabled quota hook sends no service HTTP",async()=>{
-  const f=fixture();vi.stubEnv("KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED","1");
-  await expect(f.call()).rejects.toThrow("retrieval_accounting_owner_required");
+ it("missing or invalid trusted ownership prevents service HTTP",async()=>{
+  const f=fixture();await expect(f.call()).rejects.toThrow("retrieval_accounting_owner_required");
   await expect(f.call({...ref,leaseEpoch:0})).rejects.toThrow();
-  await expect(f.call({...ref,userId:"cannot-assert"} as never)).rejects.toThrow();
-  vi.stubEnv("KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED","0");vi.stubEnv("KERNEL_AI_PRODUCT_QUOTA_ENABLED","0");
-  await expect(f.call(ref)).rejects.toThrow("retrieval_accounting_runtime_disabled");
-  vi.stubEnv("KERNEL_AI_PRODUCT_QUOTA_ENABLED","1");
-  await expect(f.call(ref)).rejects.toThrow("retrieval_accounting_required");expect(f.fetch).not.toHaveBeenCalled();
+  await expect(f.call({...ref,userId:"cannot-assert"} as never)).rejects.toThrow();expect(f.fetch).not.toHaveBeenCalled();
  });
  it("private contracts reject asserted requester, provider, URL or credentials",()=>{
   const payload=kind==="embedding"?{texts:["query"]}:{query:"query",candidates:[{id:"a",content:"evidence"}]};

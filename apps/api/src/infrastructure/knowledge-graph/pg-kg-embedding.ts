@@ -1,3 +1,4 @@
+import {PgKnowledgeEmbeddingAccounting} from "./pg-knowledge-embedding-accounting";
 /**
  * S9（#4366）`KgEmbeddingQueuePort` 的 Postgres 实现：迁移 20260927200000 里几个函数的薄封装。
  *
@@ -11,6 +12,8 @@ import { toOrgId, type OrgId } from "../../domain/org-id";
 
 export class PgKgEmbeddingQueue implements KgEmbeddingQueuePort {
   constructor(private readonly db: DatabasePort) {}
+
+  async openAccounting(orgId:OrgId,target:KgEmbeddingTarget){return new PgKnowledgeEmbeddingAccounting(this.db).open(orgId,target);}
 
   async pendingOrgs(): Promise<readonly OrgId[]> {
     // 只读 org id（函数不返回任何内容）；每个 org 的取文本 / 写回在它自己的 withTenant 里做。

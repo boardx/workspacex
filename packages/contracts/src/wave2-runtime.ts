@@ -389,6 +389,10 @@ export const AgentRunError = z.enum([
   "AGENT_VERSION_UNAVAILABLE",
   /** The one model call did not return usable content. Never a fabricated reply. */
   "MODEL_CALL_FAILED",
+  /** Credit admission refused before a new paid model dispatch. */
+  "CREDIT_REQUIRED",
+  /** Ownership, tariff or durable credit accounting cannot be established. */
+  "CREDIT_ACCOUNTING_UNAVAILABLE",
   /**
    * The bounded retry budget for the Chat writeback ran out (§6).
    *

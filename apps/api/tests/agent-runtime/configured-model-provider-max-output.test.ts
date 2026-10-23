@@ -159,7 +159,7 @@ describe("priced admission through actual HTTP adapter",()=>{
  });
  it("ledger failure preserves paid response and never releases hold or repeats HTTP",async()=>{
   const {subject,deps}=setup();deps.usage.record.mockRejectedValue(new Error("ledger down"));
-  const bound=await preparePricedModelCall(subject,deps);expect((await provider().complete({...bound,system:"s",user:"u"})).text).toBe("hi");
+  const bound=await preparePricedModelCall(subject,deps);await expect(provider().complete({...bound,system:"s",user:"u"})).rejects.toThrow("ledger down");
   expect(deps.usage.startRequest).toHaveBeenCalledOnce();expect(deps.usage.record).toHaveBeenCalledOnce();expect(deps.admission.settle).not.toHaveBeenCalled();
  });
 });

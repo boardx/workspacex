@@ -1,3 +1,4 @@
+import {creditUsageMeter} from "../billing/credit-usage-meter";
 import {withCommittedAiPolicyDecision} from "../../application/agent-run/committed-ai-policy-decision";
 import {artifactEmbeddingInputHash,artifactEmbeddingInputMatchesSource} from '../../application/retrieval/artifact-embedding-input-proof';
 import {createHash} from 'node:crypto';
@@ -14,7 +15,6 @@ import {guard,disclose} from '../../application/security/permission-filter';
 import {PgArtifactRepository} from '../artifact/pg-artifact-repository';
 import {PgIdentityRepository} from '../identity/pg-identity-repository';
 import {PgIngestionRepository} from '../files/pg-ingestion-repository';
-import {PgTokenUsageRepository} from '../auth/pg-token-usage-repository';
 import {PgArtifactIndexTargets} from './pg-artifact-index-targets';
 interface Operation {id:string;user_id:string;artifact_id:string;artifact_version_id:string;project_id:string|null;content_hash:string;ingestion_job_id:string|null;ingestion_attempt:number|null;input_hashes:readonly string[];}
 /** Opaque operation only; each SDK HTTP rechecks stored actor and current artifact/job authority. */
@@ -48,7 +48,20 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
   if(!result.visible[0])throw new ArtifactEmbeddingOwnershipDenied();return result.visible[0].payload;
  }
  async admit(orgId:OrgId,operationId:string,input:Parameters<NonNullable<ArtifactEmbeddingUsagePort['admit']>>[2]){
-  if(process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED!=='1'||process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED!=='1'||!this.inputOnly)throw new Error('AI_INPUT_ONLY_ADMISSION_UNCONFIGURED');
+  if(!this.inputOnly&&process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED!=='1'){
+   const provider=(process.env.KERNEL_MODEL_PROVIDER??'').trim();
+   let body:Record<string,unknown>;try{body=JSON.parse(input.serializedBody);}catch{throw new Error('AI_DISPATCH_BODY_INVALID');}
+   if(!provider||body.model!==input.modelId||input.modelId!==process.env.KERNEL_EMBEDDING_MODEL_ID||!input.requestPath.endsWith('/embeddings'))throw new Error('artifact_accounting_binding_unconfigured');
+   await this.scoped(orgId,async db=>{
+    const op=await this.find(db,orgId,operationId);await this.authorized(db,orgId,op);
+    if(!artifactEmbeddingInputMatchesSource(input.serializedBody,op.input_hashes??[]))throw new Error('AI_ARTIFACT_WHOLE_INPUT_UNPROVEN');
+    await creditUsageMeter(db).startRequest(orgId,{requestId:input.requestId,startedAt:input.startedAt,modelId:input.modelId,
+     maximumTokens:Buffer.byteLength(input.serializedBody,'utf8'),userId:op.user_id,runId:null,executionAttemptId:null,
+     projectId:op.project_id,modelProvider:provider,artifactOperationId:op.id,callPurpose:'retrieval-embedding'});
+   });
+   return;
+  }
+  if(!this.inputOnly)throw new Error('AI_INPUT_ONLY_ADMISSION_UNCONFIGURED');
   const configured=this.inputOnly;
   const digest=createHash('sha256').update(input.serializedBody).digest('hex');
   const logicalCallId=JSON.stringify([operationId,'retrieval-embedding',input.requestId,digest,input.requestPath]);
@@ -61,19 +74,18 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
    const decision=await admitPricedInputOnlyCall({orgId,userId:op.user_id,agentId:null,logicalCallId,attempt:0,
     primaryModelId:await configured.primaryModelId(input.modelId),confidentiality:'non-confidential',requiredCapabilities:['embedding']},
     {...input,modelProvider:configured.provider},{...configured.dependencies(orgId,db),policy:budget,admission:budget});
-   await new PgTokenUsageRepository(db).startRequest(orgId,{...input,userId:op.user_id,runId:null,executionAttemptId:null,
+   await creditUsageMeter(db).startRequest(orgId,{...input,userId:op.user_id,runId:null,executionAttemptId:null,
     projectId:op.project_id,modelProvider:decision.modelProvider,modelId:decision.runtimeModelId,artifactOperationId:op.id,callPurpose:'retrieval-embedding'});
    const stored=await db.withTenant(orgId,s=>resolveArtifactRequestStart(s,orgId,input.requestId));
    if(!stored||stored.artifact_operation_id!==op.id||stored.user_id!==op.user_id||stored.model_provider!==decision.modelProvider||stored.model_id!==decision.runtimeModelId||stored.project_id!==op.project_id||stored.started_at.toISOString()!==new Date(input.startedAt).toISOString())throw new ArtifactEmbeddingOwnershipDenied();
   });
  }
  async start(orgId:OrgId,operationId:string,input:Parameters<ArtifactEmbeddingUsagePort['start']>[2]){
-  if(process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED!=='1')throw new Error('artifact_accounting_disabled');
   if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')throw new Error('ARTIFACT_EMBEDDING_ADMISSION_REQUIRED');
   const provider=(process.env.KERNEL_MODEL_PROVIDER??'').trim();if(!provider||input.modelId!==process.env.KERNEL_EMBEDDING_MODEL_ID)throw new Error('artifact_accounting_binding_unconfigured');
   await this.scoped(orgId,async db=>{
    await db.withTenant(orgId,s=>s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",["artifact-model-request:"+input.requestId]));
-   const usage=new PgTokenUsageRepository(db),existing=await db.withTenant(orgId,s=>resolveArtifactRequestStart(s,orgId,input.requestId));
+   const usage=creditUsageMeter(db),existing=await db.withTenant(orgId,s=>resolveArtifactRequestStart(s,orgId,input.requestId));
    if(existing){if(existing.artifact_operation_id!==operationId||existing.model_id!==input.modelId||existing.model_provider!==provider||existing.started_at.toISOString()!==new Date(input.startedAt).toISOString())throw new ArtifactEmbeddingOwnershipDenied();return;}
    const op=await this.find(db,orgId,operationId);await this.authorized(db,orgId,op);
    await usage.startRequest(orgId,{...input,userId:op.user_id,runId:null,executionAttemptId:null,projectId:op.project_id,modelProvider:provider,artifactOperationId:op.id,callPurpose:'retrieval-embedding'});
@@ -82,7 +94,7 @@ export class PgArtifactEmbeddingAccounting implements ArtifactEmbeddingAccountin
   });
  }
  async terminal(orgId:OrgId,operationId:string,input:Parameters<ArtifactEmbeddingUsagePort['terminal']>[2]){
-  const usage=new PgTokenUsageRepository(this.db),row=await this.db.withTenant(orgId,s=>resolveArtifactRequestStart(s,orgId,input.requestId));
+  const usage=creditUsageMeter(this.db),row=await this.db.withTenant(orgId,s=>resolveArtifactRequestStart(s,orgId,input.requestId));
   if(!row||row.artifact_operation_id!==operationId||Date.parse(input.endedAt)<row.started_at.getTime())throw new ArtifactEmbeddingOwnershipDenied();
   const budget=new PgAiAdmissionRepository(this.db),snapshot=await budget.readReservedPrice(orgId,input.requestId);
   if(snapshot&&(snapshot.userId!==row.user_id||snapshot.modelProvider!==row.model_provider||snapshot.modelId!==row.model_id||!('billingMode' in snapshot.price)))throw new ArtifactEmbeddingOwnershipDenied();

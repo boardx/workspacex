@@ -21,13 +21,18 @@ for key in ("DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED", "DEEP_AGENT_RETRIEVAL_REQUE
 from deep_agent_service.http_app import app
 from deep_agent_service import model_request_accounting as accounting
 import httpx
-assert app is not None and not accounting.enabled()
+assert app is not None and accounting.enabled()
 dispatched = []
 inner = httpx.MockTransport(lambda request: dispatched.append(request) or httpx.Response(200, json={"ok": True}))
 transport = accounting.AccountingTransport(inner)
 request = httpx.Request("POST", "http://vendor.example.test/completions")
-assert transport.handle_request(request).status_code == 200
-assert len(dispatched) == 1
+try:
+    transport.handle_request(request)
+except accounting.RuntimeUsageError:
+    pass
+else:
+    raise AssertionError("unowned dispatch was allowed")
+assert len(dispatched) == 0
 os.environ["DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED"] = "1"
 accounting.ownership = lambda: {"base_url":"http://api.example.test", "org_id":"fixture", "run_id":"run", "attempt_id":"attempt", "lease_epoch":1}
 os.environ["DEEP_AGENT_USAGE_SPOOL_DIR"] = sys.argv[1]
@@ -37,7 +42,7 @@ except accounting.RuntimeUsageError as error:
     assert str(error) == "usage_accounting_platform_unsupported", str(error)
 else:
     raise AssertionError("unsupported accounting dispatched")
-assert len(dispatched) == 1
+assert len(dispatched) == 0
 assert not os.path.exists(sys.argv[1])
 '''
     environment = {**os.environ, "PYTHONPATH": str(source)}

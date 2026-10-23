@@ -240,6 +240,8 @@ export const LOCAL_ERROR_NEXT_STEP: Record<
   SKILL_VERSION_UNAVAILABLE:
     "这个技能包在本机没装好。退出应用再打开一次会重新导入随包技能；仍然不行就看 logs/api.log 里 skill 相关的行。",
   AGENT_VERSION_UNAVAILABLE: "重新选一个 Agent 再发一次即可；本机的 Agent 列表不会自己变化，这通常是一次性的读取失败。",
+  CREDIT_REQUIRED: "补充额度后，主动重试当前任务。",
+  CREDIT_ACCOUNTING_UNAVAILABLE: "计费信息暂时无法确认，请稍后主动重试，并在设置中检查计费配置。",
   MODEL_CALL_FAILED: null, // 这一类必定带成因，交给 LOCAL_FAILURE_NEXT_STEP
   CHAT_WRITEBACK_FAILED: "回复已经生成出来了，只是没写进对话。用失败卡上的重试；本地库偶尔会因为一次长事务排队而写失败。",
   TOOL_LOOP_LIMIT_EXCEEDED: "本机的小模型容易在工具之间打转。把任务说得更具体、或拆成两步分别发，通常一次就过。",

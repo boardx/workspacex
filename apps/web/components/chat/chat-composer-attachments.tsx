@@ -11,6 +11,7 @@
  *
  * ⚠ 上传进度：fetch 不暴露上传字节进度，故上传态用**不确定态 spinner**（不伪造百分比）。
  */
+import { AttachmentExtractionNotice } from "./attachment-extraction-notice";
 import * as React from "react";
 import { createPortal } from "react-dom";
 import {
@@ -804,6 +805,7 @@ export function MessageAttachments({
               {kind === "image"
                 ? <ImageAttachmentThumb att={att} threadId={threadId} onOpen={() => setPreviewing(att)} fallback={card} />
                 : card}
+              <AttachmentExtractionNotice attachment={att}/>
             </li>
           );
         })}
@@ -863,9 +865,10 @@ function AttachmentRow({
                 · 上传中 {Math.round((att.progress ?? 0) * 100)}%
               </span>
             ) : null}
-            {att.status === "uploaded" ? <Badge tone="outline">已就绪</Badge> : null}
+            {att.status === "uploaded" ? <Badge tone="outline">{att.remote?.extractionStatus === "extracted" ? "已就绪" : "已上传"}</Badge> : null}
             {isError ? <span className="text-destructive">· {att.error}</span> : null}
           </div>
+          {att.remote && <AttachmentExtractionNotice attachment={att.remote}/>}
           {isUploading ? (
             <Progress
               value={Math.round((att.progress ?? 0) * 100)}
@@ -993,7 +996,7 @@ export function ChatDraftAttachmentPreview({
         testid="chat-attachment-draft-preview"
         title={attachment.filename}
         subtitle={`${attachment.mime} · ${formatBytes(attachment.bytes)}${
-          attachment.status === "uploaded" ? " · 已就绪" : attachment.status === "uploading" ? " · 上传中" : " · 上传失败"
+          attachment.status === "uploaded" ? " · 已上传" : attachment.status === "uploading" ? " · 上传中" : " · 上传失败"
         }`}
         onClose={onClose}
         width="lg"
