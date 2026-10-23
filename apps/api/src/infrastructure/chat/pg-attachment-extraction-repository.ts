@@ -66,12 +66,14 @@ export class PgAttachmentExtractionRepository implements AttachmentExtractionSto
 
   async readAttachment(orgId: OrgId, attachmentId: string): Promise<AttachmentForExtraction | null> {
     return this.db.withTenant(orgId, async (s) => {
-      const r = await s.query<{ storage_ref: string; mime: string }>(
-        `SELECT storage_ref, mime FROM chat_message_attachments WHERE org_id = $1 AND id = $2`,
+      const r = await s.query<{ storage_ref: string; mime: string; uploaded_by:string|null }>(
+        `SELECT a.storage_ref,a.mime,COALESCE(a.uploaded_by,CASE WHEN m.author_kind='human' THEN m.author_id END) AS uploaded_by
+         FROM chat_message_attachments a LEFT JOIN chat_messages m ON m.org_id=a.org_id AND m.id=a.message_id
+         WHERE a.org_id=$1 AND a.id=$2`,
         [orgId, attachmentId],
       );
       const row = r.rows[0];
-      return row === undefined ? null : { storageRef: row.storage_ref, mime: row.mime };
+      return row === undefined ? null : { storageRef: row.storage_ref, mime: row.mime, uploadedBy:row.uploaded_by };
     });
   }
 
