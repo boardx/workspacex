@@ -21,3 +21,23 @@ describe("cloud compose", () => {
     expect(() => createCloudCompose(config, release(config.provision.release), { projectName: "test", runtimeDirectory: "/opt/${SECRET}" })).toThrow();
   });
 });
+
+it("promotes one image set across environment configs without rebuilding", () => {
+  const dev = deploymentExample("production");
+  dev.environment.publicUrl = "https://devapp.example.com";
+  const cn = deploymentExample("production");
+  cn.environment.publicUrl = "https://workspace.example.cn";
+  cn.environment.ossBucket = "workspacex-cn-example";
+  const bundle = release(dev.provision.release);
+  const before = JSON.stringify(bundle);
+  const first = createCloudCompose(dev, bundle, { projectName: "devapp", runtimeDirectory: "/opt/devapp/runtime" });
+  const second = createCloudCompose(cn, bundle, { projectName: "production-cn", runtimeDirectory: "/opt/cn/runtime" });
+  for (const service of ["web", "api", "agent", "sandbox", "sandbox-sessions"]) {
+    expect(first.services[service]!.image).toBe(second.services[service]!.image);
+    expect(first.services[service]).not.toHaveProperty("build");
+    expect(second.services[service]).not.toHaveProperty("build");
+  }
+  expect(first.services.web!.env_file).not.toEqual(second.services.web!.env_file);
+  expect(first.services.api!.environment).not.toEqual(second.services.api!.environment);
+  expect(JSON.stringify(bundle)).toBe(before);
+});

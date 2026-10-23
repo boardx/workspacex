@@ -1,0 +1,55 @@
+name: shared-release-images
+
+on:
+  workflow_run:
+    workflows: [backend-gates]
+    branches: [develop]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact develop source SHA; build only, not deployment approval
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Explicit cutover: the existing source deploy stays in place until registry,
+# trusted consumers and rollback have been verified. This does not activate hosts.
+jobs:
+  admit:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (vars.WSX_SHARED_IMAGES_ENABLED == 'true' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.conclusion == 'success')
+    permissions:
+      contents: read
+      actions: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      source_sha: ${{ steps.source.outputs.source_sha }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Admit successful exact develop source
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/shared-image-source.mjs
+
+  build:
+    needs: admit
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/build-cn-release-artifacts.yml
+    with:
+      release_sha: ${{ needs.admit.outputs.source_sha }}
+      source_branch: develop
+      release: 0.0.0-build.${{ github.run_id }}
+      platform: linux/amd64
+    secrets: inherit
