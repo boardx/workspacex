@@ -58,7 +58,8 @@ describe('full regression preserves all independent lane verdicts', () => {
       const measured = job.steps.find((step: Record<string, unknown>) => step['timeout-minutes']);
       expect(measured['timeout-minutes']).toBeLessThan(job['timeout-minutes']);
     }
-    expect(aggregate.if).toContain(workflow.jobs['full-regression-core'].if);
+    expect(aggregate.if).toContain("inputs.verification_lane != 'base'");
+    expect(aggregate.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
     expect(aggregate.steps.at(-1).env.CI_LANE_RESULTS).toBe('${{ toJSON(needs) }}');
   });
 });

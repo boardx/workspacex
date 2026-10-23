@@ -30,6 +30,7 @@
 #   - harness verify / 完整验证由本地开发流程承担（pnpm harness verify、verify:full）。
 
 name: harness-verify
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'base' && format('Base validation (no deployment) - {0}', github.ref_name) || github.event.pull_request.title || github.event.head_commit.message || github.workflow }}
 
 on:
   pull_request:
@@ -57,6 +58,11 @@ on:
   # 3 小时才知道结果，验证成本高到没人验证——这正是它连红 12 次无人察觉的一环。
   workflow_dispatch:
     inputs:
+      verification_lane:
+        description: "all 保留完整验证；base 仅运行完整基础门禁，不声明完整 E2E 通过"
+        type: choice
+        options: [all, base]
+        default: all
       fresh_run:
         description: "重新执行，忽略同 SHA 已有验证证据"
         type: boolean
@@ -530,6 +536,7 @@ jobs:
 
   # API-fixture browser coverage for logged-in organization creation (#5494).
   organization-create:
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     # Keep browser dependency installation off the moving ubuntu-latest image.
     # Run 39762945819 failed before tests: Ubuntu 26.04 Microsoft APT source 403.
     runs-on: ubuntu-24.04
@@ -554,7 +561,7 @@ jobs:
 
   board-smoke:
     timeout-minutes: 30
-    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
+    if: (github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -621,7 +628,7 @@ jobs:
 
   directory-smoke:
     timeout-minutes: 30
-    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
+    if: (github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -687,7 +694,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   fullstack-smoke:
-    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
+    if: (github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -791,7 +798,7 @@ jobs:
   # Full regression shares the sole smoke producer above; core retains the complete base suite.
   # Public journey commands each create and clean their own database isolation scope.
   full-regression-core:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
@@ -816,6 +823,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: steps.dedup.outputs.run == 'true'
+      # Reject known dependency admission failures before browser/Python preparation.
+      # The full base gate remains unchanged after this cheap fail-fast probe.
+      - name: Preflight dependency license admission
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm run lint:third-party-license 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/base-preflight.log
       - run: pnpm --filter web exec playwright install --with-deps chromium
         if: steps.dedup.outputs.run == 'true'
       # 2026-09-08（#2972）：`verify:full` → `verify:base:raw` → `turbo run test` 里包含
@@ -871,7 +887,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   chat-read:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
@@ -922,7 +938,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   self-service-profile:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -974,7 +990,7 @@ jobs:
 
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
-    if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
+    if: (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     needs: [fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -988,7 +1004,7 @@ jobs:
   # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
   # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
   chat-path-coverage:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
@@ -1035,7 +1051,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   chat-task-workbench:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
