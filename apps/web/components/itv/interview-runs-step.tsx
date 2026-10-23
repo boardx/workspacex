@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { Check, ChevronDown, ChevronUp, FileText, Loader2 } from "lucide-react";
+import { Check, FileText, Loader2 } from "lucide-react";
 import { interviewMarkdown } from "@repo/contracts";
 import { Button } from "@/components/ui/button";
 import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
@@ -8,6 +8,7 @@ import { ExpertAvatar } from "./expert-avatar";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
 import { interviewTranscriptDisplay } from "./interview-transcript-display";
 import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
+import { InterviewQuestionAnswers } from "./interview-question-answers";
 import styles from "./interview-runs-step.module.css";
 type RunMetadata = Readonly<{ expertId: string; displayName: string; status: "pending" | "running" | "completed" | "failed"; completedQuestions: number; totalQuestions: number }>;
 type InsightKind = "观点" | "发现" | "风险" | "追问";
@@ -43,8 +44,6 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
   readonly taskProgress?: boolean;
   readonly actions?: React.ReactNode;
 }) {
-  const [expanded, setExpanded] = React.useState(false);
-  const answersId = React.useId();
   const [expert, setExpert] = React.useState<string | null>(null);
   const projection = document ? interviewMarkdown.parseInterviewMarkdown(document) : null;
   // Provider headings may be shallower than the server's expert wrapper. Only
@@ -55,7 +54,6 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
       ? [document!.markdown.slice(block.start, attributed[index + 1]?.start ?? document!.markdown.length)] : [],
   ).join("\n\n");
   const displayMarkdown = summaryMarkdown ? interviewTranscriptDisplay(summaryMarkdown, document?.evidenceMode === "simulated", runs) : undefined;
-  const displayDocument = document && displayMarkdown ? { ...document, markdown: displayMarkdown } : undefined;
   const insights = document && projection ? savedInsights(document, projection).filter((item) => !expert || item.expertId === expert) : [];
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
   const completed = runs.filter((run) => run.status === "completed").length;
@@ -77,7 +75,7 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
           const selected = expert === run.expertId;
           const name = run.displayName.match(/^(.+?)\s*[（(]([^）)]+)[）)]$/u);
           const status = run.status === "completed" ? "已完成" : run.status === "failed" ? "执行失败，已保存内容保留" : run.status === "pending" ? "等待访谈" : "进行中";
-          return <button key={run.expertId} type="button" aria-label={`${run.displayName} ${status}`} aria-current={selected ? "true" : undefined} aria-pressed={selected} onClick={() => { setExpert(selected ? null : run.expertId); setExpanded(!selected); }} className={`min-w-0 w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "bg-background shadow-sm ring-1 ring-inset ring-border" : "hover:bg-background/80"}`}>
+          return <button key={run.expertId} type="button" aria-label={`${run.displayName} ${status}`} aria-current={selected ? "true" : undefined} aria-pressed={selected} onClick={() => setExpert(selected ? null : run.expertId)} className={`min-w-0 w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selected ? "bg-background shadow-sm ring-1 ring-inset ring-border" : "hover:bg-background/80"}`}>
             <div className="flex items-start gap-3"><ExpertAvatar expertId={run.expertId} displayName={run.displayName} className="size-10" /><div className="min-w-0 flex-1">
               <h4 className="break-words text-sm font-semibold leading-6 [word-break:normal]">{name?.[1] ?? run.displayName}</h4>
               {name && <p className="mt-0.5 break-words text-xs leading-5 text-muted-foreground [word-break:normal]">{name[2]}</p>}
@@ -93,12 +91,10 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
       <section className="min-w-0 overflow-hidden lg:border-l lg:border-border">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4 sm:px-8">
           <h3 className="text-base font-semibold">访谈记录</h3>
-          <Button variant="ghost" size="sm" aria-expanded={expanded} aria-controls={answersId} onClick={() => setExpanded(value => !value)}>{expanded ? <ChevronUp className="size-4" aria-hidden /> : <ChevronDown className="size-4" aria-hidden />}{expanded ? "收起答案" : "展开答案"}</Button>
         </header>
-        <div id={answersId} hidden={!expanded} role="region" className={`${styles.transcript} px-5 py-6 sm:px-8 sm:py-7`} aria-label={expert ? `${runs.find((run) => run.expertId === expert)?.displayName ?? "专家"}访谈摘要` : "全部访谈摘要"}>{expanded && <>
+        <div role="region" className={`${styles.transcript} px-5 py-6 sm:px-8 sm:py-7`} aria-label={expert ? `${runs.find((run) => run.expertId === expert)?.displayName ?? "专家"}访谈摘要` : "全部访谈摘要"}>
           {insights.length > 0 && <div data-testid="itv-saved-insights" className="mb-7 grid gap-4 border-b border-border pb-6 xl:grid-cols-2">{(["观点", "发现", "风险", "追问"] as const).map((kind) => { const group = insights.filter((item) => item.kind === kind); return group.length ? <section key={kind} className="min-w-0 border-l-2 border-border pl-4"><h4 className="font-semibold">{insightTitles[kind]}（{group.reduce((sum, item) => sum + item.count, 0)}）</h4>{group.map((item) => <InterviewReportMarkdown key={item.headingId} markdown={item.markdown} testId={`itv-saved-insight-${item.headingId}`} />)}</section> : null; })}</div>}
-          {displayMarkdown ? <InterviewReportMarkdown longForm document={displayDocument} markdown={displayMarkdown} testId="itv-source-runs-markdown" /> : <p className="mt-4 text-sm text-muted-foreground">{expert ? "暂无归属于该专家的已保存回答。" : "暂无已保存的 Markdown 回答。"}</p>}
-        </>}
+          {displayMarkdown ? <div data-testid="itv-source-runs-markdown"><InterviewQuestionAnswers document={document} markdown={displayMarkdown} /></div> : <p className="mt-4 text-sm text-muted-foreground">{expert ? "暂无归属于该专家的已保存回答。" : "暂无已保存的 Markdown 回答。"}</p>}
         </div>
         </section>
     </div>

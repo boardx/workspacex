@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useCashierOrder, type CashierOwner } from "./use-cashier-order";
 import { CashierLedgerHistory } from "./cashier-ledger-history";
+import { WalletAvailability } from "./wallet-availability";
 import { LiveQrPanel } from "./live-qr-panel";
 type Read<T> = { state: "loading" } | { state: "ready"; data: T } | { state: "error"; message: string; denied: boolean };
 function useCashierRead<T>(path: string, query: Record<string, string>, parse: (raw: unknown) => T, scope: string, sessionToken: string, open: boolean, revision: string) {
@@ -76,6 +77,7 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
       </>}
       {wallet.result.state === "loading" && <p role="status">{success === "initial" ? "正在查询余额…" : "支付已确认，正在刷新余额…"}</p>}
       {wallet.result.state === "error" && <p role="status">{success === "initial" ? "余额暂时无法查询。" : "支付已确认，余额暂未更新。"}<Button variant="outline" onClick={wallet.retry}>重试余额查询</Button></p>}
+      {wallet.result.state === "ready" && <WalletAvailability reservedCredits={wallet.result.data.reservedCredits} availableBalance={wallet.result.data.availableBalance}/>}
       {wallet.result.state === "ready" && <p data-testid="billing-updated-balance" className="text-13 text-muted-foreground"><span data-testid="billing-cashier-balance">当前余额 {wallet.result.data.balance} 额度</span></p>}
       <section data-testid="billing-recent-ledger" aria-label="最近额度流水" className="space-y-2 border-t pt-3"><h3 className="text-13 font-semibold">最近流水</h3>
         {ledger.result.state === "loading" && <p role="status">正在查询流水…</p>}

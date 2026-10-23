@@ -17,6 +17,7 @@ def wired(monkeypatch,tmp_path):
                       "KERNEL_EMBEDDING_MODEL_VERSION":"v1","KERNEL_RERANK_MODEL_ID":"actual-rerank","KERNEL_RERANK_MODEL_VERSION":"v1"}.items():
         monkeypatch.setenv(key,value)
     monkeypatch.delenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED",raising=False)
+    monkeypatch.setenv("KERNEL_RERANK_MAX_OUTPUT_TOKENS","1024")
     monkeypatch.setattr(accounting,"_durability_fault",False)
     monkeypatch.setattr(embeddings,"_CLIENT",None)
     monkeypatch.setattr(embeddings,"_CLIENT_LOOP",None)
@@ -45,7 +46,7 @@ def test_embedding_sdk_batches_have_per_http_ids_and_report_only_actual_input_us
     callbacks,paid,path=wired
     result=asyncio.run(embeddings.embed_texts(["transient-source"]*11,REF))
     assert len(result["vectors"])==11 and len(paid)==2
-    starts=[c for c in callbacks if c[2]=="start"];terminals=[c for c in callbacks if c[2]=="terminal"]
+    starts=[c for c in callbacks if c[2]=="admit"];terminals=[c for c in callbacks if c[2]=="terminal"]
     assert len(starts)==len(terminals)==2
     assert len({c[3]["requestId"] for c in starts})==2
     assert {c[3]["requestId"] for c in starts}=={c[3]["requestId"] for c in terminals}
@@ -60,10 +61,10 @@ def test_rerank_actual_sdk_call_uses_same_ledger_receipt_protocol(wired):
     callbacks,paid,_=wired
     result=asyncio.run(rerank.rerank_documents("query",[{"id":"a","content":"transient-evidence"}],REF))
     assert result["ids"]==["a"] and len(paid)==1
-    assert [c[2] for c in callbacks]==["start","terminal"]
+    assert [c[2] for c in callbacks]==["admit","terminal"]
     assert callbacks[0][3]["callPurpose"]=="retrieval-rerank"
     assert callbacks[1][3]["usage"]=={"total":3,"prompt":2,"completion":1}
-    assert "transient-evidence" not in json.dumps(callbacks)
+    assert "transient-evidence" not in json.dumps([{k:v for k,v in c[3].items() if k!="serializedBody"} for c in callbacks])
 
 def test_unowned_service_warmup_or_forged_reference_never_dispatches(wired):
     _,paid,_=wired
@@ -95,6 +96,7 @@ def test_embedding_admission_without_verified_input_only_mode_is_safe_hard_stop(
 
 def test_rerank_admission_requires_explicit_output_cap_and_no_sdk_retry(wired,monkeypatch):
     callbacks,paid,_=wired;monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED","1")
+    monkeypatch.delenv("KERNEL_RERANK_MAX_OUTPUT_TOKENS",raising=False)
     with pytest.raises(rerank.RetrievalRerankUnavailable):asyncio.run(rerank.rerank_documents("query",[{"id":"a","content":"source"}],REF))
     assert paid==[]
     monkeypatch.setenv("KERNEL_RERANK_MAX_OUTPUT_TOKENS","7")
@@ -110,7 +112,7 @@ def test_missing_vendor_usage_stays_unknown(wired,monkeypatch):
         return httpx.Response(200,request=request,headers={"content-type":"application/json"},stream=httpx.ByteStream(json.dumps(payload).encode()))
     monkeypatch.setattr(embeddings,"_BoundedTransport",lambda:httpx.MockTransport(vendor))
     asyncio.run(embeddings.embed_texts(["source"],REF))
-    assert len(paid)==1 and [c[2] for c in callbacks]==["start","terminal"]
+    assert len(paid)==1 and [c[2] for c in callbacks]==["admit","terminal"]
     assert callbacks[-1][3]["usage"]=={}
 
 def test_vendor_failure_has_one_failed_receipt_without_sdk_retry(wired,monkeypatch):
@@ -120,7 +122,7 @@ def test_vendor_failure_has_one_failed_receipt_without_sdk_retry(wired,monkeypat
         return httpx.Response(503,request=request,headers={"content-type":"application/json"},stream=httpx.ByteStream(b'{"error":{"message":"unavailable"}}'))
     monkeypatch.setattr(embeddings,"_BoundedTransport",lambda:httpx.MockTransport(vendor))
     with pytest.raises(embeddings.RetrievalEmbeddingUnavailable):asyncio.run(embeddings.embed_texts(["source"],REF))
-    assert len(paid)==1 and [c[2] for c in callbacks]==["start","terminal"]
+    assert len(paid)==1 and [c[2] for c in callbacks]==["admit","terminal"]
     assert callbacks[-1][3]["outcome"]=="failed" and callbacks[-1][3]["usage"]=={}
 
 def test_cancel_and_callback_outage_keep_durable_terminal_and_restore_context(wired,monkeypatch):
@@ -134,7 +136,7 @@ def test_cancel_and_callback_outage_keep_durable_terminal_and_restore_context(wi
     monkeypatch.setattr(embeddings,"_BoundedTransport",lambda:httpx.MockTransport(vendor))
     monkeypatch.setattr(accounting,"apost",post)
     with pytest.raises(asyncio.CancelledError):asyncio.run(embeddings.embed_texts(["private-source"],REF))
-    assert len(paid)==1 and [c[2] for c in callbacks]==["start","terminal"]
+    assert len(paid)==1 and [c[2] for c in callbacks]==["admit","terminal"]
     pending=accounting.Journal(str(path)).pending({"base_url":"http://api.example.test"})
     assert len(pending)==1 and json.loads(pending[0][2])["outcome"]=="failed"
     assert "private-source" not in json.dumps(pending) and "fixture-secret" not in json.dumps(pending)

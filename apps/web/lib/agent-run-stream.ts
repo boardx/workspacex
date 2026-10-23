@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 /**
  * #654 阶段2d —— `GET /agent-runs/:runId/stream` 的客户端薄封装。
  *
@@ -86,7 +87,7 @@ export async function openAgentRunStream(
       buffer = buffer.slice(boundary + 2);
       boundary = buffer.indexOf("\n\n");
       const event = parseFrame(frame);
-      if (event) onEvent(event);
+      if (event) { if (event.type === "final" && event.status === "failed") notifyCreditFailure({ ...event, code: event.error }); onEvent(event); }
     }
   }
 }

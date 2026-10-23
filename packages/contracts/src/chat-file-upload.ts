@@ -19,6 +19,9 @@
  */
 import { z } from "zod";
 
+export const AttachmentExtractionStatus=z.enum(["pending","extracted","unsupported","failed"]);
+export const AttachmentExtractionError=z.enum(["credit_required","credit_accounting_unavailable","extraction_failed"]);
+
 /** 上传后落库的附件实体（回给前端渲染预览条用）。`bytes`/`mime` 是服务端校验后的权威值。 */
 export const Attachment = z
   .object({
@@ -30,6 +33,8 @@ export const Attachment = z
     /** 字节数；服务端按上限校验后的权威值。 */
     bytes: z.number().int().nonnegative(),
     createdAt: z.string(),
+    extractionStatus: AttachmentExtractionStatus.optional(),
+    extractionError: AttachmentExtractionError.nullable().optional(),
   })
   .strict();
 export type Attachment = z.infer<typeof Attachment>;

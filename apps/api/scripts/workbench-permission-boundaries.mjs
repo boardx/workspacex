@@ -95,6 +95,7 @@ export function verifyWorkbenchBoundaries(read, tenantTables) {
         if(/\b(?:SELECT|UPDATE)\b/i.test(query[1]) && /thread_message_queue/.test(query[1]) && !/actor_id=\$3/.test(query[1])) failures.push(`${path}: browser queue read/mutation lost actor scope`);
       }
     }
+    if(modelMetadataPermissionBoundaries.has(path)&&/\bSELECT\s+(?:\w+\.)?body\s+FROM\s+chat_messages\b/i.test(source))failures.push(`${path}: content body disclosure is forbidden`);
     for(const [file,pattern] of rule.checks)if(!pattern.test(file?read(file):source))failures.push(`${path}: authority invariant missing (${file??path}: ${pattern})`);
   }
   return failures;

@@ -17,6 +17,8 @@
  * I/O 类（读字节/putOnce/DB 抖动、vision 的 `visionTransport`）→ 返回 "retry"，由 job 侧
  * markJobFailed 靠 staleness 重试。**没有第三类**：绝不在失败时落一条空的 extracted 冒充成功。
  */
+import {withCreditSubject} from "../billing/credit-execution-context";
+import {CreditConsumptionError} from "../billing/credit-consumption";
 import type { OrgId } from "../../domain/org-id";
 import { planExtraction, boundedExcerpt } from "../../domain/chat/attachment-extraction";
 import type { ObjectStore } from "../artifact/ports";
@@ -102,7 +104,10 @@ export async function extractAttachment(
       await deps.extraction.recordFailed(orgId, attachmentId, "visionNotConfigured");
       return "failed";
     }
-    const v = await deps.vision.describeImage(bytes, plan.mime);
+    if(!att.uploadedBy){await deps.extraction.recordFailed(orgId,attachmentId,"credit_accounting_unavailable");return "failed";}
+    let v:Awaited<ReturnType<AttachmentVisionPort["describeImage"]>>;
+    try{v=await withCreditSubject({orgId,userId:att.uploadedBy},()=>deps.vision!.describeImage(bytes!,plan.mime));}
+    catch(error){if(!(error instanceof CreditConsumptionError))throw error;await deps.extraction.recordFailed(orgId,attachmentId,error.code);return "failed";}
     if (!v.ok) {
       if (isRetryableVisionError(v.code)) return "retry"; // 网络/5xx——未记终态，交 outbox 重试
       await deps.extraction.recordFailed(orgId, attachmentId, v.code);

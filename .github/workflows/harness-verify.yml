@@ -30,6 +30,7 @@
 #   - harness verify / 完整验证由本地开发流程承担（pnpm harness verify、verify:full）。
 
 name: harness-verify
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_lane == 'base' && format('Base validation (no deployment) - {0}', github.ref_name) || github.event.pull_request.title || github.event.head_commit.message || github.workflow }}
 
 on:
   pull_request:
@@ -45,7 +46,7 @@ on:
   # 队列本身要人类在 Settings → Branches 里开——没开时本事件永不触发，这段接线是惰性的。
   merge_group:
   push:
-    branches: [main]
+    branches: [develop, main]
     # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
     tags: ["v*"]
   # 2026-09-08 人类指令：定时 cron 触发（原每小时全栈烟测 + 每 3 小时 e2e-full）已
@@ -57,6 +58,11 @@ on:
   # 3 小时才知道结果，验证成本高到没人验证——这正是它连红 12 次无人察觉的一环。
   workflow_dispatch:
     inputs:
+      verification_lane:
+        description: "all 保留完整验证；base 仅运行完整基础门禁，不声明完整 E2E 通过"
+        type: choice
+        options: [all, base]
+        default: all
       fresh_run:
         description: "重新执行，忽略同 SHA 已有验证证据"
         type: boolean
@@ -104,6 +110,19 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  doc-smoke-scope:
+    if: github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'
+    runs-on: ubuntu-latest
+    permissions: {contents: read}
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0, persist-credentials: false}
+      - id: scope
+        run: node .harness/scripts/ci-doc-smoke-scope.mjs
+
   # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
   # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
   # typecheck/lint/test"（turbo --affected，唯一真正耗时的一步）串在一起跑。
@@ -412,20 +431,10 @@ jobs:
         working-directory: apps/deep-agent-service
         run: uv sync --frozen --extra dev
 
-      # 只跑受本次改动影响的包（模块只测自己）。
-      # PR：相对 base 分支；push main：相对上一个 commit。
-      #
-      # 2026-09-02（人类实测发现 backend-gates 与本 job 在同一次 push 上各自起一套
-      # Postgres、把 @repo/api 的 vitest 全套跑两遍——`gates-test` 4 分片跑一遍、这里
-      # `turbo run test --affected` 判定 @repo/api 受影响后又完整跑一遍，纯重复、不是
-      # 两道互补的门）：@repo/api 的 `test` 从这里的 `--affected` 集合里显式排除，
-      # 交回 `backend-gates.yml` 的 `gates-test` 分片 job 独家负责。typecheck/lint
-      # 仍然覆盖 @repo/api（这两项 backend-gates 只跑一次、不分片，没有重复问题）。
-      - name: 受影响模块 typecheck/lint
-        env:
-          TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
-        run: pnpm turbo run typecheck lint --affected
-
+      # Static validation belongs to verify-full-compile, which runs on the same
+      # PR/merge_group/push events and covers every package after its own build.
+      # This job owns affected tests; do not repeat typecheck/lint on another runner.
+      # API tests remain owned by backend shards except the fork fallback below.
       # 2026-09-02 续（独立 review 抓到的真实回归）：上面「排除 @repo/api」的前提是
       # backend-gates 的 gates-test 会替它把关——但 gates-test 对 **fork PR 整体跳过**
       # （`backend-gates.yml` 每个 gates job 都带 `head.repo.full_name == github.repository`
@@ -474,7 +483,6 @@ jobs:
   # （报一堆 TS6053 File not found）。本地热缓存时 `.next/` 是上一轮遗留的所以看着
   # 是绿的——实测：一条命令冷跑退出码 2（29/31），拆成两步冷跑退出码 0（51s）。
   verify-full-compile:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -540,7 +548,10 @@ jobs:
 
   # API-fixture browser coverage for logged-in organization creation (#5494).
   organization-create:
-    runs-on: ubuntu-latest
+    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    # Keep browser dependency installation off the moving ubuntu-latest image.
+    # Run 39762945819 failed before tests: Ubuntu 26.04 Microsoft APT source 403.
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
@@ -560,13 +571,149 @@ jobs:
           name: organization-create-api-fixture-${{ github.run_id }}
           path: evidence/org-create-5494/*.png
 
-  fullstack-smoke:
-    if: github.event_name != 'schedule' || github.event.schedule == '0 * * * *'
+  board-smoke:
+    timeout-minutes: 30
+    needs: doc-smoke-scope
+    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
     runs-on: ubuntu-latest
-    # #5832: the current 222-case suite takes ~31m; setup plus the fresh directory
-    # runtime takes ~8m, followed by geometry, evidence upload and post-job cleanup.
-    # Runs 39201160326 and 39240395565 exhausted 40m despite completed test steps.
-    # Keep bounded headroom for the whole job; individual test limits stay unchanged.
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Independent runner: Board acceptance has its own fresh stack and evidence.
+    # PR remains informational; full regression requires the actual verdict below.
+    continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-board-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      # Independent fresh seeds; this branch never imports the official catalog.
+      - name: Verify unified Board smoke in isolated runtime
+        id: board
+        timeout-minutes: 25
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs board -- pnpm run verify:fullstack-board 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/board-smoke.log
+      - name: Upload Board evidence (success or failure)
+        id: evidence
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-board-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_LANE: board-smoke
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  directory-smoke:
+    timeout-minutes: 30
+    needs: doc-smoke-scope
+    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Independent runner: directory acceptance has its own fresh stack and evidence.
+    # PR remains informational; full regression requires the actual verdict below.
+    continue-on-error: true
+    # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
+    concurrency:
+      group: harness-lane-directory-smoke-${{ github.sha }}-${{ github.event_name == 'pull_request' && github.ref || 'shared' }}-${{ (inputs.fresh_run || github.run_attempt > 1) && format('{0}-{1}', github.run_id, github.run_attempt) || 'reuse' }}
+      cancel-in-progress: false
+      queue: max
+    steps:
+      - uses: actions/checkout@v5
+        with: { fetch-depth: 0, persist-credentials: false }
+      - name: Find existing verification (same SHA and lane)
+        id: dedup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_FRESH_RUN: ${{ inputs.fresh_run }}
+        run: node .harness/scripts/ci-lane-dedup.mjs
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.dedup.outputs.run == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.dedup.outputs.run == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.dedup.outputs.run == 'true'
+      # #5704: official imports need a fresh seeded catalog, separate from smoke.
+      - name: Verify digital directory cards in isolated runtime
+        id: directory
+        timeout-minutes: 25
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          node .harness/scripts/ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
+      - name: Upload directory evidence (success or failure)
+        id: evidence
+        if: always() && steps.dedup.outputs.run == 'true'
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase-01-directory-smoke-evidence-${{ github.run_id }}
+          path: |
+            phases/phase-01-run-a-project/evidence/ci/
+            apps/web/test-results/
+          if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_LANE: directory-smoke
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
+      - name: Preserve reused verification verdict
+        if: always() && steps.dedup.outputs.run == 'false'
+        env:
+          CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+        run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  fullstack-smoke:
+    needs: doc-smoke-scope
+    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    runs-on: ubuntu-latest
+    outputs:
+      verdict: ${{ steps.smoke-verdict.outputs.verdict }}
+    # Directory acceptance runs independently; preserve the complete browser suite.
     timeout-minutes: 50
     # #633（人类裁决 2026-08-06）：不再阻塞合并——`continue-on-error: true` 让本 job
     # 无论步骤是否失败，check run 结论都报 success，仅剩信息性价值（红了不拦 PR，
@@ -601,16 +748,9 @@ jobs:
         env:
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
         run: node .harness/scripts/ci-skill-import-auth-probe.mjs
-      # #5704: official imports need a fresh seeded catalog, separate from smoke.
-      - name: Verify digital directory cards in isolated runtime
-        if: steps.dedup.outputs.run == 'true'
-        shell: bash
-        run: |
-          mkdir -p phases/phase-01-run-a-project/evidence/ci
-          set -o pipefail
-          node .harness/scripts/ci-fullstack-runtime.mjs directory -- pnpm run verify:digital-directory-cards 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/digital-directory-cards.log
       # Optional public-repository read-only credential; never substitute github.token.
       - name: Execute trusted full-stack smoke
+        id: smoke
         if: steps.dedup.outputs.run == 'true'
         env:
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN }}
@@ -618,18 +758,19 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          node .harness/scripts/ci-fullstack-runtime.mjs run -- pnpm run verify:fullstack-smoke 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
+          node .harness/scripts/ci-fullstack-runtime.mjs product -- pnpm run verify:fullstack-product 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/runtime.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
             pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
               --phase 01 --kind runtime --commit "$GITHUB_SHA" \
-              --command "pnpm run verify:fullstack-smoke" \
+              --command "pnpm run verify:fullstack-product" \
               --log phases/phase-01-run-a-project/evidence/ci/runtime.log \
               --output phases/phase-01-run-a-project/evidence/ci/runtime-manifest.json
           fi
           exit "$status"
       - name: Verify real Fabric sticky text containment
+        id: sticky
         if: always() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
@@ -638,6 +779,7 @@ jobs:
           node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
       # #3205: reuse this lane's browser installation and retain independent output.
       - name: Execute trace disclosure geometry
+        id: geometry
         if: always() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
@@ -645,6 +787,7 @@ jobs:
           set -o pipefail
           node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
       - name: Upload runtime evidence (success or failure)
+        id: evidence
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
         with:
@@ -653,16 +796,25 @@ jobs:
             phases/phase-01-run-a-project/evidence/ci/
             apps/web/test-results/
           if-no-files-found: error
+      - name: Publish actual smoke verdict for full regression
+        id: smoke-verdict
+        if: always() && (steps.dedup.outputs.run == 'true' || steps.dedup.outputs.run == 'false')
+        env:
+          CI_SMOKE_RUN: ${{ steps.dedup.outputs.run }}
+          CI_SMOKE_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
+          CI_SMOKE_STEPS: ${{ toJSON(steps) }}
+        run: node .harness/scripts/ci-smoke-verdict.mjs
       - name: Preserve reused verification verdict
         if: always() && steps.dedup.outputs.run == 'false'
         env:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
-  # #2084: independent budgets and artifacts; verify:full remains serial internally.
+  # Full regression shares the sole smoke producer above; core retains the complete base suite.
   # Public journey commands each create and clean their own database isolation scope.
   full-regression-core:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    needs: verify-full-compile
+    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
@@ -687,6 +839,15 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         if: steps.dedup.outputs.run == 'true'
+      # Reject known dependency admission failures before browser/Python preparation.
+      # The full base gate remains unchanged after this cheap fail-fast probe.
+      - name: Preflight dependency license admission
+        if: steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          mkdir -p phases/phase-01-run-a-project/evidence/ci
+          set -o pipefail
+          pnpm run lint:third-party-license 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/base-preflight.log
       - run: pnpm --filter web exec playwright install --with-deps chromium
         if: steps.dedup.outputs.run == 'true'
       # 2026-09-08（#2972）：`verify:full` → `verify:base:raw` → `turbo run test` 里包含
@@ -708,20 +869,20 @@ jobs:
         if: steps.dedup.outputs.run == 'true'
         working-directory: apps/deep-agent-service
         run: uv sync --frozen --extra dev
-      - name: Execute uncached trusted full gate
+      - name: Execute uncached trusted base gate
         timeout-minutes: 80
         if: steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          TURBO_FORCE=true pnpm run verify:full 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
+          TURBO_FORCE=true pnpm run verify:ci-base 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
             pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
               --phase 01 --kind e2e --commit "$GITHUB_SHA" \
-              --command "TURBO_FORCE=true pnpm run verify:full" \
+              --command "TURBO_FORCE=true pnpm run verify:ci-base" \
               --log phases/phase-01-run-a-project/evidence/ci/e2e.log \
               --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
           fi
@@ -742,7 +903,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   chat-read:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
@@ -793,7 +954,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   self-service-profile:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)
+    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -845,8 +1006,8 @@ jobs:
 
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
-    if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))
-    needs: [full-regression-core, chat-read, self-service-profile]
+    if: (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: [fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -859,7 +1020,7 @@ jobs:
   # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
   # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
   chat-path-coverage:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
@@ -906,7 +1067,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   chat-task-workbench:
-    if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.

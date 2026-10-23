@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { research as C } from "@repo/contracts";
 import { z } from "zod";
@@ -64,7 +65,7 @@ export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlin
           directions: input.directions.directions.filter((direction) => direction.enabled),
         }),
       });
-    } catch (error) {
+    } catch (error) { rethrowCreditConsumption(error);
       if (error instanceof ModelCallError) {
         throw new GuidedResearchOutlineGenerationError("RESEARCH_WORKFLOW_UNAVAILABLE");
       }
@@ -74,7 +75,7 @@ export class ModelGuidedResearchOutlineGenerator implements GuidedResearchOutlin
     let parsed: z.infer<typeof C.GuidedResearchOutlineGenerationResponse>;
     try {
       parsed = C.GuidedResearchOutlineGenerationResponse.parse(extractJson(completion.text));
-    } catch {
+    } catch (creditError) { rethrowCreditConsumption(creditError);
       throw new GuidedResearchOutlineGenerationError("RESEARCH_NODE_STATE_INVALID");
     }
 

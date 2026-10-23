@@ -131,7 +131,9 @@ def test_successful_report_stage_requests_a_normal_final_without_read_or_todo_lo
  assert result.model_settings['tool_choice']=='none'
  assert result.state is req.state  # No synthetic final or altered grader/agent state.
 
-def test_final_only_request_is_serializable_by_the_existing_openai_adapter(monkeypatch):
+def test_final_only_request_is_serializable_by_the_existing_openai_adapter(monkeypatch,tmp_path):
+ monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS","4096")
+ monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR",str(tmp_path))
  from deep_agent_service.model import build_chat_model
  monkeypatch.setenv('KERNEL_MODEL_BASE_URL','https://example.invalid/v1')
  monkeypatch.setenv('KERNEL_MODEL_API_KEY','fixture-not-secret')

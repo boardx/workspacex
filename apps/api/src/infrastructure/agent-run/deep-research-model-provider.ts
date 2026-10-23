@@ -1,3 +1,4 @@
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 /**
  * `DeepResearchModelProvider` -- the second `ModelCallPort` implementation (2026-08-07,
  * human直接指令: "去 LangChain GitHub 里面搜索 Open Deep Research 的一个 agent，导入到
@@ -87,9 +88,14 @@ interface ThreadStateResponse {
 export class DeepResearchModelProvider implements ModelCallPort {
   constructor(private readonly config: DeepResearchProviderConfig) {}
 
+  supportsRequestAccounting():boolean{return false;}
+  private requirePhysicalAccounting(input:ModelCallInput):void{
+    throw new CreditConsumptionError('credit_accounting_unavailable','team',input.orgId??'','AI_RESEARCH_DISPATCH_ACCOUNTING_UNSUPPORTED');
+  }
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
-    // The external graph envelope cannot attest or reserve its opaque vendor calls.
-    if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')throw new ModelCallError('MODEL_PROVIDER_NOT_CONFIGURED','AI_RESEARCH_DISPATCH_ADMISSION_UNSUPPORTED');
+    // The external graph has no per-physical-request receipt callback. Never permit
+    // unpriced opaque work, including when legacy quota rollout switches are OFF.
+    this.requirePhysicalAccounting(input);
     const { baseUrl, timeoutMs, pollIntervalMs } = this.config;
     if (baseUrl === "") {
       throw new ModelCallError(

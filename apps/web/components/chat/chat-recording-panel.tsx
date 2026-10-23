@@ -60,6 +60,8 @@ const TESTID = {
  *   「未知错误」。契约里刻意没有 `UNKNOWN`，这里也就不该有兜底分支。
  */
 const ASR_FAILURE_TEXT: Record<AsrStreamErrorReason, string> = {
+  CREDIT_REQUIRED: "可用额度不足，转写已停止。请确认计费账户并充值后手动继续。",
+  CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，转写已停止，请稍后重试或联系管理员。",
   ASR_PROVIDER_UNAVAILABLE: "转写服务暂时不可用，本次录音没有产生转录。请稍后重试。",
   ASR_NOT_CONFIGURED: "本组织尚未配置转写服务，录音无法转成文字。请联系管理员配置后重试。",
   AUDIO_FORMAT_REJECTED: "转写服务不接受当前的音频格式。请刷新页面重试；若持续出现请联系管理员。",

@@ -1,3 +1,4 @@
+import {creditUsageMeter} from "../billing/credit-usage-meter";
 import { createHash } from "node:crypto";
 import type { OrgId } from "../../domain/org-id";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -8,7 +9,6 @@ import type { RecordingUnitOfWork } from "../../application/recording/session-li
 import { withCommittedAiPolicyDecision } from "../../application/agent-run/committed-ai-policy-decision";
 import { AiQuotaPolicyError } from "../../application/agent-run/ai-quota-policy-error";
 import { PgAiAdmissionRepository } from "../auth/pg-ai-admission-repository";
-import { PgTokenUsageRepository } from "../auth/pg-token-usage-repository";
 import { PgAsrRequestAccounting } from "../auth/pg-asr-request-accounting";
 import { resolveRuntimeModelOwner } from "../auth/pg-runtime-model-usage-repository";
 import { prepareImageAiAdmission, type ImageAiAdmission, type ImageDispatchRequest } from "./image-ai-admission";
@@ -72,7 +72,7 @@ export function createNativeQuotaWiring(enabled:boolean,configuration:NativeQuot
    if(result.decision!=="allowed")throw new AiQuotaPolicyError(result.decision,result.degradeToModelId);
    return result;
   },settle:globalAdmission.settle.bind(globalAdmission)};
-  const scopedUsage=new PgTokenUsageRepository(scoped);
+  const scopedUsage=creditUsageMeter(scoped);
   const usage:TokenUsageMeterPort={startRequest:scopedUsage.startRequest.bind(scopedUsage),record:deps.usage.record.bind(deps.usage)};
   return {admission,usage};
  };

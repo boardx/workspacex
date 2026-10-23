@@ -4,16 +4,16 @@ import type {IdentityRepository} from "../../src/application/identity/ports";
 import {PgPlatformModelTestRepository} from "../../src/infrastructure/model/pg-platform-model-test-repository";
 import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
-import {asApp,asOwner,ensureDatabase,migrateOnce,resetOrgs,seedOrg} from "../support/db";
+import {addOrgMember,asApp,asOwner,ensureDatabase,migrateOnce,resetOrgs,seedOrg} from "../support/db";
 const ORG="org-platform-test-db",OTHER="org-platform-other-db";
 const actor={orgId:ORG,operatorUserId:"fixture-operator"};
 const request={testId:"9b696910-134b-499d-aa54-881c4eefaf78",orgId:ORG,modelId:"fixture-formal-model",capability:"text" as const,declaredNonConfidential:true as const,input:{prompt:"isolated fixture"},bounds:{maximumCostMicros:"10",timeoutMs:1000,maxOutputTokens:2}};
 let db:PgDatabase,repository:PgPlatformModelTestRepository,operatorAllowed=true,memberAllowed=true;
 beforeAll(async()=>{
- ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());
+ await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());
  repository=new PgPlatformModelTestRepository(db,{isOperator:async()=>operatorAllowed,identities:()=>({findOrgMembership:async()=>memberAllowed?{orgRole:"member"}:null}) as unknown as IdentityRepository});
 });
-beforeEach(async()=>{operatorAllowed=true;memberAllowed=true;await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:"project-platform-test-db"});await seedOrg({orgId:OTHER,projectId:"project-platform-other-db"});});
+beforeEach(async()=>{operatorAllowed=true;memberAllowed=true;await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:"project-platform-test-db"});await seedOrg({orgId:OTHER,projectId:"project-platform-other-db"});await addOrgMember(ORG,actor.operatorUserId,"consultant",null);});
 afterAll(async()=>{await db?.close();await resetOrgs(ORG,OTHER);});
 describe("real PG isolated platform model test persistence",()=>{
  it("links an actual held receipt with explicit platform provenance atomically before dispatch",async()=>{

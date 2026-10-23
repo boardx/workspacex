@@ -68,3 +68,8 @@ describe("token usage receipt boundary", () => {
   });
 
 });
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){} async settleInSession(){}
+}}));

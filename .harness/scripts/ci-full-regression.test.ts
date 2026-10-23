@@ -7,17 +7,23 @@ import { failedLanes, FULL_REGRESSION_LANES } from './ci-full-regression.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
 const workflow = parse(readFileSync(resolve(root, '.github/workflows/harness-verify.yml'), 'utf8'));
-const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name, { result: 'success' }]));
+const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name,
+  ['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name) ? { result: 'success', outputs: { verdict: 'success' } } : { result: 'success' },
+]));
 
 describe('full regression preserves all independent lane verdicts', () => {
-  it('requires all three original public commands without sharding verify:full', () => {
-    const commands = ['TURBO_FORCE=true pnpm run verify:full', 'pnpm run verify:chat-read', 'pnpm run verify:self-service-profile'];
+  it('requires one base producer and one browser producer without repeating verify:full', () => {
+    const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', 'TURBO_FORCE=true pnpm run verify:ci-base', 'pnpm run verify:chat-read', 'pnpm run verify:self-service-profile'];
     expect(FULL_REGRESSION_LANES).toHaveLength(commands.length);
     for (const command of commands) {
       const matches = FULL_REGRESSION_LANES.filter(name => workflow.jobs[name].steps.some((s: {run?: string}) => s.run?.includes(command)));
       expect(matches).toHaveLength(1);
     }
-    expect(failedLanes(success())).toEqual([]);
+    const results = { ...success(), 'fullstack-smoke': { result: 'success', outputs: { verdict: 'success' } } };
+    expect(failedLanes(results)).toEqual([]);
+    expect(failedLanes({ ...results, 'fullstack-smoke': { result: 'success', outputs: { verdict: 'failure' } } })).toEqual(['fullstack-smoke']);
+    expect(failedLanes({ ...results, 'fullstack-smoke': { result: 'success' } })).toEqual(['fullstack-smoke']);
+    expect(JSON.stringify(workflow.jobs['full-regression-core'])).not.toContain('pnpm run verify:full');
   });
   it('keeps a visible journey log on success and preserves piped command failures', () => {
     for (const name of ['chat-read', 'self-service-profile']) {
@@ -43,16 +49,18 @@ describe('full regression preserves all independent lane verdicts', () => {
     const aggregate = workflow.jobs['e2e-full'];
     expect(aggregate.needs).toEqual(FULL_REGRESSION_LANES);
     expect(aggregate.if).toContain('always()');
-    for (const name of FULL_REGRESSION_LANES) {
+    for (const name of FULL_REGRESSION_LANES.filter(name => !['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name))) {
       const job = workflow.jobs[name];
-      expect(job.needs).toBeUndefined();
+      if(name==='full-regression-core')expect(job.needs).toBe('verify-full-compile');
+      else expect(job.needs).toBeUndefined();
       expect(job['continue-on-error']).toBeUndefined();
       expect(job.if).toContain("github.event_name != 'pull_request'");
       expect(job.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
       const measured = job.steps.find((step: Record<string, unknown>) => step['timeout-minutes']);
       expect(measured['timeout-minutes']).toBeLessThan(job['timeout-minutes']);
     }
-    expect(aggregate.if).toContain(workflow.jobs[FULL_REGRESSION_LANES[0]].if);
+    expect(aggregate.if).toContain("inputs.verification_lane != 'base'");
+    expect(aggregate.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
     expect(aggregate.steps.at(-1).env.CI_LANE_RESULTS).toBe('${{ toJSON(needs) }}');
   });
 });

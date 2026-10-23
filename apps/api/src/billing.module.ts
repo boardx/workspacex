@@ -1,3 +1,12 @@
+import {CreditUsageReplayWorker} from "./infrastructure/billing/credit-usage-replay-worker";
+import {NativeCreditTariffController} from "./interface/controllers/native-credit-tariff.controller";
+import {NativeCreditTariffService} from "./application/billing/native-credit-tariff-service";
+import {PgNativeCreditTariffRepository} from "./infrastructure/billing/pg-native-credit-tariff-repository";
+import {APP_INTERCEPTOR} from "@nestjs/core";
+import {CreditExecutionContextInterceptor} from "./interface/interceptors/credit-execution-context.interceptor";
+import {ConsumptionSettingsService} from "./application/billing/consumption-settings-service";
+import {ConsumptionSettingsController} from "./interface/controllers/consumption-settings.controller";
+import {PgConsumptionSettingsRepository} from "./infrastructure/billing/pg-consumption-settings-repository";
 import { BillingStripeWebhookService } from "./application/billing/billing-stripe-webhook-service";
 import { StripeWebhookClient } from "./infrastructure/billing/stripe-webhook-client";
 import { PgBillingStripeWebhookStore } from "./infrastructure/billing/pg-billing-stripe-webhook-store";
@@ -39,8 +48,12 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
 
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
+  controllers: [NativeCreditTariffController, ConsumptionSettingsController, BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
+    {provide:CreditUsageReplayWorker,useFactory:(db:DatabasePort,logger:LoggerPort)=>new CreditUsageReplayWorker(db,logger),inject:[DATABASE_PORT,LOGGER_PORT]},
+    {provide:NativeCreditTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new NativeCreditTariffService(new PgNativeCreditTariffRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
+    {provide:APP_INTERCEPTOR,useClass:CreditExecutionContextInterceptor},
+    {provide:ConsumptionSettingsService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new ConsumptionSettingsService(new PgConsumptionSettingsRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
     { provide: BillingStripeWebhookService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => {
       const client = new StripeWebhookClient(config);
       return new BillingStripeWebhookService(client, client, new PgBillingStripeWebhookStore(db), logger);

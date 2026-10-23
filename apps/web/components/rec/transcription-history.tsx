@@ -457,6 +457,8 @@ function appendFinalEvent(
 
 function streamErrorText(reason: string): string {
   const messages: Record<string, string> = {
+    CREDIT_REQUIRED: "可用额度不足，请确认计费账户并充值后手动继续转录。",
+    CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，请稍后重试或联系管理员。",
     ASR_NOT_CONFIGURED: "当前环境尚未配置阿里云实时转录，请联系管理员配置服务后重试。",
     QUOTA_EXCEEDED: "当前实时转录额度不足。",
     AUDIO_FORMAT_REJECTED: "麦克风音频格式不受支持，请刷新页面后重试。",

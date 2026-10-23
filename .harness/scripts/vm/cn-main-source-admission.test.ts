@@ -33,3 +33,16 @@ it('admits all actual committed dynamic shards and binds the single source plan'
 it.each(['missing-plan','missing-last-shard','red-last-shard','helper-drift','expression-drift','output-drift','invalid-count'])('fails closed actual workflow closure %s',mode=>{const f=committedWorkflowFacts();if(mode==='missing-plan')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!=='api-test-plan');if(mode==='missing-last-shard')f.sourceChecks=f.sourceChecks.filter((c:any)=>c.name!==`gates-test (${f.sourceShardPolicy.count})`);if(mode==='red-last-shard')f.sourceChecks.find((c:any)=>c.name===`gates-test (${f.sourceShardPolicy.count})`).conclusion='failure';if(mode==='helper-drift')f.sourceShardHelperSha256='0'.repeat(64);if(mode==='expression-drift')f.deploymentWorkflow.jobs['gates-test'].strategy.matrix.shard='${{ fromJSON(needs.other.outputs.shards) }}';if(mode==='output-drift')f.deploymentWorkflow.jobs['api-test-plan'].outputs.shards='${{ steps.other.outputs.shards }}';if(mode==='invalid-count')f.sourceShardPolicy.count=33;expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});
 
 it('binds complete raw runtime observations including timestamps/head/app/status, with stable API ordering',()=>{const f:any=committedWorkflowFacts();const first=validateMainSourceAdmission(source,repo,f).rawEvidenceSha256;f.sourceChecks.reverse();expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).toBe(first);f.sourceChecks[0].started_at='2026-10-01T00:00:01Z';expect(validateMainSourceAdmission(source,repo,f).rawEvidenceSha256).not.toBe(first)});
+it('keeps Devapp-only orchestration out of main runtime obligations only with the exact develop guard',()=>{
+ const f:any=committedWorkflowFacts();
+ expect(f.deploymentWorkflow.jobs.deploy.needs).toContain('integration-acceptance');
+ expect(validateMainSourceAdmission(source,repo,f).prNumber).toBe(1);
+ for(const guard of ["github.event_name == 'push'", "github.ref == 'refs/heads/main'", '', undefined]) {
+  const changed=structuredClone(f);changed.deploymentWorkflow.jobs['integration-acceptance'].if=guard;
+  expect(()=>validateMainSourceAdmission(source,repo,changed)).toThrow('MAIN_SOURCE_INTEGRATION_GATE_SCOPE');
+ }
+ // The real runtime obligations cannot be hidden by giving them the same branch guard.
+ const changed=structuredClone(f);changed.deploymentWorkflow.jobs['e2e-core-loop'].if=f.deploymentWorkflow.jobs['integration-acceptance'].if;
+ changed.sourceChecks=changed.sourceChecks.filter((c:any)=>c.name!=='e2e-core-loop');
+ expect(()=>validateMainSourceAdmission(source,repo,changed)).toThrow('MAIN_SOURCE_RUNTIME_CI');
+});

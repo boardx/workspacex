@@ -1,4 +1,5 @@
 import path from "node:path";
+import {partitionSmokeProjects} from "./smoke-project-partition";
 import {BOARD_UNIFIED_REGRESSION_SPECS} from "./board-unified-regression-registry";
 import { randomUUID } from "node:crypto";
 import { defineConfig, devices } from "@playwright/test";
@@ -281,7 +282,7 @@ export default defineConfig({
   // ⚠ #496 的 `canvas-template-create-smoke.spec.ts` 必须排在 **`seeded`** 里：它要用
   //   种子里的组织管理员登录。排进 `core-loop-empty-db` 会跑在 `core-loop-reset` 清过的
   //   库上，那时连账号都没有 —— 它会红，但**不是因为对的原因**。
-  projects: [
+  projects: partitionSmokeProjects([
     // #633（人类裁决 2026-08-06）：`core-loop.spec.ts` 是唯一接入发布门（backend-gates.yml
     // `deploy` 前置条件）的 spec —— 5 分钟合并→上线 SLA 不允许再等另外 5 个 spec 跑完，
     // #631 也报过「核心闭环步骤 1 被无关 spec 的抖动拖累」。因此它必须是**独立 project**，
@@ -678,7 +679,7 @@ export default defineConfig({
       name: "design-share",
       testMatch: ["design-share.spec.ts"],
     },
-  ],
+  ], process.env.FULLSTACK_SMOKE_PARTITION),
   fullyParallel: false,
   /**
    * UC-17.8 B4——⚠ 这条 retries 是防御性兜底，不是这一轮排查的结论。补充证据推翻了
@@ -827,6 +828,10 @@ export default defineConfig({
         // 诚实失败（该 provider 自己的 config 头注），自助发布的 agent 试跑会打不通。
         // 逐字同一条纪律见 `playwright.chat-read.config.ts` 的同一变量。
         KERNEL_DEEP_AGENT_BASE_URL: `http://127.0.0.1:${deepAgentProviderPort}`,
+        // The controlled engine makes no vendor calls; expose the same authenticated
+        // usage/context callback capability required by the production private runtime.
+        KERNEL_SUBTASK_CALLBACK_BASE_URL: `http://127.0.0.1:${apiPort}`,
+        DEEP_AGENT_SERVICE_INTERNAL_KEY: "fullstack-private-runtime-fixture-key",
         // F962（#1608）—— 不供这一条，`HttpSkillSandbox` 在调用时诚实抛
         // `SANDBOX_UNAVAILABLE`，试跑执行链在「生成脚本」之后的沙箱这一步打不通。
         // 逐字同一条纪律见上面 `KERNEL_DEEP_AGENT_BASE_URL` 那条注释。

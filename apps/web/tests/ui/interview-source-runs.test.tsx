@@ -4,14 +4,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { interviewTranscriptDisplay } from "@/components/itv/interview-transcript-display";
 import { InterviewRunsStep } from "@/components/itv/interview-runs-step";
 afterEach(cleanup);
-/** Content assertions explicitly opt into the reader; the default-collapse contract has its own test. */
-function renderWithAnswersExpanded(ui: React.ReactElement) {
-  const view = render(ui);
-  fireEvent.click(screen.getByRole("button", { name: "展开答案" }));
-  return view;
-}
 it("keeps report actions in one footer after the saved transcript without a second progress hero", () => {
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[]} pending={false} onGenerateReport={vi.fn()} />);
+  render(<InterviewRunsStep runs={[]} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.queryByRole("heading", { name: "开始访谈" })).not.toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   const actions=screen.getByRole("button", { name: "生成报告" }).closest('[data-testid="itv-step-actions"]');
@@ -19,12 +13,12 @@ it("keeps report actions in one footer after the saved transcript without a seco
   expect(screen.getByTestId("itv-source-runs").querySelectorAll('[data-workflow-action-bar="footer"]')).toHaveLength(1);
 });
 it("queued experts are not presented as actively interviewing", () => {
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[{ expertId: "queued-7", displayName: "待访谈专家", status: "pending", completedQuestions: 0, totalQuestions: 1 }]} pending={false} onGenerateReport={vi.fn()} />);
+  render(<InterviewRunsStep runs={[{ expertId: "queued-7", displayName: "待访谈专家", status: "pending", completedQuestions: 0, totalQuestions: 1 }]} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.getByText("等待访谈 · 0/1")).toBeVisible();
   expect(screen.queryByText("进行中 · 0/1")).not.toBeInTheDocument();
 });
 it("expert cards filter by stable attribution while keeping question links", () => {
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[
+  render(<InterviewRunsStep runs={[
     { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "doctor-8", displayName: "医生角色", status: "running", completedQuestions: 0, totalQuestions: 1 },
   ]} document={{ documentId: "runs-2", step: "runs", version: 1, contentHash: "b".repeat(64), evidenceMode: "simulated", references: [], markdown: "# 访谈汇总\n\n## [护理角色](#expert-nurse-7)\n\n交接记录需要复核。[追问](#question-q7)\n\n## [医生角色](#expert-doctor-8)\n\n急诊分诊尚未回答。" }} pending={false} onGenerateReport={vi.fn()} />);
@@ -33,11 +27,10 @@ it("expert cards filter by stable attribution while keeping question links", () 
   expect(screen.queryByText("急诊分诊尚未回答。")).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "追问" })).toHaveAttribute("href", "#question-q7");
   fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));
-  fireEvent.click(screen.getByRole("button", { name: "展开答案" }));
   expect(screen.getByText("急诊分诊尚未回答。")).toBeVisible();
 });
 it("left expert cards select the matching summary without requiring the top tabs", () => {
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[
+  render(<InterviewRunsStep runs={[
     { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "doctor-8", displayName: "医生角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
   ]} document={{ documentId: "runs-card-nav", step: "runs", version: 1, contentHash: "e".repeat(64), evidenceMode: "simulated", references: [], markdown: "## [护理角色](#expert-nurse-7)\n\n护理回答。\n\n## [医生角色](#expert-doctor-8)\n\n医生回答。" }} pending={false} onGenerateReport={vi.fn()} />);
@@ -46,14 +39,14 @@ it("left expert cards select the matching summary without requiring the top tabs
   expect(screen.queryByText("护理回答。")).not.toBeInTheDocument();
 });
 it("progress uses persisted counters while summary retains Markdown attribution", () => {
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[{ expertId: "nurse-7", displayName: "护理模拟角色", status: "running", completedQuestions: 2, totalQuestions: 4 }]} document={{ documentId: "runs-1", step: "runs", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "## 护理模拟角色\n\n> 最近一次交接班遗漏发生在夜班。\n\n来源：[问题七](#question-q7)" }} pending={false} onGenerateReport={vi.fn()} />);
+  render(<InterviewRunsStep runs={[{ expertId: "nurse-7", displayName: "护理模拟角色", status: "running", completedQuestions: 2, totalQuestions: 4 }]} document={{ documentId: "runs-1", step: "runs", version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated", references: [], markdown: "## 护理模拟角色\n\n> 最近一次交接班遗漏发生在夜班。\n\n来源：[问题七](#question-q7)" }} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.getByText("已保存回答 2/4")).toBeVisible();
   expect(screen.getByText("最近一次交接班遗漏发生在夜班。")).toBeVisible();
   expect(screen.getByRole("link", { name: "问题七" })).toHaveAttribute("href", "#question-q7");
   expect(screen.getByRole("button", { name: "生成报告" })).toBeDisabled();
 });
 it("execution task progress counts experts and distinguishes each persisted state", () => {
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[
+  render(<InterviewRunsStep runs={[
     { expertId: "finished", displayName: "完成专家", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "active", displayName: "进行专家", status: "running", completedQuestions: 0, totalQuestions: 1 },
     { expertId: "queued", displayName: "排队专家", status: "pending", completedQuestions: 0, totalQuestions: 1 },
@@ -69,7 +62,7 @@ it("execution task progress counts experts and distinguishes each persisted stat
 });
 it("only projects saved Markdown insight sections and preserves source attribution", () => {
   const markdown = "# 模拟访谈摘要\n\n## [采购专家](#expert-purchase)\n\n### 关键观点\n\n- [采购审批至少经过两级](#question-q1)\n\n### 争议点与风险\n\n- 预算否决人身份待核实。\n\n## [技术专家](#expert-tech)\n\n### 核心发现\n\n- 技术评审需要安全确认。";
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[
+  render(<InterviewRunsStep runs={[
     { expertId: "purchase", displayName: "采购专家", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "tech", displayName: "技术专家", status: "completed", completedQuestions: 1, totalQuestions: 1 },
   ]} document={{ documentId: "runs-grouped", step: "runs", version: 2, contentHash: "c".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
@@ -84,17 +77,18 @@ it("only projects saved Markdown insight sections and preserves source attributi
 });
 it("does not mistake a question about risk for an insight heading or invent list entries", () => {
   const markdown = "## [采购专家](#expert-purchase)\n\n### 如何降低采购风险？\n\n这是普通回答。\n\n### 关键观点\n\n暂无明确观点。\n\n### 争议点与风险：\n\n- 否决角色待核实。";
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[{ expertId: "purchase", displayName: "采购专家", status: "completed", completedQuestions: 1, totalQuestions: 1 }]}
+  render(<InterviewRunsStep runs={[{ expertId: "purchase", displayName: "采购专家", status: "completed", completedQuestions: 1, totalQuestions: 1 }]}
     document={{ documentId: "runs-risk", step: "runs", version: 1, contentHash: "d".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.getByRole("heading", { name: "关键观点（0）" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
   expect(screen.getAllByRole("heading", { name: "争议点与风险（1）" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "如何降低采购风险？" }));
   expect(screen.getByText("这是普通回答。")).toBeVisible();
 });
 
 it("keeps provider top-level headings inside the attributed expert and repeated segments", () => {
   const markdown = "## [护理角色](#expert-nurse-7)\n\n# 模拟访谈\n\n护理原始回答。\n\n## 关键观点\n\n- 护理交接待核实。\n\n## [医生角色](#expert-doctor-8)\n\n# 医生模拟访谈\n\n医生原始回答。\n\n## 核心发现\n\n- 医生分诊待核实。\n\n## [护理角色](#expert-nurse-7)\n\n## 续答\n\n护理续答。";
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[
+  render(<InterviewRunsStep runs={[
     { expertId: "nurse-7", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
     { expertId: "doctor-8", displayName: "医生角色", status: "completed", completedQuestions: 1, totalQuestions: 1 },
   ]} document={{ documentId: "runs-provider-headings", step: "runs", version: 1, contentHash: "f".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
@@ -109,7 +103,7 @@ it("keeps provider top-level headings inside the attributed expert and repeated 
 it("projects compact simulated records without changing the saved source", () => {
   const markdown = "# 模拟访谈记录\n\n以下回答来自模型模拟，需真人验证。\n\n## [护理角色](#expert-persona-nurse)\n\n# 模拟访谈记录\n\n专家 ID：persona-nurse\n\n## 问题\n\n交接如何复核？\n\n## 回答\n\n我们用 persona 方法分类，保留这句实质回答。[来源](#question-q7)\n\n<script>alert('unsafe')</script>";
   const document = { documentId: "compact", step: "runs" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown };
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[{ expertId: "persona-nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
+  render(<InterviewRunsStep runs={[{ expertId: "persona-nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
   expect(screen.queryByRole("heading", { name: "模拟访谈记录" })).not.toBeInTheDocument();
   expect(screen.queryByText("专家 ID：persona-nurse")).not.toBeInTheDocument();
@@ -122,7 +116,7 @@ it("projects compact simulated records without changing the saved source", () =>
 
 it.each(["persona-68ecb1285cee2aeada7537e9", "virtual-095b8b15-8a25-454e-ad94-a83828ed2ef6"])("uses readable expert attribution and hides only technical record headers (%s)", (id) => {
   const markdown = `## [${id}](#expert-${id})\n\n${id.startsWith("virtual-") ? `# 王志远（${id}）访谈记录` : `# 访谈回答：王志远（${id}）`}\n\n身份声明：本内容为基于模拟画像库生成的专家视角推演，需真人验证。\n\n问题：[上线时如何使用 ${id}？](#question-q7)\n\n回答：保留 ${id} 作为回答中的参照。`;
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[{ expertId: id, displayName: "王志远", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={{ documentId: "technical", step: "runs", version: 1, contentHash: "c".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
+  render(<InterviewRunsStep runs={[{ expertId: id, displayName: "王志远", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={{ documentId: "technical", step: "runs", version: 1, contentHash: "c".repeat(64), evidenceMode: "simulated", references: [], markdown }} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.getByRole("heading", { name: "王志远", level: 2 })).toBeVisible();
   expect(screen.queryByRole("heading", { name: /访谈回答/u })).not.toBeInTheDocument();
   expect(screen.queryByText(/^身份声明：/u)).not.toBeInTheDocument();
@@ -167,7 +161,7 @@ it("preserves a code fence immediately following a leading notice without a blan
 
 it("separates bilingual expert names while retaining accessible full names", () => {
   const displayName = "技术教育用户研究员（Technical Education UX Researcher）";
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[{expertId: "long-name", displayName, status: "completed", completedQuestions: 1, totalQuestions: 1}]} pending={false} onGenerateReport={vi.fn()} />);
+  render(<InterviewRunsStep runs={[{expertId: "long-name", displayName, status: "completed", completedQuestions: 1, totalQuestions: 1}]} pending={false} onGenerateReport={vi.fn()} />);
   expect(screen.getByRole("heading", {name: "技术教育用户研究员"})).toBeVisible();
   expect(screen.getByText("Technical Education UX Researcher")).toBeVisible();
   expect(screen.getByRole("button", {name: `${displayName} 已完成`})).toBeEnabled();
@@ -184,7 +178,7 @@ it("hides spaced provider transcript titles containing technical ids", () => {
 it.each(["simulated", "participant", "mixed"] as const)("keeps evidence metadata and source links without repeated reading notices (%s)", (evidenceMode) => {
   const markdown = "## [护理角色](#expert-nurse)\n\n已保存回答。[来源](#question-q7)";
   const document = { documentId: "disclosure", step: "runs" as const, version: 1, contentHash: "a".repeat(64), evidenceMode, references: [], markdown };
-  renderWithAnswersExpanded(<InterviewRunsStep runs={[{ expertId: "nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
+  render(<InterviewRunsStep runs={[{ expertId: "nurse", displayName: "护理角色", status: "completed", completedQuestions: 1, totalQuestions: 1 }]} document={document} pending={false} onGenerateReport={vi.fn()} />);
   const notice = "AI 模拟访谈，内容需真人验证。";
   expect(screen.queryByText(notice)).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /护理角色/u }));

@@ -1,3 +1,4 @@
+import {currentCreditSubject} from "../../src/application/billing/credit-execution-context";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { DigitalInterviewEffects } from "../../src/application/interview/workflow/digital-interview-effects.port";
 import type { ModelCallPort } from "../../src/application/agent-run/ports";
@@ -37,6 +38,10 @@ const model: ModelCallPort = { complete: async (input) => {
       painPoints: string[]; typicalAdvice: string;
     }>;
   };
+  if(context.operation==="generate_interview_experts"||context.operation==="generate_interview_questions"){
+    expect(currentCreditSubject()?.orgId).toBe(ORG);
+    expect([USER,COLLABORATOR]).toContain(currentCreditSubject()?.userId);
+  }
   return { text: JSON.stringify(context.operation === "generate_interview_experts"
     ? { experts: [
       { displayName: "采购决策专家", role: "分析采购决策链", domains: ["采购"], category: "采购", bio: "研究采购决策与供应商选择。", location: "德国", typicalAdvice: "先定位最终否决权。", age: 48, occupation: "采购顾问", goals: ["优化采购"], interests: ["供应商管理"], painPoints: ["决策不透明"], motivations: ["提升质量"], influences: ["工业采购实践"], personalityTraits: { introvertExtrovert: 5, analyticalCreative: 7, busyTimeRich: 4 }, serviceValue: "采购决策咨询" },
@@ -656,6 +661,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     const streamingModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if(context.questions?.length)expect(currentCreditSubject()).toEqual({orgId:ORG,userId:USER});
         if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
           return model.complete(input);
         }
@@ -666,6 +672,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       completeStream: async (input, onDelta) => {
         const context = JSON.parse(input.user) as { operation?: string };
         if (context.operation !== "generate_interview_report") return streamingModel.complete(input);
+        expect(currentCreditSubject()).toEqual({orgId:ORG,userId:USER});
         const meta = '{"type":"meta","title":"江西足球报告","executiveSummary":"基层体系需要长期投入"}\n';
         const sections = [
           "## 研究范围与方法\n说明模拟访谈的样本与证据边界。",
@@ -730,6 +737,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     const proseOnlyModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if(context.questions?.length)expect(currentCreditSubject()).toEqual({orgId:ORG,userId:USER});
         if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
           return model.complete(input);
         }
@@ -740,6 +748,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
       completeStream: async (input, onDelta) => {
         const context = JSON.parse(input.user) as { operation?: string };
         if (context.operation !== "generate_interview_report") return proseOnlyModel.complete(input);
+        expect(currentCreditSubject()).toEqual({orgId:ORG,userId:USER});
         reportAttempts += 1;
         const events = [
           { type: "meta", title: "江西足球协同发展决策研究", executiveSummary: "已有回答显示青训、赛事和资金机制需要一体化验证。" },
@@ -799,6 +808,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
     const retryingModel: ModelCallPort = {
       complete: async (input) => {
         const context = JSON.parse(input.user) as { operation?: string; questions?: Array<{ questionId: string }> };
+        if(context.questions?.length)expect(currentCreditSubject()).toEqual({orgId:ORG,userId:USER});
         if (context.operation === "generate_interview_experts" || context.operation === "generate_interview_questions") {
           return model.complete(input);
         }
@@ -812,6 +822,7 @@ describe("F04 PostgresSaver and exactly-once business persistence", () => {
           experts?: Array<{ expertId: string; answers: Array<{ questionId: string }> }>;
         };
         if (context.operation !== "generate_interview_report") return retryingModel.complete(input);
+        expect(currentCreditSubject()).toEqual({orgId:ORG,userId:USER});
         reportAttempts += 1;
         if (pauseNext) {
           pauseNext = false;

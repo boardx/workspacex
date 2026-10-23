@@ -1,3 +1,4 @@
+import type {Attachment as PublicAttachment} from "@repo/contracts/chat-file-upload";
 import type { ArtifactContinuationContext } from "@repo/contracts/artifacts-steering";
 import type { OrgId } from "../../domain/org-id";
 import type { Guarded } from "../security/permission-filter";
@@ -170,7 +171,7 @@ export interface AcceptedHumanMessage {
  * #946 · V9-a F151：消息挂的附件投影（listMessages 回读一份）。形状与契约 `Attachment`
  * 一致（id/filename/mime/bytes/createdAt），是那份的**运行时映射**，不另立第二事实源。
  */
-export interface MessageAttachment {
+export interface MessageAttachment extends Pick<PublicAttachment,"extractionStatus"|"extractionError"> {
   readonly id: string;
   readonly filename: string;
   readonly mime: string;

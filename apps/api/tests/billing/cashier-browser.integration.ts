@@ -121,8 +121,8 @@ async function sourceAccounting(orderNo: string) {
   return asOwner(async c => ({
     order: (await c.query("SELECT status,closed_at,last_error_code FROM billing_orders WHERE order_no=$1", [orderNo])).rows[0],
     receipts: (await c.query("SELECT state,recovery_source_id FROM billing_payment_receipts WHERE order_no=$1 ORDER BY provider_event_id", [orderNo])).rows,
-    ledger: (await c.query("SELECT type,credits,balance_after FROM credit_transactions WHERE source_type='payment_order' AND source_id=$1 ORDER BY credits DESC", [orderNo])).rows,
-    wallet: (await c.query("SELECT balance,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [user])).rows,
+    ledger: (await c.query("SELECT type,credits::float8 AS credits,balance_after::float8 AS balance_after FROM credit_transactions WHERE source_type='payment_order' AND source_id=$1 ORDER BY credits DESC", [orderNo])).rows,
+    wallet: (await c.query("SELECT balance::float8 AS balance,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [user])).rows,
   }));
 }
 beforeAll(async () => {
@@ -171,8 +171,8 @@ it("creates through the real UI, credits through a verified callback and never d
   await expect.poll(() => page.getByTestId("billing-updated-balance").textContent()).toContain("1320");
   await expect.poll(() => page.getByTestId("billing-ledger-table").locator("tbody tr").count()).toBe(2);
   const accounting = () => asOwner(async c => ({
-    wallet: (await c.query("SELECT balance,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [user])).rows,
-    ledger: (await c.query("SELECT type,credits,balance_after FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1) ORDER BY credits DESC", [user])).rows,
+    wallet: (await c.query("SELECT balance::float8 AS balance,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [user])).rows,
+    ledger: (await c.query("SELECT type,credits::float8 AS credits,balance_after::float8 AS balance_after FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1) ORDER BY credits DESC", [user])).rows,
   }));
   const before = await accounting(); expect(before.wallet).toHaveLength(1); expect(Number(before.wallet[0]!.balance)).toBe(1320); expect(before.wallet[0]).toEqual({ balance: 1320, total_purchased: 1200 }); expect(before.ledger).toEqual([{ type: "purchase", credits: 1200, balance_after: 1200 }, { type: "bonus", credits: 120, balance_after: 1320 }]);
   const duplicateCallbackStatus = (await f.post(notice.body, notice.headers)).status; expect(duplicateCallbackStatus).toBe(200); expect(await accounting()).toEqual(before);

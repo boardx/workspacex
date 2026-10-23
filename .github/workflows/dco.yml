@@ -9,7 +9,7 @@ name: dco
 
 on:
   pull_request:
-    branches: [main]
+    branches: [develop, main, main-cn, main-us]
 
 permissions:
   contents: read

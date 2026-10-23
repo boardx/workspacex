@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg } from "../support/db";
+import { asApp, asOwner, ensureDatabase, migrateOnce, resetOrgs, seedOrg, addOrgMember } from "../support/db";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { PgAiAdmissionRepository } from "../../src/infrastructure/auth/pg-ai-admission-repository";
@@ -8,11 +8,16 @@ import { toOrgId } from "../../src/domain/org-id";
 const ORG="org-admission-5261", OTHER="org-admission-5261-other", USER="u-admission-5261";
 const start=new Date(Date.now()-3_600_000).toISOString(), end=new Date(Date.now()+3_600_000).toISOString();
 let db:PgDatabase, admission:PgAiAdmissionRepository, usage:PgTokenUsageRepository;
+async function recordAdmittedUsage(orgId:ReturnType<typeof toOrgId>,receipt:Parameters<PgTokenUsageRepository["record"]>[1]){
+ const rows=await asApp(orgId,c=>c.query("SELECT id FROM model_request_starts WHERE id=$1",[receipt.eventId]));
+ if(!rows.rows.length)await usage.startRequest(orgId,{requestId:receipt.eventId!,userId:receipt.userId,runId:receipt.runId,executionAttemptId:null,projectId:null,callPurpose:receipt.runId?undefined:"auxiliary",modelProvider:receipt.modelProvider,modelId:receipt.modelId,startedAt:receipt.requestStartedAt??new Date().toISOString(),maximumTokens:6});
+ await usage.record(orgId,receipt);
+}
 const request=(id:string)=>({requestId:id,userId:USER,windowStart:start,windowEnd:end,maximumTokens:6n,maximumCostMicros:600n,
  modelProvider:"provider",modelId:"model",currency:"CNY",priceVersion:"test-price-v1"});
-beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());admission=new PgAiAdmissionRepository(db);usage=new PgTokenUsageRepository(db);});
+beforeAll(async()=>{await ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());admission=new PgAiAdmissionRepository(db);usage=new PgTokenUsageRepository(db);});
 beforeEach(async()=>{
- await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:"p-admission-5261"});await seedOrg({orgId:OTHER,projectId:"p-admission-5261-other"});
+ await resetOrgs(ORG,OTHER);await seedOrg({orgId:ORG,projectId:"p-admission-5261"});await seedOrg({orgId:OTHER,projectId:"p-admission-5261-other"});await addOrgMember(ORG,USER,"consultant",null);
  await asApp(ORG,c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by) VALUES($1,'ordinary',1,$2)",[ORG,USER]));
  await asOwner(c=>c.query(`INSERT INTO ai_budget_windows(org_id,user_id,window_start,window_end,timezone,token_limit,cost_limit_micros,currency,price_version,configured_by)
   VALUES($1,$2,$3,$4,'Etc/UTC',10,1000,'CNY','test-price-v1',$2)`,[ORG,USER,start,end]));
@@ -68,7 +73,7 @@ describe("shared atomic admission foundation — isolated PostgreSQL",()=>{
  });
  it("known billable failed receipt settles once; aggregates use same immutable ledger",async()=>{
   await admission.reserve(toOrgId(ORG),request("reserve-a"));
-  await usage.record(toOrgId(ORG),{eventId:"reserve-a",userId:USER,runId:null,modelProvider:"provider",modelId:"model",tokensTotal:5,
+  await recordAdmittedUsage(toOrgId(ORG),{eventId:"reserve-a",userId:USER,runId:null,modelProvider:"provider",modelId:"model",tokensTotal:5,
    promptTokens:5,completionTokens:0,outcome:"failed",totalSource:"reported",costMicros:500n,currency:"CNY",priceVersion:"test-price-v1"});
   // Between ledger arrival and settlement, one request occupies max hold once, not ledger+hold.
   expect((await admission.reserve(toOrgId(ORG),{...request("reserve-b"),maximumTokens:4n,maximumCostMicros:400n})).decision).toBe("allowed");
@@ -90,7 +95,7 @@ describe("shared atomic admission foundation — isolated PostgreSQL",()=>{
    VALUES('cross-tenant',$1,$2,$3,$4,1,1,'p','m','CNY','v')`,[ORG,USER,start,end]))).rejects.toThrow();
  });
  it("unpriced historical charge blocks admission rather than treating it as zero",async()=>{
-  await usage.record(toOrgId(ORG),{eventId:"old-unknown-price",userId:USER,runId:null,modelProvider:"provider",modelId:"model",tokensTotal:2,
+  await recordAdmittedUsage(toOrgId(ORG),{eventId:"old-unknown-price",userId:USER,runId:null,modelProvider:"provider",modelId:"model",tokensTotal:2,
    promptTokens:2,completionTokens:0,outcome:"succeeded",totalSource:"reported"});
   expect((await admission.reserve(toOrgId(ORG),request("reserve-a"))).decision).toBe("COST_LIMIT_UNCONFIGURED");
  });
@@ -106,10 +111,10 @@ it("unknown late receipt becomes one old-price settlement without resetting the 
  const base={eventId:held.requestId,userId:USER,runId:null,modelProvider:"provider",modelId:"model",outcome:"failed" as const,
   requestStartedAt:new Date().toISOString(),requestEndedAt:new Date().toISOString()};
  const unknown={...base,tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:"unknown" as const};
- await usage.record(toOrgId(ORG),unknown);
+ await recordAdmittedUsage(toOrgId(ORG),unknown);
  const original=(await asApp(ORG,c=>c.query("SELECT * FROM token_usage_events WHERE id=$1",[held.requestId]))).rows[0];
  await admission.settle(toOrgId(ORG),held.requestId,{tokens:null,costMicros:null});
- await usage.record(toOrgId(ORG),{...unknown,promptTokens:3});
+ await recordAdmittedUsage(toOrgId(ORG),{...unknown,promptTokens:3});
  await admission.settle(toOrgId(ORG),held.requestId,{tokens:null,costMicros:null});
  expect((await asApp(ORG,c=>c.query("SELECT state,settled_tokens FROM ai_request_reservations WHERE id=$1",[held.requestId]))).rows[0]).toEqual({state:"held",settled_tokens:null});
  expect((await admission.reserve(toOrgId(ORG),request("blocked-by-unknown-hold"))).decision).toBe("TOKEN_LIMIT_REACHED");
@@ -125,7 +130,7 @@ it("unknown late receipt becomes one old-price settlement without resetting the 
   outputMicrosPerMillion:BigInt(snapshot.price.outputMicrosPerMillion),cachedInputMicrosPerMillion:BigInt(snapshot.price.cachedInputMicrosPerMillion)},{input:3n,output:2n});
  expect(cost).toBe(500n);
  const reported={...base,tokensTotal:5,promptTokens:3,completionTokens:2,totalSource:"reported" as const,costMicros:cost,currency:snapshot.currency,priceVersion:snapshot.priceVersion};
- await usage.record(toOrgId(ORG),reported);await usage.record(toOrgId(ORG),reported);
+ await recordAdmittedUsage(toOrgId(ORG),reported);await recordAdmittedUsage(toOrgId(ORG),reported);
  await worker.settle(toOrgId(ORG),held.requestId,{tokens:5n,costMicros:cost});
  const settled=(await asApp(ORG,c=>c.query("SELECT state,settled_tokens::text,settled_cost_micros::text,settled_at FROM ai_request_reservations WHERE id=$1",[held.requestId]))).rows[0];
  await worker.settle(toOrgId(ORG),held.requestId,{tokens:5n,costMicros:cost});
@@ -136,8 +141,8 @@ it("unknown late receipt becomes one old-price settlement without resetting the 
  expect((await asApp(ORG,c=>c.query("SELECT token_limit::text,cost_limit_micros::text,price_version FROM ai_budget_windows WHERE org_id=$1 AND user_id=$2",[ORG,USER]))).rows[0]).toEqual({token_limit:"10",cost_limit_micros:"1000",price_version:"test-price-v1"});
  expect((await admission.reserve(toOrgId(ORG),{...request("fills-after-enrichment"),maximumTokens:5n,maximumCostMicros:500n})).decision).toBe("allowed");
  expect((await asApp(OTHER,c=>c.query("SELECT id FROM effective_token_usage() WHERE id=$1",[held.requestId]))).rows).toEqual([]);
- await expect(usage.record(toOrgId(OTHER),reported)).rejects.toBeDefined();
+ await expect(recordAdmittedUsage(toOrgId(OTHER),reported)).rejects.toBeDefined();
  // Replacement of already reported facts requires a verified supplier revision protocol; not implemented.
- await expect(usage.record(toOrgId(ORG),{...reported,tokensTotal:6,completionTokens:3,costMicros:600n})).rejects.toBeDefined();
+ await expect(recordAdmittedUsage(toOrgId(ORG),{...reported,tokensTotal:6,completionTokens:3,costMicros:600n})).rejects.toBeDefined();
  expect((await asApp(ORG,c=>c.query("SELECT count(*)::int AS revisions FROM token_usage_enrichments WHERE request_id=$1",[held.requestId]))).rows[0]).toEqual({revisions:2});
 });

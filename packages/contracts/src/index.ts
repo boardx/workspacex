@@ -160,3 +160,5 @@ export * as platformModelTests from "./platform-model-test";
 export * as organizationCoreModel from "./organization-core-model";
 
 export * as chatShare from "./chat-share";
+
+export * as billingConsumption from "./billing-consumption";

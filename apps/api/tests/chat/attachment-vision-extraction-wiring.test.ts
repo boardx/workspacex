@@ -7,6 +7,8 @@
  *   ③ 可重试故障（transport）→ 返回 "retry" 且**一个终态都不记**（不许把网络抖动写成永久失败）。
  *   ④ 非图片路径一字节不变：csv 仍走 converter，视觉端口**一次都没被调用**。
  */
+import {currentCreditSubject,withCreditSubject} from "../../src/application/billing/credit-execution-context";
+import {CreditConsumptionError} from "../../src/application/billing/credit-consumption";
 import { describe, expect, it } from "vitest";
 import { extractAttachment, extractedObjectKey, type ExtractionCoreDeps } from "../../src/application/chat/attachment-extraction-worker";
 import type { AttachmentExtractionStore, ExtractionErrorCode } from "../../src/application/chat/attachment-extraction-store";
@@ -40,7 +42,7 @@ function memExtraction(mime: string): AttachmentExtractionStore & { rec: Recorde
   return {
     rec,
     async enqueue() {}, async claimNext() { return null; }, async complete() {}, async markJobFailed() {},
-    async readAttachment() { return { storageRef: `chat-attachments/${ORG}/${ATT}`, mime }; },
+    async readAttachment() { return { storageRef: `chat-attachments/${ORG}/${ATT}`, mime,uploadedBy:"vision-upload-user" }; },
     async recordExtracted(_o, _a, ref, excerpt) { rec.extracted = { ref, excerpt }; },
     async recordUnsupported() { rec.unsupported = true; },
     async recordFailed(_o, _a, code) { rec.failed = code; },
@@ -139,4 +141,10 @@ describe("图片抽取接线（#1560 P1）", () => {
     expect(vision.calls).toBe(0);
     expect(extraction.rec.extracted?.excerpt).toBe("| a | b |");
   });
+});
+
+describe("persisted upload payer for asynchronous image extraction",()=>{
+ it("uses the persisted uploader even when no HTTP context exists or another ambient subject is active",async()=>{const store=await seededStore(),extraction=memExtraction("image/png");let called=0;const vision:AttachmentVisionPort={async describeImage(){called++;expect(currentCreditSubject()).toEqual({orgId:ORG,userId:"vision-upload-user"});return {ok:true,markdown:"description",modelId:"model"};}};expect(await withCreditSubject({orgId:toOrgId("other-org"),userId:"prompt-controlled-actor"},()=>extractAttachment({store,extraction,converter:neverConverter,vision},ORG,ATT))).toBe("extracted");expect(called).toBe(1);expect(currentCreditSubject()).toBeUndefined();});
+ it("rejects legacy unowned pending images without dispatching a free model call",async()=>{const store=await seededStore(),base=memExtraction("image/png"),vision=visionPort({ok:true,markdown:"forbidden",modelId:"model"});const extraction={...base,readAttachment:async()=>({storageRef:`chat-attachments/${ORG}/${ATT}`,mime:"image/png",uploadedBy:null})};expect(await extractAttachment({store,extraction,converter:neverConverter,vision},ORG,ATT)).toBe("failed");expect(vision.calls).toBe(0);expect(base.rec.failed).toBe("credit_accounting_unavailable");});
+ it("keeps credit-required failures actionable and terminal rather than automatically retrying a paid model",async()=>{const store=await seededStore(),extraction=memExtraction("image/png");const vision:AttachmentVisionPort={async describeImage(){throw new CreditConsumptionError("credit_required","user","vision-upload-user");}};expect(await extractAttachment({store,extraction,converter:neverConverter,vision},ORG,ATT)).toBe("failed");expect(extraction.rec.failed).toBe("credit_required");expect(extraction.rec.extracted).toBeNull();});
 });

@@ -3,6 +3,7 @@
 import * as React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SessionProvider } from "@/components/session/session-provider";
+import { CreditConsumptionNotice } from "@/components/billing/credit-consumption-notice";
 import { GlobalErrorReporter } from "@/components/system/global-error-reporter";
 import { DisablePageZoom } from "@/components/system/disable-page-zoom";
 import { EditionProvider } from "@/lib/edition";
@@ -42,6 +43,7 @@ export function Providers(
       <EditionProvider edition={edition} cloudUrl={cloudUrl}>
         <SessionProvider>
           <GlobalErrorReporter />
+          <CreditConsumptionNotice />
           <DisablePageZoom />
           {children}
         </SessionProvider>

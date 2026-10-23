@@ -16,11 +16,22 @@ import { toOrgId, type OrgId } from "../../domain/org-id";
 export class PgKgProjectIngestion implements KgProjectIngestionPort {
   constructor(private readonly db: DatabasePort) {}
 
-  async pendingProjects(): Promise<readonly { readonly orgId: OrgId; readonly projectId: string }[]> {
+  async pendingProjects(): Promise<readonly { readonly orgId: OrgId; readonly projectId: string; readonly billingSubject?: import("../../domain/principal").Principal }[]> {
     const r = await this.db.withoutTenant((s) => s.query<{ org_id: string; project_id: string }>(
       "SELECT org_id, project_id FROM kg_project_ingestion_pending()",
     ));
-    return r.rows.map((x) => ({ orgId: toOrgId(x.org_id), projectId: x.project_id }));
+    return Promise.all(r.rows.map(async (x) => {
+      const orgId = toOrgId(x.org_id);
+      // Background work must use a persisted responsible member, never a model-supplied actor.
+      const actor = await this.db.withTenant(orgId, async (s) => (await s.query<{user_id:string}>(`
+        SELECT responsible.user_id FROM (
+          SELECT actor_id AS user_id, 0 AS priority FROM project_creation_requests WHERE org_id=$1 AND project_id=$2
+          UNION ALL SELECT user_id, 1 FROM general_project_members WHERE org_id=$1 AND project_id=$2 AND role='owner'
+          UNION ALL SELECT user_id, 2 FROM project_memberships WHERE org_id=$1 AND project_id=$2 AND is_host
+        ) responsible JOIN org_memberships om ON om.org_id=$1 AND om.user_id=responsible.user_id
+        ORDER BY responsible.priority,responsible.user_id LIMIT 1`, [orgId,x.project_id])).rows[0]);
+      return {orgId, projectId:x.project_id, ...(actor?{billingSubject:{orgId,userId:actor.user_id}}:{})};
+    }));
   }
 
   async alreadyIngested(orgId: OrgId, projectId: string, evidenceIds: readonly string[]): Promise<ReadonlySet<string>> {

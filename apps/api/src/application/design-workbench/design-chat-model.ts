@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * UC-17.8 B5.2 —— 设计详情「设计协作」对话的模型端口 + 唯一实现 `ModelDesignChatReplier`。
  *
@@ -453,7 +454,7 @@ export function parseWritebackDetailed(
     let parsed: ReturnType<typeof designAiCollab.DesignChatWriteback.safeParse>;
     try {
       parsed = designAiCollab.DesignChatWriteback.safeParse({ [field]: coerced });
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       // 兜底：解析本身抛（而不是返回 success:false）也只丢这个字段，不让整次对话 500。
       log?.("design chat: writeback field parse threw, skipped", { field, detail: e instanceof Error ? e.message : "unknown" });
       rejected.push({ field, reason: "无法解析" });
@@ -574,7 +575,7 @@ function canParseScreen(text: string): boolean {
   try {
     parseScreenJson(text);
     return true;
-  } catch {
+  } catch (creditError) { rethrowCreditConsumption(creditError);
     return false;
   }
 }
@@ -583,7 +584,7 @@ function canParse(text: string): boolean {
   try {
     extractJsonObject(text);
     return true;
-  } catch {
+  } catch (creditError) { rethrowCreditConsumption(creditError);
     return false;
   }
 }
@@ -652,7 +653,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     let outlineRaw: unknown;
     try {
       outlineRaw = extractJsonObject(outlineText.text);
-    } catch {
+    } catch (creditError) { rethrowCreditConsumption(creditError);
       this.deps.log("design chat: outline round output was not parseable JSON", { length: outlineText.text.length });
       return this.fallback("MODEL_BAD_JSON");
     }
@@ -721,7 +722,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       if (ctx.onProgress === undefined) return;
       try {
         await ctx.onProgress(screens);
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: progress publish failed, generation continues", {
           detail: e instanceof Error ? e.message : "unknown",
         });
@@ -857,7 +858,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     try {
       // V53：**每页轮都带图**，不是只发骨架轮——「照着这张画」在第 4 页仍然成立。
       one = await this.callModel(context, DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       this.deps.log("design chat: screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
       return null;
     }
@@ -868,7 +869,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       this.deps.log("design chat: screen round truncated, retrying smaller", { index: i, truncated: one.truncated });
       try {
         one = await this.callModel(context + SIMPLER_SCREEN_HINT, DESIGN_CHAT_REPAIR_TIMEOUT_MS, DESIGN_ONE_SCREEN_SYSTEM_PROMPT, ctx.refImages);
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: smaller retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
         return null;
       }
@@ -894,7 +895,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
           DESIGN_ONE_SCREEN_SYSTEM_PROMPT,
           ctx.refImages,
         );
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: contract retry failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
         return null;
       }
@@ -967,7 +968,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       try {
         const r = await this.callModel(context + extra, timeout, DESIGN_ONE_HTML_SCREEN_SYSTEM_PROMPT, ctx.refImages);
         return { page: r.truncated ? null : parseHtmlPageOutput(r.text, { index: i, screenCount: outline.length }), truncated: r.truncated };
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: html screen round failed", { index: i, detail: e instanceof Error ? e.message : "unknown" });
         return null;
       }
@@ -1083,7 +1084,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     let parsed: unknown;
     try {
       parsed = parseScreenJson(text);
-    } catch {
+    } catch (creditError) { rethrowCreditConsumption(creditError);
       this.deps.log("design chat: screen round output was not parseable JSON", { index, length: text.length });
       return null;
     }
@@ -1113,7 +1114,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       if (one.truncated) return null;
       const screen = normalizeScreenCandidate({ ...(parseScreenJson(one.text) as Record<string, unknown>), frame }).screen;
       return designPrototype.PrototypeScreen.safeParse(screen).success ? screen : null;
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       this.deps.log("design chat: quality retry failed", { detail: e instanceof Error ? e.message : "unknown" });
       return null;
     }
@@ -1205,7 +1206,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
   ): Promise<{ text: string; truncated: boolean }> {
     try {
       return await this.callModelOnce(user, timeoutMs, system, images);
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       if (!isTransientModelFailure(e)) throw e;
       this.deps.log("design chat: transient model failure, retrying once", { detail: (e as ModelCallError).detail });
       await new Promise((r) => setTimeout(r, TRANSIENT_RETRY_DELAY_MS));
@@ -1263,7 +1264,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       const repaired: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(writeback)) if (wanted.has(k) && v !== undefined) repaired[k] = v;
       return Object.keys(repaired).length === 0 ? null : (repaired as DesignChatWriteback);
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       this.deps.log("design chat: repair round failed, keeping first-round result", { detail: e instanceof Error ? e.message : "unknown" });
       return null;
     }
@@ -1304,7 +1305,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       try {
         const edited = await this.editHtml(ctx);
         if (edited !== null) return edited;
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: html edit failed", { detail: e instanceof Error ? e.message : "unknown" });
         if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");
         return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : "MODEL_CALL_FAILED");
@@ -1351,7 +1352,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
         if (newScreens.length > 0) replies.unshift(`已新增 ${newScreens.length} 个页面：${newScreens.map((screen) => screen.frame).join("、")}。`);
         if (patch.length > 0 && !designPrototype.DesignPrototypePatch.safeParse(patch).success) return fallbackWith("MODEL_BAD_JSON");
         return { text: (replies.length === 0 ? raw.reply.trim() + this.blindNotice(ctx) : replies.join("\n")).slice(0, 4200), source: "model", writeback: patch.length === 0 ? {} : { patch }, suggestions: [], ...(pageNotes.length === 0 ? {} : { pageNotes }) };
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: existing html iteration failed, preserving design", { detail: e instanceof Error ? e.message : "unknown" });
         if (e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED") return fallbackWith("MODEL_NOT_CONFIGURED");
         return fallbackWith(e instanceof Error && e.message === MODEL_TIMEOUT_MESSAGE ? "MODEL_TIMEOUT" : e instanceof ModelCallError ? "MODEL_CALL_FAILED" : "MODEL_BAD_JSON");
@@ -1364,7 +1365,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     if (ctx.prototype.length === 0) {
       try {
         return await this.generatePaged(ctx);
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: paged generation failed, falling back", {
           code: e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED",
           detail: e instanceof ModelCallError ? e.detail : e instanceof Error ? e.message : "unexpected failure",
@@ -1379,7 +1380,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       const first = await this.callModel(describeProject(ctx), DESIGN_CHAT_REPLY_TIMEOUT_MS, DESIGN_CHAT_SYSTEM_PROMPT, ctx.refImages);
       text = first.text;
       truncated = first.truncated;
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       this.deps.log("design chat: model call failed, falling back to fixed reply", {
         modelProvider: this.deps.chatModel.provider,
         modelId: this.deps.chatModel.modelId,
@@ -1419,7 +1420,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
       this.deps.log("design chat: model reported truncated output, falling back to paged generation", { length: text.length });
       try {
         return await this.generatePaged(ctx);
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         this.deps.log("design chat: paged fallback after truncation also failed", {
           detail: e instanceof Error ? e.message : "unknown",
         });
@@ -1429,7 +1430,7 @@ export class ModelDesignChatReplier implements DesignChatModel {
     let raw: unknown;
     try {
       raw = extractJsonObject(text);
-    } catch {
+    } catch (creditError) { rethrowCreditConsumption(creditError);
       /**
        * ⚠ 2026-09-07 用户实测：这条分支曾把**整坨 JSON 泼进对话框**。原意是"模型用大白话答的、
        * 没给 JSON ⇒ 原样显示"，但模型一次整页重画 5 页时输出被截断，JSON 没闭合、parse 失败，

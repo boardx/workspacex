@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * `structureFeedbackDraft`（FB-5）—— 把语音转录出来的一段自由文本整理成
  * `{kind, title, detail}`，填进"提交反馈"表单，人工再改再提交。
@@ -164,7 +165,7 @@ export async function structureFeedbackDraft(
         setTimeout(() => reject(new Error("feedback structuring model call timed out")), STRUCTURE_FEEDBACK_DRAFT_TIMEOUT_MS);
       }),
     ]);
-  } catch (e) {
+  } catch (e) { rethrowCreditConsumption(e);
     const detail = e instanceof ModelCallError
       ? e.detail
       : e instanceof Error ? e.message : "unexpected model call failure";
@@ -180,7 +181,7 @@ export async function structureFeedbackDraft(
   let parsed: unknown;
   try {
     parsed = extractJsonObject(completion.text);
-  } catch (e) {
+  } catch (e) { rethrowCreditConsumption(e);
     const detail = e instanceof Error ? e.message : "unparseable model output";
     deps.log("feedback draft structuring: model output was not parseable JSON", { detail });
     throw new FeedbackStructuringUnavailableError(detail);

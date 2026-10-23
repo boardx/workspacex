@@ -1,3 +1,4 @@
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 /**
  * `BailianImageProvider` -- the third `ModelCallPort` implementation (2026-08-07, 人类直接
  * 指令："这里要可以直接看到图片，不是只是文字"——`gpt-image-2` 技能在没有任何
@@ -89,6 +90,8 @@ export class BailianImageProvider implements ModelCallPort {
   private accountingFault=false;
   constructor(private readonly config: BailianImageProviderConfig,private readonly nativeAdmission?:ImageAiAdmission,private readonly productQuotaEnabled=false) {}
 
+  supportsRequestAccounting():boolean{return Boolean(this.nativeAdmission);}
+
   async complete(input: ModelCallInput): Promise<{ readonly text: string; readonly tokens?: number }> {
     const { apiKey } = this.config;
     if (apiKey === "") {
@@ -101,7 +104,8 @@ export class BailianImageProvider implements ModelCallPort {
       );
     }
 
-    const image = await this.generateImage(input.user);
+    if(!input.orgId||!input.runId||!input.executionAttemptId||!input.executionLeaseEpoch)throw new ModelCallError("MODEL_CALL_FAILED","IMAGE_ACCOUNTING_CONTEXT_REQUIRED");
+    const image = await this.generateImage(input.user,input.signal,{orgId:input.orgId as import("../../domain/org-id").OrgId,parentRunId:input.runId,attemptId:input.executionAttemptId,leaseEpoch:input.executionLeaseEpoch});
     // 这条 provider 永远走 `url` 交付（DashScope 是异步任务 + 签名 URL，见文件头注）；
     // 联合类型的另一支属于同步返回字节的供应商（OpenAI），这里结构上到不了。
     if (image.delivery !== 'url') throw new ModelCallError("MODEL_CALL_FAILED", "bailian image provider returned a non-url delivery");
@@ -109,7 +113,7 @@ export class BailianImageProvider implements ModelCallPort {
   }
 
   /** Structured result for the standard image tool; persistence remains the existing artifact path. */
-  async generateImage(prompt: string, callerSignal?: AbortSignal,accountingContext?:ImageContext): Promise<GeneratedImage> {
+  async generateImage(prompt: string, callerSignal?: AbortSignal,accountingContext?:import("./image-ai-admission").ImageBillingContext): Promise<GeneratedImage> {
     if((this.productQuotaEnabled||process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==='1')&&!this.nativeAdmission)throw new ModelCallError('MODEL_PROVIDER_NOT_CONFIGURED','AI_NATIVE_DISPATCH_ADMISSION_UNSUPPORTED');
     const {apiKey,modelId,baseUrl}=this.config;
     if (!apiKey) throw new ModelCallError("MODEL_PROVIDER_NOT_CONFIGURED", "image provider is not configured");
@@ -138,11 +142,12 @@ export class BailianImageProvider implements ModelCallPort {
         if(!['PENDING','RUNNING'].includes(status))throw new Error('terminal failure');
         await delay(Math.min(3000,Math.max(1,this.config.pollIntervalMs)),undefined,{signal});
       }
-    } catch {
+    } catch (error) {
+      if(error instanceof CreditConsumptionError)throw error;
       // No retry: a lost submission acknowledgement may already have created a vendor task.
       throw new ModelCallError("MODEL_CALL_FAILED", "image generation failed, was cancelled, or exceeded its deadline");
     } finally {
-      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,quantity});}catch{this.accountingFault=true;}
+      if(receipt)try{await receipt.terminal({endedAt:new Date().toISOString(),outcome,quantity});}catch(error){this.accountingFault=true;throw error;}
     }
   }
 

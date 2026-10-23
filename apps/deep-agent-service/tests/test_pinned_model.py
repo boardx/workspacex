@@ -38,7 +38,9 @@ def test_same_model_id_passes_request_through():
     assert _run({"configurable": {"model_id": "qwen-plus"}}, req) is req
 
 
-def test_pinned_model_id_overrides_model(monkeypatch):
+def test_pinned_model_id_overrides_model(monkeypatch, tmp_path):
+    monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS", "4096")
+    monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
     monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "http://127.0.0.1:9/v1")
     monkeypatch.setenv("KERNEL_MODEL_API_KEY", "k")
     harness._pinned_models.clear()

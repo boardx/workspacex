@@ -208,7 +208,8 @@ export function RealtimeTranscriptionWorkspace({
               className="w-full sm:ml-auto sm:w-auto"
               type="button"
               variant="primary"
-              disabled={streamState === "stopping" || renaming}
+              disabled={streamState === "stopping" || renaming || (editing && !canStop)}
+              aria-describedby={editing && !canStop ? "rec-edit-capture-hint" : undefined}
               loading={streamState === "stopping"}
               onClick={canStop ? onStop : onStart}
             >
@@ -217,6 +218,7 @@ export function RealtimeTranscriptionWorkspace({
           </div>
         </header>
 
+        {editing && !canStop && <p id="rec-edit-capture-hint" className="text-12 text-muted-foreground">保存或取消正文编辑后可继续转录，避免覆盖正在修改的内容。</p>}
         {returnBlocked && <p id="rec-return-hint" className="text-12 text-muted-foreground">{returnHint}</p>}
         {copyError && <p role="alert" data-testid="rec-live-copy-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{copyError}</p>}
         {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || saveError}</p>}
@@ -225,8 +227,8 @@ export function RealtimeTranscriptionWorkspace({
         <Card className="min-h-64 p-4" data-testid="rec-live-transcript">
           <div className="border-b border-border pb-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-16 font-semibold">实时逐字稿</h2>
-              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+              <div className="min-w-0"><h2 className="text-16 font-semibold">实时逐字稿</h2><p data-testid="rec-live-reading-hint" className="mt-1 text-12 text-muted-foreground">{editing ? "编辑完成后保存修改，或取消以保留原文。" : recording || busy ? "已有正文可复制；停止转录并完成收尾后可编辑。" : visibleContent ? "已保存的正文可复制和编辑；实时识别中的文字以浅色显示。" : "开始转录后将在此显示正文；已有正文时可复制和编辑。"}</p></div>
+              <div className={`grid w-full gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center ${editing ? "grid-cols-1" : "grid-cols-2"}`}>
                 <WorkflowActionButton data-testid="rec-live-copy" type="button" variant="outline"
                   disabled={!visibleContent} loading={copying} onClick={() => void copyContent()}>
                   {copied ? <Check aria-hidden className="h-4 w-4" /> : <Copy aria-hidden className="h-4 w-4" />}
@@ -254,7 +256,7 @@ export function RealtimeTranscriptionWorkspace({
             </div>
           ) : visibleContent ? (
             <div className="mt-4 rounded-lg bg-card p-1">
-              <p data-testid="rec-live-content" className="whitespace-pre-wrap break-words text-14 leading-8">{session.content}
+              <p data-testid="rec-live-content" className="mx-auto max-w-prose whitespace-pre-wrap break-words text-14 leading-8 [overflow-wrap:anywhere]">{session.content}
                 {session.content && interimSegment ? " " : ""}
                 {interimSegment && <span data-testid="rec-live-interim" className="text-muted-foreground">{interimSegment}</span>}
               </p>

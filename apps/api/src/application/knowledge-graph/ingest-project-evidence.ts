@@ -36,6 +36,8 @@
  * 一条证据模型失败只让它自己这轮不进（下一轮 `listForIngestion` 还会给它）；进 `failures`，`sourceKind` 用六类枚举。
  * 一个项目失败不影响别的项目（`runProjectIngestionTick`）。
  */
+import {withCreditSubject} from "../billing/credit-execution-context";
+import type {Principal} from "../../domain/principal";
 import { knowledgeGraph as KG, projectEvidence as PE } from "@repo/contracts";
 import type { z } from "zod";
 import type { OrgId } from "../../domain/org-id";
@@ -71,6 +73,7 @@ export interface IngestProjectEvidenceInput {
   readonly orgId: OrgId;
   readonly projectId: string;
   readonly limit: number;
+  readonly billingSubject?: Principal;
 }
 
 export interface ProjectIngestionResult {
@@ -140,6 +143,11 @@ function emptyMarkerBatch(projectId: string, ev: ProjectEvidenceRow, newId: Proj
 }
 
 export async function ingestProjectEvidence(deps: ProjectIngestionDeps, input: IngestProjectEvidenceInput): Promise<ProjectIngestionResult> {
+  if (input.billingSubject) return withCreditSubject(input.billingSubject, () => ingestProjectEvidenceScoped(deps,input));
+  return ingestProjectEvidenceScoped(deps,input);
+}
+
+async function ingestProjectEvidenceScoped(deps: ProjectIngestionDeps, input: IngestProjectEvidenceInput): Promise<ProjectIngestionResult> {
   const { orgId, projectId } = input;
   const log = { traceId: "kg-project-ingestion", orgId, projectId };
   const decision = projectIngestionDecision(projectId);
@@ -216,11 +224,11 @@ export async function runProjectIngestionTick(deps: ProjectIngestionDeps, abando
   let projects = 0;
   const sum = { processed: 0, written: 0, empty: 0, skipped: 0, failed: 0 };
   const failures: ProjectIngestionFailure[] = [];
-  for (const { orgId, projectId } of await deps.ingestion.pendingProjects()) {
+  for (const { orgId, projectId, billingSubject } of await deps.ingestion.pendingProjects()) {
     if (abandoned()) break;
     projects += 1;
     try {
-      const r = await ingestProjectEvidence(deps, { orgId, projectId, limit: KG_PROJECT_INGESTION_BATCH });
+      const r = await ingestProjectEvidence(deps, { orgId, projectId, limit: KG_PROJECT_INGESTION_BATCH, ...(billingSubject?{billingSubject}:{}) });
       sum.processed += r.processed; sum.written += r.written; sum.empty += r.empty; sum.skipped += r.skipped; sum.failed += r.failed;
       failures.push(...r.failures);
     } catch (err) {
