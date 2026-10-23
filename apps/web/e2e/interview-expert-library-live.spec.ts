@@ -13,7 +13,7 @@ async function modelActivity(orgId: string) {
 }
 import { expect,test } from '@playwright/test';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
-import { readVerificationToken } from './core-loop-fixture';
+import { freshNoModelAccount } from './no-model-account-fixture';
 import { INTERVIEW_PERSONAS,personaAnchorId } from '../lib/interview-personas/persona-library';
 /** Real authenticated routes/PG, no route interception or model calls. */
 test('built-in experts and private custom experts persist and can be selected into a saved interview',async({page},testInfo)=>{
@@ -88,10 +88,7 @@ test('four rounds of interview interaction with isolated saved data', async({pag
  const dir=process.env.ITV_UX_EVIDENCE ?? testInfo.outputPath('four-rounds');await fs.mkdir(dir,{recursive:true});
  // Model accounting includes concurrent background/auxiliary requests. Own a fresh
  // organization so this negative assertion still catches every call from this flow.
- const unique=randomUUID();const email=`interview-ux-${unique}@example.test`,password=`InterviewUx-${unique}!`;
- const registration=await page.request.post('/__fullstack_api/auth/register-open',{data:{orgName:`Interview UX ${unique}`,displayName:'Interview UX auditor',email,password}});expect(registration.status()).toBe(201);
- const {orgId}=await registration.json() as {orgId:string};expect(orgId).toBeTruthy();
- const verification=await page.request.post('/__fullstack_api/auth/email-verifications/confirm',{data:{token:readVerificationToken(email).token}});expect(verification.ok()).toBe(true);
+ const {orgId,email,password}=await freshNoModelAccount(page);
  const modelCommands: string[] = [];
  page.on('request',request=>{if(request.method()==='POST' && /runtime\/commands|report-files|\/(?:generate|execute)(?:\/|$)/u.test(new URL(request.url()).pathname)) modelCommands.push(new URL(request.url()).pathname);});
  const checkpoint=async(name:string,data:unknown)=>{await page.screenshot({path:`${dir}/${name}.png`,fullPage:true});await fs.writeFile(`${dir}/${name}.json`,JSON.stringify(data,null,2));console.log(`UX_CHECKPOINT ${name}`);};

@@ -56,6 +56,8 @@ The exact failed browser journey also passed against a fresh production Next/API
 
 The auxiliary migration was then checked with the production `migrate:check` command from an empty isolated database: schema rebuild and individual migration replay both passed (`/tmp/5894-aux-migration-check.log`). The unique binding, tenant policies and both metadata tables remain enforced on replay.
 
+Non-model interview/research browser flows now register their own real organization and verify zero runs/physical requests before and after editing; concurrent legitimate calls in the shared seed organization cannot corrupt this assertion. Three focused production browser flows passed (`/tmp/5894-no-model-flows-browser.log`); the extra GitHub import control hit `IMPORT_FETCH_TIMEOUT` after an earlier passing control run. Supplemental research R2/R3/R4 checks passed. The separately enabled R5 report-text assertion fails identically with the original HEAD fixture (`/tmp/5894-research-r5-original.log`): an extra source-progress label remains visible. Its assertion and report implementation are unchanged; this is not full report UX acceptance.
+
 ## Configuration and rollout
 
 The default preflight policy is OFF; configure it in platform operations (`/platform-admin/ops-status`). Native tariffs are operator-managed for each organization/provider/model/unit and recorded in an append-only audit. No default commercial price is invented.
