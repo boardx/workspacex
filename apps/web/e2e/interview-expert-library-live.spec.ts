@@ -3,16 +3,17 @@ import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 interface InterviewUxAuditClient { query(sql: string, params: readonly unknown[]): Promise<{ rows: Record<string, unknown>[] }> }
-async function modelActivity() {
+async function modelActivity(orgId: string) {
  if (!process.env.WORKSPACEX_ISOLATION_ID || !process.env.WORKSPACEX_DB?.startsWith('wsx_')) throw new Error('owned isolated database required');
  const { PgDatabase } = createRequire(resolve(process.cwd(), '../api/package.json'))('./src/infrastructure/db/pg-database.ts');
  const config = JSON.parse(execFileSync(process.execPath, ['--import','tsx','--input-type=module','-e',"import {appConfig} from '../api/src/infrastructure/db/pg-config.ts'; process.stdout.write(JSON.stringify(appConfig()));"], {cwd:process.cwd(),encoding:'utf8'}));
  const db = new PgDatabase(config);
- try { return (await db.withTenant(FULLSTACK_E2E.orgId,(client:InterviewUxAuditClient)=>client.query('SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests',[FULLSTACK_E2E.orgId]))).rows[0]; }
+ try { return (await db.withTenant(orgId,(client:InterviewUxAuditClient)=>client.query('SELECT (SELECT count(*) FROM agent_runs WHERE org_id=$1)::int AS runs,(SELECT count(*) FROM model_request_starts WHERE org_id=$1)::int AS requests',[orgId]))).rows[0]; }
  finally { await db.close(); }
 }
 import { expect,test } from '@playwright/test';
 import { FULLSTACK_E2E } from './fullstack-smoke-fixture';
+import { readVerificationToken } from './core-loop-fixture';
 import { INTERVIEW_PERSONAS,personaAnchorId } from '../lib/interview-personas/persona-library';
 /** Real authenticated routes/PG, no route interception or model calls. */
 test('built-in experts and private custom experts persist and can be selected into a saved interview',async({page},testInfo)=>{
@@ -85,10 +86,18 @@ test('four rounds of interview interaction with isolated saved data', async({pag
  test.setTimeout(180_000);
  const fs=await import('node:fs/promises');
  const dir=process.env.ITV_UX_EVIDENCE ?? testInfo.outputPath('four-rounds');await fs.mkdir(dir,{recursive:true});
- const modelBefore = await modelActivity(); const modelCommands: string[] = [];
+ // Model accounting includes concurrent background/auxiliary requests. Own a fresh
+ // organization so this negative assertion still catches every call from this flow.
+ const unique=randomUUID();const email=`interview-ux-${unique}@example.test`,password=`InterviewUx-${unique}!`;
+ const registration=await page.request.post('/__fullstack_api/auth/register-open',{data:{orgName:`Interview UX ${unique}`,displayName:'Interview UX auditor',email,password}});expect(registration.status()).toBe(201);
+ const {orgId}=await registration.json() as {orgId:string};expect(orgId).toBeTruthy();
+ const verification=await page.request.post('/__fullstack_api/auth/email-verifications/confirm',{data:{token:readVerificationToken(email).token}});expect(verification.ok()).toBe(true);
+ const modelCommands: string[] = [];
  page.on('request',request=>{if(request.method()==='POST' && /runtime\/commands|report-files|\/(?:generate|execute)(?:\/|$)/u.test(new URL(request.url()).pathname)) modelCommands.push(new URL(request.url()).pathname);});
  const checkpoint=async(name:string,data:unknown)=>{await page.screenshot({path:`${dir}/${name}.png`,fullPage:true});await fs.writeFile(`${dir}/${name}.json`,JSON.stringify(data,null,2));console.log(`UX_CHECKPOINT ${name}`);};
- await page.goto('/login');await page.getByTestId('login-email').fill(FULLSTACK_E2E.email);await page.getByTestId('login-password').fill(FULLSTACK_E2E.password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/u);
+ await page.goto('/login');await page.getByTestId('login-email').fill(email);await page.getByTestId('login-password').fill(password);await page.getByTestId('login-submit').click();await expect(page).toHaveURL(/\/home$/u);
+ const modelBefore=await modelActivity(orgId);
+ expect(modelBefore).toEqual({runs:0,requests:0});
  const token=await page.evaluate(()=>localStorage.getItem('wsx.sessionToken'));const headers={authorization:`Bearer ${token}`};
  // R1: keyboard entry and actual creation; no generation command.
  await page.goto('/itv');await page.getByTestId('itv-create').click();
@@ -121,7 +130,7 @@ test('four rounds of interview interaction with isolated saved data', async({pag
   await page.goto(`/itv/${interviewId}/report`);for(const label of ['生成 PDF','生成 Word','分享报告'])await expect(page.getByRole('button',{name:label,exact:true})).toBeEnabled();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.getByRole('button',{name:'生成 Word',exact:true}).focus();await expect(page.getByRole('button',{name:'生成 Word',exact:true})).toBeFocused();await checkpoint(`r4-report-${width}`,{fileEntriesEnabled:true,noGenerationClicked:true});
  }
  await page.goto('/itv?tab=experts');const builtin=INTERVIEW_PERSONAS[0]!;const viewBuiltin=page.getByTestId(`itv-library-${personaAnchorId(builtin)}`).getByRole('button',{name:`查看画像 ${builtin.name}`,exact:true});await viewBuiltin.click();await expect(page.getByRole('dialog',{name:builtin.name,exact:true})).toContainText(builtin.service_value);await page.keyboard.press('Escape');await expect(viewBuiltin).toBeFocused();await checkpoint('r4-expert-keyboard',{completeData:true,focusRestored:true});
- const modelAfter=await modelActivity();expect(modelAfter).toEqual(modelBefore);expect(modelCommands).toEqual([]);await fs.writeFile(`${dir}/model-activity.json`,JSON.stringify({before:modelBefore,after:modelAfter,commands:modelCommands},null,2));
+ const modelAfter=await modelActivity(orgId);expect(modelAfter).toEqual(modelBefore);expect(modelCommands).toEqual([]);await fs.writeFile(`${dir}/model-activity.json`,JSON.stringify({orgId,before:modelBefore,after:modelAfter,commands:modelCommands},null,2));
 });
 
 /** Renders the sanitized actual model output; deliberately does not dispatch a model. */
