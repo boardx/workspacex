@@ -9,6 +9,21 @@ const SESSION = {
 };
 
 describe("RealtimeTranscriptionWorkspace", () => {
+  it("explains durable transcript and unsaved editor states", () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()}
+      onSaveContent={vi.fn().mockResolvedValue(undefined)} />);
+    expect(screen.getByTestId("rec-live-reading-hint")).toHaveTextContent("已保存");
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    expect(screen.getByTestId("rec-live-reading-hint")).toHaveTextContent("保存修改");
+  });
+
+  it("explains why editing is unavailable during capture", () => {
+    render(<RealtimeTranscriptionWorkspace session={SESSION} streamState="recording" onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()}
+      onSaveContent={vi.fn()} />);
+    expect(screen.getByTestId("rec-live-edit")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-reading-hint")).toHaveTextContent("完成收尾后可编辑");
+  });
+
   it.each(["idle", "error"] as const)("allows leaving stale server recording state when the local stream is %s", (streamState) => {
     const onBack = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState={streamState}
