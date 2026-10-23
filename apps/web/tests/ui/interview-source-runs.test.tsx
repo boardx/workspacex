@@ -82,6 +82,7 @@ it("does not mistake a question about risk for an insight heading or invent list
   expect(screen.getByRole("heading", { name: "关键观点（0）" })).toBeVisible();
   expect(screen.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
   expect(screen.getAllByRole("heading", { name: "争议点与风险（1）" })).toHaveLength(1);
+  fireEvent.click(screen.getByRole("button", { name: "如何降低采购风险？" }));
   expect(screen.getByText("这是普通回答。")).toBeVisible();
 });
 
