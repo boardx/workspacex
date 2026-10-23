@@ -1,0 +1,124 @@
+TAP version 13
+# Subtest: exact current main-cn main ancestor queues trusted preparation and explicitly denies acceptance
+ok 1 - exact current main-cn main ancestor queues trusted preparation and explicitly denies acceptance
+  ---
+  duration_ms: 530.075375
+  type: 'test'
+  ...
+# Subtest: wrong source or stale desired ref never dispatches
+ok 2 - wrong source or stale desired ref never dispatches
+  ---
+  duration_ms: 1205.08125
+  type: 'test'
+  ...
+# Subtest: dispatch failure is nonzero and has no queued success summary
+ok 3 - dispatch failure is nonzero and has no queued success summary
+  ---
+  duration_ms: 260.736375
+  type: 'test'
+  ...
+# Subtest: promotion uses exact frozen tag and branch-push admission without claiming terminal acceptance
+ok 4 - promotion uses exact frozen tag and branch-push admission without claiming terminal acceptance
+  ---
+  duration_ms: 850.974041
+  type: 'test'
+  ...
+# Subtest: promotion dispatch failure cannot become production success
+ok 5 - promotion dispatch failure cannot become production success
+  ---
+  duration_ms: 815.986958
+  type: 'test'
+  ...
+# Subtest: workflow wiring preserves manual verification and gates frozen-tag auto-promotion on preparation success
+ok 6 - workflow wiring preserves manual verification and gates frozen-tag auto-promotion on preparation success
+  ---
+  duration_ms: 0.300583
+  type: 'test'
+  ...
+# Subtest: wrong event or untrusted preparation ref cannot dispatch
+ok 7 - wrong event or untrusted preparation ref cannot dispatch
+  ---
+  duration_ms: 1568.933417
+  type: 'test'
+  ...
+# Subtest: full checkout ancestry validation works without any remote access and rejects missing refs
+ok 8 - full checkout ancestry validation works without any remote access and rejects missing refs
+  ---
+  duration_ms: 138.047
+  type: 'test'
+  ...
+# Subtest: both workflows reuse checkout refs and never fetch origin after credentials cleanup
+ok 9 - both workflows reuse checkout refs and never fetch origin after credentials cleanup
+  ---
+  duration_ms: 0.292292
+  type: 'test'
+  ...
+# Subtest: prepare exports verified domestic cache instead of cross-border checkout or writer
+ok 10 - prepare exports verified domestic cache instead of cross-border checkout or writer
+  ---
+  duration_ms: 0.186333
+  type: 'test'
+  ...
+# Subtest: actual domestic bundle imports candidate and baseline with no HTTP remote
+ok 11 - actual domestic bundle imports candidate and baseline with no HTTP remote
+  ---
+  duration_ms: 1677.806542
+  type: 'test'
+  ...
+# Subtest: wrong candidate rejects before bundle
+ok 12 - wrong candidate rejects before bundle
+  ---
+  duration_ms: 2137.060542
+  type: 'test'
+  ...
+# Subtest: wrong baseline rejects before bundle
+ok 13 - wrong baseline rejects before bundle
+  ---
+  duration_ms: 1584.568875
+  type: 'test'
+  ...
+# Subtest: absent cache rejects
+ok 14 - absent cache rejects
+  ---
+  duration_ms: 511.488375
+  type: 'test'
+  ...
+# Subtest: borrowed and promisor caches fail before export
+ok 15 - borrowed and promisor caches fail before export
+  ---
+  duration_ms: 933.459083
+  type: 'test'
+  ...
+# Subtest: held canonical lock prevents export
+ok 16 - held canonical lock prevents export
+  ---
+  duration_ms: 586.951583
+  type: 'test'
+  ...
+# Subtest: prepare workflow has no cross-border checkout or root-cache writer
+ok 17 - prepare workflow has no cross-border checkout or root-cache writer
+  ---
+  duration_ms: 0.427625
+  type: 'test'
+  ...
+# Subtest: runner capability cannot invoke source cache writer
+ok 18 - runner capability cannot invoke source cache writer
+  ---
+  duration_ms: 2.891708
+  type: 'test'
+  ...
+# Subtest: caller Git object-store override cannot change exported source
+ok 19 - caller Git object-store override cannot change exported source
+  ---
+  duration_ms: 1185.826334
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 19
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8658.661709

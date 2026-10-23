@@ -1,0 +1,19 @@
+
+> @repo/api@0.0.0 test:credit-runtime /Users/shenyangjun/.codex/worktrees/646f/workspacex/apps/api
+> vitest run --config vitest.credit-runtime.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/646f/workspacex/apps/api
+
+stderr | tests/chat/bailian-vision-extractor.test.ts > BailianVisionExtractor（真实 HTTP，stub 上游） > 默认模型名来自 env，未设置时用**待实测确认**的默认值（不隐式换名）
+[deprecated] KERNEL_VISION_MODEL_ID 已弃用（#3355：它与 KERNEL_MODEL_VISION_IDS 回答同一个问题）。本次仍按它生效：modelId=qwen-vl-plus。权威清单在 domain/model/vision-capable-models.ts。
+
+ ✓ tests/chat/bailian-vision-extractor.test.ts (13 tests) 146ms
+ ✓ tests/billing/credit-model-gateway.test.ts (10 tests) 28ms
+ ✓ tests/billing/private-credit-failure.test.ts (3 tests) 10ms
+
+ Test Files  3 passed (3)
+      Tests  26 passed (26)
+   Start at  00:13:52
+   Duration  4.81s (transform 1.74s, setup 0ms, collect 3.57s, tests 185ms, environment 1ms, prepare 278ms)
+
