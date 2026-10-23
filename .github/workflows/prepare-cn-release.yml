@@ -183,6 +183,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_SHA: ${{ inputs.release_sha }}
           INPUT_RELEASE: ${{ inputs.release }}
+          AUTO_PROMOTE: ${{ inputs.auto_promote }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -196,8 +197,13 @@ jobs:
           [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::release SHA must be exact"; exit 1; }
           expected_main_cn=$(git rev-parse origin/main-cn)
           [[ "${expected_main_cn}" =~ ^[a-f0-9]{40}$ ]] || { echo "::error::CN_RELEASE_BASELINE_NOT_READY"; exit 1; }
-          sudo -n /usr/local/bin/workspacex-cn-deploy --check-prepare-inputs "${revision}" "${attempt_id}"
-          if ! sudo -n /usr/local/bin/workspacex-cn-build-candidate "${revision}" "${release}" "${attempt_id}"; then
+          build_flags=()
+          if [[ "${AUTO_PROMOTE:-false}" == true ]]; then
+            build_flags=(--automatic)
+          else
+            sudo -n /usr/local/bin/workspacex-cn-deploy --check-prepare-inputs "${revision}" "${attempt_id}"
+          fi
+          if ! sudo -n /usr/local/bin/workspacex-cn-build-candidate "${build_flags[@]}" "${revision}" "${release}" "${attempt_id}"; then
             echo "::error::CN_CANDIDATE_NONINTERACTIVE_ENTRYPOINT_FAILED: verify the exact NOPASSWD sudoers rule and protected prebuild receipt"
             exit 1
           fi

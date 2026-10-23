@@ -37,24 +37,7 @@ protected_file() {
   [[ "$(stat -c '%U:%G:%a' "$path")" == root:root:600 ]] || fail "protected preparation evidence permissions differ"
 }
 capture_baseline() {
-  local output=$1 api=workspacex-cn-api-1 web=workspacex-cn-web-1 agent=workspacex-cn-agent-1 sandbox=workspacex-cn-sandbox-1
-  local api_image web_image agent_image sandbox_image config_file nginx_hash
-  for container in "$api" "$web" "$agent" "$sandbox"; do
-    docker inspect "$container" >/dev/null 2>&1 || fail "baseline container is unavailable"
-  done
-  api_image=$(docker inspect --format '{{.Image}}' "$api")
-  web_image=$(docker inspect --format '{{.Image}}' "$web")
-  agent_image=$(docker inspect --format '{{.Image}}' "$agent")
-  sandbox_image=$(docker inspect --format '{{.Image}}' "$sandbox")
-  config_file=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$api")
-  [[ "$config_file" == "$RUNTIME_ROOT"/*/compose.json ]] || fail "baseline runtime is untrusted"
-  [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration is unavailable"
-  nginx_hash=$(sha256sum "$NGINX_CONFIG" | cut -d' ' -f1)
-  node - "$output" "$config_file" "$api_image" "$web_image" "$agent_image" "$sandbox_image" "$nginx_hash" <<'NODE'
-const fs=require("node:fs");
-const [path,composeFile,api,web,agent,sandbox,nginxSha256]=process.argv.slice(2);
-fs.writeFileSync(path,`${JSON.stringify({schemaVersion:1,composeFile,images:{api,web,agent,sandbox},nginxSha256})}\n`,{mode:0o600,flag:"wx"});
-NODE
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py capture "$1" >/dev/null || fail "protected compose baseline capture failed"
 }
 
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "release repository is unavailable"

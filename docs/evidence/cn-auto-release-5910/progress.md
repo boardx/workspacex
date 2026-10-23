@@ -81,3 +81,65 @@ root source cache is stale, final candidate inputs are absent, and a generic
 preparation receipt producer is missing. Updating trusted code copies alone does
 not fix these prerequisites. Do not remove the branch deployment guard or claim
 automatic production deployment completed on the basis of trigger tests.
+
+## Automatic preparation implementation follow-up
+
+Source acquisition commit `1d0b94937` is pushed to #5912. The current PR check
+snapshot reports 55 checks, none failing or pending. This covers that committed
+source increment, not the subsequent uncommitted preparation implementation.
+The source importer has independent ACCEPT, actual root/ghrunner Linux two-round
+fixtures, and complete bundle/hash/no-borrowed-object checks. No cache writer
+sudo grant was added.
+
+The working implementation now includes actual encrypted three-database backup,
+isolated restore/data fidelity, internal Docker network, candidate runtime and
+browser execution, mandatory owner cleanup, direct-host v3 read-only migration
+snapshot/plan production, baseline schema replay, and deferred preactivate
+collection. Full preparation is produced only after these actual operations.
+See `automatic-preparation-provider.md` for executed Docker fixture boundaries.
+The final provider review source-endpoint and cancellation-cleanup findings
+are fixed and independently accepted. No complete candidate or production run
+has passed.
+
+Live root read-only inspection confirmed the application role can read all 415
+migration ledger entries; the diagnostic role cannot (42501). The last migration
+is `20261006001000_organization_creation_requests.sql`. Production uses three
+ordered root-owned 0600 single-link Compose files, with all four running images
+identifying f0eb9d07398a66fdd5646a9e6b855fa1b940e571. Shared baseline capture now
+handles the actual ordered files and exact images rather than deriving identity
+from a directory name. Independent review accepted this code after promotion
+verifier sharing and explicit nginx restore error propagation were fixed.
+
+The 16 new source SQL files cannot pass the current ordinary migration gate:
+canonical classification gives 13 destructive and 3 unknown (often DROP POLICY,
+TRIGGER or CONSTRAINT, not necessarily business-data deletion); billing credits
+core also precedes the last applied ledger name. No classifier override or fake
+old/new compatibility proof has been introduced. This is a separate first-release
+blocker even after installation of the automatic lane.
+
+Current composition verification: eight Vitest files, 70 passed and two Linux
+skips on macOS; subsequent snapshot/render/wiring delta 24 passed, including
+16 direct-host snapshot tests and three actual child-process signal cases.
+Python automatic preparation/baseline tests: 29 tests, one opt-in Docker skip;
+the separately enabled real Docker provider suite passed all nine cases.
+Node isolated-target and HTTP compatibility protocol suites: 23 passed.
+Cloud-deploy TypeScript passes. Independent reviews accepted snapshot
+cancellation, fixed-host readonly transport, baseline/request/collector wiring,
+and exact-owner cleanup of a network-none bootstrap daemon container after
+provider cancellation. Baseline replay now checks host capacity before creating
+credentials or containers and waits for TCP PostgreSQL readiness.
+These do not establish real source RDS backup, application image compatibility,
+public browser success or production readiness.
+
+The signed Devapp/governance envelope producer is another explicit unfinished
+part of the automatic lane. Existing promotion verification still requires fresh
+source/attempt-bound signatures and actual exact-source Devapp runtime/browser
+evidence. Current backend-gates only deploys develop or two fixed preview
+branches, so a final main release SHA cannot borrow a develop run. No verification
+gate was removed, no passed envelope was manufactured, and the branch deployment
+guard remains in place pending a real complete lane.
+
+The user-opened ECS root Workbench window is visible. Native paste/type attempts
+in this continuation produced no terminal output, and tab binding timed out.
+An async request asks the user to verify manual `id -u` input; no key is needed.
+No production mutation was made in this continuation.

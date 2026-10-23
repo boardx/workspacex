@@ -22,7 +22,7 @@ describe("CN release candidate workflow", () => {
   });
 
   it("executes the automatic dispatcher counterexamples in the harness CI lane", () => {
-    const result = spawnSync(process.execPath, ["--test", ".github/scripts/cn-auto-release.test.mjs", ".github/scripts/cn-auto-source.test.mjs"], { encoding: "utf8", timeout: 30000 });
+    const result = spawnSync(process.execPath, ["--test", ".github/scripts/cn-auto-release.test.mjs", ".github/scripts/cn-auto-source.test.mjs", ".harness/scripts/vm/cn-auto-isolated-target.test.mjs", ".harness/scripts/vm/cn-migration-runtime-probe.test.mjs"], { encoding: "utf8", timeout: 30000 });
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
 
@@ -30,6 +30,24 @@ describe("CN release candidate workflow", () => {
     const result = spawnSync("python3", ["-B", "-m", "unittest", "discover", "-s", ".harness/scripts/vm/tests", "-p", "test_cn_auto_source.py", "-v"], { encoding: "utf8", timeout: 60_000 });
     expect(result.status, result.stdout + result.stderr).toBe(0);
   }, 65_000);
+
+  it("executes automatic host provider boundaries and timeout counterexamples",()=>{
+    for(const pattern of ["test_cn_auto_prepare.py","test_cn_auto_prepare_provider.py","test_cn_compose_baseline.py","test_cn_auto_baseline_schema.py"]){
+      const result=spawnSync("python3",["-B","-m","unittest","discover","-s",".harness/scripts/vm","-p",pattern,"-v"],{encoding:"utf8",timeout:60_000});
+      expect(result.status,result.stdout+result.stderr).toBe(0);
+      expect(result.stdout+result.stderr).not.toContain("Ran 0 tests");
+    }
+  },70_000);
+
+  it.skipIf(process.platform!=="linux"||process.env.GITHUB_ACTIONS!=="true")("executes encrypted backup, restored row fidelity, internal network and daemon timeout cleanup on real Docker",()=>{
+    for(const image of ["postgres:16","redis:7"]){
+      const pull=spawnSync("docker",["pull",image],{encoding:"utf8",timeout:180_000});
+      expect(pull.status,pull.stdout+pull.stderr).toBe(0);
+    }
+    const result=spawnSync("python3",["-B","-m","unittest","discover","-s",".harness/scripts/vm","-p","test_cn_auto_prepare_provider.py","-v"],{encoding:"utf8",timeout:240_000,env:{...process.env,CN_AUTO_PREPARE_DOCKER_TEST:"1"}});
+    expect(result.status,result.stdout+result.stderr).toBe(0);
+    expect(result.stdout+result.stderr).not.toContain("skipped");
+  },610_000);
 
   // Local macOS skips are explicit and cannot establish Linux uid/lock behavior
   // or live host readiness. CI uses an official disposable image, never a local image.

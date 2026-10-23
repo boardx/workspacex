@@ -59,7 +59,7 @@ install -d -o root -g root -m 0755 "$(dirname "$TRUSTED_PUBLISH_BIN")"
 install -o root -g root -m 0755 "$publisher_script" "$TRUSTED_PUBLISH_BIN"
 install -o root -g root -m 0755 "$preflight_script" "$TRUSTED_PREFLIGHT_BIN"
 install -o root -g root -m 0755 "$collector_script" "$TRUSTED_COLLECTOR_BIN"
-for helper in cn-bootstrap-baseline.cjs cn-bootstrap-baseline-source.mjs cn-baseline-schema-contract.cjs cn-release-preflight-evidence.mjs cn-release-orphans.py cn-bootstrap-source-probe.mjs cn-controlled-evidence.mjs devapp-runtime-identity.mjs; do
+for helper in cn-bootstrap-baseline.cjs cn-bootstrap-baseline-source.mjs cn-baseline-schema-contract.cjs cn-auto-isolated-target.mjs cn-release-preflight-evidence.mjs cn-release-orphans.py cn-bootstrap-source-probe.mjs cn-controlled-evidence.mjs devapp-runtime-identity.mjs; do
   source="$REPOSITORY_DIR/.harness/scripts/vm/$helper"
   [[ -f "$source" && ! -L "$source" ]] || { echo "CN_BOOTSTRAP_COLLECTOR_HELPER_MISSING" >&2; exit 1; }
   install -o root -g root -m 0755 "$source" "/usr/local/lib/workspacex-cn/$helper"
@@ -68,11 +68,17 @@ install -o root -g root -m 0755 "$candidate_script" "$TRUSTED_CANDIDATE_BIN"
 install -o root -g root -m 0755 "$promotion_script" "$TRUSTED_PROMOTION_BIN"
 
 # Runner receives only the read-only export wrapper, never cache staging arguments.
-for helper in stage-cn-offline-source-cache.sh export-cn-domestic-source.sh cn_auto_source.py; do
+for helper in stage-cn-offline-source-cache.sh export-cn-domestic-source.sh cn_auto_source.py cn_compose_baseline.py; do
   source="$REPOSITORY_DIR/.harness/scripts/vm/$helper"
   [[ -f "$source" && ! -L "$source" ]] || exit 1
   install -o root -g root -m 0755 "$source" "/usr/local/lib/workspacex-cn/$helper"
 done
+for helper in cn_auto_prepare.py cn_auto_prepare_provider.py cn_auto_baseline_schema.py; do
+  source="$REPOSITORY_DIR/.harness/scripts/vm/$helper"
+  [[ -f "$source" && ! -L "$source" ]] || { echo 'CN_AUTO_HELPER_UNAVAILABLE' >&2; exit 1; }
+  install -o root -g root -m 0700 "$source" "/usr/local/lib/workspacex-cn/$helper"
+done
+install -d -o root -g root -m 0700 /etc/workspacex-cn/auto-preparation-requests /var/lib/workspacex-cn/auto-preparation /var/lib/workspacex-cn/auto-baseline-schema
 install -o root -g root -m 0755 "$REPOSITORY_DIR/.harness/scripts/vm/export-cn-domestic-source.sh" "$TRUSTED_EXPORT_BIN"
 
 sudoers_temp=$(mktemp)

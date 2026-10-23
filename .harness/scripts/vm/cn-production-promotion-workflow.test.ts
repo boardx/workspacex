@@ -17,9 +17,11 @@ describe("GitHub-based CN production promotion", () => {
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
   it("executes domestic Git export and runner capability failure fixtures", () => {
-    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-domestic-checkout.selftest.mjs"], { encoding: "utf8", timeout: 30000 });
+    // The full 13-case real Git/bundle/fsck suite took 50.16s in a standalone
+    // run. Budget this test process explicitly; production deadlines are unchanged.
+    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-domestic-checkout.selftest.mjs"], { encoding: "utf8", timeout: 75000 });
     expect(result.status, result.stdout + result.stderr).toBe(0);
-  }, 35000);
+  }, 80000);
   it("accepts only an exact SHA and an explicit compare-and-swap baseline", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("release_sha:");
@@ -59,7 +61,12 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain("CN_FROZEN_RELEASE_OFFLINE_SOURCE_NOT_READY");
     expect(candidateWorkflow).not.toContain('fetch --no-tags "${GITHUB_WORKSPACE}"');
     expect(workflow).toContain("GIT_NO_LAZY_FETCH=1");
-    expect(candidateWorkflow).not.toContain("actions/checkout@v5");
+    const hostJob = candidateWorkflow.split("  build-candidate:")[1];
+    const cloudJob = candidateWorkflow.split("  build-candidate:")[0];
+    expect(hostJob).not.toContain("actions/checkout@v5");
+    expect(hostJob).not.toMatch(/git.*fetch/);
+    expect(cloudJob).toContain("runs-on: ubuntu-latest");
+    expect(cloudJob).toContain("fetch-depth: 0");
     expect(candidateWorkflow).toContain("workspacex-cn-export-source");
     expect(candidateWorkflow).toContain("git merge-base --is-ancestor");
     expect(candidateWorkflow).toContain("CN_DOMESTIC_SOURCE_NOT_READY");
