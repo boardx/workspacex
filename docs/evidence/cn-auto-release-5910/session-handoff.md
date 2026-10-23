@@ -18,3 +18,21 @@ rather than assuming a local repository file is installed in production.
 
 No production runtime changes have been made by this session so far. Production
 still needs a real readiness check. Do not close #5910 merely because CI is green.
+
+Root connection is now available through the user's existing Chrome Aliyun
+Workbench Shell; confirmed uid=0/hostname/instance. Do not ask for credentials
+again. Direct SSH from the workstation timed out before authentication. The
+provided local key contents were not printed; it must remain private.
+
+Read host-readonly.md before any mutation: all four app revision labels identify
+f0eb9d07398a66fdd5646a9e6b855fa1b940e571 while checkout/main-cn is ba6343199.
+Reconcile accepted runtime identity before preparing a baseline. The ordinary
+release path still lacks an unattended producer for exact-source root cache and
+prepared evidence. Existing candidate-config preparation and preflight collector
+produce some real inputs, but not the complete /preparations/<SHA>.json. Do not
+pre-fill passed gates or label a one-off root staging operation as automation.
+
+3bc3f04bf contains independently reviewed Linux channel-fixture and three browser
+regression fixes; targeted macOS/Linux and Chromium runs passed. New PR CI remains
+pending. fixture-portability.md and interview-regression.md retain exact evidence
+and resource cleanup. Preserve the same branch/worktree and continue #5912.

@@ -59,3 +59,25 @@ candidate cache and root-protected preparation inputs need a trusted producer.
 Missing source is an explicit NOT_READY result; there is no network fallback or
 new cache-writer sudo grant. This remains a live release prerequisite, not a
 successful deployment claim.
+
+## CI regression fixes and direct host inspection
+
+CI run 39989821280 failed eight Linux fixture assertions in one promotion test
+file and three stale interview browser selectors. Commit
+3bc3f04bf58d6a29b32abbfa1322cf4db0bad493 fixes both causes without changing product
+behavior or removing release gates. Independent review ACCEPT; macOS/Linux
+promotion tests each 14/14, interview component tests 26/26, three real Chromium
+cases all pass. Both isolated browser stacks and the Linux test container were
+removed. Push typecheck/lint passed 20 tasks. Replacement PR CI is pending.
+
+The user supplied a local SSH key path. Direct SSH timed out, but an already
+authenticated Workbench root Shell was available and its instance identity was
+verified. No additional credentials or network exposure are needed. Host facts
+are in host-readonly.md; no production mutation was made. Actual container labels
+are f0eb9d07398a66fdd5646a9e6b855fa1b940e571, different from checkout/main-cn.
+
+The automatic dispatch chain is not yet an unattended producer for new revisions:
+root source cache is stale, final candidate inputs are absent, and a generic
+preparation receipt producer is missing. Updating trusted code copies alone does
+not fix these prerequisites. Do not remove the branch deployment guard or claim
+automatic production deployment completed on the basis of trigger tests.
