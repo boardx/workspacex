@@ -50,7 +50,7 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
   try{try{await link(temp,path);}catch(error){if((error as NodeJS.ErrnoException).code!=="EEXIST")throw error;if(await readFile(path,"utf8")!==contents)throw new Error("credit_spool_replay_mismatch");}await this.syncDirectory();}
   finally{await unlink(temp).catch(()=>undefined);}
  }
- async startRequest(orgId:OrgId,input:Start):Promise<void>{
+ async prepareStart(orgId:OrgId,input:Start):Promise<void>{
   const slot=join(this.directory,`${this.key(input.requestId)}.reserved`),lock=join(this.directory,".admission-lock");
   let locked=false;
   try{
@@ -62,8 +62,17 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
    // Minimal immutable subject; bounds and prices are authoritative in PostgreSQL.
    await this.atomicFile(slot,canonical({orgId,userId:input.userId,requestId:input.requestId,modelProvider:input.modelProvider,modelId:input.modelId}));
   }catch{throw this.unavailable(orgId);}finally{if(locked)await rmdir(lock).catch(()=>undefined);}
+ }
+ /** Only a confirmed nondispatch path may discard its local admission slot. */
+ async discardPreparedStart(orgId:OrgId,input:Start):Promise<void>{
+  const key=this.key(input.requestId),slot=join(this.directory,`${key}.reserved`);
+  try{await lstat(join(this.directory,`${key}.json`));return;}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw this.unavailable(orgId);}
+  try{const expected=canonical({orgId,userId:input.userId,requestId:input.requestId,modelProvider:input.modelProvider,modelId:input.modelId});if(await readFile(slot,"utf8")!==expected)throw this.unavailable(orgId,"credit_spool_start_identity_mismatch");await unlink(slot);await this.syncDirectory();}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
+ }
+ async startRequest(orgId:OrgId,input:Start):Promise<void>{
+  await this.prepareStart(orgId,input);
   if(!this.delegate.startRequest)throw this.unavailable(orgId,"credit_start_boundary_missing");
-  try{await this.delegate.startRequest(orgId,input);}catch(error){await unlink(slot).catch(()=>undefined);throw error;}
+  try{await this.delegate.startRequest(orgId,input);}catch(error){await this.discardPreparedStart(orgId,input).catch(()=>undefined);throw error;}
  }
  async record(orgId:OrgId,usage:TokenUsageRecord):Promise<void>{
   if(!usage.eventId)throw this.unavailable(orgId,"credit_receipt_identity_missing");

@@ -24,18 +24,20 @@ export class PgCreditConsumption {
   const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[p.ownerType,p.ownerId])).rows[0]!;
   const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null};
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];
-  if(old){const prior=old.start_facts as Record<string,unknown>;const {maximumTokenBound,nativeMaximumBound,...identity}=prior;const boundInput=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint}};if(facts(identity)!==facts(immutable)||old.wallet_id!==wallet.wallet_id||(boundInput.maximumTokens!==undefined&&maximumTokenBound!==boundInput.maximumTokens)||(boundInput.nativeMaximum!==undefined&&facts(nativeMaximumBound)!==facts(boundInput.nativeMaximum)))throw this.error(p,"credit_start_replay_mismatch");return;}
+  if(old){const prior=old.start_facts as Record<string,unknown>;const {maximumTokenBound,nativeMaximumBound,tokenBoundRequired,...identity}=prior;const boundInput=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};if(facts(identity)!==facts(immutable)||old.wallet_id!==wallet.wallet_id||(boundInput.maximumTokens!==undefined&&maximumTokenBound!==boundInput.maximumTokens)||(boundInput.nativeMaximum!==undefined&&facts(nativeMaximumBound)!==facts(boundInput.nativeMaximum))||(boundInput.tokenBoundRequired!==undefined&&tokenBoundRequired!==boundInput.tokenBoundRequired))throw this.error(p,"credit_start_replay_mismatch");return;}
   const enabled=(await s.query<{credit_preflight_enabled:boolean}>("SELECT credit_preflight_enabled FROM credit_consumption_settings WHERE singleton=true")).rows[0]?.credit_preflight_enabled;
   if(enabled===undefined)throw this.error(p,"credit_settings_missing");
   if(enabled&&BigInt(wallet.unbounded_requests)>0n)throw this.error(p,"credit_unbounded_usage_reconciliation_required");
   const admission=(await s.query<{maximum_tokens:string;billing_kind:string;native_unit:string|null;max_native_quantity:string|null}>("SELECT maximum_tokens::text,billing_kind,native_unit,max_native_quantity::text FROM ai_request_reservations WHERE id=$1 AND org_id=$2 AND user_id=$3",[input.requestId,orgId,input.userId])).rows[0];
-  const extended=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint}};
+  const extended=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};
   const native=extended.nativeMaximum??(admission?.billing_kind==="native"&&admission.native_unit&&admission.max_native_quantity?{unit:admission.native_unit,quantity:BigInt(admission.max_native_quantity)}:undefined);
   let reserved=0n,version="token-v1-1000-per-credit",quantum:bigint|null=null,rate:bigint|null=null;
   if(native){
    const tariff=(await s.query<{quantum:string;hundredths_per_quantum:string;version:string}>("SELECT quantum::text,hundredths_per_quantum::text,version FROM credit_native_tariffs WHERE org_id=$1 AND model_provider=$2 AND model_id=$3 AND unit=$4",[orgId,input.modelProvider,input.modelId,native.unit])).rows[0];
    if(!tariff||native.quantity<0n)throw this.error(p,"credit_native_tariff_missing");
    quantum=BigInt(tariff.quantum);rate=BigInt(tariff.hundredths_per_quantum);version=tariff.version;reserved=(native.quantity*rate+quantum-1n)/quantum;
+   if(enabled&&extended.tokenBoundRequired&&(extended.maximumTokens==null||extended.maximumTokens<=0))throw this.error(p,"credit_request_bound_missing");
+   if(extended.maximumTokens!=null){const tokenBound=tokenCreditHundredths(extended.maximumTokens);if(tokenBound>reserved)reserved=tokenBound;}
   }else{
    const maximum=extended.maximumTokens??(admission?Number(admission.maximum_tokens):null);
    if(maximum===null){if(enabled)throw this.error(p,"credit_request_bound_missing");}
@@ -44,7 +46,7 @@ export class PgCreditConsumption {
   }
   if(reserved>limit)throw this.error(p,"credit_request_bound_unrepresentable");
   if(enabled&&(reserved===0n||decimalHundredths(wallet.balance)-BigInt(wallet.held_hundredths)<reserved))throw this.error(p,"insufficient_credit", "credit_required");
-  await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13)`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
+  await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13)`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
   await s.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2,unbounded_requests=unbounded_requests+$3 WHERE wallet_id=$1",[wallet.wallet_id,reserved.toString(),reserved===0n?1:0]);
  }
  async settleInSession(s:TenantSession,orgId:OrgId,usage:TokenUsageRecord):Promise<void>{
@@ -59,7 +61,8 @@ export class PgCreditConsumption {
   const receipt={tokens:usage.tokensTotal,source:usage.totalSource??"legacy",native:usage.nativeUsage??null,prompt:usage.promptTokens,completion:usage.completionTokens,outcome:usage.outcome};
   if(row.state==="settled"){if(facts(row.usage_facts)!==facts(receipt))throw this.error(p,"credit_receipt_replay_mismatch");return;}
   let debit:bigint|null=null;
-  if(row.native_unit){
+  if(usage.totalSource==="reported")debit=tokenCreditHundredths(usage.tokensTotal);
+  else if(row.native_unit){
    const n=usage.nativeUsage;if(n&&n.unit!==row.native_unit)throw this.error(p,"credit_native_unit_mismatch");
    if(n?.source==="reported"&&n.quantity!==null){if(n.quantity<0n)throw this.error(p,"credit_native_quantity_invalid");const q=BigInt(row.native_quantum!),r=BigInt(row.native_rate!);debit=(n.quantity*r+q-1n)/q;}
   }else if(usage.totalSource!=="unknown"&&usage.totalSource!=="not-applicable"&&!usage.nativeUsage)debit=tokenCreditHundredths(usage.tokensTotal);
