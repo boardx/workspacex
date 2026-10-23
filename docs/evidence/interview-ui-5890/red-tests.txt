@@ -1,0 +1,15 @@
+Initial pre-fix regression run (exit 1). Excerpts; DOM dumps omitted.
+
+ FAIL  tests/ui/interview-ui-polish.test.tsx > collapses answers initially and toggles them without changing saved source
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "展开答案"
+
+ FAIL  tests/ui/interview-ui-polish.test.tsx > shows one generation indicator and no request-to-generate empty message while busy
+Error: expect(element).not.toBeInTheDocument()
+
+ FAIL  tests/ui/interview-ui-polish.test.tsx > keeps outline stage indication static during generation
+AssertionError: expected <svg …(11)><path …(1)></path></svg> to have a length of +0 but got 1
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  13:15:33
+   Duration  4.72s (transform 1.44s, setup 264ms, collect 2.30s, tests 339ms, environment 1.38s, prepare 68ms)

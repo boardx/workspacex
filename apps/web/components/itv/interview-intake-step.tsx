@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { ArrowRight, FileText, Mic } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { WorkflowActionButton as ActionButton } from "@/components/research-studio/research-workflow-actions";
 import { InterviewVoiceInput } from "./interview-voice-input";
@@ -39,13 +40,14 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
   }
   return <div data-testid="itv-markdown-intake">
     <InterviewStepHeader title="导入需求" />
-    <section className="rounded-2xl border border-border bg-card p-4 lg:p-5">
-      <label htmlFor="interview-demand-markdown" className="text-sm font-medium">研究需求 Markdown</label>
-      <div className="mt-3 rounded-xl border border-input bg-background p-4">
-        <textarea id="interview-demand-markdown" value={voicePreview ? (markdown ? `${markdown}\n\n${voicePreview}` : voicePreview) : markdown} onChange={(event) => onChange(event.target.value)} disabled={busy} readOnly={readOnly}
+    <section className="space-y-3">
+      <label htmlFor="interview-demand-markdown" className="text-sm font-medium">研究需求</label>
+      <p id="interview-demand-hint" className="text-sm text-muted-foreground">描述研究目标、目标用户和关键问题，支持 Markdown 格式。</p>
+      <div className="overflow-hidden rounded-xl border border-input bg-card shadow-sm transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/20">
+        <Textarea aria-label="研究需求 Markdown" id="interview-demand-markdown" aria-describedby="interview-demand-hint" value={voicePreview ? (markdown ? `${markdown}\n\n${voicePreview}` : voicePreview) : markdown} onChange={(event) => onChange(event.target.value)} disabled={busy} readOnly={readOnly}
           placeholder={"请描述你的研究需求，例如：\n\n## 研究目标\n你希望解决什么问题？\n\n## 目标用户\n你希望了解谁的实际行为？\n\n## 关键问题\n最近一次具体场景发生了什么？"}
-          className="min-h-64 w-full resize-y bg-transparent text-sm leading-7 outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+          className="min-h-64 w-full resize-y rounded-none border-0 bg-transparent px-5 py-4 text-sm leading-7 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0" />
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-muted/20 px-4 py-3">
           <div className="flex flex-wrap gap-3">
       {voiceSessionToken ? <InterviewVoiceInput sessionToken={voiceSessionToken} disabled={pending || working} readOnly={readOnly} onAppend={append} onPreview={setVoicePreview} onBusyChange={(active) => { setVoiceBusy(active); onVoiceBusyChange?.(active); }} /> : <Button variant="outline" disabled={busy || readOnly || !onVoice} onClick={() => void perform(async () => append(await onVoice!()))}><Mic className="size-4" aria-hidden />语音输入</Button>}
       <Button variant="outline" disabled={busy || readOnly || !(onImportFile || onUploadFile)} onClick={() => fileInput.current?.click()}><FileText className="size-4" aria-hidden />{onUploadFile ? "上传研究文件" : "导入文本文档"}</Button>

@@ -250,7 +250,7 @@ it("shows generation progress with the confirmed expert count", () => {
   const expertsDocument = { ...source, markdown: "## [张浩宇](#expert-one)\n\n专业角色：AI 专家\n\n## [王志远](#expert-two)\n\n专业角色：架构师\n" };
   render(<InterviewOutlineStep document={{ ...source, step: "outline", markdown: "" }} expertsDocument={expertsDocument} pending generating onChange={vi.fn()} onSave={vi.fn()} onConfirm={vi.fn()} onGenerate={vi.fn()} />);
   expect(screen.getByRole("status")).toHaveTextContent("正在为 2 位专家生成问题");
-  expect(screen.getByRole("button", { name: "正在为 2 位专家生成问题…" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "生成访谈问题" })).toBeDisabled();
 });
 it("question edit preserves stable heading references and unrelated raw Markdown", () => {
   const raw = "前言\r\n\r\n## [采购专家](#expert-purchase)\r\n\r\n1. 最近一次发生了什么？\r\n\r\n## [财务专家](#expert-finance)\r\n\r\n1. 谁批准预算？\r\n";
@@ -646,9 +646,17 @@ it.each((["save", "generate", "confirm"] as const).flatMap(operation => [false, 
   fireEvent.click(active);
   await waitFor(() => expect(calls).toBe(1));
   const footer = screen.getByTestId("itv-step-actions");
-  expect(active).toHaveAttribute("aria-busy", "true");
-  expect(footer.querySelectorAll('[aria-busy="true"]')).toHaveLength(1);
-  expect(footer.querySelectorAll('.animate-spin')).toHaveLength(1);
+  if (operation === "generate") {
+    expect(active).not.toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("status").querySelectorAll('.animate-spin')).toHaveLength(1);
+    expect(footer.querySelectorAll('.animate-spin')).toHaveLength(0);
+    expect(screen.getByRole("textbox", { name: "编辑问题 1" })).toHaveValue("谁负责预算？");
+  } else {
+    expect(active).toHaveAttribute("aria-busy", "true");
+    expect(footer.querySelectorAll('[aria-busy="true"]')).toHaveLength(1);
+    expect(footer.querySelectorAll('.animate-spin')).toHaveLength(1);
+  }
   for (const button of within(footer).getAllByRole("button")) expect(button).toBeDisabled();
   fireEvent.click(active); expect(calls).toBe(1);
   finish(failed ? new Response(JSON.stringify({ error: "dependency_unavailable", reasonCode: "DEPENDENCY_UNAVAILABLE" }), { status: 503 }) : new Response(JSON.stringify({ ...envelope, version: 3 })));

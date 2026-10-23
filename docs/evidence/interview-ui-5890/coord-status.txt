@@ -1,0 +1,6 @@
+
+> agentic-harness-template@ harness /Users/shenyangjun/.codex/worktrees/c3a4/workspacex
+> tsx .harness/scripts/cli.ts "module-lock-status" "--module" "user-research"
+
+✗ COORD_GATEWAY_URL/COORD_API_TOKEN/COORD_REPO 未配置。2026-07-18 起 coord-gateway（RepoHub DO，ADR-017）是协调租约的唯一权威——没有凭据就无法认领/心跳/退位。按仓 scoped token 走 devportal 自助领取（p29-F08）；旧 COORD_SERVICE_URL/COORD_SERVICE_TOKEN 已随 coord-service 退役（ADR-017），配了也不会被读取。
+ ELIFECYCLE  Command failed with exit code 1.

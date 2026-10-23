@@ -1,0 +1,12 @@
+Initial pre-fix regression run (exit 1). Excerpts; DOM dumps omitted.
+
+ FAIL  tests/ui/interview-markdown-workbench.test.tsx > does not render unknown completion as upcoming while the canonical source is delayed
+Error: expect(element).toHaveAttribute("data-state", "unknown") // element.getAttribute("data-state") === "unknown"
+
+ FAIL  tests/ui/interview-markdown-workbench.test.tsx > offers retry when canonical completion cannot be loaded
+TestingLibraryElementError: Unable to find role="button" and name "重试步骤状态"
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 4 passed (6)
+   Start at  13:15:45
+   Duration  2.24s (transform 70ms, setup 109ms, collect 131ms, tests 1.22s, environment 507ms, prepare 39ms)
