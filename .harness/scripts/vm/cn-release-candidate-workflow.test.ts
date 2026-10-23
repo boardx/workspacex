@@ -21,6 +21,11 @@ describe("CN release candidate workflow", () => {
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
 
+  it("executes the automatic dispatcher counterexamples in the harness CI lane", () => {
+    const result = spawnSync(process.execPath, ["--test", ".github/scripts/cn-auto-release.test.mjs"], { encoding: "utf8", timeout: 30000 });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+  });
+
   it("defaults auto-promotion off and dispatches only after complete frozen-tag preparation", () => {
     expect(workflow).toMatch(/auto_promote:[\s\S]*?type: boolean\n        default: false/);
     expect(workflow).toContain("if: inputs.auto_promote");
