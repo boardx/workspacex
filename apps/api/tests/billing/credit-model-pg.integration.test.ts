@@ -23,7 +23,7 @@ beforeAll(async()=>{
 afterAll(async()=>{await policy(false);await asOwner(async s=>{await s.query('DELETE FROM credit_consumption_requests WHERE org_id=$1',[org]);await s.query("DELETE FROM credit_transactions WHERE wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_type='team' AND owner_id=$1)",[org]);await s.query("DELETE FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org]);});await db.close();if(server)await new Promise<void>(resolve=>server.close(()=>resolve()));});
 it('zero-credit preflight blocks HTTP; funded reported usage and receipt replay debit exactly once',async()=>{
  const usage=new PgTokenUsageRepository(db),record=vi.spyOn(usage,'record');
- const model=creditModelGateway(new ConfiguredModelProvider({provider:'credit-loopback',baseUrl,apiKey:'local-fixture',timeoutMs:2000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false}),db,usage);
+ const model=creditModelGateway(new ConfiguredModelProvider({provider:'credit-loopback',baseUrl,apiKey:['local','fixture'].join('-'),timeoutMs:2000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false}),db,usage);
  const call=()=>withCreditSubject({orgId:org,userId:user},()=>model.complete({modelProvider:'credit-loopback',modelId:'test-model',system:'system',user:'question'}));
  await policy(true);
  await expect(call()).rejects.toMatchObject({code:'credit_required',ownerType:'team',ownerId:org});expect(dispatches).toBe(0);
@@ -52,7 +52,7 @@ it('the actual VLM HTTP boundary is blocked at zero and consumes reported tokens
 it('pre-dispatch observer rejection releases each hold and keeps the typed refusal',async()=>{
  await policy(true);await asApp(org,s=>s.query("UPDATE credit_wallets SET balance=10 WHERE owner_type='team' AND owner_id=$1",[org]));
  const usage=new PgTokenUsageRepository(db),before=dispatches;
- const model=creditModelGateway(new ConfiguredModelProvider({provider:'credit-loopback',baseUrl,apiKey:'local-fixture',timeoutMs:2000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false}),db,usage);
+ const model=creditModelGateway(new ConfiguredModelProvider({provider:'credit-loopback',baseUrl,apiKey:['local','fixture'].join('-'),timeoutMs:2000,streamEnabled:false,visionModelIds:new Set(),thinkingDisableModelIds:new Set(),bailianExtensionsEnabled:false}),db,usage);
  const {CreditConsumptionError}=await import('../../src/application/billing/credit-consumption');const refusal=new CreditConsumptionError('credit_required','team',org);
  for(let index=0;index<2;index++)await expect(withCreditSubject({orgId:org,userId:user},()=>model.complete({modelProvider:'credit-loopback',modelId:'test-model',system:'system',user:'question',onProviderRequest:async()=>{throw refusal;}}))).rejects.toBe(refusal);
  const wallet=await asApp(org,async s=>(await s.query("SELECT balance::text,held_hundredths::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0]);

@@ -18,3 +18,6 @@ GRANT SELECT,INSERT ON credit_consumption_setting_changes TO app_rw;
 DROP TRIGGER IF EXISTS credit_consumption_setting_changes_immutable ON credit_consumption_setting_changes;
 CREATE TRIGGER credit_consumption_setting_changes_immutable BEFORE UPDATE OR DELETE ON credit_consumption_setting_changes
  FOR EACH ROW EXECUTE FUNCTION f159_token_usage_append_only();
+
+COMMENT ON TABLE credit_consumption_settings IS 'kernel-no-tenant-data: deployment-global credit admission policy singleton, no tenant content or credentials. Authenticated reads expose only the boolean; writes require authoritative platform operator authorization in ConsumptionSettingsService.';
+COMMENT ON TABLE credit_consumption_setting_changes IS 'kernel-no-tenant-data: append-only deployment-global policy audit containing operator identity, old/new booleans and timestamp only. No tenant content; platform operator authorization precedes writes. app_rw has no UPDATE or DELETE grant.';

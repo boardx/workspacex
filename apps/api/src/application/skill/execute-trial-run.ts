@@ -1,4 +1,5 @@
 import {rethrowCreditConsumption} from "../billing/credit-consumption";
+import {withCreditSubject} from "../billing/credit-execution-context";
 /**
  * F962 —— 试跑的**执行**那一半（design-delta `skill-sandbox-execution` §5 §6 §7）。
  *
@@ -110,7 +111,9 @@ async function executeOne(
   try {
     const result = await runOnce(deps, orgId, run, startedAt);
     await deps.store.succeed({ orgId, id: run.id, ...result });
-  } catch (e) { rethrowCreditConsumption(e);
+  } catch (e) {
+    // Every claimed row needs a terminal outcome, including a refused model admission.
+    // The inner model boundary propagates credit refusals without retrying the provider.
     const failure = toTerminalFailure(e);
     deps.log("skill trial run failed", {
       trialRunId: run.id,
@@ -212,7 +215,7 @@ async function runOnce(
     generateScript: async (feedback) => {
       let completion: { readonly text: string; readonly tokens?: number };
       try {
-        completion = await deps.model.complete({
+        completion = await withCreditSubject({orgId,userId:run.actorId},()=>deps.model.complete({
           modelProvider,
           modelId,
           system,
@@ -221,7 +224,7 @@ async function runOnce(
           // 试跑没有线程（同 `trial-run-skill.ts`：「试跑 ≠ 私聊」）。回喂靠 `user`，
           // 不靠伪造一段 history —— 那会让"这次到底喂了什么"变得不可审计。
           history: [],
-        });
+        }));
       } catch (e) { rethrowCreditConsumption(e);
         const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";
         deps.log("skill trial run model call failed", {
