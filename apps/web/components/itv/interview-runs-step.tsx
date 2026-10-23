@@ -8,6 +8,7 @@ import { ExpertAvatar } from "./expert-avatar";
 import { InterviewReportMarkdown } from "./interview-report-markdown";
 import { interviewTranscriptDisplay } from "./interview-transcript-display";
 import { InterviewStepHeader, InterviewStepActions } from "./interview-step-header";
+import { InterviewQuestionAnswers } from "./interview-question-answers";
 import styles from "./interview-runs-step.module.css";
 type RunMetadata = Readonly<{ expertId: string; displayName: string; status: "pending" | "running" | "completed" | "failed"; completedQuestions: number; totalQuestions: number }>;
 type InsightKind = "观点" | "发现" | "风险" | "追问";
@@ -53,7 +54,6 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
       ? [document!.markdown.slice(block.start, attributed[index + 1]?.start ?? document!.markdown.length)] : [],
   ).join("\n\n");
   const displayMarkdown = summaryMarkdown ? interviewTranscriptDisplay(summaryMarkdown, document?.evidenceMode === "simulated", runs) : undefined;
-  const displayDocument = document && displayMarkdown ? { ...document, markdown: displayMarkdown } : undefined;
   const insights = document && projection ? savedInsights(document, projection).filter((item) => !expert || item.expertId === expert) : [];
   const total = runs.reduce((sum, run) => sum + run.totalQuestions, 0);
   const completed = runs.filter((run) => run.status === "completed").length;
@@ -94,7 +94,7 @@ export function InterviewRunsStep({ runs, document, pending, generatingReport = 
         </header>
         <div role="region" className={`${styles.transcript} px-5 py-6 sm:px-8 sm:py-7`} aria-label={expert ? `${runs.find((run) => run.expertId === expert)?.displayName ?? "专家"}访谈摘要` : "全部访谈摘要"}>
           {insights.length > 0 && <div data-testid="itv-saved-insights" className="mb-7 grid gap-4 border-b border-border pb-6 xl:grid-cols-2">{(["观点", "发现", "风险", "追问"] as const).map((kind) => { const group = insights.filter((item) => item.kind === kind); return group.length ? <section key={kind} className="min-w-0 border-l-2 border-border pl-4"><h4 className="font-semibold">{insightTitles[kind]}（{group.reduce((sum, item) => sum + item.count, 0)}）</h4>{group.map((item) => <InterviewReportMarkdown key={item.headingId} markdown={item.markdown} testId={`itv-saved-insight-${item.headingId}`} />)}</section> : null; })}</div>}
-          {displayMarkdown ? <InterviewReportMarkdown longForm document={displayDocument} markdown={displayMarkdown} testId="itv-source-runs-markdown" /> : <p className="mt-4 text-sm text-muted-foreground">{expert ? "暂无归属于该专家的已保存回答。" : "暂无已保存的 Markdown 回答。"}</p>}
+          {displayMarkdown ? <div data-testid="itv-source-runs-markdown"><InterviewQuestionAnswers document={document} markdown={displayMarkdown} /></div> : <p className="mt-4 text-sm text-muted-foreground">{expert ? "暂无归属于该专家的已保存回答。" : "暂无已保存的 Markdown 回答。"}</p>}
         </div>
         </section>
     </div>
