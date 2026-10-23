@@ -16,3 +16,6 @@ export function creditDecimal(hundredths: bigint): string {
   const sign = hundredths < 0n ? "-" : "", magnitude = hundredths < 0n ? -hundredths : hundredths;
   return `${sign}${magnitude / 100n}.${String(magnitude % 100n).padStart(2, "0")}`;
 }
+
+/** Admission and settlement errors retain their typed HTTP/stream guidance through model adapters. */
+export function rethrowCreditConsumption(error:unknown):void {if(error instanceof CreditConsumptionError)throw error;}

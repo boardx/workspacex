@@ -81,3 +81,14 @@ it('failed input-only warning prevents start',async()=>{
  await expect(f.repo.admitRuntimeRequest(org,f.runId,f.input)).rejects.toThrow('warning_failed');
  expect(f.query.mock.calls.some(([sql])=>sql.includes('INSERT INTO model_request_starts'))).toBe(false);
 });
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){} async settleInSession(){}
+}}));
+
+// SQL protocol unit fixture: durable filesystem replay has its own real-spool suite.
+vi.mock("../../src/infrastructure/billing/credit-usage-meter",async()=>{
+ const {PgTokenUsageRepository}=await import("../../src/infrastructure/auth/pg-token-usage-repository");
+ return {creditUsageMeter:(db:ConstructorParameters<typeof PgTokenUsageRepository>[0])=>Object.assign(new PgTokenUsageRepository(db),{prepareStart:async()=>undefined})};
+});

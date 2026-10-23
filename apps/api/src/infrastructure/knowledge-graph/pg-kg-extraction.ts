@@ -92,9 +92,13 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
 
   async loadMessage(orgId: OrgId, messageId: string, contextTurns: number) {
     return this.db.withTenant(orgId, async (s) => {
-      type Row = { id: string; thread_id: string; body: string; author_kind: "human" | "agent" };
+      type Row = { id: string; thread_id: string; body: string; author_kind: "human" | "agent"; billing_user_id?:string };
       const m = await s.query<Row & { created_at: Date }>(
-        "SELECT id, thread_id, body, author_kind, created_at FROM chat_messages WHERE org_id = $1 AND id = $2 AND visibility_scope IS NULL", [orgId, messageId],
+        `SELECT m.id,m.thread_id,m.body,m.author_kind,m.created_at,
+          CASE WHEN m.author_kind='human' THEN m.author_id ELSE request.author_id END AS billing_user_id
+          FROM chat_messages m LEFT JOIN agent_runs r ON r.org_id=m.org_id AND r.id=m.agent_run_id
+          LEFT JOIN chat_messages request ON request.org_id=r.org_id AND request.id=r.input_message_id
+          WHERE m.org_id=$1 AND m.id=$2 AND m.visibility_scope IS NULL`, [orgId, messageId],
       );
       const row = m.rows[0];
       if (row === undefined) return null;
@@ -106,7 +110,7 @@ export class PgKgExtraction implements KgExtractionQueuePort, KgExtractionSource
         [orgId, row.thread_id, row.created_at, row.id, contextTurns],
       );
       const toMsg = (x: Row): KgMessage => ({ id: x.id, threadId: x.thread_id, body: x.body, authorKind: x.author_kind });
-      return { message: { ...toMsg(row), createdAt: row.created_at.toISOString() }, context: ctx.rows.reverse().map(toMsg) };
+      return { message: { ...toMsg(row), createdAt: row.created_at.toISOString(), ...(row.billing_user_id?{billingSubject:{orgId,userId:row.billing_user_id}}:{}) }, context: ctx.rows.reverse().map(toMsg) };
     });
   }
 

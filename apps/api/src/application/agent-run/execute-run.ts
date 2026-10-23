@@ -1,3 +1,4 @@
+import {CreditConsumptionError} from "../billing/credit-consumption";
 import {assembleAttachmentContext,assembleSummaryHistory,bindAssembledRootInput,type SummarySourceSnapshot} from "./root-source-assembly";
 import {rootSourceHash} from "./root-input-source-provenance";
 import type {RunAiAdmission} from "./priced-run-model";
@@ -102,7 +103,6 @@ import type { InterjectionStore } from "./interjection-store";
 import type { AgentWorkflowStartPort } from "../agent/request-agent-workflow-start";
 import type { AgentHandoffStore } from "../agent/agent-handoff";
 import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
-
 /**
  * #709 -- token-budget-aware multi-turn context.
  *
@@ -1209,7 +1209,7 @@ async function executeClaimed(
     // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
     scriptCandidates = completion.scriptCandidates ?? [];
   } catch (e) {
-    const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
+    const code: RunFailureCode = e instanceof CreditConsumptionError ? (e.code === "credit_required" ? "CREDIT_REQUIRED" : "CREDIT_ACCOUNTING_UNAVAILABLE") : e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
     /*
      * issue #3211 ① —— 下面那句注释（"`detail` never reaches a response"）在 #3033 时
      * 为真，也正是人类 2026-09-09 实测那一条无法诊断的原因：真实成因只进了日志，产品面

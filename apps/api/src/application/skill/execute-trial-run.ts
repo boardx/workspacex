@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * F962 —— 试跑的**执行**那一半（design-delta `skill-sandbox-execution` §5 §6 §7）。
  *
@@ -109,7 +110,7 @@ async function executeOne(
   try {
     const result = await runOnce(deps, orgId, run, startedAt);
     await deps.store.succeed({ orgId, id: run.id, ...result });
-  } catch (e) {
+  } catch (e) { rethrowCreditConsumption(e);
     const failure = toTerminalFailure(e);
     deps.log("skill trial run failed", {
       trialRunId: run.id,
@@ -221,7 +222,7 @@ async function runOnce(
           // 不靠伪造一段 history —— 那会让"这次到底喂了什么"变得不可审计。
           history: [],
         });
-      } catch (e) {
+      } catch (e) { rethrowCreditConsumption(e);
         const detail = e instanceof ModelCallError ? e.detail : "unexpected model call failure";
         deps.log("skill trial run model call failed", {
           trialRunId: run.id,

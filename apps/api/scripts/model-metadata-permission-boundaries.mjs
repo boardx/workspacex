@@ -3,6 +3,21 @@
  * remain mandatory. Supporting behavior tests do not substitute for these checks. */
 const exact=text=>new RegExp(text.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
 export const modelMetadataPermissionBoundaries=new Map([
+  ["src/infrastructure/billing/credit-model-gateway.ts", {
+    tables:["agent_runs","chat_messages","chat_threads","subtask_runs"],
+    reason:"#5877: reads only persisted run payer and execution identity, never message content. Server principal must match same-org run author; the downstream atomic wallet reservation rechecks membership. Missing or mismatched subject prevents physical dispatch. credit-model-gateway.test.ts and credit-model-pg.integration.test.ts prove zero-dispatch refusal and actual receipt debit.",
+    checks:[[null,exact("scope.orgId !== orgId")],[null,exact("scope.userId !== userId")],[null,exact("await meter.startRequest(orgId")]],
+  }],
+  ["src/infrastructure/billing/pg-credit-consumption.ts", {
+    tables:["organizations","org_memberships","credit_native_tariffs"],
+    reason:"#5877: financial configuration and authenticated same-org payer metadata have no Artifact content ACL. Admission rechecks persisted org membership, locks payer wallet, snapshots configured tariffs and validates immutable request facts. Settlement only uses an admitted request identity. credit-consumption-pg.test.ts covers cross-org wallets, concurrent holds, replay and revoked-member settlement.",
+    checks:[[null,exact("JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2")],[null,exact("credit_start_replay_mismatch")],[null,exact("credit_receipt_provenance_mismatch")]],
+  }],
+  ["src/infrastructure/billing/pg-native-credit-tariff-repository.ts", {
+    tables:["credit_native_tariffs"],
+    reason:"#5877: native credit prices are tenant financial metadata, not content. Public controller passes authenticated principal to NativeCreditTariffService, which checks the actual platform operator before any read/write. Tenant RLS isolates organization prices; immutable audit records actor and old/new price. native-credit-tariff-pg.test.ts and consumption-settings.test.ts prove operator refusal and tenant isolation.",
+    checks:[[null,exact("this.db.withTenant(toOrgId(orgId)")],["src/application/billing/native-credit-tariff-service.ts",exact("if(!await this.isOperator(principal.userId))throw new ConsumptionSettingsForbidden()")],[null,exact("INSERT INTO credit_native_tariff_changes")]],
+  }],
   ["src/infrastructure/model/platform-test-wiring.ts", {
     tables:["organization_plans", "organization_ai_policies"],
     reason:"#5374: reads only same-organization model deployment/policy configuration after repository.authorizeActor verifies actual platform operator and member. Candidate GET never creates quota windows or dispatches. Actual prepare revalidates enabled model, trusted deployment binding/account, immutable price and exact bounded body under the authorized accounting transaction. No raw policy/credential response. tests/model/platform-model-test-wiring.test.ts proves denied operator reads zero models/policy, GET never resolves a member window, unconfigured/revoked models cause zero HTTP and terminal replay only settles existing usage. Remove entry if these conditions change.",
@@ -38,7 +53,7 @@ export const modelMetadataPermissionBoundaries=new Map([
       [null,exact("if(current.version!==input.expectedVersion)")],
       [null,exact("INSERT INTO organization_core_model_changes")],
       [null,exact("if(!current||!sameCoreModelBinding(frozen,current))")],
-      ["src/kernel.module.ts",exact("return guardCoreModelCalls(raw,createCoreModelRuntimeGuard(db,new VerifiedOrgCoreModelAvailability(db,configuration,raw)))")],
+      ["src/kernel.module.ts",exact("return creditModelGateway(guardCoreModelCalls(raw,createCoreModelRuntimeGuard(db,new VerifiedOrgCoreModelAvailability(db,configuration,raw))),db,creditUsageMeter(db))")],
       ["src/kernel.module.ts",exact("new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime,guard)")],
       ["src/infrastructure/auth/pg-runtime-model-usage-repository.ts",exact("await this.coreModelGuard?.assertAccepted(orgId,owner.root_run_id,coreModelScopedDb(s,orgId))")],
     ],

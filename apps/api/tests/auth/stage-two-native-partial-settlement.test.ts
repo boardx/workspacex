@@ -36,3 +36,8 @@ describe("real ASR partial observation does not become Token billing",()=>{
   const f=fixture();await f.usage.record(org,{...f.terminal,costMicros:6n});await expect(f.admission.settle(org,"physical-asr",{tokens:0n,costMicros:6n})).rejects.toThrow("AI_SETTLEMENT_RECEIPT_MISSING_OR_MISMATCH");expect(f.query.mock.calls.some(([sql])=>sql.startsWith("UPDATE"))).toBe(false);
  });
 });
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){} async settleInSession(){}
+}}));

@@ -5,6 +5,7 @@
  * 结论挂着回指该消息的证据；纯寒暄不产生候选也不报错。模型用回环实现（按消息内容回固定 JSON），
  * 队列 / 数据源 / 执行器全是真实实现、真实数据库。
  */
+import {currentCreditSubject} from "../../src/application/billing/credit-execution-context";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runExtractionTick } from "../../src/application/knowledge-graph/extract-message-knowledge";
 import { parseExtraction } from "../../src/domain/knowledge-graph/extraction";
@@ -282,3 +283,13 @@ describe("F06 评审补强", () => {
   });
 });
 
+
+it("queued message extraction carries the persisted human author into every model call",async()=>{
+  await addChatMessage({orgId:ORG,id:"credit-source-message",threadId:T1,body:"我决定下周一上线v2",authorId:"u-owner"});
+  const source=new PgKgExtraction(db);const loaded=await source.loadMessage(toOrgId(ORG),"credit-source-message",4);
+  expect(loaded?.message.billingSubject).toEqual({orgId:ORG,userId:"u-owner"});
+  let seen:unknown;
+  const deps=extractionDeps(db,{complete:async()=>{seen=currentCreditSubject();return {text:JSON.stringify({entities:[],claims:[]})};}},ORG);
+  await runExtractionTick(deps);
+  expect(seen).toEqual({orgId:ORG,userId:"u-owner"});expect(currentCreditSubject()).toBeUndefined();
+});

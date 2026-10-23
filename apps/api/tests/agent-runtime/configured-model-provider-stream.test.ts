@@ -269,13 +269,12 @@ describe("ConfiguredModelProvider.completeStream", () => {
     expect(seen).toEqual([]);
   });
 
-  it("terminal accounting failure does not retry model or discard completion", async () => {
+  it("terminal accounting failure surfaces without retrying paid model", async () => {
     nextFrames = [sseChunk("ok"), doneFrame()];
     const before = requests;
-    const completion = await provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
+    await expect(provider().completeStream!({ modelProvider: PROVIDER, modelId: "m1", system: "s", user: "u",
       onProviderRequest: async event => { if (event.phase === "terminal") throw new Error("lost write"); },
-    }, async () => {});
-    expect(completion.text).toBe("ok");
+    }, async () => {})).rejects.toThrow("lost write");
     expect(requests).toBe(before + 1);
   });
 

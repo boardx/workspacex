@@ -19,6 +19,28 @@ function parse(value:string):Receipt {
  if(u.nativeUsage&&u.nativeUsage.quantity!==null&&(typeof u.nativeUsage.quantity!=="bigint"||u.nativeUsage.quantity<0n))throw new Error("invalid_credit_spool_native");
  return r;
 }
+/** Immutable versions avoid an ACK deleting facts enriched during a concurrent replay. */
+function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
+ const a=prior.usage,b=incoming.usage;
+ const identity=["eventId","userId","runId","modelProvider","modelId","projectId","threadId","agentId","callPurpose","executionAttemptId","subtaskId","requestStartedAt"] as const;
+ if(prior.orgId!==incoming.orgId||a.outcome!==b.outcome||identity.some(key=>canonical(a[key]??null)!==canonical(b[key]??null)))throw new Error("credit_spool_replay_mismatch");
+ const merged={...a} as Record<string,unknown>;
+ for(const key of ["promptTokens","completionTokens","cacheInputTokens","reasoningOutputTokens","costMicros","currency","priceVersion"] as const){
+  const old=a[key],next=b[key];if(next===undefined||next===null)continue;
+  if(old!==undefined&&old!==null&&old!==next)throw new Error("credit_spool_replay_mismatch");merged[key]=next;
+ }
+ if(b.totalSource!=="unknown"){
+  if(a.totalSource!=="unknown"&&(a.totalSource!==b.totalSource||a.tokensTotal!==b.tokensTotal))throw new Error("credit_spool_replay_mismatch");
+  merged.totalSource=b.totalSource;merged.tokensTotal=b.tokensTotal;
+ }
+ if(b.nativeUsage){
+  if(a.nativeUsage&&a.nativeUsage.unit!==b.nativeUsage.unit)throw new Error("credit_spool_replay_mismatch");
+  if(a.nativeUsage?.source==="reported"&&b.nativeUsage.source==="reported"&&a.nativeUsage.quantity!==b.nativeUsage.quantity)throw new Error("credit_spool_replay_mismatch");
+  if(!a.nativeUsage||a.nativeUsage.source!=="reported"&&b.nativeUsage.source!=="unknown")merged.nativeUsage=b.nativeUsage;
+ }
+ return {...prior,usage:merged as unknown as TokenUsageRecord};
+}
+const receiptName=/^[a-f0-9]{64}(?:\.[a-f0-9]{64})?\.json$/;
 /**
  * Private fsync-backed outbox. Stores usage metadata only, never provider bodies,
  * prompts or credentials. A deploy MUST mount directory on persistent local storage.
@@ -63,7 +85,7 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
    await this.directoryReady();
    const deadline=Date.now()+5000;
    while(!locked){try{await mkdir(lock,{mode:0o700});locked=true;}catch(error){if((error as NodeJS.ErrnoException).code!=="EEXIST"||Date.now()>=deadline)throw error;await delay(20);}}
-   const names=await readdir(this.directory),keys=new Set(names.filter(n=>/^[a-f0-9]{64}\.(reserved|json)$/.test(n)).map(n=>n.slice(0,64)));
+   const names=await readdir(this.directory),keys=new Set(names.filter(n=>/^[a-f0-9]{64}\.reserved$/.test(n)||receiptName.test(n)).map(n=>n.slice(0,64)));
    if(!keys.has(this.key(input.requestId))&&keys.size>=this.maximum)throw new Error("credit_spool_capacity_exhausted");
    // Minimal immutable subject; bounds and prices are authoritative in PostgreSQL.
    await this.atomicFile(slot,canonical({orgId,userId:input.userId,requestId:input.requestId,modelProvider:input.modelProvider,modelId:input.modelId}));
@@ -72,7 +94,7 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
  /** Only a confirmed nondispatch path may discard its local admission slot. */
  async discardPreparedStart(orgId:OrgId,input:Start):Promise<void>{
   const key=this.key(input.requestId),slot=join(this.directory,`${key}.reserved`);
-  try{await lstat(join(this.directory,`${key}.json`));return;}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw this.unavailable(orgId);}
+  if((await readdir(this.directory)).some(name=>name.startsWith(key)&&receiptName.test(name)))return;
   try{const expected=canonical({orgId,userId:input.userId,requestId:input.requestId,modelProvider:input.modelProvider,modelId:input.modelId});if(await readFile(slot,"utf8")!==expected)throw this.unavailable(orgId,"credit_spool_start_identity_mismatch");await unlink(slot);await this.syncDirectory();}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
  }
  async startRequest(orgId:OrgId,input:Start):Promise<void>{
@@ -82,22 +104,48 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
  }
  async record(orgId:OrgId,usage:TokenUsageRecord):Promise<void>{
   if(!usage.eventId)throw this.unavailable(orgId,"credit_receipt_identity_missing");
-  const key=this.key(usage.eventId),file=join(this.directory,`${key}.json`);
+  const key=this.key(usage.eventId);
   // Whitelist fields; caller additions must never persist prompts or secrets.
   const safe:TokenUsageRecord={eventId:usage.eventId,userId:usage.userId,runId:usage.runId,modelProvider:usage.modelProvider,modelId:usage.modelId,tokensTotal:usage.tokensTotal,promptTokens:usage.promptTokens,completionTokens:usage.completionTokens,outcome:usage.outcome,
    ...(usage.totalSource!==undefined?{totalSource:usage.totalSource}:{}),...(usage.nativeUsage?{nativeUsage:{unit:usage.nativeUsage.unit,quantity:usage.nativeUsage.quantity,source:usage.nativeUsage.source}}:{}),
    ...(usage.costMicros!==undefined?{costMicros:usage.costMicros,currency:usage.currency,priceVersion:usage.priceVersion}:{}),...(usage.projectId!==undefined?{projectId:usage.projectId}:{}),...(usage.threadId!==undefined?{threadId:usage.threadId}:{}),...(usage.agentId!==undefined?{agentId:usage.agentId}:{}),...(usage.callPurpose!==undefined?{callPurpose:usage.callPurpose}:{}),...(usage.executionAttemptId!==undefined?{executionAttemptId:usage.executionAttemptId}:{}),...(usage.subtaskId!==undefined?{subtaskId:usage.subtaskId}:{}),...(usage.requestStartedAt!==undefined?{requestStartedAt:usage.requestStartedAt}:{}),...(usage.requestEndedAt!==undefined?{requestEndedAt:usage.requestEndedAt}:{}),...(usage.cacheInputTokens!==undefined?{cacheInputTokens:usage.cacheInputTokens}:{}),...(usage.reasoningOutputTokens!==undefined?{reasoningOutputTokens:usage.reasoningOutputTokens}:{})};
-  try{await this.directoryReady();const contents=canonical({version:1,orgId,usage:safe});if(Buffer.byteLength(contents)>65536)throw new Error("credit_spool_receipt_too_large");parse(contents);await this.atomicFile(file,contents);}catch{throw this.unavailable(orgId);}
-  // A failure leaves the fsynced receipt for replay, never re-executes the model.
-  await this.delegate.record(orgId,safe);
+  let receipt:Receipt={version:1,orgId,usage:safe},acknowledge:string[]=[];
+  try{
+   await this.directoryReady();
+   for(const name of (await readdir(this.directory)).filter(name=>name.startsWith(key)&&receiptName.test(name))){
+    try{receipt=mergeReceipt(parse(await readFile(join(this.directory,name),"utf8")),receipt);acknowledge.push(name);}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
+   }
+   const contents=canonical(receipt);if(Buffer.byteLength(contents)>65536)throw new Error("credit_spool_receipt_too_large");parse(contents);
+   const name=`${key}.${createHash("sha256").update(contents).digest("hex")}.json`;
+   await this.atomicFile(join(this.directory,name),contents);acknowledge.push(name);
+  }catch{throw this.unavailable(orgId);}
+  // A failure leaves all fsynced versions for replay, never re-executes the model.
+  await this.delegate.record(orgId,receipt.usage);
   // Scoped delegates may only have returned from a nested transaction; the root
-  // replay worker independently commits before acknowledging these receipts.
-  if(!this.retainUntilReplay)await this.acknowledge(key);
+  // replay worker independently commits before acknowledging these exact versions.
+  if(!this.retainUntilReplay)await this.acknowledge(key,acknowledge);
  }
- private async acknowledge(key:string){await unlink(join(this.directory,`${key}.json`)).catch(error=>{if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;});await unlink(join(this.directory,`${key}.reserved`)).catch(error=>{if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;});await this.syncDirectory();}
+ private async acknowledge(key:string,files:readonly string[]){
+  for(const file of files)await unlink(join(this.directory,file)).catch(error=>{if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;});
+  if(!(await readdir(this.directory)).some(name=>name.startsWith(key)&&receiptName.test(name)))await unlink(join(this.directory,`${key}.reserved`)).catch(error=>{if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;});
+  await this.syncDirectory();
+ }
  async replayPending():Promise<{settled:number;pending:number}>{
   if(this.replaying)return {settled:0,pending:0};this.replaying=true;
   let settled=0,pending=0;
-  try{await this.directoryReady();const files=(await readdir(this.directory)).filter(n=>/^[a-f0-9]{64}\.json$/.test(n));for(const file of files){try{const r=parse(await readFile(join(this.directory,file),"utf8"));if(this.key(r.usage.eventId!)!==file.slice(0,64))throw new Error("credit_spool_filename_mismatch");await this.delegate.record(r.orgId,r.usage);await this.acknowledge(file.slice(0,64));settled++;}catch{pending++;}}return {settled,pending};}finally{this.replaying=false;}
+  try{
+   await this.directoryReady();
+   const groups=new Map<string,string[]>();
+   for(const file of (await readdir(this.directory)).filter(n=>receiptName.test(n))){const key=file.slice(0,64);groups.set(key,[...(groups.get(key)??[]),file]);}
+   for(const [key,files]of groups){
+    try{
+     let merged:Receipt|undefined;
+     for(const file of files){try{const receipt=parse(await readFile(join(this.directory,file),"utf8"));if(this.key(receipt.usage.eventId!)!==key)throw new Error("credit_spool_filename_mismatch");merged=merged?mergeReceipt(merged,receipt):receipt;}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}}
+     if(!merged)continue;
+     await this.delegate.record(merged.orgId,merged.usage);await this.acknowledge(key,files);settled++;
+    }catch{pending++;}
+   }
+   return {settled,pending};
+  }finally{this.replaying=false;}
  }
 }

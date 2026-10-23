@@ -1,3 +1,9 @@
+import {KnowledgeEmbeddingUsageController} from "./interface/controllers/knowledge-embedding-usage.controller";
+import {KNOWLEDGE_EMBEDDING_USAGE} from "./application/retrieval/knowledge-embedding-accounting";
+import {PgKnowledgeEmbeddingAccounting} from "./infrastructure/knowledge-graph/pg-knowledge-embedding-accounting";
+import {creditUsageMeter} from "./infrastructure/billing/credit-usage-meter";
+import {PgCreditImageAdmission} from "./infrastructure/billing/pg-credit-image-admission";
+import {creditModelGateway} from "./infrastructure/billing/credit-model-gateway";
 import {PgReportFileJobStore} from './infrastructure/report-files/pg-job-store';
 import { InterviewExpertLibraryController } from './interface/controllers/interview-expert-library.controller';
 import { INTERVIEW_CUSTOM_EXPERT_LIBRARY } from './application/interview/custom-expert-library';
@@ -598,7 +604,6 @@ import { PgAgentRunContextSnapshot } from "./infrastructure/agent-run/pg-agent-r
 import { PgRunImageInput } from "./infrastructure/agent-run/pg-run-image-input";
 import { PgToolTraceContext } from "./infrastructure/agent-run/pg-tool-trace-context";
 import { createCanvasTemplateGuidancePort } from "./application/agent-run/canvas-template-guidance";
-import { PgTokenUsageRepository } from "./infrastructure/auth/pg-token-usage-repository";
 import { PgToolPermissionGrantRepository } from "./infrastructure/agent-run/pg-tool-permission-grant-repository";
 import { TOOL_PERMISSION_GRANT_STORE, type ToolPermissionGrantStore } from "./application/agent-run/tool-permission-grants";
 import {
@@ -1310,7 +1315,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     RecordingController,
     AgentRunController,
     RunInterjectionController,
-    RuntimeModelUsageController, ArtifactEmbeddingUsageController,
+    RuntimeModelUsageController, ArtifactEmbeddingUsageController, KnowledgeEmbeddingUsageController,
     ToolPermissionGrantController,
     WorkflowCapabilityGrantController,
     DocumentGenerationAutoApproveController,
@@ -1474,7 +1479,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: EGRESS_GUARD, useFactory: () => new ProcessEgressGuard() },
     // E4: what the user sees as 「本次启动出网 N 次」 -- read from the same patched chokepoint.
     { provide: EGRESS_LEDGER, useFactory: () => new ProcessEgressLedger(readDeploymentEdition()) },
-    { provide: LOCAL_MODEL_RUNTIME, useFactory: (repo:IdentityRepository,meter:TokenUsageMeterPort) => new HttpLocalModelRuntime(localRuntimeEndpoint(),localRuntimeModelId(),process.env.KERNEL_LOCAL_REQUEST_ACCOUNTING_ENABLED==="1"?new PgLocalRequestAccounting(repo,meter):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[IDENTITY_REPOSITORY,TOKEN_USAGE_METER] },
+    { provide: LOCAL_MODEL_RUNTIME, useFactory: (repo:IdentityRepository,meter:TokenUsageMeterPort) => new HttpLocalModelRuntime(localRuntimeEndpoint(),localRuntimeModelId(),new PgLocalRequestAccounting(repo,meter),process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"),inject:[IDENTITY_REPOSITORY,TOKEN_USAGE_METER] },
     /* ── #548 模型池 ───────────────────────────────────────────────────────── */
     {
       provide: MODEL_POOL_REPOSITORY,
@@ -1899,6 +1904,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         process.env.KERNEL_RERANK_MODE === "embedding" && embeddings ? new EmbeddingCosineRerank(embeddings) : langChainRerankClientFromEnv(),
       inject: [EMBEDDING_PORT],
     },
+    {provide:KNOWLEDGE_EMBEDDING_USAGE,useFactory:(db:DatabasePort,wiring:AiQuotaRuntimeWiring|null)=>new PgKnowledgeEmbeddingAccounting(db,wiring?.inputOnly),inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_WIRING]},
     {provide:ARTIFACT_EMBEDDING_USAGE,useFactory:(db:DatabasePort,wiring:AiQuotaRuntimeWiring|null)=>new PgArtifactEmbeddingAccounting(db,wiring?.inputOnly),inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_WIRING]},
     {
       provide: ARTIFACT_INDEX_PRODUCER,
@@ -2128,7 +2134,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     { provide: ATTACHMENT_TO_MARKDOWN, useClass: AnydocAttachmentToMarkdown },
     // #1560 P1：图片走 VLM 视觉理解（百炼 Qwen-VL，复用 KERNEL_MODEL_API_KEY）。key 缺失时它
     // 如实回 visionNotConfigured → 附件落 failed + 该原因，不静默留空、不假装抽到内容。
-    { provide: ATTACHMENT_VISION, useClass: BailianVisionExtractor },
+    { provide: ATTACHMENT_VISION, useFactory:(usage:TokenUsageMeterPort)=>new BailianVisionExtractor(undefined,usage),inject:[TOKEN_USAGE_METER] },
     {
       provide: ATTACHMENT_EXTRACTION_STORE,
       useFactory: (db: DatabasePort) => new PgAttachmentExtractionRepository(db),
@@ -2278,9 +2284,9 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
            */
           ...(capabilityAvailability(readDeploymentEdition(), "image-generation") === "absent"
             ? []
-            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig(),undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1")] as const]),
+            : [[BAILIAN_IMAGE_PROVIDER_NAME, new BailianImageProvider(readBailianImageProviderConfig(),new PgCreditImageAdmission(db),false)] as const]),
         ], loopbackAliases, chatPort)), kernelServed);
-        return guardCoreModelCalls(raw,createCoreModelRuntimeGuard(db,new VerifiedOrgCoreModelAvailability(db,configuration,raw)));
+        return creditModelGateway(guardCoreModelCalls(raw,createCoreModelRuntimeGuard(db,new VerifiedOrgCoreModelAvailability(db,configuration,raw))),db,creditUsageMeter(db));
       },
       inject:[DATABASE_PORT,AI_QUOTA_RUNTIME_CONFIGURATION],
     },
@@ -2463,7 +2469,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
           carryOver,
           // Phase 18 F08：会话知识召回（uc-18-2），同上面每一个一样由合成期决定。
           // S9（#4366）：向量通道用部署已有的 EMBEDDING_PORT（F10 检索同一个）；没配置 ⇒ null，通道未启用。
-          new PgKnowledgeRecall(db, embeddings,process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1"),
+          new PgKnowledgeRecall(db, embeddings,true),
           // Phase 18 F17：对话里「记住 / 忘掉」只开确认卡（uc-18-6 A / B），同上。
           new PgMemoryCard(db),
           // E3：回答引用写进 `chat_citations`（走既有 PgChatRepository 的租户内写口）+ 价值时刻。
@@ -2509,7 +2515,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     {provide:RUNTIME_MODEL_USAGE,useFactory:(db:DatabasePort,usage:TokenUsageMeterPort,wiring:AiQuotaRuntimeWiring|null,guard:CoreModelRuntimeGuard)=>new PgRuntimeModelUsageRepository(db,usage,new PgAiAdmissionRepository(db),wiring?.runtime,guard),inject:[DATABASE_PORT,TOKEN_USAGE_METER,AI_QUOTA_RUNTIME_WIRING,CORE_MODEL_RUNTIME_GUARD]},
     {
       provide: TOKEN_USAGE_METER,
-      useFactory: (db: DatabasePort) => new PgTokenUsageRepository(db),
+      useFactory: (db: DatabasePort) => creditUsageMeter(db),
       inject: [DATABASE_PORT],
     },
     // issue #2767 -- F06 三档授权存储的单一实例，`AgentRunExecutor`（执行循环的
@@ -2569,7 +2575,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
         if (!owner || !socketPath || !provider.isConfigured() || !provider.modelRef) return null;
         return new DefaultStandardAudioService(owner, new PgNativeRunInputs(db, objects, {repo, ids, chat}),
           bound => ({...createNativeDraftSession({socketPath, ...bound}), execute: createNativeDocumentSession({socketPath, ...bound}).execute}),
-          authority, repo, objects, provider,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1");
+          authority, repo, objects, provider,true);
       },
       inject: [DATABASE_PORT, NATIVE_SESSION_OWNER, TOOL_EXECUTION_AUTHORITY, IDENTITY_REPOSITORY,
         DECISION_ID_FACTORY, CHAT_REPOSITORY, OBJECT_STORE, ASR_PROVIDER],
@@ -2578,8 +2584,8 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       provide: STANDARD_IMAGE_SERVICE,
       useFactory: (db: DatabasePort, owner: NativeSessionOwner | null, authority: ToolExecutionAuthority,
         repo: IdentityRepository, ids: DecisionIdFactory, chat: ChatRepository, objects: ObjectStore,nativeWiring:NativeQuotaWiring|null) => {
-        const requestAccounting=process.env.KERNEL_IMAGE_REQUEST_ACCOUNTING_ENABLED==="1";
-        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider(process.env,requestAccounting?new PgImageRequestAccounting(db):undefined,nativeWiring?.image);
+        const requestAccounting=true;
+        const socketPath=process.env.NATIVE_SESSION_SOCKET, selected=selectImageProvider(process.env,requestAccounting?new PgImageRequestAccounting(db):undefined,nativeWiring?.image??new PgCreditImageAdmission(db));
         if (!owner || !socketPath || !selected) return null;
         return new DefaultStandardImageService(owner,new PgNativeRunInputs(db,objects,{repo,ids,chat}),
           bound => ({...createNativeDraftSession({socketPath,...bound}),execute:createNativeDocumentSession({socketPath,...bound}).execute}),
@@ -2906,7 +2912,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
       useFactory: (store: GuidedRuntimeStore, model: ModelCallPort, search: GuidedSearchPort, db: DatabasePort, identities: IdentityRepository, decisions: DecisionIdFactory, debugTrace: DebugTracePort) => {
         const config = readModelProviderConfig();
         // Report streaming is a research capability, independent of chat's rollout flag.
-        const configured = new ConfiguredModelProvider({ ...config, streamEnabled: true });
+        const configured = creditModelGateway(new ConfiguredModelProvider({ ...config, streamEnabled: true }),db,creditUsageMeter(db));
         const reportModel: ModelCallPort = {
           complete: (input) => model.complete(input),
           completeStream: (input, onDelta) => input.modelProvider === config.provider
@@ -3367,7 +3373,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     // `KERNEL_ASR_PROVIDER`; unconfigured means `ASR_NOT_CONFIGURED` reaches the browser,
     // never a silent fallback to some other provider. See the adapter's header for why
     // that is a structural property here and not a promise.
-    { provide: ASR_PROVIDER, useFactory: (db:DatabasePort,policies:RetentionPolicyRepository,ids:RecordingIdGenerator,nativeWiring:NativeQuotaWiring|null) => new ConfiguredRealtimeAsrProvider(undefined,process.env.KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED==="1"?new PgAsrRequestAccounting(db,scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})):undefined,process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",nativeWiring?.asr),inject:[DATABASE_PORT,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR,NATIVE_AI_QUOTA_RUNTIME_WIRING] },
+    { provide: ASR_PROVIDER, useFactory: (db:DatabasePort,policies:RetentionPolicyRepository,ids:RecordingIdGenerator,nativeWiring:NativeQuotaWiring|null) => new ConfiguredRealtimeAsrProvider(undefined,new PgAsrRequestAccounting(db,scoped=>({identities:new PgIdentityRepository(scoped),recording:new PgRecordingUnitOfWork(scoped,policies,ids)})),process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1",nativeWiring?.asr),inject:[DATABASE_PORT,RETENTION_POLICY_REPOSITORY,RECORDING_ID_GENERATOR,NATIVE_AI_QUOTA_RUNTIME_WIRING] },
     // #459: declarative-contract Skills. The provider hands out a *factory* -- the scoped
     // repository cannot be constructed without a tenant, so there is no "untenanted skill
     // repository" object for a forgetful caller to reach for.

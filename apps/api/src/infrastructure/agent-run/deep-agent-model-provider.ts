@@ -605,7 +605,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
   }
 
   supportsRequestAccounting():boolean {
-    return process.env.KERNEL_DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED==="1" && this.supportsLiveInterjections();
+    return this.supportsLiveInterjections();
   }
   private requestAccountingConfig(input:ModelCallInput):Record<string,unknown>{
     if(!this.supportsRequestAccounting() || !input.onProviderRequest)return {};

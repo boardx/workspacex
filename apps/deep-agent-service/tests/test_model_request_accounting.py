@@ -21,7 +21,7 @@ def context(monkeypatch,tmp_path):
     return calls,tmp_path
 
 def request():
-    return httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model","messages":[{"role":"user","content":"prompt-never-persist"}]})
+    return httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model","max_tokens":1024,"messages":[{"role":"user","content":"prompt-never-persist"}]})
 
 def response(body,status=200,content_type="application/json"):
     return httpx.Response(status,headers={"content-type":content_type},stream=httpx.ByteStream(body))
@@ -29,11 +29,11 @@ def response(body,status=200,content_type="application/json"):
 def test_sync_dispatch_start_ack_and_terminal_same_identity(context):
     calls,path=context
     def vendor(req):
-        assert calls[-1][1]=="start"
+        assert calls[-1][1]=="admit"
         return response(json.dumps({"choices":[{"message":{"content":"response-never-persist"}}],"usage":{"total_tokens":9,"prompt_tokens":6,"completion_tokens":3}}).encode())
     with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor))) as client:
         result=client.send(request());assert result.json()["usage"]["total_tokens"]==9
-    assert [x[1] for x in calls]==["start","terminal"]
+    assert [x[1] for x in calls]==["admit","terminal"]
     assert calls[0][2]["requestId"]==calls[1][2]["requestId"]
     assert calls[1][2]["usage"]=={"total":9,"prompt":6,"completion":3}
     assert a.Journal(str(path)).pending(OWNER)==[]
@@ -119,7 +119,7 @@ def test_journal_failure_preserves_provider_result_and_blocks_next_dispatch(cont
         with pytest.raises(a.RuntimeUsageError,match="durability_fault"):
             client.send(request())
     assert len(paid)==1
-    assert [call[1] for call in calls]==["start","terminal"]
+    assert [call[1] for call in calls]==["admit","terminal"]
 
 
 def test_real_openai_sdk_retry_accounts_each_actual_attempt(context):
@@ -132,7 +132,7 @@ def test_real_openai_sdk_retry_accounts_each_actual_attempt(context):
         return response(b'{"id":"fixture","object":"chat.completion","created":1,"model":"fixture-model","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"total_tokens":7,"prompt_tokens":5,"completion_tokens":2}}')
     with httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor))) as client:
         sdk=OpenAI(api_key="fixture-key",base_url="http://vendor.example.test/v1",http_client=client,max_retries=1)
-        result=sdk.chat.completions.create(model="fixture-model",messages=[{"role":"user","content":"fixture"}])
+        result=sdk.chat.completions.create(model="fixture-model",max_tokens=1024,messages=[{"role":"user","content":"fixture"}])
         assert result.choices[0].message.content=="ok"
     terminals=[x[2] for x in calls if x[1]=="terminal"]
     assert len(paid)==len(terminals)==2
@@ -155,14 +155,14 @@ def test_real_langgraph_async_node_propagates_receipt_context(context,monkeypatc
     class State(TypedDict):
         result:str
     async def vendor(req):
-        assert calls[-1][1]=="start"
+        assert calls[-1][1]=="admit"
         class Bytes(httpx.AsyncByteStream):
             async def __aiter__(self):
                 yield json.dumps({"id":"fixture","object":"chat.completion","created":1,"model":"fixture-model","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":{"total_tokens":7,"prompt_tokens":5,"completion_tokens":2}}).encode()
         return httpx.Response(200,headers={"content-type":"application/json"},stream=Bytes())
     async def execute():
         async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
-            model=ChatOpenAI(api_key="fixture-key",base_url="http://vendor.example.test/v1",model="fixture-model",http_async_client=client,max_retries=0)
+            model=ChatOpenAI(api_key="fixture-key",base_url="http://vendor.example.test/v1",model="fixture-model",http_async_client=client,max_retries=0,max_tokens=1024)
             async def node(state):
                 result=await model.ainvoke("fixture")
                 return {"result":result.content}
@@ -170,7 +170,7 @@ def test_real_langgraph_async_node_propagates_receipt_context(context,monkeypatc
             cfg={"configurable":{"model_request_accounting":{**{k:v for k,v in OWNER.items() if k!="key"},"run_id":run_id,"attempt_id":attempt_id,"call_purpose":call_purpose}}}
             assert (await graph.compile().ainvoke({"result":""},cfg))["result"]=="ok"
     asyncio.run(execute())
-    assert [x[1] for x in calls]==["start","terminal"]
+    assert [x[1] for x in calls]==["admit","terminal"]
     assert calls[0][2]["callPurpose"]==call_purpose
     assert calls[1][2]["usage"]["total"]==7
     assert a.Journal(str(path)).pending(OWNER)==[]
@@ -213,8 +213,7 @@ def test_idle_configuration_requires_explicit_receiver_and_existing_internal_key
     monkeypatch.setenv("DEEP_AGENT_USAGE_CALLBACK_BASE_URL",OWNER["base_url"])
     owner,_ = a.idle_replay_configuration();assert owner == {"base_url":OWNER["base_url"],"key":OWNER["key"]}
     monkeypatch.setenv("DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED","0")
-    with pytest.raises(a.RuntimeUsageError,match="accounting_disabled"):
-        a.idle_replay_configuration()
+    assert a.idle_replay_configuration()[0]["base_url"] == OWNER["base_url"]
 
 
 def test_idle_worker_cancel_keeps_pending_receipts(context,monkeypatch):
@@ -309,7 +308,7 @@ def test_admission_missing_output_bound_or_denial_sends_no_vendor_request(contex
     paid=[]
     transport=a.AccountingTransport(httpx.MockTransport(lambda req:paid.append(req)))
     with pytest.raises(a.RuntimeUsageError,match="admission_output_cap_unverified"):
-        transport.handle_request(request())
+        transport.handle_request(httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model"}))
     monkeypatch.setattr(a,"post",lambda *args:(_ for _ in ()).throw(a.RuntimeUsageError("denied")))
     req=httpx.Request("POST","http://vendor.example.test/v1/chat/completions",json={"model":"fixture-model","max_tokens":10})
     with pytest.raises(a.RuntimeUsageError):transport.handle_request(req)
@@ -344,7 +343,8 @@ def test_admission_model_builder_requires_explicit_existing_bound_and_disables_s
     assert model.max_tokens==10 and model.max_retries==0
 
 
-def test_artifact_actual_transport_has_opaque_subject_no_agent_identity_and_start_before_http(monkeypatch,tmp_path):
+@pytest.mark.parametrize("subject_kind",["artifact-index","knowledge-index"])
+def test_artifact_actual_transport_has_opaque_subject_no_agent_identity_and_start_before_http(monkeypatch,tmp_path,subject_kind):
     monkeypatch.setattr(a,"_durability_fault",False)
     for k,v in {"DEEP_AGENT_SERVICE_INTERNAL_KEY":"private","DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED":"1","DEEP_AGENT_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED":"1","DEEP_AGENT_USAGE_CALLBACK_BASE_URL":"http://api.example.test","DEEP_AGENT_USAGE_SPOOL_DIR":str(tmp_path)}.items():monkeypatch.setenv(k,v)
     monkeypatch.delenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED",raising=False)
@@ -353,7 +353,7 @@ def test_artifact_actual_transport_has_opaque_subject_no_agent_identity_and_star
     async def send(owner,subject,phase,body):callbacks.append((a.callback_url(owner,subject,phase),dict(body)))
     monkeypatch.setattr(a,"apost",send)
     def vendor(req):
-        assert callbacks[-1][0].endswith('/start')
+        assert callbacks[-1][0].endswith('/admit')
         paid.append(req)
         return response(json.dumps({"data":[],"usage":{"prompt_tokens":4,"total_tokens":4}}).encode())
     async def check():
@@ -363,7 +363,7 @@ def test_artifact_actual_transport_has_opaque_subject_no_agent_identity_and_star
     asyncio.run(check())
     assert len(paid)==1 and len(callbacks)==2
     assert all('/internal/artifact-index/'+ref['operationId']+'/model-requests/' in url for url,_ in callbacks)
-    assert set(callbacks[0][1])=={'orgId','requestId','startedAt','modelId'}
+    assert set(callbacks[0][1])=={'orgId','requestId','startedAt','modelId','billingMode','requestPath','logicalCallId','serializedBody'}
     assert callbacks[1][1]['usage']=={'total':4,'prompt':4}
     assert not {'runId','attemptId','leaseEpoch','userId'} & set(callbacks[1][1])
 
@@ -542,7 +542,7 @@ def test_inflight_async_dispatch_cancel_durably_clears_intent(context,monkeypatc
         async with httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor))) as client:
             with pytest.raises(asyncio.CancelledError):await client.send(request())
     asyncio.run(run())
-    assert [c[1] for c in calls]==['start','terminal'] and calls[-1][2]['usage']=={}
+    assert [c[1] for c in calls]==['admit','terminal'] and calls[-1][2]['usage']=={}
     journal=a.Journal(str(path))
     with journal.connect() as db:assert db.execute('SELECT count(*) FROM inflight').fetchone()[0]==0
     journal.recover_inflight(OWNER);assert journal.pending(OWNER)==[]
@@ -942,3 +942,23 @@ def test_actual_terminal_callback_ack_loss_retries_only_same_receipt(context, mo
     assert len(wire) == 4 and wire[-1] == wire[0]
     assert journal.pending(OWNER) == []
     assert asyncio.run(a.replay_pending_batch(OWNER, journal)) == 0
+
+
+def test_accounting_cannot_be_disabled_by_legacy_rollout_flags(monkeypatch):
+    monkeypatch.setenv("DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED", "0")
+    monkeypatch.setenv("DEEP_AGENT_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED", "0")
+    monkeypatch.setenv("DEEP_AGENT_MODEL_ADMISSION_ENABLED", "0")
+    assert a.enabled() is True and a.admission_enabled() is True
+
+
+def test_typed_credit_denial_is_not_retried_or_converted_to_delivery_unknown(monkeypatch):
+    original = httpx.Client
+    callbacks = []
+    def denied(request):
+        callbacks.append(request)
+        return httpx.Response(402, json={"code":"credit_required", "ownerType":"team", "ownerId":"org-A", "message":"private-do-not-forward"})
+    monkeypatch.setattr(httpx, "Client", lambda **kwargs: original(transport=httpx.MockTransport(denied)))
+    with pytest.raises(a.CreditRuntimeUsageError) as error:
+        ORIGINAL_POST(OWNER, "run-A", "admit", {})
+    assert len(callbacks) == 1
+    assert error.value.payload == {"code":"credit_required", "ownerType":"team", "ownerId":"org-A"}

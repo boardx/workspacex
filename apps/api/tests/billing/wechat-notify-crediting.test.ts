@@ -13,7 +13,7 @@ beforeAll(async () => { f = await notifyFixture(); });
 beforeEach(async () => { await f.reset(); });
 afterAll(async () => { await f?.close(); });
 async function wallet() { return (await (await f.request("/billing/wallet?ownerType=user")).json()).wallet as { balance: number; totalPurchased: number; totalGranted: number }; }
-async function transactions(orderNo: string) { return (await asOwner(c => c.query("SELECT type,credits,balance_after FROM credit_transactions WHERE source_id=$1 ORDER BY created_at,credits DESC", [orderNo]))).rows; }
+async function transactions(orderNo: string) { return (await asOwner(c => c.query("SELECT type,credits::float8 AS credits,balance_after::float8 AS balance_after FROM credit_transactions WHERE source_id=$1 ORDER BY created_at,credits DESC", [orderNo]))).rows; }
 describe("F05 durable idempotent PostgreSQL crediting", () => {
   it("credits base and bonus separately using total price rather than coupon-discounted payer_total", async () => {
     const order = await f.createOrder(), n = f.notice(order.orderNo, { amount: { total: 9900, payer_total: 1000, currency: "CNY" } });

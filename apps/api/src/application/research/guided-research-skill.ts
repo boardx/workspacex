@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 import { withGuidedThinkingPolicy } from "./guided-thinking-policy";
 import { research as C } from "@repo/contracts";
 import type { z } from "zod";
@@ -43,7 +44,7 @@ export class ModelGuidedResearchSkill implements GuidedResearchSkill {
         ].join("\n"),
         user: JSON.stringify({ message: input.message, draft: input.draft }),
       });
-    } catch (error) {
+    } catch (error) { rethrowCreditConsumption(error);
       if (error instanceof ModelCallError) {
         throw new GuidedResearchSkillError("RESEARCH_WORKFLOW_UNAVAILABLE");
       }
@@ -61,7 +62,7 @@ export class ModelGuidedResearchSkill implements GuidedResearchSkill {
         modelId: this.modelId,
         modelInvocationId: `${input.requestId}:${this.modelId}`,
       };
-    } catch (error) {
+    } catch (error) { rethrowCreditConsumption(error);
       if (error instanceof GuidedResearchSkillError) throw error;
       throw new GuidedResearchSkillError("RESEARCH_NODE_STATE_INVALID");
     }

@@ -1,6 +1,6 @@
 # Unified model usage and credit consumption
 
-Status: proposed for written design review. No runtime implementation is claimed.
+Status: user confirmed the native tariff and unpaid-balance policy on 2026-10-22; implementation in progress.
 
 ## Requested outcome
 
@@ -51,7 +51,7 @@ Add one persisted platform setting, `creditPreflightEnabled`, editable only by p
 
 When enabled, atomic wallet locking checks spendable balance = balance minus active holds. Reserve the verified maximum bound for the actual request; checking only `balance > 0` permits concurrent overspending. Insufficient credits prevent provider dispatch, return a structured error and a billing destination. Existing organization quota rules still apply.
 
-When disabled, dispatch is allowed without a positive balance, but usage is still recorded and settled. The proposed policy is to allow a signed wallet balance to express the unpaid amount; UI displays it as an amount to replenish. This policy, and native pricing below, need the user’s design review before implementation. Enabling preflight subsequently rejects new calls against a nonpositive spendable balance.
+When disabled, dispatch is allowed without a positive balance, but usage is still recorded and settled. The proposed policy is to allow a signed wallet balance to express the unpaid amount; UI displays it as an amount to replenish. The user confirmed this policy together with native pricing. Enabling preflight subsequently rejects new calls against a nonpositive spendable balance.
 
 The switch does not cancel requests already dispatched or erase holds/receipts. Provider-confirmed actual usage remains chargeable after a user cancellation or partial failure. A confirmed nondispatch/zero-usage result releases its hold without a debit. Unknown usage is pending reconciliation, never a fabricated zero or a fabricated token count. Outstanding uncertain holds are visible to operators and are not released solely by a timeout.
 

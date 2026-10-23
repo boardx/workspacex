@@ -22,15 +22,15 @@
 |---|---|---|
 | `credit_packages` | `package_id`(pk), `region`, `currency`, `amount_fen`, `base_credits`, `bonus_credits`, `bonus_rate`, `total_credits`, `owner_type`(user/team/both), `enabled`, `sort_order` | 套餐配置；**部署时种子数据**，本阶段不提供套餐 CRUD |
 | `billing_orders` | `order_no`(pk), `owner_type`, `owner_id`, `created_by`, `package_id`, `amount_fen`, `base_credits`, `bonus_credits`, `provider`, `status`, `qr_code_url`, `channel_order_no`, `created_at`, `paid_at`, `notify_at`, `expired_at`, `closed_at`, `last_error_code`, `last_error_message` | 一次充值意图；金额/额度为**下单时套餐快照** |
-| `credit_wallets` | `wallet_id`(pk), `owner_type`, `owner_id`, `balance`, `total_purchased`, `total_granted`, `updated_at` | unique(`owner_type`,`owner_id`)；本阶段消耗恒为 0 |
-| `credit_transactions` | `txn_id`(pk), `wallet_id`, `type`(purchase/bonus/grant), `direction`(+1/−1), `credits`, `balance_after`, `source_type`(payment_order/admin_grant), `source_id`, `operator_id`(null), `reason`(null), `created_at` | 每次余额变更的对应流水；`(source_type, source_id, type)` 去重 |
+| `credit_wallets` | `wallet_id`(pk), `owner_type`, `owner_id`, `balance`, `total_purchased`, `total_granted`, `updated_at` | unique(`owner_type`,`owner_id`)；消费支持百分之一额度与欠额 |
+| `credit_transactions` | `txn_id`(pk), `wallet_id`, `type`(purchase/bonus/grant/consume), `direction`(+1/−1), `credits`, `balance_after`, `source_type`(payment_order/admin_grant/model_request), `source_id`, `operator_id`(null), `reason`(null), `created_at` | 每次余额变更的对应流水；`(source_type, source_id, type)` 去重 |
 | `org_billing_settings` | `org_id`(pk), `credit_enabled`, `updated_by`, `updated_at` | 组织计费开关 |
 | `billing_webhook_events` | `event_id`(pk), `provider`, `provider_event_id`, `order_no`(null), `signature_verified`, `processed_at`, `result`(ok/rejected/ignored) | 回调去重与审计；`provider_event_id`（微信 `notify.id`）唯一 |
 
 - 读模型（非持久化）：`enabledProviders` 来自部署配置（`billing-config`），运行期只读。
 - 值对象：
   - `MoneyFen`：非负整数，单位分。
-  - `Credits`：正整数。
+  - `Credits`：套餐、发放为正整数；消费精确到 0.01，余额可表达已确认消费形成的欠额。
   - `OrderNo`：`bg<yyyyMMddHHmmss><6位随机>` 形态的全局唯一字符串。
   - `OwnerRef { ownerType: "user" | "team", ownerId }`。
   - `PaymentProvider { wechat }`（本束；支付宝不在范围）。
@@ -39,7 +39,7 @@
 ## 三、封闭枚举（新增成员须走 ADR；测试断言「集合与契约一致 + 未声明值不通过」，不断言长度）
 
 - `BillingOrderStatus`：PENDING / PROCESSING / SUCCESS / FAILED / CLOSED。
-- `BillingTransactionType`：purchase / bonus / grant。（消费类枚举（consume/debt 等）**本阶段不引入**，不加"占位成员"。）
+- `BillingTransactionType`：purchase / bonus / grant / consume。消费方向为 −1，按实际模型请求去重；欠额以余额表达，不增加第二次扣款。
 - `BillingOwnerType`：user / team。
 - `BillingErrorCode`（HTTP 失败码，snake_case）：`payment_provider_not_configured` / `package_not_found` / `package_disabled` /
   `org_billing_disabled` / `order_not_found` / `forbidden` / `wechat_upstream_failed` / `order_not_pending` /
@@ -56,7 +56,7 @@
   至多 1 条，`type='bonus'` 至多 1 条。
 - **I-3 账实相符**：任一时刻，`credit_wallets.balance == Σ(该钱包全部流水 credits×direction)`；每笔流水的 `balance_after`
   等于该笔提交后的钱包余额；余额变更与流水写入在同一事务提交。
-- **I-4 钱包唯一且非负**：`(owner_type, owner_id)` 唯一；`balance ≥ 0`（本阶段仅入账，天然更强）。
+- **I-4 钱包唯一**：`(owner_type, owner_id)` 唯一；调用前验证关闭时，已确认消费可形成负余额；开启时须原子验证可用余额并预留。
 - **I-5 订单快照不可变**：订单创建后 `amount_fen / base_credits / bonus_credits / package_id / owner_*` 永不改变；
   回调携带金额与 `amount_fen` 不等即拒绝入账（`amount_mismatch`）。
 - **I-6 入账前置**：写钱包前必须同时满足 ① 该订单被条件更新抢占为 PROCESSING（`PENDING→PROCESSING` 成功）；
@@ -68,7 +68,7 @@
   无权限一律按 `order_not_found` / `forbidden` 收敛，不泄露资源存在性。
 - **I-10 过期可关闭**：`PENDING` 订单创建超过 15 分钟（`created_at + 15min ≤ now`）可被关单任务置 CLOSED 并写 `closed_at`；
   在此之前不得被非回调路径关闭。
-- **I-11 整数金额**：一切金额字段为整数分、一切额度字段为正整数；代码中金额运算不得出现浮点。
+- **I-11 精确金额**：支付金额为整数分；额度账务以整数百分之一额度计算，SQL 精确两位小数；套餐与发放仍为正整数。
 - **I-12 开关只控新建**：`org_billing_settings.credit_enabled=false` 时，针对该组织的 `createPaymentOrder` 必须拒绝
   （`org_billing_disabled`）；对已有订单/钱包/流水的读取与回调入账**不受影响**。
 - **I-13 无假二维码**：任何 `status=PENDING` 的订单其 `qr_code_url` 非空；拿不到 `qr_code_url` 的微信下单失败**不得落库为订单**

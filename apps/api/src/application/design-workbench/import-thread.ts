@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * `importThread`（迭代 13，design-delta `design-chat-inputs` §2）—— 把一个**已有对话线程**
  * 这一刻的内容抽成摘要，作为这个设计项目的背景。
@@ -274,7 +275,7 @@ async function summarize(
       user: `对话内容：\n${transcriptOf(messages, omittedAfter)}`,
     });
     text = completion.text.trim();
-  } catch (e) {
+  } catch (e) { rethrowCreditConsumption(e);
     deps.log("import-thread: model call failed", { detail: e instanceof Error ? e.message : "unknown" });
     throw new DesignThreadSummaryUnavailableError();
   }
@@ -297,7 +298,7 @@ async function summarize(
     const p = typeof obj.problem === "string" ? obj.problem.trim() : "";
     if (p !== "") problem = p;
     criteria = parseImportedCriteria(obj.criteria);
-  } catch {
+  } catch (creditError) { rethrowCreditConsumption(creditError);
     deps.log("import-thread: summary was not JSON, using whole text as problem", { length: text.length });
   }
   return { problem: problem.slice(0, 4000), criteria };

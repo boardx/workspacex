@@ -46,8 +46,26 @@ class RuntimeUsageError(RuntimeError):
     pass
 
 
+class CreditRuntimeUsageError(RuntimeUsageError):
+    """Only stable accounting codes and a server-derived wallet identity cross services."""
+    def __init__(self, payload):
+        self.payload = {"code": payload["code"]}
+        if payload["code"] == "credit_required" and payload.get("ownerType") in ("user", "team") and isinstance(payload.get("ownerId"), str):
+            self.payload.update(ownerType=payload["ownerType"], ownerId=payload["ownerId"])
+        super().__init__(payload["code"])
+
+
+def reject_credit_response(response):
+    try:
+        body = response.json()
+    except (ValueError, TypeError):
+        return
+    if isinstance(body, dict) and body.get("code") in ("credit_required", "credit_accounting_unavailable"):
+        raise CreditRuntimeUsageError(body)
+
+
 def enabled() -> bool:
-    return os.environ.get("DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED") == "1"
+    return True
 
 
 def now() -> str:
@@ -72,7 +90,7 @@ def ownership() -> dict:
             raise ValueError()
         if not all(isinstance(value[k], str) and value[k] for k in ("key", "org_id")):
             raise ValueError()
-        if value.get("subject_kind") == "artifact-index":
+        if value.get("subject_kind") in ("artifact-index", "knowledge-index"):
             uuid.UUID(value["operation_id"])
             if value.get("run_id") is not None or value.get("attempt_id") is not None or value.get("lease_epoch") is not None:
                 raise ValueError()
@@ -88,11 +106,11 @@ def ownership() -> dict:
 
 
 def subject_id(owner):
-    return owner["operation_id"] if owner.get("subject_kind") == "artifact-index" else owner["run_id"]
+    return owner["operation_id"] if owner.get("subject_kind") in ("artifact-index", "knowledge-index") else owner["run_id"]
 
 
 def callback_url(owner, resource_id, phase):
-    route = "artifact-index" if owner.get("subject_kind") == "artifact-index" else "agent-runs"
+    route = owner["subject_kind"] if owner.get("subject_kind") in ("artifact-index", "knowledge-index") else "agent-runs"
     return f'{owner["base_url"]}/internal/{route}/{quote(resource_id, safe="")}/model-requests/{phase}'
 
 
@@ -103,7 +121,7 @@ def retrieval_accounting_scope(reference, purpose):
     No requester/project/provider/secret can be asserted here. Callback location/key are
     deployment-only. ContextVar isolation avoids cross-request or pooled-client ownership leaks.
     """
-    requested = os.environ.get("DEEP_AGENT_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED") == "1"
+    requested = True
     if not requested:
         if reference is not None or admission_enabled():
             raise RuntimeUsageError("retrieval_accounting_required")
@@ -117,10 +135,10 @@ def retrieval_accounting_scope(reference, purpose):
         # Actual graph-scoped calls may reuse their existing immutable leased identity.
         raw = ownership()
     else:
-        if isinstance(reference, dict) and reference.get("kind") == "artifact-index":
+        if isinstance(reference, dict) and reference.get("kind") in ("artifact-index", "knowledge-index"):
             if purpose != "retrieval-embedding" or set(reference) != {"kind", "orgId", "operationId"}:
                 raise RuntimeUsageError("usage_ownership_invalid")
-            raw = {"base_url":os.environ.get("DEEP_AGENT_USAGE_CALLBACK_BASE_URL", ""), "org_id":reference["orgId"], "operation_id":reference["operationId"], "subject_kind":"artifact-index"}
+            raw = {"base_url":os.environ.get("DEEP_AGENT_USAGE_CALLBACK_BASE_URL", ""), "org_id":reference["orgId"], "operation_id":reference["operationId"], "subject_kind":reference["kind"]}
         else:
             if not isinstance(reference, dict) or set(reference) != {"orgId", "runId", "attemptId", "leaseEpoch"}:
                 raise RuntimeUsageError("usage_ownership_invalid")
@@ -404,8 +422,11 @@ def post(owner: dict, run_id: str, phase: str, body: dict):
                 response = client.post(url, headers={"x-deep-agent-internal-key": owner["key"],**({"x-deep-agent-admission-protocol":"same-connection-v1"} if phase=="admit" else {})}, json=body)
                 if response.status_code == 200 and response.json().get("accepted") is True:
                     return response.json()
+                reject_credit_response(response)
                 if response.status_code < 500:
                     break
+        except CreditRuntimeUsageError:
+            raise
         except Exception:
             pass
     raise RuntimeUsageError("usage_receipt_delivery_unconfirmed")
@@ -419,8 +440,11 @@ async def apost(owner: dict, run_id: str, phase: str, body: dict):
                 response = await client.post(url, headers={"x-deep-agent-internal-key": owner["key"],**({"x-deep-agent-admission-protocol":"same-connection-v1"} if phase=="admit" else {})}, json=body)
                 if response.status_code == 200 and response.json().get("accepted") is True:
                     return response.json()
+                reject_credit_response(response)
                 if response.status_code < 500:
                     break
+        except CreditRuntimeUsageError:
+            raise
         except Exception:
             pass
     raise RuntimeUsageError("usage_receipt_delivery_unconfirmed")
@@ -491,13 +515,13 @@ def prepare(request):
     except Exception:
         raise RuntimeUsageError("usage_model_identity_invalid") from None
     body = {"orgId": owner["org_id"], "attemptId": owner.get("attempt_id"), "leaseEpoch": owner.get("lease_epoch"), "requestId": str(uuid.uuid4()), "startedAt": now(), "modelId": model, "callPurpose": owner.get("call_purpose") or "primary"}
-    if owner.get("subject_kind") == "artifact-index":
+    if owner.get("subject_kind") in ("artifact-index", "knowledge-index"):
         body = {k:body[k] for k in ("orgId", "requestId", "startedAt", "modelId")}
     return owner, journal, body
 
 
 def admission_enabled():
-    return os.environ.get("DEEP_AGENT_MODEL_ADMISSION_ENABLED") == "1"
+    return True
 
 
 def admission_payload(request, owner, start):
@@ -514,7 +538,7 @@ def admission_payload(request, owner, start):
         digest = sha256(request.content).hexdigest()
         logical = json.dumps([subject_id(owner), "retrieval-embedding", start["requestId"], digest, request.url.path], separators=(",", ":"))
         return start | {"billingMode":"input-only", "requestPath":request.url.path, "logicalCallId":logical, "serializedBody":serialized}
-    if owner.get("subject_kind") == "artifact-index":
+    if owner.get("subject_kind") in ("artifact-index", "knowledge-index"):
         raise RuntimeUsageError("artifact_embedding_admission_unimplemented")
     try:
         body = json.loads(request.content)

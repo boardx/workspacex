@@ -1,3 +1,4 @@
+import {CreditRequiredBody} from "./billing-consumption";
 /**
  * 契约束 `chat` — ③ API 契约（**唯一事实源**）
  *
@@ -1532,6 +1533,8 @@ export const PERSONA_SUMMARY_AUTHOR_ID = "persona-summary";
  * （下方编译期断言钉住），不是巧合撞名。
  */
 export const ChatAsrDraftErrorReason = z.enum([
+  "CREDIT_REQUIRED",
+  "CREDIT_ACCOUNTING_UNAVAILABLE",
   "ASR_PROVIDER_UNAVAILABLE",
   "ASR_NOT_CONFIGURED",
   "AUDIO_FORMAT_REJECTED",
@@ -1554,7 +1557,7 @@ export const ChatAsrDraftClientFrame = z.discriminatedUnion("type", [
 export const ChatAsrDraftServerFrame = z.discriminatedUnion("type", [
   z.object({ type: z.literal("asr.partial"), text: z.string() }).strict(),
   z.object({ type: z.literal("asr.final"), text: z.string() }).strict(),
-  z.object({ type: z.literal("asr.error"), reason: ChatAsrDraftErrorReason }).strict(),
+  z.object({ type: z.literal("asr.error"), reason: ChatAsrDraftErrorReason, credit: CreditRequiredBody.optional() }).strict(),
   z.object({ type: z.literal("asr.finished") }).strict(),
 ]);
 

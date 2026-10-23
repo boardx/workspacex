@@ -35,6 +35,10 @@ export const MoneyFen = z.number().int().nonnegative();
 /** 额度：正整数。 */
 export const CreditsAmount = z.number().int().positive();
 
+/** Exact hundredth credit values; signed balance records unpaid confirmed consumption. */
+export const CreditBalance = z.number().finite().min(-2147483647).max(2147483647).multipleOf(0.01);
+export const CreditLedgerAmount = CreditBalance.refine(value => value > 0, "credit amount must be positive");
+
 /** 订单号：`bg<yyyyMMddHHmmss><6位随机>`，全局唯一（domain.md 值对象）。 */
 export const OrderNo = z.string().regex(/^bg\d{14}[A-Za-z0-9]{6}$/);
 
@@ -47,15 +51,15 @@ export const IsoDateTime = z.string().min(1);
 export const BillingOrderStatus = z.enum(["PENDING", "PROCESSING", "SUCCESS", "FAILED", "CLOSED"]);
 export type BillingOrderStatus = z.infer<typeof BillingOrderStatus>;
 
-/** 流水类型（消费类枚举本阶段不引入，不加占位成员）。 */
-export const BillingTransactionType = z.enum(["purchase", "bonus", "grant"]);
+/** 入账与模型消费流水。 */
+export const BillingTransactionType = z.enum(["purchase", "bonus", "grant", "consume"]);
 export type BillingTransactionType = z.infer<typeof BillingTransactionType>;
 
 /** 流水方向：+1 入账 / −1 出账（本阶段只有入账，出账为未来语义预留值）。 */
 export const BillingTransactionDirection = z.union([z.literal(1), z.literal(-1)]);
 
 /** 钱包的来源类型（流水去重键的一半，I-2/I-8）。 */
-export const BillingTransactionSourceType = z.enum(["payment_order", "admin_grant"]);
+export const BillingTransactionSourceType = z.enum(["payment_order", "admin_grant", "model_request"]);
 
 export const BillingErrorCode = z.enum([
   "payment_provider_not_configured", // E1：渠道未配置（入口不可用；不展示永远失败的二维码）
@@ -129,7 +133,9 @@ export const CreditWallet = z
   .object({
     ownerType: BillingOwnerType,
     ownerId: z.string().min(1),
-    balance: z.number().int().nonnegative(),
+    balance: CreditBalance,
+    reservedCredits: z.number().finite().nonnegative().multipleOf(0.01).optional(),
+    availableBalance: z.number().finite().multipleOf(0.01).optional(),
     totalPurchased: z.number().int().nonnegative(),
     totalGranted: z.number().int().nonnegative(),
     updatedAt: IsoDateTime,
@@ -141,8 +147,8 @@ export const CreditTransaction = z
     txnId: z.string().min(1),
     type: BillingTransactionType,
     direction: BillingTransactionDirection,
-    credits: CreditsAmount,
-    balanceAfter: z.number().int().nonnegative(), // 账实相符锚点（I-3）
+    credits: CreditLedgerAmount,
+    balanceAfter: CreditBalance, // 账实相符锚点（I-3）
     sourceType: BillingTransactionSourceType,
     sourceId: z.string().min(1), // 订单号 / 发放记录号
     operatorId: z.string().min(1).nullable(), // 人工发放必填（I-8：操作者可查）；其余为 null

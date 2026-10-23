@@ -1,3 +1,6 @@
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
+import {creditUsageMeter} from "../billing/credit-usage-meter";
+import {PgCreditConsumption} from "../billing/pg-credit-consumption";
 import type {CoreModelRuntimeGuard} from "../model/core-model-runtime-guard";
 import {resolveReportFilePolicyProject} from '../report-files/pg-report-file-policy-project';
 import {coreModelScopedDb} from "../model/pg-org-core-model-repository";
@@ -13,7 +16,6 @@ import type {AiAdmissionPort,AiReservedPricePort} from "../../application/agent-
 import {priceAiTokens} from "../../domain/agent-run/ai-budget";
 import {preparePricedModelCall,type AiPricedCallDependencies} from "../../application/agent-run/admit-priced-model-call";
 import {PgAiAdmissionRepository} from "./pg-ai-admission-repository";
-import {PgTokenUsageRepository} from "./pg-token-usage-repository";
 import {AiQuotaPolicyError} from "../../application/agent-run/ai-quota-policy-error";
 import {isStrictlyCheaperAiModel} from "../../domain/agent-run/ai-member-token-policy";
 import type {AiModelSelection} from "../../application/agent-run/execute-priced-model-call";
@@ -28,7 +30,7 @@ export interface RuntimeAiAdmissionOptions {
 export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
  constructor(private readonly db:DatabasePort,private readonly usage:TokenUsageMeterPort,private readonly admission?:(AiAdmissionPort&AiReservedPricePort&Partial<AiReceiptRecoveryPort>),private readonly runtimeAdmission?:RuntimeAiAdmissionOptions,private readonly coreModelGuard?:CoreModelRuntimeGuard){}
   async admitRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2]){
-    if(!this.runtimeAdmission)throw new Error("RUNTIME_AI_ADMISSION_DISABLED");
+    if(!this.runtimeAdmission)return this.admitCreditOnlyRuntimeRequest(orgId,runId,input);
     if("billingMode" in input)return this.admitInputOnlyRuntimeRequest(orgId,runId,input);
     const configured=this.runtimeAdmission;
     let body:Record<string,unknown>;
@@ -43,7 +45,7 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
       // One existing transaction: owner row locks, policy/window lock, reserve and durable start.
       const scoped:DatabasePort={withTenant:async(tenant,work)=>{if(tenant!==orgId)throw new RuntimeUsageOwnershipDenied();return work(s);},
         withoutTenant:async()=>{throw new RuntimeUsageOwnershipDenied();},close:async()=>{}};
-      const budget=new PgAiAdmissionRepository(scoped),meter=new PgTokenUsageRepository(scoped);
+      const budget=new PgAiAdmissionRepository(scoped),meter=creditUsageMeter(scoped);
       const facts=await configured.facts(orgId,owner,input.serializedBody,{runId,attemptId:input.attemptId,leaseEpoch:input.leaseEpoch},scoped),deps=configured.dependencies(orgId,scoped);
       const primaryModelId=await configured.primaryModelId(input.modelId);
       const policy=await budget.resolveBudgetPolicy(orgId,owner.user_id);
@@ -94,6 +96,24 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
         return attempt===0?undefined:{modelId:price.runtimeModelId,serializedBody:selectedBody,outputTokenLimit};
       }
       throw new AiQuotaPolicyError("AI_TOKEN_DEGRADE_REQUIRED",degradeTarget);
+    });
+  }
+  private async admitCreditOnlyRuntimeRequest(orgId:OrgId,runId:string,input:Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2]):Promise<void>{
+    let body:Record<string,unknown>;try{body=JSON.parse(input.serializedBody);}catch{throw new Error("AI_DISPATCH_BODY_INVALID");}
+    if(!body||Array.isArray(body)||body.model!==input.modelId)throw new Error("AI_DISPATCH_BINDING_MISMATCH");
+    const inputOnly="billingMode" in input;
+    const cap=inputOnly?0:input.outputTokenLimit;
+    if(!inputOnly&&(!Number.isSafeInteger(cap)||cap<=0||![body.max_tokens,body.max_completion_tokens].some(value=>value===cap)))throw new Error("AI_DISPATCH_BINDING_MISMATCH");
+    const provider=(process.env.KERNEL_MODEL_PROVIDER??"").trim();if(!provider)throw new Error("RUNTIME_USAGE_PROVIDER_UNCONFIGURED");
+    const multimodal=/"(?:image_url|input_audio)"\s*:/.test(input.serializedBody);
+    await this.db.withTenant(orgId,async s=>{
+      const owner=await resolveRuntimeModelOwner(s,orgId,runId,input.leaseEpoch,input.attemptId,input.callPurpose);
+      if(!owner)throw new RuntimeUsageOwnershipDenied();
+      await this.coreModelGuard?.assertAccepted(orgId,owner.root_run_id,coreModelScopedDb(s,orgId));
+      await this.insertStart(s,orgId,{requestId:input.requestId,userId:owner.user_id,runId:owner.root_run_id,subtaskId:owner.subtask_id,
+        executionAttemptId:input.attemptId,executionLeaseEpoch:input.leaseEpoch,projectId:owner.project_id,threadId:owner.thread_id,agentId:owner.agent_id,
+        callPurpose:input.callPurpose,modelProvider:provider,modelId:input.modelId,startedAt:input.startedAt,
+        maximumTokens:multimodal?null:Buffer.byteLength(input.serializedBody,"utf8")+cap});
     });
   }
   private async admitInputOnlyRuntimeRequest(orgId:OrgId,runId:string,input:Extract<Parameters<NonNullable<RuntimeModelUsagePort["admitRuntimeRequest"]>>[2],{billingMode:"input-only"}>):Promise<void>{
@@ -156,7 +176,18 @@ export class PgRuntimeModelUsageRepository implements RuntimeModelUsagePort {
      else await this.admission!.settle(orgId,input.requestId,{tokens:total===undefined?null:BigInt(total),costMicros:cost});
     }
   }
- private async insertStart(s:TenantSession,orgId:OrgId,input:{requestId:string;userId:string;runId:string;executionAttemptId:string;projectId:string|null;threadId:string|null;agentId:string|null;callPurpose:string;modelProvider:string;modelId:string;startedAt:string;executionLeaseEpoch:number;subtaskId?:string|null}):Promise<void>{
+ private async insertStart(s:TenantSession,orgId:OrgId,input:{requestId:string;userId:string;runId:string;executionAttemptId:string;projectId:string|null;threadId:string|null;agentId:string|null;callPurpose:string;modelProvider:string;modelId:string;startedAt:string;executionLeaseEpoch:number;subtaskId?:string|null;maximumTokens?:number|null}):Promise<void>{
+  // Private callbacks must reserve crash-safe receipt capacity before acknowledging dispatch.
+  const start={...input,callPurpose:input.callPurpose as NonNullable<import("../../application/agent-run/ports").TokenUsageRecord["callPurpose"]>};
+  const meter=creditUsageMeter(this.db);
+  await meter.prepareStart(orgId,start);
+  try { await new PgCreditConsumption(this.db).reserveInSession(s,orgId,start); }
+  catch(error){
+    // A financial refusal proves this new dispatch was never admitted. Do not let
+    // repeated empty-wallet attempts consume the entire durable receipt capacity.
+    if(error instanceof CreditConsumptionError&&error.code==='credit_required')await meter.discardPreparedStart(orgId,start);
+    throw error;
+  }
   const inserted=await s.query(`INSERT INTO model_request_starts(id,org_id,user_id,run_id,execution_attempt_id,project_id,model_provider,model_id,started_at,thread_id,agent_id,call_purpose,execution_lease_epoch,subtask_id)
    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(id) DO NOTHING RETURNING id`,
    [input.requestId,orgId,input.userId,input.runId,input.executionAttemptId,input.projectId,input.modelProvider,input.modelId,input.startedAt,input.threadId,input.agentId,input.callPurpose,input.executionLeaseEpoch,input.subtaskId??null]);

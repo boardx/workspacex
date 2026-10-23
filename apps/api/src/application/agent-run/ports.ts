@@ -1044,7 +1044,7 @@ export interface ModelCallInput {
   /** Trusted executor identity, never sourced from model tool arguments. */
   readonly executionAttemptId?: string;
   readonly executionLeaseEpoch?: number;
-  readonly usageCallPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
+  readonly usageCallPurpose?: "auxiliary" | "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly executionPermissionRequestId?: string;
   readonly modelProvider: string;
   readonly modelId: string;
@@ -1540,7 +1540,7 @@ export interface TokenUsageRecord {
   readonly totalSource?: "reported" | "unknown" | "not-applicable";
   /** Native dimensions never masquerade as reported zero tokens. */
   readonly nativeUsage?:{readonly unit:import("../../domain/agent-run/ai-billable-unit").AiNativeUnit;readonly quantity:bigint|null;readonly source:"reported"|"estimated"|"unknown"};
-  readonly callPurpose?: "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
+  readonly callPurpose?: "auxiliary" | "primary" | "history-summary" | "script-retry" | "retrieval-embedding" | "retrieval-rerank" | "native-image" | "local-trial" | "native-asr";
   readonly userId: string;
   readonly runId: string | null;
   readonly subtaskId?: string | null;
@@ -1583,8 +1583,12 @@ export interface ReportedUsage {
 export interface TokenUsageMeterPort {
   /** Durable start marker before provider dispatch; failed starts must prevent dispatch. */
   startRequest?(orgId: OrgId, input: {
+    /** Trusted dispatch bound; absent keeps unknown usage held and cannot admit strict preflight. */
+    readonly maximumTokens?: number | null;
+    readonly tokenBoundRequired?: boolean;
+    readonly nativeMaximum?: { readonly unit: import("../../domain/agent-run/ai-billable-unit").AiNativeUnit; readonly quantity: bigint };
     readonly requestId: string; readonly userId: string; readonly runId: string|null;
-    readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly subtaskId?:string|null;
+    readonly executionLeaseEpoch?:number; readonly artifactOperationId?:string; readonly knowledgeOperationId?:string; readonly subtaskId?:string|null;
     /** Private platform test authority; same tenant/member provenance is enforced in SQL. */
     readonly platformTestId?:string;
     readonly modelProvider: string; readonly modelId: string; readonly startedAt: string;

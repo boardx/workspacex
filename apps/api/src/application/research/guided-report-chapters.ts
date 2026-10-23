@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 import { reportPerformance, type ReportPerformanceSink } from "./guided-report-performance";
 import { reportWorkQueue, queuedReportRequest } from "./guided-report-work-queue";
 import { inlineReportSources, validateGeneratedChapter, validateChapterOutput, chapterValidationIssues } from "./guided-chapter-citation-validation";
@@ -56,7 +57,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         if (chapter.sourceIds.some((id) => !canonicalIds.has(id))) throw invalid();
         return validateGeneratedChapter(chapter, sections[index]!, new Set(chapter.sourceIds), !state.reportQualityWarnings?.some((warning) => warning.sectionId === chapter.sectionId));
       });
-    } catch { approved = []; }
+    } catch (creditError) { rethrowCreditConsumption(creditError); approved = []; }
   }
   const priorCheckpoint = approved.length ? { basis, chapters: structuredClone(approved), ...(effectiveInstruction !== undefined ? { instruction: effectiveInstruction } : {}) } : undefined;
   const priorWarnings = structuredClone((state.reportQualityWarnings ?? []).filter(warning => approved.some(chapter => chapter.sectionId === warning.sectionId)));
@@ -93,7 +94,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
       if (priorDraft && JSON.stringify(committed) === JSON.stringify(priorCheckpoint.chapters.slice(0, committed.length))) state.reportDraft = priorDraft;
     }
   };
-  try { await persist(); } catch (error) { restorePriorCheckpoint(); throw error; }
+  try { await persist(); } catch (error) { rethrowCreditConsumption(error); restorePriorCheckpoint(); throw error; }
   let resetStream: (() => Promise<void>) | undefined;
   const run = async (emit?: (delta: string) => Promise<void>) => {
     const chapters: Chapter[] = structuredClone(approved);
@@ -134,7 +135,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         activeState.progress = { executionVersion: activeState.version, stage, completed: stage === "organizing" ? evidenceCompleted : chapters.length, total: stage === "organizing" ? evidenceTotal : sections.length, ...(context.section ? { sectionId: context.section.id } : {}) };
         activeState.modelCalls.push(call);
         try { await save(); }
-        catch (error) { chapterPersistenceFailed = true; chapterPersistenceFailure = error; throw error; }
+        catch (error) { rethrowCreditConsumption(error); chapterPersistenceFailed = true; chapterPersistenceFailure = error; throw error; }
         if (activeState !== state && chapterPersistenceFailed) throw chapterPersistenceFailure;
         let seen = false; let callbackFailed = false; let callbackError: unknown;
         let result;
@@ -151,11 +152,11 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
                 if (!attemptOpen) throw new ResearchRuntimeError("RESEARCH_EXECUTION_INTERRUPTED");
                 callBudget.check();
                 try { seen ||= Boolean(delta); await publish(delta); }
-                catch (error) { callbackFailed = true; callbackError = error; throw error; }
+                catch (error) { rethrowCreditConsumption(error); callbackFailed = true; callbackError = error; throw error; }
               }) : model.complete(boundedInput));
             } finally { attemptOpen = false; }
           }, input.signal);
-        } catch (error) {
+        } catch (error) { rethrowCreditConsumption(error);
           attemptOpen = false;
           // Adapters can wrap observer/persistence errors as transport failures.
           if (callbackFailed) { chapterPersistenceFailed = true; chapterPersistenceFailure = callbackError; throw callbackError; }
@@ -176,7 +177,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         const parsed = validate(result.text); call.status = "succeeded";
         if (timelineStage === "chapter" || timelineStage === "synthesis") updateReportTimeline(activeState, timelineStage, "completed", { sectionId: context.section?.id });
         try { await save(); }
-        catch (error) { updateReportTimeline(activeState, timelineStage, "running", { sectionId: context.section?.id }); throw error; }
+        catch (error) { rethrowCreditConsumption(error); updateReportTimeline(activeState, timelineStage, "running", { sectionId: context.section?.id }); throw error; }
         return parsed;
       }
       throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
@@ -359,7 +360,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
           if (!quality.passed) { updateReportTimeline(chapterState, "review", "retrying", { sectionId: section.id }); repair = quality; throw new ResearchRuntimeError("RESEARCH_REPORT_QUALITY_INSUFFICIENT"); }
           updateReportTimeline(chapterState, "review", "completed", { sectionId: section.id }); await saveChapter();
           break;
-        } catch (error) {
+        } catch (error) { rethrowCreditConsumption(error);
           const repairable = error instanceof ResearchRuntimeError && ["RESEARCH_NODE_STATE_INVALID", "RESEARCH_CONTENT_REFERENCE_INVALID", "RESEARCH_REPORT_QUALITY_INSUFFICIENT"].includes(error.reasonCode);
           const validationIssues = chapterValidationIssues(error) ?? questionParagraphValidationIssues(error);
           const privateFeedback = reviewRewriteFeedback(error);
@@ -408,7 +409,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
         if (nextState.progress?.sectionId === nextSection.id) state.progress = { ...nextState.progress, completed: chapters.length };
         await persistTimeline();
       }
-    }); } catch (error) {
+    }); } catch (error) { rethrowCreditConsumption(error);
       // orderedChapterWork has drained all started work before terminal state is exposed.
       const failedState = chapterStates.get(frontIndex);
       const failedSection = sections[frontIndex];
@@ -474,7 +475,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
           if (framingInvalid) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
 
           let raw: unknown;
-          try { raw = JSON.parse(text); } catch { throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID"); }
+          try { raw = JSON.parse(text); } catch (creditError) { rethrowCreditConsumption(creditError); throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID"); }
           const parsed = C.GuidedResearchReportSynthesisModelOutput.safeParse(raw);
           if (!parsed.success) throw new ResearchRuntimeError("RESEARCH_NODE_STATE_INVALID");
           const result = { ...parsed.data, title: discardInvalidReportCitations(parsed.data.title, new Set(), resolve) };
@@ -492,7 +493,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
 
         }, synthesisDelta) as ReturnType<typeof C.GuidedResearchReportSynthesisModelOutput.parse>;
         break;
-      } catch (error) {
+      } catch (error) { rethrowCreditConsumption(error);
         if (!(error instanceof ResearchRuntimeError) || !["RESEARCH_NODE_STATE_INVALID", "RESEARCH_CONTENT_REFERENCE_INVALID"].includes(error.reasonCode) || attempt === 1) { await restoreApproved(); throw error; }
         updateReportTimeline(state, "synthesis", "retrying"); await persistTimeline();
       }
@@ -511,7 +512,7 @@ export async function generateReportChapters(state: ResearchRuntime, model: Mode
   const composed: ModelCallPort = { complete: () => run(), ...(model.completeStream ? { completeStream: (_: ModelCallInput, emit: (delta: string) => Promise<void>) => run(emit) } : {}) };
   let result;
   try { result = await streamReport(composed, { modelProvider: config.provider, modelId: config.id, system: "", user: "" }, state, persist, (reset) => { resetStream = reset; }); }
-  catch (error) {
+  catch (error) { rethrowCreditConsumption(error);
     metrics.milestone("report", true);
     restorePriorCheckpoint();
     failActiveReportTimeline(state, error instanceof ResearchRuntimeError ? error.reasonCode : "RESEARCH_WORKFLOW_UNAVAILABLE"); throw error;
