@@ -40,7 +40,8 @@ describe("GitHub-based CN production promotion", () => {
     expect(identity).toContain("r.type==='required_reviewers'");
     expect(identity).toContain("['main','main-cn']");
     expect(identity).toContain("FROZEN_RELEASE_ENVIRONMENT_POLICY");
-    expect(workflow).toContain('deployments.includes("production-cn-promotion")');
+    expect(workflow).toContain('types.has("required_deployments")');
+    expect(workflow).toContain('types.has("non_fast_forward")');
     expect(workflow).toContain('types.has("deletion")');
     expect(workflow).toContain('"${GITHUB_REF}" == refs/tags/cn-prepared-*');
     expect(workflow.match(/environment: production-cn-promotion/g)).toHaveLength(1);
@@ -126,5 +127,35 @@ describe("GitHub-based CN production promotion", () => {
     expect(bootstrap).toContain("TRUSTED_PROMOTION_BIN");
     expect(bootstrap).toContain('install -o root -g root -m 0755 "$promotion_script" "$TRUSTED_PROMOTION_BIN"');
     expect(bootstrap).toContain('"$TRUSTED_PROMOTION_BIN" "$TRUSTED_EXPORT_BIN" > "$sudoers_temp"');
+  });
+});
+
+
+describe("branch-push activation gates", () => {
+  const sha = "a".repeat(40), newer = "b".repeat(40);
+  it("reserves the already-promoted shortcut for manual mode", () => {
+    const condition = workflow.match(/if \[\[ "\$\{PROMOTION_MODE\}" == manual && "\$\{current\}" == "\$\{REVISION\}" \]\]; then/);
+    expect(condition).not.toBeNull();
+    for (const [mode, expected] of [["manual", "shortcut"], ["branch-push", "activate"]]) {
+      const result = spawnSync("bash", ["-c", `${condition![0]} echo shortcut; else echo activate; fi`], {
+        encoding: "utf8", env: { ...process.env, PROMOTION_MODE: mode, current: sha, REVISION: sha },
+      });
+      expect(result.status).toBe(0);
+      expect(result.stdout.trim()).toBe(expected);
+    }
+  });
+  it("rejects a superseded target before activation but accepts the current target", () => {
+    const start = workflow.indexOf("          # Refuse an obsolete branch-push target");
+    const end = workflow.indexOf("          # CN_LOCAL_PROMOTION_PREACTIVATION_END", start);
+    expect(start).toBeGreaterThan(-1);
+    const gate = workflow.slice(start, end);
+    const activation = workflow.indexOf('workspacex-cn-deploy "${REVISION}"', end);
+    expect(activation).toBeGreaterThan(end);
+    for (const [head, expected] of [[sha, 0], [newer, 1]]) {
+      const result = spawnSync("bash", ["-c", 'gh() { echo "$REMOTE_HEAD"; }; ' + gate], {
+        encoding: "utf8", env: { ...process.env, PROMOTION_MODE: "branch-push", REVISION: sha, REMOTE_HEAD: head, GITHUB_REPOSITORY: "boardx/workspacex" },
+      });
+      expect(result.status, result.stderr).toBe(expected);
+    }
   });
 });

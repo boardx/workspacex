@@ -1,4 +1,5 @@
 name: prepare-cn-release
+run-name: "Prepare CN ${{ inputs.release_sha }} (source run ${{ inputs.source_run_id || github.run_id }})"
 
 on:
   workflow_dispatch:
@@ -12,12 +13,22 @@ on:
         required: true
         type: string
 
+      auto_promote:
+        description: "Queue frozen-tag promotion after preparation; does not bypass admission"
+        required: false
+        type: boolean
+        default: false
+      source_run_id:
+        description: "Originating main-cn push run for traceability"
+        required: false
+        type: string
+
 permissions:
   checks: read
   statuses: read
   deployments: read
   contents: write
-  actions: read
+  actions: write
 
 # Serialization only: reruns/manual attempts are not made idempotent by this lock.
 concurrency:
@@ -91,6 +102,7 @@ jobs:
           done
 
       - name: Build, seal, and host-prepare exact release candidate
+        id: prepared
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
@@ -129,3 +141,12 @@ jobs:
             echo "- Release: \`${release}\`"
             echo "- Attempt: \`${attempt_id}\`"
           } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Queue frozen prepared tag promotion (not production acceptance)
+        if: inputs.auto_promote
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          RELEASE_TAG: ${{ steps.prepared.outputs.release_tag }}
+          RELEASE_ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
+        run: node .github/scripts/cn-auto-release.mjs promote

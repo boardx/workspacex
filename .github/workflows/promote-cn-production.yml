@@ -4,6 +4,11 @@ name: promote-cn-production
 on:
   workflow_dispatch:
     inputs:
+      promotion_mode:
+        description: "Manual promotion or activation of an already advanced main-cn target"
+        type: choice
+        options: [manual, branch-push]
+        default: manual
       release_mode:
         description: "App-only requires frozen no-mutation compatibility and the existing prepared/tag admission"
         type: choice
@@ -30,10 +35,11 @@ permissions:
   contents: write
 
 env:
+  PROMOTION_MODE: ${{ inputs.promotion_mode || 'manual' }}
   RELEASE_MODE: ${{ inputs.release_mode }}
 
 # Admission, activation, and promotion are one serialized transaction. GitHub's
-# main-cn ref is the final commit record, after production and browser acceptance.
+# Manual promotions write main-cn after acceptance; branch-push activates its current target.
 concurrency:
   group: workspacex-cn-production-deploy
   cancel-in-progress: false
@@ -79,7 +85,11 @@ jobs:
           if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
           [[ "${GITHUB_REF}" == refs/tags/cn-prepared-* && "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_IDENTITY"; exit 1; }
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::CN_PROMOTION_NOT_READY_INPUT"; exit 2; }
-          github_main_cn=$(git rev-parse origin/main-cn)
+          [[ "${PROMOTION_MODE}" == manual || "${PROMOTION_MODE}" == branch-push ]] || { echo "::error::invalid promotion_mode"; exit 2; }
+          if [[ "${PROMOTION_MODE}" == branch-push ]]; then
+            [[ "${EXPECTED_MAIN_CN}" == "${REVISION}" ]] || { echo "::error::branch-push requires expected_main_cn_sha equal release_sha"; exit 2; }
+          fi
+          github_main_cn=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)
           [[ "${github_main_cn}" == "${EXPECTED_MAIN_CN}" || "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_BASELINE"; exit 3; }
           git merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::CN_PROMOTION_NOT_READY_MAIN"; exit 1; }
           cmp --silent .harness/scripts/vm/verify-cn-release-promotion.sh /usr/local/bin/workspacex-cn-verify-promotion || { echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT"; exit 1; }
@@ -94,7 +104,7 @@ jobs:
           if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
             sudo -n /usr/local/bin/workspacex-cn-deploy --app-only-check "${REVISION}" "${ATTEMPT_ID}"
           fi
-  # This is the only human approval. The immutable protected tag keeps
+  # Machine admission uses the protected environment without human approval. The tag keeps
   # release_sha == GITHUB_SHA and native Deployment.sha truthful when main advances.
   admit:
     needs: readiness
@@ -116,7 +126,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify one-approval GitHub production governance
+      - name: Verify automatic GitHub production governance
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -134,7 +144,7 @@ jobs:
           trap 'rm -f "${promotion_json}" "${promotion_policies_json}" "${activation_json}" "${policies_json}" "${rulesets_json}" "${ruleset_details}"' EXIT
 
           # Exact environment/tag policies are revalidated by the shared identity gate.
-          # The main-cn branch rules below still require native successful admission.
+          # Native successful admission remains mandatory before activation.
           gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&per_page=100" > "${rulesets_json}"
           while read -r id; do
             gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" >> "${ruleset_details}"
@@ -148,10 +158,9 @@ jobs:
             return Array.isArray(refs?.include)&&refs.include.includes("refs/heads/main-cn")&&!(refs.exclude??[]).includes("refs/heads/main-cn");
           };
           const rules=values.filter(applies).flatMap(value=>value.rules??[]);
-          const deployments=rules.find(rule=>rule.type==="required_deployments")?.parameters?.required_deployment_environments??[];
           const types=new Set(rules.map(rule=>rule.type));
-          if(!deployments.includes("production-cn-promotion")||!types.has("deletion")){
-            console.error("::error::main-cn ruleset must require production-cn-promotion and block deletion");
+          if(types.has("required_deployments")||!types.has("deletion")||!types.has("non_fast_forward")){
+            console.error("::error::main-cn ruleset must allow automatic deployment and block deletion/non-fast-forward");
             process.exit(1);
           }
           NODE
@@ -258,9 +267,8 @@ jobs:
 
   # The admission job must finish successfully first. GitHub then records a
   # successful production-cn-promotion deployment for this exact GITHUB_SHA.
-  # This job activates and browser-verifies production before main-cn becomes
-  # the durable public record. production-cn has no reviewer, so there is still
-  # exactly one human approval.
+  # This job activates and browser-verifies production with machine gates.
+  # Neither production environment requires a human reviewer.
   promote:
     needs: admit
     environment: production-cn
@@ -302,7 +310,7 @@ jobs:
           [[ -d "${cache}" && ! -L "${cache}" && "$(git -C "${cache}" rev-parse --is-bare-repository)" == true ]] || { echo "::error::CN_SOURCE_CACHE_UNTRUSTED"; exit 1; }
           [[ "$(git -C "${repository}" remote get-url origin)" == "${cache}" ]] || { echo "::error::CN_RELEASE_ORIGIN_DRIFT"; exit 1; }
           current=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)
-          if [[ "${current}" == "${REVISION}" ]]; then
+          if [[ "${PROMOTION_MODE}" == manual && "${current}" == "${REVISION}" ]]; then
             local_main_cn=$(git -C "${cache}" rev-parse refs/heads/main-cn)
             [[ "${local_main_cn}" == "${REVISION}" ]] || { echo "::error::already-promoted GitHub ref disagrees with the China source mirror"; exit 1; }
             git -C "${repository}" fetch --no-tags origin main main-cn
@@ -315,7 +323,7 @@ jobs:
             exit 0
           fi
 
-          [[ "${current}" == "${EXPECTED_MAIN_CN}" ]] || { echo "::error::main-cn changed after approval; start a new promotion with the new baseline"; exit 1; }
+          [[ "${current}" == "${EXPECTED_MAIN_CN}" ]] || { echo "::error::main-cn changed after admission; prepare a new promotion for the current target"; exit 1; }
           sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${verify_flags[@]}" "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
           git -C "${repository}" merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::main-cn update is not a fast-forward"; exit 1; }
           app_runtime_state=ready
@@ -366,6 +374,10 @@ jobs:
             exit 1
           }
 
+          # Refuse an obsolete branch-push target immediately before activation.
+          if [[ "${PROMOTION_MODE}" == branch-push ]]; then
+            [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)" == "${REVISION}" ]] || { echo "::error::CN_BRANCH_PUSH_TARGET_CHANGED"; exit 1; }
+          fi
           # CN_LOCAL_PROMOTION_PREACTIVATION_END
           if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then
             if [[ "${app_runtime_state}" == ready ]]; then

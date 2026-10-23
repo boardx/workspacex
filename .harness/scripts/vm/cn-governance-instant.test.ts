@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { validateLiveGovernance } from './cn-frozen-release-identity.mjs';
 const utc='2026-10-01T15:15:51.887Z',offset='2026-10-01T23:15:51.887+08:00';
 function fixture(){
- const env=(id:number,review:boolean)=>({id,created_at:utc,updated_at:utc,protection_rules:review?[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
+ const env=(id:number)=>({id,created_at:utc,updated_at:utc,protection_rules:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
  const policies=(branches:string[])=>[...branches.map((name,id)=>({id:id+1,type:'branch',name})),{id:10,type:'tag',name:'cn-prepared-*'}];
- return {promotion:env(1,true),activation:env(2,false),promotionPolicies:policies(['main']),activationPolicies:policies(['main','main-cn']),tagRules:[{id:24316662,source_type:'Repository',source:'boardx/workspacex',target:'tag',enforcement:'active',created_at:utc,updated_at:utc,conditions:{ref_name:{include:['refs/tags/cn-prepared-*'],exclude:[]}},bypass_actors:[],rules:[{type:'update'},{type:'deletion'}]}]};
+ return {promotion:env(1),activation:env(2),promotionPolicies:policies(['main']),activationPolicies:policies(['main','main-cn']),tagRules:[{id:24316662,source_type:'Repository',source:'boardx/workspacex',target:'tag',enforcement:'active',created_at:utc,updated_at:utc,conditions:{ref_name:{include:['refs/tags/cn-prepared-*'],exclude:[]}},bypass_actors:[],rules:[{type:'update'},{type:'deletion'}]}]};
 }
 describe('governance timestamp comparison keeps exact instants and raw inputs',()=>{
  it('accepts actual UTC/Shanghai representations for official metadata without changing signed inputs',()=>{

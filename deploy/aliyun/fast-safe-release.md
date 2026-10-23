@@ -1,5 +1,10 @@
 # CN fast-safe release lane
 
+The main-cn push trigger and no-reviewer policy now follow
+[ADR-124](../../docs/adr/ADR-124-use-main-cn-as-an-automatic-china-production-desired-release-ref.md).
+main-cn is a desired revision; read native deployment and runtime/browser evidence
+to establish availability. Preparation and activation checks below still apply.
+
 `prepare` and `activate` are separate operations. Preparation may take as long as
 building and pulling the four images requires; it must not change public traffic.
 Activation consumes only a complete, unexpired preparation receipt and has one

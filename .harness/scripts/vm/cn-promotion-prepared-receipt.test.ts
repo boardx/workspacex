@@ -21,18 +21,21 @@ const ready = step("readiness", "Fail NOT_READY before asking for production adm
 const admission = step("admit", "Require a complete immutable preparation receipt");
 const revision = "a".repeat(40);
 const baseline = "b".repeat(40);
-function run(block: string, status: number, sha = revision) {
+function run(block: string, status: number, sha = revision, head = baseline, mode = "manual", expected = baseline) {
   // Only the read-only promotion verifier is authorized by the fixture. Any
   // fallback prepare/build/activation call fails even when verifier returns 0.
   const mock = `set -euo pipefail
 REVISION=${revision}
-EXPECTED_MAIN_CN=${baseline}
+EXPECTED_MAIN_CN=${expected}
+PROMOTION_MODE=${mode}
+GITHUB_REPOSITORY=boardx/workspacex
 ATTEMPT_ID=gha-regression-1
 GITHUB_SHA=${sha}
 GITHUB_REF=refs/tags/cn-prepared-${revision}-gha-regression-1
 EXPECTED_REQUEST_SHA256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 node() { [[ "$1" == --experimental-strip-types && "$3" == verify-dispatch ]] || exit 98; return 0; }
 cmp() { return 0; }
+gh() { [[ "$*" == "api repos/boardx/workspacex/git/ref/heads/main-cn --jq .object.sha" ]] || exit 97; echo ${head}; }
 git() { if [[ "$1" == rev-parse ]]; then echo ${baseline}; else return 0; fi; }
 sudo() {
   [[ "$#" -eq 5 && "$1" == -n && "$2" == /usr/local/bin/workspacex-cn-verify-promotion ]] || exit 99
@@ -40,7 +43,10 @@ sudo() {
   return ${status}
 }
 `;
-  return spawnSync("bash", ["-c", mock + block], { encoding: "utf8", timeout: 5_000 });
+  // macOS Bash 3.2 treats an empty array as unset under nounset. Preserve the
+  // Linux runner's empty/nonempty argument semantics without dropping the gate.
+  const compatible = block.replaceAll('"${verify_flags[@]}"', '${verify_flags[@]+"${verify_flags[@]}"}');
+  return spawnSync("bash", ["-c", mock + compatible], { encoding: "utf8", timeout: 5_000 });
 }
 
 describe("CN complete preparation before production approval", () => {
@@ -81,12 +87,23 @@ describe("CN complete preparation before production approval", () => {
   });
 
   it("rejects GitHub baseline drift before approval while allowing exact replays", () => {
-    const changed = ready.replace('github_main_cn=$(git rev-parse origin/main-cn)', 'github_main_cn=' + "c".repeat(40));
-    const rejected = run(changed, 0);
+    const rejected = run(ready, 0, revision, "c".repeat(40));
     expect(rejected.status).toBe(3);
     expect((rejected.stdout + rejected.stderr)).not.toContain("VERIFIER_CALLED");
-    const replay = ready.replace('github_main_cn=$(git rev-parse origin/main-cn)', 'github_main_cn=' + revision);
-    expect(run(replay, 0).status).toBe(0);
+    expect(run(ready, 0, revision, revision).status).toBe(0);
+  });
+
+  it("branch-push requires the current exact target and cannot skip receipt verification", () => {
+    const accepted = run(ready, 0, revision, revision, "branch-push", revision);
+    expect(accepted.status, accepted.stderr).toBe(0);
+    expect(accepted.stderr).toContain("VERIFIER_CALLED");
+    expect(run(ready, 42, revision, revision, "branch-push", revision).status).toBe(42);
+    const stale = run(ready, 0, revision, "c".repeat(40), "branch-push", revision);
+    expect(stale.status).toBe(3);
+    expect(stale.stderr).not.toContain("VERIFIER_CALLED");
+    const wrongBaseline = run(ready, 0, revision, revision, "branch-push", baseline);
+    expect(wrongBaseline.status).toBe(2);
+    expect(wrongBaseline.stderr).not.toContain("VERIFIER_CALLED");
   });
 
   it("uses complete receipt verification, not an input-presence assertion", () => {
