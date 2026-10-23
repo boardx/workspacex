@@ -208,7 +208,8 @@ export function RealtimeTranscriptionWorkspace({
               className="w-full sm:ml-auto sm:w-auto"
               type="button"
               variant="primary"
-              disabled={streamState === "stopping" || renaming}
+              disabled={streamState === "stopping" || renaming || (editing && !canStop)}
+              aria-describedby={editing && !canStop ? "rec-edit-capture-hint" : undefined}
               loading={streamState === "stopping"}
               onClick={canStop ? onStop : onStart}
             >
@@ -217,6 +218,7 @@ export function RealtimeTranscriptionWorkspace({
           </div>
         </header>
 
+        {editing && !canStop && <p id="rec-edit-capture-hint" className="text-12 text-muted-foreground">保存或取消正文编辑后可继续转录，避免覆盖正在修改的内容。</p>}
         {returnBlocked && <p id="rec-return-hint" className="text-12 text-muted-foreground">{returnHint}</p>}
         {copyError && <p role="alert" data-testid="rec-live-copy-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{copyError}</p>}
         {(errorMessage || saveError) && <p role="alert" data-testid="rec-live-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{errorMessage || saveError}</p>}

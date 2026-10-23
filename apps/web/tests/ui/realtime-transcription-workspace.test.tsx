@@ -24,6 +24,29 @@ describe("RealtimeTranscriptionWorkspace", () => {
     expect(screen.getByTestId("rec-live-reading-hint")).toHaveTextContent("完成收尾后可编辑");
   });
 
+  it("blocks starting capture while editing and restores it after cancel", () => {
+    const onStart = vi.fn();
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} onStart={onStart} onStop={vi.fn()} onSaveContent={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    expect(screen.getByTestId("rec-live-toggle")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("rec-live-toggle"));
+    expect(onStart).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /^取消$/ }));
+    expect(screen.getByTestId("rec-live-toggle")).toBeEnabled();
+  });
+  it("keeps capture blocked through pending and failed saves", async () => {
+    let rejectSave: (error: Error) => void = () => undefined;
+    render(<RealtimeTranscriptionWorkspace session={SESSION} onBack={vi.fn()} onStart={vi.fn()} onStop={vi.fn()}
+      onSaveContent={() => new Promise<void>((_, reject) => { rejectSave = reject; })} />);
+    fireEvent.click(screen.getByTestId("rec-live-edit"));
+    fireEvent.click(screen.getByTestId("rec-live-save"));
+    expect(screen.getByTestId("rec-live-toggle")).toBeDisabled();
+    rejectSave(new Error("save failed"));
+    await vi.waitFor(() => expect(screen.getByTestId("rec-live-error")).toBeVisible());
+    expect(screen.getByTestId("rec-live-toggle")).toBeDisabled();
+    expect(screen.getByTestId("rec-live-editor")).toBeVisible();
+  });
+
   it.each(["idle", "error"] as const)("allows leaving stale server recording state when the local stream is %s", (streamState) => {
     const onBack = vi.fn();
     render(<RealtimeTranscriptionWorkspace session={{ ...SESSION, status: "recording" }} streamState={streamState}
