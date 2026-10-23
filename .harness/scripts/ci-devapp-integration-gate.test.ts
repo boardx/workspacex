@@ -8,6 +8,11 @@ describe('Devapp deployment waits for integration validation before the privileg
     expect(gate).toBeDefined();
     expect(gate['runs-on']).toBe('ubuntu-latest');
     expect(gate.permissions).toEqual({contents:'read',actions:'read'});
+    // setup-node detects pnpm from packageManager even without an explicit cache option.
+    // This read-only helper uses only Node built-ins and must not require pnpm.
+    const nodeSetup = gate.steps.find((step: {uses?: string}) => step.uses === 'actions/setup-node@v5');
+    expect(nodeSetup.with['package-manager-cache']).toBe(false);
+    expect(gate.steps.some((step: {uses?: string}) => step.uses?.startsWith('pnpm/action-setup'))).toBe(false);
     expect(gate.if).toContain("github.ref == 'refs/heads/develop'");
     expect(gate.if).toContain("github.event_name == 'push'");
     expect(jobs.deploy.needs).toContain('integration-acceptance');
