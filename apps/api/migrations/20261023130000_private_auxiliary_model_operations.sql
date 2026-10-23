@@ -1,6 +1,11 @@
-ALTER TABLE model_request_starts ADD CONSTRAINT model_request_starts_id_org_auxiliary_unique UNIQUE(id,org_id);
+DO $$
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='model_request_starts'::regclass AND conname='model_request_starts_id_org_auxiliary_unique') THEN
+  ALTER TABLE model_request_starts ADD CONSTRAINT model_request_starts_id_org_auxiliary_unique UNIQUE(id,org_id);
+ END IF;
+END $$;
 -- Private trial/model operations have no Chat/run rows. Store metadata authority only.
-CREATE TABLE auxiliary_model_operations(
+CREATE TABLE IF NOT EXISTS auxiliary_model_operations(
  id uuid PRIMARY KEY,
  org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
  user_id text NOT NULL,
@@ -11,7 +16,7 @@ CREATE TABLE auxiliary_model_operations(
  closed_at timestamptz,
  UNIQUE(id,org_id)
 );
-CREATE TABLE auxiliary_model_requests(
+CREATE TABLE IF NOT EXISTS auxiliary_model_requests(
  request_id text PRIMARY KEY,
  org_id text NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
  operation_id uuid NOT NULL,
@@ -25,9 +30,11 @@ CREATE TABLE auxiliary_model_requests(
 );
 ALTER TABLE auxiliary_model_operations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auxiliary_model_operations FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_scope ON auxiliary_model_operations;
 CREATE POLICY tenant_scope ON auxiliary_model_operations USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 ALTER TABLE auxiliary_model_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE auxiliary_model_requests FORCE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS tenant_scope ON auxiliary_model_requests;
 CREATE POLICY tenant_scope ON auxiliary_model_requests USING(org_id=current_setting('app.current_org',true)) WITH CHECK(org_id=current_setting('app.current_org',true));
 GRANT SELECT,INSERT,UPDATE(closed_at) ON auxiliary_model_operations TO app_rw;
 GRANT SELECT,INSERT ON auxiliary_model_requests TO app_rw;

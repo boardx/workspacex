@@ -54,6 +54,8 @@ The additional private auxiliary operation path is covered by 15 passing API gat
 
 The exact failed browser journey also passed against a fresh production Next/API/PostgreSQL stack: GitHub Agent import → edit instructions → publish → trial response (`/tmp/5894-aux-trial-browser-serial.log`, one test passed, actual browser journey 7.7 seconds). A local-only startup budget accommodated the measured 11-minute cold build; CI configuration and browser assertions were unchanged.
 
+The auxiliary migration was then checked with the production `migrate:check` command from an empty isolated database: schema rebuild and individual migration replay both passed (`/tmp/5894-aux-migration-check.log`). The unique binding, tenant policies and both metadata tables remain enforced on replay.
+
 ## Configuration and rollout
 
 The default preflight policy is OFF; configure it in platform operations (`/platform-admin/ops-status`). Native tariffs are operator-managed for each organization/provider/model/unit and recorded in an append-only audit. No default commercial price is invented.
