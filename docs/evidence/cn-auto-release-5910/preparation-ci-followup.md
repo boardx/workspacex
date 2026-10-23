@@ -24,3 +24,21 @@ Head `455eb5f6a` exposed three test-fixture failures in PR #5914:
 
 These fixes change only tests. Production code and release gates are unchanged.
 Replacement PR CI and real production acceptance remain separate requirements.
+
+The next head `585e2a166` passed those repaired cases, but its 460-test Python
+supervisor hit an existing 100ms timing race in `test_cn_backup_stream.py`:
+the observer teardown was not yet proven, so it returned
+`BACKUP_OBSERVER_UNPROVEN` before reaching the expected stream timeout. A real
+Linux observer delayed after sending its result reproduced this boundary.
+The test now completes the real fork/Pipe handshake and observer join before
+advancing only the stream module's test clock across the deadline. It requires
+the exact stream timeout and proves both producer/encryptor PIDs and all three
+pipe threads are gone. The same cleanup checks cover oversize failure.
+Independent review accepted the fixture-only change; eight cases passed on
+macOS and cached Linux, with Python 3.14 verification left to replacement CI.
+Production observer, deadline and cleanup code remain unchanged.
+
+A complete local package run passed 698/699 cases; its sole failure was an
+existing Linux shell fixture requiring the unavailable native macOS `flock`
+binary. This is retained as an environment limit rather than described as a
+green full-package run. The Linux PR lane supplies actual `flock`.
