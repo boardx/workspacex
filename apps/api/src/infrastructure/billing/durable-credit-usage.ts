@@ -29,8 +29,13 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
  private readonly maximum:number;
  private replaying=false;
  private readonly retainUntilReplay:boolean;
- constructor(private readonly delegate:TokenUsageMeterPort,options:{directory?:string;maxPending?:number;retainUntilReplay?:boolean}={}){
-  this.directory=resolve(options.directory??process.env.WORKSPACEX_CREDIT_RECEIPT_DIR??join(process.cwd(),".harness/state/.cache/credit-receipts"));
+ private readonly requireExplicitDirectory:boolean;
+ private readonly explicitlyConfigured:boolean;
+ constructor(private readonly delegate:TokenUsageMeterPort,options:{directory?:string;maxPending?:number;retainUntilReplay?:boolean;requireExplicitDirectory?:boolean}={}){
+  const configured=options.directory??process.env.WORKSPACEX_CREDIT_RECEIPT_DIR;
+  this.explicitlyConfigured=typeof configured==="string"&&configured.trim().length>0;
+  this.requireExplicitDirectory=options.requireExplicitDirectory??false;
+  this.directory=resolve(configured??join(process.cwd(),".harness/state/.cache/credit-receipts"));
   this.maximum=options.maxPending??10000;
   this.retainUntilReplay=options.retainUntilReplay??true;
   if(!Number.isSafeInteger(this.maximum)||this.maximum<1)throw new Error("invalid_credit_spool_capacity");
@@ -38,6 +43,7 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
  private key(id:string){return createHash("sha256").update(id).digest("hex");}
  private unavailable(org:OrgId,message="credit_receipt_store_unavailable"){return new CreditConsumptionError("credit_accounting_unavailable","team",org,message);}
  private async directoryReady(){
+  if(this.requireExplicitDirectory&&!this.explicitlyConfigured)throw new Error("credit_receipt_persistent_directory_unconfigured");
   await mkdir(this.directory,{recursive:true,mode:0o700});
   const stat=await lstat(this.directory);
   if(!stat.isDirectory()||stat.isSymbolicLink()||(stat.mode&0o077)!==0)throw new Error("credit_spool_directory_not_private");

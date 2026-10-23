@@ -59,7 +59,20 @@ export class PgCreditConsumption {
   const row=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1 AND org_id=$2 FOR UPDATE",[usage.eventId,orgId])).rows[0];
   if(!wallet||!row||row.wallet_id!==wallet.wallet_id||row.user_id!==usage.userId||row.model_provider!==usage.modelProvider||row.model_id!==usage.modelId||row.run_id!==usage.runId)throw this.error(p,"credit_receipt_provenance_mismatch");
   const receipt={tokens:usage.tokensTotal,source:usage.totalSource??"legacy",native:usage.nativeUsage??null,prompt:usage.promptTokens,completion:usage.completionTokens,outcome:usage.outcome};
-  if(row.state==="settled"){if(facts(row.usage_facts)!==facts(receipt))throw this.error(p,"credit_receipt_replay_mismatch");return;}
+  if(row.state==="settled"){
+   const prior=row.usage_facts as typeof receipt;
+   // Missing diagnostic dimensions may arrive after the authoritative total.
+   // Never change the already charged billable facts or reinterpret a native debit.
+   if(prior.tokens!==receipt.tokens||prior.source!==receipt.source||prior.outcome!==receipt.outcome||facts(prior.native)!==facts(receipt.native))throw this.error(p,"credit_receipt_replay_mismatch");
+   const enriched={...prior};
+   for(const key of ["prompt","completion"] as const){
+    const incoming=receipt[key],known=prior[key];
+    if(incoming!==null&&(!Number.isSafeInteger(incoming)||incoming<0||known!==null&&known!==incoming))throw this.error(p,"credit_receipt_replay_mismatch");
+    enriched[key]=known??incoming;
+   }
+   if(facts(enriched)!==facts(prior))await s.query("UPDATE credit_consumption_requests SET usage_facts=$2::jsonb WHERE request_id=$1",[usage.eventId,facts(enriched)]);
+   return;
+  }
   let debit:bigint|null=null;
   if(usage.totalSource==="reported")debit=tokenCreditHundredths(usage.tokensTotal);
   else if(row.native_unit){
