@@ -31,10 +31,12 @@ Review found and repaired the VLM transport bypass, missing non-run auxiliary st
 ## Executed evidence
 
 - `vitest.usage-unit.config.ts`: 70 files / 662 tests passed (`/tmp/credit-runtime-usage-tests10.log`; before later additive VLM/knowledge test changes).
-- `vitest.credit-runtime.config.ts`: 20 tests passed, including 13 VLM loopback tests and 7 gateway tests (`/tmp/credit-vlm-tests.log`).
-- `tests/billing/credit-model-pg.integration.test.ts`: 2 real HTTP/PostgreSQL tests passed under reserved database/port isolation (`/tmp/credit-model-pg-vlm.log`). Both chat and VLM demonstrate zero-credit ON rejection before HTTP, funded 11 Tokens → 0.02 credit debit, and idempotent receipt replay.
+- `vitest.credit-runtime.config.ts`: 24 tests passed, including 13 VLM loopback tests, 8 gateway tests and 3 structured private failure tests (`/tmp/credit-private-final.log`).
+- `tests/billing/credit-model-pg.integration.test.ts`: 3 real HTTP/PostgreSQL tests passed under reserved database/port isolation (`/tmp/credit-model-pg-rollback.log`). A repeated pre-dispatch observer rejection also proves zero HTTP and zero remaining held credits. Both chat and VLM demonstrate zero-credit ON rejection before HTTP, funded 11 Tokens → 0.02 credit debit, and idempotent receipt replay.
 - Python model/retrieval accounting: 92 tests passed (`/tmp/credit-python-tests5.log`; additional knowledge-index coverage belongs to the KG worker's later run).
 - API TypeScript check passed after runtime/VLM/image changes (`/tmp/credit-runtime-typecheck4.log`, `/tmp/credit-image-typecheck.log`, `/tmp/credit-vlm-typecheck.log`). Parent runs aggregate final validation.
+
+The private runtime maps only the exact serialized `CreditRuntimeUsageError` class and stable accounting code to `CREDIT_REQUIRED` / `CREDIT_ACCOUNTING_UNAVAILABLE` in run polling and error SSE frames. Arbitrary provider messages and user content cannot assert these codes.
 
 ## Explicit operating limits
 

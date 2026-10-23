@@ -1,3 +1,4 @@
+import {throwPrivateCreditFailure} from "./private-credit-failure";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { composeAssistantBodies } from "../../application/agent-run/assistant-body-composition";
 const subtaskCallSignal = new AsyncLocalStorage<AbortSignal | undefined>();
@@ -961,6 +962,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
             if (onSkillActivity) throw new SkillActivityDeliveryError(new Error("skill_activity_stream_invalid"));
             continue;
           }
+          if (/^event:\s*error\s*$/m.test(rawEvent)) throwPrivateCreditFailure(parsed);
           if (parsed && typeof parsed === "object" && "type" in parsed && parsed.type === "skill_activity") {
             try {
               const event = SkillActivityStream.parse(parsed);
@@ -1032,6 +1034,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       if (onSkillActivity && buffer.trim()) throw new SkillActivityDeliveryError(new Error("skill_activity_stream_incomplete"));
       return true;
     } catch (error) {
+      if (error instanceof ModelCallError && (error.code === "CREDIT_REQUIRED" || error.code === "CREDIT_ACCOUNTING_UNAVAILABLE")) throw error;
       if (error instanceof ProgressDeliveryError) throw error.original;
       /*
        * 2026-09-22 —— 本地版把**溯源投递**的故障纪律从 fail-closed 放宽成 best-effort。
@@ -1494,6 +1497,7 @@ export class DeepAgentModelProvider implements ModelCallPort {
       throw new ModelCallError("MODEL_CALL_FAILED", `deep agent run status read failed with HTTP ${response.status}`);
     }
     const body = (await response.json()) as RunStatusResponse;
+    throwPrivateCreditFailure(body);
     const status = body.status ?? "unknown";
     if (status === "success" && (await this.readThreadInterrupted(baseUrl, threadId))) return "interrupted";
     return status;
