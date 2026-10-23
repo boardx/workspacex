@@ -50,6 +50,7 @@ jobs:
     timeout-minutes: 3
     outputs:
       request_sha256: ${{ steps.identity.outputs.request_sha256 }}
+      already_active: ${{ steps.identity.outputs.already_active }}
     steps:
       - &app_only_tools
         name: Require pre-staged root-owned app-only control snapshot
@@ -86,13 +87,27 @@ jobs:
           [[ "${GITHUB_REF}" == refs/tags/cn-prepared-* && "${REVISION}" == "${GITHUB_SHA}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_IDENTITY"; exit 1; }
           [[ "${REVISION}" =~ ^[a-f0-9]{40}$ && "${EXPECTED_MAIN_CN}" =~ ^[a-f0-9]{40}$ && "${ATTEMPT_ID}" =~ ^[a-z0-9][a-z0-9._-]{0,127}$ ]] || { echo "::error::CN_PROMOTION_NOT_READY_INPUT"; exit 2; }
           [[ "${PROMOTION_MODE}" == manual || "${PROMOTION_MODE}" == branch-push ]] || { echo "::error::invalid promotion_mode"; exit 2; }
-          if [[ "${PROMOTION_MODE}" == branch-push ]]; then
-            [[ "${EXPECTED_MAIN_CN}" == "${REVISION}" ]] || { echo "::error::branch-push requires expected_main_cn_sha equal release_sha"; exit 2; }
-          fi
           github_main_cn=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)
-          [[ "${github_main_cn}" == "${EXPECTED_MAIN_CN}" || "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_BASELINE"; exit 3; }
+          if [[ "${PROMOTION_MODE}" == branch-push ]]; then
+            [[ "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_BRANCH_PUSH_TARGET_CHANGED"; exit 3; }
+          else
+            [[ "${github_main_cn}" == "${EXPECTED_MAIN_CN}" || "${github_main_cn}" == "${REVISION}" ]] || { echo "::error::CN_PROMOTION_NOT_READY_BASELINE"; exit 3; }
+          fi
+          git merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::CN_PROMOTION_NOT_READY_ANCESTRY"; exit 1; }
           git merge-base --is-ancestor "${REVISION}" origin/main || { echo "::error::CN_PROMOTION_NOT_READY_MAIN"; exit 1; }
           cmp --silent .harness/scripts/vm/verify-cn-release-promotion.sh /usr/local/bin/workspacex-cn-verify-promotion || { echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT"; exit 1; }
+          # Only actual exact-attempt runtime acceptance can complete a replay.
+          # This read-only result skips admission; it creates no native deployment.
+          if [[ "${PROMOTION_MODE}" == branch-push && "${RELEASE_MODE:-standard}" == standard ]]; then
+            cmp --silent .harness/scripts/vm/deploy-cn-production.sh /usr/local/bin/workspacex-cn-deploy || { echo "::error::CN_TRUSTED_ENTRYPOINT_DRIFT"; exit 1; }
+            if sudo -n /usr/local/bin/workspacex-cn-deploy --verify-active "${REVISION}" "${ATTEMPT_ID}"; then
+              [[ "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq .object.sha)" == "${REVISION}" ]] || { echo "::error::CN_BRANCH_PUSH_TARGET_CHANGED"; exit 3; }
+              echo "already_active=true" >> "${GITHUB_OUTPUT}"
+              echo "Exact release and attempt already active; read-only browser verification passed. No new deployment admission or activation." >> "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+          fi
+          echo "already_active=false" >> "${GITHUB_OUTPUT}"
           set +e
           identity_file=$(mktemp)
           trap 'rm -f "${identity_file}"' EXIT
@@ -107,6 +122,7 @@ jobs:
   # Machine admission uses the protected environment without human approval. The tag keeps
   # release_sha == GITHUB_SHA and native Deployment.sha truthful when main advances.
   admit:
+    if: needs.readiness.outputs.already_active != 'true'
     needs: readiness
     environment: production-cn-promotion
     runs-on: [self-hosted, linux, workspacex-cn-production]
@@ -323,7 +339,9 @@ jobs:
             exit 0
           fi
 
-          [[ "${current}" == "${EXPECTED_MAIN_CN}" ]] || { echo "::error::main-cn changed after admission; prepare a new promotion for the current target"; exit 1; }
+          expected_remote=${EXPECTED_MAIN_CN}
+          if [[ "${PROMOTION_MODE}" == branch-push ]]; then expected_remote=${REVISION}; fi
+          [[ "${current}" == "${expected_remote}" ]] || { echo "::error::main-cn changed after admission; prepare a new promotion for the current target"; exit 1; }
           sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${verify_flags[@]}" "${REVISION}" "${EXPECTED_MAIN_CN}" "${ATTEMPT_ID}"
           git -C "${repository}" merge-base --is-ancestor "${EXPECTED_MAIN_CN}" "${REVISION}" || { echo "::error::main-cn update is not a fast-forward"; exit 1; }
           app_runtime_state=ready
@@ -390,7 +408,7 @@ jobs:
 
           repository_id=$(gh api "repos/${GITHUB_REPOSITORY}" --jq .node_id)
           graphql_input=$(mktemp)
-          node - "${graphql_input}" "${repository_id}" "${EXPECTED_MAIN_CN}" "${REVISION}" <<'NODE'
+          node - "${graphql_input}" "${repository_id}" "${expected_remote}" "${REVISION}" <<'NODE'
           const fs=require("node:fs");
           const [path,repositoryId,beforeOid,afterOid]=process.argv.slice(2);
           const query="mutation($repositoryId:ID!,$refUpdates:[RefUpdate!]!){updateRefs(input:{repositoryId:$repositoryId,refUpdates:$refUpdates}){clientMutationId}}";

@@ -95,7 +95,7 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain('refUpdates:[{name:"refs/heads/main-cn",beforeOid,afterOid,force:false}]');
     expect(workflow).toContain('gh api graphql --input "${graphql_input}"');
     expect(workflow).not.toContain("git push origin");
-    expect(workflow).toContain('[[ "${current}" == "${EXPECTED_MAIN_CN}" ]]');
+    expect(workflow).toContain('[[ "${current}" == "${expected_remote}" ]]');
     expect(workflow).toContain('update-ref refs/heads/main-cn "${REVISION}" "${EXPECTED_MAIN_CN}"');
     expect(workflow).toContain('rev-parse origin/main-cn)" == "${REVISION}"');
     const activate = workflow.indexOf('workspacex-cn-deploy "${REVISION}"');
@@ -158,4 +158,29 @@ describe("branch-push activation gates", () => {
       expect(result.status, result.stderr).toBe(expected);
     }
   });
+});
+
+it("keeps the runtime baseline separate from the remote CAS target in automatic promotions", () => {
+  const baseline = "b".repeat(40), revision = "a".repeat(40);
+  const guardStart = workflow.indexOf("          expected_remote=${EXPECTED_MAIN_CN}");
+  const guardEnd = workflow.indexOf("          sudo -n", guardStart);
+  const guard = workflow.slice(guardStart, guardEnd);
+  const casStart = workflow.indexOf("          repository_id=$(gh api");
+  const casEnd = workflow.indexOf('          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then', casStart);
+  const cas = workflow.slice(casStart, casEnd).split("\n").map(line => line.startsWith("          ") ? line.slice(10) : line).join("\n");
+  for (const [mode, head, status] of [["manual", baseline, 0], ["branch-push", revision, 0], ["branch-push", baseline, 1]] as const) {
+    const result = spawnSync("bash", ["-c", `set -euo pipefail
+gh(){ echo repository-id; }
+${guard}
+${cas}
+trap 'rm -f "$graphql_input"' EXIT
+cat "$graphql_input"`], {
+      encoding: "utf8", env: { ...process.env, PROMOTION_MODE: mode, EXPECTED_MAIN_CN: baseline, REVISION: revision, current: head, GITHUB_REPOSITORY: "boardx/workspacex" },
+    });
+    expect(result.status, result.stderr).toBe(status);
+    if (status === 0) {
+      const ref = JSON.parse(result.stdout).variables.refUpdates[0];
+      expect(ref).toEqual({ name: "refs/heads/main-cn", beforeOid: head, afterOid: revision, force: false });
+    }
+  }
 });

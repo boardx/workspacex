@@ -23,7 +23,7 @@ else process.exit(2);
         GITHUB_REPOSITORY: 'boardx/workspacex', RELEASE_SHA: source, CURRENT_SHA: source,
         GITHUB_EVENT_NAME: mode === 'prepare' ? 'push' : 'workflow_dispatch',
         GITHUB_REF: mode === 'prepare' ? 'refs/heads/main-cn' : 'refs/heads/main',
-        GITHUB_RUN_ID: '12345', RELEASE_TAG: 'cn-prepared-gha-12345-1', RELEASE_ATTEMPT_ID: 'gha-12345-1',
+        GITHUB_RUN_ID: '12345', EXPECTED_MAIN_CN_SHA: main, RELEASE_TAG: 'cn-prepared-gha-12345-1', RELEASE_ATTEMPT_ID: 'gha-12345-1',
         GITHUB_STEP_SUMMARY: summary, ...overrides },
     });
     return { ...result, calls: readFileSync(log, 'utf8').trim().split('\n').map(JSON.parse),
@@ -52,7 +52,7 @@ test('promotion uses exact frozen tag and branch-push admission without claiming
   const result = run('promote'); assert.equal(result.status, 0);
   const dispatch = result.calls.find(a => a[0] === 'workflow');
   assert.ok(dispatch.includes('cn-prepared-gha-12345-1')); assert.ok(dispatch.includes('promotion_mode=branch-push'));
-  assert.ok(dispatch.includes('expected_main_cn_sha='+source)); assert.match(result.summary, /NOT production accepted/);
+  assert.ok(dispatch.includes('expected_main_cn_sha='+main)); assert.match(result.summary, /NOT production accepted/);
 });
 test('promotion dispatch failure cannot become production success', () => {
   const result = run('promote', { DISPATCH_FAIL: '1' }); assert.notEqual(result.status, 0); assert.equal(result.summary, '');
@@ -69,6 +69,9 @@ test('workflow wiring preserves manual verification and gates frozen-tag auto-pr
   assert.match(prepare, /RELEASE_TAG: \$\{\{ steps.prepared.outputs.release_tag \}\}/);
   assert.match(prepare, /if: inputs.auto_promote/);
   assert.match(prepare, /cn-auto-release.mjs promote/);
+  assert.match(prepare, /export_baseline=auto/);
+  assert.match(prepare, /EXPECTED_MAIN_CN_SHA: \$\{\{ steps.prepared.outputs.expected_main_cn_sha \}\}/);
+  assert.match(prepare, /echo "expected_main_cn_sha=\$\{expected_main_cn\}"/);
   for (const operation of ['--check-prepare-inputs', '--prepare', 'freeze-tag']) {
     assert.ok(prepare.indexOf(operation) < prepare.indexOf('cn-auto-release.mjs promote'));
   }
@@ -81,6 +84,8 @@ test('wrong event or untrusted preparation ref cannot dispatch', () => {
     ['prepare', { GITHUB_REF: 'refs/heads/develop' }],
     ['promote', { GITHUB_REF: 'refs/heads/develop' }],
     ['promote', { RELEASE_TAG: 'main' }],
+    ['promote', { EXPECTED_MAIN_CN_SHA: '' }],
+    ['promote', { CURRENT_SHA: main }],
   ]) {
     const result = run(mode, env); assert.notEqual(result.status, 0);
     assert.ok(!result.calls.some(a => a[0] === 'workflow')); assert.equal(result.summary, '');

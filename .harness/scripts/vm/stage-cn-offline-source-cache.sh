@@ -24,21 +24,36 @@ flock -n 9 || exit 1
 verify_cache(){
   [[ -d "$1" && ! -L "$1" && "$(stat -c '%U:%G:%a' "$1")" == root:root:700 ]] || return 1
   [[ -z "$(find "$1" -type l -print -quit)" ]] || return 1
+  [[ ! -e "$1/shallow" ]] || return 1
+  [[ "$(GIT_NO_LAZY_FETCH=1 git -C "$1" rev-parse --is-shallow-repository)" == false ]] || return 1
   [[ ! -e "$1/objects/info/alternates" && ! -e "$1/objects/info/http-alternates" ]] || return 1
   [[ -z "$(find "$1/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] || return 1
   GIT_NO_LAZY_FETCH=1 git -C "$1" fsck --full --no-reflogs >/dev/null 2>&1 || return 1
 }
 
 if [[ "$export_bundle" == 1 ]]; then
-  [[ $# -eq 3 && "$bundle" =~ ^[a-f0-9]{40}$ && "$expected" =~ ^gha-[0-9]+-[0-9]+$ ]] || exit 2
+  [[ $# -eq 3 && ( "$bundle" =~ ^[a-f0-9]{40}$ || "$bundle" == auto ) && "$expected" =~ ^gha-[0-9]+-[0-9]+$ ]] || exit 2
   baseline=$bundle
+  automatic=0
+  [[ "$baseline" != auto ]] || automatic=1
   # Never inherit caller Git configuration, object stores, executable overrides or prompts.
   for name in $(compgen -v GIT_); do unset "$name"; done
   export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_NOSYSTEM=1
   export GIT_NO_LAZY_FETCH=1 GIT_TERMINAL_PROMPT=0
-  verify_cache "$root_cache" || exit 3
-  [[ "$(git -C "$root_cache" rev-parse refs/heads/main)" == "$candidate" &&
-     "$(git -C "$root_cache" rev-parse refs/heads/main-cn)" == "$baseline" ]] || exit 3
+  verify_cache "$root_cache" || { echo CN_DOMESTIC_SOURCE_NOT_READY >&2; exit 3; }
+  [[ "$(git -C "$root_cache" rev-parse refs/heads/main)" == "$candidate" ]] || { echo CN_DOMESTIC_SOURCE_NOT_READY >&2; exit 3; }
+  if [[ "$automatic" == 1 ]]; then
+    # Accepted local baseline is independent of GitHub's already advanced desired ref.
+    # Read under the same lock; no cache or production checkout ref is mutated.
+    [[ -d "$runner_cache" && ! -L "$runner_cache" ]] || exit 3
+    [[ -z "$(find "$runner_cache" -type l -print -quit)" ]] || exit 3
+    [[ ! -e "$runner_cache/objects/info/alternates" && ! -e "$runner_cache/objects/info/http-alternates" ]] || exit 3
+    [[ -z "$(find "$runner_cache/objects/pack" -maxdepth 1 -name '*.promisor' -print -quit)" ]] || exit 3
+    baseline=$(git -c safe.directory="$runner_cache" -C "$runner_cache" rev-parse refs/heads/main-cn)
+    [[ "$baseline" =~ ^[a-f0-9]{40}$ ]] || exit 3
+  else
+    [[ "$(git -C "$root_cache" rev-parse refs/heads/main-cn)" == "$baseline" ]] || exit 3
+  fi
   [[ "$(git -C "$repository" remote get-url origin)" == "$runner_cache" &&
      "$(git -C "$repository" rev-parse origin/main-cn)" == "$baseline" &&
      "$(git -c safe.directory="$runner_cache" -C "$runner_cache" rev-parse refs/heads/main-cn)" == "$baseline" ]] || { echo CN_RELEASE_NOT_READY_BASELINE_REPOSITORY >&2; exit 3; }
@@ -46,7 +61,16 @@ if [[ "$export_bundle" == 1 ]]; then
   stage=$(mktemp -d "$runtime/.source-export.XXXXXX")
   trap 'rm -rf -- "$stage"' EXIT
   umask 077
-  GIT_NO_LAZY_FETCH=1 git -C "$root_cache" bundle create "$stage/source.bundle" refs/heads/main refs/heads/main-cn
+  export_cache=$root_cache
+  if [[ "$automatic" == 1 ]]; then
+    # Only this root-private disposable clone receives a synthetic baseline ref.
+    GIT_NO_LAZY_FETCH=1 git clone --quiet --bare --no-local "$root_cache" "$stage/cache.git"
+    chmod 0700 "$stage/cache.git"
+    git -C "$stage/cache.git" update-ref refs/heads/main-cn "$baseline"
+    verify_cache "$stage/cache.git" || exit 3
+    export_cache=$stage/cache.git
+  fi
+  GIT_NO_LAZY_FETCH=1 git -C "$export_cache" bundle create "$stage/source.bundle" refs/heads/main refs/heads/main-cn
   GIT_NO_LAZY_FETCH=1 git -C "$root_cache" bundle verify "$stage/source.bundle" >/dev/null
   cat "$stage/source.bundle"
   exit 0

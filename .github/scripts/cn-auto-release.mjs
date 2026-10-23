@@ -28,7 +28,7 @@ try {
     const attempt = process.env.RELEASE_ATTEMPT_ID;
     if (!/^[a-z0-9][a-z0-9._-]{0,127}$/.test(attempt ?? '')) throw new Error('CN_AUTO_ATTEMPT_REQUIRED');
     workflow = 'promote-cn-production.yml';
-    fields = { release_sha: revision, expected_main_cn_sha: current(), release_attempt_id: attempt, promotion_mode: 'branch-push' };
+    fields = { release_sha: revision, expected_main_cn_sha: sha(process.env.EXPECTED_MAIN_CN_SHA), release_attempt_id: attempt, promotion_mode: 'branch-push' };
   } else throw new Error('CN_AUTO_MODE_REQUIRED');
   const args = ['workflow', 'run', workflow, '--repo', repository, '--ref', ref];
   for (const [key, value] of Object.entries(fields)) args.push('-f', `${key}=${value}`);

@@ -42,3 +42,20 @@ Exact final review and PR CI; merge; matching branch rule update; desired ref
 synchronization; successful prepare, immutable-tag promotion, production/browser
 acceptance. Existing develop Chat failures remain unresolved release evidence;
 no successful preparation, deployment or production acceptance is claimed.
+
+## Independent review correction
+
+Review BLOCK at a763f9d1 identified desired-ref/accepted-baseline conflation and
+non-idempotent activated-run replay. The corrected read-only export snapshots the
+consistent local accepted baseline without mutating real refs, and preparation
+propagates it separately from the live desired target. Reconciliation calls the
+trusted exact-SHA/attempt runtime verifier before skipping admission/activation.
+Final local rerun: 90 contract tests and 23 Node/export tests passed, with actual
+Git bundle fixtures and executed Bash counterexamples. See final-contracts.log
+and final-trigger-and-offline.log. These still do not prove installed host tools.
+
+The new export wrapper/helper need controlled installation, and the complete
+candidate cache and root-protected preparation inputs need a trusted producer.
+Missing source is an explicit NOT_READY result; there is no network fallback or
+new cache-writer sudo grant. This remains a live release prerequisite, not a
+successful deployment claim.

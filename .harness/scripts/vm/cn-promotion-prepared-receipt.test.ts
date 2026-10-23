@@ -21,7 +21,7 @@ const ready = step("readiness", "Fail NOT_READY before asking for production adm
 const admission = step("admit", "Require a complete immutable preparation receipt");
 const revision = "a".repeat(40);
 const baseline = "b".repeat(40);
-function run(block: string, status: number, sha = revision, head = baseline, mode = "manual", expected = baseline) {
+function run(block: string, status: number, sha = revision, head = baseline, mode = "manual", expected = baseline, activeStatus = 1, recheckedHead = head) {
   // Only the read-only promotion verifier is authorized by the fixture. Any
   // fallback prepare/build/activation call fails even when verifier returns 0.
   const mock = `set -euo pipefail
@@ -29,15 +29,24 @@ REVISION=${revision}
 EXPECTED_MAIN_CN=${expected}
 PROMOTION_MODE=${mode}
 GITHUB_REPOSITORY=boardx/workspacex
+GITHUB_OUTPUT=/dev/stdout
+GITHUB_STEP_SUMMARY=/dev/stdout
+REMOTE_HEAD=${head}
 ATTEMPT_ID=gha-regression-1
 GITHUB_SHA=${sha}
 GITHUB_REF=refs/tags/cn-prepared-${revision}-gha-regression-1
 EXPECTED_REQUEST_SHA256=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
 node() { [[ "$1" == --experimental-strip-types && "$3" == verify-dispatch ]] || exit 98; return 0; }
 cmp() { return 0; }
-gh() { [[ "$*" == "api repos/boardx/workspacex/git/ref/heads/main-cn --jq .object.sha" ]] || exit 97; echo ${head}; }
+gh() { [[ "$*" == "api repos/boardx/workspacex/git/ref/heads/main-cn --jq .object.sha" ]] || exit 97; echo "$REMOTE_HEAD"; }
 git() { if [[ "$1" == rev-parse ]]; then echo ${baseline}; else return 0; fi; }
 sudo() {
+  if [[ "$#" -eq 5 && "$2" == /usr/local/bin/workspacex-cn-deploy && "$3" == --verify-active ]]; then
+    printf 'ACTIVE_PROBE_CALLED\\n' >&2
+    [[ "$4" == ${revision} && "$5" == gha-regression-1 ]] || return 1
+    REMOTE_HEAD=${recheckedHead}
+    return ${activeStatus}
+  fi
   [[ "$#" -eq 5 && "$1" == -n && "$2" == /usr/local/bin/workspacex-cn-verify-promotion ]] || exit 99
   printf 'VERIFIER_CALLED\\n' >&2
   return ${status}
@@ -101,9 +110,32 @@ describe("CN complete preparation before production approval", () => {
     const stale = run(ready, 0, revision, "c".repeat(40), "branch-push", revision);
     expect(stale.status).toBe(3);
     expect(stale.stderr).not.toContain("VERIFIER_CALLED");
-    const wrongBaseline = run(ready, 0, revision, revision, "branch-push", baseline);
-    expect(wrongBaseline.status).toBe(2);
-    expect(wrongBaseline.stderr).not.toContain("VERIFIER_CALLED");
+    const oldBaseline = run(ready, 0, revision, revision, "branch-push", baseline);
+    expect(oldBaseline.status, oldBaseline.stderr).toBe(0);
+    expect(oldBaseline.stderr).toContain("VERIFIER_CALLED");
+  });
+
+  it("finishes an exact active replay read-only without new admission or activation", () => {
+    const result = run(ready, 42, revision, revision, "branch-push", baseline, 0);
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toContain("ACTIVE_PROBE_CALLED");
+    expect(result.stderr).not.toContain("VERIFIER_CALLED");
+    expect(result.stdout).toContain("already_active=true");
+    expect(jobs.admit.if).toBe("needs.readiness.outputs.already_active != 'true'");
+  });
+
+  it("does not report acceptance for a wrong attempt, drifting target, or untrusted deploy entrypoint", () => {
+    const wrongAttempt = run(ready.replace("set -euo pipefail", "set -euo pipefail; ATTEMPT_ID=another-attempt"), 42, revision, revision, "branch-push", baseline, 0);
+    expect(wrongAttempt.status).toBe(42);
+    expect(wrongAttempt.stdout).not.toContain("already_active=true");
+    const drift = run(ready, 42, revision, revision, "branch-push", baseline, 0, "c".repeat(40));
+    expect(drift.status).toBe(3);
+    expect(drift.stdout).not.toContain("already_active=true");
+    expect(drift.stderr).not.toContain("VERIFIER_CALLED");
+    const untrusted = run(ready.replace("cmp --silent .harness/scripts/vm/deploy-cn-production.sh", "false"), 42, revision, revision, "branch-push", baseline, 0);
+    expect(untrusted.status).toBe(1);
+    expect(untrusted.stderr).not.toContain("ACTIVE_PROBE_CALLED");
+    expect(untrusted.stdout).not.toContain("already_active=true");
   });
 
   it("uses complete receipt verification, not an input-presence assertion", () => {

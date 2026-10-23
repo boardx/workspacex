@@ -23,6 +23,14 @@ receipt, native deployment identity, activation and browser verification still
 run. A superseding ref rejects a stale attempt before switching traffic. Manual
 verification and promotion retain their existing entrypoints.
 
+Desired and accepted refs travel separately: a read-only automatic export derives
+the consistent local accepted baseline, verifies it against the complete trusted
+candidate object closure, and writes its ref only in a disposable private snapshot
+used to produce the source bundle. The actual caches are not updated. Preparation
+binds that old baseline; branch-push final CAS uses the desired ref. Reconciliation
+first verifies the exact active SHA and attempt through the trusted runtime entry;
+an already active run needs no fresh admission or activation.
+
 The promotion environment has no required reviewer. Branch/tag allowlists and
 immutable tags remain. main-cn keeps deletion and non-fast-forward protection;
 its pre-push required-deployment rule must be removed because deployment now
@@ -42,8 +50,8 @@ those checks while changing their trigger and approval policy.
 - [x] Integrate develop with main, resolve interview fold contracts, and include
   the reviewed credit-runtime command repair from PR #5906.
 - [x] Verify static checks (54 tasks), interview tests (29) and credit tests (26).
-- [ ] Add push orchestration and automatic preparation-to-promotion dispatch.
-- [ ] Adjust promotion mode and environment/branch governance, with counterexamples.
+- [x] Add push orchestration and automatic preparation-to-promotion dispatch.
+- [x] Adjust promotion mode and environment/branch governance, with counterexamples.
 - [ ] Review the integrated exact SHA, run affected workflow/protocol tests and CI.
 - [ ] Apply the matching GitHub rules and deploy the exact candidate.
 - [ ] Prove runtime/browser acceptance; otherwise retain the precise blocker.
@@ -56,3 +64,9 @@ preparation tools and cannot establish that the existing lane is ready. Optional
 local full-init was stopped during an absent-pattern Playwright startup probe;
 normal init and the specific validation above passed. The three existing develop
 Chat failures remain release blockers until separately reproduced and resolved.
+
+The revised exporter must be installed through the controlled host update path.
+An exact, complete candidate cache and protected preparation inputs must exist
+before this lane can run; no workflow approval removal supplies them. Missing
+source remains CN_DOMESTIC_SOURCE_NOT_READY. No cache-writing sudo capability or
+network object supplementation is added by the automatic exporter.

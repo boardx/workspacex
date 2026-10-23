@@ -47,6 +47,7 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
+          AUTO_PROMOTE: ${{ inputs.auto_promote }}
           INPUT_SHA: ${{ inputs.release_sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -59,11 +60,16 @@ jobs:
           [[ "${revision}" =~ ^[a-f0-9]{40}$ ]] || exit 2
           expected_main_cn=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq '.object.sha')
           [[ "${expected_main_cn}" =~ ^[a-f0-9]{40}$ ]] || exit 2
+          export_baseline=$expected_main_cn
+          if [[ "${AUTO_PROMOTE:-false}" == true ]]; then
+            [[ "$expected_main_cn" == "$revision" ]] || { echo "::error::CN_AUTO_STALE_MAIN_CN"; exit 3; }
+            export_baseline=auto
+          fi
           bundle=$(mktemp)
           trap 'rm -f "$bundle"' EXIT
           # Trusted root export takes the same release.lock as all cache writers.
           # An absent, borrowed, partial or wrong-SHA cache is NOT_READY, never HTTPS fallback.
-          sudo -n /usr/local/bin/workspacex-cn-export-source "${revision}" "${expected_main_cn}" "gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" > "$bundle"
+          sudo -n /usr/local/bin/workspacex-cn-export-source "${revision}" "${export_baseline}" "gha-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" > "$bundle"
           [[ -s "$bundle" ]] || { echo "::error::CN_DOMESTIC_SOURCE_NOT_READY"; exit 3; }
           [[ -d "$GITHUB_WORKSPACE" && ! -L "$GITHUB_WORKSPACE" ]] || exit 3
           # Disposable runner workspace only; no privileged production checkout/cache writes.
@@ -71,6 +77,12 @@ jobs:
           GIT_NO_LAZY_FETCH=1 git clone --no-local --no-checkout "$bundle" "$GITHUB_WORKSPACE"
           GIT_NO_LAZY_FETCH=1 git -C "$GITHUB_WORKSPACE" fsck --full --no-reflogs
           git checkout --detach "${revision}"
+          if [[ "${AUTO_PROMOTE:-false}" == true ]]; then
+            desired=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main-cn" --jq '.object.sha')
+            [[ "$desired" == "$revision" ]] || { echo "::error::CN_AUTO_STALE_MAIN_CN"; exit 3; }
+            expected_main_cn=$(git rev-parse origin/main-cn)
+          fi
+          [[ "$expected_main_cn" =~ ^[a-f0-9]{40}$ ]] || exit 3
           [[ "$(git rev-parse HEAD)" == "${revision}" && "$(git rev-parse origin/main-cn)" == "${expected_main_cn}" ]] || exit 3
           git merge-base --is-ancestor "${revision}" origin/main
           git merge-base --is-ancestor "${expected_main_cn}" "${revision}"
@@ -134,6 +146,7 @@ jobs:
           sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${revision}" "${expected_main_cn}" "${attempt_id}" > "${identity_file}"
           # No tag until complete host gates and actual exact-source GitHub/Devapp facts pass.
           REVISION="${revision}" EXPECTED_MAIN_CN="${expected_main_cn}" ATTEMPT_ID="${attempt_id}" node --experimental-strip-types .harness/scripts/vm/cn-frozen-release-identity.mjs freeze-tag "${identity_file}"
+          echo "expected_main_cn_sha=${expected_main_cn}" >> "${GITHUB_OUTPUT}"
           {
             echo "### CN host-prepared release candidate"
             echo "- Expected main-cn: \`${expected_main_cn}\`"
@@ -148,5 +161,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ inputs.release_sha }}
           RELEASE_TAG: ${{ steps.prepared.outputs.release_tag }}
+          EXPECTED_MAIN_CN_SHA: ${{ steps.prepared.outputs.expected_main_cn_sha }}
           RELEASE_ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
         run: node .github/scripts/cn-auto-release.mjs promote
