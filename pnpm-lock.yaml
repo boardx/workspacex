@@ -70,6 +70,9 @@ importers:
       '@mozilla/readability':
         specifier: 0.6.0
         version: 0.6.0
+      '@napi-rs/image':
+        specifier: 1.15.0
+        version: 1.15.0
       '@nestjs/common':
         specifier: ^10.4.15
         version: 10.4.22(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -88,6 +91,12 @@ importers:
       '@repo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@repo/fabric-markdown':
+        specifier: workspace:*
+        version: link:../../packages/fabric-markdown
+      '@repo/skill-sandbox':
+        specifier: workspace:*
+        version: link:../skill-sandbox
       '@repo/whiteboard-core':
         specifier: workspace:*
         version: link:../../packages/whiteboard-core
@@ -103,9 +112,15 @@ importers:
       cron-parser:
         specifier: 5.10.0
         version: 5.10.0
+      domino:
+        specifier: 2.1.8
+        version: 2.1.8
       express:
         specifier: 4.22.1
         version: 4.22.1
+      image-size:
+        specifier: 2.0.4
+        version: 2.0.4
       ioredis:
         specifier: ^5.4.1
         version: 5.11.1
@@ -115,9 +130,18 @@ importers:
       json5:
         specifier: ^2.2.3
         version: 2.2.3
+      jszip:
+        specifier: ^3.10.1
+        version: 3.10.1
       multer:
         specifier: 2.2.0
         version: 2.2.0
+      omggif:
+        specifier: 1.0.10
+        version: 1.0.10
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       pg:
         specifier: ^8.13.1
         version: 8.22.0
@@ -130,15 +154,21 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      remark-parse:
+        specifier: ^11
+        version: 11.0.0
       rxjs:
         specifier: ^7.8.1
         version: 7.8.2
-      sharp:
-        specifier: 0.34.5
-        version: 0.34.5
+      tsx:
+        specifier: ^4.19.0
+        version: 4.23.1
       undici:
         specifier: 7.28.0
         version: 7.28.0
+      unified:
+        specifier: ^11
+        version: 11.0.5
       ws:
         specifier: ^8.18.0
         version: 8.21.1
@@ -148,12 +178,6 @@ importers:
       yjs:
         specifier: 13.6.32
         version: 13.6.32
-      remark-parse:
-        specifier: ^11
-        version: 11.0.0
-      unified:
-        specifier: ^11
-        version: 11.0.5
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -164,15 +188,9 @@ importers:
       '@repo/dev-mode-accounts':
         specifier: workspace:*
         version: link:../../packages/dev-mode-accounts
-      '@repo/fabric-markdown':
-        specifier: workspace:*
-        version: link:../../packages/fabric-markdown
       '@repo/local-asr-gateway':
         specifier: workspace:*
         version: link:../local-asr-gateway
-      '@repo/skill-sandbox':
-        specifier: workspace:*
-        version: link:../skill-sandbox
       '@types/ali-oss':
         specifier: 6.23.3
         version: 6.23.3
@@ -185,6 +203,9 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.1
+      '@types/omggif':
+        specifier: 1.0.5
+        version: 1.0.5
       '@types/pg':
         specifier: ^8.11.10
         version: 8.20.0
@@ -200,18 +221,9 @@ importers:
       fabric:
         specifier: 7.4.0
         version: 7.4.0
-      jszip:
-        specifier: ^3.10.1
-        version: 3.10.1
-      pdf-lib:
-        specifier: ^1.17.1
-        version: 1.17.1
       pptxgenjs:
         specifier: ^4.0.1
         version: 4.0.1
-      tsx:
-        specifier: ^4.19.0
-        version: 4.23.1
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
@@ -618,9 +630,6 @@ importers:
       remark-gfm:
         specifier: ^4
         version: 4.0.1
-      sharp:
-        specifier: 0.34.5
-        version: 0.34.5
       tailwind-merge:
         specifier: ^2.5.4
         version: 2.6.1
@@ -707,15 +716,15 @@ importers:
         specifier: 3.25.2
         version: 3.25.2(zod@3.25.76)
     devDependencies:
-      '@types/pg':
-        specifier: 8.20.0
-        version: 8.20.0
       '@electric-sql/pglite':
         specifier: 0.5.8
         version: 0.5.8
       '@types/node':
         specifier: ^22.0.0
         version: 22.20.1
+      '@types/pg':
+        specifier: 8.20.0
+        version: 8.20.0
       tsx:
         specifier: ^4.19.0
         version: 4.23.1
@@ -1211,6 +1220,7 @@ packages:
 
   '@cloudflare/vitest-pool-workers@0.12.21':
     resolution: {integrity: sha512-xqvqVR+qAhekXWaTNY36UtFFmHrz13yGUoWVGOu6LDC2ABiQqI1E1lQ3eUZY8KVB+1FXY/mP5dB6oD07XUGnPg==}
+    deprecated: '@cloudflare/vitest-pool-workers has been renamed to @cloudflare/vitest-plugin. This package will not receive future updates.'
     peerDependencies:
       '@vitest/runner': 2.0.x - 3.2.x
       '@vitest/snapshot': 2.0.x - 3.2.x
@@ -2927,6 +2937,82 @@ packages:
     resolution: {integrity: sha512-juG5VWh4qAivzTAeMzvY9xs9HY5rAcr2E4I7tiSSCokRFi7XIZCAu92ZkSTsIj1OPceCifL3cpfteP3pDT9/QQ==}
     engines: {node: '>=14.0.0'}
 
+  '@napi-rs/image-android-arm64@1.15.0':
+    resolution: {integrity: sha512-BhW7Zyk0Y17FNWcrc+7bwK8Yo9gdt/OsB5AsK3yvu+z3pCvVtztjuANNfdwcC2KHolJkJWeu42ZfC0qwBYB57A==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [android]
+
+  '@napi-rs/image-darwin-arm64@1.15.0':
+    resolution: {integrity: sha512-HHUDoMil1WONvbFs97FBtO2G0C6Xjzo7G4Ioywn/wmEgFFgWdlNO0n1ARp3WsnssH4j89rDEVHfkpjrwNa96OQ==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [darwin]
+
+  '@napi-rs/image-darwin-x64@1.15.0':
+    resolution: {integrity: sha512-CIEDQYJEjk81TIM2tpWj1T6R9RkzZU7rVwBw/6+El/tcER+v9HF4oZIp+YLUMT3G5kVXqoNtda8mRcTs9CUwMw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [darwin]
+
+  '@napi-rs/image-freebsd-x64@1.15.0':
+    resolution: {integrity: sha512-ztYxPGsPEpw8Odc2d9w6+gLkEe1Ocifjae938DFFKytYztRcFenFIq+6Ha6fsnr/4LtZHH70GnBwB0lhM8dwtQ==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [freebsd]
+
+  '@napi-rs/image-linux-arm-gnueabihf@1.15.0':
+    resolution: {integrity: sha512-Pgnt8ekNnYmDX/dB2n+o3WABojL2u9vrceoSa85VFa1zs5fMy+k6z1UCjDgDwpQOSmq2AotTABedvL8vqZKDJA==}
+    engines: {node: '>= 10'}
+    cpu: [arm]
+    os: [linux]
+
+  '@napi-rs/image-linux-arm64-gnu@1.15.0':
+    resolution: {integrity: sha512-/4XHp1GbXNfVmMQYmyUAErMBXaAxGF3JZnv+Q73P9jhEwfOvgl3CUTCZwZEivScIbVjdxrcQnlWw9xSzZXsx3w==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@napi-rs/image-linux-arm64-musl@1.15.0':
+    resolution: {integrity: sha512-jjqW0eg09OY2rYZl07tHNKKXqwwHNgeuwQyU2/1OX34qFoc1nfmITaud2WAuaAjmVnxbYpigs0JQiAHYTs0koA==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [linux]
+
+  '@napi-rs/image-linux-x64-gnu@1.15.0':
+    resolution: {integrity: sha512-IiayUG47OTY89iPLiN/wtnIwqOqtHbO1W/h5aZdSzfQa7Ke0NlNuUsE4qkbLIkInYyd7gWSs1GiX8+VpewIhZw==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@napi-rs/image-linux-x64-musl@1.15.0':
+    resolution: {integrity: sha512-EqHJBpf+LXB47Andl5IWaP2Tdavb3ehH3a9/cLkBAZ3mW07h1PTnhNHtWbxP/O2RkBCr87gi92OVA+1J2KSJKg==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [linux]
+
+  '@napi-rs/image-win32-arm64-msvc@1.15.0':
+    resolution: {integrity: sha512-n34XcQjrMAQZ8/O2uK/E+rqVo+G0h4Y6eDMvJduZWVL7c9fpcfiSWaUDdaw+6lz3RugauJ97ectCDk5LTlXnjg==}
+    engines: {node: '>= 10'}
+    cpu: [arm64]
+    os: [win32]
+
+  '@napi-rs/image-win32-ia32-msvc@1.15.0':
+    resolution: {integrity: sha512-SOs9Mc5/7cMMu3vXl97SwvlG2l4jcACcLTcPotl6N3u/Vi8N6Qc6rnxqol2L5KRzLkmULgs3nNx/OqFEvpPpsg==}
+    engines: {node: '>= 10'}
+    cpu: [ia32]
+    os: [win32]
+
+  '@napi-rs/image-win32-x64-msvc@1.15.0':
+    resolution: {integrity: sha512-3S4O+oJnLZ3MmWYhGLPwqlNoNLu2GP2ZIXlJrTXDvCqxq9Qpb4lh4ymAUKvztxkQn6CsPLUa4j2XR5GydFBrwg==}
+    engines: {node: '>= 10'}
+    cpu: [x64]
+    os: [win32]
+
+  '@napi-rs/image@1.15.0':
+    resolution: {integrity: sha512-WtMwFCgKDPcWLKH3Ooy8pCTMmjwC3NNlBicb5Qaqx0PafOjbRQ/zx5ZEWlxnjTFfMWIW3ptskuX8wt4NXJvvVg==}
+    engines: {node: '>= 10'}
+
   '@napi-rs/wasm-runtime@1.1.6':
     resolution: {integrity: sha512-ZLv/JdUfkvOy9eCnnBaGfiO+XimbjebAeO+MRQqD/B+FR1tnRN0tpKSJHRbE8sFfS6aqsXZ67TQjfwfsxULVbg==}
     peerDependencies:
@@ -3984,6 +4070,9 @@ packages:
 
   '@types/node@25.9.5':
     resolution: {integrity: sha512-OScDchr2fwuUmWdf4kZ9h7PcJiYDVInhJizG/biAq3cAvqwYktuy/TYGGdZNMtNTFUP7rnb0NU4TUdm82kt4Rg==}
+
+  '@types/omggif@1.0.5':
+    resolution: {integrity: sha512-gDQJflz1rOgEcUXkMAl80bDGN46f5mp8GbcM5dyvq+zsFV6YRBRtmNxlJJ5mjY77T7BRkRFzdIBVmK90QYhCxA==}
 
   '@types/pako@2.0.4':
     resolution: {integrity: sha512-VWDCbrLeVXJM9fihYodcLiIv0ku+AlOa/TQ1SvYOaBuyrSKgEcro95LJyIsJ4vSo6BXIxOKxiJAat04CmST9Fw==}
@@ -5572,6 +5661,9 @@ packages:
   dom-accessibility-api@0.6.3:
     resolution: {integrity: sha512-7ZgogeTnjuHbo+ct10G9Ffp0mif17idi0IyWNVA/wcwcm7NPOD/WEHVP3n7n3MhXqxoIYm8d6MuZohYWIZ4T3w==}
 
+  domino@2.1.8:
+    resolution: {integrity: sha512-qLkTcPRkqvifAB0bweVznkWgAu2hwin8An+HbLy0bH1ZtMyJzwXiHKMhynwR1Wq4PgBvEyg2Y749j4JJnlfDKg==}
+
   dompurify@3.4.12:
     resolution: {integrity: sha512-zQvGet8Z2sWbQhCmfFz/T5QWH2oBmjnqK3qvOjaqaNLrLEF912WamU+ohnTp0TCep/MFVHpdJuCZEdFOdTnEFg==}
 
@@ -6504,12 +6596,12 @@ packages:
 
   glob@7.2.3:
     resolution: {integrity: sha512-nFR0zLpU2YCaRxwoCJvL6UvCH2JFyFVIvwTLsIf21AuHlMskA1hhTdk+LlYJtOlYt9v6dvszD2BGRqBL+iQK9Q==}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   glob@8.1.0:
     resolution: {integrity: sha512-r8hpEjiQEYlF2QU0df3dS+nxxSIreXQS1qRhMJM0Q5NDdR386C7jb7Hwwod8Fgiuex+k0GFjgft18yvxm5XoCQ==}
     engines: {node: '>=12'}
-    deprecated: Glob versions prior to v9 are no longer supported
+    deprecated: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
 
   global-agent@3.0.0:
     resolution: {integrity: sha512-PT6XReJ+D07JvGoxQMkT6qji/jVNfX/h364XHZOWeRzy64sSFr+xJ5OX7LI3b4MPQzdL4H8Y8M0xzPpsVMwA8Q==}
@@ -6761,6 +6853,11 @@ packages:
   image-size@1.2.1:
     resolution: {integrity: sha512-rH+46sQJ2dlwfjfhCyNx5thzrv+dtmBIhPHk0zgRUukHzZ/kRueTJXoYYsclBaKcSMBWuGbOFXtioLpzTb5euw==}
     engines: {node: '>=16.x'}
+    hasBin: true
+
+  image-size@2.0.4:
+    resolution: {integrity: sha512-QRUkFFsRV/6fuESxb9Vkq+a0LkSrgKXuc2NEqfikiXxxN/G3tjWt5EVUlMaImRBZRZK/jRBEbYvpPYZL8t08Zw==}
+    engines: {node: '>=18'}
     hasBin: true
 
   immediate@3.0.6:
@@ -8096,6 +8193,9 @@ packages:
   object.values@1.2.1:
     resolution: {integrity: sha512-gXah6aZrcUxjWg2zR2MwouP2eHlCBzdV4pygudehaKXSGW4v2AsRQUK+lwwXhii6KFZcunEnmSUoYp5CXibxtA==}
     engines: {node: '>= 0.4'}
+
+  omggif@1.0.10:
+    resolution: {integrity: sha512-LMJTtvgc/nugXj0Vcrrs68Mn2D1r0zf630VNtqtpI1FEO7e+O9FP4gqs9AcnBaSEeoHIPm28u6qgPR0oyEpGSw==}
 
   on-exit-leak-free@2.1.2:
     resolution: {integrity: sha512-0eJJY6hXLGf1udHwfNftBqH+g73EU4B504nZeKpz1sYRKafAghwxEJunB2O7rDZkL4PGfsMVnTXZ2EjibbqcsA==}
@@ -12331,6 +12431,57 @@ snapshots:
 
   '@mozilla/readability@0.6.0': {}
 
+  '@napi-rs/image-android-arm64@1.15.0':
+    optional: true
+
+  '@napi-rs/image-darwin-arm64@1.15.0':
+    optional: true
+
+  '@napi-rs/image-darwin-x64@1.15.0':
+    optional: true
+
+  '@napi-rs/image-freebsd-x64@1.15.0':
+    optional: true
+
+  '@napi-rs/image-linux-arm-gnueabihf@1.15.0':
+    optional: true
+
+  '@napi-rs/image-linux-arm64-gnu@1.15.0':
+    optional: true
+
+  '@napi-rs/image-linux-arm64-musl@1.15.0':
+    optional: true
+
+  '@napi-rs/image-linux-x64-gnu@1.15.0':
+    optional: true
+
+  '@napi-rs/image-linux-x64-musl@1.15.0':
+    optional: true
+
+  '@napi-rs/image-win32-arm64-msvc@1.15.0':
+    optional: true
+
+  '@napi-rs/image-win32-ia32-msvc@1.15.0':
+    optional: true
+
+  '@napi-rs/image-win32-x64-msvc@1.15.0':
+    optional: true
+
+  '@napi-rs/image@1.15.0':
+    optionalDependencies:
+      '@napi-rs/image-android-arm64': 1.15.0
+      '@napi-rs/image-darwin-arm64': 1.15.0
+      '@napi-rs/image-darwin-x64': 1.15.0
+      '@napi-rs/image-freebsd-x64': 1.15.0
+      '@napi-rs/image-linux-arm-gnueabihf': 1.15.0
+      '@napi-rs/image-linux-arm64-gnu': 1.15.0
+      '@napi-rs/image-linux-arm64-musl': 1.15.0
+      '@napi-rs/image-linux-x64-gnu': 1.15.0
+      '@napi-rs/image-linux-x64-musl': 1.15.0
+      '@napi-rs/image-win32-arm64-msvc': 1.15.0
+      '@napi-rs/image-win32-ia32-msvc': 1.15.0
+      '@napi-rs/image-win32-x64-msvc': 1.15.0
+
   '@napi-rs/wasm-runtime@1.1.6(@emnapi/core@1.10.0)(@emnapi/runtime@1.10.0)':
     dependencies:
       '@emnapi/core': 1.10.0
@@ -13395,6 +13546,8 @@ snapshots:
     dependencies:
       undici-types: 7.24.6
 
+  '@types/omggif@1.0.5': {}
+
   '@types/pako@2.0.4': {}
 
   '@types/pg@8.20.0':
@@ -13850,6 +14003,14 @@ snapshots:
       magic-string: 0.30.21
     optionalDependencies:
       vite: 5.4.21(@types/node@22.20.1)(terser@5.50.0)
+
+  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))':
+    dependencies:
+      '@vitest/spy': 2.1.9
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 5.4.21(@types/node@25.9.5)(terser@5.50.0)
 
   '@vitest/pretty-format@2.1.9':
     dependencies:
@@ -15235,6 +15396,8 @@ snapshots:
   dom-accessibility-api@0.5.16: {}
 
   dom-accessibility-api@0.6.3: {}
+
+  domino@2.1.8: {}
 
   dompurify@3.4.12:
     optionalDependencies:
@@ -16852,6 +17015,8 @@ snapshots:
   image-size@1.2.1:
     dependencies:
       queue: 6.0.2
+
+  image-size@2.0.4: {}
 
   immediate@3.0.6: {}
 
@@ -18537,6 +18702,8 @@ snapshots:
       call-bound: 1.0.4
       define-properties: 1.2.1
       es-object-atoms: 1.1.2
+
+  omggif@1.0.10: {}
 
   on-exit-leak-free@2.1.2: {}
 
@@ -20957,7 +21124,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@26.1.0(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
@@ -20994,7 +21161,7 @@ snapshots:
   vitest@2.1.9(@edge-runtime/vm@3.2.0)(@types/node@25.9.5)(jsdom@30.0.1(canvas@3.2.3))(terser@5.50.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.20.1)(terser@5.50.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.9.5)(terser@5.50.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9

@@ -43,7 +43,7 @@ import { PgBoardFileAssets } from './infrastructure/whiteboard/pg-file-assets';
 import { boardAssetDownloadGrantSignerFromEnv } from './application/whiteboard/asset-download-grant';
 import { SecureWhiteboardObjectStore, WHITEBOARD_SECURE_OBJECT_STORE, whiteboardObjectEncryptionPolicy } from './infrastructure/whiteboard/secure-object-store';
 import { PgBoardImageAssets } from './infrastructure/whiteboard/pg-image-assets';
-import { SharpBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
+import { DecodedBoardImageVerifier } from './infrastructure/whiteboard/image-verifier';
 import { PLATFORM_ORG_ID, toOrgId } from "./domain/org-id";
 import { fileURLToPath } from 'node:url';
 import { WHITEBOARD_COLLABORATION_STORE, WHITEBOARD_COMMENT_STORE, WHITEBOARD_RECOVERY_SERVICE, WHITEBOARD_UPDATE_VALIDATOR, type WhiteboardCollaborationStore, type WhiteboardUpdateValidator } from './application/whiteboard/collaboration-ports';
@@ -3494,7 +3494,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: WHITEBOARD_IMAGE_ASSETS,
-      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new SharpBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
+      useFactory: (boards: PgWhiteboardRepository, db: DatabasePort, objects: SecureWhiteboardObjectStore) => new WhiteboardImageAssets(boards, new PgBoardImageAssets(db), objects, new DecodedBoardImageVerifier(), boardAssetDownloadGrantSignerFromEnv()),
       inject: [WHITEBOARD_REPOSITORY, DATABASE_PORT, WHITEBOARD_SECURE_OBJECT_STORE],
     },
     {
@@ -3504,7 +3504,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     },
     {
       provide: WHITEBOARD_PORTABLE_SERVICE,
-      useFactory:(boards:PgWhiteboardRepository,collaboration:PgWhiteboardCollaborationStore,validator:WhiteboardUpdateValidator,db:DatabasePort,objects:ObjectStore,images:WhiteboardImageAssets)=>new PortableBoardService(boards,collaboration,validator,images,new SharpBoardImageVerifier(),new PgPortableBoard(db,collaboration,objects,new PgBoardImageAssets(db))),
+      useFactory:(boards:PgWhiteboardRepository,collaboration:PgWhiteboardCollaborationStore,validator:WhiteboardUpdateValidator,db:DatabasePort,objects:ObjectStore,images:WhiteboardImageAssets)=>new PortableBoardService(boards,collaboration,validator,images,new DecodedBoardImageVerifier(),new PgPortableBoard(db,collaboration,objects,new PgBoardImageAssets(db))),
       inject:[WHITEBOARD_REPOSITORY,WHITEBOARD_COLLABORATION_STORE,WHITEBOARD_UPDATE_VALIDATOR,DATABASE_PORT,OBJECT_STORE,WHITEBOARD_IMAGE_ASSETS],
     },
     {
