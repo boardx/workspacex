@@ -555,7 +555,7 @@ jobs:
     # 就是队列永久卡住。语义不变：aggregateFailures 仍然要求每一条依赖真的 success，
     # 「skipped 当 success」在这里从来不成立（ci-backend-required.mjs）。
     if: always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, prototype-audit, design-loop-e2e]
+    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, e2e-core-loop, prototype-audit, design-loop-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
