@@ -211,7 +211,32 @@ class Identity(unittest.TestCase):
  def test_explicit_build_lane_legacy_and_activation_stay_separate(self):
   build=(D/'build-cn-release-candidate.sh').read_text();collector=(D/'collect-cn-release-preflight.sh').read_text();verifier=(D/'verify-cn-release-preflight.sh').read_text()
   self.assertIn('unset CN_BUILD_TOOL_BINDING CN_BUILD_TOOL_ROOT',build)
-  self.assertIn('if [[ "$build_only" == 0 ]]; then\n"$PREFLIGHT_COLLECTOR" preactivate',build)
+  # Execute the actual post-seal mode selection. Automatic preparation now
+  # restores its isolated target before collecting preactivate evidence; the
+  # artifact-only lane must still enter neither full-preparation branch.
+  start=build.index('if [[ "$build_only" == 0 ]]; then\nif [[ "$automatic" == 1 ]]; then')
+  selection=build[start:build.index('if [[ "$checkout_changed" == 1 ]]; then restore_checkout',start)]
+  with tempfile.TemporaryDirectory() as raw:
+   output=pathlib.Path(raw)/'calls'
+   script='''set -eu
+fail(){ exit 1; }
+node(){ case "$*" in *cn-auto-preparation-request.ts*) echo request >> "$OUTPUT";; *cn-auto-preparation-cli.ts*) echo prepare >> "$OUTPUT";; *) exit 2;; esac; }
+collector(){ echo "collect:$1" >> "$OUTPUT"; }
+verifier(){ echo "verify:$1" >> "$OUTPUT"; }
+PREFLIGHT_COLLECTOR=collector
+PREFLIGHT_VERIFIER=verifier
+revision=fixture
+release=fixture
+attempt_id=fixture
+'''+selection
+   for build_only,automatic,expected in [('1','0',[]),('0','0',['collect:preactivate','verify:preactivate']),('0','1',['request','prepare'])]:
+    with self.subTest(build_only=build_only,automatic=automatic):
+     output.unlink(missing_ok=True)
+     result=subprocess.run(['bash','-c',script],env={**os.environ,'build_only':build_only,'automatic':automatic,'OUTPUT':str(output),'REPOSITORY_DIR':raw},capture_output=True,text=True)
+     self.assertEqual(result.returncode,0,result.stderr)
+     self.assertEqual(output.read_text().splitlines() if output.exists() else [],expected)
+  conflict=subprocess.run(['bash',str(D/'build-cn-release-candidate.sh'),'--automatic','--build-only','unused','unused','unused','unused'],capture_output=True,text=True)
+  self.assertEqual(conflict.returncode,2);self.assertIn('CN_BUILD_MODES_CONFLICT',conflict.stderr)
   self.assertIn('ready=false',build)
   self.assertIn('source_path="$TOOL_SOURCE_DIR/${pair%%:*}"',collector)
   self.assertIn('show "$revision:.agents/skills/workspacex-cn-release/scripts/validate_preflight.py"',verifier)

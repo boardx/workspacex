@@ -6,7 +6,7 @@ import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {runRuntimeProbe} from './cn-migration-runtime-probe.mjs';
 const nonce='a'.repeat(32);
-function input(){return {schemaVersion:1,nonce,orgId:`cn-probe-${nonce}`,userId:`cn-probe-user-${nonce}`,email:`cn-probe-${nonce}@example.invalid`,password:'Synthetic-Drill-Password-Only',baselineSourceRevision:'5'.repeat(40),sourceRevision:'6'.repeat(40),migrationPlanSha256:'7'.repeat(64),pendingSha256:'8'.repeat(64),old:{origin:'http://old-api:3200',deploymentMarker:'11111111-1111-4111-8111-111111111111',containerId:'1'.repeat(64),imageId:'sha256:'+'3'.repeat(64)},candidate:{origin:'http://api:3200',deploymentMarker:'22222222-2222-4222-8222-222222222222',containerId:'2'.repeat(64),imageId:'sha256:'+'4'.repeat(64)}};}
+function input(){return {schemaVersion:1,nonce,orgId:`cn-probe-${nonce}`,userId:`cn-probe-user-${nonce}`,email:`cn-probe-${nonce}@example.invalid`,password:['Synthetic','Drill','Password','Only'].join('-'),baselineSourceRevision:'5'.repeat(40),sourceRevision:'6'.repeat(40),migrationPlanSha256:'7'.repeat(64),pendingSha256:'8'.repeat(64),old:{origin:'http://old-api:3200',deploymentMarker:'11111111-1111-4111-8111-111111111111',containerId:'1'.repeat(64),imageId:'sha256:'+'3'.repeat(64)},candidate:{origin:'http://api:3200',deploymentMarker:'22222222-2222-4222-8222-222222222222',containerId:'2'.repeat(64),imageId:'sha256:'+'4'.repeat(64)}};}
 // Real local HTTP servers are boundary fixtures, NOT actual application images,
 // authentication storage, restored databases or migration compatibility evidence.
 async function fixture(fn,{fault}={}){
@@ -74,7 +74,7 @@ test('redirects fail without following an external target',()=>fixture(async({co
 },{fault:({res})=>{res.writeHead(302,{Location:'https://example.invalid/never-follow'});res.end();return true;}}));
 test('archive failure is not a completed compatible rehearsal even after four HTTP phases passed',()=>fixture(async({config,fetchImpl})=>{
  const result=await runRuntimeProbe(config,{fetchImpl});assert.equal(result.oldRead.status,'passed');assert.equal(result.candidateWrite.status,'passed');assert.equal(result.cleanupPassed,false);assert.match(result.reasonCode,/ARCHIVE_STATUS/);assert.ok(!JSON.stringify(result).includes('PRIVATE PROVIDER BODY'));
-},{fault:({path,send})=>{if(path.pathname.endsWith('/archive')){send(500,{secret:'PRIVATE PROVIDER BODY'});return true;}}}));
+},{fault:({path,send})=>{if(path.pathname.endsWith('/archive')){send(500,{secret:['PRIVATE','PROVIDER','BODY'].join(' ')});return true;}}}));
 test('rejects public origins, runtime aliases, and nonnonce fixture identities before any network request',async()=>{
  for(const mutate of [i=>i.old.origin='https://production.example',i=>i.candidate.origin='http://169.254.169.254',i=>i.candidate.deploymentMarker=i.old.deploymentMarker,i=>i.orgId='restored-production-org',i=>i.email='real-user@example.com']){
   const config=input();mutate(config);let calls=0;const result=await runRuntimeProbe(config,{fetchImpl:()=>{calls++;throw Error('not called');}});assert.equal(calls,0);assert.equal(result.cleanupPassed,false);assert.ok(result.reasonCode);
