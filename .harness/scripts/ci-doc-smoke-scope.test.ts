@@ -47,3 +47,10 @@ it('skips only the three broad PR lanes; release and unknown output always retai
  }
  for(const name of ['verify-control-plane','verify-affected','verify-full-compile','organization-create','merge-gate','full-regression-core','e2e-full'])expect(JSON.stringify(jobs[name])).not.toContain('doc-smoke-scope');
 });
+it('keeps the classification parent reachable for post-merge full coverage auditing',()=>{
+ const jobs=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')).jobs;
+ for(const eventName of ['pull_request','push','merge_group','schedule']){
+  const expression=jobs['doc-smoke-scope'].if.replaceAll('inputs.verification_lane',"'all'");
+  expect(evaluateIf(expression,{id:eventName,eventName,ref:'refs/heads/develop',baseBranch:'develop',label:eventName})).toBe(true);
+ }
+});

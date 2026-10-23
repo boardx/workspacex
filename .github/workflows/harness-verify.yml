@@ -111,7 +111,7 @@ concurrency:
 
 jobs:
   doc-smoke-scope:
-    if: github.event_name == 'pull_request'
+    if: github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'
     runs-on: ubuntu-latest
     permissions: {contents: read}
     timeout-minutes: 5
