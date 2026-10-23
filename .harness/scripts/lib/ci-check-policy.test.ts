@@ -32,10 +32,10 @@ import { rulesetPlan } from '../ci-ruleset-plan.mjs';
 describe('backend aggregate and ruleset use the same policy', () => {
   const dependencies = CURRENT_POLICY.aggregates['backend-required'];
   const results = Object.fromEntries(dependencies.map(name => [name, { result: 'success' }]));
-  it('checks every backend job including the matrix result, with no browser release gate', () => {
+  it('checks every backend job including the matrix and required core-loop result', () => {
     const workflow = parse(readFileSync(resolve(import.meta.dirname, '../../../.github/workflows/backend-gates.yml'), 'utf8'));
     expect(workflow.jobs['backend-required'].needs).toEqual(dependencies);
-    expect(dependencies).not.toContain('e2e-core-loop');
+    expect(dependencies).toContain('e2e-core-loop');
     expect(aggregateFailures('backend-required', results)).toEqual([]);
     for (const result of ['failure', 'cancelled', 'skipped', undefined]) {
       for (const name of dependencies) expect(aggregateFailures('backend-required', { ...results, [name]: {result} })).toEqual([name]);
