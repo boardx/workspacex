@@ -29,3 +29,4 @@ Delayed source loading; failed/retried source; new revisions invalidating later 
 - Ruling: route-local provider retains only canonical completion metadata, not a persistent global source cache; identity/org/token transitions remount it. Initial unknown completion gets skeletons and retry rather than invented completion.
 - Browser harness initially intercepted Next RSC and forced full reload; corrected fixture and real route transition retest passed. No product workaround was introduced.
 - Browser: 16 checks passed on real Chromium/local Next; HTTP/session fixtures, no production or real DB/model coverage. Owned service/Chromium released.
+- Legacy E2E audit found 3 transcript-reading/geometry tests assuming expanded answers. Added explicit user expansion plus fresh/reload collapsed assertions; 3/3 real Chromium cases pass. Product SHA remains unchanged.

@@ -648,6 +648,9 @@ test("saved execution metadata and Markdown insights survive the direct route an
   await page.goto(`/itv/${view.interviewId}/runs`);
   await expect(page.getByTestId("itv-source-runs")).toBeVisible();
   await expect(page.getByText(/^已完成专家 1\/2/u)).toBeVisible();
+  await expect(page.getByRole("button", { name: "展开答案" })).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("heading", { name: "关键观点（1）" })).toHaveCount(0);
+  await page.getByRole("button", { name: "展开答案" }).click();
   await expect(page.getByRole("heading", { name: "关键观点（1）" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "争议点与风险（1）" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
@@ -657,6 +660,8 @@ test("saved execution metadata and Markdown insights survive the direct route an
   await expect(page.getByRole("link", { name: "采购审批经过两级" }).first()).toHaveAttribute("href", "#question-q1");
   await page.reload();
   await expect(page.getByText(/^已完成专家 1\/2/u)).toBeVisible();
+  await expect(page.getByRole("button", { name: "展开答案" })).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("button", { name: "展开答案" }).click();
   await expect(page.getByRole("heading", { name: "核心发现（1）" })).toBeVisible();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.getByTestId("itv-source-runs")).toContainText("申请人先核对退回备注");
@@ -707,6 +712,7 @@ test("report stream exposes partial output before completion and survives stage 
   await page.goto("/itv/itv-quality-e2e/runs");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.getByTestId("itv-source-runs")).toBeVisible();
+  await page.getByRole("button", { name: "展开答案" }).click();
   const geometry = await page.getByTestId("itv-source-runs").evaluate(element => {
     const right = element.querySelector('[role="region"]')!;
     const name = element.querySelector("aside h4")!;
@@ -849,6 +855,7 @@ test("report repair retains saved candidate through failure and refresh", async 
   await page.goto("/itv/itv-quality-e2e/runs");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.getByTestId("itv-source-runs")).toBeVisible();
+  await page.getByRole("button", { name: "展开答案" }).click();
   const geometry = await page.getByTestId("itv-source-runs").evaluate(element => {
     const right = element.querySelector('[role="region"]')!;
     const name = element.querySelector("aside h4")!;

@@ -16,6 +16,7 @@
 - `pnpm --filter web lint:design`：通过，见 `design-lint.txt`。
 - `./init.sh`：快速路径退出 0（未跑全仓 full），见 `init-quick.txt`。
 - 独立源码 review：无确认 P1/P2，见 `source-review.md`。
+- 原有真实浏览器回归补齐显式展开：刷新恢复、报告流式生成、失败修复共 3/3 通过（6.2s），见 `browser-legacy-tests.txt`。这次追加只修改 E2E 测试，不改产品实现。
 - 真实 Chromium + 本地 Next，375/768/1280 宽度：见 `browser-report.md`、`browser-results.json` 和截图。HTTP/session 使用可控夹具；**不代表真实登录、DB或模型链路验收**。
 
 ## 资源与交接
