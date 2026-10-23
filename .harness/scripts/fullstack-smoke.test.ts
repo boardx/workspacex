@@ -1,4 +1,5 @@
 import { stripVTControlCharacters } from "node:util";
+import { evaluateIf } from "./lib/ci-job-conditions.mjs";
 import { LANES } from "./ci-lane-dedup.mjs";
 import { parse } from "yaml";
 import { spawn } from "node:child_process";
@@ -287,7 +288,20 @@ describe("#387 trusted full-stack gate contract", () => {
     // e2e-full）顺带被拉起,也绝不会出现在 pull_request/push/schedule 触发的运行里。
     expect(workflow).toContain("run_chat_task_workbench:");
     expect(workflow).toContain("default: false");
-    expect(workflow).toContain("if: github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench");
+    const condition = parse(workflow).jobs['chat-task-workbench'].if;
+    for (const [eventName, enabled, lane, expected] of [
+      ['pull_request', true, 'all', false],
+      ['push', true, 'all', false],
+      ['schedule', true, 'all', false],
+      ['workflow_dispatch', false, 'all', false],
+      ['workflow_dispatch', true, 'all', true],
+      ['workflow_dispatch', true, 'base', false],
+    ] as const) {
+      const expression = condition
+        .replaceAll('inputs.run_chat_task_workbench', String(enabled))
+        .replaceAll('inputs.verification_lane', `'${lane}'`);
+      expect(evaluateIf(expression, {id:eventName,eventName,ref:'refs/heads/develop',baseBranch:'develop',label:eventName})).toBe(expected);
+    }
     // ⚠⚠ 同 run_e2e_full 那个坑（#2121）：必须是 `inputs.x`，不能是
     // `github.event.inputs.x`（后者对 boolean 输入返回字符串 "false"，在 `if` 里恒真）。
     expect(workflow).not.toContain("github.event.inputs.run_chat_task_workbench");
