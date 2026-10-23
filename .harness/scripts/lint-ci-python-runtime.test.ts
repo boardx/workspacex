@@ -47,7 +47,7 @@ type Job = { steps?: unknown };
 function runsApiDefaultSuite(line: string): boolean {
   // `verify:fullstack-smoke` 以 `verify:full` 开头但只跑 playwright，不能误命中 ——
   // 所以这里要求脚本名后面跟的是非 `:`/非 `-`/非字母数字的边界。
-  if (/\bverify:(full|base|release)(?![\w:-])/.test(line)) return true;
+  if (/\bverify:(full|base|ci-base|release)(?![\w:-])/.test(line)) return true;
   // The affected runner preserves API coverage on fork PRs; its plan tests prove the filter.
   if (/\bnode\s+\.github\/scripts\/run-affected-tests\.mjs\b/.test(line)) return true;
   // 带 `--config` 的是另有配置的专用车道（native-document、real-model 各条），

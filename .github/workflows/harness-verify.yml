@@ -483,7 +483,6 @@ jobs:
   # （报一堆 TS6053 File not found）。本地热缓存时 `.next/` 是上一轮遗留的所以看着
   # 是绿的——实测：一条命令冷跑退出码 2（29/31），拆成两步冷跑退出码 0（51s）。
   verify-full-compile:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -814,6 +813,7 @@ jobs:
   # Full regression shares the sole smoke producer above; core retains the complete base suite.
   # Public journey commands each create and clean their own database isolation scope.
   full-regression-core:
+    needs: verify-full-compile
     if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -876,13 +876,13 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set +e
-          TURBO_FORCE=true pnpm run verify:base 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
+          TURBO_FORCE=true pnpm run verify:ci-base 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/e2e.log
           status=${PIPESTATUS[0]}
           set -e
           if [ "$status" -eq 0 ]; then
             pnpm exec tsx .harness/scripts/record-readiness-evidence.ts \
               --phase 01 --kind e2e --commit "$GITHUB_SHA" \
-              --command "TURBO_FORCE=true pnpm run verify:base" \
+              --command "TURBO_FORCE=true pnpm run verify:ci-base" \
               --log phases/phase-01-run-a-project/evidence/ci/e2e.log \
               --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
           fi
