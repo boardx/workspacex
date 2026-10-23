@@ -1,0 +1,31 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/4986/workspacex/apps/web
+
+ ✓ tests/ui/rec-fidelity-gaps.test.tsx (11 tests) 52ms
+ ✓ tests/ui/rec-review-navigation.test.tsx (4 tests) 1045ms
+   ✓ project transcription review navigation > keeps interview context when opening speaker review 570ms
+ ✓ tests/ui/create-transcription-focus.test.tsx (4 tests) 1152ms
+   ✓ restores the history trigger after cancel 733ms
+ ✓ tests/ui/rec-session-gating.test.tsx (3 tests) 152ms
+ ✓ tests/ui/realtime-transcription-workspace.test.tsx (34 tests) 2150ms
+   ✓ RealtimeTranscriptionWorkspace > blocks starting capture while editing and restores it after cancel 524ms
+ ✓ tests/ui/personal-transcription-history.test.tsx (33 tests) 6485ms
+   ✓ 实时转录历史工作台 > does not move focus when an in-flight history request finishes 418ms
+   ✓ 实时转录历史工作台 > allows returning after a stale recording cannot be stopped 339ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1232ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1029ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1233ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 782ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (33 tests) 6494ms
+   ✓ 实时转录历史工作台 > allows returning after a stale recording cannot be stopped 427ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1234ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1029ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1230ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 781ms
+
+ Test Files  7 passed (7)
+      Tests  122 passed (122)
+   Start at  14:55:45
+   Duration  12.50s (transform 3.61s, setup 1.85s, collect 21.24s, tests 17.53s, environment 11.07s, prepare 1.14s)
+
