@@ -14,8 +14,8 @@ describe('explicit manual base validation avoids unrelated runners without false
  it.each([false,true])('base selection runs only the complete base job even if full flag is %s',run_e2e_full=>{
   const inputs={verification_lane:'base',run_e2e_full,run_chat_path_coverage:true,run_chat_task_workbench:true};
   const actual=Object.keys(w.jobs).filter(name=>admitted(name,'workflow_dispatch',inputs)===true);
-  expect(actual).toEqual(['full-regression-core']);
-  expect(JSON.stringify(w.jobs['full-regression-core'])).toContain('TURBO_FORCE=true pnpm run verify:base');
+  expect(actual).toEqual(['verify-full-compile','full-regression-core']);
+  expect(JSON.stringify(w.jobs['full-regression-core'])).toContain('TURBO_FORCE=true pnpm run verify:ci-base');
  });
  it('cannot reduce automatic PR, push or merge-group coverage through a manual-only selector',()=>{
   for(const event of ['pull_request','push','merge_group'])for(const name of Object.keys(w.jobs)){

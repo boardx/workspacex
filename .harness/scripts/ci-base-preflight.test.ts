@@ -11,7 +11,7 @@ describe('base admission fails before expensive runtime preparation',()=>{
   expect(index).toBeGreaterThan(steps.findIndex((step:any)=>step.run==='pnpm install --frozen-lockfile'));
   expect(index).toBeLessThan(steps.findIndex((step:any)=>step.run?.includes('playwright install')));
   expect(index).toBeLessThan(steps.findIndex((step:any)=>step.uses?.startsWith('astral-sh/setup-uv')));
-  expect(steps.some((step:any)=>step.run?.includes('TURBO_FORCE=true pnpm run verify:base'))).toBe(true);
+  expect(steps.some((step:any)=>step.run?.includes('TURBO_FORCE=true pnpm run verify:ci-base'))).toBe(true);
  });
  it('preserves actual failed admission despite tee success and retains the diagnostic log',()=>{
   const step=steps.find((step:any)=>step.name==='Preflight dependency license admission');

@@ -13,7 +13,7 @@ const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name
 
 describe('full regression preserves all independent lane verdicts', () => {
   it('requires one base producer and one browser producer without repeating verify:full', () => {
-    const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', 'TURBO_FORCE=true pnpm run verify:base', 'pnpm run verify:chat-read', 'pnpm run verify:self-service-profile'];
+    const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', 'TURBO_FORCE=true pnpm run verify:ci-base', 'pnpm run verify:chat-read', 'pnpm run verify:self-service-profile'];
     expect(FULL_REGRESSION_LANES).toHaveLength(commands.length);
     for (const command of commands) {
       const matches = FULL_REGRESSION_LANES.filter(name => workflow.jobs[name].steps.some((s: {run?: string}) => s.run?.includes(command)));
@@ -51,7 +51,8 @@ describe('full regression preserves all independent lane verdicts', () => {
     expect(aggregate.if).toContain('always()');
     for (const name of FULL_REGRESSION_LANES.filter(name => !['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name))) {
       const job = workflow.jobs[name];
-      expect(job.needs).toBeUndefined();
+      if(name==='full-regression-core')expect(job.needs).toBe('verify-full-compile');
+      else expect(job.needs).toBeUndefined();
       expect(job['continue-on-error']).toBeUndefined();
       expect(job.if).toContain("github.event_name != 'pull_request'");
       expect(job.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");

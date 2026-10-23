@@ -262,7 +262,7 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(workflow).toMatch(/^  e2e-full:\n/m);
     expect(workflow).toContain("pnpm run verify:fullstack-product");
     expect(workflow).toContain("pnpm run verify:fullstack-board");
-    expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:base");
+    expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:ci-base");
     expect(workflow).not.toContain("TURBO_FORCE=true pnpm run verify:full");
     // Executed lanes upload after failures; reused lanes keep the source artifact link.
     for (const name of Object.keys(LANES)) {
