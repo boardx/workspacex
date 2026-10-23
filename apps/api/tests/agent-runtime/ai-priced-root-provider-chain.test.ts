@@ -185,11 +185,15 @@ async function assertWaiting(org:ReturnType<typeof toOrgId>,pid:()=>number){
 it('policy org UPDATE and concurrent physical start/ledger inserts finish under shared rule-first lock',async()=>{
  for(const write of ['start','ledger'] as const){
   const f=await fixture('ordinary'),held=scheduledDb(sql=>sql.includes("kind='organization' FOR UPDATE")),writer=scheduledDb(()=>false);
+  const requestId=randomUUID(),startedAt=new Date().toISOString();
+  // A terminal ledger write now requires an actual admitted request. Seed that
+  // admission before the policy lock, so this barrier still measures settlement.
+  if(write==='ledger')await f.deps.usage.startRequest(f.org,{requestId,userId:'caller',runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,projectId:f.subject.projectId,threadId:f.subject.threadId,modelProvider:'test-http',modelId:'runtime-primary',startedAt,maximumTokens:4});
   const resolving=new PgAiAdmissionRepository(held.database).resolveBudgetPolicy(f.org,'caller');
   let recording:Promise<void>|undefined;
   try{
    await bounded(held.entered.promise);
-   const usage=new PgTokenUsageRepository(writer.database),requestId=randomUUID(),startedAt=new Date().toISOString();
+   const usage=new PgTokenUsageRepository(writer.database);
    recording=write==='start'?usage.startRequest(f.org,{requestId,userId:'caller',runId:f.subject.runId,executionAttemptId:f.subject.executionAttemptId,projectId:f.subject.projectId,threadId:f.subject.threadId,modelProvider:'test-http',modelId:'runtime-primary',startedAt})
     :usage.record(f.org,{eventId:requestId,userId:'caller',runId:f.subject.runId,modelProvider:'test-http',modelId:'runtime-primary',tokensTotal:3,promptTokens:2,completionTokens:1,outcome:'succeeded',totalSource:'reported'});
    // Attach rejection immediately so a fixture failure cannot produce unhandled work.
@@ -313,8 +317,10 @@ it('actual enterprise root HTTP receipt carries lease/attempt attribution, write
 
 it('actual native not-applicable Token receipt preserves image dimension and consumes finite cost before Token admission',async()=>{
  const f=await fixture('ordinary','10'),before=requests.length,nativeId=randomUUID();
- // Test-only trusted reported image receipt. No image->Token conversion or claim
- // that the still-unwired native provider admission/bounds have been validated.
+ // Explicit native tariff and physical admission precede the trusted image receipt.
+ // The fixture does not invent image Tokens or a production provider bound.
+ await asApp(f.org,c=>c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'test-http','runtime-image','image',1,1,'fixture-native-v1')",[f.org]));
+ await f.deps.usage.startRequest(f.org,{requestId:nativeId,userId:'caller',runId:null,executionAttemptId:null,callPurpose:'auxiliary',projectId:f.subject.projectId,modelProvider:'test-http',modelId:'runtime-image',startedAt:new Date().toISOString(),nativeMaximum:{unit:'image',quantity:1n}});
  await f.deps.usage.record(f.org,{eventId:nativeId,userId:'caller',runId:null,modelProvider:'test-http',modelId:'runtime-image',
   tokensTotal:0,promptTokens:null,completionTokens:null,totalSource:'not-applicable',outcome:'succeeded',
   projectId:f.subject.projectId,requestStartedAt:new Date().toISOString(),nativeUsage:{unit:'image',quantity:1n,source:'reported'},

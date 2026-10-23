@@ -27,7 +27,7 @@ function fixture(compatible = true, cleanRuntime = false) {
  const mainSourceEvidenceSha256=createHash('sha256').update(JSON.stringify(validateMainSourceAdmission(source,repo,mainAdmission))).digest('hex');
  const binding={releaseSourceSha:source,expectedMainCnSha:baseline,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,mainSourceEvidenceSha256,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
  git('tag','-a',tag,'-m',JSON.stringify(frozenTagBinding(binding)),source);const tagSha=git('rev-parse','refs/tags/'+tag);
- const env=(review:boolean)=>({id:review?10:11,updated_at:'2026-10-01T00:00:00Z',protection_rules:review?[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
+ const env=(review:boolean)=>({id:review?10:11,updated_at:'2026-10-01T00:00:00Z',protection_rules:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
  const pattern={ref_name:{include:['refs/tags/cn-prepared-*'],exclude:[]}};
  const maps:Record<string,unknown>={
   [`repos/${repo}/git/commits/${source}`]:sourceCommit,
@@ -72,7 +72,7 @@ describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
   (f.maps[rulekey] as any).updated_at='2026-10-01T08:00:00.000+08:00';expect(f.run().status).toBe(0);
   f.maps[envkey]=structuredClone(oldenv);f.maps[rulekey]=structuredClone(oldrule);
 
-  for(const patch of [{updated_at:'2026-10-01T00:00:00.001Z'},{updated_at:'invalid'},{updated_at:null},{updated_at:undefined},{id:99},{protection_rules:[]}]){f.maps[envkey]={...(oldenv as object),...patch};expect(f.run().status).toBe(3);}f.maps[envkey]=oldenv;
+  for(const patch of [{updated_at:'2026-10-01T00:00:00.001Z'},{updated_at:'invalid'},{updated_at:null},{updated_at:undefined},{id:99},{protection_rules:[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]}]){f.maps[envkey]={...(oldenv as object),...patch};expect(f.run().status).toBe(3);}f.maps[envkey]=oldenv;
   for(const patch of [{updated_at:'2026-10-01T00:00:00.001Z'},{updated_at:'invalid'},{updated_at:null},{updated_at:undefined},{bypass_actors:[{actor_id:1}]},{rules:[]}]){f.maps[rulekey]={...(oldrule as object),...patch};expect(f.run().status).toBe(3);}f.maps[rulekey]=oldrule;
   const policykey=p+'/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1',oldpolicy=structuredClone(f.maps[policykey]);(f.maps[policykey] as any).branch_policies[0].name='other';expect(f.run().status).toBe(3);f.maps[policykey]=oldpolicy;
   const summary=p+'/rulesets?includes_parents=true&per_page=100&page=1',oldsummary=f.maps[summary];f.maps[summary]=[];expect(f.run().status).toBe(3);f.maps[summary]=oldsummary;

@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 /**
  * #435 —— AgentRun 只读轮询的真实 API 薄封装。
  *
@@ -40,6 +41,8 @@ export type AgentRunFailureReason = z.infer<typeof wave2Runtime.AgentRunFailureR
  * 新增枚举值时 TypeScript 会在这里报"缺 key"，不会静默漏译。
  */
 const AGENT_RUN_ERROR_TEXT: Record<AgentRunError, string> = {
+  CREDIT_REQUIRED: "可用额度不足，请确认计费账户并充值后继续",
+  CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，请稍后重试或联系管理员",
   HITL_REJECTED: "已被人工拒绝执行",
   MODEL_PROVIDER_NOT_CONFIGURED: "所选模型服务尚未配置，请联系管理员",
   SKILL_VERSION_UNAVAILABLE: "所需的 skill 版本当前不可用",
@@ -149,10 +152,12 @@ export async function getAgentRun(
   sessionToken?: string,
   signal?: AbortSignal,
 ): Promise<AgentRunView> {
-  return apiRequest<AgentRunView>(
+  const view = await apiRequest<AgentRunView>(
     wave2Runtime.operations.getAgentRun.path.replace(":runId", encodeURIComponent(runId)),
     { method: "GET", sessionToken, signal },
   );
+  if (view.status === "failed") notifyCreditFailure({ code: view.error });
+  return view;
 }
 
 /**

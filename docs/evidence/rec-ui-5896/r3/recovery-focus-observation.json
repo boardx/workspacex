@@ -1,0 +1,10 @@
+{
+  "clearFocus": {
+    "tag": "INPUT",
+    "testId": "rec-history-search"
+  },
+  "retryFocus": {
+    "tag": "INPUT",
+    "testId": "rec-history-search"
+  }
+}

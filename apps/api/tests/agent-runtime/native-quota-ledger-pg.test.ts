@@ -27,6 +27,7 @@ async function fixture(plan:"ordinary"|"enterprise"="ordinary",tokens:string|nul
   prices:[{modelId:"dummy-token",modelProvider:"dummy",runtimeModelId:"dummy-token-runtime",inputMicrosPerMillion:"1",outputMicrosPerMillion:"1",cachedInputMicrosPerMillion:"1",maxInputTokens:1,maxOutputTokens:1}],
   nativePrices:[{modelId:formalModelId,modelProvider:"native-fixture",runtimeModelId:runtimeModelId,unit,quantum:quantum.toString(),microsPerQuantum:rate,maxQuantity:maxQuantity.toString()}],fallbackModelIds:[],maxAttempts:1});
  const priceVersion=randomUUID();await asApp(org,async c=>{
+  await c.query("INSERT INTO credit_native_tariffs(org_id,model_provider,model_id,unit,quantum,hundredths_per_quantum,version) VALUES($1,'native-fixture',$2,$3,$4,1,'fixture-credit-v1')",[org,runtimeModelId,unit,quantum.toString()]);
   await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by) VALUES($1,$2,1,$3)",[org,plan,user]);
   await c.query("INSERT INTO organization_ai_policy_changes(id,org_id,version,configuration,price_version,actor_id,reason) VALUES($1,$2,1,$3::jsonb,$4,$5,$6)",[randomUUID(),org,JSON.stringify(configuration),priceVersion,user,"native ledger acceptance fixture"]);
   await c.query("INSERT INTO organization_ai_policies(org_id,version,configuration,price_version,updated_by) VALUES($1,1,$2::jsonb,$3,$4)",[org,JSON.stringify(configuration),priceVersion,user]);

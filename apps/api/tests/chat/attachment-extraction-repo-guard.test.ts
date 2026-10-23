@@ -45,7 +45,7 @@ const PROJECT = "proj-f153-rg";
 const THREAD = "thr-f153-rg";
 const ACTOR = "u-f153-rg";
 const JOB_FIELDS = ["jobId", "attachmentId", "attempts"];
-const ATTACHMENT_FIELDS = ["storageRef", "mime"];
+const ATTACHMENT_FIELDS = ["storageRef", "mime", "uploadedBy"];
 /** 绝不能从本仓储返回的、面向用户的内容——豁免的全部意义所在。 */
 const FORBIDDEN = ["filename", "bytes", "extractedExcerpt", "extracted_excerpt", "extractedRef", "body", "content"];
 
@@ -96,9 +96,12 @@ describe("runtime: 每个返回形状都是 worker 输入/作业元数据，绝�
 
     const att = await repo.readAttachment(org, "att-rg");
     expect(att).not.toBeNull();
+    expect(att?.uploadedBy).toBe(ACTOR);
     assertShape(att as unknown as Record<string, unknown>, ATTACHMENT_FIELDS);
 
     // 那个「机密文件名.csv」（filename）绝不能出现在本仓储交回的任何东西里——最强形式的「无内容泄漏」。
     expect(JSON.stringify({ job, att })).not.toContain("机密文件名");
   });
 });
+
+it("prefers immutable uploaded-by provenance over a later linked message actor",async()=>{const org=toOrgId(ORG);await asApp(ORG,c=>c.query("UPDATE chat_message_attachments SET uploaded_by=$1 WHERE org_id=$2 AND id='att-rg'",[ACTOR+"-upload",ORG]));expect((await repo.readAttachment(org,"att-rg"))?.uploadedBy).toBe(ACTOR+"-upload");});

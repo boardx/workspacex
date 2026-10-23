@@ -1,3 +1,5 @@
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
+import {CreditRequiredBody} from "@repo/contracts/billing-consumption";
 import { SubscriptionHttpException } from "../controllers/subscription-http-exception";
 import { SubscriptionErrorCode } from "@repo/contracts/billing-subscription";
 import { BillingErrorCode } from "@repo/contracts/billing-credits";
@@ -677,6 +679,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (res.headersSent) {
       this.logger.error("exception after headers sent; closing response", { traceId, err: exception });
       res.end();
+      return;
+    }
+
+    if (exception instanceof CreditConsumptionError) {
+      this.logger.info("credit_consumption_request_refused", {traceId,code:exception.code});
+      const guidance=exception.code === "credit_required" ? CreditRequiredBody.safeParse({code:exception.code,
+        ownerType:exception.ownerType,ownerId:exception.ownerId,rechargePath:exception.rechargePath,traceId}) : null;
+      if(guidance?.success)res.status(402).json(guidance.data);
+      else res.status(503).json({code:"credit_accounting_unavailable",traceId});
       return;
     }
 

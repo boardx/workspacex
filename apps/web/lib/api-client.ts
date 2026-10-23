@@ -1,3 +1,4 @@
+import { notifyCreditFailure } from "./credit-guidance";
 import { withSessionStorageLock } from "./session-storage-lock";
 /**
  * F122 —— 全仓第一个真实 API 客户端。
@@ -270,6 +271,7 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
 
   if (!res.ok) {
     const reasonCode = extractReasonCode(json);
+    notifyCreditFailure(json);
     throw new ApiError(res.status, reasonCode, json);
   }
   if (opts.expectedStatus !== undefined && res.status !== opts.expectedStatus) {

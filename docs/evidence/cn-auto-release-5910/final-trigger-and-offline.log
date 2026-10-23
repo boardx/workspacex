@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: exact current main-cn main ancestor queues trusted preparation and explicitly denies acceptance
+ok 1 - exact current main-cn main ancestor queues trusted preparation and explicitly denies acceptance
+  ---
+  duration_ms: 272.634042
+  type: 'test'
+  ...
+# Subtest: wrong source or stale desired ref never dispatches
+ok 2 - wrong source or stale desired ref never dispatches
+  ---
+  duration_ms: 935.040292
+  type: 'test'
+  ...
+# Subtest: dispatch failure is nonzero and has no queued success summary
+ok 3 - dispatch failure is nonzero and has no queued success summary
+  ---
+  duration_ms: 242.712208
+  type: 'test'
+  ...
+# Subtest: promotion uses exact frozen tag and branch-push admission without claiming terminal acceptance
+ok 4 - promotion uses exact frozen tag and branch-push admission without claiming terminal acceptance
+  ---
+  duration_ms: 336.240459
+  type: 'test'
+  ...
+# Subtest: promotion dispatch failure cannot become production success
+ok 5 - promotion dispatch failure cannot become production success
+  ---
+  duration_ms: 636.094541
+  type: 'test'
+  ...
+# Subtest: workflow wiring preserves manual verification and gates frozen-tag auto-promotion on preparation success
+ok 6 - workflow wiring preserves manual verification and gates frozen-tag auto-promotion on preparation success
+  ---
+  duration_ms: 0.386417
+  type: 'test'
+  ...
+# Subtest: wrong event or untrusted preparation ref cannot dispatch
+ok 7 - wrong event or untrusted preparation ref cannot dispatch
+  ---
+  duration_ms: 2196.341458
+  type: 'test'
+  ...
+# Subtest: full checkout ancestry validation works without any remote access and rejects missing refs
+ok 8 - full checkout ancestry validation works without any remote access and rejects missing refs
+  ---
+  duration_ms: 137.671708
+  type: 'test'
+  ...
+# Subtest: both workflows reuse checkout refs and never fetch origin after credentials cleanup
+ok 9 - both workflows reuse checkout refs and never fetch origin after credentials cleanup
+  ---
+  duration_ms: 0.244875
+  type: 'test'
+  ...
+# Subtest: prepare exports verified domestic cache instead of cross-border checkout or writer
+ok 10 - prepare exports verified domestic cache instead of cross-border checkout or writer
+  ---
+  duration_ms: 0.147417
+  type: 'test'
+  ...
+# Subtest: actual domestic bundle imports candidate and baseline with no HTTP remote
+ok 11 - actual domestic bundle imports candidate and baseline with no HTTP remote
+  ---
+  duration_ms: 1120.637875
+  type: 'test'
+  ...
+# Subtest: wrong candidate rejects before bundle
+ok 12 - wrong candidate rejects before bundle
+  ---
+  duration_ms: 1423.790958
+  type: 'test'
+  ...
+# Subtest: wrong baseline rejects before bundle
+ok 13 - wrong baseline rejects before bundle
+  ---
+  duration_ms: 1358.15
+  type: 'test'
+  ...
+# Subtest: absent cache rejects
+ok 14 - absent cache rejects
+  ---
+  duration_ms: 809.402709
+  type: 'test'
+  ...
+# Subtest: borrowed and promisor caches fail before export
+ok 15 - borrowed and promisor caches fail before export
+  ---
+  duration_ms: 1064.409708
+  type: 'test'
+  ...
+# Subtest: held canonical lock prevents export
+ok 16 - held canonical lock prevents export
+  ---
+  duration_ms: 529.160709
+  type: 'test'
+  ...
+# Subtest: prepare workflow has no cross-border checkout or root-cache writer
+ok 17 - prepare workflow has no cross-border checkout or root-cache writer
+  ---
+  duration_ms: 0.367209
+  type: 'test'
+  ...
+# Subtest: runner capability cannot invoke source cache writer
+ok 18 - runner capability cannot invoke source cache writer
+  ---
+  duration_ms: 3.563
+  type: 'test'
+  ...
+# Subtest: caller Git object-store override cannot change exported source
+ok 19 - caller Git object-store override cannot change exported source
+  ---
+  duration_ms: 1816.308083
+  type: 'test'
+  ...
+# Subtest: auto exports accepted baseline after desired advances without changing any real ref
+ok 20 - auto exports accepted baseline after desired advances without changing any real ref
+  ---
+  duration_ms: 1465.693791
+  type: 'test'
+  ...
+# Subtest: auto rejects repository and accepted runner baseline disagreement
+ok 21 - auto rejects repository and accepted runner baseline disagreement
+  ---
+  duration_ms: 794.066208
+  type: 'test'
+  ...
+# Subtest: auto rejects borrowed runner object stores and invalid or missing candidate before bundle
+ok 22 - auto rejects borrowed runner object stores and invalid or missing candidate before bundle
+  ---
+  duration_ms: 878.298
+  type: 'test'
+  ...
+# Subtest: auto rejects shallow root candidate even when its tip and baseline objects exist
+ok 23 - auto rejects shallow root candidate even when its tip and baseline objects exist
+  ---
+  duration_ms: 764.347916
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12068.7695

@@ -44,7 +44,8 @@ export async function runEmbeddingTick(deps: EmbeddingDeps): Promise<EmbeddingTi
       processed += 1;
       let vector: readonly number[];
       try {
-        vector = await deps.embeddings.embed(t.content);
+        const accounting = await deps.queue.openAccounting?.(orgId,t);
+        vector = await deps.embeddings.embed(t.content,accounting);
       } catch (err) {
         // 服务整体不可用：不是这个目标的错，不计次数；整轮停下，下一轮再来（outbox 行都还在）。
         deps.logger.error("kg embedding provider unavailable, pausing embedding tick", {

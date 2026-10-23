@@ -1,3 +1,5 @@
+import {creditErrorGuidance} from "../credit-error-guidance";
+import type {CreditRequiredBody} from "@repo/contracts/billing-consumption";
 import { createHash } from "node:crypto";
 import type { Server } from "node:http";
 import type { Duplex } from "node:stream";
@@ -70,13 +72,13 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
   const observeTerminal=(outcome:"completed"|"failed")=>{if(observed)return;observed=true;const elapsed=(at:number|undefined)=>at===undefined?null:Math.max(0,at-startedAt);
     try{deps.observe?.({captureId:auth.captureId,outcome,providerOpenMs:elapsed(providerReadyAt),firstAudioMs:elapsed(firstAudioAt),finalReceivedMs:elapsed(finalReceivedAt),finalPersistedMs:elapsed(finalPersistedAt),stopRequestedMs:elapsed(stopRequestedAt),totalMs:Math.max(0,Date.now()-startedAt)});}catch{/* observability is best effort */}};
   let failure:Promise<void>|null=null;
-  const fail=(reason:typeof C.RealtimeAsrStreamError._type):Promise<void>=>{
+  const fail=(reason:typeof C.RealtimeAsrStreamError._type,credit?:typeof CreditRequiredBody._type):Promise<void>=>{
     if(failure)return failure;
     if(terminal)return Promise.resolve();
     terminal=true;stopping=true;upstream?.abort();upstream=null;pendingAudio.splice(0);pendingBytes=0;
     failure=(async()=>{try{await deps.repository.finishCapture({...auth,durationMs:Date.now()-startedAt,failed:true});}
       catch(error){process.stderr.write(`[personal-asr] capture cleanup failed: ${safeErrorDetail(error)}\n`);}
-      finally{observeTerminal("failed");send({type:"error",captureId:auth.captureId,reason});ws.close();}})();
+      finally{observeTerminal("failed");send({type:"error",captureId:auth.captureId,reason,...(credit?{credit}:{})});ws.close();}})();
     return failure;
   };
   ws.on("message",(raw,isBinary)=>{if(isBinary){try{const audio=new Uint8Array(raw as Buffer);
@@ -101,7 +103,7 @@ function serve(ws:WebSocket,deps:PersonalRealtimeAsrGatewayDeps,auth:{orgId:Retu
         if(terminal){s.abort();return;}providerReadyAt=Date.now();upstream=s;
           send({type:"ready",captureId:auth.captureId});
           for(const audio of pendingAudio.splice(0))s.pushAudio(audio);pendingBytes=0;
-        }).catch(()=>void fail("ASR_PROVIDER_UNAVAILABLE"));return;
+        }).catch(error=>{const billing=creditErrorGuidance(error);return billing?void fail(billing.reason,"credit" in billing?billing.credit:undefined):void fail("ASR_PROVIDER_UNAVAILABLE");});return;
     }
     if(!upstream||stopping||terminal){void fail("PROTOCOL_ERROR");return;} stopping=true;stopRequestedAt=Date.now();send({type:"stopping",captureId:auth.captureId});
     void atStage("upstream-finish",()=>upstream!.finish()).then(async()=>{await atStage("await-writes",()=>writeChain);const durationSeconds=pcm16MonoDurationSeconds(receivedPcmBytes);

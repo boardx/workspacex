@@ -1,0 +1,37 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/646f/workspacex
+
+ ✓ .harness/scripts/vm/cn-frozen-release-cli.test.ts (23 tests) 34836ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > fails NOT_READY for a historical dispatcher instead of borrowing latest main 1089ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > accepts actual ancestor candidate/tag after main advances without build or mutation 1746ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > accepts root-verified governance adapter when workflow token cannot see bypass fields 8461ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects missing or unrelated merged PR and source tree drift at actual CLI 3785ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > actual source dynamic plan rejects missing final shard or plan job at CLI 2628ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > runs actual CLI in clean offline runtime without node_modules or NODE_PATH 2192ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects changed attestation and incomplete actual checks before approval 2934ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > rejects moving main dispatch, missing evidence and prior-run request digest 2326ms
+   ✓ real Git frozen-source CLI with controlled GitHub observations > verifies real human-creator native admission via current-attempt job API 2997ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with success 990ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with permission 600ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with patch-success 887ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with delete-success 587ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with mutated-ref 553ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with cleanup-failure 729ms
+   ✓ actual embedded nonproduction tag proof program > executes real proof code with hidden-never 607ms
+ ✓ .harness/scripts/vm/cn-promotion-prepared-receipt.test.ts (14 tests) 960ms
+   ✓ rejects broken preparation input and real source closure before any build 801ms
+ ✓ .harness/scripts/vm/cn-production-promotion-workflow.test.ts (12 tests) 11603ms
+   ✓ GitHub-based CN production promotion > executes domestic Git export and runner capability failure fixtures 11311ms
+ ✓ .harness/scripts/vm/cn-frozen-release-identity.test.ts (14 tests) 11ms
+ ✓ .harness/scripts/verify-cn-promotion.test.ts (6 tests) 948ms
+ ✓ .harness/scripts/vm/cn-promotion-compensation.test.ts (7 tests) 51ms
+ ✓ .harness/scripts/vm/cn-release-candidate-workflow.test.ts (4 tests) 798ms
+   ✓ CN release candidate workflow > requires manual main admission and rejects unsafe contexts before side effects 796ms
+ ✓ .harness/scripts/vm/cn-governance-instant.test.ts (10 tests) 4ms
+
+ Test Files  8 passed (8)
+      Tests  90 passed (90)
+   Start at  00:42:58
+   Duration  50.38s (transform 116ms, setup 0ms, collect 266ms, tests 49.21s, environment 1ms, prepare 189ms)
+

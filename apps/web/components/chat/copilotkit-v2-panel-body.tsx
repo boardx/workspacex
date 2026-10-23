@@ -1,4 +1,5 @@
 "use client";
+import { notifyCreditFailure } from "@/lib/credit-guidance";
 import { useChatStreamSlots } from "@/components/chat/chat-stream-slots";
 import { useChatHistoryPreview } from "@/lib/use-chat-history-preview";
 import { useComposerDraft } from "@/lib/chat-workbench/use-composer-draft";
@@ -415,6 +416,7 @@ export function CopilotKitV2PanelBody({
             ? (errorContext as { runtimeErrorCode?: unknown }).runtimeErrorCode
             : undefined;
         const code_ = typeof runtimeCode === "string" ? runtimeCode : runError.message;
+        notifyCreditFailure({ code: code_ });
         // issue #2779 —— 这条横幅此前把原始 code/message 完全吞掉：一旦
         // `describeCopilotkitV2RunError` 落进未登记兜底文案（"这次执行没有成功，
         // 请重试或联系管理员"），排障的人连"到底是哪个 code"都无从查起——这正是

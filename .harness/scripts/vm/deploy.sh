@@ -519,6 +519,13 @@ step "4f. URL 导入 skill 的 capability_listings 补种（2026-08-07 —— �
 run_deploy_env env \
   pnpm --filter api exec tsx scripts/backfill-skill-capability-listings.ts
 
+step "4f-ii. Durable model usage receipts (private API-user storage)"
+if ! grep -q '^WORKSPACEX_CREDIT_RECEIPT_DIR=' "$ENV_FILE"; then
+  printf '%s\n' 'WORKSPACEX_CREDIT_RECEIPT_DIR=/opt/workspacex/credit-receipts' >> "$ENV_FILE"
+fi
+# Environment values stay in the API-user subprocess, never sudo argv or logs.
+run_deploy_env python3 "$APP_DIR/.harness/scripts/vm/ensure-credit-receipts.py"
+
 step "4g. 对象存储根目录（2026-08-11 —— 头像/文件对象曾落在 /tmp/workspacex-objects，重启或 tmp 清理即丢）"
 # `object-store-root.ts`：WORKSPACEX_OBJECT_ROOT 未设时落回 tmpdir——那是开发默认值，
 # 文件头逐字写着「A deployment that leaves this unset and expects durability has

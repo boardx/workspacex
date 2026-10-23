@@ -28,7 +28,7 @@ export const CONTROL_PATHS = new Set([
 
 export function proveControlOnly({ eventName, ref, sha, event, git }) {
   const no = reason => ({ skip: false, reason });
-  if (eventName !== 'push' || ref !== 'refs/heads/main') return no('not-main-push');
+  if (eventName !== 'push' || !['refs/heads/develop', 'refs/heads/main'].includes(ref)) return no('not-integration-push');
   const before = event?.before;
   if (!/^[0-9a-f]{40}$/.test(before ?? '') || /^0+$/.test(before) ||
       !/^[0-9a-f]{40}$/.test(sha ?? '') || event?.after !== sha ||

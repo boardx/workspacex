@@ -54,8 +54,13 @@ describe("native dimensions in the single immutable AI ledger",()=>{
    const query=vi.fn().mockImplementation(async(sql:string)=>({rows:sql.includes("INTO realtime_asr_usage_events")?[{provider_task_id:"task"}]:[]}));
    await configuredAsrUsageMeter(db(query) as never,{KERNEL_NATIVE_USAGE_LEDGER_ENABLED:"1",KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED:actual,KERNEL_ASR_PROVIDER:"configured",KERNEL_ASR_MODEL:"model"}).record({providerTaskId:"task",orgId:org,ownerUserId:"owner",captureId:"capture",model:"model",durationSeconds:2});
    expect(query.mock.calls.filter(c=>c[0].includes("INTO realtime_asr_usage_events"))).toHaveLength(1);
-   expect(query.mock.calls.filter(c=>c[0].includes("INTO token_usage_events"))).toHaveLength(actual==="1"?0:1);
+   expect(query.mock.calls.filter(c=>c[0].includes("INTO token_usage_events"))).toHaveLength(0);
   }
  });
 
 });
+
+// This suite owns usage/provenance SQL. Financial transactions are exercised by billing integration tests.
+vi.mock("../../src/infrastructure/billing/pg-credit-consumption",()=>({PgCreditConsumption:class {
+ async reserveInSession(){} async settleInSession(){}
+}}));

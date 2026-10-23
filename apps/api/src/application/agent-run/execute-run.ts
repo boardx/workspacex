@@ -1,3 +1,4 @@
+import {CreditConsumptionError} from "../billing/credit-consumption";
 import {assembleAttachmentContext,assembleSummaryHistory,bindAssembledRootInput,type SummarySourceSnapshot} from "./root-source-assembly";
 import {rootSourceHash} from "./root-input-source-provenance";
 import type {RunAiAdmission} from "./priced-run-model";
@@ -102,7 +103,6 @@ import type { InterjectionStore } from "./interjection-store";
 import type { AgentWorkflowStartPort } from "../agent/request-agent-workflow-start";
 import type { AgentHandoffStore } from "../agent/agent-handoff";
 import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
-
 /**
  * #709 -- token-budget-aware multi-turn context.
  *
@@ -124,7 +124,6 @@ import { REMEMBER_TOOL_GUIDANCE } from "./standard-remember";
  */
 export const HISTORY_MAX_MESSAGES = 20;
 export const HISTORY_MAX_CHARS = 12_000;
-
 /**
  * F154 L2（08-chat/uc-8-7 R7，人类 2026-08-11 逐字签核「`HISTORY_MAX_MESSAGES` 不撑大」）——
  * `HISTORY_MAX_MESSAGES` 本身**不变**，它仍是 L1 概念上的行数上限；这个新常量只用来给 L2 的
@@ -134,7 +133,6 @@ export const HISTORY_MAX_CHARS = 12_000;
  * 本身变大。有界（不是无限翻查全史）：一次 run 最多为这个目的多读这么多行。
  */
 export const L2_CATCHUP_FETCH_LIMIT = 200;
-
 /**
  * Drop the OLDEST messages first until the remaining, still-chronologically-ordered suffix
  * fits `maxChars` of combined `content` length. `messages` is already oldest-first (what
@@ -1209,7 +1207,7 @@ async function executeClaimed(
     // #1747：缺席 ⇒ 空数组 ⇒ 下面的判据退化成改动前那一条（只看 `text`）。
     scriptCandidates = completion.scriptCandidates ?? [];
   } catch (e) {
-    const code: RunFailureCode = e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
+    const code: RunFailureCode = e instanceof CreditConsumptionError ? (e.code === "credit_required" ? "CREDIT_REQUIRED" : "CREDIT_ACCOUNTING_UNAVAILABLE") : e instanceof ModelCallError ? e.code : "MODEL_CALL_FAILED";
     /*
      * issue #3211 ① —— 下面那句注释（"`detail` never reaches a response"）在 #3033 时
      * 为真，也正是人类 2026-09-09 实测那一条无法诊断的原因：真实成因只进了日志，产品面
@@ -1257,7 +1255,9 @@ async function executeClaimed(
      * prompt tokens 并把 usage 放在错误体里，provider 把它挂在 `ModelCallError.usage`
      * 上传过来——报了就如实记，没报才是 0。
      */
-    if (modelInvocationStarted && !modelCompletionMetered && !requestAccounting) {
+    if (modelInvocationStarted && !modelCompletionMetered && !requestAccounting
+      && !(e instanceof CreditConsumptionError)
+      && !(e instanceof ModelCallError && e.code === "MODEL_PROVIDER_NOT_CONFIGURED")) {
       await meter(deps, orgId, run, e instanceof ModelCallError ? (e.usage ?? {}) : {}, "failed");
     }
     await closeOpenToolCalls("failed");

@@ -13,12 +13,29 @@ describe("CN release candidate workflow", () => {
       expect(source).not.toMatch(/(?:checks|statuses|deployments): write/);
       expect(source).toContain("GH_TOKEN: ${{ github.token }}");
     }
-    expect(workflow).toContain("actions: read");
+    expect(workflow).toContain("actions: write");
     expect(promotion).toContain("actions: write");
   });
   it("requires manual main admission and rejects unsafe contexts before side effects", () => {
     const result = spawnSync("python3", ["-B", "-m", "unittest", "discover", "-s", "tests", "-p", "test_prepare_manual_gate.py", "-v"], { encoding: "utf8", timeout: 30000 });
     expect(result.status, result.stdout + result.stderr).toBe(0);
+  });
+
+  it("executes the automatic dispatcher counterexamples in the harness CI lane", () => {
+    const result = spawnSync(process.execPath, ["--test", ".github/scripts/cn-auto-release.test.mjs"], { encoding: "utf8", timeout: 30000 });
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+  });
+
+  it("defaults auto-promotion off and dispatches only after complete frozen-tag preparation", () => {
+    expect(workflow).toMatch(/auto_promote:[\s\S]*?type: boolean\n        default: false/);
+    expect(workflow).toContain("if: inputs.auto_promote");
+    expect(workflow).toContain("RELEASE_TAG: ${{ steps.prepared.outputs.release_tag }}");
+    expect(workflow).toContain("id: prepared");
+    const dispatch = workflow.indexOf("cn-auto-release.mjs promote");
+    expect(dispatch).toBeGreaterThan(workflow.indexOf("freeze-tag"));
+    expect(workflow.indexOf("freeze-tag")).toBeGreaterThan(workflow.indexOf('workspacex-cn-verify-promotion "${revision}"'));
+    expect(workflow).not.toMatch(/always\(\).*auto_promote/);
+    expect(workflow).not.toContain("continue-on-error");
   });
 
   it("builds an exact SHA through the trusted candidate entrypoint", () => {

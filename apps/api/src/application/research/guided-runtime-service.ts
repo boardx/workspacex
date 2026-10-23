@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 import { reportPerformance } from "./guided-report-performance";
 import { canRecoverPartialReport, isUnresolvedPartialDraft } from "./guided-partial-report-recovery";
 import { toPublicResearchRuntime } from "./guided-runtime-persistence";
@@ -189,7 +190,7 @@ export class GuidedRuntimeService {
     const publicObserver: RuntimeObserver | undefined = observer && (event => observer(
       event.type === "snapshot" || event.type === "result" ? { ...event, state: toPublicResearchRuntime(event.state) } : event));
     try { return toPublicResearchRuntime(await this.executeCommand(actor, session, command, publicObserver, diagnostic)); }
-    catch (error) { recordResearchFailure(this.debugTrace, diagnostic, actor, command, error); throw error; }
+    catch (error) { rethrowCreditConsumption(error); recordResearchFailure(this.debugTrace, diagnostic, actor, command, error); throw error; }
   }
   private async executeCommand(actor: RuntimeActor, session: GuidedResearchSession, command: RuntimeCommand, observer: RuntimeObserver | undefined, diagnostic: ResearchExecutionDiagnostic): Promise<ResearchRuntime> {
     if (actor.sessionId !== command.sessionId || session.sessionId !== command.sessionId) throw new ResearchRuntimeError("RESEARCH_NOT_FOUND");
@@ -210,7 +211,7 @@ export class GuidedRuntimeService {
     }
     diagnostic.phase = "claim";
     const { state, replay } = await this.store.claim(actor, command, fingerprint(command));
-    const observe: RuntimeObserver = (event) => { try { observer?.(event); } catch { /* A disconnected observer cannot cancel durable work. */ } };
+    const observe: RuntimeObserver = (event) => { try { observer?.(event); } catch (creditError) { rethrowCreditConsumption(creditError); /* A disconnected observer cannot cancel durable work. */ } };
     if (replay) { observe({ type: "snapshot", state: structuredClone(state) }); observe({ type: "result", state: structuredClone(state) }); return state; }
     const persist: RuntimePersistence = Object.assign(async () => {
       state.leaseUntil = new Date(Date.now() + 600000).toISOString();
@@ -224,7 +225,7 @@ export class GuidedRuntimeService {
     try {
       await this.perform(state, command, persist, internalSources);
       state.progress = null;
-    } catch (error) {
+    } catch (error) { rethrowCreditConsumption(error);
       recordResearchFailure(this.debugTrace, diagnostic, actor, command, error, state.progress?.stage);
       if (error instanceof ResearchRuntimeError && error.reasonCode === "RESEARCH_WORKFLOW_PAUSED") {
         state.progress = null;
@@ -242,7 +243,7 @@ export class GuidedRuntimeService {
     Object.assign(state, projectResearchTrust(state));
     diagnostic.phase = "final_persistence";
     try { await this.store.write(actor, command.requestId, state, true); }
-    catch (error) {
+    catch (error) { rethrowCreditConsumption(error);
       if (committingReport) {
         updateReportTimeline(state, "validation", "failed", { reasonCode: "RESEARCH_WORKFLOW_UNAVAILABLE" });
         state.report = null; state.reportDraft = null; state.completed = false;
@@ -279,14 +280,14 @@ export class GuidedRuntimeService {
         try {
           value = parseOutput(result.text);
           validate?.(value);
-        } catch (error) {
+        } catch (error) { rethrowCreditConsumption(error);
           if (parseOutput === parseSourceRelevanceJson) recordSourceRelevanceFailure(this.debugTrace, { sessionId: state.sessionId, callId: call.id, requestId: persist.requestId, traceId: persist.traceId }, error);
           throw error;
         }
         const succeed = async () => { budget?.check(); check?.(); call.status = "succeeded"; };
         if (admit) await admit(succeed); else await succeed();
         return value;
-      } catch (error) { throw error instanceof ResearchRuntimeError || (parseOutput === parseSourceRelevanceJson && error instanceof ModelCallError && error.contentRejection === "content-policy") ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE", { cause: error }); }
+      } catch (error) { rethrowCreditConsumption(error); throw error instanceof ResearchRuntimeError || (parseOutput === parseSourceRelevanceJson && error instanceof ModelCallError && error.contentRejection === "content-policy") ? error : new ResearchRuntimeError("RESEARCH_WORKFLOW_UNAVAILABLE", { cause: error }); }
     } finally { planningBudget?.dispose(); }
   }
   private context(state: ResearchRuntime) {
@@ -507,10 +508,10 @@ export class GuidedRuntimeService {
     // A submitted URL is only a query to the configured search boundary, never a direct fetch target.
     let hits: Awaited<ReturnType<GuidedSearchPort["search"]>>;
     try { hits = await this.search.search(url); }
-    catch (error) { throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE"); }
+    catch (error) { rethrowCreditConsumption(error); throw error instanceof ResearchRuntimeError ? error : new ResearchRuntimeError("RESEARCH_SEARCH_UNAVAILABLE"); }
     const hit = hits.find((item) => {
       try { return normalizedSourceUrl(item.url) === url && Boolean(item.content.trim()); }
-      catch { return false; }
+      catch (creditError) { rethrowCreditConsumption(creditError); return false; }
     });
     if (!hit) throw new ResearchRuntimeError("RESEARCH_SOURCE_NOT_FOUND");
     const taskId = randomUUID();

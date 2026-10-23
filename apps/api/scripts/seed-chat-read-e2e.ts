@@ -6,6 +6,7 @@
  * login, identity and Chat HTTP controllers.
  */
 import { agentDefaults } from "@repo/contracts";
+import {seedChatReadAsrCreditTariff} from "./chat-read-asr-credit-fixture";
 import { defaultAgentE2eCandidates, defaultAgentE2eIdentity } from "./chat-default-agent-e2e-identity";
 import { PgSkillStarterImportRepository } from "../src/infrastructure/skill/pg-skill-starter-import-repository";
 import { importChatReadPdfFixture } from "./chat-read-pdf-fixture-import";
@@ -192,6 +193,7 @@ await asOwner(async (client) => {
 
 await seedOrg({ orgId: ORG_ID, projectId: PROJECT_ID, groupNames: ["readers"] });
 await addOrgMember(ORG_ID, USER_ID, "lead", null);
+await asApp(ORG_ID,session=>seedChatReadAsrCreditTariff(session,ORG_ID));
 const CANVAS_TEMPLATE_ADMIN_ID = `${USER_ID}-canvas-admin`;
 await addOrgMember(ORG_ID, CANVAS_TEMPLATE_ADMIN_ID, "admin", null);
 await addProjectMember(ORG_ID, PROJECT_ID, USER_ID, "facilitator", null);

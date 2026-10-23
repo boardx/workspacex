@@ -15,7 +15,7 @@ import {LangChainRerankClient} from '../../src/infrastructure/retrieval/langchai
 import {OrganizationContextSource} from '../../src/infrastructure/agent-run/organization-context-source';
 import {toOrgId} from '../../src/domain/org-id';
 const org=toOrgId('hybrid-'+randomUUID()),foreign=toOrgId('foreign-'+randomUUID()),project='p-'+org,model='model-'+org;
-const actor={orgId:org,userId:'alice',threadId:'trusted',projectId:null};
+const actor={orgId:org,userId:'alice',threadId:'trusted',projectId:null,modelRequestAccounting:{orgId:String(org),runId:'trusted-run',attemptId:'trusted-run:1',leaseEpoch:1}};
 let db:PgDatabase,server:Server,source:OrganizationContextSource;
 let accountingReferences:unknown[]=[];
 let seen:string[]=[];let mode:'normal'|'foreign-id'|'failure'|'revoke'='normal';

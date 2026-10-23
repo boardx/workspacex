@@ -140,3 +140,15 @@ it("startup abort no longer interrupts an established stream's graceful tail flu
   expect(f.handlers.onFinal).toHaveBeenCalledWith("尾帧");
   expect(f.handlers.onError).not.toHaveBeenCalled();
 });
+
+it.each(["CREDIT_REQUIRED", "CREDIT_ACCOUNTING_UNAVAILABLE"])("credit terminal %s releases capture and preserves confirmed text", async (reason) => {
+ const f=fixture();await openAsrDraftStream(f.handlers,{sessionToken:"test",capture:async()=>f.capture});
+ FakeSocket.current.frame({type:"asr.final",text:"已有文字"});
+ FakeSocket.current.frame({type:"asr.error",reason,...(reason==="CREDIT_REQUIRED"?{credit:{code:"credit_required",ownerType:"team",ownerId:"org-a",rechargePath:"/billing?ownerType=team&ownerId=org-a&purchase=1"}}:{})});
+ await vi.waitFor(()=>expect(f.handlers.onError).toHaveBeenCalledWith(reason));expect(f.stop).toHaveBeenCalledTimes(1);expect(f.handlers.onFinal).toHaveBeenCalledWith("已有文字");expect(f.handlers.onFinished).not.toHaveBeenCalled();
+});
+it("credit rejection before microphone acquisition never becomes generic retryable startup error",async()=>{
+ const f=fixture();let acquired!:(capture:CaptureHandle)=>void;
+ const opening=openAsrDraftStream(f.handlers,{sessionToken:"test",capture:()=>new Promise(resolve=>{acquired=resolve;})});const rejected=expect(opening).rejects.toThrow("CREDIT_REQUIRED");
+ await vi.waitFor(()=>expect(acquired).toBeTypeOf("function"));FakeSocket.current.frame({type:"asr.error",reason:"CREDIT_REQUIRED"});acquired(f.capture);await rejected;expect(f.stop).toHaveBeenCalledTimes(1);expect(FakeSocket.current.sent).toEqual([]);
+});

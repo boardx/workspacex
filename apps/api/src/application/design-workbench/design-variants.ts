@@ -1,3 +1,4 @@
+import {rethrowCreditConsumption} from "../billing/credit-consumption";
 /**
  * 对标 R9（#3954）—— **变体**：让模型对某一页出几个结构不同的方案，人并排看、挑一个。
  *
@@ -101,7 +102,7 @@ export class ModelDesignVariantProposer implements DesignVariantModel {
         }),
       ]);
       text = completion.text;
-    } catch (e) {
+    } catch (e) { rethrowCreditConsumption(e);
       throw new DesignVariantsUnavailableError(e instanceof Error ? e.message : "model call failed");
     } finally {
       if (timer !== undefined) clearTimeout(timer);
@@ -109,7 +110,7 @@ export class ModelDesignVariantProposer implements DesignVariantModel {
     let raw: unknown;
     try {
       raw = extractJsonObject(text);
-    } catch {
+    } catch (creditError) { rethrowCreditConsumption(creditError);
       throw new DesignVariantsUnavailableError("model output was not parseable JSON");
     }
     const variants = parseVariants(raw, ctx.count);

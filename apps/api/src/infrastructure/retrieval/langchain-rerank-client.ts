@@ -1,3 +1,5 @@
+import {throwPrivateCreditError} from "./private-credit-error";
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import {RetrievalAccountingContext} from "@repo/contracts/retrieval-accounting";
 import {RETRIEVAL_RERANK_LIMITS as L,RetrievalRerankRequest,RetrievalRerankResponse} from '@repo/contracts/retrieval-rerank';
 import type {RerankPort} from '../../application/retrieval/ports';
@@ -18,18 +20,17 @@ export class LangChainRerankClient implements RerankPort {
   const abort=new AbortController(),timer=setTimeout(()=>abort.abort(),L.deadlineMs);timer.unref();
   try{
    const response=await fetch(this.#url,{method:'POST',redirect:'error',signal:abort.signal,headers:{'content-type':'application/json','x-deep-agent-internal-key':this.#key},body});
-   if(!response.ok||!response.body)throw new Error('rerank_unavailable');
+   if(!response.body)throw new Error('rerank_unavailable');
    const chunks:Uint8Array[]=[];let bytes=0;
    for await(const chunk of response.body){bytes+=chunk.length;if(bytes>L.maxResponseBytes){abort.abort();throw new Error('rerank_unavailable');}chunks.push(chunk);}
-   const output=RetrievalRerankResponse.parse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+   const parsed:unknown=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+   if(!response.ok){throwPrivateCreditError(parsed,accounting!.orgId);throw new Error("rerank_unavailable");}
+   const output=RetrievalRerankResponse.parse(parsed);
    if(output.model!==this.model||output.modelVersion!==this.modelVersion||output.ids.length!==candidates.length||new Set(output.ids).size!==candidates.length||output.ids.some(id=>!candidates.some(c=>c.id===id)))throw new Error('rerank_unavailable');
    return output.ids;
-  }catch{throw new Error('rerank_unavailable');}finally{clearTimeout(timer);}
+  }catch(error){if(error instanceof CreditConsumptionError)throw error;throw new Error('rerank_unavailable');}finally{clearTimeout(timer);}
  }
  private accounting(value:RetrievalAccountingContext|undefined){
-  const enabled=process.env.KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED==="1";
-  if(process.env.KERNEL_AI_PRODUCT_QUOTA_ENABLED==="1"&&!enabled)throw new Error("retrieval_accounting_required");
-  if(!enabled){if(value)throw new Error("retrieval_accounting_runtime_disabled");return {};}
   if(!value)throw new Error("retrieval_accounting_owner_required");
   return {accounting:RetrievalAccountingContext.parse(value)};
  }

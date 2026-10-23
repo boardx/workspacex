@@ -5,9 +5,10 @@ import type {AiAdmissionPort} from "../../application/agent-run/ai-admission-por
 import type {TokenUsageMeterPort} from "../../application/agent-run/ports";
 import {priceNativeAiUsage,type AiNativePrice} from "../../domain/agent-run/ai-billable-unit";
 
+export type ImageBillingContext = Pick<ImageContext,"orgId"|"parentRunId"|"attemptId"|"leaseEpoch"> & Partial<Pick<ImageContext,"bindingId"|"toolCallId">>;
 export interface ImageDispatchRequest {
  readonly requestId:string;readonly modelProvider:string;readonly modelId:string;
- readonly serializedBody:string;readonly quantity:bigint;
+ readonly serializedBody:string;readonly quantity:bigint;readonly maximumTokens?:number|null;readonly tokenBoundRequired?:boolean;
 }
 export interface VerifiedImageAdmission {
  readonly orgId:ImageContext["orgId"];readonly userId:string;readonly runId:string;
@@ -21,15 +22,15 @@ export interface VerifiedImageAdmission {
  readonly tokenBilling:"not-applicable";readonly bindingVerified:true;
 }
 export interface ImageAiReceipt {
- terminal(input:{endedAt:string;outcome:"succeeded"|"failed";quantity:bigint|null}):Promise<void>;
+ terminal(input:{endedAt:string;outcome:"succeeded"|"failed";quantity:bigint|null;usage?:import("../../application/agent-run/ports").ReportedUsage}):Promise<void>;
 }
 export interface ImageAiAdmission {
- start(context:ImageContext,request:ImageDispatchRequest):Promise<ImageAiReceipt>;
+ start(context:ImageBillingContext,request:ImageDispatchRequest):Promise<ImageAiReceipt>;
 }
 export interface ImageAiAdmissionDependencies {
  readonly admission:AiAdmissionPort;readonly usage:TokenUsageMeterPort;
  /** Must authorize the current run/lease/member and resolve an immutable audited native tariff. */
- readonly resolve:(context:ImageContext,request:ImageDispatchRequest)=>Promise<VerifiedImageAdmission|null>;
+ readonly resolve:(context:ImageBillingContext,request:ImageDispatchRequest)=>Promise<VerifiedImageAdmission|null>;
 }
 export function prepareImageAiAdmission(deps:ImageAiAdmissionDependencies):ImageAiAdmission {
  return {start:async(context,request)=>{
@@ -57,7 +58,7 @@ export function prepareImageAiAdmission(deps:ImageAiAdmissionDependencies):Image
   const startedAt=new Date().toISOString();
   await deps.usage.startRequest(context.orgId,{requestId:request.requestId,userId:binding.userId,runId:binding.runId,subtaskId:binding.subtaskId,
    executionAttemptId:binding.executionAttemptId,executionLeaseEpoch:binding.executionLeaseEpoch,projectId:binding.projectId,
-   threadId:binding.threadId,agentId:binding.agentId,callPurpose:"native-image",modelProvider:request.modelProvider,modelId:request.modelId,startedAt});
+   threadId:binding.threadId,agentId:binding.agentId,callPurpose:"native-image",modelProvider:request.modelProvider,modelId:request.modelId,startedAt,maximumTokens:request.maximumTokens,tokenBoundRequired:request.tokenBoundRequired});
   let terminalFingerprint:string|undefined;
   return {terminal:async input=>{
    if(!Number.isFinite(Date.parse(input.endedAt))||Date.parse(input.endedAt)<Date.parse(startedAt))throw new Error("AI_IMAGE_TERMINAL_TIME_INVALID");
@@ -69,7 +70,7 @@ export function prepareImageAiAdmission(deps:ImageAiAdmissionDependencies):Image
    await deps.usage.record(context.orgId,{eventId:request.requestId,userId:binding.userId,runId:binding.runId,subtaskId:binding.subtaskId,
     executionAttemptId:binding.executionAttemptId,projectId:binding.projectId,threadId:binding.threadId,agentId:binding.agentId,
     callPurpose:"native-image",modelProvider:request.modelProvider,modelId:request.modelId,requestStartedAt:startedAt,requestEndedAt:input.endedAt,
-    tokensTotal:0,totalSource:"not-applicable",promptTokens:null,completionTokens:null,
+    tokensTotal:input.usage?.total??0,totalSource:input.usage?.total===undefined?"not-applicable":"reported",promptTokens:input.usage?.prompt??null,completionTokens:input.usage?.completion??null,
     nativeUsage:{unit:"image",quantity,source:quantity===null?"unknown":"reported"},
     ...(costMicros===null?{}:{costMicros,currency:binding.price.currency,priceVersion:binding.price.version}),outcome:input.outcome});
    await deps.admission.settle(context.orgId,request.requestId,{tokens:0n,costMicros});

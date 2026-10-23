@@ -136,9 +136,12 @@ describe('existing Board workflow admission and verdict preservation',()=>{
   for(const lane of ['journeys','security','board-ui-functional','storage','import','api-ws-objectstore'])expect(fast.jobs[lane].if).toBe("needs.scope.outputs.board == 'true'");
  });
  it.each(Object.keys(HEAVY_LANES))('%s checks out frozen SHA and guards every heavy step; reused failure is a real failure',lane=>{
-  const job=heavy.jobs[lane];expect(job.needs).toBe('batch');
-  expect(job.steps[0].with.ref).toBe('${{ needs.batch.outputs.sha }}');
-  for(const step of job.steps.slice(0,-1))expect(step.if).toContain("needs.batch.outputs.run == 'true'");
+  const job=heavy.jobs[lane];
+  if(lane==='native-board')expect(job.needs).toEqual(['batch','native-r01','native-connectors','native-files','native-sync']);
+  else expect(job.needs).toBe('batch');
+  const guardedSteps=lane==='native-board'?job.steps.slice(1):job.steps;
+  expect(guardedSteps[0].with.ref).toBe('${{ needs.batch.outputs.sha }}');
+  for(const step of guardedSteps.slice(0,-1))expect(step.if).toContain("needs.batch.outputs.run == 'true'");
   expect(job.steps.at(-1).if).toBe("always() && needs.batch.outputs.run == 'false'");
   expect(job.steps.at(-1).run).toBe('test "$ORIGINAL_RESULT" = success');
   expect(JSON.stringify(job)).not.toContain('continue-on-error');

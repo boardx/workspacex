@@ -2,10 +2,12 @@ import asyncio
 import httpx
 import pytest
 from deep_agent_service import retrieval_embeddings as module
+REF={'orgId':'org','runId':'run','attemptId':'attempt','leaseEpoch':1}
 
 @pytest.fixture(autouse=True)
 def config(monkeypatch):
  monkeypatch.setenv('DEEP_AGENT_SERVICE_INTERNAL_KEY','existing-service-secret')
+ monkeypatch.setenv('DEEP_AGENT_USAGE_CALLBACK_BASE_URL','http://private.test')
  monkeypatch.setenv('KERNEL_MODEL_BASE_URL','https://trusted-provider.test/v1')
  monkeypatch.setenv('KERNEL_MODEL_API_KEY','existing-model-secret')
  monkeypatch.setenv('KERNEL_EMBEDDING_MODEL_ID','explicit-embedding')
@@ -21,7 +23,7 @@ def test_official_langchain_adapter_uses_explicit_model_and_actual_text(monkeypa
   response.request=request
   return response
  monkeypatch.setattr(httpx.AsyncClient,'send',send)
- result=asyncio.run(module.embed_texts(['Actual 中文 source']))
+ result=asyncio.run(module.embed_texts(['Actual 中文 source'],REF))
  assert result=={'model':'explicit-embedding','modelVersion':'revision-1','vectors':[[0.5,0.25]]}
  assert len(seen)==1
  assert seen[0].headers['authorization']=='Bearer existing-model-secret'
@@ -38,7 +40,7 @@ def test_provider_requests_never_exceed_ten_texts(monkeypatch):
   return response
  monkeypatch.setattr(httpx.AsyncClient,'send',send)
  texts=[f'text {i}' for i in range(module._L['maxBatch'])]
- result=asyncio.run(module.embed_texts(texts))
+ result=asyncio.run(module.embed_texts(texts,REF))
  assert sizes and max(sizes)<=10 and sum(sizes)==len(texts)
  assert len(result['vectors'])==len(texts)
  assert result['vectors'][10]==[2.0,0.0]
@@ -50,8 +52,8 @@ def test_consecutive_requests_reuse_one_pooled_provider_connection(monkeypatch):
   return httpx.Response(200,json={'data':[{'index':0,'embedding':[0.1,0.2]}],'model':'explicit-embedding','usage':{'prompt_tokens':1,'total_tokens':1}},request=request)
  monkeypatch.setattr(httpx.AsyncClient,'send',send)
  async def run():
-  await module.embed_texts(['first'])
-  await module.embed_texts(['second'])
+  await module.embed_texts(['first'],REF)
+  await module.embed_texts(['second'],REF)
  asyncio.run(run())
  # A fresh client per request re-did TCP+TLS every time (~530ms vs ~220ms warm on devapp),
  # blowing the API's 400ms vector recall budget on every turn.
@@ -76,7 +78,7 @@ def test_unauthenticated_request_never_reaches_provider(monkeypatch):
 
 def test_missing_model_has_no_default_and_no_secret_in_failure(monkeypatch):
  monkeypatch.delenv('KERNEL_EMBEDDING_MODEL_ID')
- with pytest.raises(module.RetrievalEmbeddingUnavailable) as error:asyncio.run(module.embed_texts(['source']))
+ with pytest.raises(module.RetrievalEmbeddingUnavailable) as error:asyncio.run(module.embed_texts(['source'],REF))
  assert 'existing-model-secret' not in str(error.value)
 
 def test_provider_stream_limit_closes_transport_before_sdk_json(monkeypatch):

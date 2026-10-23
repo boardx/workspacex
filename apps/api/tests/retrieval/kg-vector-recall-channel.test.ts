@@ -51,7 +51,7 @@ async function drain(e: LoopbackEmbedding = embedder): Promise<void> {
   }
 }
 const recall = (port: PgKnowledgeRecall, threadId: string, query: string, userId = "u-owner") =>
-  recallThreadKnowledge(port, { orgId, userId, threadId, query }, noLog);
+  recallThreadKnowledge(port, { orgId, userId, threadId, query, accounting:{orgId:String(orgId),runId:"kg-query-run",attemptId:"kg-query-run:1",leaseEpoch:1} }, noLog);
 async function vectorRows(): Promise<{ target_kind: string; target_id: string }[]> {
   return asOwner(async (c) => (await c.query<{ target_kind: string; target_id: string }>(
     "SELECT target_kind, target_id FROM object_embeddings WHERE org_id = $1 AND model = $2 ORDER BY 1, 2", [ORG, embedder.model])).rows);
@@ -152,8 +152,8 @@ describe("S9 ③④ 召回的向量通道", () => {
 
   it("伪造候选 id 也读不到别人个人空间的向量（object_embeddings 的 target_visible 策略）；本人读得到", async () => {
     const port = new PgKnowledgeRecall(db, embedder);
-    expect(await port.vectorNeighbors(orgId, "u-member", PARAPHRASE, [fx.personalClaimId], 8)).toEqual([]);
-    const own = await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, [fx.personalClaimId], 8);
+    expect(await port.vectorNeighbors(orgId, "u-member", PARAPHRASE, [fx.personalClaimId], 8,{orgId:String(orgId),runId:"kg-query-run",attemptId:"kg-query-run:1",leaseEpoch:1})).toEqual([]);
+    const own = await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, [fx.personalClaimId], 8,{orgId:String(orgId),runId:"kg-query-run",attemptId:"kg-query-run:1",leaseEpoch:1});
     expect(own!.map((h) => h.claimId)).toEqual([fx.personalClaimId]);
     expect(own![0]!.similarity).toBeGreaterThan(0.35);
   });
@@ -162,10 +162,10 @@ describe("S9 ③④ 召回的向量通道", () => {
     const port = new PgKnowledgeRecall(db, embedder);
     const [other] = await asOwner(async (x) => (await x.query<{ id: string }>(
       "SELECT id FROM claims WHERE org_id = $1 AND statement = '项目预算是 80 万'", [ORG])).rows);
-    const hits = await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, [other!.id], 8);
+    const hits = await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, [other!.id], 8,{orgId:String(orgId),runId:"kg-query-run",attemptId:"kg-query-run:1",leaseEpoch:1});
     expect(hits!.map((h) => h.claimId)).toEqual([other!.id]);
     const before = embedder.calls;
-    expect(await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, [], 8)).toEqual([]);
+    expect(await port.vectorNeighbors(orgId, "u-owner", PARAPHRASE, [], 8,{orgId:String(orgId),runId:"kg-query-run",attemptId:"kg-query-run:1",leaseEpoch:1})).toEqual([]);
     expect(embedder.calls).toBe(before);
   });
 });

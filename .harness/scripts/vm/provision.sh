@@ -257,6 +257,7 @@ ensure_env_key() {
 }
 
 gen_secret() { openssl rand -base64 24; }
+ensure_env_key WORKSPACEX_CREDIT_RECEIPT_DIR /opt/workspacex/credit-receipts
 ensure_env_key DIAG_DB_USER app_diag_ro
 ensure_env_key DIAG_DB_PASSWORD "$(gen_secret)"
 NATIVE_RUNTIME_LIB="${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh"
@@ -264,6 +265,10 @@ NATIVE_RUNTIME_LIB="${APP_DIR}/.harness/scripts/vm/deep-agent-lib.sh"
 # shellcheck source=/dev/null
 source "$NATIVE_RUNTIME_LIB"
 native_runtime_ensure_deploy_env "$ENV_FILE" "/run/workspacex-native-sessions/skill-sandbox.sock" "1"
+# Financial metadata stays outside the checkout/build cache across releases.
+# Run as API user: a custom path cannot grant root writes or chown permissions.
+sudo -u "$APP_USER" env WORKSPACEX_CREDIT_RECEIPT_DIR="${WORKSPACEX_CREDIT_RECEIPT_DIR-/opt/workspacex/credit-receipts}" \
+  python3 "$APP_DIR/.harness/scripts/vm/ensure-credit-receipts.py"
 chmod 600 "$ENV_FILE"
 chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
 

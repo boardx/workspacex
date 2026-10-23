@@ -33,7 +33,7 @@ export function validateTagGovernance(v) {
   const reviewer=e.protection_rules?.find(r=>r.type==='required_reviewers');
   if(e.deployment_branch_policy?.custom_branch_policies!==true||e.deployment_branch_policy?.protected_branches!==false||JSON.stringify(names)!==JSON.stringify(expected)||!!reviewer!==review||(review&&!(reviewer.reviewers?.length>0)))fail('FROZEN_RELEASE_ENVIRONMENT_POLICY');
  };
- env(v.promotion,v.promotionPolicies,['main'],true);env(v.activation,v.activationPolicies,['main','main-cn'],false);
+ env(v.promotion,v.promotionPolicies,['main'],false);env(v.activation,v.activationPolicies,['main','main-cn'],false);
  const rules=v.tagRules.filter(r=>r.target==='tag'&&r.enforcement==='active'&&JSON.stringify(r.conditions?.ref_name?.include)===JSON.stringify(['refs/tags/cn-prepared-*'])&&r.conditions?.ref_name?.exclude?.length===0);
  if(rules.some(r=>!Array.isArray(r.bypass_actors)))fail('FROZEN_RELEASE_TAG_RULES_VISIBILITY');
  const immutable=rules.filter(r=>r.bypass_actors.length===0).flatMap(r=>r.rules??[]).map(r=>r.type);

@@ -9,6 +9,12 @@ import pytest
 from deep_agent_service.model import DeepAgentModelConfigError, build_chat_model
 
 
+@pytest.fixture(autouse=True)
+def mandatory_accounting_configuration(monkeypatch,tmp_path):
+    # Client-construction tests do not dispatch; use explicit bounded deployment config.
+    monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS","4096")
+    monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR",str(tmp_path))
+
 def test_build_chat_model_fails_closed_when_base_url_missing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("KERNEL_MODEL_BASE_URL", raising=False)
     monkeypatch.setenv("KERNEL_MODEL_API_KEY", "test-key")
