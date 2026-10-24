@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {generateKeyPairSync,verify} from 'node:crypto';
-import {dispatchAndWait,terminal,identity,authorizeParent,requireCandidateCI} from './devapp-exact-evidence.mjs';
+import {dispatchAndWait,terminal,identity,authorizeParent,requireCandidateCI,waitCandidateCI} from './devapp-exact-evidence.mjs';
 import {validateCoordination,signedDevapp,authorizeCandidate,boundedEnvelope,DEVAPP_EVIDENCE_MAX_BYTES,trustedGitHubCli} from './devapp-runtime-identity.mjs';
 const source='a'.repeat(40),attempt='gha-10-2',ref='refs/heads/main-cn',requestId='12345678-1234-1234-1234-123456789abc',title=`devapp-exact:${attempt}:${requestId}`;
 const run=()=>({id:12,run_attempt:1,head_sha:source,path:'.github/workflows/real-model-chat-evidence.yml',display_title:title,event:'workflow_dispatch',repository:{full_name:'boardx/workspacex'},head_repository:{full_name:'boardx/workspacex'},status:'completed',conclusion:'success',created_at:'2026-10-01T00:01:00Z'});
@@ -114,4 +114,110 @@ test('installed root CI rejects an omitted matrix shard even if loaded shards ar
 test('a ref moving after dispatch fails immediately instead of waiting for an invisible wrong-SHA child',async()=>{
  let refs=0;const api=async(method,p)=>p.startsWith('git/ref/')?{object:{sha:++refs===1?source:'b'.repeat(40)}}:method==='POST'?{}:{path:run().path,state:'active'};
  await assert.rejects(dispatchAndWait({api,source,attempt,ref,workflow:'real-model-chat-evidence.yml',requestId}));assert.equal(refs,2);
+});
+
+function waitingCI(kind){
+ let turn=0,now=0,writes=0,sleeps=0,cancelled=false,reads=0;
+ const api=async(method,p)=>{
+  if(method!=='GET'){writes++;throw Error('unexpected write');}
+  if(p.startsWith('git/ref/')){reads++;return {object:{sha:kind==='drift'&&reads>1?'b'.repeat(40):source}};}
+  const value=ciRead('repos/boardx/workspacex/'+p);
+  if(kind==='api-error')throw Error('API failure');
+  if(value.workflow_runs){
+   if(kind==='missing'&&turn===0)return {total_count:0,workflow_runs:[]};
+   if(kind==='truncated')value.total_count++;
+   if(kind==='identity')value.workflow_runs[0].repository.full_name='foreign/repo';
+   if((turn===0||['timeout','cancel','drift'].includes(kind))&&p.includes('harness-verify'))Object.assign(value.workflow_runs[0],{status:'in_progress',conclusion:null});
+   if(kind==='failure'&&p.includes('backend-gates'))value.workflow_runs[0].conclusion='failure';
+  }
+  return value;
+ };
+ return {api,source,attempt,ref,clock:()=>now,budgetMs:60001,isCancelled:()=>cancelled,
+  sleep:async ms=>{assert.ok(ms<=30000);sleeps++;now+=ms;turn++;if(kind==='cancel')cancelled=true;},
+  result:()=>({writes,sleeps,now})};
+}
+for(const kind of ['pending','missing'])test('CI wait '+kind+' becomes green before allowing dispatch continuation',async()=>{
+ const ports=waitingCI(kind);let continued=false;await waitCandidateCI(ports);continued=true;
+ assert.equal(continued,true);assert.deepEqual(ports.result(),{writes:0,sleeps:1,now:30000});
+});
+for(const kind of ['failure','identity','truncated','api-error','timeout','cancel','drift'])test('CI wait rejects '+kind+' without dispatch or other write',async()=>{
+ const ports=waitingCI(kind);let continued=false;await assert.rejects(waitCandidateCI(ports).then(()=>{continued=true;}));
+ assert.equal(continued,false);assert.equal(ports.result().writes,0);
+ if(['failure','identity','truncated','api-error'].includes(kind))assert.equal(ports.result().sleeps,0);
+});
+test('CI waiting budget cannot exceed 95 minutes',async()=>{await assert.rejects(waitCandidateCI({...waitingCI('pending'),budgetMs:95*60000+1}));});
+
+test('CI wait validates pending identity, jobs and terminal evidence instead of swallowing generic errors',async()=>{
+ for(const kind of ['bad-status','bad-conclusion','failed-job','missing-completed-job','truncated-jobs','wrong-job-source','rerun']){
+  const ports=waitingCI('pending'),read=ports.api;
+  ports.api=async(m,p)=>{
+   const value=await read(m,p);
+   if(value.workflow_runs?.length&&p.includes('harness-verify')){
+    if(kind==='bad-status')value.workflow_runs[0].status='unexpected';
+    if(kind==='bad-conclusion')value.workflow_runs[0].conclusion='failure';
+   }
+   if(value.jobs){
+    if(kind==='failed-job')value.jobs[0].conclusion='failure';
+    if(kind==='missing-completed-job'&&p.includes('/22/')){value.jobs.pop();value.total_count--;}
+    if(kind==='truncated-jobs')value.total_count++;
+    if(kind==='wrong-job-source')value.jobs[0].head_sha='b'.repeat(40);
+   }
+   if(kind==='rerun'&&p==='actions/runs/21')value.run_attempt++;
+   return value;
+  };
+  await assert.rejects(waitCandidateCI(ports),kind);assert.equal(ports.result().sleeps,0,kind);assert.equal(ports.result().writes,0,kind);
+ }
+});
+test('strict root admission continues to reject missing or pending CI without waiting',async()=>{
+ for(const kind of ['pending','missing'])await assert.rejects(requireCandidateCI(waitingCI(kind).api,source));
+});
+for(const signal of ['SIGTERM','SIGINT','SIGHUP'])test('real '+signal+' interrupts CI wait sleep without writes or continuation',async()=>{
+ const {spawn}=await import('node:child_process');
+ const script=`
+ import {waitCandidateCI} from ${JSON.stringify(new URL('./devapp-exact-evidence.mjs',import.meta.url).href)};
+ import {setTimeout as delay} from 'node:timers/promises';
+ const controller=new AbortController();
+ for(const s of ['SIGTERM','SIGINT','SIGHUP'])process.on(s,()=>controller.abort());
+ const api=async(method,path)=>{if(method!=='GET'){console.log('WRITE');throw Error('write');}return path.startsWith('git/ref/')?{object:{sha:${JSON.stringify(source)}}}:{total_count:0,workflow_runs:[]};};
+ try{await waitCandidateCI({api,source:${JSON.stringify(source)},attempt:${JSON.stringify(attempt)},ref:${JSON.stringify(ref)},signal:controller.signal,sleep:async ms=>{console.log('READY');await delay(ms,undefined,{signal:controller.signal});}});console.log('CONTINUED');}
+ catch{console.log('STOPPED');process.exitCode=1;}
+ `;
+ const child=spawn(process.execPath,['--input-type=module','-e',script],{stdio:['ignore','pipe','pipe']});let stdout='',stderr='',sent=false;
+ const timer=setTimeout(()=>child.kill('SIGKILL'),3000);
+ child.stdout.on('data',chunk=>{stdout+=chunk;if(!sent&&stdout.includes('READY')){sent=true;child.kill(signal);}});child.stderr.on('data',chunk=>{stderr+=chunk;});
+ const result=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',(code,s)=>resolve({code,signal:s}));});clearTimeout(timer);
+ assert.deepEqual(result,{code:1,signal:null},stderr);assert.match(stdout,/STOPPED/);assert.doesNotMatch(stdout,/WRITE|CONTINUED/);
+ const cli=readFileSync(new URL('./devapp-exact-evidence.mjs',import.meta.url),'utf8');assert.match(cli,/\['request','coordinate','wait-candidate-ci'\]\.includes/);assert.match(cli,/controller\.abort\(\)/);
+});
+
+for(const kind of ['pending-jobs','missing-pending-jobs'])test('CI wait handles actual '+kind+' then requires the complete successful set',async()=>{
+ const ports=waitingCI('pending'),read=ports.api;let turn=0;const sleep=ports.sleep;
+ ports.sleep=async ms=>{turn++;await sleep(ms);};
+ ports.api=async(m,p)=>{const value=await read(m,p);if(turn===0&&p.includes('/21/')&&value.jobs){
+  if(kind==='pending-jobs')Object.assign(value.jobs[0],{status:'queued',conclusion:null});
+  else{value.jobs=[];value.total_count=0;}
+ }return value;};
+ await waitCandidateCI(ports);assert.equal(ports.result().sleeps,1);assert.equal(ports.result().writes,0);
+});
+test('CI green cannot continue if desired ref drifts during the final gate read',async()=>{
+ const ports=waitingCI('pending'),read=ports.api;let checked=false;
+ ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs)for(const r of value.workflow_runs)Object.assign(r,{status:'completed',conclusion:'success'});if(p==='actions/runs/22')checked=true;if(checked&&p.startsWith('git/ref/'))value.object.sha='b'.repeat(40);return value;};
+ await assert.rejects(waitCandidateCI(ports));assert.equal(ports.result().writes,0);assert.equal(ports.result().sleeps,0);
+});
+
+test('CI wait rejects malformed non-main run identities before treating main run as missing',async()=>{
+ for(const change of [{repository:{full_name:'foreign/repo'}},{head_repository:{full_name:'foreign/repo'}},{path:'.github/workflows/foreign.yml'},{id:0},{run_attempt:0}]){
+  const ports=waitingCI('pending'),read=ports.api;
+  ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'develop'},change);return value;};
+  await assert.rejects(waitCandidateCI(ports));assert.equal(ports.result().sleeps,0);assert.equal(ports.result().writes,0);
+ }
+});
+test('CI wait permits legitimate non-main history while waiting for exact main CI',async()=>{
+ const ports=waitingCI('pending'),read=ports.api;let turn=0;const sleep=ports.sleep;
+ ports.sleep=async ms=>{turn++;await sleep(ms);};
+ ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs){
+  if(turn===0)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'develop',status:'completed',conclusion:'failure'});
+  else{value.workflow_runs.push({...value.workflow_runs[0],id:1,head_branch:'develop',status:'completed',conclusion:'failure'});value.total_count++;}
+ }return value;};
+ await waitCandidateCI(ports);assert.equal(ports.result().sleeps,1);assert.equal(ports.result().writes,0);
 });

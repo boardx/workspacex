@@ -308,27 +308,49 @@ function readSigningToken(){
  Object.assign(process.env,{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/nonexistent',LANG:'C.UTF-8',GH_TOKEN:token});
 }
 /** Single installed authority. Drivers may use sync host or async cloud reads. */
-export function* candidateCIGate(source){
- if(!sha.test(source??''))reject();const accepted={};
+export class CandidateCIPendingError extends Error {
+ constructor(){super('DEVAPP_CANDIDATE_CI_PENDING');this.name='CandidateCIPendingError';}
+}
+export function* candidateCIGate(source,{waitForPending=false}={}){
+ if(!sha.test(source??''))reject();const accepted={};let pending=false;
+ const running=new Set(['queued','in_progress','waiting','pending','requested']);
+ const checkRun=(r,workflow)=>{
+  if(r.head_sha!==source||r.head_branch!=='main'||r.event!=='push'||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1)reject();
+  if(r.status==='completed'){if(r.conclusion!=='success')reject();return false;}
+  if(!waitForPending||!running.has(r.status)||r.conclusion!==null)reject();
+  return true;
+ };
  for(const [workflow,required] of [
   ['harness-verify.yml',['verify-control-plane','verify-affected','verify-full-compile','full-regression-core','e2e-full']],
   ['backend-gates.yml',['gates-fast','gates-test','gates-runtime','e2e-core-loop','native-document-chain','native-runtime-lane']]]){
   const result=yield `repos/${repository}/actions/workflows/${workflow}/runs?head_sha=${source}&event=push&per_page=100`;
   if(!Array.isArray(result.workflow_runs)||!Number.isInteger(result.total_count)||result.total_count!==result.workflow_runs.length||result.total_count>100)reject();
-  const runs=result.workflow_runs.filter(r=>r.head_sha===source&&r.head_branch==='main'&&r.event==='push').sort((a,b)=>b.id-a.id),r=runs[0];
-  if(!r||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||r.status!=='completed'||r.conclusion!=='success'||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1)reject();
+  if(result.workflow_runs.some(r=>r.head_sha!==source||r.event!=='push'||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1))reject();
+  const runs=result.workflow_runs.filter(r=>r.head_branch==='main').sort((a,b)=>b.id-a.id),r=runs[0];
+  if(!r){if(!waitForPending)reject();pending=true;continue;}
+  const runPending=checkRun(r,workflow);pending=runPending||pending;
   const list=yield `repos/${repository}/actions/runs/${r.id}/attempts/${r.run_attempt}/jobs?per_page=100`;
-  if(!Array.isArray(list.jobs)||!Number.isInteger(list.total_count)||list.total_count!==(list.workflow_runs??list.jobs).length||list.total_count>100)reject();
+  if(!Array.isArray(list.jobs)||!Number.isInteger(list.total_count)||list.total_count!==list.jobs.length||list.total_count>100)reject();
   for(const name of required){
    const matches=list.jobs.filter(j=>j.name===name||(name==='gates-test'&&/^gates-test \(.*\)$/.test(j.name)));
-   if(!matches.length||(name!=='gates-test'&&matches.length!==1)||new Set(matches.map(j=>j.name)).size!==matches.length||matches.some(j=>j.head_sha!==source||j.run_id!==r.id||j.status!=='completed'||j.conclusion!=='success'))reject();
+   if(!matches.length){if(runPending){pending=true;continue;}reject();}
+   if((name!=='gates-test'&&matches.length!==1)||new Set(matches.map(j=>j.name)).size!==matches.length)reject();
+   for(const j of matches){
+    if(j.head_sha!==source||j.run_id!==r.id)reject();
+    if(j.status==='completed'){if(j.conclusion!=='success')reject();}
+    else if(runPending&&running.has(j.status)&&j.conclusion===null)pending=true;
+    else reject();
+   }
   }
   const current=yield `repos/${repository}/actions/runs/${r.id}`;
-  if(current.id!==r.id||current.run_attempt!==r.run_attempt||current.status!=='completed'||current.conclusion!=='success'||current.head_sha!==source)reject();
+  if(current.id!==r.id||current.run_attempt!==r.run_attempt)reject();
+  pending=checkRun(current,workflow)||pending;
   accepted[workflow]=r.id;
  }
+ if(pending)throw new CandidateCIPendingError();
  return accepted;
 }
+
 export function authorizeCandidate(source,id,attempt,readApi=api){
  if(!sha.test(source??'')||!/^[1-9][0-9]{0,15}$/.test(String(id))||!/^[1-9][0-9]{0,8}$/.test(String(attempt)))reject();
  const parent=readApi('repos/boardx/workspacex/actions/runs/'+id),jobs=readApi(`repos/boardx/workspacex/actions/runs/${id}/attempts/${attempt}/jobs?per_page=100`);

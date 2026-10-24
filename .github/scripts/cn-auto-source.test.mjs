@@ -64,7 +64,7 @@ test('workflow transports cloud source outside checkout then streams to the narr
  const w=readFileSync('.github/workflows/prepare-cn-release.yml','utf8');
  assert.match(w,/source-bundle:[\s\S]*?runs-on: ubuntu-latest/);
  assert.match(w,/fetch-depth: 0/);assert.match(w,/persist-credentials: false/);
- assert.match(w,/needs: \[source-bundle, devapp-exact-evidence\]/);assert.match(w,/needs.source-bundle.result == 'success'/);
+ assert.match(w,/needs: \[source-bundle, candidate-ci, devapp-exact-evidence\]/);assert.match(w,/needs.source-bundle.result == 'success'/);
  assert.match(w,/!inputs.auto_promote && needs.source-bundle.result == 'skipped'/);
  assert.match(w,/--auto-stage-source "\$REVISION" "gha-\$\{GITHUB_RUN_ID\}-\$\{GITHUB_RUN_ATTEMPT\}" "\$BUNDLE_SHA256" < "\$SOURCE_DIRECTORY\/source.bundle"/);
  assert.match(w,/path: \$\{\{ runner.temp \}\}\/cn-auto-source-/);

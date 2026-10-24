@@ -117,3 +117,12 @@ performed. Do not request GitHub reauthentication/App approval again for this
 removed requirement. Native Deployment, actual CI/Devapp, backup/restore,
 migration, immutable-tag byte binding and CAS remain separate release gates.
 See release-governance-removal.md for this deliberately changed boundary.
+
+Further superseding checkpoint: candidate-ci-wait.md records a separately
+budgeted, read-only cloud wait for exact main CI, independently reviewed and
+locally passing. Root default CI admission remains strict. CN public Git
+ls-remote succeeded. A root-private mirror download is running at
+/var/lib/workspacex-cn/auto-tools-source-staging-5913/source.git with a600-second
+timeout, private download.log, and canonical release lock held by its Python
+parent. Verify terminal exit, complete object state and source binding before
+using it. No trusted software or policy installation occurred in this step.

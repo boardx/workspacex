@@ -1,9 +1,11 @@
 /** Cloud coordinator. A queued child is never acceptance; each terminal attempt is re-read. */
-import {execFileSync} from 'node:child_process';
+import {execFile,execFileSync} from 'node:child_process';
 import {appendFileSync} from 'node:fs';
+import {setTimeout as delay} from 'node:timers/promises';
+import {promisify} from 'node:util';
 import {randomUUID} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
-import {identity,authorizeParent,candidateCIGate} from './devapp-runtime-identity.mjs';
+import {identity,authorizeParent,candidateCIGate,CandidateCIPendingError} from './devapp-runtime-identity.mjs';
 export {identity,authorizeParent};
 const repository='boardx/workspacex';
 const reject=()=>{throw Error('DEVAPP_EXACT_EVIDENCE_REJECTED');};
@@ -54,11 +56,12 @@ export async function dispatchAndWait({api,source,attempt,ref,workflow,inputs={}
 }
 /** Existing backend deploy admission remains the authority. Child must belong to
  * its live exact-source parent, never a different trusted-main run. */
-export function githubApi(token){
+export function githubApi(token,{signal}={}){
  return async(method,endpoint,body)=>{
   try{
    const args=['api','--method',method,`repos/${repository}/${endpoint}`];if(body)args.push('--input','-');
-   const raw=execFileSync('/usr/bin/gh',args,{input:body?JSON.stringify(body):undefined,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe'],env:{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:process.env.HOME,GH_TOKEN:token}});
+   const options={input:body?JSON.stringify(body):undefined,encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024,stdio:['pipe','pipe','pipe'],env:{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:process.env.HOME,GH_TOKEN:token},...(signal?{signal,killSignal:'SIGKILL'}:{})};
+   const raw=signal?(await promisify(execFile)('/usr/bin/gh',args,options)).stdout:execFileSync('/usr/bin/gh',args,options);
    return raw.trim()?JSON.parse(raw):{};
   }catch{reject();}
  };
@@ -68,17 +71,43 @@ export async function requireCandidateCI(api,source){
  while(!step.done)step=gate.next(await api('GET',step.value.replace('repos/boardx/workspacex/','')));
  return step.value;
 }
+/** Read-only cloud wait. Only the installed gate's explicit pending state is retryable. */
+export async function waitCandidateCI({api,source,attempt,ref,clock=Date.now,budgetMs=95*60000,isCancelled=()=>false,signal,sleep=ms=>delay(ms,undefined,{signal})}){
+ identity(source,attempt,ref);
+ if(!Number.isSafeInteger(budgetMs)||budgetMs<1||budgetMs>95*60000)reject();
+ const deadline=clock()+budgetMs;
+ const active=()=>{if(clock()>=deadline||signal?.aborted||isCancelled())reject();};
+ const read=async endpoint=>{active();const value=await api('GET',endpoint);active();return value;};
+ const desired=async()=>{if((await read(`git/ref/${ref.slice(5)}`)).object?.sha!==source)reject();};
+ for(;;){
+  await desired();
+  try{
+   const gate=candidateCIGate(source,{waitForPending:true});let step=gate.next();
+   while(!step.done)step=gate.next(await read(step.value.replace('repos/boardx/workspacex/','')));
+   await desired();return step.value;
+  }catch(error){if(!(error instanceof CandidateCIPendingError))throw error;}
+  await desired();active();await sleep(Math.min(30000,deadline-clock()));
+ }
+}
+
 async function main(){
- const api=githubApi(process.env.GH_TOKEN);
- const source=process.argv[2]==='request'?process.env.RELEASE_SHA:process.env.GITHUB_SHA,attempt=process.env.EVIDENCE_ATTEMPT||`gha-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`,ref=process.argv[2]==='request'?(process.env.CANDIDATE_REF||'refs/heads/main-cn'):process.env.GITHUB_REF;
+ const waiting=process.argv[2]==='wait-candidate-ci',controller=new AbortController();
+ const api=githubApi(process.env.GH_TOKEN,waiting?{signal:controller.signal}:{});
+ const source=['request','wait-candidate-ci'].includes(process.argv[2])?process.env.RELEASE_SHA:process.env.GITHUB_SHA,attempt=process.env.EVIDENCE_ATTEMPT||`gha-${process.env.GITHUB_RUN_ID}-${process.env.GITHUB_RUN_ATTEMPT}`,ref=['request','wait-candidate-ci'].includes(process.argv[2])?(process.env.CANDIDATE_REF||'refs/heads/main-cn'):process.env.GITHUB_REF;
  identity(source,attempt,ref);
  if(process.env.GITHUB_REPOSITORY!==repository)reject();
- let cancelled=false;const cancel=()=>{cancelled=true;};
- if(['request','coordinate'].includes(process.argv[2]))for(const s of ['SIGTERM','SIGINT','SIGHUP'])process.on(s,cancel);
+ let cancelled=false;const cancel=()=>{cancelled=true;controller.abort();};
+ if(['request','coordinate','wait-candidate-ci'].includes(process.argv[2]))for(const s of ['SIGTERM','SIGINT','SIGHUP'])process.on(s,cancel);
  if(process.argv[2]==='request'){
   const requestId=randomUUID();
   const result=await dispatchAndWait({api,source,attempt,ref,workflow:'devapp-exact-source.yml',budgetMs:85*60000,requestId,isCancelled:()=>cancelled});
   if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,`devapp_run_id=${result.id}\ndevapp_run_attempt=${result.run_attempt}\nevidence_request_id=${requestId}\n`);return;
+ }
+ if(waiting){
+  const deadline=setTimeout(()=>controller.abort(),95*60000);deadline.unref();
+  try{await waitCandidateCI({api,source,attempt,ref,signal:controller.signal,isCancelled:()=>cancelled});}
+  finally{clearTimeout(deadline);}
+  return;
  }
  if(process.argv[2]==='candidate-ci'){await requireCandidateCI(api,source);return;}
  if(process.argv[2]==='authorize-child'){

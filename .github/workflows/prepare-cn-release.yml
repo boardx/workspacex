@@ -36,8 +36,29 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  devapp-exact-evidence:
+  candidate-ci:
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.auto_promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Await exact-source main CI before Devapp
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          EVIDENCE_ATTEMPT: gha-${{ github.run_id }}-${{ github.run_attempt }}
+          CANDIDATE_REF: refs/heads/main-cn
+        run: node .harness/scripts/vm/devapp-exact-evidence.mjs wait-candidate-ci
+
+  devapp-exact-evidence:
+    needs: [candidate-ci]
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.auto_promote && needs.candidate-ci.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 95
     permissions:
@@ -103,11 +124,11 @@ jobs:
           retention-days: 1
 
   build-candidate:
-    needs: [source-bundle, devapp-exact-evidence]
+    needs: [source-bundle, candidate-ci, devapp-exact-evidence]
     if: >-
       always() && !cancelled() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
-      ((!inputs.auto_promote && needs.source-bundle.result == 'skipped' && needs.devapp-exact-evidence.result == 'skipped') ||
-       (inputs.auto_promote && needs.source-bundle.result == 'success' && needs.devapp-exact-evidence.result == 'success'))
+      ((!inputs.auto_promote && needs.source-bundle.result == 'skipped' && needs.candidate-ci.result == 'skipped' && needs.devapp-exact-evidence.result == 'skipped') ||
+       (inputs.auto_promote && needs.source-bundle.result == 'success' && needs.candidate-ci.result == 'success' && needs.devapp-exact-evidence.result == 'success'))
     environment: production-cn-build
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 45

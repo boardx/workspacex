@@ -171,3 +171,11 @@ receipts or a live full-visibility ruleset audit. No App permission was changed.
 Devapp signed evidence, actual CI, native Deployment, migration/data/recovery and
 exact-source/CAS checks remain. This removes the App authentication setup blocker;
 it does not claim that the automatic production lane is installed or accepted.
+
+Exact main CI can still be pending at the main-cn push. The new independent
+cloud wait uses the installed single-source CI gate, bounded to95 minutes,
+before starting Devapp's separate95-minute budget. Failure/identity/API errors,
+cancellation and desired-ref drift stop immediately. Independent review ACCEPT;
+parent Node56/56 and identity/promotion26/26 pass; wrapper10 pass/two existing
+platform skips. See candidate-ci-wait.md. Live CN Git metadata is reachable;
+isolated software source download started, with no completion/install claim.
