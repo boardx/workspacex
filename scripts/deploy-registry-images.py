@@ -122,7 +122,7 @@ def main():
         # The worker outlives the Actions runner and performs recovery on cancellation.
         # systemd grants recovery time rather than letting runner shutdown kill it midway.
         command=['/usr/bin/systemd-run','--wait','--collect','--quiet','--unit=wsx-image-'+args.environment+'-'+uuid.uuid4().hex,
-                 '--property=RuntimeMaxSec=900','--property=TimeoutStopSec=180','--property=KillMode=mixed',
+                 '--property=RuntimeMaxSec=900','--property=TimeoutStopSec=360','--property=KillMode=mixed',
                  '/usr/bin/python3','-I','-B',str(Path(__file__).resolve()),args.environment,args.tag,'--execute']
         return subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False).returncode
     result=deploy(args.environment,args.tag)

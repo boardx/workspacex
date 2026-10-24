@@ -60,7 +60,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      DOCKER_CONFIG: ${{ runner.temp }}/acr-probe-auth
+      DOCKER_CONFIG: /tmp/wsx-acr-probe-${{ github.run_id }}-${{ github.run_attempt }}
       REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
       REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
     steps:

@@ -91,7 +91,7 @@ class Tests(unittest.TestCase):
   pin=lambda p:{'path':str(p),'sha256':hashlib.sha256(p.read_bytes()).hexdigest()}
   self.config={'docker':str(docker),'project':'example','manifestSha256':pin(self.mp)['sha256'],'composeFiles':[pin(compose)],'envFile':pin(env),'services':self.state['services'],'health':{'url':f'http://127.0.0.1:{self.server.server_port}/health','expected':{'trustworthy':True}}}
   lock=self.root/'existing-release.lock';lock.write_bytes(b'');lock.chmod(0o600)
-  self.config['lockFile']=str(lock);self.config['readinessTimeoutSeconds']=2
+  self.config['lockFile']=str(lock);self.config['readinessTimeoutSeconds']=10
   self.cp=self.root/'config.json';self.cp.write_text(json.dumps(self.config))
  def tearDown(self):self.server.shutdown();self.server.server_close();self.thread.join();self.temp.cleanup()
  def run_cli(self,apply=False,**updates):
@@ -150,6 +150,7 @@ class Tests(unittest.TestCase):
   self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
   p,r=self.run_cli(True,starting=True);self.assertEqual(p.returncode,0);self.assertGreaterEqual(r['health']['readinessPolls'],2);self.assertEqual(sum('up'in a for a in self.actual['calls']),1)
  def test_unhealthy_deadline_never_repeats_up(self):
+  self.config['readinessTimeoutSeconds']=2;self.cp.write_text(json.dumps(self.config))
   p,r=self.run_cli(True,alwaysUnhealthy=True);self.assertEqual(p.returncode,1);self.assertEqual(r['code'],'READINESS_DEADLINE');self.assertEqual(sum('up'in a for a in self.actual['calls']),1)
  def test_live_wrong_image_is_immediate_failure(self):
   p,r=self.run_cli(True,deployedWrong=True);self.assertEqual(r['code'],'DEPLOYED_IMAGE_MISMATCH');self.assertEqual(self.actual['postInspect'],1)

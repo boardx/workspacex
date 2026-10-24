@@ -32,3 +32,9 @@ Run stdlib Python regression suites, workflow structural checks, shell syntax ch
 - Public access initially disabled (user screenshot); user explicitly approved authenticated ACR access from all IPs. UI control can enumerate tabs but repeatedly times out on page/native interactions, so no browser-side cloud mutation was claimed.
 - Implementation uses existing Dockerfile defaults resolved once to digest pins when optional base overrides are absent.
 - Cutover stays disabled until host preparation and actual deployment/rollback evidence exist. DevApp currently lacks application Compose baseline; no systemd/data migration is performed implicitly.
+
+- Final local engine regression: 21/21 passed (251s); registry 6/6 and policy 5/5 passed.
+- Actual GitHub Linux Docker/Compose/HTTP integration succeeded: https://github.com/boardx/workspacex/actions/runs/40075718728 . Includes failed candidate → automatic rollback → subsequent successful release and owner-only cleanup.
+- Official actionlint v1.7.12 checksum verified; new/modified build and integration workflows passed its checks. Corrected job-level `runner.temp` context after GitHub dispatch validation rejected it; no registry call occurred in that rejected dispatch.
+- Independent final review: no remaining actionable findings; systemd recovery grace increased to360s.
+- User enabled public ACR and removed whitelist per console semantics; public `/v2/` now responds401 with an auth challenge bound to the expected Shanghai instance. This is network reachability, not credential/push proof.

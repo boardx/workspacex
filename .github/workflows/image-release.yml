@@ -64,7 +64,7 @@ jobs:
       matrix:
         service: ${{ fromJSON(needs.plan.outputs.services) }}
     env:
-      DOCKER_CONFIG: ${{ runner.temp }}/acr-build-auth
+      DOCKER_CONFIG: /tmp/wsx-acr-build-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
       REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
       REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
       NODE_IMAGE: ${{ needs.plan.outputs.node_image }}
