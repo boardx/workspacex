@@ -76,3 +76,65 @@ Run stdlib Python regression suites, workflow structural checks, shell syntax ch
 - User enabled public ACR and removed whitelist per console semantics; public `/v2/` now responds401 with an auth challenge bound to the expected Shanghai instance. This is network reachability, not credential/push proof.
 
 Capacity blocker resolved by user expansion: DevApp disk/root filesystem100G/~99G,44G available. Both current-version preloads passed; API/Agent inventories equal. Host preparation remains in progress: existing application verification credentials are not yet established, DevApp Compose conversion and CN admission policies remain pending. No service switch has run.
+
+
+## Superseding CN-only rollout scope
+
+The human now requests CN latest first and explicitly authorizes its database
+upgrade after backup and recovery rehearsal. This supersedes the earlier
+no-database-upgrade boundary for CN only; DevApp remains deferred. Issue5917
+tracks frozen9eaedc66, build40097204900 and actual host preparation. Build/push
+and CN exact-tag preload passed; no production migration or activation ran.
+Fresh CN history confirms415 applied/16 pending. Existing wallet/transaction
+tables are absent. Current backup/recovery inputs must be prepared rather than
+reusing the historical255-row ba634319 rehearsal. Existing image-only schema guard
+remains required; this candidate requires a separate admitted migration path.
+
+
+## User-directed change: skip RDS restore rehearsal
+
+The user asked whether the console snapshot restoration could directly rewind
+current RDS and instructed that, if it could not, RDS restore-flow verification
+should be skipped for now. The observed full-instance recovery page clones a new
+RDS. Official PostgreSQL restoration documentation confirms full-instance recovery
+to a new instance; database/table recovery to the original instance does not
+overwrite existing data:
+https://help.aliyun.com/zh/rds/apsaradb-rds-for-postgresql/restoration-2/
+
+Accordingly, do not create or purchase a temporary RDS for this attempt and do not
+continue the cloud restore rehearsal. No clone order was submitted by this agent.
+The inspected draft was2c/4GB/100GB at1.17CNY/hour; this was a quote, not spend
+authorization. Snapshot selector optionId3210944770 points to the21:48 backup.
+The latest full snapshot remains available; actual recovery remains UNTESTED and
+must not be recorded as passing. CN database upgrade authorization remains in
+force, subject to migration compatibility checks and explicit recovery limitations.
+Image rollback cannot be reported as SQL/data rollback. Required new-source host
+configuration and a scoped migration deployment path remain unfinished.
+
+
+## CN final result (supersedes earlier pending-state notes)
+
+CN available2026-10-24T23:25:44+08:00 on frozen9eaedc66/build40097204900. Four immutable application images running/restart0; actual public authenticated Chromium and billing contracts passed. Complete431 migration checksums match. Schema and explicitly selected CN initialization were separate transactions; no cross-environment data copied. Encrypted current backup integrity passed, RDS restore user-waived/untested. A real failed activation automatically restored old images and passed public browser on forward schema; corrected activation-only retry succeeded without replaying database writers. Detailed evidence in `docs/evidence/registry-image-release/2026-10-24.md`; policy in `docs/operations/cn-schema-release-policy.md`. DevApp remains future work.
+
+
+```mermaid
+flowchart LR
+  C1[CN 固定版本构建并上传 ACR] --> C2[当前数据库加密备份与结构升级]
+  C2 --> C3[独立选择 CN 初始化]
+  C3 --> C4[目标镜像激活与公网验收]
+  C4 --> C5[失败自动回退实测与发布成功]
+  C5 --> C6[发布记录与代码 PR]
+  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
+  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
+  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
+  classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
+  class C1 tested
+  class C2 tested
+  class C3 tested
+  class C4 tested
+  class C5 tested
+  class C6 doing
+```
+
+CN evidence above covers the five tested nodes. RDS restore is excluded by explicit user waiver. Original combined DevApp/CN diagram records the earlier scope; DevApp and future automatic schema admission remain pending.

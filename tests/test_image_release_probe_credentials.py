@@ -82,6 +82,32 @@ class Credentials(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, '^LOGIN_HTTP_401$'):
                 m.verify_login('https://app.boardx.com.cn', 'person@example.com', 'existing-password')
 
+    def test_cli_prints_only_allowlisted_http_status(self):
+        import contextlib
+        import io
+        import runpy
+        import stat
+        from types import SimpleNamespace
+        import urllib.error
+        error = urllib.error.HTTPError('https://app.boardx.com.cn/api/auth/login', 401,
+                                      'sensitive provider text', {}, io.BytesIO(b'private response'))
+        output = io.StringIO()
+        with patch('sys.argv', ['setup', 'cn']), patch('os.geteuid', return_value=0), \
+             patch('socket.gethostname', return_value='workspacex-cn-prod'), \
+             patch('sys.stdin.isatty', return_value=True), \
+             patch('pathlib.Path.mkdir'), \
+             patch('pathlib.Path.lstat', return_value=SimpleNamespace(st_mode=stat.S_IFDIR | 0o700, st_uid=0)), \
+             patch('os.path.lexists', return_value=False), \
+             patch('builtins.input', return_value='person@example.com'), \
+             patch('getpass.getpass', return_value='existing-password'), \
+             patch('urllib.request.build_opener') as make, \
+             contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(output):
+            make.return_value.open.side_effect = error
+            with self.assertRaises(SystemExit) as stopped:
+                runpy.run_path(str(ROOT / 'scripts/image-release-probe-credentials.py'), run_name='__main__')
+            self.assertEqual(stopped.exception.code, 1)
+        self.assertEqual(output.getvalue(), 'CREDENTIAL_SETUP_FAILED LOGIN_HTTP_401\n')
+
     def test_redirect_handler_never_forwards_credentials(self):
         m = module()
         with self.assertRaisesRegex(ValueError, '^LOGIN_REDIRECT_REJECTED$'):

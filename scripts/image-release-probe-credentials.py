@@ -10,6 +10,7 @@ import getpass
 import json
 import os
 from pathlib import Path
+import re
 import socket
 import stat
 import sys
@@ -128,6 +129,10 @@ if __name__ == '__main__':
     except (KeyboardInterrupt, EOFError):
         print('CREDENTIAL_SETUP_CANCELLED', file=sys.stderr)
         raise SystemExit(1)
-    except Exception:
-        print('CREDENTIAL_SETUP_FAILED_NO_SECRET_OUTPUT', file=sys.stderr)
+    except Exception as error:
+        code = str(error) if isinstance(error, ValueError) else ''
+        if re.fullmatch(r'(?:LOGIN|NOTIFICATIONS)_(?:HTTP_(?:[1-5][0-9]{2}|0)|REJECTED)', code):
+            print('CREDENTIAL_SETUP_FAILED ' + code, file=sys.stderr)
+        else:
+            print('CREDENTIAL_SETUP_FAILED_NO_SECRET_OUTPUT', file=sys.stderr)
         raise SystemExit(1)
