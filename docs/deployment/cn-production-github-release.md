@@ -19,6 +19,9 @@ flowchart LR
 
 ## 一次性治理
 
+> **2026-10-24 superseding note：人类已明确要求移除发布治理校验；下述历史治理审计、签名治理回执、完整 bypass 可见性及为这些校验配置 App key/权限的要求，已不再作为共享 CN 自动或手动发布的前置。实际 GitHub 规则强制、native Deployment issuer/当前 attempt、exact source/CI/Devapp、不可变标签和 CAS 机制仍保留。仅替代上述治理 scope，不改变 MVP 设计签核、数据维护授权或新增 root 权限规则。** 具体生效边界见[发布治理移除记录](../evidence/cn-auto-release-5910/release-governance-removal.md)。
+
+
 1. `production-cn-build` 只允许 `main`。
 2. `production-cn-promotion` 只允许 `main`，并配置 required reviewer。这是唯一人工批准。
 3. `production-cn` 允许 `main` 和 `main-cn`，不配置 reviewer。它保留可审计的生产 deployment 记录，不产生第二次批准。

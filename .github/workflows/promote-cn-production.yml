@@ -142,45 +142,6 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Verify automatic GitHub production governance
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        working-directory: ${{ inputs.release_mode == 'app-only' && format('/opt/workspacex-cn/app-only-tools/{0}', inputs.release_sha) || github.workspace }}
-        run: |
-          set -euo pipefail
-          verify_flags=()
-          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then verify_flags=(--app-only); fi
-          promotion_json=$(mktemp)
-          promotion_policies_json=$(mktemp)
-          activation_json=$(mktemp)
-          policies_json=$(mktemp)
-          rulesets_json=$(mktemp)
-          ruleset_details=$(mktemp)
-          trap 'rm -f "${promotion_json}" "${promotion_policies_json}" "${activation_json}" "${policies_json}" "${rulesets_json}" "${ruleset_details}"' EXIT
-
-          # Exact environment/tag policies are revalidated by the shared identity gate.
-          # Native successful admission remains mandatory before activation.
-          gh api "repos/${GITHUB_REPOSITORY}/rulesets?includes_parents=true&per_page=100" > "${rulesets_json}"
-          while read -r id; do
-            gh api "repos/${GITHUB_REPOSITORY}/rulesets/${id}" >> "${ruleset_details}"
-            printf '\n' >> "${ruleset_details}"
-          done < <(node -e 'for(const v of require(process.argv[1]))if(v.target==="branch"&&v.enforcement==="active")console.log(v.id)' "${rulesets_json}")
-          node - "${ruleset_details}" <<'NODE'
-          const fs=require("node:fs");
-          const values=fs.readFileSync(process.argv[2],"utf8").trim().split(/\n+/).filter(Boolean).map(JSON.parse);
-          const applies=value=>{
-            const refs=value.conditions?.ref_name;
-            return Array.isArray(refs?.include)&&refs.include.includes("refs/heads/main-cn")&&!(refs.exclude??[]).includes("refs/heads/main-cn");
-          };
-          const rules=values.filter(applies).flatMap(value=>value.rules??[]);
-          const types=new Set(rules.map(rule=>rule.type));
-          if(types.has("required_deployments")||!types.has("deletion")||!types.has("non_fast_forward")){
-            console.error("::error::main-cn ruleset must allow automatic deployment and block deletion/non-fast-forward");
-            process.exit(1);
-          }
-          NODE
-
       - name: Validate immutable GitHub inputs
         id: release
         shell: bash

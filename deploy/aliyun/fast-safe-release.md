@@ -65,6 +65,9 @@ new exact source revision. Plan B never waives `product` or `unknown` failures.
 
 ### 签名治理收据的实时复核
 
+> **2026-10-24 superseding note：人类已明确要求移除发布治理校验；下述历史治理审计、签名治理回执、完整 bypass 可见性及为这些校验配置 App key/权限的要求，已不再作为共享 CN 自动或手动发布的前置。实际 GitHub 规则强制、native Deployment issuer/当前 attempt、exact source/CI/Devapp、不可变标签和 CAS 机制仍保留。仅替代上述治理 scope，不改变 MVP 设计签核、数据维护授权或新增 root 权限规则。** 具体生效边界见[发布治理移除记录](../../docs/evidence/cn-auto-release-5910/release-governance-removal.md)。
+
+
 签名证明收据来源，不证明 GitHub 当前仍保持原策略。冻结标签、readiness 与 admission 均重新读取两个 environment、完整 deployment policies 和所有 active tag rules（含父组织规则）。公开字段、对象 ID、environment/ruleset `updated_at` 和规则集合必须与受保护的签名收据一致；缺少版本字段或发生漂移即 NOT_READY。只有 GitHub 明确按权限隐藏的 `bypass_actors` 可在上述一致性成立后取签名值，不能把缺失当空数组。
 
 原始 governance envelope 的 SHA-256 同时进入 host snapshot、readiness request digest 和 annotated tag。刷新收据导致摘要变化时，必须创建新的受控 attempt；不能修改已有冻结标签。镜像可复用，治理证明不可跨 attempt 伪装复用。此门控仅验证权限，不修改 GitHub 策略。

@@ -2,6 +2,20 @@
 # Trusted root entrypoint used by deploy-cn-production.yml.
 set -euo pipefail
 
+if [[ ${1:-} == --auto-stage-evidence ]]; then
+  [[ ${EUID} -eq 0 && $# -eq 3 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ ]] || exit 2
+  evidence_root=/var/lib/workspacex-cn/runtime
+  [[ ! -L "$evidence_root" && "$(stat -c '%u:%g:%a' "$evidence_root")" == 0:0:700 && -f "$evidence_root/release.lock" && ! -L "$evidence_root/release.lock" && "$(stat -c '%u:%g:%a:%h' "$evidence_root/release.lock")" == 0:0:600:1 ]] || exit 3
+  exec 9<>"$evidence_root/release.lock"
+  flock -n 9 || exit 3
+  exec /usr/bin/node /usr/local/lib/workspacex-cn/cn-auto-evidence-stage.mjs "$2" "$3"
+fi
+
+if [[ ${1:-} == --auto-stage-source ]]; then
+  [[ ${EUID} -eq 0 && $# -eq 4 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ && "$4" =~ ^[a-f0-9]{64}$ ]] || exit 2
+  exec /usr/bin/python3 -I -B /usr/local/lib/workspacex-cn/cn_auto_source.py "$2" "$3" "$4"
+fi
+
 operational=0
 preflight_flags=()
 if [[ ${1:-} == --operational ]]; then operational=1; preflight_flags=(--operational); shift; fi
@@ -103,35 +117,13 @@ runner_readable_manifest() {
   [[ "$(stat -c '%U:%G:%a' "$path")" == "root:$REPOSITORY_GROUP:640" ]] || fail "release manifest must be root:$REPOSITORY_GROUP 0640: $path"
 }
 capture_baseline() {
-  local output=$1 api=workspacex-cn-api-1 web=workspacex-cn-web-1 agent=workspacex-cn-agent-1 sandbox=workspacex-cn-sandbox-1
-  local api_image web_image agent_image sandbox_image config_file nginx_hash
-  for container in "$api" "$web" "$agent" "$sandbox"; do docker inspect "$container" >/dev/null 2>&1 || fail "baseline container missing: $container"; done
-  api_image=$(docker inspect --format '{{.Image}}' "$api")
-  web_image=$(docker inspect --format '{{.Image}}' "$web")
-  agent_image=$(docker inspect --format '{{.Image}}' "$agent")
-  sandbox_image=$(docker inspect --format '{{.Image}}' "$sandbox")
-  config_file=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$api")
-  [[ "$config_file" == "$RUNTIME_ROOT"/*/compose.json ]] || fail "baseline runtime is untrusted"
-  nginx_hash=$(sha256sum "$NGINX_CONFIG" | cut -d' ' -f1)
-  node - "$output" "$config_file" "$api_image" "$web_image" "$agent_image" "$sandbox_image" "$nginx_hash" <<'NODE'
-const fs=require("node:fs");
-const [path,composeFile,api,web,agent,sandbox,nginxSha256]=process.argv.slice(2);
-const value={schemaVersion:1,composeFile,images:{api,web,agent,sandbox},nginxSha256};
-fs.writeFileSync(path,`${JSON.stringify(value)}\n`,{mode:0o600,flag:"wx"});
-NODE
-  chown root:root "$output"; chmod 0600 "$output"
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py capture "$1" >/dev/null || fail "protected compose baseline capture failed"
 }
 verify_stable_identity() {
-  local baseline_file=$1 baseline_runtime baseline_secret_directory legacy_flag=()
-  baseline_runtime=$(node -e 'const p=require("node:path");const v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_file")
-  baseline_secret_directory="$baseline_runtime/secrets"
-  if [[ -e "$baseline_runtime/stable-secret-directory.ref" ]]; then
-    private_root_file "$baseline_runtime/stable-secret-directory.ref"
-    baseline_secret_directory=$(tr -d '\n' < "$baseline_runtime/stable-secret-directory.ref")
-    [[ "$baseline_secret_directory" == "$STABLE_SECRET_DIRECTORY" ]] || fail "baseline stable secret directory drift"
-  else
-    [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && "${baseline_runtime#"$RUNTIME_ROOT"/}" =~ ^[a-f0-9]{40}$ &&
-       "$baseline_secret_directory" == "$baseline_runtime/secrets" ]] || fail "legacy baseline secret directory invalid"
+  local baseline_file=$1 identity baseline_secret_directory legacy_flag=()
+  identity=$(python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py stable "$baseline_file") || fail "protected baseline stable identity failed"
+  baseline_secret_directory=$(node -e 'process.stdout.write(JSON.parse(process.argv[1]).directory)' "$identity")
+  if [[ "$(node -e 'process.stdout.write(String(JSON.parse(process.argv[1]).legacy))' "$identity")" == true ]]; then
     legacy_flag=(--legacy-baseline)
   fi
   pnpm --filter @repo/cloud-deploy stable-secret-preflight "$baseline_secret_directory" "$STABLE_SECRET_DIRECTORY" "${legacy_flag[@]}" >/dev/null || fail "stable secret continuity preflight failed"
@@ -140,19 +132,17 @@ baseline_fingerprint() {
   pnpm --dir "$release_checkout" --filter @repo/cloud-deploy cn-fast-safe-release fingerprint "$1" "$2"
 }
 restore_baseline() {
-  local rollback_dir override compose_file
-  rollback_dir=$(mktemp -d "$runtime/.rollback.XXXXXX")
-  override="$rollback_dir/images.json"
-  compose_file=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.composeFile)' "$baseline_state")
-  node - "$baseline_state" "$override" <<'NODE'
-const fs=require("node:fs"),value=JSON.parse(fs.readFileSync(process.argv[2],"utf8"));
-fs.writeFileSync(process.argv[3],JSON.stringify({services:{api:{image:value.images.api},web:{image:value.images.web},agent:{image:value.images.agent},sandbox:{image:value.images.sandbox}}}),{mode:0o600,flag:"wx"});
-NODE
-  install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG"
-  nginx -t && systemctl reload nginx
+  local expected_nginx actual_nginx
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py verify "$baseline_state" >/dev/null || fail "protected rollback baseline changed"
+  expected_nginx=$(node -e 'process.stdout.write(require(process.argv[1]).nginxSha256)' "$baseline_state")
+  actual_nginx=$(sha256sum "$baseline_nginx" | cut -d' ' -f1)
+  [[ "$actual_nginx" == "$expected_nginx" ]] || fail "rollback nginx baseline changed"
+  install -o root -g root -m 0600 "$baseline_nginx" "$NGINX_CONFIG" || fail "baseline nginx installation failed"
+  nginx -t && systemctl reload nginx || fail "baseline nginx restore failed"
   candidate_config_action restore >/dev/null || fail "active configuration CAS restore failed"
-  docker compose -p "$PROJECT_NAME" -f "$compose_file" -f "$override" up -d --remove-orphans
-  rm -rf -- "$rollback_dir"
+  # The protected helper preserves the complete ordered file list and appends a
+  # durable exact-image override, so container labels never name deleted files.
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py restore "$baseline_state" >/dev/null || fail "baseline compose restore failed"
 }
 enable_run_drain() {
   local drain_dir candidate
@@ -207,8 +197,9 @@ if [[ "$mode" == app-only* ]]; then
 else
   install -d -o root -g root -m 0700 "$REQUESTS_DIR" "$RUNTIME_ROOT" "$PREPARATIONS_DIR" "$EVENTS_ROOT"
   install -d -o root -g root -m 0700 "$RELEASE_TREE_ROOT"
-  exec 9>"$RUNTIME_ROOT/release.lock"
-  chown root:root "$RUNTIME_ROOT/release.lock"; chmod 0600 "$RUNTIME_ROOT/release.lock"
+  private_root_file "$RUNTIME_ROOT/release.lock"
+  [[ "$(stat -c '%h' "$RUNTIME_ROOT/release.lock")" == 1 ]] || fail "release lock has multiple links"
+  exec 9<>"$RUNTIME_ROOT/release.lock"
 fi
 flock -n 9 || fail "another deployment is active"
 # Maintenance admission runs under the canonical release lock before mutations.
@@ -283,15 +274,14 @@ verify_active_release() {
 }
 
 verify_baseline_browser() {
-  local baseline_runtime public_url browser_executable
-  baseline_runtime=$(node -e 'const p=require("node:path"),v=require(process.argv[1]);process.stdout.write(p.dirname(v.composeFile))' "$baseline_state")
-  [[ "$baseline_runtime" == "$RUNTIME_ROOT"/* && -f "$baseline_runtime/bootstrap.env" && ! -L "$baseline_runtime/bootstrap.env" ]] \
-    || fail "baseline browser credentials are unavailable"
+  local bootstrap_file public_url browser_executable
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py live-match "$baseline_state" >/dev/null || fail "rollback runtime identity differs"
+  bootstrap_file=$(python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py bootstrap "$baseline_state") || fail "baseline browser credentials are unavailable"
   public_url=$(node -e 'const v=require(process.argv[1]);process.stdout.write(v.environment.publicUrl)' "$CONFIG_FILE")
   browser_executable=$(resolve_browser_executable) || fail "browser executable missing"
   cd "$release_checkout"
   CN_BROWSER_EXECUTABLE_PATH="$browser_executable" timeout 120s \
-    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$baseline_runtime/bootstrap.env" >/dev/null \
+    node .harness/scripts/vm/cn-release-browser-smoke.mjs "$public_url" "$bootstrap_file" >/dev/null \
     || fail "rollback browser smoke failed"
 }
 
@@ -357,7 +347,7 @@ if [[ "$mode" == prepare ]]; then
   [[ -z "$(git -C "$stage/checkout" status --porcelain)" ]] || fail "prepared checkout is dirty"
   # Dependencies belong to the pre-provision preparation window. Copying package
   # files avoids runner-owned pnpm-store hardlinks in the trusted release tree.
-  pnpm --dir "$stage/checkout" install --frozen-lockfile --ignore-scripts --package-import-method=copy
+  COREPACK_ENABLE_NETWORK=0 pnpm --dir "$stage/checkout" install --offline --frozen-lockfile --ignore-scripts --package-import-method=copy
   chmod -R go-w "$stage/checkout"
   mv "$stage/checkout" "$release_checkout"
   rmdir "$stage"

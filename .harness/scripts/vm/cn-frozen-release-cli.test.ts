@@ -19,16 +19,14 @@ function fixture(compatible = true, cleanRuntime = false) {
  writeFileSync(join(dir,'.github/workflows/backend-gates.yml'),workflowText);writeFileSync(join(dir,'.harness/api-test-shards.json'),JSON.stringify(sourceShardPolicy));mkdirSync(join(dir,'.harness/scripts'),{recursive:true});writeFileSync(join(dir,'.harness/scripts/ci-api-shards.mjs'),shardHelper);writeFileSync(join(dir,'.github/workflows/promote-cn-production.yml'),compatible?'# CN_FROZEN_RELEASE_DISPATCHER_V1\n':'# historical dispatcher\n');writeFileSync(join(dir,'.harness/scripts/vm/cn-frozen-release-identity.mjs'),readFileSync(helper));git('add','.');git('commit','-qm','frozen compatible candidate');const source=git('rev-parse','HEAD');
  writeFileSync(join(dir,'new-main'),'later');git('add','.');git('commit','-qm','main advances');const main=git('rev-parse','HEAD');git('remote','add','origin',dir);git('update-ref','refs/heads/main',main);git('update-ref','refs/remotes/origin/main',main);git('update-ref','refs/remotes/origin/main-cn',baseline);git('checkout','-q','--detach',source);
  const attempt='gha-fixture-1',tag=releaseTag(source,attempt),hex='c'.repeat(64),repo='boardx/workspacex';
- const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,'sha256:'+hex])),devapp:{status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,source])),browserAccepted:true,evidenceSha256:hex,workflowRunId:55}};
+ const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,'sha256:'+hex])),devapp:{status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,source])),browserAccepted:true,evidenceSha256:hex,workflowRunId:55}};
  const checks=[...policy.requiredChecks,...policy.aggregates['backend-required'].filter((n:string)=>n!=='gates-test'),'e2e-core-loop','api-test-plan',...Array.from({length:sourceShardPolicy.count},(_,i)=>`gates-test (${i+1})`)].map((name,i)=>({id:i+1,name,head_sha:source,status:'completed',conclusion:'success',app:{slug:'github-actions'},started_at:'2026-10-01T00:00:00Z',completed_at:'2026-10-01T00:01:00Z'}));
  const sourceCommit={sha:source,tree:{sha:git('rev-parse',source+'^{tree}')},parents:[{sha:baseline}]};
  const pr={number:1,merged:true,merged_at:'2026-10-01T00:02:00Z',merge_commit_sha:source,base:{ref:'main',repo:{full_name:repo}},head:{sha:source,repo:{full_name:repo}}};
  const mainAdmission={sourceCommit,associatedPrs:[pr],mainContainsSource:true,mergeTree:sourceCommit.tree.sha,mergeParentPolicy:policy,sourcePolicy:policy,prChecks:checks,prStatuses:[],sourceChecks:checks,sourceStatuses:[],deploymentWorkflow,sourceShardPolicy,sourceShardHelperSha256};
  const mainSourceEvidenceSha256=createHash('sha256').update(JSON.stringify(validateMainSourceAdmission(source,repo,mainAdmission))).digest('hex');
- const binding={releaseSourceSha:source,expectedMainCnSha:baseline,attemptId:attempt,receiptSha256:hex,governanceReceiptSha256:hex,mainSourceEvidenceSha256,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
+ const binding={releaseSourceSha:source,expectedMainCnSha:baseline,attemptId:attempt,receiptSha256:hex,mainSourceEvidenceSha256,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
  git('tag','-a',tag,'-m',JSON.stringify(frozenTagBinding(binding)),source);const tagSha=git('rev-parse','refs/tags/'+tag);
- const env=(review:boolean)=>({id:review?10:11,updated_at:'2026-10-01T00:00:00Z',protection_rules:[],deployment_branch_policy:{custom_branch_policies:true,protected_branches:false}});
- const pattern={ref_name:{include:['refs/tags/cn-prepared-*'],exclude:[]}};
  const maps:Record<string,unknown>={
   [`repos/${repo}/git/commits/${source}`]:sourceCommit,
   [`repos/${repo}/commits/${source}/pulls?per_page=100&page=1`]:[pr],
@@ -37,13 +35,6 @@ function fixture(compatible = true, cleanRuntime = false) {
   [`repos/${repo}/compare/${source}...${main}`]:{status:'ahead'},
   [`repos/${repo}/commits/${source}/check-runs?filter=all&per_page=100&page=1`]:{total_count:checks.length,check_runs:checks},
   ["apps/github-actions"]:{id:1,slug:"github-actions"},
-  [`repos/${repo}/rulesets?includes_parents=true&per_page=100&page=1`]:[{id:1,target:'tag',enforcement:'active',source_type:'Repository',source:repo},{id:2,target:'tag',enforcement:'active',source_type:'Repository',source:repo}],
-  [`repos/${repo}/rulesets/1`]:{id:1,source_type:'Repository',source:repo,updated_at:'2026-10-01T00:00:00Z',target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'}]},
-  [`repos/${repo}/rulesets/2`]:{id:2,source_type:'Repository',source:repo,updated_at:'2026-10-01T00:00:00Z',target:'tag',enforcement:'active',conditions:pattern,bypass_actors:[],rules:[{type:'update'},{type:'deletion'}]},
-  [`repos/${repo}/environments/production-cn-promotion`]:env(true),
-  [`repos/${repo}/environments/production-cn`]:env(false),
-  [`repos/${repo}/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1`]:{total_count:2,branch_policies:[{id:1,type:'branch',name:'main'},{id:2,type:'tag',name:'cn-prepared-*'}]},
-  [`repos/${repo}/environments/production-cn/deployment-branch-policies?per_page=100&page=1`]:{total_count:3,branch_policies:[{id:1,type:'branch',name:'main'},{id:2,type:'branch',name:'main-cn'},{id:3,type:'tag',name:'cn-prepared-*'}]},
   [`repos/${repo}/git/ref/heads/main-cn`]:{object:{sha:baseline}},
   [`repos/${repo}/commits/${source}/check-runs?filter=latest&per_page=100&page=1`]:{total_count:checks.length,check_runs:checks},
   [`repos/${repo}/commits/${source}/statuses?per_page=100&page=1`]:[],
@@ -61,24 +52,12 @@ function fixture(compatible = true, cleanRuntime = false) {
 describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
  it('fails NOT_READY for a historical dispatcher instead of borrowing latest main',()=>{const f=fixture(false);expect(f.run().status).toBe(3)});
  it('accepts actual ancestor candidate/tag after main advances without build or mutation',()=>{const f=fixture();expect(f.source).not.toBe(f.main);const r=f.run();expect(r.status,r.stderr).toBe(0);expect(r.stdout).toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')});
- it('accepts root-verified governance adapter when workflow token cannot see bypass fields',()=>{
-  const f=fixture(),p='repos/boardx/workspacex';
-  (f.snapshot as any).governance={schemaVersion:1,kind:'governance',repository:'boardx/workspacex',sourceSha:f.source,attemptId:'gha-fixture-1',observedAt:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+300000).toISOString(),governance:{promotion:structuredClone(f.maps[p+'/environments/production-cn-promotion']),promotionPolicies:structuredClone((f.maps[p+'/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies),activation:structuredClone(f.maps[p+'/environments/production-cn']),activationPolicies:structuredClone((f.maps[p+'/environments/production-cn/deployment-branch-policies?per_page=100&page=1'] as any).branch_policies),tagRules:structuredClone([f.maps[p+'/rulesets/1'],f.maps[p+'/rulesets/2']])}};
-  delete (f.maps[p+'/rulesets/1'] as any).bypass_actors;delete (f.maps[p+'/rulesets/2'] as any).bypass_actors;
-  expect(f.run().status).toBe(0);
-  const envkey=p+'/environments/production-cn-promotion',rulekey=p+'/rulesets/1';
-  const oldenv=structuredClone(f.maps[envkey]),oldrule=structuredClone(f.maps[rulekey]);
-  (f.maps[envkey] as any).updated_at='2026-10-01T08:00:00+08:00';
-  (f.maps[rulekey] as any).updated_at='2026-10-01T08:00:00.000+08:00';expect(f.run().status).toBe(0);
-  f.maps[envkey]=structuredClone(oldenv);f.maps[rulekey]=structuredClone(oldrule);
-
-  for(const patch of [{updated_at:'2026-10-01T00:00:00.001Z'},{updated_at:'invalid'},{updated_at:null},{updated_at:undefined},{id:99},{protection_rules:[{type:'required_reviewers',reviewers:[{type:'User',reviewer:{id:1}}]}]}]){f.maps[envkey]={...(oldenv as object),...patch};expect(f.run().status).toBe(3);}f.maps[envkey]=oldenv;
-  for(const patch of [{updated_at:'2026-10-01T00:00:00.001Z'},{updated_at:'invalid'},{updated_at:null},{updated_at:undefined},{bypass_actors:[{actor_id:1}]},{rules:[]}]){f.maps[rulekey]={...(oldrule as object),...patch};expect(f.run().status).toBe(3);}f.maps[rulekey]=oldrule;
-  const policykey=p+'/environments/production-cn-promotion/deployment-branch-policies?per_page=100&page=1',oldpolicy=structuredClone(f.maps[policykey]);(f.maps[policykey] as any).branch_policies[0].name='other';expect(f.run().status).toBe(3);f.maps[policykey]=oldpolicy;
-  const summary=p+'/rulesets?includes_parents=true&per_page=100&page=1',oldsummary=f.maps[summary];f.maps[summary]=[];expect(f.run().status).toBe(3);f.maps[summary]=oldsummary;
-  const result=f.run(),request=JSON.parse(result.stdout.split('CN_FROZEN_RELEASE_IDENTITY_JSON=')[1]).requestSha256;
-  (f.snapshot as any).governanceReceiptSha256='d'.repeat(64);expect(f.run({EXPECTED_REQUEST_SHA256:request}).status).toBe(3);(f.snapshot as any).governanceReceiptSha256='c'.repeat(64);
-  (f.snapshot as any).governance.attemptId='other';expect(f.run().status).toBe(3);
+ it('shared release CLI does not require governance files or privileged governance APIs',()=>{
+  const f=fixture();expect(Object.keys(f.maps).filter(p=>p.includes('/rulesets')||p.includes('/environments/'))).toEqual([]);
+  const result=f.run();expect(result.status,result.stderr).toBe(0);
+  const value=JSON.parse(result.stdout.split('CN_FROZEN_RELEASE_IDENTITY_JSON=')[1]);expect(value).not.toHaveProperty('governanceReceiptSha256');
+  expect(f.run({GITHUB_REF:'refs/heads/main'},'freeze-tag').status).toBe(0);
+  (f.snapshot as any).receiptSha256='d'.repeat(64);expect(f.run({EXPECTED_REQUEST_SHA256:value.requestSha256}).status).toBe(3);
  });
  it('rejects missing or unrelated merged PR and source tree drift at actual CLI',()=>{for(const mode of ['missing','unrelated','tree']){const f=fixture();if(mode==='missing')f.maps[`repos/boardx/workspacex/commits/${f.source}/pulls?per_page=100&page=1`]=[];else if(mode==='unrelated')(f.maps['repos/boardx/workspacex/pulls/1'] as any).merge_commit_sha=f.baseline;else (f.maps[`repos/boardx/workspacex/git/commits/${f.source}`] as any).tree.sha=f.baseline;const r=f.run();expect(r.status,r.stderr).toBe(3);expect(r.stdout).not.toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')}});
  it('actual source dynamic plan rejects missing final shard or plan job at CLI',()=>{for(const name of ['gates-test (8)','api-test-plan']){const f=fixture(),key=`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`;const v:any=f.maps[key];v.check_runs=v.check_runs.filter((c:any)=>c.name!==name);v.total_count=v.check_runs.length;const r=f.run();expect(r.status,r.stderr).toBe(3);expect(r.stdout).not.toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')}});
@@ -94,7 +73,7 @@ describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
   f.maps[`${prefix}/deployments?sha=${f.source}&environment=production-cn-promotion&per_page=100&page=1`]=[{id:1,sha:f.source,ref:f.tag,environment:'production-cn-promotion',creator:actor,performed_via_github_app:{id:1,slug:'github-actions'}}];
   f.maps[`${prefix}/deployments/1/statuses?per_page=100&page=1`]=[{created_at:'2026-10-01T00:00:00Z',state:'success',creator:actor,performed_via_github_app:null,log_url:url}];
   const r=f.run({},'verify-admission');expect(r.status,r.stderr).toBe(0);
-  const rulekey=`${prefix}/rulesets/2`,prior=f.maps[rulekey];f.maps[rulekey]={...(prior as object),bypass_actors:undefined};expect(f.run().status).toBe(3);f.maps[rulekey]=prior;
+  f.maps['apps/github-actions']={id:1,slug:'other'};expect(f.run({},'verify-admission').status).toBe(3);f.maps['apps/github-actions']={id:1,slug:'github-actions'};
   f.maps[key]={total_count:1,jobs:[{...job,conclusion:'failure'}]};expect(f.run({},'verify-admission').status).toBe(3);
  });
 

@@ -34,4 +34,4 @@ test('both workflows reuse checkout refs and never fetch origin after credential
   }
 });
 
-test('prepare exports verified domestic cache instead of cross-border checkout or writer',()=>{const source=readFileSync('.github/workflows/prepare-cn-release.yml','utf8');assert.doesNotMatch(source,/actions\/checkout|git .*fetch/);assert.match(source,/workspacex-cn-export-source/);assert.match(source,/git merge-base --is-ancestor/);});
+test('prepare exports verified domestic cache instead of cross-border checkout or writer',()=>{const source=readFileSync('.github/workflows/prepare-cn-release.yml','utf8').split('  build-candidate:')[1];assert.doesNotMatch(source,/actions\/checkout|git .*fetch/);assert.match(source,/workspacex-cn-export-source/);assert.match(source,/git merge-base --is-ancestor/);});

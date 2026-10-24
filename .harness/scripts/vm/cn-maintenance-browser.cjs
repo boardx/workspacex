@@ -9,7 +9,7 @@ function validatePlan(p){
  const url=new URL(p.publicUrl);check(url.protocol==='https:'&&!url.username&&!url.password&&!url.search&&!url.hash&&url.pathname==='/','BROWSER_ORIGIN');
  for(const key of ['agentId','threadId','feedbackId','skillVersionId'])check(/^[a-zA-Z0-9_-]{1,128}$/.test(p[key]),'BROWSER_ID');
  check(Number.isSafeInteger(p.githubIssueNumber)&&p.githubIssueNumber>0&&/^[a-f0-9]{64}$/.test(p.audioSha256),'BROWSER_FIXTURE');
- check(p.audioPath.startsWith('/etc/workspacex-cn/maintenance-activation/')&&!p.audioPath.split('/').includes('..')&&p.browserExecutable.startsWith('/')&&!p.browserExecutable.split('/').includes('..')&&p.playwrightModule.startsWith('/opt/workspacex-cn/release-tools/')&&!p.playwrightModule.split('/').includes('..'),'BROWSER_RUNTIME_SCOPE');
+ check(p.audioPath.startsWith('/etc/workspacex-cn/maintenance-activation/')&&!p.audioPath.split('/').includes('..')&&p.browserExecutable.startsWith('/')&&!p.browserExecutable.split('/').includes('..')&&['/var/lib/workspacex-cn/auto-preparation-tools/','/opt/workspacex-cn/release-tools/'].some(prefix=>p.playwrightModule.startsWith(prefix))&&!p.playwrightModule.split('/').includes('..'),'BROWSER_RUNTIME_SCOPE');
  check(!p.skillSentinel.includes('loopback')&&!p.expectedTranscript.includes('loopback'),'REAL_PROVIDER_REQUIRED');return p;
 }
 function finishedRun(text){

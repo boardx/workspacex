@@ -37,24 +37,7 @@ protected_file() {
   [[ "$(stat -c '%U:%G:%a' "$path")" == root:root:600 ]] || fail "protected preparation evidence permissions differ"
 }
 capture_baseline() {
-  local output=$1 api=workspacex-cn-api-1 web=workspacex-cn-web-1 agent=workspacex-cn-agent-1 sandbox=workspacex-cn-sandbox-1
-  local api_image web_image agent_image sandbox_image config_file nginx_hash
-  for container in "$api" "$web" "$agent" "$sandbox"; do
-    docker inspect "$container" >/dev/null 2>&1 || fail "baseline container is unavailable"
-  done
-  api_image=$(docker inspect --format '{{.Image}}' "$api")
-  web_image=$(docker inspect --format '{{.Image}}' "$web")
-  agent_image=$(docker inspect --format '{{.Image}}' "$agent")
-  sandbox_image=$(docker inspect --format '{{.Image}}' "$sandbox")
-  config_file=$(docker inspect --format '{{index .Config.Labels "com.docker.compose.project.config_files"}}' "$api")
-  [[ "$config_file" == "$RUNTIME_ROOT"/*/compose.json ]] || fail "baseline runtime is untrusted"
-  [[ -f "$NGINX_CONFIG" && ! -L "$NGINX_CONFIG" ]] || fail "baseline nginx configuration is unavailable"
-  nginx_hash=$(sha256sum "$NGINX_CONFIG" | cut -d' ' -f1)
-  node - "$output" "$config_file" "$api_image" "$web_image" "$agent_image" "$sandbox_image" "$nginx_hash" <<'NODE'
-const fs=require("node:fs");
-const [path,composeFile,api,web,agent,sandbox,nginxSha256]=process.argv.slice(2);
-fs.writeFileSync(path,`${JSON.stringify({schemaVersion:1,composeFile,images:{api,web,agent,sandbox},nginxSha256})}\n`,{mode:0o600,flag:"wx"});
-NODE
+  python3 /usr/local/lib/workspacex-cn/cn_compose_baseline.py capture "$1" >/dev/null || fail "protected compose baseline capture failed"
 }
 
 [[ -d "$REPOSITORY_DIR/.git" ]] || fail "release repository is unavailable"
@@ -157,24 +140,20 @@ provenance="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/devapp-ac
 protected_file "$provenance"
 raw_devapp_evidence="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/devapp-evidence.bin"
 protected_file "$raw_devapp_evidence"
-governance_receipt="/etc/workspacex-cn/candidate-configs/$revision/$attempt_id/governance-evidence.json"
-protected_file "$governance_receipt"
-node --input-type=module - "$revision" "$attempt_id" "$fast_safe_receipt" "$manifest" "$provenance" "$raw_devapp_evidence" "$governance_receipt" <<'NODE' || fail "frozen candidate identity/provenance is not ready"
+node --input-type=module - "$revision" "$attempt_id" "$fast_safe_receipt" "$manifest" "$provenance" "$raw_devapp_evidence" <<'NODE' || fail "frozen candidate identity/provenance is not ready"
 import fs from "node:fs";import crypto from "node:crypto";
 import {protectedRead,validateEnvelope,validateDevapp} from "/usr/local/lib/workspacex-cn/cn-controlled-evidence.mjs";
-const [source,attempt,receiptPath,manifestPath,provenancePath,rawEvidencePath,governancePath]=process.argv.slice(2);
+const [source,attempt,receiptPath,manifestPath,provenancePath,rawEvidencePath]=process.argv.slice(2);
 const bytes=fs.readFileSync(receiptPath),receipt=JSON.parse(bytes),manifestBytes=fs.readFileSync(manifestPath),manifest=JSON.parse(manifestBytes);
 const devapp=JSON.parse(fs.readFileSync(provenancePath,"utf8"));
 const signedDevapp=validateEnvelope(JSON.parse(protectedRead(rawEvidencePath)),protectedRead("/etc/workspacex-cn/devapp-evidence-public.pem"),source,attempt,"devapp");
 const derived=validateDevapp(signedDevapp.raw,source);
 if(Object.entries(derived).some(([k,v])=>JSON.stringify(devapp[k])!==JSON.stringify(v)))process.exit(1);
-const governanceBytes=protectedRead(governancePath);
-const governance=validateEnvelope(JSON.parse(governanceBytes),protectedRead("/etc/workspacex-cn/governance-public.pem"),source,attempt,"governance");
 const hash=v=>crypto.createHash("sha256").update(v).digest("hex"),services=["api","web","agent","sandbox"];
 if(receipt.sourceRevision!==source||devapp.status!=="passed"||devapp.sourceSha!==source||devapp.browserAccepted!==true||!Number.isSafeInteger(devapp.workflowRunId)||devapp.workflowRunId<=0||!/^[a-f0-9]{64}$/.test(devapp.evidenceSha256??"")||services.some(k=>devapp.runtimeSourceShas?.[k]!==source))process.exit(1);
 if(hash(fs.readFileSync(rawEvidencePath))!==devapp.evidenceSha256)process.exit(1);
 const safeDevapp={status:devapp.status,sourceSha:devapp.sourceSha,runtimeSourceShas:Object.fromEntries(services.map(k=>[k,devapp.runtimeSourceShas[k]])),browserAccepted:devapp.browserAccepted,evidenceSha256:devapp.evidenceSha256,workflowRunId:devapp.workflowRunId,workflowRunAttempt:devapp.workflowRunAttempt};
-const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hash(bytes),manifestSha256:hash(manifestBytes),baselineSha256:receipt.baselineSha256,images:receipt.images,devapp:safeDevapp,governance,governanceReceiptSha256:hash(governanceBytes)};
+const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hash(bytes),manifestSha256:hash(manifestBytes),baselineSha256:receipt.baselineSha256,images:receipt.images,devapp:safeDevapp};
 if(manifest.sourceRevision!==source||snapshot.manifestSha256!==receipt.manifestSha256)process.exit(1);
 console.log("CN_PROMOTION_IDENTITY_JSON="+JSON.stringify(snapshot));
 NODE
