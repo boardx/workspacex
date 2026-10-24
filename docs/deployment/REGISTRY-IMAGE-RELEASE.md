@@ -154,3 +154,21 @@ release documentation into the host's business probe configuration.
 Implementation tests are not production acceptance. ACR public access,
 credentials, base image pins, the DevApp Compose conversion and installed host
 policies must be observed on the actual environments before the switch is set.
+
+
+### One-time existing verification account input
+
+When the human authorizes storing an existing application login for unattended
+verification, a root operator can run the reviewed
+`scripts/image-release-probe-credentials.py cn` (or `devapp`) on the corresponding
+host. It requires that environment's exact hostname and a TTY; the password is
+entered through a hidden prompt, never argv. Fixed HTTPS login and notifications
+must pass before root0600 no-replace publication to
+`/etc/workspacex-image-release/<environment>-browser.env`.
+This does not create an account or change its password, does not save tokens and
+is not part of the runner's sudo allowlist. No account/password is included in
+source or evidence. Existing files are never overwritten; account lifecycle is a
+separate human-controlled operation. The env file uses the browser smoke's literal
+first-`=` parser. Never shell-source it or load it with a parser that interprets
+quotes, expansion, comments or whitespace. Configuring these inputs does not by
+itself install the fixed business probe or prove deployment/rollback acceptance.

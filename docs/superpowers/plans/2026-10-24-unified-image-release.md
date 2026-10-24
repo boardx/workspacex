@@ -32,7 +32,8 @@ flowchart LR
   classDef pending fill:#eee,stroke:#888
   class A,B,C tested
   class D tested
-  class E blocked
+  classDef doing fill:#fff3bf,stroke:#f08c00
+  class E doing
   class F,G,H pending
 ```
 
@@ -74,4 +75,4 @@ Run stdlib Python regression suites, workflow structural checks, shell syntax ch
 - Independent final review: no remaining actionable findings; systemd recovery grace increased to360s.
 - User enabled public ACR and removed whitelist per console semantics; public `/v2/` now responds401 with an auth challenge bound to the expected Shanghai instance. This is network reachability, not credential/push proof.
 
-Current host preparation blocker: DevApp current-version preload reached its free-space guard after four application pulls. Targeted cleanup of this task's unused newer candidate was submitted; result must be read before retry. CN baseline preload result also remains to be collected.
+Capacity blocker resolved by user expansion: DevApp disk/root filesystem100G/~99G,44G available. Both current-version preloads passed; API/Agent inventories equal. Host preparation remains in progress: existing application verification credentials are not yet established, DevApp Compose conversion and CN admission policies remain pending. No service switch has run.
