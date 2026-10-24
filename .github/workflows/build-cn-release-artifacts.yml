@@ -114,9 +114,9 @@ jobs:
       - uses: actions/download-artifact@v6
         with:
           name: host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/../wsx-host-installation-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Report account and exact denied resource without elevation
-        working-directory: ${{ runner.temp }}/host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
+        working-directory: ${{ runner.temp }}/../wsx-host-installation-${{ github.run_id }}-${{ github.run_attempt }}
         env:
           EXPECTED_SHA256: ${{ needs.host-permission-source.outputs.sha256 }}
         run: |
