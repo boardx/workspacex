@@ -83,14 +83,28 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-          sparse-checkout: scripts/image-release-host-permissions.py
+          sparse-checkout: |
+            scripts/image-release-host-permissions.py
+            scripts/install-image-release.sh
+            scripts/deploy-registry-images.py
+            scripts/registry-images.py
+            scripts/minimal-docker-release.py
+            scripts/hosted-release.py
+            scripts/canonical_control.py
           sparse-checkout-cone-mode: false
       - id: pin
         run: echo "sha256=$(sha256sum scripts/image-release-host-permissions.py | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v6
         with:
           name: host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
-          path: scripts/image-release-host-permissions.py
+          path: |
+            scripts/image-release-host-permissions.py
+            scripts/install-image-release.sh
+            scripts/deploy-registry-images.py
+            scripts/registry-images.py
+            scripts/minimal-docker-release.py
+            scripts/hosted-release.py
+            scripts/canonical_control.py
           retention-days: 1
   host-permissions:
     needs: host-permission-source
