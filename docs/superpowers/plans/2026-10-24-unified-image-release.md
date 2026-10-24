@@ -32,7 +32,8 @@ flowchart LR
   classDef pending fill:#eee,stroke:#888
   class A,B,C tested
   class D tested
-  class E,F,G,H pending
+  class E blocked
+  class F,G,H pending
 ```
 
 Actual initial candidate inventory: DevApp has seven pending database migrations,
@@ -43,7 +44,7 @@ the hosted producer first and keep database upgrades separate. Added a build-onl
 exact source selector: control scripts remain at the workflow revision, while
 Dockerfiles, application context, revision labels and tag identify the selected
 source. Source overrides cannot deploy. The source selector and wrapper binding
-have regression coverage; actual baseline builds and rollout remain pending.
+have regression coverage; both current-version baseline builds now passed; real-host rollout remains pending.
 See the dated evidence document for actual host observations.
 
 ## Constraints / rollout boundaries
@@ -72,3 +73,5 @@ Run stdlib Python regression suites, workflow structural checks, shell syntax ch
 - Official actionlint v1.7.12 checksum verified; new/modified build and integration workflows passed its checks. Corrected job-level `runner.temp` context after GitHub dispatch validation rejected it; no registry call occurred in that rejected dispatch.
 - Independent final review: no remaining actionable findings; systemd recovery grace increased to360s.
 - User enabled public ACR and removed whitelist per console semantics; public `/v2/` now responds401 with an auth challenge bound to the expected Shanghai instance. This is network reachability, not credential/push proof.
+
+Current host preparation blocker: DevApp current-version preload reached its free-space guard after four application pulls. Targeted cleanup of this task's unused newer candidate was submitted; result must be read before retry. CN baseline preload result also remains to be collected.
