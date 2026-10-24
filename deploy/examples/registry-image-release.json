@@ -1,0 +1,16 @@
+{
+  "environment": "devapp",
+  "registryPrefix": "registry.example.com/existing-namespace",
+  "docker": "/usr/bin/docker",
+  "dockerConfig": "/etc/workspacex-image-release/docker",
+  "stateDirectory": "/var/lib/workspacex-image-release/devapp",
+  "lockFile": "/run/workspacex-devapp-deploy.lock",
+  "project": "workspacex",
+  "composeFiles": [{"path": "/etc/workspacex-image-release/runtime/compose.json", "sha256": "REPLACE_WITH_OBSERVED_SHA256"}],
+  "envFile": {"path": "/etc/workspacex-image-release/runtime/compose.env", "sha256": "REPLACE_WITH_OBSERVED_SHA256"},
+  "services": {"api": "api", "web": "web", "agent": "agent", "sandbox": "sandbox", "sandbox-sessions": "sandbox"},
+  "health": {"url": "https://devapp.boardx.us/api/healthz", "expected": {"trustworthy": true}},
+  "verificationCommand": ["/usr/local/bin/workspacex-release-business-probe"],
+  "verificationFiles": [{"path": "/usr/local/bin/workspacex-release-business-probe", "sha256": "REPLACE_WITH_OBSERVED_SHA256"}],
+  "readinessTimeoutSeconds": 120
+}

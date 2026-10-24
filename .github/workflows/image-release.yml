@@ -1,0 +1,177 @@
+name: image-release
+run-name: "Image release ${{ inputs.environment || github.ref_name }} ${{ inputs.tag || github.sha }}"
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        default: devapp
+      tag:
+        type: string
+        default: ''
+      service:
+        type: string
+        default: all
+      build_only:
+        type: boolean
+        default: true
+  push:
+    branches: [develop, main-cn]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        type: choice
+        options: [devapp, cn]
+      service:
+        description: Diagnostic service selector (requires build_only)
+        required: false
+        default: all
+        type: choice
+        options: [all, api, web, agent, sandbox, postgres]
+      build_only:
+        description: Build and publish only, without any host deployment
+        required: false
+        default: false
+        type: boolean
+      tag:
+        description: Existing immutable tag (empty builds this commit first)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    # Deliberate cutover: legacy writers use the inverse of this same switch.
+    # Manual execution can validate a prepared environment before automatic cutover.
+    if: >-
+      (vars.WSX_IMAGE_RELEASE_ENABLED == 'true' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || inputs.build_only))
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      services: ${{ steps.plan.outputs.services }}
+      target: ${{ steps.plan.outputs.target }}
+      environment: ${{ steps.plan.outputs.environment }}
+      runner: ${{ steps.plan.outputs.runner }}
+      build: ${{ steps.plan.outputs.build }}
+      group: ${{ steps.plan.outputs.group }}
+      fullset: ${{ steps.plan.outputs.fullset }}
+      node_image: ${{ steps.plan.outputs.node_image }}
+      python_image: ${{ steps.plan.outputs.python_image }}
+      pgvector_image: ${{ steps.plan.outputs.pgvector_image }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Resolve immutable tag and environment
+        id: plan
+        env:
+          SOURCE_REVISION: ${{ github.sha }}
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+          EXISTING_TAG: ${{ inputs.tag }}
+          BUILD_ONLY: ${{ inputs.build_only }}
+          BUILD_SERVICE: ${{ inputs.service }}
+          NODE_IMAGE: ${{ vars.WSX_NODE_IMAGE }}
+          PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
+          PGVECTOR_IMAGE: ${{ vars.WSX_POSTGRES_IMAGE }}
+        run: python3 -B scripts/registry-images.py plan --source "$SOURCE_REVISION" --resolve-bases
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(needs.plan.outputs.services) }}
+    env:
+      DOCKER_CONFIG: /tmp/wsx-acr-build-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
+      REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
+      REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+      NODE_IMAGE: ${{ needs.plan.outputs.node_image }}
+      PYTHON_IMAGE: ${{ needs.plan.outputs.python_image }}
+      PGVECTOR_IMAGE: ${{ needs.plan.outputs.pgvector_image }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Authenticate to ACR public endpoint
+        env:
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
+        run: python3 -B scripts/registry-images.py login
+      - name: Build and publish service
+        env:
+          SERVICE: ${{ matrix.service }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+        run: python3 -B scripts/registry-images.py build --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-image-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
+          path: result/*.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove registry credentials
+        if: always()
+        run: rm -rf -- "$DOCKER_CONFIG"
+
+  manifest:
+    needs: [plan, build]
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.fullset == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-image-${{ github.run_id }}-${{ github.run_attempt }}-*
+          merge-multiple: true
+          path: results
+      - name: Require complete image set from this attempt
+        env:
+          REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+        run: python3 -B scripts/registry-images.py aggregate --directory results --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output release.json
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 90
+
+  deploy:
+    needs: [plan, build, manifest]
+    if: >-
+      always() && !cancelled() && !inputs.build_only && needs.plan.result == 'success' &&
+      ((needs.plan.outputs.build == 'true' && needs.build.result == 'success' && needs.manifest.result == 'success') ||
+       (needs.plan.outputs.build == 'false' && needs.build.result == 'skipped' && needs.manifest.result == 'skipped'))
+    runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}
+    environment: ${{ needs.plan.outputs.environment }}
+    timeout-minutes: 25
+    concurrency:
+      group: ${{ needs.plan.outputs.group }}
+      cancel-in-progress: false
+    steps:
+      # No checkout or sudo execution of checkout code on production.
+      - name: Reject an automatic release superseded while its images built
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)
+          test "$actual" = "$EXPECTED_SOURCE" || { echo 'Automatic release superseded by a newer push'; exit 1; }
+      - name: Pull tag, deploy, verify and recover automatically on failure
+        env:
+          TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+        run: sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG"

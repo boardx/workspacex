@@ -24,6 +24,22 @@ on:
         value: ${{ jobs.seal.outputs.sealed_artifact }}
   workflow_dispatch:
     inputs:
+      shared_image_service:
+        description: Optional service diagnostic; all publishes a complete release set
+        required: false
+        default: all
+        type: choice
+        options: [all, api, web, agent, sandbox, postgres]
+      shared_images_only:
+        description: Build and push shared ACR images on hosted runners; no host preparation or deployment
+        required: false
+        default: false
+        type: boolean
+      registry_probe_only:
+        description: Only test public ACR login and push/pull; do not build or deploy applications
+        required: false
+        default: false
+        type: boolean
       release_sha:
         description: Exact 40-hex main source commit
         required: true
@@ -50,7 +66,52 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  shared-images:
+    if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only
+    uses: ./.github/workflows/image-release.yml
+    with:
+      environment: devapp
+      service: ${{ inputs.shared_image_service }}
+      build_only: true
+    secrets: inherit
+
+  registry-probe:
+    if: github.event_name == 'workflow_dispatch' && inputs.registry_probe_only
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      DOCKER_CONFIG: /tmp/wsx-acr-probe-${{ github.run_id }}-${{ github.run_attempt }}
+      REGISTRY: ${{ vars.WSX_ACR_REGISTRY }}
+      REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Authenticate without printing credentials
+        env:
+          ACR_USERNAME: ${{ secrets.WSX_ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.WSX_ACR_PASSWORD }}
+        run: python3 -B scripts/registry-images.py login
+      - name: Push and read back an isolated scratch probe
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/acr-probe"
+          printf 'ACR probe %s attempt %s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > "$RUNNER_TEMP/acr-probe/marker"
+          printf 'FROM scratch\nCOPY marker /marker\n' > "$RUNNER_TEMP/acr-probe/Dockerfile"
+          image="$REGISTRY_PREFIX/api:acr-probe-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          docker build --network=none --tag "$image" "$RUNNER_TEMP/acr-probe"
+          before=$(docker image inspect "$image" --format '{{.Id}}')
+          docker push "$image"
+          docker pull "$image"
+          after=$(docker image inspect "$image" --format '{{.Id}}')
+          test "$before" = "$after"
+          echo 'ACR login, push and pull verified; no application deployment performed.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove credentials
+        if: always()
+        run: rm -rf -- "$DOCKER_CONFIG"
+
   validate:
+    if: ${{ !inputs.registry_probe_only && !inputs.shared_images_only }}
     runs-on: ubuntu-24.04
     environment: production-cn-build
     env:
