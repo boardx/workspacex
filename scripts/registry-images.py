@@ -133,7 +133,7 @@ def main():
         need(result.returncode==0,'ACR_LOGIN_FAILED')
     elif args.operation=='plan':
         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
-        need(event=='workflow_dispatch' and branch=='main' or event=='push' and branch in ('develop','main-cn'),'RELEASE_EVENT_NOT_ALLOWED')
+        need(event=='workflow_dispatch' and (branch=='main' or os.environ.get('BUILD_ONLY')=='true') or event=='push' and branch in ('develop','main-cn'),'RELEASE_EVENT_NOT_ALLOWED')
         target=os.environ.get('TARGET_ENVIRONMENT') if event=='workflow_dispatch' else {'develop':'devapp','main-cn':'cn'}[branch]
         need(target in ('devapp','cn'),'INVALID_ENVIRONMENT')
         existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''

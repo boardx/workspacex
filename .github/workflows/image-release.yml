@@ -2,6 +2,17 @@ name: image-release
 run-name: "Image release ${{ inputs.environment || github.ref_name }} ${{ inputs.tag || github.sha }}"
 
 on:
+  workflow_call:
+    inputs:
+      environment:
+        type: string
+        default: devapp
+      tag:
+        type: string
+        default: ''
+      build_only:
+        type: boolean
+        default: true
   push:
     branches: [develop, main-cn]
   workflow_dispatch:
@@ -11,6 +22,11 @@ on:
         required: true
         type: choice
         options: [devapp, cn]
+      build_only:
+        description: Build and publish only, without any host deployment
+        required: false
+        default: false
+        type: boolean
       tag:
         description: Existing immutable tag (empty builds this commit first)
         required: false
@@ -25,7 +41,7 @@ jobs:
     # Manual execution can validate a prepared environment before automatic cutover.
     if: >-
       (vars.WSX_IMAGE_RELEASE_ENABLED == 'true' && github.event_name == 'push') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+      (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || inputs.build_only))
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.plan.outputs.tag }}
@@ -48,6 +64,7 @@ jobs:
           SOURCE_REVISION: ${{ github.sha }}
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           EXISTING_TAG: ${{ inputs.tag }}
+          BUILD_ONLY: ${{ inputs.build_only }}
           NODE_IMAGE: ${{ vars.WSX_NODE_IMAGE }}
           PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
           PGVECTOR_IMAGE: ${{ vars.WSX_POSTGRES_IMAGE }}
@@ -123,7 +140,7 @@ jobs:
   deploy:
     needs: [plan, build, manifest]
     if: >-
-      always() && !cancelled() && needs.plan.result == 'success' &&
+      always() && !cancelled() && !inputs.build_only && needs.plan.result == 'success' &&
       ((needs.plan.outputs.build == 'true' && needs.build.result == 'success' && needs.manifest.result == 'success') ||
        (needs.plan.outputs.build == 'false' && needs.build.result == 'skipped' && needs.manifest.result == 'skipped'))
     runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}

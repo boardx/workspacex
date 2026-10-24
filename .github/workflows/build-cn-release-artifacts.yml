@@ -24,6 +24,11 @@ on:
         value: ${{ jobs.seal.outputs.sealed_artifact }}
   workflow_dispatch:
     inputs:
+      shared_images_only:
+        description: Build and push shared ACR images on hosted runners; no host preparation or deployment
+        required: false
+        default: false
+        type: boolean
       registry_probe_only:
         description: Only test public ACR login and push/pull; do not build or deploy applications
         required: false
@@ -55,6 +60,14 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  shared-images:
+    if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only
+    uses: ./.github/workflows/image-release.yml
+    with:
+      environment: devapp
+      build_only: true
+    secrets: inherit
+
   registry-probe:
     if: github.event_name == 'workflow_dispatch' && inputs.registry_probe_only
     runs-on: ubuntu-24.04
@@ -78,7 +91,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/acr-probe"
           printf 'ACR probe %s attempt %s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > "$RUNNER_TEMP/acr-probe/marker"
           printf 'FROM scratch\nCOPY marker /marker\n' > "$RUNNER_TEMP/acr-probe/Dockerfile"
-          image="$REGISTRY_PREFIX/release-probe:$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          image="$REGISTRY_PREFIX/api:acr-probe-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           docker build --network=none --tag "$image" "$RUNNER_TEMP/acr-probe"
           before=$(docker image inspect "$image" --format '{{.Id}}')
           docker push "$image"
@@ -91,7 +104,7 @@ jobs:
         run: rm -rf -- "$DOCKER_CONFIG"
 
   validate:
-    if: ${{ !inputs.registry_probe_only }}
+    if: ${{ !inputs.registry_probe_only && !inputs.shared_images_only }}
     runs-on: ubuntu-24.04
     environment: production-cn-build
     env:
