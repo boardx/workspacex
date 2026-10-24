@@ -1,0 +1,12 @@
+{
+  "observedAt": "2026-10-17T03:51:47Z",
+  "run": 38852606085,
+  "artifactId": 12026330469,
+  "action": "GET original candidate-set ZIP through GitHub artifact API",
+  "status": "BLOCKED",
+  "reason": "redirected artifact blob request returned Forbidden in this cloud environment",
+  "originalBytesObtained": false,
+  "productionTransferPerformed": false,
+  "fiveImageDownloadsAttempted": false,
+  "retryOrReplacementBuildPerformed": false
+}

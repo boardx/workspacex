@@ -1,0 +1,22 @@
+test_attempt_scope_cannot_be_latest_or_foreign_prefix (test_cn_hk_original_artifact_upload.Tests.test_attempt_scope_cannot_be_latest_or_foreign_prefix) ... ok
+test_attempt_two_provider_path_and_original_zip (test_cn_hk_original_artifact_upload.Tests.test_attempt_two_provider_path_and_original_zip) ... ok
+test_bucket_principal (test_cn_hk_original_artifact_upload.Tests.test_bucket_principal) ... ok
+test_checked_in_historical_plan_cannot_authorize_changed_code (test_cn_hk_original_artifact_upload.Tests.test_checked_in_historical_plan_cannot_authorize_changed_code) ... ok
+test_exact_attempt_two_plan_metadata_and_proof_binding (test_cn_hk_original_artifact_upload.Tests.test_exact_attempt_two_plan_metadata_and_proof_binding) ... ok
+test_fixed_source (test_cn_hk_original_artifact_upload.Tests.test_fixed_source) ... ok
+test_foreign_endpoint (test_cn_hk_original_artifact_upload.Tests.test_foreign_endpoint) ... ok
+test_gh_oversize_kills (test_cn_hk_original_artifact_upload.Tests.test_gh_oversize_kills) ... ok
+test_legacy_fixture_does_not_inherit_live_v2_fields (test_cn_hk_original_artifact_upload.Tests.test_legacy_fixture_does_not_inherit_live_v2_fields) ... ok
+test_nine_exact_resources (test_cn_hk_original_artifact_upload.Tests.test_nine_exact_resources) ... ok
+test_official_sdk_lock (test_cn_hk_original_artifact_upload.Tests.test_official_sdk_lock) ... ok
+test_plan_object_and_permission_drift_rejected (test_cn_hk_original_artifact_upload.Tests.test_plan_object_and_permission_drift_rejected) ... ok
+test_plan_trust_writer_reader_contract (test_cn_hk_original_artifact_upload.Tests.test_plan_trust_writer_reader_contract) ... ok
+test_sdk_session_no_redirect (test_cn_hk_original_artifact_upload.Tests.test_sdk_session_no_redirect) ... ok
+test_trust_api_action_subject_provider_drift_rejected (test_cn_hk_original_artifact_upload.Tests.test_trust_api_action_subject_provider_drift_rejected) ... ok
+test_unbound_role (test_cn_hk_original_artifact_upload.Tests.test_unbound_role) ... ok
+test_wrong_prefix (test_cn_hk_original_artifact_upload.Tests.test_wrong_prefix) ... ok
+
+----------------------------------------------------------------------
+Ran 17 tests in 0.068s
+
+OK

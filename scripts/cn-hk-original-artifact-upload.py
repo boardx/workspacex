@@ -39,10 +39,15 @@ def digest_file(path,expected_size):
  with path.open('rb') as f:
   for b in iter(lambda:f.read(1024**2),b''):h.update(b)
  return h.hexdigest()
+def source_attempt(plan):
+ # Legacy plans retain their original attempt-1 contract; v3 never means latest.
+ if plan is None or plan['kind']!='hk-original-artifact-transfer-v3':return 1
+ value=plan['sourceRunAttempt'];need(type(value)is int and value in (1,2));return value
 def metadata(name,record,plan=None):
  run=RUN if plan is None else plan['sourceRun'];control=CONTROL if plan is None else plan['producerControl']
  m=gh(f'/repos/{REPO}/actions/artifacts/{record["id"]}')
- expected=f'cn-candidate-plan-{run}-1' if name=='plan' else f'cn-image-candidate-set-{run}-1' if name=='set' else f'cn-image-candidate-{name}-{run}-1'
+ attempt=source_attempt(plan)
+ expected=f'cn-candidate-plan-{run}-{attempt}' if name=='plan' else f'cn-image-candidate-set-{run}-{attempt}' if name=='set' else f'cn-image-candidate-{name}-{run}-{attempt}'
  need(m['id']==record['id'] and m['name']==expected and m['expired'] is False and m['size_in_bytes']==record['bytes'] and m['digest']=='sha256:'+record['sha256'] and m['workflow_run']['id']==run and m['workflow_run']['head_sha']==control)
  if plan is not None and plan['kind']in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3'):need(m['workflow_run'].get('repository_id')==1000328649 and m['workflow_run'].get('head_repository_id')==1000328649)
  return {k:m[k]for k in ('id','name','expired','size_in_bytes','digest','workflow_run')}
@@ -54,11 +59,11 @@ def validate_plan(v):
  need(v['kind']in ('hk-original-artifact-transfer-v1','hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3') and v['accountId']==ACCOUNT)
  if rebound:
   need(type(v['sourceRun'])is int and v['sourceRun']>0 and re.fullmatch('[a-f0-9]{40}',v['producerControl']) and (re.fullmatch('[a-f0-9]{40}',v['sourceRevision'])if v3 else v['sourceRevision']==SOURCE))
-  if v3:need(type(v['sourceRunAttempt'])is int and v['sourceRunAttempt']==1)
+  if v3:source_attempt(v)
   need(all(re.fullmatch('[a-f0-9]{64}',v[k])for k in REBOUND_FIELDS-{'sourceRevision'}))
  else:need(v['sourceRun']==RUN and v['producerControl']==CONTROL)
  need(v['region']=='cn-hongkong' and v['endpoint']=='https://oss-cn-hongkong.aliyuncs.com' and re.fullmatch('[a-z0-9][a-z0-9-]{1,61}[a-z0-9]',v['bucket']))
- need(v['prefix']==f'runs/{v["sourceRun"]}/1/' and v['bucket']=='workspacex-hk-release-cache-1177216024653153')
+ need(v['prefix']==f'runs/{v["sourceRun"]}/{source_attempt(v)}/' and v['bucket']=='workspacex-hk-release-cache-1177216024653153')
  need(set(v['artifacts'])=={'plan','set','api','web','agent','sandbox','postgres'})
  for x in v['artifacts'].values():need(set(x)=={'id','bytes','sha256'} and type(x['id'])is int and x['id']>0 and type(x['bytes'])is int and 0<x['bytes']<=4*1024**3 and re.fullmatch('[a-f0-9]{64}',x['sha256']))
  need(len({x['id']for x in v['artifacts'].values()})==7 and sum(x['bytes']for x in v['artifacts'].values())<=10*1024**3)
@@ -71,10 +76,10 @@ def validate_plan(v):
 def validate_source_run(v):
  validate_plan(v)
  run=v['sourceRun'];control=v['producerControl']
- initial=gh(f'/repos/{REPO}/actions/runs/{run}/attempts/1')
+ initial=gh(f'/repos/{REPO}/actions/runs/{run}/attempts/{source_attempt(v)}')
  need(initial.get('id')==run and initial.get('head_sha')==control and initial.get('conclusion')=='success' and initial.get('status')=='completed')
  if v['kind']in ('hk-original-artifact-transfer-v2','hk-original-artifact-transfer-v3'):
-  need(initial.get('run_attempt')==1 and initial.get('event')=='workflow_dispatch' and initial.get('head_branch')=='main' and initial.get('path')==WORKFLOW)
+  need(initial.get('run_attempt')==source_attempt(v) and initial.get('event')=='workflow_dispatch' and initial.get('head_branch')=='main' and initial.get('path')==WORKFLOW)
   need(initial.get('repository',{}).get('id')==1000328649 and initial.get('repository',{}).get('full_name')==REPO and initial.get('head_repository',{}).get('id')==1000328649)
   content=gh(f'/repos/{REPO}/contents/{WORKFLOW}?ref={control}')
   need(content.get('encoding')=='base64' and isinstance(content.get('content'),str))
@@ -90,7 +95,7 @@ def validate_source_run(v):
     raw=archive.read(item);need(len(raw)==item.file_size and sha(raw)==v['candidatePlanRawSha256'])
     source=rawjson(raw);need(source.get('sourceRevision')==(v['sourceRevision']if v['kind']=='hk-original-artifact-transfer-v3'else SOURCE) and source.get('controlRevision')==control)
   need(metadata('plan',record,v)==before)
-  need(gh(f'/repos/{REPO}/actions/runs/{run}/attempts/1')==initial)
+  need(gh(f'/repos/{REPO}/actions/runs/{run}/attempts/{source_attempt(v)}')==initial)
  validate_plan(v)
  return initial
 
@@ -220,7 +225,7 @@ def main():
  for name,pathkey in (('proof','proofPath'),('policy','policyPath')):
   need(time.monotonic()<deadline);path=Path(proofresult[pathkey]);data=path.read_bytes();need(0<len(data)<=256*1024)
   receipts[name]=upload_one(v,args.output,name,dict(id=None,bytes=len(data),sha256=sha(data),path=path,key=v['prefix']+name+'.json'),bucket)
- need(gh(f'/repos/{REPO}/actions/runs/{v["sourceRun"]}/attempts/1')==initial);validate_plan(v);need(time.monotonic()<deadline)
+ need(gh(f'/repos/{REPO}/actions/runs/{v["sourceRun"]}/attempts/{source_attempt(v)}')==initial);validate_plan(v);need(time.monotonic()<deadline)
  receipt=dict(kind='hk-untrusted-original-zip-cache-receipt-v1',planRawSha256=args.plan_sha256,bucket=v['bucket'],region=v['region'],prefix=v['prefix'],objects=receipts,proofGenerated=True,productionReady=False)
  save_json(args.output/'receipt.json',receipt)
  print(json.dumps(dict(ok=True,objects=len(receipts),productionReady=False)))
