@@ -102,6 +102,13 @@ class Tests(unittest.TestCase):
  def assert_no_switch(self):self.assertFalse(self.actual['applied']);self.assertFalse(any('up' in a for a in self.actual['calls']))
  def test_default_plan_real_cli_never_switches(self):
   p,r=self.run_cli();self.assertEqual((p.returncode,r['status']),(0,'PLANNED'));self.assert_no_switch();self.assertEqual(self.actual['probes'],{})
+ def test_cn_four_existing_services_without_creating_optional_sandbox(self):
+  del self.state['services']['sandbox-sessions']
+  self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True)
+  self.assertEqual((p.returncode,r['status']),(0,'SUCCEEDED'))
+  up=next(a for a in self.actual['calls'] if 'up' in a)
+  self.assertEqual(up[up.index('--no-build')+1:],['api','web','agent','sandbox'])
  def test_apply_success_real_cli_http_no_forbidden_commands(self):
   p,r=self.run_cli(True);self.assertEqual((p.returncode,r['status']),(0,'SUCCEEDED'));self.assertTrue((self.root/'attempt/receipt.json').exists())
   ups=[a for a in self.actual['calls']if 'up'in a];self.assertEqual(len(ups),1);self.assertEqual(ups[0][ups[0].index('up'):],['up','--detach','--no-deps','--pull','never','--no-build','api','web','agent','sandbox','sandbox-sessions'])

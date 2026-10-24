@@ -7,8 +7,8 @@ jobs for a new attempt; rerunning only failed build jobs is rejected.
 
 After all five images have been pushed and read back, a complete `release.json`
 artifact is retained. The selected host pulls the exact tag for all five images,
-checks revision labels/platform/registry digests, and updates only the five
-application services (API, Web, Agent, Sandbox, sandbox sessions). PostgreSQL and
+checks revision labels/platform/registry digests, and updates only the existing
+application services (API, Web, Agent, Sandbox, plus sandbox sessions when configured). CN currently runs four application containers; an optional fifth is never created by this lane. PostgreSQL and
 Redis containers and volumes are not replaced. PostgreSQL is built for parity
 with the existing producer, but updating data services is a separate operation.
 

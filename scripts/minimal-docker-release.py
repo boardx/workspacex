@@ -140,7 +140,9 @@ def release(config_path,manifest_path,output,apply=False,lock_fd=None,commit=Non
         need(m['kind'] in ('single-host-images-v1','registry-images-v1') and re.fullmatch('[a-f0-9]{40}',m['sourceRevision']),'MANIFEST_SOURCE')
         need(set(m['images'])=={'api','web','agent','sandbox','postgres'},'FIVE_IMAGES_REQUIRED')
         need(re.fullmatch('[a-z][a-z0-9_-]{0,40}',c['project']),'PROJECT')
-        services=c['services']; need(set(services.values())=={'api','web','agent','sandbox'} and len(services)==5,'APPLICATION_SERVICES')
+        # CN has four existing application containers; DevApp can additionally
+        # bind a second sandbox service. Never create an optional service here.
+        services=c['services']; need(set(services.values())=={'api','web','agent','sandbox'} and len(services) in (4,5),'APPLICATION_SERVICES')
         need(all(re.fullmatch('[a-z][a-z0-9_-]{0,40}',s) and s not in ('postgres','redis') and r!='postgres' for s,r in services.items()),'DATA_SERVICE_FORBIDDEN')
         files=[trusted_file(r['path'],r['sha256']) for r in c['composeFiles']]; need(bool(files),'COMPOSE_FILES')
         envfile=trusted_file(c['envFile']['path'],c['envFile']['sha256'])
