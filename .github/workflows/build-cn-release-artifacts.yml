@@ -24,6 +24,12 @@ on:
         value: ${{ jobs.seal.outputs.sealed_artifact }}
   workflow_dispatch:
     inputs:
+      host_permission_probe:
+        description: Read-only runner account and fixed resource permissions; no elevation or deployment
+        required: false
+        default: 'off'
+        type: choice
+        options: ['off', cn, devapp]
       shared_image_service:
         description: Optional service diagnostic; all publishes a complete release set
         required: false
@@ -66,8 +72,22 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  host-permissions:
+    if: github.event_name == 'workflow_dispatch' && inputs.host_permission_probe != '' && inputs.host_permission_probe != 'off'
+    runs-on: ${{ fromJSON(inputs.host_permission_probe == 'cn' && '["self-hosted","linux","workspacex-cn-production"]' || '["self-hosted","linux","workspacex"]') }}
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: scripts/image-release-host-permissions.py
+          sparse-checkout-cone-mode: false
+      - name: Report account and exact denied resource without elevation
+        run: python3 -I -B scripts/image-release-host-permissions.py
+
   shared-images:
-    if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only
+    if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
     uses: ./.github/workflows/image-release.yml
     with:
       environment: devapp
@@ -76,7 +96,7 @@ jobs:
     secrets: inherit
 
   registry-probe:
-    if: github.event_name == 'workflow_dispatch' && inputs.registry_probe_only
+    if: github.event_name == 'workflow_dispatch' && inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
@@ -111,7 +131,7 @@ jobs:
         run: rm -rf -- "$DOCKER_CONFIG"
 
   validate:
-    if: ${{ !inputs.registry_probe_only && !inputs.shared_images_only }}
+    if: ${{ !inputs.registry_probe_only && !inputs.shared_images_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off') }}
     runs-on: ubuntu-24.04
     environment: production-cn-build
     env:
