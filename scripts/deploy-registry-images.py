@@ -47,6 +47,14 @@ def atomic(path, value):
     finally:
         if os.path.exists(name): os.unlink(name)
 
+def admission_command(config,environment):
+    command=config.get('admissionCommand')
+    if environment=='cn': registry.need(isinstance(command,list) and bool(command),'CN_ADMISSION_REQUIRED')
+    if command:
+        registry.need(isinstance(command,list) and all(isinstance(v,str) for v in command),'INVALID_ADMISSION_COMMAND')
+        trusted(command[0])
+    return command
+
 def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
     registry.need(environment in ('devapp','cn'),'INVALID_ENVIRONMENT')
     registry.need(registry.TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
@@ -64,6 +72,7 @@ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
     registry.need(str(lock_path)==expected_lock[environment],'CANONICAL_LOCK_REQUIRED')
     for reference in [*config['composeFiles'],config['envFile']]:
         engine.trusted_file(str(trusted(reference['path'])),reference['sha256'])
+    admission=admission_command(config,environment)
     probe=config.get('verificationCommand')
     registry.need(isinstance(probe,list) and probe and all(isinstance(v,str) for v in probe),'BUSINESS_PROBE_REQUIRED')
     trusted(probe[0])
@@ -88,6 +97,11 @@ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
         registry.need(not pending.exists(),'UNRESOLVED_DEPLOYMENT_REQUIRES_RECONCILIATION')
         attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)
         images={role:registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,role) for role in registry.SERVICES}
+        if admission:
+            # Fixed host adapter retains CN preactivation/backup/compatibility admission.
+            checked=subprocess.run([*admission,tag],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120,
+                                   env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8'})
+            registry.need(checked.returncode==0,'HOST_ADMISSION_REJECTED')
         manifest={'kind':'registry-images-v1','sourceRevision':tag[:40],'tag':tag,'platform':'linux/amd64','images':images}
         manifest_file=attempt/'manifest.json';engine.save(manifest_file,manifest)
         effective={k:config[k] for k in ('project','services','envFile','health','lockFile','verificationCommand')}

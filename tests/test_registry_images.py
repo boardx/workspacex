@@ -55,6 +55,13 @@ class Producer(unittest.TestCase):
         self.assertNotEqual(p.returncode,0);self.assertIn('PUBLIC_REGISTRY_REQUIRED',p.stderr)
         self.assertNotIn('never-print-this',p.stdout+p.stderr)
 
+    def test_failed_build_diagnostics_redact_before_truncation(self):
+        m=module()
+        with patch.dict('os.environ',{'ACR_PASSWORD':'private-fixture-value'}):
+            report=m.safe_diagnostics('build failure private-fixture-value https://user:password@example.com/path?token=other-secret')
+        self.assertNotIn('private-fixture-value',report);self.assertNotIn('user:password',report);self.assertNotIn('other-secret',report)
+        self.assertIn('build failure',report)
+
     def test_registry_prefix_and_tag_are_validated(self):
         m=module()
         for prefix in ('https://registry.example/team','registry.example/team/../../bad','registry.example/team\n'):

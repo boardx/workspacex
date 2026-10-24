@@ -10,6 +10,9 @@ on:
       tag:
         type: string
         default: ''
+      service:
+        type: string
+        default: all
       build_only:
         type: boolean
         default: true
@@ -22,6 +25,12 @@ on:
         required: true
         type: choice
         options: [devapp, cn]
+      service:
+        description: Diagnostic service selector (requires build_only)
+        required: false
+        default: all
+        type: choice
+        options: [all, api, web, agent, sandbox, postgres]
       build_only:
         description: Build and publish only, without any host deployment
         required: false
@@ -51,6 +60,7 @@ jobs:
       runner: ${{ steps.plan.outputs.runner }}
       build: ${{ steps.plan.outputs.build }}
       group: ${{ steps.plan.outputs.group }}
+      fullset: ${{ steps.plan.outputs.fullset }}
       node_image: ${{ steps.plan.outputs.node_image }}
       python_image: ${{ steps.plan.outputs.python_image }}
       pgvector_image: ${{ steps.plan.outputs.pgvector_image }}
@@ -65,6 +75,7 @@ jobs:
           TARGET_ENVIRONMENT: ${{ inputs.environment }}
           EXISTING_TAG: ${{ inputs.tag }}
           BUILD_ONLY: ${{ inputs.build_only }}
+          BUILD_SERVICE: ${{ inputs.service }}
           NODE_IMAGE: ${{ vars.WSX_NODE_IMAGE }}
           PYTHON_IMAGE: ${{ vars.WSX_PYTHON_IMAGE }}
           PGVECTOR_IMAGE: ${{ vars.WSX_POSTGRES_IMAGE }}
@@ -113,7 +124,7 @@ jobs:
 
   manifest:
     needs: [plan, build]
-    if: needs.plan.outputs.build == 'true'
+    if: needs.plan.outputs.build == 'true' && needs.plan.outputs.fullset == 'true'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5

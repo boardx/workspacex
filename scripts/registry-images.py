@@ -29,9 +29,19 @@ def release_tag(source, run, attempt):
     need(SHA.fullmatch(source) and re.fullmatch('[1-9][0-9]*',run) and re.fullmatch('[1-9][0-9]*',attempt), 'INVALID_BUILD_IDENTITY')
     return source+'-'+run+'-'+attempt
 
+def safe_diagnostics(raw):
+    for key,value in os.environ.items():
+        if value and len(value)>=4 and (re.search(r'TOKEN|PASSWORD|SECRET|ACCESS_KEY',key) or key=='ACR_USERNAME'):
+            raw=raw.replace(value,'[redacted]')
+    raw=re.sub(r'(https?://)[^/\s]*@',r'\1[redacted]@',raw)
+    raw=re.sub(r'(?i)(authorization:\s*(?:bearer|basic)\s+)\S+',r'\1[redacted]',raw)
+    raw=re.sub(r'(?i)([?&](?:token|password|secret|access[_-]?key)=)[^&\s]+',r'\1[redacted]',raw)
+    return '\n'.join(raw.splitlines()[-100:])[-12000:]
+
 def run(args, timeout=3600):
     result=subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-    # Registry/build output can contain credential-bearing URLs. Do not relay it.
+    if result.returncode!=0:
+        print(safe_diagnostics(result.stdout+'\n'+result.stderr),file=sys.stderr)
     need(result.returncode==0, 'COMMAND_FAILED_'+Path(args[0]).name.upper())
     return result.stdout
 
@@ -139,9 +149,12 @@ def main():
         existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''
         tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
+        selected=os.environ.get('BUILD_SERVICE') or 'all'
+        need(selected=='all' or selected in SERVICES and os.environ.get('BUILD_ONLY')=='true','PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
+        services=list(SERVICES) if selected=='all' else [selected]
         runner=['self-hosted','linux','x64','workspacex' if target=='devapp' else 'workspacex-cn-production']
         with open(os.environ['GITHUB_OUTPUT'],'a') as output:
-            values={'tag':tag,'services':json.dumps(list(SERVICES)),'target':target,'environment':'devapp' if target=='devapp' else 'production-cn',
+            values={'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':'devapp' if target=='devapp' else 'production-cn',
                     'runner':json.dumps(runner),'build':'false' if existing else 'true','group':'workspacex-devapp-deploy' if target=='devapp' else 'workspacex-cn-production-deploy'}
             if args.resolve_bases and not existing: values.update(resolve_bases())
             for key,value in values.items(): output.write(key+'='+value+'\n')

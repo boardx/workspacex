@@ -54,7 +54,12 @@ repositories or change RAM policies just to make login pass.
 4. Create `/etc/workspacex-image-release/{devapp,cn}.json`, root:root 0600. See
    `deploy/examples/registry-image-release.json`; replace every example value with
    observed live configuration and hashes. Pin the full business/browser probe's
-   script and config files in `verificationFiles`.
+   script and config files in `verificationFiles`. CN additionally requires a
+   root-owned `admissionCommand` adapter that invokes the existing CN preparation,
+   backup and compatibility/preactivation checks for the requested tag (appended
+   as its final argument). Pin its closure in `verificationFiles`; the consumer
+   calls it under the canonical lock before any application switch. Missing or
+   failed CN admission cannot be bypassed by the new workflow.
 5. Prepare a root:root 0700 state directory. Reuse the canonical existing lock:
    DevApp `/run/workspacex-devapp-deploy.lock`, CN
    `/var/lib/workspacex-cn/runtime/release.lock` (root:root 0600, single link).

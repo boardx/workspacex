@@ -24,6 +24,12 @@ on:
         value: ${{ jobs.seal.outputs.sealed_artifact }}
   workflow_dispatch:
     inputs:
+      shared_image_service:
+        description: Optional service diagnostic; all publishes a complete release set
+        required: false
+        default: all
+        type: choice
+        options: [all, api, web, agent, sandbox, postgres]
       shared_images_only:
         description: Build and push shared ACR images on hosted runners; no host preparation or deployment
         required: false
@@ -65,6 +71,7 @@ jobs:
     uses: ./.github/workflows/image-release.yml
     with:
       environment: devapp
+      service: ${{ inputs.shared_image_service }}
       build_only: true
     secrets: inherit
 

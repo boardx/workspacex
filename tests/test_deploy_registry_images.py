@@ -21,6 +21,11 @@ class Policy(unittest.TestCase):
         m=module()
         for environment,tag in [('other','a'*40+'-123-1'),('cn','latest'),('../cn','a'*40+'-123-1')]:
             with self.assertRaises(ValueError): m.deploy(environment,tag)
+    def test_cn_cannot_skip_existing_host_admission(self):
+        m=module()
+        with self.assertRaisesRegex(ValueError,'CN_ADMISSION_REQUIRED'):m.admission_command({},'cn')
+        self.assertIsNone(m.admission_command({},'devapp'))
+
     def test_atomic_pointer_is_complete(self):
         m=module()
         with tempfile.TemporaryDirectory() as temp:
