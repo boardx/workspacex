@@ -1,5 +1,28 @@
 # Issue #5910 progress — 2026-10-24 Asia/Shanghai
 
+## Current continuation checkpoint: full canonical installation contract
+
+User-requested governance removal remains implemented. The exact611c442 PR CI
+finished30 success/19 conditional skips/zero failures. The next necessary source
+increment is the independently reviewed complete software/profile installation
+contract:176 sources/109 software targets, exact public modes, protected tool root
+and old profile compatibility. Owner102 tool tests and consumer/type checks pass;
+independent115 cases pass. See canonical-auto-tool-install-contract.md and
+canonical-tool-upgrade-live.md. No installation is claimed by these tests.
+
+Existing console Cloud Shell successfully ran a uid0/public-marker-only command
+through Cloud Assistant; independent original API result was Success/0/dropped0
+with exact scope and output. No new permission or key was created. The instance
+role itself lacks that API permission and must not be used as a substitute.
+
+Actual full installation inventory/receipt, reviewed root installation, Devapp
+signing-key/installer verification and automatic policy remain outstanding.
+The first16 SQL migrations still require isolated billing/payment/model and
+schema/permission/recovery evidence. Ordinary automatic admission deliberately
+rejects them; historical maintenance version pairs are not this live baseline.
+No production tool/profile/policy, database, running service or accepted ref was
+changed by this checkpoint. The task and operational issue remain open.
+
 User authorized develop integration and China production release, then explicitly
 requested main-cn push deployments without human approval.
 

@@ -5,8 +5,8 @@ sys.path.insert(0,str(D.parents[2]/'.agents/skills/workspacex-cn-release/scripts
 sp=importlib.util.spec_from_file_location('tool',D/'cn-build-tool-identity.py');m=importlib.util.module_from_spec(sp);sp.loader.exec_module(m)
 APP='9'*40;TOOL='a'*40
 class Identity(unittest.TestCase):
- def fixture(self):return {'schemaVersion':1,'mode':'build-only','applicationRevision':APP,'toolRevision':TOOL,'toolRoot':'/opt/workspacex-cn/release-tools/'+TOOL,'release':'2026.10.3-cn.1','attemptId':'fixture','filesSha256':{k:'b'*64 for k in m.FILES},'applicationSource':{'path':'/var/lib/workspacex-cn/build-sources/'+APP+'.git','ref':'refs/heads/candidate','treeSha':'c'*40,'inventorySha256':hashlib.sha256(b'fixturetree').hexdigest()}}
- def test_exact_pair(self):self.assertEqual(m.validate_identity(self.fixture(),APP,'2026.10.3-cn.1','fixture','prebuild'),'/opt/workspacex-cn/release-tools/'+TOOL)
+ def fixture(self):return {'schemaVersion':1,'mode':'build-only','applicationRevision':APP,'toolRevision':TOOL,'toolRoot':'/var/lib/workspacex-cn/auto-preparation-tools/'+TOOL,'release':'2026.10.3-cn.1','attemptId':'fixture','filesSha256':{k:'b'*64 for k in m.FILES},'applicationSource':{'path':'/var/lib/workspacex-cn/build-sources/'+APP+'.git','ref':'refs/heads/candidate','treeSha':'c'*40,'inventorySha256':hashlib.sha256(b'fixturetree').hexdigest()}}
+ def test_exact_pair(self):self.assertEqual(m.validate_identity(self.fixture(),APP,'2026.10.3-cn.1','fixture','prebuild'),'/var/lib/workspacex-cn/auto-preparation-tools/'+TOOL)
  def test_reject_identity_changes(self):
   for key,value in [('applicationRevision',TOOL),('toolRevision','main'),('toolRoot','/tmp/tool'),('release','other'),('attemptId','other'),('mode','activate'),('schemaVersion',2)]:
    with self.subTest(key=key):

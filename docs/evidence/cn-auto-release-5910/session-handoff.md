@@ -1,5 +1,27 @@
 # Issue #5910 handoff
 
+Latest checkpoint:611c442 CI finished30 success/19 skips/no failures. Necessary
+canonical installer closure/modes/root compatibility follow-up is frozen and
+independently accepted115 cases; owner102 tool tests and consumer/type checks
+also pass. Read canonical-auto-tool-install-contract.md and
+canonical-tool-upgrade-live.md before installation. Actual old tool SHA is
+8d0ffff2da8a22e10a8494540c3085f486cdaf62 (40hex; earlier spelling missed one f).
+No narrow25-file updater was installed. Do not fake the128-source old profile.
+
+An already signed-in console Cloud Shell is usable and its existing identity
+can invoke Cloud Assistant without a new credential/grant. A uid0/public-marker
+probe returned real Success/0/dropped0 and exact scope/output; original bytes are
+in ephemeralCloudShell ~/cn-tools-inventory-5913/channel-v3-{start,result}.json.
+Use --InstanceId.1 for that CLI, not a JSON --InstanceId value. Its one-hour
+session expires. The CN instance role STS works but Cloud Assistant read is denied.
+Do not expand that role. Root-private official CLI3.5.2 staging is separate from
+the existing uid1001-owned installed client. No installed entry was changed.
+
+Outstanding actual installation/policy/Devapp identity and16migration rehearsal
+remain. Do not mark automatic production ready, close5913, remove migration
+guards or infer deployment from CI/tool tests. User withdrew governance broker
+and App permission changes; never ask for App keys/MFA to restore that approach.
+
 Branch: codex/develop-cn-release-5910, same original worktree. Do not create another
 worktree. Current scope includes the user's no-approval automatic deployment
 request; keep main-cn desired state separate from accepted runtime evidence.
