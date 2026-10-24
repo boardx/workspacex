@@ -1,5 +1,14 @@
 # GitHub Runner → ACR → DevApp / CN
 
+Host installation accepts an optional environment scope:
+`sudo bash scripts/install-image-release.sh ghrunner cn` (or `devapp`). It installs
+root-owned fixed wrappers and grants only that environment's deployment command
+plus the no-argument metadata helper `workspacex-image-host-status`. Omitting the
+scope retains the original both-environments behavior. It does not create live
+environment policy, registry credentials, business probes or change services.
+Use the workflow's `host_permission_probe` option to report the actual runner
+account and verify fixed-entry access and rejection of cross-environment calls.
+
 The `image-release` workflow builds the five existing release Dockerfiles on
 GitHub-hosted Ubuntu. It has no dependency on PR or backend-gates jobs. Tags are
 `<full-source-SHA>-<GitHub-run-id>-<attempt>` and never overwritten. Rerun **all**
