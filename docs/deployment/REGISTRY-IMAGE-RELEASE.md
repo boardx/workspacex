@@ -58,8 +58,15 @@ repositories or change RAM policies just to make login pass.
    <runner-user>`. This installs a content-addressed root-owned closure and one
    fixed sudo entry; it does not deploy. Account permission changes require the
    operator's normal approval.
-3. Give the host a root-private Docker credential directory with an existing
-   **pull-only** ACR login. Do not copy GitHub's write credential to runtime hosts.
+3. Configure the host's existing ECS role through `ecsAuth` in its root policy
+   (example below). Each release obtains fresh IMDSv2/ACR temporary credentials,
+   verifies the ECS instance identity and requires at least 16 minutes of remaining
+   credential lifetime. Docker login uses stdin and a temporary root-private
+   directory, removed on normal completion or exceptions. Credentials and raw
+   provider errors are never printed. Grant `cr:GetAuthorizationToken` and only
+   `cr:PullRepository` for the five release repositories. Alternatively, an existing
+   root-private `dockerConfig` may be used; configure exactly one auth mode.
+   Do not copy GitHub's write credential to runtime hosts.
 4. Create `/etc/workspacex-image-release/{devapp,cn}.json`, root:root 0600. See
    `deploy/examples/registry-image-release.json`; replace every example value with
    observed live configuration and hashes. Pin the full business/browser probe's
@@ -72,6 +79,20 @@ repositories or change RAM policies just to make login pass.
 5. Prepare a root:root 0700 state directory. Reuse the canonical existing lock:
    DevApp `/run/workspacex-devapp-deploy.lock`, CN
    `/var/lib/workspacex-cn/runtime/release.lock` (root:root 0600, single link).
+
+Example ECS auth policy fragment (replace with observed host/ACR identities;
+remove `dockerConfig` when using this mode):
+
+```json
+{
+  "ecsAuth": {
+    "region": "cn-shanghai",
+    "instanceId": "cri-REPLACE",
+    "roleName": "REPLACE-PULL-ONLY-ROLE",
+    "ecsInstanceId": "i-REPLACE"
+  }
+}
+```
 
 The fixed helper clears the caller environment. The deployment runs in a
 systemd service so runner cancellation cannot kill recovery midway. Each
