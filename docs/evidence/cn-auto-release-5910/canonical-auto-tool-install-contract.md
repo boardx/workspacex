@@ -43,8 +43,13 @@ source/runtime hash and private profile checks. No unrestricted path is added.
 `fixed_transport.ts` permits0755 only for the two literal release preflight
 collector/verifier paths; migration snapshot collectors, writer modules and other
 private executables still require0700. The canonical controller CJS was rebuilt
-from its TS entry, with esbuild0.24.2/cjs/node22/minify and its existing banner.
-A permanent test checks exact build byte parity. The hand-written maintenance
+from its TS entry. The initial increment incorrectly duplicated compiler settings
+instead of using the existing `.harness/scripts/build-cn-maintenance-controller.cjs`;
+CI rejected that generated artifact. The follow-up uses that unchanged canonical
+generator (tsx's locked esbuild0.28.1, node20 target, legalComments none). Its
+permanent test invokes the original generator's `--check` for all three bundles.
+The migrator also needs rebuilding because migration_library imports
+source_plan_authority, which imports fixed_transport. The hand-written maintenance
 browser CJS has no generator; its fixed root check was updated at its source.
 
 Existing operational/maintenance fixtures had stale whole-collector block

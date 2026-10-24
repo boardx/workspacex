@@ -2,6 +2,15 @@
 
 ## Current continuation checkpoint: full canonical installation contract
 
+The subsequent5fb79c752 CI failed three checks: duplicate compiler parameters
+caused canonical bundle drift, and a historical sidecar fixture read the current
+browser under its old immutable pin. Both fixes preserve production checks and
+historical pins; see canonical-generator-ci-repair.md. New full CI is required.
+Live Devapp metadata and existing CN/Devapp public-key identity now match through
+independent real API results; see devapp-trusted-files-live.md. The existing
+main-only installer can update all four files; no new key/installer/root grant is
+needed. Deploy and runtime identity installed bytes still need that normal update.
+
 User-requested governance removal remains implemented. The exact611c442 PR CI
 finished30 success/19 conditional skips/zero failures. The next necessary source
 increment is the independently reviewed complete software/profile installation

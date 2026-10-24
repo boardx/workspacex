@@ -1,5 +1,22 @@
 # Issue #5910 handoff
 
+Important later correction:5fb79c752 new CI failed3checks. The initial builder
+used duplicate compiler settings and missed existing canonical generator. Current
+repair rebuilds only through .harness/scripts/build-cn-maintenance-controller.cjs
+and parity calls its --check; controller+migrator change (indirectfixed_transport
+import), snapshot same. Historical sidecar test now reads immutableaa367861
+fixture instead of current browser; production pins unchanged,16/16+10/10 and
+alltool102/102 green. Actual frozenLinuxarm64 all3bundleparity and9cloudtests green.
+Need commit/push and new full CI; read canonical-generator-ci-repair.md.
+
+Devapp live facts now proven: exactDNS47.77.215.155 maps one running ECS us-west-1.
+Existing CloudShell identity can run metadata-onlyroot there; originalresults
+Success/0/dropped0. All4modules+installer present; installer hash matches current
+source and supports4. Deploy/modulebytes stale; normalmain-only update required.
+Existing signingkeyroot600 present and publicDERidentity matches CN existingkey,
+through2 independently fetched actualAPIresults; no newkey/privatecopy/permission.
+See devapp-trusted-files-live.md. Do not askuserforDevappkey ornewrootentry.
+
 Latest checkpoint:611c442 CI finished30 success/19 skips/no failures. Necessary
 canonical installer closure/modes/root compatibility follow-up is frozen and
 independently accepted115 cases; owner102 tool tests and consumer/type checks
