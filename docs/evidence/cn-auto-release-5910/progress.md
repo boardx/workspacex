@@ -179,3 +179,13 @@ cancellation and desired-ref drift stop immediately. Independent review ACCEPT;
 parent Node56/56 and identity/promotion26/26 pass; wrapper10 pass/two existing
 platform skips. See candidate-ci-wait.md. Live CN Git metadata is reachable;
 isolated software source download started, with no completion/install claim.
+
+Later live checkpoint: the isolated tooling mirror and complete bundle passed
+full checks, frozen offline dependency installation passed after separate locked
+official-registry prefetch, and root dependency/tsx checks passed. The readonly
+Linux browser initially failed at crashpad; changing only HOME to its tmpfs made
+the original canonical preflight pass. See software-source-preparation-live.md;
+this is not production browser acceptance. Trusted software/policy remain
+uninstalled. Devapp installation now independently checks its fourth module;
+parent25/25 and independent49/49 regressions pass. Previous heada10afa5f5 PR CI
+finished30success/19skipped; this further reviewed fix needs new complete CI.

@@ -126,3 +126,14 @@ ls-remote succeeded. A root-private mirror download is running at
 timeout, private download.log, and canonical release lock held by its Python
 parent. Verify terminal exit, complete object state and source binding before
 using it. No trusted software or policy installation occurred in this step.
+
+Superseding live checkpoint: source download completed, fsck/no partial/alternates
+passed; explicit local-bundle ref import produced clean exacta10afa5f5 standalone
+reviewed-checkout. Frozen offline dependencies and tsx passed after separate
+locked npmjs prefetch. Canonical browser about:blank preflight passed with only
+HOME=/tmp added to the readonly/network-none disposable container; keep original
+crashpad failure as a counterexample. See software-source-preparation-live.md.
+No trusted target or policy installation has happened. Production health200,
+maintenance actualstatecleared. The new fourth-file Devapp install verification
+has independent49/49 tests and no new privilege; real host installer version is
+unknown. PRa10 CI finished30success/19skipped, but new fix changes its head again.

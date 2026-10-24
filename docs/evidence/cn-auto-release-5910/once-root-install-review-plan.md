@@ -14,6 +14,10 @@ reviewed commit and complete bundle SHA256 separately. No current worktree SHA i
 a substitute: the final main SHA is not yet known in this plan.
 
 Use the complete offline Git bundle produced by the Actions source-bundle lane.
+For the once-only **software tooling** preparation, the isolated root-private
+mirror and complete reviewed bundle in software-source-preparation-live.md are
+also available. This does not substitute for the automatic release's Actions
+source producer/importer or update either accepted production cache.
 On ECS first check it is a regular, root-owned private file with no symlink and
 one link, bounded by the existing source-import limits. Verify its externally
 recorded SHA256, `git bundle verify`, and exact ref. It must be self-contained
@@ -120,6 +124,11 @@ links within this protected checkout and reject dependency links escaping to
 runner-controlled paths. Verify clean Git state afterward. The provider checks
 exact tool HEAD, cleanliness and all trusted parent directories again at runtime.
 Do not run the actual preparation CLI merely to test module loading.
+Missing cache was observed and retained as NOT_READY. A separate bounded locked
+official npmjs prefetch (no scripts/hooks) subsequently supplied the closure;
+the generated virtual store was discarded and the original offline copy-mode
+installation rerun successfully. See the live record before reusing this staging
+checkout; no network fallback was added to the offline install/release command.
 
 ## Once-installed environment policy: separate exact approval item
 
@@ -160,6 +169,9 @@ tool-image `node --version`, `chromium --version`, `nginx -v` commands. Such too
 containers are disposable, with 256MiB/.25CPU/pids64 and --rm, no mounts/secrets.
 No `--prepare`, snapshot, baseline replay, dump, restore, migration, browser login,
 shadow runtime, source mutation or deployment occurs during this dry-run.
+An additional actual canonical browser `--preflight` now passed using the
+readonly/network-none image with `HOME=/tmp`, allowing crashpad to use tmpfs.
+Keep this setting for readonly probes; it proves browser startup only.
 
 Check `/proc/meminfo`/effective cgroup capacity and `statvfs` using the actual
 provider's conservative9GiB available-memory and10GiB disk reserve boundaries;
