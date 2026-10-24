@@ -39,15 +39,22 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain("actions: write");
     expect(workflow).toContain("GH_TOKEN: ${{ github.token }}");
     expect(workflow).not.toContain("CN_RELEASE_GITHUB_TOKEN");
-    expect(identity).toContain("r.type==='required_reviewers'");
-    expect(identity).toContain("['main','main-cn']");
-    expect(identity).toContain("FROZEN_RELEASE_ENVIRONMENT_POLICY");
-    expect(workflow).toContain('types.has("required_deployments")');
-    expect(workflow).toContain('types.has("non_fast_forward")');
-    expect(workflow).toContain('types.has("deletion")');
     expect(workflow).toContain('"${GITHUB_REF}" == refs/tags/cn-prepared-*');
     expect(workflow.match(/environment: production-cn-promotion/g)).toHaveLength(1);
     expect(workflow.match(/environment: production-cn$/gm)).toHaveLength(1);
+  });
+
+  it("does not audit release governance or require a governance receipt", () => {
+    for(const text of [workflow,candidateWorkflow,verifier,identity]){
+      expect(text).not.toMatch(/gh\s+api[^\n]*(?:rulesets|environments\/)/);
+      expect(text).not.toContain('governance-evidence.json');
+      expect(text).not.toContain('governance-public.pem');
+      expect(text).not.toContain('governanceReceiptSha256');
+      expect(text).not.toContain('FROZEN_RELEASE_ENVIRONMENT_POLICY');
+    }
+    expect(workflow).not.toContain('Verify automatic GitHub production governance');
+    expect(identity).toContain("gh('apps/github-actions')");
+    expect(identity).toContain('validateAdmissionDeployment');
   });
 
   it("fails closed on privileged script drift and requires source staging before approval", () => {

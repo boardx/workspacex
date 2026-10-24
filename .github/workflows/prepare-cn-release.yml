@@ -36,6 +36,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  devapp-exact-evidence:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.auto_promote
+    runs-on: ubuntu-latest
+    timeout-minutes: 95
+    permissions:
+      contents: read
+      actions: write
+    outputs:
+      run_id: ${{ steps.devapp.outputs.devapp_run_id }}
+      run_attempt: ${{ steps.devapp.outputs.devapp_run_attempt }}
+      request_id: ${{ steps.devapp.outputs.evidence_request_id }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Dispatch and await exact-source Devapp acceptance
+        id: devapp
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ inputs.release_sha }}
+          EVIDENCE_ATTEMPT: gha-${{ github.run_id }}-${{ github.run_attempt }}
+          CANDIDATE_REF: refs/heads/main-cn
+        run: node .harness/scripts/vm/devapp-exact-evidence.mjs request
+
   source-bundle:
     if: >-
       github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.auto_promote
@@ -78,15 +103,37 @@ jobs:
           retention-days: 1
 
   build-candidate:
-    needs: [source-bundle]
+    needs: [source-bundle, devapp-exact-evidence]
     if: >-
       always() && !cancelled() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' &&
-      ((!inputs.auto_promote && needs.source-bundle.result == 'skipped') ||
-       (inputs.auto_promote && needs.source-bundle.result == 'success'))
+      ((!inputs.auto_promote && needs.source-bundle.result == 'skipped' && needs.devapp-exact-evidence.result == 'skipped') ||
+       (inputs.auto_promote && needs.source-bundle.result == 'success' && needs.devapp-exact-evidence.result == 'success'))
     environment: production-cn-build
     runs-on: [self-hosted, linux, workspacex-cn-production]
     timeout-minutes: 45
+    permissions:
+      checks: read
+      statuses: read
+      deployments: read
+      contents: write
+      actions: write
     steps:
+      - name: Download signed exact-source Devapp bytes
+        if: inputs.auto_promote
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: devapp-signed-evidence
+          run-id: ${{ needs.devapp-exact-evidence.outputs.run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/cn-devapp-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Restrict downloaded signed bytes to this runner account
+        if: inputs.auto_promote
+        env:
+          SIGNED_FILE: ${{ runner.temp }}/cn-devapp-${{ github.run_id }}-${{ github.run_attempt }}/devapp-evidence.bin
+        run: |
+          set -euo pipefail
+          [[ -f "$SIGNED_FILE" && ! -L "$SIGNED_FILE" ]]
+          chmod 0600 "$SIGNED_FILE"
       - name: Download this attempt's complete cloud source
         if: inputs.auto_promote
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
@@ -167,6 +214,7 @@ jobs:
             [.harness/scripts/vm/cn-release-preflight-evidence.mjs]=/usr/local/lib/workspacex-cn/cn-release-preflight-evidence.mjs
             [.harness/scripts/vm/cn-release-orphans.py]=/usr/local/lib/workspacex-cn/cn-release-orphans.py
             [.harness/scripts/vm/cn-bootstrap-source-probe.mjs]=/usr/local/lib/workspacex-cn/cn-bootstrap-source-probe.mjs
+            [.harness/scripts/vm/cn-auto-evidence-stage.mjs]=/usr/local/lib/workspacex-cn/cn-auto-evidence-stage.mjs
           )
           for source in "${!trusted[@]}"; do
             target=${trusted[$source]}
@@ -185,6 +233,10 @@ jobs:
           INPUT_RELEASE: ${{ inputs.release }}
           AUTO_PROMOTE: ${{ inputs.auto_promote }}
           GH_TOKEN: ${{ github.token }}
+          DEVAPP_PARENT_RUN_ID: ${{ needs.devapp-exact-evidence.outputs.run_id }}
+          DEVAPP_PARENT_RUN_ATTEMPT: ${{ needs.devapp-exact-evidence.outputs.run_attempt }}
+          DEVAPP_REQUEST_ID: ${{ needs.devapp-exact-evidence.outputs.request_id }}
+          DEVAPP_SIGNED_PATH: ${{ runner.temp }}/cn-devapp-${{ github.run_id }}-${{ github.run_attempt }}/devapp-evidence.bin
         run: |
           set -euo pipefail
           [[ "${EVENT_NAME}" == "workflow_dispatch" && "${GITHUB_REF}" == "refs/heads/main" ]] || {
@@ -208,8 +260,19 @@ jobs:
             exit 1
           fi
           # Build/seal success alone is never promotion readiness. This operation
-          # remains before human admission and never activates public traffic.
+          # remains before production activation and never activates public traffic.
           sudo -n /usr/local/bin/workspacex-cn-deploy --prepare "${revision}" "${attempt_id}"
+          if [[ "${AUTO_PROMOTE:-false}" == true ]]; then
+            # Root validates and preserves the exact signed Devapp bytes.
+            node --input-type=module <<'NODE' | sudo -n /usr/local/bin/workspacex-cn-deploy --auto-stage-evidence "${revision}" "${attempt_id}"
+          import fs from 'node:fs';
+          const p=process.env,file=p.DEVAPP_SIGNED_PATH,st=fs.lstatSync(file);
+          if(!st.isFile()||st.isSymbolicLink()||st.nlink!==1||st.size<1||st.size>16*1024*1024)throw Error('CN_DEVAPP_SIGNED_ARTIFACT_INVALID');
+          const bytes=fs.readFileSync(file);
+          const header={schemaVersion:1,sourceSha:p.INPUT_SHA,attemptId:`gha-${p.GITHUB_RUN_ID}-${p.GITHUB_RUN_ATTEMPT}`,devappParentRunId:Number(p.DEVAPP_PARENT_RUN_ID),devappParentRunAttempt:Number(p.DEVAPP_PARENT_RUN_ATTEMPT),evidenceRequestId:p.DEVAPP_REQUEST_ID,devappBytes:bytes.length};
+          process.stdout.write(JSON.stringify(header)+'\n');process.stdout.write(bytes);
+          NODE
+          fi
           identity_file=$(mktemp)
           trap 'rm -f "${identity_file}"' EXIT
           sudo -n /usr/local/bin/workspacex-cn-verify-promotion "${revision}" "${expected_main_cn}" "${attempt_id}" > "${identity_file}"
@@ -233,3 +296,9 @@ jobs:
           EXPECTED_MAIN_CN_SHA: ${{ steps.prepared.outputs.expected_main_cn_sha }}
           RELEASE_ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
         run: node .github/scripts/cn-auto-release.mjs promote
+
+      - name: Remove this attempt's downloaded evidence
+        if: inputs.auto_promote && always()
+        env:
+          SIGNED_FILE: ${{ runner.temp }}/cn-devapp-${{ github.run_id }}-${{ github.run_attempt }}/devapp-evidence.bin
+        run: rm -f -- "$SIGNED_FILE"

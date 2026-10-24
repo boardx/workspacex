@@ -91,3 +91,29 @@ membership are not proven. Current gateway documentation instead points to the
 other coordinator App; never substitute its key or workstation token. Devapp
 exact-source acceptance and governance signed-facts unattended producers remain
 unfinished. The supplied workspace-cn PEM is SSH only, not GitHub App auth.
+
+Later in this continuation the one-time shadow tools image was built successfully
+from the same reviewed Dockerfile after the default Debian public mirror timed
+out. See tools-image-live.md for the exact actual image ID, resource limits,
+private mirror, independent executable checks, and cleanup. No canonical browser
+preflight/candidate acceptance is claimed; installed root tools/policy remain
+unchanged. CN gh is /usr/local/bin/gh, not /usr/bin/gh. This is not a Devapp fact.
+
+The exact-source Devapp coordinator/root wrappers, governance broker/root HTTPS
+client, and bounded signed-evidence staging are now implemented and independently
+reviewed. Local integration checks: 48 pass/3 platform skips; actual Linux lock
+counterexamples were separately exercised without skips by the owners/reviewer.
+The Devapp reviewer found and required full backend gates at the root trust
+boundary plus real cancellation child-group/temp cleanup; both were fixed.
+Root governance FD9 proof also rejects an unlocked descriptor when another
+process holds the same inode. New full PR CI for these additions is required.
+
+Superseding user instruction: after approving a possible one-time App update,
+the user explicitly chose "调整代码，移除发布治理校验". The entire unpublished broker
+increment was withdrawn. Shared prepare/promotion now requires no governance
+receipt or full-visibility ruleset/environment audit; it does not manufacture a
+governance success result. No App permission change or Cloudflare deployment was
+performed. Do not request GitHub reauthentication/App approval again for this
+removed requirement. Native Deployment, actual CI/Devapp, backup/restore,
+migration, immutable-tag byte binding and CAS remain separate release gates.
+See release-governance-removal.md for this deliberately changed boundary.

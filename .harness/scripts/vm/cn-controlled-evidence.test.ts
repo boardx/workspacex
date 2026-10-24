@@ -1,7 +1,6 @@
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { validateEnvelope, validateDevapp, digest, collectGovernance, collectDevapp, evidenceWindow } from './cn-controlled-evidence.mjs';
-import { validateGovernanceReceipt } from './cn-frozen-release-identity.mjs';
 const source='a'.repeat(40),attempt='gha-123-1',now=Date.parse('2026-10-01T00:30:00Z');
 const key=generateKeyPairSync('ed25519');
 const wrap=(v:any)=>{const b=Buffer.from(JSON.stringify(v));return {payload:b.toString('base64'),signature:sign(null,b,key.privateKey).toString('base64')}};
@@ -28,7 +27,10 @@ describe('controlled signed evidence boundary',()=>{
   expect(validateDevapp(collectDevapp(123,source,ports),source).workflowRunAttempt).toBe(2);
   corrupt=true;expect(()=>collectDevapp(123,source,ports)).toThrow('CONTROLLED_DEVAPP_ARTIFACT');corrupt=false;wrongRuntime=true;expect(()=>collectDevapp(123,source,ports)).toThrow('CONTROLLED_DEVAPP_RUNTIME');
  });
- it('requires short-lived source/attempt binding even for root-verified governance',()=>{expect(()=>validateGovernanceReceipt(envelopeValue('governance'),{repository:'boardx/workspacex',releaseSourceSha:source,attemptId:attempt},now+3600000)).toThrow('FROZEN_RELEASE_GOVERNANCE_RECEIPT')});
 });
 
 it('captures the producer clock once so millisecond advancement cannot exceed signed TTL',()=>{let reads=0;const clock=()=>now+reads++;const times=evidenceWindow(clock);expect(reads).toBe(1);expect(Date.parse(times.expiresAt)-Date.parse(times.observedAt)).toBe(3600000);expect(validateEnvelope(wrap({...envelopeValue('governance'),...times}),key.publicKey,source,attempt,'governance',now).observedAt).toBe(times.observedAt);const longer={...times,expiresAt:new Date(Date.parse(times.expiresAt)+1).toISOString()};expect(()=>validateEnvelope(wrap({...envelopeValue('governance'),...longer}),key.publicKey,source,attempt,'governance',now)).toThrow('CONTROLLED_BINDING_OR_TTL');});
+
+ it('executes exact-source Devapp orchestration and signing counterexamples',async()=>{const {spawnSync}=await import('node:child_process');const r=spawnSync(process.execPath,['--test','.harness/scripts/vm/devapp-exact-evidence.selftest.mjs'],{encoding:'utf8',timeout:20000});expect(r.status,r.stdout+r.stderr).toBe(0);});
+
+it.skipIf(process.platform!=='linux'||process.env.GITHUB_ACTIONS!=='true')('executes real disposable root lock inheritance and coordinator-cancellation fixture',async()=>{const {spawnSync}=await import('node:child_process');const r=spawnSync('docker',['run','--rm','--user','0','--network','none','-v',process.cwd()+':/source:ro','python:3.12-bookworm','python3','-B','/source/.harness/scripts/vm/devapp-host-lock.selftest.py'],{encoding:'utf8',timeout:90000});expect(r.status,r.stdout+r.stderr).toBe(0);},95000);

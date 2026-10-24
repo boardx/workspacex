@@ -31,10 +31,43 @@
 set +x
 set -euo pipefail
 
+# Shared host lock also survives loss of a cloud coordinator. Every normal
+# writer and controlled signer uses this same root-owned inode.
+acquire_devapp_lock(){
+  [[ $EUID -eq 0 ]] || { echo 'DEVAPP_LOCK_REQUIRES_ROOT' >&2; exit 2; }
+  local lock=/run/workspacex-devapp-deploy.lock
+  [[ ! -L "$lock" ]] || exit 1
+  if [[ ! -e "$lock" ]]; then (umask 077; set -o noclobber; : > "$lock") 2>/dev/null || true; fi
+  # A trusted root supervisor can pass the same open description to its child.
+  if ! /usr/bin/python3 -I -S - "$lock" 2>/dev/null <<'PYLOCK'
+import os,stat,sys
+s=os.fstat(8);n=os.stat(sys.argv[1],follow_symlinks=False)
+assert stat.S_ISREG(n.st_mode) and (n.st_uid,n.st_gid,stat.S_IMODE(n.st_mode),n.st_nlink)==(0,0,0o600,1)
+assert (s.st_dev,s.st_ino)==(n.st_dev,n.st_ino)
+PYLOCK
+  then exec 8<>"$lock"; fi
+  /usr/bin/python3 -I -S - "$lock" <<'PYLOCK'
+import os,stat,sys
+s=os.fstat(8);n=os.stat(sys.argv[1],follow_symlinks=False)
+assert stat.S_ISREG(n.st_mode) and (n.st_uid,n.st_gid,stat.S_IMODE(n.st_mode),n.st_nlink)==(0,0,0o600,1)
+assert (s.st_dev,s.st_ino)==(n.st_dev,n.st_ino)
+PYLOCK
+  /usr/bin/flock -x 8
+}
+
+if [[ "${1:-}" == --devapp-candidate ]]; then
+  [[ $# -eq 5 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^[1-9][0-9]{0,15}$ && "$4" =~ ^[1-9][0-9]{0,8}$ && "$5" =~ ^gha-[0-9]+-[0-9]+$ && ${#5} -le 80 ]] || { echo 'DEVAPP_CANDIDATE_NOT_READY' >&2; exit 2; }
+  acquire_devapp_lock
+  helper=/usr/local/lib/workspacex-devapp-runtime-identity.mjs
+  [[ -f "$helper" && ! -L "$helper" && $(/usr/bin/stat -c '%u:%g:%a:%h' "$helper") == 0:0:644:1 ]] || exit 1
+  exec /usr/bin/node "$helper" candidate-deploy "$2" "$3" "$4" "$5"
+fi
+
 # This exact mode is handled before ref/env processing. Its code and paths come
 # only from the installed root-owned helper, never the runner's checkout or env.
 if [[ "${1:-}" == --configure-billing ]]; then
   [[ $# -eq 1 && $EUID -eq 0 ]] || { echo "billing configuration requires root and exactly one mode argument" >&2; exit 2; }
+  acquire_devapp_lock
   [[ -f /usr/local/lib/workspacex-deploy-readiness.sh && ! -L /usr/local/lib/workspacex-deploy-readiness.sh ]] || exit 1
   [[ $(/usr/bin/stat -c '%u:%a' /usr/local/lib/workspacex-deploy-readiness.sh) == 0:644 ]] || exit 1
   # shellcheck source=/dev/null
@@ -42,6 +75,17 @@ if [[ "${1:-}" == --configure-billing ]]; then
   configure_devapp_billing
   exit $?
 fi
+
+# Fixed read-only evidence mode. Do not read deploy.env, checkout or restart.
+if [[ "${1:-}" == --devapp-evidence ]]; then
+  [[ $# -eq 4 && $EUID -eq 0 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ && ${#3} -le 80 && "$4" =~ ^[1-9][0-9]{0,15}$ ]] || { echo 'DEVAPP_SIGNING_NOT_READY' >&2; exit 2; }
+  acquire_devapp_lock
+  helper=/usr/local/lib/workspacex-devapp-runtime-identity.mjs
+  [[ -f "$helper" && ! -L "$helper" && $(/usr/bin/stat -c '%u:%g:%a:%h' "$helper") == 0:0:644:1 ]] || exit 1
+  exec /usr/bin/node "$helper" sign-devapp "$2" "$3" "$4"
+fi
+
+acquire_devapp_lock
 
 APP_DIR=${APP_DIR:-/opt/workspacex/app}
 ENV_FILE=${ENV_FILE:-/opt/workspacex/deploy.env}
@@ -794,6 +838,9 @@ fi
 echo "  必需 env var 就绪"
 
 # Bind actual build bytes before the restart, then attest only after real smoke success.
+if [[ -n ${WORKSPACEX_DEVAPP_PARENT_RUN:-} ]]; then
+  /usr/bin/node /usr/local/lib/workspacex-devapp-runtime-identity.mjs authorize-candidate "$SOURCE_REVISION" "$WORKSPACEX_DEVAPP_PARENT_RUN" "$WORKSPACEX_DEVAPP_PARENT_ATTEMPT"
+fi
 DEVAPP_BUILD_RECEIPT=$(node /usr/local/lib/workspacex-devapp-runtime-identity.mjs build "$SOURCE_REVISION" "$APP_DIR")
 node /usr/local/lib/workspacex-devapp-runtime-identity.mjs publish-marker "$SOURCE_REVISION" "$APP_DIR" "$DEVAPP_BUILD_RECEIPT"
 systemctl daemon-reload
@@ -819,6 +866,9 @@ step "7. 冒烟 —— 断言的是内核自检，不是「有响应」"
 DEPLOY_STAGE=smoke
 write_deploy_status 0
 run_post_restart_smoke
+if [[ -n ${WORKSPACEX_DEVAPP_PARENT_RUN:-} ]]; then
+  /usr/bin/node /usr/local/lib/workspacex-devapp-runtime-identity.mjs authorize-candidate "$SOURCE_REVISION" "$WORKSPACEX_DEVAPP_PARENT_RUN" "$WORKSPACEX_DEVAPP_PARENT_ATTEMPT"
+fi
 DEPLOY_STAGE=runtime-identity
 write_deploy_status 0
 node /usr/local/lib/workspacex-devapp-runtime-identity.mjs attest "$SOURCE_REVISION" "$APP_DIR" "$DEVAPP_BUILD_RECEIPT"

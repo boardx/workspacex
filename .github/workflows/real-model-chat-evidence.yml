@@ -40,6 +40,7 @@
 # 判决同时打进 job log（`01-verdict.txt` 的同一份内容），读 `get_job_logs` 就能拿到结论，
 # 不必先下载 artifact。写盘的每一个字符串都过 `scrubSecrets`。
 name: real-model-chat-evidence
+run-name: ${{ inputs.evidence_request_id && format('devapp-exact:{0}:{1}', inputs.evidence_attempt, inputs.evidence_request_id) || 'real-model-chat-evidence' }}
 
 on:
   workflow_dispatch:
@@ -56,6 +57,21 @@ on:
         description: "断言 ⑥ 判什么：file（默认，产出文件按字节判）或 canvas（工作坊画布渲染完成 + 30 秒验收线，issue #2852/#2836）"
         required: false
         default: "file"
+      expected_source_sha:
+        type: string
+        default: ''
+      evidence_attempt:
+        type: string
+        default: ''
+      evidence_request_id:
+        type: string
+        default: ''
+      parent_run_id:
+        type: string
+        default: ''
+      parent_run_attempt:
+        type: string
+        default: ''
 
 # 同一时刻只允许一轮：两个真实模型 run 抢同一台机器，既烧钱又让证据互相污染。
 concurrency:
@@ -65,6 +81,9 @@ concurrency:
 jobs:
   verify:
     runs-on: [self-hosted, linux, x64, workspacex]
+    permissions:
+      contents: read
+      actions: read
     timeout-minutes: 45
     env:
       REAL_MODEL_E2E_PROMPT: ${{ inputs.prompt }}
@@ -73,6 +92,15 @@ jobs:
       REAL_MODEL_E2E_EVIDENCE_DIR: ${{ github.workspace }}/apps/web/test-results/real-model-evidence
     steps:
       - uses: actions/checkout@v5
+      - name: Admit exact-source coordinated browser
+        if: inputs.evidence_request_id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          EVIDENCE_ATTEMPT: ${{ inputs.evidence_attempt }}
+          PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          PARENT_RUN_ATTEMPT: ${{ inputs.parent_run_attempt }}
+        run: node .harness/scripts/vm/devapp-exact-evidence.mjs authorize-child
       - uses: pnpm/action-setup@v4.4.0
       - uses: actions/setup-node@v5
         with:
@@ -105,6 +133,17 @@ jobs:
       - name: 判决打进 job log
         if: always()
         run: bash .harness/scripts/vm/real-model-chat-evidence.sh summarize
+
+      - name: Bind automatic browser artifact to its exact parent attempt
+        if: inputs.evidence_request_id != '' && steps.spec.outcome == 'success'
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          EVIDENCE_ATTEMPT: ${{ inputs.evidence_attempt }}
+          EVIDENCE_REQUEST_ID: ${{ inputs.evidence_request_id }}
+          PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+          PARENT_RUN_ATTEMPT: ${{ inputs.parent_run_attempt }}
+        run: |
+          node --input-type=module -e 'import {writeFileSync} from "node:fs"; const e=process.env; writeFileSync(e.REAL_MODEL_E2E_EVIDENCE_DIR+"/devapp-coordination.json",JSON.stringify({source:e.EXPECTED_SOURCE_SHA,attempt:e.EVIDENCE_ATTEMPT,requestId:e.EVIDENCE_REQUEST_ID,parentId:Number(e.PARENT_RUN_ID),parentAttempt:Number(e.PARENT_RUN_ATTEMPT),runId:Number(e.GITHUB_RUN_ID),runAttempt:Number(e.GITHUB_RUN_ATTEMPT)}));'
 
       - uses: actions/upload-artifact@v6
         if: always()

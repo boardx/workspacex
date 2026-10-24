@@ -2,6 +2,15 @@
 # Trusted root entrypoint used by deploy-cn-production.yml.
 set -euo pipefail
 
+if [[ ${1:-} == --auto-stage-evidence ]]; then
+  [[ ${EUID} -eq 0 && $# -eq 3 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ ]] || exit 2
+  evidence_root=/var/lib/workspacex-cn/runtime
+  [[ ! -L "$evidence_root" && "$(stat -c '%u:%g:%a' "$evidence_root")" == 0:0:700 && -f "$evidence_root/release.lock" && ! -L "$evidence_root/release.lock" && "$(stat -c '%u:%g:%a:%h' "$evidence_root/release.lock")" == 0:0:600:1 ]] || exit 3
+  exec 9<>"$evidence_root/release.lock"
+  flock -n 9 || exit 3
+  exec /usr/bin/node /usr/local/lib/workspacex-cn/cn-auto-evidence-stage.mjs "$2" "$3"
+fi
+
 if [[ ${1:-} == --auto-stage-source ]]; then
   [[ ${EUID} -eq 0 && $# -eq 4 && "$2" =~ ^[a-f0-9]{40}$ && "$3" =~ ^gha-[0-9]+-[0-9]+$ && "$4" =~ ^[a-f0-9]{64}$ ]] || exit 2
   exec /usr/bin/python3 -I -B /usr/local/lib/workspacex-cn/cn_auto_source.py "$2" "$3" "$4"

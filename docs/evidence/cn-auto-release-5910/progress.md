@@ -151,3 +151,23 @@ the three content conflicts retained the newer preparation tests and evidence.
 Post-merge workflow/baseline fixtures: 21 passed, two explicit Linux skips.
 Unfinished release completion now tracks #5913, rather than assuming #5912
 remains open or that its merge proves production readiness.
+
+2026-10-24 continuation: CI repair head3986ebcdc cleared verify-control-plane;
+remaining full PR checks are monitored separately. One-time ECS tools image now
+built and independently inspected/executed; tools-image-live.md records actual
+identity, first public-mirror timeout, private-mirror success, resource cleanup,
+and unchanged app health. This is tooling readiness, not release acceptance.
+Devapp exact-source orchestration and fixed governance broker are being reviewed;
+no App permission, trusted installed entry, automatic policy, main-cn, production
+runtime or database change has been made. Existing coordinator service can be
+reused, but one initial Administration read→write permission configuration remains
+necessary to obtain complete actual bypass facts. No per-release human approval
+is part of the requested automatic lane.
+
+Superseding instruction in this continuation: user explicitly chose to remove
+release-governance verification. All unpublished broker/App scope changes were
+withdrawn, and the shared frozen-tag/promotion chain no longer requires governance
+receipts or a live full-visibility ruleset audit. No App permission was changed.
+Devapp signed evidence, actual CI, native Deployment, migration/data/recovery and
+exact-source/CAS checks remain. This removes the App authentication setup blocker;
+it does not claim that the automatic production lane is installed or accepted.
