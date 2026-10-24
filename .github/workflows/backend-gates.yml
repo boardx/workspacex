@@ -592,7 +592,7 @@ jobs:
     # PRs, merge groups, production branches and tags cannot auto-write Devapp.
     # Explicit existing branch-preview dispatches retain their reviewed admission.
     if: >-
-      always() && !cancelled() && github.event_name != 'merge_group' &&
+      vars.WSX_IMAGE_RELEASE_ENABLED != 'true' && always() && !cancelled() && github.event_name != 'merge_group' &&
       !(github.event_name == 'push' && github.ref == 'refs/heads/develop' &&
         needs.gates-fast.outputs.skip_devapp == 'true') &&
       needs.gates-fast.result == 'success' && needs.gates-test.result == 'success' &&

@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   queue-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main-cn'
+    if: vars.WSX_IMAGE_RELEASE_ENABLED != 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main-cn'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

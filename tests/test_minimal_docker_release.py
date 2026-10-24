@@ -49,7 +49,17 @@ if args[0]=='cp':
 if args[0]=='rm':
  assert args[1] in state['probes'];del state['probes'][args[1]];done()
 if args[0]=='compose':
- if 'up' in args:state['applied']=True;done()
+ if 'up' in args:
+  if state.get('automaticRecoveryFixture'):state['upCount']=state.get('upCount',0)+1
+  if state.get('automaticRecoveryFixture') and state['upCount']>1:
+   if state.get('rollbackFails'):persist();raise SystemExit(1)
+   state['applied']=False;state['recovered']=True;done()
+  state['applied']=True
+  if state.get('cancelOnUp'):
+   persist();os.kill(os.getppid(),15)
+   import time;time.sleep(30)
+  if state.get('upFails'):persist();raise SystemExit(1)
+  done()
  if 'ps' in args:done('live-'+args[-1])
  if '--hash' in args:done(args[-1]+' hash-'+args[-1])
  if 'config' in args:
@@ -99,6 +109,35 @@ class Tests(unittest.TestCase):
    self.assertNotIn(a[0],('run','start','pull','build','exec','down','volume','system'));self.assertNotIn('--force-recreate',a)
    if a[0]=='create':self.assertIn('--pull=never',a)
   self.assertEqual(self.actual['probes'],{});self.assertTrue(r['markerUnchanged'])
+ def test_automatic_rollback_after_partial_compose_failure(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,upFails=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLED_BACK')
+  self.assertTrue(self.actual['recovered']);self.assertFalse(self.actual['applied'])
+  self.assertTrue((self.root/'attempt/rollback.json').exists())
+ def test_rollback_failure_remains_nonzero_and_explicit(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,upFails=True,rollbackFails=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLBACK_FAILED')
+ def test_automatic_rollback_after_readiness_failure(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,alwaysUnhealthy=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLED_BACK')
+  self.assertTrue(self.actual['recovered'])
+ def test_cancellation_restores_previous_images(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,cancelOnUp=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'ROLLED_BACK')
+  self.assertEqual(r['code'],'DEPLOYMENT_CANCELLED');self.assertFalse(self.actual['applied'])
+ def test_registry_digest_mismatch_prevents_switch(self):
+  self.manifest['kind']='registry-images-v1'
+  for role,row in self.manifest['images'].items():row['image']='registry.example/team/'+role+'@sha256:'+'a'*64
+  self.mp.write_text(json.dumps(self.manifest));self.config['manifestSha256']=hashlib.sha256(self.mp.read_bytes()).hexdigest();self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True);self.assertEqual(r['code'],'REGISTRY_DIGEST_MISMATCH');self.assert_no_switch()
+ def test_preflight_failure_never_attempts_rollback(self):
+  self.config['automaticRollback']=True;self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
+  p,r=self.run_cli(True,automaticRecoveryFixture=True,schemaDrift=True)
+  self.assertEqual(p.returncode,1);self.assertEqual(r['status'],'REJECTED');self.assert_no_switch()
  def test_wrong_source_rejects_before_switch(self):
   p,r=self.run_cli(True,wrongSource=True);self.assertEqual(p.returncode,1);self.assertEqual(r['code'],'IMAGE_SOURCE_MISMATCH');self.assert_no_switch()
  def test_schema_drift_rejects_before_switch(self):
@@ -108,6 +147,7 @@ class Tests(unittest.TestCase):
  def test_compose_env_drift_rejected(self):
   p,r=self.run_cli(True,configDrift=True);self.assertEqual(r['code'],'NON_IMAGE_COMPOSE_CHANGE');self.assert_no_switch()
  def test_starting_then_healthy_does_not_repeat_up(self):
+  self.config['readinessTimeoutSeconds']=10;self.cp.write_text(json.dumps(self.config))
   p,r=self.run_cli(True,starting=True);self.assertEqual(p.returncode,0);self.assertGreaterEqual(r['health']['readinessPolls'],2);self.assertEqual(sum('up'in a for a in self.actual['calls']),1)
  def test_unhealthy_deadline_never_repeats_up(self):
   p,r=self.run_cli(True,alwaysUnhealthy=True);self.assertEqual(p.returncode,1);self.assertEqual(r['code'],'READINESS_DEADLINE');self.assertEqual(sum('up'in a for a in self.actual['calls']),1)
