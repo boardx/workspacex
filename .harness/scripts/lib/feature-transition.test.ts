@@ -179,12 +179,12 @@ describe("破坏方式 ②：改写日志 + 重算指纹", () => {
     expect(rules([f()], [head])).toEqual(["attestation_unverifiable"]);
   });
 
-  it("尾行 commit 取不到对象（浅克隆 / squash）⇒ 只提示，不判红", () => {
+  it("尾行 commit 取不到对象（浅克隆 / squash）⇒ fail closed", () => {
     const absent: CommitOracle = { exists: () => false, isAncestorOfHead: () => false };
     const head = passing({ evidenceLog: attested("body", OTHER_SHA) });
     const v = judge([f()], [head], absent);
-    expect(v.findings).toEqual([]);
-    expect(v.notes).toHaveLength(1);
+    expect(v.findings.map(value=>value.rule)).toEqual(["attestation_unverifiable"]);
+    expect(v.notes).toHaveLength(0);
   });
 });
 

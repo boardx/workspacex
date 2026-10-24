@@ -3,7 +3,7 @@
 //   pnpm harness lint-feature-transition --base <ref> [--head <ref>] [--repo <dir>] [--json]
 //
 // 判定逻辑全在 lib/feature-transition.ts（纯函数，可单测）；本文件只做三件事：
-// ① 从两个 ref 里把 feature 清单和证据日志读出来（`git show`，不切工作树、不写一个字节）；
+// ① 从两个 ref 里把 feature 清单和证据日志读出来（`git show`，不切工作树；完整树重建只可写无引用 Git 对象）；
 // ② 把"哪些文件在这次改动里变过"作为读日志的过滤器——只判迁移，不审全树；
 // ③ 打印 + 决定退出码。
 //
@@ -11,6 +11,7 @@
 // （手改 passing 指向旧日志 / 改写日志正文重算指纹）在最终树上都是自洽的，
 // 只有 base→head 的差分里才有破绽。详见 lib/feature-transition.ts 头注。
 import { sh } from "./lib/sh";
+import {runMergeTreeDiagnostic} from "./lib/merge-tree-diagnostic";
 import { log, die } from "./lib/log";
 import { req, type Args } from "./lib/args";
 import { REPO_ROOT } from "./lib/paths";
@@ -20,6 +21,8 @@ import {
   type FeatureSnapshot,
   type PhaseDiff,
 } from "./lib/feature-transition";
+
+import { parseSquashReconstructions, reconstructedSquash, prTransitionPairs, type SquashReconstruction } from "./lib/squash-integration-proof";
 
 const VERIFY_LOG_RE = /\.verify\.log$/;
 
@@ -38,6 +41,8 @@ type Git = (cmd: string) => { code: number; out: string };
 
 function gitIn(repoRoot: string): Git {
   return (cmd) => {
+    const merge = /^merge-tree --write-tree --no-messages ([a-f0-9]{40}) ([a-f0-9]{40})$/.exec(cmd);
+    if (merge) return runMergeTreeDiagnostic(repoRoot,merge[1]!,merge[2]!);
     const r = sh(`git ${cmd}`, repoRoot);
     return { code: r.code, out: r.stdout };
   };
@@ -120,7 +125,7 @@ function evidenceLogPath(phaseDir: string, f: RawFeature): string | null {
  * Matching a log, patch or commit message alone is deliberately insufficient.
  * Git failures fail closed; the target tree set is loaded once for all features.
  */
-export function squashIntegrationOracle(git: Git, head: string): NonNullable<CommitOracle["isSquashIntegrated"]> {
+export function squashIntegrationOracle(git: Git, head: string, reconstructions: SquashReconstruction[] = []): NonNullable<CommitOracle["isSquashIntegrated"]> {
   let headTrees: Set<string> | undefined;
   const results = new Map<string, boolean>();
   return (witness, logPath, evidenceBlob) => {
@@ -140,12 +145,20 @@ export function squashIntegrationOracle(git: Git, head: string): NonNullable<Com
       const blob = git(`rev-parse --verify '${object}'`);
       return blob.code === 0 && blob.out.trim() === evidenceBlob;
     });
-    results.set(key, integrated);
-    return integrated;
+    const proved = integrated || reconstructedSquash(git, head, witness, logPath, evidenceBlob, reconstructions, stage=>console.error(stage));
+    results.set(key, proved);
+    return proved;
   };
 }
 
 export function lintFeatureTransition(args: Args): void {
+  if (args.opts["pr-source"]) {
+    const git = gitIn(args.opts["repo"] ?? REPO_ROOT);
+    const pairs = prTransitionPairs(git, req(args,"base"), args.opts["pr-source"], req(args,"head"));
+    const opts = { ...args.opts }; delete opts["pr-source"];
+    for (const [base,head] of pairs) lintFeatureTransition({ ...args, opts: { ...opts,base,head } });
+    return;
+  }
   const baseRef = req(args, "base");
   const headRef = args.opts["head"] ?? "HEAD";
   const asJson = args.flags["json"] === true;
@@ -165,10 +178,14 @@ export function lintFeatureTransition(args: Args): void {
   if (diff.code !== 0) die(`git diff ${base}..${head} 失败——两个 ref 之间没有共同历史？`);
   const touched = new Set(diff.out.split("\n").map((s) => s.trim()).filter(Boolean));
 
+  // Configuration selects immutable candidates only; every proof is recomputed.
+  // Read the actual checked-out control tree, also for the advancing-main delta.
+  const proofBody = showFile(git, "HEAD", ".harness/config/squash-integration-proofs.json");
+  const reconstructions = proofBody === null ? [] : parseSquashReconstructions(proofBody);
   const oracle: CommitOracle = {
     exists: (sha) => git(`cat-file -e ${sha}^{commit}`).code === 0,
     isAncestorOfHead: (sha) => git(`merge-base --is-ancestor ${sha} ${head}`).code === 0,
-    isSquashIntegrated: squashIntegrationOracle(git, head),
+    isSquashIntegrated: squashIntegrationOracle(git, head, reconstructions),
   };
 
   const blobs = { base: evidenceBlobsAt(git, base), head: evidenceBlobsAt(git, head) };

@@ -1,6 +1,6 @@
 import {test,expect} from '@playwright/test';
 import {FULLSTACK_E2E as F} from './fullstack-smoke-fixture';
-import {boardLogin,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
+import {boardLogin,boardHead,canonicalBoardSnapshot,createAcceptanceBoard,object,createCommands,operate} from './board-acceptance-support';
 import {runtimeSourceIdentity,observeRuntimeChunks,verifyRuntimeIdentity} from './board-runtime-evidence';
 import {deleteOwnedConnectorFixture} from './support/connector-acceptance-fixture';
 
@@ -12,6 +12,17 @@ test('real canvas sticky and rectangle Tab continue/select; Delete and each undo
  const sourceSha=runtimeSourceIdentity(),chunks=observeRuntimeChunks(page);
  const token=await boardLogin(page),owned:Array<{id:string;title:string}>=[];let failure:unknown;
  const synced=async()=>{await expect(page.getByTestId('board-sync-status')).toHaveAttribute('data-sync-phase','synced');};
+ // Poll cheap live projections and the durable head. A full standard export is
+ // a single integrity-checked read, not a predicate with a five-second budget.
+ const persisted=async(id:string,count:number,previous:{epoch:number;seq:number})=>{
+  await expect(page.getByTestId('board-a11y-mirror').locator('li[data-object-id]')).toHaveCount(count);
+  await synced();
+  const revision={epoch:previous.epoch,seq:previous.seq+1};
+  await expect.poll(()=>boardHead(api,token,id)).toEqual(revision);
+  const snapshot=await canonicalBoardSnapshot(api,token,id);
+  expect(snapshot.revision).toEqual(revision);expect(snapshot.objects).toHaveLength(count);
+  return snapshot;
+ };
  try{
   for(const kind of ['sticky','rectangle'] as const){
    const title=`Keyboard ${kind} ${info.project.name}`,id=await createAcceptanceBoard(api,token,title);owned.push({id,title});
@@ -21,17 +32,17 @@ test('real canvas sticky and rectangle Tab continue/select; Delete and each undo
    const point={x:box!.x+panX+140*zoom,y:box!.y+panY+255*zoom};
    expect(await page.evaluate(p=>document.elementFromPoint(p.x,p.y)?.tagName==='CANVAS',point)).toBe(true);await page.mouse.click(point.x,point.y);
    await expect(page.getByTestId(`board-a11y-object-${source.id}`)).toHaveAttribute('aria-pressed','true');await expect(surface).toBeFocused();await page.keyboard.press('Tab');
-   await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects.length).toBe(3);await synced();const continued=await canonicalBoardSnapshot(api,token,id),next=continued.objects.find(value=>value.id!==source.id&&value.kind===kind)!;
+   const continued=await persisted(id,3,before.revision),next=continued.objects.find(value=>value.id!==source.id&&value.kind===kind)!;
    expect(next).toBeTruthy();expect(next.style).toEqual(before.objects[0]!.style);expect(continued.revision).toEqual({epoch:before.revision.epoch,seq:before.revision.seq+1});
    expect(continued.objects.find(value=>value.kind==='connector')!.connector).toMatchObject({from:source.id,to:next.id});await expect(page.getByTestId(`board-a11y-object-${next.id}`)).toHaveAttribute('aria-pressed','true');
-   await page.keyboard.press('Delete');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects.map(value=>value.id)).toEqual([source.id]);await synced();
-   const deleted=await canonicalBoardSnapshot(api,token,id);expect(deleted.revision).toEqual({epoch:continued.revision.epoch,seq:continued.revision.seq+1});
-   await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects).toEqual(continued.objects);await synced();
-   const restored=await canonicalBoardSnapshot(api,token,id);expect(restored.revision).toEqual({epoch:deleted.revision.epoch,seq:deleted.revision.seq+1});
-   await page.keyboard.press('ControlOrMeta+z');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects).toEqual(before.objects);await synced();
-   const undone=await canonicalBoardSnapshot(api,token,id);expect(undone.revision).toEqual({epoch:restored.revision.epoch,seq:restored.revision.seq+1});
-   await page.keyboard.press('ControlOrMeta+Shift+z');await expect.poll(async()=> (await canonicalBoardSnapshot(api,token,id)).objects.length).toBe(3);await synced();
-   const redone=await canonicalBoardSnapshot(api,token,id),edge=continued.objects.find(value=>value.kind==='connector')!;
+   await page.keyboard.press('Delete');
+   const deleted=await persisted(id,1,continued.revision);expect(deleted.objects.map(value=>value.id)).toEqual([source.id]);expect(deleted.revision).toEqual({epoch:continued.revision.epoch,seq:continued.revision.seq+1});
+   await page.keyboard.press('ControlOrMeta+z');
+   const restored=await persisted(id,3,deleted.revision);expect(restored.objects).toEqual(continued.objects);expect(restored.revision).toEqual({epoch:deleted.revision.epoch,seq:deleted.revision.seq+1});
+   await page.keyboard.press('ControlOrMeta+z');
+   const undone=await persisted(id,1,restored.revision);expect(undone.objects).toEqual(before.objects);expect(undone.revision).toEqual({epoch:restored.revision.epoch,seq:restored.revision.seq+1});
+   await page.keyboard.press('ControlOrMeta+Shift+z');
+   const redone=await persisted(id,3,undone.revision),edge=continued.objects.find(value=>value.kind==='connector')!;
    const restoredWidget=redone.objects.find(value=>value.restoredFrom===next.id)!;
    const restoredEdge=redone.objects.find(value=>value.restoredFrom===edge.id)!;
    expect(restoredWidget).toBeTruthy();expect(restoredEdge).toBeTruthy();

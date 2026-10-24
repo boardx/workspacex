@@ -1,0 +1,63 @@
+/** Complete-tree squash reconstruction; never a test attestation or a waiver. */
+export type ProofGit = (command: string) => { code: number; out: string };
+export interface SquashReconstruction { source: string; squash: string; parent: string }
+const oid = (value: unknown): value is string => typeof value === "string" && /^[a-f0-9]{40}$/.test(value);
+export function parseSquashReconstructions(body: string): SquashReconstruction[] {
+  const value: unknown = JSON.parse(body);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("SQUASH_PROOF_CONFIG");
+  const record = value as Record<string, unknown>;
+  if (record.version !== 1 || !Array.isArray(record.proofs) || record.proofs.length > 20 ||
+      Object.keys(record).some(key => !["version", "proofs"].includes(key))) throw new Error("SQUASH_PROOF_CONFIG");
+  return record.proofs.map(item => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) throw new Error("SQUASH_PROOF_CONFIG");
+    const p = item as Record<string, unknown>;
+    if (Object.keys(p).sort().join(",") !== "parent,source,squash" ||
+        !oid(p.source) || !oid(p.squash) || !oid(p.parent) || new Set([p.source,p.squash,p.parent]).size !== 3)
+      throw new Error("SQUASH_PROOF_CONFIG");
+    return { source: p.source, squash: p.squash, parent: p.parent };
+  });
+}
+/** Writes only unreferenced Git objects via merge-tree; no refs, index or worktree changes.
+ * No overridden merge base, conflict strategy, path filter or partial-tree comparison.
+ */
+export function reconstructedSquash(git: ProofGit, head: string, witness: string, logPath: string,
+  evidenceBlob: string, proofs: SquashReconstruction[], diagnose:(stage:string)=>void=()=>{}): boolean {
+  const reject=(stage:string)=>{diagnose("SQUASH_PROOF_REJECTED "+stage);return false;};
+  if (![head,witness,evidenceBlob].every(oid) || !/^phases\/[a-zA-Z0-9_./-]+\.verify\.log$/.test(logPath) ||
+      logPath.split("/").includes("..")) return reject("INPUT_IDENTITY");
+  return proofs.some(p => {
+    if (![p.source,p.squash,p.parent].every(oid)) return reject("CANDIDATE_IDENTITY");
+    for(const [label,sha] of [["WITNESS",witness],["SOURCE",p.source],["PARENT",p.parent],["SQUASH",p.squash]]){
+      if(git(`cat-file -e ${sha}^{commit}`).code!==0)return reject("MISSING_"+label);
+    }
+    if(git(`merge-base --is-ancestor ${witness} ${p.source}`).code!==0)return reject("WITNESS_ANCESTRY");
+    if(git(`merge-base --is-ancestor ${p.squash} ${head}`).code!==0)return reject("TARGET_ANCESTRY");
+    const parents=git(`rev-list --parents -n 1 ${p.squash}`);
+    if(parents.code!==0||parents.out.trim()!==p.squash+" "+p.parent)return reject("ACTUAL_PARENT");
+    for(const [label,ref] of [["SOURCE",p.source],["SQUASH",p.squash]]){
+      const blob=git(`rev-parse --verify ${ref}:${logPath}`);
+      if(blob.code!==0||blob.out.trim()!==evidenceBlob)return reject(label+"_EVIDENCE_BLOB");
+    }
+    const target=git(`rev-parse --verify ${p.squash}^{tree}`);
+    if(target.code!==0||!oid(target.out.trim()))return reject("TARGET_TREE");
+    const rebuilt=git(`merge-tree --write-tree --no-messages ${p.parent} ${p.source}`);
+    if(rebuilt.code!==0)return reject("MERGE_TREE_EXIT");
+    if(!oid(rebuilt.out.trim()))return reject("MERGE_TREE_OUTPUT");
+    if(rebuilt.out.trim()!==target.out.trim())return reject("COMPLETE_TREE_MISMATCH");
+    diagnose("SQUASH_PROOF_MATCH "+p.source+" "+p.squash+" "+target.out.trim());return true;
+  });
+}
+/** Keep the PR source, advancing main and synthetic integration as separate audited deltas. */
+export function prTransitionPairs(git: ProofGit, eventBase: string, source: string, head: string): Array<[string,string]> {
+  if (![eventBase,source,head].every(oid)) throw new Error("PR_TRANSITION_IDENTITY");
+  const row = git(`rev-list --parents -n 1 ${head}`);
+  const parts = row.out.trim().split(/\s+/);
+  if (row.code !== 0 || parts.length !== 3 || parts[0] !== head || parts[2] !== source || !oid(parts[1]))
+    throw new Error("PR_TRANSITION_PARENTS");
+  const actualBase = parts[1];
+  if (git(`merge-base --is-ancestor ${eventBase} ${actualBase}`).code !== 0 ||
+      git(`merge-base ${actualBase} ${source}`).code !== 0) throw new Error("PR_TRANSITION_BASE");
+  const common = git(`merge-base --all ${eventBase} ${source}`);
+  if (common.code !== 0 || !oid(common.out.trim())) throw new Error("PR_TRANSITION_MERGE_BASE");
+  return [[common.out.trim(),source],[eventBase,actualBase],[actualBase,head]];
+}
