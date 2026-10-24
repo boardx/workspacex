@@ -8,6 +8,7 @@ import pwd
 import socket
 import stat
 import subprocess
+import sys
 
 PATHS = ('/run/docker.sock', '/var/lib/workspacex-cn/runtime',
          '/var/lib/workspacex-cn/runtime/release.lock',
@@ -73,4 +74,6 @@ def collect():
     return result
 
 if __name__ == '__main__':
+    if len(sys.argv) != 1:
+        raise SystemExit('NO_ARGUMENTS_ALLOWED')
     print(json.dumps(collect(), sort_keys=True))

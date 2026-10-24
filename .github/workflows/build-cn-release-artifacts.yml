@@ -72,10 +72,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  host-permissions:
+  host-permission-source:
     if: github.event_name == 'workflow_dispatch' && inputs.host_permission_probe != '' && inputs.host_permission_probe != 'off'
-    runs-on: ${{ fromJSON(inputs.host_permission_probe == 'cn' && '["self-hosted","linux","workspacex-cn-production"]' || '["self-hosted","linux","workspacex"]') }}
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
+    outputs:
+      sha256: ${{ steps.pin.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -83,8 +85,29 @@ jobs:
           persist-credentials: false
           sparse-checkout: scripts/image-release-host-permissions.py
           sparse-checkout-cone-mode: false
+      - id: pin
+        run: echo "sha256=$(sha256sum scripts/image-release-host-permissions.py | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: scripts/image-release-host-permissions.py
+          retention-days: 1
+  host-permissions:
+    needs: host-permission-source
+    runs-on: ${{ fromJSON(inputs.host_permission_probe == 'cn' && '["self-hosted","linux","workspacex-cn-production"]' || '["self-hosted","linux","workspacex"]') }}
+    timeout-minutes: 3
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          name: host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
       - name: Report account and exact denied resource without elevation
-        run: python3 -I -B scripts/image-release-host-permissions.py
+        working-directory: ${{ runner.temp }}/host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
+        env:
+          EXPECTED_SHA256: ${{ needs.host-permission-source.outputs.sha256 }}
+        run: |
+          printf '%s  image-release-host-permissions.py\n' "$EXPECTED_SHA256" | sha256sum --check --strict
+          python3 -I -B image-release-host-permissions.py
 
   shared-images:
     if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
