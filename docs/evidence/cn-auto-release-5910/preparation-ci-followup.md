@@ -42,3 +42,21 @@ A complete local package run passed 698/699 cases; its sole failure was an
 existing Linux shell fixture requiring the unavailable native macOS `flock`
 binary. This is retained as an environment limit rather than described as a
 green full-package run. The Linux PR lane supplies actual `flock`.
+
+Head 55579aa passed all release-identity and backend checks; its remaining
+verify-control-plane failure exposed three independent fixture/wiring problems:
+Node builtin `.test.mjs` files were also discovered by Vitest, source-transfer
+artifact actions missed the audited Node24 catalogue, and the real Docker
+synthetic database fixture used the production 10 GiB disk reserve on a smaller
+CI workspace. The Node suites are renamed `.selftest.mjs` and remain explicitly
+executed by the existing workflow test. Upload uses audited v6; download uses the
+catalogue's immutable audited commit. The synthetic fixture keeps actual disk
+measurement and a scoped 256 MiB reserve plus three times real database size;
+production's 10 GiB guard and streaming-abort negatives are unchanged. It asserts
+both each dump and ciphertext remain below 1 MiB, and cannot attest production
+capacity. Independent review accepted the scoped fixture.
+
+Local replacement checks: workflow/actions tests 18 passed, two existing Linux
+skips; all 23 explicitly run Node cases passed; actual Docker provider nine tests
+passed in 53.027s; Linux boundary tests eight passed. Replacement full PR CI is
+still required. These checks do not prove production release readiness.

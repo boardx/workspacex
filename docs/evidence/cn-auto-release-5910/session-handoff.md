@@ -80,3 +80,14 @@ GitHub live correction: #5912 is MERGED (usersyj, 2026-10-23T18:30:31Z),
 main d1096e300. Existing local branch merged that main as 6f75beff2 without a
 new worktree. Follow-up issue #5913 tracks the still-unfinished actual automatic
 preparation/release lane. Post-merge workflow/baseline tests21 pass/2 Linux skips.
+
+Workbench root terminal recovered after user completed MFA; fresh readonly host
+checks report uid0 and 42.9 GiB free. Existing governance signer/public key and
+Devapp public verifier are root600. Automatic preparation policy is absent; root
+GitHub CLI has no configured authentication. No trusted entries, policy, runtime,
+production database or refs changed in this continuation. Existing boardx-coord
+App has administration-write installation but its key/service and selected repo
+membership are not proven. Current gateway documentation instead points to the
+other coordinator App; never substitute its key or workstation token. Devapp
+exact-source acceptance and governance signed-facts unattended producers remain
+unfinished. The supplied workspace-cn PEM is SSH only, not GitHub App auth.

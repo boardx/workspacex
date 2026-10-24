@@ -22,7 +22,7 @@ describe("CN release candidate workflow", () => {
   });
 
   it("executes the automatic dispatcher counterexamples in the harness CI lane", () => {
-    const result = spawnSync(process.execPath, ["--test", ".github/scripts/cn-auto-release.test.mjs", ".github/scripts/cn-auto-source.test.mjs", ".harness/scripts/vm/cn-auto-isolated-target.test.mjs", ".harness/scripts/vm/cn-migration-runtime-probe.test.mjs"], { encoding: "utf8", timeout: 30000 });
+    const result = spawnSync(process.execPath, ["--test", ".github/scripts/cn-auto-release.test.mjs", ".github/scripts/cn-auto-source.test.mjs", ".harness/scripts/vm/cn-auto-isolated-target.selftest.mjs", ".harness/scripts/vm/cn-migration-runtime-probe.selftest.mjs"], { encoding: "utf8", timeout: 30000 });
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
 
