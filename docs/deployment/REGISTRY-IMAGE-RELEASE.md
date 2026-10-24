@@ -62,7 +62,9 @@ repositories or change RAM policies just to make login pass.
    (example below). Each release obtains fresh IMDSv2/ACR temporary credentials,
    verifies the ECS instance identity and requires at least 16 minutes of remaining
    credential lifetime. Docker login uses stdin and a temporary root-private
-   directory, removed on normal completion or exceptions. Credentials and raw
+   directory inside a systemd-owned `/run` directory. Python removes it on normal
+   completion/exceptions; systemd removes the parent when the service exits,
+   including forced termination. Credentials and raw
    provider errors are never printed. Grant `cr:GetAuthorizationToken` and only
    `cr:PullRepository` for the five release repositories. Alternatively, an existing
    root-private `dockerConfig` may be used; configure exactly one auth mode.

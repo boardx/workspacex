@@ -36,7 +36,7 @@ class NoAuthRedirect(urllib.request.HTTPRedirectHandler):
         raise ValueError('ECS_ACR_AUTH_FAILED')
 
 @contextmanager
-def ecs_docker_config(policy, docker, host):
+def ecs_docker_config(policy, docker, host, runtime_directory):
     """Refresh the host's ECS identity for each release; never persist STS credentials."""
     region=policy.get('region','')
     registry.need(bool(re.fullmatch(r'[a-z]{2}-[a-z]+(?:-\d+)?',region)), 'ECS_ACR_REGION_INVALID')
@@ -66,7 +66,8 @@ def ecs_docker_config(policy, docker, host):
         registry.need(all(isinstance(v,str) and v and not any(ord(c)<32 or ord(c)==127 for c in v) for v in (username,password)),'ACR_CREDENTIAL_FORMAT')
     except Exception:
         raise ValueError('ECS_ACR_AUTH_FAILED') from None
-    with tempfile.TemporaryDirectory(prefix='wsx-acr-pull-') as directory:
+    # systemd removes the parent even after SIGKILL, power loss or a timed-out pull.
+    with tempfile.TemporaryDirectory(prefix='acr-pull-',dir=runtime_directory) as directory:
         try:
             result=subprocess.run([docker,'--config',directory,'login',host,'--username',username,'--password-stdin'],
                                   input=password,capture_output=True,text=True,timeout=30,env={'PATH':'/usr/bin:/bin'})
@@ -119,7 +120,9 @@ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
     docker=str(trusted(config['docker']))
     if 'ecsAuth' in config:
         registry.need('dockerConfig' not in config,'AMBIGUOUS_REGISTRY_AUTH')
-        with ecs_docker_config(config['ecsAuth'],docker,config['registryPrefix'].split('/')[0]) as docker_config:
+        runtime=trusted(os.environ.get('RUNTIME_DIRECTORY',''),directory=True,private=True)
+        registry.need(runtime.parent==Path('/run') and runtime.name.startswith('wsx-image-'),'SYSTEMD_RUNTIME_DIRECTORY_REQUIRED')
+        with ecs_docker_config(config['ecsAuth'],docker,config['registryPrefix'].split('/')[0],runtime) as docker_config:
             return deploy_config(environment,tag,config,docker,docker_config)
     docker_config=trusted(config['dockerConfig'],directory=True,private=True)
     # Existing root-managed Docker login is used only for pulling. Nothing is read from runner env.
@@ -196,8 +199,10 @@ def main():
     if not args.execute:
         # The worker outlives the Actions runner and performs recovery on cancellation.
         # systemd grants recovery time rather than letting runner shutdown kill it midway.
-        command=['/usr/bin/systemd-run','--wait','--collect','--quiet','--unit=wsx-image-'+args.environment+'-'+uuid.uuid4().hex,
+        unit='wsx-image-'+args.environment+'-'+uuid.uuid4().hex
+        command=['/usr/bin/systemd-run','--wait','--collect','--quiet','--unit='+unit,
                  '--property=RuntimeMaxSec=900','--property=TimeoutStopSec=360','--property=KillMode=mixed',
+                 '--property=RuntimeDirectory='+unit,'--property=RuntimeDirectoryMode=0700','--property=RuntimeDirectoryPreserve=no',
                  '/usr/bin/python3','-I','-B',str(Path(__file__).resolve()),args.environment,args.tag,'--execute']
         return subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False).returncode
     result=deploy(args.environment,args.tag)

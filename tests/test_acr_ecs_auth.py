@@ -21,6 +21,8 @@ class EcsAuthentication(unittest.TestCase):
         self.policy = {'region':'cn-shanghai','instanceId':'cri-test123','roleName':'PullOnlyRole','ecsInstanceId':'i-devapp123'}
         self.host = 'example-registry.cn-shanghai.cr.aliyuncs.com'
         self.calls = []
+        self.runtime = tempfile.TemporaryDirectory()
+        self.addCleanup(self.runtime.cleanup)
     def opener(self, request, timeout):
         self.calls.append(request)
         url = request.full_url
@@ -33,6 +35,7 @@ class EcsAuthentication(unittest.TestCase):
         self.assertNotIn('private-password', ' '.join(argv))
         self.assertEqual(kwargs['input'], 'private-password')
         self.directory = Path(argv[2])
+        self.assertEqual(self.directory.parent, Path(self.runtime.name))
         self.assertEqual(self.directory.stat().st_mode & 0o777, 0o700)
         (self.directory/'config.json').write_text('{}')
         return subprocess.CompletedProcess(argv, 0, '', '')
@@ -41,7 +44,7 @@ class EcsAuthentication(unittest.TestCase):
         with patch.object(urllib.request, 'build_opener') as builder, patch.object(m.subprocess,'run',side_effect=self.login):
             builder.return_value.open.side_effect = self.opener
             with self.assertRaisesRegex(RuntimeError, 'deployment failure'):
-                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host) as directory:
+                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host, self.runtime.name) as directory:
                     self.assertEqual(Path(directory), self.directory)
                     raise RuntimeError('deployment failure')
         self.assertFalse(self.directory.exists())
@@ -54,12 +57,12 @@ class EcsAuthentication(unittest.TestCase):
         with patch.object(urllib.request,'build_opener') as builder, patch.object(m.subprocess,'run') as login:
             builder.return_value.open.side_effect = self.opener
             with self.assertRaisesRegex(ValueError, 'ECS_ACR_AUTH_FAILED'):
-                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host): pass
+                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host, self.runtime.name): pass
             login.assert_not_called()
     def test_foreign_registry_is_rejected_before_metadata_access(self):
         with patch.object(urllib.request,'build_opener') as builder:
             with self.assertRaisesRegex(ValueError, 'ECS_ACR_REGISTRY_MISMATCH'):
-                with m.ecs_docker_config(self.policy, '/usr/bin/docker', 'attacker.example'): pass
+                with m.ecs_docker_config(self.policy, '/usr/bin/docker', 'attacker.example', self.runtime.name): pass
             builder.assert_not_called()
     def test_wrong_ecs_instance_never_uses_registry_credentials(self):
         self.policy['ecsInstanceId'] = 'i-other123'
@@ -67,7 +70,7 @@ class EcsAuthentication(unittest.TestCase):
         with patch.object(urllib.request,'build_opener') as builder, patch.object(m.subprocess,'run') as login:
             builder.return_value.open.side_effect = self.opener
             with self.assertRaisesRegex(ValueError, '^ECS_ACR_AUTH_FAILED$'):
-                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host): pass
+                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host, self.runtime.name): pass
             login.assert_not_called()
         self.assertEqual(len(self.calls), 2)
     def test_login_failure_is_redacted_and_removes_private_directory(self):
@@ -78,8 +81,17 @@ class EcsAuthentication(unittest.TestCase):
         with patch.object(urllib.request,'build_opener') as builder, patch.object(m.subprocess,'run',side_effect=failed_login):
             builder.return_value.open.side_effect = self.opener
             with self.assertRaisesRegex(ValueError, '^ECS_ACR_LOGIN_FAILED$'):
-                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host): pass
+                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host, self.runtime.name): pass
         self.assertFalse(self.directory.exists())
+    def test_worker_uses_systemd_owned_private_runtime_directory(self):
+        with patch.object(m.sys,'argv',['deploy','devapp','a'*40+'-123-1']), patch.object(m.os,'geteuid',return_value=0), patch.object(m.subprocess,'run') as run:
+            run.return_value.returncode=0
+            self.assertEqual(m.main(),0)
+        argv=run.call_args.args[0]
+        unit=next(x.split('=',1)[1] for x in argv if x.startswith('--unit='))
+        self.assertIn('--property=RuntimeDirectory='+unit,argv)
+        self.assertIn('--property=RuntimeDirectoryMode=0700',argv)
+        self.assertIn('--property=RuntimeDirectoryPreserve=no',argv)
     def test_redirect_cannot_forward_metadata_or_signed_credentials(self):
         with self.assertRaisesRegex(ValueError, '^ECS_ACR_AUTH_FAILED$'):
             m.NoAuthRedirect().redirect_request(None, None, 302, 'redirect', {}, 'https://attacker.example')
@@ -87,6 +99,6 @@ class EcsAuthentication(unittest.TestCase):
         with patch.object(urllib.request,'build_opener') as builder:
             builder.return_value.open.side_effect = RuntimeError('private-password')
             with self.assertRaisesRegex(ValueError, '^ECS_ACR_AUTH_FAILED$'):
-                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host): pass
+                with m.ecs_docker_config(self.policy, '/usr/bin/docker', self.host, self.runtime.name): pass
 
 if __name__=='__main__': unittest.main()
