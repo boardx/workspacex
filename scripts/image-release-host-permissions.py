@@ -34,7 +34,7 @@ class DockerHTTP(http.client.HTTPConnection):
 def containers():
     connection = DockerHTTP('localhost', timeout=5)
     try:
-        connection.request('GET', '/v1.41/containers/json')
+        connection.request('GET', '/containers/json')
         response = connection.getresponse()
         if response.status != 200:
             return dict(status='HTTP_REJECTED', httpStatus=response.status)

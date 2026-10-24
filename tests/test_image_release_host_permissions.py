@@ -20,7 +20,7 @@ class Permissions(unittest.TestCase):
             result = probe.containers()
         self.assertEqual(result['resource'], '/run/docker.sock')
         self.assertEqual(result['errno'], errno.EACCES)
-        request.assert_called_once_with('GET', '/v1.41/containers/json')
+        request.assert_called_once_with('GET', '/containers/json')
 
     def test_unrelated_sudo_policy_and_errors_are_not_disclosed(self):
         result = type('Result', (), {'returncode': 0, 'stdout': '/usr/local/bin/workspacex-cn-deploy sensitive-policy-text'})()

@@ -122,6 +122,31 @@ jobs:
         run: |
           printf '%s  image-release-host-permissions.py\n' "$EXPECTED_SHA256" | sha256sum --check --strict
           python3 -I -B image-release-host-permissions.py
+      - name: Verify installed fixed entry and environment scope without deploying
+        env:
+          TARGET_ENVIRONMENT: ${{ inputs.host_permission_probe }}
+        run: |
+          python3 -I -B - <<'PY'
+          import json, os, pwd, subprocess
+          environment = os.environ['TARGET_ENVIRONMENT']
+          assert environment in ('cn', 'devapp')
+          def sudo(args):
+              return subprocess.run(['/usr/bin/sudo', '-n', *args], capture_output=True, text=True, timeout=20)
+          observed = sudo(['/usr/local/bin/workspacex-image-host-status'])
+          assert observed.returncode == 0, 'FIXED_STATUS_FAILED'
+          status = json.loads(observed.stdout)
+          tag = 'a' * 40 + '-123-1'
+          own = sudo(['-l', '/usr/local/bin/workspacex-image-release', environment, tag])
+          other = sudo(['-l', '/usr/local/bin/workspacex-image-release', 'devapp' if environment == 'cn' else 'cn', tag])
+          extra = sudo(['-l', '/usr/local/bin/workspacex-image-host-status', 'unexpected'])
+          result = dict(kind='image-release-authorization-verified-v1', environment=environment,
+                        runnerAccount=pwd.getpwuid(os.geteuid()).pw_name, uid=os.geteuid(),
+                        fixedStatusExit=observed.returncode, dockerReadable=status['docker']['status'] == 'READABLE',
+                        ownEnvironmentAllowed=own.returncode == 0, otherEnvironmentDenied=other.returncode != 0,
+                        statusExtraArgumentDenied=extra.returncode != 0, deploymentExecuted=False)
+          print(json.dumps(result, sort_keys=True))
+          assert all(result[key] for key in ('dockerReadable', 'ownEnvironmentAllowed', 'otherEnvironmentDenied', 'statusExtraArgumentDenied'))
+          PY
 
   shared-images:
     if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
