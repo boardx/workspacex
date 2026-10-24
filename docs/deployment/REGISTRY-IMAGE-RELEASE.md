@@ -24,9 +24,9 @@ Repository Actions variables:
 - Optional `WSX_NODE_IMAGE`, `WSX_PYTHON_IMAGE`, `WSX_POSTGRES_IMAGE`: overrides including `@sha256:...`. Without overrides, the hosted plan resolves the existing Dockerfile defaults once to immutable digests and passes the same pins to every build. The postgres value supplies `PGVECTOR_IMAGE`.
 - `WSX_IMAGE_RELEASE_ENABLED`: leave absent during setup; set to `true` only after both host consumers and their rollback have actually been verified.
 
-Builders use the existing `production-cn-build` environment. Set the build
-variables at repository scope so the manifest aggregation job sees the same
-prefix. DevApp uses the `devapp` environment and existing `workspacex` runner;
+Shared builders read the repository-scoped build credentials/variables and do not
+enter a production deployment environment. Set build variables at repository scope
+so the manifest aggregation job sees the same prefix. DevApp uses the `devapp` environment and existing `workspacex` runner;
 CN uses `production-cn` and `workspacex-cn-production`. Existing environment
 protections are respected, not removed by this workflow.
 
