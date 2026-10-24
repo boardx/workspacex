@@ -10,7 +10,41 @@
 - [x] Add `scripts/registry-images.py` for five existing Dockerfiles, unique source/run/attempt tags and complete manifests.
 - [x] Add fixed `scripts/deploy-registry-images.py` entry: trusted per-environment config, shared host lock, pulls before mutation, pinned config, persistent current image override, runtime/business checks.
 - [x] Add build/deploy workflow for develop→DevApp and main-cn→CN, plus manual environment/tag selection. Hosted runners build; existing self-hosted runners consume.
-- [ ] Gate legacy automatic writers with the same cutover switch, document installation/config and perform focused tests and independent review.
+- [x] Gate legacy automatic writers with the same cutover switch, document installation/config and perform focused tests and independent review.
+- [x] Configure hosted-builder ACR access and install scoped fixed entries on both real hosts.
+- [x] Verify fresh ECS pull credentials and actual full layer downloads on both hosts.
+- [x] Inventory live/candidate schema bytes and read actual database migration history.
+- [x] Resolve the initial rollout version boundary: user chose current-version runtime conversion, with database upgrade separate.
+- [ ] Prepare DevApp application Compose baseline, fixed business probes, CN admission adapter and real host policies.
+- [ ] Execute actual environment deployment, business verification and recovery acceptance before enabling automatic cutover.
+
+```mermaid
+flowchart LR
+  A[Hosted build and ACR push] --> B[Both hosts download exact tag]
+  B --> C[Schema and database inventory]
+  C --> D[Initial version boundary]
+  D --> E[Runtime preparation]
+  E --> F[Deploy and business verification]
+  F --> G[Rollback acceptance]
+  G --> H[Enable automatic releases]
+  classDef tested fill:#ddd0ff,stroke:#7950b3
+  classDef blocked fill:#ffd6d6,stroke:#c92a2a
+  classDef pending fill:#eee,stroke:#888
+  class A,B,C tested
+  class D tested
+  class E,F,G,H pending
+```
+
+Actual initial candidate inventory: DevApp has seven pending database migrations,
+CN sixteen. The candidate changes accounting column types; image recovery alone
+cannot restore database semantics. The image-only schema guard remains enabled.
+The user chose to build each existing environment's application version through
+the hosted producer first and keep database upgrades separate. Added a build-only
+exact source selector: control scripts remain at the workflow revision, while
+Dockerfiles, application context, revision labels and tag identify the selected
+source. Source overrides cannot deploy. The source selector and wrapper binding
+have regression coverage; actual baseline builds and rollout remain pending.
+See the dated evidence document for actual host observations.
 
 ## Constraints / rollout boundaries
 - Do not alter database volumes, run migrations, or fabricate archive/approval evidence. Schema changes stop before activation.

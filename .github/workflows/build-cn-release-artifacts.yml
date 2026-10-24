@@ -155,6 +155,7 @@ jobs:
       environment: devapp
       service: ${{ inputs.shared_image_service }}
       build_only: true
+      source_revision: ${{ inputs.release_sha }}
     secrets: inherit
 
   registry-probe:

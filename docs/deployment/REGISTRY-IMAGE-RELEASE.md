@@ -127,6 +127,14 @@ stops before replacement.
 
 ## Usage and cutover
 
+For the first current-version baseline build, set `build_only=true` and
+`source_revision` to that environment's exact 40-character source SHA. The build
+checks out that source for Dockerfiles/context, base defaults, labels and tag;
+producer code stays at the workflow revision. This is useful when the source
+predates the new workflow. The shared-image wrapper now forwards `release_sha`
+instead of silently building its own workflow commit. An override without
+`build_only` is rejected before checkout; it cannot trigger a host deployment.
+
 Manual workflow dispatch on `main`: choose `devapp` or `cn`; specify a complete
 existing tag to deploy without rebuilding, or leave tag empty to build that
 commit first. After actual acceptance, enable the shared cutover variable.
@@ -134,6 +142,12 @@ commit first. After actual acceptance, enable the shared cutover variable.
 CN. The old automatic deploy writers use the inverse flag so they cannot race
 the new automatic lane. Existing privileged/manual operations still use the same
 host locks.
+
+Use the selected environment's actual application origin for business/browser
+verification. The user's confirmed CN application is `https://app.boardx.com.cn`;
+`www.boardx.com.cn` serves the marketing site. Its `/login` returning404 is not
+evidence of a CN application failure. Do not copy the marketing origin from older
+release documentation into the host's business probe configuration.
 
 ## Current rollout boundary
 
