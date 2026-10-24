@@ -22,6 +22,20 @@ class Tests(unittest.TestCase):
   for missing in files:
    with self.subTest(missing=missing),self.assertRaises(Exception):m.old_profile_allowlist({'filesSha256':{k:v for k,v in content['filesSha256'].items() if k!=missing}},files,inv)
   with self.assertRaises(Exception):m.old_profile_allowlist(content,files,{'files':{'schema':{'target':None},'script':{'target':'/usr/local/lib/foreign.py'}}})
+ def test_mode_only_publication_under_umask077_and_rollback_restore_private_mode(self):
+  for failure in (False,True):
+   with self.subTest(failure=failure),tempfile.TemporaryDirectory() as d:
+    root=pathlib.Path(d);root.chmod(0o700);backup=root/'backup';backup.mkdir(mode=0o700);target=root/'software';target.write_bytes(b'same reviewed bytes');target.chmod(0o700)
+    uid=os.getuid();gid=os.getgid();old={'sha256':m.sha(target.read_bytes()),'uid':uid,'gid':gid,'mode':0o700,'nlink':1}
+    rows=[{'destination':str(target),'payload':'software','sha256':old['sha256'],'before':old,'mode':0o755,'uid':uid,'gid':gid}]
+    previous=os.umask(0o077)
+    try:
+     def fault(index):raise RuntimeError('mode-only injected failure')
+     if failure:
+      with self.assertRaises(RuntimeError):m.transaction(rows,{'software':b'same reviewed bytes'},backup,uid,gid,root,inject=fault)
+     else:m.transaction(rows,{'software':b'same reviewed bytes'},backup,uid,gid,root)
+    finally:os.umask(previous)
+    self.assertEqual(stat.S_IMODE(target.stat().st_mode),0o700 if failure else 0o755);self.assertEqual(target.read_bytes(),b'same reviewed bytes')
  def test_success(self):self.run_case('success')
  def test_late_failure_restores_old_and_absent(self):self.run_case('fault')
  def test_same_bytes_foreign_inode_preserved(self):self.run_case('foreign')

@@ -1,0 +1,22 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/646f/workspacex
+
+ ✓ .harness/scripts/vm/cn-candidate-config-wiring.test.ts (7 tests) 30ms
+ ✓ .harness/scripts/vm/cn-production-bootstrap.test.ts (16 tests) 36ms
+ ✓ packages/cloud-deploy/src/cn-auto-preparation.test.ts (22 tests) 58ms
+ ✓ packages/cloud-deploy/src/cn-auto-preparation-render.test.ts (1 test) 129ms
+ ✓ .harness/scripts/vm/cn-compose-baseline.test.ts (2 tests) 210ms
+ ✓ packages/cloud-deploy/src/cn-auto-preparation-process.test.ts (3 tests) 397ms
+ ✓ .harness/scripts/vm/cn-release-candidate-workflow.test.ts (9 tests | 2 skipped) 10201ms
+   ✓ CN release candidate workflow > requires manual main admission and rejects unsafe contexts before side effects 3108ms
+   ✓ CN release candidate workflow > executes the automatic dispatcher counterexamples in the harness CI lane 5009ms
+   ✓ CN release candidate workflow > executes real Python source importer counterexamples in the harness CI lane 1383ms
+   ✓ CN release candidate workflow > executes automatic host provider boundaries and timeout counterexamples 698ms
+ ✓ .harness/scripts/vm/cn-production-promotion-workflow.test.ts (12 tests) 12696ms
+   ✓ GitHub-based CN production promotion > verifies checkout ancestry offline and rejects missing or invalid identities 341ms
+   ✓ GitHub-based CN production promotion > executes domestic Git export and runner capability failure fixtures 12276ms
+
+ Test Files  8 passed (8)
+      Tests  70 passed | 2 skipped (72)
+   Start at  03:41:57
+   Duration  13.20s (transform 509ms, setup 0ms, collect 706ms, tests 23.76s, environment 1ms, prepare 451ms)

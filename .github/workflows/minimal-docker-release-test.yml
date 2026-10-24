@@ -32,5 +32,7 @@ jobs:
             ${{ runner.temp }}/minimal-release-real/schema-rejection.json
             ${{ runner.temp }}/minimal-release-real/applied/receipt.json
             ${{ runner.temp }}/minimal-release-real/rejected/receipt.json
+            ${{ runner.temp }}/minimal-release-real/recovered/receipt.json
+            ${{ runner.temp }}/minimal-release-real/after-recovery/receipt.json
           retention-days: 1
           if-no-files-found: warn

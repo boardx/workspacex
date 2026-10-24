@@ -1,0 +1,56 @@
+ExpectError: expect(locator).toHaveAttribute(expected) failed
+
+Locator:  getByTestId('itv-workbench-step-report')
+Expected: "completed"
+Received: "unknown"
+Timeout:  30000ms
+
+Call log:
+  - Expect "to.have.attribute.value" with timeout 30000ms
+  - waiting for getByTestId('itv-workbench-step-report')
+    23 × locator resolved to <button type="button" aria-busy="false" data-state="unknown" data-testid="itv-workbench-step-report" class="inline-flex min-h-6 items-center whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:text-background-foreground h-auto justify-start…>…</button>
+       - unexpected value "unknown"
+    - waiting for "http://localhost:35890/itv/itv-quality-e2e/analysis" navigation to finish...
+    - navigated to "http://localhost:35890/itv/itv-quality-e2e/analysis"
+    32 × locator resolved to <button type="button" aria-busy="false" data-state="unknown" data-testid="itv-workbench-step-report" class="inline-flex min-h-6 items-center whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:text-background-foreground h-auto justify-start…>…</button>
+       - unexpected value "unknown"
+
+    at captureRawStack (/Users/shenyangjun/.codex/worktrees/c3a4/workspacex/node_modules/.pnpm/playwright-core@1.62.0/node_modules/playwright-core/lib/coreBundle.js:9681:17)
+    at callMatcherAsStep (/Users/shenyangjun/.codex/worktrees/c3a4/workspacex/node_modules/.pnpm/playwright@1.62.0/node_modules/playwright/lib/matchers/expect.js:13310:57)
+    at Object.toHaveAttribute (/Users/shenyangjun/.codex/worktrees/c3a4/workspacex/node_modules/.pnpm/playwright@1.62.0/node_modules/playwright/lib/matchers/expect.js:13300:23)
+    at /Users/shenyangjun/.codex/worktrees/c3a4/workspacex/docs/evidence/interview-ui-5890/browser-check.cjs:24:738 {
+  matcherResult: {
+    name: 'toHaveAttribute',
+    expected: 'completed',
+    message: 'expect(locator).toHaveAttribute(expected) failed\n' +
+      '\n' +
+      "Locator:  getByTestId('itv-workbench-step-report')\n" +
+      'Expected: "completed"\n' +
+      'Received: "unknown"\n' +
+      'Timeout:  30000ms\n' +
+      '\n' +
+      'Call log:\n' +
+      '  - Expect "to.have.attribute.value" with timeout 30000ms\n' +
+      "  - waiting for getByTestId('itv-workbench-step-report')\n" +
+      '    23 × locator resolved to <button type="button" aria-busy="false" data-state="unknown" data-testid="itv-workbench-step-report" class="inline-flex min-h-6 items-center whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:text-background-foreground h-auto justify-start…>…</button>\n' +
+      '       - unexpected value "unknown"\n' +
+      '    - waiting for "http://localhost:35890/itv/itv-quality-e2e/analysis" navigation to finish...\n' +
+      '    - navigated to "http://localhost:35890/itv/itv-quality-e2e/analysis"\n' +
+      '    32 × locator resolved to <button type="button" aria-busy="false" data-state="unknown" data-testid="itv-workbench-step-report" class="inline-flex min-h-6 items-center whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:text-background-foreground h-auto justify-start…>…</button>\n' +
+      '       - unexpected value "unknown"\n',
+    pass: false,
+    actual: 'unknown',
+    log: [
+      '  - Expect "to.have.attribute.value" with timeout 30000ms',
+      "  - waiting for getByTestId('itv-workbench-step-report')",
+      '    23 × locator resolved to <button type="button" aria-busy="false" data-state="unknown" data-testid="itv-workbench-step-report" class="inline-flex min-h-6 items-center whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:text-background-foreground h-auto justify-start…>…</button>',
+      '       - unexpected value "unknown"',
+      '    - waiting for "http://localhost:35890/itv/itv-quality-e2e/analysis" navigation to finish...',
+      '    - navigated to "http://localhost:35890/itv/itv-quality-e2e/analysis"',
+      '    32 × locator resolved to <button type="button" aria-busy="false" data-state="unknown" data-testid="itv-workbench-step-report" class="inline-flex min-h-6 items-center whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent hover:text-background-foreground h-auto justify-start…>…</button>',
+      '       - unexpected value "unknown"'
+    ],
+    timeout: 30000,
+    ariaSnapshot: '- button "步骤状态加载中 生成报告 审阅研究报告": 生成报告 审阅研究报告'
+  }
+}

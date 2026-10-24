@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "kind": "cn-auto-preparation-host-policy",
+  "toolRevision": "REPLACE_WITH_EXACT_IMPORTED_TOOL_SHA",
+  "provider": {
+    "path": "/usr/local/lib/workspacex-cn/cn_auto_prepare_provider.py",
+    "sha256": "REPLACE_WITH_INSTALLED_PROVIDER_FILE_SHA256"
+  },
+  "environment": {
+    "sourceDatabase": "/etc/workspacex-cn/secrets/recovered/migration.json",
+    "sourceNetwork": "workspacex-cn-runtime",
+    "postgresImage": "REPLACE_WITH_CACHED_PG16_AGE_IMMUTABLE_IMAGE_ID_OR_REFERENCE",
+    "redisImage": "REPLACE_WITH_CACHED_REDIS_IMMUTABLE_IMAGE_ID_OR_REFERENCE",
+    "nginxImage": "REPLACE_WITH_CACHED_NGINX_IMMUTABLE_IMAGE_ID_OR_REFERENCE",
+    "browserImage": "REPLACE_WITH_CACHED_NODE22_CHROMIUM_IMMUTABLE_IMAGE_ID_OR_REFERENCE",
+    "browserExecutable": "/usr/bin/chromium",
+    "toolCheckout": "/var/lib/workspacex-cn/auto-preparation-tools/REPLACE_WITH_EXACT_IMPORTED_TOOL_SHA",
+    "stableSecretDirectory": "/var/lib/workspacex-cn/stable-secrets",
+    "recipientCertificate": "/etc/workspacex-cn/rehearsal/backup-recipient.pem",
+    "recipientKey": "/etc/workspacex-cn/rehearsal/keys/backup-key.pem",
+    "restoreRoles": [],
+    "sourceTls": {
+      "sslmode": "disable",
+      "exceptionKind": "aliyun-postgresql-serverless-no-tls"
+    }
+  },
+  "timeouts": {
+    "backup": 1800,
+    "restoreIsolated": 1800,
+    "shadowReadiness": 300,
+    "shadowBusiness": 300,
+    "cleanupIsolated": 180
+  }
+}

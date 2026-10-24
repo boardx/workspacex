@@ -98,21 +98,56 @@ def read_health(config,timeout):
     need(bool(config['expected']) and all(body.get(k)==v for k,v in config['expected'].items()),'HEALTH_BODY')
     return {'httpStatus':200,'expectedFieldsMatched':True}
 
-def release(config_path,manifest_path,output,apply=False):
+def verify_runtime(d, command, services, images, config):
+    until=time.monotonic()+config.get('readinessTimeoutSeconds',120);polls=0
+    def remaining():
+        value=until-time.monotonic();need(value>0,'READINESS_DEADLINE');return value
+    while True:
+        polls+=1;ready=True
+        for service in services:
+            ids=d.run(command+['ps','--quiet',service],timeout=min(10,remaining())).decode().split()
+            need(len(ids)<=1,'DEPLOYED_CONTAINER_AMBIGUOUS')
+            if not ids: ready=False;continue
+            rows=d.json(['container','inspect',ids[0]],timeout=min(10,remaining()))
+            need(len(rows)==1,'DEPLOYED_CONTAINER_AMBIGUOUS');v=rows[0]
+            labels=v.get('Config',{}).get('Labels',{})
+            need(labels.get('com.docker.compose.project')==config['project'] and labels.get('com.docker.compose.service')==service,'LIVE_BINDING')
+            need(v['Image']==images[service],'DEPLOYED_IMAGE_MISMATCH')
+            ready=ready and v['State']['Running'] and not v['State'].get('Restarting',False) and v['State'].get('Health',{}).get('Status','healthy')=='healthy'
+        if ready:
+            try:
+                result=health(config['health'],timeout=min(10,remaining()));remaining()
+                break
+            except Rejected as error:
+                if str(error) in ('HEALTH_DEADLINE','READINESS_DEADLINE'): raise
+            except Exception: pass
+        time.sleep(min(.25,remaining()))
+    # Optional fixed host browser/business probe, executed for baseline, candidate and rollback.
+    probe=config.get('verificationCommand')
+    if probe:
+        checked=subprocess.run(probe,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=max(.001,remaining()),env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8'})
+        need(checked.returncode==0,'BUSINESS_VERIFICATION_FAILED');remaining()
+    result['readinessPolls']=polls
+    return result
+
+def release(config_path,manifest_path,output,apply=False,lock_fd=None,commit=None):
     out=pathlib.Path(output); out.mkdir(mode=0o700,parents=False,exist_ok=False)
-    stage='preflight'; mutated=False; lock=None
+    stage='preflight'; mutated=False; lock=None; previous_signals={}
+    def cancelled(*_): raise Rejected('DEPLOYMENT_CANCELLED')
     try:
         c=load(config_path); m=load(manifest_path)
         need(sha_file(manifest_path)==c['manifestSha256'],'MANIFEST_PIN')
-        need(m['kind']=='single-host-images-v1' and re.fullmatch('[a-f0-9]{40}',m['sourceRevision']),'MANIFEST_SOURCE')
+        need(m['kind'] in ('single-host-images-v1','registry-images-v1') and re.fullmatch('[a-f0-9]{40}',m['sourceRevision']),'MANIFEST_SOURCE')
         need(set(m['images'])=={'api','web','agent','sandbox','postgres'},'FIVE_IMAGES_REQUIRED')
         need(re.fullmatch('[a-z][a-z0-9_-]{0,40}',c['project']),'PROJECT')
-        services=c['services']; need(set(services.values())=={'api','web','agent','sandbox'} and len(services)==5,'APPLICATION_SERVICES')
+        # CN has four existing application containers; DevApp can additionally
+        # bind a second sandbox service. Never create an optional service here.
+        services=c['services']; need(set(services.values())=={'api','web','agent','sandbox'} and len(services) in (4,5),'APPLICATION_SERVICES')
         need(all(re.fullmatch('[a-z][a-z0-9_-]{0,40}',s) and s not in ('postgres','redis') and r!='postgres' for s,r in services.items()),'DATA_SERVICE_FORBIDDEN')
         files=[trusted_file(r['path'],r['sha256']) for r in c['composeFiles']]; need(bool(files),'COMPOSE_FILES')
         envfile=trusted_file(c['envFile']['path'],c['envFile']['sha256'])
         need(pathlib.Path(c['lockFile']).is_absolute(),'LOCK_PATH')
-        lock=os.open(c['lockFile'],os.O_RDONLY|os.O_NONBLOCK|os.O_NOFOLLOW)
+        lock=os.dup(lock_fd) if lock_fd is not None else os.open(c['lockFile'],os.O_RDONLY|os.O_NONBLOCK|os.O_NOFOLLOW)
         ls=os.fstat(lock);need(stat.S_ISREG(ls.st_mode) and ls.st_nlink==1 and ls.st_uid==os.geteuid() and stat.S_IMODE(ls.st_mode)==0o600,'LOCK_TRUST')
         try: fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError: raise Rejected('RELEASE_LOCK_BUSY')
@@ -130,7 +165,12 @@ def release(config_path,manifest_path,output,apply=False):
             need(len(config_hash)==2 and config_hash[0]==service and labels.get('com.docker.compose.config-hash')==config_hash[1],'LIVE_CONFIG_DRIFT')
             image(d,v['Image']); old[service]=v['Image']
         for role,row in m['images'].items():
-            need(re.fullmatch('[a-f0-9]{64}',row['archiveSha256']) and str(row['artifactId']).isdigit() and str(row['runId']).isdigit(),'PROVENANCE_REQUIRED')
+            if m['kind']=='single-host-images-v1':
+                need(re.fullmatch('[a-f0-9]{64}',row['archiveSha256']) and str(row['artifactId']).isdigit() and str(row['runId']).isdigit(),'PROVENANCE_REQUIRED')
+            else:
+                need(isinstance(row.get('image'),str) and re.fullmatch(r'[a-z0-9][a-z0-9.:/_-]*@sha256:[a-f0-9]{64}',row['image']),'REGISTRY_DIGEST_REQUIRED')
+                inspected=d.json(['image','inspect',row['imageId']])
+                need(len(inspected)==1 and row['image'] in inspected[0].get('RepoDigests',[]),'REGISTRY_DIGEST_MISMATCH')
             image(d,row['imageId'],m['sourceRevision'])
         # Actual stopped-container bytes, never caller boolean or empty-map equality.
         schema_evidence={}
@@ -155,39 +195,36 @@ def release(config_path,manifest_path,output,apply=False):
             ids=d.run(base+['ps','--quiet',s]).decode().split();need(len(ids)==1,'FINAL_CONTAINER_DRIFT')
             need(d.json(['container','inspect',ids[0]])[0]['Image']==old[s],'FINAL_CONTAINER_DRIFT')
         named=os.stat(c['lockFile'],follow_symlinks=False);need((ls.st_dev,ls.st_ino)==(named.st_dev,named.st_ino),'LOCK_REPLACED')
+        if c.get('automaticRollback'):
+            # Refuse to replace an unhealthy/unverifiable baseline; prepare recovery before mutation.
+            verify_runtime(d,base,services,old,c)
+            rollback_file=out/'rollback.json';save(rollback_file,{'services':{s:{'image':ident} for s,ident in old.items()}})
+            for sig in (signal.SIGTERM,signal.SIGINT):
+                previous_signals[sig]=signal.getsignal(sig);signal.signal(sig,cancelled)
         stage='compose-up'; save(out/'apply-intent.json',{'sourceRevision':m['sourceRevision'],'automaticRetry':False}); mutated=True
         d.run(command+['up','--detach','--no-deps','--pull','never','--no-build',*services],timeout=120)
-        stage='readiness'; until=time.monotonic()+wait; polls=0
-        def remaining():
-            value=until-time.monotonic();need(value>0,'READINESS_DEADLINE');return value
-        while True:
-            polls+=1;ready=True
-            for service,role in services.items():
-                ids=d.run(command+['ps','--quiet',service],timeout=min(10,remaining())).decode().split()
-                need(len(ids)<=1,'DEPLOYED_CONTAINER_AMBIGUOUS')
-                if not ids: ready=False;continue
-                v=d.json(['container','inspect',ids[0]],timeout=min(10,remaining()))[0]
-                # A different image is not a startup delay: fail immediately.
-                need(v['Image']==m['images'][role]['imageId'],'DEPLOYED_IMAGE_MISMATCH')
-                ready=ready and v['State']['Running'] and v['State'].get('Health',{}).get('Status','healthy')=='healthy'
-            if ready:
-                try:
-                    result=health(c['health'],timeout=min(10,remaining()))
-                    remaining()
-                    break
-                except Rejected as error:
-                    if str(error) in ('HEALTH_DEADLINE','READINESS_DEADLINE'): raise
-                except Exception: pass  # Read-only health retries, never a second compose up.
-            time.sleep(min(.25,remaining()))
-        result['readinessPolls']=polls
+        stage='readiness'
+        result=verify_runtime(d,command,services,{s:m['images'][r]['imageId'] for s,r in services.items()},c)
         receipt={'status':'SUCCEEDED','sourceRevision':m['sourceRevision'],'manifestSha256':sha_file(manifest_path),'health':result,'versionEvidence':'actual-running-image-IDs','markerUnchanged':True,'schemaMigrationExecuted':False,'databaseZeroWritesClaimed':False,'automaticRetry':False}
+        if commit: commit(out/'images.json')
         save(out/'receipt.json',receipt); return receipt
     except Exception as e:
-        if stage=='readiness' and isinstance(e,Rejected) and str(e)=='COMMAND_TIMEOUT' and time.monotonic()>=until:
-            e=Rejected('READINESS_DEADLINE')
+        if stage=='readiness' and isinstance(e,Rejected) and str(e)=='COMMAND_TIMEOUT': e=Rejected('READINESS_DEADLINE')
         result={'status':'FAILED_OR_UNCERTAIN' if mutated else 'REJECTED','stage':stage,'code':str(e) if isinstance(e,Rejected) else 'OPERATION_FAILED','automaticRetry':False,'applyAttempted':mutated}
+        if mutated and c.get('automaticRollback'):
+            # Reserve the process for recovery even when Actions sends cancellation signals.
+            for sig in previous_signals: signal.signal(sig,signal.SIG_IGN)
+            try:
+                recovery=base+['--file',str(rollback_file.resolve())]
+                d.run(recovery+['up','--detach','--no-deps','--pull','never','--no-build',*services],timeout=120)
+                result['rollbackHealth']=verify_runtime(d,recovery,services,old,c)
+                result['status']='ROLLED_BACK'
+                result['rollbackOverride']={'path':str(rollback_file.resolve()),'sha256':sha_file(rollback_file)}
+            except Exception:
+                result['status']='ROLLBACK_FAILED'
         save(out/'receipt.json',result); return result
     finally:
+        for sig,handler in previous_signals.items(): signal.signal(sig,handler)
         if lock is not None: os.close(lock)
 
 def main():

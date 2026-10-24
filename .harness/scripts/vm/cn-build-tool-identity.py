@@ -141,7 +141,69 @@ FILES={
  'packages/cloud-deploy/src/cn-maintenance-host/typed_operations.ts':None,
  'packages/cloud-deploy/src/cn-migration-completion-cli.ts':None,
  'packages/cloud-deploy/src/cn-migration-completion.ts':None,
+ '.harness/scripts/vm/verify-cn-release-promotion.sh':'/usr/local/bin/workspacex-cn-verify-promotion',
+ '.harness/scripts/vm/export-cn-domestic-source.sh':'/usr/local/bin/workspacex-cn-export-source',
+ '.harness/scripts/vm/cn-auto-isolated-target.mjs':'/usr/local/lib/workspacex-cn/cn-auto-isolated-target.mjs',
+ '.harness/scripts/vm/cn-controlled-evidence.mjs':'/usr/local/lib/workspacex-cn/cn-controlled-evidence.mjs',
+ '.harness/scripts/vm/devapp-runtime-identity.mjs':'/usr/local/lib/workspacex-cn/devapp-runtime-identity.mjs',
+ '.harness/scripts/vm/cn-auto-evidence-stage.mjs':'/usr/local/lib/workspacex-cn/cn-auto-evidence-stage.mjs',
+ '.harness/scripts/vm/stage-cn-offline-source-cache.sh':'/usr/local/lib/workspacex-cn/stage-cn-offline-source-cache.sh',
+ '.harness/scripts/vm/cn_auto_source.py':'/usr/local/lib/workspacex-cn/cn_auto_source.py',
+ '.harness/scripts/vm/cn_compose_baseline.py':'/usr/local/lib/workspacex-cn/cn_compose_baseline.py',
+ '.harness/scripts/vm/cn_auto_prepare.py':'/usr/local/lib/workspacex-cn/cn_auto_prepare.py',
+ '.harness/scripts/vm/cn_auto_prepare_provider.py':'/usr/local/lib/workspacex-cn/cn_auto_prepare_provider.py',
+ '.harness/scripts/vm/cn_auto_baseline_schema.py':'/usr/local/lib/workspacex-cn/cn_auto_baseline_schema.py',
+ '.harness/scripts/vm/cn-migration-runtime-probe.mjs':None,
+ '.harness/scripts/vm/cn-release-browser-smoke.mjs':None,
+ 'packages/cloud-deploy/src/cn-auto-migration-snapshot.ts':None,
+ 'packages/cloud-deploy/src/cn-auto-preparation-cli.ts':None,
+ 'packages/cloud-deploy/src/cn-auto-preparation-process.ts':None,
+ 'packages/cloud-deploy/src/cn-auto-preparation-protocol.ts':None,
+ 'packages/cloud-deploy/src/cn-auto-preparation-render.ts':None,
+ 'packages/cloud-deploy/src/cn-auto-preparation-request.ts':None,
+ 'packages/cloud-deploy/src/cn-auto-preparation.ts':None,
+ 'packages/cloud-deploy/src/cn-fast-safe-release.ts':None,
+ 'packages/cloud-deploy/src/cn-migration-plan.ts':None,
+ 'packages/cloud-deploy/src/cn-migration-snapshot.ts':None,
+ 'packages/cloud-deploy/src/cn-migration-source-identity.ts':None,
+ 'packages/cloud-deploy/src/cn-release-browser-contract.ts':None,
+ 'packages/cloud-deploy/src/compose.ts':None,
+ 'packages/cloud-deploy/src/config.ts':None,
+ 'packages/cloud-deploy/src/data-secrets.ts':None,
+ 'packages/cloud-deploy/src/image-reference.ts':None,
+ 'packages/cloud-deploy/src/nginx.ts':None,
+ 'packages/cloud-deploy/src/release.ts':None,
+ 'packages/cloud-deploy/src/runtime-environment.ts':None,
+ 'packages/cloud-deploy/src/secrets.ts':None,
+ 'packages/cloud-deploy/src/storage-config.ts':None,
+ 'packages/cloud-deploy/src/trusted-generated-secrets.ts':None,
+ 'packages/cloud-deploy/src/trusted-path.ts':None,
 }
+# Exact-source metadata authority: runner can read/compare these public software
+# files; maintenance/recovery/private providers retain their original root0700.
+INSTALL_MODES={
+ '.harness/scripts/vm/build-cn-release-candidate.sh':0o755,
+ '.harness/scripts/vm/cn-auto-evidence-stage.mjs':0o755,
+ '.harness/scripts/vm/cn-auto-isolated-target.mjs':0o755,
+ '.harness/scripts/vm/cn-baseline-schema-contract.cjs':0o755,
+ '.harness/scripts/vm/cn-bootstrap-baseline-source.mjs':0o755,
+ '.harness/scripts/vm/cn-bootstrap-baseline.cjs':0o755,
+ '.harness/scripts/vm/cn-bootstrap-source-probe.mjs':0o755,
+ '.harness/scripts/vm/cn-controlled-evidence.mjs':0o755,
+ '.harness/scripts/vm/cn-release-orphans.py':0o755,
+ '.harness/scripts/vm/cn-release-preflight-evidence.mjs':0o755,
+ '.harness/scripts/vm/cn_auto_source.py':0o755,
+ '.harness/scripts/vm/cn_compose_baseline.py':0o755,
+ '.harness/scripts/vm/collect-cn-release-preflight.sh':0o755,
+ '.harness/scripts/vm/deploy-cn-production.sh':0o755,
+ '.harness/scripts/vm/devapp-runtime-identity.mjs':0o755,
+ '.harness/scripts/vm/export-cn-domestic-source.sh':0o755,
+ '.harness/scripts/vm/publish-cn-release.sh':0o755,
+ '.harness/scripts/vm/stage-cn-offline-source-cache.sh':0o755,
+ '.harness/scripts/vm/verify-cn-release-preflight.sh':0o755,
+ '.harness/scripts/vm/verify-cn-release-promotion.sh':0o755,
+}
+
 def require(value,code):
  if not value:raise ValueError(code)
 def private_read(path,mode=None):
@@ -226,7 +288,7 @@ def validate_identity(value,app,release,attempt,phase):
  require(value.get('schemaVersion')==1 and value.get('mode')=='build-only','BUILD_ONLY_MANIFEST')
  require(value.get('applicationRevision')==app and value.get('release')==release and value.get('attemptId')==attempt,'APPLICATION_BINDING')
  tool=value.get('toolRevision');require(isinstance(tool,str) and re.fullmatch('[a-f0-9]{40}',tool),'TOOL_REVISION')
- require(value.get('toolRoot')=='/opt/workspacex-cn/release-tools/'+tool,'TOOL_ROOT')
+ require(value.get('toolRoot')=='/var/lib/workspacex-cn/auto-preparation-tools/'+tool,'TOOL_ROOT')
  require(set(value.get('filesSha256',{}))==set(FILES),'TOOL_CLOSURE')
  source=value.get('applicationSource',{})
  require(source.get('path')=='/var/lib/workspacex-cn/build-sources/'+app+'.git' and source.get('ref')=='refs/heads/candidate','APPLICATION_SOURCE_PATH')
@@ -375,7 +437,7 @@ def main():
  for name,installed in FILES.items():
   raw=private_read(pathlib.Path(root)/name);actual=hashlib.sha256(raw).hexdigest()
   require(actual==value['filesSha256'][name] and raw==git('show',value['toolRevision']+':'+name),'TOOL_OBJECT_DRIFT')
-  if installed:require(private_read(installed)==raw,'INSTALLED_TOOL_DRIFT')
+  if installed:require(private_read(installed,INSTALL_MODES.get(name,0o700))==raw,'INSTALLED_TOOL_DRIFT')
  for d in (repo,*repo.parents):
   st=d.lstat();require(stat.S_ISDIR(st.st_mode) and st.st_uid==0 and not st.st_mode&0o022,'APPLICATION_CACHE_TRUST')
  require(not (repo/'objects/info/alternates').exists() and not list((repo/'objects/pack').glob('*.promisor')),'APPLICATION_BORROWED_OBJECTS')

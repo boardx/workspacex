@@ -1,8 +1,12 @@
 // Root operator lane: bind successful build bytes to real systemd/Docker processes.
 import fs from 'node:fs';
+import {readFileSync,writeFileSync,lstatSync,mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+
 import path from 'node:path';
-import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { createHash, randomUUID, sign } from 'node:crypto';
+import { execFileSync,spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 const fail = code => { throw new Error(code); };
 const sha = /^[a-f0-9]{40}$/;
@@ -183,7 +187,229 @@ function rootDir(p) {
  const s=fs.lstatSync(p);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o700)fail('RUNTIME_PROTECTED_DIRECTORY');
 }
 function writeExclusive(p,value) {fs.writeFileSync(p,JSON.stringify(value),{mode:0o600,flag:'wx'});}
-function main() {
+
+export const DEVAPP_EVIDENCE_MAX_BYTES=16*1024*1024;
+export function boundedEnvelope(payload,key){
+ const envelope={payload:payload.toString('base64'),signature:sign(null,payload,key).toString('base64')};
+ if(Buffer.byteLength(JSON.stringify(envelope)+'\n')>DEVAPP_EVIDENCE_MAX_BYTES)fail('CONTROLLED_EVIDENCE_TOO_LARGE');
+ return envelope;
+}
+const services=['api','web','agent','sandbox'];
+const digest=hash;
+export function trustedGitHubCli(read=fs){
+ const parentChain=p=>{for(let dir=path.dirname(p);;dir=path.dirname(dir)){const v=read.lstatSync(dir);if(!v.isDirectory()||v.isSymbolicLink()||v.uid!==0||(v.mode&0o022))fail('CONTROLLED_GH_BINARY_UNTRUSTED');if(dir==='/')break;}};
+ for(const candidate of ['/usr/bin/gh','/usr/local/bin/gh']){
+  if(!read.existsSync(candidate))continue;
+  parentChain(candidate);const resolved=read.realpathSync(candidate);parentChain(resolved);
+  const v=read.lstatSync(resolved);if(!v.isFile()||v.isSymbolicLink()||v.uid!==0||(v.mode&0o022)||!(v.mode&0o111))fail('CONTROLLED_GH_BINARY_UNTRUSTED');
+  return resolved;
+ }
+ fail('CONTROLLED_GH_BINARY_UNAVAILABLE');
+}
+function api(endpoint){return JSON.parse(execFileSync(trustedGitHubCli(),['api',endpoint],{encoding:'utf8',timeout:30000,maxBuffer:8*1024*1024}));}
+function pages(endpoint,key){const all=[];for(let p=1;p<=100;p++){const v=api(endpoint+(endpoint.includes('?')?'&':'?')+'per_page=100&page='+p),rows=key?v[key]:v;if(!Array.isArray(rows))fail('CONTROLLED_API_SHAPE');all.push(...rows);if(rows.length<100){if(key&&v.total_count!==all.length)fail('CONTROLLED_PAGINATION');return all;}}fail('CONTROLLED_PAGINATION');}
+export function evidenceWindow(clock=Date.now) {
+ const observed=clock();
+ return {observedAt:new Date(observed).toISOString(),expiresAt:new Date(observed+3600000).toISOString()};
+}
+export function protectedRead(file) {
+ file=path.resolve(file);
+ for(let p=path.dirname(file);;p=path.dirname(p)){const s=fs.lstatSync(p);if(!s.isDirectory()||s.isSymbolicLink()||s.uid!==0||s.gid!==0||(s.mode&0o022))fail('CONTROLLED_FILE_NOT_PRIVATE');if(p==='/')break;}
+ const fd=fs.openSync(file,fs.constants.O_RDONLY|fs.constants.O_NOFOLLOW|fs.constants.O_NONBLOCK);
+ try{
+  const s=fs.fstatSync(fd);if(!s.isFile()||s.uid!==0||s.gid!==0||(s.mode&0o777)!==0o600||s.nlink!==1||s.size>(file.endsWith('.pem')?64*1024:DEVAPP_EVIDENCE_MAX_BYTES))fail('CONTROLLED_FILE_NOT_PRIVATE');
+  const bytes=fs.readFileSync(fd),end=fs.fstatSync(fd),named=fs.lstatSync(file);
+  if(!named.isFile()||named.isSymbolicLink()||named.ino!==s.ino||named.dev!==s.dev||['dev','ino','size','mtimeMs','ctimeMs'].some(k=>s[k]!==end[k])||bytes.length!==s.size)fail('CONTROLLED_FILE_NOT_PRIVATE');
+  return bytes;
+ }finally{fs.closeSync(fd);}
+}
+export function validateDevapp(raw,source) {
+ const r=raw.run,b=raw.browser;
+ if(r?.repository?.full_name!=='boardx/workspacex'||r.head_repository?.full_name!=='boardx/workspacex'||r.path!=='.github/workflows/real-model-chat-evidence.yml'||r.head_sha!==source||r.status!=='completed'||r.conclusion!=='success'||!Number.isSafeInteger(r.id)||r.id<=0||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<=0||!Number.isFinite(Date.parse(r.created_at))||!Number.isFinite(Date.parse(r.run_started_at)))fail('CONTROLLED_DEVAPP_RUN');
+ if(b?.context?.lane!=='devapp'||b.context.baseUrl!=='https://devapp.boardx.us'||!b.context.threadId||String(b.context.threadId).startsWith('<')||!Number.isFinite(Date.parse(b.context.generatedAt))||Date.parse(b.context.generatedAt)<Date.parse(r.run_started_at)||b.context.runStartObserved!==true||!Array.isArray(b.assertions)||b.assertions.length<8||b.assertions.some(a=>a.ok!==true)||![1,2,3,4,5,6,7,8].every(n=>b.assertions.some(a=>a.name.startsWith('①②③④⑤⑥⑦⑧'[n-1])))||!Array.isArray(b.pageErrors)||b.pageErrors.length)fail('CONTROLLED_DEVAPP_BROWSER');
+ if(!raw.artifact||raw.artifact.workflow_run?.id!==r.id||raw.artifact.workflow_run?.head_sha!==source||raw.artifact.name!=='real-model-chat-evidence'||raw.artifact.expired!==false||!Number.isFinite(Date.parse(raw.artifact.created_at))||Date.parse(raw.artifact.created_at)<Date.parse(b.context.generatedAt)||raw.artifact.digest!=='sha256:'+digest(Buffer.from(raw.archive,'base64')))fail('CONTROLLED_DEVAPP_ARTIFACT');
+ for(const k of services){const v=raw.runtime?.[k];const identity=v?.kind==='systemd'&&['api','web'].includes(k)?/^\d+$/.test(v.startTicks??'')&&Number.isSafeInteger(v.pid)&&v.pid>0&&/^[a-f0-9]{32}$/.test(v.invocationId??'')&&/^[a-f0-9]{64}$/.test(v.artifactSha256??'')&&/^[a-f0-9]{64}$/.test(v.executableSha256??'')&&!!v.bootId&&!!v.cwd&&!!v.unit&&Array.isArray(v.applicationProcesses)&&v.applicationProcesses.length>0&&v.applicationProcesses.every(p=>Number.isSafeInteger(p.pid)&&p.pid>0&&/^[a-f0-9]{64}$/.test(p.executableSha256??'')&&Number.isFinite(Date.parse(p.startedAtUpperBound))&&Date.parse(p.startedAtUpperBound)<=Date.parse(r.run_started_at)):/^sha256:[a-f0-9]{64}$/.test(v?.imageId??'')&&!!v?.containerId;
+  if(!v||v.running!==true||v.sourceSha!==source||!identity||!Number.isFinite(Date.parse(v.startedAt))||Date.parse(v.startedAt)>Date.parse(r.run_started_at))fail('CONTROLLED_DEVAPP_RUNTIME');}
+ if(services.some(k=>raw.runtime[k]?.kind==='systemd')) {
+  const v=raw.runtime.sandbox?.relatedContainers?.sessions;
+  if(!v||v.kind!=='docker'||v.running!==true||v.sourceSha!==source||!/^sha256:[a-f0-9]{64}$/.test(v.imageId??'')||!v.containerId||!Number.isFinite(Date.parse(v.startedAt))||Date.parse(v.startedAt)>Date.parse(r.run_started_at))fail('CONTROLLED_DEVAPP_RUNTIME');
+ }
+ return {status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(services.map(k=>[k,raw.runtime[k].sourceSha])),browserAccepted:true,workflowRunId:r.id,workflowRunAttempt:r.run_attempt};
+}
+export function collectDevapp(runId,source,ports={api,pages,exec:execFileSync,protectedRead}) {
+ if(!Number.isSafeInteger(runId)||runId<=0)fail('CONTROLLED_DEVAPP_RUN');
+ const {api:read,pages:list,exec:execute,protectedRead:privateRead}=ports;
+ const p='repos/boardx/workspacex',run=read(p+'/actions/runs/'+runId);
+ const artifacts=list(p+'/actions/runs/'+runId+'/artifacts','artifacts').filter(a=>a.name==='real-model-chat-evidence'&&!a.expired);
+ if(artifacts.length!==1)fail('CONTROLLED_ARTIFACT_AMBIGUOUS');
+ const artifact=artifacts[0],dir=ports.directory??mkdtempSync(join(tmpdir(),'cn-devapp-evidence-'));
+ try {
+  const archive=execute(execute===execFileSync?trustedGitHubCli():'gh',['api',p+'/actions/artifacts/'+artifact.id+'/zip'],{timeout:30000,maxBuffer:128*1024*1024});
+  const zip=join(dir,'evidence.zip');writeFileSync(zip,archive,{mode:0o600});
+  // Extract only known JSON entries to stdout, never unpack attacker-controlled paths.
+  const json=name=>JSON.parse(execute(execute===execFileSync?'/usr/bin/unzip':'unzip',['-p',zip,name],{encoding:'utf8',maxBuffer:4*1024*1024,timeout:30000}));
+  const browser={context:json('00-context.json'),assertions:json('10-assertions.json'),pageErrors:json('21-page-errors.json')};
+  const config=JSON.parse(privateRead('/etc/workspacex-devapp/runtime-evidence.json'));
+  let runtime={};
+  if(config.schemaVersion===2){
+   if(typeof config.receiptPath!=='string'||!/^\/etc\/workspacex-devapp\/runtime-[a-f0-9]{40}-[a-f0-9-]{36}\.json$/.test(config.receiptPath))fail('CONTROLLED_RUNTIME_RECEIPT_PATH');
+   runtime=collectMixedRuntime(JSON.parse(privateRead(config.receiptPath)),source,{run:(bin,args)=>execute(bin,args,{encoding:'utf8',timeout:30000}),fs:ports.fs??undefined,artifactDigest:ports.artifactDigest??undefined});
+  } else for(const k of services){const name=config.containers?.[k];if(typeof name!=='string'||!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(name))fail('CONTROLLED_RUNTIME_CONFIG_REQUIRED');
+   const v=JSON.parse(execute('docker',['inspect',name],{encoding:'utf8',timeout:30000}))[0];
+   const image=JSON.parse(execute('docker',['image','inspect',v.Image],{encoding:'utf8',timeout:30000}))[0];
+   runtime[k]={containerId:v.Id,imageId:v.Image,running:v.State.Running,startedAt:v.State.StartedAt,sourceSha:image.Config.Labels?.['org.opencontainers.image.revision']};
+  }
+  const raw={run,artifact,archive:archive.toString('base64'),browser,runtime,...(run.display_title?.startsWith('devapp-exact:')?{coordination:json('devapp-coordination.json')}:{})};validateDevapp(raw,source);return raw;
+ } finally {rmSync(dir,{recursive:true,force:true});}
+}
+
+
+const repository='boardx/workspacex';
+const reject=()=>fail('DEVAPP_EXACT_EVIDENCE_REJECTED');
+export function identity(source,attempt,ref){
+ if(!/^[a-f0-9]{40}$/.test(source??'')||!/^gha-[0-9]+-[0-9]+$/.test(attempt??'')||attempt.length>80||!/^refs\/(heads|tags)\/[A-Za-z0-9][A-Za-z0-9._/-]{0,180}$/.test(ref??'')||ref.includes('..')||ref.includes('//'))reject();
+ return {source,attempt,ref};
+}
+export function authorizeParent(parent,jobs,{source,parentId,parentAttempt}){
+ if(parent.id!==Number(parentId)||parent.run_attempt!==Number(parentAttempt)||parent.head_sha!==source||parent.path!=='.github/workflows/devapp-exact-source.yml'||parent.repository?.full_name!==repository||parent.head_repository?.full_name!==repository||parent.status!=='in_progress'||parent.event!=='workflow_dispatch')reject();
+ const deploy=jobs.filter(j=>j.name==='deploy');
+ if(deploy.length!==1||deploy[0].run_id!==parent.id||deploy[0].head_sha!==source||deploy[0].status!=='in_progress')reject();
+ return true;
+}
+export function validateCoordination(raw,source,attempt,parent,jobs){
+ const c=raw.coordination;
+ if(!c||c.source!==source||c.attempt!==attempt||!Number.isSafeInteger(c.parentId)||c.parentId<1||!Number.isSafeInteger(c.parentAttempt)||c.parentAttempt<1||c.runId!==raw.run.id||c.runAttempt!==raw.run.run_attempt||!/^[a-f0-9-]{36}$/.test(c.requestId)||raw.run.display_title!==`devapp-exact:${attempt}:${c.requestId}`)reject();
+ authorizeParent(parent,jobs,{source,parentId:c.parentId,parentAttempt:c.parentAttempt});
+ const parentPrefix=`devapp-exact:${attempt}:`;
+ if(!parent.display_title?.startsWith(parentPrefix)||!/^[a-f0-9-]{36}$/.test(parent.display_title.slice(parentPrefix.length)))reject();
+ if(c.parentRequestId!==undefined&&c.parentRequestId!==parent.display_title.slice(parentPrefix.length))reject();
+ const deployment=jobs.find(j=>j.name==='deploy');
+ if(!Number.isFinite(Date.parse(deployment.started_at))||Date.parse(raw.run.created_at)<Date.parse(deployment.started_at))reject();
+ return true;
+}
+export function signedDevapp(source,attempt,runId,{collect=collectDevapp,read=protectedRead,readApi=api,clock=Date.now}={}){
+ identity(source,attempt,'refs/heads/main');if(!Number.isSafeInteger(runId)||runId<1)reject();
+ const raw=collect(runId,source),c=raw.coordination;if(!c||!Number.isSafeInteger(c.parentId)||c.parentId<1||!Number.isSafeInteger(c.parentAttempt)||c.parentAttempt<1)reject();
+ const parent=readApi('repos/boardx/workspacex/actions/runs/'+c.parentId),jobs=readApi(`repos/boardx/workspacex/actions/runs/${c.parentId}/attempts/${c.parentAttempt}/jobs?per_page=100`);
+ if(!Array.isArray(jobs.jobs)||!Number.isInteger(jobs.total_count)||jobs.total_count!==jobs.jobs.length||jobs.total_count>100)reject();validateCoordination(raw,source,attempt,parent,jobs.jobs);
+ raw.coordination={...c,parentRequestId:parent.display_title.slice(`devapp-exact:${attempt}:`.length)};
+ authorizeCandidate(source,c.parentId,c.parentAttempt,readApi);
+ const current=readApi('repos/boardx/workspacex/actions/runs/'+runId);
+ if(current.id!==runId||current.run_attempt!==raw.run.run_attempt||current.head_sha!==source||current.status!=='completed'||current.conclusion!=='success'||current.path!==raw.run.path||current.display_title!==raw.run.display_title)reject();
+ const payload=Buffer.from(JSON.stringify({schemaVersion:1,kind:'devapp',repository:'boardx/workspacex',sourceSha:source,attemptId:attempt,...evidenceWindow(clock),raw}));
+ return boundedEnvelope(payload,read('/etc/workspacex-devapp/evidence-signing.pem'));
+}
+function readSigningToken(){
+ const buffer=Buffer.alloc(8193);let n=0;
+ for(;;){const k=fs.readSync(0,buffer,n,buffer.length-n,null);if(!k)break;n+=k;if(n>8192)reject();}
+ if(!n||!/^[A-Za-z0-9_.-]+$/.test(buffer.subarray(0,n).toString('utf8')))reject();
+ const token=buffer.subarray(0,n).toString('utf8');buffer.fill(0);
+ for(const key of Object.keys(process.env))delete process.env[key];
+ Object.assign(process.env,{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/nonexistent',LANG:'C.UTF-8',GH_TOKEN:token});
+}
+/** Single installed authority. Drivers may use sync host or async cloud reads. */
+export class CandidateCIPendingError extends Error {
+ constructor(){super('DEVAPP_CANDIDATE_CI_PENDING');this.name='CandidateCIPendingError';}
+}
+export function* candidateCIGate(source,{waitForPending=false}={}){
+ if(!sha.test(source??''))reject();const accepted={};let pending=false;
+ const running=new Set(['queued','in_progress','waiting','pending','requested']);
+ const checkRun=(r,workflow)=>{
+  if(r.head_sha!==source||r.head_branch!=='main'||r.event!=='push'||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1)reject();
+  if(r.status==='completed'){if(r.conclusion!=='success')reject();return false;}
+  if(!waitForPending||!running.has(r.status)||r.conclusion!==null)reject();
+  return true;
+ };
+ for(const [workflow,required] of [
+  ['harness-verify.yml',['verify-control-plane','verify-affected','verify-full-compile','full-regression-core','e2e-full']],
+  ['backend-gates.yml',['gates-fast','gates-test','gates-runtime','e2e-core-loop','native-document-chain','native-runtime-lane']]]){
+  const result=yield `repos/${repository}/actions/workflows/${workflow}/runs?head_sha=${source}&event=push&per_page=100`;
+  if(!Array.isArray(result.workflow_runs)||!Number.isInteger(result.total_count)||result.total_count!==result.workflow_runs.length||result.total_count>100)reject();
+  if(result.workflow_runs.some(r=>r.head_sha!==source||r.event!=='push'||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1))reject();
+  const runs=result.workflow_runs.filter(r=>r.head_branch==='main').sort((a,b)=>b.id-a.id),r=runs[0];
+  if(!r){if(!waitForPending)reject();pending=true;continue;}
+  const runPending=checkRun(r,workflow);pending=runPending||pending;
+  const list=yield `repos/${repository}/actions/runs/${r.id}/attempts/${r.run_attempt}/jobs?per_page=100`;
+  if(!Array.isArray(list.jobs)||!Number.isInteger(list.total_count)||list.total_count!==list.jobs.length||list.total_count>100)reject();
+  for(const name of required){
+   const matches=list.jobs.filter(j=>j.name===name||(name==='gates-test'&&/^gates-test \(.*\)$/.test(j.name)));
+   if(!matches.length){if(runPending){pending=true;continue;}reject();}
+   if((name!=='gates-test'&&matches.length!==1)||new Set(matches.map(j=>j.name)).size!==matches.length)reject();
+   for(const j of matches){
+    if(j.head_sha!==source||j.run_id!==r.id)reject();
+    if(j.status==='completed'){if(j.conclusion!=='success')reject();}
+    else if(runPending&&running.has(j.status)&&j.conclusion===null)pending=true;
+    else reject();
+   }
+  }
+  const current=yield `repos/${repository}/actions/runs/${r.id}`;
+  if(current.id!==r.id||current.run_attempt!==r.run_attempt)reject();
+  pending=checkRun(current,workflow)||pending;
+  accepted[workflow]=r.id;
+ }
+ if(pending)throw new CandidateCIPendingError();
+ return accepted;
+}
+
+export function authorizeCandidate(source,id,attempt,readApi=api){
+ if(!sha.test(source??'')||!/^[1-9][0-9]{0,15}$/.test(String(id))||!/^[1-9][0-9]{0,8}$/.test(String(attempt)))reject();
+ const parent=readApi('repos/boardx/workspacex/actions/runs/'+id),jobs=readApi(`repos/boardx/workspacex/actions/runs/${id}/attempts/${attempt}/jobs?per_page=100`);
+ if(!Array.isArray(jobs.jobs)||!Number.isInteger(jobs.total_count)||jobs.total_count!==jobs.jobs.length||jobs.total_count>100)reject();authorizeParent(parent,jobs.jobs,{source,parentId:id,parentAttempt:attempt});
+ const gate=candidateCIGate(source);let step=gate.next();while(!step.done)step=gate.next(readApi(step.value));
+ if(parent.head_branch!=='main-cn'||readApi('repos/boardx/workspacex/git/ref/heads/main-cn').object?.sha!==source||!['ahead','identical'].includes(readApi(`repos/boardx/workspacex/compare/${source}...main`).status))reject();
+ return true;
+}
+function candidateMain(){
+ if(process.getuid?.()!==0||process.getgid?.()!==0||process.platform!=='linux'||process.argv.length!==7)reject();
+ const [source,id,attempt,evidenceAttempt]=process.argv.slice(3);identity(source,evidenceAttempt,'refs/heads/main-cn');
+ readSigningToken();authorizeCandidate(source,id,attempt);
+ try{execFileSync('/usr/local/bin/workspacex-deploy',[source],{stdio:['ignore','inherit','inherit','ignore','ignore','ignore','ignore','ignore',8],env:{...process.env,WORKSPACEX_DEVAPP_PARENT_RUN:id,WORKSPACEX_DEVAPP_PARENT_ATTEMPT:attempt}});}
+ finally{delete process.env.GH_TOKEN;}
+}
+/** Root automatic signing supervisor: join owned worker/group before deleting
+ * its exclusive evidence directory. The worker never streams an accepted prefix. */
+export async function runSigningWorker({file,args,directory,token,lockFd}){
+ let child,rejected=false,size=0;const buffers=[];
+ const stop=()=>{rejected=true;if(child?.pid)try{process.kill(-child.pid,'SIGKILL');}catch{}};
+ const signals=['SIGTERM','SIGINT','SIGHUP'];for(const signal of signals)process.on(signal,stop);
+ const timer=setTimeout(stop,300000);
+ try{
+  child=spawn(file,args,{detached:true,stdio:['pipe','pipe','ignore','ignore','ignore','ignore','ignore','ignore',lockFd??'ignore'],env:{PATH:'/usr/local/bin:/usr/bin:/bin',HOME:'/nonexistent',LANG:'C.UTF-8',WORKSPACEX_EVIDENCE_TEMP:directory}});
+  if(rejected)stop();
+  child.stdin.on('error',stop);child.stdin.end(token);
+  child.stdout.on('data',bytes=>{size+=bytes.length;if(size>DEVAPP_EVIDENCE_MAX_BYTES)stop();else buffers.push(bytes);});
+  const code=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('close',resolve);});
+  if(code!==0||rejected)fail('DEVAPP_SIGNING_NOT_READY');
+  const bytes=Buffer.concat(buffers);if(!bytes.length)fail('DEVAPP_SIGNING_NOT_READY');return bytes;
+ }finally{
+  clearTimeout(timer);for(const signal of signals)process.removeListener(signal,stop);
+  fs.rmSync(directory,{recursive:true,force:true});
+ }
+}
+async function signingSupervisor(){
+ if(process.getuid?.()!==0||process.getgid?.()!==0||process.platform!=='linux'||process.argv.length!==6)reject();
+ const [source,attempt,id]=process.argv.slice(3);identity(source,attempt,'refs/heads/main-cn');if(!/^[1-9][0-9]{0,15}$/.test(id))reject();
+ readSigningToken();const token=process.env.GH_TOKEN;delete process.env.GH_TOKEN;
+ const directory=fs.mkdtempSync('/tmp/cn-devapp-evidence-');fs.chmodSync(directory,0o700);
+ const bytes=await runSigningWorker({file:'/usr/bin/node',args:[process.argv[1],'sign-devapp-worker',source,attempt,id],directory,token,lockFd:8});
+ process.stdout.write(bytes);
+}
+function signingMain(){
+ if(process.getuid?.()!==0||process.getgid?.()!==0||process.platform!=='linux'||process.argv.length!==6)reject();
+ const [source,attempt,id]=process.argv.slice(3);identity(source,attempt,'refs/heads/main');if(!/^[1-9][0-9]{0,15}$/.test(id))reject();
+ const directory=process.env.WORKSPACEX_EVIDENCE_TEMP;
+ if(!/^\/tmp\/cn-devapp-evidence-[A-Za-z0-9]+$/.test(directory??''))reject();
+ const state=fs.lstatSync(directory);if(!state.isDirectory()||state.isSymbolicLink()||state.uid!==0||state.gid!==0||(state.mode&0o777)!==0o700)reject();
+ readSigningToken();
+ const collect=(id,source)=>collectDevapp(id,source,{api,pages,exec:execFileSync,protectedRead,directory});
+ try{process.stdout.write(JSON.stringify(signedDevapp(source,attempt,Number(id),{collect}))+'\n');}
+ finally{delete process.env.GH_TOKEN;}
+}
+async function main() {
+ if(process.argv[2]==='sign-devapp')return signingSupervisor();
+ if(process.argv[2]==='sign-devapp-worker')return signingMain();
+ if(process.argv[2]==='candidate-deploy')return candidateMain();
+ if(process.argv[2]==='authorize-candidate'){if(process.getuid?.()!==0||process.argv.length!==6)reject();authorizeCandidate(...process.argv.slice(3));return;}
  const [kind,source,app='/opt/workspacex/app',buildFile]=process.argv.slice(2);
  if(kind==='verify-source') {
   if(process.argv.length!==5)fail('RUNTIME_COMMAND');
@@ -235,4 +461,4 @@ function main() {
  }
  fail('RUNTIME_COMMAND');
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)try{main();}catch{console.error('DEVAPP_RUNTIME_IDENTITY_NOT_READY');process.exitCode=3;}
+if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href)main().catch(()=>{console.error('DEVAPP_RUNTIME_IDENTITY_NOT_READY');process.exitCode=3;});

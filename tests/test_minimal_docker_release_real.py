@@ -149,9 +149,31 @@ class Fixture:
         opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
         with opener.open(config['health']['url'],timeout=5)as response:
             require(response.status==200 and json.loads(response.read(1024))=={'trustworthy':True,'fixture':True},'ACTUAL_HTTP_HEALTH')
+        # Failed real candidate must restore exact previous images and remain deployable.
+        (context/'migration.sql').write_text('CREATE TABLE fixture_test(id integer);\n')
+        (context/'server.py').write_text('raise SystemExit(1)\n')
+        broken_tag='wsx-minimal-fixture:'+self.owner+'-broken-api'
+        self.d('build','--network=none','--pull=false','--build-arg','BASE='+self.base,'--build-arg','SOURCE='+NEW_SOURCE,
+               '--build-arg','ROLE=api','--build-arg','OWNER='+self.owner,'--tag',broken_tag,str(context),timeout=90)
+        broken_id=self.j('image','inspect',broken_tag)[0]['Id'];self.images[broken_id]=broken_tag
+        broken_manifest=self.out/'broken-manifest.json';self.manifest({**candidate,'api':broken_id},broken_manifest)
+        current_overlay=self.out/'applied/images.json'
+        recovery_config={**config,'automaticRollback':True,'readinessTimeoutSeconds':15,'manifestSha256':sha(broken_manifest),
+                         'composeFiles':[*config['composeFiles'],{'path':str(current_overlay),'sha256':sha(current_overlay)}]}
+        recovery_path=self.out/'recovery-config.json';write(recovery_path,recovery_config)
+        code,_=self.run(cli+['--config',str(recovery_path),'--manifest',str(broken_manifest),'--output',str(self.out/'recovered'),'--apply'],timeout=150,check=False)
+        recovered=json.loads((self.out/'recovered/receipt.json').read_text())
+        require(code!=0 and recovered['status']=='ROLLED_BACK','AUTOMATIC_RECOVERY_NOT_PROVEN')
+        restored=self.live(compose)
+        require(all(restored[s]['running'] and restored[s]['imageId']==candidate[r] for s,r in SERVICES.items()),'RECOVERED_IMAGE_MISMATCH')
+        # The ID-based recovery overlay must remain in the next baseline (config hashes differ from tags).
+        rollback_overlay=self.out/'recovered/rollback.json'
+        next_config={**config,'automaticRollback':True,'composeFiles':[*config['composeFiles'],{'path':str(rollback_overlay),'sha256':sha(rollback_overlay)}]}
+        next_path=self.out/'next-config.json';write(next_path,next_config)
+        self.run(cli+['--config',str(next_path),'--manifest',str(manifest),'--output',str(self.out/'after-recovery'),'--apply'],timeout=150)
         return {'status':'PASSED','realDocker':True,'realCompose':True,'realHttp':True,'syntheticImageProvenance':True,
                 'productionAccepted':False,'sourceIsBC':False,'baselineSource':BASE_SOURCE,'candidateSource':NEW_SOURCE,
-                'before':before,'after':after,'schemaDriftRejectedWithoutSwitch':True,'elapsedSeconds':time.monotonic()-self.start}
+                'before':before,'after':after,'schemaDriftRejectedWithoutSwitch':True,'automaticRollbackVerified':True,'releaseAfterRollbackVerified':True,'elapsedSeconds':time.monotonic()-self.start}
     def cleanup(self):
         errors=[]
         # Cleanup only exact owner-labeled objects; Docker's shared base image/cache are retained.

@@ -1,0 +1,148 @@
+TAP version 13
+# Subtest: admits exact internal attempt-owned target
+ok 1 - admits exact internal attempt-owned target
+  ---
+  duration_ms: 0.66075
+  type: 'test'
+  ...
+# Subtest: rejects external network
+ok 2 - rejects external network
+  ---
+  duration_ms: 0.247708
+  type: 'test'
+  ...
+# Subtest: rejects foreign network
+ok 3 - rejects foreign network
+  ---
+  duration_ms: 0.057209
+  type: 'test'
+  ...
+# Subtest: rejects foreign postgres owner
+ok 4 - rejects foreign postgres owner
+  ---
+  duration_ms: 0.052542
+  type: 'test'
+  ...
+# Subtest: rejects production postgres host
+ok 5 - rejects production postgres host
+  ---
+  duration_ms: 0.117
+  type: 'test'
+  ...
+# Subtest: rejects production redis host
+ok 6 - rejects production redis host
+  ---
+  duration_ms: 0.056292
+  type: 'test'
+  ...
+# Subtest: rejects published postgres port
+ok 7 - rejects published postgres port
+  ---
+  duration_ms: 0.091459
+  type: 'test'
+  ...
+# Subtest: rejects extra network
+ok 8 - rejects extra network
+  ---
+  duration_ms: 0.047583
+  type: 'test'
+  ...
+# Subtest: rejects wrong candidate image
+ok 9 - rejects wrong candidate image
+  ---
+  duration_ms: 0.209542
+  type: 'test'
+  ...
+# Subtest: rejects stale binding
+ok 10 - rejects stale binding
+  ---
+  duration_ms: 1.1565
+  type: 'test'
+  ...
+# Subtest: rejects wrong attempt
+ok 11 - rejects wrong attempt
+  ---
+  duration_ms: 0.239333
+  type: 'test'
+  ...
+# Subtest: rejects postgres stopped
+ok 12 - rejects postgres stopped
+  ---
+  duration_ms: 0.107792
+  type: 'test'
+  ...
+# Subtest: rejects missing explicit local profile
+ok 13 - rejects missing explicit local profile
+  ---
+  duration_ms: 0.129792
+  type: 'test'
+  ...
+# Subtest: HTTP fixtures prove exact login, bidirectional project reads/writes and cross-runtime archive cleanup
+ok 14 - HTTP fixtures prove exact login, bidirectional project reads/writes and cross-runtime archive cleanup
+  ---
+  duration_ms: 54.104458
+  type: 'test'
+  ...
+# Subtest: wrong health marker fails before authentication or project mutation
+ok 15 - wrong health marker fails before authentication or project mutation
+  ---
+  duration_ms: 3.508917
+  type: 'test'
+  ...
+# Subtest: unexpected create status cannot count as successful writes
+ok 16 - unexpected create status cannot count as successful writes
+  ---
+  duration_ms: 10.129375
+  type: 'test'
+  ...
+# Subtest: candidate must really read old saved data; partial cleanup touches only verified owned IDs
+ok 17 - candidate must really read old saved data; partial cleanup touches only verified owned IDs
+  ---
+  duration_ms: 17.811542
+  type: 'test'
+  ...
+# Subtest: false project ownership never authorizes cleanup of another row
+ok 18 - false project ownership never authorizes cleanup of another row
+  ---
+  duration_ms: 8.947042
+  type: 'test'
+  ...
+# Subtest: wrong authenticated organization cannot mutate projects
+ok 19 - wrong authenticated organization cannot mutate projects
+  ---
+  duration_ms: 2.247959
+  type: 'test'
+  ...
+# Subtest: redirects fail without following an external target
+ok 20 - redirects fail without following an external target
+  ---
+  duration_ms: 0.985875
+  type: 'test'
+  ...
+# Subtest: archive failure is not a completed compatible rehearsal even after four HTTP phases passed
+ok 21 - archive failure is not a completed compatible rehearsal even after four HTTP phases passed
+  ---
+  duration_ms: 23.919208
+  type: 'test'
+  ...
+# Subtest: rejects public origins, runtime aliases, and nonnonce fixture identities before any network request
+ok 22 - rejects public origins, runtime aliases, and nonnonce fixture identities before any network request
+  ---
+  duration_ms: 0.455916
+  type: 'test'
+  ...
+# Subtest: CLI input failures exit nonzero and cannot disclose credentials or claim a receipt
+ok 23 - CLI input failures exit nonzero and cannot disclose credentials or claim a receipt
+  ---
+  duration_ms: 49.864541
+  type: 'test'
+  ...
+1..23
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 229.442958

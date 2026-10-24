@@ -7,7 +7,7 @@ const end=workflow.indexOf("          # CN_LOCAL_PROMOTION_PREACTIVATION_END",st
 const criticalSection=workflow.slice(start,end).split("\n").map(line=>line.slice(10)).join("\n");
 function run(body:string){
  return spawnSync("bash",["-c",`set -euo pipefail
-REVISION=new; EXPECTED_MAIN_CN=old; ATTEMPT_ID=attempt; cache=cache; repository=repo; app_runtime_state=ready
+PROMOTION_MODE=manual; GITHUB_REPOSITORY=boardx/workspacex; REVISION=new; EXPECTED_MAIN_CN=old; ATTEMPT_ID=attempt; cache=cache; repository=repo; app_runtime_state=ready
 sudo(){ echo "SUDO:$*"; }
 git(){
  case "$*" in
@@ -70,4 +70,26 @@ trap 'echo REMOTE_ATTEMPT:$remote_commit_attempted; rm -f "$graphql_input" "$gra
 ${block}`);
  expect(result.status).toBe(1);expect(result.stdout).toContain("REMOTE_ATTEMPT:0");
  expect(result.stdout).not.toContain("FORBIDDEN_REMOTE_CAS");
+});
+
+it("branch-push target drift compensates local work before activating the stale release",()=>{
+ const result=run(`PROMOTION_MODE=branch-push
+gh(){ echo newer; }
+git(){
+ case "$*" in
+  *"rev-parse refs/heads/main-cn"*) echo old;;
+  *"rev-parse origin/main-cn"*) echo new;;
+  *"update-ref refs/heads/main-cn new old"*) echo LOCAL_ADVANCED;;
+  *"update-ref refs/heads/main-cn old new"*) echo LOCAL_RESTORED;;
+  *"fetch --no-tags origin main main-cn"*) return 0;;
+ esac
+}
+${criticalSection}
+echo FORBIDDEN_ACTIVATION`);
+ expect(result.status,result.stderr).toBe(1);
+ expect(result.stdout).toContain("CN_BRANCH_PUSH_TARGET_CHANGED");
+ expect(result.stdout).toContain("LOCAL_ADVANCED");
+ expect(result.stdout).toContain("LOCAL_RESTORED");
+ expect(result.stdout).not.toContain("FORBIDDEN_ACTIVATION");
+ expect(result.stdout).not.toContain("SUDO:");
 });

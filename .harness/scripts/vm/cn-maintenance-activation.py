@@ -119,7 +119,9 @@ def browser_acceptance(plan):
  require(request['playwrightModule']==runtime['playwrightRoot'] and request['browserExecutable']==runtime['chromiumPath'],'BROWSER_PROFILE_BINDING')
  private(request['audioPath'],request['audioSha256'])
  require(request['audioPath'].startswith(str(pathlib.Path(ref['path']).parent)+'/') and '..' not in pathlib.Path(request['audioPath']).parts,'AUDIO_ATTEMPT_SCOPE')
- root=pathlib.Path(runtime['playwrightRoot']);require(str(root).startswith('/opt/workspacex-cn/release-tools/'+profile['toolRevision']+'/'),'PLAYWRIGHT_TOOL_SCOPE')
+ root=pathlib.Path(runtime['playwrightRoot']);require(any(str(root).startswith(prefix+profile['toolRevision']+'/') for prefix in ('/var/lib/workspacex-cn/auto-preparation-tools/','/opt/workspacex-cn/release-tools/')) and '..' not in root.parts,'PLAYWRIGHT_TOOL_SCOPE')
+ for directory in (root,*root.parents):
+  st=directory.lstat();require(stat.S_ISDIR(st.st_mode) and not stat.S_ISLNK(st.st_mode) and st.st_uid==st.st_gid==0 and not st.st_mode&0o022,'PLAYWRIGHT_TOOL_PARENT_TRUST')
  # Exact installed dependency closure, never ambient npm/system NODE_PATH.
  actual={}
  for p in root.rglob('*'):

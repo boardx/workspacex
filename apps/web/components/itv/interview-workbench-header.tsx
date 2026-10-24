@@ -35,6 +35,7 @@ export function InterviewWorkbenchHeader({
   onOpenSkill,
   completedSteps = [],
   runningStep,
+  completionPending = false,
 }: {
   readonly name: string;
   readonly tags: readonly string[];
@@ -47,6 +48,7 @@ export function InterviewWorkbenchHeader({
   readonly onReturnToList: () => void;
   readonly onOpenSkill?: () => void;
   readonly completedSteps?: readonly string[];
+  readonly completionPending?: boolean;
   readonly runningStep?: string | null;
 }) {
   const headerRef = React.useRef<HTMLElement>(null);
@@ -84,8 +86,8 @@ export function InterviewWorkbenchHeader({
     <h1 className="break-words text-2xl font-bold tracking-tight [overflow-wrap:anywhere]">{name}</h1>
     <nav aria-label="访谈步骤" data-testid="itv-workbench-navigation" data-reference-variant="monochrome-stepper" className="mt-3 pb-3">
       <ol data-testid="itv-workbench-timeline" className={workspace.timeline}>{steps.map((step, index) => { const state = activeStep === step.id ? "current" : completedSteps.includes(step.id) ? "completed" : "upcoming"; const executing = runningStep === step.id; return <li key={step.id} className={workspace.step}>
-        <Button variant="ghost" size="sm" data-testid={`itv-workbench-step-${step.id}`} data-state={executing ? "running" : state} aria-busy={executing} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={cn(workspace.command, "text-background-foreground", (state === "current" || executing) && "font-bold")}>
-          <ResearchWorkspaceStepIndicator number={index + 1} active={state === "current"} completed={state === "completed"} running={executing} />
+        <Button variant="ghost" size="sm" data-testid={`itv-workbench-step-${step.id}`} data-state={completionPending && state !== "current" ? "unknown" : executing ? "running" : state} aria-busy={executing} type="button" aria-current={state === "current" ? "step" : undefined} onClick={() => onStepChange(step.id)} className={cn(workspace.command, "text-background-foreground", (state === "current" || executing) && "font-bold")}>
+          {completionPending && state !== "current" ? <span aria-label="步骤状态加载中" className="size-8 shrink-0 rounded-full bg-muted motion-safe:animate-pulse" /> : <ResearchWorkspaceStepIndicator animateRunning={step.id !== "outline"} number={index + 1} active={state === "current"} completed={state === "completed"} running={executing} />}
           <span className="truncate">{step.label}</span>
           {executing && <span role="status" className="sr-only">进行中</span>}
           <span className="sr-only">{step.detail}</span>

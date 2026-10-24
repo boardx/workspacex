@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/646f/workspacex
+
+ ✓ .harness/scripts/vm/cn-candidate-config-wiring.test.ts (7 tests) 22ms
+ ✓ packages/cloud-deploy/src/cn-auto-preparation-render.test.ts (1 test) 47ms
+ ✓ packages/cloud-deploy/src/cn-auto-migration-snapshot.test.ts (16 tests) 585ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  03:45:07
+   Duration  1.09s (transform 255ms, setup 0ms, collect 335ms, tests 654ms, environment 0ms, prepare 150ms)

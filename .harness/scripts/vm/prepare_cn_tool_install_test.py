@@ -41,6 +41,16 @@ class Producer(unittest.TestCase):
    self.assertEqual(r['profileEntries'],[])
    self.assertIn('ROOT_PROFILE_OLD_INVENTORY_MISSING',r['installationBlockers'])
    with self.assertRaises(ValueError):m.produce(repo,h,h,h,inv,out)
+ def test_exact_source_public_mode_and_new_root_are_verified_by_precheck(self):
+  with tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:
+   root=pathlib.Path(d);repo,h,inv,value=self.fixture(root);source=next(iter(value['files']))
+   code=repo/source;code.write_text(code.read_text().replace('/opt/workspacex-cn/release-tools/','/var/lib/workspacex-cn/auto-preparation-tools/')+"INSTALL_MODES={"+repr(source)+":0o755}\n")
+   h=self.commit_fixture(repo);out=root/'out';result=m.produce(repo,h,h,h,inv,out)
+   self.assertEqual(result['files'][source]['mode'],'0755');self.assertEqual(result['toolRoot'],'/var/lib/workspacex-cn/auto-preparation-tools/'+h)
+   spec=importlib.util.spec_from_file_location('mode_precheck',D/'precheck-cn-tool-install.py');consumer=importlib.util.module_from_spec(spec);spec.loader.exec_module(consumer)
+   raw=(out/'manifest.json').read_bytes();consumer.precheck(repo,out,m.sha(raw),h,h,h)
+   result['files'][source]['mode']='0700';raw=(json.dumps(result,sort_keys=True)+'\n').encode();(out/'manifest.json').write_bytes(raw);(out/'COMPLETE').write_text(m.sha(raw)+'\n')
+   with self.assertRaisesRegex(ValueError,'TARGET_AUTHORITY'):consumer.precheck(repo,out,m.sha(raw),h,h,h)
  def test_missing_inventory_wrong_target_symlink_hardlink(self):
   for bad in ('missing','target','mode','symlink','hardlink'):
    with self.subTest(bad=bad),tempfile.TemporaryDirectory(dir=pathlib.Path(tempfile.gettempdir()).resolve()) as d:

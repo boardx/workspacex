@@ -17,9 +17,11 @@ describe("GitHub-based CN production promotion", () => {
     expect(result.status, result.stdout + result.stderr).toBe(0);
   });
   it("executes domestic Git export and runner capability failure fixtures", () => {
-    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-domestic-checkout.selftest.mjs"], { encoding: "utf8", timeout: 30000 });
+    // The full 13-case real Git/bundle/fsck suite took 50.16s in a standalone
+    // run. Budget this test process explicitly; production deadlines are unchanged.
+    const result = spawnSync(process.execPath, ["--test", ".harness/scripts/vm/cn-domestic-checkout.selftest.mjs"], { encoding: "utf8", timeout: 75000 });
     expect(result.status, result.stdout + result.stderr).toBe(0);
-  }, 35000);
+  }, 80000);
   it("accepts only an exact SHA and an explicit compare-and-swap baseline", () => {
     expect(workflow).toContain("workflow_dispatch:");
     expect(workflow).toContain("release_sha:");
@@ -37,14 +39,22 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain("actions: write");
     expect(workflow).toContain("GH_TOKEN: ${{ github.token }}");
     expect(workflow).not.toContain("CN_RELEASE_GITHUB_TOKEN");
-    expect(identity).toContain("r.type==='required_reviewers'");
-    expect(identity).toContain("['main','main-cn']");
-    expect(identity).toContain("FROZEN_RELEASE_ENVIRONMENT_POLICY");
-    expect(workflow).toContain('deployments.includes("production-cn-promotion")');
-    expect(workflow).toContain('types.has("deletion")');
     expect(workflow).toContain('"${GITHUB_REF}" == refs/tags/cn-prepared-*');
     expect(workflow.match(/environment: production-cn-promotion/g)).toHaveLength(1);
     expect(workflow.match(/environment: production-cn$/gm)).toHaveLength(1);
+  });
+
+  it("does not audit release governance or require a governance receipt", () => {
+    for(const text of [workflow,candidateWorkflow,verifier,identity]){
+      expect(text).not.toMatch(/gh\s+api[^\n]*(?:rulesets|environments\/)/);
+      expect(text).not.toContain('governance-evidence.json');
+      expect(text).not.toContain('governance-public.pem');
+      expect(text).not.toContain('governanceReceiptSha256');
+      expect(text).not.toContain('FROZEN_RELEASE_ENVIRONMENT_POLICY');
+    }
+    expect(workflow).not.toContain('Verify automatic GitHub production governance');
+    expect(identity).toContain("gh('apps/github-actions')");
+    expect(identity).toContain('validateAdmissionDeployment');
   });
 
   it("fails closed on privileged script drift and requires source staging before approval", () => {
@@ -58,7 +68,12 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain("CN_FROZEN_RELEASE_OFFLINE_SOURCE_NOT_READY");
     expect(candidateWorkflow).not.toContain('fetch --no-tags "${GITHUB_WORKSPACE}"');
     expect(workflow).toContain("GIT_NO_LAZY_FETCH=1");
-    expect(candidateWorkflow).not.toContain("actions/checkout@v5");
+    const hostJob = candidateWorkflow.split("  build-candidate:")[1];
+    const cloudJob = candidateWorkflow.split("  build-candidate:")[0];
+    expect(hostJob).not.toContain("actions/checkout@v5");
+    expect(hostJob).not.toMatch(/git.*fetch/);
+    expect(cloudJob).toContain("runs-on: ubuntu-latest");
+    expect(cloudJob).toContain("fetch-depth: 0");
     expect(candidateWorkflow).toContain("workspacex-cn-export-source");
     expect(candidateWorkflow).toContain("git merge-base --is-ancestor");
     expect(candidateWorkflow).toContain("CN_DOMESTIC_SOURCE_NOT_READY");
@@ -94,7 +109,7 @@ describe("GitHub-based CN production promotion", () => {
     expect(workflow).toContain('refUpdates:[{name:"refs/heads/main-cn",beforeOid,afterOid,force:false}]');
     expect(workflow).toContain('gh api graphql --input "${graphql_input}"');
     expect(workflow).not.toContain("git push origin");
-    expect(workflow).toContain('[[ "${current}" == "${EXPECTED_MAIN_CN}" ]]');
+    expect(workflow).toContain('[[ "${current}" == "${expected_remote}" ]]');
     expect(workflow).toContain('update-ref refs/heads/main-cn "${REVISION}" "${EXPECTED_MAIN_CN}"');
     expect(workflow).toContain('rev-parse origin/main-cn)" == "${REVISION}"');
     const activate = workflow.indexOf('workspacex-cn-deploy "${REVISION}"');
@@ -127,4 +142,59 @@ describe("GitHub-based CN production promotion", () => {
     expect(bootstrap).toContain('install -o root -g root -m 0755 "$promotion_script" "$TRUSTED_PROMOTION_BIN"');
     expect(bootstrap).toContain('"$TRUSTED_PROMOTION_BIN" "$TRUSTED_EXPORT_BIN" > "$sudoers_temp"');
   });
+});
+
+
+describe("branch-push activation gates", () => {
+  const sha = "a".repeat(40), newer = "b".repeat(40);
+  it("reserves the already-promoted shortcut for manual mode", () => {
+    const condition = workflow.match(/if \[\[ "\$\{PROMOTION_MODE\}" == manual && "\$\{current\}" == "\$\{REVISION\}" \]\]; then/);
+    expect(condition).not.toBeNull();
+    for (const [mode, expected] of [["manual", "shortcut"], ["branch-push", "activate"]]) {
+      const result = spawnSync("bash", ["-c", `${condition![0]} echo shortcut; else echo activate; fi`], {
+        encoding: "utf8", env: { ...process.env, PROMOTION_MODE: mode, current: sha, REVISION: sha },
+      });
+      expect(result.status).toBe(0);
+      expect(result.stdout.trim()).toBe(expected);
+    }
+  });
+  it("rejects a superseded target before activation but accepts the current target", () => {
+    const start = workflow.indexOf("          # Refuse an obsolete branch-push target");
+    const end = workflow.indexOf("          # CN_LOCAL_PROMOTION_PREACTIVATION_END", start);
+    expect(start).toBeGreaterThan(-1);
+    const gate = workflow.slice(start, end);
+    const activation = workflow.indexOf('workspacex-cn-deploy "${REVISION}"', end);
+    expect(activation).toBeGreaterThan(end);
+    for (const [head, expected] of [[sha, 0], [newer, 1]]) {
+      const result = spawnSync("bash", ["-c", 'gh() { echo "$REMOTE_HEAD"; }; ' + gate], {
+        encoding: "utf8", env: { ...process.env, PROMOTION_MODE: "branch-push", REVISION: sha, REMOTE_HEAD: head, GITHUB_REPOSITORY: "boardx/workspacex" },
+      });
+      expect(result.status, result.stderr).toBe(expected);
+    }
+  });
+});
+
+it("keeps the runtime baseline separate from the remote CAS target in automatic promotions", () => {
+  const baseline = "b".repeat(40), revision = "a".repeat(40);
+  const guardStart = workflow.indexOf("          expected_remote=${EXPECTED_MAIN_CN}");
+  const guardEnd = workflow.indexOf("          sudo -n", guardStart);
+  const guard = workflow.slice(guardStart, guardEnd);
+  const casStart = workflow.indexOf("          repository_id=$(gh api");
+  const casEnd = workflow.indexOf('          if [[ "${RELEASE_MODE:-standard}" == app-only ]]; then', casStart);
+  const cas = workflow.slice(casStart, casEnd).split("\n").map(line => line.startsWith("          ") ? line.slice(10) : line).join("\n");
+  for (const [mode, head, status] of [["manual", baseline, 0], ["branch-push", revision, 0], ["branch-push", baseline, 1]] as const) {
+    const result = spawnSync("bash", ["-c", `set -euo pipefail
+gh(){ echo repository-id; }
+${guard}
+${cas}
+trap 'rm -f "$graphql_input"' EXIT
+cat "$graphql_input"`], {
+      encoding: "utf8", env: { ...process.env, PROMOTION_MODE: mode, EXPECTED_MAIN_CN: baseline, REVISION: revision, current: head, GITHUB_REPOSITORY: "boardx/workspacex" },
+    });
+    expect(result.status, result.stderr).toBe(status);
+    if (status === 0) {
+      const ref = JSON.parse(result.stdout).variables.refUpdates[0];
+      expect(ref).toEqual({ name: "refs/heads/main-cn", beforeOid: head, afterOid: revision, force: false });
+    }
+  }
 });
