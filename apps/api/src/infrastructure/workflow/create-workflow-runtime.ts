@@ -160,7 +160,10 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
       outputs,
       instances,
       effects: () => effectGateway,
-      publishArtifact: publishPrdArtifact,
+      publishArtifact: args => {
+        if (!opts.content?.materialization) throw new Error("W029_FILE_STORAGE_NOT_CONFIGURED");
+        return publishPrdArtifact(opts.content.materialization, args);
+      },
       notify: prdPublishedNotifier(opts.content.notifications),
     });
     graphs = [...graphs.filter((g) => g.graphRef !== prd.graphRef && g.graphRef !== "problem-to-prd:2"), prd, { ...prd, graphRef: "problem-to-prd:2" }];
@@ -202,6 +205,7 @@ export function createWorkflowRuntime(db: DatabasePort, pool: pg.Pool, opts: Wor
     events,
     outputs,
     access,
+    contentFiles: opts.content?.materialization,
     expiredLeases: new PgWorkflowExpiredLeaseScanner(db),
     driver: new LangGraphWorkflowDriver(registry, createWorkflowCheckpointerFactory(pool)),
     triggers: new PgWorkflowTriggerStore(db),

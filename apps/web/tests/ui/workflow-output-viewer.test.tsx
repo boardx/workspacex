@@ -79,6 +79,23 @@ describe("WorkflowOutputViewer", () => {
     expect(api.getWorkflowInstanceOutput).toHaveBeenCalledWith("i1");
   });
 
+  it("opens the saved Markdown bytes and keeps the same immutable file after reopening", async () => {
+    api.getWorkflowInstanceOutput.mockResolvedValue({ ...prdOutput(PRD), file: {
+      artifactId: "saved-prd", versionId: "saved-prd-v1", versionNumber: 1, contentHash: DIGEST,
+      markdown: "# 已保存的文件\n\n从对象存储重新读取的正文",
+    } });
+    const first = render(<WorkflowRunOutputPage params={{ instanceId: "i1" }} searchParams={{}} />);
+    await waitFor(() => expect(screen.getByTestId("workflow-saved-file")).toBeTruthy());
+    fireEvent.click(screen.getByText("打开已保存文件"));
+    expect(screen.getByTestId("workflow-saved-file-preview").hasAttribute("open")).toBe(true);
+    expect(screen.getByTestId("workflow-saved-file-preview").textContent).toContain("从对象存储重新读取的正文");
+    expect(screen.getByTestId("workflow-saved-file-download").textContent).toBe("下载 Markdown");
+    first.unmount();
+    render(<WorkflowRunOutputPage params={{ instanceId: "i1" }} searchParams={{}} />);
+    await waitFor(() => expect(screen.getByTestId("workflow-saved-file").getAttribute("data-version-id")).toBe("saved-prd-v1"));
+    expect(api.getWorkflowInstanceOutput).toHaveBeenCalledTimes(2);
+  });
+
   it("调试痕迹不上屏：[loopback] 标题人话化、证据成来源标签、哈希与技能编号只在折叠的技术详情里", async () => {
     api.getWorkflowInstanceOutput.mockResolvedValue(prdOutput({
       ...PRD, title: "[loopback] PRD (revise)",
