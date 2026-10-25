@@ -17,7 +17,7 @@ def validate(c):
     need(all(isinstance(v,str) and v and not any(x in v for x in '\r\n\0') for v in c.values()),'Settings must be nonempty single-line strings')
     need(len(c['domain'])<=253 and '.' in c['domain'] and all(re.fullmatch(r'[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?',v) for v in c['domain'].split('.')),'Invalid domain')
     need(bool(re.fullmatch(r'[a-f0-9]{40}',c['sourceRevision'])),'Use full source SHA')
-    need(bool(re.fullmatch(r'(?:[a-f0-9]{40}-)?[1-9][0-9]*-[1-9][0-9]*',c['releaseTag'])),'Invalid image tag')
+    need(bool(re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',c['releaseTag'])) and c['releaseTag'].lower()!='latest','Invalid image tag')
     need(bool(re.fullmatch(r'[a-z0-9][a-z0-9.-]*(?::[0-9]+)?/[a-z0-9]+(?:[._-][a-z0-9]+)*',c['registryPrefix'])),'Invalid registry prefix')
     need(bool(re.fullmatch(r'[a-z0-9][a-zA-Z0-9.:/_-]*@sha256:[a-f0-9]{64}',c['redisImage'])),'Redis must be digest pinned')
     need(bool(re.fullmatch(r'https://[A-Za-z0-9.-]+(?::[0-9]+)?(?:/[A-Za-z0-9._~-]+)*/?',c['modelBaseUrl'])),'Invalid HTTPS model URL')

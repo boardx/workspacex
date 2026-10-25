@@ -18,6 +18,8 @@ class InstallTests(unittest.TestCase):
   with tempfile.TemporaryDirectory() as d:
    p=Path(d)/'.env';p.write_text('\n'.join(k+'='+v for k,v in self.config().items()))
    c=installer.load_settings(p);self.assertEqual(c['domain'],'us.example.com');self.assertNotIn('runnerUser',c)
+ def test_official_semver_image_tags_supported(self):
+  c=self.config();c['IMAGE_TAG']='v1.2.3';self.assertEqual(installer.settings_from_values(c)['releaseTag'],'v1.2.3')
  def test_missing_or_placeholder_values_rejected(self):
   for value in ('','REPLACE_IMAGE_TAG','latest'):
    with tempfile.TemporaryDirectory() as d:

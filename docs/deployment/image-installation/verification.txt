@@ -3,6 +3,7 @@ test_failed_preflight_reuses_stable_staging (test_image_installer.InstallTests) 
 test_image_source_validation_before_host_mutations (test_image_installer.InstallTests) ... ok
 test_internal_shell_scripts_parse (test_image_installer.InstallTests) ... ok
 test_missing_or_placeholder_values_rejected (test_image_installer.InstallTests) ... ok
+test_official_semver_image_tags_supported (test_image_installer.InstallTests) ... ok
 test_package_has_one_entry_and_one_config (test_image_installer.InstallTests) ... ok
 test_plan_does_not_print_secrets_or_require_docker (test_image_installer.InstallTests) ... ok
 test_public_compose_is_a_generated_view (test_image_installer.InstallTests) ... ok
@@ -11,9 +12,9 @@ test_render_preserves_secret_boundaries_and_refuses_overwrite (test_image_instal
 test_single_config_and_safe_defaults (test_image_installer.InstallTests) ... ok
 
 ----------------------------------------------------------------------
-Ran 11 tests in 0.360s
+Ran 12 tests in 0.439s
 
 OK
-Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmp_ou3efn1/runtime; no server was contacted
-Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpi3p6m81d/runtime; no server was contacted
-Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpsn327jkg/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmp2adi7tli/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpmiy2zry5/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpy3ly6r07/runtime; no server was contacted

@@ -70,7 +70,7 @@ sudo nano .env
 
 | 配置项 | 填什么 |
 |---|---|
-| `IMAGE_TAG` | 五个镜像实际共有的版本，如维护者提供的run-id-attempt；不填写示例占位或latest。 |
+| `IMAGE_TAG` | 五个镜像实际共有的版本，如维护者提供的 `v1.2.3` 或 `run-id-attempt`；不填写示例占位或latest。 |
 | `PUBLIC_DOMAIN` | 如 `us.example.com`，不带协议、端口和路径。用于HTTPS、API链接和验收。 |
 | `ADMIN_EMAIL` | 首位管理员邮箱；申请ACME证书时也用于到期通知。 |
 | `MODEL_BASE_URL` | 可从服务器访问的HTTPS OpenAI-compatible根地址，如供应商的 `/v1` 地址。 |
