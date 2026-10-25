@@ -1,0 +1,10 @@
+{
+  "packages/cloud-deploy/src/compose.ts": "2e47dab3e28936cb69674fd2d3e25bbe82da9c3a7aca52c319ec873e74ff91d2",
+  "packages/cloud-deploy/src/runtime-environment.ts": "d0a0296d791a43d5d69b891018695a7ac7e28cae064e97bd085259b0098d21eb",
+  "packages/cloud-deploy/src/nginx.ts": "a5da25f536735bdcf8cfdf006689b5da8f4db140f97a9519dbf98ade2f078ecc",
+  "scripts/deploy-registry-images.py": "8aecb72b0bbd9b2445ec29652b03c910d27541bdd296611dd931e2eade53da35",
+  "scripts/registry-images.py": "e302f0fdd32a13ab907b789bd1413598086ed710470d904af98dcc84b49f7b52",
+  "scripts/install-image-release.sh": "08b54c748c3afcb1f9334eed96e14ce65081bbb7b975ab95ad9cd8a3f9c0f156",
+  "apps/skill-sandbox/security/docker-seccomp.json": "1489fd3feb3152d70b83b3088b3e0cf039c57790c916afc58ae9c81615d6e46e",
+  "apps/skill-sandbox/security/docker-apparmor-sessions": "10784b976ee29bbe3f4ce76fb4fe629ea982a74dd4eb5c276818655787f6e05c"
+}

@@ -1,0 +1,109 @@
+--- a/scripts/registry-images.py
++++ b/scripts/registry-images.py
+@@ -157,8 +157,8 @@
+     elif args.operation=='plan':
+         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
+         build_only=os.environ.get('BUILD_ONLY')=='true'
+-        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop') or build_only),'RELEASE_EVENT_NOT_ALLOWED')
+-        expected={'develop':'devapp','main':'cn'}.get(branch)
++        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop','main-us') or build_only),'RELEASE_EVENT_NOT_ALLOWED')
++        expected={'develop':'devapp','main':'cn','main-us':'us'}.get(branch)
+         requested=os.environ.get('TARGET_ENVIRONMENT') or 'auto'
+         if event=='push':
+             target=expected
+@@ -168,17 +168,17 @@
+         else:
+             # Non-release branches are diagnostic builds only, never host deployments.
+             target=requested
+-        need(target in ('devapp','cn'),'INVALID_ENVIRONMENT')
++        need(target in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
+         existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''
+         tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
+         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
+         selected=os.environ.get('BUILD_SERVICE') or 'all'
+         need(selected=='all' or selected in SERVICES and os.environ.get('BUILD_ONLY')=='true','PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
+         services=list(SERVICES) if selected=='all' else [selected]
+-        runner=['self-hosted','linux','x64','workspacex' if target=='devapp' else 'workspacex-cn-production']
++        runner=['self-hosted','linux','x64',{'devapp':'workspacex','cn':'workspacex-cn-production','us':'workspacex-us-production'}[target]]
+         with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+-            values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':'devapp' if target=='devapp' else 'production-cn',
+-                    'runner':json.dumps(runner),'build':'false' if existing else 'true','group':'workspacex-devapp-deploy' if target=='devapp' else 'workspacex-cn-production-deploy'}
++            values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':{'devapp':'devapp','cn':'production-cn','us':'production-us'}[target],
++                    'runner':json.dumps(runner),'build':'false' if existing else 'true','group':{'devapp':'workspacex-devapp-deploy','cn':'workspacex-cn-production-deploy','us':'workspacex-us-production-deploy'}[target]}
+             if args.resolve_bases and not existing: values.update(resolve_bases())
+             for key,value in values.items(): output.write(key+'='+value+'\n')
+     elif args.operation=='build': build(args.service,args.prefix,args.tag,args.output,args.source)
+--- a/scripts/deploy-registry-images.py
++++ b/scripts/deploy-registry-images.py
+@@ -56,7 +56,7 @@
+     return command
+
+ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
+-    registry.need(environment in ('devapp','cn'),'INVALID_ENVIRONMENT')
++    registry.need(environment in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
+     registry.need(registry.TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
+     config_path=trusted(config_root/(environment+'.json'),private=True)
+     config=json.loads(config_path.read_bytes())
+@@ -68,7 +68,7 @@
+     trusted(docker_config/'config.json',private=True)
+     state=trusted(config['stateDirectory'],directory=True,private=True)
+     lock_path=trusted(config['lockFile'],private=True)
+-    expected_lock={'devapp':'/run/workspacex-devapp-deploy.lock','cn':'/var/lib/workspacex-cn/runtime/release.lock'}
++    expected_lock={'devapp':'/run/workspacex-devapp-deploy.lock','cn':'/var/lib/workspacex-cn/runtime/release.lock','us':'/run/workspacex-us-deploy.lock'}
+     registry.need(str(lock_path)==expected_lock[environment],'CANONICAL_LOCK_REQUIRED')
+     for reference in [*config['composeFiles'],config['envFile']]:
+         engine.trusted_file(str(trusted(reference['path'])),reference['sha256'])
+@@ -130,7 +130,7 @@
+
+ def main():
+     parser=argparse.ArgumentParser()
+-    parser.add_argument('environment',choices=('devapp','cn'));parser.add_argument('tag')
++    parser.add_argument('environment',choices=('devapp','cn','us'));parser.add_argument('tag')
+     parser.add_argument('--execute',action='store_true',help=argparse.SUPPRESS)
+     args=parser.parse_args()
+     registry.need(os.geteuid()==0,'INSTALLED_ENTRY_REQUIRES_ROOT')
+--- a/scripts/install-image-release.sh
++++ b/scripts/install-image-release.sh
+@@ -30,7 +30,7 @@
+ # The helper validates environment and immutable tag; it never accepts arbitrary config/commands.
+ sudo_file=$(mktemp /etc/sudoers.d/.workspacex-image-release.XXXXXX)
+ trap 'rm -f -- "${sudo_file:-}"' EXIT
+-printf '%s ALL=(root) NOPASSWD: /usr/local/bin/workspacex-image-release devapp *, /usr/local/bin/workspacex-image-release cn *\n' "$runner_user" > "$sudo_file"
++printf '%s ALL=(root) NOPASSWD: /usr/local/bin/workspacex-image-release devapp *, /usr/local/bin/workspacex-image-release cn *, /usr/local/bin/workspacex-image-release us *\n' "$runner_user" > "$sudo_file"
+ chmod 0440 "$sudo_file"
+ visudo -cf "$sudo_file" >/dev/null
+ mv -- "$sudo_file" /etc/sudoers.d/workspacex-image-release
+--- a/.github/workflows/image-release.yml
++++ b/.github/workflows/image-release.yml
+@@ -21,11 +21,11 @@
+   workflow_dispatch:
+     inputs:
+       environment:
+-        description: "Environment (auto: develop → DevApp, main → CN)"
++        description: "Environment (auto: develop → DevApp, main → CN, main-us → US (manual))"
+         required: true
+         default: auto
+         type: choice
+-        options: [auto, devapp, cn]
++        options: [auto, devapp, cn, us]
+       service:
+         description: Diagnostic service selector (requires build_only)
+         required: false
+@@ -52,7 +52,7 @@
+     if: >-
+       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+       (github.event_name == 'workflow_dispatch' &&
+-       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || inputs.build_only))
++       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main-us' || inputs.build_only))
+     runs-on: ubuntu-24.04
+     outputs:
+       source: ${{ steps.plan.outputs.source }}
+@@ -62,7 +62,7 @@
+       environment: ${{ steps.plan.outputs.environment }}
+       runner: ${{ steps.plan.outputs.runner }}
+       build: ${{ steps.plan.outputs.build }}
+-      group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || 'workspacex-cn-production-deploy' }}
++      group: ${{ steps.plan.outputs.group }}
+       fullset: ${{ steps.plan.outputs.fullset }}
+       node_image: ${{ steps.plan.outputs.node_image }}
+       python_image: ${{ steps.plan.outputs.python_image }}
