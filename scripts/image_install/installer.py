@@ -107,7 +107,7 @@ def install(c,args):
   command(['bash',str(P/'scripts/30-ingress.sh'),cert,key])
  if args.acme and not Path('/etc/letsencrypt/renewal-hooks/deploy/workspacex-selfhost').exists():command(['bash',str(P/'scripts/35-renewal.sh'),'--standalone-hooks'])
  command(['bash',str(P/'scripts/40-accept.sh')])
- print('Installed: https://'+c['domain']+' ; initial admin password: '+str(RUNTIME/'stable-secrets.json')+' (admin field)')
+ print('Installed: https://'+c['domain']+' ; initial admin credentials file: '+str(RUNTIME/'stable-secrets.json')+' (admin field)')
 def main():
  a=argparse.ArgumentParser(description=__doc__);sub=a.add_subparsers(dest='action',required=True)
  for name in ['plan','install']:

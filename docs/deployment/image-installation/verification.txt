@@ -11,9 +11,9 @@ test_render_preserves_secret_boundaries_and_refuses_overwrite (test_image_instal
 test_single_config_and_safe_defaults (test_image_installer.InstallTests) ... ok
 
 ----------------------------------------------------------------------
-Ran 11 tests in 0.375s
+Ran 11 tests in 0.360s
 
 OK
-Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpzs_nyw85/runtime; no server was contacted
-Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpctq5bv4f/runtime; no server was contacted
-Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmplp9g8ajx/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmp_ou3efn1/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpi3p6m81d/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpsn327jkg/runtime; no server was contacted
