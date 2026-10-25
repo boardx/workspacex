@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
 const jobs = parse(readFileSync('.github/workflows/backend-gates.yml', 'utf8')).jobs;
-describe('Devapp deployment waits for integration validation before the privileged runner', () => {
-  it('has a read-only hosted admission job and deployment depends on it', () => {
+describe('Legacy integration validation remains read-only after image deployment cutover', () => {
+  it('has a read-only hosted admission job without retaining the old source writer', () => {
     const gate = jobs['integration-acceptance'];
     expect(gate).toBeDefined();
     expect(gate['runs-on']).toBe('ubuntu-latest');
@@ -15,8 +15,10 @@ describe('Devapp deployment waits for integration validation before the privileg
     expect(gate.steps.some((step: {uses?: string}) => step.uses?.startsWith('pnpm/action-setup'))).toBe(false);
     expect(gate.if).toContain("github.ref == 'refs/heads/develop'");
     expect(gate.if).toContain("github.event_name == 'push'");
-    expect(jobs.deploy.needs).toContain('integration-acceptance');
-    expect(jobs.deploy.if).toContain("needs.integration-acceptance.result == 'success'");
+    expect(jobs.deploy).toBeUndefined();
+    const release=parse(readFileSync('.github/workflows/image-release.yml','utf8'));
+    expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest']);
+    expect(release.jobs.deploy.steps.at(-1).run).toContain('/usr/local/bin/workspacex-image-release');
   });
 });
 

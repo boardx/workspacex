@@ -82,7 +82,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only
     uses: ./.github/workflows/image-release.yml
     with:
-      environment: devapp
+      environment: ${{ github.ref_name == 'main' && 'cn' || 'devapp' }}
       service: ${{ inputs.shared_image_service }}
       build_only: true
     secrets: inherit

@@ -1,12 +1,12 @@
 name: image-release
-run-name: "Image release ${{ inputs.environment || github.ref_name }} ${{ inputs.tag || github.sha }}"
+run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || github.sha }}"
 
 on:
   workflow_call:
     inputs:
       environment:
         type: string
-        default: devapp
+        default: auto
       tag:
         type: string
         default: ''
@@ -17,14 +17,15 @@ on:
         type: boolean
         default: true
   push:
-    branches: [develop, main-cn]
+    branches: [develop]
   workflow_dispatch:
     inputs:
       environment:
-        description: Target environment
+        description: "Environment (auto: develop → DevApp, main → CN)"
         required: true
+        default: auto
         type: choice
-        options: [devapp, cn]
+        options: [auto, devapp, cn]
       service:
         description: Diagnostic service selector (requires build_only)
         required: false
@@ -46,11 +47,12 @@ permissions:
 
 jobs:
   plan:
-    # Deliberate cutover: legacy writers use the inverse of this same switch.
-    # Manual execution can validate a prepared environment before automatic cutover.
+    # develop auto-deploys DevApp; main deploys CN only by manual dispatch.
+    # Legacy source deployment is retired in backend-gates in this same commit.
     if: >-
-      (vars.WSX_IMAGE_RELEASE_ENABLED == 'true' && github.event_name == 'push') ||
-      (github.event_name == 'workflow_dispatch' && (github.ref == 'refs/heads/main' || inputs.build_only))
+      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || inputs.build_only))
     runs-on: ubuntu-24.04
     outputs:
       tag: ${{ steps.plan.outputs.tag }}
@@ -59,7 +61,7 @@ jobs:
       environment: ${{ steps.plan.outputs.environment }}
       runner: ${{ steps.plan.outputs.runner }}
       build: ${{ steps.plan.outputs.build }}
-      group: ${{ steps.plan.outputs.group }}
+      group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || 'workspacex-cn-production-deploy' }}
       fullset: ${{ steps.plan.outputs.fullset }}
       node_image: ${{ steps.plan.outputs.node_image }}
       python_image: ${{ steps.plan.outputs.python_image }}
@@ -130,7 +132,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: release-image-${{ github.run_id }}-${{ github.run_attempt }}-*
           merge-multiple: true

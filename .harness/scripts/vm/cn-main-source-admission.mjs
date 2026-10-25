@@ -34,8 +34,13 @@ export function validateMainSourceAdmission(source,repository,facts) {
  // Same classifier semantics; only the release runtime obligations differ from a PR.
  const checks=facts.sourceChecks.map(c=>({name:c.name,status:c.status,conclusion:c.conclusion}));
  checks.push(...facts.sourceStatuses.map(s=>commitStatusToObservation({context:s.context,state:s.state,createdAt:s.created_at})));
- const deployNeeds=facts.deploymentWorkflow?.jobs?.deploy?.needs;
- if(!Array.isArray(deployNeeds)||!deployNeeds.length||deployNeeds.some(n=>typeof n!=='string'||!facts.deploymentWorkflow.jobs[n]))fail('MAIN_SOURCE_DEPLOY_OBLIGATIONS');
+ // Older sources encode runtime obligations in deploy; validation-only workflows
+ // keep the same closure in backend-required. A malformed deploy cannot fall back.
+ const jobs=facts.deploymentWorkflow?.jobs;
+ const aggregate=jobs&&(Object.hasOwn(jobs,'deploy')?jobs.deploy:jobs['backend-required']);
+ const deployNeeds=aggregate?.needs;
+ const isJob=job=>job!==null&&typeof job==='object'&&!Array.isArray(job);
+ if(!isJob(aggregate)||!Array.isArray(deployNeeds)||!deployNeeds.length||deployNeeds.some(n=>typeof n!=='string'||!Object.hasOwn(jobs,n)||!isJob(jobs[n])))fail('MAIN_SOURCE_DEPLOY_OBLIGATIONS');
  // Devapp admission is orchestration for develop, not a main runtime test.
  // Exempt only this named non-main gate with its exact reviewed branch predicate;
  // all original deploy/runtime/aggregate obligations remain mandatory.
