@@ -1,5 +1,5 @@
 name: image-release
-run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || format('{0}-{1}', github.run_id, github.run_attempt) }}"
+run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || format('build run {0}', github.run_id) }}"
 
 on:
   workflow_call:
@@ -179,4 +179,6 @@ jobs:
         env:
           TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
-        run: sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG"
+        run: |
+          printf '### Requested deployment\n\nEnvironment: `%s`\n\nImage tag: `%s`\n\nThis is the requested tag; deployment outcome is recorded below in the job log.\n' "$TARGET_ENVIRONMENT" "$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
+          sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG"
