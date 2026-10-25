@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import time
 
 spec = importlib.util.spec_from_file_location('hosted_release', Path(__file__).with_name('hosted-release.py'))
 hosted = importlib.util.module_from_spec(spec)
@@ -39,12 +40,22 @@ def safe_diagnostics(raw):
     raw=re.sub(r'(?i)([?&](?:token|password|secret|access[_-]?key)=)[^&\s]+',r'\1[redacted]',raw)
     return '\n'.join(raw.splitlines()[-100:])[-12000:]
 
-def run(args, timeout=3600):
-    result=subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-    if result.returncode!=0:
-        print(safe_diagnostics(result.stdout+'\n'+result.stderr),file=sys.stderr)
-    need(result.returncode==0, 'COMMAND_FAILED_'+Path(args[0]).name.upper())
-    return result.stdout
+def run(args, timeout=3600, retry_transient=False):
+    if retry_transient:
+        position=3 if len(args)>2 and args[1]=='--config' else 1
+        need(len(args)>position and args[position]=='pull','RETRY_REQUIRES_PULL')
+    attempts=3 if retry_transient else 1
+    for attempt in range(attempts):
+        result=subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+        if result.returncode==0: return result.stdout
+        raw=result.stdout+'\n'+result.stderr
+        transient=re.search(r'connection reset by peer|TLS handshake timeout|i/o timeout|unexpected EOF|context deadline exceeded|connection timed out',raw,re.I)
+        permanent=re.search(r'unauthorized:|denied:|manifest unknown|not found',raw,re.I)
+        if not transient or permanent or attempt+1==attempts:
+            print(safe_diagnostics(raw),file=sys.stderr)
+            raise ValueError('COMMAND_FAILED_'+Path(args[0]).name.upper())
+        print('Transient registry pull transport failure; retry '+str(attempt+2)+'/'+str(attempts),file=sys.stderr)
+        time.sleep((2,5)[attempt])
 
 def resolve(docker, prefix, tag, role, pull=True):
     coordinates(prefix,tag)
@@ -52,7 +63,7 @@ def resolve(docker, prefix, tag, role, pull=True):
     repository=prefix+'/'+SERVICES[role][0]
     reference=repository+':'+tag
     command=[docker] if isinstance(docker,str) else list(docker)
-    if pull: run(command+['pull','--platform','linux/amd64',reference])
+    if pull: run(command+['pull','--platform','linux/amd64',reference],retry_transient=True)
     values=json.loads(run(command+['image','inspect',reference]))
     need(len(values)==1,'IMAGE_INSPECT')
     value=values[0]
