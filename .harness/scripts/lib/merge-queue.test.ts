@@ -301,10 +301,11 @@ describe("#3238 workflow 接线：候选组必须真的跑，部署必须真的�
   });
 
   it("候选组不得触发部署，Devapp 自动部署仅来自 develop push", () => {
-    const body = jobBody(workflow("backend-gates.yml"), "deploy");
-    expect(body).toMatch(/event_name\s*!=\s*'merge_group'/);
-    expect(body).toContain("github.event_name == 'push' && github.ref == 'refs/heads/develop'");
-    expect(body).not.toContain("startsWith(github.ref, 'refs/tags/v')");
+    expect(jobBody(workflow("backend-gates.yml"), "deploy")).toBe("");
+    const plan = jobBody(workflow("image-release.yml"), "plan");
+    expect(plan).toContain("github.event_name == 'push' && github.ref == 'refs/heads/develop'");
+    expect(plan).not.toContain("github.event_name == 'merge_group'");
+    expect(plan).not.toContain("startsWith(github.ref, 'refs/tags/v')");
   });
 
   it("候选组的 run 不得被 cancel-in-progress 掐掉——掐掉等于这个组合从没被验证过", () => {

@@ -60,10 +60,11 @@ test('promotion dispatch failure cannot become production success', () => {
 test('workflow wiring preserves manual verification and gates frozen-tag auto-promotion on preparation success', () => {
   const deploy = readFileSync('.github/workflows/deploy-cn-production.yml', 'utf8');
   const prepare = readFileSync('.github/workflows/prepare-cn-release.yml', 'utf8');
-  assert.match(deploy, /push:\n    branches: \[main-cn\]/);
+  assert.doesNotMatch(deploy, /push:\n    branches: \[main-cn\]/);
+  assert.ok(!deploy.includes('queue-release:'));
   assert.match(deploy, /deploy:\n    if: github.event_name == 'workflow_dispatch'/);
   assert.match(deploy, /--verify-active/);
-  assert.match(deploy, /cn-auto-release.mjs prepare/);
+  assert.doesNotMatch(deploy, /cn-auto-release.mjs prepare/);
   assert.match(prepare, /github.event_name == 'workflow_dispatch' && github.ref == 'refs\/heads\/main'/);
   assert.match(prepare, /id: prepared/);
   assert.match(prepare, /RELEASE_TAG: \$\{\{ steps.prepared.outputs.release_tag \}\}/);

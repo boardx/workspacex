@@ -1,8 +1,6 @@
 name: deploy-cn-production
 
 on:
-  push:
-    branches: [main-cn]
   workflow_dispatch:
     inputs:
       release_sha:
@@ -24,24 +22,6 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  queue-release:
-    if: vars.WSX_IMAGE_RELEASE_ENABLED != 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main-cn'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      actions: write
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Queue exact pushed release (not production acceptance)
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_SHA: ${{ github.sha }}
-        run: node .github/scripts/cn-auto-release.mjs prepare
-
   deploy:
     if: github.event_name == 'workflow_dispatch'
     environment: production-cn
