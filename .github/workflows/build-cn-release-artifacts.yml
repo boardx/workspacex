@@ -15,6 +15,11 @@ on:
         required: false
         default: linux/amd64
         type: string
+      source_branch:
+        description: Reviewed source admission branch; never an image build argument
+        required: false
+        default: main
+        type: string
     outputs:
       attempt_id:
         description: Exact producer attempt
@@ -47,7 +52,7 @@ on:
         default: false
         type: boolean
       release_sha:
-        description: Exact 40-hex main source commit
+        description: Exact 40-hex source commit
         required: true
         type: string
       release:
@@ -61,6 +66,13 @@ on:
         type: choice
         # ARM requires a separately reviewed native runner or emulation setup.
         options: [linux/amd64]
+
+      source_branch:
+        description: Reviewed source admission branch
+        required: true
+        default: main
+        type: choice
+        options: [main, develop]
 
 permissions:
   contents: read
@@ -111,7 +123,7 @@ jobs:
     runs-on: ${{ fromJSON(inputs.host_permission_probe == 'cn' && '["self-hosted","linux","workspacex-cn-production"]' || '["self-hosted","linux","workspacex"]') }}
     timeout-minutes: 3
     steps:
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: host-permission-source-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/../wsx-host-installation-${{ github.run_id }}-${{ github.run_attempt }}
@@ -152,7 +164,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.shared_images_only && !inputs.registry_probe_only && (inputs.host_permission_probe == '' || inputs.host_permission_probe == 'off')
     uses: ./.github/workflows/image-release.yml
     with:
-      environment: devapp
+      environment: ${{ github.ref_name == 'main' && 'cn' || 'devapp' }}
       service: ${{ inputs.shared_image_service }}
       build_only: true
       source_revision: ${{ inputs.release_sha }}
@@ -240,6 +252,7 @@ jobs:
         shell: bash
         env:
           SOURCE_REVISION: ${{ inputs.release_sha }}
+          SOURCE_BRANCH: ${{ inputs.source_branch }}
           RELEASE_NAME: ${{ inputs.release }}
           IMAGE_PLATFORM: ${{ inputs.platform }}
           ATTEMPT_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
@@ -258,6 +271,7 @@ jobs:
           e = os.environ
           value = {
               "schemaVersion": 1, "sourceRevision": e["SOURCE_REVISION"],
+              "sourceBranch": e["SOURCE_BRANCH"],
               "release": e["RELEASE_NAME"], "attemptId": e["ATTEMPT_ID"],
               "platform": e["IMAGE_PLATFORM"], "registryPrefix": e["REGISTRY_PREFIX"],
               "acrRegion": e["ACR_REGION"], "acrInstanceId": e["ACR_INSTANCE_ID"],

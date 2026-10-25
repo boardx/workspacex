@@ -36,13 +36,37 @@ class Producer(unittest.TestCase):
         workflow=(ROOT/'.github/workflows/image-release.yml').read_text()
         self.assertIn('ref: ${{ needs.plan.outputs.source }}',workflow)
         self.assertIn('SOURCE_REVISION: ${{ steps.source.outputs.source }}',workflow)
+        self.assertIn('SOURCE_REVISION: ${{ needs.plan.outputs.source }}',workflow)
+        self.assertIn('../control/scripts/registry-images.py build --source "$SOURCE_REVISION"',workflow)
         self.assertIn('source_revision: ${{ inputs.release_sha }}',(ROOT/'.github/workflows/build-cn-release-artifacts.yml').read_text())
 
-    def test_unique_tag_includes_source_run_and_attempt(self):
+    def test_unique_tag_uses_run_and_attempt(self):
         m=module()
-        self.assertEqual(m.release_tag('a'*40,'123','2'),'a'*40+'-123-2')
+        self.assertEqual(m.release_tag('a'*40,'123','2'),'123-2')
         with self.assertRaises(ValueError): m.release_tag('main','123','2')
         with self.assertRaises(ValueError): m.release_tag('a'*40,'$(id)','2')
+
+    def test_resolve_short_tag_keeps_full_source_and_checks_build_label(self):
+        m=module()
+        row={'Os':'linux','Architecture':'amd64','Id':'sha256:'+'c'*64,
+             'RepoDigests':['registry.example/team/api@sha256:'+'b'*64],
+             'Config':{'Labels':{'org.opencontainers.image.revision':'a'*40,
+                                 'io.boardx.workspacex.release-tag':'123-2'}}}
+        with patch.object(m,'run',side_effect=lambda *args,**kwargs: json.dumps([row])):
+            self.assertEqual(m.resolve('docker','registry.example/team','123-2','api',False)['sourceRevision'],'a'*40)
+            row['Config']['Labels']['io.boardx.workspacex.release-tag']='123-1'
+            with self.assertRaisesRegex(ValueError,'IMAGE_BUILD_IDENTITY'): m.resolve('docker','registry.example/team','123-2','api',False)
+
+    def test_short_alias_requires_matching_legacy_digest(self):
+        m=module()
+        row={'Os':'linux','Architecture':'amd64','Id':'sha256:'+'c'*64,
+             'RepoDigests':['registry.example/team/api@sha256:'+'b'*64],
+             'Config':{'Labels':{'org.opencontainers.image.revision':'a'*40}}}
+        with patch.object(m,'run',side_effect=lambda *args,**kwargs: json.dumps([row])):
+            self.assertEqual(m.resolve('docker','registry.example/team','123-2','api',False)['sourceRevision'],'a'*40)
+        other={**row,'Id':'sha256:'+'d'*64}
+        with patch.object(m,'run',side_effect=[json.dumps([row]),json.dumps([other])]):
+            with self.assertRaisesRegex(ValueError,'ALIAS_IDENTITY'): m.resolve('docker','registry.example/team','123-2','api',False)
 
     def test_complete_set_required_for_manifest(self):
         m=module()
