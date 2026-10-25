@@ -1,0 +1,17 @@
+test_apparmor_persists_across_reboot (test_kit.KitTest) ... ok
+test_bad_or_unfilled_settings_rejected (test_kit.KitTest) ... ok
+test_compose_cli_resolves_all_services_without_daemon (test_kit.KitTest) ... ok
+test_dispatch_is_manual_and_fixed_to_us (test_kit.KitTest) ... ok
+test_file_index_covers_source_files (test_kit.KitTest) ... ok
+test_package_and_patched_branch_admission (test_kit.KitTest) ... ok
+test_private_config_and_separate_identities (test_kit.KitTest) ... ok
+test_runtime_files_and_source_provenance (test_kit.KitTest) ... ok
+test_settings_keys_and_docs_cover_every_input (test_kit.KitTest) ... ok
+test_shell_syntax (test_kit.KitTest) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 4.508s
+
+OK
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmp5arozq9u/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmptuvympf9/runtime; no server was contacted
