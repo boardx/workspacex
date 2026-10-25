@@ -1,33 +1,4 @@
-# backend-gates.yml —— 需要真 Docker + PostgreSQL 的那套门控。
-#
-# ⚠ 2026-08-06：`gates` 从自建 runner（`[self-hosted, linux, x64, workspacex]`）
-# 改回 GitHub 托管 `ubuntu-latest`。原头注写的理由是「托管 runner 上又慢又贵」——
-# 那句话在两个前提都不成立时写下的：① 本仓是**公开仓库**，GitHub 托管 runner 的
-# Linux 分钟数对公开仓库是**免费且不限量**的，不存在「贵」；② `harness-verify.yml`
-# 的 `fullstack-smoke` job 早就在 `ubuntu-latest` 上跑真实 docker-compose + Postgres
-# 起真栈（含 `core-loop.spec.ts` 的浏览器 E2E），本仓自己已经证明「托管 runner 跑不了
-# 真 docker」是假的。
-#
-# 唯一的真实原因是本文件自己 :39 那句——**自建 runner 上跑 fork PR 等于任何人一个
-# PR 就能在这台机器上执行任意命令**。但 `gates` 这个 job 不碰任何密钥、不碰生产机器
-# （起的是本地一次性 `workspacex-kernel` docker-compose 栈，`deploy` job 才碰真机），
-# 放到 GitHub 托管的一次性沙箱上跑，那条风险本来就不存在。
-#
-# ⇒ 只把不需要真机权限的 `gates` 挪走。`deploy` 仍然钉死在自建 runner
-# （`devapp-x64`）——它调用的 `/usr/local/bin/workspacex-deploy` 是那台机器上
-# root 拥有的路径，sudoers 只认那一条，挪不动。
-#
-# 挪走的直接收益：这台自建 runner 长期只有一台，`gates` 在每次 main push + 每个
-# PR 上都会跑，过去是全仓库唯一的排队瓶颈——所有 agent 的所有分支都在同一条队列
-# 里等同一台机器。挪到 GitHub 托管、并发不限于 1 之后，这条队列基本消失；
-# `deploy` 本身还是短的（一次几分钟），单机足够——即使 2026-08-06 起改成每次 main
-# push 都触发（不再等人工打 tag），也比 `gates` 频繁不到哪去：同一 ref 的
-# concurrency group 保证不会有两个 deploy 同时抢那台机器，最坏情况是排队等一轮，
-# 不是竞态。
-#
-# 触发：main 的每次推送 + 打标签 + 手动。
-# `local.env` 的 ANSWER_Q3 原填「打标签时跑」，2026-07-29 按 P-1 改为 main 上也跑：
-# 托管 runner 分钟数不要钱，而「只在打标签时跑」意味着问题在发版当天一次性爆出来。
+# Backend validation only. DevApp deployment is owned by image-release.yml.
 name: backend-gates
 
 on:
@@ -555,7 +526,7 @@ jobs:
     # 就是队列永久卡住。语义不变：aggregateFailures 仍然要求每一条依赖真的 success，
     # 「skipped 当 success」在这里从来不成立（ci-backend-required.mjs）。
     if: always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, prototype-audit, design-loop-e2e]
+    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, e2e-core-loop, prototype-audit, design-loop-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -584,62 +555,3 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: node .harness/scripts/ci-devapp-integration-gate.mjs
-
-  deploy:
-    needs: [gates-fast, gates-test, gates-runtime, e2e-core-loop, native-document-chain, native-runtime-lane, integration-acceptance]
-    # Develop is the Devapp integration branch (human instruction 2026-10-22).
-    # Keep all runtime gates, exact-SHA deployment and the environment mutex.
-    # PRs, merge groups, production branches and tags cannot auto-write Devapp.
-    # Explicit existing branch-preview dispatches retain their reviewed admission.
-    if: >-
-      vars.WSX_IMAGE_RELEASE_ENABLED != 'true' && always() && !cancelled() && github.event_name != 'merge_group' &&
-      !(github.event_name == 'push' && github.ref == 'refs/heads/develop' &&
-        needs.gates-fast.outputs.skip_devapp == 'true') &&
-      needs.gates-fast.result == 'success' && needs.gates-test.result == 'success' &&
-      needs.gates-runtime.result == 'success' && needs.e2e-core-loop.result == 'success' &&
-      needs.native-document-chain.result == 'success' &&
-      needs.native-runtime-lane.result == 'success' &&
-      (needs.integration-acceptance.result == 'success' ||
-       (github.event_name == 'workflow_dispatch' && needs.integration-acceptance.result == 'skipped')) &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-       (github.event_name == 'workflow_dispatch' && inputs.deploy_capabilities_preview &&
-        github.ref == 'refs/heads/codex/standard-capabilities') ||
-       (github.event_name == 'workflow_dispatch' && inputs.deploy_skill_files_preview &&
-        github.ref == 'refs/heads/codex/ai-capability-studio-live' &&
-        inputs.expected_skill_files_sha == github.sha))
-    # Devapp follows develop. main/main-cn/main-us and tags never auto-deploy here.
-    # Execution mirror of .harness/devapp-operation-policy.json; checked by #5040.
-    concurrency:
-      group: workspacex-devapp-deploy
-      cancel-in-progress: false
-    runs-on: [self-hosted, linux, x64, workspacex]
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          # ⚠ 必须全深度：doctor --strict 用 `git merge-base --is-ancestor <commit> origin/main`
-          # 判「passing 的实现是否已在 main 上」（doctor.ts:358）。浅克隆没有 origin/main 这个
-          # ref，也没有足够历史 —— 于是**每一个** passing feature 都被判成「还不在 main 上」。
-          # 实测：tag v0.1.8-staging 的 gates 报 164 FAIL，而 164 = 22(phase00) + 142(phase01)
-          # = 恰好是全部 passing 数；同一份代码本地 `doctor --strict` 是 0 FAIL。
-          # 后果不是「多一条红」——deploy job 的条件是 needs: gates，所以 **tag 触发的部署
-          # 从来就不可能成功**，devapp 因此长期落后 main 且无人发现（见 #483 / #499）。
-          fetch-depth: 0
-
-      - name: Verify exact authorized Skill preview checkout
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_skill_files_preview }}
-        env:
-          EXPECTED_SKILL_FILES_SHA: ${{ inputs.expected_skill_files_sha }}
-        run: bash .harness/scripts/vm/verify-skill-preview-ref.sh
-
-      - name: 部署并冒烟
-        # 走 /usr/local/bin 的副本，不是仓库里那份——sudoers 只许这一条路径。
-        # 指仓库那份的话，一个 PR 改掉 deploy.sh 就等于拿到 root。
-        # 非特权 wrapper 只调用这一条既有 sudo 命令；它不会执行仓库代码为 root。
-        # root deploy 若已进入 step 7 后因冷启动竞态假红，wrapper 用完整稳定后置条件
-        # 复核；step 7 之前的失败原样 fail-closed，绝不被健康的旧进程掩盖。
-        env:
-          # 必须部署本 run 实际验证过的不可变提交。若传 `main`，排队期间后续 merge 会让
-          # VM 拉到另一个 SHA，形成「A 的 gates 通过、实际发布 B」的竞态（run 34124013826）。
-          DEPLOY_REF: ${{ github.sha }}
-        run: bash .harness/scripts/vm/deploy-gate.sh "$DEPLOY_REF"

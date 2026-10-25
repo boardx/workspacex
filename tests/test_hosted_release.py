@@ -159,6 +159,39 @@ class HostedReleaseContracts(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'REVIEWED_DIGEST_REQUIRED'):
             h.validate_input(data)
 
+    def test_develop_source_admission_and_legacy_main_default(self):
+        for branch in (None, 'main', 'develop'):
+            with self.subTest(branch=branch):
+                value = fixture()
+                if branch is not None:
+                    value['sourceBranch'] = branch
+                plan = h.validate_input(value)
+                boundary = HostBoundary(plan)
+                with self.subprocesses(boundary):
+                    h.checkout(plan)
+                self.assertIn(['git', 'merge-base', '--is-ancestor', SHA,
+                               'origin/' + (branch or 'main')], [a for a, _ in boundary.calls])
+
+    def test_source_branch_never_accepts_arbitrary_refs(self):
+        for branch in ('feature/x', 'main-cn', 'refs/heads/develop', '', None, ['develop']):
+            with self.subTest(branch=branch), self.assertRaisesRegex(ValueError, 'INVALID_SOURCE_BRANCH'):
+                h.validate_input(fixture() | {'sourceBranch': branch})
+
+    def test_promotion_branch_and_environment_do_not_change_build_identity(self):
+        original = h.validate_input(fixture())
+        promoted = h.validate_input(fixture() | {'sourceBranch': 'develop'})
+        self.assertEqual(h.build_identity(original), h.build_identity(promoted))
+        boundary = HostBoundary(promoted, existing_tag=True)
+        promoted['_planSha256'] = 'd' * 64
+        with patch.dict(h.os.environ, {'ACR_USERNAME': 'synthetic-user', 'ACR_TOKEN': 'synthetic-secret',
+                                      'NEXT_PUBLIC_API_URL': 'https://must-not-be-baked.example/api',
+                                      'APP_PUBLIC_URL': 'https://must-not-be-baked.example'}), self.subprocesses(boundary):
+            h.build(promoted, 'web', self.root / 'reused-web.json')
+        self.assertFalse(any(a[:3] == ['docker', 'buildx', 'build'] or a[:2] == ['docker', 'push']
+                             for a, _ in boundary.calls))
+        self.assertEqual(json.loads((self.root / 'reused-web.json').read_text())['image'],
+                         promoted['registryPrefix'] + '/web@sha256:' + DIGEST)
+
     def test_source_mismatch_stops_before_docker(self):
         path = self.root / 'plan.json'
         path.write_text(json.dumps({k: v for k, v in self.plan.items() if not k.startswith('_')} | {'services': list(h.SERVICES)}))

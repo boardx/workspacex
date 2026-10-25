@@ -159,14 +159,17 @@ def deploy_config(environment,tag,config,docker,docker_config):
         # A durable intent blocks new writes after host/daemon loss or uncertain state commit.
         pending=state/'pending.json'
         registry.need(not pending.exists(),'UNRESOLVED_DEPLOYMENT_REQUIRES_RECONCILIATION')
-        attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)
         images={role:registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,role) for role in registry.SERVICES}
+        sources=[image.get('sourceRevision') for image in images.values()]
+        registry.need(all(isinstance(source,str) and registry.SHA.fullmatch(source) for source in sources) and len(set(sources))==1,'IMAGE_SOURCE_MISMATCH')
+        source=sources[0]
+        attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)
         if admission:
             # Fixed host adapter retains CN preactivation/backup/compatibility admission.
             checked=subprocess.run([*admission,tag],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120,
                                    env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8'})
             registry.need(checked.returncode==0,'HOST_ADMISSION_REJECTED')
-        manifest={'kind':'registry-images-v1','sourceRevision':tag[:40],'tag':tag,'platform':'linux/amd64','images':images}
+        manifest={'kind':'registry-images-v1','sourceRevision':source,'tag':tag,'platform':'linux/amd64','images':images}
         manifest_file=attempt/'manifest.json';engine.save(manifest_file,manifest)
         effective={k:config[k] for k in ('project','services','envFile','health','lockFile','verificationCommand')}
         effective.update(docker=docker,composeFiles=compose_files,automaticRollback=True,
@@ -174,7 +177,7 @@ def deploy_config(environment,tag,config,docker,docker_config):
         effective_file=attempt/'config.json';engine.save(effective_file,effective)
         atomic(pending,{'tag':tag,'attempt':str(attempt),'previous':current})
         def commit(override):
-            atomic(current_path,{'tag':tag,'sourceRevision':tag[:40],'path':str(override.resolve()),'sha256':engine.sha_file(override)})
+            atomic(current_path,{'tag':tag,'sourceRevision':source,'path':str(override.resolve()),'sha256':engine.sha_file(override)})
         result=engine.release(effective_file,manifest_file,attempt/'deployment',True,lock_fd=lock,commit=commit)
         if result['status']=='ROLLED_BACK':
             # Recovery used immutable IDs, which can change the Compose config hash.
