@@ -1,0 +1,6 @@
+# 进度
+
+- 2026-10-25：用户明确需要“已有五个正式镜像，在独立US服务器运行”的完整消费者方案。先同步main到490d2d1cd并通过init.sh；以同一checkout开发，没有创建新worktree。
+- 交付从36文件的US维护手册转为共享代码scripts/image_install，以及deploy/us中一份.env模板、Compose生成视图、单一操作说明。独立包只有一个install.py入口；不含应用源码、Runner接线或私密配置。
+- TDD：先验证缺少入口的失败，再实现配置/同源检查/安装/重试/打包；独立review指出API Redis地址缺失及预检失败重试阻断，加入回归测试后修复。最终验证见verification.txt。
+- 边界：仅Ubuntu24/x86_64单机本地FS。同机PG/Redis、TLS和真实业务探针已接入代码；真实主机、正式镜像、浏览器、重启、模型及恢复尚未验收。
