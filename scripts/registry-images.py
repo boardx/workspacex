@@ -14,7 +14,8 @@ hosted = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hosted)
 SERVICES = hosted.SERVICES
 SHA = re.compile(r'[a-f0-9]{40}')
-TAG = re.compile(r'[a-f0-9]{40}-[1-9][0-9]*-[1-9][0-9]*')
+TAG = re.compile(r'(?:[a-f0-9]{40}-)?[1-9][0-9]*-[1-9][0-9]*')
+LEGACY_TAG = re.compile(r'[a-f0-9]{40}-[1-9][0-9]*-[1-9][0-9]*')
 PREFIX = re.compile(r'[a-z0-9][a-z0-9.-]*(?::[0-9]+)?/[a-z0-9]+(?:[._-][a-z0-9]+)*')
 
 def need(ok, code):
@@ -27,7 +28,7 @@ def coordinates(prefix, tag):
 
 def release_tag(source, run, attempt):
     need(SHA.fullmatch(source) and re.fullmatch('[1-9][0-9]*',run) and re.fullmatch('[1-9][0-9]*',attempt), 'INVALID_BUILD_IDENTITY')
-    return source+'-'+run+'-'+attempt
+    return run+'-'+attempt
 
 def safe_diagnostics(raw):
     for key,value in os.environ.items():
@@ -56,21 +57,31 @@ def resolve(docker, prefix, tag, role, pull=True):
     need(len(values)==1,'IMAGE_INSPECT')
     value=values[0]
     need(value['Os']=='linux' and value['Architecture']=='amd64','IMAGE_PLATFORM')
-    source=tag[:40]
-    need(value.get('Config',{}).get('Labels',{}).get('org.opencontainers.image.revision')==source,'IMAGE_SOURCE_MISMATCH')
+    labels=value.get('Config',{}).get('Labels',{}) or {}
+    source=labels.get('org.opencontainers.image.revision','')
+    need(isinstance(source,str) and SHA.fullmatch(source),'IMAGE_SOURCE_MISMATCH')
+    if LEGACY_TAG.fullmatch(tag):
+        need(source==tag[:40],'IMAGE_SOURCE_MISMATCH')
+    elif 'io.boardx.workspacex.release-tag' in labels:
+        need(labels['io.boardx.workspacex.release-tag']==tag,'IMAGE_BUILD_IDENTITY')
+    else:
+        # Historical images may acquire a short alias only for the identical
+        # immutable legacy image; never infer a source revision from a short tag.
+        legacy=resolve(docker,prefix,source+'-'+tag,role,pull)
+        need(legacy['imageId']==value['Id'] and legacy['image'] in value.get('RepoDigests',[]),'ALIAS_IDENTITY')
     need(re.fullmatch(r'sha256:[a-f0-9]{64}',value['Id']),'IMAGE_ID')
     digests=[v for v in value.get('RepoDigests',[]) if re.fullmatch(re.escape(repository)+r'@sha256:[a-f0-9]{64}',v)]
     need(len(set(digests))==1,'IMAGE_DIGEST')
     return {'service':role,'sourceRevision':source,'tag':tag,'image':digests[0],'imageId':value['Id']}
 
-def build(role, prefix, tag, output):
+def build(role, prefix, tag, output, source):
     coordinates(prefix,tag)
     need(role in SERVICES,'INVALID_SERVICE')
-    source=tag[:40]
+    need(isinstance(source,str) and SHA.fullmatch(source),'INVALID_SOURCE_REVISION')
     need(run(['git','rev-parse','HEAD']).strip()==source,'SOURCE_CHECKOUT_MISMATCH')
     repository,dockerfile,context,bases=SERVICES[role]
     args=['docker','buildx','build','--load','--platform','linux/amd64','--file',dockerfile,'--tag',prefix+'/'+repository+':'+tag,
-          '--label','org.opencontainers.image.revision='+source,'--build-arg','SOURCE_REVISION='+source]
+          '--label','org.opencontainers.image.revision='+source,'--label','io.boardx.workspacex.release-tag='+tag,'--build-arg','SOURCE_REVISION='+source]
     mapping={'node':'NODE_IMAGE','python':'PYTHON_IMAGE','postgres':'PGVECTOR_IMAGE'}
     for base in bases:
         name=mapping[base];value=os.environ.get(name,'')
@@ -89,7 +100,9 @@ def build(role, prefix, tag, output):
     write(output,resolve('docker',prefix,tag,role))
 
 def aggregate(directory, source, tag, prefix):
-    coordinates(prefix,tag);need(source==tag[:40],'SOURCE_TAG_MISMATCH')
+    coordinates(prefix,tag)
+    need(isinstance(source,str) and SHA.fullmatch(source),'INVALID_SOURCE_REVISION')
+    need(not LEGACY_TAG.fullmatch(tag) or source==tag[:40],'SOURCE_TAG_MISMATCH')
     files=list(directory.glob('*.json'));need(len(files)==len(SERVICES),'INCOMPLETE_IMAGE_SET')
     images={}
     for path in files:
@@ -131,7 +144,7 @@ def main():
     plan=sub.add_parser('plan');plan.add_argument('--source',required=True);plan.add_argument('--resolve-bases',action='store_true')
     for op in ('build','aggregate'):
         command=sub.add_parser(op)
-        for name in ('prefix','tag','output'): command.add_argument('--'+name,required=True)
+        for name in ('prefix','tag','output','source'): command.add_argument('--'+name,required=True)
         command.add_argument('--service' if op=='build' else '--directory',required=True)
     args=parser.parse_args()
     if args.operation=='login':
@@ -164,12 +177,12 @@ def main():
         services=list(SERVICES) if selected=='all' else [selected]
         runner=['self-hosted','linux','x64','workspacex' if target=='devapp' else 'workspacex-cn-production']
         with open(os.environ['GITHUB_OUTPUT'],'a') as output:
-            values={'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':'devapp' if target=='devapp' else 'production-cn',
+            values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':'devapp' if target=='devapp' else 'production-cn',
                     'runner':json.dumps(runner),'build':'false' if existing else 'true','group':'workspacex-devapp-deploy' if target=='devapp' else 'workspacex-cn-production-deploy'}
             if args.resolve_bases and not existing: values.update(resolve_bases())
             for key,value in values.items(): output.write(key+'='+value+'\n')
-    elif args.operation=='build': build(args.service,args.prefix,args.tag,args.output)
-    else: write(args.output,aggregate(Path(args.directory),args.tag[:40],args.tag,args.prefix))
+    elif args.operation=='build': build(args.service,args.prefix,args.tag,args.output,args.source)
+    else: write(args.output,aggregate(Path(args.directory),args.source,args.tag,args.prefix))
 
 if __name__=='__main__':
     try: main()

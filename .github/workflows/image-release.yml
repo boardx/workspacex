@@ -1,5 +1,5 @@
 name: image-release
-run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || github.sha }}"
+run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || format('{0}-{1}', github.run_id, github.run_attempt) }}"
 
 on:
   workflow_call:
@@ -38,7 +38,7 @@ on:
         default: false
         type: boolean
       tag:
-        description: Existing immutable tag (empty builds this commit first)
+        description: Existing tag, e.g. 40174623496-1 (empty builds this commit)
         required: false
         type: string
 
@@ -55,6 +55,7 @@ jobs:
        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || inputs.build_only))
     runs-on: ubuntu-24.04
     outputs:
+      source: ${{ steps.plan.outputs.source }}
       tag: ${{ steps.plan.outputs.tag }}
       services: ${{ steps.plan.outputs.services }}
       target: ${{ steps.plan.outputs.target }}
@@ -113,7 +114,8 @@ jobs:
         env:
           SERVICE: ${{ matrix.service }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
-        run: python3 -B scripts/registry-images.py build --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
+          SOURCE_REVISION: ${{ needs.plan.outputs.source }}
+        run: python3 -B scripts/registry-images.py build --source "$SOURCE_REVISION" --service "$SERVICE" --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output "result/$SERVICE.json"
       - uses: actions/upload-artifact@v6
         with:
           name: release-image-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.service }}
@@ -141,7 +143,8 @@ jobs:
         env:
           REGISTRY_PREFIX: ${{ vars.WSX_REGISTRY_PREFIX }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
-        run: python3 -B scripts/registry-images.py aggregate --directory results --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output release.json
+          SOURCE_REVISION: ${{ needs.plan.outputs.source }}
+        run: python3 -B scripts/registry-images.py aggregate --source "$SOURCE_REVISION" --directory results --prefix "$REGISTRY_PREFIX" --tag "$IMAGE_TAG" --output release.json
       - uses: actions/upload-artifact@v6
         with:
           name: release-manifest-${{ github.run_id }}-${{ github.run_attempt }}
