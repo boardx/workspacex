@@ -64,6 +64,10 @@ def install(environment):
     admission_old=Path(config['admissionCommand'][0])
     assert admission_old.is_relative_to(old), 'ADAPTER_OUTSIDE_CLOSURE'
     admission=new/admission_old.relative_to(old)
+    if admission.suffix!='.py':
+        adapter_paths=[Path(v) for v in shlex.split(admission.read_text().splitlines()[1]) if v.endswith('.py')]
+        assert len(adapter_paths)==1 and adapter_paths[0].is_relative_to(old), 'UNEXPECTED_ADAPTER_WRAPPER'
+        admission=new/adapter_paths[0].relative_to(old)
     code=admission.read_text()
     patterns=('[0-9a-f]{40}-[0-9]+-[0-9]+','[a-f0-9]{40}-[1-9][0-9]*-[1-9][0-9]*')
     changed=False
@@ -72,6 +76,9 @@ def install(environment):
             code=code.replace(pattern,r'(?:[a-f0-9]{40}-)?[1-9][0-9]*-[1-9][0-9]*');changed=True
     assert changed, 'UNREVIEWED_ADMISSION_PATTERN'
     code=code.replace(str(old),str(new));admission.write_text(code)
+    for path in new.iterdir():
+        if path.is_file() and path.suffix in ('.py',''):
+            content=path.read_text();path.write_text(content.replace(str(old),str(new)))
     for path in new.glob('*.py'): ast.parse(path.read_text())
     for path in new.rglob('*'):
         assert not path.is_symlink(), 'CLOSURE_SYMLINK'
