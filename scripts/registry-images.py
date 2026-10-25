@@ -143,8 +143,18 @@ def main():
         need(result.returncode==0,'ACR_LOGIN_FAILED')
     elif args.operation=='plan':
         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
-        need(event=='workflow_dispatch' and (branch=='main' or os.environ.get('BUILD_ONLY')=='true') or event=='push' and branch in ('develop','main-cn'),'RELEASE_EVENT_NOT_ALLOWED')
-        target=os.environ.get('TARGET_ENVIRONMENT') if event=='workflow_dispatch' else {'develop':'devapp','main-cn':'cn'}[branch]
+        build_only=os.environ.get('BUILD_ONLY')=='true'
+        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop') or build_only),'RELEASE_EVENT_NOT_ALLOWED')
+        expected={'develop':'devapp','main':'cn'}.get(branch)
+        requested=os.environ.get('TARGET_ENVIRONMENT') or 'auto'
+        if event=='push':
+            target=expected
+        elif expected:
+            need(requested in ('auto',expected),'BRANCH_ENVIRONMENT_MISMATCH')
+            target=expected
+        else:
+            # Non-release branches are diagnostic builds only, never host deployments.
+            target=requested
         need(target in ('devapp','cn'),'INVALID_ENVIRONMENT')
         existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''
         tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
