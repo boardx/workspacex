@@ -1,0 +1,18 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/5704/workspacex
+
+ ✓ .harness/scripts/workflow-actions-node24.test.ts (11 tests) 336ms
+ ✓ .harness/scripts/verify-cn-promotion.test.ts (6 tests) 3461ms
+   ✓ CN production promotion gate > rejects a release whose sealed manifest hash no longer matches 738ms
+   ✓ CN production promotion gate > accepts the main-cn tip only when it is in main and all images use digests 616ms
+   ✓ CN production promotion gate > rejects a commit that main does not contain 711ms
+   ✓ CN production promotion gate > rejects a mutable image tag 588ms
+   ✓ CN production promotion gate > requires application images in the configured ACR namespace but permits upstream data images 801ms
+ ✓ .harness/scripts/skill-files-preview-deploy.test.ts (4 tests) 190ms
+ ✓ .harness/scripts/ci-branch-routing.test.ts (7 tests) 193ms
+
+ Test Files  4 passed (4)
+      Tests  28 passed (28)
+   Start at  22:13:27
+   Duration  6.27s (transform 154ms, setup 0ms, collect 440ms, tests 4.18s, environment 1ms, prepare 387ms)
