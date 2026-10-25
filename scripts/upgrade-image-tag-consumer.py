@@ -32,6 +32,10 @@ def atomic(path,data,mode):
 
 
 def upgrade_consumer(code):
+    if "'sourceRevision':tag[:40]" not in code:
+        assert "'sourceRevision':source" in code and "'IMAGE_SOURCE_MISMATCH'" in code, 'UNREVIEWED_CONSUMER_VERSION'
+        assert code.index('images={role:registry.resolve(')<code.index("sources=[image.get(")<code.index("attempt=state/('attempt-'"), 'UNREVIEWED_CONSUMER_ORDER'
+        return code
     assert code.count("'sourceRevision':tag[:40]")==2, 'UNEXPECTED_CONSUMER_VERSION'
     marker="        attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)"
     assert code.count(marker)==1
@@ -77,7 +81,7 @@ def install(environment):
         admission=new/adapter_paths[0].relative_to(old)
     code=admission.read_text()
     patterns=('[0-9a-f]{40}-[0-9]+-[0-9]+','[a-f0-9]{40}-[1-9][0-9]*-[1-9][0-9]*')
-    changed=False
+    changed=r'(?:[a-f0-9]{40}-)?[1-9][0-9]*-[1-9][0-9]*' in code
     for pattern in patterns:
         if pattern in code:
             code=code.replace(pattern,r'(?:[a-f0-9]{40}-)?[1-9][0-9]*-[1-9][0-9]*');changed=True

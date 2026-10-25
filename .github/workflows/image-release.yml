@@ -1,5 +1,5 @@
 name: image-release
-run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || format('{0}-{1}', github.run_id, github.run_attempt) }}"
+run-name: "Image release ${{ github.ref_name }} ${{ inputs.tag || format('build run {0}', github.run_id) }}"
 
 on:
   workflow_call:
@@ -175,6 +175,12 @@ jobs:
           set -euo pipefail
           actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)
           test "$actual" = "$EXPECTED_SOURCE" || { echo 'Automatic release superseded by a newer push'; exit 1; }
+      - name: Show requested immutable image tag
+        env:
+          TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
+          IMAGE_TAG: ${{ needs.plan.outputs.tag }}
+        run: |
+          printf '### Requested deployment\n\nEnvironment: `%s`\n\nImage tag: `%s`\n\nThis is the requested tag; deployment outcome is recorded below in the job log.\n' "$TARGET_ENVIRONMENT" "$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
       - name: Pull tag, deploy, verify and recover automatically on failure
         env:
           TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
