@@ -31,6 +31,21 @@ def atomic(path,data,mode):
         if os.path.exists(name): os.unlink(name)
 
 
+def upgrade_consumer(code):
+    assert code.count("'sourceRevision':tag[:40]")==2, 'UNEXPECTED_CONSUMER_VERSION'
+    marker="        attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)"
+    assert code.count(marker)==1
+    source_check="\n".join([
+        "        sources=[image.get('sourceRevision') for image in images.values()]",
+        "        registry.need(all(isinstance(source,str) and registry.SHA.fullmatch(source) for source in sources) and len(set(sources))==1,'IMAGE_SOURCE_MISMATCH')",
+        "        source=sources[0]",
+    ])
+    code=code.replace(marker+'\n','')
+    lines=code.splitlines(); positions=[n for n,line in enumerate(lines) if line.lstrip().startswith('images={role:registry.resolve(')]
+    assert len(positions)==1, 'UNEXPECTED_IMAGE_RESOLUTION'
+    lines.insert(positions[0]+1,source_check+'\n'+marker)
+    return ('\n'.join(lines)+'\n').replace("'sourceRevision':tag[:40]","'sourceRevision':source")
+
 def install(environment):
     assert os.geteuid()==0
     expected={'devapp':'iZrj94o0jq479xfhoa83xoZ','cn':'workspacex-cn-prod'}
@@ -43,7 +58,7 @@ def install(environment):
     paths=[Path(v) for v in shlex.split(text.splitlines()[1]) if v.endswith('/deploy-registry-images.py')]
     assert len(paths)==1
     old=paths[0].parent
-    new=old.parent/(environment+'-short-tags-5925-'+digest(Path(__file__).with_name('registry-images.py'))[:12])
+    new=old.parent/(environment+'-short-tags-5925-'+hashlib.sha256((digest(Path(__file__).with_name('registry-images.py'))+digest(Path(__file__))).encode()).hexdigest()[:12])
     lock=os.open(config['lockFile'],os.O_RDONLY|os.O_NOFOLLOW)
     fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     assert not (Path(config['stateDirectory'])/'pending.json').exists(), 'PENDING_DEPLOYMENT'
@@ -51,15 +66,7 @@ def install(environment):
     shutil.copytree(old,new,ignore=shutil.ignore_patterns('__pycache__'))
     shutil.copyfile(Path(__file__).with_name('registry-images.py'),new/'registry-images.py')
     consumer=new/'deploy-registry-images.py';code=consumer.read_text()
-    assert code.count("'sourceRevision':tag[:40]")==2, 'UNEXPECTED_CONSUMER_VERSION'
-    marker="        attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)"
-    assert code.count(marker)==1
-    source_check="\n".join([
-        "        sources=[image.get('sourceRevision') for image in images.values()]",
-        "        registry.need(all(isinstance(source,str) and registry.SHA.fullmatch(source) for source in sources) and len(set(sources))==1,'IMAGE_SOURCE_MISMATCH')",
-        "        source=sources[0]",
-    ])
-    code=code.replace(marker,source_check+'\n'+marker).replace("'sourceRevision':tag[:40]","'sourceRevision':source")
+    code=upgrade_consumer(code)
     consumer.write_text(code)
     admission_old=Path(config['admissionCommand'][0])
     assert admission_old.is_relative_to(old), 'ADAPTER_OUTSIDE_CLOSURE'
@@ -94,7 +101,7 @@ def install(environment):
             return result
         return value.replace(str(old),str(new)) if isinstance(value,str) else value
     policy=remap(policy);config=remap(config)
-    backup=Path('/root')/(environment+'-short-tags-5925-backup');backup.mkdir(mode=0o700)
+    backup=Path('/root')/(new.name+'-backup');backup.mkdir(mode=0o700)
     for path in (wrapper,config_path,policy_path): shutil.copy2(path,backup/path.name)
     atomic(policy_path,(json.dumps(policy,indent=2)+'\n').encode(),0o600)
     for item in config.get('verificationFiles',[]):
