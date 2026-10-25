@@ -191,6 +191,12 @@ def main():
                     'runner':json.dumps(runner),'build':'false' if existing else 'true','group':'workspacex-devapp-deploy' if target=='devapp' else 'workspacex-cn-production-deploy'}
             if args.resolve_bases and not existing: values.update(resolve_bases())
             for key,value in values.items(): output.write(key+'='+value+'\n')
+        summary=os.environ.get('GITHUB_STEP_SUMMARY')
+        if summary:
+            with open(summary,'a') as output:
+                mode='Reuse existing images (skip build)' if existing else 'Build and publish new images'
+                output.write('## Image release plan\n\nImage tag: `'+tag+'`\n\nEnvironment: `'+target+'`\n\nMode: '+mode+'\n\n')
+                output.write('Copy the tag above after the build succeeds. Rerunning only deployment keeps the original built tag; it does not create a new image tag.\n')
     elif args.operation=='build': build(args.service,args.prefix,args.tag,args.output,args.source)
     else: write(args.output,aggregate(Path(args.directory),args.source,args.tag,args.prefix))
 
