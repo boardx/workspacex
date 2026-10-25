@@ -1,5 +1,7 @@
 # GitHub Runner → ACR → DevApp / CN
 
+2026-10-25: CN schema-unchanged manual deployment is now installed and verified through real Actions. Follow [CN manual release](../operations/cn-image-release.md); [execution evidence](../evidence/registry-image-release/2026-10-25.md). Earlier bring-up notes below are historical for CN; DevApp remains deferred. Schema changes are still rejected by this image-only lane.
+
 Host installation accepts an optional environment scope:
 `sudo bash scripts/install-image-release.sh ghrunner cn` (or `devapp`). It installs
 root-owned fixed wrappers and grants only that environment's deployment command
