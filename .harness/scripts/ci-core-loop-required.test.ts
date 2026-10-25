@@ -1,13 +1,15 @@
 import {readFileSync} from 'node:fs';
 import {parse} from 'yaml';
 import {expect,it} from 'vitest';
-it('uses the same core-loop acceptance for required merge gate and deployment',()=>{
+it('retains core-loop merge acceptance while image deployment owns publication',()=>{
  const w=parse(readFileSync('.github/workflows/backend-gates.yml','utf8'));
  const p=JSON.parse(readFileSync('.harness/config/ci-check-policy.json','utf8'));
  expect(p.requiredChecks).toContain('backend-required');
  expect(p.aggregates['backend-required']).toContain('e2e-core-loop');
  expect(w.jobs['backend-required'].needs).toContain('e2e-core-loop');
- expect(w.jobs.deploy.needs).toContain('e2e-core-loop');
+ expect(w.jobs.deploy).toBeUndefined();
+ const images=parse(readFileSync('.github/workflows/image-release.yml','utf8'));
+ expect(images.jobs.deploy.needs).toEqual(['plan','build','manifest']);
  expect(w.jobs['e2e-core-loop']['continue-on-error']).toBeUndefined();
 });
 import {aggregateFailures,CURRENT_POLICY} from './lib/ci-check-policy.mjs';

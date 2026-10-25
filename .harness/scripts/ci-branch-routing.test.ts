@@ -36,18 +36,13 @@ describe('develop integration routing preserves trusted deployment boundaries', 
   });
 
   it('only develop can automatically enter the Devapp writer', () => {
-    const deploy = workflow('backend-gates').jobs.deploy;
-    const needsResults = new Map(deploy.needs.map((name: string) => [name, 'success']));
-    // The scope output is unknown in this evaluator. The positive equality to true
-    // prevents unknown from authorizing a skip; automatic admission stays explicit.
-    const condition = deploy.if.replace(/needs\.gates-fast\.outputs\.skip_devapp == 'true'/g, 'false');
-    expect(evaluateIf(condition, probe('push', 'develop'), { needsResults })).toBe(true);
-    for (const branch of ['main', 'main-cn', 'main-us', 'feature/untrusted']) {
-      expect(evaluateIf(condition, probe('push', branch), { needsResults })).toBe(false);
-    }
-    for (const event of ['pull_request', 'merge_group']) {
-      expect(evaluateIf(condition, probe(event, 'develop'), { needsResults })).toBe(false);
-    }
-    expect(deploy.concurrency['cancel-in-progress']).toBe(false);
+    const release = workflow('image-release');
+    expect(workflow('backend-gates').jobs.deploy).toBeUndefined();
+    const admitted = (event: string, branch: string) => new Function('github', 'inputs', `return (${release.jobs.plan.if});`)(
+      {event_name:event,ref:`refs/heads/${branch}`},{build_only:false});
+    expect(admitted('push','develop')).toBe(true);
+    for(const branch of ['main','main-cn','main-us','feature/untrusted']) expect(admitted('push',branch)).toBe(false);
+    for(const event of ['pull_request','merge_group']) expect(admitted(event,'develop')).toBe(false);
+    expect(release.jobs.deploy.concurrency['cancel-in-progress']).toBe(false);
   });
 });

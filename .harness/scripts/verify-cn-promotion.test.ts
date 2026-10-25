@@ -41,14 +41,10 @@ describe("CN production promotion gate", () => {
   it("keeps accepted-release verification manual and isolated behind its environment, runner, and lock group", () => {
     const workflow = readFileSync(join(process.cwd(), ".github/workflows/deploy-cn-production.yml"), "utf8");
     expect(workflow).toContain("workflow_dispatch:");
-    expect(workflow).toMatch(/^\s{2}push:\n\s{4}branches: \[main-cn\]/m);
-    expect(workflow).toContain("if: github.event_name == 'push' && github.ref == 'refs/heads/main-cn'");
-    expect(workflow).toContain("RELEASE_SHA: ${{ github.sha }}");
-    expect(workflow).toContain("cn-auto-release.mjs prepare");
+    expect(workflow).not.toMatch(/^\s{2}push:/m);
+    expect(workflow).not.toContain('queue-release:');
+    expect(workflow).not.toContain('cn-auto-release.mjs prepare');
     expect(workflow).toContain("deploy:\n    if: github.event_name == 'workflow_dispatch'");
-    const queue = workflow.split("  queue-release:")[1].split("  deploy:")[0];
-    expect(queue).not.toContain("workspacex-cn-deploy");
-    expect(queue).toContain("not production acceptance");
     expect(workflow).not.toContain("pull_request:");
     expect(workflow).toContain("rev-parse origin/main-cn");
     expect(workflow).toContain("release_attempt_id:");
