@@ -4,8 +4,7 @@ set -euo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$HERE/common.sh"
 require_root
-. /etc/os-release
-[[ $ID == ubuntu && $VERSION_ID == 24.04 && $(uname -m) == x86_64 ]] || { echo 'Requires Ubuntu 24.04 x86_64';exit 2; }
+python3 "$HERE/host.py"
 docker compose run --help | grep -q -- '--env-from-file' || { echo 'Compose run --env-from-file is required';exit 2; }
 aa-enabled --quiet || { echo 'AppArmor is not enabled';exit 2; }
 [[ $# == 2 && $2 == --new-install ]] || { echo 'Usage: sudo bash 10-install.sh /root/us-private --new-install';exit 2; }

@@ -4,7 +4,7 @@
 
 交给部署者的是一个工具包：入口 `install.py`、一份 `.env.example`、一份 `compose.yaml` 和本说明。隐藏的 `.runtime/` 是随版本发布的程序实现，**无需手工编辑、复制其中的脚本**。日常只维护自己的 `.env`。`compose.yaml`是通用运行结构的可读视图；实际实例配置由安装器生成，不要在安装前单独对它执行up或手工修改内部模板。
 
-**适用范围**：独占 Ubuntu 24.04 x86_64、Docker Engine + 新版 Compose、同机 PostgreSQL/Redis、本地文件持久化、HTTPS。五个正式镜像必须包含 api、web、deep-agent、skill-sandbox、postgres-age，同一个tag和完整OCI revision。Redis另行拉取。不同系统、托管数据库、共享主机、离线安装和多节点高可用不在这条安装路径中。
+**适用范围**：独占 Ubuntu 24.04 / 26.04 x86_64、Docker Engine + 新版 Compose、同机 PostgreSQL/Redis、本地文件持久化、HTTPS。五个正式镜像必须包含 api、web、deep-agent、skill-sandbox、postgres-age，同一个tag和完整OCI revision。Redis另行拉取。不同系统、托管数据库、共享主机、离线安装和多节点高可用不在这条安装路径中。
 
 当前只有离线自动验证证据；真实Ubuntu主机的安装、浏览器、重启和恢复验收仍需部署者执行，不能据此宣称生产已验收。
 
@@ -45,7 +45,7 @@ docker compose version
 docker compose run --help | grep -- --env-from-file
 ```
 
-要求 Ubuntu 24.04、x86_64、可用的Docker daemon，Compose支持 `env_file.format=raw` 和 `run --env-from-file`。没有Docker时按[Docker官方Ubuntu安装文档](https://docs.docker.com/engine/install/ubuntu/)安装；不要同时混用snap/docker.io/Docker CE。
+要求 Ubuntu 24.04 / 26.04、x86_64、可用的Docker daemon，Compose支持 `env_file.format=raw` 和 `run --env-from-file`。Ubuntu软件源的 `docker.io` 搭配 `docker-compose-v2`；Docker官方源搭配 `docker-compose-plugin`，不要混装。没有Docker时按[Docker官方Ubuntu安装文档](https://docs.docker.com/engine/install/ubuntu/)安装；不要同时混用snap/docker.io/Docker CE。
 
 安装器不会卸载或升级已有Docker。目标机还要准备：
 
@@ -56,7 +56,9 @@ sudo systemctl enable --now apparmor nginx
 sudo aa-enabled
 ```
 
-系统应使用systemd、AppArmor处于启用状态。正式镜像固定linux/amd64。模板资源上限合计约12.5GiB，另留系统与镜像空间；这是静态预算，不是压测容量结论。数据磁盘要长期保留。
+系统应使用systemd、AppArmor处于启用状态。正式镜像固定linux/amd64。模板资源上限合计约12.5GiB，另留系统与镜像空间；这是容器上限总和，不是内存预留，也不是压测容量结论。7.5GiB主机不能保证各容器同时达到上限，首次小流量验收须监控内存/OOM，正式容量需实测后确定。数据磁盘要长期保留。
+
+已有Nginx监听80不等于冲突：先用 `nginx -T` 核对是否仅为默认站点，存在其他业务时不要使用此独占主机安装路径（ACME会短暂停止Nginx）。
 
 域名A记录指向该服务器；没有IPv6时不要留失效AAAA。防火墙/安全组允许运维SSH、80/443。不要把5432、6379、3000、3200开放到公网。容器需能访问模型服务、镜像仓库和本机的公网HTTPS地址。
 

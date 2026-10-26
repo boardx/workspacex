@@ -5,6 +5,14 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('image_installer',ROOT/'scripts/image_install/installer.py')
 installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
 class InstallTests(unittest.TestCase):
+ def test_supported_host_versions_and_negative_cases(self):
+  spec=importlib.util.spec_from_file_location('installer_host',ROOT/'scripts/image_install/scripts/host.py')
+  self.assertTrue(Path(spec.origin).is_file(),'Missing shared host validator for Ubuntu 26.04')
+  host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
+  for version in ('24.04','26.04'):
+   host.validate_os('ID=ubuntu\nVERSION_ID="'+version+'"\n','Linux','x86_64')
+  for release,system,machine in [('ID=debian\nVERSION_ID="26.04"','Linux','x86_64'),('ID=ubuntu\nVERSION_ID="22.04"','Linux','x86_64'),('ID=ubuntu\nVERSION_ID="26.04"','Linux','aarch64'),('ID=ubuntu\nVERSION_ID="26.04"','Darwin','x86_64'),('ID=notubuntu\nOTHER_VERSION_ID="26.04"','Linux','x86_64')]:
+   with self.assertRaises(ValueError):host.validate_os(release,system,machine)
  def config(self):return {'IMAGE_TAG':'123-1','PUBLIC_DOMAIN':'us.example.com','ADMIN_EMAIL':'admin@example.com','MODEL_BASE_URL':'https://models.example.com/v1','MODEL_ID':'test','MODEL_API_KEY':'private-test-key'}
  def test_failed_preflight_reuses_stable_staging(self):
   with tempfile.TemporaryDirectory() as d:

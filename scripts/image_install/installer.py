@@ -4,6 +4,7 @@ import argparse,hashlib,importlib.util,json,os,platform,re,shutil,subprocess,sys
 from pathlib import Path
 P=Path(__file__).resolve().parent
 spec=importlib.util.spec_from_file_location('renderer',P/'scripts/renderer.py');renderer=importlib.util.module_from_spec(spec);spec.loader.exec_module(renderer)
+host_spec=importlib.util.spec_from_file_location('installer_host',P/'scripts/host.py');host=importlib.util.module_from_spec(host_spec);host_spec.loader.exec_module(host)
 render=renderer.render
 PREFIX='workspacex-cn-prod-registry.cn-shanghai.cr.aliyuncs.com/workspacex-prod'
 ROLES={'api':'api','web':'web','agent':'deep-agent','sandbox':'skill-sandbox','postgres':'postgres-age'}
@@ -74,9 +75,7 @@ def plan(c):
  print('Install: private config → databases → roles/schema/admin → applications → TLS → real business acceptance')
 def install(c,args):
  if os.geteuid()!=0:raise ValueError('Run install as root on the target server')
- if platform.system()!='Linux' or platform.machine()!='x86_64':raise ValueError('Requires Ubuntu 24.04 x86_64')
- osinfo=Path('/etc/os-release').read_text()
- if 'ID=ubuntu' not in osinfo or 'VERSION_ID="24.04"' not in osinfo:raise ValueError('Requires Ubuntu 24.04 x86_64')
+ host.validate_os(Path('/etc/os-release').read_text(),platform.system(),platform.machine())
  if not(P/'source-hashes.json').exists():raise ValueError('Use install.py from the packaged release, not the source module')
  if not args.acme and not(args.cert and args.key):raise ValueError('Provide --cert/--key or --acme')
  if not args.acme and not all(Path(p).is_file() for p in [args.cert,args.key]):raise ValueError('Certificate/key file missing; no installation was started')
