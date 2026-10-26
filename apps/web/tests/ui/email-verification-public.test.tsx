@@ -3,6 +3,14 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 
+// Exercise the retained verification flow with the temporary pause lifted.
+vi.mock("@repo/contracts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@repo/contracts")>();
+  return { ...actual, auth: { ...actual.auth, AUTH_POLICY: {
+    ...actual.auth.AUTH_POLICY, emailVerificationRequiredForLogin: true,
+  } } };
+});
+
 const { apiRequest, startSession, sessionState } = vi.hoisted(() => ({ apiRequest: vi.fn(), startSession: vi.fn(), sessionState: { status: "anonymous" } }));
 // Registration 顶层调用 useSession（两条路径共用），因此依赖会话上下文，即使本文件只
 // 覆盖默认（非 bootstrap）路径。真实运行时 SessionProvider 由 app/layout.tsx 的

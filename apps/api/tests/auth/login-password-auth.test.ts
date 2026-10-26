@@ -166,7 +166,7 @@ describe("F20 login -- the rejection paths", () => {
     expect((await readJson(res)).reasonCode).toBe("INVALID_CREDENTIAL");
   });
 
-  it("I-8: an unverified account cannot log in, EVEN with the right password (both directions)", async () => {
+  it("temporary verification pause: unverified accounts can log in only with the right password", async () => {
     const unverifiedEmail = `unverified-${EMAIL}`;
     await seedCredential({
       userId: `${USER}-unverified`,
@@ -175,20 +175,13 @@ describe("F20 login -- the rejection paths", () => {
       emailVerified: false,
     });
 
-    const denied = await post("/auth/login", { email: unverifiedEmail, password: PASSWORD });
+    const denied = await post("/auth/login", { email: unverifiedEmail, password: "wrong-password" });
     expect(denied.status).toBe(401);
-    expect((await readJson(denied)).reasonCode).toBe("EMAIL_NOT_VERIFIED");
+    expect((await readJson(denied)).reasonCode).toBe("INVALID_CREDENTIAL");
 
-    // The other direction: verifying the email makes the SAME credentials work. Without
-    // this half, "unverified accounts are refused" is satisfied by refusing everyone.
-    await seedCredential({
-      userId: `${USER}-unverified`,
-      email: unverifiedEmail,
-      password: PASSWORD,
-      emailVerified: true,
-    });
     const allowed = await post("/auth/login", { email: unverifiedEmail, password: PASSWORD });
     expect(allowed.status).toBe(200);
+    expect(C.operations.login.out.safeParse(await readJson(allowed)).success).toBe(true);
   });
 
   it("every rejection body carries a reasonCode drawn from the contract's closed set", async () => {

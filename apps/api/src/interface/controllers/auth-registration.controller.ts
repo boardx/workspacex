@@ -15,8 +15,8 @@
  * ⚠ Public here really does mean unauthenticated-and-unrestricted for WHO may call it --
  * that is the entire point of this delta (decision ④: the invite-code gate is removed, only
  * open self-serve registration remains). What is NOT removed is the anti-abuse control that
- * survives past this endpoint: the new account starts unverified and `login.ts` refuses it
- * until the email is confirmed (decision ②/③, `EMAIL_NOT_VERIFIED`).
+ * survives past this endpoint: the new account starts unverified. The login verification
+ * requirement is temporarily paused by AUTH_POLICY.emailVerificationRequiredForLogin (#5939).
  */
 import {
   Body,

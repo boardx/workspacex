@@ -45,6 +45,7 @@
  * 它若还绿，说明这条断言验的不是「第一个」，而是「恰好没人注册过」—— 从第一天起空转。
  */
 import { expect, test, type Page } from "@playwright/test";
+import { auth as C } from "@repo/contracts";
 import { createNamedWorkbenchThread, openWorkbenchRoster } from "./support/workbench-journey";
 import { clickActionableSkillMountOption } from "./support/skill-mount";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
@@ -131,7 +132,7 @@ test.describe("核心闭环八步", () => {
    * design-signoff 已裁的五点里，这一条覆盖④（不带邀请码走开放注册建组织成为 owner）
    * 与②③（未验证不能登录、验证后放行——真实收发验证令牌，不是伪造）。
    */
-  test("开放注册：不带邀请码建新组织并成为 owner；未验证不能登录，验证后放行", async ({ page }) => {
+  test("开放注册：不带邀请码建新组织并成为 owner；按当前邮箱验证策略登录", async ({ page }) => {
     const unique = Date.now();
     const user = {
       orgName: `开放注册验收组织-${unique}`,
@@ -149,29 +150,37 @@ test.describe("核心闭环八步", () => {
     await page.getByTestId("registration-email").fill(user.email);
     await page.getByTestId("registration-password").fill(user.password);
     await page.getByTestId("registration-submit").click();
-    await expect(page.getByTestId("registration-verification-queued")).toBeVisible();
+    if (C.AUTH_POLICY.emailVerificationRequiredForLogin) {
+      await expect(page.getByTestId("registration-verification-queued")).toBeVisible();
+    } else {
+      await expect(page).toHaveURL(/\/projects$/);
+      await page.reload();
+      await expect(page.getByTestId("projects-list")).toBeVisible();
+    }
 
     // 库侧：账号已建、是新组织的 admin/owner——但还没验证。
     const beforeVerify = readDatabaseStat(user.email);
     expect(beforeVerify.orgRoles, "开放注册的调用者必须是新组织的 admin/owner").toEqual(["admin"]);
     expect(beforeVerify.orgNames).toEqual([user.orgName]);
 
-    // 未验证不能登录（decision ②③）：反证钉住"未验证 + 走 registerNewAccount 注册 →
-    // 登录仍被拒"，不能凭"新路径复用了同一个 login use case"就当作已证明。
-    await page.goto("/login");
-    await page.getByTestId("login-email").fill(user.email);
-    await page.getByTestId("login-password").fill(user.password);
-    await page.getByTestId("login-submit").click();
-    await expect(page.getByTestId("login-error")).toBeVisible();
-    await expect(page).not.toHaveURL(/\/home$/);
+    if (C.AUTH_POLICY.emailVerificationRequiredForLogin) {
+      // 未验证不能登录（decision ②③）：反证钉住"未验证 + 走 registerNewAccount 注册 →
+      // 登录仍被拒"，不能凭"新路径复用了同一个 login use case"就当作已证明。
+      await page.goto("/login");
+      await page.getByTestId("login-email").fill(user.email);
+      await page.getByTestId("login-password").fill(user.password);
+      await page.getByTestId("login-submit").click();
+      await expect(page.getByTestId("login-error")).toBeVisible();
+      await expect(page).not.toHaveURL(/\/home$/);
 
-    // 真实收发验证令牌：服务端确定性重算同一枚令牌（不是伪造/绕过），走真实的
-    // `/auth/verify-email?token=...` 确认页。
-    const { token } = readVerificationToken(user.email);
-    expect(token, "库里必须有一枚待核销的验证令牌").not.toBeNull();
-    await page.goto(`/auth/verify-email?token=${token}`);
-    // 同一浏览器首次完成验证后自动建立会话，无需再次输入密码。
-    await expect(page).toHaveURL(/\/projects$/);
+      // 真实收发验证令牌：服务端确定性重算同一枚令牌（不是伪造/绕过），走真实的
+      // `/auth/verify-email?token=...` 确认页。
+      const { token } = readVerificationToken(user.email);
+      expect(token, "库里必须有一枚待核销的验证令牌").not.toBeNull();
+      await page.goto(`/auth/verify-email?token=${token}`);
+      // 同一浏览器首次完成验证后自动建立会话，无需再次输入密码。
+      await expect(page).toHaveURL(/\/projects$/);
+    }
   });
 
   /* ── 步骤 2：新增 Agent（已交付，#458 / PR #478）───────────────────────── */

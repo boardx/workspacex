@@ -10,6 +10,7 @@
  * 因此这里断言的是"注册"与"首次真实使用"之间的衔接，而不是重新验证注册机制本身。
  */
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { auth as C } from "@repo/contracts";
 import { readVerificationToken } from "./core-loop-fixture";
 
 interface FreshUser {
@@ -220,31 +221,37 @@ async function registerOpen(page: Page, user: FreshUser): Promise<void> {
   await page.getByTestId("registration-email").fill(user.email);
   await page.getByTestId("registration-password").fill(user.password);
   await page.getByTestId("registration-submit").click();
-  await expect(page.getByTestId("registration-verification-queued")).toBeVisible();
+  if (C.AUTH_POLICY.emailVerificationRequiredForLogin) {
+    await expect(page.getByTestId("registration-verification-queued")).toBeVisible();
+  } else {
+    await expect(page).toHaveURL(/\/projects$/);
+  }
 }
 
-test("旅程①：开放注册出的新用户，验证邮箱、登录后能真的用上项目与个人 chat（不是停在一个空 URL）", async ({ page }) => {
+test("旅程①：开放注册出的新用户，按当前验证策略登录后能用上项目与个人 chat", async ({ page }) => {
   const user = freshUser("landing");
   await registerOpen(page, user);
 
-  // ── 验证邮箱（真实收发，与 core-loop.spec.ts 同一条链路） ──────────────────
-  // 这里不直接读库拿 token——本旅程刻意只走界面能给到的东西：注册页承诺过
-  // 「已发出验证邮件」，用例走 API 侧的 `verificationQueued` 信号即可，真正的令牌
-  // 消费路径已经在 core-loop.spec.ts 里被逐字验证过（含未验证不能登录的反证）。
-  // 这里改用后端脚本读令牌，只是复用同一个已验证过的读口，不重复验证它本身。
-  const { execFileSync } = await import("node:child_process");
-  const { resolve } = await import("node:path");
-  const root = resolve(__dirname, "../../..");
-  const stdout = execFileSync(
-    "pnpm",
-    ["--filter", "@repo/api", "exec", "tsx", "scripts/core-loop-db.ts", "verification-token", user.email],
-    { cwd: root, encoding: "utf8" },
-  );
-  const payload = /__CORE_LOOP_DB__(.*)/.exec(stdout)?.[1];
-  expect(payload, "读取验证令牌失败——core-loop-db.ts 输出里没有找到可解析的 payload").toBeTruthy();
-  const { token } = JSON.parse(payload!) as { token: string | null };
-  expect(token, "新注册账号库里必须有一枚待核销的验证令牌").not.toBeNull();
-  await page.goto(`/auth/verify-email?token=${token}`);
+  if (C.AUTH_POLICY.emailVerificationRequiredForLogin) {
+    // ── 验证邮箱（真实收发，与 core-loop.spec.ts 同一条链路） ──────────────────
+    // 这里不直接读库拿 token——本旅程刻意只走界面能给到的东西：注册页承诺过
+    // 「已发出验证邮件」，用例走 API 侧的 `verificationQueued` 信号即可，真正的令牌
+    // 消费路径已经在 core-loop.spec.ts 里被逐字验证过（含未验证不能登录的反证）。
+    // 这里改用后端脚本读令牌，只是复用同一个已验证过的读口，不重复验证它本身。
+    const { execFileSync } = await import("node:child_process");
+    const { resolve } = await import("node:path");
+    const root = resolve(__dirname, "../../..");
+    const stdout = execFileSync(
+      "pnpm",
+      ["--filter", "@repo/api", "exec", "tsx", "scripts/core-loop-db.ts", "verification-token", user.email],
+      { cwd: root, encoding: "utf8" },
+    );
+    const payload = /__CORE_LOOP_DB__(.*)/.exec(stdout)?.[1];
+    expect(payload, "读取验证令牌失败——core-loop-db.ts 输出里没有找到可解析的 payload").toBeTruthy();
+    const { token } = JSON.parse(payload!) as { token: string | null };
+    expect(token, "新注册账号库里必须有一枚待核销的验证令牌").not.toBeNull();
+    await page.goto(`/auth/verify-email?token=${token}`);
+  }
 
 
   // ── 邮箱确认后自动登录，无需再次输入密码 ─────────────────────────────────────────────────────────────

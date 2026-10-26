@@ -53,6 +53,8 @@ export const AUTH_POLICY = {
   passwordMinLen: 12,
   resetLinkHours: 1,
   verificationLinkHours: 24,
+  /** 临时暂停注册/登录的强制邮箱验证（#5939）；恢复时只需改回 true。 */
+  emailVerificationRequiredForLogin: false,
   lockAfterFails: 5,
   lockWindowMinutes: 15,
   lockDurationMinutes: 15,
@@ -379,8 +381,8 @@ export const operations = {
   /**
    * `RegisterNewAccount`（open-self-serve-registration delta，issue #1929）
    * —— 取代已移除的 `redeemInviteAndCreateOrg`：不再需要邀请码，任何人直接
-   * 自助建一个新组织并成为其 owner。防滥用手段收敛为邮箱验证（未验证不能登录，
-   * 复用既有 `EMAIL_NOT_VERIFIED` 登录闸门，见 `login.ts`）。
+   * 自助建一个新组织并成为其 owner。邮箱验证闭环保留；注册/登录是否强制验证由
+   * AUTH_POLICY.emailVerificationRequiredForLogin 控制（#5939 暂停）。
    *
    * ⚠ 路径与 `/auth/register`（旧邀请码端点，已移除）刻意分开，不共用路径下
    * 靠 body 里有没有 `code` 分支——那种分支会让"要不要建新账号"由一个可伪造的

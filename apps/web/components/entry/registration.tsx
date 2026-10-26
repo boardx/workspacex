@@ -31,9 +31,7 @@ import { AuthShell } from "@/components/entry/auth-shell";
  * 授权的范围。于是它保留为一条**次要、需要显式切换**的入口（下面的"创建首位管理员"
  * 链接），而不再靠"邀请码留空"这个已经不存在的信号触发。
  *
- * 防滥用手段收敛为邮箱验证：未验证不能登录，复用既有闭环（`login.ts` 的
- * `EMAIL_NOT_VERIFIED` 检查直接读 `credentials.email_verified_at`，与哪条注册路径写入
- * 该行无关）。
+ * 邮箱验证闭环保留；是否必须先验证再登录，由共享 AUTH_POLICY 控制（#5939）。
  */
 type RegisterInput = typeof C.operations.registerNewAccount.in._input;
 type RegisterOutput = typeof C.operations.registerNewAccount.out._output;
@@ -91,18 +89,29 @@ export function Registration() {
     };
 
     if (!bootstrapMode) {
+      let registered = false;
       try {
         const input: RegisterInput = registration;
         await apiRequest<RegisterOutput>(C.operations.registerNewAccount.path, {
           method: "POST", sessionToken: null, body: input,
         });
-        setCooling(true);
-        setQueued(true);
+        registered = true;
+        if (C.AUTH_POLICY.emailVerificationRequiredForLogin) {
+          setCooling(true);
+          setQueued(true);
+        } else {
+          // #5939：暂时跳过等待邮箱验证，沿用标准登录与会话持久化。
+          const out = await login(registration.email, registration.password);
+          await session.startSession(out);
+          window.location.assign("/projects");
+        }
       } catch (e) {
         // 409 EMAIL_TAKEN 是**故意明确**的（引导用户去登录），不做模糊化——防枚举在
         // login / password-reset 上做，注册这条路径本来就没有邀请码搜索空间要保护。
         setFormError(
-          fieldErrorMessage(e)
+          registered
+            ? "账号已创建，请前往登录页用刚才的邮箱和密码登录。"
+            : fieldErrorMessage(e)
             ?? (isRegistrationEmailTaken(e)
               ? "该邮箱已注册，请返回登录。"
               : "注册暂时未完成，请检查信息后重试。"),
@@ -214,7 +223,9 @@ export function Registration() {
       description={
         bootstrapMode
           ? "创建本实例的首位管理员，创建后直接登录。"
-          : "注册完成后，我们会发送一次性邮箱验证链接，验证后即可登录。"
+          : C.AUTH_POLICY.emailVerificationRequiredForLogin
+            ? "注册完成后，我们会发送一次性邮箱验证链接，验证后即可登录。"
+            : "注册完成后将自动登录，进入项目页。"
       }
       footer={
         <div className="flex flex-col gap-2">

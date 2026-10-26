@@ -1,0 +1,24 @@
+## web
+ ✓ tests/ui/bootstrap-first-admin.test.tsx (4 tests) 804ms
+ ✓ tests/ui/registration-field-errors.test.tsx (7 tests) 1007ms
+ ✓ tests/ui/email-verification-public.test.tsx (8 tests) 1256ms
+ Test Files  3 passed (3)
+      Tests  19 passed (19)
+   Duration  6.57s (transform 2.54s, setup 539ms, collect 11.76s, tests 3.07s, environment 2.22s, prepare 258ms)
+
+## API HTTP integration
+[test-isolation] id=run-mvp8238m-09dd4993-730d501d3879 db=wsx_730d501d38798121948a compose=wsx-730d501d38798121948a pg=20317 redis=21317 api=24317 web=25317 sandbox=26317 model=27317 deep-agent=28317 asr=29317 vision=30317 loopback-sandbox=31317 mail=19317
+[db-isolation] db=wsx_730d501d38798121948a capacity=100 current=6 required=32
+ ✓ tests/auth/login-password-auth.test.ts (20 tests) 153612ms
+ ✓ tests/auth/register-http-contract.test.ts (15 tests) 15549ms
+ ✓ tests/auth/login-lockout-ratelimit.test.ts (12 tests) 38288ms
+ Test Files  3 passed (3)
+      Tests  47 passed (47)
+   Duration  230.18s (transform 26.66s, setup 43ms, collect 12.25s, tests 207.45s, environment 1ms, prepare 457ms)
+[db-isolation] db=wsx_730d501d38798121948a peak_connections=6
+
+## Static checks
+pnpm turbo run typecheck lint --filter=web --filter=@repo/api --filter=@repo/contracts
+ Tasks:    11 successful, 11 total
+Cached:    4 cached, 11 total
+  Time:    8m24.414s

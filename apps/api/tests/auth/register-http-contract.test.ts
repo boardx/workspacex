@@ -108,6 +108,28 @@ describe("no invite code is required or accepted -- decision ④, issue #1929", 
 });
 
 describe("success: the response conforms to the contract", () => {
+  it("a new unverified account can immediately log in and access its own organization", async () => {
+    const input = registration("immediate-login");
+    const registered = await post(input);
+    expect(registered.status).toBe(201);
+    created.push(registered.body.userId as string);
+    expect((await readCredentialByEmail(input.email))!.email_verified_at).toBeNull();
+
+    const response = await fetch(`${BASE}/auth/login`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email: input.email, password: input.password }),
+    });
+    expect(response.status).toBe(200);
+    const session = C.operations.login.out.parse(await response.json());
+    expect(session.userId).toBe(registered.body.userId);
+    expect(session.orgs).toContain(registered.body.orgId);
+    const me = await fetch(`${BASE}/identity/me?orgId=${registered.body.orgId}`, {
+      headers: { authorization: `Bearer ${session.sessionToken}` },
+    });
+    expect(me.status).toBe(200);
+    expect((await readCredentialByEmail(input.email))!.email_verified_at).toBeNull();
+  });
+
   it("201 with a durable queued delivery status", async () => {
     const r = await post(registration("conform", "Ocean Consulting"));
     expect(r.status).toBe(201);

@@ -9,7 +9,7 @@
  *   2. credential lookup
  *   3. password verification, OR an equivalent-cost dummy hash when there is no account
  *                            (I-1's timing half)
- *   4. email-verified check   AFTER the password is confirmed (I-8, and see below)
+ *   4. email-verified check   when AUTH_POLICY requires it, AFTER password confirmation
  *   5. issue the session
  *
  * ## Why `EMAIL_NOT_VERIFIED` comes after the password check
@@ -120,8 +120,8 @@ export async function login(
     throw new AuthError("INVALID_CREDENTIAL");
   }
 
-  /* 4. Verified email (I-8). Only reachable by someone who holds the password. */
-  if (cred.emailVerifiedAt === null) {
+  /* 4. #5939: temporarily paused via the shared policy; retain the check for restoration. */
+  if (C.AUTH_POLICY.emailVerificationRequiredForLogin && cred.emailVerifiedAt === null) {
     // Recorded as a SUCCESSFUL credential check: the password was right. Recording it as a
     // failure would let an unverified user lock their own account out by retrying.
     await deps.attempts.record(email, "ok", now);

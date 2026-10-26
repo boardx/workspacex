@@ -21,7 +21,12 @@ import { ApiError } from "@/lib/api-client";
  * `useSession` 仍需打桩——组件在两条路径共用同一顶层 hook 调用。
  */
 const { apiRequest } = vi.hoisted(() => ({ apiRequest: vi.fn() }));
-const { startSession } = vi.hoisted(() => ({ startSession: vi.fn() }));
+const { startSession, login } = vi.hoisted(() => ({ startSession: vi.fn(), login: vi.fn() }));
+
+vi.mock("@/lib/auth", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/auth")>()),
+  login,
+}));
 
 vi.mock("@/lib/api-client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api-client")>();
@@ -50,6 +55,8 @@ function fill() {
 
 beforeEach(() => {
   apiRequest.mockReset();
+  login.mockReset();
+  startSession.mockReset();
 });
 
 describe("registration surfaces field-level 400s truthfully", () => {
@@ -92,11 +99,36 @@ describe("registration surfaces field-level 400s truthfully", () => {
 
   it("posts to /auth/register-open by default, not the removed /auth/register", async () => {
     apiRequest.mockResolvedValueOnce({ userId: "u", orgId: "o", verificationDelivery: "queued" });
+    login.mockResolvedValueOnce({ sessionToken: "opaque", userId: "u", orgs: ["o"] });
     render(<Registration />);
     fill();
-    await screen.findByTestId("registration-verification-queued");
+    await waitFor(() => expect(startSession).toHaveBeenCalledWith(expect.objectContaining({ sessionToken: "opaque" })));
+    expect(login).toHaveBeenCalledWith("a@example.test", "short");
+    expect(screen.queryByTestId("registration-verification-queued")).toBeNull();
     expect(apiRequest).toHaveBeenCalledWith("/auth/register-open", expect.objectContaining({
       method: "POST", sessionToken: null,
     }));
   });
+
+  it("directs a created account to login when automatic login fails", async () => {
+    apiRequest.mockResolvedValueOnce({ userId: "u", orgId: "o", verificationDelivery: "queued" });
+    login.mockRejectedValueOnce(new ApiError(503, "AUTH_SERVICE_UNAVAILABLE", {}));
+    render(<Registration />);
+    fill();
+    expect(await screen.findByTestId("registration-error"))
+      .toHaveTextContent("账号已创建，请前往登录页用刚才的邮箱和密码登录。");
+    expect(startSession).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("registration-verification-queued")).toBeNull();
+  });
+
+  it("directs a created account to login when session persistence fails", async () => {
+    apiRequest.mockResolvedValueOnce({ userId: "u", orgId: "o", verificationDelivery: "queued" });
+    login.mockResolvedValueOnce({ sessionToken: "opaque", userId: "u", orgs: ["o"] });
+    startSession.mockRejectedValueOnce(new Error("storage unavailable"));
+    render(<Registration />);
+    fill();
+    expect(await screen.findByTestId("registration-error"))
+      .toHaveTextContent("账号已创建，请前往登录页用刚才的邮箱和密码登录。");
+  });
+
 });

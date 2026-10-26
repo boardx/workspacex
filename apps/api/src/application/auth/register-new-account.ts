@@ -12,8 +12,9 @@
  * ## Anti-abuse: email verification, reusing the EXISTING closed loop
  *
  * Decision ②: the only anti-abuse control this delta adds is that the new account starts
- * unverified (`email_verified_at IS NULL`, same as the old invite path) and cannot log in
- * until it verifies -- see `login.ts`'s `EMAIL_NOT_VERIFIED` check, which reads directly off
+ * unverified (`email_verified_at IS NULL`, same as the old invite path). Login requires
+ * verification only when AUTH_POLICY.emailVerificationRequiredForLogin is enabled (#5939).
+ * See `login.ts`'s `EMAIL_NOT_VERIFIED` check, which reads directly off
  * the `credentials` row and does not care which registration path wrote it. No rate limiting
  * or CAPTCHA is added (decision ⑤ -- explicitly out of scope for this round).
  *
