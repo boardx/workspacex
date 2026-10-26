@@ -21,7 +21,7 @@ gh workflow run image-release.yml --repo boardx/workspacex --ref main-us \
   -f environment=us -f service=all -F build_only=false -f tag=40216660127-1
 ```
 
-`main + us`、`main-us + cn` 会拒绝；US 与 CN 分别使用独立 Runner、环境和并发组。工作流选项的默认页面来自默认分支，PR 合入默认分支后会显示 `us`；此前可通过上面的 CLI 在已更新的 `main-us` 上触发。
+`main + us`、`main-us + cn` 会拒绝；US 与 CN 分别使用独立 Runner、环境和并发组。默认打开时可能显示 `develop` 的旧表单。先将 `Use workflow from` 改为 `main-us`，等待参数重新加载，就会出现 `us`；已在真实 GitHub 页面核对。也可以使用上面的 CLI。
 
 ## 一次性接入已安装的 US 主机
 
