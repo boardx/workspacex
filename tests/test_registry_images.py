@@ -94,6 +94,30 @@ class Producer(unittest.TestCase):
             values=dict(line.split('=',1) for line in output.read_text().splitlines())
             self.assertEqual(values['tag'],'a'*40+'-123-2');self.assertEqual(values['build'],'false')
             self.assertEqual(values['environment'],'production-cn')
+    def test_us_branch_routes_only_to_us(self):
+        import os, subprocess, sys
+        for branch, target, ok in [('main-us','auto',True),('main-us','us',True),('main-us','cn',False),('main','us',False),('develop','us',False)]:
+            with self.subTest(branch=branch,target=target), tempfile.TemporaryDirectory() as tmp:
+                output=Path(tmp)/'output'
+                env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_NAME':branch,
+                     'TARGET_ENVIRONMENT':target,'EXISTING_TAG':'40216660127-1','BUILD_ONLY':'false','GITHUB_OUTPUT':str(output)}
+                result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
+                self.assertEqual(result.returncode==0,ok,result.stderr)
+                if ok:
+                    values=dict(line.split('=',1) for line in output.read_text().splitlines())
+                    self.assertEqual(values['target'],'us')
+                    self.assertEqual(values['environment'],'production-us')
+                    self.assertEqual(json.loads(values['runner']),['self-hosted','linux','x64','workspacex-us-production'])
+                    self.assertEqual(values['group'],'workspacex-us-production-deploy')
+                    self.assertEqual(values['build'],'false')
+
+    def test_us_push_cannot_deploy(self):
+        import os, subprocess, sys
+        env={**os.environ,'GITHUB_EVENT_NAME':'push','GITHUB_REF_NAME':'main-us','BUILD_ONLY':'false'}
+        result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('RELEASE_EVENT_NOT_ALLOWED',result.stderr)
+
     def test_login_rejects_vpc_before_using_credentials(self):
         import os, subprocess, sys
         env={**os.environ,'REGISTRY':'registry-vpc.cn-shanghai.cr.aliyuncs.com','REGISTRY_PREFIX':'registry-vpc.cn-shanghai.cr.aliyuncs.com/team',

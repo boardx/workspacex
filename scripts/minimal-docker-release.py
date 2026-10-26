@@ -130,6 +130,18 @@ def verify_runtime(d, command, services, images, config):
     result['readinessPolls']=polls
     return result
 
+def resolved_config_hash(d, original, project, service, out):
+    # Compose 2.40 config --hash explicitly skips env_file resolution, unlike up.
+    # Hash the already-resolved model instead; never waive the live hash check.
+    # The temporary model contains private environment values: mode 0600, no
+    # second interpolation of literal dollars, and no retained evidence copy.
+    fd,path=tempfile.mkstemp(prefix='.resolved-compose-',suffix='.json',dir=out)
+    try:
+        with os.fdopen(fd,'wb') as output: output.write(encoded(original))
+        return d.run(['compose','--project-name',project,'--file',path,
+                      'config','--no-interpolate','--hash',service]).decode().strip().split()
+    finally: os.unlink(path)
+
 def release(config_path,manifest_path,output,apply=False,lock_fd=None,commit=None):
     out=pathlib.Path(output); out.mkdir(mode=0o700,parents=False,exist_ok=False)
     stage='preflight'; mutated=False; lock=None; previous_signals={}
@@ -161,7 +173,7 @@ def release(config_path,manifest_path,output,apply=False,lock_fd=None,commit=Non
             ids=d.run(base+['ps','--quiet',service]).decode().split(); need(len(ids)==1,'EXISTING_CONTAINER_REQUIRED')
             v=d.json(['container','inspect',ids[0]])[0]; labels=v['Config']['Labels']
             need(labels.get('com.docker.compose.project')==c['project'] and labels.get('com.docker.compose.service')==service and v['State']['Running'],'LIVE_BINDING')
-            config_hash=d.run(base+['config','--hash',service]).decode().strip().split()
+            config_hash=resolved_config_hash(d,original,c['project'],service,out)
             need(len(config_hash)==2 and config_hash[0]==service and labels.get('com.docker.compose.config-hash')==config_hash[1],'LIVE_CONFIG_DRIFT')
             image(d,v['Image']); old[service]=v['Image']
         for role,row in m['images'].items():

@@ -24,11 +24,11 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment (auto: develop → DevApp, main → CN)"
+        description: "Environment (auto: develop → DevApp, main → CN, main-us → US)"
         required: true
         default: auto
         type: choice
-        options: [auto, devapp, cn]
+        options: [auto, devapp, cn, us]
       service:
         description: Diagnostic service selector (requires build_only)
         required: false
@@ -54,12 +54,12 @@ permissions:
 
 jobs:
   plan:
-    # develop auto-deploys DevApp; main deploys CN only by manual dispatch.
+    # develop auto-deploys DevApp; main/CN and main-us/US require manual dispatch.
     # Legacy source deployment is retired in backend-gates in this same commit.
     if: >-
       (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
       (github.event_name == 'workflow_dispatch' &&
-       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || inputs.build_only))
+       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main-us' || inputs.build_only))
     runs-on: ubuntu-24.04
     outputs:
       source: ${{ steps.plan.outputs.source }}
@@ -69,7 +69,7 @@ jobs:
       environment: ${{ steps.plan.outputs.environment }}
       runner: ${{ steps.plan.outputs.runner }}
       build: ${{ steps.plan.outputs.build }}
-      group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || 'workspacex-cn-production-deploy' }}
+      group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || steps.plan.outputs.target == 'us' && 'workspacex-us-production-deploy' || 'workspacex-cn-production-deploy' }}
       fullset: ${{ steps.plan.outputs.fullset }}
       node_image: ${{ steps.plan.outputs.node_image }}
       python_image: ${{ steps.plan.outputs.python_image }}

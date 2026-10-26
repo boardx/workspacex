@@ -111,7 +111,7 @@ def admission_command(config,environment):
     return command
 
 def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
-    registry.need(environment in ('devapp','cn'),'INVALID_ENVIRONMENT')
+    registry.need(environment in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
     registry.need(registry.TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
     config_path=trusted(config_root/(environment+'.json'),private=True)
     config=json.loads(config_path.read_bytes())
@@ -132,7 +132,7 @@ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
 def deploy_config(environment,tag,config,docker,docker_config):
     state=trusted(config['stateDirectory'],directory=True,private=True)
     lock_path=trusted(config['lockFile'],private=True)
-    expected_lock={'devapp':'/run/workspacex-devapp-deploy.lock','cn':'/var/lib/workspacex-cn/runtime/release.lock'}
+    expected_lock={'devapp':'/run/workspacex-devapp-deploy.lock','cn':'/var/lib/workspacex-cn/runtime/release.lock','us':'/run/workspacex-selfhost-deploy.lock'}
     registry.need(str(lock_path)==expected_lock[environment],'CANONICAL_LOCK_REQUIRED')
     for reference in [*config['composeFiles'],config['envFile']]:
         engine.trusted_file(str(trusted(reference['path'])),reference['sha256'])
@@ -192,9 +192,25 @@ def deploy_config(environment,tag,config,docker,docker_config):
         return {**result,'environment':environment,'tag':tag,'evidenceDirectory':str(attempt)}
     finally: os.close(lock)
 
+def report_worker_result(unit):
+    """Forward only the worker's structured outcome, without coupling its lifetime to CI pipes."""
+    try:
+        rows=subprocess.run(['/usr/bin/journalctl','--boot','--unit='+unit,'--output=cat','--no-pager','--lines=20'],
+                            capture_output=True,text=True,timeout=10,env={'PATH':'/usr/bin:/bin'})
+        for line in reversed(rows.stdout.splitlines()):
+            try: result=json.loads(line)
+            except ValueError: continue
+            if not isinstance(result,dict) or result.get('status') not in ('SUCCEEDED','REJECTED','ROLLED_BACK','ROLLBACK_FAILED','DEPLOYMENT_FAILED'):
+                continue
+            allowed=('status','code','environment','tag','evidenceDirectory','stage','applyAttempted')
+            print(json.dumps({key:result[key] for key in allowed if key in result},sort_keys=True))
+            return
+    except (OSError,subprocess.TimeoutExpired): pass
+    print(json.dumps({'status':'STATUS_REPORT_UNAVAILABLE','unit':unit}))
+
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('environment',choices=('devapp','cn'));parser.add_argument('tag')
+    parser.add_argument('environment',choices=('devapp','cn','us'));parser.add_argument('tag')
     parser.add_argument('--execute',action='store_true',help=argparse.SUPPRESS)
     args=parser.parse_args()
     registry.need(os.geteuid()==0,'INSTALLED_ENTRY_REQUIRES_ROOT')
@@ -207,7 +223,9 @@ def main():
                  '--property=RuntimeMaxSec=900','--property=TimeoutStopSec=360','--property=KillMode=mixed',
                  '--property=RuntimeDirectory='+unit,'--property=RuntimeDirectoryMode=0700','--property=RuntimeDirectoryPreserve=no',
                  '/usr/bin/python3','-I','-B',str(Path(__file__).resolve()),args.environment,args.tag,'--execute']
-        return subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False).returncode
+        completed=subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False)
+        report_worker_result(unit)
+        return completed.returncode
     result=deploy(args.environment,args.tag)
     print(json.dumps(result,sort_keys=True))
     return 0 if result['status']=='SUCCEEDED' else 1
