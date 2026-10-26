@@ -200,7 +200,21 @@ docker image ls --format '{{.Repository}}:{{.Tag}}'
 
 已经拉取的五镜像可直接复用；缺少的由安装器拉取并检查架构与 OCI source revision。Redis 是额外依赖，不属于五个正式应用镜像。不要为各镜像随意挑不同 tag。
 
-如果维护者尚未发布镜像，由维护者先手动触发仓库的 `image-release`，交付成功发布的 tag 与本版安装包。**服务器部署是下一步单独执行的操作**，不要求为这台服务器新建分支。
+### 维护者尚未发布镜像时：手动触发 image-release
+
+已有完整正式镜像的部署者跳过本小节。发布者在 GitHub Actions 打开 `image-release` → `Run workflow`，按当前工作流配置选择：
+
+| 输入 | 本次 US 手动部署的选择 |
+|---|---|
+| 分支 | `main`（选定要发布的正式代码）；不需要 `main-us`。 |
+| `environment` | `cn` 或 `auto`，使用当前正式仓库配置；当前工作流没有 `us` 选项。 |
+| `service` | `all`，发布五镜像完整集合。 |
+| `build_only` | **必须勾选 true**，只构建/发布镜像，不执行工作流的主机部署。默认 false 会进入现有 CN 部署路径。 |
+| `tag` | 新构建留空，采用工作流生成的 tag；输入已有 tag 表示复用已有发布，并非新建该名称。 |
+| `source_revision` | 通常留空；只有明确需要精确基线时填写完整 SHA，且保持 build_only=true。 |
+
+等待构建与完整集合聚合成功，核对发布结果中的实际 tag/source revision、五个镜像及仓库权限，再将 tag 写入服务器 `.env`。这里 `environment=cn` 选择的是当前正式发布环境，**US 服务器仍由第 6 节手动安装**；不触发 CN 主机部署靠的是 `build_only=true`，不能遗漏。工作流输入以仓库 `.github/workflows/image-release.yml` 为准。
+
 
 ## 6. 执行安装
 
