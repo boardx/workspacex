@@ -99,6 +99,27 @@ class InstallTests(unittest.TestCase):
    self.assertNotIn(secrets['owner'],(out/'api.env').read_text());self.assertNotIn(secrets['memoryOwner'],(out/'agent.env').read_text())
    with self.assertRaises(ValueError):installer.render(c,out)
    self.assertEqual(out.stat().st_mode & 0o777,0o700)
+ def test_production_runtime_is_complete_before_first_boot(self):
+  import uuid
+  with tempfile.TemporaryDirectory() as d:
+   c=installer.settings_from_values(self.config());c['sourceRevision']='a'*40;c['redisImage']='redis@sha256:'+'b'*64;out=Path(d)/'runtime';installer.render(c,out)
+   envs={name:dict(line.split('=',1) for line in (out/(name+'.env')).read_text().splitlines()) for name in ('api','web','agent','probe')}
+   marker=envs['api']['WORKSPACEX_DEPLOYMENT_MARKER']
+   self.assertEqual(str(uuid.UUID(marker)),marker)
+   self.assertEqual(marker,str(uuid.uuid5(uuid.NAMESPACE_URL,'workspacex-selfhost:'+c['sourceRevision'])))
+   for name in ('web','probe'):self.assertEqual(envs[name]['WORKSPACEX_DEPLOYMENT_MARKER'],marker)
+   self.assertEqual(json.loads((out/'settings.json').read_text())['sourceRevision'],c['sourceRevision'])
+   for name in ('api','agent','probe'):self.assertGreater(int(envs[name]['KERNEL_MODEL_MAX_OUTPUT_TOKENS']),0)
+   compose=json.loads((out/'compose.json').read_text())
+   for service,key in [('api','WORKSPACEX_CREDIT_RECEIPT_DIR'),('agent','DEEP_AGENT_USAGE_SPOOL_DIR')]:
+    path=envs[service][key]
+    mounts=[v for v in compose['services'][service]['volumes'] if v.get('target')==path]
+    self.assertEqual(len(mounts),1);self.assertTrue(mounts[0]['source'].startswith('/var/lib/workspacex-selfhost/'))
+    self.assertFalse(mounts[0]['bind']['create_host_path'])
+    self.assertNotEqual(mounts[0].get('read_only'),True)
+   self.assertEqual(envs['agent']['DEEP_AGENT_USAGE_CALLBACK_BASE_URL'],'http://api:3200')
+   self.assertEqual(envs['agent']['DEEP_AGENT_USAGE_IDLE_REPLAY_ENABLED'],'1')
+   self.assertIn('location ~ "^/whiteboards/[0-9a-fA-F-]{36}/sync$" {',(out/'nginx.conf').read_text())
  def test_package_has_one_entry_and_one_config(self):
   with tempfile.TemporaryDirectory() as d:
    archive=installer.package(Path(d));import tarfile

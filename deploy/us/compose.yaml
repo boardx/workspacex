@@ -107,6 +107,14 @@
           "bind": {
             "create_host_path": false
           }
+        },
+        {
+          "type": "bind",
+          "source": "/var/lib/workspacex-selfhost/credit-receipts",
+          "target": "/var/lib/workspacex/credit-receipts",
+          "bind": {
+            "create_host_path": false
+          }
         }
       ]
     },
@@ -157,6 +165,14 @@
           "source": "/etc/workspacex-selfhost/agent-certs",
           "target": "/run/agent-certs",
           "read_only": true,
+          "bind": {
+            "create_host_path": false
+          }
+        },
+        {
+          "type": "bind",
+          "source": "/var/lib/workspacex-selfhost/agent-usage",
+          "target": "/var/lib/workspacex-agent-usage",
           "bind": {
             "create_host_path": false
           }

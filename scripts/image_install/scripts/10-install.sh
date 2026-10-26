@@ -31,7 +31,7 @@ install -m 0644 "$kit/templates/docker-seccomp.json" "$APP_RUNTIME/docker-seccom
 install -m 0644 "$kit/templates/docker-apparmor-sessions" "$APP_RUNTIME/docker-apparmor-sessions"
 for d in sandbox sessions;do python3 "$HERE/host_setup.py" "$APP_RUNTIME/$d";done
 for d in certs agent-certs;do install -d -m 0755 "$APP_RUNTIME/$d";done
-python3 "$HERE/host_setup.py" "$APP_DATA/objects"
+for d in objects agent-usage credit-receipts;do python3 "$HERE/host_setup.py" "$APP_DATA/$d";done
 install -d -m 0700 "$APP_DATA/postgres" "$APP_DATA/redis" "$APP_DATA/backups"
 install -d -m 0755 /usr/local/lib/workspacex-selfhost
 for f in common.sh business-probe.sh backup.sh;do install -m 0755 "$HERE/$f" "/usr/local/lib/workspacex-selfhost/$f";done
