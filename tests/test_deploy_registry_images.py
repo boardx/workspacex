@@ -95,6 +95,16 @@ class Policy(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'CANONICAL_LOCK_REQUIRED'):
                 m.deploy('us','40216660127-1',root)
 
+    def test_worker_outcome_reports_only_structured_public_fields(self):
+        import io
+        from contextlib import redirect_stdout
+        m=module()
+        reply=type('Reply',(),{'stdout':'systemd noise\n'+json.dumps({'status':'REJECTED','code':'LIVE_CONFIG_DRIFT','secret':'never-forward'})+'\n'})()
+        output=io.StringIO()
+        with patch.object(m.subprocess,'run',return_value=reply), redirect_stdout(output):
+            m.report_worker_result('wsx-image-us-fixture')
+        self.assertEqual(json.loads(output.getvalue()),{'status':'REJECTED','code':'LIVE_CONFIG_DRIFT'})
+
     def test_atomic_pointer_is_complete(self):
         m=module()
         with tempfile.TemporaryDirectory() as temp:

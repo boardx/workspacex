@@ -192,6 +192,22 @@ def deploy_config(environment,tag,config,docker,docker_config):
         return {**result,'environment':environment,'tag':tag,'evidenceDirectory':str(attempt)}
     finally: os.close(lock)
 
+def report_worker_result(unit):
+    """Forward only the worker's structured outcome, without coupling its lifetime to CI pipes."""
+    try:
+        rows=subprocess.run(['/usr/bin/journalctl','--boot','--unit='+unit,'--output=cat','--no-pager','--lines=20'],
+                            capture_output=True,text=True,timeout=10,env={'PATH':'/usr/bin:/bin'})
+        for line in reversed(rows.stdout.splitlines()):
+            try: result=json.loads(line)
+            except ValueError: continue
+            if not isinstance(result,dict) or result.get('status') not in ('SUCCEEDED','REJECTED','ROLLED_BACK','ROLLBACK_FAILED','DEPLOYMENT_FAILED'):
+                continue
+            allowed=('status','code','environment','tag','evidenceDirectory','stage','applyAttempted')
+            print(json.dumps({key:result[key] for key in allowed if key in result},sort_keys=True))
+            return
+    except (OSError,subprocess.TimeoutExpired): pass
+    print(json.dumps({'status':'STATUS_REPORT_UNAVAILABLE','unit':unit}))
+
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument('environment',choices=('devapp','cn','us'));parser.add_argument('tag')
@@ -207,7 +223,9 @@ def main():
                  '--property=RuntimeMaxSec=900','--property=TimeoutStopSec=360','--property=KillMode=mixed',
                  '--property=RuntimeDirectory='+unit,'--property=RuntimeDirectoryMode=0700','--property=RuntimeDirectoryPreserve=no',
                  '/usr/bin/python3','-I','-B',str(Path(__file__).resolve()),args.environment,args.tag,'--execute']
-        return subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False).returncode
+        completed=subprocess.run(command,env={'PATH':'/usr/bin:/bin'},check=False)
+        report_worker_result(unit)
+        return completed.returncode
     result=deploy(args.environment,args.tag)
     print(json.dumps(result,sort_keys=True))
     return 0 if result['status']=='SUCCEEDED' else 1
