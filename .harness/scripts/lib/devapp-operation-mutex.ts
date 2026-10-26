@@ -28,7 +28,7 @@ export function assertDevappOperationMutex(policyInput: unknown, backendYaml: st
     const plannedGroup = name === "deploy" && concurrency.group === "${{ needs.plan.outputs.group }}"
       && object(object(backend.jobs, "IMAGE_JOBS").plan, "PLAN_JOB").outputs !== undefined
       && object(object(object(backend.jobs, "IMAGE_JOBS").plan, "PLAN_JOB").outputs, "PLAN_OUTPUTS").group
-        === "${{ steps.plan.outputs.target == 'devapp' && '" + policy.group + "' || 'workspacex-cn-production-deploy' }}";
+        === "${{ steps.plan.outputs.target == 'devapp' && '" + policy.group + "' || steps.plan.outputs.target == 'us' && 'workspacex-us-production-deploy' || 'workspacex-cn-production-deploy' }}";
     if (concurrency.group !== policy.group && !plannedGroup) throw new Error(`${name}_MUTEX_GROUP_DRIFT`);
     if (concurrency["cancel-in-progress"] !== false) throw new Error(`${name}_ACTIVE_OPERATION_CANCELLATION`);
     if (Object.hasOwn(concurrency, "queue")) throw new Error(`${name}_PENDING_CAPACITY_DRIFT`);

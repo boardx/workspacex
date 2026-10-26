@@ -2,6 +2,8 @@
 
 这是镜像消费者的安装方案。服务器不用下载应用源码、构建镜像、创建分支或注册 GitHub Runner。
 
+已完成首次安装、需要从 GitHub 手动发布 US 更新时，看 [US 自动发布说明](AUTOMATIC-RELEASE.md)。
+
 交给部署者的是一个工具包：入口 `install.py`、一份 `.env.example`、一份 `compose.yaml` 和本说明。隐藏的 `.runtime/` 是随版本发布的程序实现，**无需手工编辑、复制其中的脚本**。日常只维护自己的 `.env`。`compose.yaml`是通用运行结构的可读视图；实际实例配置由安装器生成，不要在安装前单独对它执行up或手工修改内部模板。
 
 **适用范围**：独占 Ubuntu 24.04 x86_64、Docker Engine + 新版 Compose、同机 PostgreSQL/Redis、本地文件持久化、HTTPS。五个正式镜像必须包含 api、web、deep-agent、skill-sandbox、postgres-age，同一个tag和完整OCI revision。Redis另行拉取。不同系统、托管数据库、共享主机、离线安装和多节点高可用不在这条安装路径中。
