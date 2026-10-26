@@ -2,6 +2,8 @@
 
 目标：`main-us` → GitHub Environment `production-us` → Runner `workspacex-us-production` → `43.110.25.66`，访问地址 `https://appv1.boardx.us`。
 
+构建仍在 GitHub 托管的 `ubuntu-24.04` 执行器上完成。US 的自托管 Runner 仅接收 deploy job、调用受限发布入口，不下载应用源码或在服务器构建镜像。填已有 tag 时跳过构建。
+
 这是首次手动安装完成后的更新通道。首次安装继续看 [README.md](README.md)。新增机器不需要复制整套模板：通用逻辑在 `scripts/`，机器私有配置仍放 `/etc/workspacex-selfhost/`。
 
 ## 日常发布
@@ -69,3 +71,16 @@ GitHub 创建 `production-us` 环境，仅允许 `main-us` 部署。镜像发布
 - 回退到已知版本：再次手动触发同一工作流，tag 填已验证的旧版本。仍需通过兼容性与业务验收，不执行数据库降级。
 
 首次接入验收应记录 Runner 在线、GitHub 真实 job 成功、公开 HTTPS 健康与业务探针结果。仅单元测试通过不代表服务器接入完成。
+
+## 接入验收记录
+
+2026-10-27（北京时间）已完成真实接入：
+
+- `main-us` 已创建；`production-us` 环境只允许 `main-us`。
+- Runner `workspacex-us-production` 在线，systemd 服务使用普通用户 `wsx-runner`，未加入 docker/sudo 组。
+- [工作流 40359371035](https://github.com/boardx/workspacex/actions/runs/40359371035) 使用 `main-us + us + 40216660127-1`，plan/deploy 成功，build/manifest 跳过。
+- deploy job 运行机器为 `iZrj9hpmlpysbfv5apkov9Z`，返回 `SUCCEEDED`，主机证据目录 `/var/lib/workspacex-image-release/us/attempt-0b6a2e9840b54277b285a58a2a269d16`。
+- 发布前后均通过真实业务探针；本次是相同正式镜像版本的接入验证，没有验证新版本迁移或在生产故意注入失败。回退分支由隔离测试覆盖。
+- 首次工作流曾以 `LIVE_CONFIG_DRIFT` 在变更前拒绝。现场确认 Compose 2.40 的 `config --hash` 跳过 env_file 展开；执行器改用已解析模型计算摘要，保留严格比对。临时文件为 0600，禁止二次变量展开，计算后删除。
+
+升级可信执行器只由管理员使用审核过的固定提交执行 `install-image-release.sh wsx-runner us`。不必再次运行一次性 configure 脚本，不会覆盖私有运行配置。
