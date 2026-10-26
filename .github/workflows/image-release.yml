@@ -69,7 +69,7 @@ jobs:
       environment: ${{ steps.plan.outputs.environment }}
       runner: ${{ steps.plan.outputs.runner }}
       build: ${{ steps.plan.outputs.build }}
-      group: ${{ steps.plan.outputs.group }}
+      group: ${{ steps.plan.outputs.target == 'devapp' && 'workspacex-devapp-deploy' || steps.plan.outputs.target == 'us' && 'workspacex-us-production-deploy' || 'workspacex-cn-production-deploy' }}
       fullset: ${{ steps.plan.outputs.fullset }}
       node_image: ${{ steps.plan.outputs.node_image }}
       python_image: ${{ steps.plan.outputs.python_image }}

@@ -44,7 +44,7 @@ class Setup(unittest.TestCase):
         workflow = (ROOT/'.github/workflows/image-release.yml').read_text()
         self.assertIn('branches: [develop]', workflow)
         self.assertIn('options: [auto, devapp, cn, us]', workflow)
-        self.assertIn('group: ${{ steps.plan.outputs.group }}', workflow)
+        self.assertIn("steps.plan.outputs.target == 'us' && 'workspacex-us-production-deploy'", workflow)
 
 
 if __name__ == '__main__':
