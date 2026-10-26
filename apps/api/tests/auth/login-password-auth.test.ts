@@ -175,7 +175,7 @@ describe("F20 login -- the rejection paths", () => {
       emailVerified: false,
     });
 
-    const denied = await post("/auth/login", { email: unverifiedEmail, password: "wrong-password" });
+    const denied = await post("/auth/login", { email: unverifiedEmail, password: "wrong-test-password" });
     expect(denied.status).toBe(401);
     expect((await readJson(denied)).reasonCode).toBe("INVALID_CREDENTIAL");
 
