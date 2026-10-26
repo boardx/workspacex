@@ -73,6 +73,26 @@ def plan(c):
  for repo in ROLES.values():print('  '+c['registryPrefix']+'/'+repo+':'+c['releaseTag'])
  print('Redis: '+c['redisImage']);print('URL: https://'+c['domain'])
  print('Install: private config → databases → roles/schema/admin → applications → TLS → real business acceptance')
+def verify_package():
+ if not(P/'source-hashes.json').is_file():raise ValueError('Use the packaged release')
+ expected=json.loads((P/'source-hashes.json').read_text())
+ for name,digest in expected.items():
+  if hashlib.sha256((P/name).read_bytes()).hexdigest()!=digest:raise ValueError('Installation code hash mismatch: '+name)
+def recover_host_setup(c):
+ import fcntl
+ if os.geteuid()!=0:raise ValueError('Run recovery as root on the target server')
+ host.validate_os(Path('/etc/os-release').read_text(),platform.system(),platform.machine())
+ verify_package()
+ lock=os.open('/run/workspacex-selfhost-deploy.lock',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
+ with os.fdopen(lock,'w') as handle:
+  fcntl.flock(handle,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  for path in ['/etc/apparmor.d/workspacex-native-sessions','/etc/systemd/system/docker.service.d/workspacex-selfhost-apparmor.conf','/etc/nginx/conf.d/workspacex-selfhost.conf']:
+   if Path(path).exists() or Path(path).is_symlink():raise ValueError('Host setup already advanced; recovery refused')
+  if subprocess.check_output(['docker','ps','-aq','--filter','label=com.docker.compose.project=workspacex-selfhost'],text=True).strip():raise ValueError('Project containers exist; recovery refused')
+  spec=importlib.util.spec_from_file_location('host_setup',P/'scripts/host_setup.py');module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  digest=hashlib.sha256(json.dumps(c,sort_keys=True).encode()).hexdigest()
+  backup=module.archive_prebootstrap(P/'.local/runtime',RUNTIME,Path('/var/lib/workspacex-selfhost'),STATE,P/'templates',Path('/root'),digest)
+  print('Prebootstrap setup archived at '+str(backup)+'; stable staging retained. Run the same install command again.')
 def install(c,args):
  if os.geteuid()!=0:raise ValueError('Run install as root on the target server')
  host.validate_os(Path('/etc/os-release').read_text(),platform.system(),platform.machine())
@@ -82,9 +102,7 @@ def install(c,args):
  # Preflight all host programs before writing runtime directories.
  for prog in ['curl','docker','nginx','apparmor_parser','aa-enabled','openssl','flock','systemctl','sha256sum']:
   if not shutil.which(prog):raise ValueError('Missing '+prog+'; follow README host prerequisites')
- expected=json.loads((P/'source-hashes.json').read_text())
- for name,digest in expected.items():
-  if hashlib.sha256((P/name).read_bytes()).hexdigest()!=digest:raise ValueError('Installation code hash mismatch: '+name)
+ verify_package()
  requested_digest=hashlib.sha256(json.dumps(c,sort_keys=True).encode()).hexdigest()
  if RUNTIME.exists():
   if not(STATE/'bootstrap-complete').exists():raise ValueError('Partial installation exists; inspect state before retry. Do not delete database directories.')
@@ -109,16 +127,17 @@ def install(c,args):
  print('Installed: https://'+c['domain']+' ; initial admin credentials file: '+str(RUNTIME/'stable-secrets.json')+' (admin field)')
 def main():
  a=argparse.ArgumentParser(description=__doc__);sub=a.add_subparsers(dest='action',required=True)
- for name in ['plan','install']:
+ for name in ['plan','install','recover-host-setup']:
   p=sub.add_parser(name);p.add_argument('--config',type=Path,default=Path('.env'))
   if name=='install':p.add_argument('--cert');p.add_argument('--key');p.add_argument('--acme',action='store_true')
  p=sub.add_parser('package');p.add_argument('--output',type=Path,default=Path('deploy/us/dist'))
  for name in ['status','logs','start','stop','verify','backup']:sub.add_parser(name)
  args=a.parse_args()
  if args.action=='package':print(package(args.output));return
- if args.action in ('plan','install'):
+ if args.action in ('plan','install','recover-host-setup'):
   c=load_settings(args.config)
   if args.action=='plan':plan(c)
+  elif args.action=='recover-host-setup':recover_host_setup(c)
   else:install(c,args)
  elif args.action in ['verify','backup']:
   command(['bash',str(P/'scripts'/('40-accept.sh' if args.action=='verify' else 'backup.sh'))]+(['--brief-downtime'] if args.action=='backup' else []))

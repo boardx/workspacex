@@ -4,6 +4,7 @@ set -euo pipefail
 HERE=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 . "$HERE/common.sh"
 require_root
+release_lock
 python3 "$HERE/host.py"
 docker compose run --help | grep -q -- '--env-from-file' || { echo 'Compose run --env-from-file is required';exit 2; }
 aa-enabled --quiet || { echo 'AppArmor is not enabled';exit 2; }
@@ -28,14 +29,13 @@ install -d -m 0700 "$APP_RUNTIME" "$APP_DATA" "$APP_STATE"
 for f in "$input"/*;do [[ -f $f ]] && install -o root -g root -m 0600 "$f" "$APP_RUNTIME/";done
 install -m 0644 "$kit/templates/docker-seccomp.json" "$APP_RUNTIME/docker-seccomp.json"
 install -m 0644 "$kit/templates/docker-apparmor-sessions" "$APP_RUNTIME/docker-apparmor-sessions"
-for d in sandbox sessions;do install -d -o 1000 -g 1000 -m 0700 "$APP_RUNTIME/$d";done
+for d in sandbox sessions;do python3 "$HERE/host_setup.py" "$APP_RUNTIME/$d";done
 for d in certs agent-certs;do install -d -m 0755 "$APP_RUNTIME/$d";done
-install -d -o 1000 -g 1000 -m 0700 "$APP_DATA/objects"
+python3 "$HERE/host_setup.py" "$APP_DATA/objects"
 install -d -m 0700 "$APP_DATA/postgres" "$APP_DATA/redis" "$APP_DATA/backups"
 install -d -m 0755 /usr/local/lib/workspacex-selfhost
 for f in common.sh business-probe.sh backup.sh;do install -m 0755 "$HERE/$f" "/usr/local/lib/workspacex-selfhost/$f";done
 install -m 0755 "$HERE/business-probe.sh" /usr/local/bin/workspacex-selfhost-business-probe
-release_lock
 # /run is volatile: recreate the same canonical lock after reboot.
 printf 'f /run/workspacex-selfhost-deploy.lock 0600 root root -\n' > /etc/tmpfiles.d/workspacex-selfhost.conf
 # Persist the profile and order Docker after AppArmor for reliable reboot recovery.

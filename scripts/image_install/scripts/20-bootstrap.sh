@@ -24,10 +24,12 @@ touch "$APP_STATE/bootstrap-started"
 pg_image=$(sed -n 's/^POSTGRES_IMAGE=//p' "$APP_RUNTIME/compose.env")
 redis_image=$(sed -n 's/^REDIS_IMAGE=//p' "$APP_RUNTIME/compose.env")
 pg_uid=$(docker run --rm --network none --entrypoint id "$pg_image" -u postgres)
+pg_gid=$(docker run --rm --network none --entrypoint id "$pg_image" -g postgres)
 redis_uid=$(docker run --rm --network none --entrypoint id "$redis_image" -u redis)
-[[ $pg_uid =~ ^[0-9]+$ && $redis_uid =~ ^[0-9]+$ ]] || exit 2
-chown "$pg_uid:$pg_uid" "$APP_DATA/postgres"
-chown "$redis_uid:$redis_uid" "$APP_DATA/redis" "$APP_RUNTIME/redis.conf"
+redis_gid=$(docker run --rm --network none --entrypoint id "$redis_image" -g redis)
+[[ $pg_uid =~ ^[0-9]+$ && $pg_gid =~ ^[0-9]+$ && $redis_uid =~ ^[0-9]+$ && $redis_gid =~ ^[0-9]+$ ]] || exit 2
+python3 "$HERE/host_setup.py" owner "$pg_uid" "$pg_gid" "$APP_DATA/postgres"
+python3 "$HERE/host_setup.py" owner "$redis_uid" "$redis_gid" "$APP_DATA/redis" "$APP_RUNTIME/redis.conf"
 compose up -d --no-build --pull never postgres redis
 ready=false
 for i in {1..60};do if compose exec -T postgres pg_isready -U postgres >/dev/null;then ready=true;break;fi;sleep 2;done

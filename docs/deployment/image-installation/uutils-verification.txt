@@ -1,0 +1,23 @@
+test_archive_prebootstrap_preserves_staging_and_refuses_data (test_image_installer.InstallTests) ... ok
+test_bootstrap_order_and_no_runner (test_image_installer.InstallTests) ... ok
+test_failed_preflight_reuses_stable_staging (test_image_installer.InstallTests) ... ok
+test_image_source_validation_before_host_mutations (test_image_installer.InstallTests) ... ok
+test_internal_shell_scripts_parse (test_image_installer.InstallTests) ... ok
+test_missing_or_placeholder_values_rejected (test_image_installer.InstallTests) ... ok
+test_numeric_directory_ownership_uses_ids (test_image_installer.InstallTests) ... ok
+test_official_semver_image_tags_supported (test_image_installer.InstallTests) ... ok
+test_package_has_one_entry_and_one_config (test_image_installer.InstallTests) ... ok
+test_plan_does_not_print_secrets_or_require_docker (test_image_installer.InstallTests) ... ok
+test_public_compose_is_a_generated_view (test_image_installer.InstallTests) ... ok
+test_render_compose_resolves_without_daemon (test_image_installer.InstallTests) ... ok
+test_render_preserves_secret_boundaries_and_refuses_overwrite (test_image_installer.InstallTests) ... ok
+test_single_config_and_safe_defaults (test_image_installer.InstallTests) ... ok
+test_supported_host_versions_and_negative_cases (test_image_installer.InstallTests) ... ok
+
+----------------------------------------------------------------------
+Ran 15 tests in 0.557s
+
+OK
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmpbk5hc6sz/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmp91tag5fz/runtime; no server was contacted
+Private configuration generated at /var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/tmppwhmccjg/runtime; no server was contacted

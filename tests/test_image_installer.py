@@ -13,6 +13,41 @@ class InstallTests(unittest.TestCase):
    host.validate_os('ID=ubuntu\nVERSION_ID="'+version+'"\n','Linux','x86_64')
   for release,system,machine in [('ID=debian\nVERSION_ID="26.04"','Linux','x86_64'),('ID=ubuntu\nVERSION_ID="22.04"','Linux','x86_64'),('ID=ubuntu\nVERSION_ID="26.04"','Linux','aarch64'),('ID=ubuntu\nVERSION_ID="26.04"','Darwin','x86_64'),('ID=notubuntu\nOTHER_VERSION_ID="26.04"','Linux','x86_64')]:
    with self.assertRaises(ValueError):host.validate_os(release,system,machine)
+ def test_numeric_directory_ownership_uses_ids(self):
+  spec=importlib.util.spec_from_file_location('host_setup',ROOT/'scripts/image_install/scripts/host_setup.py')
+  self.assertTrue(Path(spec.origin).is_file(),'Missing numeric ownership/recovery helper')
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  with tempfile.TemporaryDirectory() as d:
+   p=Path(d)/'sandbox';module.numeric_directory(p,os.geteuid(),os.getegid())
+   self.assertEqual(p.stat().st_uid,os.geteuid());self.assertEqual(p.stat().st_gid,os.getegid());self.assertEqual(p.stat().st_mode & 0o777,0o700)
+   file=Path(d)/'redis.conf';file.write_text('private');file.chmod(0o600);module.numeric_owner(file,os.geteuid(),os.getegid());self.assertEqual(file.stat().st_mode & 0o777,0o600)
+   link=Path(d)/'link';link.symlink_to(p)
+   with self.assertRaises(ValueError):module.numeric_directory(link,os.geteuid(),os.getegid())
+ def test_archive_prebootstrap_preserves_staging_and_refuses_data(self):
+  spec=importlib.util.spec_from_file_location('host_setup',ROOT/'scripts/image_install/scripts/host_setup.py')
+  self.assertTrue(Path(spec.origin).is_file(),'Missing guarded prebootstrap recovery')
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  for bad in ('state','data','mismatch','symlink','extra','input',None):
+   with tempfile.TemporaryDirectory() as d:
+    root=Path(d);stage=root/'stage';runtime=root/'runtime';data=root/'data';state=root/'state';templates=root/'templates'
+    for p in (stage,runtime,data,state,templates):p.mkdir(mode=0o700)
+    for p in (stage,runtime):
+     (p/'stable-secrets.json').write_text('same-stable-secret');(p/'input-config.sha256').write_text('input-hash\n')
+    for name in ('docker-seccomp.json','docker-apparmor-sessions'):
+     (templates/name).write_text('profile');(runtime/name).write_text('profile')
+    if bad=='state':(state/'bootstrap-started').touch()
+    if bad=='data':(data/'postgres').mkdir()
+    if bad=='mismatch':(runtime/'stable-secrets.json').write_text('changed')
+    if bad=='symlink':(runtime/'stable-secrets.json').unlink();(runtime/'stable-secrets.json').symlink_to(stage/'stable-secrets.json')
+    if bad=='extra':(runtime/'foreign').touch()
+    if bad=='input':(stage/'input-config.sha256').write_text('different')
+    if bad:
+     with self.assertRaises(ValueError):module.archive_prebootstrap(stage,runtime,data,state,templates,root,'input-hash')
+     self.assertTrue(runtime.exists());self.assertTrue(data.exists());self.assertTrue(state.exists())
+    else:
+     backup=module.archive_prebootstrap(stage,runtime,data,state,templates,root,'input-hash')
+     self.assertEqual((backup/'runtime/stable-secrets.json').read_text(),'same-stable-secret')
+     self.assertEqual((stage/'stable-secrets.json').read_text(),'same-stable-secret');self.assertFalse(runtime.exists());self.assertTrue((backup/'state').is_dir())
  def config(self):return {'IMAGE_TAG':'123-1','PUBLIC_DOMAIN':'us.example.com','ADMIN_EMAIL':'admin@example.com','MODEL_BASE_URL':'https://models.example.com/v1','MODEL_ID':'test','MODEL_API_KEY':'private-test-key'}
  def test_failed_preflight_reuses_stable_staging(self):
   with tempfile.TemporaryDirectory() as d:
