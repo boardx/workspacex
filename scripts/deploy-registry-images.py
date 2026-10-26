@@ -111,7 +111,7 @@ def admission_command(config,environment):
     return command
 
 def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
-    registry.need(environment in ('devapp','cn'),'INVALID_ENVIRONMENT')
+    registry.need(environment in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
     registry.need(registry.TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
     config_path=trusted(config_root/(environment+'.json'),private=True)
     config=json.loads(config_path.read_bytes())
@@ -132,7 +132,7 @@ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
 def deploy_config(environment,tag,config,docker,docker_config):
     state=trusted(config['stateDirectory'],directory=True,private=True)
     lock_path=trusted(config['lockFile'],private=True)
-    expected_lock={'devapp':'/run/workspacex-devapp-deploy.lock','cn':'/var/lib/workspacex-cn/runtime/release.lock'}
+    expected_lock={'devapp':'/run/workspacex-devapp-deploy.lock','cn':'/var/lib/workspacex-cn/runtime/release.lock','us':'/run/workspacex-selfhost-deploy.lock'}
     registry.need(str(lock_path)==expected_lock[environment],'CANONICAL_LOCK_REQUIRED')
     for reference in [*config['composeFiles'],config['envFile']]:
         engine.trusted_file(str(trusted(reference['path'])),reference['sha256'])
@@ -194,7 +194,7 @@ def deploy_config(environment,tag,config,docker,docker_config):
 
 def main():
     parser=argparse.ArgumentParser()
-    parser.add_argument('environment',choices=('devapp','cn'));parser.add_argument('tag')
+    parser.add_argument('environment',choices=('devapp','cn','us'));parser.add_argument('tag')
     parser.add_argument('--execute',action='store_true',help=argparse.SUPPRESS)
     args=parser.parse_args()
     registry.need(os.geteuid()==0,'INSTALLED_ENTRY_REQUIRES_ROOT')

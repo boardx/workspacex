@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Install reviewed release tooling on one Linux host; does not switch runtimes.
 set -euo pipefail
-[[ $EUID == 0 && $# -ge 1 && $# -le 2 ]] || { echo 'Usage: sudo bash scripts/install-image-release.sh <runner-user> [cn|devapp]' >&2; exit 2; }
+[[ $EUID == 0 && $# -ge 1 && $# -le 2 ]] || { echo 'Usage: sudo bash scripts/install-image-release.sh <runner-user> [cn|devapp|us]' >&2; exit 2; }
 runner_user=$1
 environment=${2:-both}
-[[ "$environment" =~ ^(cn|devapp|both)$ ]] || exit 2
+[[ "$environment" =~ ^(cn|devapp|us|both)$ ]] || exit 2
 [[ "$runner_user" =~ ^[a-z_][a-z0-9_-]*$ ]] && id "$runner_user" >/dev/null
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 files=(deploy-registry-images.py registry-images.py minimal-docker-release.py hosted-release.py canonical_control.py image-release-host-permissions.py)
