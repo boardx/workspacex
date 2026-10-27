@@ -8,6 +8,13 @@
 - 当前 blocker: <无 / 描述>
 
 ## 会话记录
+### 2026-10-27 — Ad-hoc #5945
+- 目标：按人类双栏参考图调整充值弹窗，并修复完成订单后下一次购买。
+- 根因：`pending.current` 同时包含只读 GET，导致已结束订单 reset 静默拒绝。新增 SUCCESS/CLOSED 延迟 GET 测试先失败后通过；reset 中止旧读取，旧结果不能覆盖新单。
+- 改动：常显套餐、原生 radio 全卡片点击、桌面左套餐右扫码、移动端堆叠、余额/流水底部展示；保留异常状态防重复付款。
+- 验证：init 0；cashier/overview/subscription 共 80 tests 通过；web lint/typecheck 0；Playwright 375/768/1280 三宽度、每宽度两单，共 6 POST，1 scenario 通过（23.5s）。两轮独立只读 review 无需修复项。
+- 证据：`docs/evidence/billing-cashier-5945/README.md` 与 6 张浏览器截图。未改 feature 状态，未声称真实微信结算或线上发布。待 PR CI；tick 缺网关配置，未伪造租约；自有 Next 进程已退出，未起 Docker 栈。
+
 ### 2026-10-15 18:49:25
 - 本轮目标:
 - 执行计划摘要(`node .harness/scripts/execution-plan.mjs summary <计划>`):

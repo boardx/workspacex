@@ -119,10 +119,19 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     }
   }
   function regenerate() {
-    if (canRegenerateOrder(latest.current.order) && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
+    if (open && !accessError && canRegenerateOrder(latest.current.order)) resetCompletedOrder();
   }
   function buyAgain() {
-    if (open && !accessError && latest.current.order?.status === "SUCCESS" && !pending.current) setState({ scope, order: null, creating: false, uncertain: false, message: null });
+    if (open && !accessError && latest.current.order?.status === "SUCCESS") resetCompletedOrder();
+  }
+  function resetCompletedOrder() {
+    // A read of an already completed order must not block the next purchase.
+    // Abort it before clearing the order so its late response cannot restore it.
+    pending.current?.abort();
+    pending.current = null;
+    const next = { scope, order: null, creating: false, uncertain: false, message: null };
+    latest.current = next;
+    setState(next);
   }
   return { ...active, accessError, cancelling, cancel, refresh, create, regenerate, buyAgain, revoke: () => setAccessError("Access denied") };
 }
