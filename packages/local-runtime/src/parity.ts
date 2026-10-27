@@ -69,6 +69,18 @@ export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
 
 export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
   {
+    status: "default-ok",
+    reason: "PATH 由 processes.ts 的 baseEnv 继承宿主环境，图片解码子进程沿用该搜索路径。" +
+      "它不是 API 专用配置，本地无需覆盖宿主 PATH 或另造一份可执行文件搜索路径。",
+    names: ["PATH"],
+  },
+  {
+    status: "default-ok",
+    reason: "本地 API 使用 development 模式，creditUsageMeter 未显式配置目录时使用仓库私有缓存收据目录。" +
+      "沿用既有 durable meter 的目录校验及持久化约束，不关闭计费；生产仍要求显式配置目录。",
+    names: ["WORKSPACEX_CREDIT_RECEIPT_DIR"],
+  },
+  {
     status: "unavailable-locally",
     reason: "微信充值和 Stripe 订阅需要外部支付服务及商户凭据，本地版零出网且不配置这些凭据。" +
       "缺失时 billing/config 返回空渠道，购买入口隐藏；本地模型使用不需要在线支付。",
@@ -76,15 +88,9 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
   },
   {
     status: "default-ok",
-    reason: "Quota admission, request accounting and native usage mirroring are explicit cloud opt-ins " +
-      "enabled only by the value 1. Leaving them unset preserves the local PGlite/model runtime " +
-      "defaults without requiring cloud billing credentials or native admission bindings.",
-    names: [
-      "KERNEL_AI_PRODUCT_QUOTA_ENABLED", "KERNEL_ASR_REQUEST_ACCOUNTING_ENABLED",
-      "KERNEL_DEEP_AGENT_REQUEST_ACCOUNTING_ENABLED", "KERNEL_IMAGE_REQUEST_ACCOUNTING_ENABLED",
-      "KERNEL_LOCAL_REQUEST_ACCOUNTING_ENABLED", "KERNEL_NATIVE_USAGE_LEDGER_ENABLED",
-      "KERNEL_RETRIEVAL_REQUEST_ACCOUNTING_ENABLED",
-    ],
+    reason: "Product quota admission is a cloud opt-in enabled only by the value 1. " +
+      "Leaving it unset preserves the local PGlite/model runtime default without requiring cloud quota configuration.",
+    names: ["KERNEL_AI_PRODUCT_QUOTA_ENABLED"],
   },
   {
     status: "cloud-only",
@@ -178,8 +184,10 @@ export const LOCAL_ENV_PARITY: readonly ParityGroup[] = [
       "KERNEL_OPENAI_API_KEY", "KERNEL_OPENAI_ORGANIZATION", "KERNEL_OPENAI_PROJECT",
       "KERNEL_OPENAI_IMAGE_BASE_URL", "KERNEL_OPENAI_IMAGE_MODEL_ID",
       "KERNEL_OPENAI_IMAGE_TIMEOUT_MS", "OPENAI_API_KEY",
+      "KERNEL_IMAGE_MAX_BILLABLE_TOKENS",     // 在线图片计费上限；不为本地关闭的 provider 虚造上限
       "KERNEL_VISION_BASE_URL", "KERNEL_VISION_MODEL_ID",  // DashScope 原生视觉抽取接口
       "KERNEL_VISION_TIMEOUT_MS", "KERNEL_VISION_MAX_IMAGE_BYTES",
+      "KERNEL_VISION_MAX_INPUT_TOKENS",      // 在线视觉输入计费上限，同属本地未启用的 provider
       "KERNEL_DEEP_RESEARCH_BASE_URL",         // 独立 deep-research 服务，本地不随包
       "KERNEL_DEEP_RESEARCH_POLL_INTERVAL_MS", "KERNEL_DEEP_RESEARCH_TIMEOUT_MS",
       // ⚠ 流式的两个开关、以及会话命名/追问建议/反馈结构化那三个 meta 模型，都已由
