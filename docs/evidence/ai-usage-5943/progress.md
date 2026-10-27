@@ -10,3 +10,4 @@ User approved the bill-style layout on 2026-10-27. Implemented in the existing w
 - Validation: init.sh baseline; 24 relevant UI/formatting tests; Web typecheck; ESLint on affected files; full design lint.
 - Browser check uses the actual bundled components and design CSS with explicitly intercepted fixture ledger endpoints, not live production data.
 - Coordination boundary: harness readiness/active-features ran; tick cannot run without COORD_GATEWAY_URL. No coordination identities or leases fabricated.
+- PR: https://github.com/boardx/workspacex/pull/5944. Push hook also passed full Web lint and typecheck. Browser screenshots were visually inspected; dark capture now explicitly waits for theme transitions to settle before checking inherited table color.

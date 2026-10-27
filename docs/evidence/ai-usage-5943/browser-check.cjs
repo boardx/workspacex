@@ -54,7 +54,8 @@ const calls = { asOf: summary.asOf, coverage: 'partial', nextCursor: null, calls
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'page must not overflow horizontally');
     await page.screenshot({ path: join(__dirname, 'mobile.png'), fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.evaluate(() => document.documentElement.classList.add('dark'));
+    await page.evaluate(async () => { document.documentElement.classList.add('dark'); getComputedStyle(document.body).color; await Promise.allSettled(document.getAnimations().map(animation => animation.finished)); });
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('[data-testid=usage-ledger]')).color === getComputedStyle(document.body).color);
     await page.screenshot({ path: join(__dirname, 'dark.png'), fullPage: true });
     assert.deepEqual(errors, []);
     console.log('PASS: desktop/mobile/dark rendering, details, model drilldown, date controls, no page overflow, no internal IDs, no browser runtime errors (fixture API).');

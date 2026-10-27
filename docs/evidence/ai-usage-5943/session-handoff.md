@@ -11,3 +11,5 @@ Verification commands:
 - `node docs/evidence/ai-usage-5943/browser-check.cjs`
 
 Browser script binds a temporary loopback server, runs headless Chromium, then closes browser/server and removes temporary build files in finally. No Docker resources were started. Existing worktree retained for PR follow-up.
+
+PR #5944 created and attached to chat. CI is running; no deployment or merge performed. Follow the latest head checks before treating the PR as ready for merge.
