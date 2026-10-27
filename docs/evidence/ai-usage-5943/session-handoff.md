@@ -13,3 +13,5 @@ Verification commands:
 Browser script binds a temporary loopback server, runs headless Chromium, then closes browser/server and removes temporary build files in finally. No Docker resources were started. Existing worktree retained for PR follow-up.
 
 PR #5944 created and attached to chat. CI is running; no deployment or merge performed. Follow the latest head checks before treating the PR as ready for merge.
+
+Human branch policy correction: target develop for this and subsequent development PRs in this chat. #5944 is now based on develop; branch replay excludes main-only history. Latest develop baseline 97a08e7e3. All local verification was repeated successfully after replay; check the new PR head CI, not obsolete main-based runs.
