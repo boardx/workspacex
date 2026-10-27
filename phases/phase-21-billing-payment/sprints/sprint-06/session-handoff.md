@@ -2,6 +2,8 @@
 
 ## 2026-10-27 直接交办修复 #5945
 
+**最新分支纠正**：用户要求后续默认向 develop 集成。#5946 已合入 main，不能再改 base；复用同一 worktree，从 origin/develop@fba6efcdd8a029ebab2134300bb3f6ef77b87956 cherry-pick 本次支付改动到 `codex/billing-cashier-develop`，不带 main 其它提交。80 项测试、web typecheck/lint、三宽度浏览器（20.3s）在 develop 基线重验通过。默认分支约定已写入 PROJECT.md，根 AGENTS 引用。下一步以新 PR 的 CI 为准，不复用 #5946 的 READY_TO_MERGE。
+
 复用 e435、基于 main@26753a1ccaa5。收银台按人类参考图改为左套餐/右支付/底部流水，手机单栏；修复已结束订单仍有 GET 刷新时“再次购买/重新生成”静默被锁住。仅 SUCCESS 与正常 CLOSED 可清理旧单，旧 GET 中止并防晚到覆盖。未改 F06/F08 状态或支付 API。
 
 80 项相关 UI 测试、web lint/typecheck、3 宽度浏览器连续两单均通过，独立审两轮未发现问题。证据 `docs/evidence/billing-cashier-5945/README.md`，计划 `docs/superpowers/plans/2026-10-27-billing-cashier.md`。待提交 PR 后跟进 CI；不据此声称 devapp 已部署或真实支付已复验。当前会话未起 Docker 栈，Playwright 自有 3526 服务已退出。tick 缺 COORD_GATEWAY_URL 无法执行。下一步：对本分支 `gh pr checks`，按 canonical queue 跟进，不自行合并。

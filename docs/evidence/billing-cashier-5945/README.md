@@ -2,6 +2,14 @@
 
 2026-10-27。基线 `26753a1ccaa5`，复用 e435 worktree。
 
+## 分支目标修正（2026-10-27）
+
+用户明确后续 WorkspaceX 默认向 develop 集成。#5946 在纠正时已由 GitHub 合入 main（合并提交 `607324e8bfd240c56a85317fa0b26a94db4bf31a`），因此无法修改旧 PR 的 base。复用同一个 worktree，基于最新 `origin/develop@fba6efcdd8a029ebab2134300bb3f6ef77b87956` 单独 cherry-pick 支付改动；未携带 main 的其它提交，也未撤销 main 历史。新分支 `codex/billing-cashier-develop`。
+
+支付组件、测试和 lockfile 与此前已验证源完全一致；在 develop 基线上重新执行 80 项相关测试（5.13s）、web typecheck/lint 均退出 0。项目分支约定的唯一落点更新为 `.harness/instructions/project/PROJECT.md`，根 AGENTS 仅路由引用，不复制第二份默认分支声明。
+
+develop 基线浏览器重验：同一三宽度连续两单/晚到 GET 场景再次通过，1 passed（20.3s）。本目录截图已更新为此次运行产物；未复用旧 PR 的 CI 结论。
+
 ## 问题与修复
 
 `buyAgain` / `regenerate` 原本在 `pending.current` 非空时静默不执行；已结束订单的 GET 也会占此锁。新增 SUCCESS/CLOSED 延迟 GET 测试均先失败（order 未被清除），再通过。修复只在允许重新购买的状态中止旧读取，同步清理 latest，旧回包检查 abort 信号且 finally 比对 controller 身份，不覆盖新订单。原有不确定 POST/处理中/异常状态的重复支付保护仍在。
