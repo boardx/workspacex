@@ -261,6 +261,34 @@ describe("F06 closed paid-funds recovery and legal late-payment transitions",()=
 
 
 describe("F06 confirmed repeat purchase",()=>{
+ it.each(["SUCCESS", "CLOSED"] as const)("starts a new purchase after %s even while an old status refresh is pending",async status=>{
+  let reads=0,posts=0,finish!:(response:Response)=>void;
+  const completed={...order,status,closedAt:status==="CLOSED"?new Date().toISOString():null};
+  const next={...order,orderNo:"bg20261016000000mnopqr",qrCodeUrl:"weixin://wxpay/bizpayurl?pr=next-intent"};
+  const fetcher=vi.fn((_url:string,init:RequestInit)=>init.method==="POST"
+   ?reply({order:++posts===1?order:next})
+   :++reads===1?reply({order:completed}):new Promise<Response>(resolve=>{finish=resolve;}));
+  vi.stubGlobal("fetch",fetcher);
+  const {result}=renderHook(()=>useCashierOrder({ownerType:"user",ownerId:"user-a"},"cashier-test-session",true));
+  await act(async()=>{await result.current.create("p1");});
+  await act(async()=>{await result.current.refresh();});
+  let refreshing!:Promise<void>;
+  act(()=>{refreshing=result.current.refresh();});
+  const oldSignal=fetcher.mock.calls.at(-1)![1].signal as AbortSignal;
+  act(()=>{if(status==="SUCCESS")result.current.buyAgain();else result.current.regenerate();});
+  expect(result.current.order).toBeNull();
+  expect(oldSignal.aborted).toBe(true);
+  await act(async()=>{await result.current.create("p1");});
+  expect(result.current.order?.orderNo).toBe(next.orderNo);
+  await act(async()=>{finish(await reply({order:completed}));await refreshing;});
+  expect(result.current.order?.orderNo).toBe(next.orderNo);
+  expect(posts).toBe(2);
+ });
+ it("keeps packages visible and locked while the current order is payable",async()=>{
+  live();await generate();await screen.findByTestId("billing-qr-code-area");
+  expect((screen.getByRole("radio") as HTMLInputElement).disabled).toBe(true);
+  expect(screen.getByRole("radiogroup",{name:"充值套餐"})).toBeTruthy();
+ });
  it("retains SUCCESS on reopen until an explicit buy again, then creates a distinct order",async()=>{
   let posts=0;
   const next={...order,orderNo:"bg20261016000000ghijkl",qrCodeUrl:"weixin://wxpay/bizpayurl?pr=second-intent"};
