@@ -17,6 +17,8 @@ for db in workspacex workspacex_agent workspacex_memory;do
  compose exec -T postgres pg_dump -U postgres -Fc "$db" > "$out/$db.dump"
 done
 tar -czf "$out/objects.tar.gz" -C "$APP_DATA" objects
+# Stop both writers before copying SQLite and API outboxes; preserve uncertain receipts.
+tar -czf "$out/usage-receipts.tar.gz" -C "$APP_DATA" agent-usage credit-receipts
 # Running immutable digests, not stale initial tags, are the restore baseline.
 python3 - "$out" <<'META'
 import json,subprocess,sys

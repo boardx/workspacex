@@ -5,6 +5,49 @@ ROOT=Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('image_installer',ROOT/'scripts/image_install/installer.py')
 installer=importlib.util.module_from_spec(spec);spec.loader.exec_module(installer)
 class InstallTests(unittest.TestCase):
+ def test_supported_host_versions_and_negative_cases(self):
+  spec=importlib.util.spec_from_file_location('installer_host',ROOT/'scripts/image_install/scripts/host.py')
+  self.assertTrue(Path(spec.origin).is_file(),'Missing shared host validator for Ubuntu 26.04')
+  host=importlib.util.module_from_spec(spec);spec.loader.exec_module(host)
+  for version in ('24.04','26.04'):
+   host.validate_os('ID=ubuntu\nVERSION_ID="'+version+'"\n','Linux','x86_64')
+  for release,system,machine in [('ID=debian\nVERSION_ID="26.04"','Linux','x86_64'),('ID=ubuntu\nVERSION_ID="22.04"','Linux','x86_64'),('ID=ubuntu\nVERSION_ID="26.04"','Linux','aarch64'),('ID=ubuntu\nVERSION_ID="26.04"','Darwin','x86_64'),('ID=notubuntu\nOTHER_VERSION_ID="26.04"','Linux','x86_64')]:
+   with self.assertRaises(ValueError):host.validate_os(release,system,machine)
+ def test_numeric_directory_ownership_uses_ids(self):
+  spec=importlib.util.spec_from_file_location('host_setup',ROOT/'scripts/image_install/scripts/host_setup.py')
+  self.assertTrue(Path(spec.origin).is_file(),'Missing numeric ownership/recovery helper')
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  with tempfile.TemporaryDirectory() as d:
+   p=Path(d)/'sandbox';module.numeric_directory(p,os.geteuid(),os.getegid())
+   self.assertEqual(p.stat().st_uid,os.geteuid());self.assertEqual(p.stat().st_gid,os.getegid());self.assertEqual(p.stat().st_mode & 0o777,0o700)
+   file=Path(d)/'redis.conf';file.write_text('private');file.chmod(0o600);module.numeric_owner(file,os.geteuid(),os.getegid());self.assertEqual(file.stat().st_mode & 0o777,0o600)
+   link=Path(d)/'link';link.symlink_to(p)
+   with self.assertRaises(ValueError):module.numeric_directory(link,os.geteuid(),os.getegid())
+ def test_archive_prebootstrap_preserves_staging_and_refuses_data(self):
+  spec=importlib.util.spec_from_file_location('host_setup',ROOT/'scripts/image_install/scripts/host_setup.py')
+  self.assertTrue(Path(spec.origin).is_file(),'Missing guarded prebootstrap recovery')
+  module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+  for bad in ('state','data','mismatch','symlink','extra','input',None):
+   with tempfile.TemporaryDirectory() as d:
+    root=Path(d);stage=root/'stage';runtime=root/'runtime';data=root/'data';state=root/'state';templates=root/'templates'
+    for p in (stage,runtime,data,state,templates):p.mkdir(mode=0o700)
+    for p in (stage,runtime):
+     (p/'stable-secrets.json').write_text('same-stable-secret');(p/'input-config.sha256').write_text('input-hash\n')
+    for name in ('docker-seccomp.json','docker-apparmor-sessions'):
+     (templates/name).write_text('profile');(runtime/name).write_text('profile')
+    if bad=='state':(state/'bootstrap-started').touch()
+    if bad=='data':(data/'postgres').mkdir()
+    if bad=='mismatch':(runtime/'stable-secrets.json').write_text('changed')
+    if bad=='symlink':(runtime/'stable-secrets.json').unlink();(runtime/'stable-secrets.json').symlink_to(stage/'stable-secrets.json')
+    if bad=='extra':(runtime/'foreign').touch()
+    if bad=='input':(stage/'input-config.sha256').write_text('different')
+    if bad:
+     with self.assertRaises(ValueError):module.archive_prebootstrap(stage,runtime,data,state,templates,root,'input-hash')
+     self.assertTrue(runtime.exists());self.assertTrue(data.exists());self.assertTrue(state.exists())
+    else:
+     backup=module.archive_prebootstrap(stage,runtime,data,state,templates,root,'input-hash')
+     self.assertEqual((backup/'runtime/stable-secrets.json').read_text(),'same-stable-secret')
+     self.assertEqual((stage/'stable-secrets.json').read_text(),'same-stable-secret');self.assertFalse(runtime.exists());self.assertTrue((backup/'state').is_dir())
  def config(self):return {'IMAGE_TAG':'123-1','PUBLIC_DOMAIN':'us.example.com','ADMIN_EMAIL':'admin@example.com','MODEL_BASE_URL':'https://models.example.com/v1','MODEL_ID':'test','MODEL_API_KEY':'private-test-key'}
  def test_failed_preflight_reuses_stable_staging(self):
   with tempfile.TemporaryDirectory() as d:
@@ -56,6 +99,27 @@ class InstallTests(unittest.TestCase):
    self.assertNotIn(secrets['owner'],(out/'api.env').read_text());self.assertNotIn(secrets['memoryOwner'],(out/'agent.env').read_text())
    with self.assertRaises(ValueError):installer.render(c,out)
    self.assertEqual(out.stat().st_mode & 0o777,0o700)
+ def test_production_runtime_is_complete_before_first_boot(self):
+  import uuid
+  with tempfile.TemporaryDirectory() as d:
+   c=installer.settings_from_values(self.config());c['sourceRevision']='a'*40;c['redisImage']='redis@sha256:'+'b'*64;out=Path(d)/'runtime';installer.render(c,out)
+   envs={name:dict(line.split('=',1) for line in (out/(name+'.env')).read_text().splitlines()) for name in ('api','web','agent','probe')}
+   marker=envs['api']['WORKSPACEX_DEPLOYMENT_MARKER']
+   self.assertEqual(str(uuid.UUID(marker)),marker)
+   self.assertEqual(marker,str(uuid.uuid5(uuid.NAMESPACE_URL,'workspacex-selfhost:'+c['sourceRevision'])))
+   for name in ('web','probe'):self.assertEqual(envs[name]['WORKSPACEX_DEPLOYMENT_MARKER'],marker)
+   self.assertEqual(json.loads((out/'settings.json').read_text())['sourceRevision'],c['sourceRevision'])
+   for name in ('api','agent','probe'):self.assertGreater(int(envs[name]['KERNEL_MODEL_MAX_OUTPUT_TOKENS']),0)
+   compose=json.loads((out/'compose.json').read_text())
+   for service,key in [('api','WORKSPACEX_CREDIT_RECEIPT_DIR'),('agent','DEEP_AGENT_USAGE_SPOOL_DIR')]:
+    path=envs[service][key]
+    mounts=[v for v in compose['services'][service]['volumes'] if v.get('target')==path]
+    self.assertEqual(len(mounts),1);self.assertTrue(mounts[0]['source'].startswith('/var/lib/workspacex-selfhost/'))
+    self.assertFalse(mounts[0]['bind']['create_host_path'])
+    self.assertNotEqual(mounts[0].get('read_only'),True)
+   self.assertEqual(envs['agent']['DEEP_AGENT_USAGE_CALLBACK_BASE_URL'],'http://api:3200')
+   self.assertEqual(envs['agent']['DEEP_AGENT_USAGE_IDLE_REPLAY_ENABLED'],'1')
+   self.assertIn('location ~ "^/whiteboards/[0-9a-fA-F-]{36}/sync$" {',(out/'nginx.conf').read_text())
  def test_package_has_one_entry_and_one_config(self):
   with tempfile.TemporaryDirectory() as d:
    archive=installer.package(Path(d));import tarfile
