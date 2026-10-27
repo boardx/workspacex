@@ -1,5 +1,11 @@
 # 会话交接 — Sprint 21/06
 
+## 2026-10-27 直接交办修复 #5945
+
+复用 e435、基于 main@26753a1ccaa5。收银台按人类参考图改为左套餐/右支付/底部流水，手机单栏；修复已结束订单仍有 GET 刷新时“再次购买/重新生成”静默被锁住。仅 SUCCESS 与正常 CLOSED 可清理旧单，旧 GET 中止并防晚到覆盖。未改 F06/F08 状态或支付 API。
+
+80 项相关 UI 测试、web lint/typecheck、3 宽度浏览器连续两单均通过，独立审两轮未发现问题。证据 `docs/evidence/billing-cashier-5945/README.md`，计划 `docs/superpowers/plans/2026-10-27-billing-cashier.md`。待提交 PR 后跟进 CI；不据此声称 devapp 已部署或真实支付已复验。当前会话未起 Docker 栈，Playwright 自有 3526 服务已退出。tick 缺 COORD_GATEWAY_URL 无法执行。下一步：对本分支 `gh pr checks`，按 canonical queue 跟进，不自行合并。
+
 ## 当前已验证
 - <哪些 feature 确认 passing,各自跑过的验证命令>
 
