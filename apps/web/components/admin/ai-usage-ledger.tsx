@@ -5,12 +5,15 @@ import { useOrgMemberNames, memberLabel } from "@/lib/use-org-member-names";
 import type { UsageCalls } from "@/lib/live-ai-usage";
 import { costLabel, formatTokens, nativeQuantity, usageDateLabel, usageDay, usageTime } from "./ai-usage-format";
 
+const callTimestamp = (call: UsageCalls["calls"][number]) => call.startedAt ?? call.occurredAt;
+
 export function AiUsageLedger({ calls, orgId, selfUserId }: { calls: UsageCalls["calls"]; orgId: string; selfUserId?: string }) {
   const names = useOrgMemberNames(selfUserId ? null : orgId);
   const days = new Map<string, UsageCalls["calls"]>();
   for (const call of calls) {
-    // Group by the same ledger timestamp used for sorting and pagination.
-    const day = usageDay(call.occurredAt);
+    // Match the API date filter (request start, falling back to receipt time).
+    // Cursor identity continues to use occurredAt unchanged.
+    const day = usageDay(callTimestamp(call));
     days.set(day, [...(days.get(day) ?? []), call]);
   }
   return <Table data-testid="usage-ledger">
@@ -19,10 +22,10 @@ export function AiUsageLedger({ calls, orgId, selfUserId }: { calls: UsageCalls[
       <TableHead className="text-right">输入 Token</TableHead><TableHead className="text-right">输出 Token</TableHead>
       <TableHead className="text-right">总用量</TableHead><TableHead className="text-right">费用</TableHead><TableHead>状态</TableHead>
     </TableRow></TableHeader>
-    {[...days].map(([day, rows]) => <TableBody key={day}>
+    {[...days].sort(([left], [right]) => right.localeCompare(left)).map(([day, rows]) => <TableBody key={day}>
       <TableRow className="bg-muted/40 transition-colors hover:bg-muted/40"><TableCell colSpan={selfUserId ? 7 : 8} className="py-3 font-medium">{usageDateLabel(`${day}T00:00:00+08:00`)}</TableCell></TableRow>
-      {rows.map(call => <TableRow key={call.id}>
-        <TableCell className="whitespace-nowrap align-top tabular-nums">{usageTime(call.occurredAt)}</TableCell>
+      {[...rows].sort((left, right) => Date.parse(callTimestamp(right)) - Date.parse(callTimestamp(left))).map(call => <TableRow key={call.id}>
+        <TableCell className="whitespace-nowrap align-top tabular-nums">{usageTime(callTimestamp(call))}</TableCell>
         <TableCell className="min-w-40 align-top"><span className="font-medium break-all">{call.modelId}</span><div className="mt-1 text-12 text-muted-foreground">{call.modelProvider}</div></TableCell>
         {!selfUserId && <TableCell className="align-top">{memberLabel(call.userId, selfUserId, names)}</TableCell>}
         <TableCell className="text-right align-top tabular-nums">{call.totalSource === "not-applicable" ? "—" : formatTokens(call.inputTokens)}</TableCell>

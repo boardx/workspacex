@@ -11,3 +11,4 @@ User approved the bill-style layout on 2026-10-27. Implemented in the existing w
 - Browser check uses the actual bundled components and design CSS with explicitly intercepted fixture ledger endpoints, not live production data.
 - Coordination boundary: harness readiness/active-features ran; tick cannot run without COORD_GATEWAY_URL. No coordination identities or leases fabricated.
 - PR: https://github.com/boardx/workspacex/pull/5944. Push hook also passed full Web lint and typecheck. Browser screenshots were visually inspected; dark capture now explicitly waits for theme transitions to settle before checking inherited table color.
+- GitHub review found the API filters by request start rather than receipt time. Added and observed a failing Beijing-midnight regression, then changed display/grouping to startedAt ?? occurredAt and retained occurredAt/id cursors. Final affected test suite: 25 passed; browser checks and full Web lint/typecheck repeated.

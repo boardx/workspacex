@@ -81,3 +81,11 @@ it("does not invent reported/estimated zero buckets for unknown native usage", a
  expect(screen.queryByText(/0 张图片/)).toBeNull();
  expect(screen.getByText(/图片：1 次调用未上报/)).toBeTruthy();
 });
+
+it("groups cross-midnight calls by request start, matching the date filter", async () => {
+ vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",nextCursor:null,calls:[{...call,startedAt:"2026-10-01T15:59:00Z",occurredAt:"2026-10-01T16:01:00Z"}]});
+ render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+ await screen.findByText("2026年10月1日");
+ expect(screen.getByText("23:59:00")).toBeTruthy();
+ expect(screen.queryByText("2026年10月2日")).toBeNull();
+});
