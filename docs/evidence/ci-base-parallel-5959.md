@@ -15,3 +15,5 @@
 真实 GitHub 完整 base 尚待执行；不能以本地契约测试或 PR 分支的跳过状态替代。
 
 首次PR控制平面检查229文件2647项通过、仅workflow-actions-node24失败：下载artifact步骤用了v5而非仓库审计的固定提交。已改用权威审计要求的 `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`；相关3文件98项通过。首次完整运行40548327387已验证真实coverage与部分API分片，但其源码仍有该已知Action检查失败；需以修正后的新运行作为完整结果。
+
+修正组合 `fc65e9d7c857d992f3bae655ec62678525edb5b8` 的[40551946505](https://github.com/boardx/workspacex/actions/runs/40551946505)中，编译、8个默认API分片及exclusive均已真实通过。9份报告共1625文件、15535通过、0失败；下载后按当前PR相同验收逻辑再次核对文件身份与报告/日志摘要通过。最终完整base结论与最新PR状态统一记录于[#5959证据评论](https://github.com/boardx/workspacex/issues/5959)，不能从本文的历史运行快照推断当前状态。
