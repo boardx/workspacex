@@ -26,7 +26,7 @@ export const LANES = {
   },
   'full-regression-core': {
     fullRegression: true,
-    execute: ['Execute uncached trusted base gate'],
+    execute: ['Require complete base prerequisites', 'Verify complete current API evidence', 'Execute uncached trusted base gate'],
     upload: 'Upload E2E evidence (success or failure)',
     artifact: 'phase-01-e2e-full-evidence-',
   },

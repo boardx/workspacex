@@ -56,7 +56,7 @@ describe('workflow and executable reuse contract', () => {
     expect(job.concurrency.group).toContain('inputs.fresh_run');
     expect(job.concurrency.group).toContain('github.run_attempt > 1');
     const guard = job.steps.findIndex((s: { id?: string }) => s.id === 'dedup');
-    expect(guard).toBe(1);
+    expect(guard).toBe(lane === 'full-regression-core' ? 2 : 1);
     for (const step of job.steps.slice(guard + 1)) expect(step.if).toContain('steps.dedup.outputs.run');
     for (const name of [...LANES[lane].execute, LANES[lane].upload]) expect(job.steps.filter((s: {name?: string}) => s.name === name)).toHaveLength(1);
     expect(job.steps.at(-1).run).toContain('ci-lane-dedup.mjs verdict');

@@ -115,7 +115,9 @@
     "deploy:config": "node --import tsx packages/cloud-deploy/src/cli.ts",
     "maau:report": "node skills/maau-diagnostics/maau-venture-valuation/scripts/cli.cjs",
     "lint:ee-boundary": "node .harness/scripts/lint-ee-boundary.mjs",
-    "lint:local-zero-egress": "node .harness/scripts/lint-local-zero-egress.mjs"
+    "lint:local-zero-egress": "node .harness/scripts/lint-local-zero-egress.mjs",
+    "verify:ci-base-other": "pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm run verify:ci-base-other:raw",
+    "verify:ci-base-other:raw": "pnpm run verify:harness:raw && turbo run test --continue --concurrency=1 --log-order=stream --filter='!@repo/api'"
   },
   "devDependencies": {
     "@pdf-lib/fontkit": "^1.1.1",

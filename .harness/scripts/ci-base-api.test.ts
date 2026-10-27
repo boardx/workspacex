@@ -1,0 +1,94 @@
+import { describe, expect, it } from 'vitest';
+import { assertPrerequisites, validateReport } from './ci-base-api.mjs';
+const dependencies=['verify-full-compile','base-api-plan','base-api-shards','base-api-exclusive'];
+const good=()=>Object.fromEntries(dependencies.map(name=>[name,{result:'success'}]));
+describe('complete base API acceptance',()=>{
+ it('requires all current producers',()=>expect(()=>assertPrerequisites(good())).not.toThrow());
+ it.each(['failure','cancelled','skipped',undefined])('rejects %s before historical reuse',result=>{
+  for(const name of dependencies)expect(()=>assertPrerequisites({...good(),[name]:{result}})).toThrow();
+ });
+ it('rejects missing and unexpected prerequisites',()=>{
+  expect(()=>assertPrerequisites({})).toThrow();
+  expect(()=>assertPrerequisites({...good(),extra:{result:'success'}})).toThrow();
+ });
+ it('requires real successful files and tests',()=>{
+  const report={success:true,numTotalTests:3,numPassedTests:3,testResults:[{status:'passed'},{status:'passed'}]};
+  expect(()=>validateReport(report,2)).not.toThrow();
+  for(const bad of [{...report,success:false},{...report,numTotalTests:0},{...report,numPassedTests:0},{...report,testResults:[]},{...report,testResults:[{status:'failed'}]}])expect(()=>validateReport(bad,2)).toThrow();
+  expect(()=>validateReport(report,3)).toThrow();
+ });
+});
+
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { parse } from 'yaml';
+import { bundle, record } from './ci-base-api.mjs';
+const digest=(data:string|Buffer)=>createHash('sha256').update(data).digest('hex');
+const env={GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'17',GITHUB_RUN_ATTEMPT:'2'};
+function fixture(){
+ const directory=mkdtempSync(join(tmpdir(),'wsx-base-api-'));
+ const parts=[[{file:'a.test.ts',projectName:''}],[{file:'b.test.ts',projectName:''}]];
+ const exclusive=[{file:'exclusive.test.ts',projectName:''}];
+ const coverage={schemaVersion:1,status:'discovery-coverage-verified',files:2,shards:2,counts:[1,1],partitions:parts,exclusive,discoverySha256:digest(parts.flat().map(row=>JSON.stringify(['',row.file])).sort().join('\n'))};
+ const coverageDir=join(directory,'coverage');mkdirSync(coverageDir);
+ const coverageText=JSON.stringify(coverage);writeFileSync(join(coverageDir,'coverage.json'),coverageText);
+ writeFileSync(join(coverageDir,'identity.json'),JSON.stringify({sha:env.GITHUB_SHA,run:'17',attempt:'2',coverage:digest(coverageText)}));
+ for(const [name,file] of [['shard-1','a.test.ts'],['shard-2','b.test.ts'],['exclusive','exclusive.test.ts']]){
+  const folder=join(directory,name);mkdirSync(folder);
+  writeFileSync(join(folder,'report.json'),JSON.stringify({success:true,numTotalTests:1,numPassedTests:1,testResults:[{name:`/home/runner/work/workspacex/workspacex/apps/api/${file}`,status:'passed'}]}));
+  writeFileSync(join(folder,'test.log'),'Tests  1 passed (1)\n');record(folder,env);
+ }
+ return directory;
+}
+describe('real report/artifact assembly counterexamples',()=>{
+ it('combines all exact partitions and exclusive evidence',()=>{
+  const directory=fixture();try{expect(bundle(directory,{count:2,shards:[1,2]},env)).toContain('API exclusive');}finally{rmSync(directory,{recursive:true,force:true});}
+ });
+ it.each(['missing-last','wrong-run','wrong-attempt','wrong-sha','changed-log','changed-report','substituted-file','duplicate-file','all-skipped','missing-exclusive'])('rejects %s',kind=>{
+  const directory=fixture();const folder=join(directory,'shard-2');
+  try{
+   if(kind==='missing-last')rmSync(folder,{recursive:true});
+   if(kind==='missing-exclusive')rmSync(join(directory,'exclusive'),{recursive:true});
+   if(kind.startsWith('wrong-')){const file=join(folder,'identity.json'),identity=JSON.parse(readFileSync(file,'utf8'));identity[kind.slice(6)]='other';writeFileSync(file,JSON.stringify(identity));}
+   if(kind==='changed-log')writeFileSync(join(folder,'test.log'),'tampered');
+   if(kind==='changed-report')writeFileSync(join(folder,'report.json'),'{}');
+   if(['substituted-file','duplicate-file','all-skipped'].includes(kind)){
+    const file=join(folder,'report.json'),report=JSON.parse(readFileSync(file,'utf8'));
+    if(kind==='all-skipped')report.numPassedTests=0;
+    else report.testResults[0].name='/home/runner/work/workspacex/workspacex/apps/api/'+(kind==='duplicate-file'?'a.test.ts':'different.test.ts');
+    writeFileSync(file,JSON.stringify(report));
+    // Re-sign so rejection proves actual coverage/empty execution, not a hash mismatch.
+    if(kind!=='all-skipped')record(folder,env);
+    else {const file=join(folder,'identity.json'),identity=JSON.parse(readFileSync(file,'utf8'));identity.report=digest(readFileSync(join(folder,'report.json')));writeFileSync(file,JSON.stringify(identity));}
+   }
+   expect(()=>bundle(directory,{count:2,shards:[1,2]},env)).toThrow();
+  }finally{rmSync(directory,{recursive:true,force:true});}
+ });
+});
+
+it('workflow preserves complete API coverage, isolation and failure verdict before reuse',()=>{
+ const w=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')),jobs=w.jobs;
+ const core=jobs['full-regression-core'];
+ expect(core.if).toContain('always()');
+ expect(core.needs).toEqual(dependencies);
+ expect(core.steps[1]).toMatchObject({name:'Require complete base prerequisites',env:{CI_BASE_NEEDS:'${{ toJSON(needs) }}'}});
+ expect(core.steps[1].if).toBeUndefined();
+ expect(core.steps[2].id).toBe('dedup');
+ expect(jobs['base-api-exclusive'].needs).toEqual(['base-api-plan','base-api-shards']);
+ expect(jobs['base-api-shards'].strategy).toEqual({'fail-fast':false,matrix:{shard:'${{ fromJSON(needs.base-api-plan.outputs.shards) }}'}});
+ for(const name of ['base-api-shards','base-api-exclusive']){
+  const job=jobs[name];expect(job['continue-on-error']).toBeUndefined();
+  expect(job.env.WORKSPACEX_DB.replace(/\$\{\{.*?\}\}/g,'1')).toMatch(/^[a-z0-9_]+$/);
+  const run=job.steps.find((step:any)=>step.name==='Execute complete API partition').run;
+  expect(run).toContain('set -o pipefail');expect(run).toContain('--reporter=json');
+  expect(job.steps.find((step:any)=>step.name==='Retain API execution evidence').if).toBe('always()');
+  expect(job.steps.find((step:any)=>step.name==='Release isolated PostgreSQL').if).toBe('always()');
+  expect(job.steps.some((step:any)=>step.run==='uv sync --frozen --extra dev')).toBe(true);
+ }
+ const scripts=JSON.parse(readFileSync('package.json','utf8')).scripts;
+ expect(scripts['verify:ci-base:raw']).not.toContain('--filter');
+ expect(scripts['verify:ci-base-other:raw']).toContain("--filter='!@repo/api'");
+ expect(core.steps.find((step:any)=>step.name==='Execute uncached trusted base gate').run).toContain('non-api-tests.log phases/phase-01-run-a-project/evidence/ci/api-tests.log');
+});
