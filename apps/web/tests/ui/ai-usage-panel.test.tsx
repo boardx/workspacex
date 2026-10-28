@@ -128,3 +128,20 @@ it("drills a Beijing chart bucket within the date window and keeps the snapshot"
  await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-10-01T16:00:00.000Z",end:"2026-10-02T16:00:00.000Z",asOf:summary.asOf,userId:"self-a"})));
  await screen.findByText("2026年10月2日");
 });
+
+it.each([
+ {kind:"unknown",current:{...totals,totalTokens:"0",reportedCalls:0,unknownCalls:1},label:"未上报",zero:false},
+ {kind:"native",current:{...totals,totalTokens:"0",reportedCalls:0,nativeCalls:1},label:"Token 不适用",zero:false},
+ {kind:"reported zero",current:{...totals,totalTokens:"0"},label:"0",zero:true},
+ {kind:"mixed unknown zero bucket",current:{...totals,callCount:2,unknownCalls:1},label:"8",zero:false},
+])("keeps overview Token coverage honest for $kind", async ({current,label,zero}) => {
+ vi.mocked(readAiUsage).mockResolvedValue({...summary,current,trend:[{day:"2026-10-02",totalTokens:"0",callCount:1}]});
+ render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+ await screen.findByRole("region",{name:"用量趋势"});
+ expect(screen.getByTestId("usage-overview-tokens").textContent).toBe(label);
+ const chart=screen.getByRole("img",{name:/2026-10-02：/});
+ expect(chart.getAttribute("aria-label")?.includes("0 Token")).toBe(zero);
+ expect(chart.querySelector("rect") !== null).toBe(zero);
+ fireEvent.click(screen.getByRole("button",{name:"按月"}));
+ expect(screen.getByRole("img",{name:/2026-10-01：/}).getAttribute("aria-label")?.includes("0 Token")).toBe(zero);
+});

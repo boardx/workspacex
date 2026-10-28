@@ -44,3 +44,9 @@ flowchart LR
  class C tested
  class D todo
 ```
+
+## Independent review round 1 — overview coverage correction
+
+Reviewer identified an integration regression: the default overview inherited literal zero Token presentation while develop's ledger/report guard correctly distinguished unreported/native-only consumption. The overview now calls the existing `recordedTotal` authority. Trend buckets share `recordedBucketTotal` in the same formatting module: known values remain numeric, pure unknown/native reports use the report guard, and zero buckets in mixed partial reports say `用量待确认` because the trend API has no per-bucket coverage counters. Ambiguous Token bars are omitted; call-count bars and drill-down remain available. No API contract or aggregation semantics changed.
+
+Added four default-overview cases covering unknown-only, native-only, reported zero, and a zero bucket in a mixed report, including accessible chart labels and monthly aggregation. Initial new-test run: 4 failed / 13 passed (`review-usage-red.log`). Final panel/format/chart run: 24 passed (`review-usage-tests.log`). Web typecheck and full web lint both exit 0 (`review-typecheck.log`, `review-lint.log`). The original merge commit and both parents remain intact; this fix is a subsequent commit. Independent rereview and remote CI remain pending.
