@@ -5,6 +5,13 @@ export const limits = {
   maxCommandBytes: 64 * 1024, maxOutputBytes: 64 * 1024, maxSessions: 16, maxExecutionsPerSession: 128,
   defaultTtlMs: 900000, maxTtlMs: 3600000, defaultTimeoutMs: 120000, maxTimeoutMs: 300000,
   maxRequestBytes: 24 * 1024 * 1024,
+  executionConcurrency: 1, executionMaxQueue: 16, executionOwnerConcurrency: 1,
+  executionOwnerMaxQueue: 3, executionQueueWaitMs: 15000,
+} as const;
+/** Admission failures: no user command was started. Safe to expose without raw server text. */
+export const capacityErrors = {
+  queueFull: 'CAPACITY_QUEUE_FULL', ownerLimit: 'CAPACITY_OWNER_LIMIT',
+  waitTimeout: 'CAPACITY_WAIT_TIMEOUT', cancelled: 'CAPACITY_CANCELLED',
 } as const;
 const Path = z.string().min(1).max(4096);
 const File = z.object({ path: Path, contentBase64: z.string().max(4 * Math.ceil(limits.maxFileBytes / 3)) }).strict();

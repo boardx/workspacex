@@ -26,7 +26,9 @@ from .upstream_compat import ensure_sandbox_compat
 from .native_skill_activity import observe_skill_read, observe_skill_execute
 
 
-LIMITS = json.loads((Path(__file__).parent / "generated" / "sandbox_session_schema.json").read_text())["limits"]
+_CONTRACT = json.loads((Path(__file__).parent / "generated" / "sandbox_session_schema.json").read_text())
+LIMITS = _CONTRACT["limits"]
+_CAPACITY_ERRORS = frozenset(_CONTRACT["capacityErrors"].values())
 
 
 _READ_CAPTURE_BYTES = 1024 * 1024
@@ -77,11 +79,11 @@ class HttpSessionSandbox(BaseSandbox):
         if not response.is_success:
             # Preserve only known conflict enums, never arbitrary server text or paths.
             reason = ""
-            if response.status_code == 409:
+            if response.status_code in (409, 429, 503):
                 try:
                     payload = response.json()
                     code = payload.get("error") if isinstance(payload, dict) else None
-                    if isinstance(code, str) and code in ("SESSION_BUSY", "SESSION_EXECUTION_CONFLICT", "SESSION_LIMIT"):
+                    if isinstance(code, str) and code in (_CAPACITY_ERRORS | {"SESSION_BUSY", "SESSION_EXECUTION_CONFLICT", "SESSION_LIMIT"}):
                         reason = f": {code}"
                 except ValueError:
                     pass

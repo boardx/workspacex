@@ -221,6 +221,13 @@
             "create_host_path": false
           }
         }
+      ],
+      "env_file": [
+        {
+          "path": "/etc/workspacex/sandbox-capacity.env",
+          "required": false,
+          "format": "raw"
+        }
       ]
     },
     "sandbox-sessions": {
@@ -276,6 +283,13 @@
           "bind": {
             "create_host_path": false
           }
+        }
+      ],
+      "env_file": [
+        {
+          "path": "/etc/workspacex/sandbox-capacity.env",
+          "required": false,
+          "format": "raw"
         }
       ]
     },

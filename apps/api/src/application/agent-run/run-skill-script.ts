@@ -1,3 +1,5 @@
+import { withScriptCancellation } from "./with-script-cancellation";
+import type { Principal } from "../../domain/principal";
 import { assertCurrentRunLease } from "./run-lease";
 import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
 /**
@@ -157,6 +159,7 @@ export interface MaybeRunSkillScriptDeps {
 }
 
 export interface MaybeRunSkillScriptInput {
+  readonly owner?: Principal;
   readonly inputFiles?: readonly SandboxInputFile[];
   readonly runId: string;
   /** 本次 run 钉住的 skill 版本数。0 ⇒ 不执行。 */
@@ -304,7 +307,12 @@ export async function maybeRunSkillScript(
     const loops = [];
     for (const scriptSource of scriptSources) {
       loops.push(await runScriptWithRetries({
-        sandbox: { run: async (request) => { await checkCancellation(); return sandbox.run(request); } },
+        owner: input.owner,
+        sandbox: { run: async (request) => {
+          if (!deps.cancelAtCheckpoint) return sandbox.run(request);
+          return withScriptCancellation(checkCancellation, signal => sandbox.run({ ...request,
+            signal: request.signal ? AbortSignal.any([signal, request.signal]) : signal }));
+        } },
         timeoutMs: deps.timeoutMs ?? CHAT_SCRIPT_TIMEOUT_MS,
         maxAttempts: deps.maxAttempts ?? MAX_SCRIPT_ATTEMPTS,
         inputFiles: input.inputFiles,

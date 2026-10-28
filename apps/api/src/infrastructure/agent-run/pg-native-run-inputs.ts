@@ -1,3 +1,4 @@
+import type { Principal } from "../../domain/principal";
 import { createHash } from 'node:crypto';
 import { NativeInputManifest } from '@repo/contracts/native-session-binding';
 import { limits } from '@repo/contracts/sandbox-session';
@@ -20,6 +21,7 @@ type Attachment = { id: string; filename: string; mime: string; bytes: string | 
 export class PgNativeRunInputs implements NativeRunInputs {
   constructor(private db: DatabasePort, private objects: ObjectStore, private visibility: ResolveVisibilityDeps) {}
   async read(context: ExecutionAuthorityContext) {
+    let owner: Principal | undefined;
     const rows = await this.db.withTenant(context.orgId, async s => {
       // #2931: a durable subtask provisions a native session too, but it owns no
       // `agent_runs` row -- the parent-scope read below would throw and kill every
@@ -37,6 +39,7 @@ export class PgNativeRunInputs implements NativeRunInputs {
       if (!facts) throw new Error('native_input_scope_unavailable');
       const decision = await resolveVisibility(this.visibility, {orgId:context.orgId,userId:run.author_id,threadId:run.thread_id,projectId:facts.projectId});
       if (decision.kind !== 'allow') throw new Error('native_input_scope_denied');
+      owner = {orgId:context.orgId,userId:run.author_id};
       // 候选 = 触发消息自己的附件 ∪ 正文以 `@<filename>` 点名的历史附件（同线程、同作者、
       // 人类消息）。`position()` 只是 SQL 侧的粗筛，让没被点名的历史附件根本不出库；精确的
       // 词边界与"同名取最新"由 domain 纯函数决定。maxFiles 上限在纯函数收敛之后再判。
@@ -65,6 +68,6 @@ export class PgNativeRunInputs implements NativeRunInputs {
       files.push({path,contentBase64:Buffer.from(bytes).toString('base64')});
       if (Buffer.byteLength(JSON.stringify({inputs:files})) > limits.maxRequestBytes) throw new Error('native_input_limit');
     }
-    return {manifest:NativeInputManifest.parse(manifest),files};
+    return {manifest:NativeInputManifest.parse(manifest),files,...(owner ? {owner} : {})};
   }
 }
