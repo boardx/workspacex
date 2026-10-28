@@ -148,17 +148,21 @@ test("TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处", a
   // ② Esc 关闭 + ③ 焦点返回触发它的地方。
   await page.keyboard.press("Escape");
   await expect(dialog, "TW-A11Y-5：Esc 没能关闭审批弹窗").toHaveCount(0, { timeout: 10_000 });
-  const focusReturned = await page.evaluate(
-    () => document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.tagName ?? "",
-  );
-  expect(
-    focusReturned,
-    [
-      "【差距 TW-A11Y-5】弹窗关闭后焦点没有回到原处（落在了 " + focusReturned + "）。",
-      "键盘用户会被弹回文档开头，丢失上下文。",
-      `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-5。`,
-    ].join("\n"),
-  ).toMatch(/copilotkit-v2-(input|send)/);
+  // Radix FocusScope restores focus in setTimeout(0) during unmount cleanup.
+  // A removed dialog does not yet prove that close-auto-focus has fired.
+  await expect.poll(
+    () => page.evaluate(
+      () => document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.tagName ?? "",
+    ),
+    {
+      message: [
+        "【差距 TW-A11Y-5】弹窗关闭后焦点没有回到输入框或发送按钮。",
+        "键盘用户会被弹回文档开头，丢失上下文。",
+        `判据见 ${ACCEPTANCE_DOC} 的 TW-A11Y-5。`,
+      ].join("\n"),
+      timeout: 10_000,
+    },
+  ).toMatch(/^copilotkit-v2-(input|send)$/);
 });
 
 test("TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差异）", async ({ page }) => {

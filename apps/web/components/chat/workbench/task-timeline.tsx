@@ -76,16 +76,25 @@ function TraceAssistant(props: React.ComponentProps<typeof CopilotChatAssistantM
   const trace = runId ? events[runId] : undefined;
   // 锚点从 context 读（永远是最新的一份），不再从可能被 memo 冻住的 `props.messages` 里重算。
   const isAnchor = runId !== undefined && anchors?.[runId] === props.message.id;
+  // A journal poll can discover a tool boundary while the live wire is still streaming.
+  // Preserve a body already painted for this bubble until the run resolves its final identity.
+  // Historical progress and bubbles first seen after classification remain collapsed.
+  const paintedBody = React.useRef<string | null>(null);
+  const bodyKey = JSON.stringify([runId, props.message.id]);
+  const awaitingFinalIdentity = props.isRunning && !trace?.some((event) => event.kind === "final_message");
+  const hideProgress = Boolean(trace && progressMessageIds(trace, resolvePersistedMessageId).has(props.message.id)
+    && !isSettledMessageId?.(props.message.id)
+    && !(awaitingFinalIdentity && paintedBody.current === bodyKey));
+  React.useLayoutEffect(() => {
+    if (!hideProgress && typeof props.message.content === "string" && props.message.content.length > 0) {
+      paintedBody.current = bodyKey;
+    }
+  }, [bodyKey, hideProgress, props.message.content]);
   return <>
     {runId && trace?.length && isAnchor ? <RunTracePanel runId={runId} events={trace} renderTool={renderExecutionTool} running={props.isRunning && !trace.some((event) => event.kind === "final_message")} expanded={expanded?.[runId] ?? false} onExpandedChange={(value) => toggle?.(runId, value)} /> : null}
     {trace && isAnchor ? <RunInterjections events={trace} readHistory={runId ? expanded?.[runId] : false} onResend={onResendInterjection} /> : null}
     <MessageRunContext.Provider value={runId ?? null}><RunTraceCoveredContext.Provider value={Boolean(trace?.length)}><V2AssistantMessage {...props} message={
-      // Journal tailing can deliver an earlier tool boundary after the live TEXT_MESSAGE_END.
-      // It may still classify that id as progress until `chat_message_id`/`final_message` catches
-      // up. Never let that delayed classification erase a body the browser already observed as
-      // complete; doing so produced the deterministic terminal 190→0→190 flash in #3397.
-      trace && progressMessageIds(trace, resolvePersistedMessageId).has(props.message.id)
-        && !isSettledMessageId?.(props.message.id)
+      hideProgress
         ? { ...props.message, content: "" }
         : props.message
     } /></RunTraceCoveredContext.Provider></MessageRunContext.Provider>

@@ -1,0 +1,46 @@
+{
+  "init-final.log": {
+    "rawSha256": "913f5da5092c3f4ebb5acdf084ab69b60eaab19a17016eb8dec3c643088fe6bb",
+    "normalizedSha256": "913f5da5092c3f4ebb5acdf084ab69b60eaab19a17016eb8dec3c643088fe6bb"
+  },
+  "pass1.log": {
+    "rawSha256": "20e3eccb08d97aa0adbc7601f14876c6c1bcbf428cb8f726e320d5b01ccb3bb8",
+    "normalizedSha256": "cdea694482d9f6fc768cfeea9b6cb82c37fe5f9939fe0cf4ad5a8d6ada48188a"
+  },
+  "pass2.log": {
+    "rawSha256": "9c155fe65842a80fb477c0ffdd26da7d78204e88d54488ec8f935c8e3dc379a9",
+    "normalizedSha256": "23830a1f0bb444d440708969323ef948bfdc4c3f346bfd29583aabbc859565c7"
+  },
+  "pass3.log": {
+    "rawSha256": "98afc2cba6c980319231a6b536fb67c08f87d216be36fb1d5b7e2139e3752d3a",
+    "normalizedSha256": "8495f204b564f41460b015e0026aace6b0dd520053a45fb0c91ce1c6f1989ef1"
+  },
+  "pass4.log": {
+    "rawSha256": "2c42811f9b2b9b3d99442c5f68c980b13bc5aad3d834261e6947514e154ddcac",
+    "normalizedSha256": "380473730beae294e329434d19a927d0f6e9e5721dc96fedb7700d99a903262d"
+  },
+  "provider-cancel-query-red.log": {
+    "rawSha256": "61d9d401f4b0e87dd5ccc9be585adb76d0327bd980bdee139ca99e5c932d443f",
+    "normalizedSha256": "61d9d401f4b0e87dd5ccc9be585adb76d0327bd980bdee139ca99e5c932d443f"
+  },
+  "provider-final-query-green.log": {
+    "rawSha256": "32494c61fa54866f77af9201d79585bf0de5b1ed40029195c893dbd9dca05c12",
+    "normalizedSha256": "4b6de38016e1d6f59286a4a9da3ed849937690fd4b818a5f6709280a48e29f85"
+  },
+  "provider-live-progress-counterfactual-red.log": {
+    "rawSha256": "79391712020074764c3893b0f03d72e6f477eadf72931e42f3214ba9a6a0f0ce",
+    "normalizedSha256": "79391712020074764c3893b0f03d72e6f477eadf72931e42f3214ba9a6a0f0ce"
+  },
+  "stream-red.log": {
+    "rawSha256": "9ebf7699bca800b0f0bb9b11a0e272b3b86a77f52e066e93738e69dae9528b04",
+    "normalizedSha256": "914be836c560767d6e80c0aaee08785daf4e55c2848b74a9494c24e4995b97f1"
+  },
+  "wsx-5978-final-grouping-static.log": {
+    "rawSha256": "1b5099edb88389af19776953621a47e92e780d23f0aa197a835583fe9209eade",
+    "normalizedSha256": "e5ad82d458c321cfb5dd027c789d243680ae0e096ed9a7c0799c9b720a090e8a"
+  },
+  "wsx-5978-unit.log": {
+    "rawSha256": "891e18a4da619616f72399b9ba7b66401c184f878614f291f30abb5d4b80733d",
+    "normalizedSha256": "4ed6c283eb11e5019d2df040f49c7dae8c3eda9a019cb2458d5fe54208d01756"
+  }
+}

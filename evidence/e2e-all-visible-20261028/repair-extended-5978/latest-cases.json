@@ -1,0 +1,505 @@
+[
+  {
+    "file": "chat-attachment-image-vision-extraction.spec.ts",
+    "project": "chat-read",
+    "title": "F153/#1560 P1：真实浏览器上传图片附件走 VLM，本机无视觉 key → 诚实降级为 failed，不假装已读取图片内容",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 23543,
+    "attachments": []
+  },
+  {
+    "file": "chat-attachment-image-vision-extraction.spec.ts",
+    "project": "chat-read",
+    "title": "F153 附件在消息气泡里只读展示且不谎称已读取内容（v2 尚无对等实现，issue #2997 缺口）",
+    "status": "skipped",
+    "resultStatus": "skipped",
+    "wave": "pass1",
+    "durationMs": 0,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-capability-cards.spec.ts",
+    "project": "chat-read",
+    "title": "TW-P0-2①：入口是「选择能力」且默认自动匹配、可展开",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 7286,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-capability-cards.spec.ts",
+    "project": "chat-read",
+    "title": "TW-P0-2②：每张能力卡披露六项（擅长/工具技能/可读材料/写权限/记忆范围/当前状态）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 6427,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-capability-cards.spec.ts",
+    "project": "chat-read",
+    "title": "TW-P0-2③：模型名 / middleware / LangGraph 节点等技术信息不出现在主界面",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 5538,
+    "attachments": []
+  },
+  {
+    "file": "copilotkit-v2-stream-frame-timing.spec.ts",
+    "project": "chat-read",
+    "title": "DA-19g 流式反馈 UI 帧级复核——assistant 正文的 DOM 文本长度随时间逐步增长，不是一次性跳变",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 10623,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-a11y.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-A11Y-1：/chat 工作台对比度零违规（axe color-contrast，含灰色辅助文字）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 51444,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-a11y.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-A11Y-2/3：小图标与圆形按钮点击区 ≥24×24，且仅图标按钮有可访问名",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 32560,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-a11y.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-A11Y-4：Agent 状态 / 工具完成 / 审批请求有 live region 播报",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 32122,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-a11y.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 12755,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-a11y-TW-A11Y-5：审批弹窗焦点锁定-Esc-关闭-焦点返回原处-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-a11y-TW-A11Y-5：审批弹窗焦点锁定-Esc-关闭-焦点返回原处-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-a11y.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-A11Y-6：语音状态不能只靠颜色（须并存文本或图标差异）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 20232,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-a11y.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-A11Y-7：200% 缩放与窄屏重排不产生横向滚动",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 19486,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-a11y.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-A11Y-8：Tab 顺序与焦点可见性（axe cat.keyboard 打在真实 /chat 上）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 12596,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-approval.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-6①：审批界面四选一按钮齐（仅本次 / 本 run 内 / 以后都允许 / 拒绝）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 12525,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-approval.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-6②：审批卡披露五项（想做什么 / 为什么 / 影响面 / 完整参数 / 风险等级）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 12092,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-approval.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-6③：风险分级生效——纯读操作不得弹审批（反证面）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 33002,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-inspector.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-4①：右栏提供材料 / 产物 / 运行详情，计划只在消息流显示",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 10594,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-inspec-5849f-4①：右栏提供材料-产物-运行详情，计划只在消息流显示-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-inspec-5849f-4①：右栏提供材料-产物-运行详情，计划只在消息流显示-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-inspector.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-4②：材料与产物自动切换，运行开始保留用户所选页签",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass3",
+    "durationMs": 27554,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass3-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass3-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-inspector.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-4③：无内容时折叠，不常驻占六分之一屏",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 12504,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-inspector-TW-P0-4③：无内容时折叠，不常驻占六分之一屏-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-inspector-TW-P0-4③：无内容时折叠，不常驻占六分之一屏-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-tool-events.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-7①：事件行措辞面向用户，不印裸工具名 / 裸 JSON / 裸枚举",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 31509,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-tool-events.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-7②：不暴露隐藏思维链",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 30835,
+    "attachments": []
+  },
+  {
+    "file": "chat-task-workbench-tool-events.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-7③：子 Agent 是可折叠树，默认摘要，展开看输入/工具/耗时/结果",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass1",
+    "durationMs": 30749,
+    "attachments": []
+  },
+  {
+    "file": "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+    "project": "chat-path-coverage",
+    "title": "@path:F5 父 run 取消之后，它派出去的子任务停下来，且不再发布晚到的产物",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass3",
+    "durationMs": 165834,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass3-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass3-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "deepagent-plan-execute-reliability.spec.ts",
+    "project": "chat-path-coverage",
+    "title": "deep-agent 计划→执行：成功率矩阵",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass4",
+    "durationMs": 442876,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass4-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass4-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-p1-efficiency.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P1-1：对话自动命名——线程列表不得一屏全是「新对话」",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 14257,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-c1e0e-1-1：对话自动命名——线程列表不得一屏全是「新对话」-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-c1e0e-1-1：对话自动命名——线程列表不得一屏全是「新对话」-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-p1-efficiency.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P1-2：材料预加载——选线程之前就能加材料",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 11360,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-2：材料预加载——选线程之前就能加材料-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-2：材料预加载——选线程之前就能加材料-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-p1-efficiency.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持久化侧）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 27304,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-5f962-工具事件与子-Agent-摘要在刷新后仍在（持久化侧）-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-5f962-工具事件与子-Agent-摘要在刷新后仍在（持久化侧）-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-p1-efficiency.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass3",
+    "durationMs": 12954,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass3-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass3-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-p1-efficiency.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P1-5a：暂停 / 恢复——run 真的在跑的时候控件真实可点",
+    "status": "skipped",
+    "resultStatus": "skipped",
+    "wave": "pass2",
+    "durationMs": 257,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-e8032-5a：暂停-恢复——run-真的在跑的时候控件真实可点-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-e8032-5a：暂停-恢复——run-真的在跑的时候控件真实可点-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-p1-efficiency.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P1-5b：重试单步——失败态必须有可操作的恢复入口",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 12889,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-c7714--P1-5b：重试单步——失败态必须有可操作的恢复入口-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-p1-eff-c7714--P1-5b：重试单步——失败态必须有可操作的恢复入口-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-workflow-states.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-3①：阶段指示器按态出现——需要决策时在、无 run 时不在、收起后仍可触达",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 21458,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-workfl-e12de-现——需要决策时在、无-run-时不在、收起后仍可触达-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-workfl-e12de-现——需要决策时在、无-run-时不在、收起后仍可触达-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-workflow-states.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步骤 / 加约束",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 11771,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-workfl-0eb87-②③：计划面板文案面向用户，且可调顺序-删步骤-加约束-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-workfl-0eb87-②③：计划面板文案面向用户，且可调顺序-删步骤-加约束-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-workflow-states.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条件性确认门）",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass3",
+    "durationMs": 30804,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass3-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass3-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-workflow-states.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-3⑤：执行态显示当前步骤 / 完成比例 / 耗时，且可暂停",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 12223,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-workfl-6866e-0-3⑤：执行态显示当前步骤-完成比例-耗时，且可暂停-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-workfl-6866e-0-3⑤：执行态显示当前步骤-完成比例-耗时，且可暂停-chat-task-workbench/trace.zip"
+      }
+    ]
+  },
+  {
+    "file": "chat-task-workbench-workflow-states.spec.ts",
+    "project": "chat-task-workbench",
+    "title": "TW-P0-3⑥：失败态说明失败步骤，并给出契约支持的重试该步 / 修改输入",
+    "status": "expected",
+    "resultStatus": "passed",
+    "wave": "pass2",
+    "durationMs": 10702,
+    "attachments": [
+      {
+        "name": "screenshot",
+        "path": "pass2-browser/chat-task-workbench-workfl-c016d-失败态说明失败步骤，并给出契约支持的重试该步-修改输入-chat-task-workbench/test-finished-1.png"
+      },
+      {
+        "name": "trace",
+        "path": "pass2-browser/chat-task-workbench-workfl-c016d-失败态说明失败步骤，并给出契约支持的重试该步-修改输入-chat-task-workbench/trace.zip"
+      }
+    ]
+  }
+]

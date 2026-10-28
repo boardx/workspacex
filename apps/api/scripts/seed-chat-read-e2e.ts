@@ -5,6 +5,7 @@
  * writes a dedicated tenant, and the browser still reads every value through the real
  * login, identity and Chat HTTP controllers.
  */
+import { seedChatArtifactConsumer } from "./chat-read-artifact-consumer-fixture";
 import { agentDefaults } from "@repo/contracts";
 import {seedChatReadAsrCreditTariff} from "./chat-read-asr-credit-fixture";
 import { defaultAgentE2eCandidates, defaultAgentE2eIdentity } from "./chat-default-agent-e2e-identity";
@@ -938,6 +939,10 @@ await asApp(defaultFixture.orgId, async (client) => {
     }
   }
 });
+
+await seedChatArtifactConsumer({ orgId: ORG_ID, userId: USER_ID, agentId: AGENT_ID,
+  agentVersionId: AGENT_VERSION_ID, modelProvider: AGENT_MODEL_PROVIDER, modelId: AGENT_MODEL_ID,
+  threadId: `${THREAD_ID}-artifact-consumer` });
 
 process.stdout.write(
   `[chat-read-e2e-fixture] seeded org=${ORG_ID} project=${PROJECT_ID} thread=${THREAD_ID} messages=51 `
