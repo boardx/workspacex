@@ -887,6 +887,22 @@ jobs:
               --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
           fi
           exit "$status"
+      - name: Collect base task logs (success or failure)
+        if: always() && steps.dedup.outputs.run == 'true'
+        shell: bash
+        run: |
+          destination=phases/phase-01-run-a-project/evidence/ci/task-logs
+          mkdir -p "$destination"
+          for source in apps packages; do
+            if [ -d "$source" ]; then
+              find "$source" -type d -name node_modules -prune -o -type f -path '*/.turbo/turbo-test.log' -print0 |
+                while IFS= read -r -d '' log; do
+                  task_dir=${log%/.turbo/turbo-test.log}
+                  mkdir -p "$destination/$task_dir"
+                  cp "$log" "$destination/$task_dir/test.log"
+                done
+            fi
+          done
       - name: Upload E2E evidence (success or failure)
         if: always() && steps.dedup.outputs.run == 'true'
         uses: actions/upload-artifact@v6
