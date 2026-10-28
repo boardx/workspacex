@@ -16,14 +16,14 @@ beforeEach(()=>{vi.clearAllMocks();vi.mocked(readAiUsage).mockResolvedValue(summ
 describe("AI usage live endpoint projection (fixture, not live backend)",()=>{
  it("shows coverage/unknown price and drills member×model to same-ledger calls",async()=>{
   render(<AiUsagePanel orgId="org-a" platform/>);
-  await screen.findByText("receipt-a");expect(screen.getByText(/当前覆盖不完整/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("tab",{name:"调用明细"}));await screen.findByText("receipt-a");expect(screen.getByText(/当前覆盖不完整/)).toBeTruthy();
   expect(screen.getByText("未配置价格/未报告")).toBeTruthy();
   fireEvent.click(screen.getByRole("button",{name:"member-a / p / m · 8"}));
   await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",true,expect.objectContaining({userId:"member-a",modelProvider:"p",modelId:"m"})));
   await waitFor(()=>expect(readAiUsageCalls).toHaveBeenLastCalledWith("org-a",true,expect.objectContaining({asOf:summary.asOf,userId:"member-a",modelProvider:"p",modelId:"m"})));
  });
  it("personal view remains forced self even after clearing filters",async()=>{
-  render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);await screen.findByText("receipt-a");
+  render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);fireEvent.click(screen.getByRole("tab",{name:"调用明细"}));await screen.findByText("receipt-a");
   fireEvent.click(screen.getByRole("button",{name:"清除分组筛选"}));
   await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"})));
   expect(readAiUsageCalls).toHaveBeenCalledWith("org-a",false,expect.objectContaining({userId:"self-a"}));
@@ -38,6 +38,31 @@ describe("AI usage live endpoint projection (fixture, not live backend)",()=>{
 it("shows native units with Token not applicable instead of reported zero Tokens",async()=>{
  vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",nextCursor:null,calls:[{...call,totalTokens:"0",inputTokens:null,outputTokens:null,totalSource:"not-applicable",nativeUsage:{unit:"millisecond",quantity:"2000",source:"estimated"}}]});
  render(<AiUsagePanel orgId="org-a"/>);
+ fireEvent.click(screen.getByRole("tab",{name:"调用明细"}));
  await waitFor(()=>expect(screen.getByText(/Token 不适用/)).toBeTruthy());
  expect(screen.getByText(/2000 millisecond · estimated/)).toBeTruthy();
+});
+
+it("defaults to chart overview with calendar grouping, cost gaps and detail navigation",async()=>{
+ render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+ await screen.findByRole("region",{name:"用量趋势"});
+ expect(screen.getByRole("tab",{name:"汇总图表"}).getAttribute("aria-selected")).toBe("true");
+ expect(screen.queryByText("receipt-a")).toBeNull();
+ expect(screen.getByText("暂无已计价数据")).toBeTruthy();
+ fireEvent.click(screen.getByRole("button",{name:"按月"}));
+ expect(screen.getByRole("img",{name:/2026-10-01/})).toBeTruthy();
+ fireEvent.click(screen.getByRole("button",{name:"本周"}));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"})));
+ fireEvent.click(screen.getByRole("button",{name:"查看当前筛选明细"}));
+ await screen.findByText("receipt-a");
+});
+it("shows mixed currencies separately and preserves report snapshot when drilling a model",async()=>{
+ vi.mocked(readAiUsage).mockResolvedValue({...summary,timezone:'Asia/Shanghai',start:'2026-09-30T16:00:00Z',end:'2026-10-03T00:00:00Z',costs:[{currency:'CNY',costMicros:'1',pricedCalls:1},{currency:'USD',costMicros:'2000000',pricedCalls:1}],unpricedCalls:3,dailyCosts:[]});
+ render(<AiUsagePanel orgId="org-a"/>);
+ await screen.findByText('CNY 0.000001');expect(screen.getByText('USD 2.000000')).toBeTruthy();
+ expect(screen.getByText('已计价 2 次 · 未计价 3 次')).toBeTruthy();
+ // This fixture's October bucket lies outside today's initial window; test the preserved snapshot via model drill instead.
+ fireEvent.click(screen.getByRole('button',{name:'p / m · 8'}));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith('org-a',false,expect.objectContaining({asOf:summary.asOf,modelId:'m'})));
+ await screen.findByText('receipt-a');
 });
