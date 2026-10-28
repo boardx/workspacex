@@ -564,6 +564,15 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
       - run: pnpm --filter web exec playwright test --config playwright.organization-create.config.ts
+      # #5969: reuse the existing API-fixture browser runner and Chromium install.
+      - name: Verify research route continuity with controlled HTTP
+        run: pnpm --filter web exec playwright test --config e2e/research-route-continuity.config.ts
+      - name: Upload research route fixture screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: research-route-continuity-api-fixture-${{ github.run_id }}
+          path: docs/evidence/research-route-5969/browser-results/
       - name: Upload organization creation fixture screenshots
         if: always()
         uses: actions/upload-artifact@v6

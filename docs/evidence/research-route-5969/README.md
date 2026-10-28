@@ -69,3 +69,9 @@ flowchart LR
 - 本次不重复已绿的完整研究测试、浏览器与 init；既有370项和受控 Chromium证据属于前次实现验证。本次只报告新增修复的定向结果，不扩大为真实服务端或线上验收。
 
 仍需父 chat 对本次最终 SHA 明确验收，之后才可创建 base=develop、Closes #5969 的 PR。
+
+## PR #5971 CI 接线修正
+
+父 chat 已验收 f9387eabf，创建 base=develop 的 PR #5971。首轮 verify-control-plane 的 spec ↔ 门控可达性失败：新 research-route-continuity.spec.ts 仅由本地命令调用，未注册到 CI。本地门控复现 unrun（ci-spec-gate-red.log）。
+
+在现有 organization-create 浏览器 job 复用 pnpm / Chromium 安装，增加受控 HTTP 研究 route spec 和截图/trace上传；不增加 runner、不改门控脚本或豁免，不改产品代码。完整可达性门控转绿，静态发现链路为 harness-verify.yml#organization-create 无条件调用该 config；对应门控24项测试通过，日志 ci-spec-gate-green.log / ci-spec-gate-tests.log。静态注册通过不代表本次 CI 浏览器执行已经通过，需继续检查更新后的 CI。
