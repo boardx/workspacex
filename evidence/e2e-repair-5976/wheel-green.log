@@ -1,0 +1,4 @@
+native {"dx":47,"dy":31,"trusted":true}
+fabric {"dx":47,"dy":31,"t":[1,0,0,1,-47,-31]}
+BROWSER 151.0.7922.34 { dpr: 1, screen: 1440 }
+FINAL [ 1, 0, 0, 1, -47, -31 ]
