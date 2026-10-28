@@ -150,6 +150,8 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   const [pendingNode, setPendingNode] = React.useState<Command["node"] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
+  const routeValidationKey = JSON.stringify([initialNode, routeStage]);
+  const [validatedRoute, setValidatedRoute] = React.useState<string | null>(null);
   const [validationRevision, revalidate] = React.useReducer((value: number) => value + 1, 0);
   const preferredNode = React.useRef(initialNode);
   const routeInput = React.useRef({ initialNode, routeStage });
@@ -208,6 +210,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   React.useEffect(() => { rememberDraft(); }, [draft, rememberDraft]);
   React.useEffect(() => {
     let active = true;
+    setValidatedRoute(null);
     const epoch = responseEpoch.current;
     const baseline = snapshotRef.current;
     const cached = loadAttempt === 0 ? baseline ?? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
@@ -229,6 +232,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
     // Include the baseline in the key: a patch is meaningful only for that snapshot.
     void readResearchOnce(sessionId, "runtime", cacheScope, read, cached).then((received) => {
       if (!active || epoch !== responseEpoch.current || getResearchMemoryScope() !== cacheScope) return;
+      setValidatedRoute(routeValidationKey);
       const current = snapshotRef.current;
       const next = newestSnapshot(received, current);
       const target = targetOf(next);
@@ -250,7 +254,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
       setError(requestError(cause));
     });
     return () => { active = false; };
-  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope, validationRevision, rememberDraft]);
+  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope, validationRevision, rememberDraft, routeValidationKey]);
   React.useEffect(() => () => {
     sessionGeneration.current += 1;
     streamController.current?.abort(); recoveryController.current?.abort();
@@ -344,7 +348,7 @@ function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetr
   React.useEffect(() => {
     // Only a newly created session on the confirmed destination can bootstrap.
     // Persisted busy/failed sessions are restored, never replayed on refresh.
-    if (!state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || state.version !== 0 || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
+    if (validatedRoute !== routeValidationKey || !state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || state.version !== 0 || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
     bootstrapStarted.current = true;
     void run("prepare_plan", { node: "brief", draft: { node: "brief", value: state.brief } });
   });

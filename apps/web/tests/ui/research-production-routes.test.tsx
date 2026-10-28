@@ -5,11 +5,12 @@ import { ResearchNewRoute } from "@/components/research-studio/research-new-rout
 import { ResearchIntake } from "@/components/research-studio/research-intake";
 import { ResearchStageRoute } from "@/components/research-studio/research-stage-route";
 import { createGuidedResearchSession, getGuidedResearchSession, getResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
-import { getStoredSessionToken } from "@/lib/api-client";
+import { updateGuidedResearchMetadata } from "@/lib/live-guided-research-api";
+import { apiRequest, getStoredSessionToken } from "@/lib/api-client";
 import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
 import { research } from "@repo/contracts";
 
-vi.mock("@/lib/api-client", async (original) => ({ ...await original<typeof import("@/lib/api-client")>(), getStoredSessionToken: vi.fn() }));
+vi.mock("@/lib/api-client", async (original) => ({ ...await original<typeof import("@/lib/api-client")>(), getStoredSessionToken: vi.fn(), apiRequest: vi.fn() }));
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -237,4 +238,17 @@ it("shows a cached name immediately and validates it against the backend", async
   finish({ title: "新研究名" } as never);
   await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "新研究名"));
   expect(readResearchMemory("renamed")?.name).toBe("新研究名");
+});
+
+it("does not roll back a successful rename when an earlier metadata read resolves", async () => {
+  vi.mocked(getStoredSessionToken).mockReturnValue("rename-account");
+  writeResearchMemory("rename-race", { name: "名称A" }, "rename-account");
+  let finish!: (value: Awaited<ReturnType<typeof getGuidedResearchSession>>) => void;
+  vi.mocked(getGuidedResearchSession).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  render(<ResearchStageRoute sessionId="rename-race" stage="import" />);
+  vi.mocked(apiRequest).mockResolvedValue({ sessionId: "rename-race", title: "改名成功B", brief: { topic: "主题", goal: "需求", timeRange: "", region: "", focus: "" }, stage: "report", resumeStage: "report", status: "active", progress: 100, sourceCount: 1, reportId: null, createdAt: "2026-10-28", updatedAt: "2026-10-28" });
+  await updateGuidedResearchMetadata("rename-race", { title: "改名成功B", tags: [] });
+  finish({ title: "名称A" } as never);
+  await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "改名成功B"));
+  expect(readResearchMemory("rename-race")?.name).toBe("改名成功B");
 });

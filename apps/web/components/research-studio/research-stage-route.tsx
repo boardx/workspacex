@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getGuidedResearchSession } from "@/lib/guided-research-api";
-import { readResearchMemory, writeResearchMemory, getResearchMemoryScope, readResearchOnce } from "@/lib/guided-research-memory";
+import { readResearchMemory, acceptResearchNameRead, getResearchMemoryScope, readResearchOnce } from "@/lib/guided-research-memory";
 import { GuidedResearchLive } from "./guided-research-live";
 import { RESEARCH_STAGE_NODES } from "@/lib/guided-research-routes";
 import type { GuidedResearchVisualStage } from "@/lib/guided-research-six-step";
@@ -15,10 +15,11 @@ export function ResearchStageRoute({ sessionId, stage }: { sessionId: string; st
   const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
     let active = true;
-    readResearchOnce(sessionId, "metadata", cacheScope, () => getGuidedResearchSession(sessionId)).then((session) => {
+    const revision = readResearchMemory(sessionId, cacheScope)?.nameRevision ?? 0;
+    readResearchOnce(sessionId, `metadata:${revision}`, cacheScope, () => getGuidedResearchSession(sessionId)).then((session) => {
       if (active && getResearchMemoryScope() === cacheScope) {
-        setMetadata({ sessionId, title: session.title, scope: cacheScope });
-        writeResearchMemory(sessionId, { name: session.title }, cacheScope);
+        const title = acceptResearchNameRead(sessionId, session.title, revision, cacheScope);
+        if (title !== undefined) setMetadata({ sessionId, title, scope: cacheScope });
       }
     }).catch(() => { /* Runtime loading owns access and connection errors. */ });
     return () => { active = false; };

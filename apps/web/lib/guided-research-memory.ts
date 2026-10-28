@@ -3,7 +3,7 @@ import type { GuidedResearchRuntimeDraft, GuidedResearchRuntime } from "./guided
 
 // Page-memory only: a reload starts empty. Never share state between credentials.
 let owner: string | null = null;
-type Memory = { runtime?: GuidedResearchRuntime; name?: string; drafts?: Partial<Record<GuidedResearchRuntimeDraft["node"], GuidedResearchRuntimeDraft>> };
+type Memory = { runtime?: GuidedResearchRuntime; name?: string; nameRevision?: number; drafts?: Partial<Record<GuidedResearchRuntimeDraft["node"], GuidedResearchRuntimeDraft>> };
 const sessions = new Map<string, Memory>();
 const reads = new Map<string, { baseline?: object; request: Promise<unknown> }>();
 export function getResearchMemoryScope(): string | null {
@@ -29,7 +29,7 @@ export function writeResearchMemory(sessionId: string, value: Memory, scope: str
   if (!current(scope)) return;
   const old = sessions.get(sessionId);
   sessions.delete(sessionId);
-  sessions.set(sessionId, { ...old, ...value });
+  sessions.set(sessionId, { ...old, ...value, ...(value.name !== undefined ? { nameRevision: (old?.nameRevision ?? 0) + 1 } : {}) });
   // Bound detached sessions; the durable API remains the recovery authority.
   while (sessions.size > 3) sessions.delete(sessions.keys().next().value!);
 }
@@ -47,4 +47,13 @@ export function readResearchOnce<T>(sessionId: string, kind: string, scope: stri
 
 export function forgetResearchMemory(sessionId: string, scope: string | null) {
   if (current(scope)) sessions.delete(sessionId);
+}
+
+// All name writes advance one revision, including successful rename mutations.
+export function acceptResearchNameRead(sessionId: string, name: string, revision: number, scope: string | null): string | undefined {
+  if (!scope) return name;
+  if (!current(scope)) return undefined;
+  const memory = readResearchMemory(sessionId, scope);
+  if ((memory?.nameRevision ?? 0) === revision) writeResearchMemory(sessionId, { name }, scope);
+  return readResearchMemory(sessionId, scope)?.name;
 }

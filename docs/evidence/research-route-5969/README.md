@@ -57,3 +57,15 @@ flowchart LR
  class D doing
  class E todo
 ```
+
+## 父 chat 复审修正（2026-10-28）
+
+父 chat 在 a99a64a0 发现两项 P2，当前补充：
+
+- 热缓存 version0 不再直接触发 prepare_plan；当前 route 后端校验成功后才允许既有新建确认引导。延迟 GET 期间零执行、后端版本已推进、403 拒绝访问均不启动；后端确认仍为新建状态时保持一次正常启动。
+- 名称读写共用 memory nameRevision；成功改名推进代际，较早 metadata GET 只能保留已保存的新名称。测试实际调用 updateGuidedResearchMetadata 成功写入 B 后，才释放返回 A 的旧 GET。
+- review-red.log：两条新增路径在修复前复现，3 failed / 39 passed。review-tests.log：5 个定向文件、76 项通过（包含新建正例、真实 metadata mutation、既有三步流程与步骤切换）。独立 reviewer 另跑3个文件48项通过，无新的重要发现。
+- Web 类型检查与本次3个业务文件的定向 Next lint 通过，日志 review-typecheck.log、review-lint.log；完整 baseline..HEAD 的 diff --check 也通过。
+- 本次不重复已绿的完整研究测试、浏览器与 init；既有370项和受控 Chromium证据属于前次实现验证。本次只报告新增修复的定向结果，不扩大为真实服务端或线上验收。
+
+仍需父 chat 对本次最终 SHA 明确验收，之后才可创建 base=develop、Closes #5969 的 PR。

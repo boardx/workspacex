@@ -9,7 +9,7 @@ it("retains all steps across navigation and merges metadata without replacing ru
   const runtime = runtimeFixture("outline");
   writeResearchMemory("s", { runtime }, "account-a");
   writeResearchMemory("s", { name: "研究一" }, "account-a");
-  expect(readResearchMemory("s")).toEqual({ runtime, name: "研究一" });
+  expect(readResearchMemory("s")).toMatchObject({ runtime, name: "研究一" });
 });
 it("clears state on account changes and rejects late responses from previous credentials", () => {
   writeResearchMemory("s", { runtime: runtimeFixture("outline") }, "account-a");

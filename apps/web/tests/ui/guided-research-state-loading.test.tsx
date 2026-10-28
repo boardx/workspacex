@@ -166,3 +166,39 @@ it("deduplicates a cold read across React StrictMode mounts", async () => {
   await act(async () => finish(runtimeFixture("brief", "strict")));
   expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValue("评估进入策略");
 });
+
+it("does not bootstrap from a warm version-zero cache before route validation succeeds", async () => {
+  const cached = { ...runtimeFixture("brief"), version: 0, generatedNodes: [] };
+  writeResearchMemory(cached.sessionId, { runtime: cached }, "account");
+  let finish!: (patch: Awaited<ReturnType<typeof getResearchRuntimeProgress>>) => void;
+  vi.mocked(getResearchRuntimeProgress).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  vi.mocked(executeResearchRuntime).mockResolvedValue(runtimeFixture("outline"));
+  render(<GuidedResearchLive sessionId={cached.sessionId} initialNode="outline" visualStage="plan" onBack={vi.fn()} />);
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
+  await act(async () => finish({ type: "patch", sessionId: cached.sessionId, version: 4, revision: 2, changes: { currentNode: "outline", availableNodes: ["brief", "directions", "outline"] }, removed: [] }));
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
+});
+it("does not bootstrap from a stale cache when the route read denies access", async () => {
+  const cached = { ...runtimeFixture("brief"), version: 0, generatedNodes: [] };
+  writeResearchMemory(cached.sessionId, { runtime: cached }, "account");
+  const { ApiError } = await import("@/lib/api-client");
+  vi.mocked(getResearchRuntimeProgress).mockRejectedValue(new ApiError(403, "FORBIDDEN", null));
+  vi.mocked(executeResearchRuntime).mockImplementation(() => new Promise(() => undefined));
+  render(<GuidedResearchLive sessionId={cached.sessionId} initialNode="outline" visualStage="plan" onBack={vi.fn()} />);
+  await screen.findByRole("button", { name: "重试加载" });
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
+});
+
+it("bootstraps a newly confirmed warm intake only after successful route validation", async () => {
+  const cached = { ...runtimeFixture("brief"), version: 0, generatedNodes: [] };
+  writeResearchMemory(cached.sessionId, { runtime: cached }, "account");
+  let finish!: (patch: Awaited<ReturnType<typeof getResearchRuntimeProgress>>) => void;
+  vi.mocked(getResearchRuntimeProgress).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  vi.mocked(executeResearchRuntime).mockResolvedValue(runtimeFixture("outline"));
+  render(<GuidedResearchLive sessionId={cached.sessionId} initialNode="outline" visualStage="plan" onBack={vi.fn()} />);
+  expect(executeResearchRuntime).not.toHaveBeenCalled();
+  await act(async () => finish({ type: "patch", sessionId: cached.sessionId, version: 0, revision: cached.revision, changes: {}, removed: [] }));
+  await screen.findByTestId("guided-research-plan-panel");
+  expect(executeResearchRuntime).toHaveBeenCalledTimes(1);
+  expect(vi.mocked(executeResearchRuntime).mock.calls[0]?.[0]).toMatchObject({ action: "prepare_plan", expectedVersion: 0 });
+});
