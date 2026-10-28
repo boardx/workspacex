@@ -65,3 +65,11 @@ flowchart LR
   %% evidence B: pnpm --filter web exec vitest run tests/ui/billing-cashier.test.tsx (45 passed)
   %% evidence C: pnpm --filter web exec playwright test --config playwright.billing-cashier.config.ts (1 passed)
 ```
+
+## main/develop 整合时保留的历史截图
+
+原路径保留 develop 重验产物；main 的不同版本另存：
+
+- [main cashier-375-pending.png](browser/cashier-375-pending-main.png)
+- [main cashier-375-success.png](browser/cashier-375-success-main.png)
+- [main cashier-768-pending.png](browser/cashier-768-pending-main.png)

@@ -1,5 +1,14 @@
 # GitHub Runner → ACR → DevApp / CN
 
+Host installation accepts an optional environment scope:
+`sudo bash scripts/install-image-release.sh ghrunner cn` (or `devapp`). It installs
+root-owned fixed wrappers and grants only that environment's deployment command
+plus the no-argument metadata helper `workspacex-image-host-status`. Omitting the
+scope retains the original both-environments behavior. It does not create live
+environment policy, registry credentials, business probes or change services.
+Use the workflow's `host_permission_probe` option to report the actual runner
+account and verify fixed-entry access and rejection of cross-environment calls.
+
 The `image-release` workflow builds the five existing release Dockerfiles on
 GitHub-hosted Ubuntu. It has no dependency on PR or backend-gates jobs. Tags are
 `<full-source-SHA>-<GitHub-run-id>-<attempt>` and never overwritten. Rerun **all**
@@ -49,8 +58,17 @@ repositories or change RAM policies just to make login pass.
    <runner-user>`. This installs a content-addressed root-owned closure and one
    fixed sudo entry; it does not deploy. Account permission changes require the
    operator's normal approval.
-3. Give the host a root-private Docker credential directory with an existing
-   **pull-only** ACR login. Do not copy GitHub's write credential to runtime hosts.
+3. Configure the host's existing ECS role through `ecsAuth` in its root policy
+   (example below). Each release obtains fresh IMDSv2/ACR temporary credentials,
+   verifies the ECS instance identity and requires at least 16 minutes of remaining
+   credential lifetime. Docker login uses stdin and a temporary root-private
+   directory inside a systemd-owned `/run` directory. Python removes it on normal
+   completion/exceptions; systemd removes the parent when the service exits,
+   including forced termination. Credentials and raw
+   provider errors are never printed. Grant `cr:GetAuthorizationToken` and only
+   `cr:PullRepository` for the five release repositories. Alternatively, an existing
+   root-private `dockerConfig` may be used; configure exactly one auth mode.
+   Do not copy GitHub's write credential to runtime hosts.
 4. Create `/etc/workspacex-image-release/{devapp,cn}.json`, root:root 0600. See
    `deploy/examples/registry-image-release.json`; replace every example value with
    observed live configuration and hashes. Pin the full business/browser probe's
@@ -63,6 +81,20 @@ repositories or change RAM policies just to make login pass.
 5. Prepare a root:root 0700 state directory. Reuse the canonical existing lock:
    DevApp `/run/workspacex-devapp-deploy.lock`, CN
    `/var/lib/workspacex-cn/runtime/release.lock` (root:root 0600, single link).
+
+Example ECS auth policy fragment (replace with observed host/ACR identities;
+remove `dockerConfig` when using this mode):
+
+```json
+{
+  "ecsAuth": {
+    "region": "cn-shanghai",
+    "instanceId": "cri-REPLACE",
+    "roleName": "REPLACE-PULL-ONLY-ROLE",
+    "ecsInstanceId": "i-REPLACE"
+  }
+}
+```
 
 The fixed helper clears the caller environment. The deployment runs in a
 systemd service so runner cancellation cannot kill recovery midway. Each
@@ -95,6 +127,14 @@ stops before replacement.
 
 ## Usage and cutover
 
+For the first current-version baseline build, set `build_only=true` and
+`source_revision` to that environment's exact 40-character source SHA. The build
+checks out that source for Dockerfiles/context, base defaults, labels and tag;
+producer code stays at the workflow revision. This is useful when the source
+predates the new workflow. The shared-image wrapper now forwards `release_sha`
+instead of silently building its own workflow commit. An override without
+`build_only` is rejected before checkout; it cannot trigger a host deployment.
+
 Manual workflow dispatch on `main`: choose `devapp` or `cn`; specify a complete
 existing tag to deploy without rebuilding, or leave tag empty to build that
 commit first. After actual acceptance, enable the shared cutover variable.
@@ -103,8 +143,32 @@ CN. The old automatic deploy writers use the inverse flag so they cannot race
 the new automatic lane. Existing privileged/manual operations still use the same
 host locks.
 
+Use the selected environment's actual application origin for business/browser
+verification. The user's confirmed CN application is `https://app.boardx.com.cn`;
+`www.boardx.com.cn` serves the marketing site. Its `/login` returning404 is not
+evidence of a CN application failure. Do not copy the marketing origin from older
+release documentation into the host's business probe configuration.
+
 ## Current rollout boundary
 
 Implementation tests are not production acceptance. ACR public access,
 credentials, base image pins, the DevApp Compose conversion and installed host
 policies must be observed on the actual environments before the switch is set.
+
+
+### One-time existing verification account input
+
+When the human authorizes storing an existing application login for unattended
+verification, a root operator can run the reviewed
+`scripts/image-release-probe-credentials.py cn` (or `devapp`) on the corresponding
+host. It requires that environment's exact hostname and a TTY; the password is
+entered through a hidden prompt, never argv. Fixed HTTPS login and notifications
+must pass before root0600 no-replace publication to
+`/etc/workspacex-image-release/<environment>-browser.env`.
+This does not create an account or change its password, does not save tokens and
+is not part of the runner's sudo allowlist. No account/password is included in
+source or evidence. Existing files are never overwritten; account lifecycle is a
+separate human-controlled operation. The env file uses the browser smoke's literal
+first-`=` parser. Never shell-source it or load it with a parser that interprets
+quotes, expansion, comments or whitespace. Configuring these inputs does not by
+itself install the fixed business probe or prove deployment/rollback acceptance.

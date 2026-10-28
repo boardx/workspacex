@@ -213,3 +213,16 @@ it("concurrent late counters merge once per field while contradictory known coun
   VALUES($1,'concurrent-known-conflict',2,'{"total_source":null,"tokens_total":null}'::jsonb)`,[ORG]))).rejects.toBeDefined();
  expect((await asApp(ORG,c=>c.query("SELECT tokens_total::text,total_source FROM effective_token_usage() WHERE id='concurrent-known-conflict'"))).rows[0]).toEqual({tokens_total:"0",total_source:"unknown"});
 });
+
+it("aggregates costs across the full scoped period, separates currencies and keeps unpriced failures",async()=>{
+ await asApp(ORG,async c=>{
+  for(const [id,currency,cost,outcome] of [["priced-cny","CNY","1","failed"],["priced-usd","USD","2000000","succeeded"],["free-cny","CNY","0","succeeded"]])
+   await c.query(`INSERT INTO token_usage_events(id,org_id,user_id,model_provider,model_id,tokens_total,total_source,outcome,occurred_at,cost_micros,currency,price_version)
+    VALUES($1,$2,'alice','fixture','cost-model',1,'reported',$3,now(),$4,$5,'fixture-v1')`,[id,ORG,outcome,cost,currency]);
+ });
+ const result=await report.summary(toOrgId(ORG),query);
+ expect(result.costs).toEqual([{currency:"CNY",costMicros:"1",pricedCalls:2},{currency:"USD",costMicros:"2000000",pricedCalls:1}]);
+ expect(result.unpricedCalls).toBe(2);
+ expect(result.dailyCosts?.reduce((sum,c)=>sum+BigInt(c.costMicros),0n)).toBe(2000001n);
+ expect((await report.summary(toOrgId(ORG),{...query,userId:"bob"})).costs).toEqual([]);
+});

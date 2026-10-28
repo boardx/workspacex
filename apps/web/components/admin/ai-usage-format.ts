@@ -29,6 +29,14 @@ export function recordedTotal(current: UsageSummary["current"]) {
   if (current.unknownCalls > 0 && current.reportedCalls + current.legacyCalls === 0) return "未上报";
   return formatTokens(current.totalTokens);
 }
+/** Trend buckets do not carry coverage counts; zero in a partial report is ambiguous. */
+export function recordedBucketTotal(current: UsageSummary["current"], totalTokens: string) {
+  if (totalTokens === "0" && (current.unknownCalls > 0 || current.nativeCalls > 0)) {
+    const total = recordedTotal({ ...current, totalTokens });
+    return total === "0" ? "用量待确认" : total;
+  }
+  return formatTokens(totalTokens);
+}
 export const UNIT_LABELS = { image: "张图片", pixel: "像素", millisecond: "毫秒", microsecond: "微秒", character: "字符", request: "次请求" };
 export function nativeQuantity(usage: NonNullable<UsageCalls["calls"][number]["nativeUsage"]>) {
   return `${formatTokens(usage.quantity)} ${UNIT_LABELS[usage.unit]}${usage.source === "estimated" ? "（估算）" : usage.source === "unknown" ? "（未上报）" : ""}`;

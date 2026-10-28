@@ -93,6 +93,19 @@ class Tests(unittest.TestCase):
   lock=self.root/'existing-release.lock';lock.write_bytes(b'');lock.chmod(0o600)
   self.config['lockFile']=str(lock);self.config['readinessTimeoutSeconds']=10
   self.cp=self.root/'config.json';self.cp.write_text(json.dumps(self.config))
+ def test_resolved_hash_keeps_literal_values_private_and_removes_temporary_model(self):
+  from unittest.mock import Mock
+  m=release_module();d=Mock()
+  model={'name':'example','services':{'api':{'environment':{'VALUE':'literal$credential'}}}}
+  def read(args):
+   self.assertIn('--no-interpolate',args)
+   path=pathlib.Path(args[args.index('--file')+1])
+   self.assertEqual(path.stat().st_mode & 0o777,0o600)
+   self.assertEqual(json.loads(path.read_text()),model)
+   return b'api expected-hash'
+  d.run.side_effect=read
+  self.assertEqual(m.resolved_config_hash(d,model,'example','api',self.root),['api','expected-hash'])
+  self.assertEqual(list(self.root.glob('.resolved-compose-*')),[])
  def tearDown(self):self.server.shutdown();self.server.server_close();self.thread.join();self.temp.cleanup()
  def run_cli(self,apply=False,**updates):
   self.state.update(updates);self.statepath.write_text(json.dumps(self.state))

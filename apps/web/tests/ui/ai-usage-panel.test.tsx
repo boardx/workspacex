@@ -17,6 +17,7 @@ beforeEach(()=>{vi.clearAllMocks();vi.mocked(readAiUsage).mockResolvedValue(summ
 describe("readable AI usage ledger",()=>{
  it("shows Beijing date/model/usage without internal identifiers and expands metering details",async()=>{
   render(<AiUsagePanel orgId="org-a" platform/>);
+  fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});
   await screen.findByText("2026年10月2日");
   expect(screen.getByText("08:00:00")).toBeTruthy();
   expect(screen.queryByText("receipt-a")).toBeNull();expect(screen.queryByText("member-a")).toBeNull();
@@ -26,7 +27,7 @@ describe("readable AI usage ledger",()=>{
  it("does not turn unreported tokens into zero consumption",async()=>{
   vi.mocked(readAiUsage).mockResolvedValue({...summary,current:{...totals,totalTokens:"0",inputTokens:"0",outputTokens:"0",reportedCalls:0,unknownCalls:1,unknownInputCalls:1,unknownOutputCalls:1},models:[{...summary.models[0]!,totalTokens:"0"}]});
   vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",calls:[{...call,totalTokens:"0",inputTokens:null,outputTokens:null,totalSource:"unknown"}],nextCursor:null});
-  render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+  render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});
   await screen.findByTestId("usage-total-tokens");
   expect(screen.getByTestId("usage-total-tokens").textContent).toBe("未上报");
   expect(screen.getByText(/1 次调用未上报用量/)).toBeTruthy();
@@ -34,14 +35,14 @@ describe("readable AI usage ledger",()=>{
  it("keeps forced self scope and the snapshot when paging and clearing filters",async()=>{
   const nextCursor={occurredAt:call.occurredAt,id:call.id};
   vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",calls:[call],nextCursor});
-  render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);await screen.findByText("2026年10月2日");
+  render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});await screen.findByText("2026年10月2日");
   fireEvent.click(screen.getByRole("button",{name:"下一页"}));
   await waitFor(()=>expect(readAiUsageCalls).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a",asOf:summary.asOf,cursorId:call.id,cursorTime:call.occurredAt})));
   fireEvent.click(screen.getByRole("button",{name:"重置筛选"}));
   await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"})));
  });
  it("uses inclusive Beijing calendar dates for the query",async()=>{
-  render(<AiUsagePanel orgId="org-a"/>);await screen.findByText("2026年10月2日");
+  render(<AiUsagePanel orgId="org-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});await screen.findByText("2026年10月2日");
   fireEvent.click(screen.getByRole("button",{name:"自定义日期"}));
   fireEvent.change(screen.getByLabelText("开始日期"),{target:{value:"2026-10-01"}});
   fireEvent.change(screen.getByLabelText("结束日期"),{target:{value:"2026-10-02"}});
@@ -49,7 +50,7 @@ describe("readable AI usage ledger",()=>{
   await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-09-30T16:00:00.000Z",end:"2026-10-02T16:00:00.000Z",timezone:"Asia/Shanghai"})));
  });
  it("shows model summary as a secondary view",async()=>{
-  render(<AiUsagePanel orgId="org-a"/>);await screen.findByText("2026年10月2日");
+  render(<AiUsagePanel orgId="org-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});await screen.findByText("2026年10月2日");
   fireEvent.mouseDown(screen.getByRole("tab",{name:"按模型汇总"}),{button:0,ctrlKey:false});
   fireEvent.click(screen.getByRole("tab",{name:"按模型汇总"}));
   await screen.findByText("已记录 Token");
@@ -57,19 +58,19 @@ describe("readable AI usage ledger",()=>{
  });
  it("API failure is an error, not an empty report",async()=>{
   vi.mocked(readAiUsage).mockRejectedValueOnce(new Error("private upstream detail"));
-  render(<AiUsagePanel orgId="org-a"/>);await screen.findByRole("alert");
+  render(<AiUsagePanel orgId="org-a"/>); await screen.findByRole("alert");
   expect(screen.queryByText(/暂无调用记录/)).toBeNull();expect(screen.queryByText(/private upstream detail/)).toBeNull();
  });
  it("uses native units instead of zero Tokens",async()=>{
   vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",nextCursor:null,calls:[{...call,totalTokens:"0",inputTokens:null,outputTokens:null,totalSource:"not-applicable",nativeUsage:{unit:"millisecond",quantity:"2000",source:"estimated"}}]});
-  render(<AiUsagePanel orgId="org-a"/>);
+  render(<AiUsagePanel orgId="org-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});
   await screen.findByText("2,000 毫秒（估算）");expect(screen.getByText("Token 不适用")).toBeTruthy();
  });
 });
 
 it("does not label a mixed report's unknown model as zero Tokens", async () => {
  vi.mocked(readAiUsage).mockResolvedValue({...summary,current:{...totals,callCount:2,unknownCalls:1},models:[...summary.models,{modelProvider:"p",modelId:"unreported-model",totalTokens:"0",callCount:1}]});
- render(<AiUsagePanel orgId="org-a"/>); await screen.findByText("2026年10月2日");
+ render(<AiUsagePanel orgId="org-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false}); await screen.findByText("2026年10月2日");
  fireEvent.mouseDown(screen.getByRole("tab",{name:"按模型汇总"}),{button:0,ctrlKey:false});
  fireEvent.click(screen.getByRole("tab",{name:"按模型汇总"}));
  expect(screen.getByText("用量待确认")).toBeTruthy();
@@ -77,15 +78,70 @@ it("does not label a mixed report's unknown model as zero Tokens", async () => {
 
 it("does not invent reported/estimated zero buckets for unknown native usage", async () => {
  vi.mocked(readAiUsage).mockResolvedValue({...summary,nativeUnits:[{unit:"image",reportedQuantity:"0",estimatedQuantity:"0",reportedCalls:0,estimatedCalls:0,unknownCalls:1}]});
- render(<AiUsagePanel orgId="org-a"/>); await screen.findByText("2026年10月2日");
+ render(<AiUsagePanel orgId="org-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false}); await screen.findByText("2026年10月2日");
  expect(screen.queryByText(/0 张图片/)).toBeNull();
  expect(screen.getByText(/图片：1 次调用未上报/)).toBeTruthy();
 });
 
 it("groups cross-midnight calls by request start, matching the date filter", async () => {
  vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",nextCursor:null,calls:[{...call,startedAt:"2026-10-01T15:59:00Z",occurredAt:"2026-10-01T16:01:00Z"}]});
- render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+ render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});
  await screen.findByText("2026年10月1日");
  expect(screen.getByText("23:59:00")).toBeTruthy();
  expect(screen.queryByText("2026年10月2日")).toBeNull();
+});
+
+it("defaults to chart overview with calendar grouping, cost gaps and detail navigation",async()=>{
+ render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+ await screen.findByRole("region",{name:"用量趋势"});
+ expect(screen.getByRole("tab",{name:"汇总图表"}).getAttribute("aria-selected")).toBe("true");
+ expect(screen.queryByText("receipt-a")).toBeNull();
+ expect(screen.getByText("暂无已计价数据")).toBeTruthy();
+ fireEvent.click(screen.getByRole("button",{name:"按月"}));
+ expect(screen.getByRole("img",{name:/2026-10-01/})).toBeTruthy();
+ fireEvent.click(screen.getByRole("button",{name:"近 7 天"}));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"})));
+ fireEvent.click(screen.getByRole("button",{name:"查看当前筛选明细"}));
+ await screen.findByText("2026年10月2日");
+});
+it("shows mixed currencies separately and preserves report snapshot when drilling a model",async()=>{
+ vi.mocked(readAiUsage).mockResolvedValue({...summary,timezone:'Asia/Shanghai',start:'2026-09-30T16:00:00Z',end:'2026-10-03T00:00:00Z',costs:[{currency:'CNY',costMicros:'1',pricedCalls:1},{currency:'USD',costMicros:'2000000',pricedCalls:1}],unpricedCalls:3,dailyCosts:[]});
+ render(<AiUsagePanel orgId="org-a"/>);
+ await screen.findByText('CNY 0.000001');expect(screen.getByText('USD 2.000000')).toBeTruthy();
+ expect(screen.getByText('已计价 2 次 · 未计价 3 次')).toBeTruthy();
+ // This fixture's October bucket lies outside today's initial window; test the preserved snapshot via model drill instead.
+ fireEvent.click(screen.getByRole('button',{name:'p / m · 8'}));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith('org-a',false,expect.objectContaining({asOf:summary.asOf,modelId:'m'})));
+ await screen.findByText('2026年10月2日');
+});
+
+it("drills a Beijing chart bucket within the date window and keeps the snapshot", async () => {
+ vi.mocked(readAiUsage).mockResolvedValue({...summary, timezone:"Asia/Shanghai"});
+ render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+ await screen.findByRole("region",{name:"用量趋势"});
+ fireEvent.click(screen.getByRole("button",{name:"自定义日期"}));
+ fireEvent.change(screen.getByLabelText("开始日期"),{target:{value:"2026-10-01"}});
+ fireEvent.change(screen.getByLabelText("结束日期"),{target:{value:"2026-10-02"}});
+ fireEvent.click(screen.getByRole("button",{name:"应用日期"}));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-09-30T16:00:00.000Z"})));
+ fireEvent.click(await screen.findByRole("button",{name:"查看 2026-10-02 明细"}));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-10-01T16:00:00.000Z",end:"2026-10-02T16:00:00.000Z",asOf:summary.asOf,userId:"self-a"})));
+ await screen.findByText("2026年10月2日");
+});
+
+it.each([
+ {kind:"unknown",current:{...totals,totalTokens:"0",reportedCalls:0,unknownCalls:1},label:"未上报",zero:false},
+ {kind:"native",current:{...totals,totalTokens:"0",reportedCalls:0,nativeCalls:1},label:"Token 不适用",zero:false},
+ {kind:"reported zero",current:{...totals,totalTokens:"0"},label:"0",zero:true},
+ {kind:"mixed unknown zero bucket",current:{...totals,callCount:2,unknownCalls:1},label:"8",zero:false},
+])("keeps overview Token coverage honest for $kind", async ({current,label,zero}) => {
+ vi.mocked(readAiUsage).mockResolvedValue({...summary,current,trend:[{day:"2026-10-02",totalTokens:"0",callCount:1}]});
+ render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>);
+ await screen.findByRole("region",{name:"用量趋势"});
+ expect(screen.getByTestId("usage-overview-tokens").textContent).toBe(label);
+ const chart=screen.getByRole("img",{name:/2026-10-02：/});
+ expect(chart.getAttribute("aria-label")?.includes("0 Token")).toBe(zero);
+ expect(chart.querySelector("rect") !== null).toBe(zero);
+ fireEvent.click(screen.getByRole("button",{name:"按月"}));
+ expect(screen.getByRole("img",{name:/2026-10-01：/}).getAttribute("aria-label")?.includes("0 Token")).toBe(zero);
 });

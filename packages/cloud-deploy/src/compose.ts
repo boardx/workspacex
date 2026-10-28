@@ -19,6 +19,7 @@ export function createCloudCompose(configInput: unknown, releaseInput: unknown, 
   const logging = { driver: "local", options: { "max-size": "10m", "max-file": "5" } };
   const base = { logging, pull_policy: "never", restart: "unless-stopped", init: true, cap_drop: ["ALL"], security_opt: ["no-new-privileges:true"], pids_limit: 256 };
   const bind = (source: string, target: string, readOnly = false) => ({ type: "bind", source, target, read_only: readOnly, bind: { create_host_path: false } });
+  const capacityEnv = [{ path: "/etc/workspacex/sandbox-capacity.env", required: false, format: "raw" }];
   const services: Record<string, Record<string, unknown>> = {
     web: { ...base, image: release.images.web.image, platform: release.platform, env_file: [{ path: `${dir}/web.env`, format: "raw" }], ports: ["127.0.0.1:3000:3000"], mem_limit: "2g", cpus: 2 },
     api: { ...base, image: release.images.api.image, platform: release.platform, env_file: [{ path: `${dir}/api.env`, format: "raw" }], ports: ["127.0.0.1:3200:3200"], mem_limit: "2g", cpus: 2,
@@ -26,9 +27,9 @@ export function createCloudCompose(configInput: unknown, releaseInput: unknown, 
       volumes: [bind(`${dir}/sandbox`, "/run/sandbox"), bind(`${dir}/sessions`, "/run/sessions"), bind(`${dir}/certs`, "/run/certs", true)] },
     agent: { ...base, user: "1000:1000", image: release.images.agent.image, platform: release.platform, env_file: [{ path: `${dir}/agent.env`, format: "raw" }], expose: ["8000"], mem_limit: "4g", cpus: 2,
       volumes: [bind(`${dir}/sessions`, "/run/sessions"), bind(`${dir}/agent-certs`, "/run/agent-certs", true)] },
-    sandbox: { ...base, image: release.images.sandbox.image, platform: release.platform, network_mode: "none", read_only: true, user: "1000:1000", mem_limit: "1g", memswap_limit: "1g", cpus: 1, pids_limit: 128,
+    sandbox: { ...base, env_file: capacityEnv, image: release.images.sandbox.image, platform: release.platform, network_mode: "none", read_only: true, user: "1000:1000", mem_limit: "1g", memswap_limit: "1g", cpus: 1, pids_limit: 128,
       tmpfs: ["/tmp:rw,noexec,nosuid,size=256m,mode=1777"], environment: { SKILL_SANDBOX_SOCKET: "/run/sandbox/skill-sandbox.sock" }, volumes: [bind(`${dir}/sandbox`, "/run/sandbox")] },
-    "sandbox-sessions": { ...base, image: release.images.sandbox.image, platform: release.platform, network_mode: "none", read_only: true, user: "1000:1000", mem_limit: "1g", memswap_limit: "1g", cpus: 1, pids_limit: 128,
+    "sandbox-sessions": { ...base, env_file: capacityEnv, image: release.images.sandbox.image, platform: release.platform, network_mode: "none", read_only: true, user: "1000:1000", mem_limit: "1g", memswap_limit: "1g", cpus: 1, pids_limit: 128,
       security_opt: ["no-new-privileges:true", `seccomp=${dir}/docker-seccomp.json`, "apparmor=workspacex-native-sessions"],
       tmpfs: ["/tmp:rw,noexec,nosuid,size=256m,mode=1777"], environment: { SKILL_SANDBOX_SESSIONS_ONLY: "1", SKILL_SANDBOX_SOCKET: "/run/sessions/skill-sandbox.sock" }, volumes: [bind(`${dir}/sessions`, "/run/sessions"), bind(`${dir}/agent-certs`, "/run/agent-certs", true)] },
   };

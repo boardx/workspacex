@@ -60,6 +60,7 @@ export interface ExecuteScriptResult {
 }
 
 export interface ExecuteScriptOptions {
+  readonly signal?: AbortSignal;
   readonly inputFiles?: readonly SandboxInputFile[];
   readonly script: string;
   readonly timeoutMs: number;
@@ -117,6 +118,7 @@ export async function executeScript(options: ExecuteScriptOptions): Promise<Exec
    * 正因如此更要在这里解决,而不是等哪天有人在 mac 上看到一片空 stdout 去怀疑
    * 自己的脚本。
    */
+  options.signal?.throwIfAborted();
   const inputFiles = parseInputFiles(options.inputFiles);
   const root = await realpath(await mkdtemp(join(tmpdir(), "skill-sandbox-")));
   try {
@@ -187,6 +189,7 @@ async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<Exe
     paths.scriptPath,
   ];
 
+  options.signal?.throwIfAborted();
   const child = spawn(options.nodeBinary ?? process.execPath, args, {
     cwd: paths.outdir,
     // 干净环境：不把宿主进程的 env（可能含凭据）泄进被执行的脚本里。
@@ -215,21 +218,19 @@ async function runOnce(options: ExecuteScriptOptions, paths: Paths): Promise<Exe
   child.stderr.on("data", (c: Buffer) => stderrChunks.push(c));
 
   let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    // SIGKILL 而不是 SIGTERM：CPU 死循环不会响应可捕获信号。
-    // 负号 = 杀整个进程组。
-    try {
-      process.kill(-child.pid!, "SIGKILL");
-    } catch {
-      child.kill("SIGKILL");
-    }
-  }, options.timeoutMs);
+  const kill = () => {
+    try { process.kill(-child.pid!, "SIGKILL"); } catch { child.kill("SIGKILL"); }
+  };
+  const abort = () => kill();
+  options.signal?.addEventListener('abort', abort, {once:true});
+  if (options.signal?.aborted) abort();
+  const timer = setTimeout(() => { timedOut = true; kill(); }, options.timeoutMs);
 
   const exitCode = await new Promise<number | null>((resolve, reject) => {
     child.once("error", reject);
     child.once("close", (code) => resolve(code));
-  }).finally(() => clearTimeout(timer));
+  }).finally(() => { clearTimeout(timer); options.signal?.removeEventListener('abort', abort); });
+  options.signal?.throwIfAborted();
 
   const files = timedOut ? [] : await collectFiles(paths.outdir);
 

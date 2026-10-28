@@ -151,3 +151,5 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 4. 开源贡献者同权：任何人对本模块的经验修订都走 PR，以可验证事实为准，不看资历。
 
 - 2026-10-19：原生run安全错误ConnectError与PDF内容INVALID_FILE应分开取证，不能只凭中文RUN_INTERRUPTED说明或部署重叠判runtime重启。控制边界poll/ACK可仅对连接建立失败进行有界恢复，同org/ACK IDs不变，不重放model/tools/publish；pause/cancel/拒绝和未知执行结果保持fail-closed。同步/异步真checkpoint工具恰好一次与线上证据边界见docs/evidence/run-control-connect-recovery-5837/README.md（#5837）。
+
+- 2026-10-28：sandbox 的 Session 数量不能替代执行准入；普通 `/run` 与 Native 必须各自在服务入口限流。排队取消需要贯通持久化 run 检查点、HTTP AbortSignal 与服务等待项，仅测试 Socket 断开会漏掉 Chat 队列取消。额度按服务进程计算，重启不恢复，不得据此宣称全局调度或自动扩容（issue #5966；边界与验证见 docs/design/sandbox-capacity/README.md）。

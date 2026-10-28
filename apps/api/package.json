@@ -5,6 +5,7 @@
   "license": "Apache-2.0",
   "type": "module",
   "scripts": {
+    "test:sandbox-capacity": "vitest run --config vitest.sandbox-capacity.config.ts",
     "test:credit-runtime": "vitest run --config vitest.credit-runtime.config.ts",
     "test:discovery-unit": "vitest run --config vitest.discovery-unit.config.ts",
     "test:chat-share-unit": "vitest run --config vitest.chat-share-unit.config.ts",
