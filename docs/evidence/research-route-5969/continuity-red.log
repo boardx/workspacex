@@ -1,0 +1,955 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/7ff0/workspacex/apps/web
+
+ ❯ tests/ui/guided-research-state-loading.test.tsx (5 tests | 2 failed) 204ms
+   × renders cached content before a delayed validation finishes 22ms
+     → Unable to find an accessible element with the role "textbox" and name "研究需求"
+
+Here are the accessible roles:
+
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"top-0 z-20 bg-background/95 backdrop-blur md:sticky"[39m
+    [33mdata-testid[39m=[32m"research-workspace-header"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "返回研究列表":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 min-w-24 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent mb-4"[39m
+    [33mdata-testid[39m=[32m"research-flow-back"[39m
+    [33mdata-workflow-action-role[39m=[32m"secondary"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "新建研究":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "研究步骤":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"研究步骤"[39m
+    [33mclass[39m=[32m"mt-3 pb-3"[39m
+    [33mdata-reference-variant[39m=[32m"monochrome-stepper"[39m
+    [33mdata-testid[39m=[32m"research-flow-progress"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ol[39m
+    [33mclass[39m=[32m"flex flex-wrap items-center gap-y-2 lg:flex-nowrap"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"mx-auto max-w-[1440px] min-w-0 px-4 pt-1 lg:px-6 pb-8"[39m
+    [33mdata-reference-region[39m=[32m"work-canvas"[39m
+    [33mdata-testid[39m=[32m"guided-research-six-step-main"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"p-4"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-dvh min-w-0 bg-muted/20"[39m
+      [33mdata-layout[39m=[32m"deep-research-desktop"[39m
+      [33mdata-reference-layout[39m=[32m"prototype-desktop"[39m
+      [33mdata-testid[39m=[32m"guided-research-six-step-shell"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"top-0 z-20 bg-background/95 backdrop-blur md:sticky"[39m
+        [33mdata-testid[39m=[32m"research-workspace-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"border-b bg-card px-4 py-1.5 lg:px-6"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mx-auto max-w-[1440px] flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-search size-9 rounded-lg bg-primary p-2 text-primary-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"11"[39m
+                [33mcy[39m=[32m"11"[39m
+                [33mr[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m21 21-4.3-4.3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-xl font-bold"[39m
+            [36m>[39m
+              [0mDeep Research[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto max-w-[1440px] px-4 pt-3 lg:px-6"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 min-w-24 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent mb-4"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+            [33mdata-workflow-action-role[39m=[32m"secondary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回研究列表[0m
+          [36m</button>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+          [36m>[39m
+            [0m新建研究[0m
+          [36m</h1>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"研究步骤"[39m
+            [33mclass[39m=[32m"mt-3 pb-3"[39m
+            [33mdata-reference-variant[39m=[32m"monochrome-stepper"[39m
+            [33mdata-testid[39m=[32m"research-flow-progress"[39m
+          [36m>[39m
+            [36m<ol[39m
+              [33mclass[39m=[32m"flex flex-wrap items-center gap-y-2 lg:flex-nowrap"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-current[39m=[32m"step"[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-import"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"[39m
+                  [36m>[39m
+                    [0m1[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m确认研究内容[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-plan"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m2[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m研究计划[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-report"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m3[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m生成报告[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+              [36m</li>[39m
+            [36m</ol>[39m
+          [36m</nav>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<main[39m
+        [33mclass[39m=[32m"mx-auto max-w-[1440px] min-w-0 px-4 pt-1 lg:px-6 pb-8"[39m
+        [33mdata-reference-region[39m=[32m"work-canvas"[39m
+        [33mdata-testid[39m=[32m"guided-research-six-step-main"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m正在恢复研究会话…[0m
+        [36m</div>[39m
+      [36m</main>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × retains edits during route validation and accepts newer backend data 25ms
+     → Unable to find an element by: [data-testid="guided-research-plan-panel"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-dvh min-w-0 bg-muted/20"[39m
+      [33mdata-layout[39m=[32m"deep-research-desktop"[39m
+      [33mdata-reference-layout[39m=[32m"prototype-desktop"[39m
+      [33mdata-testid[39m=[32m"guided-research-six-step-shell"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"top-0 z-20 bg-background/95 backdrop-blur md:sticky"[39m
+        [33mdata-testid[39m=[32m"research-workspace-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"border-b bg-card px-4 py-1.5 lg:px-6"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mx-auto max-w-[1440px] flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-search size-9 rounded-lg bg-primary p-2 text-primary-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"11"[39m
+                [33mcy[39m=[32m"11"[39m
+                [33mr[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m21 21-4.3-4.3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-xl font-bold"[39m
+            [36m>[39m
+              [0mDeep Research[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"hidden rounded bg-muted px-3 py-1 text-sm text-muted-foreground sm:block"[39m
+            [36m>[39m
+              [0m智能研究平台[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto max-w-[1440px] px-4 pt-3 lg:px-6"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 min-w-24 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent mb-4"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+            [33mdata-workflow-action-role[39m=[32m"secondary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回研究列表[0m
+          [36m</button>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+          [36m>[39m
+            [0m新建研究[0m
+          [36m</h1>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"研究步骤"[39m
+            [33mclass[39m=[32m"mt-3 pb-3"[39m
+            [33mdata-reference-variant[39m=[32m"monochrome-stepper"[39m
+            [33mdata-testid[39m=[32m"research-flow-progress"[39m
+          [36m>[39m
+            [36m<ol[39m
+              [33mclass[39m=[32m"flex flex-wrap items-center gap-y-2 lg:flex-nowrap"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-import"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m1[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m确认研究内容[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-current[39m=[32m"step"[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-plan"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"[39m
+                  [36m>[39m
+                    [0m2[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m研究计划[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-report"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m3[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m生成报告[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+              [36m</li>[39m
+            [36m</ol>[39m
+          [36m</nav>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<main[39m
+        [33mclass[39m=[32m"mx-auto max-w-[1440px] min-w-0 px-4 pt-1 lg:px-6 pb-8"[39m
+        [33mdata-reference-region[39m=[32m"work-canvas"[39m
+        [33mdata-testid[39m=[32m"guided-research-six-step-main"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m正在恢复研究会话…[0m
+        [36m</div>[39m
+      [36m</main>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/guided-research-state-loading.test.tsx > renders cached content before a delayed validation finishes
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "研究需求"
+
+Here are the accessible roles:
+
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"top-0 z-20 bg-background/95 backdrop-blur md:sticky"[39m
+    [33mdata-testid[39m=[32m"research-workspace-header"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "返回研究列表":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 min-w-24 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent mb-4"[39m
+    [33mdata-testid[39m=[32m"research-flow-back"[39m
+    [33mdata-workflow-action-role[39m=[32m"secondary"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "新建研究":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "研究步骤":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"研究步骤"[39m
+    [33mclass[39m=[32m"mt-3 pb-3"[39m
+    [33mdata-reference-variant[39m=[32m"monochrome-stepper"[39m
+    [33mdata-testid[39m=[32m"research-flow-progress"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ol[39m
+    [33mclass[39m=[32m"flex flex-wrap items-center gap-y-2 lg:flex-nowrap"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  main:
+
+  Name "":
+  [36m<main[39m
+    [33mclass[39m=[32m"mx-auto max-w-[1440px] min-w-0 px-4 pt-1 lg:px-6 pb-8"[39m
+    [33mdata-reference-region[39m=[32m"work-canvas"[39m
+    [33mdata-testid[39m=[32m"guided-research-six-step-main"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "":
+  [36m<div[39m
+    [33mclass[39m=[32m"p-4"[39m
+    [33mrole[39m=[32m"status"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-dvh min-w-0 bg-muted/20"[39m
+      [33mdata-layout[39m=[32m"deep-research-desktop"[39m
+      [33mdata-reference-layout[39m=[32m"prototype-desktop"[39m
+      [33mdata-testid[39m=[32m"guided-research-six-step-shell"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"top-0 z-20 bg-background/95 backdrop-blur md:sticky"[39m
+        [33mdata-testid[39m=[32m"research-workspace-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"border-b bg-card px-4 py-1.5 lg:px-6"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mx-auto max-w-[1440px] flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-search size-9 rounded-lg bg-primary p-2 text-primary-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"11"[39m
+                [33mcy[39m=[32m"11"[39m
+                [33mr[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m21 21-4.3-4.3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-xl font-bold"[39m
+            [36m>[39m
+              [0mDeep Research[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto max-w-[1440px] px-4 pt-3 lg:px-6"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 min-w-24 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent mb-4"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+            [33mdata-workflow-action-role[39m=[32m"secondary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回研究列表[0m
+          [36m</button>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+          [36m>[39m
+            [0m新建研究[0m
+          [36m</h1>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"研究步骤"[39m
+            [33mclass[39m=[32m"mt-3 pb-3"[39m
+            [33mdata-reference-variant[39m=[32m"monochrome-stepper"[39m
+            [33mdata-testid[39m=[32m"research-flow-progress"[39m
+          [36m>[39m
+            [36m<ol[39m
+              [33mclass[39m=[32m"flex flex-wrap items-center gap-y-2 lg:flex-nowrap"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-current[39m=[32m"step"[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-import"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"[39m
+                  [36m>[39m
+                    [0m1[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m确认研究内容[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-plan"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m2[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m研究计划[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-report"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m3[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m生成报告[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+              [36m</li>[39m
+            [36m</ol>[39m
+          [36m</nav>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<main[39m
+        [33mclass[39m=[32m"mx-auto max-w-[1440px] min-w-0 px-4 pt-1 lg:px-6 pb-8"[39m
+        [33mdata-reference-region[39m=[32m"work-canvas"[39m
+        [33mdata-testid[39m=[32m"guided-research-six-step-main"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m正在恢复研究会话…[0m
+        [36m</div>[39m
+      [36m</main>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/guided-research-state-loading.test.tsx:61:17
+     59|   vi.mocked(getResearchRuntimeProgress).mockImplementation(() => new P…
+     60|   render(<GuidedResearchLive sessionId={state.sessionId} initialNode="…
+     61|   expect(screen.getByRole("textbox", { name: "研究需求" })).toHaveValu…
+       |                 ^
+     62|   expect(executeResearchRuntime).not.toHaveBeenCalled();
+     63| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/guided-research-state-loading.test.tsx > retains edits during route validation and accepts newer backend data
+TestingLibraryElementError: Unable to find an element by: [data-testid="guided-research-plan-panel"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"min-h-dvh min-w-0 bg-muted/20"[39m
+      [33mdata-layout[39m=[32m"deep-research-desktop"[39m
+      [33mdata-reference-layout[39m=[32m"prototype-desktop"[39m
+      [33mdata-testid[39m=[32m"guided-research-six-step-shell"[39m
+    [36m>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"top-0 z-20 bg-background/95 backdrop-blur md:sticky"[39m
+        [33mdata-testid[39m=[32m"research-workspace-header"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"border-b bg-card px-4 py-1.5 lg:px-6"[39m
+        [36m>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"mx-auto max-w-[1440px] flex items-center gap-3"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33mclass[39m=[32m"lucide lucide-search size-9 rounded-lg bg-primary p-2 text-primary-foreground"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"11"[39m
+                [33mcy[39m=[32m"11"[39m
+                [33mr[39m=[32m"8"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m21 21-4.3-4.3"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-xl font-bold"[39m
+            [36m>[39m
+              [0mDeep Research[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"hidden rounded bg-muted px-3 py-1 text-sm text-muted-foreground sm:block"[39m
+            [36m>[39m
+              [0m智能研究平台[0m
+            [36m</span>[39m
+          [36m</div>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"mx-auto max-w-[1440px] px-4 pt-3 lg:px-6"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13 min-w-24 aria-disabled:bg-disabled aria-disabled:text-disabled-foreground aria-disabled:border-transparent mb-4"[39m
+            [33mdata-testid[39m=[32m"research-flow-back"[39m
+            [33mdata-workflow-action-role[39m=[32m"secondary"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left size-4"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回研究列表[0m
+          [36m</button>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-2xl font-bold tracking-tight"[39m
+          [36m>[39m
+            [0m新建研究[0m
+          [36m</h1>[39m
+          [36m<nav[39m
+            [33maria-label[39m=[32m"研究步骤"[39m
+            [33mclass[39m=[32m"mt-3 pb-3"[39m
+            [33mdata-reference-variant[39m=[32m"monochrome-stepper"[39m
+            [33mdata-testid[39m=[32m"research-flow-progress"[39m
+          [36m>[39m
+            [36m<ol[39m
+              [33mclass[39m=[32m"flex flex-wrap items-center gap-y-2 lg:flex-nowrap"[39m
+            [36m>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-import"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m1[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m确认研究内容[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-current[39m=[32m"step"[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-plan"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-primary bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2"[39m
+                  [36m>[39m
+                    [0m2[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m研究计划[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+                [36m<span[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"mx-2 hidden min-w-3 flex-1 border-t border-border lg:block"[39m
+                [36m/>[39m
+              [36m</li>[39m
+              [36m<li[39m
+                [33mclass[39m=[32m"flex min-w-0 flex-1 basis-1/2 items-center sm:basis-1/3 lg:basis-0"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33maria-disabled[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"research-step-report"[39m
+                [36m>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"flex size-8 shrink-0 items-center justify-center rounded-full border text-base border-border bg-muted/30 text-muted-foreground"[39m
+                  [36m>[39m
+                    [0m3[0m
+                  [36m</span>[39m
+                  [36m<span[39m
+                    [33mclass[39m=[32m"truncate"[39m
+                  [36m>[39m
+                    [0m生成报告[0m
+                  [36m</span>[39m
+                [36m</span>[39m
+              [36m</li>[39m
+            [36m</ol>[39m
+          [36m</nav>[39m
+        [36m</div>[39m
+      [36m</header>[39m
+      [36m<main[39m
+        [33mclass[39m=[32m"mx-auto max-w-[1440px] min-w-0 px-4 pt-1 lg:px-6 pb-8"[39m
+        [33mdata-reference-region[39m=[32m"work-canvas"[39m
+        [33mdata-testid[39m=[32m"guided-research-six-step-main"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"p-4"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m正在恢复研究会话…[0m
+        [36m</div>[39m
+      [36m</main>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/guided-research-state-loading.test.tsx:74:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  18:26:26
+   Duration  2.39s (transform 641ms, setup 139ms, collect 1.15s, tests 204ms, environment 683ms, prepare 48ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/7ff0/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/guided-research-state-loading.test.tsx
