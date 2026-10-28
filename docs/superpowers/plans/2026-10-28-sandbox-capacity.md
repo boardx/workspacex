@@ -37,7 +37,7 @@ flowchart TD
   class S3 done
   class S4 tested
   %% evidence S4: sandbox serial: 25 files / 109 passed / 1 existing skip; contracts 1240 passed; isolated PG 30+3 passed; capacity HTTP real PID cleanup passed; docs/evidence/sandbox-capacity-5966/README.md
-  class S5 doing
+  class S5 done
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
