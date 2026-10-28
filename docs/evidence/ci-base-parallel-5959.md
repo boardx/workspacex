@@ -17,3 +17,9 @@
 首次PR控制平面检查229文件2647项通过、仅workflow-actions-node24失败：下载artifact步骤用了v5而非仓库审计的固定提交。已改用权威审计要求的 `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c`；相关3文件98项通过。首次完整运行40548327387已验证真实coverage与部分API分片，但其源码仍有该已知Action检查失败；需以修正后的新运行作为完整结果。
 
 修正组合 `fc65e9d7c857d992f3bae655ec62678525edb5b8` 的[40551946505](https://github.com/boardx/workspacex/actions/runs/40551946505)中，编译、8个默认API分片及exclusive均已真实通过。9份报告共1625文件、15535通过、0失败；下载后按当前PR相同验收逻辑再次核对文件身份与报告/日志摘要通过。最终完整base结论与最新PR状态统一记录于[#5959证据评论](https://github.com/boardx/workspacex/issues/5959)，不能从本文的历史运行快照推断当前状态。
+
+## Review：失败任务重跑时保留成功producer（2026-10-28）
+
+#5960未解决线程指出实际边界：GitHub只重跑失败任务时成功producer仍属旧attempt。改为逐片选择同一run中不晚于当前attempt的最新artifact，并把各producer的实际attempt存入api-producers.json。bundle核对该来源attempt，继续严格校验源码SHA/run/文件集合/摘要；前置依赖失败闭合不变。缺失、过期或重复的最新artifact仍拒绝。
+
+新增反例先红；相关3文件100项通过。以真实运行40551946505的9份artifact重放消费者attempt=2、生产者attempt=1：通过真实GitHub下载、精确文件及身份摘要校验。该验证不冒充新的完整base执行，原完整base成功证据保持历史来源。

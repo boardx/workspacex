@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync, mkdtempSync, rmSyn
 import { resolve, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { shardPlan, discoverCoverage } from './ci-api-shards.mjs';
 const required = ['verify-full-compile', 'base-api-plan', 'base-api-shards', 'base-api-exclusive'];
@@ -44,7 +44,29 @@ export function record(directory, env = process.env) {
   if (!log.toString().trim()) throw new Error('EMPTY_API_LOG');
   writeFileSync(join(directory, 'identity.json'), JSON.stringify({ ...identity(env), report: hash(report), log: hash(log) }));
 }
-export function bundle(directory, plan, env = process.env) {
+export function selectProducerArtifacts(artifacts, plan, env = process.env) {
+  identity(env);
+  return ['coverage', ...plan.shards.map(shard => `shard-${shard}`), 'exclusive'].map(part => {
+    const prefix = `base-api-${part}-${env.GITHUB_RUN_ID}-`;
+    const candidates = artifacts.filter(row => row.name?.startsWith(prefix))
+      .map(row => ({...row, part, attempt:row.name.slice(prefix.length)}))
+      .filter(row => /^[1-9]\d*$/.test(row.attempt) && Number(row.attempt) <= Number(env.GITHUB_RUN_ATTEMPT))
+      .sort((a,b) => Number(b.attempt)-Number(a.attempt));
+    if (!candidates.length || candidates[0].expired || candidates.filter(row => row.attempt === candidates[0].attempt).length !== 1) throw new Error('MISSING_OR_AMBIGUOUS_PRODUCER_ARTIFACT');
+    return candidates[0];
+  });
+}
+export function download(directory, env = process.env) {
+  if (!/^[\w.-]+\/[\w.-]+$/.test(env.GITHUB_REPOSITORY ?? '')) throw new Error('INVALID_REPOSITORY');
+  const plan = shardPlan(JSON.parse(readFileSync('.harness/api-test-shards.json', 'utf8')));
+  identity(env);
+  const pages = JSON.parse(execFileSync('gh', ['api', `repos/${env.GITHUB_REPOSITORY}/actions/runs/${env.GITHUB_RUN_ID}/artifacts`, '--paginate', '--slurp'], {encoding:'utf8',timeout:120000}));
+  const selected = selectProducerArtifacts(pages.flatMap(page => page.artifacts), plan, env);
+  mkdirSync(directory,{recursive:true});
+  for (const row of selected) execFileSync('gh', ['run','download',env.GITHUB_RUN_ID,'--repo',env.GITHUB_REPOSITORY,'--name',row.name,'--dir',directory], {stdio:'inherit',timeout:120000});
+  writeFileSync(join(directory,'..','api-producers.json'),JSON.stringify(Object.fromEntries(selected.map(row => [row.part,row.attempt]))));
+}
+export function bundle(directory, plan, env = process.env, producerAttempts) {
   const expected = ['coverage', ...plan.shards.map(shard => `shard-${shard}`), 'exclusive'];
   if (readdirSync(directory).sort().join() !== [...expected].sort().join()) throw new Error('MISSING_OR_UNEXPECTED_API_EVIDENCE');
   const coverage = JSON.parse(readFileSync(join(directory, 'coverage', 'coverage.json'), 'utf8'));
@@ -53,13 +75,18 @@ export function bundle(directory, plan, env = process.env) {
   const files = coverage.partitions.flat().map(row => JSON.stringify([row.projectName ?? '',row.file]));
   if (new Set(files).size !== coverage.files || hash([...files].sort().join('\n')) !== coverage.discoverySha256) throw new Error('INVALID_API_PARTITION_UNION');
   const expectedIdentity = identity(env);
+  const producerIdentity = part => {
+    const attempt = producerAttempts ? producerAttempts[part] : expectedIdentity.attempt;
+    if (!/^[1-9]\d*$/.test(attempt ?? '') || Number(attempt) > Number(expectedIdentity.attempt)) throw new Error('INVALID_PRODUCER_ATTEMPT');
+    return {...expectedIdentity,attempt};
+  };
   const coverageIdentity = JSON.parse(readFileSync(join(directory, 'coverage', 'identity.json'), 'utf8'));
-  if (Object.keys(expectedIdentity).some(key => coverageIdentity[key] !== expectedIdentity[key]) || coverageIdentity.coverage !== hash(readFileSync(join(directory, 'coverage', 'coverage.json')))) throw new Error('INVALID_COVERAGE_IDENTITY');
+  if (Object.keys(expectedIdentity).some(key => coverageIdentity[key] !== producerIdentity('coverage')[key]) || coverageIdentity.coverage !== hash(readFileSync(join(directory, 'coverage', 'coverage.json')))) throw new Error('INVALID_COVERAGE_IDENTITY');
   const logs = [];
   for (const part of expected.filter(name => name !== 'coverage')) {
     const folder = join(directory, part), report = readFileSync(join(folder, 'report.json')), log = readFileSync(join(folder, 'test.log'));
     const metadata = JSON.parse(readFileSync(join(folder, 'identity.json'), 'utf8'));
-    if (Object.keys(expectedIdentity).some(key => metadata[key] !== expectedIdentity[key]) || metadata.report !== hash(report) || metadata.log !== hash(log) || !log.toString().trim()) throw new Error('INVALID_API_EVIDENCE_IDENTITY_OR_HASH');
+    if (Object.keys(expectedIdentity).some(key => metadata[key] !== producerIdentity(part)[key]) || metadata.report !== hash(report) || metadata.log !== hash(log) || !log.toString().trim()) throw new Error('INVALID_API_EVIDENCE_IDENTITY_OR_HASH');
     validateReport(JSON.parse(report), part === 'exclusive' ? coverage.exclusive : coverage.partitions[Number(part.slice(6))-1]);
     logs.push(`\n=== API ${part} ===\n${log.toString()}`);
   }
@@ -68,6 +95,7 @@ export function bundle(directory, plan, env = process.env) {
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const [command, directory] = process.argv.slice(2);
   if (command === 'prerequisites') assertPrerequisites(JSON.parse(process.env.CI_BASE_NEEDS ?? 'null'));
+  else if (command === 'download') download(directory);
   else if (command === 'record') record(directory);
   else if (command === 'discover') {
     const plan = shardPlan(JSON.parse(readFileSync('.harness/api-test-shards.json', 'utf8')));
@@ -89,6 +117,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
     writeFileSync(join(directory, 'identity.json'), JSON.stringify({...identity(process.env), coverage:hash(data)}));
   } else if (command === 'bundle') {
     const plan = shardPlan(JSON.parse(readFileSync('.harness/api-test-shards.json', 'utf8')));
-    writeFileSync(join(directory, '..', 'api-tests.log'), bundle(directory, plan));
+    writeFileSync(join(directory, '..', 'api-tests.log'), bundle(directory, plan, process.env, JSON.parse(readFileSync(join(directory,'..','api-producers.json'),'utf8'))));
   } else throw new Error('INVALID_BASE_API_COMMAND');
 }

@@ -92,3 +92,20 @@ it('workflow preserves complete API coverage, isolation and failure verdict befo
  expect(scripts['verify:ci-base-other:raw']).toContain("--filter='!@repo/api'");
  expect(core.steps.find((step:any)=>step.name==='Execute uncached trusted base gate').run).toContain('non-api-tests.log phases/phase-01-run-a-project/evidence/ci/api-tests.log');
 });
+
+import { selectProducerArtifacts } from './ci-base-api.mjs';
+it('partial reruns retain each successful producer attempt without mixing runs or future attempts',()=>{
+ const artifact=(part:string,attempt:number)=>({id:attempt,name:`base-api-${part}-17-${attempt}`,expired:false});
+ const artifacts=[artifact('coverage',1),artifact('shard-1',1),artifact('shard-2',1),artifact('shard-2',2),artifact('exclusive',1),artifact('coverage',3)];
+ expect(selectProducerArtifacts(artifacts,{count:2,shards:[1,2]},{...env,GITHUB_RUN_ATTEMPT:'2'}).map((row:any)=>[row.part,row.attempt])).toEqual([['coverage','1'],['shard-1','1'],['shard-2','2'],['exclusive','1']]);
+ expect(()=>selectProducerArtifacts(artifacts.filter(a=>!a.name.includes('exclusive')),{count:2,shards:[1,2]},env)).toThrow();
+ expect(()=>selectProducerArtifacts(artifacts.map(a=>({...a,expired:true})),{count:2,shards:[1,2]},env)).toThrow();
+});
+it('verifies independently retained attempts and rejects an unproven producer identity',()=>{
+ const directory=fixture();try{
+  const attempts={coverage:'2','shard-1':'2','shard-2':'2',exclusive:'2'};
+  expect(bundle(directory,{count:2,shards:[1,2]},{...env,GITHUB_RUN_ATTEMPT:'3'},attempts)).toContain('API exclusive');
+  expect(()=>bundle(directory,{count:2,shards:[1,2]},{...env,GITHUB_RUN_ATTEMPT:'3'},{...attempts,'shard-2':'1'})).toThrow();
+  expect(()=>bundle(directory,{count:2,shards:[1,2]},env,{...attempts,'shard-2':'3'})).toThrow();
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});

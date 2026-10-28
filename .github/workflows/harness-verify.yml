@@ -987,11 +987,9 @@ jobs:
         run: uv sync --frozen --extra dev
       - name: Download current API partition evidence
         if: steps.dedup.outputs.run == 'true'
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          pattern: base-api-*-${{ github.run_id }}-${{ github.run_attempt }}
-          path: phases/phase-01-run-a-project/evidence/ci/api/
-          merge-multiple: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-base-api.mjs download phases/phase-01-run-a-project/evidence/ci/api
       - name: Verify complete current API evidence
         if: steps.dedup.outputs.run == 'true'
         run: node .harness/scripts/ci-base-api.mjs bundle phases/phase-01-run-a-project/evidence/ci/api
