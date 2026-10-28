@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import { useOptionalSession } from "@/components/session/session-provider";
+import { InterviewSessionProvider } from "./interview-session-provider";
 
 export type InterviewCompletion = { interviewId: string; version: number; steps: readonly string[] };
 export const InterviewCompletionContext = React.createContext<{
@@ -16,7 +17,7 @@ export function InterviewCompletionProvider({ children }: { children: React.Reac
   if (scope.status !== previous.current.status || scope.actor !== previous.current.actor || scope.org !== previous.current.org || scope.token !== previous.current.token) {
     previous.current = { ...scope, epoch: previous.current.epoch + 1 };
   }
-  return <CompletionState key={previous.current.epoch}>{children}</CompletionState>;
+  return <CompletionState key={previous.current.epoch}><InterviewSessionProvider>{children}</InterviewSessionProvider></CompletionState>;
 }
 function CompletionState({ children }: { children: React.ReactNode }) {
   const [value, update] = React.useState<InterviewCompletion | null>(null);

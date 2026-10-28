@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useInterviewSource } from "./interview-session-provider";
 import { interviewMarkdown } from "@repo/contracts";
 import { ApiError } from "@/lib/api-client";
 import { initializeInterviewMarkdown, loadInterviewMarkdown, confirmInterviewMarkdown, streamInterviewMarkdownReport, executeInterviewMarkdown, type InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
@@ -22,7 +23,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   readonly onRunningStepChange?: (step: string | null) => void;
 }) {
   const session = React.useSyncExternalStore(subscribeInterviewGeneration, () => getInterviewGenerationSession(interviewId), () => null);
-  const [source, setSource] = React.useState<InterviewMarkdownEnvelope | null>(null);
+  const { source, setSource, refresh, cache } = useInterviewSource(interviewId);
   const [pending, setPending] = React.useState(false);
   const generatingReport = session?.step === "report" && session.status === "running" && Boolean(source && session.revisionId === source.revisionId);
   const [error, setError] = React.useState("");
@@ -46,7 +47,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     }
     acceptedSource.current = next;
     latestVersion.current = next.version; setSource(next); callbacks.current.onVersionChange(next.version);
-  }, [interviewId]);
+  }, [interviewId, setSource]);
   React.useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   const execute = React.useCallback(async (action: "start" | "advance" | "pause" | "resume" | "retry") => {
     if (action !== "pause" && dispatching.current) return;
@@ -73,34 +74,35 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
     }
   }, [interviewId, receive]);
   const autoStartedRevision = React.useRef<string | null>(null);
+  const [verifiedRevision, setVerifiedRevision] = React.useState<string | null | undefined>(undefined);
   React.useEffect(() => {
-    if (step !== "runs" || !source || source.execution || pending || error || autoStartedRevision.current === source.revisionId) return;
+    if (step !== "runs" || !source || verifiedRevision !== source.revisionId || source.execution || pending || error || autoStartedRevision.current === source.revisionId) return;
     const outline = source.documents.find(doc => doc.step === "outline");
     if (!outline?.markdown.trim() || !source.states.some(state => state.documentId === outline.documentId && ["confirmed", "completed"].includes(state.status))) return;
     autoStartedRevision.current = source.revisionId;
     void execute("start");
-  }, [source, step, pending, error, execute]);
+  }, [source, step, pending, error, execute, verifiedRevision]);
   React.useEffect(() => { onBusyChange?.(pending); }, [pending, onBusyChange]);
   React.useEffect(() => { onRunningStepChange?.(generatingReport ? "report" : pending ? step : source?.execution?.status === "running" ? "runs" : null); }, [pending, generatingReport, source?.execution?.status, step, onRunningStepChange]);
   React.useEffect(() => () => onRunningStepChange?.(null), [onRunningStepChange]);
   React.useEffect(() => () => { onBusyChange?.(false); }, [onBusyChange]);
   React.useEffect(() => {
-    if (step !== "runs" || source?.execution?.status !== "running" || pending || error) return;
+    if (step !== "runs" || !source || verifiedRevision !== source.revisionId || source.execution?.status !== "running" || pending || error) return;
     const timer = window.setTimeout(() => void execute("advance"), dispatchDelay.current);
     return () => window.clearTimeout(timer);
-  }, [source, step, pending, error, execute]);
+  }, [source, step, pending, error, execute, verifiedRevision]);
   React.useEffect(() => {
     const controller = new AbortController();
-    setSource(null); setError("");
+    setVerifiedRevision(undefined); setError("");
     const reload = () => void loadInterviewMarkdown(interviewId, controller.signal).then((next) => {
       if (!controller.signal.aborted) receive(next);
     }).catch(() => { if (!controller.signal.aborted) setError("文档载入失败；已显示的内容保留，请重试。"); });
-    void initializeInterviewMarkdown(interviewId, controller.signal).then((next) => {
-      if (!controller.signal.aborted) receive(next);
+    void (cache?.get<InterviewMarkdownEnvelope>(`source/${interviewId}`) ? refresh() : cache ? cache.read(`source/${interviewId}`, () => initializeInterviewMarkdown(interviewId)) : initializeInterviewMarkdown(interviewId, controller.signal)).then((next) => {
+      if (!controller.signal.aborted) { receive(next); setVerifiedRevision(next.revisionId); }
     }).catch(() => { if (!controller.signal.aborted) setError("文档初始化失败；请重试，不会用空编辑器替代旧材料。"); });
     const interval = step === "runs" ? window.setInterval(reload, 5000) : undefined;
     return () => { controller.abort(); if (interval !== undefined) window.clearInterval(interval); };
-  }, [interviewId, step, receive]);
+  }, [interviewId, step, receive, cache, refresh]);
   const reconciledReport = React.useRef<typeof session>(null);
   const reportRevisionId = source?.revisionId;
   React.useEffect(() => {
@@ -178,7 +180,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
       }
     } finally { if (mounted.current) setPending(false); }
   }
-  if (step === "report" && !source && !error) return <><InterviewStepHeader title="研究报告" /><p role="status" className="text-sm text-muted-foreground">正在载入报告与生成进度…</p></>;
+  if (!source && !error) return <><InterviewStepHeader title={step === "runs" ? "访谈内容" : "研究报告"} /><p role="status" className="animate-pulse rounded-xl border border-border p-8 text-sm text-muted-foreground">{step === "runs" ? "正在载入访谈记录…" : "正在载入报告与生成进度…"}</p></>;
   if (step === "report" && generatingReport && session && !document) return <InterviewReportGeneration session={session} />;
   const reportRetry = step === "report" && !generatingReport && (state?.status === "failed" || error) ? <ActionButton variant="primary" loading={pending} disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</ActionButton> : null;
   return <div>

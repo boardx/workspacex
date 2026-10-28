@@ -471,7 +471,7 @@ it("confirms generated questions and continues directly to interviewing after ex
   expect(questionConfirmations).toEqual([{ expectedVersion: 3, expectedDocumentVersion: 1 }]);
 });
 
-it("refreshes conflicted expert versions and retains dialog fields for an explicit retry", async () => {
+it("refreshes conflicted expert versions but requires explicit re-review before retry", async () => {
   vi.stubEnv("NEXT_PUBLIC_API_URL", "http://localhost:4100"); vi.stubEnv("NEXT_PUBLIC_API_PATH_PREFIX", "");
   let version = 1; let doc = { ...source }; const bodies: { expectedVersion: number; expectedDocumentVersion: number; markdown: string }[] = [];
   vi.stubGlobal("fetch", async (url: string, init: RequestInit) => {
@@ -492,6 +492,12 @@ it("refreshes conflicted expert versions and retains dialog fields for an explic
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
   await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("保存未完成"));
   expect(screen.getByRole("textbox", { name: "专家名称" })).toHaveValue(editableVirtualFields.name);
+  fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
+  expect(bodies).toHaveLength(1);
+  expect(screen.getByText("专家资料已在其他位置更新。当前画像编辑已保留，请复制需要的内容，取消并重新打开后再保存。")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "取消" }));
+  expect(screen.getByText("并发保存专家", { exact: true })).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "添加虚拟专家" })); fillVirtualExpert();
   fireEvent.click(screen.getByRole("button", { name: "保存并添加专家" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(bodies[1]).toMatchObject({ expectedVersion: 3, expectedDocumentVersion: 2 });
@@ -662,4 +668,19 @@ it.each((["save", "generate", "confirm"] as const).flatMap(operation => [false, 
   finish(failed ? new Response(JSON.stringify({ error: "dependency_unavailable", reasonCode: "DEPENDENCY_UNAVAILABLE" }), { status: 503 }) : new Response(JSON.stringify({ ...envelope, version: 3 })));
   await waitFor(() => expect(footer.querySelectorAll('[aria-busy="true"]')).toHaveLength(0));
   expect(footer.querySelectorAll('.animate-spin')).toHaveLength(0);
+});
+
+it("keeps open expert dialog fields and blocks save after a background document update", async () => {
+  const { renderVirtualExpertSelection } = await import("@/lib/interview-virtual-expert");
+  const markdown = `# 专家\n\n## [林知远（虚拟）](#expert-virtual-stable)\n\n${renderVirtualExpertSelection(editableVirtualFields)}\n`;
+  const persist = vi.fn().mockResolvedValue(undefined);
+  const props = { directory: [], pending: false, onChange: vi.fn(), onConfirm: vi.fn(), onSaveExpert: persist };
+  const view = render(<InterviewExpertsStep {...props} document={{ ...source, markdown }} />);
+  fireEvent.click(screen.getByRole("button", { name: "编辑专家 林知远（虚拟）" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "专业角色" }), { target: { value: "本地编辑的角色" } });
+  view.rerender(<InterviewExpertsStep {...props} document={{ ...source, version: 2, contentHash: "b".repeat(64), markdown: markdown.replace("安装研究顾问", "远端已更新角色") }} />);
+  fireEvent.click(screen.getByRole("button", { name: "保存专家修改" }));
+  expect(persist).not.toHaveBeenCalled();
+  expect(screen.getByRole("textbox", { name: "专业角色" })).toHaveValue("本地编辑的角色");
+  expect(screen.getByText("专家资料已在其他位置更新。当前画像编辑已保留，请复制需要的内容，取消并重新打开后再保存。")).toBeVisible();
 });
