@@ -5,7 +5,11 @@ import { ResearchNewRoute } from "@/components/research-studio/research-new-rout
 import { ResearchIntake } from "@/components/research-studio/research-intake";
 import { ResearchStageRoute } from "@/components/research-studio/research-stage-route";
 import { createGuidedResearchSession, getGuidedResearchSession, getResearchRuntime, runGuidedResearchSkillTurn } from "@/lib/guided-research-api";
+import { getStoredSessionToken } from "@/lib/api-client";
+import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
 import { research } from "@repo/contracts";
+
+vi.mock("@/lib/api-client", async (original) => ({ ...await original<typeof import("@/lib/api-client")>(), getStoredSessionToken: vi.fn() }));
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -220,4 +224,17 @@ it("shows a single named assistant heading when the intake panel is open", () =>
   render(<ResearchIntake session={null} workflow={null} onSession={vi.fn()} onWorkflow={vi.fn()} onPending={vi.fn()} onNavigate={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "AI 助手" }));
   expect(screen.getAllByRole("heading", { name: "研究助手" })).toHaveLength(1);
+});
+
+it("shows a cached name immediately and validates it against the backend", async () => {
+  vi.mocked(getStoredSessionToken).mockReturnValue("name-account");
+  writeResearchMemory("renamed", { name: "原研究名" }, "name-account");
+  let finish!: (value: Awaited<ReturnType<typeof getGuidedResearchSession>>) => void;
+  vi.mocked(getGuidedResearchSession).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  render(<ResearchStageRoute sessionId="renamed" stage="import" />);
+  expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "原研究名");
+  await waitFor(() => expect(getGuidedResearchSession).toHaveBeenCalledWith("renamed"));
+  finish({ title: "新研究名" } as never);
+  await waitFor(() => expect(screen.getByTestId("production-live")).toHaveAttribute("data-name", "新研究名"));
+  expect(readResearchMemory("renamed")?.name).toBe("新研究名");
 });
