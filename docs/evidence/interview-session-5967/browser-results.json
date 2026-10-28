@@ -1,0 +1,14 @@
+{
+  "boundary": "Real local Next.js and Chromium; HTTP/session fixtures, no real DB/model/authentication",
+  "checks": [
+    "Cold experts never render unknown selection as zero",
+    "Actual route transitions retain loaded identity, selected experts and completed answers while HTTP is delayed",
+    "Remote canonical change is applied on focus without navigation",
+    "Offline refresh retains content and exposes retry",
+    "Dirty draft survives remote edit until explicit resolution",
+    "Navigation and revalidation issue no initialization, execution or model POST",
+    "375px experts route retains shared selection without horizontal overflow"
+  ],
+  "postRequests": [],
+  "errors": []
+}

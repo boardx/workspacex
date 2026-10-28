@@ -63,3 +63,5 @@ description: 用户访谈流程与数字访谈能力；修改访谈主题、专�
 - 2026-10-20：创建访谈弹窗的窄屏验收需叠加多长标签与服务失败提示；375×667十标签+503会让无高度上限的弹窗上下越界，局部视口高度上限与内部滚动修复后top16/bottom651，错误聚焦和重试仍可达。完成卡保留真实专家完成数，不重复满进度；浏览器HTTP/session夹具证据不代表真实鉴权、DB或模型链路（#5843，docs/evidence/interview-ui-5843/README.md）。
 
 - 2026-10-23：步骤条完成态不能以空数组代替尚未加载的 canonical 状态；跨 stage 用当前访谈 layout 的身份隔离投影保留，初载未知与失败重试独立表示，新修订用返回状态立即清除下游完成。浏览器 HTTP 夹具必须放行 Next RSC 路由请求，否则硬导航会伪造缓存丢失（#5890，docs/evidence/interview-ui-5890）。
+
+- 2026-10-28：跨步骤缓存必须共享 canonical source、metadata 与目录，不能只缓存完成图标；后台 GET 需统一报告身份/版本 guard，错误状态使用独立 key。dirty Markdown 与专家弹窗各自保存编辑基线，遇远端变化不得用最新 CAS 静默重放旧字段。可见轮询与 focus/online 刷新应只读且去重，身份切换销毁 scope（#5967，docs/evidence/interview-session-5967）。
