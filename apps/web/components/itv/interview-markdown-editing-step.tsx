@@ -94,8 +94,11 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       setRetryGenerationStep(cause instanceof ApiError && cause.reasonCode === "AI_GENERATION_UNAVAILABLE" ? generationStep : null);
     } finally { setPending(false); setOperationState(current => current === active ? null : current); }
   }
-  async function save(current: InterviewMarkdownEnvelope) {
+  function assertDraftBaseline(current: InterviewMarkdownEnvelope) {
     if (dirty.current && draftBase.current && (draftBase.current.revisionId !== current.revisionId || draftBase.current.markdown !== (current.documents.find(doc => doc.step === step)?.markdown ?? ""))) throw new Error("REMOTE_DRAFT_CONFLICT");
+  }
+  async function save(current: InterviewMarkdownEnvelope) {
+    assertDraftBaseline(current);
     const doc = current.documents.find((item) => item.step === step);
     const persistedMarkdown = step === "outline" ? normalizeOutlineForPersistence({ ...(doc ?? document), markdown }) : markdown;
     if (doc?.markdown === persistedMarkdown) return current;
@@ -176,6 +179,7 @@ export function InterviewMarkdownEditingStep({ interviewId, step, onVersionChang
       setPending(true);
       try {
         const current = source ?? await loadInterviewMarkdown(interviewId);
+        assertDraftBaseline(current);
         const savedExperts = current.documents.find((item) => item.step === "experts");
         receive(await saveInterviewMarkdown(interviewId, "experts", { markdown: nextMarkdown, expectedVersion: current.version, expectedDocumentVersion: savedExperts?.version ?? 0 }));
         setMarkdown(nextMarkdown); dirty.current = false; callbacks.current.onDirtyChange(false);

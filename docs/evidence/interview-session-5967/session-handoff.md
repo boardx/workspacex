@@ -1,5 +1,3 @@
 # 交接
 
-仅处理 #5967，分支 codex/interview-shared-session-5967，既有 worktree 不删除。已完成实现、本地 271 项回归、类型检查、lint、基础 init、7 项浏览器检查；命令日志和证据见同目录。浏览器为受控 HTTP/session 夹具，未运行真实 DB/模型。
-
-下一步：最终提交绑定 SHA，独立 review 与父 chat 验收后建 develop PR，跟进 CI 至绿，禁止自动合并。不需要再因已知缺 token 阻塞，不削弱全局协调或鉴权检查。没有 Docker 资源；本次本地 Next.js 35967 需在验收完成后停止。
+仅处理#5967，既有worktree与分支codex/interview-shared-session-5967保留。develop PR#5970已创建并attach。原基线本地271项、浏览器7项通过，PR review修复后完整274项与最终针对74项通过，见review-followup.md。浏览器为HTTP/session夹具，无真实DB/模型证据。最新业务提交需重新exact SHA独立复审与父chat验收后push；持续CI/review至绿，不自动合并。没有Docker资源，Next.js35967已停止。凭据空模板不入库，未取得lease，#5967获人类例外。

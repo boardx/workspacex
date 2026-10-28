@@ -94,12 +94,16 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   React.useEffect(() => {
     const controller = new AbortController();
     setVerifiedRevision(undefined); setError("");
+    let initialLoadFailed = false;
     const reload = () => void loadInterviewMarkdown(interviewId, controller.signal).then((next) => {
-      if (!controller.signal.aborted) receive(next);
+      if (!controller.signal.aborted) {
+        receive(next);
+        if (initialLoadFailed) { setVerifiedRevision(next.revisionId); setError(""); initialLoadFailed = false; }
+      }
     }).catch(() => { if (!controller.signal.aborted) setError("文档载入失败；已显示的内容保留，请重试。"); });
     void (cache?.get<InterviewMarkdownEnvelope>(`source/${interviewId}`) ? refresh() : cache ? cache.read(`source/${interviewId}`, () => initializeInterviewMarkdown(interviewId)) : initializeInterviewMarkdown(interviewId, controller.signal)).then((next) => {
       if (!controller.signal.aborted) { receive(next); setVerifiedRevision(next.revisionId); }
-    }).catch(() => { if (!controller.signal.aborted) setError("文档初始化失败；请重试，不会用空编辑器替代旧材料。"); });
+    }).catch(() => { if (!controller.signal.aborted) { initialLoadFailed = true; setError("文档初始化失败；请重试，不会用空编辑器替代旧材料。"); } });
     const interval = step === "runs" ? window.setInterval(reload, 5000) : undefined;
     return () => { controller.abort(); if (interval !== undefined) window.clearInterval(interval); };
   }, [interviewId, step, receive, cache, refresh]);
@@ -185,7 +189,7 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   const reportRetry = step === "report" && !generatingReport && (state?.status === "failed" || error) ? <ActionButton variant="primary" loading={pending} disabled={pending || !sourceRuns.length || sourceRuns.some((run) => run.status !== "completed")} onClick={() => void generateReport()}>继续生成报告</ActionButton> : null;
   return <div>
     {step === "report" && generatingReport && session && document && <InterviewReportGeneration session={session} />}
-    {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><ActionButton variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</ActionButton></div>}
+    {error && <div role="alert" className="mb-4 rounded-lg border border-destructive/20 p-4 text-sm text-destructive"><p>{error}</p><ActionButton variant="outline" className="mt-3" disabled={pending} onClick={() => void loadInterviewMarkdown(interviewId).then((next) => { receive(next); setVerifiedRevision(next.revisionId); setError(""); }).catch(() => setError("载入失败，请稍后重试。"))}>重新载入状态</ActionButton></div>}
     {state?.status === "failed" && !error && <p role="alert" className="mb-4 text-sm text-destructive">{interviewReportFailureMessage(state.failure?.code)}已保存内容不代表完整报告。</p>}
     {step === "runs" ? <InterviewRunsStep runs={sourceRuns} taskProgress={Boolean(execution)} document={document} pending={pending} generatingReport={generatingReport} onGenerateReport={() => void generateReport()} actions={<>
       {!execution && <ActionButton variant="primary" loading={pending} disabled={pending || !source} onClick={() => void execute("start")}>开始模拟访谈</ActionButton>}

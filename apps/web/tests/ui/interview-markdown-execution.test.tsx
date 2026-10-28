@@ -311,3 +311,28 @@ it("keeps a newer persisted report when an earlier generation finishes late",asy
  expect(screen.getByTestId("itv-source-report-markdown")).not.toHaveTextContent("过期生成正文");
 });
 
+
+it.each(["manual", "poll"])("resumes running execution after initial load failure via %s recovery", async recovery => {
+  vi.useFakeTimers();
+  api.initializeInterviewMarkdown.mockRejectedValue(new Error("offline"));
+  api.loadInterviewMarkdown.mockResolvedValue(active);
+  api.executeInterviewMarkdown.mockResolvedValue({ ...active, version: 4, execution: { ...active.execution!, status: "paused" } });
+  renderResults();
+  await act(async () => {});
+  expect(screen.getByRole("alert")).toHaveTextContent("文档初始化失败");
+  await act(async () => {
+    if (recovery === "manual") fireEvent.click(screen.getByRole("button", { name: "重新载入状态" }));
+    else await vi.advanceTimersByTimeAsync(5000);
+  });
+  await act(async () => { await vi.advanceTimersByTimeAsync(250); });
+  expect(api.executeInterviewMarkdown).toHaveBeenCalledWith("itv-execution-7", { expectedVersion: active.version, action: "advance" });
+});
+
+it("does not authorize a different revision for automatic execution during normal polling", async () => {
+  vi.useFakeTimers();
+  const outline = { documentId: "outline-new-revision", step: "outline" as const, version: 1, contentHash: "a".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "## [采购](#expert-purchase)\n\n1. 谁批准预算？" };
+  api.loadInterviewMarkdown.mockResolvedValue({ ...source, version: 10, revisionId: "revision-remote", documents: [outline], states: [{ documentId: outline.documentId, status: "confirmed", failure: null }] });
+  renderResults(); await act(async () => {});
+  await act(async () => { await vi.advanceTimersByTimeAsync(5250); });
+  expect(api.executeInterviewMarkdown).not.toHaveBeenCalled();
+});
