@@ -20,3 +20,5 @@
 ## 后续动作
 
 以 PR 当前 CI 和测试输出判断状态；不手改 feature_list 或签核文件，不自行合并 PR。devapp 部署与真实混合负载压测、CN 晋级均尚未执行，必须遵守各环境发布标准。需要提升吞吐时先采集等待时长、成功率和内存，再规划持久化任务队列与 Session 实例路由。
+
+交付 PR：https://github.com/boardx/workspacex/pull/5968 。当前 CI/可合并状态必须读取 PR 与 `pnpm harness pr-queue --pr 5968 --json`，不以本文静态快照代替。

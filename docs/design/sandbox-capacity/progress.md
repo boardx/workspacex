@@ -10,3 +10,5 @@
 - 全包验证：sandbox 109 通过/1 原有跳过，contracts 1240 通过，cloud-deploy 706 通过，Python 860 通过/45 原有条件跳过；真实 PG/API 30+3 通过，传输/取消 4 通过。
 - 相关验证与环境失败记录见 `docs/evidence/sandbox-capacity-5966/README.md`。
 - 未部署 devapp/CN，未改变服务器规格，未验证 100/200 人真实负载，未实现全局持久化调度或自动扩容。
+
+交付 PR：https://github.com/boardx/workspacex/pull/5968 。当前 CI/可合并状态必须读取 PR 与 `pnpm harness pr-queue --pr 5968 --json`，不以本文静态快照代替。

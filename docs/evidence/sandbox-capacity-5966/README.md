@@ -30,3 +30,5 @@ No claim of zero-latency persisted cancellation, per-command cgroup isolation, d
 ## Final verification
 
 Serial sandbox suite, contract suite, full Python with isolated PostgreSQL, targeted real PostgreSQL and private-transport suites passed. Use the current PR checks and `harness pr-queue` classification for CI state; local results do not imply a green PR or a production deployment.
+
+Delivery PR: https://github.com/boardx/workspacex/pull/5968 . Read its live checks and harness classification for the current head; neither this file nor local tests claim it has merged or deployed.

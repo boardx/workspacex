@@ -31,7 +31,7 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G done
   class S1 done
   class S2 done
   class S3 done
@@ -57,8 +57,10 @@ flowchart TD
 - [x] Integrate Session execution and legacy /run; test real HTTP queue/overload/disconnect and child cancellation. Preserve cached results, token auth and cleanup.
 - [x] Propagate trusted user ownership from native input visibility and legacy run/trial contexts; forward only hashed quota identity in private transport headers. Validate malformed identity; group missing identity conservatively.
 - [x] Connect a stable optional capacity env_file to the canonical Compose generator and image template; keep defaults in contracts/runtime rather than duplicating numbers in deployment. Test actual generated environment.
-- [ ] Write Chinese operating guide and status/handoff. Run relevant full package suites, typechecks and boundary lint. Create PR, attach and follow CI; retain explicit unverified capacity/production boundaries.
+- [x] Write Chinese operating guide and status/handoff. Run relevant full package suites, typechecks and boundary lint. Create PR, attach and follow CI; retain explicit unverified capacity/production boundaries.
 
 **Ruling:** First stage uses a bounded in-memory execution queue instead of the earlier long-term PostgreSQL task queue. It protects both existing synchronous execution protocols without introducing task resumption/replay. Durable task admission and live frontend queue states are later work and must not be claimed delivered.
 
 **Ruling:** Deployment uses a stable optional capacity env_file rather than extending the cloud provision schema. Runtime validates the file values; generated Compose and installer/US template parity is tested. This avoids copying capacity defaults into deployment config.
+
+Delivery PR: https://github.com/boardx/workspacex/pull/5968 . Local verification and documentation/PR handoff are complete; CI is read live and followed by the author. Merge and production rollout remain outside this session.
