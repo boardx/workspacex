@@ -1316,7 +1316,7 @@ async function executeClaimed(
           return retryScriptSource(retry);
         },
       },
-      { runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },
+      { owner: { orgId, userId: run.requesterUserId ?? "unattributed" }, runId: run.runId, pinnedSkillCount: toolSkills.length, reply: text, scriptSources: scriptCandidates, inputFiles: artifactContinuation?.inputFiles },
     );
     if (scripted.kind === "cancelled") return;
     text = scripted.text;

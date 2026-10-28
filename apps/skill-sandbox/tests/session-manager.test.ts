@@ -84,7 +84,7 @@ describe("trusted session manager", () => {
     const { manager, session } = await setup({ probe: () => new Promise((resolve) => { finish = resolve; }),
       execute: async () => { calls++; throw new Error("must not execute"); } });
     const pending = manager.execute(session.sessionId, session.token, { executionId: "pending", command: "fixture", timeoutMs: 1000 });
-    await Promise.resolve();
+    await new Promise(resolve => setImmediate(resolve));
     expect(manager.cancel(session.sessionId, session.token, "pending").cancelled).toBe(true);
     finish(true);
     expect((await pending).cancelled).toBe(true);
@@ -95,7 +95,7 @@ describe("trusted session manager", () => {
     const { manager, session } = await setup({ probe: () => new Promise((resolve) => { finish = resolve; }),
       execute: async () => { throw new Error("must not execute"); } });
     const pending = manager.execute(session.sessionId, session.token, { executionId: "closing", command: "fixture", timeoutMs: 1000 });
-    await Promise.resolve();
+    await new Promise(resolve => setImmediate(resolve));
     const closing = manager.destroy(session.sessionId, session.token);
     await expect(manager.read(session.sessionId, session.token, "/workspace/file")).rejects.toThrow("SESSION_NOT_FOUND");
     finish(true);

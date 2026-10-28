@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { EventEmitter } from "node:events";
 import { Readable } from "node:stream";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { handleSessionRequest } from "../src/session/http.js";
@@ -17,7 +18,7 @@ describe("session HTTP contract", () => {
       const req = Readable.from(payload === undefined ? [] : [Buffer.from(JSON.stringify(payload))]) as IncomingMessage;
       req.method = method; req.url = url; req.headers = token ? { authorization: `Bearer ${token}` } : {};
       let status = 0; let output: any;
-      const res = { writeHead: (code: number) => { status = code; }, end: (body: string) => { output = JSON.parse(body); } } as unknown as ServerResponse;
+      const res = Object.assign(new EventEmitter(), { writeHead: (code: number) => { status = code; }, end: (body: string) => { output = JSON.parse(body); } }) as unknown as ServerResponse;
       await handleSessionRequest(req, res, manager);
       return { status, output };
     }
