@@ -7,8 +7,12 @@ import { Select } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { readAiUsage, readAiUsageCalls, type UsageQuery, type UsageSummary, type UsageCalls } from "@/lib/live-ai-usage";
+import { useOrgMemberNames, memberLabel } from "@/lib/use-org-member-names";
 import { AiUsageLedger } from "./ai-usage-ledger";
 import { dateQuery, dateRange, formatTokens, nativeQuantity, recordedTotal, usageDateLabel, UNIT_LABELS, type DatePreset } from "./ai-usage-format";
+
+import { usageBucketEnd, usageMidnight, type UsageGrain } from "@/lib/ai-usage-chart";
+import { AiUsageOverview } from "./ai-usage-overview";
 
 const PRESETS: { value: DatePreset; label: string }[] = [{ value: "today", label: "今天" }, { value: "week", label: "近 7 天" }, { value: "month", label: "本月" }];
 const modelKey = (item: { modelProvider: string; modelId: string }) => JSON.stringify([item.modelProvider, item.modelId]);
@@ -19,6 +23,7 @@ export function AiUsagePanel({ orgId, platform = false, selfUserId }: { orgId: s
   return <UsageReport key={JSON.stringify([orgId, platform, selfUserId])} orgId={orgId} platform={platform} selfUserId={selfUserId} />;
 }
 function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform: boolean; selfUserId?: string }) {
+  const names = useOrgMemberNames(selfUserId ? null : orgId);
   const [initial] = React.useState(() => dateRange("week"));
   const [start, setStart] = React.useState(initial.start), [end, setEnd] = React.useState(initial.end);
   const [preset, setPreset] = React.useState<DatePreset | "custom">("week");
@@ -29,12 +34,12 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
   const [cursor, setCursor] = React.useState<UsageCalls["nextCursor"]>(null);
   const [summaryError, setSummaryError] = React.useState(false), [callsError, setCallsError] = React.useState(false);
   const [dateError, setDateError] = React.useState(false), [reload, setReload] = React.useState(0);
-  const [tab, setTab] = React.useState("calls");
+  const [tab, setTab] = React.useState("summary");
 
   React.useEffect(() => {
     let active = true;
     setSummary(null); setCalls(null); setCursor(null); setSummaryError(false); setCallsError(false);
-    void readAiUsage(orgId, platform, { ...query, userId: selfUserId }).then(out => {
+    void readAiUsage(orgId, platform, { ...query, userId: selfUserId ?? query.userId }).then(out => {
       if (!active) return;
       setSummary(out);
       if (!query.modelId) setModelOptions(out.models);
@@ -46,7 +51,7 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
     let active = true;
     setCalls(null); setCallsError(false);
     void readAiUsageCalls(orgId, platform, {
-      ...query, userId: selfUserId, asOf: summary.asOf,
+      ...query, userId: selfUserId ?? query.userId, asOf: summary.asOf,
       ...(cursor ? { cursorTime: cursor.occurredAt, cursorId: cursor.id } : {}),
     }).then(out => { if (active) setCalls(out); }).catch(() => { if (active) setCallsError(true); });
     return () => { active = false; };
@@ -55,7 +60,7 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
   function applyDates(range: { start: string; end: string }) {
     try {
       const window = dateQuery(range.start, range.end);
-      setQuery({ ...window, modelProvider: query.modelProvider, modelId: query.modelId }); setCursor(null); setDateError(false);
+      setQuery({ ...query, ...window, asOf: undefined, modelProvider: query.modelProvider, modelId: query.modelId }); setCursor(null); setDateError(false);
     } catch { setDateError(true); }
   }
   function selectPreset(value: DatePreset) {
@@ -65,7 +70,10 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
   function selectModel(value: string) {
     const model = modelOptions.find(item => modelKey(item) === value);
     setCursor(null);
-    setQuery({ ...query, modelProvider: model?.modelProvider, modelId: model?.modelId });
+    setQuery({ ...query, asOf: summary?.asOf, modelProvider: model?.modelProvider, modelId: model?.modelId });
+  }
+  function drill(filters: Partial<UsageQuery> = {}) {
+    setCursor(null); setQuery({ ...query, asOf: summary?.asOf, ...filters }); setTab("calls");
   }
   const current = summary?.current;
   return <section aria-label="AI用量" data-testid="ai-usage-report" className="mt-6 space-y-6">
@@ -103,7 +111,23 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
         {summary.nativeUnits.map(unit => <span key={unit.unit} className="ml-2">{unit.reportedCalls > 0 && <span>{nativeQuantity({ unit: unit.unit, quantity: unit.reportedQuantity, source: "reported" })}（已上报） </span>}{unit.estimatedCalls > 0 && <span>{nativeQuantity({ unit: unit.unit, quantity: unit.estimatedQuantity, source: "estimated" })} </span>}{unit.unknownCalls > 0 && <span>{UNIT_LABELS[unit.unit]}：{unit.unknownCalls} 次调用未上报</span>}</span>)}
       </div>
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList aria-label="用量视图"><TabsTrigger value="calls">调用明细</TabsTrigger><TabsTrigger value="models">按模型汇总</TabsTrigger></TabsList>
+        <TabsList aria-label="用量视图"><TabsTrigger value="summary">汇总图表</TabsTrigger><TabsTrigger value="calls">调用明细</TabsTrigger><TabsTrigger value="models">按模型汇总</TabsTrigger></TabsList>
+        <TabsContent value="summary" className="mt-4 space-y-4">
+          <AiUsageOverview summary={summary} onDetails={(day?: string, grain?: UsageGrain) => {
+            drill(day && grain ? {
+              start: new Date(Math.max(Date.parse(query.start), Date.parse(usageMidnight(day, summary.timezone)))).toISOString(),
+              end: new Date(Math.min(Date.parse(query.end), Date.parse(usageMidnight(usageBucketEnd(day, grain), summary.timezone)))).toISOString(),
+            } : {});
+          }} />
+   {!selfUserId&&<><h3 className="font-semibold">成员排名</h3><div className="flex flex-wrap gap-2">{summary.members.map(member=><Button key={member.userId} variant="outline" onClick={()=>{drill({userId:member.userId});}}>{memberLabel(member.userId, selfUserId, names)} · {formatTokens(member.totalTokens)}</Button>)}
+    {query.userId&&<Button variant="ghost" onClick={()=>drill({userId:undefined})}>全部有权查看的成员</Button>}</div>
+   </>}
+   <h3 className="font-semibold">供应商与模型分布</h3><div className="flex flex-wrap gap-2">{summary.models.map(item=><Button key={item.modelProvider+":"+item.modelId} variant="outline" onClick={()=>{drill({modelProvider:item.modelProvider,modelId:item.modelId});}}>{item.modelProvider} / {item.modelId} · {formatTokens(item.totalTokens)}</Button>)}</div>
+   {!selfUserId&&<><h3 className="font-semibold">成员 × 模型</h3><div className="flex flex-wrap gap-2">{summary.matrix.map(item=><Button key={item.userId+":"+item.modelProvider+":"+item.modelId} variant="outline" onClick={()=>{drill({userId:item.userId,modelProvider:item.modelProvider,modelId:item.modelId});}}>{memberLabel(item.userId, selfUserId, names)} / {item.modelProvider} / {item.modelId} · {formatTokens(item.totalTokens)}</Button>)}</div>
+   </>}
+   <h3 className="font-semibold">项目归因</h3><div className="flex flex-wrap gap-2">{summary.projects.map(item=><Button key={item.projectId??"unassigned"} variant="outline" onClick={()=>{drill({projectId:item.projectId??undefined,unassignedProject:item.projectId===null?"true":undefined});}}>{item.projectId??"未归属项目"} · {formatTokens(item.totalTokens)}</Button>)}</div>
+          <Button variant="ghost" onClick={() => { setCursor(null); setQuery({ ...query, asOf: undefined, userId: undefined, modelProvider: undefined, modelId: undefined, projectId: undefined, unassignedProject: undefined }); }}>清除分组筛选</Button>
+        </TabsContent>
         <TabsContent value="calls" className="mt-4">
           <div className="overflow-x-auto rounded-xl border bg-card">
             {callsError && <div role="alert" className="p-6"><p>调用明细加载失败，请重试。</p><Button variant="outline" className="mt-3" onClick={() => setReload(value => value + 1)}>重新加载明细</Button></div>}

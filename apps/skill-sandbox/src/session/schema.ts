@@ -34,6 +34,9 @@ export const sessionLimits: Record<string, number> = {
   ...artifact.limits,
   maxSessions: resolveMaxSessions(artifact.limits.maxSessions),
 };
+export const capacityErrors = artifact.capacityErrors as Readonly<{
+  queueFull: string; ownerLimit: string; waitTimeout: string; cancelled: string;
+}>;
 const ajv = new Ajv({ strict: false });
 ajv.addFormat("uuid", /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
 const validators = new Map(Object.entries(artifact.schemas).map(([name, schema]) => [name, ajv.compile(schema as object)]));

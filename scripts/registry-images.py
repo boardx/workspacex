@@ -31,6 +31,12 @@ def release_tag(source, run, attempt):
     need(SHA.fullmatch(source) and re.fullmatch('[1-9][0-9]*',run) and re.fullmatch('[1-9][0-9]*',attempt), 'INVALID_BUILD_IDENTITY')
     return run+'-'+attempt
 
+def build_source(default, override, build_only):
+    need(isinstance(default,str) and SHA.fullmatch(default), 'INVALID_BUILD_SOURCE')
+    need(isinstance(override,str) and (not override or SHA.fullmatch(override)), 'INVALID_BUILD_SOURCE')
+    need(not override or build_only is True, 'SOURCE_OVERRIDE_REQUIRES_BUILD_ONLY')
+    return override or default
+
 def safe_diagnostics(raw):
     for key,value in os.environ.items():
         if value and len(value)>=4 and (re.search(r'TOKEN|PASSWORD|SECRET|ACCESS_KEY',key) or key=='ACR_USERNAME'):
@@ -152,13 +158,17 @@ def write(path, value):
 def main():
     parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest='operation',required=True)
     sub.add_parser('login')
+    source=sub.add_parser('source');source.add_argument('--default',required=True)
     plan=sub.add_parser('plan');plan.add_argument('--source',required=True);plan.add_argument('--resolve-bases',action='store_true')
     for op in ('build','aggregate'):
         command=sub.add_parser(op)
         for name in ('prefix','tag','output','source'): command.add_argument('--'+name,required=True)
         command.add_argument('--service' if op=='build' else '--directory',required=True)
     args=parser.parse_args()
-    if args.operation=='login':
+    if args.operation=='source':
+        value=build_source(args.default,os.environ.get('SOURCE_OVERRIDE',''),os.environ.get('BUILD_ONLY')=='true')
+        with open(os.environ['GITHUB_OUTPUT'],'a') as output: output.write('source='+value+'\n')
+    elif args.operation=='login':
         prefix=os.environ.get('REGISTRY_PREFIX','');registry=os.environ.get('REGISTRY','')
         need(PREFIX.fullmatch(prefix) and registry==prefix.split('/')[0] and '-vpc.' not in registry,'PUBLIC_REGISTRY_REQUIRED')
         username=os.environ.get('ACR_USERNAME','');password=os.environ.get('ACR_PASSWORD','')
@@ -168,8 +178,8 @@ def main():
     elif args.operation=='plan':
         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
         build_only=os.environ.get('BUILD_ONLY')=='true'
-        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop') or build_only),'RELEASE_EVENT_NOT_ALLOWED')
-        expected={'develop':'devapp','main':'cn'}.get(branch)
+        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop','main-us') or build_only),'RELEASE_EVENT_NOT_ALLOWED')
+        expected={'develop':'devapp','main':'cn','main-us':'us'}.get(branch)
         requested=os.environ.get('TARGET_ENVIRONMENT') or 'auto'
         if event=='push':
             target=expected
@@ -179,17 +189,20 @@ def main():
         else:
             # Non-release branches are diagnostic builds only, never host deployments.
             target=requested
-        need(target in ('devapp','cn'),'INVALID_ENVIRONMENT')
+        need(target in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
         existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''
         tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
         selected=os.environ.get('BUILD_SERVICE') or 'all'
         need(selected=='all' or selected in SERVICES and os.environ.get('BUILD_ONLY')=='true','PARTIAL_BUILD_REQUIRES_BUILD_ONLY')
         services=list(SERVICES) if selected=='all' else [selected]
-        runner=['self-hosted','linux','x64','workspacex' if target=='devapp' else 'workspacex-cn-production']
+        lane={'devapp':('devapp','workspacex','workspacex-devapp-deploy'),
+              'cn':('production-cn','workspacex-cn-production','workspacex-cn-production-deploy'),
+              'us':('production-us','workspacex-us-production','workspacex-us-production-deploy')}[target]
+        runner=['self-hosted','linux','x64',lane[1]]
         with open(os.environ['GITHUB_OUTPUT'],'a') as output:
-            values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':'devapp' if target=='devapp' else 'production-cn',
-                    'runner':json.dumps(runner),'build':'false' if existing else 'true','group':'workspacex-devapp-deploy' if target=='devapp' else 'workspacex-cn-production-deploy'}
+            values={'source':args.source,'tag':tag,'services':json.dumps(services),'fullset':'true' if selected=='all' else 'false','target':target,'environment':lane[0],
+                    'runner':json.dumps(runner),'build':'false' if existing else 'true','group':lane[2]}
             if args.resolve_bases and not existing: values.update(resolve_bases())
             for key,value in values.items(): output.write(key+'='+value+'\n')
         summary=os.environ.get('GITHUB_STEP_SUMMARY')

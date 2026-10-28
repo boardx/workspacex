@@ -15,8 +15,11 @@ export const Totals=z.object({inputTokens:Tokens,outputTokens:Tokens,totalTokens
  reportedCalls:Count,legacyCalls:Count,unknownCalls:Count,unknownInputCalls:Count,unknownOutputCalls:Count,nativeCalls:Count.default(0)}).strict();
 export const NATIVE_UNITS=["image","pixel","millisecond","microsecond","character","request"] as const;
 export const NativeUsage=z.object({unit:z.enum(NATIVE_UNITS),quantity:Tokens.nullable(),source:z.enum(["reported","estimated","unknown"])}).strict();
+export const CostSummary=z.object({currency:z.string(),costMicros:Tokens,pricedCalls:Count}).strict();
 export const Summary=z.object({asOf:Timestamp,start:Timestamp,end:Timestamp,timezone:Zone,coverage:z.literal("partial"),
  current:Totals,previous:Totals,
+ costs:z.array(CostSummary).optional(),unpricedCalls:Count.optional(),
+ dailyCosts:z.array(CostSummary.extend({day:z.string()}).strict()).optional(),
  nativeUnits:z.array(z.object({unit:NativeUsage.shape.unit,reportedQuantity:Tokens,estimatedQuantity:Tokens,reportedCalls:Count,estimatedCalls:Count,unknownCalls:Count}).strict()).default([]),
  dispatchIntents:Count,unsettledDispatchIntents:Count,
  truncated:z.object({members:z.boolean(),models:z.boolean(),matrix:z.boolean(),projects:z.boolean()}).strict(),

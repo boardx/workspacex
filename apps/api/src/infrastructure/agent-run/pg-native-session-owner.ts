@@ -1,3 +1,4 @@
+import { sandboxOwnerKey } from "../skill/sandbox-owner-key";
 import { AGENT_INTERRUPTS_TOOL_NAMES, ESCALATE_MATTER_TOOL_NAME } from "@repo/contracts/agent-interrupts";
 import { AGENT_WORKFLOW_START_TOOL_NAME } from "../../application/agent/request-agent-workflow-start";
 import { REQUEST_HANDOFF_TOOL_NAME } from "@repo/contracts/agent-role";
@@ -37,7 +38,7 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
   for(const p of parsed)for(const f of p.package.files)if(hash(Buffer.from(f.contentBase64,'base64'))!==f.digest)throw new Error('native_package_digest_mismatch');
   const snapshot=this.mcp?await this.mcp.capture(context):undefined;
   const policy=NativeSessionResolved.shape.interruptOn.parse({...interruptOn,...Object.fromEntries((snapshot?.tools??[]).map(tool=>[tool.name,true]))});
-  const inputSet=await this.authorized(context,async()=>this.inputs?this.inputs.read(context):{manifest:[],files:[]});
+  const inputSet=await this.authorized(context,async()=>this.inputs?this.inputs.read(context):{manifest:[],files:[],owner:undefined});
   const inputManifest=NativeInputManifest.parse(inputSet.manifest);
   if(inputManifest.length!==inputSet.files.length)throw new Error("native_input_manifest_mismatch");
   for(const item of inputManifest){const file=inputSet.files.find(f=>f.path===item.path);if(!file)throw new Error("native_input_manifest_mismatch");const bytes=Buffer.from(file.contentBase64,"base64");if(bytes.toString("base64")!==file.contentBase64||bytes.length!==item.sizeBytes||hash(bytes)!==item.digest)throw new Error("native_input_manifest_mismatch");}
@@ -61,7 +62,7 @@ export class PgNativeSessionOwner implements NativeSessionOwner {
   if(row.fresh){
    let known: {sessionId:string;token:string;expiresAt:number}|undefined;
    try{
-    known=await this.transport.create(skillFiles,inputSet.files);
+    known=await this.transport.create(skillFiles,inputSet.files,sandboxOwnerKey(context.orgId,inputSet.owner?.userId??null));
     const valid=NativeSessionResolved.parse({...known,interruptOn:policy,packageDigest:digest});
     const cipher=this.crypt({...row,session_id:valid.sessionId},valid.token,true);
     await this.authorized(context,()=>this.db.withTenant(context.orgId,async s=>{

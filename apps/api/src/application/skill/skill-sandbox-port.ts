@@ -1,3 +1,4 @@
+import type { Principal } from "../../domain/principal";
 import type { SandboxInputFile } from "@repo/skill-sandbox/input-files";
 /**
  * `SkillSandboxPort` —— 试跑执行模型生成脚本的应用层端口
@@ -59,7 +60,7 @@ export interface SkillSandboxPort {
    *   ⚠ 不要把它降级成"回一个 exitCode 非零的结果"——那会让调用方把运维故障
    *   当成"模型写的脚本有问题"，然后白白重试三次，最后报一个错误的失败码。
    */
-  run(input: { readonly script: string; readonly timeoutMs: number; readonly inputFiles?: readonly SandboxInputFile[] }): Promise<SandboxRunResult>;
+  run(input: { readonly owner?: Principal; readonly signal?: AbortSignal; readonly script: string; readonly timeoutMs: number; readonly inputFiles?: readonly SandboxInputFile[] }): Promise<SandboxRunResult>;
 }
 
 export class SandboxUnavailableError extends Error {

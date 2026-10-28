@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { createCloudCompose } from "../src/compose.js";
 import { deploymentExample } from "../src/examples.js";
@@ -40,4 +41,18 @@ it("promotes one image set across environment configs without rebuilding", () =>
   expect(first.services.web!.env_file).not.toEqual(second.services.web!.env_file);
   expect(first.services.api!.environment).not.toEqual(second.services.api!.environment);
   expect(JSON.stringify(bundle)).toBe(before);
+});
+
+it('both sandbox services load an optional stable capacity file without weakening isolation or duplicating runtime defaults', () => {
+  const config=deploymentExample('production');
+  const compose=createCloudCompose(config,release(config.provision.release),{projectName:'capacity-test',runtimeDirectory:'/opt/runtime'});
+  for(const service of ['sandbox','sandbox-sessions']) {
+    expect(compose.services[service]!.env_file).toEqual([{path:'/etc/workspacex/sandbox-capacity.env',required:false,format:'raw'}]);
+    expect(compose.services[service]).toMatchObject({network_mode:'none',read_only:true,mem_limit:'1g',cpus:1});
+    expect(compose.services[service]!.environment).not.toHaveProperty('SKILL_SANDBOX_CONCURRENCY');
+    for (const file of ['scripts/image_install/templates/compose.json','deploy/us/compose.yaml']) {
+      const template=JSON.parse(readFileSync(new URL('../../../'+file,import.meta.url),'utf8'));
+      expect(template.services[service].env_file).toEqual(compose.services[service]!.env_file);
+    }
+  }
 });

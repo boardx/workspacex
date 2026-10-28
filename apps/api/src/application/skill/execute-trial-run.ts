@@ -207,6 +207,7 @@ async function runOnce(
   let lastReply = "";
 
   const loop = await runScriptWithRetries({
+    owner: {orgId, userId:run.actorId},
     sandbox: deps.sandbox,
     inputFiles,
     timeoutMs: SCRIPT_TIMEOUT_MS,

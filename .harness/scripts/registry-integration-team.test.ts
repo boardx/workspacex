@@ -110,9 +110,20 @@ describe("#407 minimal integration team registry projection", () => {
       "coord-user-research",
       "coord-voice",
       "dev-ai-capability-studio",
+      "dev-sandbox-capacity",
       "dev-studio-asr",
       "rev-e2e",
     ]);
+  });
+
+  it("keeps the user-authorized sandbox worker scoped and without coordinator privileges", () => {
+    expect(byId("dev-sandbox-capacity")).toMatchObject({
+      active: true, kind: "worker", model: "configured-default",
+      owner: "147526627+usersyj@users.noreply.github.com",
+      areas: ["ai-runtime", "skills"], reports_to: "coord-main",
+    });
+    expect(byId("dev-sandbox-capacity")?.required_for).toBeUndefined();
+    expect(byId("dev-sandbox-capacity")?.emits).toBeUndefined();
   });
 
   it("binds the Studio ASR worker to the approved DevPortal identity", () => {

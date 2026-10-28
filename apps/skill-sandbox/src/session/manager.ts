@@ -1,3 +1,4 @@
+import { capacityErrors as C } from "./schema.js";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readFile, opendir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -6,9 +7,13 @@ import { sessionLimits as L } from "./schema.js";
 import { validateSessionPath } from "./paths.js";
 import type { SessionExecutionProvider, SessionExecutionResult } from "./provider.js";
 
+import { CapacityError, ExecutionCapacity } from '../execution-capacity.js';
+import { capacityPolicy } from '../capacity-config.js';
+
 type FileInput = { path: string; contentBase64: string };
 interface Session {
   root: string;
+  owner: string;
   token: string;
   expiresAt: number;
   busy: boolean;
@@ -22,9 +27,9 @@ export class SessionManager {
   private readonly destroyed = new Map<string, { hash: Buffer; expiresAt: number; done: Promise<void>; settled: boolean }>();
   private creating = 0;
   private closing = 0;
-  constructor(private readonly provider: SessionExecutionProvider, private readonly baseDir = tmpdir()) {}
+  constructor(private readonly provider: SessionExecutionProvider, private readonly baseDir = tmpdir(), readonly capacity = new ExecutionCapacity(capacityPolicy())) {}
 
-  async create(skills: FileInput[] = [], ttlMs = L.defaultTtlMs!, inputs: FileInput[] = []) {
+  async create(skills: FileInput[] = [], ttlMs = L.defaultTtlMs!, inputs: FileInput[] = [], owner = "unscoped") {
     this.reapTombstones();
     if (this.destroyed.size + this.sessions.size + this.creating >= L.maxSessions! * L.maxExecutionsPerSession!) throw new Error("SESSION_LIMIT");
     if (this.sessions.size + this.creating + this.closing >= L.maxSessions!) throw new Error("SESSION_LIMIT");
@@ -55,7 +60,7 @@ export class SessionManager {
       const sessionId = randomUUID();
       const token = randomBytes(32).toString("hex");
       const expiresAt = Date.now() + ttlMs;
-      this.sessions.set(sessionId, { root, token, expiresAt, busy: false, results: new Map() });
+      this.sessions.set(sessionId, { root, owner, token, expiresAt, busy: false, results: new Map() });
       return { sessionId, token, expiresAt };
     } catch (error) { await rm(root, { recursive: true, force: true }); throw error; }
     finally { this.creating--; }
@@ -130,7 +135,7 @@ export class SessionManager {
     });
   }
 
-  async execute(id: string, token: string, input: { executionId: string; command: string; timeoutMs: number }) {
+  async execute(id: string, token: string, input: { executionId: string; command: string; timeoutMs: number }, signal?: AbortSignal) {
     const session = this.get(id, token);
     if (!input.executionId || input.executionId.length > 128 || typeof input.command !== "string" ||
       !input.command || Buffer.byteLength(input.command) > L.maxCommandBytes! || !Number.isInteger(input.timeoutMs) ||
@@ -143,16 +148,25 @@ export class SessionManager {
     if (session.results.size >= L.maxExecutionsPerSession!) throw new Error("SESSION_LIMIT");
     return this.exclusive(session, async () => {
       const abort = new AbortController();
-      // Schedule work after pending state is visible, including during asynchronous probe.
-      const done = Promise.resolve().then(async () => {
+      const deadline = Math.min(Date.now() + input.timeoutMs, session.expiresAt);
+      const combined = signal ? AbortSignal.any([abort.signal, signal]) : abort.signal;
+      const stopped = (cancelled: boolean): SessionExecutionResult => ({
+        executionId: input.executionId, exitCode: null, output: "", truncated: false,
+        timedOut: !cancelled, cancelled,
+      });
+      // Publish execution state before admission, so cancellation also reaches queued work.
+      const done = Promise.resolve().then(() => this.capacity.run(session.owner, async () => {
         const available = await this.provider.probe();
-        if (abort.signal.aborted || session.expiresAt <= Date.now()) {
-          return { executionId: input.executionId, exitCode: null, output: "", truncated: false,
-            timedOut: session.expiresAt <= Date.now(), cancelled: abort.signal.aborted };
-        }
+        if (combined.aborted || deadline <= Date.now()) return stopped(combined.aborted);
         if (!available) throw new Error("SESSION_EXECUTION_UNAVAILABLE");
-        return this.provider.execute({ ...input, timeoutMs: Math.min(input.timeoutMs, session.expiresAt - Date.now()),
-          workspace: join(session.root, "workspace"), skills: join(session.root, "skills"), inputs: join(session.root, "inputs"), signal: abort.signal });
+        return this.provider.execute({ ...input, timeoutMs: deadline - Date.now(),
+          workspace: join(session.root, "workspace"), skills: join(session.root, "skills"),
+          inputs: join(session.root, "inputs"), signal: combined });
+      }, { signal: combined, deadline })).catch(error => {
+        if (error instanceof CapacityError && [C.cancelled, C.waitTimeout].includes(error.code)) {
+          return stopped(error.code === C.cancelled);
+        }
+        throw error;
       });
       session.execution = { id: input.executionId, abort, done };
       try {

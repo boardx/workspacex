@@ -45,6 +45,11 @@ export class PgAiUsageRepository implements AiUsageRepository {
       COALESCE(sum(native_quantity) FILTER(WHERE native_source='estimated'),0) AS estimated_quantity,
       count(*) FILTER(WHERE native_source='reported') AS reported_calls,count(*) FILTER(WHERE native_source='estimated') AS estimated_calls,
       count(*) FILTER(WHERE native_source='unknown') AS unknown_calls FROM period_current WHERE native_unit IS NOT NULL GROUP BY native_unit) native),'[]'::jsonb),
+     'costs',COALESCE((SELECT jsonb_agg(jsonb_build_object('currency',currency,'costMicros',cost::text,'pricedCalls',calls) ORDER BY currency)
+     FROM (SELECT currency,sum(cost_micros) AS cost,count(*) AS calls FROM period_current WHERE cost_micros IS NOT NULL AND currency IS NOT NULL GROUP BY currency) c),'[]'::jsonb),
+    'unpricedCalls',(SELECT count(*) FROM period_current WHERE cost_micros IS NULL OR currency IS NULL),
+    'dailyCosts',COALESCE((SELECT jsonb_agg(jsonb_build_object('day',day::text,'currency',currency,'costMicros',cost::text,'pricedCalls',calls) ORDER BY day,currency)
+     FROM (SELECT (event_time AT TIME ZONE $14)::date AS day,currency,sum(cost_micros) AS cost,count(*) AS calls FROM period_current WHERE cost_micros IS NOT NULL AND currency IS NOT NULL GROUP BY day,currency) c),'[]'::jsonb),
     'current',${stats("period_current")},'previous',${stats("period_previous")},
     'trend',COALESCE((SELECT jsonb_agg(jsonb_build_object('day',day::text,'totalTokens',tokens::text,'callCount',calls) ORDER BY day) FROM trend),'[]'::jsonb),
     'members',COALESCE((SELECT jsonb_agg(jsonb_build_object('userId',user_id,'totalTokens',tokens::text,'callCount',calls) ORDER BY tokens DESC,user_id) FROM (SELECT * FROM members ORDER BY tokens DESC,user_id LIMIT 200) x),'[]'::jsonb),

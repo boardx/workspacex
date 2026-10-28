@@ -77,6 +77,34 @@ class Policy(unittest.TestCase):
                     run.assert_not_called()
                     self.assertEqual(list(state.iterdir()),[])
 
+    def test_us_uses_private_policy_and_canonical_selfhost_lock(self):
+        with host_fixture() as (m,root,state,images,resolve,run):
+            config=json.loads((root/'devapp.json').read_text())
+            config.update(environment='us',lockFile='/run/workspacex-selfhost-deploy.lock')
+            (root/'us.json').write_text(json.dumps(config))
+            real_open=os.open
+            fixture_lock=root/'us-lock';fixture_lock.touch()
+            with patch.object(m.os,'open',side_effect=lambda path,*args,**kwargs:real_open(fixture_lock if str(path)==config['lockFile'] else path,*args,**kwargs)):
+                result=m.deploy('us','40216660127-1',root)
+            self.assertEqual(result['status'],'SUCCEEDED')
+            self.assertEqual(result['environment'],'us')
+            self.assertEqual(resolve.call_count,5)
+            self.assertFalse((state/'pending.json').exists())
+            config['lockFile']='/run/workspacex-devapp-deploy.lock'
+            (root/'us.json').write_text(json.dumps(config))
+            with self.assertRaisesRegex(ValueError,'CANONICAL_LOCK_REQUIRED'):
+                m.deploy('us','40216660127-1',root)
+
+    def test_worker_outcome_reports_only_structured_public_fields(self):
+        import io
+        from contextlib import redirect_stdout
+        m=module()
+        reply=type('Reply',(),{'stdout':'systemd noise\n'+json.dumps({'status':'REJECTED','code':'LIVE_CONFIG_DRIFT','secret':'never-forward'})+'\n'})()
+        output=io.StringIO()
+        with patch.object(m.subprocess,'run',return_value=reply), redirect_stdout(output):
+            m.report_worker_result('wsx-image-us-fixture')
+        self.assertEqual(json.loads(output.getvalue()),{'status':'REJECTED','code':'LIVE_CONFIG_DRIFT'})
+
     def test_atomic_pointer_is_complete(self):
         m=module()
         with tempfile.TemporaryDirectory() as temp:
