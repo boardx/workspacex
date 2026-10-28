@@ -1,6 +1,8 @@
 import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { InterviewSessionContext } from "@/components/itv/interview-session-provider";
+import { InterviewSessionCache } from "@/lib/interview-session-cache";
 import { InterviewMarkdownResultsStep } from "@/components/itv/interview-markdown-results-step";
 import type { InterviewMarkdownEnvelope } from "@/lib/interview-markdown-api";
 const api = vi.hoisted(() => ({ initializeInterviewMarkdown: vi.fn(), loadInterviewMarkdown: vi.fn(), executeInterviewMarkdown: vi.fn(), confirmInterviewMarkdown: vi.fn(), generateInterviewMarkdown: vi.fn(), streamInterviewMarkdownReport: vi.fn() }));
@@ -335,4 +337,17 @@ it("does not authorize a different revision for automatic execution during norma
   renderResults(); await act(async () => {});
   await act(async () => { await vi.advanceTimersByTimeAsync(5250); });
   expect(api.executeInterviewMarkdown).not.toHaveBeenCalled();
+});
+
+it("does not authorize a new revision when a failed cached initial read recovers by polling", async () => {
+  vi.useFakeTimers();
+  const cache = new InterviewSessionCache(); cache.put(`source/${source.interviewId}`, source);
+  const outline = { documentId: "outline-recovery", step: "outline" as const, version: 1, contentHash: "b".repeat(64), evidenceMode: "simulated" as const, references: [], markdown: "## [采购](#expert-purchase)\n\n1. 谁批准预算？" };
+  api.loadInterviewMarkdown.mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ ...source, version: 10, revisionId: "revision-remote-recovery", documents: [outline], states: [{ documentId: outline.documentId, status: "confirmed", failure: null }] });
+  render(<InterviewSessionContext.Provider value={cache}><InterviewMarkdownResultsStep interviewId={source.interviewId} step="runs" runs={[]} onVersionChange={vi.fn()} onReport={vi.fn()} /></InterviewSessionContext.Provider>);
+  await act(async () => {});
+  expect(screen.getByRole("alert")).toHaveTextContent("文档初始化失败");
+  await act(async () => { await vi.advanceTimersByTimeAsync(5250); });
+  expect(api.executeInterviewMarkdown).not.toHaveBeenCalled();
+  expect(cache.get<InterviewMarkdownEnvelope>(`source/${source.interviewId}`)?.revisionId).toBe("revision-remote-recovery");
 });

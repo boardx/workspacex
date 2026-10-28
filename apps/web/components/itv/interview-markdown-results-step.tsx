@@ -94,11 +94,15 @@ export function InterviewMarkdownResultsStep({ interviewId, step, runs, legacySe
   React.useEffect(() => {
     const controller = new AbortController();
     setVerifiedRevision(undefined); setError("");
+    const enteredRevision = cache?.get<InterviewMarkdownEnvelope>(`source/${interviewId}`)?.revisionId ?? acceptedSource.current?.revisionId;
     let initialLoadFailed = false;
     const reload = () => void loadInterviewMarkdown(interviewId, controller.signal).then((next) => {
       if (!controller.signal.aborted) {
         receive(next);
-        if (initialLoadFailed) { setVerifiedRevision(next.revisionId); setError(""); initialLoadFailed = false; }
+        if (initialLoadFailed) {
+          if (enteredRevision === undefined || enteredRevision === next.revisionId) setVerifiedRevision(next.revisionId);
+          setError(""); initialLoadFailed = false;
+        }
       }
     }).catch(() => { if (!controller.signal.aborted) setError("文档载入失败；已显示的内容保留，请重试。"); });
     void (cache?.get<InterviewMarkdownEnvelope>(`source/${interviewId}`) ? refresh() : cache ? cache.read(`source/${interviewId}`, () => initializeInterviewMarkdown(interviewId)) : initializeInterviewMarkdown(interviewId, controller.signal)).then((next) => {
