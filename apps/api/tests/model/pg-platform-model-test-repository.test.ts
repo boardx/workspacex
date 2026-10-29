@@ -122,6 +122,7 @@ describe("platform start receipt persistence",()=>{
   const query=vi.fn(async(sql:string,_params?:readonly unknown[])=>{
    if(sql.startsWith("SELECT o.kind"))return {rows:[{kind:"organization"}]};
    if(sql.startsWith("SELECT wallet_id,balance"))return {rows:[{wallet_id:"fixture-wallet",balance:"0.00",held_hundredths:"0",unbounded_requests:"0"}]};
+   if(sql.startsWith("SELECT balance::text FROM credit_wallets"))return {rows:[{balance:"0.00"}]};
    if(sql.startsWith("SELECT credit_preflight_enabled"))return {rows:[{credit_preflight_enabled:false}]};
    return {rows:[]};
   });
