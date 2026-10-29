@@ -5,6 +5,7 @@ export const CHAT_READ_E2E = {
   userId: "user-chat-read-e2e",
   projectId: "project-chat-read-e2e",
   threadId: "thread-chat-read-e2e",
+  artifactConsumerThreadId: "thread-chat-read-e2e-artifact-consumer",
   agentId: "agent-chat-read-e2e",
   /**
    * #467：**只在组织 agent 目录（`org_agents`）里、不在本线程编制里**的第二个 agent。
@@ -61,6 +62,8 @@ export const CHAT_READ_E2E = {
    * `playwright.chat-read.config.ts` 下发给替身进程。
    */
   deepAgentMultiStepTrigger: "取证：请展示多步执行",
+  /** Bounded live plan window for browser editing/progress checks (#5978). */
+  deepAgentMultiStepStreamHoldMs: 12_000,
   /**
    * 路径矩阵 **F5 / C8** —— 子任务那次模型调用要挺过多少次状态轮询才终态。
    *

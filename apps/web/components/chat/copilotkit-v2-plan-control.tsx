@@ -643,7 +643,7 @@ function PlanControlSession(
         * 为空，整张进度卡会连同它一起消失，用户失去「这轮到底还在不在跑」的唯一
         * 载体。收尾态（`settling`）正是最需要如实说话的时刻，卡必须留着。
         */}
-      {(!collapsed || Boolean(ledger.pausedAt) || Boolean(ledger.pauseRequestedAt)) && runLive && ledger.steps.length > 0 && (
+      {(!collapsed || Boolean(ledger.pausedAt) || Boolean(ledger.pauseRequestedAt)) && runLive && ledger.phase !== "planning" && ledger.steps.length > 0 && (
         <PlanRunProgress
           view={statusView}
           currentStepLabel={currentStepLabel}

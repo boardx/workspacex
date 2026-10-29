@@ -21,6 +21,20 @@ function DecisionRenderer() {
   return null;
 }
 describe("framework task timeline", () => {
+  it("keeps already visible streamed text when a delayed tool boundary classifies it as progress before END", () => {
+    const message = { id: "progress", role: "assistant" as const, content: "已流出的正文" };
+    const view = (trace: ExecutionEvent[]) => <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <TaskTimeline messages={[message]} messageRuns={{ progress: "run-a" }} events={{ "run-a": trace }} isRunning isSettledMessageId={() => false} />
+    </CopilotKit>;
+    const { rerender } = render(view(events.slice(0, 1)));
+    expect(screen.getByTestId("chat-ai-markdown")).toHaveTextContent(message.content);
+    rerender(view(events.slice(0, 3)));
+    expect(screen.getByTestId("chat-ai-markdown")).toHaveTextContent(message.content);
+    // Once the journal proves another bubble owns the final answer, this really is progress.
+    rerender(view(events));
+    expect(screen.getByTestId("chat-ai-markdown")).toHaveTextContent("");
+  });
+
   it("groups multiple assistant messages once, hides progress from answer and reuses registered tool cards", () => {
     render(<CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
       <CopilotKitV2ToolRenderers />

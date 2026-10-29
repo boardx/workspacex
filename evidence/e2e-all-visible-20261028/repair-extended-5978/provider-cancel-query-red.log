@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/api
+
+ ❯ tests/agent-run/loopback-run-cancellation.test.ts (4 tests | 1 failed | 3 skipped) 111ms
+   × accepts cancellation, interrupts the status, stops an open stream, and resets on a new run 110ms
+     → "undefined" is not valid JSON
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-run/loopback-run-cancellation.test.ts > accepts cancellation, interrupts the status, stops an open stream, and resets on a new run
+SyntaxError: "undefined" is not valid JSON
+ ❯ Object.end tests/agent-run/loopback-deep-agent-fixture.ts:55:86
+     53|   const request = (method: string, url: string, body?: unknown): Promi…
+     54|     const incoming = Object.assign(Readable.from(body === undefined ? …
+     55|     const response = {writeHead: () => response, end: (text: string) =…
+       |                                                                                      ^
+     56|     handle(incoming, response);
+     57|   });
+ ❯ evalmachine.<anonymous>:2232:24
+ ❯ tests/agent-run/loopback-deep-agent-fixture.ts:56:5
+ ❯ request tests/agent-run/loopback-deep-agent-fixture.ts:53:82
+ ❯ tests/agent-run/loopback-run-cancellation.test.ts:12:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 skipped (4)
+   Start at  04:21:57
+   Duration  1.92s (transform 884ms, setup 0ms, collect 1.68s, tests 111ms, environment 0ms, prepare 36ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/workspacex-loopback-vitest.mjs tests/agent-run/loopback-run-cancellation.test.ts -t accepts cancellation

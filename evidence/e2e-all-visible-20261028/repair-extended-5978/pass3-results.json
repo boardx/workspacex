@@ -1,0 +1,420 @@
+{
+  "config": {
+    "argv": [
+      "/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin/node",
+      "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "/tmp/wsx-repair-5978-pass3.config.ts",
+      "--project=chat-task-workbench",
+      "--project=chat-path-coverage",
+      "chat-task-workbench-inspector.spec.ts",
+      "chat-task-workbench-p1-efficiency.spec.ts",
+      "chat-task-workbench-workflow-states.spec.ts",
+      "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+      "deepagent-plan-execute-reliability.spec.ts",
+      "--grep",
+      "成功率矩阵|@path:F5|TW-P0-4②|TW-P1-4|TW-P0-3④"
+    ],
+    "configFile": "/tmp/wsx-repair-5978-pass3.config.ts",
+    "rootDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-route-warmup.global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-task-workbench",
+        "name": "chat-task-workbench",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)|chat-ux-eval)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-read",
+        "name": "chat-read",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility|chat-stop-generation-sidebar-status)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-path-coverage",
+        "name": "chat-path-coverage",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(deepagent-plan-execute-reliability|chat-run-always-lands|first-value-citation-loop|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "chat-task-workbench-inspector.spec.ts",
+      "file": "chat-task-workbench-inspector.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-4②：材料与产物自动切换，运行开始保留用户所选页签",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 27554,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:38:41.288Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c2bd671c6cca46070e91-a0486c1ca18a77aaccd8",
+          "file": "chat-task-workbench-inspector.spec.ts",
+          "line": 60,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-p1-efficiency.spec.ts",
+      "file": "chat-task-workbench-p1-efficiency.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12954,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:39:09.897Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "35ec58d48face542fb2b-eefdb3637be941f1024e",
+          "file": "chat-task-workbench-p1-efficiency.spec.ts",
+          "line": 215,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-workflow-states.spec.ts",
+      "file": "chat-task-workbench-workflow-states.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条件性确认门）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 30804,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:39:23.153Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1205fcc9a628218f4942-f14f364f4feacc8b72b2",
+          "file": "chat-task-workbench-workflow-states.spec.ts",
+          "line": 237,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+      "file": "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "@path:F5 父 run 取消之后，它派出去的子任务停下来，且不再发布晚到的产物",
+          "ok": true,
+          "tags": [
+            "path:F5"
+          ],
+          "tests": [
+            {
+              "timeout": 420000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-path-coverage",
+              "projectName": "chat-path-coverage",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 165834,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:39:54.550Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "40e9075b765c3bcead61-a1fc901a322f32cfb44a",
+          "file": "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+          "line": 90,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "deepagent-plan-execute-reliability.spec.ts",
+      "file": "deepagent-plan-execute-reliability.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "deep-agent 计划→执行：成功率矩阵",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-path-coverage",
+              "projectName": "chat-path-coverage",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 528920,
+                  "error": {
+                    "message": "Error: 3 次失败：\n深度研究形态 · 长链多步 #1: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n深度研究形态 · 长链多步 #2: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n深度研究形态 · 长链多步 #3: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m3\u001b[39m\nReceived array:  \u001b[31m[{\"attempt\": 1, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 41316, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 2, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 41540, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 3, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 40917, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}]\u001b[39m",
+                    "stack": "Error: 3 次失败：\n深度研究形态 · 长链多步 #1: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n深度研究形态 · 长链多步 #2: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n深度研究形态 · 长链多步 #3: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m3\u001b[39m\nReceived array:  \u001b[31m[{\"attempt\": 1, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 41316, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 2, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 41540, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 3, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 40917, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}]\u001b[39m\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts:324:136",
+                    "location": {
+                      "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts",
+                      "column": 136,
+                      "line": 324
+                    },
+                    "snippet": "  322 |   // 人类要求：成功率必须 100%。任何一次失败都红，并把整张表留在报告里。\n  323 |   const failed = attempts.filter((a) => a.ok === false);\n> 324 |   expect(failed, `${String(failed.length)} 次失败：\\n${failed.map((f) => `${f.scenario} #${String(f.attempt)}: ${f.detail}`).join(\"\\n\")}`).toHaveLength(0);\n      |                                                                                                                                        ^\n  325 | });\n  326 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts",
+                        "column": 136,
+                        "line": 324
+                      },
+                      "message": "Error: 3 次失败：\n深度研究形态 · 长链多步 #1: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n深度研究形态 · 长链多步 #2: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n深度研究形态 · 长链多步 #3: expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m3\u001b[39m\nReceived array:  \u001b[31m[{\"attempt\": 1, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 41316, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 2, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 41540, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 3, \"detail\": \"expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate\", \"ms\": 40917, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}]\u001b[39m\n\n  322 |   // 人类要求：成功率必须 100%。任何一次失败都红，并把整张表留在报告里。\n  323 |   const failed = attempts.filter((a) => a.ok === false);\n> 324 |   expect(failed, `${String(failed.length)} 次失败：\\n${failed.map((f) => `${f.scenario} #${String(f.attempt)}: ${f.detail}`).join(\"\\n\")}`).toHaveLength(0);\n      |                                                                                                                                        ^\n  325 | });\n  326 |\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts:324:136"
+                    }
+                  ],
+                  "stdout": [
+                    {
+                      "text": "\n# deep-agent 计划→执行 成功率\n\n**总成功率 21 / 24（88%）**\n\n每个场景重复 3 次（`PLAN_EXEC_REPEATS` 可调）。\n⚠ 跑在确定性替身上：量的是**我们这条链稳不稳**（竞态、状态污染、跨轮次互踩），\n不是真实模型/网络的抖动。人类说的「低于 60%」发生在真实联网环境，那一层归真实模型车道。\n\n| 场景 | 成功 / 次数 | 成功率 | 中位耗时 | 失败详情 |\n|---|---|---|---|---|\n| 计划多步 | 3 / 3 | 100% | 18s | — |\n| 计划全部跑完 | 3 / 3 | 100% | 7s | — |\n| Office · docx | 3 / 3 | 100% | 22s | — |\n| Office · xlsx | 3 / 3 | 100% | 22s | — |\n| Office · pptx | 3 / 3 | 100% | 24s | — |\n| 画布 · 多张 | 3 / 3 | 100% | 9s | — |\n| 深度研究形态 · 长链多步 | 0 / 3 | 0% | 41s | #1 expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate；#2 expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate；#3 expect(received).toBeGreaterThanOrEqual(expected) Expected: >= 5 Received: 1 Call Log: - Timeout 30000ms exceeded while waiting on the predicate |\n| 混合 · 画布→Office 同线程 | 3 / 3 | 100% | 30s | — |\n\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:42:41.007Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass3-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts",
+                    "column": 136,
+                    "line": 324
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b6cf8e3b5fabd460b07f-14bb280ef7c50afd5197",
+          "file": "deepagent-plan-execute-reliability.spec.ts",
+          "line": 277,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-28T20:37:41.780Z",
+    "duration": 833793.985,
+    "expected": 4,
+    "skipped": 0,
+    "unexpected": 1,
+    "flaky": 0
+  }
+}

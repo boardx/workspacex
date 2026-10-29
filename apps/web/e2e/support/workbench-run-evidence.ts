@@ -1,6 +1,7 @@
 import { expect, type Page } from "@playwright/test";
-/** Observe the actual AGUI journal identity, then verify the same persisted run. */
-export async function submitWorkbenchRun(page: Page): Promise<{runId:string;resultMessageId:string}> {
+/** Observe the actual AGUI journal identity, then verify the same persisted run.
+ * Fullstack lanes prefix API rewrites; chat-read uses the empty prefix explicitly. */
+export async function submitWorkbenchRun(page: Page, apiPrefix: "" | "/__fullstack_api" = "/__fullstack_api"): Promise<{runId:string;resultMessageId:string}> {
   const responsePromise=page.waitForResponse(response=>response.request().method()==="POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(response.url()));
   await page.getByTestId("copilotkit-v2-send").click();
   const response=await responsePromise;
@@ -11,8 +12,8 @@ export async function submitWorkbenchRun(page: Page): Promise<{runId:string;resu
   const runId=events.find(event=>event.type==="CUSTOM" && event.name==="execution_event")?.value?.runId;
   expect(runId).toEqual(expect.any(String));
   const token=await page.evaluate(()=>localStorage.getItem("wsx.sessionToken"));
-  const run=await page.request.get(`/__fullstack_api/agent-runs/${runId}`,{headers:{Authorization:`Bearer ${token}`}});
-  expect(run.ok()).toBe(true);
+  const run=await page.request.get(`${apiPrefix}/agent-runs/${runId}`,{headers:{Authorization:`Bearer ${token}`}});
+  expect(run.ok(), `Run lookup failed: HTTP ${run.status()} at ${run.url()}`).toBe(true);
   const result=await run.json();
   expect(result.status).toBe("succeeded");
   expect(result.resultMessageId).toEqual(expect.any(String));
