@@ -15,10 +15,21 @@ def module(name):
 def generate(parameters,probe):
     o=module('orchestrate');r=module('stage-router');d=module('fixed-driver');ac=module('acquire-delegation');e=o.e
     fields={'identity','target','issuedAt','expiresAt','acquireRequests','runtimeStaticInputHashes','runtimeRoot','business','rds'}
-    e.need(set(parameters)in (fields,fields|{'mvp'}),'PARAMETER_SCHEMA')
+    phases={'safetyGates','orchestrationJournalRoot','toolRevision'}
+    e.need(set(parameters)-fields<=phases|{'mvp'} and fields<=set(parameters),'PARAMETER_SCHEMA')
+    e.need(not(set(parameters)&phases) or phases<=set(parameters),'PHASE_PARAMETERS_INCOMPLETE')
     plan=o.installation_plan(probe);bundle=plan['controlBundle'];code={f['path']:f['sha256']for f in bundle['files']}
     a={'kind':'cn-fixed-release-approval-v1','schemaVersion':1,**{k:copy.deepcopy(parameters[k])for k in ('identity','target','issuedAt','expiresAt','business','rds')},'codeFiles':code}
     e.need(set(a['identity'])==set(d.IDENTITY) and a['target']==d.TARGET,'IDENTITY_SCOPE')
+    safety=module('safety-gates')
+    e.need(a['identity']['sourceRevision']!=safety.SOURCE or phases<=set(parameters),'BC_PHASE_PARAMETERS_REQUIRED')
+    if phases<=set(parameters):
+        e.need('mvp'not in parameters,'FULL_PHASE_SCOPE_REQUIRED')
+        for key in phases:a[key]=copy.deepcopy(parameters[key])
+        safety.policy(a)
+        e.need(isinstance(a['toolRevision'],str) and e.SHA.fullmatch(a['toolRevision']),'PHASE_TOOL_REVISION')
+        expected='/var/lib/workspacex-cn/release-orchestration/'+a['identity']['attemptId']
+        e.need(a['orchestrationJournalRoot']==expected,'PHASE_JOURNAL_ROOT')
     if 'mvp' in parameters:
         m=module('mvp-contract').validate_metadata(parameters['mvp'])
         e.need(all(parameters['acquireRequests'][phase]['runId']==m['buildRunId'] and parameters['acquireRequests'][phase]['runAttempt']==1 for phase in ('consume','publication')),'MVP_ACQUIRE_BUILD_BINDING')

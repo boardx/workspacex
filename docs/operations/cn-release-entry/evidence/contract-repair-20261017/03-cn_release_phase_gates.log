@@ -1,0 +1,12 @@
+test_bc_writer_wait_never_materializes_conditional_approval (test_cn_release_phase_gates.InstalledAdmission.test_bc_writer_wait_never_materializes_conditional_approval) ... ok
+test_real_router_waits_then_records_exact_consumed_evidence (test_cn_release_phase_gates.InstalledAdmission.test_real_router_waits_then_records_exact_consumed_evidence) ... ok
+test_repeated_live_gate_checks_preserve_first_record_and_reject_drift (test_cn_release_phase_gates.InstalledAdmission.test_repeated_live_gate_checks_preserve_first_record_and_reject_drift) ... ok
+test_actual_driver_three_boundaries_then_same_clock_completion (test_cn_release_phase_gates.RootPhases.test_actual_driver_three_boundaries_then_same_clock_completion) ... ok
+test_pre_generated_switch_package_cannot_bypass_missing_a3 (test_cn_release_phase_gates.RootPhases.test_pre_generated_switch_package_cannot_bypass_missing_a3) ... ok
+test_readonly_status_does_not_generate_or_approve (test_cn_release_phase_gates.RootPhases.test_readonly_status_does_not_generate_or_approve) ... ok
+test_revocation_after_staging_stops_actual_switch (test_cn_release_phase_gates.RootPhases.test_revocation_after_staging_stops_actual_switch) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.005s
+
+OK

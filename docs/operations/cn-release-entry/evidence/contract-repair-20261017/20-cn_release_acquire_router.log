@@ -1,0 +1,8 @@
+test_actual_consume_and_publication_context_and_contract (test_cn_release_acquire_router.RouterIntegration.test_actual_consume_and_publication_context_and_contract) ... ok
+test_existing_generated_file_tamper_refuses_context (test_cn_release_acquire_router.RouterIntegration.test_existing_generated_file_tamper_refuses_context) ... ok
+test_reconciled_consume_generates_actual_next_publication (test_cn_release_acquire_router.RouterIntegration.test_reconciled_consume_generates_actual_next_publication) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 3.217s
+
+OK
