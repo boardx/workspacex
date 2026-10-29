@@ -32,7 +32,7 @@ AssertionError: expected { ownerType: 'user', …(7) } to match object { balance
      32|   expect(wallet).toMatchObject({balance: -1.25, permanentBalance: -1.2…
        |                  ^
      33| });
-     34| 
+     34|
 
 ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
 
