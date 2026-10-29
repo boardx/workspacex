@@ -34,9 +34,11 @@ def main():
     sources = {name: tree(baseline[name]) for name in ("main", "develop")}
     changes = {name: changed(base, baseline[name]) for name in sources}
     actual = tree(args.revision)
+    original = tree(base)
     root = Path(git("rev-parse", "--show-toplevel").decode().strip())
     errors = []
     counts = {}
+    fixes = baseline.get("additionalTestFixes", {})
     for side, other in (("main", "develop"), ("develop", "main")):
         paths = changes[side] - changes[other]
         counts[side + "Only"] = len(paths)
@@ -59,12 +61,32 @@ def main():
                 errors.append("conflict resolution: " + path)
         elif actual.get(path) != expected:
             errors.append("conflict resolution: " + path)
+    for path, fix in fixes.items():
+        if path in changes["main"] | changes["develop"] or not path.startswith("apps/web/tests/"):
+            errors.append("invalid test-only exception: " + path)
+            continue
+        expected = (*sources["develop"][path][:2], fix["blob"])
+        if args.worktree:
+            if git("hash-object", str(root / path)).decode().strip() != expected[2]:
+                errors.append("reviewed test fix: " + path)
+        elif actual.get(path) != expected:
+            errors.append("reviewed test fix: " + path)
     if not args.worktree:
+        untouched = set(original) - changes["main"] - changes["develop"] - set(fixes)
+        counts["unchangedBaseFiles"] = len(untouched)
+        for path in sorted(untouched):
+            if actual.get(path) != original[path]:
+                errors.append("unexpected modification: " + path)
+        evidence_prefix = str(Path(__file__).resolve().parent.relative_to(root)) + "/"
+        for path in sorted(set(actual) - set(sources["main"]) - set(sources["develop"])):
+            if not path.startswith(evidence_prefix):
+                errors.append("unexpected addition: " + path)
         for side in sources:
             if subprocess.run(["git", "merge-base", "--is-ancestor", baseline[side], args.revision]).returncode:
                 errors.append("missing ancestor: " + side)
     print(json.dumps({"revision": args.revision, "worktree": args.worktree, **counts,
-                      "reviewedOverlap": len(overlap), "errors": errors}, ensure_ascii=False, indent=2))
+                      "reviewedOverlap": len(overlap), "reviewedTestFixes": len(fixes),
+                      "errors": errors}, ensure_ascii=False, indent=2))
     raise SystemExit(1 if errors else 0)
 
 
