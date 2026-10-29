@@ -17,12 +17,24 @@ function parse(value:string):Receipt {
  toOrgId(r.orgId);
  if(u.costMicros!==undefined&&(typeof u.costMicros!=="bigint"||u.costMicros<0n))throw new Error("invalid_credit_spool_cost");
  if(u.nativeUsage&&u.nativeUsage.quantity!==null&&(typeof u.nativeUsage.quantity!=="bigint"||u.nativeUsage.quantity<0n))throw new Error("invalid_credit_spool_native");
+ if(u.billingReceipt&&(typeof u.billingReceipt.id!=="string"||u.billingReceipt.id.length<1||u.billingReceipt.id.length>200||typeof u.billingReceipt.final!=="boolean"))throw new Error("invalid_credit_spool_receipt_identity");
  return r;
 }
 /** Immutable versions avoid an ACK deleting facts enriched during a concurrent replay. */
 function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
  const a=prior.usage,b=incoming.usage;
  const identity=["eventId","userId","runId","modelProvider","modelId","projectId","threadId","agentId","callPurpose","executionAttemptId","subtaskId","requestStartedAt"] as const;
+ if(a.billingReceipt||b.billingReceipt){
+  if(prior.orgId!==incoming.orgId||identity.some(key=>canonical(a[key]??null)!==canonical(b[key]??null)))throw new Error("credit_spool_replay_mismatch");
+  const measure=(u:TokenUsageRecord):bigint|null=>u.totalSource==="reported"?BigInt(u.tokensTotal):u.nativeUsage?.source==="reported"&&u.nativeUsage.quantity!==null?u.nativeUsage.quantity:null;
+  const old=measure(a),next=measure(b),oldFinal=a.billingReceipt?.final??true,nextFinal=b.billingReceipt?.final??true;
+  if(a.billingReceipt?.id===b.billingReceipt?.id&&(a.totalSource!==b.totalSource||old!==next||oldFinal!==nextFinal||a.outcome!==b.outcome))throw new Error("credit_spool_replay_mismatch");
+  if(old!==null&&next!==null&&(a.totalSource!==b.totalSource||a.nativeUsage?.unit!==b.nativeUsage?.unit))throw new Error("credit_spool_replay_mismatch");
+  if(oldFinal&&old!==null){if(next!==null&&(next>old||nextFinal&&(next!==old||a.outcome!==b.outcome)))throw new Error("credit_spool_replay_mismatch");return prior;}
+  if(next===null&&old!==null)return prior;
+  if(nextFinal&&old!==null&&next!==null&&next<old)throw new Error("credit_spool_replay_mismatch");
+  return old!==null&&next!==null&&old>next?prior:incoming;
+ }
  if(prior.orgId!==incoming.orgId||a.outcome!==b.outcome||identity.some(key=>canonical(a[key]??null)!==canonical(b[key]??null)))throw new Error("credit_spool_replay_mismatch");
  const merged={...a} as Record<string,unknown>;
  for(const key of ["promptTokens","completionTokens","cacheInputTokens","reasoningOutputTokens","costMicros","currency","priceVersion"] as const){
@@ -107,6 +119,7 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
   const key=this.key(usage.eventId);
   // Whitelist fields; caller additions must never persist prompts or secrets.
   const safe:TokenUsageRecord={eventId:usage.eventId,userId:usage.userId,runId:usage.runId,modelProvider:usage.modelProvider,modelId:usage.modelId,tokensTotal:usage.tokensTotal,promptTokens:usage.promptTokens,completionTokens:usage.completionTokens,outcome:usage.outcome,
+   ...(usage.billingReceipt?{billingReceipt:{id:usage.billingReceipt.id,final:usage.billingReceipt.final}}:{}),
    ...(usage.totalSource!==undefined?{totalSource:usage.totalSource}:{}),...(usage.nativeUsage?{nativeUsage:{unit:usage.nativeUsage.unit,quantity:usage.nativeUsage.quantity,source:usage.nativeUsage.source}}:{}),
    ...(usage.costMicros!==undefined?{costMicros:usage.costMicros,currency:usage.currency,priceVersion:usage.priceVersion}:{}),...(usage.projectId!==undefined?{projectId:usage.projectId}:{}),...(usage.threadId!==undefined?{threadId:usage.threadId}:{}),...(usage.agentId!==undefined?{agentId:usage.agentId}:{}),...(usage.callPurpose!==undefined?{callPurpose:usage.callPurpose}:{}),...(usage.executionAttemptId!==undefined?{executionAttemptId:usage.executionAttemptId}:{}),...(usage.subtaskId!==undefined?{subtaskId:usage.subtaskId}:{}),...(usage.requestStartedAt!==undefined?{requestStartedAt:usage.requestStartedAt}:{}),...(usage.requestEndedAt!==undefined?{requestEndedAt:usage.requestEndedAt}:{}),...(usage.cacheInputTokens!==undefined?{cacheInputTokens:usage.cacheInputTokens}:{}),...(usage.reasoningOutputTokens!==undefined?{reasoningOutputTokens:usage.reasoningOutputTokens}:{})};
   let receipt:Receipt={version:1,orgId,usage:safe},acknowledge:string[]=[];

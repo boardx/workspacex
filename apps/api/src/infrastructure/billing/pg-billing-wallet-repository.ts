@@ -36,7 +36,7 @@ export class PgBillingWalletRepository implements BillingWalletRepository {
         subscription=await creditPeriodSnapshot(s,row.wallet_id);
       }
       return {wallet:CreditWallet.parse(row ? {
-        ownerType:row.owner_type,ownerId:row.owner_id,balance:Number(row.balance),permanentBalance:Number(creditDecimal(creditHundredths(row.balance)-subscription.hundredths)),subscriptionCredits:Number(creditDecimal(subscription.hundredths)),subscriptionExpiresAt:subscription.expiresAt,reservedCredits:Number(row.held_hundredths)/100,availableBalance:Math.round((Number(row.balance)*100-Number(row.held_hundredths)))/100,totalPurchased:Number(row.total_purchased),totalGranted:Number(row.total_granted),updatedAt:row.updated_at.toISOString(),
+        ownerType:row.owner_type,ownerId:row.owner_id,balance:Number(row.balance),permanentBalance:Number(creditDecimal(creditHundredths(row.balance)-subscription.hundredths)),subscriptionCredits:Number(creditDecimal(subscription.hundredths)),subscriptionExpiresAt:subscription.expiresAt,reservedCredits:Number(row.held_hundredths)/100,availableBalance:Number(row.balance),totalPurchased:Number(row.total_purchased),totalGranted:Number(row.total_granted),updatedAt:row.updated_at.toISOString(),
       } : {ownerType:owner.ownerType,ownerId:owner.ownerId,balance:0,permanentBalance:0,subscriptionCredits:0,subscriptionExpiresAt:null,reservedCredits:0,availableBalance:0,totalPurchased:0,totalGranted:0,updatedAt:new Date().toISOString()})};
     });
   }
