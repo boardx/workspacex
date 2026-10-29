@@ -2,7 +2,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
-import { expectAssistantTurnSettled } from "./support/chat-path-coverage";
+import { expectAssistantTurnSettled, openFreshDeepAgentThread } from "./support/chat-path-coverage";
+import { submitWorkbenchRun } from "./support/workbench-run-evidence";
 
 /**
  * issue #2039 —— `/chat/copilotkit-v2` UIUX 三轮迭代的**取证截图 spec**。
@@ -80,17 +81,20 @@ test("空态 + 移动端宽度：桌面/375px 两档截图，375 不横向溢出
 });
 
 test("多轮对话 + markdown 回复 + 追问建议：桌面截图", async ({ page }) => {
-  await login(page);
+  await openFreshDeepAgentThread(page);
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/chat");
   const input = page.getByTestId("copilotkit-v2-input");
   await input.fill("你好，请介绍一下你自己");
-  await page.getByTestId("copilotkit-v2-send").click();
+  const first = await submitWorkbenchRun(page, "");
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("你好，请介绍一下你自己", { timeout: 30_000 });
   await expectAssistantTurnSettled(page);
   await input.fill(CHAT_READ_E2E.deepAgentMarkdownTrigger);
-  await page.getByTestId("copilotkit-v2-send").click();
+  const second = await submitWorkbenchRun(page, "");
+  expect(second.runId).not.toBe(first.runId);
   await expectAssistantTurnSettled(page);
+  const markdown = page.getByTestId("chat-ai-markdown").last();
+  await expect(markdown.getByRole("heading").first()).toBeVisible();
+  await expect(markdown.locator("pre code").first()).toBeVisible();
   await page.waitForTimeout(1_000);
   await page.screenshot({ path: resolve(OUT, "conversation-markdown.png"), fullPage: true });
 });

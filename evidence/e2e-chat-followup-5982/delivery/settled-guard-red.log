@@ -1,0 +1,58 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web
+
+ ❯ tests/e2e-chat-run-settled.test.ts (4 tests | 2 failed) 115ms
+   × reports the departed page rather than the last running value 113ms
+     → promise resolved "undefined" instead of rejecting
+   × does not mistake a missing composer state for a completed turn 1ms
+     → promise resolved "undefined" instead of rejecting
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e-chat-run-settled.test.ts > reports the departed page rather than the last running value
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected:
+[Error: rejected promise]
+
++ Received:
+undefined
+
+ ❯ tests/e2e-chat-run-settled.test.ts:13:51
+     11|     return null;
+     12|   }})} as unknown as Page;
+     13|   await expect(expectSendNotBlockedOnRun(page,300)).rejects.toThrow('a…
+       |                                                   ^
+     14| });
+     15|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/e2e-chat-run-settled.test.ts > does not mistake a missing composer state for a completed turn
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected:
+[Error: rejected promise]
+
++ Received:
+undefined
+
+ ❯ tests/e2e-chat-run-settled.test.ts:18:51
+     16| it('does not mistake a missing composer state for a completed turn', a…
+     17|   const page={url:()=> 'http://localhost:3000/chat/thread-a',getByTest…
+     18|   await expect(expectSendNotBlockedOnRun(page,150)).rejects.toThrow();
+       |                                                   ^
+     19| });
+     20|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  19:54:13
+   Duration  636ms (transform 50ms, setup 111ms, collect 188ms, tests 115ms, environment 0ms, prepare 41ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/e2e-chat-run-settled.test.ts

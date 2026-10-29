@@ -314,9 +314,18 @@ export async function sendInV2AndAwaitStoredReply(
  * 同名 helper 同一条理由（`toBeEnabled()` 在 composer 清空后不再等价，见那份头注）。
  */
 export async function expectSendNotBlockedOnRun(page: Page, timeoutMs = 60_000): Promise<void> {
+  const origin = new URL(page.url()).origin;
   await expect
-    .poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("data-send-state"), { timeout: timeoutMs })
-    .not.toBe("running");
+    .poll(async () => {
+      const current = new URL(page.url());
+      const composer = page.getByTestId("copilotkit-v2-send");
+      // A missing node or a departed document is not a completed run. Include
+      // the current document in failures instead of reporting a stale running value.
+      const state = current.origin === origin && await composer.count() === 1
+        ? await composer.getAttribute("data-send-state") : null;
+      return { origin: current.origin, path: current.pathname, state };
+    }, { timeout: timeoutMs })
+    .toMatchObject({ origin, state: expect.stringMatching(/^(ready|disabled)$/) });
 }
 
 /**
