@@ -68,3 +68,9 @@ flowchart TD
 ## 独立审阅
 
 Builder check 提出三项实质问题，均已补齐：ready Native Session 持续预留本节点执行资源；生产基线明确为 gVisor runsc/systrap 并设置兼容性门；ESS 写操作使用持久化意图和单写 actuator，故障接管先隔离旧实例并对账，无法确认时冻结云写入。代价明确记录为 Session 资源成本和云写入恢复可能需人工。
+
+## 交付位置
+
+- PR：https://github.com/boardx/workspacex/pull/5981（文档交付，CI/合并状态以实时页面为准）。
+- 独立审阅复核：三项原问题已解决，nothing important left。
+- 未合并/发布任何集群实现；未创建 ECS 或运行500人压测；下一步以本方案拆实现 issue。
