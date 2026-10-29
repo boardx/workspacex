@@ -1,6 +1,6 @@
 import { research } from "@repo/contracts";
-import { ApiError, apiRequest, getStoredSessionToken } from "./api-client";
-import { writeResearchMemory } from "./guided-research-memory";
+import { ApiError, apiRequest } from "./api-client";
+import { writeResearchMemory, getResearchMemoryScope } from "./guided-research-memory";
 import { streamResearchCommand, type ResearchStreamEvent } from "./guided-research-stream";
 import { mergeResearchDelta, restorePreviousSourceReferences, researchFieldFingerprints, type RuntimePatch } from "./guided-research-delta";
 import { ResearchRuntimeHydrationError } from "./guided-research-hydration";
@@ -213,7 +213,7 @@ export function mergeResearchProgress(current: GuidedResearchRuntime, update: Re
 export async function updateGuidedResearchMetadata(sessionId: string, input: { title: string; tags: string[] }): Promise<GuidedResearchSession> {
   const op = research.operations.updateGuidedResearchMetadata;
   const { sessionId: id, ...body } = op.in.parse({ ...input, sessionId });
-  const scope = getStoredSessionToken();
+  const scope = getResearchMemoryScope();
   const session = op.out.parse(await apiRequest(op.path.replace(":sessionId", encodeURIComponent(id)), { method: op.method, body }));
   writeResearchMemory(id, { name: session.title }, scope);
   return session;

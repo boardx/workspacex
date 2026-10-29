@@ -15,9 +15,9 @@
  *      本链路的视觉上游是 `loopback-vision-provider.ts`，对任何请求都如实回 401
  *      `InvalidApiKey`，见该脚本与 `playwright.chat-read.config.ts` 里 `KERNEL_VISION_BASE_URL`
  *      的头注——不依赖真实外网，但走的是与「无 key」逐字相同的分类代码路径）。
- *   3. UI 不会假装「已读取图片内容」——`chat-composer-attachments.tsx` 的已上传徽标在未成功抽取时只写
- *      「已上传」（上传态），从未渲染任何抽取/识图结果；这里额外断言消息气泡下的只读附件展示
- *      （`MessageAttachments`）同样只有文件名/大小，没有转录或描述文本。
+ *   3. UI 不会假装「已读取图片内容」——上传徽标显示「已上传」，并明确提示内容解析失败。
+ *      只有 extractionStatus 为 extracted 才能显示「已就绪」；失败态不能使用该措辞。
+ *      消息气泡下的只读附件展示尚未恢复，其独立断言保留在末尾的 test.fixme 中。
  *
  * ## 2026-08-19 观测：负载噪音复盘，非本 spec 回归
  *
@@ -30,9 +30,8 @@
  *
  * ## 终态如何在浏览器侧取证，而不是直连 DB
  *
- * 附件上传响应（契约 `Attachment`）与消息列表都不携带 `extraction_status`/`extraction_error`
- * 字段（`packages/contracts/src/chat-file-upload.ts`——这本身是 #1558 记录的真实产品缺口：
- * 没有任何 HTTP 面把抽取终态暴露给前端）。但 `execute-run.ts` 的 `withAttachmentNotice` /
+ * 当前附件契约已通过 extractionStatus/extractionError 暴露解析状态，composer 会显示失败提示。
+ * 除了验证该提示，还通过 `execute-run.ts` 的 `withAttachmentNotice` /
  * `renderAttachmentForModel` 会把**触发这次 run 的消息**的附件抽取状态渲染成一段中性提示
  * 拼进发给模型的 `content`（`failed` → 「内容提取失败，无法读取其内容」），而
  * `loopback-model-provider.ts` 会把它收到的 user content 原样回显进回复——这条回显链路已被
@@ -99,12 +98,12 @@ test(
     expect(uploaded.filename).toBe(IMAGE_FILENAME);
     expect(uploaded.mime).toBe("image/png");
 
-    // UI 侧：附件卡片进入「已上传」态——**不是**「已提取」/「已识别」之类的措辞。上传态与抽取态
-    // 是两件独立的事：`chat-composer-attachments.tsx` 的 `LiveAttachment` 状态机压根不携带任何
-    // 抽取/识图字段（只有 uploading/uploaded/error），这条断言把这一点钉在浏览器可见文本上。
+    // 上传成功与内容解析成功分开呈现。无视觉 key 的真实失败路径不能显示「已就绪」。
+    // 同时验证明确的失败提示，避免只改宽上传措辞而漏掉解析状态回传。
     const chip = page.locator('[data-testid^="chat-attach-material-att-chip-"]');
     await expect(chip).toHaveAttribute("data-status", "uploaded");
     await expect(chip).toContainText("已上传");
+    await expect(chip).toContainText("附件已上传，但内容解析失败，请联系管理员。");
     await expect(chip).not.toContainText("已就绪");
     await expect(chip).not.toContainText("已提取");
     await expect(chip).not.toContainText("已识别");

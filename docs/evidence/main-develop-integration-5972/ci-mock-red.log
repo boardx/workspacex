@@ -1,0 +1,98 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/23d9/workspacex/apps/web
+
+ ✓ tests/ui/ai-usage-panel.test.tsx (17 tests) 483ms
+ ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 100ms
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 5 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ alive lib/use-org-member-names.ts:15:58
+     13|     let alive = true;
+     14|     listOrgMembers(orgId).then(
+     15|       (out) => { if (alive) setNames(new Map(out.members.map((m) => [m…
+       |                                                          ^
+     16|       () => { /* 成员目录读不到不挡页面 */ },
+     17|     );
+ ❯ processTicksAndRejections node:internal/process/task_queues:103:5
+
+This error originated in "tests/ui/admin-usage-monitor-live.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "【核心反证】换窗口发出新请求，且 query 里的 window 跟着变". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ alive lib/use-org-member-names.ts:15:58
+     13|     let alive = true;
+     14|     listOrgMembers(orgId).then(
+     15|       (out) => { if (alive) setNames(new Map(out.members.map((m) => [m…
+       |                                                          ^
+     16|       () => { /* 成员目录读不到不挡页面 */ },
+     17|     );
+
+This error originated in "tests/ui/admin-usage-monitor-live.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "矩阵的列来自响应，不是写死的五个模型名". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ alive lib/use-org-member-names.ts:15:58
+     13|     let alive = true;
+     14|     listOrgMembers(orgId).then(
+     15|       (out) => { if (alive) setNames(new Map(out.members.map((m) => [m…
+       |                                                          ^
+     16|       () => { /* 成员目录读不到不挡页面 */ },
+     17|     );
+
+This error originated in "tests/ui/admin-usage-monitor-live.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "零调用 ⇒ 空态文案，不是示例数字". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ alive lib/use-org-member-names.ts:15:58
+     13|     let alive = true;
+     14|     listOrgMembers(orgId).then(
+     15|       (out) => { if (alive) setNames(new Map(out.members.map((m) => [m…
+       |                                                          ^
+     16|       () => { /* 成员目录读不到不挡页面 */ },
+     17|     );
+
+This error originated in "tests/ui/admin-usage-monitor-live.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "「近期限额事件」F162 起读真端点：零事件时说「近期没有触发」，不再挂 mock 提示". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'map')
+ ❯ alive lib/use-org-member-names.ts:15:58
+     13|     let alive = true;
+     14|     listOrgMembers(orgId).then(
+     15|       (out) => { if (alive) setNames(new Map(out.members.map((m) => [m…
+       |                                                          ^
+     16|       () => { /* 成员目录读不到不挡页面 */ },
+     17|     );
+
+This error originated in "tests/ui/admin-usage-monitor-live.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "限额事件读失败不把整屏用量拖成错误态（它是附属块）". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ Test Files  2 passed (2)
+      Tests  23 passed (23)
+     Errors  5 errors
+   Start at  20:13:52
+   Duration  2.94s (transform 546ms, setup 184ms, collect 1.02s, tests 583ms, environment 934ms, prepare 52ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/23d9/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/admin-usage-monitor-live.test.tsx tests/ui/ai-usage-panel.test.tsx --maxWorkers=1 --minWorkers=1

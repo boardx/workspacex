@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/23d9/workspacex/apps/web
+
+ ✓ tests/ui/ai-usage-panel.test.tsx (17 tests) 736ms
+ ✓ tests/ui/ai-usage-format.test.ts (4 tests) 13ms
+ ✓ tests/lib/ai-usage-chart.test.ts (3 tests) 14ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  19:38:20
+   Duration  2.40s (transform 153ms, setup 333ms, collect 274ms, tests 763ms, environment 588ms, prepare 113ms)

@@ -4,8 +4,8 @@ import { guidedResearchHeading } from "@/lib/guided-research-heading";
 import { ResearchRuntimeHydrationError } from "@/lib/guided-research-hydration";
 import { GuidedResearchExecutionTimeline } from "./guided-research-execution-timeline";
 import * as React from "react";
-import { ApiError, getStoredSessionToken } from "@/lib/api-client";
-import { readResearchMemory, writeResearchMemory } from "@/lib/guided-research-memory";
+import { ApiError } from "@/lib/api-client";
+import { readResearchMemory, writeResearchMemory, getResearchMemoryScope, readResearchOnce, forgetResearchMemory } from "@/lib/guided-research-memory";
 import { research as C } from "@repo/contracts";
 import { Loader2 } from "lucide-react";
 import { WorkflowActionButton as Button, WorkflowActionBar } from "./research-workflow-actions";
@@ -120,20 +120,29 @@ function requestError(error: unknown): string {
 }
 const RECOVERY_READ_TIMEOUT_MS = 10_000;
 type Recovery = { draft: Draft | null; node: Command["node"]; synchronized: boolean };
-export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
-  const cacheScope = getStoredSessionToken();
+export function GuidedResearchLive(props: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
+  // A new credential or research gets a fresh component before it can render old data.
+  return <GuidedResearchLiveSession key={JSON.stringify([getResearchMemoryScope(), props.sessionId])} {...props} />;
+}
+function GuidedResearchLiveSession({ sessionId, researchName, onBack, onLoadRetry, initialNode, visualStage: routeStage }: { sessionId: string; researchName?: string; onBack: () => void; onLoadRetry?: () => void; initialNode?: Command["node"]; visualStage?: GuidedResearchVisualStage }) {
+  const cacheScope = getResearchMemoryScope();
   const [chaptersOpen, setChaptersOpen] = React.useState(false);
   const [chapterDetailsOpen, setChapterDetailsOpen] = React.useState(routeStage === "chapters");
   const [chapterDetailsMounted, setChapterDetailsMounted] = React.useState(routeStage === "chapters");
-  const [state, setState] = React.useState<Runtime | null>(null);
-  const [node, setNode] = React.useState<Command["node"]>("brief");
-  const [draft, setDraft] = React.useState<Draft | null>(null);
+  const cachedRuntime = readResearchMemory(sessionId, cacheScope)?.runtime;
+  const initialTarget = cachedRuntime ? initialNode && cachedRuntime.availableNodes.includes(initialNode) ? initialNode : cachedRuntime.currentNode : "brief";
+  const [state, setState] = React.useState<Runtime | null>(() => cachedRuntime ?? null);
+  const [node, setNode] = React.useState<Command["node"]>(initialTarget);
+  const [draft, setDraft] = React.useState<Draft | null>(() => cachedRuntime ? readResearchMemory(sessionId, cacheScope)?.drafts?.[initialTarget] ?? draftOf(cachedRuntime, initialTarget) : null);
+  const draftRef = React.useRef(draft); draftRef.current = draft;
+  const dirtyEditor = React.useRef(false);
   const [message, setMessage] = React.useState("");
   const [reportAssistantOpen, setReportAssistantOpen] = React.useState(false);
   const [reportMarkdownOpen, setReportMarkdownOpen] = React.useState(false);
   const [chaptersDirty, setChaptersDirty] = React.useState(false);
   const [markdownDirty, setMarkdownDirty] = React.useState(false);
   const [loadingNode, setLoadingNode] = React.useState<Command["node"] | null>(null);
+  const loadingNodeRef = React.useRef(loadingNode); loadingNodeRef.current = loadingNode;
   const [browsing, setBrowsing] = React.useState(false);
   const browsingRef = React.useRef(false);
   const viewedNode = browsing ? node : loadingNode ?? node;
@@ -141,10 +150,18 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   const [pendingNode, setPendingNode] = React.useState<Command["node"] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loadAttempt, setLoadAttempt] = React.useState(0);
+  const routeValidationKey = JSON.stringify([initialNode, routeStage]);
+  const [validatedRoute, setValidatedRoute] = React.useState<string | null>(null);
+  const [validationRevision, revalidate] = React.useReducer((value: number) => value + 1, 0);
+  const preferredNode = React.useRef(initialNode);
+  const routeInput = React.useRef({ initialNode, routeStage });
+  if (routeInput.current.initialNode !== initialNode || routeInput.current.routeStage !== routeStage) {
+    preferredNode.current = initialNode; routeInput.current = { initialNode, routeStage };
+  }
   const [recovery, setRecovery] = React.useState<Recovery | null>(null);
   const recoveryRef = React.useRef<Recovery | null>(null);
   function updateRecovery(value: Recovery | null) { recoveryRef.current = value; setRecovery(value); }
-  const snapshotRef = React.useRef<Runtime | null>(null);
+  const snapshotRef = React.useRef<Runtime | null>(cachedRuntime ?? null);
   const responseEpoch = React.useRef(0);
   const commandVersion = React.useRef(0);
   const messageDraft = React.useRef<{ draft: Draft; node: Command["node"] } | null>(null);
@@ -177,27 +194,71 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     if (!snapshot || !(snapshot.availableNodes.includes(target) || target === loadingNode || stage === "chapters" && snapshot.availableNodes.includes("research"))) return;
     browsingRef.current = true; setBrowsing(true);
     setChaptersOpen(false);
-    setNode(target); setDraft(draftOf(snapshot, target)); setError(null);
+    rememberDraft(); preferredNode.current = target; revalidate(); setNode(target); setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[target] ?? draftOf(snapshot, target)); setError(null);
   };
+  dirtyEditor.current = chaptersDirty || markdownDirty;
+  const rememberDraft = React.useCallback(() => {
+    const snapshot = snapshotRef.current;
+    const value = draftRef.current;
+    if (!snapshot || !value) return;
+    const memory = readResearchMemory(sessionId, cacheScope);
+    const drafts = { ...memory?.drafts };
+    if (JSON.stringify(value) !== JSON.stringify(draftOf(snapshot, value.node))) drafts[value.node] = value;
+    else delete drafts[value.node];
+    writeResearchMemory(sessionId, { drafts }, cacheScope);
+  }, [sessionId, cacheScope]);
+  React.useEffect(() => { rememberDraft(); }, [draft, rememberDraft]);
   React.useEffect(() => {
     let active = true;
+    setValidatedRoute(null);
+    const epoch = responseEpoch.current;
+    const baseline = snapshotRef.current;
+    const cached = loadAttempt === 0 ? baseline ?? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
+    const targetOf = (next: Runtime) => {
+      const requested = preferredNode.current;
+      const startingPlan = (requested === "directions" || requested === "outline") && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
+      const executing = !baseline && next.busy && (!next.leaseUntil || Date.parse(next.leaseUntil) > Date.now());
+      return executing ? next.currentNode : startingPlan ? "outline" : requested && (next.availableNodes.includes(requested) || requested === loadingNodeRef.current) ? requested : next.currentNode;
+    };
+    if (cached) {
+      rememberDraft();
+      const target = targetOf(cached);
+      nodeRef.current = target; setNode(target);
+      setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[target] ?? draftOf(cached, target));
+    }
+    const read = () => cached
+      ? getResearchRuntimeProgress(sessionId, cached.reportStream, undefined, cached).then((update) => mergeResearchProgress(cached, update))
+      : getResearchRuntime(sessionId);
+    // Include the baseline in the key: a patch is meaningful only for that snapshot.
+    void readResearchOnce(sessionId, "runtime", cacheScope, read, cached).then((received) => {
+      if (!active || epoch !== responseEpoch.current || getResearchMemoryScope() !== cacheScope) return;
+      setValidatedRoute(routeValidationKey);
+      const current = snapshotRef.current;
+      const next = newestSnapshot(received, current);
+      const target = targetOf(next);
+      const local = draftRef.current;
+      const dirty = dirtyEditor.current || Boolean(local && current && JSON.stringify(local) !== JSON.stringify(draftOf(current, local.node)));
+      snapshotRef.current = next; setState(next);
+      writeResearchMemory(sessionId, { runtime: next }, cacheScope);
+      if (!baseline) { nodeRef.current = target; setNode(target); }
+      if (!dirty) setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[nodeRef.current] ?? draftOf(next, nodeRef.current));
+      setError(null);
+    }).catch((cause: unknown) => {
+      if (!active || epoch !== responseEpoch.current || getResearchMemoryScope() !== cacheScope) return;
+      if (cause instanceof ApiError && [401, 403, 404].includes(cause.status)) {
+        responseEpoch.current += 1; sessionGeneration.current += 1;
+        streamController.current?.abort(); recoveryController.current?.abort();
+        forgetResearchMemory(sessionId, cacheScope);
+        snapshotRef.current = null; setState(null); setDraft(null); setPending(false); setLoadingNode(null); updateRecovery(null);
+      }
+      setError(requestError(cause));
+    });
+    return () => { active = false; };
+  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope, validationRevision, rememberDraft, routeValidationKey]);
+  React.useEffect(() => () => {
     sessionGeneration.current += 1;
-    responseEpoch.current += 1; snapshotRef.current = null; messageDraft.current = null; topicSaveCompletion.current = null;
-    bootstrapStarted.current = false; browsingRef.current = false; setBrowsing(false);
-    sourceCursor.current = undefined;
-    setChapterDetailsOpen(routeStage === "chapters"); setChapterDetailsMounted(routeStage === "chapters"); setChaptersDirty(false);
-    setState(null); setDraft(null); setMessage(""); setError(null); setPending(false); setPendingNode(null); setLoadingNode(null); setReportMarkdownOpen(false); updateRecovery(null);
-    const cached = loadAttempt === 0 ? readResearchMemory(sessionId, cacheScope)?.runtime : undefined;
-    (cached ? getResearchRuntimeProgress(sessionId, cached.reportStream, undefined, cached).then((update) => mergeResearchProgress(cached, update)) : getResearchRuntime(sessionId)).then((next) => {
-      if (!active) return;
-      const startingPlan = (initialNode === "directions" || initialNode === "outline") && next.version === 0 && !next.legacyCheckpoint && !next.errorCode;
-      const executing = next.busy && (!next.leaseUntil || Date.parse(next.leaseUntil) > Date.now());
-      const target = executing ? next.currentNode : startingPlan ? "outline" : initialNode && next.availableNodes.includes(initialNode) ? initialNode : next.currentNode;
-      setChaptersOpen(false);
-      snapshotRef.current = next; setState(next); setNode(target); setDraft(draftOf(next, target));
-    }).catch((cause: unknown) => { if (active) setError(requestError(cause)); });
-    return () => { active = false; sessionGeneration.current += 1; streamController.current?.abort(); recoveryController.current?.abort(); };
-  }, [sessionId, initialNode, routeStage, loadAttempt, cacheScope]);
+    streamController.current?.abort(); recoveryController.current?.abort();
+  }, []);
   React.useEffect(() => {
     if (state?.sessionId === sessionId && snapshotRef.current === state) writeResearchMemory(sessionId, { runtime: state }, cacheScope);
   }, [state, sessionId, cacheScope]);
@@ -242,6 +303,8 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
         const accepted = newestSnapshot(next, current);
         if (accepted === current) return;
         next = accepted;
+        const localDraft = draftRef.current;
+        const retainEdit = dirtyEditor.current || Boolean(localDraft && current && JSON.stringify(localDraft) !== JSON.stringify(draftOf(current, localDraft.node)));
         pollAccepted.current = ticket; snapshotRef.current = next;
         sourceCursor.current = incomingSourceCursor;
         setState(next);
@@ -274,7 +337,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
           // Follow that operation, while leaving idle historical browsing alone.
           const target = !browsingRef.current && current?.busy && (!pending || !next.busy) ? next.currentNode : nodeRef.current;
           if (target !== nodeRef.current) { nodeRef.current = target; setNode(target); }
-          setDraft(draftOf(next, target));
+          if (!retainEdit) setDraft(draftOf(next, target));
         }
       }).catch(() => { /* Retry this read without replaying the command. */ }).finally(() => { inFlight = false; });
     }, 2000);
@@ -285,7 +348,7 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
   React.useEffect(() => {
     // Only a newly created session on the confirmed destination can bootstrap.
     // Persisted busy/failed sessions are restored, never replayed on refresh.
-    if (!state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || state.version !== 0 || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
+    if (validatedRoute !== routeValidationKey || !state || bootstrapStarted.current || !["directions", "outline"].includes(initialNode ?? "") || state.version !== 0 || state.currentNode !== "brief" || state.busy || state.errorCode || state.legacyCheckpoint) return;
     bootstrapStarted.current = true;
     void run("prepare_plan", { node: "brief", draft: { node: "brief", value: state.brief } });
   });
@@ -433,7 +496,13 @@ export function GuidedResearchLive({ sessionId, researchName, onBack, onLoadRetr
     setNode(target); setDraft(keepLocal ? recovery.draft : draftOf(state, target));
     updateRecovery(null); setError(null);
   }
-  function navigate(next: Command["node"]) { if (state) { browsingRef.current = true; setBrowsing(true); setNode(next); setDraft(draftOf(state, next)); setError(null); } }
+  function navigate(next: Command["node"]) { if (state) {
+    // The shell asks for confirmation before abandoning an edited step.
+    // An explicit discard must not resurrect that draft on the way back.
+    const memory = readResearchMemory(sessionId, cacheScope);
+    const drafts = { ...memory?.drafts }; delete drafts[node];
+    writeResearchMemory(sessionId, { drafts }, cacheScope);
+    browsingRef.current = true; setBrowsing(true); preferredNode.current = next; revalidate(); setNode(next); setDraft(readResearchMemory(sessionId, cacheScope)?.drafts?.[next] ?? draftOf(state, next)); setError(null); } }
   const validDraft = Boolean(draft && C.GuidedResearchRuntimeDraft.safeParse(draft).success);
   if (!state || state.sessionId !== sessionId) return <GuidedResearchSixStepShell current={routeStage ?? "import"} available={[]} onBack={onBack} onNavigate={() => undefined} main={<div role="status" className="p-4">{error ?? "正在恢复研究会话…"}{error && <Button variant="outline" onClick={() => { setLoadAttempt((attempt) => attempt + 1); onLoadRetry?.(); }}>重试加载</Button>}</div>} />;
   const latestRecoveryDraft = recovery?.synchronized ? draftOf(state, recovery.node) : null;
