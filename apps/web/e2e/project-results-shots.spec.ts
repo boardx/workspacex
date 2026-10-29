@@ -96,31 +96,12 @@ test("capture the results tab against the real stack (facilitator + three other 
 });
 
 /**
- * 「有数据」成功态探测——**实测结论（2026-08-20）：换账号这条路走不通，需要真种子**。
- *
- * 假设：这个 project 的「seeded」project 依赖链里，其它 spec
- * （`agenda-segment-create-smoke.spec.ts`/`capability-mutate-smoke.spec.ts` 等）
- * 已经对同一个 org/project 做过真实的写操作，理论上会在 `provenance_events` 里
- * 留下真实事件；本用例只换一个持 org `lead` 的账号登录（审计检索按
- * `query-provenance.ts` 只对 org 级 lead/admin/compliance 开放），看看不新增任何
- * 种子代码、只换账号能不能拍到「审计与反馈有数据」的成功态。
- *
- * 实测（`uc-00-3-results-lead-probe.png`）：假设不成立，且换账号反而**新引入一个
- * 回归**——
- *   · 「审计与反馈」：403 变成了真实空态「本项目还没有审计事件，不生成示例条目」
- *     ——其它 spec 写的 provenance 事件不 target 这个具体 `projectId`（它们各自
- *     target 别的实体：capability/skill/membership 等），证明「换账号白拿数据」
- *     这条路径不存在，必须真种子。
- *   · 「成果去向」：从「暂无已回流的产出」（真实空态）变成
- *     「回流列表读取失败：NO_PROJECT_ROLE」——`fullstack-smoke-fixture.ts` 只把
- *     `leadEmail` 加成 org 级 `lead`（`addOrgMember`），从未把它加进这个项目的
- *     `project_memberships`，所以它对这个项目本身没有项目角色，`getProjectOverview`
- *     直接拒绝。换句话说：**org lead 与 project 角色是两件独立的事**，要同时拿到
- *     「审计读权限」与「项目读权限」，种子需要同一个账号两边都种，或者两个账号
- *     分别种数据后合成两张图——工作量比最初预期（只加 1-2 行 backflow/provenance）
- *     更大，已如实记录在 issue/PR，留给下一轮。
+ * Organization leadership grants audit privileges, not project membership.
+ * The fixture lead has no project role: overview must return NO_PROJECT_ROLE,
+ * and the workbench must replace every tab with the access-denied panel.
+ * Populated audit screenshots require explicitly seeded project membership.
  */
-test("probe: does logging in as the org lead surface any real audit data without new seed code", async ({ page }) => {
+test("org lead without project membership cannot read results or audit content", async ({ page }) => {
   mkdirSync(OUT, { recursive: true });
   await page.setViewportSize(DESKTOP);
 
@@ -130,8 +111,18 @@ test("probe: does logging in as the org lead surface any real audit data without
   await page.getByTestId("login-submit").click();
   await expect(page).toHaveURL(/\/home$/);
 
+  const overviewResponse = page.waitForResponse(response =>
+    new URL(response.url()).pathname.endsWith(`/projects/${FULLSTACK_E2E.projectId}/overview`),
+  );
   await page.goto(`/projects/${FULLSTACK_E2E.projectId}?org=${FULLSTACK_E2E.orgId}&tab=results`);
-  await page.getByTestId("project-results").waitFor({ state: "visible", timeout: 30_000 });
-  await page.waitForTimeout(800);
+  const response = await overviewResponse;
+  expect(response.status()).toBe(403);
+  expect(await response.json()).toMatchObject({ reasonCode: "NO_PROJECT_ROLE" });
+  const denied = page.getByTestId("project-access-denied");
+  await expect(denied).toBeVisible();
+  await expect(denied).toHaveAttribute("data-reason", "NO_PROJECT_ROLE");
+  await expect(denied.getByRole("heading")).toHaveText("你还不在这个项目里");
+  await expect(page.getByTestId("project-results")).toHaveCount(0);
+  await expect(page.getByTestId("project-access-denied-back")).toHaveAttribute("href", "/projects");
   await page.screenshot({ path: `${OUT}/uc-00-3-results-lead-probe.png`, fullPage: true });
 });

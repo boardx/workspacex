@@ -1,0 +1,8 @@
+{
+  "main": "a6bc8bc17238e63642a309d7891ddff64e433032",
+  "develop": "350c725048ca4f89516bc89389dc6d0dfa746dc2",
+  "conflictResolution": {
+    "apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts": "develop"
+  },
+  "rationale": "保留develop的解析失败提示与反向断言；main的已上传措辞及禁止已就绪断言已包含在develop版本中。main旧注释与现有extractionStatus契约不符，不回退。"
+}

@@ -579,6 +579,7 @@ export default defineConfig({
         LOOPBACK_DEEP_AGENT_EMPTY_REPLY_TRIGGER: CHAT_READ_E2E.deepAgentEmptyReplyTrigger,
         LOOPBACK_DEEP_AGENT_MARKDOWN_TRIGGER: CHAT_READ_E2E.deepAgentMarkdownTrigger,
         LOOPBACK_DEEP_AGENT_MULTISTEP_TRIGGER: CHAT_READ_E2E.deepAgentMultiStepTrigger,
+        LOOPBACK_DEEP_AGENT_MULTISTEP_STREAM_HOLD_MS: String(CHAT_READ_E2E.deepAgentMultiStepStreamHoldMs),
         // issue #3321 —— 「计划全部跑完、账本 progress 跑满」那一格，见 fixture 里同名头注。
         LOOPBACK_DEEP_AGENT_PLAN_ALL_DONE_TRIGGER: CHAT_READ_E2E.deepAgentPlanAllDoneTrigger,
         // 路径矩阵 F5 / C8 —— 见 `deepAgentSubtaskHoldPolls` 与替身侧 `SUBTASK_HOLD_POLLS` 头注。

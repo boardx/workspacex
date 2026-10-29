@@ -150,9 +150,10 @@ test("TW-P0-3①：阶段指示器按态出现——需要决策时在、无 run
 });
 
 test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步骤 / 加约束", async ({ page }) => {
-  await openFreshThread(page);
-  // 确定性替身的多步剧本：真实走 DeepAgentModelProvider，会真的产出 write_todos。
-  await sendAndSettle(page, CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  const threadId = await openFreshThread(page);
+  // Edit the persisted plan while its run is active; completed runs are read-only.
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiStepTrigger);
+  await page.getByTestId("copilotkit-v2-send").click();
 
   /*
    * issue #3132 —— **先展开，再锚面板**。
@@ -224,7 +225,10 @@ test("TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步�
 
   // 反伪造条款：删除必须真的生效，不是点了没反应的假按钮。
   const before = await steps.count();
+  const deleted = page.waitForResponse(response =>
+    response.url().includes(`/plan-control/threads/${threadId}/steps/delete`) && response.request().method() === "POST");
   await firstStep.getByTestId("chat-task-workbench-plan-step-delete").click();
+  expect((await deleted).ok(), "删除必须由服务端接受").toBe(true);
   await expect
     .poll(async () => steps.count(), { timeout: 15_000 })
     .toBe(before - 1);
@@ -296,6 +300,12 @@ test("TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条�
   // (a3) 确认之后**执行真的继续** —— 否则这道门就成了一个死锁，比没有门更坏。
   // 确认走的是 `decideToolPermission → Command(resume=…)`（恢复停住的那条 run，
   // 人类裁决 O-2），不是 `confirmPlan` 新起一条。
+  // The automatic permission dialog overlays the inline plan control. Dismiss it
+  // as a user would, then confirm through the inline action being tested.
+  const permissionDialog = page.getByTestId("chat-tool-permission-dialog");
+  await expect(permissionDialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(permissionDialog).toHaveCount(0);
   await page.getByTestId("chat-task-workbench-plan-confirm-run").click();
   await expect(
     confirmGate,

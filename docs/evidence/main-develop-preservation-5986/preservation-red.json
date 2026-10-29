@@ -1,0 +1,10 @@
+{
+  "revision": "HEAD",
+  "worktree": true,
+  "mainOnly": 80,
+  "developOnly": 143,
+  "reviewedOverlap": 1,
+  "errors": [
+    "conflict resolution: apps/web/e2e/chat-attachment-image-vision-extraction.spec.ts"
+  ]
+}

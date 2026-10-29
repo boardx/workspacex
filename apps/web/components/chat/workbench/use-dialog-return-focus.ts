@@ -53,7 +53,10 @@ export function useDialogReturnFocus(open: boolean): (event: Event) => void {
   const openedFrom = React.useRef<HTMLElement | null>(null);
   React.useEffect(() => {
     if (!open) return;
-    openedFrom.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // Radix may already have auto-focused a dialog child before this effect.
+    // Such a child is about to disappear and cannot be a return destination.
+    const active = document.activeElement;
+    openedFrom.current = active instanceof HTMLElement && !active.closest('[role="dialog"]') ? active : null;
   }, [open]);
 
   return React.useCallback((event: Event) => {

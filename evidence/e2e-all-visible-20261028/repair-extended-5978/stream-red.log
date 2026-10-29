@@ -1,0 +1,67 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web
+
+stderr | tests/ui/workbench-task-timeline.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps already visible streamed text when a delayed tool boundary classifies it as progress before END
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > groups multiple assistant messages once, hides progress from answer and reuses registered tool cards
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps a registered decision renderer visible outside a collapsed trace
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps write_todos audit rows but never projects journal snapshots as duplicate plan cards
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > renders the client-minted tool-call message inside the run trace once it is bound to the run
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > anchors the run trace above the answer bubble, never on a client-minted tool-call bubble
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ❯ tests/ui/workbench-task-timeline.test.tsx (7 tests | 1 failed) 235ms
+   × framework task timeline > keeps already visible streamed text when a delayed tool boundary classifies it as progress before END 57ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  已流出的正文
+Received:
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps already visible streamed text when a delayed tool boundary classifies it as progress before END
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  已流出的正文
+Received:
+
+ ❯ tests/ui/workbench-task-timeline.test.tsx:32:52
+     30|     expect(screen.getByTestId("chat-ai-markdown")).toHaveTextContent(m…
+     31|     rerender(view(events.slice(0, 3)));
+     32|     expect(screen.getByTestId("chat-ai-markdown")).toHaveTextContent(m…
+       |                                                    ^
+     33|   });
+     34|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  04:05:21
+   Duration  4.66s (transform 1.29s, setup 257ms, collect 3.28s, tests 235ms, environment 729ms, prepare 29ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/workbench-task-timeline.test.tsx --maxWorkers=1 --minWorkers=1
