@@ -1,0 +1,378 @@
+[stack-admission] load1=47.02 cores=10 perCore=4.70 running=0/2
+[stack-admission] 排队中：机器每核负载 4.70（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.74（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.56（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.47（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.21（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.98（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.80（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.58（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.62（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.59（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.46（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.25（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.05（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 60s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.84（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 65s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.69（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 70s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 75s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 80s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.63（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 85s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.58（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 90s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.55（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 95s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 100s
+[test-isolation] id=run-mvtj9vh2-b46d9cc9-22e098dfb9e1 db=wsx_22e098dfb9e1b2131d62 compose=wsx-22e098dfb9e1b2131d62 pg=20819 redis=21819 api=24819 web=25819 sandbox=26819 model=27819 deep-agent=28819 asr=29819 vision=30819 loopback-sandbox=31819 mail=19819
+  ▲ Next.js 14.2.15
+  - Experiments (use with caution):
+    · cpus
+    · proxyTimeout
+    · webpackBuildWorker
+    · outputFileTracingRoot
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+
+   We detected TypeScript in your project and reconfigured your tsconfig.json file for you. Strict-mode is set to false by default.
+   The following suggested values were added to your tsconfig.json. These values can be changed to fit your project's needs:
+
+    - include was updated to add '.next-chat-repair-prod/types/**/*.ts'
+
+   Collecting page data ...
+[CopilotKit Runtime] anonymous telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+   Generating static pages (0/129) ...
+   Generating static pages (32/129)
+   Generating static pages (64/129)
+   Generating static pages (96/129)
+ ✓ Generating static pages (129/129)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                         Size     First Load JS
+┌ ○ /                                               202 B          94.3 kB
+├ ○ /_not-found                                     881 B            95 kB
+├ ƒ /.well-known/workspacex-deployment              0 B                0 B
+├ ƒ /admin                                          10.5 kB         473 kB
+├ ● /admin/[module]                                 22.5 kB         507 kB
+├   ├ /admin/members
+├   ├ /admin/local
+├   ├ /admin/blueprint
+├   └ [+7 more paths]
+├ ƒ /admin/agent/[id]                               202 B          94.3 kB
+├ ƒ /admin/skill/[id]                               202 B          94.3 kB
+├ ○ /agent                                          16 kB           467 kB
+├ ƒ /agent/[id]                                     15.3 kB         476 kB
+├ ƒ /api/copilotkit/[[...slug]]                     0 B                0 B
+├ ƒ /asset-governance                               29.4 kB         480 kB
+├ ƒ /auth/activate                                  10 kB           353 kB
+├ ○ /auth/register                                  8.54 kB         351 kB
+├ ƒ /auth/reset-password                            5.22 kB         348 kB
+├ ○ /auth/verify-email                              12 kB           136 kB
+├ ○ /billing                                        12.7 kB         472 kB
+├ ƒ /brain                                          13.8 kB         471 kB
+├ ƒ /canvas                                         202 B          94.3 kB
+├ ● /canvas/[screen]                                51.9 kB         827 kB
+├   ├ /canvas/template-admin
+├   ├ /canvas/template-editor
+├   ├ /canvas/segment-binding
+├   └ [+3 more paths]
+├ ○ /chat                                           202 B          94.3 kB
+├ ƒ /chat/[threadId]                                202 B          94.3 kB
+├ ○ /chat/copilotkit-preview                        8.91 kB         156 kB
+├ ○ /chat/copilotkit-v2                             5 kB            1.4 MB
+├ ƒ /chat/copilotkit-v2/[threadId]                  5 kB            1.4 MB
+├ ƒ /chat/landing                                   3.91 kB         463 kB
+├ ƒ /chat/legacy                                    14.2 kB         912 kB
+├ ○ /chat/live                                      6.42 kB         382 kB
+├ ƒ /chat/preset                                    5.43 kB         465 kB
+├ ƒ /consent                                        9.37 kB         354 kB
+├ ƒ /d/[token]                                      4.43 kB         364 kB
+├ ○ /dev/org-home-fixture                           4.32 kB         453 kB
+├ ƒ /group                                          14.6 kB         141 kB
+├ ƒ /home                                           585 B           473 kB
+├ ƒ /itv                                            12 kB           509 kB
+├ ƒ /itv/[interviewId]/[stage]                      247 B           564 kB
+├ ƒ /itv/[interviewId]/setup                        247 B           564 kB
+├ ƒ /itv/experts/[expertId]                         4.77 kB         492 kB
+├ ○ /itv/live                                       4.49 kB         378 kB
+├ ƒ /itv/new                                        202 B          94.3 kB
+├ ƒ /itv/quick/[interviewId]                        2.48 kB         490 kB
+├ ƒ /join                                           9.57 kB         142 kB
+├ ƒ /kitchen-sink                                   9.26 kB         460 kB
+├ ƒ /login                                          9.27 kB         356 kB
+├ ○ /org-admin                                      202 B          94.3 kB
+├ ○ /org-admin/home-config                          14.3 kB         498 kB
+├ ○ /org-admin/invites                              2.09 kB         481 kB
+├ ○ /org-admin/members                              2.09 kB         481 kB
+├ ƒ /org-admin/preview                              21.2 kB         472 kB
+├ ○ /org-admin/profile                              2.09 kB         481 kB
+├ ○ /org-admin/workflow-grants                      13.2 kB         475 kB
+├ ○ /platform-admin                                 202 B          94.3 kB
+├ ● /platform-admin/[module]                        70.3 kB         627 kB
+├   ├ /platform-admin/agent
+├   ├ /platform-admin/model
+├   ├ /platform-admin/mcp
+├   └ [+8 more paths]
+├ ƒ /platform-admin/agent/[id]                      17.3 kB         490 kB
+├ ƒ /platform-admin/design-workbench/[projectId]    5.68 kB         463 kB
+├ ○ /platform-admin/model-tests                     12.8 kB         475 kB
+├ ƒ /platform-admin/skill/[id]                      9.24 kB         460 kB
+├ ƒ /platform-admin/skill/[id]/bindings             7.32 kB         355 kB
+├ ƒ /preview/agent-interrupts                       5.94 kB         146 kB
+├ ƒ /preview/agent-kernel                           12.4 kB         360 kB
+├ ƒ /preview/agent-runtime                          35.9 kB         185 kB
+├ ƒ /preview/agent-tool-chain                       4.83 kB         113 kB
+├ ○ /preview/ai-capability-studio/adapt             5.03 kB         144 kB
+├ ƒ /preview/ai-capability-studio/connections       7.85 kB         129 kB
+├ ○ /preview/ai-capability-studio/governance        15.5 kB         192 kB
+├ ○ /preview/ai-capability-studio/import            7.41 kB         179 kB
+├ ƒ /preview/ai-capability-studio/source            6.92 kB         146 kB
+├ ○ /preview/ai-capability-studio/uploads           5.29 kB         144 kB
+├ ƒ /preview/ai-capability-studio/workbench         15.1 kB         164 kB
+├ ƒ /preview/billing                                20.9 kB         164 kB
+├ ○ /preview/board-authoring                        7.1 kB          101 kB
+├ ○ /preview/board-fabric-v01                       8.6 kB          204 kB
+├ ○ /preview/board-object-authoring                 12.2 kB         241 kB
+├ ○ /preview/board-workspace                        13.9 kB         148 kB
+├ ○ /preview/canvas-streaming                       11.9 kB         789 kB
+├ ƒ /preview/canvas-template-gallery                22.6 kB         435 kB
+├ ○ /preview/chat-attach-modal                      5.42 kB         373 kB
+├ ƒ /preview/chat-create-project                    2.77 kB         111 kB
+├ ƒ /preview/chat-diagram-fabric                    261 B           813 kB
+├ ƒ /preview/chat-file-upload                       9.4 kB          357 kB
+├ ƒ /preview/chat-knowledge-graph                   14.6 kB         207 kB
+├ ƒ /preview/chat-viz                               262 B           813 kB
+├ ƒ /preview/context-pack                           7.56 kB         458 kB
+├ ○ /preview/feedback-design-loop                   3.09 kB         539 kB
+├ ○ /preview/feedback-loop                          3.16 kB         414 kB
+├ ƒ /preview/live-collab-orchestration              23.7 kB         153 kB
+├ ƒ /preview/plan-control                           10.4 kB         140 kB
+├ ○ /preview/plan-control-live                      5.82 kB         135 kB
+├ ƒ /preview/tasks                                  11.7 kB         462 kB
+├ ○ /preview/whiteboard                             7.41 kB         458 kB
+├ ƒ /preview/work-stack                             22.3 kB         162 kB
+├ ○ /profile                                        274 B           460 kB
+├ ○ /profile/preview                                281 B           460 kB
+├ ○ /project                                        202 B          94.3 kB
+├ ○ /project/live                                   3.33 kB         379 kB
+├ ƒ /project/new                                    8.82 kB         473 kB
+├ ƒ /projects                                       10.1 kB         461 kB
+├ ƒ /projects/[projectId]                           62.3 kB         543 kB
+├ ƒ /projects/[projectId]/canvas                    325 B           759 kB
+├ ƒ /projects/[projectId]/files                     29.4 kB         480 kB
+├ ƒ /projects/join                                  10.2 kB         351 kB
+├ ƒ /rec                                            51.2 kB         502 kB
+├ ƒ /research                                       54.5 kB         570 kB
+├ ƒ /research/[sessionId]/[stage]                   5.61 kB         444 kB
+├ ƒ /research/new                                   9.79 kB         382 kB
+├ ƒ /session                                        10.4 kB         136 kB
+├ ƒ /share/chat/[token]                             7.99 kB         365 kB
+├ ƒ /skill                                          39.5 kB         515 kB
+├ ○ /studio/board                                   13.4 kB         651 kB
+├ ƒ /studio/board/[boardId]                         8.96 kB         738 kB
+├ ƒ /studio/board/[boardId]/digital-human           9.94 kB        1.49 MB
+├ ƒ /studio/design-workbench                        5.05 kB         466 kB
+├ ƒ /studio/design-workbench/[projectId]            5.75 kB         463 kB
+├ ƒ /studio/feedback-drafts                         7.22 kB         458 kB
+├ ○ /studio/interview                               202 B          94.3 kB
+├ ƒ /studio/interview/[id]                          202 B          94.3 kB
+├ ○ /studio/prototype                               202 B          94.3 kB
+├ ○ /studio/research                                202 B          94.3 kB
+├ ƒ /studio/survey                                  25.9 kB         406 kB
+├ ƒ /studio/survey/[surveyId]                       229 B           650 kB
+├ ƒ /studio/survey/[surveyId]/design                228 B           650 kB
+├ ƒ /studio/survey/[surveyId]/publish               229 B           650 kB
+├ ƒ /studio/survey/[surveyId]/report                229 B           650 kB
+├ ƒ /studio/survey/[surveyId]/responses             229 B           650 kB
+├ ƒ /studio/survey/[surveyId]/template              229 B           650 kB
+├ ƒ /studio/survey/new/import                       4.92 kB         375 kB
+├ ƒ /studio/survey/question-templates/[templateId]  211 B           585 kB
+├ ƒ /studio/survey/templates/[templateId]           211 B           585 kB
+├ ƒ /surveys/[token]                                6.43 kB         193 kB
+├ ƒ /tasks                                          7.01 kB         458 kB
+├ ƒ /tpl                                            32.2 kB         497 kB
+├ ƒ /tpl/designer                                   30.3 kB         503 kB
+├ ƒ /tpl/list                                       6.31 kB         469 kB
+├ ○ /usage                                          666 B           457 kB
+├ ○ /workflows                                      202 B          94.3 kB
+├ ƒ /workflows/approvals                            4.2 kB          465 kB
+├ ○ /workflows/board                                9.07 kB         460 kB
+├ ƒ /workflows/runs                                 4.2 kB          465 kB
+├ ƒ /workflows/runs/[instanceId]                    5.32 kB         466 kB
+└ ƒ /workflows/runs/[instanceId]/result             10.5 kB         461 kB
++ First Load JS shared by all                       94.1 kB
+  ├ chunks/45909-147f44d5835d3a85.js                31.8 kB
+  ├ chunks/9c965e05-5e00deeb75f21abd.js             53.6 kB
+  └ other shared chunks (total)                     8.7 kB
+
+
+ƒ Middleware                                        24.9 kB
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses getStaticProps)
+ƒ  (Dynamic)  server-rendered on demand
+
+[WebServer] (node:50016) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50017) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50023) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50024) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50025) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50031) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50033) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50039) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50041) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50042) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50048) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50051) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50053) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50061) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
+[WebServer]  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+[WebServer]  Network wsx-22e098dfb9e1b2131d62_default Creating
+[WebServer]  Network wsx-22e098dfb9e1b2131d62_default Created
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-postgres-1 Creating
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-redis-1 Creating
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-postgres-1 Created
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-redis-1 Created
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-postgres-1 Starting
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-redis-1 Starting
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-redis-1 Started
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-postgres-1 Started
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-postgres-1 Waiting
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-redis-1 Waiting
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-redis-1 Healthy
+[WebServer]  Container wsx-22e098dfb9e1b2131d62-postgres-1 Healthy
+[WebServer] (node:50093) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50109) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50115) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50297) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50305) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:50428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer]   ▲ Next.js 14.2.15
+[WebServer]   - Local:        http://localhost:25819
+[WebServer]
+[WebServer]  ✓ Starting...
+[WebServer]  ⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+[WebServer]  ✓ Ready in 1073ms
+[chat-route-warmup] compiling /api/copilotkit/info
+[WebServer] [CopilotKit Runtime] anonymous telemetry enabled — see https://docs.copilotkit.ai/telemetry to opt out (set COPILOTKIT_TELEMETRY_DISABLED=true).
+[chat-route-warmup] compiling /chat
+[chat-route-warmup] compiling /chat/warmup-route-compile-only
+[chat-route-warmup] compiling /login
+[chat-route-warmup] compiling /home
+[chat-route-warmup] compiling /projects
+[WebServer] (node:50428) [DEP0060] DeprecationWarning: The `util._extend` API is deprecated. Please use Object.assign() instead.
+
+Running 22 tests using 1 worker
+
+(node:50475) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [chat-read] › e2e/agent-chat-core-paths.spec.ts:77:5 › 简单聊天：一轮问答落入真实数据库，刷新后仍恢复同一条回复 (16.4s)
+  ✓   2 [chat-read] › e2e/agent-chat-core-paths.spec.ts:104:5 › 多轮对话：第二轮在同一线程引用第一轮输入，并分别持久化两个 run (13.3s)
+  ✓   3 [chat-read] › e2e/agent-workbench-control-acceptance.spec.ts:28:5 › 两个页面裁决同一审批：只有一个赢家，一条持久最终回复 (8.8s)
+  ✓   4 [chat-read] › e2e/agent-workbench-control-acceptance.spec.ts:63:5 › 待审批阶段取消：真实终态持久化，旧审批不能恢复任务 (5.6s)
+  ✓   5 [chat-read] › e2e/agent-workbench-control-acceptance.spec.ts:82:5 › 刷新和切换后仍处理同一持久审批请求 (9.3s)
+  ✓   6 [chat-read] › e2e/chat-diagram-save-reopen-roundtrip.spec.ts:108:5 › G2 生成画像 → 最大化编辑保存 → reload 重开看到保存版提示条 → 回到原始版 (10.1s)
+  ✓   7 [chat-read] › e2e/chat-diagram-save-reopen-roundtrip.spec.ts:278:5 › 只读预览挂载即读回：保存后立即可见 + reload 不点最大化也可见（issue #1668） (11.3s)
+  ✓   8 [chat-read] › e2e/chat-path-a5-cold-start-first-paint.spec.ts:31:5 › @path:A5 冷启动首屏：全新会话第一次进 /chat 就能输入，不停在骨架屏 (1.8s)
+  ✓   9 [chat-read] › e2e/copilotkit-v2-run-restore-after-switch.spec.ts:49:5 › 提交任务→切走→切回：run 事件流不可用时，恢复仍靠权威读收尾，回复出现且不谎称『没能确认』 (20.0s)
+  ✓  10 [chat-read] › e2e/copilotkit-v2-runtime-adapter.spec.ts:109:5 › CopilotRuntime 适配器真实转发到 deep-agent loopback，wire 上的回复文字可核对 (3.5s)
+[WebServer] Agent execution failed: Error: HTTP 401: {"error":"unauthenticated","traceId":"da903a1b-f58e-480a-ad50-b69badc3df0d"}
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:4:10121
+[WebServer]     at y (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58770)
+[WebServer]     at v (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58702)
+[WebServer]     at l._next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:35976)
+[WebServer]     at r.next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:18883)
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:1:35269
+[WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+[WebServer]   status: 401,
+[WebServer]   payload: {
+[WebServer]     error: 'unauthenticated',
+[WebServer]     traceId: 'da903a1b-f58e-480a-ad50-b69badc3df0d'
+[WebServer]   }
+[WebServer] }
+[WebServer] Agent execution failed: Error: HTTP 401: {"error":"unauthenticated","traceId":"049acdb0-4137-4435-abab-29ae35c958fe"}
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:4:10121
+[WebServer]     at y (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58770)
+[WebServer]     at v (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58702)
+[WebServer]     at l._next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:35976)
+[WebServer]     at r.next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:18883)
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:1:35269
+[WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+[WebServer]   status: 401,
+[WebServer]   payload: {
+[WebServer]     error: 'unauthenticated',
+[WebServer]     traceId: '049acdb0-4137-4435-abab-29ae35c958fe'
+[WebServer]   }
+[WebServer] }
+[WebServer] Error running agent: Error: HTTP 401: {"error":"unauthenticated","traceId":"049acdb0-4137-4435-abab-29ae35c958fe"}
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:4:10121
+[WebServer]     at y (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58770)
+[WebServer]     at v (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58702)
+[WebServer]     at l._next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:35976)
+[WebServer]     at r.next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:18883)
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:1:35269
+[WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+[WebServer]   status: 401,
+[WebServer]   payload: {
+[WebServer]     error: 'unauthenticated',
+[WebServer]     traceId: '049acdb0-4137-4435-abab-29ae35c958fe'
+[WebServer]   }
+[WebServer] }
+[WebServer] Error stack: Error: HTTP 401: {"error":"unauthenticated","traceId":"049acdb0-4137-4435-abab-29ae35c958fe"}
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:4:10121
+[WebServer]     at y (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58770)
+[WebServer]     at v (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:58702)
+[WebServer]     at l._next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:35976)
+[WebServer]     at r.next (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:135:18883)
+[WebServer]     at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/.next-chat-repair-prod/server/app/api/copilotkit/[[...slug]]/route.js:1:35269
+[WebServer]     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[WebServer] Error details: {
+[WebServer]   name: 'Error',
+[WebServer]   message: 'HTTP 401: {"error":"unauthenticated","traceId":"049acdb0-4137-4435-abab-29ae35c958fe"}',
+[WebServer]   cause: undefined
+[WebServer] }
+  ✓  11 [chat-read] › e2e/copilotkit-v2-runtime-adapter.spec.ts:233:5 › CopilotRuntime 适配器真实转发 Authorization——清空 token 后同一条路由必须失败 (3.6s)
+  ✓  12 [chat-read] › e2e/copilotkit-v2-runtime-adapter.spec.ts:293:5 › DA-19b markdown/mermaid 消息渲染——真的渲成结构化 DOM 与 fabric canvas，不是原始语法文本 (13.5s)
+  ✓  13 [chat-read] › e2e/copilotkit-v2-runtime-adapter.spec.ts:402:5 › DA-19g 多轮上下文——第二轮回复真的引用第一轮的用户原文，不是各轮互相失忆 (5.0s)
+  ✓  14 [chat-read] › e2e/copilotkit-v2-thread-persistence.spec.ts:77:5 › 发消息→整页刷新→消息仍在（URL 绑定的持久化 chatThreadId） (17.7s)
+  ✓  15 [chat-read] › e2e/copilotkit-v2-thread-persistence.spec.ts:97:5 › 新建对话→线程列表出现两条→切换回第一条→历史正确恢复 (32.0s)
+  ✓  16 [chat-read] › e2e/copilotkit-v2-thread-persistence.spec.ts:146:5 › 裸路由 /chat 落地（未选中任何线程）时点击侧栏已有对话 ⇒ 真实导航切换到该线程 (17.4s)
+  ✓  17 [chat-read] › e2e/copilotkit-v2-thread-persistence.spec.ts:183:5 › 已选中某条线程时切换到另一条 ⇒ 不发生整页硬导航，左栏骨架屏全程不出现 (34.8s)
+  ✓  18 [chat-read] › e2e/copilotkit-v2-uiux-shots.spec.ts:67:5 › 空态 + 移动端宽度：桌面/375px 两档截图，375 不横向溢出 (6.0s)
+  ✓  19 [chat-read] › e2e/copilotkit-v2-uiux-shots.spec.ts:83:5 › 多轮对话 + markdown 回复 + 追问建议：桌面截图 (13.0s)
+  ✓  20 [chat-read] › e2e/copilotkit-v2-uiux-shots.spec.ts:102:5 › 工具调用卡（多步剧本）：桌面截图 (19.1s)
+  ✓  21 [chat-read] › e2e/copilotkit-v2-uiux-shots.spec.ts:113:5 › 错误横幅：真实失败链路下的视觉层级截图 (3.9s)
+  ✓  22 [chat-read] › e2e/copilotkit-v2-uiux-shots.spec.ts:123:5 › 工具权限确认弹层：等待裁决态截图（issue #2767 起为 F08 ToolPermissionCard 四选一） (5.0s)
+
+  22 passed (5.7m)
+[timing] bash /tmp/wsx-5982-build-then-test.sh
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：1m40s
+  命令执行：10m4s
+  清理：1s
+  总计：11m45s

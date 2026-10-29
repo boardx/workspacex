@@ -1,4 +1,4 @@
-import { auth } from "@repo/contracts";
+import * as auth from "@repo/contracts/auth";
 import * as identity from "@repo/contracts/identity";
 import type { z } from "zod";
 import { apiRequest } from "./api-client";

@@ -1,0 +1,9 @@
+{
+  "apps/web/lib/auth.ts": "7431e53449149f9a723107fd8214cf1a4ce3bd80c4137649c5ae7735c321084b",
+  "apps/web/lib/session-api.ts": "0e5bba09446946fea92ec364bfc1d4e676d661ba0eff35a7e508b93814b7a23c",
+  "apps/web/e2e/support/chat-path-coverage.ts": "53c0ee4a9b06f47f7aa196d3cd67dd08a295f6d3d287efde94563f2a38a9b832",
+  "apps/web/e2e/copilotkit-v2-uiux-shots.spec.ts": "e8ad843737f88f07c5cd889922565f1f5914fe756b19818115bd0837cbbbb9fa",
+  "apps/web/tests/session-client-bundle-boundary.test.ts": "6d3250ef68bcb269f63a2f8525cec31dac035da8f8fba4f04cc9f7129fae8b6a",
+  "apps/web/tests/e2e-chat-run-settled.test.ts": "e43d3a75e4d5a45730df29915ed94889a0e6f9b3ecde1d2ca4d12c86212c1705",
+  ".agents/skills/mod-chat/SKILL.md": "73549ba1983e2243fb9026a1ef5d0858f2feac527e3e4033ce8b796ba33871a7"
+}
