@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/web
+
+ ✓ tests/ui/survey-live-publishing.test.tsx (21 tests) 1154ms
+   ✓ live survey trusted publishing > checks the current design automatically and updates errors after editing 302ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  22:59:51
+   Duration  3.64s (transform 724ms, setup 140ms, collect 1.56s, tests 1.15s, environment 567ms, prepare 44ms)
+

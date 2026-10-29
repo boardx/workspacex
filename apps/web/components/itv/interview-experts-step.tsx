@@ -43,6 +43,8 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
   const [suggestPending, setSuggestPending] = React.useState(false);
   const [suggestError, setSuggestError] = React.useState("");
   const [editingId, setEditingId] = React.useState<string | null>(null);
+  const dialogBase = React.useRef("");
+  const currentDocumentStamp = JSON.stringify([document.documentId, document.version, document.contentHash, document.markdown, avatarContext?.revisionId]);
   const [savingExpert, setSavingExpert] = React.useState(false);
   const readyToSave = (() => { try { renderVirtualExpertMarkdown(fields); return true; } catch { return false; } })();
   function editField(field: keyof VirtualExpertFields, value: string) { setFields((current) => ({ ...current, [field]: value })); }
@@ -61,11 +63,12 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
   function editExpert(entry: (typeof selected)[number]) {
     try {
       setFields(parseVirtualExpertSelection(entry.name, document.markdown.slice(entry.block.start, entry.block.end)));
-      setEditingId(entry.id); setDescription(""); setSuggestError(""); setOpen(true);
+      setEditingId(entry.id); setDescription(""); setSuggestError(""); dialogBase.current = currentDocumentStamp; setOpen(true);
     } catch { setSuggestError("此画像无法自动拆分编辑，请保留原文并重新添加完整画像。"); }
   }
   async function saveExpert() {
     if (savingExpert || pending || !readyToSave) return;
+    if (dialogBase.current !== currentDocumentStamp) { setSuggestError("专家资料已在其他位置更新。当前画像编辑已保留，请复制需要的内容，取消并重新打开后再保存。"); return; }
     const id = editingId ?? `virtual-${crypto.randomUUID()}`;
     const replacement = `## [${text(fields.name)}](#expert-${id})\n\n${renderVirtualExpertSelection(fields)}\n`;
     const existing = editingId ? selected.find(entry => entry.id === editingId) : undefined;
@@ -113,7 +116,7 @@ export function InterviewExpertsStep({ document, directory, directoryStatus = "r
     <InterviewExpertLibrary includeBuiltins={false} allowCreate={false} disabled={pending} onSelect={async(id,name,body)=>{if(selected.some(entry=>entry.id===id))return;const next=`${document.markdown}\n\n## [${text(name)}](#expert-${id})\n\n${body}\n`;if(onSaveExpert)await onSaveExpert(next);else onChange(next);}}/>
     {showRecoveryContext && document.markdown.trim() ? <section data-testid="itv-expert-draft-context" className="mt-4 rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground"><h3 className="font-semibold text-foreground">生成中断：已保存的未确认画像</h3><p className="mt-1">请核对完整草稿及材料边界，再保存或继续生成；解析出的专家名称不代表全文已完成。</p><pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-background p-3 font-mono text-xs leading-6">{document.markdown}</pre></section> : !selected.length && document.markdown.trim() ? <p data-testid="itv-expert-draft-context" className="mt-4 rounded-lg border border-border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">已保存的画像草稿：{document.markdown.slice(0, 160)}</p> : null}
     {suggestError && !open && <p role="alert" className="mt-3 text-sm text-destructive">{suggestError}</p>}
-    <InterviewStepActions><ActionButton variant="outline" icon={<Plus className="size-4" aria-hidden />} disabled={pending} onClick={() => { setEditingId(null); setDescription(""); setFields(emptyVirtualExpert()); setSuggestError(""); setOpen(true); }}>添加虚拟专家</ActionButton><ActionButton variant="primary" loading={loading} icon={<ArrowRight className="size-4" aria-hidden />} disabled={pending || !selected.length} onClick={onConfirm}>确认专家并生成问题</ActionButton></InterviewStepActions>
+    <InterviewStepActions><ActionButton variant="outline" icon={<Plus className="size-4" aria-hidden />} disabled={pending} onClick={() => { setEditingId(null); setDescription(""); setFields(emptyVirtualExpert()); setSuggestError(""); dialogBase.current = currentDocumentStamp; setOpen(true); }}>添加虚拟专家</ActionButton><ActionButton variant="primary" loading={loading} icon={<ArrowRight className="size-4" aria-hidden />} disabled={pending || !selected.length} onClick={onConfirm}>确认专家并生成问题</ActionButton></InterviewStepActions>
     <Dialog open={open} onOpenChange={(value) => { if (!savingExpert) setOpen(value); }}><DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-6">
       <div className="flex items-center gap-4"><ExpertAvatar expertId="virtual-preview" displayName={fields.name || "虚拟专家"} /><div><DialogTitle className="text-2xl">{editingId ? "编辑虚拟专家" : "添加虚拟专家"}</DialogTitle><DialogDescription className="mt-1 text-sm leading-6">描述需要的专家，生成画像后可继续编辑。</DialogDescription></div></div>
       <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">

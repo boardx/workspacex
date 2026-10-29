@@ -52,7 +52,7 @@ export async function discoverCoverage(plan, apiRoot = resolve(root, 'apps/api')
       const sequencer = new BaseSequencer({config:{root:cwd,shard:{index,count:plan.count}}});
       partitions.push((await sequencer.shard(specs)).map(spec => spec.discovery));
     }
-    return assertCoverage(full, partitions);
+    return { ...assertCoverage(full, partitions), partitions };
   }
   finally { rmSync(directory, { recursive: true, force: true }); }
 }

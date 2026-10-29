@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useInterviewRevalidation, useInterviewSessionValue } from "./interview-session-provider";
 import { ApiError } from "@/lib/api-client";
 import { loadDigitalInterview, type DigitalInterviewWorkflowView } from "@/lib/interview-api";
 import type { MockDigitalInterviewDraft } from "@/lib/mock/digital-interview-drafts";
@@ -8,13 +9,16 @@ import { DigitalInterviewWorkflow, PersistentDigitalInterviewWorkflow, type Work
 import { InterviewMarkdownWorkbench } from "./interview-markdown-workbench";
 
 export function DigitalInterviewSetup({ interviewId, initialWorkbenchStep, reportPin, canonicalNewInterview = false }: { interviewId: string; initialWorkbenchStep?: WorkbenchStep; reportPin?: { documentId: string; version: number }; canonicalNewInterview?: boolean }) {
+  const { cache, value: cachedIdentity } = useInterviewSessionValue<DigitalInterviewWorkflowView | MockDigitalInterviewDraft>(`identity/${interviewId}`);
   const [draft, setDraft] = React.useState<MockDigitalInterviewDraft | null>(null);
   const [workflow, setWorkflow] = React.useState<DigitalInterviewWorkflowView | null>(null);
   const [error, setError] = React.useState("");
 
+  const refreshIdentity = React.useCallback(() => cache ? cache.read<DigitalInterviewWorkflowView | MockDigitalInterviewDraft>(`identity/${interviewId}`, () => loadDigitalInterview(interviewId)) : loadDigitalInterview(interviewId), [cache, interviewId]);
+  useInterviewRevalidation(`identity/${interviewId}`, refreshIdentity);
   React.useEffect(() => {
     let active = true;
-    void loadDigitalInterview(interviewId).then(
+    void refreshIdentity().then(
       (loaded) => {
         if (!active) return;
         if (loaded.interviewId.startsWith("mock-batch-")) setDraft(loaded as MockDigitalInterviewDraft);
@@ -23,12 +27,13 @@ export function DigitalInterviewSetup({ interviewId, initialWorkbenchStep, repor
       (cause) => active && setError(cause instanceof ApiError ? cause.reasonCode ?? cause.message : cause instanceof Error ? cause.message : "DEPENDENCY_UNAVAILABLE"),
     );
     return () => { active = false; };
-  }, [interviewId]);
+  }, [interviewId, refreshIdentity]);
+  const currentWorkflow = (cachedIdentity && !cachedIdentity.interviewId.startsWith("mock-batch-") ? cachedIdentity as DigitalInterviewWorkflowView : null) ?? (workflow?.interviewId === interviewId ? workflow : null);
 
-  if (error) return <State text={`加载访谈失败：${error}`} />;
-  if (workflow && initialWorkbenchStep) return <InterviewMarkdownWorkbench identity={workflow} step={initialWorkbenchStep} reportPin={reportPin} />;
-  if (workflow && canonicalNewInterview && workflow.currentStep === "topic") return <InterviewMarkdownWorkbench identity={workflow} step="intake" />;
-  if (workflow) return <PersistentDigitalInterviewWorkflow initialView={workflow} />;
+  if (error && !currentWorkflow) return <State text={`加载访谈失败：${error}`} />;
+  if (currentWorkflow && initialWorkbenchStep) return <InterviewMarkdownWorkbench identity={currentWorkflow} step={initialWorkbenchStep} reportPin={reportPin} />;
+  if (currentWorkflow && canonicalNewInterview && currentWorkflow.currentStep === "topic") return <InterviewMarkdownWorkbench identity={currentWorkflow} step="intake" />;
+  if (currentWorkflow) return <PersistentDigitalInterviewWorkflow initialView={currentWorkflow} />;
   if (!draft) return <State text="正在恢复访谈草稿…" />;
   return <DigitalInterviewWorkflow initialDraft={draft} />;
 }

@@ -1,0 +1,14 @@
+[
+  {
+    "revision": "origin/main",
+    "exitCode": 1,
+    "errorCount": 145,
+    "expected": "单独任一父分支均不满足双方内容与祖先保留"
+  },
+  {
+    "revision": "origin/develop",
+    "exitCode": 1,
+    "errorCount": 81,
+    "expected": "单独任一父分支均不满足双方内容与祖先保留"
+  }
+]

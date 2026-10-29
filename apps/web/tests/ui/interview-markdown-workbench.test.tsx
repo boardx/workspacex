@@ -102,9 +102,9 @@ it("does not reuse completion for another interview or changed actor scope", asy
  expect(screen.getByTestId("itv-workbench-step-intake")).toHaveAttribute("data-state","unknown");
 });
 it("applies the branched canonical state immediately without retaining downstream completion", async () => {
- const confirmed = {version:8,documents:[{documentId:"saved",step:"intake"},{documentId:"report",step:"report"}],states:[{documentId:"saved",status:"confirmed"},{documentId:"report",status:"completed"}]};
+ const confirmed = {interviewId:identity.interviewId,version:8,documents:[{documentId:"saved",step:"intake"},{documentId:"report",step:"report",version:1,contentHash:"saved-hash"}],states:[{documentId:"saved",status:"confirmed"},{documentId:"report",status:"completed"}]};
  load.mockResolvedValue(confirmed);
- branch.mockResolvedValue({...confirmed,version:9,states:[]});
+ branch.mockResolvedValue({...confirmed,interviewId:identity.interviewId,version:9,states:[]});
  vi.spyOn(window,"confirm").mockReturnValue(true);
  render(<InterviewCompletionProvider><InterviewMarkdownWorkbench identity={identity} step="intake"/></InterviewCompletionProvider>);
  fireEvent.click(await screen.findByRole("button",{name:"创建新修订并修改"}));

@@ -1,0 +1,43 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/web
+
+ ✓ tests/ui/ai-usage-format.test.ts (4 tests) 63ms
+ ✓ tests/ui/workbench-a11y-hit-target-and-focus-return.test.tsx (6 tests) 203ms
+ ✓ tests/ui/ai-usage-panel.test.tsx (17 tests) 961ms
+ ✓ tests/ui/admin-usage-monitor-live.test.tsx (6 tests) 151ms
+stderr | tests/ui/workbench-task-timeline.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+ ✓ tests/ui/copilotkit-v2-plan-control.test.tsx (52 tests | 4 skipped) 428ms
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps already visible streamed text when a delayed tool boundary classifies it as progress before END
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > groups multiple assistant messages once, hides progress from answer and reuses registered tool cards
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps a registered decision renderer visible outside a collapsed trace
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps write_todos audit rows but never projects journal snapshots as duplicate plan cards
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > renders the client-minted tool-call message inside the run trace once it is bound to the run
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/workbench-task-timeline.test.tsx (7 tests) 198ms
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > anchors the run trace above the answer bubble, never on a client-minted tool-call bubble
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+
+ Test Files  6 passed (6)
+      Tests  88 passed | 4 skipped (92)
+   Start at  22:39:42
+   Duration  13.91s (transform 2.65s, setup 1.12s, collect 7.92s, tests 2.01s, environment 48.49s, prepare 672ms)
+

@@ -134,8 +134,10 @@ test("CK-P6：真实线程上生成用户画像 → mindmap 消息落库，刷�
     .poll(
       async () => {
         if (await failure.isVisible()) return `FAILED:${await failure.textContent()}`;
-        if (await trigger.count() === 0) return "settled";
-        return (await trigger.textContent())?.includes("生成画像中") === true ? "running" : "settled";
+        // #5954：count 后 chip 仍可能消失；一次无等待快照避免下一次读取卡在已移除的按钮。
+        const triggerTexts = await trigger.allTextContents();
+        if (triggerTexts.length === 0) return "settled";
+        return triggerTexts[0]?.includes("生成画像中") === true ? "running" : "settled";
       },
       { timeout: 120_000, intervals: [1_000, 2_000, 3_000] },
     )

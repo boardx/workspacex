@@ -10,6 +10,7 @@
  */
 import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { orgAdmin } from "@repo/contracts";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-f161" }));
@@ -28,14 +29,16 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 /**
- * 这一屏发两个请求：用量报告 + 限额事件（F162 起）。夹具按 url 分派，
- * 不用一个 `mockResolvedValue` 糊住两条——那样限额事件会拿到一份用量报告的 body，
+ * 这一屏读取用量报告、限额事件，以及 AI 用量面板的成员目录。夹具按 url 分派，
+ * 不用一个 `mockResolvedValue` 糊住多个端点——那样限额事件会拿到一份用量报告的 body，
  * 而组件在解析时报的错会被误读成组件的 bug。
  */
 function routed(usageBody: unknown, usageStatus = 200) {
   return (url: string) =>
     Promise.resolve(
-      String(url).includes("/ai-usage")
+      new URL(String(url), "http://x").pathname.endsWith("/members")
+        ? jsonResponse(orgAdmin.operations.listOrgMembers.out.parse({ members: [] }))
+        : String(url).includes("/ai-usage")
         ? jsonResponse({reasonCode:"AI_USAGE_FIXTURE_UNAVAILABLE"},503)
         : String(url).includes("/limit-events")
         ? jsonResponse({ events: [] })
@@ -77,7 +80,9 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   it("【核心反证】换窗口发出新请求，且 query 里的 window 跟着变", async () => {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        String(url).includes("/ai-usage")
+        new URL(String(url), "http://x").pathname.endsWith("/members")
+        ? jsonResponse(orgAdmin.operations.listOrgMembers.out.parse({ members: [] }))
+        : String(url).includes("/ai-usage")
         ? jsonResponse({reasonCode:"AI_USAGE_FIXTURE_UNAVAILABLE"},503)
         : String(url).includes("/limit-events")
           ? jsonResponse({ events: [] })
@@ -92,6 +97,8 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
 
     await waitFor(() => expect(screen.getByTestId("admin-usage-matrix")).toBeTruthy());
     expect(fetchMock.mock.calls.some(call=>String(call[0]).includes("/usage?window=week"))).toBe(true);
+    // 成员目录必须获得自己的契约响应，不能误用用量报告（曾导致未处理的 .members.map 异常）。
+    expect(fetchMock.mock.calls.some(call=>new URL(String(call[0]), "http://x").pathname.endsWith("/organizations/org-f161/members"))).toBe(true);
 
     fireEvent.click(screen.getByTestId("admin-usage-window-5h"));
 
@@ -151,7 +158,9 @@ describe("F161 用量监控 —— 每个窗口一次真实请求", () => {
   it("限额事件读失败不把整屏用量拖成错误态（它是附属块）", async () => {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve(
-        String(url).includes("/ai-usage")
+        new URL(String(url), "http://x").pathname.endsWith("/members")
+        ? jsonResponse(orgAdmin.operations.listOrgMembers.out.parse({ members: [] }))
+        : String(url).includes("/ai-usage")
         ? jsonResponse({reasonCode:"AI_USAGE_FIXTURE_UNAVAILABLE"},503)
         : String(url).includes("/limit-events")
           ? jsonResponse({ reasonCode: "AUTH_SERVICE_UNAVAILABLE" }, 503)

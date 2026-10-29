@@ -6,7 +6,8 @@
 > 只放"凭据文件的路径"。
 
 ## 身份
-- GitHub org/repo：`<owner>/<repo>`（默认分支 `main`，是否禁止直接 push：<是/否>）
+- GitHub org/repo：`boardx/workspacex`。
+- 开发集成默认：以最新 `origin/develop` 为基线，PR 目标显式设为 `develop`（2026-10-27 人类指令）；仅在人类另有明确要求时使用其它目标分支。该约定不等同于修改 GitHub 仓库的 default branch 设置。
 - 同步配置：`.harness/config/github-sync.yaml` 的 `repo` 字段要与此处一致
 
 ## 部署面
