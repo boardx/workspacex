@@ -32,3 +32,8 @@
 - PR review PRRT_kwDOO5_Nyc6tqYdL指出重复GET可无限签发intent。用户锁内增加20个有效未消费意图的限额，超限通用429 rate_limited（不扩订阅领域枚举）。
 - 初稿删除expired关联，被独立review拒绝：静态付款链接不会自动随意图过期，迟到付款仍需hash→user/generation人工核对线索。最终移除删除与DELETE权限，所有历史保留。限额只约束未消费创建速率，不声称历史总量硬上限，也不声称晚到付款人工恢复已实现。
 - RED保留关联失败2项，修后真实HTTP/PG33项通过，API typecheck/lint通过；包含并发25请求仅20成功、其他用户不受影响、超限后旧有效链接/expired/consumed历史保持、count/insert真实PG异常503。
+
+
+### 2026-10-29 — Stripe cancellation follow-up (#5988)
+
+User-directed ad-hoc fix: authenticated Portal return now keeps bounded refreshes for delayed cancellation callbacks, with explicit renewal cancellation and remaining-entitlement text. Evidence: `evidence/stripe-cancellation-5988.md`. CN historical test binding is intentionally retained by user decision; it cannot be managed with live credentials. No production deployment or real subscription cancellation. No feature status changed.
