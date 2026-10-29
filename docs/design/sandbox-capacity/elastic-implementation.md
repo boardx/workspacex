@@ -53,6 +53,7 @@ API 和数据库不承载不可信脚本。执行节点置于同地域专用 VPC
 - 全局用户额度覆盖普通与 Native 服务；默认每人一条活动命令，额外并发政策单独配置。按组织公平分配，不能让少数用户耗尽集群。新 Session 的创建数、空闲 Session 内存/磁盘另设额度。
 - 建议状态：accepted → reserved → starting → running → succeeded/failed/cancelled/timedOut；无法确认是否执行的任务为 unknown，状态枚举实施前审定。不将 unknown 自动重放。客户端重复提交查询同一个 execution，不生成第二次执行。
 - reservation 有有界 TTL；节点必须核对有效租约和 fencing generation 才能启动。租约过期不能单凭数据库记录释放活动进程的资源；先确认节点已杀进程或隔离失联节点，再允许复用相应容量。
+- 有效且标记 ready 的 Native Session 持续保留一条命令的 CPU/内存/执行额度，不能把它的空闲执行额度再保证给其他用户；普通任务与 Session 预留在同一节点账本核算。Session 创建是一次容量申请，只有预留和环境就绪后才返回 ready；该冷启动延迟也纳入验收。按节点检查预留，不能用其他节点的总空位掩盖固定路由节点不足。Session TTL 结束后释放预留；大量长期 Session 会产生相应真实容量成本，不能一边承诺即时执行一边把这些资源超卖。
 - Session 固定到 node + sandbox + generation。活跃 Session 不搬迁；节点丢失时显式失败并清理路由，不在其他节点悄悄恢复执行。持续空闲的 Session 可按 TTL 释放；输入输出经受控传输持久化，恢复为新 Session 必须有明确语义。
 - 取消先持久化，再通知节点；节点在启动前再次核对，运行后杀整个进程组，清理完成才释放空位。取消与启动竞态必须用租约/节点状态机处理并测试，不能只依赖轮询。
 - 正常路径不靠排队提高吞吐。保留有界短队列仅作突发保护，受请求 deadline 约束；容量拒绝和队列超时在验收中计为失败，不能从延迟样本里删除。
@@ -63,7 +64,7 @@ API 和数据库不承载不可信脚本。执行节点置于同地域专用 VPC
 
 可信节点代理持有本机容器管理权限，不向脚本挂载 Docker Socket、云 RAM 凭据、宿主目录或数据库凭据。代理走 VPC 私有 mTLS 通道，仅调度服务可访问；执行容器维持默认禁网、非 root、只读根目录、资源限制及受控临时目录。文件由代理按已有资产权限取入/取出，不让脚本直连对象存储。
 
-容器不是完整的恶意代码安全边界。若面向不可信任租户或任意代码，发布前必须选择并验收强化运行时（如受支持的轻量 VM 沙箱），不能声称仅目录隔离已实现多租户安全。CPU、内存、PID、临时磁盘均按容器设硬上限；监控宿主内存压力和 OOM。
+生产隔离基线选定 Docker + gVisor runsc（systrap 平台），不是普通 runc 多租户共享进程。gVisor 是用户态内核沙箱，不称为轻量 VM。节点镜像锁定完整 runsc 发行包及其配套文件、内核和架构；devapp 必须验证 Python、Node、PDF 中文字体、Office 转换、文件传输、UDS、进程组终止及性能。兼容性不通过则停止发布并重新评估运行时，不自动降级为 runc。此选择是本方案的工程建议，尚未有本项目运行证据。CPU、内存、PID、临时磁盘均按容器设硬上限；监控宿主内存压力和 OOM。
 
 ## 4. 怎么判断资源够不够
 
@@ -81,9 +82,13 @@ API 和数据库不承载不可信脚本。执行节点置于同地域专用 VPC
 
 以下是实施起点，不是已实测生产参数。每 10 秒决策，单个有效控制器使用数据库租约及 fencing；独立 CPU/内存保护规则只向同一个决策者提出需求，不与 ESS 目标追踪规则同时改同一节点池的期望数量。
 
+云操作通过 PG 持久化 intent/outbox 串行提交，只有独立 cloud actuator 持有 ESS 写权限，决策控制器不持有；intent 包含 generation、目标、候选节点及前置条件。actuator 提交前复核租约/排空并记录云活动 ID，使用支持的幂等 token；API 不支持幂等 token 时以意图去重并对账。一个操作结果不明时冻结该池后续写入并告警，不能仅凭超时重发或提交相反目标。
+
+PG fencing 不能阻止已提交的 ESS 请求，因此 cloud actuator 初期不做无条件自动抢占：故障接管先隔离旧执行实例/凭据，确认旧实例停止，等待或对账旧云活动到终态，再恢复单写者。若不能确认则保持冻结并人工处理；此时现有容量继续接单，自动扩容暂时不可用。决策 leader 可自动切换，云写入单写者恢复须经过上述门，不宣称数据库租约天然提供云端 fencing。验收必须注入“旧 leader 的云请求延迟返回”场景。
+
 按资源规格分别定义：
 
-- A：活动任务和已预留任务占用的空位。
+- A：活动普通任务、已预留普通任务与全部 ready Native Session 的保证额度之和；Session 中运行的命令不重复计算。
 - λ：短窗口和长窗口任务到达率的较大值，单位任务/秒。
 - S：近期任务执行时长 P95；异常任务另按 deadline 处理，不无限扩大估计。
 - T：从发起扩容到节点自检可接单的近期 P95，加采集和决策延迟；包括镜像、冷启动和云失败重试。
@@ -145,6 +150,7 @@ ESS 控制器调整 DesiredCapacity；节点代理自检通过才注册 ready。
 - [ESS 最小/最大/期望数量](https://www.alibabacloud.com/help/en/auto-scaling/user-guide/create-an-ecs-scaling-group)
 - [ESS 扩容响应受启动时间影响](https://www.alibabacloud.com/help/en/auto-scaling/product-overview/what-is-auto-scaling)
 - [生命周期挂钩](https://help.aliyun.com/en/auto-scaling/user-guide/manage-lifecycle-hooks)
+- [gVisor 平台选择](https://gvisor.dev/docs/user_guide/platforms/)与[完整发行包安装](https://gvisor.dev/docs/user_guide/install/)
 - [Kubernetes 自定义指标与缩容稳定窗口](https://kubernetes.io/docs/concepts/workloads/autoscaling/horizontal-pod-autoscale/)（机制参考，不要求迁移）
 
 操作与排障见[操作手册](elastic-operations.md)。后续开发须先把上述协议、故障语义和资源规格变成可验证契约与独立实现 issue；本文不是可直接执行的部署脚本。

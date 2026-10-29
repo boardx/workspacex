@@ -64,3 +64,7 @@ flowchart TD
 - `node .harness/scripts/execution-plan.mjs check docs/design/sandbox-capacity/elastic-delivery.md` 退出 0。
 - `pnpm run lint:execution-plan` 退出 0；日志 `/tmp/workspacex-5980-plan-check.log`（本地临时证据，不作为远程可访问产物）。
 - 无业务代码变更，未以静态检查冒充真实扩缩容或500人压测。
+
+## 独立审阅
+
+Builder check 提出三项实质问题，均已补齐：ready Native Session 持续预留本节点执行资源；生产基线明确为 gVisor runsc/systrap 并设置兼容性门；ESS 写操作使用持久化意图和单写 actuator，故障接管先隔离旧实例并对账，无法确认时冻结云写入。代价明确记录为 Session 资源成本和云写入恢复可能需人工。
