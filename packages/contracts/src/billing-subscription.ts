@@ -11,6 +11,9 @@
  */
 import { z } from "zod";
 
+/** Monthly credit entitlement; payment prices remain deployment configuration. */
+export const MONTHLY_SUBSCRIPTION_CREDITS = 20_000;
+
 /* ── 封闭枚举（新增成员须经 ADR；见 domain.md §三） ────────────────────── */
 
 /** 订阅状态（Stripe 语义子集）；无记录 = `none`（在系统内等价读法）。 */

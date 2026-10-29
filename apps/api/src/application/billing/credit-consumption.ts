@@ -17,5 +17,12 @@ export function creditDecimal(hundredths: bigint): string {
   return `${sign}${magnitude / 100n}.${String(magnitude % 100n).padStart(2, "0")}`;
 }
 
+export function creditHundredths(value: string): bigint {
+  if (!/^-?\d+(?:\.\d{1,2})?$/.test(value)) throw new Error("invalid_credit_decimal");
+  const negative = value.startsWith("-"), [whole, fraction = ""] = value.replace(/^-/, "").split(".");
+  const magnitude = BigInt(whole!) * 100n + BigInt(fraction.padEnd(2, "0"));
+  return negative ? -magnitude : magnitude;
+}
+
 /** Admission and settlement errors retain their typed HTTP/stream guidance through model adapters. */
 export function rethrowCreditConsumption(error:unknown):void {if(error instanceof CreditConsumptionError)throw error;}

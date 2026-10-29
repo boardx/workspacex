@@ -48,6 +48,7 @@
 | ADR-122 | question-bound-evidence-ledger-with-a-single-public-runtime-projection：问题与精确正文证据绑定；内部持久化与公开投影单源（项目实现） | Proposed |
 | ADR-123 | stripe-subscription-state-and-recovery-eligibility：区分订阅权益与账单恢复资格，补齐原始状态封闭契约（项目实现） | Proposed |
 | ADR-124 | main-cn 作为中国生产期望版本，更新后自动准备与部署，取消人工审批 | Accepted |
+| ADR-125 | 订阅周期额度复用现有不可改账本，永久余额由归一化总额推导 | Accepted |
 
 ## 状态说明
 - ADR-004 已被专用协调服务取代（Superseded），保留因为它记录了"为什么 issue 总线
