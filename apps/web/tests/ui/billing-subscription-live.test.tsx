@@ -148,6 +148,38 @@ describe("live Stripe subscription", () => {
     await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
     fireEvent.click(button); await waitFor(() => expect(navigateToStripe).toHaveBeenCalled());
   });
+  it("keeps refreshing after a portal return so a delayed cancellation webhook becomes visible", async () => {
+    window.history.replaceState({}, "", "/billing?subscription_return=1&subscription_management_return=1");
+    vi.useFakeTimers(); const fetcher = setup("active"); const initial = fetcher.getMockImplementation()!;
+    let reads = 0;
+    fetcher.mockImplementation((url) => new URL(url).pathname === "/billing/subscription"
+      ? Promise.resolve(new Response(JSON.stringify({ ...info("active"), cancelAtPeriodEnd: ++reads > 1, currentPeriodEnd: "2030-02-01T00:00:00Z" }))) : initial(url));
+    const view = mount(); await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText("Pro 权益已生效")).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(screen.getByText(/已取消续费.*本期结束前.*Pro/)).toBeTruthy();
+    expect(screen.getByText("Pro 权益已生效")).toBeTruthy();
+    for (let n = 0; n < 5; n++) await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
+    expect(reads).toBe(7);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); }); expect(reads).toBe(7);
+    expect(fetcher.mock.calls.some(([url]) => url.includes("upgrade-link"))).toBe(false);
+    view.unmount();
+  });
+  it("does not promise Pro for a canceled renewal on a past-due subscription", async () => {
+    const fetcher = setup("past_due"); const initial = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation((url) => new URL(url).pathname === "/billing/subscription"
+      ? Promise.resolve(new Response(JSON.stringify({ ...info("past_due"), cancelAtPeriodEnd: true }))) : initial(url));
+    mount(); await screen.findByText("付款逾期");
+    expect(screen.queryByText(/本期结束前仍可使用 Pro/)).toBeNull();
+    expect(screen.getByText("已取消续费，将在本期结束时生效。")).toBeTruthy();
+  });
+  it("stops portal return refreshes on unmount", async () => {
+    window.history.replaceState({}, "", "/billing?subscription_management_return=1");
+    vi.useFakeTimers(); const fetcher = setup("active"); const view = mount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); }); view.unmount();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60000); });
+    expect(fetcher.mock.calls.filter(([url]) => new URL(url).pathname === "/billing/subscription")).toHaveLength(1);
+  });
   it("unmount stops return polling", async () => {
     window.history.replaceState({}, "", "/billing?subscription_return=1");
     vi.useFakeTimers(); const fetcher = setup(); const view = mount();
