@@ -32,12 +32,16 @@ export class StripePortalClient implements SubscriptionProvider {
   }
   async portal(customerRef: string, traceId = "no-trace"): Promise<string> {
     const config = this.config.getStripe(); if (!config) throw new SubscriptionError("payment_provider_not_configured");
+    const returnUrl = config.returnUrl ? new URL(config.returnUrl) : null;
+    // A management return must refresh even when the stored subscription is active:
+    // cancellation/resumption may still be in flight through Stripe webhooks.
+    returnUrl?.searchParams.set("subscription_management_return", "1");
     const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 8000);
     let stage = "request"; let status: number | undefined;
     try {
       const response = await fetch("https://api.stripe.com/v1/billing_portal/sessions", { method: "POST", redirect: "error", signal: controller.signal,
         headers: { Authorization: `Bearer ${config.secretKey}`, "Stripe-Version": STRIPE_API_VERSION, "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ customer: customerRef, locale: "auto", ...(config.returnUrl ? { return_url: config.returnUrl } : {}) }).toString() });
+        body: new URLSearchParams({ customer: customerRef, locale: "auto", ...(returnUrl ? { return_url: returnUrl.toString() } : {}) }).toString() });
       status = response.status;
       stage = "http";
       if (!response.ok) { void response.body?.cancel().catch(() => undefined); throw new PortalFailure("upstream_http_error"); }
