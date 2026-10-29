@@ -714,7 +714,9 @@ export default defineConfig({
      */
     permissions: ["microphone"],
     launchOptions: {
-      args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
+      // Headed Chromium on Retina macOS otherwise doubles CDP wheel deltas,
+      // even when the browser context reports devicePixelRatio=1 (#5975).
+      args: ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream", "--force-device-scale-factor=1"],
     },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",

@@ -38,7 +38,7 @@ import {
 } from "./support/chat-path-coverage";
 import { openAuthoritativeFreshThread } from "./support/authoritative-thread";
 import { openChatEmptyState } from "./chat-task-workbench-fixture";
-import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
+import { selectWorkbenchAgent, submitWorkbenchRun } from "./support/workbench-run-evidence";
 
 /**
  * ⚠ **每个场景都不能再走 `openFresh*Thread`**。
@@ -81,7 +81,7 @@ async function attempt(scenario: string, n: number, body: () => Promise<string>)
   } catch (error) {
     attempts.push({
       scenario, attempt: n, ok: false, ms: Date.now() - started,
-      detail: (error instanceof Error ? error.message : String(error)).split("\n")[0]?.slice(0, 200) ?? "",
+      detail: (error instanceof Error ? error.message : String(error)).replace(/\u001b\[[0-9;]*m/g, "").replace(/\s+/g, " ").slice(0, 400),
     });
   }
 }
@@ -90,6 +90,23 @@ async function attempt(scenario: string, n: number, body: () => Promise<string>)
 const sentinel = (): string => `sn${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 interface ThreadAttachment { readonly id: string; readonly filename: string; readonly bytes: number }
+
+async function awaitProducedAttachment(
+  page: import("@playwright/test").Page, threadId: string, name: string,
+): Promise<ThreadAttachment> {
+  const headers = await sessionHeaders(page);
+  let produced: ThreadAttachment | undefined;
+  // Reply persistence and artifact registration are separate commits. Wait for the
+  // actual file from this turn, retaining the byte/content assertions below.
+  await expect.poll(async () => {
+    const listed = await page.request.get(`/chat/threads/${threadId}/attachments`, { headers });
+    expect(listed.ok(), `列产物失败 ${String(listed.status())}`).toBe(true);
+    const items = ((await listed.json()) as { items?: ThreadAttachment[] }).items ?? [];
+    produced = items.find((item) => item.filename === name);
+    return produced !== undefined;
+  }, { timeout: 30_000 }).toBe(true);
+  return produced!;
+}
 
 async function officeScenario(
   page: import("@playwright/test").Page, ext: "docx" | "xlsx" | "pptx",
@@ -101,11 +118,7 @@ async function officeScenario(
   await sendInV2AndAwaitStoredReply(page, threadId, `请生成一个名为 ${name} 的文件，里面写上 ${mark}`, name);
 
   const headers = await sessionHeaders(page);
-  const listed = await page.request.get(`/chat/threads/${threadId}/attachments`, { headers });
-  expect(listed.ok(), `列产物失败 ${String(listed.status())}`).toBe(true);
-  const items = ((await listed.json()) as { items?: ThreadAttachment[] }).items ?? [];
-  const produced = items.find((item) => item.filename === name);
-  expect(produced, `没有产出 ${name}（现有：${items.map((i) => i.filename).join(",") || "空"}）`).toBeDefined();
+  const produced = await awaitProducedAttachment(page, threadId, name);
 
   const bytes = await page.request.get(
     `/chat/threads/${threadId}/attachments/${produced!.id}/content`, { headers },
@@ -154,13 +167,18 @@ async function planScenario(
 ): Promise<string> {
   await freshThreadOn(page, CHAT_READ_E2E.deepAgentId);
   await page.getByTestId("copilotkit-v2-input").fill(trigger);
-  await page.getByTestId("copilotkit-v2-send").click();
-  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 180_000 });
+  // Wait for this submission's journal to finish and its persisted run to succeed.
+  // An absent running indicator also matches the window before a run starts.
+  await submitWorkbenchRun(page, "");
 
   // 计划要**默认可见**（E3 起画在折叠区外面），不是展开右栏才有。
   const planItems = await page.locator('[data-testid^="agent-plan-item-"]').count();
-  const toggle = page.getByTestId("chat-task-workbench-trace-toggle");
-  if (await toggle.count() > 0) await toggle.first().click();
+  const toggle = page.getByTestId("run-trace-toggle").last();
+  await expect(toggle).toBeVisible({ timeout: 30_000 });
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(() => page.getByTestId("chat-task-workbench-event-row").count(), { timeout: 30_000 })
+    .toBeGreaterThanOrEqual(minRows);
   const rows = await page.getByTestId("chat-task-workbench-event-row").count();
   expect(rows, `执行过程只有 ${String(rows)} 行，少于 ${String(minRows)}`).toBeGreaterThanOrEqual(minRows);
   const reply = await page.getByTestId("copilot-assistant-message").last().textContent();
@@ -176,8 +194,9 @@ async function planScenario(
 async function planAllDoneScenario(page: import("@playwright/test").Page): Promise<string> {
   await freshThreadOn(page, CHAT_READ_E2E.deepAgentId);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentPlanAllDoneTrigger);
-  await page.getByTestId("copilotkit-v2-send").click();
-  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 180_000 });
+  // Wait for this submission's journal to finish and its persisted run to succeed.
+  // An absent running indicator also matches the window before a run starts.
+  await submitWorkbenchRun(page, "");
   const items = page.locator('[data-testid^="agent-plan-item-"]');
   const total = await items.count();
   expect(total, "计划一条都没渲染出来").toBeGreaterThanOrEqual(3);
@@ -188,8 +207,9 @@ async function planAllDoneScenario(page: import("@playwright/test").Page): Promi
 async function canvasScenario(page: import("@playwright/test").Page): Promise<string> {
   await freshThreadOn(page, CHAT_READ_E2E.deepAgentId);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentMultiCanvasTrigger);
-  await page.getByTestId("copilotkit-v2-send").click();
-  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 180_000 });
+  // Wait for this submission's journal to finish and its persisted run to succeed.
+  // An absent running indicator also matches the window before a run starts.
+  await submitWorkbenchRun(page, "");
   const canvases = page.locator('[data-testid="chat-canvas-fabric"], [data-testid="chat-diagram-fabric"]');
   await expect(canvases.first()).toBeVisible({ timeout: 60_000 });
   const count = await canvases.count();
@@ -209,12 +229,24 @@ async function canvasScenario(page: import("@playwright/test").Page): Promise<st
 async function researchShapeScenario(page: import("@playwright/test").Page): Promise<string> {
   await freshThreadOn(page, CHAT_READ_E2E.deepAgentId);
   await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
-  await page.getByTestId("copilotkit-v2-send").click();
-  await expect(page.getByTestId("copilotkit-v2-running-indicator")).toHaveCount(0, { timeout: 300_000 });
+  const { runId } = await submitWorkbenchRun(page, "");
 
-  const toggle = page.getByTestId("chat-task-workbench-trace-toggle");
-  if (await toggle.count() > 0) await toggle.first().click();
-  const rows = await page.getByTestId("chat-task-workbench-event-row").count();
+  const panel = page.locator(`[data-testid="run-trace-panel"][data-run-id="${runId}"]`);
+  const toggle = panel.getByTestId("run-trace-toggle");
+  await expect(toggle).toBeVisible({ timeout: 30_000 });
+  if (await toggle.getAttribute("aria-expanded") === "false") await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  // Same-name calls form one summary row in the approved UI (also covered by
+  // agent-workbench-scroll-acceptance). Count real members, then reveal them
+  // with their actual disclosure controls; a summary alone proves no activity.
+  const activity = panel.locator('[data-testid="run-trace-entry"][data-kind="tool"], [data-testid="run-trace-entry"][data-kind="tool-group"] [data-testid="run-trace-group-member"]');
+  await expect.poll(() => activity.count(), { timeout: 30_000 }).toBeGreaterThanOrEqual(5);
+  const groups = panel.locator('[data-kind="tool-group"] details');
+  for (const group of await groups.all()) {
+    if (await group.getAttribute("open") === null) await group.locator("summary").click();
+  }
+  for (const member of await activity.all()) await expect(member).toBeVisible();
+  const rows = await activity.count();
   // 长链的意义就在「多」：少于 5 行说明它没真的走完十步，退化成了一次普通问答。
   expect(rows, `长链只落了 ${String(rows)} 行执行过程，不足以称为多步研究`).toBeGreaterThanOrEqual(5);
 
@@ -244,11 +276,7 @@ async function mixedScenario(page: import("@playwright/test").Page): Promise<str
     .toHaveAttribute("data-ready", "true", { timeout: 60_000 });
   await sendInV2AndAwaitStoredReply(page, threadId, `再基于刚才那张图生成一个名为 ${name} 的文件，里面写上 ${mark}`, name);
 
-  const headers = await sessionHeaders(page);
-  const listed = await page.request.get(`/chat/threads/${threadId}/attachments`, { headers });
-  const items = ((await listed.json()) as { items?: ThreadAttachment[] }).items ?? [];
-  const produced = items.find((item) => item.filename === name);
-  expect(produced, `混合轮里没有产出 ${name}`).toBeDefined();
+  await awaitProducedAttachment(page, threadId, name);
   // 前一轮的画布不能因为后一轮而消失——跨轮次互相踩正是这一条要抓的。
   const canvases = await page.locator('[data-testid="chat-canvas-fabric"]').count();
   expect(canvases, "第二轮之后，第一轮的画布不见了").toBeGreaterThanOrEqual(1);

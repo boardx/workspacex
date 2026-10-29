@@ -1,0 +1,170 @@
+{
+  "config": {
+    "argv": [
+      "/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin/node",
+      "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "/tmp/wsx-repair-5978-pass4.config.ts",
+      "--project=chat-path-coverage",
+      "deepagent-plan-execute-reliability.spec.ts"
+    ],
+    "configFile": "/tmp/wsx-repair-5978-pass4.config.ts",
+    "rootDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-route-warmup.global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass4-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-task-workbench",
+        "name": "chat-task-workbench",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)|chat-ux-eval)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass4-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-read",
+        "name": "chat-read",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility|chat-stop-generation-sidebar-status)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass4-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-path-coverage",
+        "name": "chat-path-coverage",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(deepagent-plan-execute-reliability|chat-run-always-lands|first-value-citation-loop|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass4-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "deepagent-plan-execute-reliability.spec.ts",
+      "file": "deepagent-plan-execute-reliability.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "deep-agent 计划→执行：成功率矩阵",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-path-coverage",
+              "projectName": "chat-path-coverage",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 442876,
+                  "errors": [],
+                  "stdout": [
+                    {
+                      "text": "\n# deep-agent 计划→执行 成功率\n\n**总成功率 24 / 24（100%）**\n\n每个场景重复 3 次（`PLAN_EXEC_REPEATS` 可调）。\n⚠ 跑在确定性替身上：量的是**我们这条链稳不稳**（竞态、状态污染、跨轮次互踩），\n不是真实模型/网络的抖动。人类说的「低于 60%」发生在真实联网环境，那一层归真实模型车道。\n\n| 场景 | 成功 / 次数 | 成功率 | 中位耗时 | 失败详情 |\n|---|---|---|---|---|\n| 计划多步 | 3 / 3 | 100% | 18s | — |\n| 计划全部跑完 | 3 / 3 | 100% | 8s | — |\n| Office · docx | 3 / 3 | 100% | 21s | — |\n| Office · xlsx | 3 / 3 | 100% | 22s | — |\n| Office · pptx | 3 / 3 | 100% | 24s | — |\n| 画布 · 多张 | 3 / 3 | 100% | 9s | — |\n| 深度研究形态 · 长链多步 | 3 / 3 | 100% | 12s | — |\n| 混合 · 画布→Office 同线程 | 3 / 3 | 100% | 29s | — |\n\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:54:09.349Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass4-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass4-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "b6cf8e3b5fabd460b07f-14bb280ef7c50afd5197",
+          "file": "deepagent-plan-execute-reliability.spec.ts",
+          "line": 286,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-28T20:53:13.497Z",
+    "duration": 505738.073,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}

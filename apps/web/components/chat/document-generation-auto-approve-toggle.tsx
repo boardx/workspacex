@@ -51,6 +51,7 @@ export function DocumentGenerationAutoApproveToggle({ disabled }: { disabled?: b
       <FileCheck2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
       <span className="text-11 text-muted-foreground"><span className="hidden sm:inline">自动批准文档生成所需权限</span><span className="sm:hidden">自动批准文档权限</span></span>
       <Toggle
+        className="min-h-6 min-w-6"
         checked={enabled}
         onCheckedChange={onChange}
         label="自动批准文档生成所需权限"

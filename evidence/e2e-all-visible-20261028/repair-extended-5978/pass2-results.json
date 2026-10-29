@@ -1,0 +1,1098 @@
+{
+  "config": {
+    "argv": [
+      "/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin/node",
+      "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      "/tmp/wsx-repair-5978-pass2.config.ts",
+      "--project=chat-read",
+      "--project=chat-task-workbench",
+      "--project=chat-path-coverage",
+      "chat-task-workbench-p1-efficiency.spec.ts",
+      "chat-task-workbench-workflow-states.spec.ts",
+      "chat-task-workbench-inspector.spec.ts",
+      "chat-task-workbench-a11y.spec.ts",
+      "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+      "deepagent-plan-execute-reliability.spec.ts",
+      "--grep",
+      "TW-P1-|TW-P0-3|TW-P0-4|F5|成功率矩阵|TW-A11Y-5"
+    ],
+    "configFile": "/tmp/wsx-repair-5978-pass2.config.ts",
+    "rootDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-route-warmup.global-setup.ts",
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-read",
+        "name": "chat-read",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(?:empty-state|capability-cards|composer|copy|polish|scroll-overshoot)|chat-skill-picker-viewport|chat-read|chat-agent-skill-context|chat-diagram-save-reopen-roundtrip|chat-canvas-guidance-render|chat-attachment-image-vision-extraction|chat-attachment-preview-download|context-engine|copilotkit-agui-state-snapshot|copilotkit-v2-runtime-adapter|copilotkit-v2-agent-context|copilotkit-v2-tool-rendering|agent-chat-core-paths|agent-task-clarification-result|agent-task-planning-hitl|agent-workbench-scroll-acceptance|agent-workbench-control-acceptance|agent-workbench-ui-refinement|agent-workbench-steering-acceptance|copilotkit-v2-hitl|copilotkit-v2-hitl-dialog-dismiss|copilotkit-v2-suggestions|copilotkit-v2-active-file-panel|copilotkit-v2-voice-input|copilotkit-v2-stream-frame-timing|copilotkit-v2-error-banner|copilotkit-v2-thread-persistence|copilotkit-v2-run-restore-after-switch|copilotkit-v2-agent-switch|copilotkit-v2-attachments|copilotkit-v2-composer-attachment-thumbnails|copilotkit-v2-skill-mount|copilotkit-v2-default-agent|copilotkit-v2-right-panel|copilotkit-v2-materials-drop-upload|copilotkit-v2-persona-archived|copilotkit-v2-uiux-shots|copilotkit-v2-message-actions|copilotkit-v2-roster-landing|chat-keyboard-navigation|chat-path-a5-cold-start-first-paint|chat-path-a3-long-session-fact-survival|chat-path-c4-two-canvases-one-turn|chat-path-c5-consecutive-artifact-turns|chat-path-d4-skill-three-states|chat-path-f6-concurrent-runs|chat-path-f7-upstream-stream-abort|chat-read-plan-surface-visibility|chat-stop-generation-sidebar-status)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-path-coverage",
+        "name": "chat-path-coverage",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(deepagent-plan-execute-reliability|chat-run-always-lands|first-value-citation-loop|chat-path-(f2-network-drop-reconnect|c6-office-artifacts|c8-subtask-artifact-writeback|f5-cancel-propagates-to-subtask|c1-canvas-survives-run-finalization|c2-canvas-fence-identity|d1-failed-tool-card-status|f1-failure-cause-distinguishable|f3-pause-resume-retry-step|ab-hitl-continuity))\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      },
+      {
+        "outputDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "chat-task-workbench",
+        "name": "chat-task-workbench",
+        "testDir": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "/(chat-task-workbench-(workflow-states|inspector|approval|tool-events|p1-efficiency|a11y)|chat-ux-eval)\\.spec\\.ts$/"
+        ],
+        "timeout": 120000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.62.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+      "file": "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "@path:F5 父 run 取消之后，它派出去的子任务停下来，且不再发布晚到的产物",
+          "ok": false,
+          "tags": [
+            "path:F5"
+          ],
+          "tests": [
+            {
+              "timeout": 420000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-path-coverage",
+              "projectName": "chat-path-coverage",
+              "results": [
+                {
+                  "workerIndex": 0,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 134674,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"\u001b[7mcancel\u001b[27mled\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mfai\u001b[27mled\"\u001b[39m\n\nCall Log:\n- Timeout 120000ms exceeded while waiting on the predicate",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"\u001b[7mcancel\u001b[27mled\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mfai\u001b[27mled\"\u001b[39m\n\nCall Log:\n- Timeout 120000ms exceeded while waiting on the predicate\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts:161:6",
+                    "location": {
+                      "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+                      "column": 6,
+                      "line": 161
+                    },
+                    "snippet": "  159 |     .poll(async () => (await listSubtasks(page, parentRunId)).find((one) => one.id === subtaskId)?.status,\n  160 |       { timeout: 120_000, intervals: [500, 1_000, 2_000] })\n> 161 |     .toBe(\"cancelled\");\n      |      ^\n  162 |\n  163 |   // ── 判据 3：等过\"它本该自然完成\"的那个点，确认没有晚到的产物 ────────────────\n  164 |   /*"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+                        "column": 6,
+                        "line": 161
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"\u001b[7mcancel\u001b[27mled\"\u001b[39m\nReceived: \u001b[31m\"\u001b[7mfai\u001b[27mled\"\u001b[39m\n\nCall Log:\n- Timeout 120000ms exceeded while waiting on the predicate\n\n  159 |     .poll(async () => (await listSubtasks(page, parentRunId)).find((one) => one.id === subtaskId)?.status,\n  160 |       { timeout: 120_000, intervals: [500, 1_000, 2_000] })\n> 161 |     .toBe(\"cancelled\");\n      |      ^\n  162 |\n  163 |   // ── 判据 3：等过\"它本该自然完成\"的那个点，确认没有晚到的产物 ────────────────\n  164 |   /*\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts:161:6"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:19:06.681Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-path-f5-cancel-propag-4ff98-取消之后，它派出去的子任务停下来，且不再发布晚到的产物-chat-path-coverage/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+                    "column": 6,
+                    "line": 161
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "40e9075b765c3bcead61-a1fc901a322f32cfb44a",
+          "file": "chat-path-f5-cancel-propagates-to-subtask.spec.ts",
+          "line": 90,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "deepagent-plan-execute-reliability.spec.ts",
+      "file": "deepagent-plan-execute-reliability.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "deep-agent 计划→执行：成功率矩阵",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 600000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-path-coverage",
+              "projectName": "chat-path-coverage",
+              "results": [
+                {
+                  "workerIndex": 1,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 489790,
+                  "error": {
+                    "message": "Error: 12 次失败：\n计划多步 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划多步 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划多步 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m12\u001b[39m\nReceived array:  \u001b[31m[{\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 23360, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 7929, \"ok\": false, \"scenario\": \"计划全部跑完\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 8654, \"ok\": false, \"scenario\": \"画布 · 多张\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 12896, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 17339, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 7338, \"ok\": false, \"scenario\": \"计划全部跑完\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 9205, \"ok\": false, \"scenario\": \"画布 · 多张\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 14214, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 3, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 23411, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 3, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 11134, \"ok\": false, \"scenario\": \"计划全部跑完\"}, …]\u001b[39m",
+                    "stack": "Error: 12 次失败：\n计划多步 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划多步 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划多步 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m12\u001b[39m\nReceived array:  \u001b[31m[{\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 23360, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 7929, \"ok\": false, \"scenario\": \"计划全部跑完\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 8654, \"ok\": false, \"scenario\": \"画布 · 多张\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 12896, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 17339, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 7338, \"ok\": false, \"scenario\": \"计划全部跑完\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 9205, \"ok\": false, \"scenario\": \"画布 · 多张\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 14214, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 3, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 23411, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 3, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 11134, \"ok\": false, \"scenario\": \"计划全部跑完\"}, …]\u001b[39m\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts:324:136",
+                    "location": {
+                      "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts",
+                      "column": 136,
+                      "line": 324
+                    },
+                    "snippet": "  322 |   // 人类要求：成功率必须 100%。任何一次失败都红，并把整张表留在报告里。\n  323 |   const failed = attempts.filter((a) => a.ok === false);\n> 324 |   expect(failed, `${String(failed.length)} 次失败：\\n${failed.map((f) => `${f.scenario} #${String(f.attempt)}: ${f.detail}`).join(\"\\n\")}`).toHaveLength(0);\n      |                                                                                                                                        ^\n  325 | });\n  326 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts",
+                        "column": 136,
+                        "line": 324
+                      },
+                      "message": "Error: 12 次失败：\n计划多步 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #1: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划多步 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #2: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划多步 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n计划全部跑完 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n画布 · 多张 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n深度研究形态 · 长链多步 #3: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\n\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoHaveLength\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m\n\nExpected length: \u001b[32m0\u001b[39m\nReceived length: \u001b[31m12\u001b[39m\nReceived array:  \u001b[31m[{\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 23360, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 7929, \"ok\": false, \"scenario\": \"计划全部跑完\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 8654, \"ok\": false, \"scenario\": \"画布 · 多张\"}, {\"attempt\": 1, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 12896, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 17339, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 7338, \"ok\": false, \"scenario\": \"计划全部跑完\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 9205, \"ok\": false, \"scenario\": \"画布 · 多张\"}, {\"attempt\": 2, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 14214, \"ok\": false, \"scenario\": \"深度研究形态 · 长链多步\"}, {\"attempt\": 3, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 23411, \"ok\": false, \"scenario\": \"计划多步\"}, {\"attempt\": 3, \"detail\": \"\u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[31m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[31m\u001b[2m) // Object.is equality\u001b[22m\", \"ms\": 11134, \"ok\": false, \"scenario\": \"计划全部跑完\"}, …]\u001b[39m\n\n  322 |   // 人类要求：成功率必须 100%。任何一次失败都红，并把整张表留在报告里。\n  323 |   const failed = attempts.filter((a) => a.ok === false);\n> 324 |   expect(failed, `${String(failed.length)} 次失败：\\n${failed.map((f) => `${f.scenario} #${String(f.attempt)}: ${f.detail}`).join(\"\\n\")}`).toHaveLength(0);\n      |                                                                                                                                        ^\n  325 | });\n  326 |\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts:324:136"
+                    }
+                  ],
+                  "stdout": [
+                    {
+                      "text": "\n# deep-agent 计划→执行 成功率\n\n**总成功率 12 / 24（50%）**\n\n每个场景重复 3 次（`PLAN_EXEC_REPEATS` 可调）。\n⚠ 跑在确定性替身上：量的是**我们这条链稳不稳**（竞态、状态污染、跨轮次互踩），\n不是真实模型/网络的抖动。人类说的「低于 60%」发生在真实联网环境，那一层归真实模型车道。\n\n| 场景 | 成功 / 次数 | 成功率 | 中位耗时 | 失败详情 |\n|---|---|---|---|---|\n| 计划多步 | 0 / 3 | 0% | 23s | #1 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#2 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#3 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m |\n| 计划全部跑完 | 0 / 3 | 0% | 8s | #1 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#2 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#3 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m |\n| Office · docx | 3 / 3 | 100% | 23s | — |\n| Office · xlsx | 3 / 3 | 100% | 21s | — |\n| Office · pptx | 3 / 3 | 100% | 24s | — |\n| 画布 · 多张 | 0 / 3 | 0% | 9s | #1 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#2 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#3 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m |\n| 深度研究形态 · 长链多步 | 0 / 3 | 0% | 13s | #1 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#2 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m；#3 \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m |\n| 混合 · 画布→Office 同线程 | 3 / 3 | 100% | 31s | — |\n\n"
+                    }
+                  ],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:21:23.300Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/deepagent-plan-execute-reliability-deep-agent-计划→执行：成功率矩阵-chat-path-coverage/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/deepagent-plan-execute-reliability.spec.ts",
+                    "column": 136,
+                    "line": 324
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "b6cf8e3b5fabd460b07f-14bb280ef7c50afd5197",
+          "file": "deepagent-plan-execute-reliability.spec.ts",
+          "line": 277,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-a11y.spec.ts",
+      "file": "chat-task-workbench-a11y.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-A11Y-5：审批弹窗焦点锁定 + Esc 关闭 + 焦点返回原处",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12755,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:29:40.103Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-a11y-TW-A11Y-5：审批弹窗焦点锁定-Esc-关闭-焦点返回原处-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-a11y-TW-A11Y-5：审批弹窗焦点锁定-Esc-关闭-焦点返回原处-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "64db9c34ddfac18517cb-1cf348e5f0c89d9d6ee0",
+          "file": "chat-task-workbench-a11y.spec.ts",
+          "line": 121,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-inspector.spec.ts",
+      "file": "chat-task-workbench-inspector.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-4①：右栏提供材料 / 产物 / 运行详情，计划只在消息流显示",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10594,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:29:53.541Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-5849f-4①：右栏提供材料-产物-运行详情，计划只在消息流显示-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-5849f-4①：右栏提供材料-产物-运行详情，计划只在消息流显示-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c2bd671c6cca46070e91-82c32eb5da46aebf7906",
+          "file": "chat-task-workbench-inspector.spec.ts",
+          "line": 32,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-4②：材料与产物自动切换，运行开始保留用户所选页签",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 2,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 14472,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n    at submitWorkbenchRun (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/support/workbench-run-evidence.ts:15:20)\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts:87:3",
+                    "location": {
+                      "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/support/workbench-run-evidence.ts",
+                      "column": 20,
+                      "line": 15
+                    },
+                    "snippet": "\u001b[90m   at \u001b[39msupport/workbench-run-evidence.ts:15\n\n  13 |   const token=await page.evaluate(()=>localStorage.getItem(\"wsx.sessionToken\"));\n  14 |   const run=await page.request.get(`/__fullstack_api/agent-runs/${runId}`,{headers:{Authorization:`Bearer ${token}`}});\n> 15 |   expect(run.ok()).toBe(true);\n     |                    ^\n  16 |   const result=await run.json();\n  17 |   expect(result.status).toBe(\"succeeded\");\n  18 |   expect(result.resultMessageId).toEqual(expect.any(String));"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/support/workbench-run-evidence.ts",
+                        "column": 20,
+                        "line": 15
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32mtrue\u001b[39m\nReceived: \u001b[31mfalse\u001b[39m\n\n   at support/workbench-run-evidence.ts:15\n\n  13 |   const token=await page.evaluate(()=>localStorage.getItem(\"wsx.sessionToken\"));\n  14 |   const run=await page.request.get(`/__fullstack_api/agent-runs/${runId}`,{headers:{Authorization:`Bearer ${token}`}});\n> 15 |   expect(run.ok()).toBe(true);\n     |                    ^\n  16 |   const result=await run.json();\n  17 |   expect(result.status).toBe(\"succeeded\");\n  18 |   expect(result.resultMessageId).toEqual(expect.any(String));\n    at submitWorkbenchRun (/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/support/workbench-run-evidence.ts:15:20)\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-inspector.spec.ts:87:3"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:30:04.295Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspec-73137-0-4②：材料与产物自动切换，运行开始保留用户所选页签-chat-task-workbench/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/support/workbench-run-evidence.ts",
+                    "column": 20,
+                    "line": 15
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "c2bd671c6cca46070e91-a0486c1ca18a77aaccd8",
+          "file": "chat-task-workbench-inspector.spec.ts",
+          "line": 60,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-4③：无内容时折叠，不常驻占六分之一屏",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12504,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:30:19.403Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspector-TW-P0-4③：无内容时折叠，不常驻占六分之一屏-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-inspector-TW-P0-4③：无内容时折叠，不常驻占六分之一屏-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "c2bd671c6cca46070e91-a32d19985ecbd0fc67cf",
+          "file": "chat-task-workbench-inspector.spec.ts",
+          "line": 112,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-p1-efficiency.spec.ts",
+      "file": "chat-task-workbench-p1-efficiency.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P1-1：对话自动命名——线程列表不得一屏全是「新对话」",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 14257,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:30:32.421Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-c1e0e-1-1：对话自动命名——线程列表不得一屏全是「新对话」-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-c1e0e-1-1：对话自动命名——线程列表不得一屏全是「新对话」-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "35ec58d48face542fb2b-a8f6d60cdc8215ca1845",
+          "file": "chat-task-workbench-p1-efficiency.spec.ts",
+          "line": 61,
+          "column": 5
+        },
+        {
+          "title": "TW-P1-2：材料预加载——选线程之前就能加材料",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11360,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:30:46.811Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-2：材料预加载——选线程之前就能加材料-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-2：材料预加载——选线程之前就能加材料-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "35ec58d48face542fb2b-94437cda16f272ad1ec3",
+          "file": "chat-task-workbench-p1-efficiency.spec.ts",
+          "line": 131,
+          "column": 5
+        },
+        {
+          "title": "TW-P1-3：结构化工具事件与子 Agent 摘要在刷新后仍在（持久化侧）",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 27304,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:30:58.328Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-5f962-工具事件与子-Agent-摘要在刷新后仍在（持久化侧）-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-5f962-工具事件与子-Agent-摘要在刷新后仍在（持久化侧）-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "35ec58d48face542fb2b-88ecd9ab848425efe83a",
+          "file": "chat-task-workbench-p1-efficiency.spec.ts",
+          "line": 169,
+          "column": 5
+        },
+        {
+          "title": "TW-P1-4：产物四件齐（预览 / 来源 / 版本 / 导出）",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 3,
+                  "parallelIndex": 0,
+                  "status": "failed",
+                  "duration": 40532,
+                  "error": {
+                    "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('chat-task-workbench-artifact-sources')\nExpected substring: \u001b[32m\"\u001b[7m已\u001b[27m挂出处\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7m未\u001b[27m挂出处\u001b[7m跳到原消息\u001b[27m\"\u001b[39m\nTimeout: 30000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('chat-task-workbench-artifact-sources')\u001b[22m\n\u001b[2m    63 × locator resolved to <p data-testid=\"chat-task-workbench-artifact-sources\" class=\"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground\">…</p>\u001b[22m\n\u001b[2m       - unexpected value \"未挂出处跳到原消息\"\u001b[22m\n",
+                    "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('chat-task-workbench-artifact-sources')\nExpected substring: \u001b[32m\"\u001b[7m已\u001b[27m挂出处\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7m未\u001b[27m挂出处\u001b[7m跳到原消息\u001b[27m\"\u001b[39m\nTimeout: 30000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('chat-task-workbench-artifact-sources')\u001b[22m\n\u001b[2m    63 × locator resolved to <p data-testid=\"chat-task-workbench-artifact-sources\" class=\"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground\">…</p>\u001b[22m\n\u001b[2m       - unexpected value \"未挂出处跳到原消息\"\u001b[22m\n\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts:292:74",
+                    "location": {
+                      "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts",
+                      "column": 74,
+                      "line": 292
+                    },
+                    "snippet": "  290 |     30_000,\n  291 |   );\n> 292 |   await expect(page.getByTestId(\"chat-task-workbench-artifact-sources\")).toContainText(\"已挂出处\");\n      |                                                                          ^\n  293 |   await expect(page.getByTestId(\"chat-inspector-artifact-source-jump\")).toBeVisible();\n  294 | });\n  295 |"
+                  },
+                  "errors": [
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts",
+                        "column": 74,
+                        "line": 292
+                      },
+                      "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoContainText\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m)\u001b[22m failed\n\nLocator: getByTestId('chat-task-workbench-artifact-sources')\nExpected substring: \u001b[32m\"\u001b[7m已\u001b[27m挂出处\"\u001b[39m\nReceived string:    \u001b[31m\"\u001b[7m未\u001b[27m挂出处\u001b[7m跳到原消息\u001b[27m\"\u001b[39m\nTimeout: 30000ms\n\nCall log:\n\u001b[2m  - Expect \"toContainText\" with timeout 30000ms\u001b[22m\n\u001b[2m  - waiting for getByTestId('chat-task-workbench-artifact-sources')\u001b[22m\n\u001b[2m    63 × locator resolved to <p data-testid=\"chat-task-workbench-artifact-sources\" class=\"flex items-center gap-2 border-b border-border-subtle px-3 py-1 text-10 text-muted-foreground\">…</p>\u001b[22m\n\u001b[2m       - unexpected value \"未挂出处跳到原消息\"\u001b[22m\n\n\n  290 |     30_000,\n  291 |   );\n> 292 |   await expect(page.getByTestId(\"chat-task-workbench-artifact-sources\")).toContainText(\"已挂出处\");\n      |                                                                          ^\n  293 |   await expect(page.getByTestId(\"chat-inspector-artifact-source-jump\")).toBeVisible();\n  294 | });\n  295 |\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts:292:74"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:31:25.791Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-efficiency-TW-P1-4：产物四件齐（预览-来源-版本-导出）-chat-task-workbench/trace.zip"
+                    }
+                  ],
+                  "errorLocation": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts",
+                    "column": 74,
+                    "line": 292
+                  }
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "35ec58d48face542fb2b-eefdb3637be941f1024e",
+          "file": "chat-task-workbench-p1-efficiency.spec.ts",
+          "line": 215,
+          "column": 5
+        },
+        {
+          "title": "TW-P1-5a：暂停 / 恢复——run 真的在跑的时候控件真实可点",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [
+                {
+                  "type": "skip",
+                  "description": "#3318：chat 暂停入口已下线，暂停判据挂起到 #3319",
+                  "location": {
+                    "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts",
+                    "line": 309,
+                    "column": 8
+                  }
+                }
+              ],
+              "expectedStatus": "skipped",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "skipped",
+                  "duration": 257,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:32:06.957Z",
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "description": "#3318：chat 暂停入口已下线，暂停判据挂起到 #3319",
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-p1-efficiency.spec.ts",
+                        "line": 309,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-e8032-5a：暂停-恢复——run-真的在跑的时候控件真实可点-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-e8032-5a：暂停-恢复——run-真的在跑的时候控件真实可点-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "skipped"
+            }
+          ],
+          "id": "35ec58d48face542fb2b-8ec9ad96ed1297cc7bdd",
+          "file": "chat-task-workbench-p1-efficiency.spec.ts",
+          "line": 301,
+          "column": 5
+        },
+        {
+          "title": "TW-P1-5b：重试单步——失败态必须有可操作的恢复入口",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12889,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:32:07.558Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-c7714--P1-5b：重试单步——失败态必须有可操作的恢复入口-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-p1-eff-c7714--P1-5b：重试单步——失败态必须有可操作的恢复入口-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "35ec58d48face542fb2b-5796535ef8672e416ae5",
+          "file": "chat-task-workbench-p1-efficiency.spec.ts",
+          "line": 342,
+          "column": 5
+        }
+      ]
+    },
+    {
+      "title": "chat-task-workbench-workflow-states.spec.ts",
+      "file": "chat-task-workbench-workflow-states.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [
+        {
+          "title": "TW-P0-3①：阶段指示器按态出现——需要决策时在、无 run 时不在、收起后仍可触达",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 21458,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:32:20.566Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-e12de-现——需要决策时在、无-run-时不在、收起后仍可触达-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-e12de-现——需要决策时在、无-run-时不在、收起后仍可触达-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1205fcc9a628218f4942-b434554421900c18da49",
+          "file": "chat-task-workbench-workflow-states.spec.ts",
+          "line": 77,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-3②③：计划面板文案面向用户，且可调顺序 / 删步骤 / 加约束",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 11771,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:32:42.182Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-0eb87-②③：计划面板文案面向用户，且可调顺序-删步骤-加约束-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-0eb87-②③：计划面板文案面向用户，且可调顺序-删步骤-加约束-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1205fcc9a628218f4942-8f9c2da81e1cf340afca",
+          "file": "chat-task-workbench-workflow-states.spec.ts",
+          "line": 152,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-3④：复杂任务先确认计划，简单问题不加门槛（条件性确认门）",
+          "ok": false,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 4,
+                  "parallelIndex": 0,
+                  "status": "timedOut",
+                  "duration": 241583,
+                  "error": {
+                    "message": "\u001b[31mTest timeout of 240000ms exceeded.\u001b[39m",
+                    "stack": "\u001b[31mTest timeout of 240000ms exceeded.\u001b[39m"
+                  },
+                  "errors": [
+                    {
+                      "message": "\u001b[31mTest timeout of 240000ms exceeded.\u001b[39m"
+                    },
+                    {
+                      "location": {
+                        "file": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-workflow-states.spec.ts",
+                        "column": 66,
+                        "line": 303
+                      },
+                      "message": "Error: locator.click: Test timeout of 240000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByTestId('chat-task-workbench-plan-confirm-run')\u001b[22m\n\u001b[2m    - locator resolved to <button data-testid=\"chat-task-workbench-plan-confirm-run\" class=\"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-ho…>确认执行</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div data-state=\"open\" aria-hidden=\"true\" data-aria-hidden=\"true\" class=\"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base\"></div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - <div data-state=\"open\" aria-hidden=\"true\" data-aria-hidden=\"true\" class=\"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base\"></div> intercepts pointer events\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    419 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m        - element is visible, enabled and stable\u001b[22m\n\u001b[2m        - scrolling into view if needed\u001b[22m\n\u001b[2m        - done scrolling\u001b[22m\n\u001b[2m        - <div data-state=\"open\" aria-hidden=\"true\" data-aria-hidden=\"true\" class=\"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base\"></div> intercepts pointer events\u001b[22m\n\u001b[2m      - retrying click action\u001b[22m\n\u001b[2m        - waiting 500ms\u001b[22m\n\u001b[2m    - waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m    - element is visible, enabled and stable\u001b[22m\n\u001b[2m    - scrolling into view if needed\u001b[22m\n\u001b[2m    - done scrolling\u001b[22m\n\n\n  301 |   // 确认走的是 `decideToolPermission → Command(resume=…)`（恢复停住的那条 run，\n  302 |   // 人类裁决 O-2），不是 `confirmPlan` 新起一条。\n> 303 |   // The automatic permission dialog overlays the inline plan control. Dismiss it\n      |                                                                  ^\n  304 |   // as a user would, then confirm through the inline action being tested.\n  305 |   const permissionDialog = page.getByTestId(\"chat-tool-permission-dialog\");\n  306 |   await expect(permissionDialog).toBeVisible();\n    at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/e2e/chat-task-workbench-workflow-states.spec.ts:303:66"
+                    }
+                  ],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:32:54.079Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/test-failed-1.png"
+                    },
+                    {
+                      "name": "error-context",
+                      "contentType": "text/markdown",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/error-context.md"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-401fd-：复杂任务先确认计划，简单问题不加门槛（条件性确认门）-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "unexpected"
+            }
+          ],
+          "id": "1205fcc9a628218f4942-f14f364f4feacc8b72b2",
+          "file": "chat-task-workbench-workflow-states.spec.ts",
+          "line": 237,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-3⑤：执行态显示当前步骤 / 完成比例 / 耗时，且可暂停",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 12223,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:36:57.404Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-6866e-0-3⑤：执行态显示当前步骤-完成比例-耗时，且可暂停-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-6866e-0-3⑤：执行态显示当前步骤-完成比例-耗时，且可暂停-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1205fcc9a628218f4942-a9b9f71476adca5b5e76",
+          "file": "chat-task-workbench-workflow-states.spec.ts",
+          "line": 353,
+          "column": 5
+        },
+        {
+          "title": "TW-P0-3⑥：失败态说明失败步骤，并给出契约支持的重试该步 / 修改输入",
+          "ok": true,
+          "tags": [],
+          "tests": [
+            {
+              "timeout": 240000,
+              "annotations": [],
+              "expectedStatus": "passed",
+              "projectId": "chat-task-workbench",
+              "projectName": "chat-task-workbench",
+              "results": [
+                {
+                  "workerIndex": 5,
+                  "parallelIndex": 0,
+                  "status": "passed",
+                  "duration": 10702,
+                  "errors": [],
+                  "stdout": [],
+                  "stderr": [],
+                  "retry": 0,
+                  "startTime": "2026-10-28T20:37:10.116Z",
+                  "annotations": [],
+                  "attachments": [
+                    {
+                      "name": "screenshot",
+                      "contentType": "image/png",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-c016d-失败态说明失败步骤，并给出契约支持的重试该步-修改输入-chat-task-workbench/test-finished-1.png"
+                    },
+                    {
+                      "name": "trace",
+                      "contentType": "application/zip",
+                      "path": "/Users/shenyangjun/.codex/worktrees/548a/workspacex/evidence/e2e-all-visible-20261028/repair-extended-5978/pass2-browser/chat-task-workbench-workfl-c016d-失败态说明失败步骤，并给出契约支持的重试该步-修改输入-chat-task-workbench/trace.zip"
+                    }
+                  ]
+                }
+              ],
+              "status": "expected"
+            }
+          ],
+          "id": "1205fcc9a628218f4942-92190e7a80e2c9899893",
+          "file": "chat-task-workbench-workflow-states.spec.ts",
+          "line": 410,
+          "column": 5
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-10-28T20:17:42.895Z",
+    "duration": 1178542.155,
+    "expected": 11,
+    "skipped": 1,
+    "unexpected": 5,
+    "flaky": 0
+  }
+}

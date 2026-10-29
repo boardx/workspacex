@@ -1,0 +1,42 @@
+{
+  "waves": {
+    "pass1": {
+      "startTime": "2026-10-28T20:08:33.845Z",
+      "duration": 540593.2200000001,
+      "expected": 19,
+      "skipped": 1,
+      "unexpected": 2,
+      "flaky": 0
+    },
+    "pass2": {
+      "startTime": "2026-10-28T20:17:42.895Z",
+      "duration": 1178542.155,
+      "expected": 11,
+      "skipped": 1,
+      "unexpected": 5,
+      "flaky": 0
+    },
+    "pass3": {
+      "startTime": "2026-10-28T20:37:41.780Z",
+      "duration": 833793.985,
+      "expected": 4,
+      "skipped": 0,
+      "unexpected": 1,
+      "flaky": 0
+    },
+    "pass4": {
+      "startTime": "2026-10-28T20:53:13.497Z",
+      "duration": 505738.073,
+      "expected": 1,
+      "skipped": 0,
+      "unexpected": 0,
+      "flaky": 0
+    }
+  },
+  "latestUnique": {
+    "expected": 33,
+    "skipped": 2
+  },
+  "originalFailures": 17,
+  "originalRetestedPassed": 17
+}

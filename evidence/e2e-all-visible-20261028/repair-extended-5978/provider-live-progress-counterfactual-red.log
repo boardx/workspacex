@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/api
+
+ ❯ tests/agent-run/loopback-run-cancellation.test.ts (4 tests | 1 failed | 3 skipped) 509ms
+   × delivers write_todos through production completeWithProgress before held stream EOF 508ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agent-run/loopback-run-cancellation.test.ts > delivers write_todos through production completeWithProgress before held stream EOF
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/agent-run/loopback-run-cancellation.test.ts:72:91
+     70|       observed.push({ toolName: event.toolName, beforeEof: live?.isEnd…
+     71|     }, async () => {});
+     72|     expect(observed.some((event) => event.toolName === "write_todos" &…
+       |                                                                                           ^
+     73|   } finally { vi.unstubAllGlobals(); }
+     74| }, 20_000);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 skipped (4)
+   Start at  04:13:04
+   Duration  3.67s (transform 1.35s, setup 0ms, collect 2.82s, tests 509ms, environment 1ms, prepare 85ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/workspacex-loopback-vitest.mjs tests/agent-run/loopback-run-cancellation.test.ts -t production complete
