@@ -15,6 +15,7 @@ import { asOwner, ensureDatabase, migrateOnce } from "../support/db";
 const secret = `whsec_${randomBytes(24).toString("hex")}`, user = "f09-stripe-user";
 // @global-scope-fixture table:credit_wallets: renewal fixture owns only the f09-stripe-user wallet and deletes it before/after each case.
 // @global-scope-fixture table:credit_subscription_periods: renewal fixture seeds one old paid period for its exact wallet; cleanup removes only that owner's batches.
+// @global-scope-fixture table:billing_webhook_events: only f09 event identities are inserted and removed by cleanup.
 let app: NestExpressApplication, server: Server, base: string;
 let snapshots: Record<string, unknown> = {}, calls: string[] = [];
 const subscription = (id = "sub_f09A", status = "active") => ({ id, object: "subscription", customer: "cus_f09A", status, cancel_at_period_end: false, trial_start: null, trial_end: null,
