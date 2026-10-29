@@ -122,6 +122,7 @@ describe("live survey trusted publishing", () => {
   });
 
   it("republishes a closed active batch with the current version", async () => {
+    const republishedExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const closed = runtime({
       status: "closed",
       publication: { token: "closed-token", status: "closed", version: 4, expiresAt: "2026-10-20T10:00:00.000Z", questions: runtime().questions },
@@ -132,9 +133,9 @@ describe("live survey trusted publishing", () => {
       ...closed,
       status: "collecting",
       version: 5,
-      publication: { token: "fresh-token", status: "collecting", version: 4, expiresAt: "2026-10-29T10:00:00.000Z", questions: runtime().questions },
+      publication: { token: "fresh-token", status: "collecting", version: 4, expiresAt: republishedExpiresAt, questions: runtime().questions },
       activeCollectionBatchId: "batch-2",
-      collectionBatches: [...closed.collectionBatches!, { id: "batch-2", token: "fresh-token", status: "collecting", version: 4, createdAt: "2026-09-29T08:00:00.000Z", closedAt: null, expiresAt: "2026-10-29T10:00:00.000Z", questions: runtime().questions }],
+      collectionBatches: [...closed.collectionBatches!, { id: "batch-2", token: "fresh-token", status: "collecting", version: 4, createdAt: "2026-09-29T08:00:00.000Z", closedAt: null, expiresAt: republishedExpiresAt, questions: runtime().questions }],
     });
     client.request.mockResolvedValueOnce(closed).mockResolvedValueOnce(republished);
     render(<LiveSurveyWorkspace surveyId="survey-1" initialStep="publish" />);
