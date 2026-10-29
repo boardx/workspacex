@@ -31,13 +31,13 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G done
   class S1 done
   class S2 done
   class S3 done
   class S4 tested
   %% evidence S4: 本地链接13项、代码围栏、git diff --check、lint:execution-plan均通过；证据见本文档
-  class S5 doing
+  class S5 done
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
