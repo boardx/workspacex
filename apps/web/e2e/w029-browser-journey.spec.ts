@@ -1,5 +1,6 @@
 /** W029 business-input browser acceptance; loopback model quality remains unverified. */
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { agentRole, workContent, workflowCapabilityGrants, workflowRuntime } from "@repo/contracts";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
 import { prepareOfficialWorkflowAdmin, readWorkflowJourneyApi as readApi, workflowJourneyShot as shot } from "./support/workflow-browser-journey";
@@ -130,9 +131,19 @@ test("W029 direct role launch: real grants, four real approval confirmations, pe
     await shot(page, info, "07-w029-succeeded");
     await page.getByTestId("workflow-stage-persist").locator('a[data-testid^="workflow-output-"]').click();
     await expect(page.getByTestId("workflow-output-prd")).toBeVisible();
+    expect(output.file?.markdown).toContain("## 需求");
+    await expect(page.getByTestId("workflow-saved-file")).toHaveAttribute("data-version-id", output.file!.versionId);
+    await page.getByTestId("workflow-saved-file-preview").locator("summary").click();
+    await expect(page.getByTestId("workflow-saved-file-preview")).toHaveAttribute("open", "");
+    const downloadEvent = page.waitForEvent("download");
+    await page.getByTestId("workflow-saved-file-download").click();
+    const download = await downloadEvent;
+    expect(download.suggestedFilename()).toMatch(/\.md$/);
+    expect(await readFile((await download.path())!, "utf8")).toBe(output.file!.markdown);
     await shot(page, info, "08-persisted-prd");
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByTestId("workflow-output-prd")).toBeVisible();
+    await expect(page.getByTestId("workflow-saved-file")).toHaveAttribute("data-version-id", output.file!.versionId);
     expect(workContent.operations.getInstanceOutput.out.parse(await readApi(page, path))).toEqual(output);
     expect((await projection()).effects).toEqual(finished.effects);
     await shot(page, info, "09-prd-after-reload");
