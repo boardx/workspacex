@@ -40,7 +40,7 @@ async function cleanup() {
 beforeAll(async () => {
   ensureDatabase(); await migrateOnce();
   for (const [key, value] of Object.entries({ STRIPE_SECRET_KEY: `sk_test_${randomBytes(16).toString("hex")}`, STRIPE_WEBHOOK_SECRET: `whsec_${randomBytes(24).toString("hex")}`,
-    STRIPE_PAYMENT_LINK: "https://buy.stripe.com/f08?client_reference_id=untrusted&prefilled_email=untrusted", STRIPE_MANAGEMENT_PORTAL: "https://billing.stripe.com/p/login/f08" })) { vi.stubEnv(key, value); if (key.includes("SECRET")) privateFixtureValues.push(value); }
+    STRIPE_RETURN_URL: "https://app.example.test/billing?subscription_return=1", STRIPE_PAYMENT_LINK: "https://buy.stripe.com/f08?client_reference_id=untrusted&prefilled_email=untrusted", STRIPE_MANAGEMENT_PORTAL: "https://billing.stripe.com/p/login/f08" })) { vi.stubEnv(key, value); if (key.includes("SECRET")) privateFixtureValues.push(value); }
   server = createServer(async (req, res) => {
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
     state.calls.push({ body: new URLSearchParams(Buffer.concat(chunks).toString()), version: req.headers["stripe-version"] as string | undefined });
@@ -108,6 +108,7 @@ describe("F08 real subscription HTTP/PG", () => {
     const result = await request("/management-link"); expect(result.status).toBe(200); expect(result.headers.get("cache-control")).toBe("no-store");
     expect(await result.json()).toEqual({ url: "https://billing.stripe.com/p/session/f08" });
     expect(state.calls).toHaveLength(1); expect(state.calls[0]!.body.get("customer")).toBe("cus_f08trusted"); expect(state.calls[0]!.version).toBe(STRIPE_API_VERSION);
+    expect(state.calls[0]!.body.get("return_url")).toBe("https://app.example.test/billing?subscription_return=1&subscription_management_return=1");
   });
   it.each([null, "canceled", "incomplete_expired"])("%s can buy with a persisted opaque principal intent, not an email or user id", async status => {
     if (status) await seed(status);
