@@ -342,11 +342,15 @@ jobs:
       # 只读 git 对象，毫秒级；phases/ 不是 workspace 包 ⇒ turbo --affected 覆盖不到。
       # 反证套件见 .harness/scripts/lint-feature-transition.test.ts（含反向反证：
       # 真仓库两个真 commit 之间必须退 0，一道永远红的门等于没有门）。
+      - name: Complete fixed squash proof ancestry without relaxing merge validation
+        if: github.event_name == 'pull_request'
+        run: pnpm exec tsx .harness/scripts/complete-squash-proof-history.ts
       - name: feature 状态迁移出处（base→head 差分，不只看最终树）
         if: github.event_name == 'pull_request'
         run: |
           pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition \
             --base "${{ github.event.pull_request.base.sha }}" \
+            --pr-source "${{ github.event.pull_request.head.sha }}" \
             --head "${{ github.sha }}"
       # 对契约的否定性断言不得说谎（#473）。
       # 2026-08-04 实测：`chat/live/page.tsx` 里逐字写着「契约里没有这个写端口」，而
