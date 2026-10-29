@@ -21,3 +21,9 @@ pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter @repo/api
 Earlier combined runs exposed fixture mistakes (multiple owners in one personal-local org, then overlength org IDs) and two stale fixture annotations. The fixtures were corrected to one personal org per owner with bounded IDs; production guards were unchanged. Earlier failures are not represented as passing verification.
 
 The isolation wrapper released its owned database/compose scope (final database `wsx_cbbb9e54638f56531839`). No real payment, production migration, deployment or whole-project release verification is claimed. Existing phase feature status/signoffs are untouched.
+
+## CI migration inventory correction
+
+PR #5998 first CI `simulation (all)` failed at run 40943281007 / job 123691925479. Its artifact 12928786269 identified `test_reviewed_migration_scope_includes_new_main_migrations` and `linux_application_recovery_contract`: the explicit reviewed suffix omitted this new migration. Other release unit cases passed (761/762); the application recovery refused the unreviewed suffix before upgrade. This was not an OOM or an infrastructure-only failure.
+
+The unchanged scope test reproduced locally RED 1 fail/1 pass. Appending this migration to the reviewed additive suffix gives GREEN 2/2, including unknown/missing/duplicate migration rejection; the original Python wrapper case also passes. Transcripts are `migration-scope-red.md`, `migration-scope-green.md`, `migration-wrapper-green.md`. Historical recovery prefix, gate assertions and synthetic future-negative fixture remain unchanged. Linux application recovery still requires fresh CI; local macOS checks do not establish that lane as green.
