@@ -34,9 +34,10 @@ flowchart TD
   class G doing
   class S1 done
   class S2 done
-  class S3 doing
-  class S4 todo
-  class S5 todo
+  class S3 done
+  class S4 tested
+  %% evidence S4: 180单测、用量fixture浏览器、图片真实浏览器1通过、Web typecheck/lint及提交内容审计通过；README与同目录日志
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）

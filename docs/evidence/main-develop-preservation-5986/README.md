@@ -18,7 +18,10 @@ SHA 与唯一共同修改文件见 [baselines.json](baselines.json)。`verify-pr
 - 用量面板、用量格式、管理员监控、聊天计划控制、焦点返回、任务时间线：6 文件，88 passed，4 个已有 skipped（不计为通过），见 usage-chat-tests.log。
 - Web typecheck、lint 通过，见对应日志。
 - `node docs/evidence/main-develop-preservation-5986/browser-check.cjs` 通过：优化总览、明细、模型下钻、日期选择、桌面/移动/暗色、无横向溢出和无运行错误，见 usage-browser.log 及截图。API 为显式 fixture，不是生产账单或真实后端验收。
-- 访谈/研究路由补充单测、图片附件真实浏览器、独立审阅与两次 PR 门控：执行后补记录，未完成前不宣称通过。
+- 访谈/研究/图表补充单测：8 文件、92 passed，见 research-interview-chart-tests.log。
+- 图片附件真实浏览器链路：1 passed、1 个原有 test.fixme skipped，使用真实浏览器/API/PG，模型和视觉上游为显式 loopback；见 image-e2e-summary.log。隔离包装器退出 0 并清理栈，不代表真实视觉模型能力。
+- 负控拒绝任一父分支单边版本，见 negative-controls.json；合并提交的 blob/祖先验证见 preservation-merge-commit.json。
+- 独立审阅、两次 PR 门控和最终远端祖先审计状态以 issue #5986 评论及 PR 实时状态为准，不能从本地准备记录推断合并完成。
 
 ## 边界
 
