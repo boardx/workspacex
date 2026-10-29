@@ -51,6 +51,19 @@ class Tests(unittest.TestCase):
    self.assertNotIn('down',a);self.assertNotIn('build',a)
  def test_plan_no_application_mutation(self):
   self.assertEqual(self.run_release(False)['status'],'PLANNED');self.assertEqual(self.mutations(),[])
+ def test_snapshot_mount_order_is_semantically_stable(self):
+  v=self.d.value('api');v['Mounts']=[{'Type':'bind','Source':'/one','Destination':'/first','RW':False},{'Type':'bind','Source':'/two','Destination':'/second','RW':False}]
+  before=w.snapshot(v);v['Mounts'].reverse();self.assertEqual(before,w.snapshot(v))
+ def test_snapshot_mount_content_still_changes_identity(self):
+  v=self.d.value('api');v['Mounts']=[{'Type':'bind','Source':'/one','Destination':'/first','RW':False}]
+  before=w.snapshot(v);v['Mounts'][0]['RW']=True;self.assertNotEqual(before['mounts'],w.snapshot(v)['mounts'])
+ def test_snapshot_bind_order_stable_but_dns_order_remains_significant(self):
+  v=self.d.value('web');v['HostConfig']={'Binds':['/one:/first:ro','/two:/second:ro'],'Dns':['192.0.2.1','192.0.2.2']}
+  before=w.snapshot(v);v['HostConfig']['Binds'].reverse();self.assertEqual(before,w.snapshot(v))
+  v['HostConfig']['Dns'].reverse();self.assertNotEqual(before['hostConfiguration'],w.snapshot(v)['hostConfiguration'])
+ def test_snapshot_bind_options_still_change_identity(self):
+  v=self.d.value('web');v['HostConfig']={'Binds':['/one:/first:ro']};before=w.snapshot(v)
+  v['HostConfig']['Binds']=['/one:/first:rw'];self.assertNotEqual(before['hostConfiguration'],w.snapshot(v)['hostConfiguration'])
  def test_resolved_secret_model_removed_after_hashing(self):
   self.assertEqual(self.run_release(False)['status'],'PLANNED')
   hashes=[a for a in self.d.calls if '--hash' in a];self.assertTrue(hashes)
@@ -86,7 +99,7 @@ class Tests(unittest.TestCase):
   def browser(c,o,mode):
    if mode=='candidate':self.d.value=lambda s:{**FakeDocker.value(self.d,s),'Id':'external-change' if s=='api' else FakeDocker.value(self.d,s)['Id']}
    return {'passed':True,'mode':mode}
-  self.assertEqual(self.run_release(browser=browser)['status'],'FAILED_OR_UNCERTAIN');self.assert_web_only()
+  result=self.run_release(browser=browser);self.assertEqual(result['status'],'FAILED_OR_UNCERTAIN');self.assertEqual(result['rollbackCode'],'BACKEND_OR_DATA_CHANGED');self.assert_web_only()
  def test_live_compose_drift_rejected_before_up(self):
   original=self.d.value
   def value(s):
