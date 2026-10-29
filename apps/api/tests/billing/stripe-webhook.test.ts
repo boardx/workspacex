@@ -13,17 +13,31 @@ import { AllExceptionsFilter } from "../../src/interface/filters/all-exceptions.
 import { toOrgId } from "../../src/domain/org-id";
 import { asOwner, ensureDatabase, migrateOnce } from "../support/db";
 const secret = `whsec_${randomBytes(24).toString("hex")}`, user = "f09-stripe-user";
+// @global-scope-fixture table:credit_wallets: renewal fixture owns only the f09-stripe-user wallet and deletes it before/after each case.
+// @global-scope-fixture table:credit_subscription_periods: renewal fixture seeds one old paid period for its exact wallet; cleanup removes only that owner's batches.
 let app: NestExpressApplication, server: Server, base: string;
 let snapshots: Record<string, unknown> = {}, calls: string[] = [];
 const subscription = (id = "sub_f09A", status = "active") => ({ id, object: "subscription", customer: "cus_f09A", status, cancel_at_period_end: false, trial_start: null, trial_end: null,
   items: { data: [{ current_period_start: 1893456000, current_period_end: 1896134400, price: { id: "price_f09", recurring: { interval: "month" } } }], has_more: false } });
 async function cleanup() { await asOwner(async c => {
+  await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
+  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
+  await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]);
   await c.query("DELETE FROM billing_stripe_bindings WHERE user_id LIKE 'f09-stripe-%'");
   await c.query("DELETE FROM billing_stripe_reconciliation WHERE provider_event_id LIKE 'evt_f09%'");
   await c.query("DELETE FROM billing_webhook_events WHERE provider_event_id LIKE 'evt_f09%'");
   await c.query("DELETE FROM billing_purchase_intents WHERE user_id LIKE 'f09-stripe-%'");
   await c.query("DELETE FROM billing_subscriptions WHERE user_id LIKE 'f09-stripe-%'");
 }); }
+function monthlyFixture() {
+ const start=Math.floor(Date.now()/1000)-15*86400,end=start+30*86400;
+ snapshots["/v1/subscriptions/sub_f09A"]={...subscription(),items:{data:[{id:"si_f09",current_period_start:start,current_period_end:end,price:{id:"price_f09",recurring:{interval:"month",interval_count:1}}}],has_more:false}};
+ snapshots["/v1/prices/price_f09"]={id:"price_f09",object:"price",currency:"usd",type:"recurring",recurring:{interval:"month",interval_count:1,usage_type:"licensed"}};
+ snapshots["/v1/invoices/in_f09monthly"]={id:"in_f09monthly",object:"invoice",customer:"cus_f09A",status:"paid",amount_paid:1000,amount_remaining:0,currency:"usd",billing_reason:"subscription_cycle",
+  parent:{type:"subscription_details",subscription_details:{subscription:"sub_f09A"}},metadata:{userId:"forged-owner-ignored"},
+  lines:{data:[{id:"il_f09",quantity:1,period:{start,end},parent:{type:"subscription_item_details",subscription_item_details:{subscription:"sub_f09A",proration:false}},pricing:{type:"price_details",price_details:{price:"price_f09"}}}],has_more:false}};
+ return {start,end};
+}
 async function post(type: string, object: unknown, id = "evt_f09test", signature = true, timestamp = Math.floor(Date.now()/1000)) {
   const body = JSON.stringify({ id, object: "event", type, data: { object } });
   const digest = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
@@ -74,6 +88,73 @@ it("unknown current state remains retryable and valid recovery clears binding-sc
   snapshots["/v1/subscriptions/sub_f09A"] = subscription("sub_f09A","paused");
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(200);
   expect((await asOwner(c=>c.query("SELECT status,synchronization_uncertain FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([{status:"paused", synchronization_uncertain:false}]);
+});
+it("grants a verified paid monthly invoice exactly once across duplicate and sibling signed events",async()=>{
+ const period=monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+ const responses=await Promise.all([post("invoice.paid",{id:"in_f09monthly"},"evt_f09paid1"),post("invoice.payment_succeeded",{id:"in_f09monthly"},"evt_f09paid2")]);
+ expect(responses.map(r=>r.status)).toEqual([200,200]);
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09paid1")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+ expect((await asOwner(c=>c.query("SELECT count(*)::int AS count FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id) WHERE w.owner_id=$1",[user]))).rows).toEqual([{count:1}]);
+ const info=await(await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}})).json();
+ expect(info.creditGrant).toMatchObject({status:"granted",grant:{credits:20000,remainingCredits:20000,periodEnd:new Date(period.end*1000).toISOString()}});
+});
+it("retries an invoice that arrives before checkout binding instead of permanently ignoring the paid event",async()=>{
+ monthlyFixture();const token=await intent();
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09earlypaid")).status).toBe(500);
+ expect((await checkout(token)).status).toBe(200);
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09earlypaid")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00"}]);
+});
+it.each(["customer","status","price","subscription","truncated"])("refuses inconsistent authoritative paid invoice %s without granting credits",async field=>{
+ monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+ const invoice=snapshots["/v1/invoices/in_f09monthly"] as any;
+ if(field==="customer")invoice.customer="cus_another";
+ if(field==="status")invoice.status="open";
+ if(field==="price")invoice.lines.data[0].pricing.price_details.price="price_unrelated";
+ if(field==="subscription")invoice.parent.subscription_details.subscription="sub_unbound";
+ if(field==="truncated")invoice.lines.has_more=true;
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09badinvoice")).status).toBe(500);
+ expect((await asOwner(c=>c.query("SELECT balance FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([]);
+});
+it("does not interpret annual or trial subscriptions as a paid monthly credit entitlement",async()=>{
+ monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+ (snapshots["/v1/prices/price_f09"] as any).recurring.interval="year";
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09annualpaid")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([]);
+ (snapshots["/v1/prices/price_f09"] as any).recurring.interval="month";
+ (snapshots["/v1/subscriptions/sub_f09A"] as any).status="trialing";
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09trialpaid")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([]);
+});
+it("preserves paid current credits when auto renewal is canceled and never grants from a failed invoice",async()=>{
+ monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09paid")).status).toBe(200);
+ (snapshots["/v1/subscriptions/sub_f09A"] as any).cancel_at_period_end=true;
+ expect((await post("customer.subscription.updated",{id:"sub_f09A"},"evt_f09cancelrenewal")).status).toBe(200);
+ expect((await post("invoice.payment_failed",{parent:{subscription_details:{subscription:"sub_f09A"}}},"evt_f09failedrenewal")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+});
+it("can reconcile a previously ignored paid event after enabling monthly credit grants",async()=>{
+ monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+ await asOwner(c=>c.query("INSERT INTO billing_webhook_events(provider,provider_event_id,signature_verified,result) VALUES('stripe','evt_f09oldignored',true,'ignored')"));
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09oldignored")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00"}]);
+});
+it("expires an old unused remainder before renewal and late invoices cannot replace the new subscription period",async()=>{
+ const period=monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+ const oldStart=period.start-30*86400,oldEnd=period.start;
+ await asOwner(async c=>{
+  const wallet=(await c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance,total_granted) VALUES('user',$1,12,20000) RETURNING wallet_id",[user])).rows[0];
+  await c.query("INSERT INTO credit_subscription_periods(wallet_id,subscription_ref,invoice_ref,plan_ref,period_start,period_end,granted_hundredths,remaining_hundredths) VALUES($1,'sub_f09A','in_f09old','price_f09',$2,$3,2000000,500)",[wallet.wallet_id,new Date(oldStart*1000),new Date(oldEnd*1000)]);
+ });
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09renewal")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20007.00"}]);
+ const oldInvoice=structuredClone(snapshots["/v1/invoices/in_f09monthly"]) as any;
+ oldInvoice.id="in_f09old";oldInvoice.lines.data[0].period={start:oldStart,end:oldEnd};snapshots["/v1/invoices/in_f09old"]=oldInvoice;
+ expect((await post("invoice.paid",{id:"in_f09old"},"evt_f09lateoldpaid")).status).toBe(200);
+ expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20007.00"}]);
+ expect((await(await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}})).json()).currentPeriodEnd).toBe(new Date(period.end*1000).toISOString());
 });
 it("retired A including unknown state cannot overwrite B or poison its health", async () => {
   expect((await checkout(await intent())).status).toBe(200);
