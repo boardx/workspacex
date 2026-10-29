@@ -56,3 +56,7 @@ flowchart TD
 观察实际等待时间、失败率和资源使用后，再决定是否引入 PostgreSQL 持久化任务队列、全局组织额度、实例注册与 Session 固定路由。跨机扩容需要节点代理和基础设施控制器，不能直接给当前有状态服务增加随机分流副本。
 
 运维和容量验证步骤见 [操作说明](../../../.harness/instructions/project/sandbox-capacity-operations.md)。测试与尚未验证的边界见 [证据](../../evidence/sandbox-capacity-5966/README.md)。
+
+## 弹性扩容方案（待实施）
+
+500 人正常使用、提前检测并自动扩容的后续设计见[最终实现方案](elastic-implementation.md)与[阿里云操作手册](elastic-operations.md)。这两份是规划材料，不改变本文已实现能力的边界。
