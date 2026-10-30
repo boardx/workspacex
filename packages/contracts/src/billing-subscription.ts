@@ -14,6 +14,17 @@ import { z } from "zod";
 /** Monthly credit entitlement; payment prices remain deployment configuration. */
 export const MONTHLY_SUBSCRIPTION_CREDITS = 20_000;
 
+/** Paid credit entitlement is distinct from the subscription's provider status. */
+export const SubscriptionCreditGrant = z.object({
+  status:z.enum(["none","pending","granted","expired"]),
+  grant:z.object({credits:z.literal(MONTHLY_SUBSCRIPTION_CREDITS),remainingCredits:z.number().finite().min(0).max(MONTHLY_SUBSCRIPTION_CREDITS).multipleOf(0.01),
+    periodStart:z.string().datetime({offset:true}),periodEnd:z.string().datetime({offset:true})}).strict().nullable(),
+}).strict().superRefine((value,context)=>{
+  if((value.status==="granted"||value.status==="expired")!==Boolean(value.grant))context.addIssue({code:"custom",message:"grant state and period must agree"});
+  if(value.grant&&(Date.parse(value.grant.periodEnd)<=Date.parse(value.grant.periodStart)||value.status==="expired"&&value.grant.remainingCredits!==0))context.addIssue({code:"custom",message:"invalid grant period"});
+});
+export type SubscriptionCreditGrant = z.infer<typeof SubscriptionCreditGrant>;
+
 /* ── 封闭枚举（新增成员须经 ADR；见 domain.md §三） ────────────────────── */
 
 /** 订阅状态（Stripe 语义子集）；无记录 = `none`（在系统内等价读法）。 */
@@ -69,6 +80,7 @@ export const SubscriptionInfo = z
     planRef: z.string().min(1).nullable(), // Stripe 侧价格/产品标识；展示名映射属 UI 层（usecases Q1）
     currentPeriodEnd: z.string().min(1).nullable(), // ISO 8601
     cancelAtPeriodEnd: z.boolean().default(false),
+    creditGrant: SubscriptionCreditGrant.optional(),
   })
   .strict();
 
