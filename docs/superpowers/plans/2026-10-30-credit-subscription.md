@@ -128,3 +128,12 @@
 ## 当前状态
 
 已完成业务设计和独立规划审阅；用户确认设计、选择当前会话逐项实现、要求跳过身份接入并指定 develop 为开发/合并目标。Task 1 对应 issue #5995，RED 已观察，实现与兼容验证进行中；不声称任何新计费行为已可用。
+
+## Task 6: Actual realtime voice gateway accounting (necessary adapter follow-up, issue #6007)
+
+- [x] Real WebSocket/PG RED proves the direct voice transport bypassed the generic meter.
+- [x] Admit before provider connection; use trusted response.done token usage, distinct response IDs and cumulative billing receipts on one physical WebSocket request.
+- [x] Preserve unknown/aborted usage as pending; expose typed credit errors without automatic reconnect; wire existing durable meter in main composition.
+- [x] Same final reviewer addendum; admission/disconnect race reproduced then fixed with zero nondispatch settlement and replay slot cleanup.
+- [x] 73 final related API tests and 37 Web protocol/UI tests pass; combined pre-race-fix regression394 passes, with the final race covered by73.
+- [ ] Follow all integration PRs to green and integrate develop; no production cutover/apply/deploy in this task.

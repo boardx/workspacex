@@ -42,6 +42,8 @@ interface Failure {
 }
 
 const REASON_FAILURE: Record<OmniErrorReason, Failure> = {
+  CREDIT_REQUIRED: { title: "额度不足", detail: "请充值后重新开始通话。", retryable: false },
+  CREDIT_ACCOUNTING_UNAVAILABLE: { title: "暂时无法确认语音用量", detail: "请稍后手动重试。", retryable: false },
   NOT_CONFIGURED: { title: "实时语音尚未开通", detail: "管理员配置实时语音模型后即可使用。你可以先用文字继续对话。", retryable: false },
   AGENT_UNAVAILABLE: { title: "这个数字人暂不可用", detail: "它可能尚未发布，或你没有使用权限。请换一个数字人或使用通用助手。", retryable: false },
   THREAD_UNAVAILABLE: { title: "当前对话无法开启语音", detail: "这条对话可能已归档，或你只有查看权限。", retryable: false },
