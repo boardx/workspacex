@@ -4,6 +4,8 @@ import type { BillingConfigPort } from "../../application/billing/billing-config
 
 function readDeployment() {
   return {
+    BILLING_WECHAT_ENABLED: process.env.BILLING_WECHAT_ENABLED,
+    BILLING_STRIPE_ENABLED: process.env.BILLING_STRIPE_ENABLED,
     WECHAT_PAY_APP_ID: process.env.WECHAT_PAY_APP_ID,
     WECHAT_PAY_MCH_ID: process.env.WECHAT_PAY_MCH_ID,
     WECHAT_PAY_API_V3_KEY: process.env.WECHAT_PAY_API_V3_KEY,
@@ -32,6 +34,11 @@ export type StripeDeployment = Readonly<{
   secretKey: string; webhookSecret: string; paymentLink: string; managementPortal: string; returnUrl?: string;
 }>;
 function text(env: Deployment, name: string): string { return env[name]?.trim() ?? ""; }
+// Unspecified switches preserve existing deployments. Invalid explicit values fail closed.
+function purchaseEnabled(env: Deployment, name: string): boolean {
+  const value = text(env, name).toLowerCase();
+  return !value || value === "true" || value === "1";
+}
 function httpsUrl(value: string): boolean {
   try { const url = new URL(value); return url.protocol === "https:" && Boolean(url.hostname) && !url.username && !url.password; }
   catch { return false; }
@@ -93,13 +100,18 @@ function stripe(env: Deployment): StripeDeployment | null {
 export class DeploymentBillingConfig implements BillingConfigPort {
   private readonly wechat: WechatDeployment | null;
   private readonly stripe: StripeDeployment | null;
+  private readonly wechatEnabled: boolean;
+  private readonly stripeEnabled: boolean;
   constructor(env: Deployment = readDeployment()) {
     this.wechat = wechat(env);
     this.stripe = stripe(env);
+    this.wechatEnabled = purchaseEnabled(env, "BILLING_WECHAT_ENABLED");
+    this.stripeEnabled = purchaseEnabled(env, "BILLING_STRIPE_ENABLED");
   }
   getPublicConfig(): ReturnType<BillingConfigPort["getPublicConfig"]> {
-    return { enabledProviders: [...(this.wechat ? ["wechat" as const] : []), ...(this.stripe ? ["stripe" as const] : [])] };
+    return { enabledProviders: [...(this.wechat && this.wechatEnabled ? ["wechat" as const] : []), ...(this.stripe && this.stripeEnabled ? ["stripe" as const] : [])] };
   }
+  // Credential access remains available for existing-order callbacks and renewal settlement.
   getWechat(): WechatDeployment | null { return this.wechat; }
   getStripe(): StripeDeployment | null { return this.stripe; }
 }

@@ -10,6 +10,7 @@ export interface SubscriptionRepository {
 }
 export interface SubscriptionProvider {
   enabled(): boolean;
+  purchaseEnabled?(): boolean;
   purchaseLink(intent: string): string;
   portal(customerRef: string, traceId?: string): Promise<string>;
 }
@@ -36,7 +37,7 @@ export class BillingSubscriptionService {
   }
   async upgrade(principal: Principal, traceId = "no-trace") {
     const value = await this.snapshot(principal, traceId);
-    if (!this.provider.enabled()) throw new SubscriptionError("payment_provider_not_configured");
+    if (!(this.provider.purchaseEnabled?.() ?? this.provider.enabled())) throw new SubscriptionError("payment_provider_not_configured");
     if (!subscriptionEligibility(value?.status ?? "none").canCreateSubscription) throw new SubscriptionError("already_subscribed");
     return { url: this.provider.purchaseLink(await this.repository.createIntent(principal, traceId)) };
   }
