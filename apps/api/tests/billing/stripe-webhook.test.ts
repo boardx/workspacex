@@ -230,6 +230,14 @@ it.each(["unavailable","invalid-items"])("current %s snapshot cannot leave old a
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(200);
   expect((await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}})).status).toBe(200);
 });
+it("reports pending current credits when subscription advances before its paid invoice",async()=>{
+ const period=monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+ expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09beforeadvance")).status).toBe(200);
+ const item=(snapshots["/v1/subscriptions/sub_f09A"] as any).items.data[0];item.current_period_start=period.end;item.current_period_end=period.end+30*86400;
+ expect((await post("customer.subscription.updated",{id:"sub_f09A"},"evt_f09advance")).status).toBe(200);
+ const info=await(await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}})).json();
+ expect(info.creditGrant).toEqual({status:"pending",grant:null});
+});
 
 it("period-end cancellation preserves Pro until the authoritative subscription ends", async () => {
   expect((await checkout(await intent())).status).toBe(200);

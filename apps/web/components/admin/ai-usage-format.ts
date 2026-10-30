@@ -46,3 +46,10 @@ export function costLabel(call: UsageCalls["calls"][number]) {
   const micros = BigInt(call.costMicros);
   return `${micros / 1_000_000n}.${(micros % 1_000_000n).toString().padStart(6, "0")} ${call.currency}`;
 }
+
+/** Financial hundredths are already rounded per physical request by the ledger. */
+export function creditLabel(value?: string | null): string {
+ if (value == null) return "暂无数据";
+ const hundredths = BigInt(value);
+ return `${(hundredths / 100n).toLocaleString("zh-CN")}.${(hundredths % 100n).toString().padStart(2,"0")}`;
+}

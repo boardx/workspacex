@@ -23,7 +23,8 @@ async function snapshot(session: TenantSession, userId: string): Promise<Subscri
     FROM credit_subscription_periods p JOIN credit_wallets w ON w.wallet_id=p.wallet_id WHERE w.owner_type='user' AND w.owner_id=$1
     AND p.subscription_ref=$2 AND p.period_start<=now() ORDER BY p.period_start DESC,p.period_id DESC LIMIT 1`,[userId,row.subscription_ref])).rows[0];
   const expired=period&&(period.expired_at!==null||period.period_end.getTime()<=period.as_of.getTime());
-  const creditGrant=SubscriptionCreditGrant.parse(period?{status:expired?"expired":"granted",grant:{credits:Number(period.granted_hundredths)/100,remainingCredits:expired?0:Number(period.remaining_hundredths)/100,periodStart:period.period_start.toISOString(),periodEnd:period.period_end.toISOString()}}:
+  const currentPeriodMatches=period && period.period_end.getTime()===row.current_period_end?.getTime();
+  const creditGrant=SubscriptionCreditGrant.parse(period&&(status.data!=="active"||currentPeriodMatches)?{status:expired?"expired":"granted",grant:{credits:Number(period.granted_hundredths)/100,remainingCredits:expired?0:Number(period.remaining_hundredths)/100,periodStart:period.period_start.toISOString(),periodEnd:period.period_end.toISOString()}}:
     {status:status.data==="active"?"pending":"none",grant:null});
   return { status: status.data, planRef: row.plan_ref, currentPeriodEnd: row.current_period_end?.toISOString() ?? null, cancelAtPeriodEnd: row.cancel_at_period_end,
     customerRef: row.customer_ref, subscriptionRef: row.subscription_ref, generation: row.binding_generation, synchronizationUncertain: row.synchronization_uncertain,creditGrant };

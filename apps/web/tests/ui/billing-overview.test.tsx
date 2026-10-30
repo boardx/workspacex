@@ -91,3 +91,11 @@ describe("真实计费入口与账户状态", () => {
     expect(signals.every((signal) => signal.aborted)).toBe(true);
   });
 });
+it("shows permanent and expiring monthly credits separately and explains personal negative admission",async()=>{
+ requests({"/billing/wallet":()=>reply({wallet:{...wallet,balance:-1,permanentBalance:-6,subscriptionCredits:5,subscriptionExpiresAt:"2026-11-14T00:00:00Z"}})});renderOverview();
+ await screen.findByTestId("billing-wallet-balance");
+ expect(screen.getByTestId("billing-permanent-balance").textContent).toContain("-6");
+ expect(screen.getByTestId("billing-monthly-credits").textContent).toContain("5");
+ expect(screen.getByText(/余额为负，充值后可发起新请求/)).toBeTruthy();
+ expect(screen.queryByText(/订阅不会自动增加充值额度/)).toBeNull();
+});

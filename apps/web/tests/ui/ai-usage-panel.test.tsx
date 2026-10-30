@@ -21,7 +21,7 @@ describe("readable AI usage ledger",()=>{
   await screen.findByText("2026年10月2日");
   expect(screen.getByText("08:00:00")).toBeTruthy();
   expect(screen.queryByText("receipt-a")).toBeNull();expect(screen.queryByText("member-a")).toBeNull();
-  expect(screen.getByText("张三")).toBeTruthy();expect(screen.getByText("暂无数据")).toBeTruthy();
+  expect(screen.getByText("张三")).toBeTruthy();expect(screen.getAllByText("暂无数据")[0]).toBeTruthy();
   expect(screen.getByText("计量详情")).toBeTruthy();
  });
  it("does not turn unreported tokens into zero consumption",async()=>{
@@ -37,9 +37,9 @@ describe("readable AI usage ledger",()=>{
   vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",calls:[call],nextCursor});
   render(<AiUsagePanel orgId="org-a" selfUserId="self-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});await screen.findByText("2026年10月2日");
   fireEvent.click(screen.getByRole("button",{name:"下一页"}));
-  await waitFor(()=>expect(readAiUsageCalls).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a",asOf:summary.asOf,cursorId:call.id,cursorTime:call.occurredAt})));
+  await waitFor(()=>expect(readAiUsageCalls).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a",asOf:summary.asOf,cursorId:call.id,cursorTime:call.occurredAt}),true));
   fireEvent.click(screen.getByRole("button",{name:"重置筛选"}));
-  await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"})));
+  await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"}),true));
  });
  it("uses inclusive Beijing calendar dates for the query",async()=>{
   render(<AiUsagePanel orgId="org-a"/>); fireEvent.mouseDown(await screen.findByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});await screen.findByText("2026年10月2日");
@@ -100,7 +100,7 @@ it("defaults to chart overview with calendar grouping, cost gaps and detail navi
  fireEvent.click(screen.getByRole("button",{name:"按月"}));
  expect(screen.getByRole("img",{name:/2026-10-01/})).toBeTruthy();
  fireEvent.click(screen.getByRole("button",{name:"近 7 天"}));
- await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"})));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({userId:"self-a"}),true));
  fireEvent.click(screen.getByRole("button",{name:"查看当前筛选明细"}));
  await screen.findByText("2026年10月2日");
 });
@@ -123,9 +123,9 @@ it("drills a Beijing chart bucket within the date window and keeps the snapshot"
  fireEvent.change(screen.getByLabelText("开始日期"),{target:{value:"2026-10-01"}});
  fireEvent.change(screen.getByLabelText("结束日期"),{target:{value:"2026-10-02"}});
  fireEvent.click(screen.getByRole("button",{name:"应用日期"}));
- await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-09-30T16:00:00.000Z"})));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-09-30T16:00:00.000Z"}),true));
  fireEvent.click(await screen.findByRole("button",{name:"查看 2026-10-02 明细"}));
- await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-10-01T16:00:00.000Z",end:"2026-10-02T16:00:00.000Z",asOf:summary.asOf,userId:"self-a"})));
+ await waitFor(()=>expect(readAiUsage).toHaveBeenLastCalledWith("org-a",false,expect.objectContaining({start:"2026-10-01T16:00:00.000Z",end:"2026-10-02T16:00:00.000Z",asOf:summary.asOf,userId:"self-a"}),true));
  await screen.findByText("2026年10月2日");
 });
 
@@ -144,4 +144,12 @@ it.each([
  expect(chart.querySelector("rect") !== null).toBe(zero);
  fireEvent.click(screen.getByRole("button",{name:"按月"}));
  expect(screen.getByRole("img",{name:/2026-10-01：/}).getAttribute("aria-label")?.includes("0 Token")).toBe(zero);
+});
+it("shows actual credit debit, payer and pending state instead of repricing aggregate tokens",async()=>{
+ vi.mocked(readAiUsage).mockResolvedValue({...summary,current:{...totals,creditHundredths:"3",pendingCreditCalls:1}});
+ vi.mocked(readAiUsageCalls).mockResolvedValue({asOf:summary.asOf,coverage:"partial",calls:[{...call,creditHundredths:"3",creditStatus:"pending",payer:{ownerType:"team",ownerId:"org-a"},organizationName:"测试团队"}],nextCursor:null});
+ render(<AiUsagePanel orgId="org-a"/>);
+ await screen.findByText("0.03 credit");
+ fireEvent.mouseDown(screen.getByRole("tab",{name:"调用明细"}),{button:0,ctrlKey:false});
+ await screen.findByText("组织账户 · 测试团队");expect(screen.getByText("待核对")).toBeTruthy();
 });

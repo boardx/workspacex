@@ -205,3 +205,13 @@ describe("live Stripe subscription", () => {
     expect(screen.queryByRole("button", { name: "订阅 Pro" })).toBeNull();
   });
 });
+it("keeps refreshing while active subscription credits are pending and refreshes wallet only after confirmed grant",async()=>{
+ window.history.replaceState({},"","/billing?subscription_return=1");
+ const fetcher=setup("active"),original=fetcher.getMockImplementation()!;let granted=false;
+ fetcher.mockImplementation(async url=>new URL(url).pathname==="/billing/subscription"?new Response(JSON.stringify({...info("active"),creditGrant:granted?{status:"granted",grant:{credits:20000,remainingCredits:20000,periodStart:"2026-10-01T00:00:00Z",periodEnd:"2026-11-01T00:00:00Z"}}:{status:"pending",grant:null}})):original(url));
+ mount();await screen.findByText(/月度额度到账确认中/);
+ const before=fetcher.mock.calls.filter(([u])=>u.includes("/wallet")).length;
+ granted=true;fireEvent.click(screen.getByRole("button",{name:"刷新订阅状态"}));
+ await screen.findByText(/本期已发放/);
+ await waitFor(()=>expect(fetcher.mock.calls.filter(([u])=>u.includes("/wallet")).length).toBeGreaterThan(before));
+});
