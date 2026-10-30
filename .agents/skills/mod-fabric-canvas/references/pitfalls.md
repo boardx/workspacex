@@ -71,3 +71,6 @@ Shape 的 FixedLayout 逻辑容器与子对象描边的可见外沿不是同一�
 
 ### 2026-10-30：图片上传响应不等于白板同步确认（#6018）
 恢复导航后重新上传的验收先等真实绘制与“已同步”，再创建 canonical export。POST 201 只表示资产上传，首次导出可能仍是旧 seq；5s poll 超时后未完成的下载还可能与 finally 归档竞争，得到 409 ARCHIVED。保留原始 trace、字节、取消及权限反证，不把旧导出快照当作图片丢失，也不提高超时掩盖同步问题。
+
+### 2026-10-30：validator 5秒包含启动，阶段证据先于归因（#6023）
+454/473字节diff可在独立复测中触发worker_deadline，queueElapsedMs为0不能证明是哪段慢。每次独立heap的期限包含tsx与静态依赖加载；专用validation-worker入口复用原规则，并以ready/snapshot-applied/validated闭集阶段区分观测。阶段消息不是最终成功，未知phase或夹带result拒绝。正常12次探针约130ms，入口收敛前后接近，不能据此宣称5秒超时根因已证实或已消除；保持原期限/heap/queue/fail closed，以后续trace定位。

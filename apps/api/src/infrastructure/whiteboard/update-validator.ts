@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { WhiteboardCommandBatch, type WhiteboardCommand, type WhiteboardObject } from '@repo/contracts/whiteboard-document';
 import { WHITEBOARD_SYNC } from '@repo/contracts/whiteboard-sync';
-import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core';
+import { WHITEBOARD_UPDATE_LIMITS } from '@repo/whiteboard-core/validation-worker';
 import { WhiteboardCollaborationError, type WhiteboardDeletionChange, type WhiteboardDeletionProof, type ValidatedWhiteboardUpdate, type WhiteboardUpdateValidator } from '../../application/whiteboard/collaboration-ports';
 import { ConsoleLogger } from '../logging/console-logger';
 import type { WorkerValidationInput } from './update-validator-input';
@@ -17,7 +17,7 @@ function diagnosticContext(inputBytes: number, mode?: ValidationMode): Diagnosti
   const validatorCallId = randomUUID();
   return { traceId: currentOperationTraceId() ?? validatorCallId, validatorCallId, startedAt: performance.now(), inputBytes, mode };
 }
-function unavailable(context: DiagnosticContext, reason: UnavailableReason, extra: { queueElapsedMs?: number; workerElapsedMs?: number; errorCode?: string; exitCode?: number } = {}) {
+function unavailable(context: DiagnosticContext, reason: UnavailableReason, extra: { queueElapsedMs?: number; workerElapsedMs?: number; errorCode?: string; exitCode?: number; lastPhase?: string; phaseElapsedMs?: Record<string, number> } = {}) {
   // Never include workerData, stdout/stderr, raw errors or document identifiers.
   try { diagnosticLogger.error('whiteboard_validator_unavailable', { traceId: context.traceId, err: {
     reason, validatorCallId: context.validatorCallId, mode: context.mode, inputBytes: context.inputBytes,
@@ -108,13 +108,27 @@ export class WorkerWhiteboardUpdateValidator implements WhiteboardUpdateValidato
       worker.stdout.resume(); worker.stderr.resume();
       return await new Promise((resolve, reject) => {
         let settled = false;
+        let lastPhase: string | undefined;
+        const phaseElapsedMs: Record<string, number> = {};
+
         const fail = (reason: UnavailableReason, extra: { errorCode?: string; exitCode?: number } = {}) => {
           if (settled) return; settled = true;
-          reject(unavailable(context, reason, { queueElapsedMs: Math.max(0, Math.round(acquiredAt - context.startedAt)), workerElapsedMs: Math.max(0, Math.round(performance.now() - acquiredAt)), ...extra }));
+          reject(unavailable(context, reason, { queueElapsedMs: Math.max(0, Math.round(acquiredAt - context.startedAt)), workerElapsedMs: Math.max(0, Math.round(performance.now() - acquiredAt)), ...extra, lastPhase, phaseElapsedMs }));
         };
         timer = setTimeout(() => fail('worker_deadline'), Math.min(this.timeoutMs, WHITEBOARD_VALIDATOR_LIMITS.timeoutMs));
-        worker!.once('message', message => {
-          if (settled) return; settled = true;
+        worker!.on('message', message => {
+          if (settled) return;
+          if (message && typeof message === 'object' && 'phase' in message) {
+            if (Object.keys(message).length === 1 && ['ready', 'snapshot-applied', 'validated'].includes(message.phase)) {
+              lastPhase = message.phase;
+              phaseElapsedMs[lastPhase!] = Math.max(0, Math.round(performance.now() - acquiredAt));
+              return;
+            }
+            settled = true;
+            reject(new WhiteboardCollaborationError('VALIDATION_FAILED'));
+            return;
+          }
+          settled = true;
           if (message && typeof message === 'object' && 'result' in message) resolve(message.result);
           else reject(new WhiteboardCollaborationError('VALIDATION_FAILED'));
         });
