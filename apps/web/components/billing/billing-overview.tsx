@@ -9,7 +9,7 @@ import { ApiError, apiRequest } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-type ReadState<T> = { status: "loading" } | { status: "ready"; data: T } | { status: "error"; message: string };
+type ReadState<T> = { status: "loading" } | { status: "ready"; data: T; refreshing?: boolean; refreshError?: string } | { status: "error"; message: string };
 interface ReadOperation<T> {
   path: string;
   query?: Record<string, string>;
@@ -61,6 +61,10 @@ function useBillingRead<T>(operation: ReadOperation<T>, userId: string, sessionT
 
 function ReadNotice({ state, name, label, retry }: { state: ReadState<unknown>; name: string; label: string; retry: () => void }) {
   if (state.status === "loading") return <div data-testid={`billing-${name}-loading`} role="status" aria-label={`正在查询${label}`} className="h-16 animate-pulse rounded-control bg-muted" />;
+  if (state.status === "ready" && state.refreshError) return <div data-testid={`err-billing-${name}`} className="space-y-2">
+    <p role="status" className="text-13 text-muted-foreground">暂时无法刷新{label}，显示上次查询结果。</p>
+    <Button variant="outline" size="sm" onClick={retry} aria-label={`重试${label}`}>重试</Button>
+  </div>;
   if (state.status === "error") return <div data-testid={`err-billing-${name}`} className="space-y-3">
     <p role="status" className="text-13 text-muted-foreground">{state.message}</p>
     <Button variant="outline" size="sm" onClick={retry} aria-label={`重试${label}`}>重试</Button>

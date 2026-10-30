@@ -51,3 +51,14 @@ it("blocks another purchase when a paid order needs financial reconciliation",as
  setup({...none,status:"incomplete",purchaseMode:"manual_monthly",paymentReviewRequired:true});render(<BillingOverview userId="u" sessionToken="s"/>);
  await screen.findByText(/付款需要人工核对/);expect(screen.queryByRole("button",{name:"购买月度套餐"})).toBeNull();expect(screen.queryByRole("button",{name:"继续付款"})).toBeNull();
 });
+it("labels a retained balance as stale if the post-payment wallet refresh fails",async()=>{
+ let grant=false,failWallet=false;const fetcher=vi.fn(async(input:string)=>{
+  const path=new URL(input).pathname;
+  if(path.endsWith("/config"))return new Response(JSON.stringify({enabledProviders:["stripe"]}));
+  if(path.endsWith("/wallet"))return failWallet?new Response("{}",{status:503}):new Response(JSON.stringify({wallet:{ownerType:"user",ownerId:"u",balance:100,totalPurchased:100,totalGranted:0,updatedAt:"2026-10-30"}}));
+  return new Response(JSON.stringify(grant?{status:"active",planRef:"monthly_pass_v1",purchaseMode:"manual_monthly",currentPeriodEnd:"2026-11-30T00:00:00Z",cancelAtPeriodEnd:true,creditGrant:{status:"granted",grant:{credits:20000,remainingCredits:20000,periodStart:"2026-10-30T00:00:00Z",periodEnd:"2026-11-30T00:00:00Z"}}}:none));
+ });vi.stubGlobal("fetch",fetcher);render(<BillingOverview userId="u" sessionToken="s"/>);await screen.findByRole("button",{name:"购买月度套餐"});grant=true;failWallet=true;
+ fireEvent.click(screen.getByRole("button",{name:"刷新状态"}));await screen.findByTestId("err-billing-wallet");
+ expect(screen.getByTestId("billing-wallet-balance").textContent).toContain("100");expect(screen.getByText(/显示上次查询结果/)).toBeTruthy();
+ failWallet=false;fireEvent.click(screen.getByRole("button",{name:"重试额度查询"}));await waitFor(()=>expect(screen.queryByTestId("err-billing-wallet")).toBeNull());
+});

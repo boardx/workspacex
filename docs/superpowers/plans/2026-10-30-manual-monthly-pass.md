@@ -41,7 +41,7 @@ flowchart LR
   class S2 done
   class S3 tested
   %% evidence S3: 121 API/PG and78 UI passed; browser and signed callback/PG evidence in PR6039
-  class S4 todo
+  class S4 doing
 ```
 
 - PostgreSQL/API billing regression: 119 passed; Web billing UI regression: 76 passed.
