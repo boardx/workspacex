@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { lookup } from './ci-promotion-lookup.mjs';
+import { lookup, backendObligations } from './ci-promotion-lookup.mjs';
 const sha = 'a'.repeat(40), tree = 'b'.repeat(40), base = 'c'.repeat(40);
 const pr = { head: { sha, ref: 'develop', repo: { full_name: 'o/r' } }, base: { sha: base, ref: 'main', repo: { full_name: 'o/r' } } };
 const input = { repository: 'o/r', sha, eventName: 'pull_request', event: { number: 1, pull_request: pr }, git: args => args[0] === 'diff' ? '' : tree, now: 10000 };
@@ -60,4 +60,9 @@ test('changed policy permits full fallback', async () => {
 });
 test('changed tree permits full fallback', async () => {
   assert.deepEqual(await lookup({...input, api, git: args => args[0] === 'diff' ? '' : args[1] === `${sha}^{tree}` ? base : tree}), {reuse: false});
+});
+
+test('backend obligations come from the versioned aggregate policy', () => {
+ const policy = {aggregates: {'backend-required': ['new-policy-gate']}};
+ assert.deepEqual(backendObligations(policy), ['new-policy-gate']);
 });

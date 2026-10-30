@@ -4,11 +4,13 @@ import { appendFileSync, readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { promotionIdentity, workflowEvidence } from './ci-promotion-evidence.mjs';
 import { LANES } from './ci-lane-dedup.mjs';
+import { CURRENT_POLICY, POLICY_PATH } from './lib/ci-check-policy.mjs';
 import { INTEGRATION_CHECKS } from './ci-devapp-integration-gate.mjs';
 const SHA = /^[a-f0-9]{40}$/;
 const shardCount = JSON.parse(readFileSync(new URL('../api-test-shards.json', import.meta.url), 'utf8')).count;
-const protectedPaths = ['.harness/api-test-shards.json', '.harness/scripts/ci-*', '.github/workflows/harness-verify.yml', '.github/workflows/backend-gates.yml'];
-const backend = ['gates-fast', 'gates-test', 'native-document-chain', 'native-runtime-lane', 'gates-runtime', 'e2e-core-loop', 'prototype-audit', 'design-loop-e2e'];
+const protectedPaths = [POLICY_PATH, '.harness/scripts/lib/ci-check-policy.mjs', '.harness/api-test-shards.json', '.harness/scripts/ci-*', '.github/workflows/harness-verify.yml', '.github/workflows/backend-gates.yml'];
+export const backendObligations = (policy = CURRENT_POLICY) => policy.aggregates['backend-required'];
+const backend = backendObligations();
 export async function lookup({ api, git, eventName, event, repository, sha, now = Date.now() }) {
   let pure = false;
   const declared = event?.pull_request;
