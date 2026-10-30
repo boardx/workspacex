@@ -1,0 +1,248 @@
+[
+  {
+    "input": "https://workspacex.cn/",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/",
+    "sha256": "362d51061085cbc34cfb0a0139911611269f5dcc4bec8d83ac9b71eefb1e7ed8",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/"
+    ]
+  },
+  {
+    "input": "https://workspacex.cn/en/",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/en/",
+    "sha256": "14a80baace77da9c7e5668a29c8a0d9164541d395b731ae29f04b46e104d76d2",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/en/"
+    ]
+  },
+  {
+    "input": "https://workspacex.cn/privacy",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/privacy",
+    "sha256": "2c776a77997a91d4e8403922cf2f5a6e0342693592ac8478ffb759ddeb21c227",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/privacy"
+    ]
+  },
+  {
+    "input": "https://workspacex.cn/manual/",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/manual/",
+    "sha256": "cfc3efc8068a3a83585b0512bd50af998037ffc67091c615cd1e5976be136b95",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/manual/"
+    ]
+  },
+  {
+    "input": "https://workspacex.cn/.well-known/workspacex-release.json",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/.well-known/workspacex-release.json",
+    "sha256": "48eadda10bc01e6b4145efb6e4d63b59dca80b1eac07affc9934ef77cd2c5a4b",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": false,
+    "canonical": [],
+    "release": {
+      "commit": "4a75643a5e9ce42fdd3f16f45e8917a031d857bb",
+      "project": "workspacex-home-cn",
+      "region": "cn",
+      "origin": "https://workspacex.cn",
+      "icp": "粤ICP备2021115740号-2",
+      "filingCoverage": "user-confirmed-website-number; provider-coverage-unverified"
+    }
+  },
+  {
+    "input": "https://www.boardx.com.cn/",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 301 Moved Permanently",
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [
+      "https://workspacex.cn/"
+    ],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/",
+    "sha256": "362d51061085cbc34cfb0a0139911611269f5dcc4bec8d83ac9b71eefb1e7ed8",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/"
+    ]
+  },
+  {
+    "input": "https://www.boardx.com.cn/privacy?probe=a%2Fb&x=1",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 301 Moved Permanently",
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [
+      "https://workspacex.cn/privacy?probe=a%2Fb&x=1"
+    ],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/privacy?probe=a%2Fb&x=1",
+    "sha256": "2c776a77997a91d4e8403922cf2f5a6e0342693592ac8478ffb759ddeb21c227",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/privacy"
+    ]
+  },
+  {
+    "input": "https://www.boardx.com.cn/login?next=%2Fhome",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/1.1 302 Found",
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [
+      "https://app.boardx.com.cn/login?next=%2Fhome"
+    ],
+    "status": 200,
+    "finalUrl": "https://app.boardx.com.cn/login?next=%2Fhome",
+    "sha256": "4b69228b27c369051d13235e2a476d47ff3e1738a2183a1816979d275fdc9bb3",
+    "icp": [],
+    "miit": false,
+    "canonical": []
+  },
+  {
+    "input": "https://boardx.com.cn/",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/2 301 ",
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [
+      "https://workspacex.cn/"
+    ],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/",
+    "sha256": "362d51061085cbc34cfb0a0139911611269f5dcc4bec8d83ac9b71eefb1e7ed8",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/"
+    ]
+  },
+  {
+    "input": "https://boardx.com.cn/privacy?probe=a%2Fb&x=1",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/2 301 ",
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [
+      "https://workspacex.cn/privacy?probe=a%2Fb&x=1"
+    ],
+    "status": 200,
+    "finalUrl": "https://workspacex.cn/privacy?probe=a%2Fb&x=1",
+    "sha256": "2c776a77997a91d4e8403922cf2f5a6e0342693592ac8478ffb759ddeb21c227",
+    "icp": [
+      "粤ICP备2021115740号-2"
+    ],
+    "miit": true,
+    "canonical": [
+      "https://workspacex.cn/privacy"
+    ]
+  },
+  {
+    "input": "https://boardx.com.cn/login?next=%2Fhome",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/2 302 ",
+      "HTTP/1.1 200 OK"
+    ],
+    "locations": [
+      "https://app.boardx.com.cn/login?next=%2Fhome"
+    ],
+    "status": 200,
+    "finalUrl": "https://app.boardx.com.cn/login?next=%2Fhome",
+    "sha256": "4b69228b27c369051d13235e2a476d47ff3e1738a2183a1816979d275fdc9bb3",
+    "icp": [],
+    "miit": false,
+    "canonical": []
+  },
+  {
+    "input": "https://workspacex.us/",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/2 200 "
+    ],
+    "locations": [],
+    "status": 200,
+    "finalUrl": "https://workspacex.us/",
+    "sha256": "79e35f894dbe9376673f41280bde78c7480ef4adfd6ae877571e377b7a71d605",
+    "icp": [],
+    "miit": false,
+    "canonical": [
+      "https://workspacex.us/"
+    ]
+  },
+  {
+    "input": "https://workspacex.us/zh/",
+    "curlExit": 0,
+    "chain": [
+      "HTTP/2 200 "
+    ],
+    "locations": [],
+    "status": 200,
+    "finalUrl": "https://workspacex.us/zh/",
+    "sha256": "06de7a825519906f5f843e79dc0db04f87ec532d707607d45fafb3add48599cd",
+    "icp": [],
+    "miit": false,
+    "canonical": [
+      "https://workspacex.us/zh/"
+    ]
+  }
+]
