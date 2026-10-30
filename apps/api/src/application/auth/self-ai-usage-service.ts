@@ -48,7 +48,8 @@ export class SelfAiUsageService{
  }
  async calls(principal:Principal,input:AiUsageQuery){
   const {orgs,query}=await this.scope(principal,input);
-  const digest=createHash("sha256").update(JSON.stringify([principal.userId,orgs,{...query,cursorId:undefined,cursorTime:undefined}])).digest("hex");
+  const scopeFields=Object.entries(query).filter(([key,value])=>key!=="cursorId"&&key!=="cursorTime"&&value!==undefined).sort(([a],[b])=>a.localeCompare(b));
+  const digest=createHash("sha256").update(JSON.stringify([principal.userId,orgs,scopeFields])).digest("hex");
   let id:string|undefined;
   if(query.cursorId){try{const cursor=JSON.parse(Buffer.from(query.cursorId,"base64url").toString("utf8"));if(cursor.scope!==digest||typeof cursor.id!=="string"||!input.asOf)throw Error();id=cursor.id;}catch{throw new AiUsageScopeError("FORBIDDEN");}}
   const rows:z.infer<typeof C.Calls>[]=[];
