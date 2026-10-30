@@ -8,9 +8,23 @@ const scoped=`org_id=$1 AND ($2::text IS NULL OR user_id=$2) AND ($3::text IS NU
  AND ($8::text IS NULL OR thread_id=$8) AND ($9::text IS NULL OR agent_id=$9)
  AND occurred_at<=$13::timestamptz`;
 const eventTime="COALESCE(request_started_at,occurred_at)";
+/** Immutable receipt sums preserve the requested snapshot even after later settlement.
+ * Legacy rows without fragment receipts use their terminal debit only after settled_at.
+ * The correlated tenant/actor identity prevents a same-ID event from borrowing another payer.
+ */
+const creditSource=`SELECT e.*,(SELECT name FROM organizations WHERE id=e.org_id) AS organization_name,a.credit_hundredths,a.payer,COALESCE(a.credit_status,'unbilled') AS credit_status
+ FROM effective_token_usage($13::timestamptz) e LEFT JOIN LATERAL (
+  SELECT CASE WHEN EXISTS(SELECT 1 FROM credit_consumption_receipts z WHERE z.request_id=r.request_id AND z.org_id=r.org_id)
+   THEN COALESCE((SELECT sum(z.debited_hundredths) FROM credit_consumption_receipts z WHERE z.request_id=r.request_id AND z.org_id=r.org_id AND z.created_at<=$13::timestamptz),0)
+   WHEN r.settled_at<=$13::timestamptz THEN r.debited_hundredths ELSE 0 END AS credit_hundredths,
+   CASE WHEN r.state='settled' AND r.settled_at<=$13::timestamptz THEN 'settled' ELSE 'pending' END AS credit_status,
+   jsonb_build_object('ownerType',w.owner_type,'ownerId',w.owner_id) AS payer
+  FROM credit_consumption_requests r JOIN credit_wallets w ON w.wallet_id=r.wallet_id
+  WHERE r.request_id=e.id AND r.org_id=e.org_id AND r.user_id=e.user_id AND r.created_at<=$13::timestamptz
+ ) a ON true`;
 const stats=(relation:string)=>`(SELECT jsonb_build_object('inputTokens',COALESCE(sum(tokens_prompt),0)::text,
  'outputTokens',COALESCE(sum(tokens_completion),0)::text,'totalTokens',COALESCE(sum(tokens_total),0)::text,
- 'callCount',count(*),'failedCalls',count(*) FILTER(WHERE outcome='failed'),
+ 'creditHundredths',COALESCE(sum(credit_hundredths),0)::text,'pendingCreditCalls',count(*) FILTER(WHERE credit_status='pending'),'callCount',count(*),'failedCalls',count(*) FILTER(WHERE outcome='failed'),
  'reportedCalls',count(*) FILTER(WHERE total_source='reported'),'legacyCalls',count(*) FILTER(WHERE total_source='legacy'),
  'unknownCalls',count(*) FILTER(WHERE total_source='unknown'),'unknownInputCalls',count(*) FILTER(WHERE total_source<>'not-applicable' AND tokens_prompt IS NULL),
  'unknownOutputCalls',count(*) FILTER(WHERE total_source<>'not-applicable' AND tokens_completion IS NULL),'nativeCalls',count(*) FILTER(WHERE total_source='not-applicable')) FROM ${relation})`;
@@ -30,7 +44,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
  async summary(orgId:OrgId,q:AiUsageQuery){return this.db.withTenant(orgId,async s=>{
   const {asOf,values}=await this.parameters(s,orgId,q);
   const result=await s.query<{result:unknown}>(`WITH base AS MATERIALIZED (SELECT *,${eventTime} AS event_time
-    FROM effective_token_usage($13::timestamptz) WHERE ${scoped} AND ${eventTime}>=$12::timestamptz AND ${eventTime}<$11::timestamptz),
+    FROM (${creditSource}) credited WHERE ${scoped} AND ${eventTime}>=$12::timestamptz AND ${eventTime}<$11::timestamptz),
    period_current AS MATERIALIZED(SELECT * FROM base WHERE event_time>=$10::timestamptz),
    period_previous AS MATERIALIZED(SELECT * FROM base WHERE event_time<$10::timestamptz),
    members AS(SELECT user_id,COALESCE(sum(tokens_total),0) AS tokens,count(*) AS calls FROM period_current GROUP BY user_id),
@@ -62,7 +76,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
  });}
  async calls(orgId:OrgId,q:AiUsageQuery){return this.db.withTenant(orgId,async s=>{
   const {asOf,values}=await this.parameters(s,orgId,q);
-  const result=await s.query<Record<string,unknown>>(`SELECT id,subtask_id AS "subtaskId",user_id AS "userId",run_id AS "runId",project_id AS "projectId",
+  const result=await s.query<Record<string,unknown>>(`SELECT org_id AS "orgId",organization_name AS "organizationName",credit_hundredths::text AS "creditHundredths",credit_status AS "creditStatus",payer,id,subtask_id AS "subtaskId",user_id AS "userId",run_id AS "runId",project_id AS "projectId",
    thread_id AS "threadId",agent_id AS "agentId",model_provider AS "modelProvider",model_id AS "modelId",
    to_char(occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "occurredAt",
    to_char(request_started_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS "startedAt",
@@ -71,7 +85,7 @@ export class PgAiUsageRepository implements AiUsageRepository {
    tokens_cache_input::text AS "cacheInputTokens",tokens_reasoning_output::text AS "reasoningOutputTokens",
    CASE WHEN native_unit IS NULL THEN NULL ELSE jsonb_build_object('unit',native_unit,'quantity',native_quantity::text,'source',native_source) END AS "nativeUsage",
    total_source AS "totalSource",outcome,call_purpose AS "callPurpose",cost_micros::text AS "costMicros",currency,price_version AS "priceVersion"
-   FROM effective_token_usage($13::timestamptz) WHERE ${scoped} AND ${eventTime}>=$10::timestamptz AND ${eventTime}<$11::timestamptz
+   FROM (${creditSource}) credited WHERE ${scoped} AND ${eventTime}>=$10::timestamptz AND ${eventTime}<$11::timestamptz
    AND $12::timestamptz IS NOT NULL AND $14::text IS NOT NULL
    AND ($15::timestamptz IS NULL OR (occurred_at,id)<($15::timestamptz,$16::text))
    ORDER BY occurred_at DESC,id DESC LIMIT $17`,[...values,q.cursorTime??null,q.cursorId??null,q.limit+1]);

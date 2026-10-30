@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { readAiUsage, readAiUsageCalls, type UsageQuery, type UsageSummary, type UsageCalls } from "@/lib/live-ai-usage";
 import { useOrgMemberNames, memberLabel } from "@/lib/use-org-member-names";
 import { AiUsageLedger } from "./ai-usage-ledger";
-import { dateQuery, dateRange, formatTokens, nativeQuantity, recordedTotal, usageDateLabel, UNIT_LABELS, type DatePreset } from "./ai-usage-format";
+import { dateQuery, dateRange, formatTokens, nativeQuantity, recordedTotal, usageDateLabel, creditLabel, UNIT_LABELS, type DatePreset } from "./ai-usage-format";
 
 import { usageBucketEnd, usageMidnight, type UsageGrain } from "@/lib/ai-usage-chart";
 import { AiUsageOverview } from "./ai-usage-overview";
@@ -39,7 +39,7 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
   React.useEffect(() => {
     let active = true;
     setSummary(null); setCalls(null); setCursor(null); setSummaryError(false); setCallsError(false);
-    void readAiUsage(orgId, platform, { ...query, userId: selfUserId ?? query.userId }).then(out => {
+    void readAiUsage(orgId, platform, { ...query, userId: selfUserId ?? query.userId }, ...(selfUserId ? [true] as const : [])).then(out => {
       if (!active) return;
       setSummary(out);
       if (!query.modelId) setModelOptions(out.models);
@@ -53,7 +53,7 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
     void readAiUsageCalls(orgId, platform, {
       ...query, userId: selfUserId ?? query.userId, asOf: summary.asOf,
       ...(cursor ? { cursorTime: cursor.occurredAt, cursorId: cursor.id } : {}),
-    }).then(out => { if (active) setCalls(out); }).catch(() => { if (active) setCallsError(true); });
+    }, ...(selfUserId ? [true] as const : [])).then(out => { if (active) setCalls(out); }).catch(() => { if (active) setCallsError(true); });
     return () => { active = false; };
   }, [orgId, platform, query, summary, cursor, selfUserId, reload]);
 
@@ -102,7 +102,7 @@ function UsageReport({ orgId, platform, selfUserId }: { orgId: string; platform:
       <div className="grid gap-4 sm:grid-cols-3">
         <Metric label="调用次数" value={current.callCount.toLocaleString("zh-CN")} icon={<Activity className="size-4" aria-hidden />} note={current.failedCalls ? `${current.failedCalls} 次失败` : "所选日期内的已记录调用"} />
         <Metric label="已记录用量" value={recordedTotal(current)} testId="usage-total-tokens" icon={<Layers3 className="size-4" aria-hidden />} note={current.unknownCalls ? `${current.unknownCalls} 次调用未上报用量${current.nativeCalls ? "" : " · Token"}` : current.nativeCalls ? "图片、音频等消耗按各自单位统计" : "Token · 包含输入和输出"} />
-        <Metric label="调用费用" value="见调用明细" icon={<Coins className="size-4" aria-hidden />} note="未提供费用的调用显示为暂无数据" />
+        <Metric label="调用费用" value={current.creditHundredths === undefined ? "见调用明细" : `${creditLabel(current.creditHundredths)} credit`} icon={<Coins className="size-4" aria-hidden />} note={current.pendingCreditCalls ? `${current.pendingCreditCalls} 次消耗待核对，已扣部分计入合计` : "实际已扣额度 · 原生费用见明细"} />
       </div>
       <div className="rounded-lg bg-muted/40 px-4 py-3 text-12 leading-6 text-muted-foreground">
         仅展示已记录的调用。未上报用量不代表零消耗，费用以已提供的数据为准。
