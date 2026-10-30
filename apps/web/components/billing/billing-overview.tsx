@@ -100,7 +100,6 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
           {wallet.state.status === "ready" && <>
             <div><p className="text-12 text-muted-foreground">可用 credit</p><p data-testid="billing-wallet-balance" className="text-30 font-semibold tabular-nums">{number(wallet.state.data.availableBalance ?? wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">credit</span></p></div>
             <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">充值余额</dt><dd data-testid="billing-permanent-balance">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)}</dd></div><div><dt className="text-muted-foreground">套餐余额</dt><dd data-testid="billing-monthly-credits">{number(wallet.state.data.subscriptionCredits ?? 0)}</dd></div></dl>
-            {wallet.state.data.subscriptionExpiresAt && <p className="text-12 text-muted-foreground">月度额度到期：{new Date(wallet.state.data.subscriptionExpiresAt).toLocaleString("zh-CN")}，未使用部分清零。</p>}
             {!!wallet.state.data.reservedCredits && <p className="text-12 text-muted-foreground">使用中 {number(wallet.state.data.reservedCredits)} credit</p>}
             {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度。余额为负，充值后可发起新请求；已开始的请求可以完成。</p>}
 
