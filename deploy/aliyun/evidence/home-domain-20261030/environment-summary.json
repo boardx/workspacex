@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-30T02:45:41.366587+00:00",
+  "environmentId": "ccarenv_b64_Y2NhcmVudl8yNDRiYWRhYThiYWM4MTkxYWY3NzZmODU1MmIxYzk1MQ",
+  "observationsCurrent": true,
+  "networkPolicy": "unrestricted/enforced",
+  "secrets": [],
+  "runtimeVariables": [],
+  "outboundIdentities": [],
+  "aliyunCliAvailable": false,
+  "esaCliAvailable": false,
+  "publicationAttempted": false,
+  "dnsMutated": false,
+  "currentProviderBinding": "unreadable without existing authorization",
+  "currentProviderVersion": "unreadable without existing authorization",
+  "historicalVersionOnly": "1793182357164195675",
+  "bootstrap": "pnpm 9.15 install failed: canvas requires missing pixman-1; node runtime 24 vs repository 22"
+}

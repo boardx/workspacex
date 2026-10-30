@@ -50,9 +50,10 @@ try {
       const page = await context.newPage();
       for (const path of ['/', '/en/', '/zh/', '/privacy', '/en/privacy', '/zh/privacy', '/manual/', '/404.html']) {
         await page.goto(base + path);
+        if (path === '/') assert.equal(await page.locator('html').getAttribute('lang'), 'zh-Hans');
         const link = page.locator('[data-cn-icp] a');
         assert.equal(await link.count(), 1);
-        assert.equal(await link.textContent(), '粤ICP备2021115740号');
+        assert.equal(await link.textContent(), '粤ICP备2021115740号-2');
         assert.equal(await link.getAttribute('href'), 'https://beian.miit.gov.cn/');
         await link.scrollIntoViewIfNeeded();
         assert.ok(await link.isVisible(), `${path} ${width} JS=${javaScriptEnabled}`);
@@ -77,6 +78,18 @@ try {
         await page.goto(base + '/us' + path);
         assert.equal(await page.locator('[data-cn-icp]').count(), 0);
         assert.ok(!(await page.content()).includes('粤ICP备2021115740号'), 'no ICP on US even Chinese language');
+        checks++;
+      }
+      // Intercept only the verified app destination: exercise the actual generated
+      // static login page and navigation, without touching application state.
+      await context.route('https://app.boardx.com.cn/login**', route =>
+        route.fulfill({ contentType: 'text/html', body: '<html lang="zh-CN"><body>登录</body></html>' }));
+      for (const path of ['/login', '/login/']) {
+        const suffix = '?next=%2Fhome&source=legacy#continue';
+        await page.goto(base + path + suffix);
+        const target = 'https://app.boardx.com.cn/login' + (javaScriptEnabled ? suffix : '');
+        await page.waitForURL(target);
+        assert.equal(page.url(), target, 'login reaches app directly without a marketing loop');
         checks++;
       }
       await context.close();

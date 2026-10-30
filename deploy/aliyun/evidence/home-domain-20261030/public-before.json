@@ -1,0 +1,475 @@
+{
+  "observedAt": "2026-10-30T02:44:18.305495+00:00",
+  "scope": "read-only pre-release; not publication acceptance",
+  "http": [
+    {
+      "url": "https://workspacex.cn/",
+      "observedAt": "2026-10-30T02:44:21.202746+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "404",
+        "https://www.boardx.com.cn/login",
+        "1",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 302 ",
+        "location: https://www.boardx.com.cn/login",
+        "HTTP/1.1 200 OK",
+        "HTTP/2 404 ",
+        "etag: \"21C0EDE8ABDFE5A43688D8CE8746B4D6\"",
+        "last-modified: Wed, 28 Oct 2026 10:13:30 GMT",
+        "x-amz-request-id: 6AE403D619FB127254D4055B"
+      ],
+      "bodySha256": "b16b03b2023d51427ae720c64d7cc2bf43c6b38e98a69b4bc5be1904946fa4df",
+      "htmlTag": [
+        "<html lang=\"en\" data-theme=\"dark\""
+      ],
+      "icpText": [
+        "粤ICP备2021115740号-1"
+      ],
+      "icpHref": [
+        "https://beian.miit.gov.cn/"
+      ]
+    },
+    {
+      "url": "https://workspacex.cn/login",
+      "observedAt": "2026-10-30T02:44:20.523107+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "404",
+        "https://www.boardx.com.cn/login",
+        "1",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 302 ",
+        "location: https://www.boardx.com.cn/login",
+        "HTTP/1.1 200 OK",
+        "HTTP/2 404 ",
+        "etag: \"21C0EDE8ABDFE5A43688D8CE8746B4D6\"",
+        "last-modified: Wed, 28 Oct 2026 10:13:30 GMT",
+        "x-amz-request-id: 6AE403D45A8042081CC2210D"
+      ],
+      "bodySha256": "b16b03b2023d51427ae720c64d7cc2bf43c6b38e98a69b4bc5be1904946fa4df",
+      "htmlTag": [
+        "<html lang=\"en\" data-theme=\"dark\""
+      ],
+      "icpText": [
+        "粤ICP备2021115740号-1"
+      ],
+      "icpHref": [
+        "https://beian.miit.gov.cn/"
+      ]
+    },
+    {
+      "url": "https://www.boardx.com.cn/",
+      "observedAt": "2026-10-30T02:44:19.528284+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "200",
+        "https://www.boardx.com.cn/",
+        "0",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 200 ",
+        "x-amz-request-id: 6AE4048319FB127254D6E003",
+        "etag: \"28006AA7E2FE624D0279F0B4A4E51F6C\"",
+        "last-modified: Wed, 28 Oct 2026 10:13:31 GMT"
+      ],
+      "bodySha256": "1bd58c98323da98139e9e9f0a4b3b93b22f2b8ae25d88eee6bc3a9021bb88a7d",
+      "htmlTag": [
+        "<html lang=\"zh-Hans\" data-theme=\"dark\""
+      ],
+      "icpText": [
+        "粤ICP备2021115740号-1"
+      ],
+      "icpHref": [
+        "https://beian.miit.gov.cn/"
+      ]
+    },
+    {
+      "url": "https://boardx.com.cn/",
+      "observedAt": "2026-10-30T02:44:21.632229+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "404",
+        "https://www.boardx.com.cn/login",
+        "1",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 302 ",
+        "location: https://www.boardx.com.cn/login",
+        "HTTP/1.1 200 OK",
+        "HTTP/2 404 ",
+        "etag: \"21C0EDE8ABDFE5A43688D8CE8746B4D6\"",
+        "last-modified: Wed, 28 Oct 2026 10:13:30 GMT",
+        "x-amz-request-id: 6AE40485DEB71C5971BA098A"
+      ],
+      "bodySha256": "b16b03b2023d51427ae720c64d7cc2bf43c6b38e98a69b4bc5be1904946fa4df",
+      "htmlTag": [
+        "<html lang=\"en\" data-theme=\"dark\""
+      ],
+      "icpText": [
+        "粤ICP备2021115740号-1"
+      ],
+      "icpHref": [
+        "https://beian.miit.gov.cn/"
+      ]
+    },
+    {
+      "url": "https://boardx.com.cn/login",
+      "observedAt": "2026-10-30T02:44:21.436253+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "404",
+        "https://www.boardx.com.cn/login",
+        "1",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 302 ",
+        "location: https://www.boardx.com.cn/login",
+        "HTTP/1.1 200 OK",
+        "HTTP/2 404 ",
+        "x-amz-request-id: 6AE403D45A8042081CC2210D",
+        "etag: \"21C0EDE8ABDFE5A43688D8CE8746B4D6\"",
+        "last-modified: Wed, 28 Oct 2026 10:13:30 GMT"
+      ],
+      "bodySha256": "b16b03b2023d51427ae720c64d7cc2bf43c6b38e98a69b4bc5be1904946fa4df",
+      "htmlTag": [
+        "<html lang=\"en\" data-theme=\"dark\""
+      ],
+      "icpText": [
+        "粤ICP备2021115740号-1"
+      ],
+      "icpHref": [
+        "https://beian.miit.gov.cn/"
+      ]
+    },
+    {
+      "url": "https://www.boardx.com.cn/login",
+      "observedAt": "2026-10-30T02:44:19.199644+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "404",
+        "https://www.boardx.com.cn/login",
+        "0",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 404 ",
+        "x-amz-request-id: 6AE403D45A8042081CC2210D",
+        "etag: \"21C0EDE8ABDFE5A43688D8CE8746B4D6\"",
+        "last-modified: Wed, 28 Oct 2026 10:13:30 GMT"
+      ],
+      "bodySha256": "b16b03b2023d51427ae720c64d7cc2bf43c6b38e98a69b4bc5be1904946fa4df",
+      "htmlTag": [
+        "<html lang=\"en\" data-theme=\"dark\""
+      ],
+      "icpText": [
+        "粤ICP备2021115740号-1"
+      ],
+      "icpHref": [
+        "https://beian.miit.gov.cn/"
+      ]
+    },
+    {
+      "url": "https://app.boardx.com.cn/login",
+      "observedAt": "2026-10-30T02:44:20.029516+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "200",
+        "https://app.boardx.com.cn/login",
+        "0",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 200 "
+      ],
+      "bodySha256": "f3b8047505c2ae064fe3986dd9593d03988e3013c6448846226366e5ec325a62",
+      "htmlTag": [
+        "<html lang=\"zh-CN\" data-edition=\"cloud\""
+      ],
+      "icpText": [],
+      "icpHref": []
+    },
+    {
+      "url": "https://workspacex.us/",
+      "observedAt": "2026-10-30T02:44:18.682602+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "200",
+        "https://workspacex.us/",
+        "0",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 200 "
+      ],
+      "bodySha256": "16a256505a1bd9e18f8f2f7d55ea0337b4e423a738dced5f41e3460fdd90a27f",
+      "htmlTag": [
+        "<html lang=\"en\" data-theme=\"dark\""
+      ],
+      "icpText": [],
+      "icpHref": []
+    },
+    {
+      "url": "https://workspacex.us/zh/",
+      "observedAt": "2026-10-30T02:44:18.718390+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "200",
+        "https://workspacex.us/zh/",
+        "0",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 200 "
+      ],
+      "bodySha256": "ad843c0589743dc4344b23fcb86685c7ba5413179f2a90d5a3e3ef88e104e7f1",
+      "htmlTag": [
+        "<html lang=\"zh-Hans\" data-theme=\"dark\""
+      ],
+      "icpText": [],
+      "icpHref": []
+    },
+    {
+      "url": "https://www.boardx.com.cn/.well-known/workspacex-release.json",
+      "observedAt": "2026-10-30T02:44:19.384410+00:00",
+      "curlExit": 0,
+      "error": "",
+      "result": [
+        "200",
+        "https://www.boardx.com.cn/.well-known/workspacex-release.json",
+        "0",
+        "0"
+      ],
+      "chain": [
+        "HTTP/1.1 200 OK",
+        "HTTP/2 200 ",
+        "etag: \"E8F60D3FC13D4E4F07B052E7FFA8275F\"",
+        "last-modified: Wed, 28 Oct 2026 10:13:30 GMT",
+        "x-amz-request-id: 6AE404839A252634F3B635F9"
+      ],
+      "bodySha256": "88b7384c8c0b0fedd9d4ec3cab252c9020ddf95abc55c0c3431e771fe9ff8243",
+      "htmlTag": [],
+      "icpText": [
+        "粤ICP备2021115740号-1\", \"filingCoverage\": \"verified-aliyun-existing-domain-record\"}\n"
+      ],
+      "icpHref": [],
+      "marker": {
+        "commit": "4f7ac1b868a0996807fc32bdb0d011f1544fc777",
+        "project": "workspacex-home-cn",
+        "region": "cn",
+        "origin": "https://www.boardx.com.cn",
+        "icp": "粤ICP备2021115740号-1",
+        "filingCoverage": "verified-aliyun-existing-domain-record"
+      }
+    }
+  ],
+  "dns": {
+    "workspacex.cn": {
+      "Status": 0,
+      "TC": false,
+      "RD": true,
+      "RA": true,
+      "AD": false,
+      "CD": false,
+      "Question": [
+        {
+          "name": "workspacex.cn.",
+          "type": 1
+        }
+      ],
+      "Answer": [
+        {
+          "name": "workspacex.cn.",
+          "type": 1,
+          "TTL": 600,
+          "data": "47.116.120.18"
+        }
+      ],
+      "Comment": "Response from 47.118.199.214."
+    },
+    "boardx.com.cn": {
+      "Status": 0,
+      "TC": false,
+      "RD": true,
+      "RA": true,
+      "AD": false,
+      "CD": false,
+      "Question": [
+        {
+          "name": "boardx.com.cn.",
+          "type": 1
+        }
+      ],
+      "Answer": [
+        {
+          "name": "boardx.com.cn.",
+          "type": 1,
+          "TTL": 600,
+          "data": "47.116.120.18"
+        }
+      ],
+      "Comment": "Response from 120.76.107.38."
+    },
+    "www.boardx.com.cn": {
+      "Status": 0,
+      "TC": false,
+      "RD": true,
+      "RA": true,
+      "AD": false,
+      "CD": false,
+      "Question": [
+        {
+          "name": "www.boardx.com.cn.",
+          "type": 1
+        }
+      ],
+      "Answer": [
+        {
+          "name": "www.boardx.com.cn.",
+          "type": 5,
+          "TTL": 600,
+          "data": "www.boardx.com.cn.a2.initjj.com."
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "180.97.232.151"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "183.232.169.5"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "220.181.165.9"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "124.160.144.201"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "111.32.211.131"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "122.228.95.140"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "1.71.164.86"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "221.194.182.13"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "182.242.60.12"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "111.170.29.55"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "117.160.121.66"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "61.175.227.148"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "113.96.140.80"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "14.215.57.122"
+        },
+        {
+          "name": "www.boardx.com.cn.a2.initjj.com.",
+          "type": 1,
+          "TTL": 60,
+          "data": "120.222.219.13"
+        }
+      ],
+      "Comment": "Response from 2408:4000:1012:4::74."
+    },
+    "app.boardx.com.cn": {
+      "Status": 0,
+      "TC": false,
+      "RD": true,
+      "RA": true,
+      "AD": false,
+      "CD": false,
+      "Question": [
+        {
+          "name": "app.boardx.com.cn.",
+          "type": 1
+        }
+      ],
+      "Answer": [
+        {
+          "name": "app.boardx.com.cn.",
+          "type": 1,
+          "TTL": 600,
+          "data": "101.132.151.28"
+        }
+      ],
+      "Comment": "Response from 47.118.199.200."
+    }
+  }
+}
