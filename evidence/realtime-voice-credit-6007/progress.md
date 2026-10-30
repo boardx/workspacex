@@ -8,7 +8,7 @@ Verification: combined payment/usage/voice regression passed 45 files / 398 test
 
 Independent source review through 8994e4ba7 found no remaining Critical/Important findings. Earlier findings were reproduced and fixed: incomplete backfill inventory, late-fragment ledger query loss, disconnect while admission was pending, discarded unknown terminal receipt, and compatible late terminal diagnostics. Tests and GitHub checks remain the merge authority.
 
-Integration: task 1 PR #5998 and task 2 replacement PR #6008 reached develop. Remaining separate integration PRs are #6009 (subscription grants), #6010 (backfill), #6011 (usage UI), #6012 (realtime voice). Each child must target develop and pass current-head checks after its prerequisite lands. Earlier external merges of #6001/#6004/#6005 into feature branches were not develop integration; they are not counted as completion. Final merge outcomes belong in the session handoff and GitHub PR records.
+Integration snapshot: task 1 PR #5998, task 2 replacement PR #6008 and subscription grants PR #6009 reached develop (c6440c11e). External concurrent operations subsequently merged #6010/#6011/#6012 into feature branches, so those merges do not deliver their changes to develop. Recovered separate branches are worker/credit-backfill-final, worker/credit-usage-final and worker/realtime-credit-final. Only create the next PR directly against develop after its predecessor is actually merged; no more temporary stacked PRs. Each current head must pass the repository classifier. Final merge outcomes belong in GitHub PR records.
 
 ## Rulings retained from the session ledger
 
@@ -19,6 +19,7 @@ Integration: task 1 PR #5998 and task 2 replacement PR #6008 reached develop. Re
 - Backfill inventories both subscriptions and bindings, including missing/newer uncertain snapshots. Unmapped, annual, trial and unverifiable records block cutover for an operator decision. No per-user bypass weakens fixed personal admission.
 - Backfill uses the authoritative current latest invoice, reviewed monthly plan IDs and the same idempotent grant store as webhooks. Checkpoints bind mode/database/plans/high-water and advance only when a page has no blocked records.
 - Existing develop changes were merged into the integration stack, preserving both renewal-credit and cancellation tests/UI behavior. Separate PRs preserve one-feature review scope; no squash merge is used across prerequisite ancestry.
+- A batch push was rejected because external merges moved remote refs during pre-push checks. No force push or rollback was used. Recovery merged actual develop into locally verified feature scopes on fresh branch names; git diff confirmed identical final source. Pre-push20/20 typecheck/lint checks passed before the rejection. Future PRs are opened one at a time directly on develop to eliminate feature-base ambiguity.
 - Host resource admission was respected during a load spike; no unrelated process was killed and no test isolation or pre-push gate was bypassed.
 
 Production inventory, backfill apply, deployment and main promotion were not performed. See deploy/credit-subscription-migration.md for the required cutover sequence.
