@@ -29,6 +29,7 @@ on:
   # e2e-core-loop 本次补齐同一条。`deploy` 的 `if:` 只认 refs/heads/main 与 refs/tags/v*，
   # PR 的 ref 是 refs/pull/N/merge ⇒ 自建 runner 与部署路径在 PR 上天然不可达。
   pull_request:
+    branches: [develop]
   # 2026-09-21（#3238 第 1 条）：合并队列的候选组。三个 gates job 与 e2e-core-loop 的
   # `if` 写的是「不是 PR，或者是同仓 PR」——merge_group 天然落进第一支，候选组上会跑
   # **完整**验证，不需要逐个改条件。要改的是下面两处：
@@ -40,9 +41,9 @@ on:
   # 事件字段的解析规则在 `.harness/scripts/lib/merge-queue.ts`，本文件由
   # merge-queue.test.ts 机械核对。队列没开时本事件永不触发，这段接线是惰性的。
   merge_group:
+    branches: [develop]
   push:
-    tags: ["v*"]
-    branches: [develop, main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
+    branches: [develop]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
                          # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
     inputs:

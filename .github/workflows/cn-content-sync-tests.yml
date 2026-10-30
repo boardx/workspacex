@@ -1,6 +1,7 @@
 name: CN deterministic content synchronization tests
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'apps/api/scripts/platform-content-release*'
       - 'apps/api/scripts/platform-schema-readback*'

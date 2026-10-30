@@ -1,6 +1,7 @@
 name: Web-only release contract
 on:
   pull_request:
+    branches: [develop]
     paths:
       - scripts/web-only-release.py
       - scripts/directory-release-source.py

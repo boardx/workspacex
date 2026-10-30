@@ -1,6 +1,7 @@
 name: hk-transfer-performance-tests
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/cn-hk-original-artifact-upload.py'
       - 'scripts/bounded_workers.py'

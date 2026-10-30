@@ -8,6 +8,7 @@ name: deploy-devportal
 
 on:
   pull_request:
+    branches: [develop]
     paths:
       - "apps/devportal/**"
       - ".github/scripts/devportal-artifact*"
@@ -56,15 +57,19 @@ jobs:
         run: pnpm install --frozen-lockfile --filter @repo/devportal...
 
       - name: Verify artifact identity and workflow contracts
+        if: github.event_name == 'pull_request'
         run: node --test .github/scripts/devportal-artifact.test.mjs
 
       - name: Typecheck / lint / test
+        if: github.event_name == 'pull_request'
         run: pnpm --filter @repo/devportal run typecheck && pnpm --filter @repo/devportal run lint && pnpm --filter @repo/devportal run test
 
       - name: Install Playwright Chromium
+        if: github.event_name == 'pull_request'
         run: pnpm --filter @repo/devportal exec playwright install --with-deps chromium
 
       - name: E2E (repeatable local gateway fixture)
+        if: github.event_name == 'pull_request'
         run: pnpm --filter @repo/devportal run e2e
 
       - name: Build Pages artifact (next + next-on-pages)

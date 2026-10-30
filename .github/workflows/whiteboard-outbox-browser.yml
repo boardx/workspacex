@@ -1,6 +1,7 @@
 name: whiteboard-outbox-browser
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'apps/web/lib/whiteboard-outbox*.ts'
       - 'apps/web/lib/whiteboard-indexeddb.ts'
@@ -9,7 +10,7 @@ on:
       - 'packages/contracts/src/whiteboard*.ts'
       - '.github/workflows/whiteboard-outbox-browser.yml'
   push:
-    branches: [main]
+    branches: [develop]
     paths:
       - 'apps/web/lib/whiteboard-outbox*.ts'
       - 'apps/web/lib/whiteboard-indexeddb.ts'

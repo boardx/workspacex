@@ -191,6 +191,8 @@ def main():
             target=requested
         need(target in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
         existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''
+        need(target not in ('cn','us') or bool(existing),'PRODUCTION_REQUIRES_EXISTING_DEVELOP_TAG')
+        need(bool(existing) or branch=='develop','IMAGE_BUILD_REQUIRES_DEVELOP')
         tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
         selected=os.environ.get('BUILD_SERVICE') or 'all'

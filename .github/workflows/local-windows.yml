@@ -12,6 +12,7 @@ name: local-windows
 
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'packages/local-runtime/**'
       - 'apps/desktop/**'

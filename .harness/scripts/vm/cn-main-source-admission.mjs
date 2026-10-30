@@ -14,10 +14,12 @@ const fail=code=>{throw new Error(code)};
 
 const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonical(value[k])])):value;
 const rawEvidenceHash=facts=>createHash('sha256').update(JSON.stringify(canonical({...facts,prChecks:facts.prChecks.slice().sort((a,b)=>a.id-b.id),prStatuses:facts.prStatuses.slice().sort((a,b)=>a.id-b.id),sourceChecks:facts.sourceChecks.slice().sort((a,b)=>a.id-b.id),sourceStatuses:facts.sourceStatuses.slice().sort((a,b)=>a.id-b.id),associatedPrs:facts.associatedPrs.slice().sort((a,b)=>a.number-b.number)}))).digest('hex');
+// Direct production ref synchronization retains the develop merge commit identity.
+const admittedSourceBase=ref=>ref==='main'||ref==='develop';
 const ready=(checks,policy)=>{const v=classifyChecks(checks,policy);return !v.blocked.length&&!v.changes.length&&!v.waitingCi.length};
 export function validateMainSourceAdmission(source,repository,facts) {
  if(!sha.test(source)||repository!=='boardx/workspacex'||facts?.sourceCommit?.sha!==source||facts.mainContainsSource!==true)fail('MAIN_SOURCE_IDENTITY');
- const prs=facts.associatedPrs?.filter(p=>p.merged===true&&p.merge_commit_sha===source&&p.base?.ref==='main'&&p.base?.repo?.full_name===repository&&p.head?.repo?.full_name===repository);
+ const prs=facts.associatedPrs?.filter(p=>p.merged===true&&p.merge_commit_sha===source&&admittedSourceBase(p.base?.ref)&&p.base?.repo?.full_name===repository&&p.head?.repo?.full_name===repository);
  if(prs?.length!==1)fail('MAIN_SOURCE_PR_AMBIGUOUS');
  const pr=prs[0],parents=facts.sourceCommit.parents?.map(p=>p.sha),head=pr.head?.sha;
  if(!sha.test(head)||!Number.isSafeInteger(pr.number)||pr.number<=0||!Number.isFinite(Date.parse(pr.merged_at))||pr.merged_by?.login==='github-merge-queue')fail('MAIN_SOURCE_PR_IDENTITY');
@@ -67,7 +69,7 @@ export function validateMainSourceAdmission(source,repository,facts) {
 export function collectMainSourceAdmission(repository,source,{gh,pages,git}) {
  if(repository!=='boardx/workspacex'||!sha.test(source))fail('MAIN_SOURCE_INPUT');
  const prefix=`repos/${repository}`, sourceCommit=gh(`${prefix}/git/commits/${source}`);
- const associated=pages(`${prefix}/commits/${source}/pulls`).filter(p=>p.merge_commit_sha===source&&p.base?.ref==='main');
+ const associated=pages(`${prefix}/commits/${source}/pulls`).filter(p=>p.merge_commit_sha===source&&admittedSourceBase(p.base?.ref));
  if(associated.length!==1)fail('MAIN_SOURCE_PR_AMBIGUOUS');
  const pr=gh(`${prefix}/pulls/${associated[0].number}`),parent=sourceCommit.parents?.[0]?.sha,head=pr.head?.sha;
  if(!sha.test(parent)||!sha.test(head))fail('MAIN_SOURCE_TREE');

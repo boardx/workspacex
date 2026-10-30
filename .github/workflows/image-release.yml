@@ -36,16 +36,16 @@ on:
         type: choice
         options: [all, api, web, agent, sandbox, postgres]
       build_only:
-        description: Build and publish only, without any host deployment
+        description: Diagnostic build from develop only; CN/US still require an existing tag
         required: false
         default: false
         type: boolean
       tag:
-        description: Existing tag, e.g. 40174623496-1 (empty builds this commit)
+        description: Develop-built image tag (required for CN/US; empty builds only on develop)
         required: false
         type: string
       source_revision:
-        description: Optional exact source SHA for baseline builds (requires build_only)
+        description: Optional exact diagnostic source SHA (run from develop with build_only)
         required: false
         type: string
 

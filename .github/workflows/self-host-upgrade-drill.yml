@@ -10,6 +10,7 @@ name: self-host-upgrade-drill
 
 on:
   pull_request:
+    branches: [develop]
     paths:
       - compose.yaml
       - selfhost.env.example

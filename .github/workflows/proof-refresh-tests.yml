@@ -1,6 +1,7 @@
 name: proof-refresh-tests
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/cn-proof-only-refresh.py'
       - 'scripts/prepare-cn-proof-refresh.py'

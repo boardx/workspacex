@@ -53,3 +53,6 @@ it('keeps Devapp-only orchestration out of main runtime obligations only with th
  changed.sourceChecks=changed.sourceChecks.filter((c:any)=>c.name!=='e2e-core-loop');
  expect(()=>validateMainSourceAdmission(source,repo,changed)).toThrow('MAIN_SOURCE_RUNTIME_CI');
 });
+
+it('admits exact merged develop source synchronized unchanged into main',()=>{const f=facts();f.associatedPrs[0].base.ref='develop';expect(validateMainSourceAdmission(source,repo,f).sourceSha).toBe(source)});
+it.each(['not-main-contained','unmerged','wrong-sha','wrong-tree','historical-red','source-skipped','source-wrong-sha','ambiguous','wrong-base'])('rejects invalid synchronized develop source: %s',mode=>{const f=facts();f.associatedPrs[0].base.ref='develop';if(mode==='not-main-contained')f.mainContainsSource=false;if(mode==='unmerged')f.associatedPrs[0].merged=false;if(mode==='wrong-sha')f.associatedPrs[0].merge_commit_sha=head;if(mode==='wrong-tree')f.mergeTree=parent;if(mode==='historical-red')f.prChecks[0].conclusion='failure';if(mode==='source-skipped')f.sourceChecks[0].conclusion='skipped';if(mode==='source-wrong-sha')f.sourceChecks[0].head_sha=head;if(mode==='ambiguous')f.associatedPrs.push({...f.associatedPrs[0],number:2});if(mode==='wrong-base')f.associatedPrs[0].base.ref='main-us';expect(()=>validateMainSourceAdmission(source,repo,f)).toThrow()});

@@ -17,8 +17,8 @@
  *
  * 一个 job 算**无条件**（真覆盖）⟺ 它在下面两个探针事件里**至少有一个**会跑：
  *
- *   · `pull_request`（base=main，任意路径）—— 每个 PR 必经
- *   · `push` 到 `refs/heads/main`（任意路径）—— 每次合入必经
+ *   · `pull_request`（base=develop，任意路径）—— 每个 PR 必经
+ *   · `push` 到 `refs/heads/develop`（任意路径）—— 每次合入必经
  *
  * 这正是 issue #523 那张表的口径：`harness-verify`/`backend-gates` 每次 push/PR 都跑
  * ⇒ 真覆盖；`deploy-devportal`（`paths:` 过滤）、只有 `workflow_dispatch` 的取证
@@ -26,7 +26,7 @@
  *
  * 三道闸依次判，任何一道拦下就不是「本探针可达」：
  *   ① workflow 的 `on:` 是否接纳该事件（`paths`/`paths-ignore` 过滤 ⇒ 不接纳；
- *      `branches` 不含 main ⇒ 不接纳）；
+ *      `branches` 不含 develop ⇒ 不接纳）；
  *   ② job 的 `needs` 是否全部可达（父被跳过，子就不会跑）；
  *   ③ job / step 的 `if:` 在该事件下是否成立。
  *
@@ -55,19 +55,19 @@ export const PROBE_EVENTS = [
     id: "pull_request",
     eventName: "pull_request",
     ref: "refs/pull/1/merge",
-    baseBranch: "main",
+    baseBranch: "develop",
     label: "每个 PR",
   },
   {
-    id: "push-main",
+    id: "push-develop",
     eventName: "push",
-    ref: "refs/heads/main",
-    baseBranch: "main",
-    label: "每次合入 main",
+    ref: "refs/heads/develop",
+    baseBranch: "develop",
+    label: "每次合入 develop",
   },
 ];
 
-const DEFAULT_BRANCH = "main";
+const DEFAULT_BRANCH = "develop";
 
 // ---------------------------------------------------------------------------
 // GitHub 表达式：一个够用的子集求值器
@@ -381,8 +381,8 @@ export function triggerAdmits(on, probe) {
       why: `on.${probe.eventName} 带路径过滤（${shown}${Array.isArray(list) && list.length > 3 ? ", …" : ""}）`,
     };
   }
-  // `push` 看被推的分支，`pull_request` 看 PR 的 base 分支——两者都归到 main 这条线上。
-  const branch = probe.eventName === "push" ? DEFAULT_BRANCH : probe.baseBranch;
+  // `push` 看被推的分支，`pull_request` 看 PR 的 base 分支——两者都归到 develop 这条线上。
+  const branch = probe.eventName === "push" ? (probe.ref?.replace(/^refs\/heads\//, "") ?? DEFAULT_BRANCH) : probe.baseBranch;
   if (!branchesAdmit(spec.branches, branch)) {
     return { admits: false, why: `on.${probe.eventName}.branches 不含 ${branch}` };
   }

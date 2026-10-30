@@ -10,7 +10,7 @@ import { frozenTagBinding, releaseTag } from "./cn-frozen-release-identity.mjs";
 const owned:string[]=[];
 afterEach(()=>{for(const p of owned.splice(0))rmSync(p,{recursive:true,force:true})});
 const helper=join(process.cwd(),'.harness/scripts/vm/cn-frozen-release-identity.mjs');
-function fixture(compatible = true, cleanRuntime = false) {
+function fixture(compatible = true, cleanRuntime = false, sourceBase = 'main') {
  const dir=mkdtempSync(join(tmpdir(),'cn-frozen-identity-'));owned.push(dir);
  const git=(...args:string[])=>{const r=spawnSync('git',args,{cwd:dir,encoding:'utf8'});expect(r.status,r.stderr).toBe(0);return r.stdout.trim()};
  git('init','-q');git('config','user.name','Fixture');git('config','user.email','fixture@example.invalid');
@@ -22,7 +22,7 @@ function fixture(compatible = true, cleanRuntime = false) {
  const snapshot={schemaVersion:1,releaseSourceSha:source,attemptId:attempt,receiptSha256:hex,manifestSha256:hex,baselineSha256:hex,images:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,'sha256:'+hex])),devapp:{status:'passed',sourceSha:source,runtimeSourceShas:Object.fromEntries(['api','web','agent','sandbox'].map(k=>[k,source])),browserAccepted:true,evidenceSha256:hex,workflowRunId:55}};
  const checks=[...policy.requiredChecks,...policy.aggregates['backend-required'].filter((n:string)=>n!=='gates-test'),'e2e-core-loop','api-test-plan',...Array.from({length:sourceShardPolicy.count},(_,i)=>`gates-test (${i+1})`)].map((name,i)=>({id:i+1,name,head_sha:source,status:'completed',conclusion:'success',app:{slug:'github-actions'},started_at:'2026-10-01T00:00:00Z',completed_at:'2026-10-01T00:01:00Z'}));
  const sourceCommit={sha:source,tree:{sha:git('rev-parse',source+'^{tree}')},parents:[{sha:baseline}]};
- const pr={number:1,merged:true,merged_at:'2026-10-01T00:02:00Z',merge_commit_sha:source,base:{ref:'main',repo:{full_name:repo}},head:{sha:source,repo:{full_name:repo}}};
+ const pr={number:1,merged:true,merged_at:'2026-10-01T00:02:00Z',merge_commit_sha:source,base:{ref:sourceBase,repo:{full_name:repo}},head:{sha:source,repo:{full_name:repo}}};
  const mainAdmission={sourceCommit,associatedPrs:[pr],mainContainsSource:true,mergeTree:sourceCommit.tree.sha,mergeParentPolicy:policy,sourcePolicy:policy,prChecks:checks,prStatuses:[],sourceChecks:checks,sourceStatuses:[],deploymentWorkflow,sourceShardPolicy,sourceShardHelperSha256};
  const mainSourceEvidenceSha256=createHash('sha256').update(JSON.stringify(validateMainSourceAdmission(source,repo,mainAdmission))).digest('hex');
  const binding={releaseSourceSha:source,expectedMainCnSha:baseline,attemptId:attempt,receiptSha256:hex,mainSourceEvidenceSha256,manifestSha256:hex,baselineSha256:hex,images:snapshot.images,devappEvidenceSha256:hex,devappWorkflowRunId:55};
@@ -50,6 +50,8 @@ function fixture(compatible = true, cleanRuntime = false) {
  return {run,maps,snapshot,source,baseline,main,tagSha,tag,dir};
 }
 describe('real Git frozen-source CLI with controlled GitHub observations',()=>{
+ it('accepts synchronized develop merge source through actual frozen CLI',()=>{const f=fixture(true,false,'develop');const r=f.run();expect(r.status,r.stderr).toBe(0);expect(r.stdout).toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')});
+ it('rejects synchronized develop source without complete same-SHA runtime evidence',()=>{const f=fixture(true,false,'develop');const key=`repos/boardx/workspacex/commits/${f.source}/check-runs?filter=latest&per_page=100&page=1`;const v:any=f.maps[key];v.check_runs=v.check_runs.filter((c:any)=>c.name!=='api-test-plan');v.total_count=v.check_runs.length;expect(f.run().status).toBe(3)});
  it('fails NOT_READY for a historical dispatcher instead of borrowing latest main',()=>{const f=fixture(false);expect(f.run().status).toBe(3)});
  it('accepts actual ancestor candidate/tag after main advances without build or mutation',()=>{const f=fixture();expect(f.source).not.toBe(f.main);const r=f.run();expect(r.status,r.stderr).toBe(0);expect(r.stdout).toContain('CN_FROZEN_RELEASE_IDENTITY_JSON=')});
  it('shared release CLI does not require governance files or privileged governance APIs',()=>{

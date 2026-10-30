@@ -9,6 +9,7 @@ on:
         description: Exact application commit
         required: true
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/cn-package-runtime.py'
       - 'scripts/cn-package-node-closure.cjs'

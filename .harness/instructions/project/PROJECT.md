@@ -7,7 +7,7 @@
 
 ## 身份
 - GitHub org/repo：`boardx/workspacex`。
-- 开发集成默认：以最新 `origin/develop` 为基线，PR 目标显式设为 `develop`（2026-10-27 人类指令）；仅在人类另有明确要求时使用其它目标分支。该约定不等同于修改 GitHub 仓库的 default branch 设置。
+- 开发集成默认：以最新 `origin/develop` 为基线，PR 目标显式设为 `develop`（2026-10-27 人类指令）；所有开发改动只合入 `develop`；自动代码检测仅在目标为 `develop` 的 PR/merge_group 与 `develop` push 上执行（2026-10-30 人类指令）。`main` / `main-us` 直接同步已验证的同一 `develop` SHA，不再创建同步 merge commit 或重复运行代码检测；镜像仅由 develop 构建一次，CN/US 发布引用相同 immutable tag/digest，不分别重建；生产部署的环境、迁移、健康和浏览器验收继续执行。该约定不等同于修改 GitHub 仓库的 default branch 设置。
 - 同步配置：`.harness/config/github-sync.yaml` 的 `repo` 字段要与此处一致
 
 ## 部署面
