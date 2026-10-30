@@ -8,15 +8,16 @@ const scoped=`org_id=$1 AND ($2::text IS NULL OR user_id=$2) AND ($3::text IS NU
  AND ($8::text IS NULL OR thread_id=$8) AND ($9::text IS NULL OR agent_id=$9)
  AND occurred_at<=$13::timestamptz`;
 const eventTime="COALESCE(request_started_at,occurred_at)";
-/** Immutable receipt sums preserve the requested snapshot even after later settlement.
- * Legacy rows without fragment receipts use their terminal debit only after settled_at.
- * The correlated tenant/actor identity prevents a same-ID event from borrowing another payer.
+/** Read immutable posted financial facts at the same snapshot, including both
+ * original terminal source IDs and fragment source IDs. Late zero-delta replay
+ * receipts cannot erase a debit or change an older snapshot.
  */
 const creditSource=`SELECT e.*,(SELECT name FROM organizations WHERE id=e.org_id) AS organization_name,a.credit_hundredths,a.payer,COALESCE(a.credit_status,'unbilled') AS credit_status
  FROM effective_token_usage($13::timestamptz) e LEFT JOIN LATERAL (
-  SELECT CASE WHEN EXISTS(SELECT 1 FROM credit_consumption_receipts z WHERE z.request_id=r.request_id AND z.org_id=r.org_id)
-   THEN COALESCE((SELECT sum(z.debited_hundredths) FROM credit_consumption_receipts z WHERE z.request_id=r.request_id AND z.org_id=r.org_id AND z.created_at<=$13::timestamptz),0)
-   WHEN r.settled_at<=$13::timestamptz THEN r.debited_hundredths ELSE 0 END AS credit_hundredths,
+  SELECT (SELECT COALESCE(sum((t.credits*100)::bigint),0) FROM credit_transactions t
+   WHERE t.wallet_id=r.wallet_id AND t.type='consume' AND t.source_type='model_request' AND t.created_at<=$13::timestamptz
+   AND t.source_id IN (SELECT r.request_id UNION ALL SELECT z.transaction_source_id FROM credit_consumption_receipts z
+    WHERE z.request_id=r.request_id AND z.org_id=r.org_id AND z.created_at<=$13::timestamptz AND z.transaction_source_id IS NOT NULL)) AS credit_hundredths,
    CASE WHEN r.state='settled' AND r.settled_at<=$13::timestamptz THEN 'settled' ELSE 'pending' END AS credit_status,
    jsonb_build_object('ownerType',w.owner_type,'ownerId',w.owner_id) AS payer
   FROM credit_consumption_requests r JOIN credit_wallets w ON w.wallet_id=r.wallet_id

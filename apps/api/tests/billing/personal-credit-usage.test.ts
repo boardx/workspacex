@@ -43,3 +43,13 @@ it("self scope spans verified memberships, excludes another actor and foreign te
  await expect(self.calls(principal,{...query,userId:other})).rejects.toMatchObject({reasonCode:"FORBIDDEN"});
  await expect(self.calls(principal,{...query,modelId:"changed",asOf:out.asOf,cursorTime:first.nextCursor!.occurredAt,cursorId:first.nextCursor!.id})).rejects.toThrow();
 });
+it("retains a legacy terminal debit after a late zero-delta fragment, including the original snapshot",async()=>{
+ const org=orgs[2]!,id=prefix+"-mixed-format";
+ await meter.startRequest(org,{requestId:id,userId:user,runId:null,callPurpose:"auxiliary",executionAttemptId:null,projectId:null,modelProvider:"test",modelId:"mixed-format",startedAt:new Date().toISOString()});
+ const receipt={eventId:id,userId:user,runId:null,modelProvider:"test",modelId:"mixed-format",tokensTotal:20,promptTokens:20,completionTokens:0,totalSource:"reported" as const,outcome:"succeeded" as const};
+ await meter.record(org,receipt);const q={...query,modelId:"mixed-format"};const initial=await repo.summary(org,q);
+ expect(initial.current.creditHundredths).toBe("2");
+ await meter.record(org,{...receipt,billingReceipt:{id:"late-interim",final:false}});
+ expect((await repo.summary(org,q)).current.creditHundredths).toBe("2");
+ expect((await repo.summary(org,{...q,asOf:initial.asOf})).current.creditHundredths).toBe("2");
+});
