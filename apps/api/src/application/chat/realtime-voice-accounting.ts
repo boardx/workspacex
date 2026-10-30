@@ -16,13 +16,17 @@ export class RealtimeVoiceAccounting{
  private startedAt=new Date().toISOString();private admitted=false;private dispatched=false;private uncertain=false;private failed=false;
  private readonly known=new Map<string,Counters>();private readonly unknown=new Set<string>();private readonly active=new Set<string>();
  private totals:Counters={total:0,input:0,output:0,failed:false};private serial:Promise<void>=Promise.resolve();private finishing:Promise<void>|null=null;
- private session:RealtimeVoiceSession|null=null;
+ private session:RealtimeVoiceSession|null=null;private admitting:Promise<void>|null=null;
  constructor(private readonly meter:TokenUsageMeterPort,private readonly principal:Principal,private readonly model:string){}
  private error(){return new CreditConsumptionError("credit_accounting_unavailable","user",this.principal.userId,"realtime_usage_unconfirmed");}
- async start(session:RealtimeVoiceSession|null){
-  if(!this.meter.startRequest)throw this.error();this.session=session;
-  await this.meter.startRequest(this.principal.orgId,{requestId:this.requestId,userId:this.principal.userId,runId:null,executionAttemptId:null,projectId:null,
-   modelProvider:"qwen-realtime",modelId:this.model,threadId:session?.threadId??null,agentId:session?.role.agentId??null,callPurpose:"auxiliary",startedAt:this.startedAt});this.admitted=true;
+ start(session:RealtimeVoiceSession|null):Promise<void>{
+  if(this.admitting)return this.admitting;
+  this.session=session;
+  this.admitting=(async()=>{
+   if(!this.meter.startRequest)throw this.error();
+   await this.meter.startRequest(this.principal.orgId,{requestId:this.requestId,userId:this.principal.userId,runId:null,executionAttemptId:null,projectId:null,
+    modelProvider:"qwen-realtime",modelId:this.model,threadId:session?.threadId??null,agentId:session?.role.agentId??null,callPurpose:"auxiliary",startedAt:this.startedAt});this.admitted=true;
+  })();return this.admitting;
  }
  markDispatched(){this.dispatched=true;}
  receive(event:Record<string,unknown>):Promise<void>{
@@ -54,7 +58,7 @@ export class RealtimeVoiceAccounting{
  }
  finish(aborted=false):Promise<void>{
   if(this.finishing)return this.finishing;
-  this.finishing=this.serial.catch(()=>{this.uncertain=true;}).then(async()=>{
+  this.finishing=(this.admitting??Promise.resolve()).catch(()=>undefined).then(()=>this.serial.catch(()=>{this.uncertain=true;})).then(async()=>{
    if(!this.admitted)return;this.failed ||= aborted;
    const confirmed=!this.dispatched||(!this.uncertain&&this.unknown.size===0&&this.active.size===0&&this.known.size>0);
    await this.meter.record(this.principal.orgId,this.receipt("session-final",true,confirmed));

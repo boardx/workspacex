@@ -1,0 +1,3 @@
+Same independent reviewer addendum: Critical 0, Important 1. Disconnect during awaited admission could cache a no-op finish and leave an admitted request/spool slot. Real WS + PostgreSQL + fsync outbox test reproduced reserved/null instead of settled/0. Fix awaits the admission promise before finalization. Focused 73 tests pass, including independent replay ACK and slot removal; provider socket count remains unchanged.
+
+Combined pre-race-fix API/payment/usage/voice regression 394 tests passed; final race correction has the focused73 proof. Voice UI/protocol37 tests, API/Web typecheck and lint passed. No production inventory, apply, deployment or merchant/model charge certification.
