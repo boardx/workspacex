@@ -238,3 +238,14 @@ it("reports pending current credits when subscription advances before its paid i
  const info=await(await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}})).json();
  expect(info.creditGrant).toEqual({status:"pending",grant:null});
 });
+
+it("period-end cancellation preserves Pro until the authoritative subscription ends", async () => {
+  expect((await checkout(await intent())).status).toBe(200);
+  snapshots["/v1/subscriptions/sub_f09A"] = { ...subscription(), cancel_at_period_end: true };
+  expect((await post("customer.subscription.updated", { id: "sub_f09A" }, "evt_f09cancelScheduled")).status).toBe(200);
+  const read = () => fetch(`${base}/billing/subscription`, { headers: { authorization: "Bearer fixture" } });
+  expect(await (await read()).json()).toMatchObject({ status: "active", cancelAtPeriodEnd: true });
+  snapshots["/v1/subscriptions/sub_f09A"] = { ...subscription("sub_f09A", "canceled"), cancel_at_period_end: false };
+  expect((await post("customer.subscription.deleted", { id: "sub_f09A" }, "evt_f09cancelEnded")).status).toBe(200);
+  expect(await (await read()).json()).toMatchObject({ status: "canceled", cancelAtPeriodEnd: false });
+});
