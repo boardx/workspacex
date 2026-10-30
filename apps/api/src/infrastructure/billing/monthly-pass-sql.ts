@@ -1,5 +1,7 @@
 /** Closed owner-global statements; webhook recovery never admits tenant-content SQL. */
 export const MONTHLY_PASS_SQL=Object.freeze({
+ grantedIdentity:"SELECT 1 FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id) WHERE w.owner_type='user' AND w.owner_id=$1 AND p.invoice_ref=$2 AND p.subscription_ref=$3 AND p.plan_ref=$4 AND p.period_start=$5 AND p.period_end=$6",
+ overlapping:"SELECT 1 FROM billing_monthly_orders WHERE user_id=$1 AND state='paid' AND period_start<$3 AND period_end>$2 LIMIT 1",
  conflict:"SELECT 1 FROM billing_payment_conflicts WHERE conflict_key=$1 AND resolved_at IS NULL",
  userConflict:"SELECT 1 FROM billing_payment_conflicts WHERE user_id=$1 AND resolved_at IS NULL LIMIT 1",
  recordConflict:"INSERT INTO billing_payment_conflicts(conflict_key,user_id,provider_ref,other_ref) VALUES($1,$2,$3,$4) ON CONFLICT DO NOTHING",

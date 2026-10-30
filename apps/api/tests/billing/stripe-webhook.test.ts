@@ -274,3 +274,21 @@ it("retains legacy management and defers an overlapping legacy invoice after a m
   expect((await fetch(`${base}/billing/subscription/management-link`,{headers:{authorization:"Bearer fixture"}})).status).toBe(200);
  }finally{await db.close();}
 });
+
+it("accepts a historical nonoverlapping invoice without blocking the current pass",async()=>{
+ const {PgDatabase}=await import("../../src/infrastructure/db/pg-database");const {appConfig}=await import("../../src/infrastructure/db/pg-config");
+ const {PgMonthlyPassRepository}=await import("../../src/infrastructure/billing/pg-monthly-pass-repository");
+ const db=new PgDatabase(appConfig()),repo=new PgMonthlyPassRepository(db),p={userId:user,orgId:toOrgId("f09-stripe-org")};
+ try{
+  const order=await repo.reserve(p);await repo.bind(p,order.orderId,"cs_test_overlap");await repo.settle(order.orderId,{id:"cs_test_overlap",object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:"pi_test_overlap"});
+  monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+  const invoice=snapshots["/v1/invoices/in_f09monthly"] as any;
+  const end=Math.floor(Date.now()/1000)-86400;invoice.lines.data[0].period={start:end-30*86400,end};
+  expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09overlap")).status).toBe(200);
+  expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00"}]);
+  expect((await asOwner(c=>c.query("SELECT 1 FROM billing_payment_conflicts WHERE user_id=$1",[user]))).rows).toHaveLength(0);
+  const response=await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}});expect(await response.json()).toMatchObject({status:"active",planRef:"price_f09"});
+  snapshots["/v1/billing_portal/sessions"]={object:"billing_portal.session",customer:"cus_f09A",url:"https://billing.stripe.com/p/session/overlap"};
+  expect((await fetch(`${base}/billing/subscription/management-link`,{headers:{authorization:"Bearer fixture"}})).status).toBe(200);
+ }finally{await db.close();}
+});

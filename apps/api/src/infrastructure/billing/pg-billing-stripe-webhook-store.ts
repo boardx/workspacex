@@ -80,10 +80,10 @@ export class PgBillingStripeWebhookStore implements StripeWebhookStore {
         const price=await provider.price!(data.plan!);
         period=paidMonthlyCreditPeriod(paidInvoice,price,{subscriptionRef,customerRef:customer,planRef:data.plan!,periodStart:new Date(data.start!*1000).toISOString(),periodEnd:new Date(data.end!*1000).toISOString(),status:SubscriptionStatus.parse(data.status)});
       }
-      if(period){
+      if(period && !(await s.query(MONTHLY_PASS_SQL.grantedIdentity,[owner.user_id,period.invoiceRef,period.subscriptionRef,period.planRef,period.periodStart,period.periodEnd])).rows.length){
         const key=`legacy:${period.invoiceRef}`;
         if((await s.query(MONTHLY_PASS_SQL.conflict,[key])).rows.length)return false;
-        if((await s.query(MONTHLY_PASS_SQL.active,[owner.user_id])).rows.length){
+        if((await s.query(MONTHLY_PASS_SQL.overlapping,[owner.user_id,period.periodStart,period.periodEnd])).rows.length){
           await s.query(MONTHLY_PASS_SQL.recordConflict,[key,owner.user_id,period.invoiceRef,subscriptionRef]);
           return false; // Persist a reconciliation case; never silently grant a second overlapping paid period.
         }
