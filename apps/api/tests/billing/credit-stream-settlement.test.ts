@@ -91,3 +91,15 @@ it("recovers cumulative receipts after a database outage without adding per-chun
     expect(starts).toBe(1);
   } finally {await rm(directory, {recursive: true, force: true});}
 });
+it("persists late terminal counters and pricing through the durable meter without charging again",async()=>{
+ const directory=await mkdtemp(join(tmpdir(),"credit-late-terminal-")),meter=new DurableCreditUsageMeter(new PgTokenUsageRepository(db),{directory});
+ const id="late-terminal-enrichment";
+ try{
+  await meter.startRequest(org,start(id));const initial={...receipt(id,"terminal",11,true),promptTokens:null,completionTokens:null};
+  await meter.record(org,initial);const enriched={...initial,promptTokens:10,completionTokens:1,costMicros:7n,currency:"CNY",priceVersion:"late-v1"};
+  await meter.record(org,enriched);expect(await meter.replayPending()).toEqual({settled:1,pending:0});
+  expect(await asApp(org,async c=>(await c.query("SELECT tokens_prompt::text AS input,tokens_completion::text AS output,cost_micros::text AS cost FROM effective_token_usage(now()) WHERE id=$1",[prefix+id])).rows[0])).toEqual({input:"10",output:"1",cost:"7"});
+  expect(await debit(id)).toEqual({debit:"2",state:"settled"});
+  await expect(meter.record(org,{...enriched,promptTokens:9,completionTokens:2})).rejects.toThrow();expect(await debit(id)).toEqual({debit:"2",state:"settled"});
+ }finally{await rm(directory,{recursive:true,force:true});}
+});
