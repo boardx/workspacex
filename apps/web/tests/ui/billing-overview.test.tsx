@@ -37,7 +37,7 @@ describe("真实计费入口与账户状态", () => {
     await waitFor(() => expect(screen.getByTestId("billing-wallet-balance").textContent).toContain("1,250"));
     expect(screen.getByTestId("billing-provider-unavailable").textContent).toContain("暂未开通");
     expect(screen.getByTestId("billing-subscription-status").textContent).toContain("已订阅");
-    expect(screen.getByText("将在本期结束后取消")).toBeTruthy();
+    expect(screen.getByText(/已取消续费.*本期结束前.*Pro/)).toBeTruthy();
     expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
     expect(screen.queryByText("price-private")).toBeNull();
   });

@@ -230,3 +230,14 @@ it.each(["unavailable","invalid-items"])("current %s snapshot cannot leave old a
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(200);
   expect((await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}})).status).toBe(200);
 });
+
+it("period-end cancellation preserves Pro until the authoritative subscription ends", async () => {
+  expect((await checkout(await intent())).status).toBe(200);
+  snapshots["/v1/subscriptions/sub_f09A"] = { ...subscription(), cancel_at_period_end: true };
+  expect((await post("customer.subscription.updated", { id: "sub_f09A" }, "evt_f09cancelScheduled")).status).toBe(200);
+  const read = () => fetch(`${base}/billing/subscription`, { headers: { authorization: "Bearer fixture" } });
+  expect(await (await read()).json()).toMatchObject({ status: "active", cancelAtPeriodEnd: true });
+  snapshots["/v1/subscriptions/sub_f09A"] = { ...subscription("sub_f09A", "canceled"), cancel_at_period_end: false };
+  expect((await post("customer.subscription.deleted", { id: "sub_f09A" }, "evt_f09cancelEnded")).status).toBe(200);
+  expect(await (await read()).json()).toMatchObject({ status: "canceled", cancelAtPeriodEnd: false });
+});
