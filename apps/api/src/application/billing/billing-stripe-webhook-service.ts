@@ -4,6 +4,9 @@ export interface StripeWebhookVerifier { verify(body: unknown, signature: unknow
 export interface StripeSnapshotProvider {
   checkout(id: string): Promise<Record<string, unknown>>;
   subscription(id: string): Promise<Record<string, unknown>>;
+  /** Required for paid-credit grant handling; older snapshot-only adapters fail closed for paid events. */
+  invoice?(id: string): Promise<Record<string, unknown>>;
+  price?(id: string): Promise<Record<string, unknown>>;
 }
 export interface StripeWebhookStore { apply(event: StripeEvent, provider: StripeSnapshotProvider): Promise<boolean> }
 export class BillingStripeWebhookService {

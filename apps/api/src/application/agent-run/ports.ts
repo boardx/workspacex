@@ -1527,6 +1527,10 @@ export interface AgentRunExecutorPort {
 export interface TokenUsageRecord {
   /** Unique receipt identity; reuse only when retrying this same accounting write. */
   readonly eventId?: string;
+  /** Optional cumulative provider usage snapshot for the same physical eventId.
+   * Stable receipt id deduplicates chunks; only final releases the request hold.
+   * Ordinary terminal-only providers omit this and keep their existing semantics. */
+  readonly billingReceipt?: {readonly id: string; readonly final: boolean};
   /** Explicit trusted priced amount; absence is unknown, never free. */
   readonly costMicros?: bigint;
   readonly currency?: string;

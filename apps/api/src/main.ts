@@ -1,3 +1,4 @@
+import { TOKEN_USAGE_METER } from "./application/agent-run/ports";
 import { registerBillingRawBodyParser } from "./interface/middleware/billing-raw-body-parser";
 import { LOGGER_PORT } from "./application/ports/logger.port";
 import { registerGuidedResearchBodyParsers } from "./interface/middleware/guided-research-body-parser";
@@ -222,6 +223,7 @@ export function attachStreamingSurfaces(app: NestExpressApplication, options: { 
     asr: app.get(ASR_PROVIDER),
   });
   attachRealtimeDigitalHumanGateway(app.getHttpServer(), {
+    usage: app.get(TOKEN_USAGE_METER),
     principals: app.get(PRINCIPAL_RESOLVER_PORT),
     config: () => realtimeConfig,
     // Chat 语音模式：线程判权 + 已发布角色解析 + 转写落库（见 `realtime-voice-session.ts`）。

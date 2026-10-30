@@ -99,7 +99,7 @@ describe("F08 real subscription HTTP/PG", () => {
   it("only returns none for absent own data, never leaks another user's subscription", async () => {
     await seed("active");
     expect(await (await request("", other)).json()).toEqual({ status: "none", planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false });
-    expect(await (await request("")).json()).toEqual({ status: "active", planRef: "price_f08", currentPeriodEnd: "2030-01-01T00:00:00.000Z", cancelAtPeriodEnd: false });
+    expect(await (await request("")).json()).toEqual({ status: "active", planRef: "price_f08", currentPeriodEnd: "2030-01-01T00:00:00.000Z", cancelAtPeriodEnd: false,creditGrant:{status:"pending",grant:null} });
   });
   it.each(["active", "trialing", "past_due", "unpaid", "incomplete", "paused"])("%s is readable but blocks repeat sale and uses trusted Portal customer", async status => {
     await seed(status);

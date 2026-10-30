@@ -1,6 +1,6 @@
 import type { LoggerPort } from "../../application/ports/logger.port";
 import { createHash, randomBytes } from "node:crypto";
-import { SubscriptionStatus, subscriptionEligibility } from "@repo/contracts/billing-subscription";
+import { SubscriptionStatus, subscriptionEligibility, SubscriptionCreditGrant } from "@repo/contracts/billing-subscription";
 import { assertPrincipal, type Principal } from "../../domain/principal";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { MAX_ACTIVE_PURCHASE_INTENTS, SubscriptionIntentLimitError, SubscriptionError, type SubscriptionRepository, type SubscriptionSnapshot } from "../../application/billing/billing-subscription-service";
@@ -19,8 +19,15 @@ async function snapshot(session: TenantSession, userId: string): Promise<Subscri
   if (!row) return null;
   const status = SubscriptionStatus.safeParse(row.status);
   if (!status.success || status.data === "none") throw new SubscriptionError("dependency_unavailable");
+  const period=(await session.query<{period_start:Date;period_end:Date;expired_at:Date|null;granted_hundredths:string;remaining_hundredths:string;as_of:Date}>(`SELECT p.period_start,p.period_end,p.expired_at,p.granted_hundredths::text,p.remaining_hundredths::text,now() AS as_of
+    FROM credit_subscription_periods p JOIN credit_wallets w ON w.wallet_id=p.wallet_id WHERE w.owner_type='user' AND w.owner_id=$1
+    AND p.subscription_ref=$2 AND p.period_start<=now() ORDER BY p.period_start DESC,p.period_id DESC LIMIT 1`,[userId,row.subscription_ref])).rows[0];
+  const expired=period&&(period.expired_at!==null||period.period_end.getTime()<=period.as_of.getTime());
+  const currentPeriodMatches=period && period.period_end.getTime()===row.current_period_end?.getTime();
+  const creditGrant=SubscriptionCreditGrant.parse(period&&(status.data!=="active"||currentPeriodMatches)?{status:expired?"expired":"granted",grant:{credits:Number(period.granted_hundredths)/100,remainingCredits:expired?0:Number(period.remaining_hundredths)/100,periodStart:period.period_start.toISOString(),periodEnd:period.period_end.toISOString()}}:
+    {status:status.data==="active"?"pending":"none",grant:null});
   return { status: status.data, planRef: row.plan_ref, currentPeriodEnd: row.current_period_end?.toISOString() ?? null, cancelAtPeriodEnd: row.cancel_at_period_end,
-    customerRef: row.customer_ref, subscriptionRef: row.subscription_ref, generation: row.binding_generation, synchronizationUncertain: row.synchronization_uncertain };
+    customerRef: row.customer_ref, subscriptionRef: row.subscription_ref, generation: row.binding_generation, synchronizationUncertain: row.synchronization_uncertain,creditGrant };
 }
 export class PgBillingSubscriptionRepository implements SubscriptionRepository {
   constructor(private readonly db: DatabasePort, private readonly logger: LoggerPort) {}

@@ -38,4 +38,6 @@ export class StripeWebhookClient implements StripeSnapshotProvider, StripeWebhoo
   }
   async checkout(id: string) { if(!/^cs_[A-Za-z0-9_]+$/.test(id)||id.length>255) throw Error("invalid_session"); const value=await this.retrieve(`checkout/sessions/${id}`); if(value.id!==id||value.object!=="checkout.session"||value.mode!=="subscription"||value.status!=="complete") throw Error("invalid_session"); return value; }
   async subscription(id: string) { if(!/^sub_[A-Za-z0-9_]+$/.test(id)||id.length>255) throw Error("invalid_subscription"); const value=await this.retrieve(`subscriptions/${id}`); if(value.id!==id||value.object!=="subscription") throw Error("invalid_subscription"); return value; }
+  async invoice(id: string) { if(!/^in_[A-Za-z0-9_]+$/.test(id)||id.length>255) throw Error("invalid_invoice"); const value=await this.retrieve(`invoices/${id}`); if(value.id!==id||value.object!=="invoice") throw Error("invalid_invoice"); return value; }
+  async price(id: string) { if(!/^price_[A-Za-z0-9_]+$/.test(id)||id.length>255) throw Error("invalid_price"); const value=await this.retrieve(`prices/${id}`); if(value.id!==id||value.object!=="price") throw Error("invalid_price"); return value; }
 }

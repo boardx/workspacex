@@ -1,0 +1,18 @@
+{
+  "source": "real Next/Billing HTTP/PostgreSQL",
+  "provider": "controlled Stripe HTTP + independent HMAC",
+  "billingHttpIntercepted": false,
+  "realMoneyCharged": false,
+  "state": [
+    {
+      "status": "active",
+      "binding_generation": "1"
+    }
+  ],
+  "events": [
+    {
+      "n": 1
+    }
+  ],
+  "credits": []
+}
