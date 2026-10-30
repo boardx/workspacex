@@ -116,3 +116,47 @@ describe('safe validator failure diagnostics without changing admission or publi
     for (const worker of fake.instances) expect(worker.terminate).toHaveBeenCalledTimes(1);
   });
 });
+
+it('waits through progress and retains safe phase timing on timeout', async () => {
+  vi.useFakeTimers();
+  const pending = run();
+  const rejected = expect(pending).rejects.toMatchObject({ code: 'VALIDATOR_UNAVAILABLE' });
+  await Promise.resolve();
+  fake.instances[0]!.emit('message', { phase: 'ready' });
+  fake.instances[0]!.emit('message', { phase: 'snapshot-applied' });
+  await vi.advanceTimersByTimeAsync(5001);
+  await rejected;
+  expect(detail()).toMatchObject({ reason: 'worker_deadline', lastPhase: 'snapshot-applied' });
+});
+it('does not accept an unknown progress phase as a result', async () => {
+  const pending = run(); await Promise.resolve();
+  fake.instances[0]!.emit('message', { phase: 'private-secret', result: true });
+  await expect(pending).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+});
+
+it('waits through all known phases for a final rejection', async () => {
+  const pending = run(); await Promise.resolve();
+  for (const phase of ['ready', 'snapshot-applied', 'validated']) fake.instances[0]!.emit('message', { phase });
+  fake.instances[0]!.emit('message', { rejected: true });
+  await expect(pending).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  expect(logs).not.toHaveBeenCalled();
+});
+it('keeps product service barrels outside the worker dependency graph', async () => {
+  const { readFile } = await import('node:fs/promises');
+  const { resolve, dirname } = await import('node:path');
+  const root = resolve('../../packages/whiteboard-core/src');
+  const visited = new Set<string>();
+  async function visit(path: string): Promise<void> {
+    if (visited.has(path)) return;
+    visited.add(path);
+    const source = await readFile(path, 'utf8');
+    expect(source).not.toMatch(/from ['"]@repo\/whiteboard-core['"]/);
+    for (const match of source.matchAll(/(?:from|export\s*\*)\s*['"](\.\/[^'"]+)['"]/g)) {
+      await visit(resolve(dirname(path), match[1] + '.ts'));
+    }
+  }
+  await visit(resolve(root, 'validation-worker.ts'));
+  for (const module of ['index', 'ai-proposal', 'presentation', 'artifact-handoff', 'operation-kernel', 'collaboration', 'import-mapping']) {
+    expect(visited.has(resolve(root, module + '.ts'))).toBe(false);
+  }
+});

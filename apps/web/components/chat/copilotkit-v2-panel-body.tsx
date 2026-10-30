@@ -1806,7 +1806,7 @@ export function CopilotKitV2PanelBody({
   const { queuedReply, setQueuedReply, queuedFailed, retryQueuedReply, runningReplyAck, interjectPending, sendWhileRunning } = useRunningReply({
     agent, canWrite: canWrite && !archived, threadId: resolvedChatThreadId ?? initialChatThreadId ?? threadId, run: interjectionRun, inputDraft, inputDraftRevision: composerDraft.revision, sessionToken, enqueue: serverQueue.enqueue,
     draftScope: JSON.stringify([draftSession?.currentOrgId ?? orgId, draftSession?.userId ?? null, projectId]),
-    clearDraft: clearRunningDraft, setError,
+    clearDraft: clearRunningDraft, setError, onAccepted: () => scrollMessagesToBottom("auto"),
   });
 
   /*

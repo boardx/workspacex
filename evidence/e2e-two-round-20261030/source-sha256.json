@@ -1,0 +1,15 @@
+{
+  "apps/web/e2e/board-image-ingress-acceptance.spec.ts": "79c86e7a04da992c82b049438f42f08464b788875400577627b73bf2be2ea3a1",
+  "apps/web/e2e/support/chat-path-coverage.ts": "b82f19207dcc5cc1f436ab12daffb2fd7538efe765289984bd4ec51519168c9c",
+  "apps/web/tests/e2e-stored-reply-poll.test.ts": "10b2e2b7703cc6bd9e8e3b73d83b5ca5a4fc9082e311c6f768a1536f276d6f88",
+  "apps/web/lib/chat-workbench/use-running-reply.ts": "8d54bef8c0fc46ffb5ab8de6685818424cbf48a8e92c8e896766d469bd95edd4",
+  "apps/web/components/chat/copilotkit-v2-panel-body.tsx": "ffc864ff651ed73be2772954cc5b87c5868b3d85681ecfe77aabf74573a65130",
+  "apps/web/e2e/agent-workbench-steering-acceptance.spec.ts": "c703d7a17fb1578de396229f6b3f6f6649c4580cfaa781ed3cc8c93a288276f6",
+  "apps/web/e2e/chat-read.spec.ts": "851342dd549ca441417fdaeb1ee00a1dad872ec7bc2b24870e9984bc45ca983d",
+  "apps/web/tests/ui/workbench-running-reply.test.tsx": "6dca115c19abc6e2ebe6b423740eac0177fb655699753c33f49d9b14c939239b",
+  "apps/api/src/infrastructure/whiteboard/update-validator.ts": "61da4b3c2420a2d7a8198045eb06a5af75316875dc5aadf3c4e0130622dacc4f",
+  "apps/api/src/infrastructure/whiteboard/update-validator-worker.ts": "ca278b44571afe7dfd970bbd251f47007e51ded47856123b33263e8a8d5dafc6",
+  "apps/api/tests/whiteboard/validator-diagnostics.test.ts": "22072926469f53a93c7e1acd8467853a680829bb37f65416d316c296f161e1e9",
+  "packages/whiteboard-core/src/validation-worker.ts": "10eb5536c41533aab26dc2b9860e0828b95b27d64d0ef4dea57e4f66b1228115",
+  "packages/whiteboard-core/package.json": "627c8fac2864603d910c8875be8ca3eb8819a04cd38e974c80279d5886eb1f5b"
+}
