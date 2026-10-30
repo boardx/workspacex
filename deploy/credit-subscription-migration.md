@@ -16,7 +16,7 @@ pnpm --filter @repo/api exec tsx scripts/billing-credit-subscription-backfill.ts
 ```
 
 4. 审核全部页报告。`blocked>0` 退出 2，checkpoint 保留本页起点。修正绑定/付款/套餐映射后重跑；不要手动跳过该页。`verification_failed` 可能是未付款、当前周期不一致、提供方失败或试用，需用 Stripe 和服务端绑定逐项核对，不凭客户端数据补发。
-5. 显式执行 apply，**使用另一个 checkpoint**。dry-run checkpoint 不能用于 apply，数据库或套餐清单改变也会拒绝复用。完成后重新从空 checkpoint 对账，覆盖高水位后新增的订阅，并检查所有 active 月付账户当前周期都存在唯一批次。
+5. 显式执行 apply，**使用另一个 checkpoint**。dry-run checkpoint 不能用于 apply；数据库主机、端口、库名或套餐清单改变都会拒绝复用，旧版缺少主机/端口的 checkpoint 也拒绝。更换目标时从新 checkpoint 重新审计，不移用游标。完成后重新从空 checkpoint 对账，覆盖高水位后新增的订阅，并检查所有 active 月付账户当前周期都存在唯一批次。
 
 ```bash
 pnpm --filter @repo/api exec tsx scripts/billing-credit-subscription-backfill.ts \
@@ -32,5 +32,6 @@ pnpm --filter @repo/api exec tsx scripts/billing-credit-subscription-backfill.ts
 - 未绑定的早到付款回调返回可重试；绑定恢复后可重放。历史 ignored paid 事件可用原已验签事件重放，或用本工具重新核验当前付款周期。周期事实始终按 invoice + subscription + cycle 去重。
 - 工具每页重新向固定 Stripe API 读取订阅、最新账单和 price，不读取客户端 metadata userId。只接纳当前真实月周期；旧的已付账单不能顶替当前未付账期。
 - `applied` 表示已对账的账户数，包括幂等重放，不表示新增发放数；新增数以 `subscription_grant` 流水为准。流水和周期表应分别核对；不从 token 总量反推费用。
+- apply 在用户锁内重新核验并确认本次预期的确切周期已发放或已存在，才报告成功。复读时状态/账期变化返回 `credit_period_not_reconciled`，整页保留起点；恢复后同一账单可重试。历史 `ok` 审计但无额度的情况也会重新核实并补齐独立的周期事实，不修改旧事件审计。
 - 新 API 部署失败可回滚旧镜像，保留新增表和全部流水。回滚旧镜像会临时恢复其旧准入行为，需记录窗口；不要删批次、重置余额、清掉负债或把已发生调用当免费来“回滚”。后续重新启用前再次对账。
 - 本会话未执行生产 apply、真实付款或生产部署；这些是独立发布动作。
