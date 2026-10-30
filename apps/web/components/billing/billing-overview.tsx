@@ -105,7 +105,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
             {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度</p>}
             <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">累计充值</dt><dd className="tabular-nums">{number(wallet.state.data.totalPurchased)}</dd></div><div><dt className="text-muted-foreground">累计发放</dt><dd className="tabular-nums">{number(wallet.state.data.totalGranted)}</dd></div></dl>
           </>}
-          {providers.includes("wechat") ? <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>购买额度</Button> : <p className="text-12 text-muted-foreground">微信充值暂未开放。</p>}
+          {providers.includes("wechat") && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>购买额度</Button>}
         </CardContent>
       </Card>
       <Card>
@@ -120,7 +120,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
       <CardContent className="space-y-3">
         <ReadNotice state={config.state} name="config" label="支付渠道" retry={config.retry} />
         {config.state.status === "ready" && <>
-          <div className="flex flex-wrap gap-2"><Badge tone={providers.includes("wechat") ? "primary" : "neutral"}>微信支付 · {providers.includes("wechat") ? "已配置" : "未开通"}</Badge><Badge tone={providers.includes("stripe") ? "primary" : "neutral"}>Stripe · {providers.includes("stripe") ? "已配置" : "未开通"}</Badge></div>
+          <div className="flex flex-wrap gap-2">{providers.includes("wechat") && <Badge tone="primary">微信支付 · 已配置</Badge>}{providers.includes("stripe") && <Badge tone="primary">Stripe · 已配置</Badge>}</div>
           {providers.length === 0 && <p data-testid="billing-provider-unavailable" className="text-13 text-muted-foreground">支付渠道暂未开通，当前无法购买。账户查询结果见上方。</p>}
         </>}
       </CardContent>
