@@ -35,6 +35,7 @@
     "test:research-policy": "vitest run --config vitest.research-policy.config.ts",
     "test:billing-provider": "vitest run --config vitest.billing-provider.config.ts",
     "test:usage-unit": "vitest run --config vitest.usage-unit.config.ts",
+    "test:self-usage": "vitest run --config vitest.self-usage.config.ts",
     "soak:whiteboard-meeting-room": "tsx scripts/whiteboard-meeting-room-soak.ts",
     "test:native-chain": "vitest run --config vitest.native-chain.config.ts",
     "test:browser-adapter": "vitest run --config vitest.browser-adapter.config.ts",
