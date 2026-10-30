@@ -73,7 +73,10 @@ test("running composer accepts direction without cancelling the active tool or s
   await expect(input).toBeEnabled();
   await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
   const messages = page.getByTestId("copilotkit-v2-messages");
-  await expect(page.getByTestId("copilotkit-v2-send")).toHaveAttribute("data-send-state", "running");
+  // A nonempty running draft deliberately shows send-state=ready. Read the run.
+  const running = await page.request.get(`/agent-runs/${runId}`, {headers});
+  expect(running.ok()).toBe(true);
+  expect((await running.json()).status).toBe("running");
   await messages.hover(); await page.mouse.wheel(0, -100_000);
   await expect(page.getByTestId("copilotkit-v2-scroll-to-bottom")).toBeVisible();
   const receiptResponse = page.waitForResponse(value => value.request().method() === "POST" && value.url().includes(`/agent-runs/${runId}/interject`));
