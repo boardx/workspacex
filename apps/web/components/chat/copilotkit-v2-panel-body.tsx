@@ -921,8 +921,8 @@ export function CopilotKitV2PanelBody({
         // so restoring only the assistant message leaves a truthful "file generated" reply
         // with no download card until the next full-page refresh. Re-read the same durable
         // attachment rows used by the mount-time hydration above and attach only files owned
-        // by the newly restored assistant messages.
-        const restoredMessageIds = new Set(restored.filter((m) => m.role === "assistant").map((m) => m.id));
+        // by persisted assistants, including ones already inserted by journal recovery.
+        const restoredMessageIds = new Set(after.filter((m) => m.role === "assistant").map((m) => m.id));
         if (restoredMessageIds.size > 0) {
           const attachments = await listThreadAttachments(threadId, projectId, bearer);
           hydrateActiveFiles(attachments.items
