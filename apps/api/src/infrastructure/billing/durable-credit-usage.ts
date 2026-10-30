@@ -20,14 +20,14 @@ function parse(value:string):Receipt {
  if(u.billingReceipt&&(typeof u.billingReceipt.id!=="string"||u.billingReceipt.id.length<1||u.billingReceipt.id.length>200||typeof u.billingReceipt.final!=="boolean"))throw new Error("invalid_credit_spool_receipt_identity");
  return r;
 }
+const receiptMeasure=(u:TokenUsageRecord):bigint|null=>u.totalSource==="reported"?BigInt(u.tokensTotal):u.nativeUsage?.source==="reported"&&u.nativeUsage.quantity!==null?u.nativeUsage.quantity:null;
 /** Immutable versions avoid an ACK deleting facts enriched during a concurrent replay. */
 function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
  const a=prior.usage,b=incoming.usage;
  const identity=["eventId","userId","runId","modelProvider","modelId","projectId","threadId","agentId","callPurpose","executionAttemptId","subtaskId","requestStartedAt"] as const;
  if(a.billingReceipt||b.billingReceipt){
   if(prior.orgId!==incoming.orgId||identity.some(key=>canonical(a[key]??null)!==canonical(b[key]??null)))throw new Error("credit_spool_replay_mismatch");
-  const measure=(u:TokenUsageRecord):bigint|null=>u.totalSource==="reported"?BigInt(u.tokensTotal):u.nativeUsage?.source==="reported"&&u.nativeUsage.quantity!==null?u.nativeUsage.quantity:null;
-  const old=measure(a),next=measure(b),oldFinal=a.billingReceipt?.final??true,nextFinal=b.billingReceipt?.final??true;
+  const old=receiptMeasure(a),next=receiptMeasure(b),oldFinal=a.billingReceipt?.final??true,nextFinal=b.billingReceipt?.final??true;
   if(a.billingReceipt?.id===b.billingReceipt?.id&&(a.totalSource!==b.totalSource||old!==next||oldFinal!==nextFinal||a.outcome!==b.outcome))throw new Error("credit_spool_replay_mismatch");
   if(old!==null&&next!==null&&(a.totalSource!==b.totalSource||a.nativeUsage?.unit!==b.nativeUsage?.unit))throw new Error("credit_spool_replay_mismatch");
   if(oldFinal&&old!==null){if(next!==null&&(next>old||nextFinal&&(next!==old||a.outcome!==b.outcome)))throw new Error("credit_spool_replay_mismatch");return prior;}
@@ -51,6 +51,18 @@ function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
   if(!a.nativeUsage||a.nativeUsage.source!=="reported"&&b.nativeUsage.source!=="unknown")merged.nativeUsage=b.nativeUsage;
  }
  return {...prior,usage:merged as unknown as TokenUsageRecord};
+}
+/** An unknown terminal cannot replace confirmed interim debit, nor disappear
+ * behind it. Commit the latest confirmed snapshot first, then the unknown terminal;
+ * immutable versions survive until both steps have independently committed.
+ */
+function settlementBatch(versions:Receipt[]):Receipt[]{
+ const known=versions.filter(r=>receiptMeasure(r.usage)!==null);
+ const unknownFinal=versions.filter(r=>r.usage.billingReceipt?.final===true&&receiptMeasure(r.usage)===null);
+ if(!known.length||!unknownFinal.length||known.some(r=>r.usage.billingReceipt?.final!==false))return [versions.reduce(mergeReceipt)];
+ const progress=known.reduce(mergeReceipt),terminal=unknownFinal.reduce(mergeReceipt);
+ for(const version of versions)mergeReceipt(progress,version); // keep identity/replay validation for every durable version
+ return [progress,terminal];
 }
 const receiptName=/^[a-f0-9]{64}(?:\.[a-f0-9]{64})?\.json$/;
 /**
@@ -122,18 +134,22 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
    ...(usage.billingReceipt?{billingReceipt:{id:usage.billingReceipt.id,final:usage.billingReceipt.final}}:{}),
    ...(usage.totalSource!==undefined?{totalSource:usage.totalSource}:{}),...(usage.nativeUsage?{nativeUsage:{unit:usage.nativeUsage.unit,quantity:usage.nativeUsage.quantity,source:usage.nativeUsage.source}}:{}),
    ...(usage.costMicros!==undefined?{costMicros:usage.costMicros,currency:usage.currency,priceVersion:usage.priceVersion}:{}),...(usage.projectId!==undefined?{projectId:usage.projectId}:{}),...(usage.threadId!==undefined?{threadId:usage.threadId}:{}),...(usage.agentId!==undefined?{agentId:usage.agentId}:{}),...(usage.callPurpose!==undefined?{callPurpose:usage.callPurpose}:{}),...(usage.executionAttemptId!==undefined?{executionAttemptId:usage.executionAttemptId}:{}),...(usage.subtaskId!==undefined?{subtaskId:usage.subtaskId}:{}),...(usage.requestStartedAt!==undefined?{requestStartedAt:usage.requestStartedAt}:{}),...(usage.requestEndedAt!==undefined?{requestEndedAt:usage.requestEndedAt}:{}),...(usage.cacheInputTokens!==undefined?{cacheInputTokens:usage.cacheInputTokens}:{}),...(usage.reasoningOutputTokens!==undefined?{reasoningOutputTokens:usage.reasoningOutputTokens}:{})};
-  let receipt:Receipt={version:1,orgId,usage:safe},acknowledge:string[]=[];
+  const incoming:Receipt={version:1,orgId,usage:safe},acknowledge:string[]=[];let batch:Receipt[]=[];
   try{
    await this.directoryReady();
+   const versions:Receipt[]=[];
    for(const name of (await readdir(this.directory)).filter(name=>name.startsWith(key)&&receiptName.test(name))){
-    try{receipt=mergeReceipt(parse(await readFile(join(this.directory,name),"utf8")),receipt);acknowledge.push(name);}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
+    try{versions.push(parse(await readFile(join(this.directory,name),"utf8")));acknowledge.push(name);}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}
    }
-   const contents=canonical(receipt);if(Buffer.byteLength(contents)>65536)throw new Error("credit_spool_receipt_too_large");parse(contents);
-   const name=`${key}.${createHash("sha256").update(contents).digest("hex")}.json`;
-   await this.atomicFile(join(this.directory,name),contents);acknowledge.push(name);
+   versions.push(incoming);batch=settlementBatch(versions);
+   for(const receipt of batch){
+    const contents=canonical(receipt);if(Buffer.byteLength(contents)>65536)throw new Error("credit_spool_receipt_too_large");parse(contents);
+    const name=`${key}.${createHash("sha256").update(contents).digest("hex")}.json`;
+    await this.atomicFile(join(this.directory,name),contents);acknowledge.push(name);
+   }
   }catch{throw this.unavailable(orgId);}
   // A failure leaves all fsynced versions for replay, never re-executes the model.
-  await this.delegate.record(orgId,receipt.usage);
+  for(const receipt of batch)await this.delegate.record(orgId,receipt.usage);
   // Scoped delegates may only have returned from a nested transaction; the root
   // replay worker independently commits before acknowledging these exact versions.
   if(!this.retainUntilReplay)await this.acknowledge(key,acknowledge);
@@ -152,10 +168,11 @@ export class DurableCreditUsageMeter implements TokenUsageMeterPort {
    for(const file of (await readdir(this.directory)).filter(n=>receiptName.test(n))){const key=file.slice(0,64);groups.set(key,[...(groups.get(key)??[]),file]);}
    for(const [key,files]of groups){
     try{
-     let merged:Receipt|undefined;
-     for(const file of files){try{const receipt=parse(await readFile(join(this.directory,file),"utf8"));if(this.key(receipt.usage.eventId!)!==key)throw new Error("credit_spool_filename_mismatch");merged=merged?mergeReceipt(merged,receipt):receipt;}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}}
-     if(!merged)continue;
-     await this.delegate.record(merged.orgId,merged.usage);await this.acknowledge(key,files);settled++;
+     const versions:Receipt[]=[];
+     for(const file of files){try{const receipt=parse(await readFile(join(this.directory,file),"utf8"));if(this.key(receipt.usage.eventId!)!==key)throw new Error("credit_spool_filename_mismatch");versions.push(receipt);}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}}
+     if(!versions.length)continue;
+     for(const receipt of settlementBatch(versions))await this.delegate.record(receipt.orgId,receipt.usage);
+     await this.acknowledge(key,files);settled++;
     }catch{pending++;}
    }
    return {settled,pending};

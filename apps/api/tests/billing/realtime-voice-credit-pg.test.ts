@@ -55,6 +55,7 @@ it("allows enterprise debt and retains confirmed charges as pending when another
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
  done(socket,"enterprise-known",1000);await expect.poll(()=>balance(team,team)).toBe("-2.00");socket.send(JSON.stringify({type:"response.done",response:{id:"enterprise-unknown",status:"cancelled"}}));client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
  await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[team]))).rows).toEqual([{state:"pending",debit:"100"}]);
+ expect((await asApp(team,c=>c.query("SELECT total_source FROM token_usage_events WHERE org_id=$1",[team]))).rows).toEqual([{total_source:"unknown"}]);
 });
 it("keeps confirmed usage pending after an abrupt drop while a response is still active",async()=>{
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;
