@@ -22,8 +22,9 @@ async function readBody(response: Response, signal: AbortSignal): Promise<unknow
 }
 export class StripePortalClient implements SubscriptionProvider {
   constructor(private readonly config: DeploymentBillingConfig, private readonly logger: LoggerPort) {}
-  enabled() { return this.config.getStripe() !== null; }
+  enabled() { return this.config.getPublicConfig().enabledProviders.includes("stripe"); }
   purchaseLink(intent: string): string {
+    if (!this.enabled()) throw new SubscriptionError("payment_provider_not_configured");
     const config = this.config.getStripe(); if (!config) throw new SubscriptionError("payment_provider_not_configured");
     const url = new URL(config.paymentLink);
     url.searchParams.delete("prefilled_email"); url.searchParams.delete("locked_prefilled_email");
