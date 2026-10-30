@@ -13,5 +13,6 @@
   "currentProviderBinding": "unreadable without existing authorization",
   "currentProviderVersion": "unreadable without existing authorization",
   "historicalVersionOnly": "1793182357164195675",
-  "bootstrap": "pnpm 9.15 install failed: canvas requires missing pixman-1; node runtime 24 vs repository 22"
+  "bootstrap": "./init.sh quick path passed, exit 0, pnpm 9.15; optional canvas build reported missing pixman-1; Node24 vs repo22; full verification not run",
+  "coordination": "harness tick blocked: COORD_GATEWAY_URL absent; readiness command succeeded"
 }

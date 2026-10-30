@@ -10,8 +10,9 @@
 无 secrets、runtime variables、outbound identities；没有阿里云/ESA CLI 及现有登录配置。
 未申请或创建新 token，未调用发布或 DNS 写接口，因此没有发布版本/发布 RequestId。
 未调整美国站、应用后端、数据库、收费、安全配置，也未删除任何历史版本。
-仓库完整 bootstrap 受既有依赖安装阻塞：Node 24（仓库要求 22），canvas 编译缺 `pixman-1`。
-这不影响已运行的独立营销站测试，但不能宣称全仓基础验证通过。
+仓库 `./init.sh` 快速路径最终通过（pnpm 9.15、继承会话代理）。可选 canvas 构建报缺 `pixman-1`，
+运行时 Node 24 高于仓库声明的 22；未运行 `--full` 全仓验证。harness tick 因缺 COORD_GATEWAY_URL 失败，
+readiness 已运行。未为独立营销任务新建调度循环。
 
 ## 2026-10-30 02:44 UTC 公网前置核查
 
