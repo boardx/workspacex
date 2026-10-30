@@ -6,7 +6,7 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import { MAX_ACTIVE_PURCHASE_INTENTS, SubscriptionIntentLimitError, SubscriptionError, type SubscriptionRepository, type SubscriptionSnapshot } from "../../application/billing/billing-subscription-service";
 type Row = { status: string; plan_ref: string | null; current_period_end: Date | null; cancel_at_period_end: boolean;
   customer_ref: string | null; subscription_ref: string; binding_generation: string; synchronization_uncertain: boolean };
-async function snapshot(session: TenantSession, userId: string): Promise<SubscriptionSnapshot | null> {
+export async function readLegacySubscription(session: TenantSession, userId: string): Promise<SubscriptionSnapshot | null> {
   // The latest verified binding can be unresolved before its first supported snapshot.
   // Returning none or the previous terminal subscription would incorrectly allow rebuy.
   const uncertain = await session.query(`SELECT 1 FROM billing_stripe_bindings b
@@ -41,14 +41,14 @@ export class PgBillingSubscriptionRepository implements SubscriptionRepository {
   }
   read(principal: Principal, traceId = "no-trace") {
     assertPrincipal(principal);
-    return this.infrastructure("read", traceId, () => this.db.withTenant(principal.orgId, session => snapshot(session, principal.userId)));
+    return this.infrastructure("read", traceId, () => this.db.withTenant(principal.orgId, session => readLegacySubscription(session, principal.userId)));
   }
   async createIntent(principal: Principal, traceId = "no-trace"): Promise<string> {
     assertPrincipal(principal);
     const result = await this.infrastructure("create_intent", traceId, () => this.db.withTenant(principal.orgId, async session => {
       // F09 must acquire this same user-level lock before replacing the current binding.
       await session.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`billing-subscription:${principal.userId}`]);
-      const current = await snapshot(session, principal.userId);
+      const current = await readLegacySubscription(session, principal.userId);
       if (current?.synchronizationUncertain) throw new SubscriptionError("dependency_unavailable");
       if (!subscriptionEligibility(current?.status ?? "none").canCreateSubscription) throw new SubscriptionError("already_subscribed");
       // Retain expired hashes/user/generations: static Payment Links can still be paid late.

@@ -25,7 +25,7 @@ test("个人入口键盘可达，账户服务未开放时真实提示，三档�
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/billing");
     await expect(page.getByRole("heading", { name: "额度与订阅" })).toBeVisible();
-    await expect(page.getByTestId("billing-provider-unavailable")).toBeVisible();
+    await expect(page.getByRole("button",{name:"购买月度套餐"})).toHaveCount(0);
     await expect(page.getByTestId("err-billing-wallet")).toContainText("暂未开放");
     await expect(page.getByTestId("billing-wallet-balance")).toHaveCount(0);
     await expect(page.getByTestId("billing-qr-code-area")).toHaveCount(0);

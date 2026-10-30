@@ -1,6 +1,6 @@
 import { traceIdOf } from "../middleware/trace";
 import { SubscriptionHttpException } from "./subscription-http-exception";
-import { Controller, Get, Header, Inject, Req, Query, ServiceUnavailableException, HttpException } from "@nestjs/common";
+import { Controller, Get, Post, Body, Header, Inject, Req, Query, ServiceUnavailableException, HttpException } from "@nestjs/common";
 import { operations } from "@repo/contracts/billing-subscription";
 import type { z } from "zod";
 import type { Principal } from "../../domain/principal";
@@ -27,8 +27,8 @@ export class BillingSubscriptionController {
     return this.mapped(() => this.service.info(principal, traceIdOf(req)));
   }
   @Header("Cache-Control", "no-store")
-  @Get(operations.getUpgradeLink.path)
-  upgrade(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Query(new ZodBodyPipe(operations.getUpgradeLink.in)) _input: z.infer<typeof operations.getUpgradeLink.in>) {
+  @Post(operations.getUpgradeLink.path)
+  upgrade(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(operations.getUpgradeLink.in)) _input: z.infer<typeof operations.getUpgradeLink.in>) {
     return this.mapped(() => this.service.upgrade(principal, traceIdOf(req)));
   }
   @Header("Cache-Control", "no-store")

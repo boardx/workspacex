@@ -243,7 +243,7 @@ it("buys again after confirmed success without reloading or replaying the first 
   await expect.poll(()=>page.getByTestId("billing-success-badge").count(),{timeout:15000}).toBe(1);
   await expect.poll(()=>page.getByTestId("billing-updated-balance").textContent()).toContain("1320");
   await page.getByTestId("billing-cashier-dialog").getByRole("button",{name:"关闭",exact:true}).click();
-  await page.getByRole("button",{name:"购买额度",exact:true}).click();
+  await page.getByRole("button",{name:"充值 credit",exact:true}).click();
   await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
   expect(f.state.calls).toBe(1);
   await page.getByTestId("billing-buy-again").click();

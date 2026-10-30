@@ -1,152 +1,84 @@
 "use client";
 import * as React from "react";
-import { billingSubscription } from "@repo/contracts";
-import { ApiError, apiRequest } from "@/lib/api-client";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { navigateToStripe } from "./stripe-navigation";
-
-type Info = ReturnType<typeof billingSubscription.operations.getSubscriptionInfo.out.parse>;
-type SubscriptionRead = { status: "loading" } | { status: "ready"; data: Info } | { status: "error"; message: string };
-type PendingCheckout = { url: string; createdAt: number; lastObservedStatus: billingSubscription.SubscriptionStatus };
-const labels: Record<billingSubscription.SubscriptionStatus, string> = {
-  none: "暂无订阅", active: "已订阅", trialing: "试用中", past_due: "付款逾期", canceled: "已取消",
-  incomplete: "待完成付款", unpaid: "待支付", paused: "订阅已暂停", incomplete_expired: "首次付款已过期",
-};
-const POLL_LIMIT = 6;
-const POLL_DELAY = 3000;
-const PENDING_LIFETIME = 24 * 60 * 60 * 1000;
-
-function trustedStripeUrl(raw: unknown, management: boolean): string {
-  const { url } = billingSubscription.SubscriptionLink.parse(raw);
-  const target = new URL(url);
-  const hosts = management ? ["billing.stripe.com"] : ["buy.stripe.com", "checkout.stripe.com"];
-  if (target.protocol !== "https:" || target.username || target.password || target.port || !hosts.includes(target.hostname)) {
-    throw new Error("Invalid payment destination");
-  }
-  return url;
+import {billingSubscription} from "@repo/contracts";
+import {ApiError,apiRequest} from "@/lib/api-client";
+import {Badge} from "@/components/ui/badge";
+import {Button} from "@/components/ui/button";
+import {navigateToStripe} from "./stripe-navigation";
+type Info=ReturnType<typeof billingSubscription.operations.getSubscriptionInfo.out.parse>;
+type Read={status:"loading"}|{status:"ready";data:Info;refreshing?:boolean;refreshError?:string}|{status:"error";message:string};
+const POLL_LIMIT=6;
+function trustedUrl(raw:unknown,management:boolean){
+ const {url}=billingSubscription.SubscriptionLink.parse(raw),target=new URL(url);
+ if(target.protocol!=="https:"||target.port||target.username||target.password||!(management?["billing.stripe.com"]:["checkout.stripe.com"]).includes(target.hostname))throw Error("invalid_destination");return url;
 }
-function pendingKey(userId: string) { return `billing.stripe.checkout:${userId}`; }
-function readPending(userId: string): PendingCheckout | null {
-  try {
-    const raw = JSON.parse(sessionStorage.getItem(pendingKey(userId)) ?? "null") as PendingCheckout | null;
-    if (!raw || typeof raw.createdAt !== "number" || Date.now() - raw.createdAt >= PENDING_LIFETIME || raw.createdAt > Date.now()) return null;
-    return { url: trustedStripeUrl({ url: raw.url }, false), createdAt: raw.createdAt, lastObservedStatus: billingSubscription.SubscriptionStatus.parse(raw.lastObservedStatus ?? "none") };
-  } catch { return null; }
-}
-function isManagementReturn(): boolean {
-  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("subscription_management_return") === "1";
-}
-function isReturnHint(): boolean {
-  if (typeof window === "undefined") return false;
-  const params = new URLSearchParams(window.location.search);
-  // These are only read-refresh hints. No query parameter can grant an entitlement.
-  return ["subscription_return", "subscription_management_return", "stripe", "subscription", "checkout", "session_id"].some((key) => params.has(key));
-}
+export function LiveSubscription({state,retry,stripeEnabled,sessionToken,onCreditGranted}:{state:Read;retry:()=>void;stripeEnabled:boolean;userId:string;sessionToken:string;onCreditGranted?:()=>void}){
+ const [busy,setBusy]=React.useState(false),[error,setError]=React.useState<string|null>(null),[polls,setPolls]=React.useState(0);
+ const [returning,setReturning]=React.useState(()=>typeof window!=="undefined"&&["subscription_return","subscription_management_return"].some(key=>new URLSearchParams(window.location.search).has(key)));
+ const request=React.useRef<AbortController|null>(null),observed=React.useRef<string|null>(null);
+ const data=state.status==="ready"?state.data:null;
+ const manual=data?.purchaseMode==="manual_monthly",eligibility=data?billingSubscription.subscriptionEligibility(data.status):null;
+ const legacy=!!eligibility?.canManageSubscription&&!manual;
+ const active=!!eligibility?.hasEffectivePro,pending=!!data?.checkoutPending;
+ const grant=data?.creditGrant,creditPending=active&&grant?.status==="pending";
+ const managementReturn=typeof window!=="undefined"&&new URLSearchParams(window.location.search).has("subscription_management_return");
+ const waiting=!data?.paymentReviewRequired&&(pending||creditPending||returning&&(!active||managementReturn));
+ const end=data?.currentPeriodEnd?new Date(data.currentPeriodEnd):null;
+ const refresh=React.useCallback(()=>{setError(null);setPolls(0);retry();},[retry]);
+ React.useEffect(()=>()=>request.current?.abort(),[]);
+ React.useEffect(()=>{
+  const period=(grant?.status==="granted"||grant?.status==="expired")&&grant.grant?`${grant.status}:${grant.grant.periodEnd}`:null;
+  if(period&&observed.current!==period){observed.current=period;onCreditGranted?.();if(!managementReturn)setReturning(false);}
+ },[grant,onCreditGranted,managementReturn]);
+ React.useEffect(()=>{
+  if(!waiting||state.status!=="ready"||state.refreshing||polls>=POLL_LIMIT)return;
+  const timer=window.setTimeout(()=>{setPolls(n=>n+1);retry();},3000);return()=>window.clearTimeout(timer);
+ },[waiting,state,polls,retry]);
+ React.useEffect(()=>{
+  let last=0;const focus=()=>{if(document.visibilityState==="hidden"||Date.now()-last<1000)return;last=Date.now();retry();};
+  window.addEventListener("focus",focus);document.addEventListener("visibilitychange",focus);
+  return()=>{window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus);};
+ },[retry]);
+ React.useEffect(()=>{
+  if(!data?.currentPeriodEnd||!active)return;const expiresAt=Date.parse(data.currentPeriodEnd);if(!Number.isFinite(expiresAt))return;
+  let timer:number;
+  const schedule=()=>{const delay=expiresAt-Date.now();if(delay<=0){retry();return;}timer=window.setTimeout(delay>2_147_000_000?schedule:retry,Math.min(delay+100,2_147_000_000));};
+  schedule();return()=>window.clearTimeout(timer);
+ },[data?.currentPeriodEnd,active,retry]);
 
-export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionToken, onCreditGranted }: {
-  state: SubscriptionRead; retry: () => void; stripeEnabled: boolean; userId: string; sessionToken: string; onCreditGranted?: () => void;
-}) {
-  const [pending, setPending] = React.useState<PendingCheckout | null>(() => readPending(userId));
-  const [returning, setReturning] = React.useState(() => !!readPending(userId) || isReturnHint());
-  const [managementReturning] = React.useState(isManagementReturn);
-  const [polls, setPolls] = React.useState(0);
-  const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const request = React.useRef<AbortController | null>(null);
-  React.useEffect(() => () => request.current?.abort(), []);
-  const eligibility = state.status === "ready" ? billingSubscription.subscriptionEligibility(state.data.status) : null;
-  const hostedActionAvailable = stripeEnabled || !!eligibility?.canManageSubscription;
-  const checkoutUnconfirmed = !!pending && eligibility?.canCreateSubscription;
-  const creditsPending = state.status === "ready" && state.data.status === "active" && state.data.creditGrant?.status === "pending";
-  const grantObserved = React.useRef<string | null>(null);
-  React.useEffect(() => {
-    if (state.status !== "ready" || state.data.creditGrant?.status !== "granted") return;
-    const key = state.data.creditGrant.grant!.periodEnd;
-    if (grantObserved.current !== key) { grantObserved.current = key; onCreditGranted?.(); }
-  }, [state, onCreditGranted]);
-  const waiting = creditsPending || returning && (state.status !== "ready" || state.data.status === "none" || state.data.status === "incomplete" || !!checkoutUnconfirmed);
-
-  const canRestart = waiting && !pending && polls >= POLL_LIMIT && state.status === "ready" && state.data.status === "none";
-
-  React.useEffect(() => {
-    if (state.status !== "ready") return;
-    const newlyTerminal = pending && ["canceled", "incomplete_expired"].includes(state.data.status)
-      && state.data.status !== pending.lastObservedStatus;
-    if (newlyTerminal || (eligibility?.hasEffectivePro && !creditsPending) || (pending && !creditsPending && !eligibility?.canCreateSubscription && state.data.status !== "incomplete")) {
-      setPending(null);
-      try { sessionStorage.removeItem(pendingKey(userId)); } catch { /* Storage may be unavailable. */ }
-    } else if (pending && pending.lastObservedStatus !== state.data.status) {
-      const next = { ...pending, lastObservedStatus: state.data.status };
-      setPending(next);
-      try { sessionStorage.setItem(pendingKey(userId), JSON.stringify(next)); } catch { /* In-memory reuse still works. */ }
-    }
-    if (returning && !waiting) setReturning(false);
-  }, [state, eligibility?.hasEffectivePro, eligibility?.canCreateSubscription, pending, userId, returning, waiting, creditsPending]);
-
-  React.useEffect(() => {
-    // Portal changes arrive through asynchronous webhooks. An existing active
-    // snapshot does not confirm that a cancellation or resumption has arrived.
-    if ((!waiting && !managementReturning) || state.status !== "ready" || polls >= POLL_LIMIT) return;
-    const timer = window.setTimeout(() => { setPolls((count) => count + 1); retry(); }, POLL_DELAY);
-    return () => window.clearTimeout(timer);
-  }, [waiting, managementReturning, state, polls, retry]);
-
-  async function openHostedPage() {
-    if (request.current || !hostedActionAvailable || !eligibility || state.status !== "ready") return;
-    const management = eligibility.canManageSubscription;
-    setBusy(true); setError(null);
-    const controller = new AbortController(); request.current = controller;
-    try {
-      const operation = management ? billingSubscription.operations.getManagementLink : billingSubscription.operations.getUpgradeLink;
-      const url = !management && pending ? pending.url : trustedStripeUrl(await apiRequest<unknown>(operation.path, { sessionToken, signal: controller.signal }), management);
-      if (controller.signal.aborted) return;
-      if (!management) {
-        const next = pending ?? { url, createdAt: Date.now(), lastObservedStatus: state.data.status };
-        setPending(next);
-        try { sessionStorage.setItem(pendingKey(userId), JSON.stringify(next)); } catch { /* In-memory reuse still works. */ }
-      }
-      setReturning(true); setPolls(0);
-      navigateToStripe(url);
-    } catch (failure) {
-      if (controller.signal.aborted) return;
-      if (failure instanceof ApiError && failure.status === 503) {
-        setError("暂时无法确认订阅状态，请刷新状态后重试。");
-      } else if (failure instanceof ApiError && failure.reasonCode === "payment_provider_not_configured") {
-        setError("订阅支付暂不可用，请稍后重试。");
-      } else {
-        setError("暂时无法打开订阅页面，请刷新状态后重试。");
-      }
-      retry();
-    } finally {
-      if (!controller.signal.aborted) setBusy(false);
-      request.current = null;
-    }
-  }
-  const refresh = () => { setPolls(0); setError(null); retry(); };
-  const end = state.status === "ready" && state.data.currentPeriodEnd ? new Date(state.data.currentPeriodEnd) : null;
-  return <>
-    {state.status === "loading" && <div data-testid="billing-subscription-loading" role="status" aria-label="正在查询订阅查询" className="h-16 animate-pulse rounded-control bg-muted" />}
-    {state.status === "error" && <div data-testid="err-billing-subscription" className="space-y-3"><p role="status" className="text-13 text-muted-foreground">暂时无法确认订阅状态。{state.message}</p><Button variant="outline" size="sm" onClick={refresh} aria-label="重试订阅查询">重试</Button></div>}
-    {managementReturning && state.status !== "error" && polls < POLL_LIMIT && <p role="status" className="text-13 text-muted-foreground">正在同步订阅变更，请稍候。权益和取消结果以账户同步结果为准。</p>}
-    {state.status === "ready" && <div className="space-y-3">
-      {waiting && eligibility?.canCreateSubscription ? <Badge data-testid="billing-subscription-status" tone="neutral">付款结果确认中</Badge>
-        : <Badge data-testid="billing-subscription-status" tone={eligibility?.hasEffectivePro ? "success" : "neutral"}>{labels[state.data.status]}</Badge>}
-      {eligibility?.hasEffectivePro && <p className="text-13">Pro 权益已生效</p>}
-      {creditsPending && <p role="status" className="text-13">月度额度到账确认中，请稍后刷新。</p>}
-      {state.data.creditGrant?.status === "granted" && <p className="text-13">本期已发放 {state.data.creditGrant.grant!.credits.toLocaleString("zh-CN")} credit，未用完部分到期清零。</p>}
-      {end && !Number.isNaN(end.valueOf()) && <p className="text-13">本期结束：{end.toLocaleDateString("zh-CN")}</p>}
-      {state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">{eligibility?.hasEffectivePro ? "已取消续费，本期结束前仍可使用 Pro，到期后不再自动续费。" : "已取消续费，将在本期结束时生效。"}</p>}
-      {eligibility?.canManageSubscription && !eligibility.hasEffectivePro && <p className="text-13 text-muted-foreground">当前 Pro 权益未生效，可前往账单页面处理付款或恢复订阅。</p>}
-      {eligibility?.canManageSubscription && <p className="text-13 text-muted-foreground">可在“管理订阅”中取消续费，取消时的生效日期以账单页面确认为准。</p>}
-      {hostedActionAvailable && <Button disabled={busy || (!!error && !checkoutUnconfirmed) || (waiting && !!eligibility?.canCreateSubscription && !pending && !canRestart)} onClick={() => void openHostedPage()}>
-        {busy ? "正在打开…" : eligibility?.canManageSubscription ? (eligibility.hasEffectivePro ? "管理订阅" : "处理订阅付款") : pending ? "继续订阅付款" : canRestart ? "重新开始订阅" : "订阅 Pro"}
-      </Button>}
-    </div>}
-    {waiting && <p role="status" className="text-13 text-muted-foreground">{polls >= POLL_LIMIT ? (canRestart ? "付款结果尚未确认。如确认尚未付款，可重新开始订阅；已付款请勿重复购买。" : "付款结果尚未确认，可稍后刷新状态。请勿重复购买。") : "正在确认付款结果，请稍候。订阅权益以账户同步结果为准。"}</p>}
-    {error && <p role="alert" className="text-13 text-muted-foreground">{error}</p>}
-    {state.status === "ready" && <Button variant="outline" size="sm" onClick={refresh} disabled={busy}>刷新订阅状态</Button>}
-    {!stripeEnabled && <p className="text-12 text-muted-foreground">新订阅购买暂未开放，已有订阅仍可管理。</p>}
-    {stripeEnabled && <p className="text-12 text-muted-foreground">价格与订阅条款以 Stripe 支付页面为准。月付每期发放 {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit，充值额度另行保留。</p>}
-  </>;
+ async function open(){
+  if(request.current||busy||!data||state.status!=="ready"||state.refreshing)return;
+  const operation=legacy?billingSubscription.operations.getManagementLink:billingSubscription.operations.getUpgradeLink;
+  const controller=new AbortController();request.current=controller;setBusy(true);setError(null);
+  let timedOut=false;const timer=window.setTimeout(()=>{timedOut=true;controller.abort();},20000);
+  try{
+   const raw=await apiRequest<unknown>(operation.path,{method:operation.method,...(!legacy?{body:{}}:{}),sessionToken,signal:controller.signal});
+   if(controller.signal.aborted)return;const url=trustedUrl(raw,legacy);setReturning(true);setPolls(0);navigateToStripe(url);
+  }catch(failure){
+   if(controller.signal.aborted&&!timedOut)return;
+   setError(failure instanceof ApiError&&failure.reasonCode==="already_subscribed"?"正在更新套餐状态。":"暂时无法打开付款页面，请重试。");retry();
+  }finally{window.clearTimeout(timer);request.current=null;if(!controller.signal.aborted||timedOut)setBusy(false);}
+ }
+ const notice=(data?.paymentReviewRequired?"付款需要人工核对，请联系客服，勿重复付款。":null)||error||(state.status==="error"?"暂时无法查询套餐，请重试。":state.status==="ready"?state.refreshError:null)||
+  (waiting?(polls<POLL_LIMIT?"正在确认付款，请稍候。":"付款尚未确认，可刷新状态或继续付款。"):null);
+ const uncertain=state.status==="ready"&&!!state.refreshError;
+ const canBuy=!!data&&!active&&!legacy&&stripeEnabled&&!uncertain&&!data.paymentReviewRequired;
+ return <div className="space-y-5">
+  {!legacy&&<div className="flex items-baseline gap-1"><span className="text-30 font-semibold tabular-nums">¥{billingSubscription.MONTHLY_PASS_AMOUNT_FEN/100}</span><span className="text-13 text-muted-foreground">/ 月</span></div>}
+  {!legacy&&<p className="text-13">每期 {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit</p>}
+  {state.status==="loading"&&<p role="status" className="text-13 text-muted-foreground">正在查询套餐…</p>}
+  {data&&!(state.status==="ready"&&state.refreshError)&&<div className="space-y-2">
+   <Badge data-testid="billing-subscription-status" tone={active?"success":"neutral"}>{active?"使用中":data.paymentReviewRequired?"待核对":pending?"待付款":manual&&end?"已到期":legacy?"待处理":"未开通"}</Badge>
+   {active&&grant?.status==="granted"&&<p className="text-16 font-medium tabular-nums">{grant.grant!.remainingCredits.toLocaleString("zh-CN")} / {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit</p>}
+   {end&&Number.isFinite(end.getTime())&&<p className="text-13 text-muted-foreground">{end.toLocaleDateString("zh-CN")} 到期</p>}
+  </div>}
+  {!legacy&&<p className="text-12 text-muted-foreground">到期手动续费<span className="mx-2" aria-hidden>·</span>当期 credit 到期清零</p>}
+  {legacy&&<p className="text-12 text-muted-foreground">{data?.cancelAtPeriodEnd?"原订阅已停止续费，当前付费期继续有效。":"原订阅仍需在账单中管理续费。"}</p>}
+  <div className="flex flex-wrap items-center gap-3">
+   {(canBuy||legacy)&&!uncertain&&<Button disabled={busy||state.status==="ready"&&!!state.refreshing} onClick={()=>void open()}>{busy?"正在打开…":legacy?"管理订阅":pending?"继续付款":manual&&end?"续费 ¥180":"购买月度套餐"}</Button>}
+   <Button variant="ghost" size="sm" disabled={busy||state.status==="loading"||state.status==="ready"&&!!state.refreshing} onClick={refresh}>刷新状态</Button>
+  </div>
+  {notice&&<p data-testid={state.status==="error"||uncertain?"err-billing-subscription":undefined} role={error?"alert":"status"} className="text-13 text-muted-foreground">{notice}</p>}
+  {!stripeEnabled&&!legacy&&state.status==="ready"&&!notice&&<p className="text-12 text-muted-foreground">套餐购买暂不可用，请稍后重试。</p>}
+ </div>;
 }

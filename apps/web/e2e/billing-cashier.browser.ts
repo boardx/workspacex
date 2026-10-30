@@ -37,7 +37,7 @@ test("live cashier keyboard, QR, polling recovery and accounting across three wi
  });
  for(const width of [375,768,1280]){
   status="PENDING";readsFail=false;creditedBalance=100;settledOrder="";await page.setViewportSize({width,height:width>=1024?1100:900});await page.goto("/billing");
-  const buy=page.getByRole("button",{name:"购买额度",exact:true});await expect(buy).toBeVisible();
+  const buy=page.getByRole("button",{name:"充值 credit",exact:true});await expect(buy).toBeVisible();
   // Reach the real trigger through ordinary document keyboard navigation.
   let reached=false;for(let i=0;i<70;i++){await page.keyboard.press("Tab");if(await buy.evaluate(node=>node===document.activeElement)){reached=true;break;}}
   expect(reached).toBe(true);await page.keyboard.press("Enter");
@@ -79,6 +79,6 @@ test("live cashier keyboard, QR, polling recovery and accounting across three wi
  await expect(page.getByRole("dialog")).toBeVisible();
  await expect(page).toHaveURL(/\/billing$/);
  await page.keyboard.press("Escape");
- await expect(page.getByRole("button",{name:"购买额度",exact:true})).toBeFocused();
+ await expect(page.getByRole("button",{name:"充值 credit",exact:true})).toBeFocused();
  expect(posts).toBe(6);
 });

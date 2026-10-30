@@ -1,6 +1,8 @@
+// @global-scope-fixture table:billing_purchase_intents: historical f09-stripe-* fixtures, exact prefix cleanup.
 import "reflect-metadata";
+import {json} from "express";
 import { beforeAll, afterAll, beforeEach, it, expect, vi } from "vitest";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { NestFactory, APP_GUARD } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -21,6 +23,8 @@ let snapshots: Record<string, unknown> = {}, calls: string[] = [];
 const subscription = (id = "sub_f09A", status = "active") => ({ id, object: "subscription", customer: "cus_f09A", status, cancel_at_period_end: false, trial_start: null, trial_end: null,
   items: { data: [{ current_period_start: 1893456000, current_period_end: 1896134400, price: { id: "price_f09", recurring: { interval: "month" } } }], has_more: false } });
 async function cleanup() { await asOwner(async c => {
+  await c.query("DELETE FROM billing_payment_conflicts WHERE user_id=$1",[user]);
+  await c.query("DELETE FROM billing_monthly_orders WHERE user_id=$1",[user]);
   await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
   await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
   await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]);
@@ -44,7 +48,11 @@ async function post(type: string, object: unknown, id = "evt_f09test", signature
   const digest = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
   return fetch(`${base}/billing/webhooks/stripe`, { method: "POST", headers: { "content-type": "application/json", "stripe-signature": `t=${timestamp},v1=${signature ? digest : "0".repeat(64)}` }, body });
 }
-async function intent() { const response = await fetch(`${base}/billing/subscription/upgrade-link`,{headers:{authorization:"Bearer fixture"}}); expect(response.status).toBe(200); return new URL((await response.json()).url).searchParams.get("client_reference_id")!; }
+// Historical recurring intents remain callback-compatible; new purchases no longer issue them.
+async function intent() {
+ const token=randomBytes(32).toString("base64url"),hash=createHash("sha256").update(token).digest("hex");
+ await asOwner(async c=>{const current=await c.query("SELECT binding_generation FROM billing_subscriptions WHERE user_id=$1",[user]);await c.query("INSERT INTO billing_purchase_intents(intent_hash,user_id,expected_generation) VALUES($1,$2,$3)",[hash,user,current.rows[0]?.binding_generation??0]);});return token;
+}
 async function checkout(token: string, id = "sub_f09A", eventId = "evt_f09checkout") {
   const session = { id: "cs_test_f09", object: "checkout.session", mode: "subscription", status: "complete", customer: "cus_f09A", subscription: id, client_reference_id: token };
   snapshots["/v1/checkout/sessions/cs_test_f09"] = session;
@@ -62,6 +70,7 @@ beforeAll(async () => {
   ] }, { logger: false, bodyParser: false });
   app.useGlobalFilters(new AllExceptionsFilter({info(){},error(){}} as never,{record:async()=>{}} as never));
   registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
+  app.use(json());
   await app.listen(0,"127.0.0.1"); const address = app.getHttpServer().address(); if(!address || typeof address === "string") throw Error("listener"); base = `http://127.0.0.1:${address.port}`;
 },120000);
 beforeEach(async () => { await cleanup(); snapshots = { "/v1/subscriptions/sub_f09A": subscription() }; calls = []; });
@@ -85,7 +94,7 @@ it("unknown current state remains retryable and valid recovery clears binding-sc
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(500);
   expect((await asOwner(c=>c.query("SELECT status,synchronization_uncertain FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([{status:"active", synchronization_uncertain:true}]);
   expect((await asOwner(c=>c.query("SELECT * FROM billing_webhook_events WHERE provider_event_id='evt_f09test'"))).rows).toEqual([]);
-  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{headers:{authorization:"Bearer fixture"}})).status).toBe(503);
+  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{...(path==="/upgrade-link"?{method:"POST",body:"{}"}:{}),headers:{authorization:"Bearer fixture","content-type":"application/json"}})).status).toBe(503);
   snapshots["/v1/subscriptions/sub_f09A"] = subscription("sub_f09A","paused");
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(200);
   expect((await asOwner(c=>c.query("SELECT status,synchronization_uncertain FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([{status:"paused", synchronization_uncertain:false}]);
@@ -215,7 +224,7 @@ it("a consumed intent cannot bind a second subscription and invoice failure uses
 it("an unknown first verified binding blocks none and repeat purchase until the same subscription recovers",async()=>{
   const token=await intent(); snapshots["/v1/subscriptions/sub_f09A"]={id:"sub_f09A",object:"subscription",customer:"cus_f09A",status:"future_state"};
   expect((await checkout(token)).status).toBe(500);
-  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{headers:{authorization:"Bearer fixture"}})).status).toBe(503);
+  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{...(path==="/upgrade-link"?{method:"POST",body:"{}"}:{}),headers:{authorization:"Bearer fixture","content-type":"application/json"}})).status).toBe(503);
   snapshots["/v1/subscriptions/sub_f09A"]=subscription();
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(200);
   expect((await asOwner(c=>c.query("SELECT status FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([{status:"active"}]);
@@ -248,4 +257,38 @@ it("period-end cancellation preserves Pro until the authoritative subscription e
   snapshots["/v1/subscriptions/sub_f09A"] = { ...subscription("sub_f09A", "canceled"), cancel_at_period_end: false };
   expect((await post("customer.subscription.deleted", { id: "sub_f09A" }, "evt_f09cancelEnded")).status).toBe(200);
   expect(await (await read()).json()).toMatchObject({ status: "canceled", cancelAtPeriodEnd: false });
+});
+
+it("retains legacy management and defers an overlapping legacy invoice after a manual pass is paid",async()=>{
+ const {PgDatabase}=await import("../../src/infrastructure/db/pg-database");const {appConfig}=await import("../../src/infrastructure/db/pg-config");
+ const {PgMonthlyPassRepository}=await import("../../src/infrastructure/billing/pg-monthly-pass-repository");
+ const db=new PgDatabase(appConfig()),repo=new PgMonthlyPassRepository(db),p={userId:user,orgId:toOrgId("f09-stripe-org")};
+ try{
+  const order=await repo.reserve(p);await repo.bind(p,order.orderId,"cs_test_overlap");await repo.settle(order.orderId,{id:"cs_test_overlap",object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:"pi_test_overlap"});
+  monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+  expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09overlap")).status).toBe(500);
+  expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00"}]);
+  expect((await asOwner(c=>c.query("SELECT 1 FROM billing_payment_conflicts WHERE user_id=$1",[user]))).rows).toHaveLength(1);
+  const response=await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}});expect(await response.json()).toMatchObject({status:"active",planRef:"price_f09",paymentReviewRequired:true});
+  snapshots["/v1/billing_portal/sessions"]={object:"billing_portal.session",customer:"cus_f09A",url:"https://billing.stripe.com/p/session/overlap"};
+  expect((await fetch(`${base}/billing/subscription/management-link`,{headers:{authorization:"Bearer fixture"}})).status).toBe(200);
+ }finally{await db.close();}
+});
+
+it("accepts a historical nonoverlapping invoice without blocking the current pass",async()=>{
+ const {PgDatabase}=await import("../../src/infrastructure/db/pg-database");const {appConfig}=await import("../../src/infrastructure/db/pg-config");
+ const {PgMonthlyPassRepository}=await import("../../src/infrastructure/billing/pg-monthly-pass-repository");
+ const db=new PgDatabase(appConfig()),repo=new PgMonthlyPassRepository(db),p={userId:user,orgId:toOrgId("f09-stripe-org")};
+ try{
+  const order=await repo.reserve(p);await repo.bind(p,order.orderId,"cs_test_overlap");await repo.settle(order.orderId,{id:"cs_test_overlap",object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:"pi_test_overlap"});
+  monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+  const invoice=snapshots["/v1/invoices/in_f09monthly"] as any;
+  const end=Math.floor(Date.now()/1000)-86400;invoice.lines.data[0].period={start:end-30*86400,end};
+  expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09overlap")).status).toBe(200);
+  expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00"}]);
+  expect((await asOwner(c=>c.query("SELECT 1 FROM billing_payment_conflicts WHERE user_id=$1",[user]))).rows).toHaveLength(0);
+  const response=await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}});expect(await response.json()).toMatchObject({status:"active",planRef:"price_f09"});
+  snapshots["/v1/billing_portal/sessions"]={object:"billing_portal.session",customer:"cus_f09A",url:"https://billing.stripe.com/p/session/overlap"};
+  expect((await fetch(`${base}/billing/subscription/management-link`,{headers:{authorization:"Bearer fixture"}})).status).toBe(200);
+ }finally{await db.close();}
 });
