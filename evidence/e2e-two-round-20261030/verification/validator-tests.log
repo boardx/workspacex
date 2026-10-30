@@ -1,0 +1,33 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/api
+
+ ✓ tests/whiteboard/validator-diagnostics.test.ts (16 tests) 10ms
+ ✓ tests/whiteboard/validator-operation-trace.test.ts (6 tests) 465ms
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > decodes all 10000 complete canonical objects under bounded worker budgets
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":384}
+
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > validates a real incremental text edit on a 10000-object document
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":384,"validateMs":776}
+
+stdout | tests/whiteboard/validator-capacity.test.ts > 10k canonical board in real resource-limited validator workers > admits the final normal-sized command batch up to 10000 and rejects one object beyond it
+whiteboard-capacity {"snapshotBytes":3356665,"documentStructs":110000,"decodeMs":384,"validateMs":776,"commandsMs":669}
+
+ ✓ tests/whiteboard/validator-capacity.test.ts (5 tests) 4157ms
+   ✓ 10k canonical board in real resource-limited validator workers > decodes all 10000 complete canonical objects under bounded worker budgets 385ms
+   ✓ 10k canonical board in real resource-limited validator workers > validates a real incremental text edit on a 10000-object document 1140ms
+   ✓ 10k canonical board in real resource-limited validator workers > admits the final normal-sized command batch up to 10000 and rejects one object beyond it 1497ms
+   ✓ 10k canonical board in real resource-limited validator workers > rejects an oversized persisted document on read, diff and raw-update validation 879ms
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"151e9eb6-3310-46f7-ab86-687b115b50df","detail":{"reason":"worker_deadline","validatorCallId":"151e9eb6-3310-46f7-ab86-687b115b50df","mode":"diff","inputBytes":2,"elapsedMs":1,"queueElapsedMs":0,"workerElapsedMs":1,"phaseElapsedMs":{}}}
+ ✓ tests/whiteboard/update-validator.test.ts (7 tests) 7225ms
+   ✓ isolated whiteboard Yjs validator > returns only live object IDs through the isolated validator 526ms
+   ✓ bounded worker admission > bounds a fifty-request burst, drains rejected admissions and releases all capacity 3090ms
+   ✓ bounded worker admission > drains fifty real initial-connect validations through four concurrent clients 2982ms
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"8c2e7ce3-3fa1-456b-9745-88f6f643012b","detail":{"reason":"queue_capacity","validatorCallId":"8c2e7ce3-3fa1-456b-9745-88f6f643012b","inputBytes":1,"elapsedMs":0}}
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"3bb9c3b5-34fe-41bc-8682-ce5830a5e73a","detail":{"reason":"queue_capacity","validatorCallId":"3bb9c3b5-34fe-41bc-8682-ce5830a5e73a","inputBytes":1,"elapsedMs":0}}
+{"level":"error","msg":"whiteboard_validator_unavailable","traceId":"8b5e6ee0-0872-4bce-ba07-7fb8013239a7","detail":{"reason":"queue_deadline","validatorCallId":"8b5e6ee0-0872-4bce-ba07-7fb8013239a7","inputBytes":8,"elapsedMs":0}}
+ ✓ tests/whiteboard/validator-queue.test.ts (3 tests) 4ms
+
+ Test Files  5 passed (5)
+      Tests  37 passed (37)
+   Start at  15:36:49
+   Duration  13.62s (transform 569ms, setup 0ms, collect 1.22s, tests 11.86s, environment 0ms, prepare 116ms)

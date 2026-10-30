@@ -1,0 +1,35 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web
+
+ ✓ tests/ui/workbench-running-reply.test.tsx (12 tests) 143ms
+stderr | tests/ui/workbench-awaiting-plan-queue.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/workbench-awaiting-plan-queue.test.tsx > restored plan confirmation without active journal trace routes composer input to the next-turn queue
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+[CopilotKit] Error (runtime_info_fetch_failed): TypeError: Failed to parse URL from /api/copilotkit/info
+    at node:internal/deps/undici/undici:15157:13
+    at processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  [cause]: TypeError: Invalid URL: /api/copilotkit/info
+      at new URLImpl (/Users/shenyangjun/.codex/worktrees/548a/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL-impl.js:21:13)
+      at Object.exports.setup (/Users/shenyangjun/.codex/worktrees/548a/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:54:12)
+      at new URL (/Users/shenyangjun/.codex/worktrees/548a/workspacex/node_modules/.pnpm/whatwg-url@17.1.0/node_modules/whatwg-url/lib/URL.js:115:22)
+      at new Request (node:internal/deps/undici/undici:9927:25)
+      at fetch (node:internal/deps/undici/undici:10656:25)
+      at fetch (node:internal/deps/undici/undici:15155:10)
+      at fetch (node:internal/bootstrap/web/exposed-window-or-worker:75:12)
+      at /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web/tests/ui/workbench-awaiting-plan-queue.test.tsx:166:12
+      at mockCall (file:///Users/shenyangjun/.codex/worktrees/548a/workspacex/node_modules/.pnpm/@vitest+spy@2.1.9/node_modules/@vitest/spy/dist/index.js:61:17)
+      at fetch (file:///Users/shenyangjun/.codex/worktrees/548a/workspacex/node_modules/.pnpm/tinyspy@3.0.2/node_modules/tinyspy/dist/index.js:45:80)
+} { runtimeUrl: '/api/copilotkit' }
+
+ ✓ tests/ui/workbench-awaiting-plan-queue.test.tsx (1 test) 179ms
+ ✓ tests/ui/workbench-queue-failure-copy.test.tsx (3 tests) 75ms
+ ✓ tests/ui/workbench-server-queue.test.tsx (4 tests) 175ms
+ ✓ tests/ui/workbench-dispatched-queue.test.tsx (1 test) 60ms
+
+ Test Files  5 passed (5)
+      Tests  21 passed (21)
+   Start at  15:29:53
+   Duration  6.03s (transform 1.10s, setup 323ms, collect 2.97s, tests 632ms, environment 1.56s, prepare 122ms)

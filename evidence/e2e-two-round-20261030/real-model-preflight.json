@@ -1,0 +1,8 @@
+{
+  "configured": {
+    "DASHSCOPE_API_KEY": false,
+    "DASHSCOPE_BASE_URL": false,
+    "DASHSCOPE_MODEL": false
+  },
+  "lane": "not executed unless all required configuration available"
+}

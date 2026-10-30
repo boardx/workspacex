@@ -1,21 +1,26 @@
 import {createHash} from 'node:crypto';
 import { parentPort, workerData } from 'node:worker_threads';
 import * as Y from 'yjs';
-import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObject, WHITEBOARD_UPDATE_LIMITS, mindmapStructureDigest } from '@repo/whiteboard-core';
+import { compensateWhiteboardSnapshot, createWhiteboardDocument, executeCommands, prepareWhiteboardUpdate, validateDocument, readObjects, readStoredObject, WHITEBOARD_UPDATE_LIMITS, mindmapStructureDigest } from '@repo/whiteboard-core/validation-worker';
 import type { WorkerValidationInput } from './update-validator-input';
 
 const canonical=(value:unknown):string=>Array.isArray(value)?`[${value.map(canonical).join(',')}]`:value&&typeof value==='object'?`{${Object.entries(value as Record<string,unknown>).sort(([a],[b])=>a.localeCompare(b)).map(([key,item])=>`${JSON.stringify(key)}:${canonical(item)}`).join(',')}}`:JSON.stringify(value);
 const digest=(value:unknown)=>createHash('sha256').update(canonical(value)).digest('hex');
+parentPort?.postMessage({ phase: 'ready' });
 const input = workerData as WorkerValidationInput;
 const doc = createWhiteboardDocument();
 try {
   Y.applyUpdate(doc, input.snapshot);
+  parentPort?.postMessage({ phase: 'snapshot-applied' });
   validateDocument(doc);
   if (input.mode === 'objects') {
+    parentPort?.postMessage({ phase: 'validated' });
     parentPort?.postMessage({ result: readObjects(doc) });
   } else if (input.mode === 'object-ids') {
+    parentPort?.postMessage({ phase: 'validated' });
     parentPort?.postMessage({ result: readObjects(doc).map(object => object.id) });
   } else if (input.mode === 'diff') {
+    parentPort?.postMessage({ phase: 'validated' });
     parentPort?.postMessage({ result: Y.encodeStateAsUpdate(doc, input.vector) });
   } else {
     const before=readObjects(doc);
@@ -74,6 +79,7 @@ try {
     const deletions=before.filter(object=>tombstones.get(object.id)===true).map(object=>{const item=tombstones._map.get(object.id)!;return{id:object.id,digest:digest(object),tombstone:{client:item.id.client,clock:item.id.clock}};});
     const afterById=new Map(readObjects(doc).map(object=>[object.id,object]));
     const deletionChanges=deletions.length?[...new Set([...beforeById.keys(),...afterById.keys()])].map(id=>({id,before:beforeById.has(id)?digest(beforeById.get(id)):null,after:afterById.has(id)?digest(afterById.get(id)):null})).filter(change=>change.before!==change.after):[];
+    parentPort?.postMessage({ phase: 'validated' });
     parentPort?.postMessage({ result: { snapshot, update, objectIds: [...afterById.keys()], deletions, deletionChanges } });
   }
 } catch { parentPort?.postMessage({ rejected: true }); }

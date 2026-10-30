@@ -1,0 +1,3 @@
+
+> @repo/whiteboard-core@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/548a/workspacex/packages/whiteboard-core
+> tsc --noEmit
