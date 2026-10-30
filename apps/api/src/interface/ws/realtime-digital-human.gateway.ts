@@ -152,9 +152,10 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
   };
 
   const openUpstream = async (plan: UpstreamPlan): Promise<void> => {
+    if (hangingUp || client.readyState !== client.OPEN) return;
     voiceSession = plan.session;
     await billing.start(plan.session);
-    if (client.readyState !== client.OPEN) { await finishBilling(); return; }
+    if (hangingUp || client.readyState !== client.OPEN) { await finishBilling(); return; }
     billing.markDispatched();
     const socket = new UpstreamWebSocket(`${baseUrl}?model=${encodeURIComponent(model)}`, {
       headers: { Authorization: `Bearer ${apiKey}`, "OpenAI-Beta": "realtime=v1" },

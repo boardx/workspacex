@@ -73,17 +73,28 @@ it("rejects conflicting provider response replay without another debit",async()=
  await expect.poll(()=>frames.some(x=>x.reason==="CREDIT_ACCOUNTING_UNAVAILABLE")).toBe(true);
  expect(await balance(team,team)).toBe("-2.02");
 });
-it("settles a confirmed nondispatch and releases its durable slot when the client disconnects during admission",async()=>{
+it.each(["disconnect","stop"] as const)("settles a confirmed nondispatch and releases its durable slot on %s during admission",async action=>{
  let release!:()=>void;holdStart=new Promise<void>(r=>{release=r;});entered=false;const before=providers.length;
  try{
   const {client}=await connect("team");await expect.poll(()=>entered).toBe(true);
   const slot=createHash("sha256").update(heldRequest).digest("hex")+".reserved";
   expect(await readdir(directory)).toContain(slot);
-  client.terminate();await expect.poll(()=>gateway.clients.size).toBe(0);release();
+  if(action==="disconnect"){
+   client.terminate();await expect.poll(()=>gateway.clients.size).toBe(0);
+  }else{
+   const peer=[...gateway.clients].at(-1)!;
+   // Observe the actual stop frame after the gateway's registered handler sets
+   // hangingUp. The browser remains OPEN while billing admission is unresolved.
+   const received=new Promise<void>(resolve=>peer.once("message",()=>resolve()));
+   client.send(JSON.stringify({type:"session.stop"}));await received;
+   expect(client.readyState).toBe(WebSocket.OPEN);
+  }
+  release();
   await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE request_id=$1",[heldRequest]))).rows[0]).toEqual({state:"settled",debit:"0"});
   // Production intentionally retains ACK until an independently committed replay.
   await meter.replayPending();
   await expect.poll(async()=>(await readdir(directory)).includes(slot)).toBe(false);
   expect(providers).toHaveLength(before);
+  if(action==="stop")await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
  }finally{release();holdStart=null;}
 });

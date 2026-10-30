@@ -138,4 +138,5 @@
 - [x] Preserve unknown/aborted usage as pending; expose typed credit errors without automatic reconnect; wire existing durable meter in main composition.
 - [x] Same final reviewer addendum; admission/disconnect race reproduced then fixed with zero nondispatch settlement and replay slot cleanup.
 - [x] Final combined payment/usage/voice regression: 46 files / 406 tests. UI114 and current-head actual browser CI8 pass; backfill review corrections pass PostgreSQL/checkpoint/webhook40 and independent source review. Unknown terminal retention and late terminal enrichment both retain their confirmed financial facts.
+- [x] Final explicit-stop review edge: actual WS/PG RED pending/null; pre/post-admission hangingUp guards prevent dispatch after a stop. Focused gateway/durable/voice/transcript76 passes, covering stop and disconnect zero settlement with durable cleanup. Comprehensive406 is the earlier broader run, not an unrun407.
 - [ ] Follow all integration PRs to green and integrate develop; no production cutover/apply/deploy in this task.
