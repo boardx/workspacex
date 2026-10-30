@@ -1268,7 +1268,8 @@ describe("lint-permission-paths: counter-proof", () => {
     };
     expect(boundaryAudit.failures).toEqual([]);
     // #5877 and #5894 add four narrowly checked financial metadata boundaries.
-    expect(boundaryAudit.rules).toHaveLength(33);
+    // #5997 adds the tenant-scoped append-only credit receipt boundary.
+    expect(boundaryAudit.rules).toHaveLength(34);
     for (const rule of boundaryAudit.rules) {
       expect(rule.reason.length, rule.path).toBeGreaterThan(40);
       expect(rule.checks, rule.path).toBeGreaterThan(0);

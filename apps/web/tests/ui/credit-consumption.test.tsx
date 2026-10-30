@@ -6,6 +6,12 @@ import { ConsumptionSettingsPanel } from "@/components/admin/consumption-setting
 import { notifyCreditFailure } from "@/lib/credit-guidance";
 import { apiRequest } from "@/lib/api-client";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+it("explains the fixed personal and enterprise admission policy without offering the legacy bypass switch", async () => {
+ vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({creditPreflightEnabled:false,admissionPolicy:"personal_nonnegative_enterprise_overdraft"}))));
+ render(<ConsumptionSettingsPanel />);
+ expect(await screen.findByText(/个人账户余额低于 0 时不能发起新请求/)).toBeTruthy();
+ expect(screen.queryByRole("switch")).toBeNull();
+});
 it("HTTP credit rejection preserves draft and offers scoped recharge without retry", async () => {
  const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({code:"credit_required",ownerType:"team",ownerId:"org-a",rechargePath:"/billing?ownerType=team&ownerId=org-a&purchase=1"}), {status:402})); vi.stubGlobal("fetch",fetcher);
  render(<><textarea aria-label="草稿" defaultValue="保留附件与问题" /><CreditConsumptionNotice /></>);
