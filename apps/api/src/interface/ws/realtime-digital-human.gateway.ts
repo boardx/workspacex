@@ -1,3 +1,6 @@
+import {RealtimeVoiceAccounting} from "../../application/chat/realtime-voice-accounting";
+import {CreditConsumptionError} from "../../application/billing/credit-consumption";
+import type {TokenUsageMeterPort} from "../../application/agent-run/ports";
 import type { Server } from "node:http";
 import type { Duplex } from "node:stream";
 import { WebSocket as UpstreamWebSocket, WebSocketServer, type WebSocket } from "ws";
@@ -22,6 +25,7 @@ type ErrorReason = typeof STREAM.err._type;
 
 export interface RealtimeDigitalHumanGatewayDeps {
   readonly principals: PrincipalResolverPort;
+  readonly usage: TokenUsageMeterPort;
   /**
    * Chat 语音模式（`session.start.threadId`）的判权/人设/落库依赖。缺省时 Chat 宿主一律按
    * THREAD_UNAVAILABLE 拒绝（fail closed），白板 POC 不受影响。
@@ -56,6 +60,8 @@ export function readRealtimeModelConfig(env: NodeJS.ProcessEnv = process.env): R
 }
 
 const FRIENDLY: Record<ErrorReason, string> = {
+  CREDIT_REQUIRED: "额度不足，请充值后重新开始通话",
+  CREDIT_ACCOUNTING_UNAVAILABLE: "暂时无法确认语音用量，请稍后重试",
   NOT_CONFIGURED: "实时语音模型尚未配置，请联系管理员",
   AGENT_UNAVAILABLE: "这个数字人暂不可用，可能尚未发布或你没有使用权限",
   THREAD_UNAVAILABLE: "当前对话不可用或你没有发言权限",
@@ -104,6 +110,13 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
     return;
   }
 
+  const billing = new RealtimeVoiceAccounting(deps.usage, principal, model);
+  const accountingFailure = (error: unknown): void => {
+    const reason = error instanceof CreditConsumptionError && error.code === "credit_required" ? "CREDIT_REQUIRED" : "CREDIT_ACCOUNTING_UNAVAILABLE";
+    send({type:"session.error",reason,message:FRIENDLY[reason],...(reason === "CREDIT_REQUIRED" && error instanceof CreditConsumptionError ? {credit:{code:"credit_required" as const,ownerType:error.ownerType,ownerId:error.ownerId,rechargePath:error.rechargePath}} : {})});
+    close();client.close();
+  };
+  const finishBilling = (aborted = false) => billing.finish(aborted).catch(accountingFailure);
   let upstream: UpstreamWebSocket | null = null;
   let started = false;
   let voiceSession: RealtimeVoiceSession | null = null;
@@ -138,8 +151,11 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
     persist("assistant", text);
   };
 
-  const openUpstream = (plan: UpstreamPlan): void => {
+  const openUpstream = async (plan: UpstreamPlan): Promise<void> => {
     voiceSession = plan.session;
+    await billing.start(plan.session);
+    if (client.readyState !== client.OPEN) { await finishBilling(); return; }
+    billing.markDispatched();
     const socket = new UpstreamWebSocket(`${baseUrl}?model=${encodeURIComponent(model)}`, {
       headers: { Authorization: `Bearer ${apiKey}`, "OpenAI-Beta": "realtime=v1" },
     });
@@ -164,8 +180,10 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       }
     });
     socket.on("message", (message) => {
+      if (upstream !== socket) return;
       const event = normaliseUpstreamEvent(safeJson(String(message)));
       if (!event) return;
+      void billing.receive(event).catch(accountingFailure);
       if (event.type === "session.updated") send({ type: "session.ready", model });
       // 转写落库：用户一句说完 / 数字人一段说完（或被打断）各落一条。
       if (event.type === "conversation.item.input_audio_transcription.completed" && typeof event.transcript === "string") {
@@ -185,14 +203,14 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       }
       forwardUpstream(event, send, fail);
     });
-    socket.on("error", () => fail("UPSTREAM_FAILED"));
+    socket.on("error", () => { fail("UPSTREAM_FAILED"); void finishBilling(true); });
     socket.on("close", () => {
       if (upstream !== socket || hangingUp) return;
       hangingUp = true;
       flushAssistant();
       // 上游断开仍须让最后一轮完成落库并发出 turn.persisted，再通知客户端刷新线程。
       // append 卡住时有界结束；未落库的轮次不会伪造 persisted 确认。
-      void Promise.race([persistChain, delay(HANGUP_PERSIST_WAIT_MS)]).finally(() => {
+      void Promise.all([finishBilling(true),Promise.race([persistChain, delay(HANGUP_PERSIST_WAIT_MS)])]).finally(() => {
         close();
         send({ type: "session.closed" });
         client.close();
@@ -202,6 +220,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
 
   client.on("message", (raw: Buffer, isBinary: boolean) => {
     if (isBinary) {
+      if (hangingUp) return;
       if (!started) return;
       if (upstream?.readyState !== UpstreamWebSocket.OPEN) {
         if (pendingAudio.reduce((sum, item) => sum + item.byteLength, 0) < 960_000) pendingAudio.push(Buffer.from(raw));
@@ -214,6 +233,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
     const parsed = STREAM.client.safeParse(safeJson(String(raw)));
     if (!parsed.success) return fail("INVALID_FRAME");
     const frame = parsed.data;
+    if (hangingUp) return;
     if (frame.type === "session.start") {
       if (started) return;
       const hasBoard = frame.boardId !== undefined;
@@ -221,11 +241,11 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       if (hasBoard === hasThread || (hasBoard && frame.agentId !== undefined)) return fail("INVALID_FRAME");
       started = true;
       if (frame.boardId !== undefined) {
-        openUpstream({
+        void openUpstream({
           instructions: `你是 WorkspaceX 中文数字人助手。当前白板 ID 是 ${frame.boardId}。像真人面对面交流一样自然、温和、简洁地回答，使用口语化短句和自然停顿，避免播音腔。`,
           voice: config.defaultVoice,
           session: null,
-        });
+        }).catch(accountingFailure);
         return;
       }
       const threadId = frame.threadId!;
@@ -236,7 +256,7 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
       })().then(
         (session) => {
           if (client.readyState !== client.OPEN) return;
-          openUpstream({ instructions: session.instructions, voice: session.voice, session });
+          void openUpstream({ instructions: session.instructions, voice: session.voice, session }).catch(accountingFailure);
         },
         (error: unknown) => {
           fail(error instanceof RealtimeVoiceAgentUnavailableError ? "AGENT_UNAVAILABLE"
@@ -262,13 +282,13 @@ function serve(client: WebSocket, principal: Principal, deps: RealtimeDigitalHum
     // 否则「说完立刻挂断」的最后一句永远不会进线程（uiux-r4：挂断后线程为空）。
     if (hangingUp) return;
     hangingUp = true;
-    void settleBeforeHangup().finally(() => {
+    void settleBeforeHangup().then(async () => { close(); await finishBilling(); }).finally(() => {
       close();
       send({ type: "session.closed" });
       client.close();
     });
   });
-  client.on("close", () => { if (!hangingUp) { flushAssistant(); close(); } });
+  client.on("close", () => { if (!hangingUp) { flushAssistant(); close(); void finishBilling(true); } });
 
   const settleBeforeHangup = async (): Promise<void> => {
     flushAssistant();
