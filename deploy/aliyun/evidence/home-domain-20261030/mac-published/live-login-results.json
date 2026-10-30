@@ -1,0 +1,28 @@
+[
+  {
+    "input": "https://www.boardx.com.cn/login",
+    "js": false,
+    "finalUrl": "https://app.boardx.com.cn/login",
+    "appStatus": 200,
+    "title": "WorkspaceX",
+    "pass": true
+  },
+  {
+    "input": "https://boardx.com.cn/login",
+    "js": false,
+    "finalUrl": "https://app.boardx.com.cn/login",
+    "appStatus": 200,
+    "title": "WorkspaceX",
+    "pass": true
+  },
+  {
+    "input": "https://www.boardx.com.cn/login",
+    "js": true,
+    "error": "TimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://www.boardx.com.cn/login\", waiting until \"d"
+  },
+  {
+    "input": "https://boardx.com.cn/login",
+    "js": true,
+    "error": "TimeoutError: page.goto: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - navigating to \"https://boardx.com.cn/login\", waiting until \"domco"
+  }
+]

@@ -1,0 +1,71 @@
+{
+  "published": true,
+  "sourceCommit": "4a75643a5e9ce42fdd3f16f45e8917a031d857bb",
+  "prHeadAtHandoff": "e938ffa702eca7efdbd3b0e53a9c4578edc6447f",
+  "pr": "https://github.com/boardx/workspacex/pull/6014",
+  "prState": "draft; no approve/merge",
+  "productionVersion": "1793374515863216561",
+  "deploymentId": "1793374934082159285",
+  "publishedAt": "2026-10-30T15:42:14Z",
+  "productionPercentage": 100,
+  "publishRequestId": "01A18D79-D422-5CA3-A9C8-D874DC54E25B",
+  "archiveSha256": "61e76a5f30b529c47d8b1607483355bb560e05f575e5a1ab2726e4d173b2d993",
+  "assetTreeSha256": "cbb19c55454b569da93364a7cc281edf14b49985e35bcf54d15644929c738ee7",
+  "zipSha256": "7b7d3a112c5fc1cc39f7b634e5044bd0f63b7351fefadf44f828ffadd118802c",
+  "primary": "https://workspacex.cn",
+  "icp": "粤ICP备2021115740号-2",
+  "miit": "https://beian.miit.gov.cn/",
+  "newPlanPurchased": false,
+  "saas": {
+    "id": 186421201778928,
+    "existingSiteId": 182657519556832,
+    "recordId": 182660859394284,
+    "status": "active",
+    "certificate": "OK; free; expires 2027-01-28T14:33:25Z"
+  },
+  "dns": {
+    "recordId": "2115993451350302720",
+    "before": "A 47.116.120.18 TTL600",
+    "after": "CNAME www.boardx.com.cn.a2.initjj.com TTL600",
+    "addedTxtRecordIds": [
+      "2116190913331629056",
+      "2116190919102884864"
+    ]
+  },
+  "compatibility": "BoardX root and WWW 301 to primary preserving path/query; /login and /login/ 302 directly to China app preserving query; primary login also direct app",
+  "legacyRedirect": "Only existing BoardX root TLS marketing redirect changed with exact-hash check, root-only backup, nginx test/reload success",
+  "rollbackVersions": [
+    "1793374091236947830",
+    "1793182357164195675"
+  ],
+  "httpAcceptance": {
+    "cases": 13,
+    "passed": 13,
+    "publishedAssets": "4 main pages byte-identical to sealed candidate; marker exact source",
+    "extraChecks": "primary /login query and old root HTTP privacy query both end in intended 200"
+  },
+  "browserAcceptance": {
+    "cases": 6,
+    "passed": 6,
+    "networkLimit": "Initial normal Chromium navigation timeouts retained; primary and oldWWW retries used only observed ESA IPv4 in browser resolver; no public/system DNS change for tests",
+    "mobile": "390px; 44px link; JS on/off; screenshots inspected"
+  },
+  "us": {
+    "writesExecuted": false,
+    "homeAndZhStatus": 200,
+    "icp": [],
+    "releaseCommit": "d54f0f0244f83614edc86c3396a68cb4a49a33f2",
+    "rawBodyHashVsCloudBefore": "different; not claimed byte-identical. Current response includes Cloudflare obfuscated email tokens; deployed release marker unchanged from prior baseline."
+  },
+  "untouched": [
+    "US hosting",
+    "application backend",
+    "database",
+    "MX/NS",
+    "account credentials/permissions",
+    "shared browser"
+  ],
+  "ciLimit": "Handoff 29 success /21 skipped /1 existing directory-smoke MinIO403 failure; no all-green claim",
+  "knownInactiveArtifact": "1793374323739373761 remained Init after failed asset upload, never published, retained rather than deleted",
+  "futureBoundary": "Only root workspacex.cn switched; existing www.workspacex.cn DNS record not changed."
+}
