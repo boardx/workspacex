@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ErrorState, LoadingSkeleton } from "@/components/work-stack/states";
 import { SUBSCRIPTIONS, type PreviewState, type SubscriptionVariant } from "@/lib/mock/billing";
+import { billingSubscription } from "@repo/contracts";
 
 const PRO_BENEFITS = [
-  "全部模型与 Agent 能力不限量使用",
+  `每月获得 ${billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit，用于模型与 Agent 调用`,
+  "当期未用完额度到期清零，超出后需另行充值",
   "更长的上下文窗口",
   "优先获得新功能与支持",
 ] as const;

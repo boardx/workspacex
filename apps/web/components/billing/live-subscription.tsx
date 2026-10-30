@@ -146,6 +146,6 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
     {error && <p role="alert" className="text-13 text-muted-foreground">{error}</p>}
     {state.status === "ready" && <Button variant="outline" size="sm" onClick={refresh} disabled={busy}>刷新订阅状态</Button>}
     {!stripeEnabled && <p className="text-12 text-muted-foreground">订阅购买与账单管理暂不可用，请稍后再试。</p>}
-    {stripeEnabled && <p className="text-12 text-muted-foreground">价格与订阅条款以 Stripe 支付页面为准。月付每期发放 20,000 credit，充值额度另行保留。</p>}
+    {stripeEnabled && <p className="text-12 text-muted-foreground">价格与订阅条款以 Stripe 支付页面为准。月付每期发放 {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit，充值额度另行保留。</p>}
   </>;
 }
