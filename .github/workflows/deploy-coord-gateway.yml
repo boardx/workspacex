@@ -11,8 +11,8 @@ name: deploy-coord-gateway
 
 on:
   push:
-    branches: [main]
-    paths:
+    branches: [develop, main]
+    paths: &coord-paths
       # 覆盖 apps/coord-gateway/package.json 的全部 @repo/coord-* 依赖——只改依赖包
       # 不改 gateway 本体的 PR 合并后必须照样自动部署，否则修复会静默不生效
       # （#787 事故：coord-directory 的 schema 迁移修复合并后一度没有自动部署，
@@ -24,20 +24,20 @@ on:
       - "packages/coord-protocol/**"
       - "packages/coord-repohub/**"
       - "pnpm-lock.yaml"
+  pull_request:
+    branches: [develop]
+    paths: *coord-paths
   workflow_dispatch: {}
 
 concurrency:
-  group: workspacex-deploy-coord-gateway
+  group: ${{ github.ref == 'refs/heads/main' && 'workspacex-deploy-coord-gateway' || format('coord-validation-{0}-{1}', github.event_name, github.event.pull_request.number || github.ref) }}
   cancel-in-progress: false # 排队执行，不中途取消
 
 jobs:
-  deploy:
+  validate:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      COORD_GATEWAY_URL: ${{ vars.COORD_GATEWAY_URL }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -67,6 +67,30 @@ jobs:
           pnpm --filter @repo/coord-repohub test
           pnpm --filter @repo/coord-gateway typecheck
           pnpm --filter @repo/coord-gateway test
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      COORD_GATEWAY_URL: ${{ vars.COORD_GATEWAY_URL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4.4.0
+
+      - name: Setup Node (read .nvmrc)
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile --filter @repo/coord-gateway...
 
       - name: Ensure queues exist (idempotent, incl. DLQ #712)
         working-directory: apps/coord-gateway

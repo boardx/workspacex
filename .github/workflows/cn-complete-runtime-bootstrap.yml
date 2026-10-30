@@ -1,6 +1,7 @@
 name: Standalone repository bootstrap contracts
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'scripts/cn-complete-runtime-bootstrap.py'
       - 'tests/test_cn_complete_runtime_bootstrap.py'

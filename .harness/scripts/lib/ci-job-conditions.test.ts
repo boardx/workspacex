@@ -20,15 +20,15 @@ type Probe = { id: string; eventName: string; ref: string; baseBranch: string; l
 
 const PROBES: Probe[] = PROBE_EVENTS;
 const PR = PROBES.find((probe) => probe.id === "pull_request")!;
-const PUSH_MAIN = PROBES.find((probe) => probe.id === "push-main")!;
+const PUSH_DEVELOP = PROBES.find((probe) => probe.id === "push-develop")!;
 
 describe("on: 触发器", () => {
   it("裸 pull_request ⇒ 每个 PR 都接纳（harness-verify / skill-files-e2e 的形状）", () => {
     expect(triggerAdmits({ pull_request: null }, PR).admits).toBe(true);
   });
 
-  it("push 到 main、无路径过滤 ⇒ 接纳（backend-gates 的形状）", () => {
-    expect(triggerAdmits({ push: { branches: ["main"], tags: ["v*"] } }, PUSH_MAIN).admits).toBe(true);
+  it("push 到 develop、无路径过滤 ⇒ 接纳（backend-gates 的形状）", () => {
+    expect(triggerAdmits({ push: { branches: ["develop"], tags: ["v*"] } }, PUSH_DEVELOP).admits).toBe(true);
   });
 
   /**
@@ -45,7 +45,7 @@ describe("on: 触发器", () => {
   });
 
   it("paths-ignore 同样算条件触发 —— 它也是「只在某些改动下才来」", () => {
-    expect(triggerAdmits({ push: { branches: ["main"], "paths-ignore": ["docs/**"] } }, PUSH_MAIN).admits).toBe(
+    expect(triggerAdmits({ push: { branches: ["develop"], "paths-ignore": ["docs/**"] } }, PUSH_DEVELOP).admits).toBe(
       false,
     );
   });
@@ -58,11 +58,11 @@ describe("on: 触发器", () => {
   });
 
   it("push 只钉在别的分支上 ⇒ 不接纳（deploy-cn-production 的 main-cn）", () => {
-    expect(triggerAdmits({ push: { branches: ["main-cn"] } }, PUSH_MAIN).admits).toBe(false);
+    expect(triggerAdmits({ push: { branches: ["main-cn"] } }, PUSH_DEVELOP).admits).toBe(false);
   });
 
   it("`on: push` 这种字符串/数组写法也要认", () => {
-    expect(triggerAdmits("push", PUSH_MAIN).admits).toBe(true);
+    expect(triggerAdmits("push", PUSH_DEVELOP).admits).toBe(true);
     expect(triggerAdmits(["push", "pull_request"], PR).admits).toBe(true);
   });
 });
@@ -75,7 +75,7 @@ describe("job 的 if: 表达式", () => {
   it("排除 schedule / workflow_dispatch 的写法在两个探针下都成立", () => {
     const expr = "github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'";
     expect(evaluateIf(expr, PR)).toBe(true);
-    expect(evaluateIf(expr, PUSH_MAIN)).toBe(true);
+    expect(evaluateIf(expr, PUSH_DEVELOP)).toBe(true);
   });
 
   it("fork 守卫在同仓 PR 下成立 —— 否则 backend-gates 全套会被误判成条件覆盖", () => {
@@ -84,17 +84,17 @@ describe("job 的 if: 表达式", () => {
     expect(evaluateIf(expr, PR)).toBe(true);
   });
 
-  it("e2e-full 那串：PR 上不跑，但每次合入 main 都跑 ⇒ 仍是无条件覆盖", () => {
+  it("e2e-full 那串：PR 上不跑，但每次合入 develop 都跑 ⇒ 仍是无条件覆盖", () => {
     const expr =
       "github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)";
     expect(evaluateIf(expr, PR)).toBe(false);
-    expect(evaluateIf(expr, PUSH_MAIN)).toBe(true);
+    expect(evaluateIf(expr, PUSH_DEVELOP)).toBe(true);
   });
 
   it("只在手动勾选时跑的 job ⇒ 两个探针下都不跑（chat-task-workbench 的形状）", () => {
     const expr = "github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench";
     expect(evaluateIf(expr, PR)).toBe(false);
-    expect(evaluateIf(expr, PUSH_MAIN)).toBe(false);
+    expect(evaluateIf(expr, PUSH_DEVELOP)).toBe(false);
   });
 
   it("always() / cancelled() 取顺利那一趟的值", () => {
@@ -112,7 +112,7 @@ describe("job 的 if: 表达式", () => {
    * `ciJobCommands` 里当作「不可达」⇒ 判成条件覆盖。猜成 true 才是本仓要挡的哑火。
    */
   it("认不出的函数 ⇒ UNKNOWN，不是 true", () => {
-    expect(evaluateIf("startsWith(github.ref, 'refs/tags/v')", PUSH_MAIN)).toBe(UNKNOWN);
+    expect(evaluateIf("startsWith(github.ref, 'refs/tags/v')", PUSH_DEVELOP)).toBe(UNKNOWN);
   });
 
   it("认不出的上下文 ⇒ UNKNOWN", () => {
@@ -125,12 +125,12 @@ describe("job 的 if: 表达式", () => {
 
   it("UNKNOWN 不会污染已经能定下来的一边（短路语义）", () => {
     // 一个真值把 || 定死成 true：backend-gates 的 deploy 正是这个形状
-    // （startsWith(...) 判不出来，但 github.ref == 'refs/heads/main' 判得出来）。
-    expect(evaluateIf("startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'", PUSH_MAIN)).toBe(
+    // （startsWith(...) 判不出来，但 github.ref == 'refs/heads/develop' 判得出来）。
+    expect(evaluateIf("startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/develop'", PUSH_DEVELOP)).toBe(
       true,
     );
     // 一个假值把 && 定死成 false。
-    expect(evaluateIf("startsWith(github.ref, 'x') && github.event_name == 'schedule'", PUSH_MAIN)).toBe(false);
+    expect(evaluateIf("startsWith(github.ref, 'x') && github.event_name == 'schedule'", PUSH_DEVELOP)).toBe(false);
   });
 
   it("${{ }} 包裹的写法是同一条表达式", () => {

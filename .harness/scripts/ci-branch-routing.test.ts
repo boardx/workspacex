@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
@@ -13,17 +13,51 @@ const probe = (eventName: string, branch: string) => ({
 });
 
 describe('develop integration routing preserves trusted deployment boundaries', () => {
-  it.each(['harness-verify', 'backend-gates', 'board-acceptance', 'skill-files-e2e'])(
-    '%s verifies pushes to develop and retains legacy main validation', name => {
-      for (const branch of ['develop', 'main']) {
-        expect(workflow(name).on.push.branches).toContain(branch);
-      }
-    },
-  );
+  it('limits all ordinary development PR triggers to develop', () => {
+    for (const file of readdirSync(resolve(root, '.github/workflows')).filter(f => f.endsWith('.yml'))) {
+      const w = workflow(file.replace(/\.yml$/, ''));
+      if (!Object.hasOwn(w.on, 'pull_request')) continue;
+      // Exact historical labeled operations are operational evidence, not code CI.
+      if (['cn-exact-f0eb-preflight.yml', 'preserve-cn-f0eb-originals.yml'].includes(file)) continue;
+      expect(w.on.pull_request?.branches, file).toEqual(['develop']);
+    }
+  });
 
-  it('requires DCO for develop and both production synchronization PRs', () => {
-    for (const branch of ['develop', 'main', 'main-cn', 'main-us']) {
-      expect(triggerAdmits(workflow('dco').on, probe('pull_request', branch)).admits).toBe(true);
+  it('never runs automatic code CI on production synchronization branches or tags', () => {
+    const deployment = new Set(['deploy-home.yml', 'deploy-devportal.yml', 'deploy-coord-gateway.yml']);
+    for (const file of readdirSync(resolve(root, '.github/workflows')).filter(f => f.endsWith('.yml'))) {
+      const w = workflow(file.replace(/\.yml$/, ''));
+      if (!Object.hasOwn(w.on, 'push') || deployment.has(file)) continue;
+      expect(w.on.push?.branches, file).toEqual(['develop']);
+      expect(w.on.push?.tags, file).toBeUndefined();
+      for (const branch of ['main', 'main-us', 'main-cn', 'worker/example'])
+        expect(triggerAdmits(w.on, probe('push', branch)).admits, file + ':' + branch).toBe(false);
+    }
+  });
+
+  it.each(['harness-verify','backend-gates'])('limits %s merge groups to develop', name => {
+    expect(workflow(name).on.merge_group.branches).toEqual(['develop']);
+  });
+
+  it('keeps production deployment separate from development validation', () => {
+    const gateway = workflow('deploy-coord-gateway');
+    const admit = (expr: string, event: string, branch: string) => new Function('github', `return (${expr});`)({event_name:event,ref:`refs/heads/${branch}`});
+    expect(gateway.jobs.validate.env).toBeUndefined();
+    for (const event of ['push', 'pull_request']) expect(admit(gateway.jobs.validate.if,event,'develop')).toBe(true);
+    expect(admit(gateway.jobs.validate.if,'push','main')).toBe(false);
+    expect(admit(gateway.jobs.deploy.if,'push','main')).toBe(true);
+    for (const branch of ['develop','main-us']) expect(admit(gateway.jobs.deploy.if,'push',branch)).toBe(false);
+    expect(gateway.concurrency.group).toContain("github.ref == 'refs/heads/main'");
+    expect(gateway.concurrency.group).toContain('coord-validation-');
+    expect(gateway.concurrency['cancel-in-progress']).toBe(false);
+    for (const [name, steps] of [
+      ['deploy-home', ['Static gates','Deployment failure and rollback contracts','China package language and landing-page contracts']],
+      ['deploy-devportal', ['Typecheck / lint / test','E2E (repeatable local gateway fixture)']],
+    ] as const) {
+      const w=workflow(name);
+      expect(w.on.push.branches).toEqual(['main']);
+      expect(w.jobs.deploy.if).toContain("github.ref == 'refs/heads/main'");
+      for (const stepName of steps) expect(w.jobs.validate.steps.find((s: any)=>s.name===stepName).if).toBe("github.event_name == 'pull_request'");
     }
   });
 

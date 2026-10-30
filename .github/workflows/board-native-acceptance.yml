@@ -3,18 +3,18 @@ name: Board independent heavy acceptance
 on:
   push:
     branches:
-      - main
+      - develop
   workflow_dispatch:
     inputs:
       fresh_run:
-        description: Force a new measurement of the same main SHA
+        description: Force a new measurement of the same develop SHA
         type: boolean
         default: false
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: board-heavy-main
+  group: board-heavy-develop
   cancel-in-progress: false
 jobs:
   batch:
@@ -30,7 +30,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
       - id: snapshot
-        name: Freeze admitted main and coverage; inspect exact batch evidence
+        name: Freeze admitted develop and coverage; inspect exact batch evidence
         env:
           GH_TOKEN: ${{ github.token }}
           CI_FRESH_RUN: ${{ inputs.fresh_run }}

@@ -21,6 +21,7 @@ name: home-gates
 
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'apps/home/**'
       - 'deploy/aliyun/home_cn_language_package.py'
@@ -29,7 +30,7 @@ on:
       - 'deploy/aliyun/test-home-cn-icp.mjs'
       - '.github/workflows/home-gates.yml'
   push:
-    branches: [main]
+    branches: [develop]
     paths:
       - 'apps/home/**'
       - 'deploy/aliyun/home_cn_language_package.py'

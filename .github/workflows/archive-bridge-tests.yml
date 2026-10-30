@@ -1,6 +1,7 @@
 name: archive-bridge-tests
 on:
   pull_request:
+    branches: [develop]
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - '.github/workflows/archive-bridge-tests.yml'

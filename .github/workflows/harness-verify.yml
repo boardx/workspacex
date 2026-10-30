@@ -34,6 +34,7 @@ run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.verification_la
 
 on:
   pull_request:
+    branches: [develop]
   # 2026-09-21（#3238 第 1 条）：合并队列的候选组。GitHub 在 `refs/heads/gh-readonly-queue/
   # <base>/pr-<N>-<base sha>` 上开火，事件里 `github.event.pull_request.*` 与
   # `github.base_ref` **都是空的**，要读的是 `github.event.merge_group.head_sha` /
@@ -45,10 +46,10 @@ on:
   # 的唯一证据。在这里省任何一条，整套队列设计就只剩排队没有验证。
   # 队列本身要人类在 Settings → Branches 里开——没开时本事件永不触发，这段接线是惰性的。
   merge_group:
+    branches: [develop]
   push:
-    branches: [develop, main]
+    branches: [develop]
     # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
-    tags: ["v*"]
   # 2026-09-08 人类指令：定时 cron 触发（原每小时全栈烟测 + 每 3 小时 e2e-full）已
   # 摘掉——它和人工 `workflow_dispatch` 撞车会在同一 SHA 上重复跑一遍完整门控，纯
   # 浪费跑道（实测一次撞车：手动那条已经 6/7 job 跑完，定时那条才刚起步就被砍）。

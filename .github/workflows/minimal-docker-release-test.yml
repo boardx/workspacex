@@ -2,6 +2,7 @@ name: Minimal Docker release integration
 
 on:
   pull_request:
+    branches: [develop]
     paths:
       - scripts/minimal-docker-release.py
       - tests/test_minimal_docker_release*.py

@@ -2,6 +2,7 @@ name: deploy-home
 
 on:
   pull_request:
+    branches: [develop]
     paths: &home-paths
       - 'apps/home/**'
       - 'apps/web/public/workspacex-logo.png'
@@ -34,10 +35,13 @@ jobs:
           node-version-file: .nvmrc
           package-manager-cache: false
       - name: Static gates
+        if: github.event_name == 'pull_request'
         run: node apps/home/scripts/check-all.mjs --static-only
       - name: Deployment failure and rollback contracts
+        if: github.event_name == 'pull_request'
         run: node --test apps/home/tests/pages-deploy.test.mjs
       - name: China package language and landing-page contracts
+        if: github.event_name == 'pull_request'
         run: python3 -B -m unittest discover -s deploy/aliyun -p test_home_cn_language_package.py
 
   deploy:

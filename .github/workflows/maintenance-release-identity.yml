@@ -1,6 +1,7 @@
 name: Maintenance release identity contracts
 on:
   pull_request:
+    branches: [develop]
     paths:
       - '.github/workflows/maintenance-release-identity.yml'
       - '.harness/scripts/cn-maintenance-release-identities.json'

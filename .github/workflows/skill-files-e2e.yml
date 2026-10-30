@@ -1,8 +1,9 @@
 name: Skill files and Agent pins
 on:
   pull_request:
+    branches: [develop]
   push:
-    branches: [develop, main]
+    branches: [develop]
   workflow_dispatch:
 permissions:
   contents: read

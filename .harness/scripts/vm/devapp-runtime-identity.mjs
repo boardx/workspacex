@@ -315,7 +315,7 @@ export function* candidateCIGate(source,{waitForPending=false}={}){
  if(!sha.test(source??''))reject();const accepted={};let pending=false;
  const running=new Set(['queued','in_progress','waiting','pending','requested']);
  const checkRun=(r,workflow)=>{
-  if(r.head_sha!==source||r.head_branch!=='main'||r.event!=='push'||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1)reject();
+  if(r.head_sha!==source||r.head_branch!=='develop'||r.event!=='push'||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1)reject();
   if(r.status==='completed'){if(r.conclusion!=='success')reject();return false;}
   if(!waitForPending||!running.has(r.status)||r.conclusion!==null)reject();
   return true;
@@ -326,7 +326,7 @@ export function* candidateCIGate(source,{waitForPending=false}={}){
   const result=yield `repos/${repository}/actions/workflows/${workflow}/runs?head_sha=${source}&event=push&per_page=100`;
   if(!Array.isArray(result.workflow_runs)||!Number.isInteger(result.total_count)||result.total_count!==result.workflow_runs.length||result.total_count>100)reject();
   if(result.workflow_runs.some(r=>r.head_sha!==source||r.event!=='push'||r.path!=='.github/workflows/'+workflow||r.repository?.full_name!==repository||r.head_repository?.full_name!==repository||!Number.isSafeInteger(r.id)||r.id<1||!Number.isSafeInteger(r.run_attempt)||r.run_attempt<1))reject();
-  const runs=result.workflow_runs.filter(r=>r.head_branch==='main').sort((a,b)=>b.id-a.id),r=runs[0];
+  const runs=result.workflow_runs.filter(r=>r.head_branch==='develop').sort((a,b)=>b.id-a.id),r=runs[0];
   if(!r){if(!waitForPending)reject();pending=true;continue;}
   const runPending=checkRun(r,workflow);pending=runPending||pending;
   const list=yield `repos/${repository}/actions/runs/${r.id}/attempts/${r.run_attempt}/jobs?per_page=100`;

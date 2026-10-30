@@ -1,6 +1,7 @@
 name: Native CWD Mechanics Probe
 on:
   pull_request:
+    branches: [develop]
     paths:
       - .github/workflows/native-cwd-probe.yml
       - apps/web/scripts/probe-native-cwd.mjs

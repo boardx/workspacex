@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
@@ -6,7 +7,7 @@ import { NATIVE_RECEIPTS } from './lib/board-native-receipts.mjs';
 const evidence=()=>Object.fromEntries(Object.entries(NATIVE_RECEIPTS).map(([lane,suite])=>[lane,{schemaVersion:1,sourceHead:'a'.repeat(40),suiteConfig:suite.config,status:'PASSED',actualRuntimeExecution:true,requiredSuiteComplete:true,phase:'ACCEPTANCE',errors:0,exitCode:0,failureReason:null,cleanupCompleted:true,cleanupFailures:[],runtimeExit:{code:0,signal:null,wasAlive:true},statistics:{expected:suite.expected,unexpected:0,flaky:0,skipped:0}}]));
 const readNativeEvidence=async()=>evidence();
 const sha='a'.repeat(40), other='b'.repeat(40);
-const source={id:10,run_attempt:1,workflow_id:7,head_branch:'main',head_sha:sha,run_started_at:'2026-10-04T09:00:00Z',event:'push',html_url:'https://github.com/o/r/actions/runs/10'};
+const source={id:10,run_attempt:1,workflow_id:7,head_branch:'develop',head_sha:sha,run_started_at:'2026-10-04T09:00:00Z',event:'push',html_url:'https://github.com/o/r/actions/runs/10'};
 const jobs=Object.entries(HEAVY_LANES).map(([name,spec])=>({name,status:'completed',conclusion:'success',steps:[...spec.execute,spec.upload].map(name=>({name,status:'completed',conclusion:'success'}))}));
 const artifacts=[{id:50,name:'board-heavy-batch-10-1',expired:false},...Object.values(HEAVY_LANES).map(spec=>({name:`${spec.artifact}10-1`,expired:false}))];
 const manifest={schemaVersion:1,sha,runId:10,runAttempt:1,source:null};
@@ -126,9 +127,9 @@ describe('heavy batch immutable evidence',()=>{
 describe('existing Board workflow admission and verdict preservation',()=>{
  const heavy=parse(readFileSync(new URL('../../.github/workflows/board-native-acceptance.yml',import.meta.url),'utf8'));
  const fast=parse(readFileSync(new URL('../../.github/workflows/board-acceptance.yml',import.meta.url),'utf8'));
- it('keeps push main/manual, single latest pending, never cancels running batch',()=>{
-  expect(heavy.on.pull_request).toBeUndefined();expect(heavy.on.push.branches).toEqual(['main']);
-  expect(heavy.concurrency).toEqual({group:'board-heavy-main','cancel-in-progress':false});
+ it('keeps push develop/manual, single latest pending, never cancels running batch',()=>{
+  expect(heavy.on.pull_request).toBeUndefined();expect(heavy.on.push.branches).toEqual(['develop']);
+  expect(heavy.concurrency).toEqual({group:'board-heavy-develop','cancel-in-progress':false});
   expect(heavy.on.schedule).toBeUndefined();expect(fast.on.schedule).toBeUndefined();
   expect(heavy.jobs.batch.steps[0].with.ref).toBe('${{ github.sha }}');
   expect(fast.jobs['meeting-room']).toBeUndefined();
@@ -146,4 +147,11 @@ describe('existing Board workflow admission and verdict preservation',()=>{
   expect(job.steps.at(-1).run).toBe('test "$ORIGINAL_RESULT" = success');
   expect(JSON.stringify(job)).not.toContain('continue-on-error');
  });
+});
+
+it.each(['main', 'main-us'])('rejects %s dispatch and history even at the exact SHA', async branch => {
+ const result=spawnSync(process.execPath,['.harness/scripts/board-heavy-batch.mjs'],{env:{...process.env,GITHUB_REF:`refs/heads/${branch}`},encoding:'utf8'});
+ expect(result.status).toBe(1);
+ expect(result.stderr).toContain('Heavy batches only admit develop');
+ expect(await lookup({[`/actions/workflows/7/runs?head_sha=${sha}&per_page=100&page=1`]:{total_count:1,workflow_runs:[{...source,head_branch:branch}]}})).toBeNull();
 });

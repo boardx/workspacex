@@ -1,6 +1,7 @@
 name: web-runtime-contracts
 on:
   pull_request:
+    branches: [develop]
     paths:
       - 'deploy/aliyun/images/web.Dockerfile'
       - 'apps/web/next.config.mjs'

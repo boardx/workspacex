@@ -59,7 +59,7 @@ export async function findExactBatch({ api, readManifest, readNativeEvidence, sh
   const runs = await pages(api, `/actions/workflows/${own.workflow_id}/runs?head_sha=${sha}`, 'workflow_runs');
   const candidates = [];
   for (const run of runs) {
-    if (run.id === runId || run.workflow_id !== own.workflow_id || run.head_branch !== 'main' || run.head_sha !== sha || !['push', 'workflow_dispatch'].includes(run.event)) continue;
+    if (run.id === runId || run.workflow_id !== own.workflow_id || run.head_branch !== 'develop' || run.head_sha !== sha || !['push', 'workflow_dispatch'].includes(run.event)) continue;
     if (!Number.isSafeInteger(run.run_attempt) || run.run_attempt < 1) throw new Error('Invalid attempt identity');
     // The run list is ordered by creation, which can hide a late rerun of an old ID.
     // Query explicit latest-attempt metadata before deciding which observation is newest.
@@ -96,15 +96,15 @@ export async function findExactBatch({ api, readManifest, readNativeEvidence, sh
   return null;
 }
 async function main() {
-  if (process.env.GITHUB_REF !== 'refs/heads/main') throw new Error('Heavy batches only admit main; choose main when dispatching');
+  if (process.env.GITHUB_REF !== 'refs/heads/develop') throw new Error('Heavy batches only admit develop; choose develop when dispatching');
   const repo = process.env.GITHUB_REPOSITORY;
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? '') || !process.env.GH_TOKEN) throw new Error('Missing read-only Actions access');
-  // Freeze the admitted main event: workflow YAML and lane code must share this SHA.
-  // A newer main is the next pending candidate, never a new label for old commands.
+  // Freeze the admitted develop event: workflow YAML and lane code must share this SHA.
+  // A newer develop is the next pending candidate, never a new label for old commands.
   const sha = process.env.GITHUB_SHA;
-  if (!shaPattern.test(sha ?? '')) throw new Error('Invalid main event SHA');
+  if (!shaPattern.test(sha ?? '')) throw new Error('Invalid develop event SHA');
   const checkedOut = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-  if (checkedOut !== sha) throw new Error('Workflow checkout does not match admitted main SHA');
+  if (checkedOut !== sha) throw new Error('Workflow checkout does not match admitted develop SHA');
   const coverage = coverageFromLog(execFileSync('git', ['log', '--first-parent', '--format=%H %s', sha], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 }));
   const headers = { Authorization: `Bearer ${process.env.GH_TOKEN}`, Accept: 'application/vnd.github+json' };
   const request = async path => {
@@ -129,9 +129,9 @@ async function main() {
   const runId = Number(process.env.GITHUB_RUN_ID), runAttempt = Number(process.env.GITHUB_RUN_ATTEMPT);
   if (!Number.isSafeInteger(runId) || runId < 1 || !Number.isSafeInteger(runAttempt) || runAttempt < 1) throw new Error('Missing run identity');
   const source = process.env.CI_FRESH_RUN === 'true' || runAttempt > 1 ? null : await findExactBatch({ api, readManifest, readNativeEvidence, sha, runId });
-  const manifest = { schemaVersion: 1, sha, runId, runAttempt, coverageBasis: 'all first-parent main commits; PR numbers from merge/squash commit subjects; null denotes an unassociated commit', coverage, source };
+  const manifest = { schemaVersion: 1, sha, runId, runAttempt, coverageBasis: 'all first-parent develop commits; PR numbers from merge/squash commit subjects; null denotes an unassociated commit', coverage, source };
   writeFileSync('board-heavy-batch.json', JSON.stringify(manifest, null, 2) + '\n');
   appendFileSync(process.env.GITHUB_OUTPUT, `sha=${sha}\nrun=${source ? 'false' : 'true'}\nnative=${source?.verdicts['native-board'] ?? ''}\nmeeting=${source?.verdicts['meeting-room'] ?? ''}\n`);
-  appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Independent Board batch\n\nFrozen admitted main event: \`${sha}\`. Coverage: ${coverage.length} first-parent commits, ${coverage.filter(item => item.pullRequest !== null).length} merge/squash PR references (full list and unassociated commits in manifest).\n\n${source ? `Not rerun: [original complete batch](${source.url}); native-board **${source.verdicts['native-board']}**, meeting-room **${source.verdicts['meeting-room']}**. Original failures remain failures.` : 'New measurement of both heavy lanes; evidence retained on success or failure.'}\n\nThis batch is independent of PR acceptance. A different SHA always requires its own measurement.\n`);
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY, `### Independent Board batch\n\nFrozen admitted develop event: \`${sha}\`. Coverage: ${coverage.length} first-parent commits, ${coverage.filter(item => item.pullRequest !== null).length} merge/squash PR references (full list and unassociated commits in manifest).\n\n${source ? `Not rerun: [original complete batch](${source.url}); native-board **${source.verdicts['native-board']}**, meeting-room **${source.verdicts['meeting-room']}**. Original failures remain failures.` : 'New measurement of both heavy lanes; evidence retained on success or failure.'}\n\nThis batch is independent of PR acceptance. A different SHA always requires its own measurement.\n`);
 }
 if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) main().catch(error => { console.error(error.message); process.exitCode = 1; });
