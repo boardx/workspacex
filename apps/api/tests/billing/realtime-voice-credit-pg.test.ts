@@ -1,3 +1,5 @@
+import {aiUsage as C} from "@repo/contracts";
+import {PgAiUsageRepository} from "../../src/infrastructure/auth/pg-ai-usage-repository";
 import {beforeAll,afterAll,expect,it} from "vitest";
 import {createServer,type Server} from "node:http";
 import {WebSocket,WebSocketServer} from "ws";
@@ -56,6 +58,8 @@ it("allows enterprise debt and retains confirmed charges as pending when another
  done(socket,"enterprise-known",1000);await expect.poll(()=>balance(team,team)).toBe("-2.00");socket.send(JSON.stringify({type:"response.done",response:{id:"enterprise-unknown",status:"cancelled"}}));client.send(JSON.stringify({type:"session.stop"}));await expect.poll(()=>client.readyState).toBe(WebSocket.CLOSED);
  await expect.poll(async()=>(await asApp(team,c=>c.query("SELECT state,debited_hundredths::text AS debit FROM credit_consumption_requests WHERE org_id=$1",[team]))).rows).toEqual([{state:"pending",debit:"100"}]);
  expect((await asApp(team,c=>c.query("SELECT total_source FROM token_usage_events WHERE org_id=$1",[team]))).rows).toEqual([{total_source:"unknown"}]);
+ const q=C.Query.parse({start:new Date(Date.now()-3600000).toISOString(),end:new Date(Date.now()+3600000).toISOString(),timezone:"Etc/UTC"});
+ expect((await new PgAiUsageRepository(db).summary(team,q)).current).toMatchObject({creditHundredths:"100",pendingCreditCalls:1});
 });
 it("keeps confirmed usage pending after an abrupt drop while a response is still active",async()=>{
  const {client,frames}=await connect("team");await expect.poll(()=>frames.some(x=>x.type==="session.ready")).toBe(true);const socket=providers.at(-1)!;

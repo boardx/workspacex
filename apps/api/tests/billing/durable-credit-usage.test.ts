@@ -41,3 +41,12 @@ it("recovers both confirmed interim debit and an unknown terminal after an outag
  expect(f.delegate.record.mock.calls.map(call=>call[1])).toMatchObject([{tokensTotal:11,totalSource:"reported",billingReceipt:{final:false}},{tokensTotal:0,totalSource:"unknown",billingReceipt:{final:true}}]);
  expect(await readdir(f.directory)).toEqual([]);
 });
+it("preserves compatible late diagnostics and pricing on a retained terminal fragment",async()=>{
+ const f=await fixture(),meter=new DurableCreditUsageMeter(f.delegate,{directory:f.directory});await meter.startRequest(org,start());
+ const initial={...usage(),promptTokens:null,completionTokens:null,billingReceipt:{id:"terminal",final:true}};
+ await meter.record(org,initial);const enriched={...initial,promptTokens:10,completionTokens:1,costMicros:7n,currency:"CNY",priceVersion:"late-v1"};
+ await meter.record(org,enriched);
+ expect(f.delegate.record.mock.calls.at(-1)?.[1]).toMatchObject(enriched);
+ await expect(meter.record(org,{...enriched,promptTokens:9})).rejects.toMatchObject({code:"credit_accounting_unavailable"});
+ expect(await meter.replayPending()).toEqual({settled:1,pending:0});expect(f.delegate.record.mock.calls.at(-1)?.[1]).toMatchObject(enriched);
+});
