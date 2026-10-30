@@ -7,7 +7,7 @@ import { LANES } from './ci-lane-dedup.mjs';
 import { INTEGRATION_CHECKS } from './ci-devapp-integration-gate.mjs';
 const SHA = /^[a-f0-9]{40}$/;
 const shardCount = JSON.parse(readFileSync(new URL('../api-test-shards.json', import.meta.url), 'utf8')).count;
-const protectedPaths = ['.harness/api-test-shards.json', '.harness/scripts/ci-api-shards.mjs', '.harness/scripts/ci-lane-dedup.mjs', '.harness/scripts/ci-promotion*', '.harness/scripts/ci-devapp-integration-gate.mjs', '.github/workflows/harness-verify.yml', '.github/workflows/backend-gates.yml'];
+const protectedPaths = ['.harness/api-test-shards.json', '.harness/scripts/ci-*', '.github/workflows/harness-verify.yml', '.github/workflows/backend-gates.yml'];
 const backend = ['gates-fast', 'gates-test', 'native-document-chain', 'native-runtime-lane', 'gates-runtime', 'e2e-core-loop', 'prototype-audit', 'design-loop-e2e'];
 export async function lookup({ api, git, eventName, event, repository, sha, now = Date.now() }) {
   let pure = false;
