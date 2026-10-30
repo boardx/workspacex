@@ -43,6 +43,14 @@ describe("live Stripe subscription", () => {
     setup("none", false); mount(); await screen.findByTestId("billing-subscription-status");
     expect(screen.queryByRole("button", { name: "订阅 Pro" })).toBeNull();
   });
+  it("keeps cancellation management available for an existing subscription when new Stripe purchases are off", async () => {
+    const fetcher = setup("active", false, "https://billing.stripe.com/p/session/test"); mount();
+    fireEvent.click(await screen.findByRole("button", { name: "管理订阅" }));
+    await waitFor(() => expect(navigateToStripe).toHaveBeenCalledWith("https://billing.stripe.com/p/session/test"));
+    expect(fetcher.mock.calls.some(([url]) => url.includes("management-link"))).toBe(true);
+    expect(fetcher.mock.calls.some(([url]) => url.includes("upgrade-link"))).toBe(false);
+    expect(screen.queryByText("Stripe · 已配置")).toBeNull();
+  });
   it("rejects an untrusted checkout URL without navigating", async () => {
     setup("none", true, "https://checkout.stripe.com.evil.test/pay"); mount();
     fireEvent.click(await screen.findByRole("button", { name: "订阅 Pro" }));

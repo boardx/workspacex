@@ -56,6 +56,7 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
   const request = React.useRef<AbortController | null>(null);
   React.useEffect(() => () => request.current?.abort(), []);
   const eligibility = state.status === "ready" ? billingSubscription.subscriptionEligibility(state.data.status) : null;
+  const hostedActionAvailable = stripeEnabled || !!eligibility?.canManageSubscription;
   const checkoutUnconfirmed = !!pending && eligibility?.canCreateSubscription;
   const waiting = returning && (state.status !== "ready" || state.data.status === "none" || state.data.status === "incomplete" || !!checkoutUnconfirmed);
 
@@ -85,7 +86,7 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
   }, [waiting, managementReturning, state, polls, retry]);
 
   async function openHostedPage() {
-    if (request.current || !stripeEnabled || !eligibility || state.status !== "ready") return;
+    if (request.current || !hostedActionAvailable || !eligibility || state.status !== "ready") return;
     const management = eligibility.canManageSubscription;
     setBusy(true); setError(null);
     const controller = new AbortController(); request.current = controller;
@@ -128,15 +129,15 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
       {end && !Number.isNaN(end.valueOf()) && <p className="text-13">本期结束：{end.toLocaleDateString("zh-CN")}</p>}
       {state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">{eligibility?.hasEffectivePro ? "已取消续费，本期结束前仍可使用 Pro，到期后不再自动续费。" : "已取消续费，将在本期结束时生效。"}</p>}
       {eligibility?.canManageSubscription && !eligibility.hasEffectivePro && <p className="text-13 text-muted-foreground">当前 Pro 权益未生效，可前往账单页面处理付款或恢复订阅。</p>}
-      {stripeEnabled && eligibility?.canManageSubscription && <p className="text-13 text-muted-foreground">可在“管理订阅”中取消续费，取消时的生效日期以 Stripe 确认页面为准。</p>}
-      {stripeEnabled && <Button disabled={busy || (!!error && !checkoutUnconfirmed) || (waiting && !!eligibility?.canCreateSubscription && !pending && !canRestart)} onClick={() => void openHostedPage()}>
+      {eligibility?.canManageSubscription && <p className="text-13 text-muted-foreground">可在“管理订阅”中取消续费，取消时的生效日期以账单页面确认为准。</p>}
+      {hostedActionAvailable && <Button disabled={busy || (!!error && !checkoutUnconfirmed) || (waiting && !!eligibility?.canCreateSubscription && !pending && !canRestart)} onClick={() => void openHostedPage()}>
         {busy ? "正在打开…" : eligibility?.canManageSubscription ? (eligibility.hasEffectivePro ? "管理订阅" : "处理订阅付款") : pending ? "继续订阅付款" : canRestart ? "重新开始订阅" : "订阅 Pro"}
       </Button>}
     </div>}
     {waiting && <p role="status" className="text-13 text-muted-foreground">{polls >= POLL_LIMIT ? (canRestart ? "付款结果尚未确认。如确认尚未付款，可重新开始订阅；已付款请勿重复购买。" : "付款结果尚未确认，可稍后刷新状态。请勿重复购买。") : "正在确认付款结果，请稍候。订阅权益以账户同步结果为准。"}</p>}
     {error && <p role="alert" className="text-13 text-muted-foreground">{error}</p>}
     {state.status === "ready" && <Button variant="outline" size="sm" onClick={refresh} disabled={busy}>刷新订阅状态</Button>}
-    {!stripeEnabled && <p className="text-12 text-muted-foreground">订阅购买与账单管理暂不可用，请稍后再试。</p>}
+    {!stripeEnabled && <p className="text-12 text-muted-foreground">新订阅购买暂未开放，已有订阅仍可管理。</p>}
     {stripeEnabled && <p className="text-12 text-muted-foreground">价格与订阅条款以 Stripe 支付页面为准。订阅不会增加充值额度。</p>}
   </>;
 }

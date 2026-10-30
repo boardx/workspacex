@@ -3,6 +3,8 @@ import { describe, expect, it, vi, afterEach } from "vitest";
 import { DeploymentBillingConfig } from "../../src/infrastructure/billing/deployment-billing-config";
 import { StripePortalClient } from "../../src/infrastructure/billing/stripe-portal-client";
 import { StripeWebhookClient } from "../../src/infrastructure/billing/stripe-webhook-client";
+import { BillingSubscriptionService } from "../../src/application/billing/billing-subscription-service";
+import { toOrgId } from "../../src/domain/org-id";
 
 const privateKey = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }).toString();
 const credentials = {
@@ -11,7 +13,7 @@ const credentials = {
   WECHAT_PAY_PRIVATE_KEY: privateKey, WECHAT_PAY_NOTIFY_URL: "https://pay.example.test/wechat",
   STRIPE_SECRET_KEY: "sk_test_fixture", STRIPE_WEBHOOK_SECRET: "whsec_fixture", STRIPE_PAYMENT_LINK: "https://buy.stripe.com/test_fixture",
 };
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("independent payment purchase switches", () => {
   it.each([
@@ -38,12 +40,28 @@ describe("independent payment purchase switches", () => {
   it("rejects new Stripe purchase links while continuing to verify signed renewal webhooks", () => {
     const config = new DeploymentBillingConfig({ ...credentials, BILLING_STRIPE_ENABLED: "false" });
     const portal = new StripePortalClient(config, { info() {}, error() {} });
-    expect(portal.enabled()).toBe(false);
+    expect(portal.enabled()).toBe(true); // Existing subscriptions must remain manageable.
+    expect(portal.purchaseEnabled()).toBe(false);
     expect(() => portal.purchaseLink("fixture-intent")).toThrow("payment_provider_not_configured");
     const body = Buffer.from(JSON.stringify({ id: "evt_switch_fixture", object: "event", type: "invoice.paid", data: { object: { id: "in_fixture" } } }));
     const timestamp = Math.floor(Date.now() / 1000);
     const signature = createHmac("sha256", credentials.STRIPE_WEBHOOK_SECRET).update(`${timestamp}.`).update(body).digest("hex");
     expect(new StripeWebhookClient(config).verify(body, `t=${timestamp},v1=${signature}`)?.id).toBe("evt_switch_fixture");
     expect(new StripeWebhookClient(config).verify(body, `t=${timestamp},v1=${"0".repeat(64)}`)).toBeNull();
+  });
+  it("denies upgrades before creating an intent but permits cancellation management with purchases disabled", async () => {
+    const config = new DeploymentBillingConfig({ ...credentials, BILLING_STRIPE_ENABLED: "false" });
+    const portal = new StripePortalClient(config, { info() {}, error() {} });
+    const createIntent = vi.fn(async () => "unused");
+    const read = vi.fn(async () => ({ status: "active" as const, planRef: "price_fixture", currentPeriodEnd: null,
+      cancelAtPeriodEnd: false, customerRef: "cus_fixture", subscriptionRef: "sub_fixture", generation: "fixture", synchronizationUncertain: false }));
+    const service = new BillingSubscriptionService({ read, createIntent }, portal);
+    const principal = { userId: "switch-fixture", orgId: toOrgId("org-switch-fixture") };
+    await expect(service.upgrade(principal)).rejects.toMatchObject({ code: "payment_provider_not_configured" });
+    expect(createIntent).not.toHaveBeenCalled();
+    const fetcher = vi.fn(async () => new Response(JSON.stringify({ object: "billing_portal.session", customer: "cus_fixture", url: "https://billing.stripe.com/p/session/fixture" })));
+    vi.stubGlobal("fetch", fetcher);
+    await expect(service.management(principal)).resolves.toEqual({ url: "https://billing.stripe.com/p/session/fixture" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
   });
 });
