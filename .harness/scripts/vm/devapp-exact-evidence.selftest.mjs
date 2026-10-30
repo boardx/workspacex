@@ -13,7 +13,7 @@ const target={source,path:run().path,title};
 function ciRead(p){
  const backend=p.includes('backend-gates.yml')||/\/22(?:\/|$)/.test(p),id=backend?22:21,workflow=backend?'backend-gates.yml':'harness-verify.yml';
  if(!p.includes('/workflows/')&&!/\/(21|22)(?:\/|$)/.test(p))return undefined;
- const r={...run(),id,head_branch:'main',event:'push',path:'.github/workflows/'+workflow};
+ const r={...run(),id,head_branch:'develop',event:'push',path:'.github/workflows/'+workflow};
  if(p.includes('/runs?'))return {total_count:1,workflow_runs:[r]};
  if(p.includes('/jobs?')){const names=backend?['gates-fast','gates-test (1)','gates-test (2)','gates-runtime','e2e-core-loop','native-document-chain','native-runtime-lane']:['verify-control-plane','verify-affected','verify-full-compile','full-regression-core','e2e-full'];return {total_count:names.length,jobs:names.map(name=>({name,run_id:id,head_sha:source,status:'completed',conclusion:'success'}))};}
  return r;
@@ -205,19 +205,31 @@ test('CI green cannot continue if desired ref drifts during the final gate read'
  await assert.rejects(waitCandidateCI(ports));assert.equal(ports.result().writes,0);assert.equal(ports.result().sleeps,0);
 });
 
-test('CI wait rejects malformed non-main run identities before treating main run as missing',async()=>{
+test('CI wait rejects malformed non-develop run identities before treating develop run as missing',async()=>{
  for(const change of [{repository:{full_name:'foreign/repo'}},{head_repository:{full_name:'foreign/repo'}},{path:'.github/workflows/foreign.yml'},{id:0},{run_attempt:0}]){
   const ports=waitingCI('pending'),read=ports.api;
-  ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'develop'},change);return value;};
+  ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'main'},change);return value;};
   await assert.rejects(waitCandidateCI(ports));assert.equal(ports.result().sleeps,0);assert.equal(ports.result().writes,0);
  }
 });
-test('CI wait permits legitimate non-main history while waiting for exact main CI',async()=>{
+test('CI wait permits legitimate non-develop history while waiting for exact develop CI',async()=>{
  const ports=waitingCI('pending'),read=ports.api;let turn=0;const sleep=ports.sleep;
  ports.sleep=async ms=>{turn++;await sleep(ms);};
  ports.api=async(m,p)=>{const value=await read(m,p);if(value.workflow_runs){
-  if(turn===0)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'develop',status:'completed',conclusion:'failure'});
-  else{value.workflow_runs.push({...value.workflow_runs[0],id:1,head_branch:'develop',status:'completed',conclusion:'failure'});value.total_count++;}
+  if(turn===0)for(const r of value.workflow_runs)Object.assign(r,{head_branch:'main',status:'completed',conclusion:'failure'});
+  else{value.workflow_runs.push({...value.workflow_runs[0],id:1,head_branch:'main',status:'completed',conclusion:'failure'});value.total_count++;}
  }return value;};
  await waitCandidateCI(ports);assert.equal(ports.result().sleeps,1);assert.equal(ports.result().writes,0);
+});
+
+test('candidate CI accepts only develop producer and rejects main-only or foreign evidence',async()=>{
+ for(const branch of ['main','main-us','feature/foreign'])await assert.rejects(requireCandidateCI(async(_m,p)=>{const value=ciRead('repos/boardx/workspacex/'+p);if(value.workflow_runs)for(const r of value.workflow_runs)r.head_branch=branch;return value;},source));
+});
+test('develop CI never borrows an old green attempt when the newest run fails or reruns',async()=>{
+ for(const mode of ['new-failed-run','changed-attempt'])await assert.rejects(requireCandidateCI(async(_m,p)=>{
+  const value=ciRead('repos/boardx/workspacex/'+p);
+  if(mode==='new-failed-run'&&value.workflow_runs){value.workflow_runs.push({...value.workflow_runs[0],id:value.workflow_runs[0].id+100,conclusion:'failure'});value.total_count++;}
+  if(mode==='changed-attempt'&&p==='actions/runs/21')value.run_attempt++;
+  return value;
+ },source));
 });
