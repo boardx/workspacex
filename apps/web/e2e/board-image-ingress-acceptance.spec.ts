@@ -103,11 +103,14 @@ for(const cancellation of ['close','navigate','revoke'] as const)test(`real comp
   await info.attach(`image-${cancellation}-server-orphan.json`,{body:JSON.stringify({boardId:board,asset:actualMetadata,canonicalObjects:initial,serverAssetStillPresent:true,cleanup:'owned board archived in finally; no claim that client abort deletes durable asset'}),contentType:'application/json'});
   // A fresh authorized scope must still accept the actual bytes after the cancelled result.
   const fresh=cancellation==='revoke'?owner:peer;
-  if(cancellation==='navigate')await peer.goto(`/studio/board/${board}`);
+  if(cancellation==='navigate'){await peer.goto(`/studio/board/${board}`);await expect(peer.getByText(/^已同步/)).toBeVisible();}
   await fresh.getByRole('button',{name:'图片，快捷键 I'}).click();await expect(fresh.getByRole('dialog',{name:'添加图片'})).toBeVisible();
   const freshUpload=fresh.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith(`/whiteboards/${board}/assets`));
   await fresh.getByLabel('上传图片').setInputFiles({name:'fresh-authorized.png',mimeType:'image/png',buffer:boardImagePngFixture()});expect((await freshUpload).ok()).toBe(true);
-  await expect.poll(async()=>(await canonical(api,ownerToken!,board!)).objects.length).toBe(1);await painted(fresh);
+  // Upload response headers precede local insertion and the server's sync ack.
+  // Wait for actual painted bytes and drained sync before creating an export snapshot.
+  await painted(fresh);await expect(fresh.getByText(/^已同步/)).toBeVisible();
+  await expect.poll(async()=>(await canonical(api,ownerToken!,board!)).objects.length).toBe(1);
   const runtime=await verifyRuntimeIdentity(api,sha,await chunks());
   proofs.push({group:cancellation,runtime,png:boardImagePngFixture(),persisted:persistedBytes,canonicalBefore:initial,canonicalAfter:afterCancellation,...(cancellation==='revoke'?{deniedStatuses}:{})});
   await info.attach('image-ingress-raw-proof.json',{body:JSON.stringify(proofs.at(-1)),contentType:'application/json'});
