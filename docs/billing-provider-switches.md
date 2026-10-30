@@ -4,6 +4,8 @@
 providers returned by `/billing/config`. The billing UI displays only returned
 channels. Disabled channels reject new purchase requests; configured credentials
 remain available for existing payment notifications and Stripe renewal callbacks.
+Existing subscribers retain their management link, including cancellation, even
+when new Stripe purchases are disabled.
 
 | Environment | BILLING_WECHAT_ENABLED | BILLING_STRIPE_ENABLED | Credentials |
 | --- | --- | --- | --- |
