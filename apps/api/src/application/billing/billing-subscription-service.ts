@@ -1,8 +1,9 @@
-import { subscriptionEligibility, SubscriptionInfo, type SubscriptionStatus, type SubscriptionErrorCode } from "@repo/contracts/billing-subscription";
+import { subscriptionEligibility, SubscriptionInfo, type SubscriptionStatus, type SubscriptionErrorCode, type SubscriptionCreditGrant } from "@repo/contracts/billing-subscription";
 import { assertPrincipal, type Principal } from "../../domain/principal";
 export interface SubscriptionSnapshot {
   status: SubscriptionStatus; planRef: string | null; currentPeriodEnd: string | null; cancelAtPeriodEnd: boolean;
   customerRef: string | null; subscriptionRef: string; generation: string; synchronizationUncertain: boolean;
+  creditGrant?: SubscriptionCreditGrant;
 }
 export interface SubscriptionRepository {
   read(principal: Principal, traceId?: string): Promise<SubscriptionSnapshot | null>;
@@ -32,7 +33,7 @@ export class BillingSubscriptionService {
   }
   async info(principal: Principal, traceId = "no-trace") {
     const value = await this.snapshot(principal, traceId);
-    return SubscriptionInfo.parse(value ? { status: value.status, planRef: value.planRef, currentPeriodEnd: value.currentPeriodEnd, cancelAtPeriodEnd: value.cancelAtPeriodEnd }
+    return SubscriptionInfo.parse(value ? { status: value.status, planRef: value.planRef, currentPeriodEnd: value.currentPeriodEnd, cancelAtPeriodEnd: value.cancelAtPeriodEnd, ...(value.creditGrant?{creditGrant:value.creditGrant}:{}) }
       : { status: "none", planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false });
   }
   async upgrade(principal: Principal, traceId = "no-trace") {

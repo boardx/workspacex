@@ -640,6 +640,8 @@ export default {
       { source: `${prefix}/billing/orders/:orderNo/cancel`, destination: `${apiOrigin}/billing/orders/:orderNo/cancel` },
       { source: `${prefix}/billing/orders/:orderNo/mock-paid`, destination: `${apiOrigin}/billing/orders/:orderNo/mock-paid` },
       { source: `${prefix}/billing/wallet`, destination: `${apiOrigin}/billing/wallet` },
+      { source: `${prefix}/billing/usage`, destination: `${apiOrigin}/billing/usage` },
+      { source: `${prefix}/billing/usage/calls`, destination: `${apiOrigin}/billing/usage/calls` },
       { source: `${prefix}/billing/transactions`, destination: `${apiOrigin}/billing/transactions` },
       { source: `${prefix}/billing/admin/wallets/:ownerType/:ownerId`, destination: `${apiOrigin}/billing/admin/wallets/:ownerType/:ownerId` },
       { source: `${prefix}/billing/admin/credits/grant`, destination: `${apiOrigin}/billing/admin/credits/grant` },

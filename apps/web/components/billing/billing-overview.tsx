@@ -92,7 +92,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
   return <div data-testid="billing-overview" className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6">
     <header className="space-y-2">
       <h1 className="text-24 font-semibold">额度与订阅</h1>
-      <p className="text-13 text-muted-foreground">管理个人账户。充值额度与订阅权益分别记录，订阅不会自动增加充值额度。</p>
+      <p className="text-13 text-muted-foreground">管理个人账户。每月订阅发放 {number(billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS)} credit，当期未用完到期清零；购买的额度长期保留。</p>
     </header>
     <div className="grid gap-4 md:grid-cols-2">
       <Card data-testid="billing-wallet-card">
@@ -101,8 +101,10 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
           <ReadNotice state={wallet.state} name="wallet" label="额度查询" retry={wallet.retry} />
           {wallet.state.status === "ready" && <>
             <div><p className="text-12 text-muted-foreground">当前余额</p><p data-testid="billing-wallet-balance" className="text-32 font-semibold tabular-nums">{number(wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">额度</span></p></div>
+            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">充值及永久净额</dt><dd data-testid="billing-permanent-balance">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)}</dd></div><div><dt className="text-muted-foreground">当期月度剩余 / {number(billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS)}</dt><dd data-testid="billing-monthly-credits">{number(wallet.state.data.subscriptionCredits ?? 0)}</dd></div></dl>
+            {wallet.state.data.subscriptionExpiresAt && <p className="text-12 text-muted-foreground">月度额度到期：{new Date(wallet.state.data.subscriptionExpiresAt).toLocaleString("zh-CN")}，未使用部分清零。</p>}
             <WalletAvailability reservedCredits={wallet.state.data.reservedCredits} availableBalance={wallet.state.data.availableBalance}/>
-            {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度</p>}
+            {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度。余额为负，充值后可发起新请求；已开始的请求可以完成。</p>}
             <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">累计充值</dt><dd className="tabular-nums">{number(wallet.state.data.totalPurchased)}</dd></div><div><dt className="text-muted-foreground">累计发放</dt><dd className="tabular-nums">{number(wallet.state.data.totalGranted)}</dd></div></dl>
           </>}
           {providers.includes("wechat") && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>购买额度</Button>}
@@ -111,7 +113,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />个人订阅</CardTitle><CardDescription>订阅状态以实际到账同步结果为准</CardDescription></CardHeader>
         <CardContent className="space-y-4">
-          <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} />
+          <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} onCreditGranted={wallet.retry} />
         </CardContent>
       </Card>
     </div>

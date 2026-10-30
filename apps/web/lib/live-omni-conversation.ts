@@ -1,3 +1,4 @@
+import {notifyCreditFailure} from "./credit-guidance";
 import { chat } from "@repo/contracts";
 import { apiWebSocketUrl, getStoredSessionToken, waitForSocketOpen } from "./api-client";
 import { LiveRecordingError, startCapture, type CaptureHandle } from "./live-recording";
@@ -127,7 +128,11 @@ export async function openOmniConversation(
       return;
     }
     if (frame.type === "assistant.audio_done") return; // Playback ends when the queued sources drain.
-    if (frame.type === "session.error") return handlers.onError(frame.message, frame.reason);
+    if (frame.type === "session.error") {
+      if (frame.credit) notifyCreditFailure(frame.credit);
+      else if (frame.reason === "CREDIT_ACCOUNTING_UNAVAILABLE") notifyCreditFailure({code:"credit_accounting_unavailable"});
+      return handlers.onError(frame.message, frame.reason);
+    }
     if (frame.type === "turn.persisted") return handlers.onTurnPersisted?.(frame.role, frame.messageId);
     if (settle) return settle();
     closed = true;

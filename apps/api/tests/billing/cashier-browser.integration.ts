@@ -22,7 +22,7 @@ let closed = false;
 let spawnError: Error | undefined;
 let output = "";
 const webRoot = resolve(import.meta.dirname, "../../../web");
-const evidence = resolve(webRoot, "../../phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue");
+const evidence = process.env.BILLING_BROWSER_EVIDENCE_DIR ?? resolve(webRoot, "../../phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue");
 const port = Number(process.env.WORKSPACEX_WEB_PORT);
 const origin = `http://127.0.0.1:${port}`;
 const realNow = Date.now.bind(Date);
@@ -310,4 +310,12 @@ it("buys the reference one-yuan package and cancels through real UI/API/merchant
  await page.getByTestId("billing-regenerate").click();
  await page.locator('input[type="radio"][value="pkg-cn-100"]').waitFor();
  await page.close();
+},120000);
+it("unifies purchased monthly personal and enterprise credits through real billing and usage pages",async()=>{
+ const f=fixture!,page=await browser!.newPage({viewport:{width:1280,height:1000}});
+ await openCashier(page);const order=await createFromUi(page);const notice=f.notice(order.orderNo);
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
+ const {verifyCreditSubscriptionBrowser}=await import("./credit-subscription-browser");
+ await verifyCreditSubscriptionBrowser(f,page,origin,evidence);
 },120000);

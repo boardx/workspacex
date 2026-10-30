@@ -25,6 +25,8 @@ export async function notifyFixture(background = false, options: { platformVerif
     await asOwner(async c => {
       if ((await c.query("SELECT to_regclass('billing_payment_receipts') AS t")).rows[0]?.t) await c.query("DELETE FROM billing_payment_receipts WHERE provider_event_id LIKE 'f05-%'");
       await c.query("DELETE FROM billing_webhook_events WHERE provider_event_id LIKE 'f05-%' OR provider_event_id LIKE 'security:wechat:%'");
+      await c.query("DELETE FROM credit_consumption_requests WHERE user_id LIKE 'f04-order-%'");
+      await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f04-order-%')");
       await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f04-order-%')");
       await c.query("DELETE FROM credit_wallets WHERE owner_id LIKE 'f04-order-%'");
       await c.query("DROP TRIGGER IF EXISTS f05_ledger_fault ON credit_transactions");
