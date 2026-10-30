@@ -16,7 +16,9 @@ pnpm --filter @repo/api exec tsx scripts/billing-credit-subscription-backfill.ts
 ```
 
 4. 审核全部页报告。`blocked>0` 退出 2，checkpoint 保留本页起点。修正绑定/付款/套餐映射后重跑；不要手动跳过该页。`verification_failed` 可能是未付款、当前周期不一致、提供方失败或试用，需用 Stripe 和服务端绑定逐项核对，不凭客户端数据补发。
-5. 显式执行 apply，**使用另一个 checkpoint**。dry-run checkpoint 不能用于 apply；数据库主机、端口、库名或套餐清单改变都会拒绝复用，旧版缺少主机/端口的 checkpoint 也拒绝。更换目标时从新 checkpoint 重新审计，不移用游标。完成后重新从空 checkpoint 对账，覆盖高水位后新增的订阅，并检查所有 active 月付账户当前周期都存在唯一批次。
+5. **先进入计费维护窗口，暂停新的模型请求并排空在途调用及全部旧计费写入者**，包括实时语音连接、后台任务、收据重放/补偿 worker 和会写钱包的旧回调处理器。记录各写入者的停用与排空证据；无法证明旧版本不再写余额时，不得 apply。外部付款事件保持可重试或可靠保留，不确认后丢弃。从首次 apply 到第 6 步新版本接管并完成验证前，持续禁止旧写入者恢复。旧扣费只减少钱包、不减少新周期剩余额度，会导致以后到期时重复扣减永久余额，不能边补发边让旧版本继续消费。
+
+   然后显式执行 apply，**使用另一个 checkpoint**。dry-run checkpoint 不能用于 apply；数据库主机、端口、库名或套餐清单改变都会拒绝复用，旧版缺少主机/端口的 checkpoint 也拒绝。更换目标时从新 checkpoint 重新审计，不移用游标。完成后重新从空 checkpoint 对账，覆盖高水位后新增的订阅，并检查所有 active 月付账户当前周期都存在唯一批次。
 
 ```bash
 pnpm --filter @repo/api exec tsx scripts/billing-credit-subscription-backfill.ts \
@@ -24,7 +26,7 @@ pnpm --filter @repo/api exec tsx scripts/billing-credit-subscription-backfill.ts
   --limit 100 --checkpoint /secure/credit-apply.json --apply
 ```
 
-6. 只有所有页无阻塞、账期/余额对账通过后，才部署统一 credit 准入的 API。发放当前已付款整月 20,000，原周期结束时到期；已有充值和欠款保留，不补扣历史 token。Stripe webhook 同时开始处理 paid invoice；与工具使用相同账单/周期唯一键，重跑不重复。
+6. 只有所有页无阻塞、账期/余额对账通过后，才部署统一 credit 准入的 API。**维护窗口仍保持关闭，先核对所有计费写入者都运行能更新周期剩余的版本，确认旧进程已退出、健康与钱包/周期对账通过，再恢复请求和保留事件的处理。** 发放当前已付款整月 20,000，原周期结束时到期；已有充值和欠款保留，不补扣历史 token。Stripe webhook 同时开始处理 paid invoice；与工具使用相同账单/周期唯一键，重跑不重复。
 7. 验证个人余额 0 请求可完成、扣为负后新请求拒绝；企业负余额仍可调用。检查月度额度、永久净额、到期和用户/组织消耗查询。回跳 active 不能作为额度到账证据，应读 `creditGrant` 和实际钱包。
 
 ## 恢复、历史事件与回滚
@@ -33,5 +35,5 @@ pnpm --filter @repo/api exec tsx scripts/billing-credit-subscription-backfill.ts
 - 工具每页重新向固定 Stripe API 读取订阅、最新账单和 price，不读取客户端 metadata userId。只接纳当前真实月周期；旧的已付账单不能顶替当前未付账期。
 - `applied` 表示已对账的账户数，包括幂等重放，不表示新增发放数；新增数以 `subscription_grant` 流水为准。流水和周期表应分别核对；不从 token 总量反推费用。
 - apply 在用户锁内重新核验并确认本次预期的确切周期已发放或已存在，才报告成功。复读时状态/账期变化返回 `credit_period_not_reconciled`，整页保留起点；恢复后同一账单可重试。历史 `ok` 审计但无额度的情况也会重新核实并补齐独立的周期事实，不修改旧事件审计。
-- 新 API 部署失败可回滚旧镜像，保留新增表和全部流水。回滚旧镜像会临时恢复其旧准入行为，需记录窗口；不要删批次、重置余额、清掉负债或把已发生调用当免费来“回滚”。后续重新启用前再次对账。
+- 新 API 部署失败可回滚旧镜像以恢复进程，但**只要已 apply 月度批次，仍须保持计费维护窗口，不得恢复旧版本的模型扣费或收据重放**。保留新增表和全部流水，向前修复至周期感知版本或使用另行验证的兼容写入者；重新启用前再次对账并验证写入者身份。不要删批次、重置余额、清掉负债或把已发生调用当免费来“回滚”。
 - 本会话未执行生产 apply、真实付款或生产部署；这些是独立发布动作。
