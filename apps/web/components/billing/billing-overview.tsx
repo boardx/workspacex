@@ -92,7 +92,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
   return <div data-testid="billing-overview" className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6">
     <header className="space-y-2">
       <h1 className="text-24 font-semibold">额度与订阅</h1>
-      <p className="text-13 text-muted-foreground">管理个人账户。每月订阅发放 20,000 credit，当期未用完到期清零；购买的额度长期保留。</p>
+      <p className="text-13 text-muted-foreground">管理个人账户。每月订阅发放 {number(billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS)} credit，当期未用完到期清零；购买的额度长期保留。</p>
     </header>
     <div className="grid gap-4 md:grid-cols-2">
       <Card data-testid="billing-wallet-card">
@@ -101,7 +101,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
           <ReadNotice state={wallet.state} name="wallet" label="额度查询" retry={wallet.retry} />
           {wallet.state.status === "ready" && <>
             <div><p className="text-12 text-muted-foreground">当前余额</p><p data-testid="billing-wallet-balance" className="text-32 font-semibold tabular-nums">{number(wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">额度</span></p></div>
-            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">充值及永久净额</dt><dd data-testid="billing-permanent-balance">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)}</dd></div><div><dt className="text-muted-foreground">当期月度剩余 / 20,000</dt><dd data-testid="billing-monthly-credits">{number(wallet.state.data.subscriptionCredits ?? 0)}</dd></div></dl>
+            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">充值及永久净额</dt><dd data-testid="billing-permanent-balance">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)}</dd></div><div><dt className="text-muted-foreground">当期月度剩余 / {number(billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS)}</dt><dd data-testid="billing-monthly-credits">{number(wallet.state.data.subscriptionCredits ?? 0)}</dd></div></dl>
             {wallet.state.data.subscriptionExpiresAt && <p className="text-12 text-muted-foreground">月度额度到期：{new Date(wallet.state.data.subscriptionExpiresAt).toLocaleString("zh-CN")}，未使用部分清零。</p>}
             <WalletAvailability reservedCredits={wallet.state.data.reservedCredits} availableBalance={wallet.state.data.availableBalance}/>
             {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度。余额为负，充值后可发起新请求；已开始的请求可以完成。</p>}
