@@ -75,9 +75,18 @@ describe("真实计费入口与账户状态", () => {
     requests({ "/billing/config": () => reply({ enabledProviders: ["stripe"] }) });
     renderOverview();
     await screen.findByText("Stripe · 已配置");
-    expect(screen.getByText("微信支付 · 未开通")).toBeTruthy();
-    expect(screen.getByText("微信充值暂未开放。")).toBeTruthy();
+    expect(screen.queryByText(/微信支付 ·/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "购买额度" })).toBeNull();
     expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
+  });
+
+  it.each([{ providers: ["wechat"] }, { providers: ["wechat", "stripe"] }, { providers: [] }])("仅显示已开启的支付渠道 $providers", async ({ providers }) => {
+    requests({ "/billing/config": () => reply({ enabledProviders: providers }) });
+    renderOverview();
+    await waitFor(() => expect(screen.queryByTestId("billing-config-loading")).toBeNull());
+    expect(Boolean(screen.queryByText("微信支付 · 已配置"))).toBe(providers.includes("wechat"));
+    expect(Boolean(screen.queryByText("Stripe · 已配置"))).toBe(providers.includes("stripe"));
+    expect(screen.queryByText(/未开通$/)).toBeNull();
   });
 
   it("卸载取消所有读取，避免旧账号响应晚到", () => {
