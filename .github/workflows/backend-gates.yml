@@ -42,7 +42,7 @@ on:
   merge_group:
   push:
     tags: ["v*"]
-    branches: [develop, main]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
+    branches: [develop, main, main-us]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
                          # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
     inputs:
@@ -79,6 +79,41 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Execute promotion policy from the immutable target baseline, never PR code.
+  promotion-evidence:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      reuse: ${{ steps.lookup.outputs.reuse }}
+      source: ${{ steps.lookup.outputs.source }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: candidate
+          fetch-depth: 0
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || github.sha }}
+          path: trusted
+          fetch-depth: 0
+      - name: Resolve verified develop evidence
+        id: lookup
+        working-directory: trusted
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CANDIDATE_DIR: ${{ github.workspace }}/candidate
+        shell: bash
+        run: |
+          if [ -f .harness/scripts/ci-promotion-lookup.mjs ]; then
+            node .harness/scripts/ci-promotion-lookup.mjs "$CANDIDATE_DIR"
+          else
+            echo 'reuse=false' >> "$GITHUB_OUTPUT"
+            echo 'Baseline has no promotion policy; run complete verification.'
+          fi
+
   # #633（人类新增硬 SLA，2026-08-06）：merge→devapp < 5 分钟。实测基线 8m45s，
   # `gates` 单个 job 占 6m32s，其中 vitest 单测 4m58s（gates 总耗时 76%，最大单项）。
   #
@@ -96,10 +131,11 @@ jobs:
   #   `ubuntu-latest`（托管 runner，公开仓库并发不限于 1），这个前提今天不成立
   #   了，拆分现在才真正有意义。
   gates-fast:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
     outputs:
       skip_devapp: ${{ steps.devapp-scope.outputs.skip_devapp }}
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -168,8 +204,9 @@ jobs:
   # maxWorkers=1. gates-fast proves actual Vitest discovery is a disjoint full union.
   # This partitions coverage; it does not extend timeouts or omit tests/other lanes.
   api-test-plan:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 5
     outputs:
       count: ${{ steps.plan.outputs.count }}
@@ -180,9 +217,9 @@ jobs:
         run: node .harness/scripts/ci-api-shards.mjs --plan
 
   gates-test:
-    needs: api-test-plan
+    needs: [promotion-evidence, api-test-plan]
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 20
     strategy:
       fail-fast: false # 一片红不该掩盖其它片的结果——都跑完，一次性看全部真实失败
@@ -226,8 +263,9 @@ jobs:
             psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS ${WORKSPACEX_DB} WITH (FORCE)" || true
 
   native-document-chain:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 35
     env:
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_native_document
@@ -295,8 +333,9 @@ jobs:
   # lane——沙箱/会话容器会拖慢全部 e2e。本 job 只跑必要用例：一个 vitest 文件 + 一个
   # pytest 文件，实测 ~9 分钟（其中约 4 分钟是沙箱镜像 build）。
   native-runtime-lane:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 25
     env:
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_native_runtime
@@ -351,8 +390,9 @@ jobs:
           sudo apparmor_parser -R apps/skill-sandbox/security/docker-apparmor-sessions
 
   gates-runtime:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 15
     env:
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_runtime
@@ -405,11 +445,12 @@ jobs:
   # devapp 真机、不碰密钥，只是起本地一次性 docker 栈 + 真 Chromium，`harness-verify.yml`
   # 的 `fullstack-smoke` 早就在 `ubuntu-latest` 上跑通同一形状的浏览器 e2e——挪过去。
   e2e-core-loop:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
     # 2026-08-26（#485）：与另外三个 gates job 对齐的 fork PR 守卫。本 workflow 加上
     # `pull_request` 触发之前，这个 job 只可能被 main push / tag / 手动触发，没有 fork
     # 这条路径，所以缺这行不会有后果；加了 PR 触发之后它就是真实敞口了，补齐。
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -447,9 +488,10 @@ jobs:
           if-no-files-found: error
 
   prototype-audit:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
     # 与其它 gates job 对齐的 fork PR 守卫。
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -482,9 +524,10 @@ jobs:
           if-no-files-found: error
 
   design-loop-e2e:
+    needs: promotion-evidence
     runs-on: ubuntu-latest
     # 与其它 gates job 对齐的 fork PR 守卫。
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
@@ -525,16 +568,29 @@ jobs:
     # #3238：候选组（merge_group）也必须出结论——这是 required check，候选组上 SKIPPED
     # 就是队列永久卡住。语义不变：aggregateFailures 仍然要求每一条依赖真的 success，
     # 「skipped 当 success」在这里从来不成立（ci-backend-required.mjs）。
-    if: always() && !cancelled() && (github.event_name == 'pull_request' || github.event_name == 'merge_group')
-    needs: [gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, e2e-core-loop, prototype-audit, design-loop-e2e]
+    if: always() && !cancelled()
+    needs: [promotion-evidence, gates-fast, gates-test, native-document-chain, native-runtime-lane, gates-runtime, e2e-core-loop, prototype-audit, design-loop-e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v5
+      - name: Preserve verified develop promotion evidence
+        if: needs.promotion-evidence.outputs.reuse == 'true'
+        env:
+          PROMOTION_RESULT: ${{ needs.promotion-evidence.result }}
+          PROMOTION_SOURCE: ${{ needs.promotion-evidence.outputs.source }}
+        run: |
+          test "$PROMOTION_RESULT" = success
+          test -n "$PROMOTION_SOURCE"
+          printf '%s\n' "$PROMOTION_SOURCE" >> "$GITHUB_STEP_SUMMARY"
       - name: Require applicable backend verification
+        if: needs.promotion-evidence.outputs.reuse != 'true'
         env:
           CI_BACKEND_RESULTS: ${{ toJSON(needs) }}
-        run: node .harness/scripts/ci-backend-required.mjs
+        run: |
+          test '${{ needs.promotion-evidence.result }}' = success || exit 1
+          export CI_BACKEND_RESULTS="$(node -e 'const n=JSON.parse(process.env.CI_BACKEND_RESULTS);delete n["promotion-evidence"];process.stdout.write(JSON.stringify(n))')"
+          node .harness/scripts/ci-backend-required.mjs
 
   integration-acceptance:
     needs: gates-fast

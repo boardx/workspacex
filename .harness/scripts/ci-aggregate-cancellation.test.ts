@@ -10,11 +10,11 @@ for (const [file, job, event] of [
 ]) {
   describe(`${job} cancellation boundary`, () => {
     const workflow = parse(readFileSync(resolve(root, `.github/workflows/${file}.yml`), 'utf8'));
-    const condition = workflow.jobs[job].if;
+    const condition = workflow.jobs[job].if.replaceAll("needs.promotion-evidence", "needs['promotion-evidence']");
     // Evaluate the actual checked-in boolean expression; not a GitHub runner simulation.
     const evaluate = (cancelled: boolean, eventName = event, full = true) =>
-      new Function('always', 'cancelled', 'github', 'inputs', `return (${condition});`)(
-        () => true, () => cancelled, { event_name: eventName }, { run_e2e_full: full },
+      new Function('always', 'cancelled', 'github', 'inputs', 'needs', `return (${condition});`)(
+        () => true, () => cancelled, { event_name: eventName }, { run_e2e_full: full }, { "promotion-evidence": { result: "success", outputs: { reuse: "false" } } },
       );
     it('does not schedule a final runner after whole-workflow cancellation', () => {
       expect(evaluate(true)).toBe(false);
@@ -32,9 +32,9 @@ for (const [file, job, event] of [
         expect(evaluate(false, 'pull_request')).toBe(false);
       });
     } else {
-      it('does not add a backend merge aggregate to deployment events', () => {
-        expect(evaluate(false, 'push')).toBe(false);
-        expect(evaluate(false, 'workflow_dispatch')).toBe(false);
+      it('also verifies backend aggregation on deployment events', () => {
+        expect(evaluate(false, 'push')).toBe(true);
+        expect(evaluate(false, 'workflow_dispatch')).toBe(true);
       });
     }
   });

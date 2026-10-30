@@ -47,12 +47,12 @@ describe('full regression preserves all independent lane verdicts', () => {
   });
   it('has independent timeout budgets and a failure-aware stable aggregate', () => {
     const aggregate = workflow.jobs['e2e-full'];
-    expect(aggregate.needs).toEqual(FULL_REGRESSION_LANES);
+    expect(aggregate.needs).toEqual(['promotion-evidence', ...FULL_REGRESSION_LANES]);
     expect(aggregate.if).toContain('always()');
     for (const name of FULL_REGRESSION_LANES.filter(name => !['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name))) {
       const job = workflow.jobs[name];
-      if(name==='full-regression-core')expect(job.needs).toEqual(['verify-full-compile','base-api-plan','base-api-shards','base-api-exclusive']);
-      else expect(job.needs).toBeUndefined();
+      if(name==='full-regression-core')expect(job.needs).toEqual(['promotion-evidence','verify-full-compile','base-api-plan','base-api-shards','base-api-exclusive']);
+      else expect(job.needs).toBe('promotion-evidence');
       expect(job['continue-on-error']).toBeUndefined();
       expect(job.if).toContain("github.event_name != 'pull_request'");
       expect(job.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");

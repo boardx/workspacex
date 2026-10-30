@@ -16,7 +16,7 @@ describe('partition commands and isolated CI producers', () => {
   it('runs board in a separate hosted runner with its own actual verdict and evidence', () => {
     const board = workflow.jobs['board-smoke'];
     expect(board).toBeDefined();
-    expect(board.needs).toBe('doc-smoke-scope');
+    expect(board.needs).toEqual(['promotion-evidence', 'doc-smoke-scope']);
     expect(board.needs).not.toContain('fullstack-smoke');
     expect(board['runs-on']).toBe('ubuntu-latest');
     expect(workflow.jobs['e2e-full'].needs).toContain('board-smoke');

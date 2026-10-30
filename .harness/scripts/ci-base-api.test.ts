@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { assertPrerequisites, validateReport } from './ci-base-api.mjs';
 const dependencies=['verify-full-compile','base-api-plan','base-api-shards','base-api-exclusive'];
@@ -72,11 +73,16 @@ it('workflow preserves complete API coverage, isolation and failure verdict befo
  const w=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')),jobs=w.jobs;
  const core=jobs['full-regression-core'];
  expect(core.if).toContain('always()');
- expect(core.needs).toEqual(dependencies);
+ expect(core.needs).toEqual(['promotion-evidence', ...dependencies]);
+ const needs=Object.fromEntries(core.needs.map((name:string)=>[name,{result:'success'}]));
+ const probe=spawnSync('bash',['-c',core.steps[1].run.replace("${{ needs.promotion-evidence.result }}",'success')],{env:{...process.env,CI_BASE_NEEDS:JSON.stringify(needs)},encoding:'utf8'});
+ expect(probe.status,probe.stderr).toBe(0);
+ const failed=spawnSync('bash',['-c',core.steps[1].run.replace("${{ needs.promotion-evidence.result }}",'failure')],{env:{...process.env,CI_BASE_NEEDS:JSON.stringify(needs)},encoding:'utf8'});
+ expect(failed.status).not.toBe(0);
  expect(core.steps[1]).toMatchObject({name:'Require complete base prerequisites',env:{CI_BASE_NEEDS:'${{ toJSON(needs) }}'}});
  expect(core.steps[1].if).toBeUndefined();
  expect(core.steps[2].id).toBe('dedup');
- expect(jobs['base-api-exclusive'].needs).toEqual(['base-api-plan','base-api-shards']);
+ expect(jobs['base-api-exclusive'].needs).toEqual(['promotion-evidence','base-api-plan','base-api-shards']);
  expect(jobs['base-api-shards'].strategy).toEqual({'fail-fast':false,matrix:{shard:'${{ fromJSON(needs.base-api-plan.outputs.shards) }}'}});
  for(const name of ['base-api-shards','base-api-exclusive']){
   const job=jobs[name];expect(job['continue-on-error']).toBeUndefined();

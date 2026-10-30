@@ -77,7 +77,9 @@
     "test:remaining-skills-real-model": "vitest run --config vitest.remaining-skills-real-model.config.ts",
     "test:skill-batch-real-model": "vitest run --config vitest.skill-batch-real-model.config.ts",
     "test:visual-skills-real-model": "vitest run --config vitest.visual-skills-real-model.config.ts",
-    "test:pdf-perf-measure": "vitest run --config vitest.pdf-perf-measure.config.ts"
+    "test:pdf-perf-measure": "vitest run --config vitest.pdf-perf-measure.config.ts",
+    "test:billing-provider": "vitest run --config vitest.billing-provider.config.ts",
+    "test:self-usage": "vitest run --config vitest.self-usage.config.ts"
   },
   "dependencies": {
     "@ag-ui/core": "0.0.57",

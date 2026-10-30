@@ -46,7 +46,7 @@ on:
   # 队列本身要人类在 Settings → Branches 里开——没开时本事件永不触发，这段接线是惰性的。
   merge_group:
   push:
-    branches: [develop, main]
+    branches: [develop, main, main-us]
     # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
     tags: ["v*"]
   # 2026-09-08 人类指令：定时 cron 触发（原每小时全栈烟测 + 每 3 小时 e2e-full）已
@@ -110,8 +110,44 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Execute promotion policy from the immutable target baseline, never PR code.
+  promotion-evidence:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    outputs:
+      reuse: ${{ steps.lookup.outputs.reuse }}
+      source: ${{ steps.lookup.outputs.source }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: candidate
+          fetch-depth: 0
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || github.sha }}
+          path: trusted
+          fetch-depth: 0
+      - name: Resolve verified develop evidence
+        id: lookup
+        working-directory: trusted
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CANDIDATE_DIR: ${{ github.workspace }}/candidate
+        shell: bash
+        run: |
+          if [ -f .harness/scripts/ci-promotion-lookup.mjs ]; then
+            node .harness/scripts/ci-promotion-lookup.mjs "$CANDIDATE_DIR"
+          else
+            echo 'reuse=false' >> "$GITHUB_OUTPUT"
+            echo 'Baseline has no promotion policy; run complete verification.'
+          fi
+
   doc-smoke-scope:
-    if: github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'
+    needs: promotion-evidence
+    if: ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     permissions: {contents: read}
     timeout-minutes: 5
@@ -144,37 +180,66 @@ jobs:
   #   两项差距都是刻意的范围收窄，不是遗漏——本次只做"把已经在跑、已经全绿的
   #   两段拆成并行 job"这一件事。
   verify-control-plane:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+    needs: promotion-evidence
+    if: always() && !cancelled() && (github.event_name != 'schedule' && github.event_name != 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
+      - name: Require promotion admission
+        env:
+          PROMOTION_RESULT: ${{ needs.promotion-evidence.result }}
+        run: test "$PROMOTION_RESULT" = success
+      - name: Preserve verified develop promotion evidence
+        if: needs.promotion-evidence.outputs.reuse == 'true' && needs.promotion-evidence.result == 'success'
+        env:
+          PROMOTION_RESULT: ${{ needs.promotion-evidence.result }}
+          PROMOTION_SOURCE: ${{ needs.promotion-evidence.outputs.source }}
+        run: |
+          test "$PROMOTION_RESULT" = success
+          test -n "$PROMOTION_SOURCE"
+          printf '%s\n' "$PROMOTION_SOURCE" >> "$GITHUB_STEP_SUMMARY"
       - name: Checkout
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         uses: actions/checkout@v5
         with:
           # --affected 需要能 diff 到 base 分支
           fetch-depth: 0
 
       - name: Exercise minimal Docker release command offline
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: python3 -I -B tests/test_minimal_docker_release.py
 
       # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段
       # (pnpm@9.0.0) 读取。两处都写会触发 ERR_PNPM_BAD_PM_VERSION。
       - name: Setup pnpm
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         uses: pnpm/action-setup@v4.4.0
 
       - name: Setup Node (read .nvmrc)
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm install --frozen-lockfile
+
+      - name: Test promotion evidence policy
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
+        run: node --test .harness/scripts/ci-promotion-evidence.selftest.mjs .harness/scripts/ci-promotion-lookup.selftest.mjs
+
+      - name: Check Vitest config reachability early
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
+        run: pnpm run lint:vitest-config-reachability
 
       # Scan PR heads before merge; full-regression-core only runs this after merge.
       - name: Scan tracked source for new credential patterns
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm run lint:oss-secret-scan
 
       - name: Subagent 生成物未漂移
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: |
           pnpm harness gen-subagents
           git diff --exit-code .claude/agents .codex/agents \
@@ -190,6 +255,7 @@ jobs:
       # 本来就还没合，是鸡生蛋（backend-gates.yml 那份注释里记着同一个坑）。合并后的
       # backend-gates 仍然跑 --strict，两道互补：PR 拦伪造证据，合并后拦未落地。
       - name: 审计链体检
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         # Keep the full-repository findings visible on PRs. Only the scoped
         # doctor below is a PR merge gate; main still requires the global audit.
         continue-on-error: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
@@ -199,7 +265,7 @@ jobs:
         run: pnpm harness doctor
 
       - name: 本次改动 phase 审计链体检
-        if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+        if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
@@ -211,6 +277,7 @@ jobs:
       # 恰恰发生在写 ui.md 的那个 PR 里，合并后才发现就晚了。
       # turbo --affected 覆盖不到它：phases/ 不是 workspace 包，改 phases/** 一个包都不 affected。
       - name: 签核 ① UI 材料完整性（截图引用集 == 实存集）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-ui-material.mjs
 
       # 签核第 ③ 件（API 契约）必须存在。ADR-023 决策一规定它二选一：
@@ -228,6 +295,7 @@ jobs:
       # 躺在仓库里从没被 seed，而两版内容确有差异（web-artifact 1.0.1 vs 1.0.2）。
       # 只读源码文本，毫秒级；skills/ 不是 workspace 包 ⇒ turbo --affected 覆盖不到，必须显式跑。
       - name: 标准包发货版本 == 构建版本（单一事实源）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-shipped-pack-version.mjs
 
       # 标准 skill 的 stable_name/version/capability_id 曾在 SKILL.md frontmatter 与
@@ -237,18 +305,22 @@ jobs:
       # 两条都只读文本，毫秒级；skills/ 与 .agents/ 都不是 workspace 包 ⇒ turbo --affected
       # 覆盖不到，必须显式跑。用 tsx 跑是因为它 import 了那个 TypeScript 写的单源解析器。
       - name: 标准 skill 元数据只有 SKILL.md frontmatter 一处（metadata 嵌套写法只减不增）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec tsx .harness/scripts/lint-skill-metadata-source.mjs
 
       - name: ui-prototyper 硬规则只有一份原文（消费方只引用不复述）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-ui-prototyper-single-source.mjs
 
       # 执行计划可视化（Mermaid + 颜色表进度）：调色板只在 execution-plan.mjs 定义一次，
       # 模板 / 规范里的通用提示词 / phases/**/*.plan.md 的 classDef 副本逐字核对；
       # 红必有原因、紫必有证据。只读文本，毫秒级；同上，turbo --affected 覆盖不到。
       - name: 执行计划图格式与调色板单源（红有原因 / 紫有证据）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/execution-plan.mjs check
 
       - name: 签核 ③ API 契约必须存在（形态 A 契约文件 / 形态 B 显式声明无 HTTP 面）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-third-artifact.mjs
 
       # verification 必须真的会红。放在 PR 门控的理由与上一步同源，且更硬：
@@ -259,6 +331,7 @@ jobs:
       # 而 phases/ 不是 workspace 包，turbo --affected 一个包都不 affected ⇒ 必须显式跑。
       # 它自带动态探针（每种形态构造必然失败的变体真跑一次），不需要 Docker/PG。
       - name: verification 必须真的会红（无恒 0 / 无不确定形态）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-verification-can-fail.mjs
 
       # harness 自己的测试（含上面两道门控的反证套件）。
@@ -267,6 +340,7 @@ jobs:
       # 本轮病根——十一束的 v2 屏全做好却全部孤立、导航连的是旧骨架屏——旧门控（只验单屏七态）
       # 一个都发现不了。这道门控双向核对「导航树 ↔ 契约束现行路由」，且只读源码/config，毫秒级。
       - name: 跨屏可达性（导航树 ↔ 契约束现行路由）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-nav-reachability.mjs
 
       # #2490：controller 路由 ↔ next.config rewrites 成对（#539 的门）。此前它只在
@@ -279,6 +353,7 @@ jobs:
       # ——controller 目录挪走、next.config 读不到，PR 照样绿。反证见
       # .harness/scripts/lint-rewrite-coverage-strict.test.ts。
       - name: 路由可达性（controller 路由 ↔ next.config rewrites 成对）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs --strict
 
       # issue #564 解决方案 2 第 1 条：同一条链再往上一格——**契约 → 路由**。
@@ -291,6 +366,7 @@ jobs:
       # 放 PR 门控的理由同上一步（#2490）：「当场红」的「当场」必须是 PR。
       # 只读 packages/contracts 与 apps/api/src/interface，不碰 DB，秒级。
       - name: 契约可达性（已交付契约束的 operation ↔ interface 路由，棘轮只减不增）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs --strict
       # #397：屏 → live 适配器 → controller → application 用例这条**跨层接线**必须成立。
       # 审计（#384 P0）实证过的形状：页面做好了、导航也连上了，而 controller 根本没挂进
@@ -302,6 +378,7 @@ jobs:
       # 只读源码（import 闭包 + 装饰器 + kernel 注册表），不碰 DB / 浏览器，秒级。
       # 反证见 .harness/scripts/lint-ui-wiring.test.ts（真假仓库 + 注入缺陷）。
       - name: 跨层接线（屏 → 适配器 → controller → application 用例）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec tsx .harness/scripts/lint-ui-wiring.mjs
       # 测试代码不许对共享角色做无限定 GRANT/REVOKE（#522 的第六种共享可变状态）。
       # 放在 PR 门控而不是 `verify:harness:raw` 链里的理由，与上一步的 #2490 逐字同源：
@@ -312,6 +389,7 @@ jobs:
       # 只读 apps/ 与 packages/ 下的测试源码文本，不碰 DB，毫秒级；反证套件见
       # .harness/scripts/lint-test-shared-grant.test.ts（下面那步跑）。
       - name: 测试代码不对共享角色做无限定 GRANT/REVOKE（第六种共享可变状态）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec tsx .harness/scripts/lint-test-shared-grant.mjs
 
       # 不存在「写了但没人跑」的 e2e spec（#512）。
@@ -325,6 +403,7 @@ jobs:
       # ——新加一条 spec 却忘了接进 testMatch——恰恰发生在加那条 spec 的 PR 里。
       # turbo --affected 覆盖不到：.harness/ 与 .github/ 都不是 workspace 包。
       - name: 不存在没人跑的 e2e spec（spec ↔ 门控可达性）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-spec-gate-coverage.mjs
 
       # #400：feature 状态迁移的**出处**。此前三道门（doctor 的 checkPassingEvidence、
@@ -343,7 +422,7 @@ jobs:
       # 反证套件见 .harness/scripts/lint-feature-transition.test.ts（含反向反证：
       # 真仓库两个真 commit 之间必须退 0，一道永远红的门等于没有门）。
       - name: feature 状态迁移出处（base→head 差分，不只看最终树）
-        if: github.event_name == 'pull_request'
+        if: (github.event_name == 'pull_request') && needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: |
           pnpm exec tsx .harness/scripts/cli.ts lint-feature-transition \
             --base "${{ github.event.pull_request.base.sha }}" \
@@ -358,6 +437,7 @@ jobs:
       # 只读 `packages/contracts/src/**` 与 `apps/{web,api}/**` 的源码文本，毫秒级、不碰 DB；
       # 且 `.harness/` 不是 workspace 包，turbo --affected 覆盖不到 ⇒ 必须显式跑。
       - name: 对契约的否定性断言仍然成立（注释不得说谎）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs
       # #3140：spec / 验收文档里的态名必须是契约枚举里真有的那个名。
       # 2026-09-08 一天两次同一形态：契约/裁决更新了，下游 spec 与
@@ -370,6 +450,7 @@ jobs:
       # 只读源码文本，不需要 Docker/PG/浏览器，毫秒级。
       # 反证：pnpm harness gate-probe --gate contract-state-names（两条变异全部 CAUGHT）。
       - name: 态名单源（spec / 验收文档 ↔ 契约枚举）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: node .harness/scripts/lint-contract-state-names.mjs
       # pnpm override 不许用 `parent>child` 选择器（#2614）。
       # #2613 实测：那个选择器对**由 peerDependency 自动解析**出来的边不可靠——任何触发
@@ -379,6 +460,7 @@ jobs:
       # 而根 package.json / pnpm-workspace.yaml 不属于任何 workspace 包，
       # turbo --affected 一个包都不 affected ⇒ 必须显式跑。只读清单文本，毫秒级。
       - name: pnpm override 无 parent>child 选择器（peer 边静默装错版本）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec tsx .harness/scripts/lint-pnpm-override-selector.mjs
 
       # harness 自己的测试（含上面那道门控的反证套件）。
@@ -386,31 +468,50 @@ jobs:
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
       # 控制平面的测试不跑，等于控制平面没有测试。
       - name: harness 控制平面自测（含门控反证）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm exec vitest run --dir .harness
 
   # 与 verify-control-plane 并行——两者互不依赖（一个测控制平面本身，一个测
   # 业务包），拆开跑 wall-clock ≈ 两者较慢的那个，不是相加。这是本 issue
   # 唯一动的并行拆分，见上面 verify-control-plane 顶部注释里的范围说明。
   verify-affected:
-    if: github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
+    needs: promotion-evidence
+    if: always() && !cancelled() && (github.event_name != 'schedule' && github.event_name != 'workflow_dispatch')
     runs-on: ubuntu-latest
     steps:
+      - name: Require promotion admission
+        env:
+          PROMOTION_RESULT: ${{ needs.promotion-evidence.result }}
+        run: test "$PROMOTION_RESULT" = success
+      - name: Preserve verified develop promotion evidence
+        if: needs.promotion-evidence.outputs.reuse == 'true' && needs.promotion-evidence.result == 'success'
+        env:
+          PROMOTION_RESULT: ${{ needs.promotion-evidence.result }}
+          PROMOTION_SOURCE: ${{ needs.promotion-evidence.outputs.source }}
+        run: |
+          test "$PROMOTION_RESULT" = success
+          test -n "$PROMOTION_SOURCE"
+          printf '%s\n' "$PROMOTION_SOURCE" >> "$GITHUB_STEP_SUMMARY"
       - name: Checkout
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         uses: actions/checkout@v5
         with:
           # --affected 需要能 diff 到 base 分支
           fetch-depth: 0
 
       - name: Setup pnpm
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         uses: pnpm/action-setup@v4.4.0
 
       - name: Setup Node (read .nvmrc)
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm install --frozen-lockfile
 
       # 2026-09-08（#2972）：本 job 下面那步在 **fork PR** 上会把 @repo/api 留在
@@ -420,14 +521,15 @@ jobs:
       # fork PR 这一种场景装。条件写法与下面那步的 `IS_FORK_PR` 同源，理由见那里的注释
       # （不得写出「event 不等于 pull_request」的字面量模式）。
       - name: Detect fork PR (Python runtime only needed when @repo/api runs here)
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         id: forkpr
         run: echo "value=${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}" >> "$GITHUB_OUTPUT"
       - uses: astral-sh/setup-uv@v7.0.0
-        if: steps.forkpr.outputs.value == 'true'
+        if: (steps.forkpr.outputs.value == 'true') && needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         with:
           version: "0.12.5"
       - name: Install locked Python runtime for cross-language API integration tests
-        if: steps.forkpr.outputs.value == 'true'
+        if: (steps.forkpr.outputs.value == 'true') && needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         working-directory: apps/deep-agent-service
         run: uv sync --frozen --extra dev
 
@@ -444,6 +546,7 @@ jobs:
       # 保底覆盖不丢，只是这一种场景下放弃去重收益（fork PR 本就少见，宁可偶尔重复
       # 跑一遍，不可接受的是不跑）。
       - name: 受影响模块 test
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         env:
           TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event_name == 'merge_group' && github.event.merge_group.base_sha || github.event.before }}
           # #538 隔离门要求显式声明目标库（WORKSPACEX_DB 缺席 ⇒ setup 阶段直接拒绝）。
@@ -483,19 +586,40 @@ jobs:
   # （报一堆 TS6053 File not found）。本地热缓存时 `.next/` 是上一轮遗留的所以看着
   # 是绿的——实测：一条命令冷跑退出码 2（29/31），拆成两步冷跑退出码 0（51s）。
   verify-full-compile:
+    if: always() && !cancelled()
+    needs: promotion-evidence
     runs-on: ubuntu-latest
     steps:
+      - name: Require promotion admission
+        env:
+          PROMOTION_RESULT: ${{ needs.promotion-evidence.result }}
+        run: test "$PROMOTION_RESULT" = success
+      - name: Preserve verified develop promotion evidence
+        if: needs.promotion-evidence.outputs.reuse == 'true' && needs.promotion-evidence.result == 'success'
+        env:
+          PROMOTION_RESULT: ${{ needs.promotion-evidence.result }}
+          PROMOTION_SOURCE: ${{ needs.promotion-evidence.outputs.source }}
+        run: |
+          test "$PROMOTION_RESULT" = success
+          test -n "$PROMOTION_SOURCE"
+          printf '%s\n' "$PROMOTION_SOURCE" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v5
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
       - uses: pnpm/action-setup@v4.4.0
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
       - uses: actions/setup-node@v5
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
       # 见上：先 build，让 Next.js 生成 .next/types/**，typecheck 才有得可查。
       - name: 全仓编译（build）
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm turbo run build
       - name: 全仓 typecheck + lint
+        if: needs.promotion-evidence.outputs.reuse != 'true' && needs.promotion-evidence.result == 'success'
         run: pnpm turbo run typecheck lint --continue
 
   # 机械合并门禁（#956）——2026-08-11 20:33 CST 事故：`pr-queue` 在 20:32 仍把
@@ -517,6 +641,7 @@ jobs:
   # ruleset 等价设置）——这一步是账号级配置变更，agent 不会代为执行，见本
   # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
   merge-gate:
+    name: ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') && 'merge-gate' || 'merge-gate-not-applicable' }}
     # #3238：候选组（merge_group）上也必须出结论——这是 required check，候选组上
     # SKIPPED 等于队列永久卡住。候选组里的 PR 号由 lib/merge-queue.ts 的
     # parseMergeGroupPrNumbers 从队列 ref + 区间 commit 标题解析，解析不出就失败。
@@ -548,7 +673,8 @@ jobs:
 
   # API-fixture browser coverage for logged-in organization creation (#5494).
   organization-create:
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: promotion-evidence
+    if: (((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     # Keep browser dependency installation off the moving ubuntu-latest image.
     # Run 39762945819 failed before tests: Ubuntu 26.04 Microsoft APT source 403.
     runs-on: ubuntu-24.04
@@ -582,8 +708,8 @@ jobs:
 
   board-smoke:
     timeout-minutes: 30
-    needs: doc-smoke-scope
-    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    needs: [promotion-evidence, doc-smoke-scope]
+    if: ((always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -650,8 +776,8 @@ jobs:
 
   directory-smoke:
     timeout-minutes: 30
-    needs: doc-smoke-scope
-    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    needs: [promotion-evidence, doc-smoke-scope]
+    if: ((always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -717,8 +843,8 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   fullstack-smoke:
-    needs: doc-smoke-scope
-    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    needs: [promotion-evidence, doc-smoke-scope]
+    if: ((always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -822,7 +948,8 @@ jobs:
   # Full regression shares the sole smoke producer above; core retains the complete base suite.
   # Public journey commands each create and clean their own database isolation scope.
   base-api-plan:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
+    needs: promotion-evidence
+    if: ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -852,8 +979,8 @@ jobs:
           if-no-files-found: error
 
   base-api-shards:
-    needs: base-api-plan
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
+    needs: [promotion-evidence, base-api-plan]
+    if: ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -900,8 +1027,8 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
 
   base-api-exclusive:
-    needs: [base-api-plan, base-api-shards]
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
+    needs: [promotion-evidence, base-api-plan, base-api-shards]
+    if: ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -944,8 +1071,8 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
 
   full-regression-core:
-    needs: [verify-full-compile, base-api-plan, base-api-shards, base-api-exclusive]
-    if: always() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))
+    needs: [promotion-evidence, verify-full-compile, base-api-plan, base-api-shards, base-api-exclusive]
+    if: ((always() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
@@ -958,7 +1085,10 @@ jobs:
       - name: Require complete base prerequisites
         env:
           CI_BASE_NEEDS: ${{ toJSON(needs) }}
-        run: node .harness/scripts/ci-base-api.mjs prerequisites
+        run: |
+          test '${{ needs.promotion-evidence.result }}' = success || exit 1
+          export CI_BASE_NEEDS="$(node -e 'const n=JSON.parse(process.env.CI_BASE_NEEDS);delete n["promotion-evidence"];process.stdout.write(JSON.stringify(n))')"
+          node .harness/scripts/ci-base-api.mjs prerequisites
       - name: Find existing verification (same SHA and lane)
         id: dedup
         env:
@@ -1053,7 +1183,8 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   chat-read:
-    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: promotion-evidence
+    if: (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     concurrency:
@@ -1104,7 +1235,8 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   self-service-profile:
-    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: promotion-evidence
+    if: (((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -1156,8 +1288,8 @@ jobs:
 
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
-    if: (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
-    needs: [fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile]
+    if: (((always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
+    needs: [promotion-evidence, fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -1170,7 +1302,8 @@ jobs:
   # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
   # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
   chat-path-coverage:
-    if: (github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: promotion-evidence
+    if: (((github.event_name == 'workflow_dispatch' && inputs.run_chat_path_coverage) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.
@@ -1217,7 +1350,8 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   chat-task-workbench:
-    if: (github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    needs: promotion-evidence
+    if: (((github.event_name == 'workflow_dispatch' && inputs.run_chat_task_workbench) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.promotion-evidence.outputs.reuse != 'true') && needs.promotion-evidence.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     # Serialize identical lanes, then reuse retained evidence. Never cancel the producer.

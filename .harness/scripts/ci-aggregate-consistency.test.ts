@@ -35,7 +35,7 @@ describe("backend-required 的依赖：workflow 与策略文件不许漂移", ()
       .slice((needsLine ?? "").indexOf("[") + 1, (needsLine ?? "").lastIndexOf("]"))
       .split(",")
       .map((s) => s.trim())
-      .filter((s) => s !== "");
+      .filter((s) => s !== "" && s !== "promotion-evidence");
     const fromPolicy = policy.aggregates["backend-required"] ?? [];
 
     expect(fromWorkflow.length, "workflow 的 needs 解析成空集——拒绝下判断").toBeGreaterThan(0);

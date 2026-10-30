@@ -12,7 +12,7 @@ describe('API isolated shard coverage',()=>{
  it('has one policy-driven workflow count without weakening isolated serial gates',()=>{
   const plan=shardPlan(policy),test=workflow.jobs['gates-test'];
   expect(plan.shards).toEqual(Array.from({length:plan.count},(_,i)=>i+1));
-  expect(test.needs).toBe('api-test-plan');
+  expect(test.needs).toEqual(['promotion-evidence', 'api-test-plan']);
   expect(test.strategy.matrix.shard).toBe('${{ fromJSON(needs.api-test-plan.outputs.shards) }}');
   expect(test.timeoutMinutes??test['timeout-minutes']).toBe(20);
   expect(test.strategy['fail-fast']).toBe(false);
