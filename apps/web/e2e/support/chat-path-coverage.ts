@@ -90,11 +90,23 @@ export async function awaitStoredHumanMessage(
   return await storedMessages(page, threadId);
 }
 
+class StoredMessagesUnavailableError extends Error {
+  constructor(readonly traceId: string | null) {
+    super(`Stored messages HTTP 503${traceId ? ` (traceId=${traceId})` : ""}`);
+  }
+}
+
 export async function storedMessages(page: Page, threadId: string): Promise<StoredMessage[]> {
   const response = await page.request.get(`/chat/threads/${threadId}/messages?limit=200`, {
     headers: await sessionHeaders(page),
   });
-  expect(response.ok()).toBe(true);
+  if (response.status() === 503) {
+    const body: unknown = await response.json().catch(() => null);
+    const candidate = body && typeof body === "object" && "traceId" in body ? body.traceId : null;
+    const traceId = typeof candidate === "string" && /^[a-f0-9-]{36}$/i.test(candidate) ? candidate : null;
+    throw new StoredMessagesUnavailableError(traceId);
+  }
+  expect(response.ok(), `Stored messages HTTP ${response.status()}`).toBe(true);
   return (await response.json() as { messages: StoredMessage[] }).messages;
 }
 
@@ -281,12 +293,28 @@ export async function sendInV2AndAwaitStoredReply(
   await page.getByTestId("copilotkit-v2-input").fill(text);
   await page.getByTestId("copilotkit-v2-send").click();
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText(text, { timeout: 60_000 });
+  await awaitStoredAgentReply(page, threadId, expected);
+}
+
+export async function awaitStoredAgentReply(
+  page: Page, threadId: string, expected: readonly string[], timeoutMs = 180_000,
+): Promise<void> {
+  const unavailableReads: StoredMessagesUnavailableError[] = [];
   try {
     await expect
       .poll(async () => {
-        const messages = await storedMessages(page, threadId);
-        return messages.some((m) => m.authorKind === "agent" && expected.every((one) => m.text.includes(one)));
-      }, { timeout: 180_000, intervals: [500, 1_000, 2_000] })
+        try {
+          const messages = await storedMessages(page, threadId);
+          return messages.some((m) => m.authorKind === "agent" && expected.every((one) => m.text.includes(one)));
+        } catch (error) {
+          // Only a read-side 503 may recover within the existing deadline. Never
+          // resend the run, hide auth failures, or accept an absent/wrong reply.
+          if (!(error instanceof StoredMessagesUnavailableError)) throw error;
+          unavailableReads.push(error);
+          console.warn(`[e2e-message-read] ${error.message}`);
+          return false;
+        }
+      }, { timeout: timeoutMs, intervals: [500, 1_000, 2_000] })
       .toBe(true);
   } catch (failure) {
     /*
@@ -296,7 +324,10 @@ export async function sendInV2AndAwaitStoredReply(
      * 退回通用回显）。三者的处置完全不同，所以把这一轮真实落库的 agent 回复摘进
      * 失败信息。**不放宽判据**：期待的串仍然必须出现，否则照样红。
      */
-    const all = await storedMessages(page, threadId);
+    let all: StoredMessage[] = [];
+    let diagnosticReadError = "";
+    try { all = await storedMessages(page, threadId); }
+    catch (error) { diagnosticReadError = `\n诊断读取也失败：${error instanceof Error ? error.message : String(error)}`; }
     const replies = all.filter((m) => m.authorKind === "agent");
     const detail = replies.length === 0
       ? "这条线程上一条 agent 回复都没有落库——这一轮 run 没跑、失败了，或者消息进了另一条线程"
@@ -304,7 +335,9 @@ export async function sendInV2AndAwaitStoredReply(
     throw new Error(
       `${failure instanceof Error ? failure.message : String(failure)}\n\n`
       + `【诊断】期待同一条回复里同时含「${expected.join("」「")}」，`
-      + `线程 ${threadId} 实际落库的 agent 回复：\n${detail}`,
+      + `线程 ${threadId} 实际落库的 agent 回复：\n${detail}`
+      + `${unavailableReads.length ? `\n最后一次暂时不可用：${unavailableReads.at(-1)!.message}` : ""}${diagnosticReadError}`,
+      { cause: failure },
     );
   }
 }
