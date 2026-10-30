@@ -106,3 +106,42 @@ it("a late interjection ACK cannot clear or append into another tenant's same-th
   expect(agent.addMessage).not.toHaveBeenCalled();
   expect(result.current.runningReplyAck).toBeNull();
 });
+
+it("notifies explicit input acceptance only after the current interjection ACK", async () => {
+  sessionStorage.clear(); vi.clearAllMocks();
+  let finish!: (value:{interjectionId:string})=>void;
+  interject.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+  const onAccepted=vi.fn();
+  const {result}=renderHook(()=>useRunningReply({agent,threadId:"scroll",run:{runId:"active",status:"running"},inputDraft:"direction",sessionToken:"test",enqueue:vi.fn(),clearDraft:vi.fn(),setError:vi.fn(),onAccepted}));
+  let pending!:Promise<void>;
+  act(()=>{pending=result.current.sendWhileRunning();});
+  expect(onAccepted).not.toHaveBeenCalled();
+  await act(async()=>{finish({interjectionId:"ack"});await pending;});
+  expect(onAccepted).toHaveBeenCalledTimes(1);
+});
+it("notifies once when an explicit input is accepted into the running queue", async () => {
+  sessionStorage.clear();vi.clearAllMocks();
+  const onAccepted=vi.fn(),enqueue=vi.fn().mockResolvedValue(true);
+  const {result}=renderHook(()=>useRunningReply({agent,threadId:"scroll-queue",run:{runId:"active",status:"running"},inputDraft:"later",sessionToken:"test",enqueue,clearDraft:vi.fn(),setError:vi.fn(),onAccepted}));
+  await act(()=>result.current.sendWhileRunning({forceQueue:true}));
+  await waitFor(()=>expect(enqueue).toHaveBeenCalledTimes(1));
+  expect(onAccepted).toHaveBeenCalledTimes(1);
+});
+it("does not notify scrolling for a rejected interjection", async () => {
+  sessionStorage.clear();vi.clearAllMocks();interject.mockRejectedValue(new Error("unavailable"));
+  const onAccepted=vi.fn();
+  const {result}=renderHook(()=>useRunningReply({agent,threadId:"failed",run:{runId:"active",status:"running"},inputDraft:"keep",sessionToken:"test",enqueue:vi.fn(),clearDraft:vi.fn(),setError:vi.fn(),onAccepted}));
+  await act(()=>result.current.sendWhileRunning());
+  expect(onAccepted).not.toHaveBeenCalled();
+});
+it("does not scroll the new scope when an old interjection ACK arrives", async () => {
+  sessionStorage.clear();vi.clearAllMocks();
+  let finish!: (value:{interjectionId:string})=>void;
+  interject.mockImplementation(()=>new Promise(resolve=>{finish=resolve;}));
+  const onAccepted=vi.fn();
+  const {result,rerender}=renderHook(({scope})=>useRunningReply({agent,threadId:"same",draftScope:scope,run:{runId:"active",status:"running"},inputDraft:"private",sessionToken:scope,enqueue:vi.fn(),clearDraft:vi.fn(),setError:vi.fn(),onAccepted}),{initialProps:{scope:"old"}});
+  let pending!:Promise<void>;act(()=>{pending=result.current.sendWhileRunning();});
+  rerender({scope:"new"});
+  await act(async()=>{finish({interjectionId:"old-ack"});await pending;});
+  expect(onAccepted).not.toHaveBeenCalled();
+});

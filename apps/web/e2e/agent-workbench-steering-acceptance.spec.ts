@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { openFreshThread } from "./chat-task-workbench-fixture";
@@ -19,7 +20,22 @@ test("running composer accepts direction without cancelling the active tool or s
     if (/\/agent-runs\/[^/]+\/cancel(?:\?|$)/.test(request.url())) cancelPosts.push(request.url());
   });
   const input = page.getByTestId("copilotkit-v2-input");
-  await input.fill(CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger);
+  // Hold at a real tool event so the running-submit branch cannot finish first.
+  // A long real user message makes the history scrollable without altering DOM geometry.
+  const gateId = randomUUID();
+  const userText = `${CHAT_READ_E2E.deepAgentScrollAcceptanceTrigger}:F2:${gateId}\n`
+    + Array.from({length:80}, (_, index) => `历史材料 ${index + 1}：保留当前执行结果，并检查本轮插话。`).join("\n");
+  const fixtureOrigin = `http://127.0.0.1:${process.env.WORKSPACEX_DEEP_AGENT_PROVIDER_PORT}`;
+  const armed = await page.request.post(`${fixtureOrigin}/__test/f2/arm`, {data:{gateId,userText,pauseAtHalfStep:1}});
+  expect(armed.status()).toBe(200);
+  let released = false;
+  const release = async () => {
+    if (released) return;
+    const receipt = await page.request.post(`${fixtureOrigin}/__test/f2/release`, {data:{gateId}});
+    expect(receipt.status()).toBe(200); released = true;
+  };
+  try {
+  await input.fill(userText);
   const responsePromise = page.waitForResponse(response => response.request().method() === "POST" && /\/api\/copilotkit\/agent\/[^/]+\/run(?:\?|$)/.test(response.url()));
   await page.getByTestId("copilotkit-v2-send").click();
   const response = await responsePromise;
@@ -56,6 +72,10 @@ test("running composer accepts direction without cancelling the active tool or s
   });
   await expect(input).toBeEnabled();
   await expect(page.getByTestId("copilotkit-v2-send")).toBeEnabled();
+  const messages = page.getByTestId("copilotkit-v2-messages");
+  await expect(page.getByTestId("copilotkit-v2-send")).toHaveAttribute("data-send-state", "running");
+  await messages.hover(); await page.mouse.wheel(0, -100_000);
+  await expect(page.getByTestId("copilotkit-v2-scroll-to-bottom")).toBeVisible();
   const receiptResponse = page.waitForResponse(value => value.request().method() === "POST" && value.url().includes(`/agent-runs/${runId}/interject`));
   await page.getByTestId("copilotkit-v2-send").click();
   const accepted = await receiptResponse;
@@ -64,6 +84,10 @@ test("running composer accepts direction without cancelling the active tool or s
   const receipt = await accepted.json() as {interjectionId: string};
   expect(receipt.interjectionId).toEqual(expect.any(String));
   await expect(input).toHaveValue("");
+  await expect.poll(() => messages.evaluate(element => element.scrollHeight - element.scrollTop - element.clientHeight))
+    .toBeLessThanOrEqual(80);
+  await expect(page.getByTestId("copilotkit-v2-scroll-to-bottom")).toHaveCount(0);
+  await release();
   await response.finished();
   const events = await readJournal();
   const received = events.find(event => event.kind === "interjection" && event.interjectionId === receipt.interjectionId && event.status === "received");
@@ -76,4 +100,5 @@ test("running composer accepts direction without cancelling the active tool or s
   expect(runPosts).toHaveLength(1);
   expect(cancelPosts).toHaveLength(0);
   await testInfo.attach("steering-journal", {body:JSON.stringify(events,null,2),contentType:"application/json"});
+  } finally { await release(); }
 });

@@ -53,6 +53,7 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 3. 交付：`verify --sprint` 门控；PR 描述里写清对上述契约的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-10-30：运行中发送由`useRunningReply`独立接收，不能只在普通send中贴底。当前作用域插话ACK和显式排队接受后调用统一滚动动作，失败、只读或旧租户迟到ACK不滚动。普通send验收先等既有运行结束；运行中验收用真实F2工具门控及长用户消息，上滚后插话仍核对一条run、无cancel和持久事件（issue #6022，`workbench-running-reply.test.tsx`、`agent-workbench-steering-acceptance.spec.ts`）。
 - 2026-10-30：产物已落库时，消息轮询的一次503仍会让expect.poll回调立即抛，后续诊断读取到回复也不能证明首次等待完成。只在原期限内对明确503读继续轮询并记录traceId，401/403/500和永久不可用仍失败；成功须同一agent消息满足全部本轮哨兵，附件还需真实下载解析。底层503原因须独立记录，不声称修复（issue #6020，`e2e-stored-reply-poll.test.ts`）。
 - 2026-10-29：刷新停在登录确认时先对齐脚本加载、hydrate 与身份请求时间；接口最终 200 不证明超时前已恢复。登录/会话客户端应引用契约子路径，避免根 barrel 把无关注册表带入首屏。浏览器离站或 composer 消失也不能用上一次 running 值判成运行卡死（issue #5982；`session-client-bundle-boundary.test.ts` 与 `e2e-chat-run-settled.test.ts`）。
 - 2026-10-15：目录示例任务跳到对话后，URL 和输入文本正确、通用 loading 消失仍不能证明选角及开场简报已稳定。截图需先等空态挂载，再等 session-briefing-loading 消失，并断言实际角色名、非自动匹配和头像加载；CI 成功后的图片仍需逐张审查（[PR #5710](https://github.com/boardx/workspacex/pull/5710)）。

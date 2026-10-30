@@ -897,6 +897,10 @@ test("#925 ③ 发送后强制滚到底：即使之前上滚看历史，发送�
   await page.goto(`/chat?projectId=${CHAT_READ_E2E.projectId}&thread=${CHAT_READ_E2E.threadId}`);
   await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("Controlled fixture message 01", { timeout: 60_000 });
 
+  // This case covers ordinary send; running interjection has its own gated acceptance.
+  await expect.poll(() => page.getByTestId("copilotkit-v2-send").getAttribute("data-send-state"))
+    .toMatch(/^(ready|disabled)$/);
+
   // 先上滚到顶（离开底部，V1 本会「尊重上滚」不自动跟随）。用真实滚轮而不是写
   // `scrollTop`，理由与 V5 那条用例里的长注释相同（`programmaticScrollRef` 会吞掉
   // 非用户发起的滚动事件）。

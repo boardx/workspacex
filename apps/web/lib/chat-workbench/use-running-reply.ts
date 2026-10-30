@@ -8,10 +8,11 @@ import { resolveRunningReplyRoute, runningReplyAckCopy } from "@/lib/chat-compos
 type QueuedReply = { id: string; text: string };
 const EMPTY_QUEUE: QueuedReply[] = [];
 /** Each queued delivery retains its idempotency key until an explicit successful ACK. */
-export function useRunningReply({ agent, threadId, draftScope, run, inputDraft, inputDraftRevision, sessionToken, enqueue, clearDraft, setError, canWrite = true }: {
+export function useRunningReply({ agent, threadId, draftScope, run, inputDraft, inputDraftRevision, sessionToken, enqueue, clearDraft, setError, onAccepted, canWrite = true }: {
   agent: AbstractAgent; threadId: string; run: ChatHostInterjectionRun; inputDraft: string; sessionToken: string | null;
   enqueue: (text: string, opts?: { clientMessageId?: string }) => Promise<boolean>;
   canWrite?: boolean;
+  onAccepted?: () => void;
   draftScope?: string;
   inputDraftRevision?: number;
   clearDraft: (revision?: number) => void; setError: (error: string | null) => void;
@@ -50,6 +51,7 @@ export function useRunningReply({ agent, threadId, draftScope, run, inputDraft, 
       const entry = { id: crypto.randomUUID(), text };
       setQueues((previous) => ({ ...previous, [threadId]: [...(previous[threadId] ?? []), entry] }));
       clearDraft(inputDraftRevision);
+      onAccepted?.();
       return;
     }
     sending.current = true;
@@ -59,13 +61,14 @@ export function useRunningReply({ agent, threadId, draftScope, run, inputDraft, 
       if (!mounted.current || currentScope.current !== scope) return;
       agent.addMessage({ id: `interjection:${receipt.interjectionId}`, role: "user", content: text });
       clearDraft(inputDraftRevision);
+      onAccepted?.();
       setRunningReplyAck(runningReplyAckCopy(text));
     } catch (error) {
       if (!mounted.current || currentScope.current !== scope) return;
       const code = classifyInterjectFailure(error);
       setError(code ? INTERJECT_FAILURE_COPY[code] : INTERJECT_UNKNOWN_FAILURE_COPY);
     } finally { if (mounted.current && currentScope.current === scope) { sending.current = false; setInterjectPending(false); } }
-  }, [inputDraft, inputDraftRevision, run.runId, run.status, sessionToken, agent, clearDraft, setError, threadId, canWrite, scope]);
+  }, [inputDraft, inputDraftRevision, run.runId, run.status, sessionToken, agent, clearDraft, setError, threadId, canWrite, scope, onAccepted]);
   React.useEffect(() => {
     if (!canWrite || loadedStorageKey !== storageKey || !queue.length || delivering || interjectPending || sending.current || queuedFailed) return;
     const entry = queue[0]!;
