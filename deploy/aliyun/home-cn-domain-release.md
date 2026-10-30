@@ -75,3 +75,15 @@ Google 公共 DNS A 查询：`workspacex.cn`、`boardx.com.cn` 都为 `47.116.12
    恢复步骤 1 的 DNS/绑定/路由快照。保留所有旧版本，不执行清理。
 
 官方 ESA 跳转参考：<https://help.aliyun.com/en/edge-security-acceleration/dcdn/user-guide/redirect-to-a-specified-url>。
+
+## 持久制品交接
+
+候选包已随本分支存入 `deploy/aliyun/evidence/home-domain-20261030/home-cn-4a75643a5.tar.gz`，
+不依赖原执行器 `/tmp`。SHA-256 为
+`61e76a5f30b529c47d8b1607483355bb560e05f575e5a1ab2726e4d173b2d993`。
+重新 clone 此 PR 分支即可取得同一制品；使用前以 `sha256sum` 核对摘要，解包后
+`.well-known/workspacex-release.json` 的 source commit 为完整 `4a75643a5e9ce42fdd3f16f45e8917a031d857bb`。
+`4a75643a5..80c82d7` 的七个差异文件仅为四份测试日志、制品清单、环境摘要和发布记录；
+没有打包器、域名配置、测试源码或 `apps/home` 代码差异。完整路径列表在制品清单。
+后续仅追加交接证据不会改变此候选包字节；不因文档提交而重打包。
+生产源 `4f7ac1b…` 不可取得的缺口继续保留，发布前源码差异核对仍是必须步骤。

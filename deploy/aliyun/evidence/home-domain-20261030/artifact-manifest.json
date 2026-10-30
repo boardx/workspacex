@@ -74,5 +74,21 @@
     "zh/index.html": "d8ab49585fe4515268295407336aed4a4bc8d7204d5e5f6414ea06e83309dbe9",
     "zh/privacy.html": "cbe388e547887196e82dc11c4edd1dfc28d8a7a0f582c7024edeb1a9d0fb6c65"
   },
-  "published": false
+  "published": false,
+  "repositoryArchive": "deploy/aliyun/evidence/home-domain-20261030/home-cn-4a75643a5.tar.gz",
+  "sourceToReviewedHead": {
+    "sourceCommit": "4a75643a5e9ce42fdd3f16f45e8917a031d857bb",
+    "reviewedHead": "80c82d7b5525fedc876dad990b85651da23cbd66",
+    "changedPaths": [
+      "deploy/aliyun/evidence/home-domain-20261030/artifact-manifest.json",
+      "deploy/aliyun/evidence/home-domain-20261030/browser.log",
+      "deploy/aliyun/evidence/home-domain-20261030/environment-summary.json",
+      "deploy/aliyun/evidence/home-domain-20261030/pages-tests.log",
+      "deploy/aliyun/evidence/home-domain-20261030/static.log",
+      "deploy/aliyun/evidence/home-domain-20261030/unit.log",
+      "deploy/aliyun/home-cn-domain-release.md"
+    ],
+    "codeChanged": false,
+    "classification": "only test receipts, artifact manifest, environment summary and release documentation; packaging source/config/tests unchanged"
+  }
 }
