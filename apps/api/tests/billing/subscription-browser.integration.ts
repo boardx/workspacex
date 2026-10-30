@@ -27,7 +27,7 @@ let web: ChildProcess | undefined, webClosed: Promise<void> | undefined, closed 
 const user="stripe-browser-user", org="stripe-browser-org", secret=`whsec_${randomBytes(24).toString("hex")}`;
 const port=Number(process.env.WORKSPACEX_WEB_PORT), origin=`http://127.0.0.1:${port}`, webRoot=resolve(import.meta.dirname,"../../../web");
 const evidence=process.env.BILLING_BROWSER_EVIDENCE_DIR || resolve(import.meta.dirname,"../../test-results/billing-stripe");
-let base="", status="active", token="";
+let base="", status="active", token="", cancelAtPeriodEnd=false;
 const providerCalls: {path:string;body:string}[]=[];
 async function cleanup() { await asOwner(async c=> {
   await c.query("DELETE FROM billing_stripe_bindings WHERE user_id=$1",[user]);
@@ -103,7 +103,7 @@ beforeAll(async()=> {
   if(req.headers["stripe-version"]!=="2025-09-30.clover"){res.writeHead(400);res.end("{}");return;}
   let value:unknown;
   if(req.url==="/v1/checkout/sessions/cs_browser")value={id:"cs_browser",object:"checkout.session",mode:"subscription",status:"complete",customer:"cus_browser",subscription:"sub_browser",client_reference_id:token};
-  if(req.url==="/v1/subscriptions/sub_browser")value={id:"sub_browser",object:"subscription",customer:"cus_browser",status,cancel_at_period_end:false,trial_start:null,trial_end:null,items:{data:[{current_period_start:1893456000,current_period_end:1896134400,price:{id:"price_browser",recurring:{interval:"month"}}}],has_more:false}};
+  if(req.url==="/v1/subscriptions/sub_browser")value={id:"sub_browser",object:"subscription",customer:"cus_browser",status,cancel_at_period_end:cancelAtPeriodEnd,trial_start:null,trial_end:null,items:{data:[{current_period_start:1893456000,current_period_end:1896134400,price:{id:"price_browser",recurring:{interval:"month"}}}],has_more:false}};
   if(req.url==="/v1/billing_portal/sessions")value={object:"billing_portal.session",customer:"cus_browser",url:"https://billing.stripe.com/p/session/browser"};
   res.setHeader("content-type","application/json");res.statusCode=value?200:500;res.end(JSON.stringify(value??{}));
  }); });
@@ -136,7 +136,15 @@ it("completes checkout through signed HTTP and PG, renders Pro, recovers billing
  await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("已订阅");
  expect(await page.getByText("Pro 权益已生效").count()).toBe(1);await page.screenshot({path:resolve(evidence,"stripe-active.png"),fullPage:true});
  await page.getByRole("button",{name:"管理订阅",exact:true}).click();await page.waitForURL("https://billing.stripe.com/**");
- const portal=providerCalls.find(c=>c.path==="/v1/billing_portal/sessions");expect(new URLSearchParams(portal!.body).get("customer")).toBe("cus_browser");expect(new URLSearchParams(portal!.body).get("return_url")).toBe(`${origin}/billing?subscription_return=1`);
+ const portal=providerCalls.find(c=>c.path==="/v1/billing_portal/sessions");expect(new URLSearchParams(portal!.body).get("customer")).toBe("cus_browser");const returnUrl = new URLSearchParams(portal!.body).get("return_url")!;
+ expect(returnUrl).toBe(`${origin}/billing?subscription_return=1&subscription_management_return=1`);
+ await page.goto(returnUrl);
+ await expect.poll(()=>page.getByText("Pro 权益已生效").count()).toBe(1);
+ cancelAtPeriodEnd=true;expect((await callback("customer.subscription.updated","evt_browser_cancel_scheduled")).status).toBe(200);
+ await expect.poll(()=>page.getByText(/已取消续费.*本期结束前.*Pro/).count(),{timeout:12000}).toBe(1);
+ expect(await page.getByText("Pro 权益已生效").count()).toBe(1);
+ await page.screenshot({path:resolve(evidence,"stripe-cancellation-scheduled.png"),fullPage:true});
+ cancelAtPeriodEnd=false;expect((await callback("customer.subscription.updated","evt_browser_cancel_resumed")).status).toBe(200);
  status="past_due";expect((await callback("customer.subscription.updated","evt_browser_pastdue")).status).toBe(200);
  await page.goto(`${origin}/billing`);await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("付款逾期");expect(await page.getByText("Pro 权益已生效").count()).toBe(0);expect(await page.getByRole("button",{name:"订阅 Pro",exact:true}).count()).toBe(0);await page.screenshot({path:resolve(evidence,"stripe-billing-recovery.png"),fullPage:true});
  status="future_state";expect((await callback("customer.subscription.updated","evt_browser_unknown")).status).toBe(500);
