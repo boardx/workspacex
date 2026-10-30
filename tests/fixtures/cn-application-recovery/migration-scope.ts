@@ -17,6 +17,7 @@ export const reviewedSuffix = [
   "20261023110000_knowledge_embedding_accounting.sql",
   "20261023120000_auxiliary_model_accounting.sql",
   "20261023130000_private_auxiliary_model_operations.sql",
+  "20261030010000_credit_subscription_periods.sql",
 ];
 export function migrationScope(names:string[]) {
  assert.deepEqual(names,[...new Set(names)].sort(),'SORTED_UNIQUE_MIGRATIONS_REQUIRED');

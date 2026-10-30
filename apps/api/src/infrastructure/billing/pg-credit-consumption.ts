@@ -3,13 +3,13 @@ import {createHash} from "node:crypto";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
 import type {OrgId} from "../../domain/org-id";
 import type {TokenUsageMeterPort,TokenUsageRecord} from "../../application/agent-run/ports";
-import {CreditConsumptionError,creditDecimal,tokenCreditHundredths} from "../../application/billing/credit-consumption";
+import {CreditConsumptionError,creditDecimal,creditHundredths,tokenCreditHundredths} from "../../application/billing/credit-consumption";
+import {allocateCreditDebit,normalizeCreditPeriods} from "./pg-credit-periods";
 type Start=Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1];
 type Payer={ownerType:"user"|"team";ownerId:string};
 type Request={request_id:string;user_id:string;wallet_id:string;model_provider:string;model_id:string;run_id:string|null;start_facts:unknown;reserved_hundredths:string;tariff_version:string;native_unit:string|null;native_quantum:string|null;native_rate:string|null;state:string;usage_facts:unknown};
 const facts=(value:unknown):string=>JSON.stringify(value,(_key,v)=>typeof v==="bigint"?v.toString():v && typeof v==="object" && !Array.isArray(v)?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b))):v);
 const limit=214748364700n;
-function decimalHundredths(value:string):bigint {const [whole,fraction=""]=value.split(".");const negative=whole!.startsWith("-");return BigInt(whole!)*100n+(negative?-1n:1n)*BigInt(fraction.padEnd(2,"0"));}
 /** Called inside the SAME transaction as durable starts and terminal usage receipts. */
 export class PgCreditConsumption {
  constructor(private readonly db:DatabasePort){}
@@ -25,6 +25,8 @@ export class PgCreditConsumption {
   const p=await this.payer(s,orgId,input.userId);
   await s.query(`INSERT INTO credit_wallets(owner_type,owner_id) VALUES($1,$2) ON CONFLICT(owner_type,owner_id) DO NOTHING`,[p.ownerType,p.ownerId]);
   const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[p.ownerType,p.ownerId])).rows[0]!;
+  await normalizeCreditPeriods(s,wallet.wallet_id,new Date());
+  wallet.balance=(await s.query<{balance:string}>("SELECT balance::text FROM credit_wallets WHERE wallet_id=$1",[wallet.wallet_id])).rows[0]!.balance;
   const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null};
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];
   if(old){const prior=old.start_facts as Record<string,unknown>;const {maximumTokenBound,nativeMaximumBound,tokenBoundRequired,...identity}=prior;const boundInput=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};if(facts(identity)!==facts(immutable)||old.wallet_id!==wallet.wallet_id||(boundInput.maximumTokens!==undefined&&maximumTokenBound!==boundInput.maximumTokens)||(boundInput.nativeMaximum!==undefined&&facts(nativeMaximumBound)!==facts(boundInput.nativeMaximum))||(boundInput.tokenBoundRequired!==undefined&&tokenBoundRequired!==boundInput.tokenBoundRequired))throw this.error(p,"credit_start_replay_mismatch");return;}
@@ -48,7 +50,7 @@ export class PgCreditConsumption {
    if(input.callPurpose==="native-image"||input.callPurpose==="native-asr")throw this.error(p,"credit_native_bound_missing");
   }
   if(reserved>limit)throw this.error(p,"credit_request_bound_unrepresentable");
-  if(enabled&&(reserved===0n||decimalHundredths(wallet.balance)-BigInt(wallet.held_hundredths)<reserved))throw this.error(p,"insufficient_credit", "credit_required");
+  if(enabled&&(reserved===0n||creditHundredths(wallet.balance)-BigInt(wallet.held_hundredths)<reserved))throw this.error(p,"insufficient_credit", "credit_required");
   await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13)`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
   await s.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2,unbounded_requests=unbounded_requests+$3 WHERE wallet_id=$1",[wallet.wallet_id,reserved.toString(),reserved===0n?1:0]);
  }
@@ -58,6 +60,8 @@ export class PgCreditConsumption {
   if(!admitted)throw new CreditConsumptionError("credit_accounting_unavailable","team",orgId,"credit_request_identity_missing");
   // Wallet then request is the lock order shared with admission, preventing deadlocks.
   const wallet=(await s.query<{wallet_id:string;balance:string;owner_type:"user"|"team";owner_id:string}>("SELECT wallet_id,balance::text,owner_type,owner_id FROM credit_wallets WHERE wallet_id=$1 FOR UPDATE",[admitted.wallet_id])).rows[0];
+  const settlementTime=new Date();
+  if(wallet){await normalizeCreditPeriods(s,wallet.wallet_id,settlementTime);wallet.balance=(await s.query<{balance:string}>("SELECT balance::text FROM credit_wallets WHERE wallet_id=$1",[wallet.wallet_id])).rows[0]!.balance;}
   const p:Payer=wallet?{ownerType:wallet.owner_type,ownerId:wallet.owner_id}:{ownerType:"team",ownerId:orgId};
   const row=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1 AND org_id=$2 FOR UPDATE",[usage.eventId,orgId])).rows[0];
   if(!wallet||!row||row.wallet_id!==wallet.wallet_id||row.user_id!==usage.userId||row.model_provider!==usage.modelProvider||row.model_id!==usage.modelId||row.run_id!==usage.runId)throw this.error(p,"credit_receipt_provenance_mismatch");
@@ -83,8 +87,9 @@ export class PgCreditConsumption {
    if(n?.source==="reported"&&n.quantity!==null){if(n.quantity<0n)throw this.error(p,"credit_native_quantity_invalid");const q=BigInt(row.native_quantum!),r=BigInt(row.native_rate!);debit=(n.quantity*r+q-1n)/q;}
   }else if(usage.totalSource!=="unknown"&&usage.totalSource!=="not-applicable"&&!usage.nativeUsage)debit=tokenCreditHundredths(usage.tokensTotal);
   if(debit===null){await s.query("UPDATE credit_consumption_requests SET state='pending',usage_facts=$2::jsonb WHERE request_id=$1",[usage.eventId,facts(receipt)]);return;}
-  const balance=decimalHundredths(wallet.balance)-debit;
+  const balance=creditHundredths(wallet.balance)-debit;
   if(debit>limit||balance < -limit||balance>limit)throw this.error(p,"credit_balance_unrepresentable");
+  await allocateCreditDebit(s,{walletId:wallet.wallet_id,requestId:usage.eventId!,hundredths:debit,at:settlementTime});
   if(debit>0n)await s.query(`INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id,operator_id,reason) VALUES($1,'consume',-1,$2,$3,'model_request',$4,$5,$6)`,[wallet.wallet_id,creditDecimal(debit),creditDecimal(balance),usage.eventId,usage.userId,`model:${usage.modelProvider}/${usage.modelId};tariff:${row.tariff_version};receipt:${createHash("sha256").update(facts(receipt)).digest("hex")}`]);
   await s.query("UPDATE credit_wallets SET balance=$2,held_hundredths=held_hundredths-$3,unbounded_requests=unbounded_requests-$4,updated_at=now() WHERE wallet_id=$1",[wallet.wallet_id,creditDecimal(balance),row.reserved_hundredths,BigInt(row.reserved_hundredths)===0n?1:0]);
   await s.query("UPDATE credit_consumption_requests SET state='settled',usage_facts=$2::jsonb,debited_hundredths=$3,settled_at=now() WHERE request_id=$1",[usage.eventId,facts(receipt),debit.toString()]);
