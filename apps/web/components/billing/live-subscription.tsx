@@ -22,14 +22,14 @@ export function LiveSubscription({state,retry,stripeEnabled,sessionToken,onCredi
  const active=!!eligibility?.hasEffectivePro,pending=!!data?.checkoutPending;
  const grant=data?.creditGrant,creditPending=active&&grant?.status==="pending";
  const managementReturn=typeof window!=="undefined"&&new URLSearchParams(window.location.search).has("subscription_management_return");
- const waiting=pending||creditPending||returning&&(!active||managementReturn);
+ const waiting=!data?.paymentReviewRequired&&(pending||creditPending||returning&&(!active||managementReturn));
  const end=data?.currentPeriodEnd?new Date(data.currentPeriodEnd):null;
  const refresh=React.useCallback(()=>{setError(null);setPolls(0);retry();},[retry]);
  React.useEffect(()=>()=>request.current?.abort(),[]);
  React.useEffect(()=>{
   const period=(grant?.status==="granted"||grant?.status==="expired")&&grant.grant?`${grant.status}:${grant.grant.periodEnd}`:null;
-  if(period&&observed.current!==period){observed.current=period;onCreditGranted?.();setReturning(false);}
- },[grant,onCreditGranted]);
+  if(period&&observed.current!==period){observed.current=period;onCreditGranted?.();if(!managementReturn)setReturning(false);}
+ },[grant,onCreditGranted,managementReturn]);
  React.useEffect(()=>{
   if(!waiting||state.status!=="ready"||state.refreshing||polls>=POLL_LIMIT)return;
   const timer=window.setTimeout(()=>{setPolls(n=>n+1);retry();},3000);return()=>window.clearTimeout(timer);
@@ -40,9 +40,12 @@ export function LiveSubscription({state,retry,stripeEnabled,sessionToken,onCredi
   return()=>{window.removeEventListener("focus",focus);document.removeEventListener("visibilitychange",focus);};
  },[retry]);
  React.useEffect(()=>{
-  if(!data?.currentPeriodEnd||!active)return;const delay=Date.parse(data.currentPeriodEnd)-Date.now();if(!Number.isFinite(delay)||delay<=0)return;
-  const timer=window.setTimeout(retry,Math.min(delay+100,2_147_000_000));return()=>window.clearTimeout(timer);
- },[data?.currentPeriodEnd,active,retry]); // Refresh an open page when its paid period ends.
+  if(!data?.currentPeriodEnd||!active)return;const expiresAt=Date.parse(data.currentPeriodEnd);if(!Number.isFinite(expiresAt))return;
+  let timer:number;
+  const schedule=()=>{const delay=expiresAt-Date.now();if(delay<=0){retry();return;}timer=window.setTimeout(delay>2_147_000_000?schedule:retry,Math.min(delay+100,2_147_000_000));};
+  schedule();return()=>window.clearTimeout(timer);
+ },[data?.currentPeriodEnd,active,retry]);
+
  async function open(){
   if(request.current||busy||!data||state.status!=="ready"||state.refreshing)return;
   const operation=legacy?billingSubscription.operations.getManagementLink:billingSubscription.operations.getUpgradeLink;
@@ -56,16 +59,16 @@ export function LiveSubscription({state,retry,stripeEnabled,sessionToken,onCredi
    setError(failure instanceof ApiError&&failure.reasonCode==="already_subscribed"?"正在更新套餐状态。":"暂时无法打开付款页面，请重试。");retry();
   }finally{window.clearTimeout(timer);request.current=null;if(!controller.signal.aborted||timedOut)setBusy(false);}
  }
- const notice=error||(state.status==="error"?"暂时无法查询套餐，请重试。":state.status==="ready"?state.refreshError:null)||
+ const notice=(data?.paymentReviewRequired?"付款需要人工核对，请联系客服，勿重复付款。":null)||error||(state.status==="error"?"暂时无法查询套餐，请重试。":state.status==="ready"?state.refreshError:null)||
   (waiting?(polls<POLL_LIMIT?"正在确认付款，请稍候。":"付款尚未确认，可刷新状态或继续付款。"):null);
  const uncertain=state.status==="ready"&&!!state.refreshError;
- const canBuy=!!data&&!active&&!legacy&&stripeEnabled&&!uncertain;
+ const canBuy=!!data&&!active&&!legacy&&stripeEnabled&&!uncertain&&!data.paymentReviewRequired;
  return <div className="space-y-5">
   {!legacy&&<div className="flex items-baseline gap-1"><span className="text-30 font-semibold tabular-nums">¥{billingSubscription.MONTHLY_PASS_AMOUNT_FEN/100}</span><span className="text-13 text-muted-foreground">/ 月</span></div>}
   {!legacy&&<p className="text-13">每期 {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit</p>}
   {state.status==="loading"&&<p role="status" className="text-13 text-muted-foreground">正在查询套餐…</p>}
   {data&&!(state.status==="ready"&&state.refreshError)&&<div className="space-y-2">
-   <Badge data-testid="billing-subscription-status" tone={active?"success":"neutral"}>{active?"使用中":pending?"待付款":manual&&end?"已到期":legacy?"待处理":"未开通"}</Badge>
+   <Badge data-testid="billing-subscription-status" tone={active?"success":"neutral"}>{active?"使用中":data.paymentReviewRequired?"待核对":pending?"待付款":manual&&end?"已到期":legacy?"待处理":"未开通"}</Badge>
    {active&&grant?.status==="granted"&&<p className="text-16 font-medium tabular-nums">{grant.grant!.remainingCredits.toLocaleString("zh-CN")} / {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit</p>}
    {end&&Number.isFinite(end.getTime())&&<p className="text-13 text-muted-foreground">{end.toLocaleDateString("zh-CN")} 到期</p>}
   </div>}

@@ -23,6 +23,8 @@ let snapshots: Record<string, unknown> = {}, calls: string[] = [];
 const subscription = (id = "sub_f09A", status = "active") => ({ id, object: "subscription", customer: "cus_f09A", status, cancel_at_period_end: false, trial_start: null, trial_end: null,
   items: { data: [{ current_period_start: 1893456000, current_period_end: 1896134400, price: { id: "price_f09", recurring: { interval: "month" } } }], has_more: false } });
 async function cleanup() { await asOwner(async c => {
+  await c.query("DELETE FROM billing_payment_conflicts WHERE user_id=$1",[user]);
+  await c.query("DELETE FROM billing_monthly_orders WHERE user_id=$1",[user]);
   await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
   await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[user]);
   await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]);
@@ -255,4 +257,20 @@ it("period-end cancellation preserves Pro until the authoritative subscription e
   snapshots["/v1/subscriptions/sub_f09A"] = { ...subscription("sub_f09A", "canceled"), cancel_at_period_end: false };
   expect((await post("customer.subscription.deleted", { id: "sub_f09A" }, "evt_f09cancelEnded")).status).toBe(200);
   expect(await (await read()).json()).toMatchObject({ status: "canceled", cancelAtPeriodEnd: false });
+});
+
+it("retains legacy management and defers an overlapping legacy invoice after a manual pass is paid",async()=>{
+ const {PgDatabase}=await import("../../src/infrastructure/db/pg-database");const {appConfig}=await import("../../src/infrastructure/db/pg-config");
+ const {PgMonthlyPassRepository}=await import("../../src/infrastructure/billing/pg-monthly-pass-repository");
+ const db=new PgDatabase(appConfig()),repo=new PgMonthlyPassRepository(db),p={userId:user,orgId:toOrgId("f09-stripe-org")};
+ try{
+  const order=await repo.reserve(p);await repo.bind(p,order.orderId,"cs_test_overlap");await repo.settle(order.orderId,{id:"cs_test_overlap",object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:"pi_test_overlap"});
+  monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
+  expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09overlap")).status).toBe(500);
+  expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00"}]);
+  expect((await asOwner(c=>c.query("SELECT 1 FROM billing_payment_conflicts WHERE user_id=$1",[user]))).rows).toHaveLength(1);
+  const response=await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}});expect(await response.json()).toMatchObject({status:"active",planRef:"price_f09",paymentReviewRequired:true});
+  snapshots["/v1/billing_portal/sessions"]={object:"billing_portal.session",customer:"cus_f09A",url:"https://billing.stripe.com/p/session/overlap"};
+  expect((await fetch(`${base}/billing/subscription/management-link`,{headers:{authorization:"Bearer fixture"}})).status).toBe(200);
+ }finally{await db.close();}
 });

@@ -12,7 +12,12 @@ export class MonthlyStripeWebhookStore implements StripeWebhookStore {
    const session=await this.client.retrieve(event.object.id);
    if((session.metadata as Record<string,unknown>|null)?.product===MONTHLY_PASS_PRODUCT)await this.monthly.accept(session);
    // Financial identity is the immutable Checkout/PaymentIntent pair, not event delivery order.
-   return this.db.withoutTenant(async s=>(await s.query<{result:string}>(BILLING_GLOBAL_SQL.stripeApply,[event.id,null,null,null,null,false])).rows[0]?.result==="done");
+   return this.db.withoutTenant(async s=>{
+    await s.query(BILLING_GLOBAL_SQL.stripeEventLock,[`billing-stripe-event:${event.id}`]);
+    const seen=(await s.query<{provider:string;signature_verified:boolean;result:string}>(BILLING_GLOBAL_SQL.readEvent,[event.id])).rows[0];
+    if(seen){if(seen.provider!=="stripe"||!seen.signature_verified||!["ok","ignored"].includes(seen.result))throw Error("event_conflict");return true;}
+    return (await s.query<{result:string}>(BILLING_GLOBAL_SQL.stripeApply,[event.id,null,null,null,null,false])).rows[0]?.result==="done";
+   });
   }
   return this.legacy.apply(event,provider);
  }

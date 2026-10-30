@@ -36,6 +36,7 @@ async function seed(status: string, uncertain = false, customer: string | null =
 }
 async function cleanup() {
   await asOwner(async c => {
+    await c.query("DELETE FROM billing_payment_conflicts WHERE user_id LIKE 'f08-sub-%'");
     await c.query("DELETE FROM billing_webhook_events WHERE provider_event_id LIKE 'evt_f08monthly%'");
     await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f08-sub-%')");
     await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f08-sub-%')");
@@ -156,7 +157,7 @@ describe("F08 real subscription HTTP/PG", () => {
     expect((await request("/upgrade-link")).status).toBe(409);
   });
   it("accepts a signed paid checkout before the browser returns",async()=>{
-    const order=await pendingOrder();markPaid(order);expect((await monthlyEvent(order)).status).toBe(200);
+    const order=await pendingOrder();markPaid(order);expect((await monthlyEvent(order)).status).toBe(200);expect((await monthlyEvent(order)).status).toBe(200);
     expect((await (await request("")).json()).status).toBe("active");
   });
   it("does not grant money or new purchase after an authenticated mismatched amount",async()=>{

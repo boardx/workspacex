@@ -1,7 +1,7 @@
 import {MONTHLY_PASS_AMOUNT_FEN, MONTHLY_PASS_PRODUCT, MONTHLY_SUBSCRIPTION_CREDITS, SubscriptionInfo} from "@repo/contracts/billing-subscription";
 import {assertPrincipal,type Principal} from "../../domain/principal";
 import {SubscriptionError} from "./billing-subscription-service";
-export type MonthlyOrder={orderId:string;userId:string;state:"pending"|"paid"|"expired";sessionRef:string|null;createdAt:Date;periodStart:Date|null;periodEnd:Date|null;remainingCredits:number};
+export type MonthlyOrder={orderId:string;userId:string;state:"pending"|"paid"|"expired";sessionRef:string|null;createdAt:Date;periodStart:Date|null;periodEnd:Date|null;remainingCredits:number;requiresReview?:boolean};
 export interface MonthlyPassRepository {
  latest(principal:Principal):Promise<MonthlyOrder|null>;
  reserve(principal:Principal):Promise<MonthlyOrder>;
@@ -30,7 +30,7 @@ export class MonthlyPassService {
  constructor(private readonly repository:MonthlyPassRepository,private readonly provider:MonthlyCheckoutProvider){}
  private async synchronize(principal:Principal){
   const order=await this.repository.latest(principal);
-  if(order?.state==="pending"&&order.sessionRef){
+  if(order?.state==="pending"&&!order.requiresReview&&order.sessionRef){
    const session=await this.provider.retrieve(order.sessionRef);
    if(session.id!==order.sessionRef)throw Error("monthly_checkout_mismatch");
    if(session.status==="complete"&&session.payment_status==="paid")await this.accept(session);
@@ -38,11 +38,11 @@ export class MonthlyPassService {
   }
   return this.repository.latest(principal);
  }
- async info(principal:Principal){
-  assertPrincipal(principal);const order=await this.synchronize(principal);if(!order)return null;
+ async info(principal:Principal,reconcile=true){
+  assertPrincipal(principal);const order=await (reconcile?this.synchronize(principal):this.repository.latest(principal));if(!order)return null;
   const active=order.state==="paid"&&!!order.periodEnd&&order.periodEnd.getTime()>Date.now();
-  return SubscriptionInfo.parse({status:active?"active":order.state==="pending"?"none":"canceled",planRef:MONTHLY_PASS_PRODUCT,
-   currentPeriodEnd:order.periodEnd?.toISOString()??null,cancelAtPeriodEnd:true,purchaseMode:"manual_monthly",checkoutPending:order.state==="pending",
+  return SubscriptionInfo.parse({status:active?"active":order.requiresReview?"incomplete":order.state==="pending"?"none":"canceled",planRef:MONTHLY_PASS_PRODUCT,
+   currentPeriodEnd:order.periodEnd?.toISOString()??null,cancelAtPeriodEnd:true,purchaseMode:"manual_monthly",checkoutPending:order.state==="pending"&&!order.requiresReview,paymentReviewRequired:!!order.requiresReview,
    creditGrant:{status:active?"granted":order.state==="paid"?"expired":"none",grant:order.state==="paid"?{credits:MONTHLY_SUBSCRIPTION_CREDITS,remainingCredits:active?order.remainingCredits:0,periodStart:order.periodStart!.toISOString(),periodEnd:order.periodEnd!.toISOString()}:null}});
  }
  async checkout(principal:Principal){

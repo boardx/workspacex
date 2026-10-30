@@ -1,3 +1,4 @@
+import {MONTHLY_PASS_SQL} from "./monthly-pass-sql";
 import { SubscriptionStatus } from "@repo/contracts/billing-subscription";
 import { createHash } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -78,6 +79,14 @@ export class PgBillingStripeWebhookStore implements StripeWebhookStore {
       if(paidInvoice&&data.status!==null){
         const price=await provider.price!(data.plan!);
         period=paidMonthlyCreditPeriod(paidInvoice,price,{subscriptionRef,customerRef:customer,planRef:data.plan!,periodStart:new Date(data.start!*1000).toISOString(),periodEnd:new Date(data.end!*1000).toISOString(),status:SubscriptionStatus.parse(data.status)});
+      }
+      if(period){
+        const key=`legacy:${period.invoiceRef}`;
+        if((await s.query(MONTHLY_PASS_SQL.conflict,[key])).rows.length)return false;
+        if((await s.query(MONTHLY_PASS_SQL.active,[owner.user_id])).rows.length){
+          await s.query(MONTHLY_PASS_SQL.recordConflict,[key,owner.user_id,period.invoiceRef,subscriptionRef]);
+          return false; // Persist a reconciliation case; never silently grant a second overlapping paid period.
+        }
       }
       // Backfill success means the exact reviewed period was granted/validated in this
       // transaction. A changed locked reread rolls back before consuming its event ID.

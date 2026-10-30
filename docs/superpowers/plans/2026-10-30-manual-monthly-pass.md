@@ -46,3 +46,6 @@ flowchart LR
 - PostgreSQL/API billing regression: 119 passed; Web billing UI regression: 76 passed.
 - Local browser payment-state/geometry test passed; discovery navigation rerun uses a browser-sized 15s assertion budget after a cold Next route exceeded 5s. No product navigation was changed.
 - API lint and Web full lint passed. Live merchant settlement is not claimed by local provider fixtures.
+- Independent review identified legacy/manual overlap and long browser timer re-arm defects. Added reproductions: both overlap cases fail against pre-fix code, pass after fixes. Second payments now require durable operator reconciliation; legacy management remains visible. A 31-day fake-clock UI test proves expiry refresh beyond the browser timer limit.
+- Exact same signed event replay initially returned 500 through the legacy audit capability; regression now returns 200 twice with one financial grant, using the existing serialized audit-read pattern.
+- Real Next → authenticated Billing HTTP → signed Stripe HTTP callback → PostgreSQL → browser monthly-pass acceptance passed, including exact replay. Controlled upstream fixture: no real merchant charge claimed.

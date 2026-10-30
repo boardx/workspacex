@@ -32,6 +32,7 @@ let monthlySession:Record<string,unknown>|null=null;
 let base="", status="active", token="", cancelAtPeriodEnd=false;
 const providerCalls: {path:string;body:string}[]=[];
 async function cleanup() { await asOwner(async c=> {
+  await c.query("DELETE FROM billing_payment_conflicts WHERE user_id=$1",[user]);
   await c.query("DELETE FROM billing_monthly_orders WHERE user_id=$1",[user]);
   await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]);
   await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]);

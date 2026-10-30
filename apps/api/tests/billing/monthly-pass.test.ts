@@ -12,6 +12,8 @@ const db=new PgDatabase(appConfig()), repo=new PgMonthlyPassRepository(db), owne
 const principal=()=>{const userId=`monthly-6038-${randomUUID()}`;owners.push(userId);return {userId,orgId:toOrgId("monthly-6038")};};
 beforeAll(async()=>{ensureDatabase();await migrateOnce();},120_000);
 afterAll(async()=>{await asOwner(async c=>{
+  await c.query("DELETE FROM billing_payment_conflicts WHERE user_id=ANY($1::text[])",[owners]);
+  await c.query("DELETE FROM billing_subscriptions WHERE user_id=ANY($1::text[])",[owners]);
   await c.query("DELETE FROM billing_monthly_orders WHERE user_id=ANY($1::text[])",[owners]);
   await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[owners]);
   await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=ANY($1::text[]))",[owners]);
@@ -59,4 +61,14 @@ it("retains permanent credit and expires the pass without waiting for a Stripe c
  expect((await repo.reserve(p)).orderId).not.toBe(o.orderId);
  const {PgBillingWalletRepository}=await import("../../src/infrastructure/billing/pg-billing-wallet-repository");
  expect((await new PgBillingWalletRepository(db).wallet({orgId:p.orgId,ownerType:"user",ownerId:p.userId})).wallet).toMatchObject({balance:7,permanentBalance:7,subscriptionCredits:0});
+});
+
+// @global-scope-fixture table:billing_subscriptions: exact recorded owners are removed by afterAll.
+it("defers a manual payment if a historical recurring payment wins the user lock",async()=>{
+ const p=principal(),o=await repo.reserve(p),session=paid(o.orderId,`cs_${randomUUID().replaceAll("-","")}`);await repo.bind(p,o.orderId,session.id);
+ await asOwner(c=>c.query("INSERT INTO billing_subscriptions(user_id,subscription_ref,status,current_period_end) VALUES($1,$2,'active',now()+interval '1 month')",[p.userId,`sub_${o.orderId}`]));
+ await expect(repo.settle(o.orderId,session)).rejects.toThrow("dependency_unavailable");
+ expect((await asOwner(c=>c.query("SELECT 1 FROM billing_payment_conflicts WHERE user_id=$1",[p.userId]))).rows).toHaveLength(1);
+ expect((await asOwner(c=>c.query("SELECT 1 FROM credit_wallets WHERE owner_id=$1",[p.userId]))).rows).toHaveLength(0);
+ await expect(repo.reserve(p)).rejects.toThrow();
 });

@@ -37,10 +37,11 @@ export class BillingSubscriptionService {
   }
   async info(principal: Principal, traceId = "no-trace") {
     const value = await this.snapshot(principal, traceId);
-    const monthly = this.monthly ? await this.monthlyResult(() => this.monthly!.info(principal)) : null;
-    if (monthly) return monthly;
     const expired = value?.cancelAtPeriodEnd && value.currentPeriodEnd && Date.parse(value.currentPeriodEnd) <= Date.now();
-    return SubscriptionInfo.parse(value ? { status: expired && ["active", "trialing"].includes(value.status) ? "canceled" : value.status, planRef: value.planRef, currentPeriodEnd: value.currentPeriodEnd, cancelAtPeriodEnd: value.cancelAtPeriodEnd, ...(value.creditGrant?{creditGrant:value.creditGrant}:{}) }
+    const legacyNeedsManagement = value && !(expired && ["active","trialing"].includes(value.status)) && subscriptionEligibility(value.status).canManageSubscription;
+    const monthly = this.monthly ? await this.monthlyResult(() => this.monthly!.info(principal,!legacyNeedsManagement)) : null;
+    if (monthly && !legacyNeedsManagement) return monthly;
+    return SubscriptionInfo.parse(value ? { status: expired && ["active", "trialing"].includes(value.status) ? "canceled" : value.status, planRef: value.planRef, currentPeriodEnd: value.currentPeriodEnd, cancelAtPeriodEnd: value.cancelAtPeriodEnd, ...(value.creditGrant?{creditGrant:value.creditGrant}:{}), ...(monthly?.paymentReviewRequired ? {paymentReviewRequired:true} : {}) }
       : { status: "none", planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false });
   }
   async upgrade(principal: Principal, traceId = "no-trace") {

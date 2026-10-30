@@ -85,6 +85,7 @@ export const SubscriptionInfo = z
     creditGrant: SubscriptionCreditGrant.optional(),
     purchaseMode: z.literal("manual_monthly").optional(),
     checkoutPending: z.boolean().optional(),
+    paymentReviewRequired: z.boolean().optional(),
   })
   .strict();
 
