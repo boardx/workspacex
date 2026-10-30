@@ -13,7 +13,8 @@ const producer='pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --
 function validate(w,p){
  assert.deepEqual(p.deferredChecks,['visual-deferred']);
  assert.ok(Object.hasOwn(w.on,'pull_request'));
- assert.deepEqual(w.on.push.branches,['develop','main']);
+ assert.deepEqual(w.on.push.branches,['develop']);
+ assert.deepEqual(w.on.pull_request.branches,['develop']);
  const functional=w.jobs['board-ui-functional'],visual=w.jobs['visual-deferred'];
  assert.ok(functional&&visual);
  assert.equal(functional.needs,'scope');
@@ -80,3 +81,5 @@ test('complete three-suite main and source-backed R01 extension pass; missing or
   assert.throws(()=>validateNativeCommands(complete.map((c,i)=>i===0?c+' --grep C06':c),available));
  }
 });
+
+test('production synchronization cannot reenable Board code CI',()=>{for(const event of ['push','pull_request'])for(const branch of ['main','main-us']){const w=clone();w.on[event].branches.push(branch);assert.throws(()=>validate(w,policy));}});
