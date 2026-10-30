@@ -288,7 +288,7 @@ function evaluateNode(node, context) {
 }
 
 /** 探针事件下的上下文。取不到的路径一律 UNKNOWN —— 别替 GitHub 编值。 */
-function probeContext(probe, { needsResults }) {
+function probeContext(probe, { needsResults, promotionTrusted }) {
   const REPO = "boardx/workspacex";
   const table = new Map([
     ["github.event_name", probe.eventName],
@@ -307,6 +307,7 @@ function probeContext(probe, { needsResults }) {
   return {
     lookup(pathExpr) {
       if (table.has(pathExpr)) return table.get(pathExpr);
+      if (promotionTrusted && pathExpr === "needs.promotion-evidence.outputs.reuse") return "false";
       // `inputs.x` / `github.event.inputs.x`：只有 workflow_dispatch / workflow_call
       // 才有值，两个探针事件下都是空。
       if (/^(github\.event\.)?inputs\./.test(pathExpr)) return null;
@@ -322,7 +323,7 @@ function probeContext(probe, { needsResults }) {
  * 在某个探针事件下求 `if:` 的值。
  * 返回 true / false / UNKNOWN —— **UNKNOWN 由调用方当作「不可达」**。
  */
-export function evaluateIf(expression, probe, { needsResults = new Map() } = {}) {
+export function evaluateIf(expression, probe, { needsResults = new Map(), promotionTrusted = false } = {}) {
   if (expression === undefined || expression === null) return true;
   const source = String(expression).trim();
   if (source === "") return true;
@@ -330,7 +331,7 @@ export function evaluateIf(expression, probe, { needsResults = new Map() } = {})
   const unwrapped = /^\$\{\{([\s\S]*)\}\}$/.exec(source);
   const body = unwrapped ? unwrapped[1] : source;
   try {
-    return evaluateNode(parseExpression(tokenize(body)), probeContext(probe, { needsResults }));
+    return evaluateNode(parseExpression(tokenize(body)), probeContext(probe, { needsResults, promotionTrusted }));
   } catch {
     return UNKNOWN;
   }
@@ -425,6 +426,31 @@ function stepCommands(job, probe) {
  * 判一个 workflow 里每个 job 在某探针事件下是否可达。
  * `needs` 按拓扑推：父不可达 ⇒ 子记 skipped ⇒ 子的 `needs.X.result == 'success'` 为假。
  */
+// Only the audited admission wiring can supply the normal-event reuse=false probe.
+// Compare every executable field: a same-name output or extra step is not trusted.
+export function trustedPromotionAdmission(job) {
+  if (!job || job.if !== undefined || job.needs !== undefined) return false;
+  const steps = job.steps;
+  if (!Array.isArray(steps) || steps.length !== 3) return false;
+  const [candidate, trusted, lookup] = steps;
+  const expectedRef = "${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || github.sha }}";
+  const expectedRun = `if [ -f .harness/scripts/ci-promotion-lookup.mjs ]; then
+  node .harness/scripts/ci-promotion-lookup.mjs "$CANDIDATE_DIR"
+else
+  echo 'reuse=false' >> "$GITHUB_OUTPUT"
+  echo 'Baseline has no promotion policy; run complete verification.'
+fi`;
+  const exact = (actual, expected) => JSON.stringify(actual) === JSON.stringify(expected);
+  return exact(candidate, {uses: "actions/checkout@v5", with: {path: "candidate", "fetch-depth": 0}})
+    && exact(trusted, {uses: "actions/checkout@v5", with: {ref: expectedRef, path: "trusted", "fetch-depth": 0}})
+    && Object.keys(lookup).sort().join(",") === "env,id,name,run,shell,working-directory"
+    && lookup.id === "lookup" && lookup["working-directory"] === "trusted" && lookup.shell === "bash"
+    && exact(lookup.env, {GITHUB_TOKEN: "${{ github.token }}", CANDIDATE_DIR: "${{ github.workspace }}/candidate"})
+    && lookup.run.trim() === expectedRun
+    && job.outputs?.reuse === "${{ steps.lookup.outputs.reuse }}"
+    && job.env === undefined && job.defaults === undefined && job.container === undefined;
+}
+
 function reachableJobs(workflow, probe) {
   const jobs = Object.entries(workflow.jobs ?? {});
   const verdicts = new Map();
@@ -445,7 +471,7 @@ function reachableJobs(workflow, probe) {
         why = `needs 的父 job 在该事件下不跑（${needs.join(", ")}）`;
       }
       if (reachable) {
-        const value = evaluateIf(job?.if, probe, { needsResults });
+        const value = evaluateIf(job?.if, probe, { needsResults, promotionTrusted: trustedPromotionAdmission(workflow.jobs?.["promotion-evidence"]) });
         if (value !== true) {
           reachable = false;
           why = value === UNKNOWN ? `job if: 判不出来（保守当作不跑）` : `job if: 在该事件下为假`;

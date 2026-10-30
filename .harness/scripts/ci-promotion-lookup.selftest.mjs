@@ -66,3 +66,21 @@ test('backend obligations come from the versioned aggregate policy', () => {
  const policy = {aggregates: {'backend-required': ['new-policy-gate']}};
  assert.deepEqual(backendObligations(policy), ['new-policy-gate']);
 });
+
+test('merged production push reuses the exact develop source tree and evidence', async () => {
+  const mergedSha = 'd'.repeat(40);
+  const merged = {...pr, number: 1, merged: true, merged_at: '2026-01-01T00:00:00.000Z', merge_commit_sha: mergedSha};
+  const pushApi = path => path.startsWith('/commits/') ? [merged] : path === '/pulls/1' ? merged : api(path);
+  const result = await lookup({...input, eventName: 'push', sha: mergedSha,
+    event: {ref: 'refs/heads/main', after: mergedSha, before: base}, api: pushApi});
+  assert.equal(result.reuse, true);
+  assert.equal(result.sourceSha, sha);
+});
+test('ambiguous production promotion never authorizes reuse', async () => {
+  const mergedSha = 'd'.repeat(40);
+  const merged = {...pr, number: 1, merged: true, merged_at: '2026-01-01T00:00:00.000Z', merge_commit_sha: mergedSha};
+  const result = await lookup({...input, eventName: 'push', sha: mergedSha,
+    event: {ref: 'refs/heads/main', after: mergedSha, before: base},
+    api: path => path.startsWith('/commits/') ? [merged, {...merged, number: 2}] : api(path)});
+  assert.equal(result.reuse, false);
+});

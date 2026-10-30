@@ -137,3 +137,37 @@ describe("job 的 if: 表达式", () => {
     expect(evaluateIf("${{ github.event_name == 'pull_request' }}", PR)).toBe(true);
   });
 });
+
+import { readWorkflows, trustedPromotionAdmission, ciJobCommands } from './ci-job-conditions.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { stringify } from 'yaml';
+
+describe('verified promotion admission boundary', () => {
+  const admission = readWorkflows().find(w => w.file === 'harness-verify.yml')!.document.jobs['promotion-evidence'];
+  function covered(change: (w: any) => void = () => {}) {
+    const root = mkdtempSync(path.join(tmpdir(), 'promotion-coverage-'));
+    const workflow = {on: {pull_request: {}}, jobs: {'promotion-evidence': structuredClone(admission), test: {needs: 'promotion-evidence', if: "needs.promotion-evidence.result == 'success' && needs.promotion-evidence.outputs.reuse != 'true'", steps: [{run: 'pnpm e2e'}]}}};
+    change(workflow);
+    try {
+      mkdirSync(path.join(root, '.github/workflows'), {recursive: true});
+      writeFileSync(path.join(root, '.github/workflows/test.yml'), stringify(workflow));
+      return ciJobCommands(root).find(j => j.job === 'test')!.unconditional;
+    } finally { rmSync(root, {recursive: true, force: true}); }
+  }
+  it('recognizes the trusted ordinary-event path', () => { expect(trustedPromotionAdmission(admission)).toBe(true); expect(covered()).toBe(true); });
+  it.each(['fake', 'extra', 'conditional', 'output', 'checkout', 'paths', 'unknown', 'manual'])('rejects %s bypass', variant => {
+    expect(covered((w: any) => {
+      const gate = w.jobs['promotion-evidence'];
+      if (variant === 'fake') gate.steps[2].run = "echo 'reuse=false' >> $GITHUB_OUTPUT";
+      if (variant === 'extra') gate.steps.push({run: 'echo reuse=true'});
+      if (variant === 'conditional') gate.if = 'false';
+      if (variant === 'output') gate.outputs.reuse = 'false';
+      if (variant === 'checkout') gate.steps[1].with.ref = '${{ github.sha }}';
+      if (variant === 'paths') w.on.pull_request.paths = ['apps/web/**'];
+      if (variant === 'unknown') w.jobs.test.if += ' && needs.other.outputs.ok';
+      if (variant === 'manual') w.jobs.test.if += " && github.event_name == 'workflow_dispatch'";
+    })).toBe(false);
+  });
+});
