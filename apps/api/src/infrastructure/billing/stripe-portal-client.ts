@@ -23,7 +23,7 @@ async function readBody(response: Response, signal: AbortSignal): Promise<unknow
 export class StripePortalClient implements SubscriptionProvider {
   constructor(private readonly config: DeploymentBillingConfig, private readonly logger: LoggerPort) {}
   enabled() { return this.config.getStripe() !== null; }
-  purchaseEnabled() { return this.config.getPublicConfig().enabledProviders.includes("stripe"); }
+  purchaseEnabled() { return this.config.getPublicConfig().enabledProviders.includes("stripe") && !!this.config.getStripe()?.paymentLink; }
   purchaseLink(intent: string): string {
     if (!this.purchaseEnabled()) throw new SubscriptionError("payment_provider_not_configured");
     const config = this.config.getStripe(); if (!config) throw new SubscriptionError("payment_provider_not_configured");

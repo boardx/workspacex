@@ -1,5 +1,4 @@
 "use client";
-import { WalletAvailability } from "./wallet-availability";
 import { LiveCashierDialog } from "./live-cashier-dialog";
 import { LiveSubscription } from "./live-subscription";
 import * as React from "react";
@@ -7,7 +6,6 @@ import Link from "next/link";
 import { billingCredits, billingSubscription } from "@repo/contracts";
 import { CreditCard, Wallet } from "lucide-react";
 import { ApiError, apiRequest } from "@/lib/api-client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -47,14 +45,14 @@ function useBillingRead<T>(operation: ReadOperation<T>, userId: string, sessionT
   const [revision, retry] = React.useReducer((value: number) => value + 1, 0);
   React.useEffect(() => {
     const controller = new AbortController();
-    setState({ status: "loading" });
+    setState(previous => previous.status === "ready" ? { ...previous, refreshing: true, refreshError: undefined } : { status: "loading" });
     void apiRequest<unknown>(operation.path, { query: operation.query, sessionToken, signal: controller.signal })
       .then((raw) => {
         const data = operation.parse(raw, userId);
         if (!controller.signal.aborted) setState({ status: "ready", data });
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) setState({ status: "error", message: failureMessage(error) });
+        if (!controller.signal.aborted) setState(previous => previous.status === "ready" ? { ...previous, refreshing: false, refreshError: failureMessage(error) } : { status: "error", message: failureMessage(error) });
       });
     return () => controller.abort();
   }, [operation, userId, sessionToken, revision]);
@@ -92,41 +90,31 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
   return <div data-testid="billing-overview" className="mx-auto w-full max-w-5xl space-y-6 p-4 md:p-6">
     <header className="space-y-2">
       <h1 className="text-24 font-semibold">额度与订阅</h1>
-      <p className="text-13 text-muted-foreground">管理个人账户。每月订阅发放 {number(billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS)} credit，当期未用完到期清零；购买的额度长期保留。</p>
+      <p className="text-13 text-muted-foreground">按需充值，或购买月度套餐。</p>
     </header>
     <div className="grid gap-4 md:grid-cols-2">
       <Card data-testid="billing-wallet-card">
-        <CardHeader><CardTitle className="flex items-center gap-2"><Wallet aria-hidden className="h-4 w-4" />个人额度</CardTitle><CardDescription>查看余额与累计到账额度</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Wallet aria-hidden className="h-4 w-4" />充值 credit</CardTitle><CardDescription>充值额度长期有效</CardDescription></CardHeader>
         <CardContent className="space-y-4">
           <ReadNotice state={wallet.state} name="wallet" label="额度查询" retry={wallet.retry} />
           {wallet.state.status === "ready" && <>
-            <div><p className="text-12 text-muted-foreground">当前余额</p><p data-testid="billing-wallet-balance" className="text-32 font-semibold tabular-nums">{number(wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">额度</span></p></div>
-            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">充值及永久净额</dt><dd data-testid="billing-permanent-balance">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)}</dd></div><div><dt className="text-muted-foreground">当期月度剩余 / {number(billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS)}</dt><dd data-testid="billing-monthly-credits">{number(wallet.state.data.subscriptionCredits ?? 0)}</dd></div></dl>
+            <div><p className="text-12 text-muted-foreground">可用 credit</p><p data-testid="billing-wallet-balance" className="text-30 font-semibold tabular-nums">{number(wallet.state.data.availableBalance ?? wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">credit</span></p></div>
+            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">充值余额</dt><dd data-testid="billing-permanent-balance">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)}</dd></div><div><dt className="text-muted-foreground">套餐余额</dt><dd data-testid="billing-monthly-credits">{number(wallet.state.data.subscriptionCredits ?? 0)}</dd></div></dl>
             {wallet.state.data.subscriptionExpiresAt && <p className="text-12 text-muted-foreground">月度额度到期：{new Date(wallet.state.data.subscriptionExpiresAt).toLocaleString("zh-CN")}，未使用部分清零。</p>}
-            <WalletAvailability reservedCredits={wallet.state.data.reservedCredits} availableBalance={wallet.state.data.availableBalance}/>
+            {!!wallet.state.data.reservedCredits && <p className="text-12 text-muted-foreground">使用中 {number(wallet.state.data.reservedCredits)} credit</p>}
             {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度。余额为负，充值后可发起新请求；已开始的请求可以完成。</p>}
-            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">累计充值</dt><dd className="tabular-nums">{number(wallet.state.data.totalPurchased)}</dd></div><div><dt className="text-muted-foreground">累计发放</dt><dd className="tabular-nums">{number(wallet.state.data.totalGranted)}</dd></div></dl>
+
           </>}
-          {providers.includes("wechat") && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>购买额度</Button>}
+          {providers.includes("wechat") && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>充值 credit</Button>}
         </CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />个人订阅</CardTitle><CardDescription>订阅状态以实际到账同步结果为准</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />月度套餐</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} onCreditGranted={wallet.retry} />
         </CardContent>
       </Card>
     </div>
-    <Card>
-      <CardHeader><CardTitle>支付渠道</CardTitle><CardDescription>渠道配置不会代替订单到账或订阅确认</CardDescription></CardHeader>
-      <CardContent className="space-y-3">
-        <ReadNotice state={config.state} name="config" label="支付渠道" retry={config.retry} />
-        {config.state.status === "ready" && <>
-          <div className="flex flex-wrap gap-2">{providers.includes("wechat") && <Badge tone="primary">微信支付 · 已配置</Badge>}{providers.includes("stripe") && <Badge tone="primary">Stripe · 已配置</Badge>}</div>
-          {providers.length === 0 && <p data-testid="billing-provider-unavailable" className="text-13 text-muted-foreground">支付渠道暂未开通，当前无法购买。账户查询结果见上方。</p>}
-        </>}
-      </CardContent>
-    </Card>
     <LiveCashierDialog key={`${userId}:${sessionToken}`} owner={{ ownerType: "user", ownerId: userId }} sessionToken={sessionToken} open={cashierOpen} onOpenChange={setCashierOpen} onCredited={wallet.retry} focusFallback={restorePurchaseFocus} />
     <Button asChild variant="outline"><Link href="/usage">查看我的 AI 用量</Link></Button>
   </div>;

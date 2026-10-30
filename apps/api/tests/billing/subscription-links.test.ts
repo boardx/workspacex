@@ -1,11 +1,13 @@
+// @global-scope-fixture table:billing_monthly_orders: f08-sub-* exact prefix cleanup; new one-time purchase orders.
 // @global-scope-fixture table:billing_purchase_intents: runtime-issued f08-sub-* intents; cleanup() deletes only this fixture user prefix; INSERT text below classifies instance-local faults.
 // @global-scope-fixture table:billing_subscriptions: f08-sub-* user prefix; cleanup deletes only owned fixtures.
 import "reflect-metadata";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { randomBytes, createHash } from "node:crypto";
+import { randomBytes, createHmac } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { APP_GUARD, NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
+import {BillingStripeWebhookService} from "../../src/application/billing/billing-stripe-webhook-service";
 import { BillingModule } from "../../src/billing.module";
 import { PrincipalGuard } from "../../src/interface/guards/principal.guard";
 import { PRINCIPAL_RESOLVER_PORT } from "../../src/application/ports/principal-resolver.port";
@@ -22,9 +24,10 @@ const diagnostics: { msg: string; fields: Record<string, unknown> }[] = [];
 let sinkFails = false;
 let databaseFault: "read" | "insert" | "intent-count" | "unknown" | null = null;
 const privateFixtureValues: string[] = [];
+const sessions=new Map<string,Record<string,unknown>>();
 const state = { mode: "ok", calls: [] as { body: URLSearchParams; version: string | undefined }[] };
 async function request(path: string, who: string = user, requestOrg = "f08-sub-org") {
-  return fetch(`${base}/billing/subscription${path}`, { headers: who ? { authorization: `Bearer ${who}`, "x-test-org": requestOrg } : {} });
+  return fetch(`${base}/billing/subscription${path}`, { ...(path.startsWith("/upgrade-link") ? { method:"POST", body:"{}" } : {}), headers: who ? { authorization: `Bearer ${who}`, "x-test-org": requestOrg, "content-type":"application/json" } : {} });
 }
 async function seed(status: string, uncertain = false, customer: string | null = "cus_f08trusted") {
   await asOwner(c => c.query(`INSERT INTO billing_subscriptions
@@ -33,6 +36,11 @@ async function seed(status: string, uncertain = false, customer: string | null =
 }
 async function cleanup() {
   await asOwner(async c => {
+    await c.query("DELETE FROM billing_webhook_events WHERE provider_event_id LIKE 'evt_f08monthly%'");
+    await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f08-sub-%')");
+    await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id LIKE 'f08-sub-%')");
+    await c.query("DELETE FROM credit_wallets WHERE owner_id LIKE 'f08-sub-%'");
+    await c.query("DELETE FROM billing_monthly_orders WHERE user_id LIKE 'f08-sub-%'");
     await c.query("DELETE FROM billing_purchase_intents WHERE user_id LIKE 'f08-sub-%'");
     await c.query("DELETE FROM billing_subscriptions WHERE user_id LIKE 'f08-sub-%'");
   });
@@ -48,6 +56,14 @@ beforeAll(async () => {
     if (state.mode === "oversize") { res.end("x".repeat(65537)); return; }
     if (state.mode === "timeout") { res.flushHeaders(); res.write("{"); return; }
     if (state.mode === "redirect") { res.writeHead(302, { location: "https://evil.invalid" }); res.end(); return; }
+    if(req.url?.startsWith("/v1/checkout/sessions")&&["ok","lost-create-response"].includes(state.mode)) {
+      const body=state.calls.at(-1)!.body, id=body.get("client_reference_id");
+      if(req.method==="POST") {
+        const session={id:`cs_f08_${id!.replaceAll("-","")}`,object:"checkout.session",mode:"payment",status:"open",livemode:false,amount_total:18000,currency:"cny",client_reference_id:id,metadata:{product:"monthly_pass_v1",order_ref:id},url:`https://checkout.stripe.com/c/pay/${id}`};
+        sessions.set(session.id,session);if(state.mode==="lost-create-response"){state.mode="ok";req.socket.destroy();return;}res.end(JSON.stringify(session));return;
+      }
+      res.end(JSON.stringify(sessions.get(req.url.split("/").at(-1)!)));return;
+    }
     res.statusCode = state.mode === "error" ? 500 : 200;
     res.end(state.mode === "malformed" ? "not json" : JSON.stringify({ object: "billing_portal.session", customer: state.mode === "wrong-customer" ? "cus_other" : "cus_f08trusted", url: state.mode === "bad-url" ? "https://evil.invalid/portal" : "https://billing.stripe.com/p/session/f08" }));
   });
@@ -70,8 +86,8 @@ beforeAll(async () => {
     async query<R>(sql: string, params?: readonly unknown[]) {
       const owned = params?.includes(user) === true;
       const reading = owned && sql.includes("FROM billing_subscriptions WHERE user_id=$1");
-      const inserting = owned && sql.includes("INSERT INTO billing_purchase_intents");
-      const counting = owned && sql.includes("count(*)") && sql.includes("billing_purchase_intents");
+      const inserting = owned && sql.includes("INSERT INTO billing_monthly_orders");
+      const counting = owned && sql.includes("FROM billing_monthly_orders WHERE user_id=$1 AND state='pending'");
       if ((databaseFault === "read" && reading) || (databaseFault === "insert" && inserting) || (databaseFault === "intent-count" && counting)) await session.query("SELECT 1/0");
       const result = await session.query<R>(sql, params);
       return databaseFault === "unknown" && reading ? { rows: result.rows.map(row => ({ ...row, status: "future_unknown" })) } : result;
@@ -110,15 +126,53 @@ describe("F08 real subscription HTTP/PG", () => {
     expect(state.calls).toHaveLength(1); expect(state.calls[0]!.body.get("customer")).toBe("cus_f08trusted"); expect(state.calls[0]!.version).toBe(STRIPE_API_VERSION);
     expect(state.calls[0]!.body.get("return_url")).toBe("https://app.example.test/billing?subscription_return=1&subscription_management_return=1");
   });
-  it.each([null, "canceled", "incomplete_expired"])("%s can buy with a persisted opaque principal intent, not an email or user id", async status => {
-    if (status) await seed(status);
-    const denied = await request("/management-link"); expect(denied.status).toBe(409); expect(await denied.json()).toMatchObject({ code: "not_subscribed" });
-    const response = await request("/upgrade-link"); expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("no-store");
-    const { url } = await response.json(); const link = new URL(url); const token = link.searchParams.get("client_reference_id")!;
-    expect(link.origin).toBe("https://buy.stripe.com"); expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/); expect(url).not.toContain(user); expect(link.searchParams.has("prefilled_email")).toBe(false);
-    const rows = await asOwner(c => c.query("SELECT user_id,intent_hash,consumed_subscription_ref FROM billing_purchase_intents WHERE user_id=$1", [user]));
-    expect(rows.rows).toEqual([{ user_id: user, intent_hash: createHash("sha256").update(token).digest("hex"), consumed_subscription_ref: null }]);
-    expect(state.calls).toHaveLength(0);
+  it.each([null,"canceled","incomplete_expired"])("%s buys a fixed one-time month bound to the principal",async status=>{
+    if(status)await seed(status);
+    const response=await request("/upgrade-link");expect(response.status).toBe(201);
+    const {url}=await response.json();expect(new URL(url).origin).toBe("https://checkout.stripe.com");
+    const stored=await asOwner(c=>c.query("SELECT order_id,user_id,session_ref FROM billing_monthly_orders WHERE user_id=$1",[user]));
+    expect(stored.rows).toHaveLength(1);expect(stored.rows[0].user_id).toBe(user);expect(url).toContain(stored.rows[0].order_id);
+    expect(state.calls[0]!.body.get("mode")).toBe("payment");expect(state.calls[0]!.body.get("line_items[0][price_data][unit_amount]")).toBe("18000");
+    expect((await asOwner(c=>c.query("SELECT 1 FROM billing_purchase_intents WHERE user_id=$1",[user]))).rows).toHaveLength(0);
+  });
+  async function pendingOrder(){
+    const response=await request("/upgrade-link");expect(response.status).toBe(201);
+    return (await asOwner(c=>c.query("SELECT order_id,session_ref FROM billing_monthly_orders WHERE user_id=$1 ORDER BY created_at DESC,order_id DESC LIMIT 1",[user]))).rows[0]!;
+  }
+  const markPaid=(order:{order_id:string;session_ref:string})=>{
+    const session=sessions.get(order.session_ref)!;
+    Object.assign(session,{status:"complete",payment_status:"paid",payment_intent:`pi_${order.order_id.replaceAll("-","")}`,url:null});return session;
+  };
+  async function monthlyEvent(order:{session_ref:string},eventId="evt_f08monthly_paid"){
+    const body=Buffer.from(JSON.stringify({id:eventId,object:"event",type:"checkout.session.completed",data:{object:{id:order.session_ref,mode:"payment"}}}));
+    const timestamp=Math.floor(Date.now()/1000),signature=createHmac("sha256",process.env.STRIPE_WEBHOOK_SECRET!).update(`${timestamp}.`).update(body).digest("hex");
+    return app.get(BillingStripeWebhookService).handle(body,`t=${timestamp},v1=${signature}`,"monthly-test");
+  }
+  it("recovers a delayed webhook on authenticated return and deduplicates later signed events",async()=>{
+    const order=await pendingOrder();markPaid(order);
+    expect(await (await request("")).json()).toMatchObject({status:"active",purchaseMode:"manual_monthly",creditGrant:{status:"granted",grant:{credits:20000,remainingCredits:20000}}});
+    expect((await monthlyEvent(order)).status).toBe(200);expect((await monthlyEvent(order,"evt_f08monthly_sibling")).status).toBe(200);
+    expect((await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+    expect((await request("/upgrade-link")).status).toBe(409);
+  });
+  it("accepts a signed paid checkout before the browser returns",async()=>{
+    const order=await pendingOrder();markPaid(order);expect((await monthlyEvent(order)).status).toBe(200);
+    expect((await (await request("")).json()).status).toBe("active");
+  });
+  it("does not grant money or new purchase after an authenticated mismatched amount",async()=>{
+    const order=await pendingOrder(),session=markPaid(order);session.amount_total=17999;
+    expect((await monthlyEvent(order)).status).toBe(500);expect((await request("")).status).toBe(503);
+    expect((await asOwner(c=>c.query("SELECT 1 FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([]);
+  });
+  it("recovers an ambiguous creation response using the same durable order",async()=>{
+    state.mode="lost-create-response";expect((await request("/upgrade-link")).status).toBe(503);
+    const before=(await asOwner(c=>c.query("SELECT order_id FROM billing_monthly_orders WHERE user_id=$1",[user]))).rows[0]!;
+    const order=await pendingOrder();expect(order.order_id).toBe(before.order_id);expect(sessions.size).toBeGreaterThan(0);
+  });
+  it("creates a new checkout only after Stripe authoritatively expires the previous one",async()=>{
+    const order=await pendingOrder();Object.assign(sessions.get(order.session_ref)!,{status:"expired",url:null});
+    expect((await (await request("")).json()).checkoutPending).toBe(false);
+    expect((await pendingOrder()).order_id).not.toBe(order.order_id);
   });
   it("uncertain current state returns 503 for info and both links without changing the snapshot", async () => {
     await seed("active", true);
@@ -149,7 +203,7 @@ describe("F08 real subscription HTTP/PG", () => {
     try {
       await disabled.listen(0,"127.0.0.1"); const address = disabled.getHttpServer().address(); if (!address || typeof address === "string") throw Error("listener missing");
       for (const path of ["upgrade-link","management-link"]) {
-        const response = await fetch(`http://127.0.0.1:${address.port}/billing/subscription/${path}`);
+        const response = await fetch(`http://127.0.0.1:${address.port}/billing/subscription/${path}`, path === "upgrade-link" ? {method:"POST",headers:{"content-type":"application/json"},body:"{}"}: {});
         expect(response.status).toBe(503); expect(await response.json()).toMatchObject({ code: "payment_provider_not_configured" });
       }
       expect(state.calls).toHaveLength(0);
@@ -214,49 +268,17 @@ describe("F08 real subscription HTTP/PG", () => {
     } finally { databaseFault = null; }
     expect((await asOwner(c => c.query("SELECT status FROM billing_subscriptions WHERE user_id=$1", [user]))).rows[0]?.status).toBe("active");
   });
-  it("bounds concurrent abandoned purchases to twenty without invalidating existing links", async () => {
-    const responses = await Promise.all(Array.from({ length: 25 }, () => request("/upgrade-link")));
-    expect(responses.filter(response => response.status === 200)).toHaveLength(20);
-    const limited = responses.filter(response => response.status === 429); expect(limited).toHaveLength(5);
-    for (const response of limited) expect(await response.json()).toMatchObject({ error: "rate_limited" });
-    const tokens = await Promise.all(responses.filter(response => response.status === 200).map(async response => new URL((await response.json()).url).searchParams.get("client_reference_id")!));
-    const stored = await asOwner(c => c.query("SELECT intent_hash FROM billing_purchase_intents WHERE user_id=$1", [user]));
-    expect(stored.rows.map(row => row.intent_hash).sort()).toEqual(tokens.map(token => createHash("sha256").update(token).digest("hex")).sort());
-    await asOwner(c => c.query(`INSERT INTO billing_purchase_intents(intent_hash,user_id,created_at,expires_at,expected_generation,consumed_subscription_ref)
-      VALUES (repeat('e',64),$1,now()-interval '2 days',now()-interval '1 day',7,NULL),
-      (repeat('f',64),$1,now()-interval '2 days',now()-interval '1 day',11,'sub_f08limit_history'),
-      (repeat('d',64),$2,now()-interval '2 days',now()-interval '1 day',5,NULL)`, [user,other]));
-    expect((await request("/upgrade-link")).status).toBe(429);
-    expect((await asOwner(c => c.query("SELECT intent_hash,user_id,expected_generation FROM billing_purchase_intents WHERE intent_hash=repeat('e',64)"))).rows)
-      .toEqual([{ intent_hash: "e".repeat(64), user_id: user, expected_generation: "7" }]);
-    expect((await asOwner(c => c.query("SELECT count(*)::int AS n FROM billing_purchase_intents WHERE user_id=$1 AND consumed_subscription_ref IS NULL AND expires_at>now()", [user]))).rows[0]?.n).toBe(20);
-    expect((await request("/upgrade-link", other)).status).toBe(200);
-    expect((await asOwner(c => c.query("SELECT intent_hash,user_id,expected_generation,consumed_subscription_ref FROM billing_purchase_intents WHERE intent_hash IN (repeat('d',64),repeat('e',64),repeat('f',64)) ORDER BY intent_hash"))).rows).toEqual([
-      { intent_hash: "d".repeat(64), user_id: other, expected_generation: "5", consumed_subscription_ref: null },
-      { intent_hash: "e".repeat(64), user_id: user, expected_generation: "7", consumed_subscription_ref: null },
-      { intent_hash: "f".repeat(64), user_id: user, expected_generation: "11", consumed_subscription_ref: "sub_f08limit_history" },
-    ]);
+  it("reuses one order across repeated tabs without creating new recurring intents",async()=>{
+    expect((await request("/upgrade-link")).status).toBe(201);
+    const responses=await Promise.all(Array.from({length:5},()=>request("/upgrade-link")));
+    expect(responses.every(r=>r.status===201)).toBe(true);
+    const urls=await Promise.all(responses.map(r=>r.json().then(x=>x.url)));expect(new Set(urls).size).toBe(1);
+    expect((await asOwner(c=>c.query("SELECT 1 FROM billing_monthly_orders WHERE user_id=$1",[user]))).rows).toHaveLength(1);
   });
-  it("retains expired and consumed correlation history for both users while issuing a fresh intent", async () => {
-    const first = await request("/upgrade-link"); const token = new URL((await first.json()).url).searchParams.get("client_reference_id")!;
-    const activeHash = createHash("sha256").update(token).digest("hex");
-    await asOwner(c => c.query(`INSERT INTO billing_purchase_intents(intent_hash,user_id,created_at,expires_at,expected_generation,consumed_subscription_ref)
-      VALUES (repeat('a',64),$1,now()-interval '2 days',now()-interval '1 day',7,NULL),
-      (repeat('b',64),$1,now()-interval '2 days',now()-interval '1 day',9,'sub_f08history'),
-      (repeat('c',64),$2,now()-interval '2 days',now()-interval '1 day',5,NULL)`, [user, other]));
-    expect((await request("/upgrade-link")).status).toBe(200);
-    const retained = await asOwner(c => c.query("SELECT intent_hash FROM billing_purchase_intents WHERE user_id=$1", [user]));
-    expect(retained.rows.map(row => row.intent_hash)).toContain(activeHash);
-    expect(retained.rows.map(row => row.intent_hash)).toContain("b".repeat(64));
-    expect(retained.rows.map(row => row.intent_hash)).toContain("a".repeat(64));
-    expect(retained.rows).toHaveLength(4);
-    const history = await asOwner(c => c.query("SELECT intent_hash,user_id,expected_generation,consumed_subscription_ref FROM billing_purchase_intents WHERE intent_hash IN (repeat('a',64),repeat('b',64),repeat('c',64)) ORDER BY intent_hash"));
-    expect(history.rows).toEqual([
-      { intent_hash: "a".repeat(64), user_id: user, expected_generation: "7", consumed_subscription_ref: null },
-      { intent_hash: "b".repeat(64), user_id: user, expected_generation: "9", consumed_subscription_ref: "sub_f08history" },
-      { intent_hash: "c".repeat(64), user_id: other, expected_generation: "5", consumed_subscription_ref: null },
-    ]);
-    expect((await asOwner(c => c.query("SELECT count(*)::int AS n FROM billing_purchase_intents WHERE user_id=$1", [other]))).rows[0]?.n).toBe(1);
+  it("preserves legacy intent history while issuing a new one-time order",async()=>{
+    await asOwner(c=>c.query("INSERT INTO billing_purchase_intents(intent_hash,user_id,expected_generation) VALUES(repeat('a',64),$1,0)",[user]));
+    expect((await request("/upgrade-link")).status).toBe(201);
+    expect((await asOwner(c=>c.query("SELECT intent_hash FROM billing_purchase_intents WHERE user_id=$1",[user]))).rows).toEqual([{intent_hash:"a".repeat(64)}]);
   });
   it.each(["intent-count", "insert"] as const)("%s transaction failure returns 503 and retains prior correlation history without issuing a link", async fault => {
     await asOwner(c => c.query(`INSERT INTO billing_purchase_intents(intent_hash,user_id,created_at,expires_at,expected_generation)

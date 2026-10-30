@@ -92,7 +92,7 @@ function stripe(env: Deployment): StripeDeployment | null {
     catch { /* Invalid configured return URLs disable the provider. */ }
   }
   if (!/^sk_(test|live)_[A-Za-z0-9]+$/.test(secretKey) || !/^whsec_.+$/.test(webhookSecret)
-    || !httpsUrl(paymentLink) || (managementPortal && !httpsUrl(managementPortal)) || !validReturn) return null;
+    || (paymentLink && !httpsUrl(paymentLink)) || (managementPortal && !httpsUrl(managementPortal)) || !validReturn) return null;
   return Object.freeze({ secretKey, webhookSecret, paymentLink, managementPortal, ...(returnUrl ? { returnUrl } : {}) });
 }
 

@@ -1,3 +1,7 @@
+import {MonthlyPassService} from "./application/billing/monthly-pass-service";
+import {PgMonthlyPassRepository} from "./infrastructure/billing/pg-monthly-pass-repository";
+import {StripeMonthlyPassClient} from "./infrastructure/billing/stripe-monthly-pass-client";
+import {MonthlyStripeWebhookStore} from "./infrastructure/billing/monthly-stripe-webhook-store";
 import {CreditUsageReplayWorker} from "./infrastructure/billing/credit-usage-replay-worker";
 import {NativeCreditTariffController} from "./interface/controllers/native-credit-tariff.controller";
 import {NativeCreditTariffService} from "./application/billing/native-credit-tariff-service";
@@ -56,9 +60,11 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
     {provide:ConsumptionSettingsService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new ConsumptionSettingsService(new PgConsumptionSettingsRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
     { provide: BillingStripeWebhookService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => {
       const client = new StripeWebhookClient(config);
-      return new BillingStripeWebhookService(client, client, new PgBillingStripeWebhookStore(db), logger);
+      const monthlyClient = new StripeMonthlyPassClient(config);
+      const monthly = new MonthlyPassService(new PgMonthlyPassRepository(db), monthlyClient);
+      return new BillingStripeWebhookService(client, client, new MonthlyStripeWebhookStore(db, new PgBillingStripeWebhookStore(db), monthly, monthlyClient), logger);
     }, inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
-    { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger)), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
+    { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger), new MonthlyPassService(new PgMonthlyPassRepository(db), new StripeMonthlyPassClient(config))), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
       new BillingOrderExpiryWorker(new PgBillingOrderExpiryStore(db), logger), inject: [DATABASE_PORT, LOGGER_PORT] },
     { provide: BILLING_CREDITING_STORE, useFactory: (db: DatabasePort) => new PgBillingCreditingStore(db), inject: [DATABASE_PORT] },

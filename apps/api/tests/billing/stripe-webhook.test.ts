@@ -1,6 +1,8 @@
+// @global-scope-fixture table:billing_purchase_intents: historical f09-stripe-* fixtures, exact prefix cleanup.
 import "reflect-metadata";
+import {json} from "express";
 import { beforeAll, afterAll, beforeEach, it, expect, vi } from "vitest";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, createHash, randomBytes } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import { NestFactory, APP_GUARD } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
@@ -44,7 +46,11 @@ async function post(type: string, object: unknown, id = "evt_f09test", signature
   const digest = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex");
   return fetch(`${base}/billing/webhooks/stripe`, { method: "POST", headers: { "content-type": "application/json", "stripe-signature": `t=${timestamp},v1=${signature ? digest : "0".repeat(64)}` }, body });
 }
-async function intent() { const response = await fetch(`${base}/billing/subscription/upgrade-link`,{headers:{authorization:"Bearer fixture"}}); expect(response.status).toBe(200); return new URL((await response.json()).url).searchParams.get("client_reference_id")!; }
+// Historical recurring intents remain callback-compatible; new purchases no longer issue them.
+async function intent() {
+ const token=randomBytes(32).toString("base64url"),hash=createHash("sha256").update(token).digest("hex");
+ await asOwner(async c=>{const current=await c.query("SELECT binding_generation FROM billing_subscriptions WHERE user_id=$1",[user]);await c.query("INSERT INTO billing_purchase_intents(intent_hash,user_id,expected_generation) VALUES($1,$2,$3)",[hash,user,current.rows[0]?.binding_generation??0]);});return token;
+}
 async function checkout(token: string, id = "sub_f09A", eventId = "evt_f09checkout") {
   const session = { id: "cs_test_f09", object: "checkout.session", mode: "subscription", status: "complete", customer: "cus_f09A", subscription: id, client_reference_id: token };
   snapshots["/v1/checkout/sessions/cs_test_f09"] = session;
@@ -62,6 +68,7 @@ beforeAll(async () => {
   ] }, { logger: false, bodyParser: false });
   app.useGlobalFilters(new AllExceptionsFilter({info(){},error(){}} as never,{record:async()=>{}} as never));
   registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
+  app.use(json());
   await app.listen(0,"127.0.0.1"); const address = app.getHttpServer().address(); if(!address || typeof address === "string") throw Error("listener"); base = `http://127.0.0.1:${address.port}`;
 },120000);
 beforeEach(async () => { await cleanup(); snapshots = { "/v1/subscriptions/sub_f09A": subscription() }; calls = []; });
@@ -85,7 +92,7 @@ it("unknown current state remains retryable and valid recovery clears binding-sc
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(500);
   expect((await asOwner(c=>c.query("SELECT status,synchronization_uncertain FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([{status:"active", synchronization_uncertain:true}]);
   expect((await asOwner(c=>c.query("SELECT * FROM billing_webhook_events WHERE provider_event_id='evt_f09test'"))).rows).toEqual([]);
-  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{headers:{authorization:"Bearer fixture"}})).status).toBe(503);
+  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{...(path==="/upgrade-link"?{method:"POST",body:"{}"}:{}),headers:{authorization:"Bearer fixture","content-type":"application/json"}})).status).toBe(503);
   snapshots["/v1/subscriptions/sub_f09A"] = subscription("sub_f09A","paused");
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(200);
   expect((await asOwner(c=>c.query("SELECT status,synchronization_uncertain FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([{status:"paused", synchronization_uncertain:false}]);
@@ -215,7 +222,7 @@ it("a consumed intent cannot bind a second subscription and invoice failure uses
 it("an unknown first verified binding blocks none and repeat purchase until the same subscription recovers",async()=>{
   const token=await intent(); snapshots["/v1/subscriptions/sub_f09A"]={id:"sub_f09A",object:"subscription",customer:"cus_f09A",status:"future_state"};
   expect((await checkout(token)).status).toBe(500);
-  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{headers:{authorization:"Bearer fixture"}})).status).toBe(503);
+  for(const path of ["","/upgrade-link","/management-link"]) expect((await fetch(`${base}/billing/subscription${path}`,{...(path==="/upgrade-link"?{method:"POST",body:"{}"}:{}),headers:{authorization:"Bearer fixture","content-type":"application/json"}})).status).toBe(503);
   snapshots["/v1/subscriptions/sub_f09A"]=subscription();
   expect((await post("customer.subscription.updated",{id:"sub_f09A"})).status).toBe(200);
   expect((await asOwner(c=>c.query("SELECT status FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([{status:"active"}]);

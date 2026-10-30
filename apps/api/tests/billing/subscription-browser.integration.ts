@@ -2,8 +2,9 @@
  * Only identity chrome and the independent provider are controlled; billing HTTP is never intercepted.
  */
 import "reflect-metadata";
+import {json} from "express";
 import { beforeAll, afterAll, it, expect, vi } from "vitest";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHmac, createHash, randomBytes } from "node:crypto";
 import { createServer as httpServer, type Server } from "node:http";
 import { createServer } from "node:net";
 import { NestFactory, APP_GUARD } from "@nestjs/core";
@@ -27,9 +28,14 @@ let web: ChildProcess | undefined, webClosed: Promise<void> | undefined, closed 
 const user="stripe-browser-user", org="stripe-browser-org", secret=`whsec_${randomBytes(24).toString("hex")}`;
 const port=Number(process.env.WORKSPACEX_WEB_PORT), origin=`http://127.0.0.1:${port}`, webRoot=resolve(import.meta.dirname,"../../../web");
 const evidence=process.env.BILLING_BROWSER_EVIDENCE_DIR || resolve(import.meta.dirname,"../../test-results/billing-stripe");
+let monthlySession:Record<string,unknown>|null=null;
 let base="", status="active", token="", cancelAtPeriodEnd=false;
 const providerCalls: {path:string;body:string}[]=[];
 async function cleanup() { await asOwner(async c=> {
+  await c.query("DELETE FROM billing_monthly_orders WHERE user_id=$1",[user]);
+  await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]);
+  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]);
+  await c.query("DELETE FROM credit_wallets WHERE owner_id=$1",[user]);
   await c.query("DELETE FROM billing_stripe_bindings WHERE user_id=$1",[user]);
   await c.query("DELETE FROM billing_stripe_reconciliation WHERE provider_event_id LIKE 'evt_browser_%'");
   await c.query("DELETE FROM billing_webhook_events WHERE provider_event_id LIKE 'evt_browser_%'");
@@ -102,6 +108,11 @@ beforeAll(async()=> {
   providerCalls.push({path:req.url!,body});
   if(req.headers["stripe-version"]!=="2025-09-30.clover"){res.writeHead(400);res.end("{}");return;}
   let value:unknown;
+  if(req.url==="/v1/checkout/sessions"&&req.method==="POST") {
+   const params=new URLSearchParams(body),id=params.get("client_reference_id");
+   value=monthlySession={id:"cs_browser_monthly",object:"checkout.session",mode:"payment",status:"open",livemode:false,payment_status:"unpaid",amount_total:18000,currency:"cny",client_reference_id:id,metadata:{product:"monthly_pass_v1",order_ref:id},url:"https://checkout.stripe.com/c/pay/monthly-browser"};
+  }
+  if(req.url==="/v1/checkout/sessions/cs_browser_monthly")value=monthlySession;
   if(req.url==="/v1/checkout/sessions/cs_browser")value={id:"cs_browser",object:"checkout.session",mode:"subscription",status:"complete",customer:"cus_browser",subscription:"sub_browser",client_reference_id:token};
   if(req.url==="/v1/subscriptions/sub_browser")value={id:"sub_browser",object:"subscription",customer:"cus_browser",status,cancel_at_period_end:cancelAtPeriodEnd,trial_start:null,trial_end:null,items:{data:[{current_period_start:1893456000,current_period_end:1896134400,price:{id:"price_browser",recurring:{interval:"month"}}}],has_more:false}};
   if(req.url==="/v1/billing_portal/sessions")value={object:"billing_portal.session",customer:"cus_browser",url:"https://billing.stripe.com/p/session/browser"};
@@ -110,7 +121,7 @@ beforeAll(async()=> {
  await new Promise<void>(r=>server!.listen(0,"127.0.0.1",r));const address=server.address();if(!address||typeof address==="string")throw Error("provider listener");
  const nativeFetch=globalThis.fetch;vi.stubGlobal("fetch",(input:string|URL|Request,init?:RequestInit)=> {const url=new URL(input instanceof Request?input.url:String(input));return nativeFetch(url.origin==="https://api.stripe.com"?`http://127.0.0.1:${address.port}${url.pathname}`:input,init);});
  app=await NestFactory.create<NestExpressApplication>({module:class StripeBrowserRoot{},imports:[BillingModule],providers:[{provide:PRINCIPAL_RESOLVER_PORT,useValue:{resolve:async(headers:Record<string,string>)=>headers.authorization==="Bearer stripe-browser-session"?{userId:user,orgId:toOrgId(org)}:null}},{provide:APP_GUARD,useClass:PrincipalGuard}]},{logger:false,bodyParser:false});
- app.useGlobalFilters(new AllExceptionsFilter({info(){},error(){}}as never,{record:async()=>{}}as never));registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
+ app.useGlobalFilters(new AllExceptionsFilter({info(){},error(){}}as never,{record:async()=>{}}as never));registerBillingRawBodyParser(app.getHttpAdapter().getInstance());app.use(json());
  await app.listen(0,"127.0.0.1");const local=app.getHttpServer().address();if(!local||typeof local==="string")throw Error("API listener");base=`http://127.0.0.1:${local.port}`;
  const require=createRequire(resolve(webRoot,"package.json"));const env={...process.env,NEXT_DIST_DIR:".next-billing-stripe-glue",NEXT_PUBLIC_API_URL:"/__fullstack_api",FULLSTACK_E2E_API_ORIGIN:base};
  for(const key of Object.keys(env))if(/^(WECHAT_PAY_|STRIPE_)/.test(key))delete(env as NodeJS.ProcessEnv)[key];
@@ -126,31 +137,49 @@ it("completes checkout through signed HTTP and PG, renders Pro, recovers billing
  await page.route(url=>url.origin===origin&&url.pathname==="/__fullstack_api/identity/me",route=>route.fulfill({json:{org:{id:org,name:"本地支付验收",kind:"organization",team:null,modelPolicy:"any",avatarUrl:null},orgRole:"consultant",teamId:null,projectRole:null,groupId:null,displayName:"Stripe验收",avatarUrl:null}}));
  await page.route("https://buy.stripe.com/**",route=>route.fulfill({contentType:"text/html",body:"<h1>Controlled hosted checkout</h1>"}));
  await page.route("https://billing.stripe.com/**",route=>route.fulfill({contentType:"text/html",body:"<h1>Controlled hosted billing</h1>"}));
- await page.goto(`${origin}/billing`); await page.getByRole("button",{name:"订阅 Pro",exact:true}).click();
- await page.waitForURL("https://buy.stripe.com/**");token=new URL(page.url()).searchParams.get("client_reference_id")!;expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+ // Simulate a previously issued recurring checkout; new sales use payment-mode Checkout.
+ token=randomBytes(32).toString("base64url");await asOwner(c=>c.query("INSERT INTO billing_purchase_intents(intent_hash,user_id,expected_generation) VALUES($1,$2,0)",[createHash("sha256").update(token).digest("hex"),user]));
  expect((await callback("checkout.session.completed","evt_browser_forged",false)).status).toBe(400);
  expect((await asOwner(c=>c.query("SELECT * FROM billing_subscriptions WHERE user_id=$1",[user]))).rows).toEqual([]);
  expect((await callback("checkout.session.completed","evt_browser_checkout")).status).toBe(200);
  expect((await callback("checkout.session.completed","evt_browser_checkout")).status).toBe(200);
  await page.goto(`${origin}/billing?subscription_return=1`);
- await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("已订阅");
- expect(await page.getByText("Pro 权益已生效").count()).toBe(1);await page.screenshot({path:resolve(evidence,"stripe-active.png"),fullPage:true});
+ await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("使用中");
+ expect(await page.getByTestId("billing-subscription-status").count()).toBe(1);await page.screenshot({path:resolve(evidence,"stripe-active.png"),fullPage:true});
  await page.getByRole("button",{name:"管理订阅",exact:true}).click();await page.waitForURL("https://billing.stripe.com/**");
  const portal=providerCalls.find(c=>c.path==="/v1/billing_portal/sessions");expect(new URLSearchParams(portal!.body).get("customer")).toBe("cus_browser");const returnUrl = new URLSearchParams(portal!.body).get("return_url")!;
  expect(returnUrl).toBe(`${origin}/billing?subscription_return=1&subscription_management_return=1`);
  await page.goto(returnUrl);
- await expect.poll(()=>page.getByText("Pro 权益已生效").count()).toBe(1);
+ await expect.poll(()=>page.getByTestId("billing-subscription-status").count()).toBe(1);
  cancelAtPeriodEnd=true;expect((await callback("customer.subscription.updated","evt_browser_cancel_scheduled")).status).toBe(200);
- await expect.poll(()=>page.getByText(/已取消续费.*本期结束前.*Pro/).count(),{timeout:12000}).toBe(1);
- expect(await page.getByText("Pro 权益已生效").count()).toBe(1);
+ await expect.poll(()=>page.getByText(/原订阅已停止续费/).count(),{timeout:12000}).toBe(1);
+ expect(await page.getByTestId("billing-subscription-status").count()).toBe(1);
  await page.screenshot({path:resolve(evidence,"stripe-cancellation-scheduled.png"),fullPage:true});
  cancelAtPeriodEnd=false;expect((await callback("customer.subscription.updated","evt_browser_cancel_resumed")).status).toBe(200);
  status="past_due";expect((await callback("customer.subscription.updated","evt_browser_pastdue")).status).toBe(200);
- await page.goto(`${origin}/billing`);await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("付款逾期");expect(await page.getByText("Pro 权益已生效").count()).toBe(0);expect(await page.getByRole("button",{name:"订阅 Pro",exact:true}).count()).toBe(0);await page.screenshot({path:resolve(evidence,"stripe-billing-recovery.png"),fullPage:true});
+ await page.goto(`${origin}/billing`);await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("待处理");expect(await page.getByTestId("billing-subscription-status").count()).toBe(1);expect(await page.getByRole("button",{name:"购买月度套餐",exact:true}).count()).toBe(0);await page.screenshot({path:resolve(evidence,"stripe-billing-recovery.png"),fullPage:true});
  status="future_state";expect((await callback("customer.subscription.updated","evt_browser_unknown")).status).toBe(500);
- await page.getByRole("button",{name:"刷新订阅状态",exact:true}).click();await expect.poll(()=>page.getByTestId("err-billing-subscription").count()).toBe(1);expect(await page.getByText("Pro 权益已生效").count()).toBe(0);
- status="active";expect((await callback("customer.subscription.updated","evt_browser_unknown")).status).toBe(200);await page.getByRole("button",{name:"重试订阅查询",exact:true}).click();await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("已订阅");
+ await page.getByRole("button",{name:"刷新状态",exact:true}).click();await expect.poll(()=>page.getByTestId("err-billing-subscription").count()).toBe(1);expect(await page.getByTestId("billing-subscription-status").count()).toBe(0);
+ status="active";expect((await callback("customer.subscription.updated","evt_browser_unknown")).status).toBe(200);await page.getByRole("button",{name:"刷新状态",exact:true}).click();await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("使用中");
  const rows=await asOwner(async c=>({state:(await c.query("SELECT status,binding_generation FROM billing_subscriptions WHERE user_id=$1",[user])).rows,events:(await c.query("SELECT count(*)::int AS n FROM billing_webhook_events WHERE provider_event_id='evt_browser_checkout'")).rows,credits:(await c.query("SELECT t.* FROM credit_transactions t JOIN credit_wallets w USING(wallet_id) WHERE w.owner_id=$1",[user])).rows}));
  expect(rows.state).toEqual([{status:"active",binding_generation:"1"}]);expect(rows.events).toEqual([{n:1}]);expect(rows.credits).toEqual([]);
  writeFileSync(resolve(evidence,"receipt.json"),JSON.stringify({source:"real Next/Billing HTTP/PostgreSQL",provider:"controlled Stripe HTTP + independent HMAC",billingHttpIntercepted:false,realMoneyCharged:false,...rows},null,2));
+},120000);
+
+it("purchases a one-time CNY180 month through real browser, API, signed callback and PG",async()=>{
+ await cleanup();const page=await browser!.newPage({viewport:{width:1280,height:900}});
+ await page.addInitScript(({user,org})=>{localStorage.setItem("wsx.sessionToken","stripe-browser-session");localStorage.setItem("wsx.session",JSON.stringify({version:1,userId:user,orgs:[org],currentOrgId:org,expiresAt:"2099-01-01T00:00:00Z"}));},{user,org});
+ await page.route(url=>url.origin===origin&&url.pathname==="/__fullstack_api/identity/me",route=>route.fulfill({json:{org:{id:org,name:"本地支付验收",kind:"organization",team:null,modelPolicy:"any",avatarUrl:null},orgRole:"consultant",teamId:null,projectRole:null,groupId:null,displayName:"Stripe验收",avatarUrl:null}}));
+ await page.route("https://checkout.stripe.com/**",route=>route.fulfill({contentType:"text/html",body:"<h1>Controlled one-time CNY180 Checkout</h1>"}));
+ await page.goto(`${origin}/billing`);await page.getByRole("button",{name:"购买月度套餐",exact:true}).click();await page.waitForURL("https://checkout.stripe.com/**");
+ const create=providerCalls.find(c=>c.path==="/v1/checkout/sessions")!;const params=new URLSearchParams(create.body);expect(params.get("mode")).toBe("payment");expect(params.get("line_items[0][price_data][unit_amount]")).toBe("18000");
+ Object.assign(monthlySession!,{status:"complete",payment_status:"paid",payment_intent:"pi_browser_monthly",url:null});
+ const body=JSON.stringify({id:"evt_browser_monthly_paid",object:"event",type:"checkout.session.completed",data:{object:{id:"cs_browser_monthly",mode:"payment"}}});
+ const timestamp=Math.floor(Date.now()/1000),digest=createHmac("sha256",secret).update(`${timestamp}.${body}`).digest("hex");
+ const paid=()=>fetch(`${base}/billing/webhooks/stripe`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${digest}`},body});
+ expect((await paid()).status).toBe(200);expect((await paid()).status).toBe(200);
+ await page.goto(`${origin}/billing?subscription_return=1`);await expect.poll(()=>page.getByText("20,000 / 20,000 credit",{exact:true}).count()).toBe(1);
+ expect(await page.getByRole("button",{name:"管理订阅",exact:true}).count()).toBe(0);
+ const wallet=await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]));expect(wallet.rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+ await page.screenshot({path:resolve(evidence,"monthly-pass-active-fullstack.png"),fullPage:true});await page.close();
 },120000);

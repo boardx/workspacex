@@ -13,6 +13,8 @@ import { z } from "zod";
 
 /** Monthly credit entitlement; payment prices remain deployment configuration. */
 export const MONTHLY_SUBSCRIPTION_CREDITS = 20_000;
+export const MONTHLY_PASS_AMOUNT_FEN = 18_000;
+export const MONTHLY_PASS_PRODUCT = "monthly_pass_v1";
 
 /** Paid credit entitlement is distinct from the subscription's provider status. */
 export const SubscriptionCreditGrant = z.object({
@@ -81,6 +83,8 @@ export const SubscriptionInfo = z
     currentPeriodEnd: z.string().min(1).nullable(), // ISO 8601
     cancelAtPeriodEnd: z.boolean().default(false),
     creditGrant: SubscriptionCreditGrant.optional(),
+    purchaseMode: z.literal("manual_monthly").optional(),
+    checkoutPending: z.boolean().optional(),
   })
   .strict();
 
@@ -112,7 +116,7 @@ export const operations = {
 
   /** UC-BS-2：取升级链接（仅未订阅；含用户引用与语言预填）。 */
   getUpgradeLink: {
-    method: "GET",
+    method: "POST",
     path: "/billing/subscription/upgrade-link",
     in: z.object({}).strict(),
     out: SubscriptionLink,
