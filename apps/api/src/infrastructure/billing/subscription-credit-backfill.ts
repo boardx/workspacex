@@ -42,7 +42,8 @@ export async function backfillSubscriptionCredits(db:DatabasePort,provider:Strip
    report.eligible++;
    if(options.apply){
     const id="evt_creditbackfill_"+createHash("sha256").update(`${row.subscription_ref}:${period.invoiceRef}`).digest("hex");
-    if(!await new PgBillingStripeWebhookStore(db).apply({id,type:"invoice.paid",object:{id:period.invoiceRef}},provider))throw Error("retry_required");
+    reason="credit_period_not_reconciled";
+    if(!await new PgBillingStripeWebhookStore(db).apply({id,type:"invoice.paid",object:{id:period.invoiceRef}},provider,{...period,userId:row.user_id}))throw Error("retry_required");
     report.applied++;
    }
    report.items.push({userId:row.user_id,subscriptionRef:row.subscription_ref,planRef:row.plan_ref,reason:options.apply?"reconciled":"verified_dry_run"});

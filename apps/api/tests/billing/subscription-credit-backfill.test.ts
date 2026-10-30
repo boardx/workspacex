@@ -3,6 +3,8 @@ import {asOwner,ensureDatabase,migrateOnce} from "../support/db";
 import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {grantPaidSubscriptionPeriod} from "../../src/infrastructure/billing/pg-credit-periods";
+import {createHash} from "node:crypto";
+import {PgBillingStripeWebhookStore} from "../../src/infrastructure/billing/pg-billing-stripe-webhook-store";
 // @global-scope-fixture table:billing_subscriptions: exact cbf-test owner IDs are removed after this isolated fixture.
 // @global-scope-fixture table:credit_wallets: exact cbf-test wallets and their periods/ledger are removed after this isolated fixture.
 // @global-scope-fixture table:billing_stripe_bindings: exact cbf-test subscription binding is removed after this isolated fixture.
@@ -50,4 +52,35 @@ it.each([false,true])("blocks unresolved bindings even with an absent/terminal s
  });
  try{expect(await run()).toMatchObject({scanned:1,blocked:1,items:[{reason:"unresolved_binding"}]});}
  finally{await asOwner(async c=>{await c.query("DELETE FROM billing_stripe_bindings WHERE subscription_ref='sub_cbfUnresolved'");await c.query("INSERT INTO billing_subscriptions(user_id,customer_ref,subscription_ref,status,plan_ref,current_period_start,current_period_end,cancel_at_period_end,binding_generation) VALUES($1,$2,$3,'active',$4,$5,$6,false,1) ON CONFLICT(user_id) DO UPDATE SET status='active'",[user,customer,sub,price,new Date(start*1000),new Date(end*1000)]);});}
+});
+it("blocks a no-grant locked reread and recovers the same invoice even after a legacy ok audit",async()=>{
+ const raceUser="cbf-test-race",raceSub="sub_cbfRace",raceCustomer="cus_cbfRace",invoiceId="in_cbfRace";
+ const raceInvoice={...invoice,id:invoiceId,customer:raceCustomer,parent:{type:"subscription_details",subscription_details:{subscription:raceSub}},lines:{...invoice.lines,data:invoice.lines.data.map(line=>({...line,parent:{type:"subscription_item_details",subscription_item_details:{proration:false,subscription:raceSub}}}))}};
+ let racing=true,reads=0;
+ const raceProvider={...provider,invoice:async()=>raceInvoice,subscription:async()=>({...await provider.subscription(),id:raceSub,customer:raceCustomer,latest_invoice:invoiceId,status:racing&&++reads>1?"trialing":"active"})};
+ const event={id:"evt_creditbackfill_"+createHash("sha256").update(`${raceSub}:${invoiceId}`).digest("hex"),type:"invoice.paid",object:{id:invoiceId}};
+ const {backfillSubscriptionCredits}=await import("../../src/infrastructure/billing/subscription-credit-backfill");
+ const reconcile=()=>backfillSubscriptionCredits(db,raceProvider,{apply:true,plans:[price],after:"cbf-test-r",until:"cbf-test-s",limit:1});
+ await asOwner(async c=>{
+  await c.query("INSERT INTO billing_subscriptions(user_id,customer_ref,subscription_ref,status,plan_ref,current_period_start,current_period_end,cancel_at_period_end,binding_generation) VALUES($1,$2,$3,'active',$4,$5,$6,false,1)",[raceUser,raceCustomer,raceSub,price,new Date(start*1000),new Date(end*1000)]);
+  await c.query("INSERT INTO billing_stripe_bindings(user_id,customer_ref,subscription_ref,binding_generation) VALUES($1,$2,$3,1)",[raceUser,raceCustomer,raceSub]);
+  await c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,7)",[raceUser]);
+ });
+ try{
+  expect(await reconcile()).toMatchObject({blocked:1,applied:0,nextAfter:raceUser});
+  expect((await asOwner(c=>c.query("SELECT count(*)::int AS n FROM billing_webhook_events WHERE provider_event_id=$1",[event.id]))).rows[0].n).toBe(0);
+  // Older code could already have committed an ok event without granting. Recover that exact ID.
+  expect(await new PgBillingStripeWebhookStore(db).apply(event,raceProvider)).toBe(true);
+  racing=false;
+  expect(await reconcile()).toMatchObject({blocked:0,applied:1});
+  expect(await reconcile()).toMatchObject({blocked:0,applied:1});
+  expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[raceUser]))).rows[0].balance).toBe("20007.00");
+ }finally{await asOwner(async c=>{
+  await c.query("DELETE FROM credit_subscription_periods WHERE subscription_ref=$1",[raceSub]);
+  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[raceUser]);
+  await c.query("DELETE FROM credit_wallets WHERE owner_id=$1",[raceUser]);
+  await c.query("DELETE FROM billing_webhook_events WHERE provider_event_id=$1",[event.id]);
+  await c.query("DELETE FROM billing_subscriptions WHERE user_id=$1",[raceUser]);
+  await c.query("DELETE FROM billing_stripe_bindings WHERE user_id=$1",[raceUser]);
+ });}
 });
