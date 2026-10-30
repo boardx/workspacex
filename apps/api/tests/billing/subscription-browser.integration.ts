@@ -1,3 +1,4 @@
+// @global-scope-fixture table:billing_purchase_intents: historical stripe-browser-user fixture; cleanup removes this exact owner.
 /** Real production page -> Billing HTTP -> isolated PG -> signed Stripe webhook -> page read.
  * Only identity chrome and the independent provider are controlled; billing HTTP is never intercepted.
  */
