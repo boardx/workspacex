@@ -7,8 +7,8 @@ import {workbenchBoundaries,verifyWorkbenchBoundaries} from '../workbench-permis
 const api=fileURLToPath(new URL('../../',import.meta.url));
 const read=path=>readFileSync(api+path,'utf8');
 const tables=new Set([...workbenchBoundaries.values()].flatMap(rule=>rule.tables).concat(['chat_messages','artifacts']));
-test('all eight reviewed metadata boundaries satisfy production checks',()=>{
- assert.equal(rules.size,8);assert.deepEqual(verifyWorkbenchBoundaries(read,tables),[]);
+test('all nine reviewed metadata boundaries satisfy production checks',()=>{
+ assert.equal(rules.size,9);assert.deepEqual(verifyWorkbenchBoundaries(read,tables),[]);
 });
 for(const [path,rule] of rules){
  test(`${path}: missing implementation invalidates registration`,()=>{

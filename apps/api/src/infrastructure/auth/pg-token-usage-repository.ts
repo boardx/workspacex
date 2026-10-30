@@ -68,6 +68,9 @@ export class PgTokenUsageRepository implements TokenUsageMeterPort {
       try {
         await this.db.withTenant(orgId, async (s) => {
           await this.credits.settleInSession(s, orgId, {...usage, eventId});
+          // Interim cumulative receipts settle credit differences; only the terminal
+          // total becomes a token event so quotas and charts do not count chunks twice.
+          if (usage.billingReceipt?.final === false) return;
           await s.query(
             `INSERT INTO token_usage_events
            (id, org_id, user_id, run_id, model_provider, model_id,

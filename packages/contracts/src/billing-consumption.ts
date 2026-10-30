@@ -1,8 +1,9 @@
 import {z} from "zod";
 import {BillingOwnerType} from "./billing-credits";
 
-/** Preflight is an admission policy; usage accounting remains enabled when false. */
-export const CreditConsumptionSettings=z.object({creditPreflightEnabled:z.boolean()}).strict();
+export const CREDIT_ADMISSION_POLICY="personal_nonnegative_enterprise_overdraft" as const;
+/** Legacy flag is retained for compatibility/audit; the fixed policy governs every new request. */
+export const CreditConsumptionSettings=z.object({creditPreflightEnabled:z.boolean(),admissionPolicy:z.literal(CREDIT_ADMISSION_POLICY).optional()}).strict();
 export const CreditConsumptionErrorCode=z.enum(["credit_required","credit_accounting_unavailable"]);
 /** Only server-derived account identity and a same-origin billing destination are public. */
 export const CreditRequiredBody=z.object({code:z.literal("credit_required"),ownerType:BillingOwnerType,

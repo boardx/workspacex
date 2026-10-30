@@ -27,7 +27,12 @@ export const modelMetadataPermissionBoundaries=new Map([
   ["src/infrastructure/billing/pg-credit-consumption.ts", {
     tables:["organizations","org_memberships","credit_native_tariffs","ai_request_reservations"],
     reason:"#5877: financial configuration and authenticated same-org payer metadata have no Artifact content ACL. Admission rechecks persisted org membership, locks payer wallet, snapshots configured tariffs and validates immutable request facts. Settlement only uses an admitted request identity. credit-consumption-pg.test.ts covers cross-org wallets, concurrent holds, replay and revoked-member settlement.",
-    checks:[[null,exact("JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2")],[null,exact("credit_start_replay_mismatch")],[null,exact("credit_receipt_provenance_mismatch")]],
+    checks:[[null,exact("JOIN org_memberships m ON m.org_id=o.id WHERE o.id=$1 AND m.user_id=$2")],[null,exact("credit_start_replay_mismatch")],[null,exact("await settleCreditReceipt(s,orgId,usage)")],["src/infrastructure/billing/pg-credit-receipt.ts",exact("credit_receipt_provenance_mismatch")]],
+  }],
+  ["src/infrastructure/billing/pg-credit-receipt.ts", {
+    tables:["credit_consumption_receipts"],
+    reason:"#5997: immutable financial usage receipt metadata, not Artifact content. Tenant RLS and the composite request/org foreign key bind receipts to the admitted physical request. Settlement rechecks actor/model/run/wallet identity under the wallet and request locks; no raw receipt rows leave this boundary. credit-stream-settlement.test.ts covers cumulative deduplication and cross-tenant receipt isolation; credit-consumption-pg.test.ts covers rejected provenance and revoked-member completion.",
+    checks:[[null,exact("WHERE request_id=$1 AND org_id=$2")],[null,exact("row.user_id !== usage.userId")],[null,exact("credit_receipt_provenance_mismatch")],[null,exact("credit_receipt_replay_mismatch")]],
   }],
   ["src/infrastructure/billing/pg-native-credit-tariff-repository.ts", {
     tables:["credit_native_tariffs"],

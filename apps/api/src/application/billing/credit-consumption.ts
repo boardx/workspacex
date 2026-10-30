@@ -24,5 +24,11 @@ export function creditHundredths(value: string): bigint {
   return negative ? -magnitude : magnitude;
 }
 
+/** Canonical immutable accounting identity, including bigint native quantities. */
+export function creditFacts(value: unknown): string {
+  return JSON.stringify(value, (_key, item) => typeof item === "bigint" ? item.toString() :
+    item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b))) : item);
+}
+
 /** Admission and settlement errors retain their typed HTTP/stream guidance through model adapters. */
 export function rethrowCreditConsumption(error:unknown):void {if(error instanceof CreditConsumptionError)throw error;}
