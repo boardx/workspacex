@@ -1,0 +1,10 @@
+import config from '/tmp/wsx-two-board-retest.config';
+import {spawnSync} from 'node:child_process';
+import {rmSync} from 'node:fs';
+const cwd='/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web';
+const server=config.webServer.at(-1)!;
+rmSync(cwd+'/.next-fullstack-e2e',{recursive:true,force:true});
+const build=spawnSync('pnpm',['exec','next','build'],{cwd,stdio:'inherit',env:{...process.env,...server.env}});
+if(build.status!==0)process.exit(build.status??1);
+const result=spawnSync('pnpm',['exec','playwright','test','--config','/tmp/wsx-two-board-retest.config.ts'],{cwd,stdio:'inherit',env:process.env});
+process.exit(result.status??1);

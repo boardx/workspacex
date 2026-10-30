@@ -1,0 +1,212 @@
+[
+  {
+    "path": "web-typecheck-final.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "running-scroll-red.log",
+    "sha256": "48b795d9736de0589ca5edbfe646ad8b4dfe01bc46643ba92fe4d140e3a447c7",
+    "bytes": 2397
+  },
+  {
+    "path": "api-typecheck.log",
+    "sha256": "2200393597ba588a3961b6132b4251c3289469bc4d94980110e3b3c7618d55e4",
+    "bytes": 106
+  },
+  {
+    "path": "running-scroll-green.log",
+    "sha256": "b14a205e2ec3659205beece0011051b561e9ee490002b18b774b269ed64e9b62",
+    "bytes": 2655
+  },
+  {
+    "path": "edge-retest.log",
+    "sha256": "8bf48337d23f13347a98c07cfba5b4320998c9ba168b022ca4f5dc325f6793a9",
+    "bytes": 33625
+  },
+  {
+    "path": "board-retest.log",
+    "sha256": "51ece8f59fc6446a82d45c63b2c7c8bb0cb6de48baab5a06bd3d8da5ec6e9092",
+    "bytes": 35970
+  },
+  {
+    "path": "chat-poll-green.log",
+    "sha256": "21391b300f9bb96235f8d47182c4440e3d7be8781a65dda800179e31cdae7de0",
+    "bytes": 999
+  },
+  {
+    "path": "main-inventory.log",
+    "sha256": "27c5777b6af3cd5d6b6d185fd42bc31195e3578135f001ce65198bb0f44b412e",
+    "bytes": 2571
+  },
+  {
+    "path": "scroll-lint.log",
+    "sha256": "da3502adf0acecbe89609a71a681ed18b2621ef23e9580b7e4dc30a37ffbdf4c",
+    "bytes": 343
+  },
+  {
+    "path": "validator-tests.log",
+    "sha256": "16a33f06b728dc8abaae9e1c56555cbc20be88e3575880b624535b405134eb72",
+    "bytes": 3468
+  },
+  {
+    "path": "push-branches.log",
+    "sha256": "0a68ba992d3979a640db4126685f0da9c4af4a6ce76a890e106ebfaa5f44285d",
+    "bytes": 2342
+  },
+  {
+    "path": "validator-probe.log",
+    "sha256": "b54d47f42897305c1554f104bfdcb6369c8f590e1115af94d8354c2bc1933030",
+    "bytes": 1876
+  },
+  {
+    "path": "scroll-typecheck.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "chat-poll-red.log",
+    "sha256": "06f566a2672afeea641251b44050e7450ebda133643e8017cec5730e2afb43f8",
+    "bytes": 6303
+  },
+  {
+    "path": "validator-probe-narrow.log",
+    "sha256": "4ccd40cae93f9d8d4ffdc8f1e70c6d108623a019f865c76d1421772fad4c856f",
+    "bytes": 1861
+  },
+  {
+    "path": "chat-retest.log",
+    "sha256": "79e5b097acad7362ddb75b7bc0881b786697938e92e6d77645a359669967b0c4",
+    "bytes": 29417
+  },
+  {
+    "path": "core-typecheck.log",
+    "sha256": "e3a48cc27b4135268e59ec03911395f3c6bd595175a82e08edf15697c03e6dad",
+    "bytes": 134
+  },
+  {
+    "path": "web-typecheck-all-fixes.log",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  },
+  {
+    "path": "web-typecheck.log",
+    "sha256": "9fce0971f3d95916ed9be0bbcd414293e5e2e20e28369ce8432da1dfd05010cf",
+    "bytes": 267
+  },
+  {
+    "path": "real-model-official-preflight.log",
+    "sha256": "c925fdb4438c3260b6e83a1893fe13accc8a8c86cb18f3c401b5976af8a213be",
+    "bytes": 644
+  },
+  {
+    "path": "api-lint.log",
+    "sha256": "c722ea69fc2c2d572dadcee525e649f9e08a120d03ad2e9daef132311f4b0623",
+    "bytes": 10250
+  },
+  {
+    "path": "chat-poll-final.log",
+    "sha256": "92f889ecb2e9d5db1257a7c29e3de62be4f88eb08b04964aa25b58b3f17b0596",
+    "bytes": 999
+  },
+  {
+    "path": "init-final.log",
+    "sha256": "c5b0de5cb3cf55392951c00331bd5c9334e45c7bfee6fb55629c24663be1ffef",
+    "bytes": 4860
+  },
+  {
+    "path": "web-lint.log",
+    "sha256": "da3502adf0acecbe89609a71a681ed18b2621ef23e9580b7e4dc30a37ffbdf4c",
+    "bytes": 343
+  },
+  {
+    "path": "core-tests.log",
+    "sha256": "0f7c00defe7f7eab40d171155be2392393359d5da86e70afcadbef82e13b2bdf",
+    "bytes": 1961
+  },
+  {
+    "path": "main-inventory-retry.log",
+    "sha256": "83c6bfd90642e6517e1aa5283f35c0c2796bb3d90008d5d104dff7c9bcbfdf0c",
+    "bytes": 42923
+  },
+  {
+    "path": "steering-final.log",
+    "sha256": "c7ba7ba1c2a9ad01da36a8fc9f9f4e536750bd53649f0651f3834275b71a6648",
+    "bytes": 19778
+  },
+  {
+    "path": "push-final-branches.log",
+    "sha256": "31206f767a23f398b8ceb008bae3e2d7214cd80885a6f28fe14e8db6b20b8bfd",
+    "bytes": 16462
+  },
+  {
+    "path": "push-steering-correction.log",
+    "sha256": "adb9bd7609d5d6ee716cea65b6e5a3689e6ba73c44a7ff008a3cdf18ddcd5650",
+    "bytes": 16264
+  },
+  {
+    "path": "round-1/chat.log",
+    "sha256": "7d663127a272a2dad6e846594c2d1d25f14eaa9d5bc72abe64539b764604e5cc",
+    "bytes": 266358
+  },
+  {
+    "path": "round-1/core.log",
+    "sha256": "4b2d548695f5a52f9b019af6f3379237f5ec4e94a0eb9c9d5fd176ed5ddb4067",
+    "bytes": 34220
+  },
+  {
+    "path": "round-1/profile.log",
+    "sha256": "2050bb70074c378badb936e18f81a46db7eee8b2a3c9a17211febd9830b401de",
+    "bytes": 4593
+  },
+  {
+    "path": "round-1/design.log",
+    "sha256": "2fe48a5ba17c24e7d92b4e3482ad70e4822cb915af1dbf666f999ec8fab1a5b5",
+    "bytes": 15333
+  },
+  {
+    "path": "round-1/main.log",
+    "sha256": "639890665d830080c3d557662e80c1eead54422f1f22b224581d1eb1a87c4f38",
+    "bytes": 422962
+  },
+  {
+    "path": "round-2/chat.log",
+    "sha256": "597285a5763111db96ca52511f206f2b952ca10214dbd6669611945cdeb3828c",
+    "bytes": 92400
+  },
+  {
+    "path": "round-2/core.log",
+    "sha256": "853e9117c1d17433eb652ba76417849e1e4bddb99148fe9598ea8ffdbab8d776",
+    "bytes": 37264
+  },
+  {
+    "path": "round-2/main-complete-preparation-invalid.log",
+    "sha256": "526ed27f6effed59bd565fd99ef93b49998956cf00b2de9d548c5460b114efd3",
+    "bytes": 2304
+  },
+  {
+    "path": "round-2/profile.log",
+    "sha256": "afb8c35df18c52e16ea953d650cb86bdf7dfc4a35f3f642a66a2c6aab993913b",
+    "bytes": 4593
+  },
+  {
+    "path": "round-2/main-resource-interrupted.log",
+    "sha256": "1157812d67f5a9ff6d477a401cfc9faf28775158d1008dba9bd7f82e21634259",
+    "bytes": 72689
+  },
+  {
+    "path": "round-2/design.log",
+    "sha256": "fede07191ccb4575840e1ce5452698cfa62705b93d62cb483a298d91aed89963",
+    "bytes": 15308
+  },
+  {
+    "path": "round-2/main-final.log",
+    "sha256": "9b9f6c61ec6cc4d023da3223d670016dbb981a2ff86463993d553768b263a547",
+    "bytes": 391571
+  },
+  {
+    "path": "round-2/main.log",
+    "sha256": "8b00dc2576025229bdba1d8f557a9490b4a22cc35add624d7ba3b8947ad2954c",
+    "bytes": 12146
+  }
+]

@@ -1,0 +1,9 @@
+[real-model-env] 未找到 env 文件（/Users/shenyangjun/.codex/worktrees/548a/workspacex/.env.local）——改用已导出的环境变量。
+[real-model-env] 换一个路径：WORKSPACEX_ENV_FILE=/path/to/.env.local
+✗ [real-model preflight] 缺少必需的环境变量（共 3 个）：
+    · DASHSCOPE_API_KEY
+    · DASHSCOPE_BASE_URL
+    · DASHSCOPE_MODEL
+  ⇒ 它们从哪来：<仓库根>/.env.local（chmod 600，已被 .gitignore 挡住）
+     模板见仓库根 .env.local.example；或者在调用本命令之前自行 export。
+  ⚠ 不会退回回环模型继续跑——那样跑出来的绿是假的（issue #2802）。

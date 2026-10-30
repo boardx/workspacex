@@ -1,0 +1,16 @@
+round-1-main sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 249, "failed": 7, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+round-1-core sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 14, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+round-1-design sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 72, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+round-1-chat sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 178, "failed": 2, "skipped": 8, "flaky": 0, "interrupted": 0} globalErrors=0
+round-1-profile sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 4, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+round-2-main sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 0, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=1
+round-2-core sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 14, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+round-2-design sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 72, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+round-2-chat sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 177, "failed": 3, "skipped": 8, "flaky": 0, "interrupted": 0} globalErrors=0
+round-2-profile sha=d149a333b82604a2b2bcc68b5dd19bba81e7810e counts={"passed": 4, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+resource-interrupted sha=605387c2e14f47f93890c4f5cf068ceebd266977 counts={"passed": 9, "failed": 6, "skipped": 240, "flaky": 0, "interrupted": 1} globalErrors=0
+main-complete sha=0f4189df7842b4ec6b19cf1646a15c6696ea7cba counts={"passed": 255, "failed": 1, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+edge-initial-retest sha=0f4189df7842b4ec6b19cf1646a15c6696ea7cba counts={"passed": 7, "failed": 1, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+board-fixed-retest sha=fd242ec0922a3464ac808eaedff2efbb57ab78ef counts={"passed": 15, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0
+chat-fixed-retest sha=fd242ec0922a3464ac808eaedff2efbb57ab78ef counts={"passed": 24, "failed": 1, "skipped": 2, "flaky": 0, "interrupted": 0} globalErrors=0
+steering-corrected-retest sha=623a350f7c9600287008090e9fe0afb43330afb2 counts={"passed": 1, "failed": 0, "skipped": 0, "flaky": 0, "interrupted": 0} globalErrors=0

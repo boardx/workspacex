@@ -1,0 +1,411 @@
+{
+  "updatedAt": "2026-10-30T08:17:37.720233+00:00",
+  "firstRound": {
+    "passed": 517,
+    "failed": 9,
+    "skipped": 8,
+    "flaky": 0,
+    "interrupted": 0
+  },
+  "secondRoundBeforeFocusedRetests": {
+    "passed": 522,
+    "failed": 4,
+    "skipped": 8,
+    "flaky": 0,
+    "interrupted": 0
+  },
+  "latestSecondRound": {
+    "passed": 526,
+    "failed": 0,
+    "skipped": 8,
+    "flaky": 0,
+    "interrupted": 0
+  },
+  "attempts": [
+    {
+      "round": 1,
+      "lane": "main",
+      "name": "round-1-main",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-1/main-results.json",
+      "counts": {
+        "passed": 249,
+        "failed": 7,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T02:43:29.439Z",
+        "duration": 2310546.549,
+        "expected": 249,
+        "skipped": 0,
+        "unexpected": 7,
+        "flaky": 0
+      },
+      "sha256": "c8aaa53b377af4d7951fb23719b4d8cfddf7d2126e2d1f6f57a17d357dff8788"
+    },
+    {
+      "round": 1,
+      "lane": "core",
+      "name": "round-1-core",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-1/core-results.json",
+      "counts": {
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T03:22:03.884Z",
+        "duration": 747219.0329999999,
+        "expected": 14,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "8cf0f891a17abc13d1404d21d9c38a7e2472d12e391117be81a327067e2c218b"
+    },
+    {
+      "round": 1,
+      "lane": "design",
+      "name": "round-1-design",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-1/design-results.json",
+      "counts": {
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T03:34:35.529Z",
+        "duration": 275843.236,
+        "expected": 72,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "9779705f0539c16c6fa76968a57a14594cf431c5d06a24e3da17ca36bce2abff"
+    },
+    {
+      "round": 1,
+      "lane": "chat",
+      "name": "round-1-chat",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-1/chat-results.json",
+      "counts": {
+        "passed": 178,
+        "failed": 2,
+        "skipped": 8,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T03:39:12.840Z",
+        "duration": 5174831.5,
+        "expected": 178,
+        "skipped": 8,
+        "unexpected": 2,
+        "flaky": 0
+      },
+      "sha256": "604a525a2c04c287e8aa8c49b142b9b1e13a9c8a9dc12fae18fe51a8da208da9"
+    },
+    {
+      "round": 1,
+      "lane": "profile",
+      "name": "round-1-profile",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-1/profile-results.json",
+      "counts": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T05:05:30.270Z",
+        "duration": 211933.135,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "02da1a4e9f7d8654ad30187404cee191353d16b90bf88ea07e208b5277614a45"
+    },
+    {
+      "round": 2,
+      "lane": "main",
+      "name": "round-2-main",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-2/main-results.json",
+      "counts": {
+        "passed": 0,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 1,
+      "stats": {
+        "startTime": "2026-10-30T05:09:10.553Z",
+        "duration": 715247.0160000001,
+        "expected": 0,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "aa9b3900bf4b01fc215e6ebbc479ca43eb9ab213704b57a3598027f10743d3f8"
+    },
+    {
+      "round": 2,
+      "lane": "core",
+      "name": "round-2-core",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-2/core-results.json",
+      "counts": {
+        "passed": 14,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T05:21:28.063Z",
+        "duration": 372510.026,
+        "expected": 14,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "1e4997cd307d6eec4d0784ff0f7364232b7241aec3557f094e318bcf1fc526c2"
+    },
+    {
+      "round": 2,
+      "lane": "design",
+      "name": "round-2-design",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-2/design-results.json",
+      "counts": {
+        "passed": 72,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T05:27:42.734Z",
+        "duration": 185737.667,
+        "expected": 72,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "490d1484a34f0a5a48f579d195a6351b2ca462c267cddab85aad8cbf883f7abc"
+    },
+    {
+      "round": 2,
+      "lane": "chat",
+      "name": "round-2-chat",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-2/chat-results.json",
+      "counts": {
+        "passed": 177,
+        "failed": 3,
+        "skipped": 8,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T05:30:49.788Z",
+        "duration": 3234652.352,
+        "expected": 177,
+        "skipped": 8,
+        "unexpected": 3,
+        "flaky": 0
+      },
+      "sha256": "1c0a0f89c33a8c8dd800b3c1d52b692f0346be8658ea7dfdb9c8e9f5afa88f2d"
+    },
+    {
+      "round": 2,
+      "lane": "profile",
+      "name": "round-2-profile",
+      "sha": "d149a333b82604a2b2bcc68b5dd19bba81e7810e",
+      "results": "round-2/profile-results.json",
+      "counts": {
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T06:24:46.820Z",
+        "duration": 87503.764,
+        "expected": 4,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "fd8c424135f359bbd1a3bd781e5b4728917d97e2ec0896a8a34be8fde861ded3"
+    },
+    {
+      "round": 2,
+      "lane": "main",
+      "name": "resource-interrupted",
+      "sha": "605387c2e14f47f93890c4f5cf068ceebd266977",
+      "results": "round-2/main-resource-interrupted-results.json",
+      "counts": {
+        "passed": 9,
+        "failed": 6,
+        "skipped": 240,
+        "flaky": 0,
+        "interrupted": 1
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T06:31:02.928Z",
+        "duration": 567742.961,
+        "expected": 9,
+        "skipped": 241,
+        "unexpected": 6,
+        "flaky": 0
+      },
+      "sha256": "3fcedec867e321db3f9cf82b23b2fa8ff64b701160cea32fb922c40cfa32028e"
+    },
+    {
+      "round": 2,
+      "lane": "main",
+      "name": "main-complete",
+      "sha": "0f4189df7842b4ec6b19cf1646a15c6696ea7cba",
+      "results": "round-2/main-final-results.json",
+      "counts": {
+        "passed": 255,
+        "failed": 1,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T06:50:46.947Z",
+        "duration": 1835134.9919999999,
+        "expected": 255,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "sha256": "32b10d23c8f876e093a94601056b8c30b89d76477c530a198b7c14709defa02e"
+    },
+    {
+      "round": 2,
+      "lane": "main",
+      "name": "edge-initial-retest",
+      "sha": "0f4189df7842b4ec6b19cf1646a15c6696ea7cba",
+      "results": "round-2/edge-retest-results.json",
+      "counts": {
+        "passed": 7,
+        "failed": 1,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T07:25:53.420Z",
+        "duration": 122340.32500000001,
+        "expected": 7,
+        "skipped": 0,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "sha256": "05198ef13681b6345f9361196456d512a76d0085e6588884a810a2ba74775cc1"
+    },
+    {
+      "round": 2,
+      "lane": "main",
+      "name": "board-fixed-retest",
+      "sha": "fd242ec0922a3464ac808eaedff2efbb57ab78ef",
+      "results": "board-fix-results.json",
+      "counts": {
+        "passed": 15,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T07:43:26.087Z",
+        "duration": 165283.42500000002,
+        "expected": 15,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "0fef0e32e74eecc5ad96d2b574b7c49bf442d4651fd2ff81c8b46a111f8241d3"
+    },
+    {
+      "round": 2,
+      "lane": "chat",
+      "name": "chat-fixed-retest",
+      "sha": "fd242ec0922a3464ac808eaedff2efbb57ab78ef",
+      "results": "chat-retest-results.json",
+      "counts": {
+        "passed": 24,
+        "failed": 1,
+        "skipped": 2,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T07:49:56.018Z",
+        "duration": 673189.341,
+        "expected": 24,
+        "skipped": 2,
+        "unexpected": 1,
+        "flaky": 0
+      },
+      "sha256": "589f32480158056edd2ca72e78426f0752fdac1e27c03c73ab94e01f904d036e"
+    },
+    {
+      "round": 2,
+      "lane": "chat",
+      "name": "steering-corrected-retest",
+      "sha": "623a350f7c9600287008090e9fe0afb43330afb2",
+      "results": "steering-final-results.json",
+      "counts": {
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "flaky": 0,
+        "interrupted": 0
+      },
+      "globalErrors": 0,
+      "stats": {
+        "startTime": "2026-10-30T08:07:05.194Z",
+        "duration": 36082.865999999995,
+        "expected": 1,
+        "skipped": 0,
+        "unexpected": 0,
+        "flaky": 0
+      },
+      "sha256": "673df5d952d4f4c60b9654ae625ce37ec537dce4c631f8ee8565f54fa11c5dec"
+    }
+  ],
+  "remaining": []
+}

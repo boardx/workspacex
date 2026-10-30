@@ -1,0 +1,145 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web
+
+ ❯ tests/e2e-stored-reply-poll.test.ts (7 tests | 5 failed) 740ms
+   × waits through a transient 503 for the same persisted reply 443ms
+     → promise rejected "Error: expect(received).toBe(expected) //…" instead of resolving
+   × keeps a permanently unavailable read red and reports HTTP 503 33ms
+     → expected [Function] to throw error including '503' but got 'expect(received).toBe(expected) // Ob…'
+   × does not treat HTTP 401 as a transient available reply 64ms
+     → expected [Function] to throw error including '401' but got 'expect(received).toBe(expected) // Ob…'
+   × does not treat HTTP 403 as a transient available reply 26ms
+     → expected [Function] to throw error including '403' but got 'expect(received).toBe(expected) // Ob…'
+   × does not treat HTTP 500 as a transient available reply 51ms
+     → expected [Function] to throw error including '500' but got 'expect(received).toBe(expected) // Ob…'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e-stored-reply-poll.test.ts > waits through a transient 503 for the same persisted reply
+AssertionError: promise rejected "Error: expect(received).toBe(expected) //…" instead of resolving
+ ❯ tests/e2e-stored-reply-poll.test.ts:17:94
+     15| it('waits through a transient 503 for the same persisted reply',async(…
+     16|  const {page,get}=fixture([503,200]);
+     17|  await expect(awaitStoredAgentReply(page,'thread',['this-turn.pptx','c…
+       |                                                                                              ^
+     18|  expect(get).toHaveBeenCalledTimes(2);
+     19| });
+
+Caused by: Error: expect(received).toBe(expected) // Object.is equality
+
+Expected: true
+Received: false
+
+【诊断】期待同一条回复里同时含「this-turn.pptx」「content-sentinel」，线程 thread 实际落库的 agent 回复：
+· this-turn.pptx content-sentinel
+ ❯ Module.awaitStoredAgentReply e2e/support/chat-path-coverage.ts:310:11
+ ❯ tests/e2e-stored-reply-poll.test.ts:17:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/e2e-stored-reply-poll.test.ts > keeps a permanently unavailable read red and reports HTTP 503
+AssertionError: expected [Function] to throw error including '503' but got 'expect(received).toBe(expected) // Ob…'
+
+- Expected
++ Received
+
+- 503
++ expect(received).toBe(expected) // Object.is equality
++
++ Expected: true
++ Received: false
+
+ ❯ tests/e2e-stored-reply-poll.test.ts:22:2
+     20| it('keeps a permanently unavailable read red and reports HTTP 503',asy…
+     21|  const {page}=fixture([503]);
+     22|  await expect(awaitStoredAgentReply(page,'thread',['this-turn.pptx'],1…
+       |  ^
+     23| });
+     24| it.each([401,403,500])('does not treat HTTP %s as a transient availabl…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/e2e-stored-reply-poll.test.ts > does not treat HTTP 401 as a transient available reply
+AssertionError: expected [Function] to throw error including '401' but got 'expect(received).toBe(expected) // Ob…'
+
+- Expected
++ Received
+
+- 401
++ expect(received).toBe(expected) // Object.is equality
++
++ Expected: true
++ Received: false
++
++ 【诊断】期待同一条回复里同时含「this-turn.pptx」，线程 thread 实际落库的 agent 回复：
++ · this-turn.pptx content-sentinel
+
+ ❯ tests/e2e-stored-reply-poll.test.ts:26:2
+     24| it.each([401,403,500])('does not treat HTTP %s as a transient availabl…
+     25|  const {page,get}=fixture([status,200]);
+     26|  await expect(awaitStoredAgentReply(page,'thread',['this-turn.pptx'],1…
+       |  ^
+     27|  expect(get).toHaveBeenCalledTimes(2);
+     28| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/e2e-stored-reply-poll.test.ts > does not treat HTTP 403 as a transient available reply
+AssertionError: expected [Function] to throw error including '403' but got 'expect(received).toBe(expected) // Ob…'
+
+- Expected
++ Received
+
+- 403
++ expect(received).toBe(expected) // Object.is equality
++
++ Expected: true
++ Received: false
++
++ 【诊断】期待同一条回复里同时含「this-turn.pptx」，线程 thread 实际落库的 agent 回复：
++ · this-turn.pptx content-sentinel
+
+ ❯ tests/e2e-stored-reply-poll.test.ts:26:2
+     24| it.each([401,403,500])('does not treat HTTP %s as a transient availabl…
+     25|  const {page,get}=fixture([status,200]);
+     26|  await expect(awaitStoredAgentReply(page,'thread',['this-turn.pptx'],1…
+       |  ^
+     27|  expect(get).toHaveBeenCalledTimes(2);
+     28| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/e2e-stored-reply-poll.test.ts > does not treat HTTP 500 as a transient available reply
+AssertionError: expected [Function] to throw error including '500' but got 'expect(received).toBe(expected) // Ob…'
+
+- Expected
++ Received
+
+- 500
++ expect(received).toBe(expected) // Object.is equality
++
++ Expected: true
++ Received: false
++
++ 【诊断】期待同一条回复里同时含「this-turn.pptx」，线程 thread 实际落库的 agent 回复：
++ · this-turn.pptx content-sentinel
+
+ ❯ tests/e2e-stored-reply-poll.test.ts:26:2
+     24| it.each([401,403,500])('does not treat HTTP %s as a transient availabl…
+     25|  const {page,get}=fixture([status,200]);
+     26|  await expect(awaitStoredAgentReply(page,'thread',['this-turn.pptx'],1…
+       |  ^
+     27|  expect(get).toHaveBeenCalledTimes(2);
+     28| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+   Start at  14:41:26
+   Duration  3.62s (transform 941ms, setup 207ms, collect 2.34s, tests 740ms, environment 0ms, prepare 39ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/e2e-stored-reply-poll.test.ts --maxWorkers=1 --minWorkers=1

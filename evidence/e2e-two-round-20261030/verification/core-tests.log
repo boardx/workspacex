@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/packages/whiteboard-core
+
+ ✓ tests/spatial-relationships.test.ts (21 tests) 182ms
+ ✓ tests/selection-layout.test.ts (30 tests) 17205ms
+   ✓ operation, event, CAS and undo boundary > arranges 500 objects in one transaction and one undo unit 17029ms
+ ✓ tests/content-objects.test.ts (19 tests) 67ms
+ ✓ tests/connector-canonical-fields.test.ts (18 tests) 175ms
+ ✓ tests/connector-matrix-independent.test.ts (48 tests) 1121ms
+ ✓ tests/connector-path.test.ts (21 tests) 221ms
+ ✓ tests/operation-ai-handoff.test.ts (11 tests) 61ms
+ ✓ tests/undo-conflict.test.ts (13 tests) 662ms
+   ✓ round-trips a 100-object create batch as one history item 530ms
+ ✓ tests/document.test.ts (12 tests) 83ms
+ ✓ tests/duplicate.test.ts (14 tests) 109ms
+ ✓ tests/thinking-input.test.ts (10 tests) 27ms
+ ✓ tests/update.test.ts (11 tests) 2536ms
+   ✓ validates and reloads the configured maximum-object board within the document budget 2450ms
+ ✓ tests/collaboration.test.ts (7 tests) 24ms
+ ✓ tests/connector-matrix-authority-independent.test.ts (9 tests) 69ms
+ ✓ tests/connector-endpoint-concurrency.test.ts (6 tests) 58ms
+ ✓ tests/import-mapping.test.ts (8 tests) 13ms
+ ✓ tests/connector-round03-reconnect.test.ts (4 tests) 80ms
+ ✓ tests/connector-authority-guard.test.ts (8 tests) 76ms
+ ✓ tests/mindmap-authority.test.ts (6 tests) 73ms
+ ✓ tests/connector-lifecycle-independent.test.ts (3 tests) 75ms
+ ✓ tests/command-port.test.ts (2 tests) 26ms
+ ✓ tests/connector-local-offset.test.ts (2 tests) 44ms
+ ✓ tests/connector-direct-geometry-offset.test.ts (3 tests) 51ms
+ ✓ tests/duplicate-thinking-metadata.test.ts (10 tests) 73ms
+ ✓ tests/connector-snap.test.ts (2 tests) 16ms
+
+ Test Files  25 passed (25)
+      Tests  298 passed (298)
+   Start at  15:47:23
+   Duration  32.11s (transform 683ms, setup 0ms, collect 3.31s, tests 23.13s, environment 4ms, prepare 1.54s)

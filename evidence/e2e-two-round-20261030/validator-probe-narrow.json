@@ -1,0 +1,110 @@
+[
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 141.743709,
+      "snapshot-applied": 142.769125,
+      "validated": 142.924542
+    },
+    "elapsedMs": 143.084709
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 129.14433300000002,
+      "snapshot-applied": 130.37495800000005,
+      "validated": 130.59587500000004
+    },
+    "elapsedMs": 130.70462500000002
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 182.61624999999998,
+      "snapshot-applied": 185.354584,
+      "validated": 185.53175000000005
+    },
+    "elapsedMs": 185.77137499999998
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 205.883875,
+      "snapshot-applied": 208.38075000000003,
+      "validated": 208.54312500000003
+    },
+    "elapsedMs": 209.0579170000001
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 163.10920799999997,
+      "snapshot-applied": 164.284583,
+      "validated": 164.45337499999994
+    },
+    "elapsedMs": 164.619458
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 143.09012500000006,
+      "snapshot-applied": 144.26758400000006,
+      "validated": 144.42679199999986
+    },
+    "elapsedMs": 144.59283399999993
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 134.4709580000001,
+      "snapshot-applied": 135.52429200000006,
+      "validated": 135.6875
+    },
+    "elapsedMs": 135.84379200000012
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 142.12458300000003,
+      "snapshot-applied": 143.19399999999996,
+      "validated": 143.3588749999999
+    },
+    "elapsedMs": 143.52933299999995
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 131.174041,
+      "snapshot-applied": 132.331958,
+      "validated": 132.49350000000004
+    },
+    "elapsedMs": 132.70249999999987
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 132.6205,
+      "snapshot-applied": 133.7616250000001,
+      "validated": 133.99904100000003
+    },
+    "elapsedMs": 134.1887079999999
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 136.1645420000002,
+      "snapshot-applied": 137.27983400000016,
+      "validated": 137.44616700000006
+    },
+    "elapsedMs": 137.6004170000001
+  },
+  {
+    "status": "ok",
+    "phases": {
+      "ready": 132.57041700000013,
+      "snapshot-applied": 133.6606250000002,
+      "validated": 133.8235830000001
+    },
+    "elapsedMs": 133.98441700000012
+  }
+]

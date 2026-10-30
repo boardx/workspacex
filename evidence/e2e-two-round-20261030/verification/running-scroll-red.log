@@ -1,0 +1,44 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web
+
+ ❯ tests/ui/workbench-running-reply.test.tsx (12 tests | 2 failed) 142ms
+   × notifies explicit input acceptance only after the current interjection ACK 3ms
+     → expected "spy" to be called 1 times, but got 0 times
+   × notifies once when an explicit input is accepted into the running queue 2ms
+     → expected "spy" to be called 1 times, but got 0 times
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/workbench-running-reply.test.tsx > notifies explicit input acceptance only after the current interjection ACK
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+ ❯ tests/ui/workbench-running-reply.test.tsx:120:22
+    118|   expect(onAccepted).not.toHaveBeenCalled();
+    119|   await act(async()=>{finish({interjectionId:"ack"});await pending;});
+    120|   expect(onAccepted).toHaveBeenCalledTimes(1);
+       |                      ^
+    121| });
+    122| it("notifies once when an explicit input is accepted into the running …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/workbench-running-reply.test.tsx > notifies once when an explicit input is accepted into the running queue
+AssertionError: expected "spy" to be called 1 times, but got 0 times
+ ❯ tests/ui/workbench-running-reply.test.tsx:128:22
+    126|   await act(()=>result.current.sendWhileRunning({forceQueue:true}));
+    127|   await waitFor(()=>expect(enqueue).toHaveBeenCalledTimes(1));
+    128|   expect(onAccepted).toHaveBeenCalledTimes(1);
+       |                      ^
+    129| });
+    130| it("does not notify scrolling for a rejected interjection", async () =…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 10 passed (12)
+   Start at  15:28:58
+   Duration  1.94s (transform 560ms, setup 163ms, collect 855ms, tests 142ms, environment 608ms, prepare 44ms)
+
+undefined
+/Users/shenyangjun/.codex/worktrees/548a/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/workbench-running-reply.test.tsx --maxWorkers=1 --minWorkers=1
