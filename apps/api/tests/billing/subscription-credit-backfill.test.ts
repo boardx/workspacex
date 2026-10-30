@@ -43,3 +43,11 @@ it("never fills an unpaid or historic invoice as the current entitlement",async(
  expect(await run(true)).toMatchObject({blocked:1});period.start+=30*86400;period.end+=30*86400;
  expect(await balance()).toBe("20007.00");
 });
+it.each([false,true])("blocks unresolved bindings even with an absent/terminal subscription snapshot (%s)",async terminal=>{
+ await asOwner(async c=>{
+  if(terminal)await c.query("UPDATE billing_subscriptions SET status='canceled' WHERE user_id=$1",[user]);else await c.query("DELETE FROM billing_subscriptions WHERE user_id=$1",[user]);
+  await c.query("INSERT INTO billing_stripe_bindings(user_id,customer_ref,subscription_ref,binding_generation,synchronization_uncertain) VALUES($1,$2,'sub_cbfUnresolved',2,true)",[user,customer]);
+ });
+ try{expect(await run()).toMatchObject({scanned:1,blocked:1,items:[{reason:"unresolved_binding"}]});}
+ finally{await asOwner(async c=>{await c.query("DELETE FROM billing_stripe_bindings WHERE subscription_ref='sub_cbfUnresolved'");await c.query("INSERT INTO billing_subscriptions(user_id,customer_ref,subscription_ref,status,plan_ref,current_period_start,current_period_end,cancel_at_period_end,binding_generation) VALUES($1,$2,$3,'active',$4,$5,$6,false,1) ON CONFLICT(user_id) DO UPDATE SET status='active'",[user,customer,sub,price,new Date(start*1000),new Date(end*1000)]);});}
+});

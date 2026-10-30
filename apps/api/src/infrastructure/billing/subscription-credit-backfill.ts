@@ -5,19 +5,25 @@ import type {StripeSnapshotProvider} from "../../application/billing/billing-str
 import {PgBillingStripeWebhookStore} from "./pg-billing-stripe-webhook-store";
 import {paidMonthlyCreditPeriod} from "./stripe-paid-credit-period";
 
-type Candidate={user_id:string;subscription_ref:string;customer_ref:string;plan_ref:string|null;status:string};
+type Candidate={user_id:string;subscription_ref:string;customer_ref:string;plan_ref:string|null;status:string;unresolved:boolean};
 export type BackfillOptions={apply:boolean;plans:readonly string[];after?:string;until?:string;limit:number};
 /** Operator-only page. Uses app credentials and owner-global billing metadata, never tenant content.
  * Apply re-enters the very same authoritative invoice/period transaction as signed webhooks.
  */
 export async function backfillSubscriptionCredits(db:DatabasePort,provider:StripeSnapshotProvider,options:BackfillOptions){
  if(!Number.isSafeInteger(options.limit)||options.limit<1||options.limit>100)throw Error("invalid_page_size");
- const until=options.until??await db.withoutTenant(async s=>(await s.query<{last:string|null}>("SELECT max(user_id) AS last FROM billing_subscriptions")).rows[0]?.last??"");
- const rows=await db.withoutTenant(async s=>(await s.query<Candidate>("SELECT user_id,subscription_ref,customer_ref,plan_ref,status FROM billing_subscriptions WHERE user_id>$1 AND user_id<=$2 ORDER BY user_id LIMIT $3",[options.after??"",until,options.limit])).rows);
+ const until=options.until??await db.withoutTenant(async s=>(await s.query<{last:string|null}>("SELECT max(user_id) AS last FROM (SELECT user_id FROM billing_subscriptions UNION SELECT user_id FROM billing_stripe_bindings) inventory")).rows[0]?.last??"");
+ const rows=await db.withoutTenant(async s=>(await s.query<Candidate>(`WITH inventory AS (SELECT user_id FROM billing_subscriptions UNION SELECT user_id FROM billing_stripe_bindings)
+ SELECT i.user_id,COALESCE(b.subscription_ref,s.subscription_ref) AS subscription_ref,COALESCE(b.customer_ref,s.customer_ref) AS customer_ref,s.plan_ref,s.status,
+  (b.subscription_ref IS NOT NULL AND (s.user_id IS NULL OR b.binding_generation>s.binding_generation OR (b.synchronization_uncertain AND b.binding_generation>=s.binding_generation))) AS unresolved
+ FROM inventory i LEFT JOIN billing_subscriptions s ON s.user_id=i.user_id LEFT JOIN LATERAL
+  (SELECT subscription_ref,customer_ref,binding_generation,synchronization_uncertain FROM billing_stripe_bindings WHERE user_id=i.user_id ORDER BY binding_generation DESC LIMIT 1) b ON true
+ WHERE i.user_id>$1 AND i.user_id<=$2 ORDER BY i.user_id LIMIT $3`,[options.after??"",until,options.limit])).rows);
  const report={scanned:rows.length,eligible:0,applied:0,blocked:0,skipped:0,until,nextAfter:rows.length===options.limit?rows.at(-1)!.user_id:null,items:[] as {userId:string;subscriptionRef:string;planRef:string|null;reason:string}[]};
  for(const row of rows){
   let reason="verification_failed";
   try{
+   if(row.unresolved){reason="unresolved_binding";throw Error(reason);}
    if(!["active","trialing","past_due"].includes(row.status)){report.skipped++;continue;}
    if(!row.plan_ref||!options.plans.includes(row.plan_ref)){reason="unmapped_plan";throw Error(reason);}
    if(!provider.invoice||!provider.price)throw Error("paid_reads_required");
