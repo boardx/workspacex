@@ -20,6 +20,15 @@ function parse(value:string):Receipt {
  if(u.billingReceipt&&(typeof u.billingReceipt.id!=="string"||u.billingReceipt.id.length<1||u.billingReceipt.id.length>200||typeof u.billingReceipt.final!=="boolean"))throw new Error("invalid_credit_spool_receipt_identity");
  return r;
 }
+/** Diagnostics may fill unknown fields; known quantities and pricing never change. */
+function enrichDiagnostics(prior:Receipt,incoming:Receipt):Receipt{
+ const merged={...prior.usage} as Record<string,unknown>;
+ for(const key of ["promptTokens","completionTokens","cacheInputTokens","reasoningOutputTokens","costMicros","currency","priceVersion"] as const){
+  const old=prior.usage[key],next=incoming.usage[key];if(next===undefined||next===null)continue;
+  if(old!==undefined&&old!==null&&old!==next)throw new Error("credit_spool_replay_mismatch");merged[key]=next;
+ }
+ return {...prior,usage:merged as unknown as TokenUsageRecord};
+}
 /** Immutable versions avoid an ACK deleting facts enriched during a concurrent replay. */
 function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
  const a=prior.usage,b=incoming.usage;
@@ -30,17 +39,13 @@ function mergeReceipt(prior:Receipt,incoming:Receipt):Receipt {
   const old=measure(a),next=measure(b),oldFinal=a.billingReceipt?.final??true,nextFinal=b.billingReceipt?.final??true;
   if(a.billingReceipt?.id===b.billingReceipt?.id&&(a.totalSource!==b.totalSource||old!==next||oldFinal!==nextFinal||a.outcome!==b.outcome))throw new Error("credit_spool_replay_mismatch");
   if(old!==null&&next!==null&&(a.totalSource!==b.totalSource||a.nativeUsage?.unit!==b.nativeUsage?.unit))throw new Error("credit_spool_replay_mismatch");
-  if(oldFinal&&old!==null){if(next!==null&&(next>old||nextFinal&&(next!==old||a.outcome!==b.outcome)))throw new Error("credit_spool_replay_mismatch");return prior;}
+  if(oldFinal&&old!==null){if(next!==null&&(next>old||nextFinal&&(next!==old||a.outcome!==b.outcome)))throw new Error("credit_spool_replay_mismatch");return nextFinal&&next!==null?enrichDiagnostics(prior,incoming):prior;}
   if(next===null&&old!==null)return prior;
   if(nextFinal&&old!==null&&next!==null&&next<old)throw new Error("credit_spool_replay_mismatch");
   return old!==null&&next!==null&&old>next?prior:incoming;
  }
  if(prior.orgId!==incoming.orgId||a.outcome!==b.outcome||identity.some(key=>canonical(a[key]??null)!==canonical(b[key]??null)))throw new Error("credit_spool_replay_mismatch");
- const merged={...a} as Record<string,unknown>;
- for(const key of ["promptTokens","completionTokens","cacheInputTokens","reasoningOutputTokens","costMicros","currency","priceVersion"] as const){
-  const old=a[key],next=b[key];if(next===undefined||next===null)continue;
-  if(old!==undefined&&old!==null&&old!==next)throw new Error("credit_spool_replay_mismatch");merged[key]=next;
- }
+ const merged={...enrichDiagnostics(prior,incoming).usage} as Record<string,unknown>;
  if(b.totalSource!=="unknown"){
   if(a.totalSource!=="unknown"&&(a.totalSource!==b.totalSource||a.tokensTotal!==b.tokensTotal))throw new Error("credit_spool_replay_mismatch");
   merged.totalSource=b.totalSource;merged.tokensTotal=b.tokensTotal;
