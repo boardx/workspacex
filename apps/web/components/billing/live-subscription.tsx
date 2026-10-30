@@ -34,11 +34,14 @@ function readPending(userId: string): PendingCheckout | null {
     return { url: trustedStripeUrl({ url: raw.url }, false), createdAt: raw.createdAt, lastObservedStatus: billingSubscription.SubscriptionStatus.parse(raw.lastObservedStatus ?? "none") };
   } catch { return null; }
 }
+function isManagementReturn(): boolean {
+  return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("subscription_management_return") === "1";
+}
 function isReturnHint(): boolean {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search);
   // These are only read-refresh hints. No query parameter can grant an entitlement.
-  return ["subscription_return", "stripe", "subscription", "checkout", "session_id"].some((key) => params.has(key));
+  return ["subscription_return", "subscription_management_return", "stripe", "subscription", "checkout", "session_id"].some((key) => params.has(key));
 }
 
 export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionToken }: {
@@ -46,6 +49,7 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
 }) {
   const [pending, setPending] = React.useState<PendingCheckout | null>(() => readPending(userId));
   const [returning, setReturning] = React.useState(() => !!readPending(userId) || isReturnHint());
+  const [managementReturning] = React.useState(isManagementReturn);
   const [polls, setPolls] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -73,10 +77,12 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
   }, [state, eligibility?.hasEffectivePro, eligibility?.canCreateSubscription, pending, userId, returning, waiting]);
 
   React.useEffect(() => {
-    if (!waiting || state.status !== "ready" || polls >= POLL_LIMIT) return;
+    // Portal changes arrive through asynchronous webhooks. An existing active
+    // snapshot does not confirm that a cancellation or resumption has arrived.
+    if ((!waiting && !managementReturning) || state.status !== "ready" || polls >= POLL_LIMIT) return;
     const timer = window.setTimeout(() => { setPolls((count) => count + 1); retry(); }, POLL_DELAY);
     return () => window.clearTimeout(timer);
-  }, [waiting, state, polls, retry]);
+  }, [waiting, managementReturning, state, polls, retry]);
 
   async function openHostedPage() {
     if (request.current || !stripeEnabled || !eligibility || state.status !== "ready") return;
@@ -114,13 +120,15 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
   return <>
     {state.status === "loading" && <div data-testid="billing-subscription-loading" role="status" aria-label="正在查询订阅查询" className="h-16 animate-pulse rounded-control bg-muted" />}
     {state.status === "error" && <div data-testid="err-billing-subscription" className="space-y-3"><p role="status" className="text-13 text-muted-foreground">暂时无法确认订阅状态。{state.message}</p><Button variant="outline" size="sm" onClick={refresh} aria-label="重试订阅查询">重试</Button></div>}
+    {managementReturning && state.status !== "error" && polls < POLL_LIMIT && <p role="status" className="text-13 text-muted-foreground">正在同步订阅变更，请稍候。权益和取消结果以账户同步结果为准。</p>}
     {state.status === "ready" && <div className="space-y-3">
       {waiting && eligibility?.canCreateSubscription ? <Badge data-testid="billing-subscription-status" tone="neutral">付款结果确认中</Badge>
         : <Badge data-testid="billing-subscription-status" tone={eligibility?.hasEffectivePro ? "success" : "neutral"}>{labels[state.data.status]}</Badge>}
       {eligibility?.hasEffectivePro && <p className="text-13">Pro 权益已生效</p>}
       {end && !Number.isNaN(end.valueOf()) && <p className="text-13">本期结束：{end.toLocaleDateString("zh-CN")}</p>}
-      {state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">将在本期结束后取消</p>}
+      {state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">{eligibility?.hasEffectivePro ? "已取消续费，本期结束前仍可使用 Pro，到期后不再自动续费。" : "已取消续费，将在本期结束时生效。"}</p>}
       {eligibility?.canManageSubscription && !eligibility.hasEffectivePro && <p className="text-13 text-muted-foreground">当前 Pro 权益未生效，可前往账单页面处理付款或恢复订阅。</p>}
+      {stripeEnabled && eligibility?.canManageSubscription && <p className="text-13 text-muted-foreground">可在“管理订阅”中取消续费，取消时的生效日期以 Stripe 确认页面为准。</p>}
       {stripeEnabled && <Button disabled={busy || (!!error && !checkoutUnconfirmed) || (waiting && !!eligibility?.canCreateSubscription && !pending && !canRestart)} onClick={() => void openHostedPage()}>
         {busy ? "正在打开…" : eligibility?.canManageSubscription ? (eligibility.hasEffectivePro ? "管理订阅" : "处理订阅付款") : pending ? "继续订阅付款" : canRestart ? "重新开始订阅" : "订阅 Pro"}
       </Button>}

@@ -11,3 +11,8 @@
 后续F09/订阅UI/token均还未做。安全配置探针草案在/tmp/wsx-billing-runtime-probe，无repo变更、无dispatch。心跳tick缺COORD_GATEWAY_URL已记录，不冒充租约。
 
 升级链接现有20个有效未消费意图限额，超限通用429。不要删除过期hash→user/generation：这仍是迟到付款人工核对线索。F09自动绑定必须检查expiry/用户锁/当前代次；未知或过期来源不能擅自授予权益；人工核对流程未实现。最新专项33项，不把原29项数当最终覆盖数。
+
+
+### 2026-10-29 — Stripe cancellation follow-up (#5988)
+
+User-directed ad-hoc fix: authenticated Portal return now keeps bounded refreshes for delayed cancellation callbacks, with explicit renewal cancellation and remaining-entitlement text. Evidence: `evidence/stripe-cancellation-5988.md`. CN historical test binding is intentionally retained by user decision; it cannot be managed with live credentials. No production deployment or real subscription cancellation. No feature status changed.
