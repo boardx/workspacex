@@ -1,3 +1,7 @@
+import {AiUsageController} from "../../src/interface/controllers/ai-usage.controller";
+import {AI_USAGE_REPOSITORY} from "../../src/application/auth/ai-usage-ports";
+import {PgAiUsageRepository} from "../../src/infrastructure/auth/pg-ai-usage-repository";
+import {IdentityPersistenceModule} from "../../src/infrastructure/identity/identity-persistence.module";
 import { LOGGER_PORT } from "../../src/application/ports/logger.port";
 // @global-scope-fixture table:credit_packages: f04-order- package fixtures only.
 import "reflect-metadata";
@@ -98,7 +102,8 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     const saved = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
     Object.assign(process.env, env);
     try {
-      app = await NestFactory.create<NestExpressApplication>({ module: class OrderHttpFixture {}, imports: [BillingModule], providers: [
+      app = await NestFactory.create<NestExpressApplication>({ module: class OrderHttpFixture {}, imports: [BillingModule,IdentityPersistenceModule], controllers:[AiUsageController], providers: [
+ {provide:AI_USAGE_REPOSITORY,useFactory:(db:DatabasePort)=>new PgAiUsageRepository(db),inject:[DATABASE_PORT]},
         { provide: PRINCIPAL_RESOLVER_PORT, useValue: { resolve: async (headers: Readonly<Record<string, string | string[] | undefined>>) => {
           const id = headers.authorization === "Bearer f04-user" ? user : headers.authorization === "Bearer f04-other" ? other : null;
           return id ? { userId: id, orgId: org } : null;

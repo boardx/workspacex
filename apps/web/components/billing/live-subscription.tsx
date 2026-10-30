@@ -41,8 +41,8 @@ function isReturnHint(): boolean {
   return ["subscription_return", "stripe", "subscription", "checkout", "session_id"].some((key) => params.has(key));
 }
 
-export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionToken }: {
-  state: SubscriptionRead; retry: () => void; stripeEnabled: boolean; userId: string; sessionToken: string;
+export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionToken, onCreditGranted }: {
+  state: SubscriptionRead; retry: () => void; stripeEnabled: boolean; userId: string; sessionToken: string; onCreditGranted?: () => void;
 }) {
   const [pending, setPending] = React.useState<PendingCheckout | null>(() => readPending(userId));
   const [returning, setReturning] = React.useState(() => !!readPending(userId) || isReturnHint());
@@ -53,7 +53,14 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
   React.useEffect(() => () => request.current?.abort(), []);
   const eligibility = state.status === "ready" ? billingSubscription.subscriptionEligibility(state.data.status) : null;
   const checkoutUnconfirmed = !!pending && eligibility?.canCreateSubscription;
-  const waiting = returning && (state.status !== "ready" || state.data.status === "none" || state.data.status === "incomplete" || !!checkoutUnconfirmed);
+  const creditsPending = state.status === "ready" && state.data.status === "active" && state.data.creditGrant?.status === "pending";
+  const grantObserved = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (state.status !== "ready" || state.data.creditGrant?.status !== "granted") return;
+    const key = state.data.creditGrant.grant!.periodEnd;
+    if (grantObserved.current !== key) { grantObserved.current = key; onCreditGranted?.(); }
+  }, [state, onCreditGranted]);
+  const waiting = creditsPending || returning && (state.status !== "ready" || state.data.status === "none" || state.data.status === "incomplete" || !!checkoutUnconfirmed);
 
   const canRestart = waiting && !pending && polls >= POLL_LIMIT && state.status === "ready" && state.data.status === "none";
 
@@ -61,7 +68,7 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
     if (state.status !== "ready") return;
     const newlyTerminal = pending && ["canceled", "incomplete_expired"].includes(state.data.status)
       && state.data.status !== pending.lastObservedStatus;
-    if (newlyTerminal || eligibility?.hasEffectivePro || (pending && !eligibility?.canCreateSubscription && state.data.status !== "incomplete")) {
+    if (newlyTerminal || (eligibility?.hasEffectivePro && !creditsPending) || (pending && !creditsPending && !eligibility?.canCreateSubscription && state.data.status !== "incomplete")) {
       setPending(null);
       try { sessionStorage.removeItem(pendingKey(userId)); } catch { /* Storage may be unavailable. */ }
     } else if (pending && pending.lastObservedStatus !== state.data.status) {
@@ -70,7 +77,7 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
       try { sessionStorage.setItem(pendingKey(userId), JSON.stringify(next)); } catch { /* In-memory reuse still works. */ }
     }
     if (returning && !waiting) setReturning(false);
-  }, [state, eligibility?.hasEffectivePro, eligibility?.canCreateSubscription, pending, userId, returning, waiting]);
+  }, [state, eligibility?.hasEffectivePro, eligibility?.canCreateSubscription, pending, userId, returning, waiting, creditsPending]);
 
   React.useEffect(() => {
     if (!waiting || state.status !== "ready" || polls >= POLL_LIMIT) return;
@@ -118,6 +125,8 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
       {waiting && eligibility?.canCreateSubscription ? <Badge data-testid="billing-subscription-status" tone="neutral">付款结果确认中</Badge>
         : <Badge data-testid="billing-subscription-status" tone={eligibility?.hasEffectivePro ? "success" : "neutral"}>{labels[state.data.status]}</Badge>}
       {eligibility?.hasEffectivePro && <p className="text-13">Pro 权益已生效</p>}
+      {creditsPending && <p role="status" className="text-13">月度额度到账确认中，请稍后刷新。</p>}
+      {state.data.creditGrant?.status === "granted" && <p className="text-13">本期已发放 {state.data.creditGrant.grant!.credits.toLocaleString("zh-CN")} credit，未用完部分到期清零。</p>}
       {end && !Number.isNaN(end.valueOf()) && <p className="text-13">本期结束：{end.toLocaleDateString("zh-CN")}</p>}
       {state.data.cancelAtPeriodEnd && <p className="text-13 text-muted-foreground">将在本期结束后取消</p>}
       {eligibility?.canManageSubscription && !eligibility.hasEffectivePro && <p className="text-13 text-muted-foreground">当前 Pro 权益未生效，可前往账单页面处理付款或恢复订阅。</p>}
@@ -129,6 +138,6 @@ export function LiveSubscription({ state, retry, stripeEnabled, userId, sessionT
     {error && <p role="alert" className="text-13 text-muted-foreground">{error}</p>}
     {state.status === "ready" && <Button variant="outline" size="sm" onClick={refresh} disabled={busy}>刷新订阅状态</Button>}
     {!stripeEnabled && <p className="text-12 text-muted-foreground">订阅购买与账单管理暂不可用，请稍后再试。</p>}
-    {stripeEnabled && <p className="text-12 text-muted-foreground">价格与订阅条款以 Stripe 支付页面为准。订阅不会增加充值额度。</p>}
+    {stripeEnabled && <p className="text-12 text-muted-foreground">价格与订阅条款以 Stripe 支付页面为准。月付每期发放 20,000 credit，充值额度另行保留。</p>}
   </>;
 }
