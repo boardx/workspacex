@@ -53,3 +53,17 @@ it("a failed refresh preserves the last snapshot but hides financial actions unt
 it("shows a single error when the subscription cannot be read",async()=>{
  const f=setup(),original=f.getMockImplementation()!;f.mockImplementation((url,opts)=>new URL(url).pathname==="/billing/subscription"?Promise.resolve(new Response("{}",{status:503})):original(url,opts));mount();await screen.findByTestId("err-billing-subscription");expect(screen.queryByRole("button",{name:"购买月度套餐"})).toBeNull();
 });
+it("posts WeChat monthly provider and renders server QR without navigation",async()=>{
+ const f=setup("none",true,"weixin://wxpay/bizpayurl?pr=monthly-real");const original=f.getMockImplementation()!;
+ f.mockImplementation((url,opts)=>new URL(url).pathname.endsWith("/config")?Promise.resolve(new Response(JSON.stringify({enabledProviders:["wechat","stripe"]}))):original(url,opts));
+ mount();await screen.findByRole("button",{name:"购买月度套餐"});fireEvent.click(screen.getByLabelText("微信支付"));fireEvent.click(screen.getByRole("button",{name:"购买月度套餐"}));
+ expect(await screen.findByRole("img",{name:"月度套餐微信支付二维码"})).toBeTruthy();
+ const call=f.mock.calls.find(([url])=>url.includes("upgrade-link"))!;expect(JSON.parse(String(call[1]?.body))).toEqual({provider:"wechat"});expect(navigateToStripe).not.toHaveBeenCalled();
+});
+it("locks monthly pending continuation to original provider",async()=>{
+ const f=setup();const original=f.getMockImplementation()!;
+ f.mockImplementation((url,opts)=>new URL(url).pathname.endsWith("/config")?Promise.resolve(new Response(JSON.stringify({enabledProviders:["wechat","stripe"]}))):new URL(url).pathname==="/billing/subscription"?Promise.resolve(new Response(JSON.stringify({...info("none"),checkoutPending:true,paymentProvider:"stripe"}))):original(url,opts));
+ mount();await screen.findByRole("button",{name:"继续付款"});expect((screen.getByLabelText("Stripe") as HTMLInputElement).checked).toBe(true);expect((screen.getByLabelText("微信支付") as HTMLInputElement).disabled).toBe(true);
+ fireEvent.click(screen.getByRole("button",{name:"继续付款"}));await waitFor(()=>expect(navigateToStripe).toHaveBeenCalled());
+ expect(JSON.parse(String(f.mock.calls.find(([url])=>url.includes("upgrade-link"))![1]?.body))).toEqual({provider:"stripe"});
+});

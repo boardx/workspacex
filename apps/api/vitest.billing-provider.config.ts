@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({ test: {
-  include: ["tests/billing/provider-switches.test.ts"], maxWorkers: 1, minWorkers: 1,
+  include: ["tests/billing/provider-switches.test.ts","tests/billing/monthly-checkout-client.test.ts","tests/billing/stripe-credit-client.test.ts","tests/billing/wechat-monthly-client.test.ts"], maxWorkers: 1, minWorkers: 1,
 } });

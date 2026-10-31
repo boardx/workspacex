@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { ArrowRight, QrCode, Smartphone } from "lucide-react";
+import { ArrowRight, QrCode } from "lucide-react";
 import { billingCredits as billing } from "@repo/contracts";
 import { apiRequest, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -56,7 +56,10 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
   const packages = catalog.result.state === "ready" ? catalog.result.data : [];
   const selected = selection?.scope === scope && packages.some(p => p.packageId === selection.id) ? selection.id : packages[0]?.packageId ?? null;
   const locked = !!payment.order || payment.creating || payment.uncertain;
-  const configured = config.result.state === "ready" && config.result.data.enabledProviders.includes("wechat");
+  const [chosenProvider, chooseProvider] = React.useState<"wechat" | "stripe">("wechat");
+  const providers = config.result.state === "ready" ? config.result.data.enabledProviders : [];
+  const provider = payment.order?.provider ?? (providers.includes(chosenProvider) ? chosenProvider : providers[0] ?? "wechat");
+  const configured = config.result.state === "ready" && config.result.data.enabledProviders.length > 0;
   const retryAll = () => { config.retry(); catalog.retry(); wallet.retry(); ledger.retry(); void payment.refresh(); };
   return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent data-testid="billing-cashier-dialog" onOpenAutoFocus={() => { returnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }} onCloseAutoFocus={event => { event.preventDefault(); if (returnFocus.current?.isConnected && returnFocus.current !== document.body) returnFocus.current.focus(); else focusFallback?.(); }} className="max-h-[90dvh] max-w-6xl gap-6 overflow-y-auto p-5 sm:p-8">
     <div className="space-y-2 pr-6"><DialogTitle className="text-24">购买额度</DialogTitle><DialogDescription className="text-14">{owner.ownerType === "team" ? "为当前组织充值，用于团队的 AI 使用。" : "为个人账户充值，用于个人工作区的 AI 使用。"}关闭窗口会保留当前订单。</DialogDescription></div>
@@ -65,7 +68,7 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
       <div className="min-w-0 space-y-5">
         {config.result.state === "loading" && <p role="status">正在查询支付渠道…</p>}
         {config.result.state === "error" && <p role="status">支付渠道暂时无法查询。<Button variant="outline" onClick={config.retry}>重试渠道</Button></p>}
-        {config.result.state === "ready" && !configured && <p data-testid="billing-cashier-unavailable" role="status">微信支付暂未开通。</p>}
+        {config.result.state === "ready" && !configured && <p data-testid="billing-cashier-unavailable" role="status">支付暂未开通。</p>}
         {configured && <>
           {catalog.result.state === "loading" && <p role="status">正在查询套餐…</p>}
           {catalog.result.state === "error" && <p role="status">套餐暂时无法查询。<Button variant="outline" onClick={catalog.retry}>重试套餐</Button></p>}
@@ -75,18 +78,15 @@ export function LiveCashierDialog({ owner, sessionToken, open, onOpenChange, onC
               <span className="text-24 font-semibold tabular-nums sm:text-30">{pack.totalCredits.toLocaleString("zh-CN")}</span><span className="mt-1 text-13 text-muted-foreground">额度{pack.bonusCredits > 0 ? `（含赠送 ${pack.bonusCredits}）` : ""}</span>
               <span className="mt-5 text-16 font-semibold tabular-nums">{pack.displayAmount}</span>
             </label>)}</div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div data-testid="billing-provider-wechat" className="flex min-h-16 items-center justify-center gap-3 rounded-card border border-background-foreground bg-muted px-4 py-3 text-14 font-medium"><Smartphone aria-hidden className="h-5 w-5 shrink-0"/>微信支付</div>
-              <button type="button" data-testid="billing-provider-alipay" disabled className="flex min-h-16 items-center justify-center gap-3 rounded-card border border-border bg-card px-4 py-3 text-14 text-muted-foreground"><Smartphone aria-hidden className="h-5 w-5 shrink-0"/>支付宝 · 暂未开通</button>
-            </div>
-            {!payment.order && <Button variant="primary" size="lg" className="w-full sm:w-auto" data-testid="billing-generate-qr" disabled={!selected || payment.creating || payment.uncertain} onClick={() => { if (selected) void payment.create(selected); }}><QrCode aria-hidden className="mr-1 h-5 w-5"/>{payment.creating ? "正在生成…" : "生成支付二维码"}</Button>}
+            {providers.length > 1 && <div role="radiogroup" aria-label="支付渠道" className="flex gap-3">{providers.map(value => <label key={value}><input type="radio" name="topup-provider" checked={provider === value} disabled={locked} onChange={() => chooseProvider(value)}/>{value === "wechat" ? "微信支付" : "Stripe"}</label>)}</div>}
+            {!payment.order && <Button variant="primary" size="lg" className="w-full sm:w-auto" data-testid="billing-generate-qr" disabled={!selected || payment.creating || payment.uncertain} onClick={() => { if (selected) void payment.create(selected, provider); }}><QrCode aria-hidden className="mr-1 h-5 w-5"/>{payment.creating ? "正在生成…" : provider === "stripe" ? "创建付款订单" : "生成支付二维码"}</Button>}
           </>)}
         </>}
         {payment.order?.status === "SUCCESS" && <Button variant="primary" size="lg" className="w-full sm:w-auto" data-testid="billing-buy-again" onClick={payment.buyAgain}>再次购买<ArrowRight aria-hidden className="ml-2 h-4 w-4"/></Button>}
         {payment.order && ["PENDING", "PROCESSING"].includes(payment.order.status) && <p className="text-13 text-muted-foreground">当前订单结束后，可重新选择套餐购买。</p>}
         {payment.message && <p data-testid="billing-refresh-hint" role="status" className="text-13 text-muted-foreground">{payment.message}</p>}
       </div>
-      {payment.order ? <LiveQrPanel key={payment.order.orderNo} order={payment.order} refresh={() => { void payment.refresh(); }} regenerate={payment.regenerate} cancel={() => { void payment.cancel(); }} cancelling={payment.cancelling} /> : <section aria-label="微信支付订单" className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-border bg-muted/30 p-6 text-center"><div className="flex h-24 w-24 items-center justify-center rounded-card border border-dashed border-border bg-card text-muted-foreground"><QrCode aria-hidden className="h-12 w-12"/></div><div className="space-y-2"><p className="text-14 font-medium">{payment.creating ? "正在生成支付二维码" : "使用微信扫码支付"}</p><p className="text-13 text-muted-foreground">选择充值套餐，生成二维码后扫码完成支付。</p></div></section>}
+      {payment.order ? <LiveQrPanel key={payment.order.orderNo} order={payment.order} refresh={() => { void payment.refresh(); }} regenerate={payment.regenerate} cancel={() => { void payment.cancel(); }} cancelling={payment.cancelling} /> : <section aria-label="微信支付订单" className="flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-border bg-muted/30 p-6 text-center"><div className="flex h-24 w-24 items-center justify-center rounded-card border border-dashed border-border bg-card text-muted-foreground"><QrCode aria-hidden className="h-12 w-12"/></div><div className="space-y-2"><p className="text-14 font-medium">{payment.creating ? "正在生成支付二维码" : provider === "stripe" ? "使用 Stripe 付款" : "使用微信扫码支付"}</p><p className="text-13 text-muted-foreground">选择充值套餐后创建付款订单。</p></div></section>}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5">
       {wallet.result.state === "loading" && <p role="status">{success === "initial" ? "正在查询余额…" : "支付已确认，正在刷新余额…"}</p>}

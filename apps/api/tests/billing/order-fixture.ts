@@ -28,7 +28,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
   ensureDatabase(); await migrateOnce();
   const merchant = generateKeyPairSync("rsa", { modulusLength: 2048 });
   const platform = generateKeyPairSync("rsa", { modulusLength: 2048 });
-  const state = { mode: "success" as Mode, calls: 0, signedRequests: 0, requests: [] as Record<string, unknown>[], requestHeaders: [] as Record<string, unknown>[], closeMode: "success" as "success" | "paid" | "failed" | "closed", closeRequests: 0, onClose: null as null | (() => Promise<void>), onRequest: null as null | (() => Promise<void>) };
+  const state = { paidMonthly: new Map<string, Record<string, unknown>>(), mode: "success" as Mode, calls: 0, signedRequests: 0, requests: [] as Record<string, unknown>[], requestHeaders: [] as Record<string, unknown>[], closeMode: "success" as "success" | "paid" | "failed" | "closed", closeRequests: 0, onClose: null as null | (() => Promise<void>), onRequest: null as null | (() => Promise<void>) };
   const server: Server = createServer(async (req, res) => {
     const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk));
     const body = Buffer.concat(chunks).toString("utf8"); const isClose = req.url?.endsWith("/close"); if (!isClose) state.calls++;
@@ -40,7 +40,18 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     const nonce = /nonce_str="([^"]+)"/.exec(auth)?.[1];
     const timestamp = /timestamp="([^"]+)"/.exec(auth)?.[1];
     const signature = /signature="([^"]+)"/.exec(auth)?.[1];
-    if (nonce && timestamp && signature && verify("RSA-SHA256", Buffer.from(`POST\n${req.url}\n${timestamp}\n${nonce}\n${body}\n`), merchant.publicKey, Buffer.from(signature, "base64"))) state.signedRequests++;
+    if (nonce && timestamp && signature && verify("RSA-SHA256", Buffer.from(`${req.method}\n${req.url}\n${timestamp}\n${nonce}\n${body}\n`), merchant.publicKey, Buffer.from(signature, "base64"))) state.signedRequests++;
+    if (req.method === "GET") {
+      if(!nonce||!timestamp||!signature||!verify("RSA-SHA256",Buffer.from(`GET\n${req.url}\n${timestamp}\n${nonce}\n${body}\n`),merchant.publicKey,Buffer.from(signature,"base64"))){res.statusCode=401;res.end();return;}
+      const path=new URL(req.url!,"http://fixture").pathname;
+      const orderNo=path.split("/").at(-1)!;
+      const payment=state.paidMonthly.get(orderNo);
+      const payload=JSON.stringify(payment??{code:"ORDER_NOT_EXIST",message:"not created"});
+      const ts=String(Math.floor(Date.now()/1000)),nonce=randomBytes(16).toString("hex");
+      res.setHeader("Wechatpay-Timestamp",ts);res.setHeader("Wechatpay-Nonce",nonce);res.setHeader("Wechatpay-Serial","PUB_KEY_ID_f04");
+      res.setHeader("Wechatpay-Signature",sign("RSA-SHA256",Buffer.from(`${ts}\n${nonce}\n${payload}\n`),platform.privateKey).toString("base64"));
+      res.statusCode=payment?200:404;res.end(payload);return;
+    }
     if (isClose) {
       state.closeRequests++; await state.onClose?.();
       const payload = state.closeMode === "success" ? "" : JSON.stringify({code:state.closeMode === "paid" ? "ORDERPAID" : state.closeMode === "closed" ? "ORDERCLOSED" : "SYSTEM_ERROR"});
@@ -85,13 +96,13 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     vi.stubGlobal("fetch", (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       if (url.origin === "https://api.mch.weixin.qq.com") {
-        if (url.pathname !== "/v3/pay/transactions/native" && !/^\/v3\/pay\/transactions\/out-trade-no\/bg[A-Za-z0-9]+\/close$/.test(url.pathname)) throw new Error("unexpected merchant operation");
-        return nativeFetch(`http://127.0.0.1:${address.port}${url.pathname}`, init);
+        if (url.pathname !== "/v3/pay/transactions/native" && !/^\/v3\/pay\/transactions\/out-trade-no\/bg[A-Za-z0-9]+(?:\/close)?$/.test(url.pathname)) throw new Error("unexpected merchant operation");
+        return nativeFetch(`http://127.0.0.1:${address.port}${url.pathname}${url.search}`, init);
       }
       return nativeFetch(input, init);
     });
     const env: Record<string, string> = {
-      KERNEL_KEEP_LOGS: "1",
+      KERNEL_KEEP_LOGS: "1", BILLING_DEPLOYMENT:"cn", BILLING_WECHAT_ENABLED:"true",
       WECHAT_PAY_APP_ID: "wx-f04-fixture", WECHAT_PAY_MCH_ID: "1900000001", WECHAT_PAY_API_V3_KEY: randomBytes(16).toString("hex"),
       WECHAT_PAY_MCH_SERIAL_NO: "ABC123", WECHAT_PAY_PLATFORM_KEY_ID: platformVerification ? "PUB_KEY_ID_f04" : "",
       WECHAT_PAY_PRIVATE_KEY: merchant.privateKey.export({ type: "pkcs8", format: "pem" }).toString(),
@@ -125,6 +136,9 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     if (!app) throw new Error("HTTP fixture did not initialize");
     const base = await app.getUrl();
     const cleanup = () => asOwner(async c => {
+      await c.query("DELETE FROM billing_payment_conflicts WHERE user_id IN ($1,$2)",[user,other]);
+      await c.query("DELETE FROM billing_monthly_orders WHERE user_id IN ($1,$2)",[user,other]);
+      await c.query("DELETE FROM billing_subscriptions WHERE user_id IN ($1,$2)",[user,other]);
       await c.query("DELETE FROM billing_orders WHERE created_by LIKE 'f04-order-%'");
       await c.query("DELETE FROM credit_packages WHERE package_id LIKE 'f04-order-%'");
       await c.query("DELETE FROM org_billing_settings WHERE org_id IN ($1,$2)", [org, otherOrg]);
@@ -136,7 +150,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
       app, state, cleanup, base, requestLogger,
       crypto: { platformPrivateKey: platform.privateKey, apiV3Key: env.WECHAT_PAY_API_V3_KEY! },
       async reset() {
-        await cleanup(); state.mode = "success"; state.closeMode = "success"; state.closeRequests = 0; state.onClose = null; state.calls = 0; state.signedRequests = 0; state.requests = []; state.requestHeaders = []; state.onRequest = null;
+        await cleanup(); state.paidMonthly.clear(); state.mode = "success"; state.closeMode = "success"; state.closeRequests = 0; state.onClose = null; state.calls = 0; state.signedRequests = 0; state.requests = []; state.requestHeaders = []; state.onRequest = null;
         await asOwner(async c => {
           await c.query("INSERT INTO organizations(id,name,kind) VALUES($1,'F04 A','organization'),($2,'F04 B','organization')", [org, otherOrg]);
           await c.query("INSERT INTO org_memberships(user_id,org_id,org_role) VALUES($1,$2,'admin'),($3,$2,'consultant'),($3,$4,'admin')", [user, org, other, otherOrg]);

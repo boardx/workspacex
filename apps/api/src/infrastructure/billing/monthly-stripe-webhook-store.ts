@@ -5,12 +5,16 @@ import type {StripeMonthlyPassClient} from "./stripe-monthly-pass-client";
 import type {DatabasePort} from "../../application/ports/database.port";
 import {BILLING_GLOBAL_SQL} from "./billing-global-boundary";
 export class MonthlyStripeWebhookStore implements StripeWebhookStore {
- constructor(private readonly db:DatabasePort,private readonly legacy:StripeWebhookStore,private readonly monthly:MonthlyPassService,private readonly client:StripeMonthlyPassClient){}
+ constructor(private readonly db:DatabasePort,private readonly legacy:StripeWebhookStore,private readonly monthly:MonthlyPassService,private readonly client:StripeMonthlyPassClient,private readonly credits?:{accept(id:string):Promise<unknown>}){}
  async apply(event:StripeEvent,provider:StripeSnapshotProvider){
   if(["checkout.session.completed","checkout.session.async_payment_succeeded"].includes(event.type)&&event.object.mode==="payment"){
    if(typeof event.object.id!=="string")throw Error("invalid_checkout");
    const session=await this.client.retrieve(event.object.id);
-   if((session.metadata as Record<string,unknown>|null)?.product===MONTHLY_PASS_PRODUCT)await this.monthly.accept(session);
+   const product=(session.metadata as Record<string,unknown>|null)?.product;
+   if(product===MONTHLY_PASS_PRODUCT)await this.monthly.accept(session);
+   else if(product==="credit_topup_v1"){
+    if(!this.credits||!await this.credits.accept(event.object.id))throw Error("credit_checkout_unbound");
+   }
    // Financial identity is the immutable Checkout/PaymentIntent pair, not event delivery order.
    return this.db.withoutTenant(async s=>{
     await s.query(BILLING_GLOBAL_SQL.stripeEventLock,[`billing-stripe-event:${event.id}`]);

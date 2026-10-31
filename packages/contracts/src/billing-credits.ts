@@ -18,8 +18,8 @@ import { z } from "zod";
 export const BillingOwnerType = z.enum(["user", "team"]);
 export type BillingOwnerType = z.infer<typeof BillingOwnerType>;
 
-/** 支付渠道（**下单**枚举：本束仅微信 Native；Stripe 属 billing-subscription 束）。 */
-export const BillingProvider = z.enum(["wechat"]);
+/** 充值支付渠道：微信 Native 或 Stripe 一次性 Checkout。 */
+export const BillingProvider = z.enum(["wechat", "stripe"]);
 export type BillingProvider = z.infer<typeof BillingProvider>;
 
 /**
@@ -119,7 +119,7 @@ export const BillingOrder = z
     baseCredits: CreditsAmount,
     bonusCredits: z.number().int().nonnegative(),
     currency: z.string().min(1),
-    qrCodeUrl: z.string().min(1), // I-13：订单存在即有二维码（微信下单失败不落库）
+    qrCodeUrl: z.string().min(1), // 微信为 Native 二维码；Stripe 为可信 Checkout 地址（保留兼容字段名）
     createdAt: IsoDateTime,
     paidAt: IsoDateTime.nullable(), // 仅 SUCCESS 后可非空（I-14）
     notifyAt: IsoDateTime.nullable(),

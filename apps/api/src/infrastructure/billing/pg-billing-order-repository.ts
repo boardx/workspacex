@@ -10,7 +10,7 @@ function packageView(row: PackageRow): PackageView {
     displayAmount: `${symbol}${Math.floor(row.amount_fen / 100)}.${String(row.amount_fen % 100).padStart(2, "0")}`,
     baseCredits: row.base_credits, bonusCredits: row.bonus_credits, bonusRate: Number(row.bonus_rate), totalCredits: row.total_credits, ownerType: row.owner_type };
 }
-type OrderRow = { order_no: string; owner_type: OrderView["ownerType"]; owner_id: string; provider: "wechat"; status: OrderView["status"]; package_id: string; amount_fen: number; base_credits: number; bonus_credits: number; currency: string; qr_code_url: string; created_at: Date; expired_at: Date; paid_at: Date | null; notify_at: Date | null; closed_at: Date | null; last_error_code: OrderView["lastErrorCode"] };
+type OrderRow = { order_no: string; owner_type: OrderView["ownerType"]; owner_id: string; provider: OrderView["provider"]; status: OrderView["status"]; package_id: string; amount_fen: number; base_credits: number; bonus_credits: number; currency: string; qr_code_url: string; created_at: Date; expired_at: Date; paid_at: Date | null; notify_at: Date | null; closed_at: Date | null; last_error_code: OrderView["lastErrorCode"] };
 function orderView(row: OrderRow): OrderView {
   return { orderNo: row.order_no, ownerType: row.owner_type, ownerId: row.owner_id, provider: row.provider, status: row.status,
     packageId: row.package_id, amountFen: row.amount_fen, baseCredits: row.base_credits, bonusCredits: row.bonus_credits, currency: row.currency, qrCodeUrl: row.qr_code_url,

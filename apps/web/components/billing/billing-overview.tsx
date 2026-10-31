@@ -85,8 +85,8 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
   const providers = config.state.status === "ready" ? config.state.data.enabledProviders : [];
   const consumed = React.useRef(false);
   React.useEffect(() => {
-    if (!openOnReady) { consumed.current = false; return; }
-    if (!consumed.current && config.state.status === "ready" && config.state.data.enabledProviders.includes("wechat")) {
+    if (!openOnReady && !new URLSearchParams(window.location.search).has("credit_order")) { consumed.current = false; return; }
+    if (!consumed.current && config.state.status === "ready" && config.state.data.enabledProviders.length > 0) {
       consumed.current = true; setCashierOpen(true); onPurchaseOpened?.();
     }
   }, [openOnReady, config.state, onPurchaseOpened]);
@@ -108,13 +108,13 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
             {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度。余额为负，充值后可发起新请求；已开始的请求可以完成。</p>}
 
           </>}
-          {providers.includes("wechat") && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>充值 credit</Button>}
+          {providers.length > 0 && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>充值 credit</Button>}
         </CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />月度套餐</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} onCreditGranted={wallet.retry} />
+          <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} wechatEnabled={providers.includes("wechat")} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} onCreditGranted={wallet.retry} />
         </CardContent>
       </Card>
     </div>

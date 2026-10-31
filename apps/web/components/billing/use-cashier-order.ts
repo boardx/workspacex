@@ -27,10 +27,10 @@ export function billingFailure(error: unknown): string {
 }
 function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder): LiveOrder {
   const { order } = billing.operations.getPaymentOrder.out.parse(raw);
-  if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || order.provider !== "wechat" || order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
+  if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
   const qr = new URL(order.qrCodeUrl);
-  if (qr.protocol !== "weixin:" || qr.hostname !== "wxpay" || qr.pathname !== "/bizpayurl" || !qr.searchParams.get("pr") || qr.username || qr.password || qr.hash) throw new Error("INVALID_NATIVE_QR");
-  if (expected && ["orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => order[key as keyof LiveOrder] !== expected[key as keyof LiveOrder])) throw new Error("ORDER_SNAPSHOT_MISMATCH");
+  if (order.provider === "stripe" ? (qr.protocol !== "https:" || qr.hostname !== "checkout.stripe.com" || !!qr.port || !!qr.username || !!qr.password || !!qr.hash) : qr.protocol !== "weixin:" || qr.hostname !== "wxpay" || qr.pathname !== "/bizpayurl" || !qr.searchParams.get("pr") || qr.username || qr.password || qr.hash) throw new Error("INVALID_NATIVE_QR");
+  if (expected && ["provider", "orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => order[key as keyof LiveOrder] !== expected[key as keyof LiveOrder])) throw new Error("ORDER_SNAPSHOT_MISMATCH");
   return order;
 }
 /** A completed order stays in this hook when the dialog closes. No GET can create an intent. */
@@ -52,6 +52,19 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     return () => { pending.current?.abort(); pending.current = null; };
   }, [scope]);
   React.useEffect(() => { if (!open) pending.current?.abort(); }, [open]);
+  React.useEffect(() => {
+    const orderNo = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("credit_order") : null;
+    if (!open || !orderNo || latest.current.order || pending.current) return;
+    const controller = new AbortController(); pending.current = controller;
+    setState(value => ({ ...value, uncertain: true }));
+    void apiRequest<unknown>(billing.operations.getPaymentOrder.path.replace(":orderNo", encodeURIComponent(orderNo)), { sessionToken, signal: controller.signal }).then(raw => {
+      const order = validateOrder(raw, owner);
+      if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState({ scope, order, creating: false, uncertain: false, message: null });
+    }).catch(() => {
+      if (!controller.signal.aborted && currentScope.current === scope) setState(value => ({ ...value, message: "无法恢复付款订单，请联系支持，勿重复付款。" }));
+    }).finally(() => { if (pending.current === controller) pending.current = null; });
+    return () => controller.abort();
+  }, [open, scope, sessionToken, owner.ownerType, owner.ownerId]);
   const refresh = React.useCallback(async () => {
     const order = latest.current.order;
     if (!order || pending.current || !open) return;
@@ -75,15 +88,15 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     timer = setTimeout(() => { void tick(); }, 3000);
     return () => { stopped = true; clearTimeout(timer); };
   }, [open, active.order?.orderNo, active.order?.status, active.order, refresh]);
-  async function create(packageId: string) {
+  async function create(packageId: string, provider: "wechat" | "stripe" = "wechat") {
     if (pending.current || latest.current.order || latest.current.creating || latest.current.uncertain || !open) return;
     const controller = new AbortController(); pending.current = controller;
     setState({ scope, order: null, creating: true, uncertain: true, message: null });
     try {
-      const body = billing.operations.createPaymentOrder.in.parse({ ownerType: owner.ownerType, ...(owner.ownerType === "team" ? { ownerId: owner.ownerId } : {}), packageId, provider: "wechat" });
+      const body = billing.operations.createPaymentOrder.in.parse({ ownerType: owner.ownerType, ...(owner.ownerType === "team" ? { ownerId: owner.ownerId } : {}), packageId, provider });
       const raw = await apiRequest<unknown>(billing.operations.createPaymentOrder.path, { method: "POST", body, sessionToken, signal: controller.signal });
       const order = validateOrder(raw, owner);
-      if (order.packageId !== packageId || order.status !== "PENDING") throw new Error("ORDER_CREATE_MISMATCH");
+      if (order.provider !== provider || order.packageId !== packageId || !["PENDING", "CLOSED"].includes(order.status)) throw new Error("ORDER_CREATE_MISMATCH");
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState({ scope, order, creating: false, uncertain: false, message: null });
     } catch (error) {
       if (mounted.current && currentScope.current === scope) {

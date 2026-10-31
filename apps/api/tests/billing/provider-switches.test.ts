@@ -16,6 +16,15 @@ const credentials = {
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("independent payment purchase switches", () => {
+  it.each([["cn",["wechat"]],["us",["stripe"]],["devapp",["wechat","stripe"]],["typo",[]]])("enforces deployment %s independently of credentials",(deployment,expected)=>{
+    const config=new DeploymentBillingConfig({...credentials,...(deployment==="us"?{STRIPE_SECRET_KEY:"sk_live_fixture"}:{}),BILLING_DEPLOYMENT:deployment as string});
+    expect(config.getPublicConfig().enabledProviders).toEqual(expected);
+    expect(config.getWechat()).not.toBeNull();expect(config.getStripe()).not.toBeNull();
+  });
+  it("does not expose live Stripe in devapp or test Stripe in US",()=>{
+    expect(new DeploymentBillingConfig({...credentials,BILLING_DEPLOYMENT:"us"}).getPublicConfig().enabledProviders).toEqual([]);
+    expect(new DeploymentBillingConfig({...credentials,STRIPE_SECRET_KEY:"sk_live_fixture",BILLING_DEPLOYMENT:"devapp"}).getPublicConfig().enabledProviders).toEqual(["wechat"]);
+  });
   it.each([
     ["true", "true", ["wechat", "stripe"]], ["true", "false", ["wechat"]],
     ["false", "true", ["stripe"]], ["false", "false", []],

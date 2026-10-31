@@ -33,10 +33,10 @@ import QRCode from "qrcode";
 vi.mock("qrcode",()=>({default:{toCanvas:vi.fn().mockResolvedValue(undefined)}}));
 const order={orderNo:"bg20261016000000abcdef",ownerType:"user",ownerId:"user-a",provider:"wechat",status:"PENDING",packageId:"p1",amountFen:9900,baseCredits:100,bonusCredits:20,currency:"CNY",qrCodeUrl:"weixin://wxpay/bizpayurl?pr=real-server-intent",createdAt:"2026-10-16T00:00:00Z",paidAt:null,notifyAt:null,expiredAt:new Date(Date.now()+900000).toISOString(),closedAt:null,lastErrorCode:null};
 function reply(body:unknown,status=200){return Promise.resolve(new Response(JSON.stringify(body),{status}));}
-function live(options:{post?:()=>Promise<Response>;get?:()=>Promise<Response>;wallet?:()=>Promise<Response>;ledger?:()=>Promise<Response>;items?:unknown[]}={}){
+function live(options:{post?:()=>Promise<Response>;get?:()=>Promise<Response>;wallet?:()=>Promise<Response>;ledger?:()=>Promise<Response>;items?:unknown[];providers?:("wechat"|"stripe")[]}={}){
  const fetcher=vi.fn((url:string,init:RequestInit)=>{
   const path=new URL(url).pathname;
-  if(path.endsWith("/config"))return reply({enabledProviders:["wechat"]});
+  if(path.endsWith("/config"))return reply({enabledProviders:options.providers??["wechat"]});
   if(path.endsWith("/packages"))return reply({items:options.items??[pack]});
   if(path.endsWith("/wallet"))return options.wallet?.()??reply({wallet});
   if(path.endsWith("/transactions"))return options.ledger?.()??reply({items:[],nextCursor:null});
@@ -355,4 +355,15 @@ describe("customer cancellation",()=>{
   expect(screen.queryByTestId("billing-regenerate")).toBeNull();
   expect(screen.getByTestId("billing-order-no").textContent).toContain(order.orderNo);
  });
+});
+
+it.each(["https://evil.test/pay","weixin://wxpay/bizpayurl?pr=bad"])("rejects unsafe Stripe order %s",async url=>{
+ live({providers:["stripe"],post:()=>reply({order:{...order,provider:"stripe",qrCodeUrl:url}})});await generate();
+ await screen.findByTestId("billing-refresh-hint");expect(screen.queryByRole("link",{name:"前往 Stripe 付款"})).toBeNull();
+});
+it("retains Stripe order and locks provider while pending",async()=>{
+ const f=live({providers:["wechat","stripe"],post:()=>reply({order:{...order,provider:"stripe",qrCodeUrl:"https://checkout.stripe.com/c/pay/test"}})});
+ await screen.findByText("Stripe");fireEvent.click(screen.getByLabelText("Stripe"));fireEvent.click(screen.getByTestId("billing-generate-qr"));
+ expect(await screen.findByRole("link",{name:"前往 Stripe 付款"})).toBeTruthy();expect((screen.getByLabelText("微信支付") as HTMLInputElement).disabled).toBe(true);
+ expect(JSON.parse(String(f.fetcher.mock.calls.find(([,init])=>init.method==="POST")![1].body)).provider).toBe("stripe");
 });

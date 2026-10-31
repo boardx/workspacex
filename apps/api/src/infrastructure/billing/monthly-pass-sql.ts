@@ -1,5 +1,8 @@
 /** Closed owner-global statements; webhook recovery never admits tenant-content SQL. */
 export const MONTHLY_PASS_SQL=Object.freeze({
+ wechatOrder:"SELECT * FROM billing_monthly_orders WHERE provider='wechat' AND session_ref=$1",
+ insertProvider:"INSERT INTO billing_monthly_orders(order_id,user_id,provider,session_ref) VALUES($1,$2,$3,$4) RETURNING *",
+ bindUrl:"UPDATE billing_monthly_orders SET session_ref=$3,checkout_url=COALESCE(checkout_url,$4) WHERE order_id=$1 AND user_id=$2 AND state='pending' AND (session_ref IS NULL OR session_ref=$3) RETURNING order_id",
  grantedIdentity:"SELECT 1 FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id) WHERE w.owner_type='user' AND w.owner_id=$1 AND p.invoice_ref=$2 AND p.subscription_ref=$3 AND p.plan_ref=$4 AND p.period_start=$5 AND p.period_end=$6",
  overlapping:"SELECT 1 FROM billing_monthly_orders WHERE user_id=$1 AND state='paid' AND period_start<$3 AND period_end>$2 LIMIT 1",
  conflict:"SELECT 1 FROM billing_payment_conflicts WHERE conflict_key=$1 AND resolved_at IS NULL",

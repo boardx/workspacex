@@ -83,6 +83,7 @@ export const SubscriptionInfo = z
     currentPeriodEnd: z.string().min(1).nullable(), // ISO 8601
     cancelAtPeriodEnd: z.boolean().default(false),
     creditGrant: SubscriptionCreditGrant.optional(),
+    paymentProvider: z.enum(["wechat","stripe"]).optional(),
     purchaseMode: z.literal("manual_monthly").optional(),
     checkoutPending: z.boolean().optional(),
     paymentReviewRequired: z.boolean().optional(),
@@ -119,7 +120,7 @@ export const operations = {
   getUpgradeLink: {
     method: "POST",
     path: "/billing/subscription/upgrade-link",
-    in: z.object({}).strict(),
+    in: z.object({provider:z.enum(["wechat","stripe"]).optional()}).strict(),
     out: SubscriptionLink,
     err: ["payment_provider_not_configured", "already_subscribed"] as const,
   },
