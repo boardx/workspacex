@@ -1,5 +1,6 @@
 import type { LoggerPort } from "../../application/ports/logger.port";
 import { createHash, randomBytes } from "node:crypto";
+import { readSubscriptionHistory } from "./subscription-history-query";
 import { SubscriptionStatus, subscriptionEligibility, SubscriptionCreditGrant } from "@repo/contracts/billing-subscription";
 import { assertPrincipal, type Principal } from "../../domain/principal";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -42,6 +43,10 @@ export class PgBillingSubscriptionRepository implements SubscriptionRepository {
   read(principal: Principal, traceId = "no-trace") {
     assertPrincipal(principal);
     return this.infrastructure("read", traceId, () => this.db.withTenant(principal.orgId, session => readLegacySubscription(session, principal.userId)));
+  }
+  history(principal:Principal, input:{limit:number;offset:number}) {
+    assertPrincipal(principal);
+    return this.infrastructure("read","subscription-history",()=>this.db.withTenant(principal.orgId,s=>readSubscriptionHistory(s,principal.userId,input)));
   }
   async createIntent(principal: Principal, traceId = "no-trace"): Promise<string> {
     assertPrincipal(principal);

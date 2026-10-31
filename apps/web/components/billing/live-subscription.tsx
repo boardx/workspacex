@@ -82,17 +82,22 @@ export function LiveSubscription({state,retry,stripeEnabled,wechatEnabled=false,
  const uncertain=state.status==="ready"&&!!state.refreshError;
  const canBuy=!!data&&!active&&!legacy&&(stripeEnabled||wechatEnabled)&&!uncertain&&!data.paymentReviewRequired;
  return <div className="space-y-5">
-  {!legacy&&<div className="flex items-baseline gap-1"><span className="text-30 font-semibold tabular-nums">¥{billingSubscription.MONTHLY_PASS_AMOUNT_FEN/100}</span><span className="text-13 text-muted-foreground">/ 月</span></div>}
-  {!legacy&&<p className="text-13">每期 {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit</p>}
+  {!legacy&&!active&&<div className="flex items-baseline gap-1"><span className="text-30 font-semibold tabular-nums">¥{billingSubscription.MONTHLY_PASS_AMOUNT_FEN/100}</span><span className="text-13 text-muted-foreground">/ 月</span></div>}
+  {!legacy&&!active&&<p className="text-13">每期 {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit</p>}
   {state.status==="loading"&&<p role="status" className="text-13 text-muted-foreground">正在查询套餐…</p>}
   {data&&!(state.status==="ready"&&state.refreshError)&&<div className="space-y-2">
-   <Badge data-testid="billing-subscription-status" tone={active?"success":"neutral"}>{active?"使用中":data.paymentReviewRequired?"待核对":pending?"待付款":manual&&end?"已到期":legacy?"待处理":"未开通"}</Badge>
-   {active&&grant?.status==="granted"&&<p className="text-16 font-medium tabular-nums">{grant.grant!.remainingCredits.toLocaleString("zh-CN")} / {billingSubscription.MONTHLY_SUBSCRIPTION_CREDITS.toLocaleString("zh-CN")} credit</p>}
+   <Badge data-testid="billing-subscription-status" tone={active?"success":"neutral"}>{active?"Pro · 使用中":data.paymentReviewRequired?"待核对":pending?"待付款":manual&&end?"已到期":legacy?"非 Pro · 待处理":"非 Pro · 未开通"}</Badge>
+   {grant?.grant&&(active&&grant.status==="granted"||grant.status==="expired")&&<div className="space-y-2">
+    <p className="text-12 text-muted-foreground">本期剩余 credit</p>
+    <p className="text-24 font-semibold tabular-nums">{grant.grant.remainingCredits.toLocaleString("zh-CN")} <span className="text-13 font-normal text-muted-foreground">/ {grant.grant.credits.toLocaleString("zh-CN")}</span></p>
+    <div className="flex items-center gap-3"><progress aria-label="本期剩余 credit" aria-valuenow={Math.round(grant.grant.remainingCredits/grant.grant.credits*100)} value={grant.grant.remainingCredits} max={grant.grant.credits} className="h-2 w-full overflow-hidden rounded-full accent-primary"/><span className="text-12 tabular-nums text-muted-foreground">{Math.round(grant.grant.remainingCredits/grant.grant.credits*100)}%</span></div>
+   </div>}
+   {active&&(!grant||grant.status==="pending"||grant.status==="none")&&<p role="status" className="text-13 text-muted-foreground">额度发放中</p>}
    {end&&Number.isFinite(end.getTime())&&<p className="text-13 text-muted-foreground">{end.toLocaleDateString("zh-CN")} 到期</p>}
   </div>}
   {!legacy&&<p className="text-12 text-muted-foreground">到期手动续费<span className="mx-2" aria-hidden>·</span>当期 credit 到期清零</p>}
   {legacy&&<p className="text-12 text-muted-foreground">{data?.cancelAtPeriodEnd?"原订阅已停止续费，当前付费期继续有效。":"原订阅仍需在账单中管理续费。"}</p>}
-  {!legacy&&stripeEnabled&&wechatEnabled&&<div role="radiogroup" aria-label="月度套餐支付渠道">{(["wechat","stripe"] as const).map(value=><label key={value}><input type="radio" name="monthly-provider" checked={provider===value} disabled={pending||busy} onChange={()=>setProvider(value)}/>{value==="wechat"?"微信支付":"Stripe"}</label>)}</div>}
+  {canBuy&&stripeEnabled&&wechatEnabled&&<div role="radiogroup" aria-label="月度套餐支付渠道">{(["wechat","stripe"] as const).map(value=><label key={value}><input type="radio" name="monthly-provider" checked={provider===value} disabled={pending||busy} onChange={()=>setProvider(value)}/>{value==="wechat"?"微信支付":"Stripe"}</label>)}</div>}
   {qr&&!active&&<canvas ref={canvas} role="img" aria-label="月度套餐微信支付二维码"/>}
   <div className="flex flex-wrap items-center gap-3">
    {(canBuy||legacy)&&!uncertain&&<Button disabled={busy||state.status==="ready"&&!!state.refreshing} onClick={()=>void open()}>{busy?"正在打开…":legacy?"管理订阅":pending?"继续付款":manual&&end?"续费 ¥180":"购买月度套餐"}</Button>}

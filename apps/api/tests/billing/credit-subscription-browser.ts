@@ -1,3 +1,4 @@
+// @global-scope-fixture table:billing_subscriptions: exact order-fixture user; parent fixture cleanup deletes its snapshot between cases and on teardown.
 /** Real browser + Billing/usage HTTP + PostgreSQL. Identity and model provider are
  * isolated fixtures. Period is seeded through the shared grant helper; signed
  * Stripe grant verification is covered by stripe-webhook.test.ts, not claimed here.
@@ -41,14 +42,16 @@ export async function verifyCreditSubscriptionBrowser(f:Awaited<ReturnType<typeo
   // Keep grant alive through cold Next compilation; expire this exact fixture only after consumption assertions.
   const end=new Date(Date.now()+3600000);
   await db.withTenant(personal,s=>grantPaidSubscriptionPeriod(s,{userId:user,subscriptionRef:"sub_browserCredits",invoiceRef:"in_browserCredits",planRef:"price_browserMonthly",periodStart:new Date(end.getTime()-30*86400000),periodEnd:end}));
+  // The subscription card reads its verified snapshot, separately from wallet grants.
+  await asOwner(c=>c.query("INSERT INTO billing_subscriptions(user_id,subscription_ref,status,plan_ref,current_period_end) VALUES($1,$2,'active',$3,$4)",[user,"sub_browserCredits","price_browserMonthly",end]));
   await page.keyboard.press("Escape");await page.reload();
-  await expect.poll(()=>page.getByTestId("billing-monthly-credits").textContent()).toBe("20,000");
+  await expect.poll(()=>page.getByRole("progressbar",{name:"本期剩余 credit"}).getAttribute("value")).toBe("20000");
   expect((await call(personal,1000)).status).toBe(200);
-  await page.reload();await expect.poll(()=>page.getByTestId("billing-monthly-credits").textContent()).toBe("19,999");
+  await page.reload();await expect.poll(()=>page.getByRole("progressbar",{name:"本期剩余 credit"}).getAttribute("value")).toBe("19999");
   await page.screenshot({path:resolve(evidence,"monthly-balance.png"),fullPage:true});
   await asOwner(c=>c.query("UPDATE credit_subscription_periods SET period_end=now()-interval '1 second' WHERE subscription_ref=$1 AND wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$2)",["sub_browserCredits",user]));
   await expect.poll(async()=>((await(await f.request("/billing/wallet?ownerType=user")).json()).wallet.subscriptionCredits),{timeout:30000,interval:500}).toBe(0);
-  await page.reload();await expect.poll(()=>page.getByTestId("billing-permanent-balance").textContent()).toBe("1,320");
+  await page.reload();await expect.poll(()=>page.getByTestId("billing-wallet-balance").textContent()).toBe("1,320 credit");
   expect((await call(personal,1321000)).status).toBe(200);const admitted=modelCalls;
   expect(await call(personal,1)).toMatchObject({status:409,body:{code:"credit_required"}});expect(modelCalls).toBe(admitted);
   await page.reload();await expect.poll(()=>page.getByTestId("billing-wallet-balance").textContent()).toContain("-1");

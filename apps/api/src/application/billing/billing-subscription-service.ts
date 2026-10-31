@@ -1,4 +1,4 @@
-import { subscriptionEligibility, SubscriptionInfo, type SubscriptionStatus, type SubscriptionErrorCode, type SubscriptionCreditGrant } from "@repo/contracts/billing-subscription";
+import { SubscriptionHistory, SubscriptionHistoryQuery, subscriptionEligibility, SubscriptionInfo, type SubscriptionStatus, type SubscriptionErrorCode, type SubscriptionCreditGrant } from "@repo/contracts/billing-subscription";
 import type {MonthlyPassService} from "./monthly-pass-service";
 import { assertPrincipal, type Principal } from "../../domain/principal";
 export interface SubscriptionSnapshot {
@@ -7,6 +7,7 @@ export interface SubscriptionSnapshot {
   creditGrant?: SubscriptionCreditGrant;
 }
 export interface SubscriptionRepository {
+  history?(principal: Principal, input: {limit:number;offset:number}): Promise<ReturnType<typeof SubscriptionHistory.parse>>;
   read(principal: Principal, traceId?: string): Promise<SubscriptionSnapshot | null>;
   createIntent(principal: Principal, traceId?: string): Promise<string>;
 }
@@ -43,6 +44,12 @@ export class BillingSubscriptionService {
     if (monthly && !legacyNeedsManagement) return monthly;
     return SubscriptionInfo.parse(value ? { status: expired && ["active", "trialing"].includes(value.status) ? "canceled" : value.status, planRef: value.planRef, currentPeriodEnd: value.currentPeriodEnd, cancelAtPeriodEnd: value.cancelAtPeriodEnd, ...(value.creditGrant?{creditGrant:value.creditGrant}:{}), ...(monthly?.paymentReviewRequired ? {paymentReviewRequired:true} : {}) }
       : { status: "none", planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false });
+  }
+  async history(principal:Principal, input:unknown) {
+    assertPrincipal(principal);
+    const query=SubscriptionHistoryQuery.parse(input);
+    if(!this.repository.history)throw new SubscriptionError("dependency_unavailable");
+    return this.monthlyResult(async()=>SubscriptionHistory.parse(await this.repository.history!(principal,query)));
   }
   async upgrade(principal: Principal, traceId = "no-trace",provider:"stripe"|"wechat"="stripe") {
     const value = await this.snapshot(principal, traceId);

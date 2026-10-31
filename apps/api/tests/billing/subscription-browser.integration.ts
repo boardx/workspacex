@@ -150,7 +150,7 @@ it("completes checkout through signed HTTP and PG, renders Pro, recovers billing
  expect((await callback("checkout.session.completed","evt_browser_checkout")).status).toBe(200);
  expect((await callback("checkout.session.completed","evt_browser_checkout")).status).toBe(200);
  await page.goto(`${origin}/billing?subscription_return=1`);
- await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("使用中");
+ await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("Pro · 使用中");
  expect(await page.getByTestId("billing-subscription-status").count()).toBe(1);await page.screenshot({path:resolve(evidence,"stripe-active.png"),fullPage:true});
  await page.getByRole("button",{name:"管理订阅",exact:true}).click();await page.waitForURL("https://billing.stripe.com/**");
  const portal=providerCalls.find(c=>c.path==="/v1/billing_portal/sessions");expect(new URLSearchParams(portal!.body).get("customer")).toBe("cus_browser");const returnUrl = new URLSearchParams(portal!.body).get("return_url")!;
@@ -163,10 +163,10 @@ it("completes checkout through signed HTTP and PG, renders Pro, recovers billing
  await page.screenshot({path:resolve(evidence,"stripe-cancellation-scheduled.png"),fullPage:true});
  cancelAtPeriodEnd=false;expect((await callback("customer.subscription.updated","evt_browser_cancel_resumed")).status).toBe(200);
  status="past_due";expect((await callback("customer.subscription.updated","evt_browser_pastdue")).status).toBe(200);
- await page.goto(`${origin}/billing`);await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("待处理");expect(await page.getByTestId("billing-subscription-status").count()).toBe(1);expect(await page.getByRole("button",{name:"购买月度套餐",exact:true}).count()).toBe(0);await page.screenshot({path:resolve(evidence,"stripe-billing-recovery.png"),fullPage:true});
+ await page.goto(`${origin}/billing`);await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("非 Pro · 待处理");expect(await page.getByTestId("billing-subscription-status").count()).toBe(1);expect(await page.getByRole("button",{name:"购买月度套餐",exact:true}).count()).toBe(0);await page.screenshot({path:resolve(evidence,"stripe-billing-recovery.png"),fullPage:true});
  status="future_state";expect((await callback("customer.subscription.updated","evt_browser_unknown")).status).toBe(500);
  await page.getByRole("button",{name:"刷新状态",exact:true}).click();await expect.poll(()=>page.getByTestId("err-billing-subscription").count()).toBe(1);expect(await page.getByTestId("billing-subscription-status").count()).toBe(0);
- status="active";expect((await callback("customer.subscription.updated","evt_browser_unknown")).status).toBe(200);await page.getByRole("button",{name:"刷新状态",exact:true}).click();await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("使用中");
+ status="active";expect((await callback("customer.subscription.updated","evt_browser_unknown")).status).toBe(200);await page.getByRole("button",{name:"刷新状态",exact:true}).click();await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent()).toBe("Pro · 使用中");
  const rows=await asOwner(async c=>({state:(await c.query("SELECT status,binding_generation FROM billing_subscriptions WHERE user_id=$1",[user])).rows,events:(await c.query("SELECT count(*)::int AS n FROM billing_webhook_events WHERE provider_event_id='evt_browser_checkout'")).rows,credits:(await c.query("SELECT t.* FROM credit_transactions t JOIN credit_wallets w USING(wallet_id) WHERE w.owner_id=$1",[user])).rows}));
  expect(rows.state).toEqual([{status:"active",binding_generation:"1"}]);expect(rows.events).toEqual([{n:1}]);expect(rows.credits).toEqual([]);
  writeFileSync(resolve(evidence,"receipt.json"),JSON.stringify({source:"real Next/Billing HTTP/PostgreSQL",provider:"controlled Stripe HTTP + independent HMAC",billingHttpIntercepted:false,realMoneyCharged:false,...rows},null,2));
@@ -184,7 +184,7 @@ it("purchases a one-time CNY180 month through real browser, API, signed callback
  const timestamp=Math.floor(Date.now()/1000),digest=createHmac("sha256",secret).update(`${timestamp}.${body}`).digest("hex");
  const paid=()=>fetch(`${base}/billing/webhooks/stripe`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${digest}`},body});
  expect((await paid()).status).toBe(200);expect((await paid()).status).toBe(200);
- await page.goto(`${origin}/billing?subscription_return=1`);await expect.poll(()=>page.getByText("20,000 / 20,000 credit",{exact:true}).count()).toBe(1);
+ await page.goto(`${origin}/billing?subscription_return=1`);await expect.poll(()=>page.getByRole("progressbar",{name:"本期剩余 credit"}).getAttribute("aria-valuenow")).toBe("100");
  expect(await page.getByRole("button",{name:"管理订阅",exact:true}).count()).toBe(0);
  const wallet=await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]));expect(wallet.rows).toEqual([{balance:"20000.00",total_granted:20000}]);
  await page.screenshot({path:resolve(evidence,"monthly-pass-active-fullstack.png"),fullPage:true});await page.close();
@@ -194,7 +194,7 @@ it("purchases permanent credits through real Stripe cashier, signed callback and
  await cleanup();const page=await browser!.newPage({viewport:{width:1280,height:900}});
  await page.addInitScript(({user,org})=>{localStorage.setItem("wsx.sessionToken","stripe-browser-session");localStorage.setItem("wsx.session",JSON.stringify({version:1,userId:user,orgs:[org],currentOrgId:org,expiresAt:"2099-01-01T00:00:00Z"}));},{user,org});
  await page.route(url=>url.origin===origin&&url.pathname==="/__fullstack_api/identity/me",route=>route.fulfill({json:{org:{id:org,name:"本地支付验收",kind:"organization",team:null,modelPolicy:"any",avatarUrl:null},orgRole:"consultant",teamId:null,projectRole:null,groupId:null,displayName:"Stripe验收",avatarUrl:null}}));
- await page.goto(`${origin}/billing`);await page.getByRole("button",{name:"充值 credit",exact:true}).click();
+ await page.goto(`${origin}/billing`);await page.getByRole("button",{name:"购买 credit",exact:true}).click();
  await page.getByTestId("billing-generate-qr").click();
  await expect.poll(()=>page.getByRole("link",{name:"前往 Stripe 付款"}).count()).toBe(1);
  expect(creditSession).not.toBeNull();expect(creditSession!.metadata).toMatchObject({product:"credit_topup_v1"});

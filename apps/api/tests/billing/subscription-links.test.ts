@@ -109,6 +109,11 @@ afterAll(async () => {
   if (server) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
   await cleanup(); vi.unstubAllEnvs(); vi.unstubAllGlobals();
 });
+it("subscription history is authenticated, private and rejects owner spoofing",async()=>{
+ expect((await request("/history","")).status).toBe(401);
+ expect((await request("/history?userId=someone-else")).status).toBe(400);
+ const empty=await request("/history?limit=1&offset=0");expect(empty.status).toBe(200);expect(empty.headers.get("cache-control")).toBe("no-store");expect(await empty.json()).toEqual({items:[],hasMore:false});
+});
 describe("F08 real subscription HTTP/PG", () => {
   it("requires authentication for all three read/link operations", async () => {
     for (const path of ["", "/upgrade-link", "/management-link"]) expect((await request(path, "")).status).toBe(401);
