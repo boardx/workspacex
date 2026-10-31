@@ -5,20 +5,28 @@ import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {verifyTargetedPlan} from './ci-targeted-ui.mjs';
 import {invoke} from './ci-chat-shards.mjs';
-import {unitEvidence,browserEvidence,verifyEvidence} from './ci-targeted-evidence.mjs';
+import {unitEvidence,browserEvidence,verifyEvidence,unitIdentities} from './ci-targeted-evidence.mjs';
 const root=resolve(import.meta.dirname,'../..');
 export function runIdentity(env=process.env){
  const x={sha:env.GITHUB_SHA,run:env.GITHUB_RUN_ID,attempt:env.GITHUB_RUN_ATTEMPT};
  if(!/^[a-f0-9]{40}$/.test(x.sha??'')||!['run','attempt'].every(k=>/^[1-9]\d*$/.test(x[k]??'')))throw Error('INVALID_TARGETED_RUN');return x;
 }
+export function discoverUnits(files,cwd,directory){
+ const path=resolve(directory,'discovery.json');rmSync(path,{force:true});
+ const result=spawnSync(process.execPath,[resolve(root,'node_modules/vitest/vitest.mjs'),'list',`--json=${path}`,...files],{cwd,env:{...process.env,GH_TOKEN:undefined,GITHUB_TOKEN:undefined},encoding:'utf8',maxBuffer:32*1024*1024,timeout:120_000});
+ writeFileSync(resolve(directory,'discovery.log'),(result.stdout??'')+(result.stderr??''));
+ if(result.error||result.status!==0)throw Error('TARGETED_UNIT_DISCOVERY_FAILED');
+ return JSON.parse(readFileSync(path,'utf8'));
+}
 export function runUnit(plan,directory,cwd=resolve(root,'apps/web'),context=runIdentity()){
  cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});for(const file of ['report.json','evidence.json'])rmSync(resolve(directory,file),{force:true});const path=resolve(directory,'report.json');
  const files=plan.suites.find(x=>x.id==='web-unit')?.files.map(x=>x.file);
  if(!files?.length)throw Error('MISSING_UNIT_SELECTION');
+ const discovery=discoverUnits(files,cwd,directory);
  const result=spawnSync(process.execPath,[resolve(root,'node_modules/vitest/vitest.mjs'),'run','--bail=1','--reporter=json',`--outputFile=${path}`,...files],{cwd,env:{...process.env,GH_TOKEN:undefined,GITHUB_TOKEN:undefined},encoding:'utf8',maxBuffer:32*1024*1024,timeout:20*60_000});
  writeFileSync(resolve(directory,'run.log'),(result.stdout??'')+(result.stderr??''));
  if(result.error||result.status!==0)throw Error('TARGETED_UNIT_FAILED');
- const evidence=unitEvidence(plan,JSON.parse(readFileSync(path,'utf8')),cwd,context);
+ const evidence=unitEvidence(plan,JSON.parse(readFileSync(path,'utf8')),cwd,context,discovery);
  writeFileSync(resolve(directory,'evidence.json'),JSON.stringify(evidence));return evidence;
 }
 export function runBrowser(plan,directory,cwd=resolve(root,'apps/web'),context=runIdentity(),options={}){
@@ -45,6 +53,9 @@ export function verifyDirectory(directory,env=process.env){
   const record=JSON.parse(readFileSync(resolve(directory,suite,'evidence.json'),'utf8'));
   return {...record,report:JSON.parse(readFileSync(resolve(directory,suite,'report.json'),'utf8'))};
  });
+ const unit=evidence.find(x=>x.suite==='web-unit');
+ const fresh=discoverUnits(plan.suites.find(x=>x.id==='web-unit').files.map(x=>x.file),realpathSync(resolve(root,'apps/web')),resolve(directory,'web-unit'));
+ if(JSON.stringify(unitIdentities(fresh,unit.cwd,plan.suites.find(x=>x.id==='web-unit').files))!==JSON.stringify(unitIdentities(unit.discovery,unit.cwd,plan.suites.find(x=>x.id==='web-unit').files)))throw Error('CURRENT_UNIT_DISCOVERY_MISMATCH');
  verifyEvidence(plan,evidence,context);
  const receipt={schemaVersion:1,mode:plan.mode,...context,planDigest:plan.planDigest,policyDigest:plan.policyDigest,suites:evidence.map(x=>x.suite),status:'success'};
  writeFileSync(resolve(directory,'receipt.json'),JSON.stringify(receipt));return receipt;

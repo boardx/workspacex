@@ -9,15 +9,35 @@ function bind(plan,evidence,context,suite){
  if(evidence.suite!==suite||Object.keys(context).some(k=>evidence[k]!==context[k])||evidence.planDigest!==plan.planDigest||evidence.policyDigest!==plan.policyDigest)throw Error('TARGETED_EVIDENCE_IDENTITY_MISMATCH');
 }
 function base(plan,context,suite){return {schemaVersion:1,suite,...context,planDigest:plan.planDigest,policyDigest:plan.policyDigest}}
-export function unitEvidence(plan,report,cwd,context){
- const evidence={...base(plan,context,'web-unit'),cwd,report,reportHash:hash(report)};
+export function unitEvidence(plan,report,cwd,context,discovery){
+ const evidence={...base(plan,context,'web-unit'),cwd,report,reportHash:hash(report),discovery,discoveryHash:hash(discovery)};
  verifyUnitEvidence(plan,evidence,context);return evidence;
+}
+export function unitIdentities(discovery,cwd,files){
+ if(!Array.isArray(discovery)||!discovery.length)throw Error('MISSING_UNIT_DISCOVERY');
+ const selected=new Set(files.map(x=>resolve(cwd,x.file))),seen=new Set();
+ const ids=discovery.map(x=>{
+  if(typeof x?.file!=='string'||typeof x?.name!=='string'||!x.name||!selected.has(resolve(x.file)))throw Error('INVALID_UNIT_DISCOVERY');
+  seen.add(resolve(x.file));return JSON.stringify([resolve(x.file),x.name]);
+ });
+ if(seen.size!==selected.size||new Set(ids).size!==ids.length)throw Error('INCOMPLETE_UNIT_DISCOVERY');
+ return ids.sort();
 }
 export function verifyUnitEvidence(plan,evidence,context){
  bind(plan,evidence,context,'web-unit');
  if(evidence.reportHash!==hash(evidence.report))throw Error('CHANGED_UNIT_REPORT');
  const files=plan.suites.find(x=>x.id==='web-unit')?.files;
  if(!files?.length)throw Error('MISSING_UNIT_SELECTION');
+ const expected=unitIdentities(evidence.discovery,evidence.cwd,files);
+ if(evidence.discoveryHash!==hash(evidence.discovery))throw Error('CHANGED_UNIT_DISCOVERY');
+ const actual=[];
+ for(const file of evidence.report?.testResults??[]){
+  for(const assertion of file.assertionResults??[]){
+   if(assertion.status!=='passed'||typeof assertion.title!=='string'||!Array.isArray(assertion.ancestorTitles)||assertion.ancestorTitles.some(x=>typeof x!=='string'))throw Error('UNEXECUTED_UNIT_ASSERTION');
+   actual.push(JSON.stringify([resolve(file.name),[...assertion.ancestorTitles,assertion.title].join(' > ')]));
+  }
+ }
+ if(new Set(actual).size!==actual.length||JSON.stringify(actual.sort())!==JSON.stringify(expected))throw Error('UNIT_ASSERTION_COVERAGE_MISMATCH');
  validateReport(evidence.report,files.map(x=>({file:x.file,projectName:''})),evidence.cwd);return true;
 }
 function selectedFiles(report,cwd){

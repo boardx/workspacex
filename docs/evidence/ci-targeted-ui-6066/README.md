@@ -7,8 +7,10 @@ configuration, branch protection or payment state is changed.
 ## First supported change
 Only an M change to `apps/web/components/chat/chat-task-workbench-empty-state.tsx`
 is eligible. It must preserve reviewed React/cn imports, public signatures,
-existing identifiers, call capabilities, element/attribute capabilities, and
-regular source files. Unknown paths, additional files, deleted/renamed inputs,
+the complete syntax tree outside JSX copy and existing literal presentation
+attributes/classes, and regular source files. Directives, callback arguments,
+context wiring, numeric values and executable syntax are frozen. URL-bearing
+CSS values cannot enter the pilot. Unknown paths, additional files, deleted/renamed inputs,
 shared/config/lock/CI changes, missing history or runtime/public boundary changes
 retain full regression. This is a pilot for local presentation/copy changes,
 not a general proof that arbitrary JavaScript dependencies can be inferred.
@@ -54,3 +56,30 @@ actual CLI delegation are tested. Full fallback static spec registration remains
 verified without exemptions. Actual service/browser execution, independent final
 review and a real eligible PR/queue canary remain rollout evidence requirements.
 No elapsed-time speedup is claimed until those runs are recorded.
+
+## Final review fix pass (2026-11-01)
+The independent review of `b75407c61f2e54640b1e45286c1f6c1ddcb74f00`
+returned REVISE. Both important findings were reproduced as failing tests and
+fixed in the author pass: executable tagged templates no longer fit the syntax
+boundary; pending/todo/skipped or omitted unit assertions cannot become a success
+receipt. Installed Vitest case discovery must exactly match executed identities;
+the mandatory aggregate rediscovers selected cases from the current checkout.
+Nested suite names use the reporter's ancestor/title structure rather than
+assuming Vitest's two JSON outputs use identical full-name delimiters.
+
+Local real service diagnostic on the reviewed source: the original chat-read
+configuration executed all 25 selected cases in 6m26s, with no skips, failures or
+flakiness. The current selected unit reports contain 9 passing assertions and
+match installed discovery. These local executions are compatibility diagnostics,
+not GitHub candidate admission or a measured end-to-end CI improvement.
+
+The reviewer did not judge actual phase2 queue proof, activation, canary, or speed;
+those remain separate requirements. A minor trailing blank-line finding in the
+workflow diff is deferred. No new approval claim replaces the review verdict.
+
+Post-fix canonical `pnpm run verify:harness:raw`: 248 files passed, 2,804
+assertions passed and 4 existing declared skips (none from the selected pilot),
+636.95s Vitest duration. `node --test .github/scripts/run-affected-tests.test.mjs`:
+21/21 passed. `pnpm --filter web exec tsc --noEmit`: exit 0. Source boundary
+counterexamples, both pending-assertion reproductions and real nested Vitest
+discovery/report reconciliation pass in the complete suite.

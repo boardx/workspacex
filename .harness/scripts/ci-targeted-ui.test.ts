@@ -6,6 +6,9 @@ it('permits local display changes but rejects new runtime edges and public API c
  const component=readFileSync(JSON.parse(actual).sourceFile,'utf8');
  expect(inspectUiBoundary(component,component.replace('今天，想完成什么？','今天，你想完成什么？'))).toBe(true);
  expect(inspectUiBoundary(original,original.replace('Hello','Hi'))).toBe(true);
+ expect(inspectUiBoundary(component,component.replace('bg-card px-2','bg-muted px-2'))).toBe(true);
+ expect(inspectUiBoundary(original,original.replace('cn("a")','cn("b")'))).toBe(true);
+ expect(inspectUiBoundary(original,original.replace('onUseTemplate("a")','onUseTemplate("b")'))).toBe(false);
  expect(inspectUiBoundary(original.replace('react','other'),original.replace('react','other'))).toBe(false);
  for(const changed of [original.replace('Hello','<iframe/>'),original.replace('Hello','{fetch("/api")}'),original.replace('react','other'),original.replace('onUseTemplate:(x:string)','onUseTemplate:(x:number)'),original.replace('<button','<button onMouseOver={()=>onUseTemplate("x")}'),original.replace('Hello','{eval("x")}'),original.replace('Hello','{localStorage.length}')])expect(inspectUiBoundary(original,changed)).toBe(false);
 });
@@ -59,4 +62,12 @@ it('keeps disabled/full preflight dependency-free and never publishes an invalid
   expect(JSON.parse(readFileSync(planFile,'utf8')).mode).toBe('full');
   expect(()=>execFileSync(process.execPath,[script],{env:{...env,GITHUB_SHA:'0'.repeat(40)},stdio:'pipe'})).toThrow();
  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+it('rejects tagged-template execution and non-presentation edits without executing payloads',()=>{
+ const component=readFileSync(JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8')).sourceFile,'utf8');
+ const payload='cn["constructor"]`return globalThis.fetch("/api/admin/action", {method:"POST"})```;';
+ expect(inspectUiBoundary(component,component.replace('  return (',`  ${payload}\n  return (`))).toBe(false);
+ expect(inspectUiBoundary(component,component.replace('"use client"','"use server"'))).toBe(false);
+ expect(inspectUiBoundary(component,component.replace('材料 {materialsCount}','材料 {skillsCount}'))).toBe(false);
+ expect(inspectUiBoundary(component,component.replace('bg-card px-2','bg-[url(https://example.invalid)] px-2'))).toBe(false);
 });

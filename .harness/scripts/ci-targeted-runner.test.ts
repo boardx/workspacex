@@ -10,7 +10,7 @@ it('executes selected Vitest files rather than relying on a declared plan',()=>{
  try{
   const vitest=resolve('node_modules/vitest/dist/index.js');
   writeFileSync(resolve(dir,'vitest.config.mjs'),"export default {test:{include:['*.test.ts'],maxWorkers:1,minWorkers:1}}");
-  writeFileSync(resolve(dir,'a.test.ts'),`import {test,expect} from ${JSON.stringify(vitest)};test('actual selected assertion',()=>expect(1).toBe(1));`);
+  writeFileSync(resolve(dir,'a.test.ts'),`import {test,expect,describe} from ${JSON.stringify(vitest)};describe('nested group',()=>test('actual selected assertion',()=>expect(1).toBe(1))); `);
   writeFileSync(resolve(dir,'unselected.test.ts'),`import {test} from ${JSON.stringify(vitest)};test('must not execute',()=>{throw Error('unselected')});`);
   const plan={schemaVersion:1,headSha:context.sha,mode:'targeted-ui',planDigest:'c'.repeat(64),policyDigest:'d'.repeat(64),suites:[{id:'web-unit',files:[{file:'a.test.ts',sha256:'e'.repeat(64)}]}]};
   const output=resolve(dir,'out');const result=runUnit(plan,output,dir,context);

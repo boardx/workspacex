@@ -1,0 +1,15 @@
+{
+  "kind": "local-service-execution",
+  "admission": false,
+  "sha": "b75407c61f2e54640b1e45286c1f6c1ddcb74f00",
+  "files": 6,
+  "stats": {
+    "startTime": "2026-10-31T17:52:45.886Z",
+    "duration": 384402.65599999996,
+    "expected": 25,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "status": "success"
+}

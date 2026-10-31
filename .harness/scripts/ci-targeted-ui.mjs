@@ -39,9 +39,30 @@ function structure(text,allowedImports){
  }
  visit(source);return {safe,imports,api,tags,attrs,names};
 }
+// Compare every syntax node. Only JSX copy and existing literal class values are variable.
+// New executable syntax (including tagged templates), directives, callbacks and data wiring
+// must retain the original tree and text, otherwise the full regression path is selected.
+function presentationTree(text){
+ const source=ts.createSourceFile('ui.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
+ function fingerprint(node){
+  if(ts.isJsxText(node))return [node.kind,'copy'];
+  if(ts.isStringLiteral(node)){
+   const parent=node.parent;
+   const attribute=ts.isJsxAttribute(parent)&&['className','title','aria-label'].includes(parent.name.getText(source));
+   const classes=ts.isCallExpression(parent)&&parent.expression.getText(source)==='cn';
+   if(attribute||classes){
+    if((classes||parent.name.getText(source)==='className')&&/[\\()@]|https?:|url|javascript|data:/i.test(node.text))return [node.kind,node.text];
+    return [node.kind,classes||parent.name.getText(source)==='className'?'classes':'copy'];
+   }
+  }
+  const children=node.getChildren(source);
+  return children.length?[node.kind,children.map(fingerprint)]:[node.kind,node.getText(source)];
+ }
+ return fingerprint(source);
+}
 export function inspectUiBoundary(before,after,allowedImports=policy.imports){
  const a=structure(before,allowedImports),b=structure(after,allowedImports);
- return !!a?.safe&&!!b?.safe&&a.imports.length===Object.keys(allowedImports).length&&JSON.stringify(a.imports)===JSON.stringify(b.imports)&&JSON.stringify(a.api)===JSON.stringify(b.api)&&[...b.tags].every(x=>a.tags.has(x))&&[...b.attrs].every(x=>a.attrs.has(x))&&[...b.names].every(x=>a.names.has(x));
+ return !!a?.safe&&!!b?.safe&&JSON.stringify(presentationTree(before))===JSON.stringify(presentationTree(after))&&a.imports.length===Object.keys(allowedImports).length&&JSON.stringify(a.imports)===JSON.stringify(b.imports)&&JSON.stringify(a.api)===JSON.stringify(b.api)&&[...b.tags].every(x=>a.tags.has(x))&&[...b.attrs].every(x=>a.attrs.has(x))&&[...b.names].every(x=>a.names.has(x));
 }
 function checkPolicy(p){
  if(!p.imports||typeof p.imports!=='object'||Object.values(p.imports).some(x=>typeof x!=='string')||p.schemaVersion!==1||typeof p.enabled!=='boolean'||typeof p.sourceFile!=='string'||!p.sourceFile.startsWith('apps/web/components/')||!p.sourceFile.endsWith('.tsx'))throw Error('UNKNOWN_POLICY');
