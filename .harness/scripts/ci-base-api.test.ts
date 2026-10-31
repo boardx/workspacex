@@ -1,15 +1,15 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { assertPrerequisites, validateReport } from './ci-base-api.mjs';
 const dependencies=['verify-full-compile','base-api-plan','base-api-shards','base-api-exclusive'];
 const good=()=>Object.fromEntries(dependencies.map(name=>[name,{result:'success'}]));
 describe('complete base API acceptance',()=>{
- it('requires all current producers',()=>expect(()=>assertPrerequisites(good())).not.toThrow());
+ it('requires all current producers',()=>expect(()=>assertPrerequisites(good(),'pull_request')).not.toThrow());
  it.each(['failure','cancelled','skipped',undefined])('rejects %s before historical reuse',result=>{
-  for(const name of dependencies)expect(()=>assertPrerequisites({...good(),[name]:{result}})).toThrow();
+  for(const name of dependencies)expect(()=>assertPrerequisites({...good(),[name]:{result}},'pull_request')).toThrow();
  });
  it('rejects missing and unexpected prerequisites',()=>{
-  expect(()=>assertPrerequisites({})).toThrow();
-  expect(()=>assertPrerequisites({...good(),extra:{result:'success'}})).toThrow();
+  expect(()=>assertPrerequisites({},'pull_request')).toThrow();
+  expect(()=>assertPrerequisites({...good(),extra:{result:'success'}},'pull_request')).toThrow();
  });
  it('requires real successful files and tests',()=>{
   const report={success:true,numTotalTests:3,numPassedTests:3,testResults:[{status:'passed'},{status:'passed'}]};
@@ -115,4 +115,13 @@ it.each(['merge_group','workflow_dispatch'])('requires a successful selected com
  expect(()=>assertPrerequisites(needs,event)).not.toThrow();
  for(const result of ['failure','cancelled','skipped',undefined])expect(()=>assertPrerequisites({...needs,'base-compile':{result}},event)).toThrow();
  expect(()=>assertPrerequisites({...needs,extra:{result:'success'}},event)).toThrow();
+});
+
+it.each(['merge_group','workflow_dispatch'])('inherits actual %s context and rejects old producer topology',event=>{
+ vi.stubEnv('GITHUB_EVENT_NAME',event);
+ try{
+  const needs=Object.fromEntries(['base-compile','base-api-plan','base-api-shards','base-api-exclusive'].map(name=>[name,{result:'success'}]));
+  expect(()=>assertPrerequisites(needs)).not.toThrow();
+  expect(()=>assertPrerequisites(good())).toThrow('INCOMPLETE_BASE_PREREQUISITES');
+ }finally{vi.unstubAllEnvs();}
 });
