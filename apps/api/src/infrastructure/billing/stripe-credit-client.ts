@@ -29,6 +29,7 @@ export class StripeCreditClient {
  async create(order:OrderDraft){
   const cfg=this.config.getStripe();if(!cfg?.returnUrl)throw Error("stripe_disabled");
   const success=new URL(cfg.returnUrl),cancel=new URL(cfg.returnUrl);success.searchParams.set("credit_order",order.orderNo);cancel.searchParams.set("credit_order",order.orderNo);
+  if(order.ownerType==="team")for(const target of [success,cancel]){target.searchParams.set("ownerType","team");target.searchParams.set("ownerId",order.ownerId);target.searchParams.set("purchase","1");}
   const body=new URLSearchParams({mode:"payment","adaptive_pricing[enabled]":"false",client_reference_id:order.orderNo,"metadata[product]":CREDIT_TOPUP_PRODUCT,"metadata[order_ref]":order.orderNo,
    "line_items[0][quantity]":"1","line_items[0][price_data][currency]":"cny","line_items[0][price_data][unit_amount]":String(order.amountFen),
    "line_items[0][price_data][product_data][name]":"WorkspaceX Credits",success_url:success.toString(),cancel_url:cancel.toString(),locale:"auto","payment_method_types[0]":"card"});

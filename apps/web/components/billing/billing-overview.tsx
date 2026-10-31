@@ -89,7 +89,7 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
     if (!openOnReady && !returningOrder) { consumed.current = false; return; }
     // Existing payment recovery must remain reachable when new purchases are disabled.
     if (!consumed.current && (returningOrder || config.state.status === "ready" && config.state.data.enabledProviders.length > 0)) {
-      consumed.current = true; setCashierOpen(true); onPurchaseOpened?.();
+      consumed.current = true; setCashierOpen(true); if(openOnReady)onPurchaseOpened?.();
     }
   }, [openOnReady, config.state, onPurchaseOpened]);
   const number = (value: number) => value.toLocaleString("zh-CN", { maximumFractionDigits: 2 });

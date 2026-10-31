@@ -375,11 +375,17 @@ it("keeps an already paid Stripe creation response and refreshes its credits",as
  expect(screen.queryByText(/暂时无法确认结果/)).toBeNull();
 });
 
-it("recovers a paid return order even after every new purchase channel is disabled",async()=>{
+it("recovers a paid return order with purchases disabled without consuming its return URL",async()=>{
  window.history.replaceState({},"",`/billing?credit_order=${order.orderNo}`);
  try{
-  const f=live({providers:[],get:()=>reply({order:{...order,provider:"stripe",qrCodeUrl:"pending",status:"SUCCESS",paidAt:new Date().toISOString()}})});
-  expect(await screen.findByTestId("billing-success-badge")).toBeTruthy();
-  expect(f.fetcher.mock.calls.filter(([,options])=>options.method==="POST")).toHaveLength(0);
+  const fetcher=vi.fn((url:string,_options?:RequestInit)=>{
+   const path=new URL(url).pathname;
+   return path.endsWith('/config')?reply({enabledProviders:[]}):path.endsWith('/wallet')?reply({wallet}):path.endsWith('/packages')?reply({items:[pack]}):path.endsWith('/transactions')?reply({items:[],nextCursor:null}):path.endsWith('/subscription')?reply({status:'none',planRef:null,currentPeriodEnd:null,cancelAtPeriodEnd:false}):reply({order:{...order,provider:"stripe",qrCodeUrl:"pending",status:"SUCCESS",paidAt:new Date().toISOString()}});
+  });vi.stubGlobal("fetch",fetcher);const consumed=vi.fn(()=>window.history.replaceState({},"","/billing"));
+  render(<BillingOverview userId="user-a" sessionToken="cashier-test-session" onPurchaseOpened={consumed}/>);
+  expect(await screen.findByTestId("billing-success-badge")).toBeTruthy();expect(consumed).not.toHaveBeenCalled();
+  expect(new URLSearchParams(window.location.search).get('credit_order')).toBe(order.orderNo);
+  expect(fetcher.mock.calls.filter(([,options])=>options?.method==='POST')).toHaveLength(0);
+  expect(fetcher.mock.calls.filter(([url])=>new URL(url).pathname.endsWith(`/orders/${order.orderNo}`))).toHaveLength(1);
  }finally{window.history.replaceState({},"","/");}
 });

@@ -14,7 +14,7 @@ Set `BILLING_DEPLOYMENT` explicitly in each API runtime environment:
 
 `BILLING_WECHAT_ENABLED=false` and `BILLING_STRIPE_ENABLED=false` can further disable new purchases. Invalid explicit deployment values disable both. An unset deployment preserves existing deployments' explicit switch behavior for compatibility; rollout must set it rather than relying on that compatibility default. Credential getters remain available to historical callbacks, order reconciliation and management even if new sales are disabled. Devapp WeChat validation uses the configured merchant; enabling it does not simulate a sandbox or prevent real merchant charges.
 
-Apply `20261031090000_billing_stripe_topups.sql` and `20261031091000_billing_wechat_monthly.sql` before deploying the matching API/Web. Existing rows default to Stripe for monthly passes. Credit order provider and session identity distinguish topups. Web and API must deploy together so provider requests and QR/hosted-checkout handling agree. Never expose payment secrets in public Web configuration.
+Apply `20261031090000_billing_stripe_topups.sql` and `20261031091000_billing_wechat_monthly.sql` before deploying the matching API/Web. Existing rows default to Stripe for monthly passes. Credit order provider and session identity distinguish topups. Organization credit returns retain their ownerType/ownerId cashier scope; personal returns retain credit_order until authorized recovery. Web and API must deploy together so provider requests and QR/hosted-checkout handling agree. Never expose payment secrets in public Web configuration.
 
 ## Settlement and recovery
 
