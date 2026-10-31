@@ -6,6 +6,7 @@ import {ensureDatabase,migrateOnce,asOwner} from "../support/db";
 import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {toOrgId} from "../../src/domain/org-id";
+import {PgBillingSubscriptionRepository} from "../../src/infrastructure/billing/pg-billing-subscription-repository";
 import {PgMonthlyPassRepository} from "../../src/infrastructure/billing/pg-monthly-pass-repository";
 import {monthlyPassEnd,validateMonthlyCheckout} from "../../src/application/billing/monthly-pass-service";
 const db=new PgDatabase(appConfig()), repo=new PgMonthlyPassRepository(db), owners:string[]=[];
@@ -39,6 +40,8 @@ it("binds checkout to the principal and grants once for duplicate deliveries",as
  await repo.bind(p,o.orderId,session.id);
  await Promise.all([repo.settle(o.orderId,session),repo.settle(o.orderId,session)]);
  const pass=await repo.latest(p);expect(pass?.state).toBe("paid");
+ const snapshot=await asOwner(c=>c.query("SELECT amount_minor::text,currency FROM billing_monthly_orders WHERE order_id=$1",[o.orderId]));expect(snapshot.rows).toEqual([{amount_minor:"18000",currency:"CNY"}]);
+ const history=await new PgBillingSubscriptionRepository(db,{info(){},error(){}}).history(p,{limit:5,offset:0});expect(history.items).toHaveLength(1);expect(history.items[0]).toMatchObject({amountMinor:18000,currency:"CNY",item:"Pro 月度订阅"});
  const balances=await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[p.userId]));
  expect(balances.rows).toEqual([{balance:"20000.00",total_granted:20000}]);
  await expect(repo.reserve(p)).rejects.toThrow("already_subscribed");

@@ -21,7 +21,7 @@ it("shows one clear price and sends one POST even on repeated purchase clicks",a
 });
 it("shows manual expiry and remaining credit without cancellation controls",async()=>{
  setup({status:"active",planRef:"monthly_pass_v1",purchaseMode:"manual_monthly",currentPeriodEnd:"2026-11-30T00:00:00Z",cancelAtPeriodEnd:true,creditGrant:{status:"granted",grant:{credits:20000,remainingCredits:16000,periodStart:"2026-10-30T00:00:00Z",periodEnd:"2026-11-30T00:00:00Z"}}});
- render(<BillingOverview userId="u" sessionToken="s"/>);await screen.findByText("16,000 / 20,000 credit");
+ render(<BillingOverview userId="u" sessionToken="s"/>);expect((await screen.findByRole("progressbar",{name:"本期剩余 credit"})).getAttribute("aria-valuenow")).toBe("80");
  expect(screen.queryByRole("button",{name:"管理订阅"})).toBeNull();expect(screen.queryByRole("button",{name:"购买月度套餐"})).toBeNull();
  expect(screen.getByText(/到期手动续费/)).toBeTruthy();
 });
@@ -33,7 +33,7 @@ it("resumes a server-persisted pending order after reload and offers one refresh
 it("keeps confirmed account details visible during refresh and refreshes wallet after grant",async()=>{
  const f=setup({...none,purchaseMode:"manual_monthly",checkoutPending:true});render(<BillingOverview userId="u" sessionToken="s"/>);
  await screen.findByRole("button",{name:"继续付款"});f.set({...none,status:"active",purchaseMode:"manual_monthly",checkoutPending:false,currentPeriodEnd:"2026-11-30T00:00:00Z",creditGrant:{status:"granted",grant:{credits:20000,remainingCredits:20000,periodStart:"2026-10-30T00:00:00Z",periodEnd:"2026-11-30T00:00:00Z"}}});
- fireEvent.click(screen.getByRole("button",{name:"刷新状态"}));await screen.findByText("20,000 / 20,000 credit");
+ fireEvent.click(screen.getByRole("button",{name:"刷新状态"}));expect((await screen.findByRole("progressbar",{name:"本期剩余 credit"})).getAttribute("aria-valuenow")).toBe("100");
  await waitFor(()=>expect(f.fetcher.mock.calls.filter(([url])=>url.includes("/wallet")).length).toBeGreaterThan(1));
 });
 it("offers manual renewal after expiry",async()=>{

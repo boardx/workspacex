@@ -19,5 +19,5 @@ export const MONTHLY_PASS_SQL=Object.freeze({
  lock:"SELECT * FROM billing_monthly_orders WHERE order_id=$1 FOR UPDATE",
  bind:"UPDATE billing_monthly_orders SET session_ref=$3 WHERE order_id=$1 AND user_id=$2 AND state='pending' AND (session_ref IS NULL OR session_ref=$3) RETURNING order_id",
  expire:"UPDATE billing_monthly_orders SET state='expired' WHERE order_id=$1 AND user_id=$2 AND session_ref=$3 AND state='pending'",
- paid:"UPDATE billing_monthly_orders SET state='paid',payment_ref=$2,period_start=$3,period_end=$4 WHERE order_id=$1",
+ paid:"UPDATE billing_monthly_orders SET state='paid',payment_ref=$2,period_start=$3,period_end=$4,amount_minor=$5,currency=$6 WHERE order_id=$1",
 });

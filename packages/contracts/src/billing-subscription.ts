@@ -90,6 +90,15 @@ export const SubscriptionInfo = z
   })
   .strict();
 
+/** Authenticated user's confirmed subscription periods; unknown historical facts stay null. */
+export const SubscriptionHistoryItem=z.object({
+ id:z.string().min(1),item:z.enum(["Pro 月度订阅","Pro 订阅"]),
+ periodStart:z.string().datetime({offset:true}).nullable(),periodEnd:z.string().datetime({offset:true}).nullable(),
+ amountMinor:z.number().int().nonnegative().safe().nullable(),currency:z.string().regex(/^[A-Z]{3}$/).nullable(),
+}).strict().refine(v=>(v.amountMinor===null)===(v.currency===null),"amount and currency must agree");
+export const SubscriptionHistory=z.object({items:z.array(SubscriptionHistoryItem).max(100),hasMore:z.boolean()}).strict();
+export const SubscriptionHistoryQuery=z.object({limit:z.coerce.number().int().min(1).max(100).default(5),offset:z.coerce.number().int().min(0).max(10000).default(0)}).strict();
+
 /** 跳转链接（升级支付页 / 管理门户共用形状）。 */
 export const SubscriptionLink = z
   .object({
@@ -107,6 +116,9 @@ export const StripeWebhookAck = z
 /* ── operations（HTTP 路径为本束提案；落地时同步 navigation/nav-reachability） ── */
 
 export const operations = {
+  getSubscriptionHistory: {
+    method:"GET",path:"/billing/subscription/history",in:SubscriptionHistoryQuery,out:SubscriptionHistory,err:[] as const,
+  },
   /** UC-BS-1：读取订阅状态（纯读；webhook 未到时返回当前已存状态，绝不把已订阅报成 none）。 */
   getSubscriptionInfo: {
     method: "GET",

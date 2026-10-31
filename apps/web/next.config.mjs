@@ -647,6 +647,7 @@ export default {
       { source: `${prefix}/billing/admin/credits/grant`, destination: `${apiOrigin}/billing/admin/credits/grant` },
       { source: `${prefix}/billing/org-settings/:orgId`, destination: `${apiOrigin}/billing/org-settings/:orgId` },
       { source: `${prefix}/billing/subscription`, destination: `${apiOrigin}/billing/subscription` },
+      { source: `${prefix}/billing/subscription/history`, destination: `${apiOrigin}/billing/subscription/history` },
       { source: `${prefix}/billing/subscription/upgrade-link`, destination: `${apiOrigin}/billing/subscription/upgrade-link` },
       { source: `${prefix}/billing/subscription/management-link`, destination: `${apiOrigin}/billing/subscription/management-link` },
       { source: `${prefix}/billing/webhooks/wechat`, destination: `${apiOrigin}/billing/webhooks/wechat` },

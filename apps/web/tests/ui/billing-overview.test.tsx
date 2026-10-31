@@ -12,6 +12,7 @@ function requests(overrides: Record<string, () => Promise<Response>> = {}) {
     expect(options.headers).toMatchObject({ Authorization: "Bearer test-billing-session" });
     const path = new URL(url).pathname;
     if (overrides[path]) return overrides[path]();
+    if (path.endsWith("/billing/subscription/history")) return reply({items:[],hasMore:false});
     if (path.endsWith("/billing/config")) return reply({ enabledProviders: [] });
     if (path.endsWith("/billing/wallet")) {
       expect(new URL(url).searchParams.get("ownerType")).toBe("user");
@@ -49,7 +50,7 @@ describe("真实计费入口与账户状态", () => {
     expect(screen.queryByTestId("billing-wallet-balance")).toBeNull();
     expect(screen.queryByTestId("billing-subscription-status")).toBeNull();
     expect(screen.queryByRole("button", {name:"购买月度套餐"})).toBeNull();
-    expect(screen.getByRole("link", { name: "查看我的 AI 用量" }).getAttribute("href")).toBe("/usage");
+    expect(screen.getByRole("link", { name: "查看历史使用" }).getAttribute("href")).toBe("/usage");
   });
 
   it("单项网络失败可单独重试，不覆盖其他正常数据", async () => {
@@ -76,7 +77,7 @@ describe("真实计费入口与账户状态", () => {
     renderOverview();
     await screen.findByTestId("billing-subscription-status");
     expect(screen.queryByText(/微信支付 ·/)).toBeNull();
-    expect(screen.getByRole("button", { name: "充值 credit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "购买 credit" })).toBeTruthy();
     expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
   });
 
@@ -84,7 +85,7 @@ describe("真实计费入口与账户状态", () => {
     requests({ "/billing/config": () => reply({ enabledProviders: providers }) });
     renderOverview();
     await screen.findByTestId("billing-subscription-status");
-    expect(Boolean(screen.queryByRole("button",{name:"充值 credit"}))).toBe(providers.length>0);
+    expect(Boolean(screen.queryByRole("button",{name:"购买 credit"}))).toBe(providers.length>0);
     expect(screen.queryByText("支付渠道")).toBeNull();
     expect(screen.queryByText(/未开通$/)).toBeNull();
   });
@@ -96,15 +97,15 @@ describe("真实计费入口与账户状态", () => {
       return new Promise<Response>(() => undefined);
     }));
     const view = renderOverview(); view.unmount();
-    expect(signals).toHaveLength(3);
+    expect(signals).toHaveLength(4);
     expect(signals.every((signal) => signal.aborted)).toBe(true);
   });
 });
 it("shows permanent and expiring monthly credits separately and explains personal negative admission",async()=>{
  requests({"/billing/wallet":()=>reply({wallet:{...wallet,balance:-1,permanentBalance:-6,subscriptionCredits:5,subscriptionExpiresAt:"2026-11-14T00:00:00Z"}})});renderOverview();
  await screen.findByTestId("billing-wallet-balance");
- expect(screen.getByTestId("billing-permanent-balance").textContent).toContain("-6");
- expect(screen.getByTestId("billing-monthly-credits").textContent).toContain("5");
+ expect(screen.getByTestId("billing-wallet-balance").textContent).toContain("-6");
+ expect(screen.queryByText("套餐余额")).toBeNull();
  expect(screen.getByText(/余额为负，充值后可发起新请求/)).toBeTruthy();
  expect(screen.queryByText(/订阅不会自动增加充值额度/)).toBeNull();
 });
