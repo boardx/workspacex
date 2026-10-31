@@ -93,7 +93,7 @@ jobs:
       - name: 全仓编译（build）
         run: pnpm turbo run build
       - name: 全仓 typecheck + lint
-        run: pnpm turbo run typecheck lint --continue
+        run: pnpm turbo run typecheck lint
 
   # 机械合并门禁（#956）——2026-08-11 20:33 CST 事故：`pr-queue` 在 20:32 仍把
   # #954/#943/#922 裁成 WAITING_REVIEW/MERGE_BLOCKED，repo owner（有 admin bypass
@@ -313,7 +313,7 @@ jobs:
           exit "$status"
       - name: Verify real Fabric sticky text containment
         id: sticky
-        if: always() && steps.dedup.outputs.run == 'true'
+        if: success() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
@@ -322,7 +322,7 @@ jobs:
       # #3205: reuse this lane's browser installation and retain independent output.
       - name: Execute trace disclosure geometry
         id: geometry
-        if: always() && steps.dedup.outputs.run == 'true'
+        if: success() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
@@ -390,7 +390,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
-      fail-fast: false
+      fail-fast: true # Stop remaining shards after the first failure.
       matrix:
         shard: ${{ fromJSON(needs.base-api-plan.outputs.shards) }}
     env:
@@ -478,7 +478,7 @@ jobs:
 
   full-regression-core:
     needs: [verify-full-compile, base-api-plan, base-api-shards, base-api-exclusive]
-    if: always() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))
+    if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
