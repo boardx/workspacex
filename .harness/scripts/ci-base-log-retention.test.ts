@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { expect, it } from 'vitest';
 
-const lane = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8')).jobs['full-regression-core'];
+const lane = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs['full-regression-core'];
 
 it('retains unfinished package logs after a failed or timed-out base step, without requiring any log', () => {
   const collect = lane.steps.find((step: { name?: string }) => step.name === 'Collect base task logs (success or failure)');

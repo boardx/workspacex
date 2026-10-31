@@ -282,6 +282,10 @@ const EXEMPTIONS = [
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
   {
+    spec: "apps/web/e2e/skill-file-pin-live.spec.ts",
+    reason: "#6052: Skill browser acceptance is conditional on all apps/**, packages/**, scripts/**, .harness/** and root dependency/runtime configuration; ci-skill-scope.test.ts pins this conservative set. Documentation-only changes outside those inputs no longer launch the browser. This is conditional coverage, never unconditional acceptance; manual dispatch remains available.",
+  },
+  {
     spec: "apps/web/e2e/cn-release-six-business.spec.ts",
     reason: "CN release simulation owner: cn-release-simulation.yml executes this full application fixture via the AST-verified Python runner/session chain. The workflow has explicit release/source path filters and manual dispatch, so this is conditional coverage, not an unconditional product E2E gate. Exact-candidate/production acceptance remains separate.",
   },

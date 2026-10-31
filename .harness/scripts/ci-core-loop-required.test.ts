@@ -9,7 +9,7 @@ it('retains core-loop merge acceptance while image deployment owns publication',
  expect(w.jobs['backend-required'].needs).toContain('e2e-core-loop');
  expect(w.jobs.deploy).toBeUndefined();
  const images=parse(readFileSync('.github/workflows/image-release.yml','utf8'));
- expect(images.jobs.deploy.needs).toEqual(['plan','build','manifest']);
+ expect(images.jobs.deploy.needs).toEqual(['plan','build','manifest','admission']);
  expect(w.jobs['e2e-core-loop']['continue-on-error']).toBeUndefined();
 });
 import {aggregateFailures,CURRENT_POLICY} from './lib/ci-check-policy.mjs';

@@ -7,6 +7,7 @@ import {requiredBoardAcceptanceLanes} from './board-acceptance-matrix.mjs';
 
 const root=resolve(import.meta.dirname,'../../..');
 const workflow=readFileSync(resolve(root,'.github/workflows/board-acceptance.yml'),'utf8');
+const manual=readFileSync(resolve(root,'.github/workflows/board-manual-acceptance.yml'),'utf8');
 const independent=readFileSync(resolve(root,'.github/workflows/board-native-acceptance.yml'),'utf8');
 const scripts=JSON.parse(readFileSync(resolve(root,'apps/web/package.json'),'utf8')).scripts;
 const laneRunner=readFileSync(resolve(root,'apps/web/scripts/run-board-ci-lane.mjs'),'utf8');
@@ -29,12 +30,12 @@ test('quick and independent workflows invoke every mapped real producer and reta
     assert.equal(typeof scripts[script],'string',script);
     assert.match(scripts[script],/run-board-ci-lane\.mjs/);
     assert.match(scripts[script],/playwright/);
-    assert.equal((workflow+'\n'+independent).match(new RegExp(`pnpm --filter web run ${script.replaceAll(':','\\:')}`,'g'))?.length,lane==='visual'?2:1,script);
-    const source=lane==='meeting-room'?independent:workflow;
+    assert.equal((workflow+'\n'+manual+'\n'+independent).match(new RegExp(`pnpm --filter web run ${script.replaceAll(':','\\:')}`,'g'))?.length,lane==='visual'?2:1,script);
+    const source=lane==='meeting-room'?independent:['performance','collaboration-50','import'].includes(lane)?manual:workflow;
     assert.ok(source.includes(`pnpm --filter web run ${script}`),script);
     assert.ok(source.includes(`apps/web/test-results/board-ci/${lane}/`),lane);
   }
-  assert.match(workflow,/WHITEBOARD_CAPTURED_VENDOR_MANIFEST: \$\{\{ vars\.WHITEBOARD_CAPTURED_VENDOR_MANIFEST \}\}/);
+  assert.match(manual,/WHITEBOARD_CAPTURED_VENDOR_MANIFEST: \$\{\{ vars\.WHITEBOARD_CAPTURED_VENDOR_MANIFEST \}\}/);
 });
 
 test('unknown workflow lanes fail closed instead of claiming canonical coverage',()=>{
