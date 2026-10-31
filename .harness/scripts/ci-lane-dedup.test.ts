@@ -67,7 +67,7 @@ describe('workflow and executable reuse contract', () => {
     expect(job.needs.length).toBeGreaterThan(1);
     expect(JSON.stringify(job)).not.toContain('ci-lane-dedup.mjs');
     expect(job.steps.some((s:any)=>s.id==='dedup')).toBe(false);
-    expect(JSON.stringify(job)).toContain(lane==='chat-read'?'chat-prerequisites':'prerequisites-parallel');
+    expect(JSON.stringify(job)).toContain(lane==='chat-read'?'chat-prerequisites':'ci-targeted-routing.mjs base');
   });
   it.each(['failure', '', 'unknown'])('reused %s cannot turn green', result => {
     const run = spawnSync(process.execPath, [new URL('./ci-lane-dedup.mjs', import.meta.url).pathname, 'verdict'], { env: { ...process.env, CI_SOURCE_RESULT: result } });

@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "enabled": true,
+  "sourceFile": "apps/web/components/chat/chat-task-workbench-empty-state.tsx",
+  "unitTests": [
+    "tests/ui/chat-task-workbench-empty-state.test.tsx",
+    "tests/knowledge/session-briefing.test.tsx"
+  ],
+  "browserTests": [
+    "e2e/chat-task-workbench-empty-state.spec.ts",
+    "e2e/chat-task-workbench-composer.spec.ts",
+    "e2e/chat-task-workbench-capability-cards.spec.ts",
+    "e2e/chat-task-workbench-copy.spec.ts",
+    "e2e/chat-task-workbench-polish.spec.ts",
+    "e2e/chat-task-workbench-scroll-overshoot.spec.ts"
+  ],
+  "imports": {
+    "react": "* as React",
+    "@/lib/utils": "{cn}"
+  }
+}

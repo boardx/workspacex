@@ -1,0 +1,52 @@
+import {expect,it} from 'vitest';
+import {unitEvidence,verifyUnitEvidence} from './ci-targeted-evidence.mjs';
+const context={sha:'a'.repeat(40),run:'12',attempt:'1'};
+const plan={schemaVersion:1,headSha:context.sha,mode:'targeted-ui',planDigest:'c'.repeat(64),policyDigest:'d'.repeat(64),suites:[{id:'web-unit',files:[{file:'tests/ui/a.test.tsx',sha256:'test-hash'}]}]};
+const unitDiscovery=[{file:'/web/tests/ui/a.test.tsx',name:'actual'}];
+const report={success:true,numPassedTests:1,testResults:[{name:'/web/tests/ui/a.test.tsx',status:'passed',assertionResults:[{status:'passed',fullName:'actual',title:'actual',ancestorTitles:[]}]}]};
+it('binds actual selected unit reports to source, run, attempt and plan',()=>{
+ const evidence=unitEvidence(plan,report,'/web',context,unitDiscovery);
+ expect(verifyUnitEvidence(plan,evidence,context)).toBe(true);
+ for(const patch of [{sha:'b'.repeat(40)},{attempt:'2'},{run:'13'},{planDigest:'old'},{policyDigest:'old'},{report:{...report,success:false}}])expect(()=>verifyUnitEvidence(plan,{...evidence,...patch},context)).toThrow();
+ expect(()=>unitEvidence(plan,{...report,testResults:[]},'/web',context,unitDiscovery)).toThrow();
+});
+
+import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
+import {resolve,relative} from 'node:path';
+import {invoke} from './ci-chat-shards.mjs';
+import {browserEvidence,verifyBrowserEvidence,verifyEvidence} from './ci-targeted-evidence.mjs';
+it('executes a real selected browser fixture and rejects missing, replayed and changed suite evidence',()=>{
+ const cwd=resolve('apps/web'),dir=mkdtempSync(resolve(cwd,'.targeted-browser-'));
+ try{
+  writeFileSync(resolve(dir,'playwright.config.ts'),`console.log('configuration diagnostic outside JSON');import {defineConfig} from '@playwright/test';export default defineConfig({testDir:'.',workers:1,projects:[{name:'selected'}]});`);
+  for(const file of ['a','b'])writeFileSync(resolve(dir,file+'.spec.ts'),`import {test,expect} from '@playwright/test';test('actual ${file}',()=>expect(1).toBe(1));`);
+  const file=relative(cwd,resolve(dir,'a.spec.ts'));
+  const options={cwd,config:resolve(dir,'playwright.config.ts'),files:[file]};
+  const p={...plan,suites:[...plan.suites,{id:'chat-ui',files:[{file,sha256:'e'.repeat(64)}]}]};
+  const discovery=invoke(null,1,true,options).report,run=invoke(null,1,false,options);
+  expect(run.report.stats.expected).toBe(1);
+  const browser=browserEvidence(p,discovery,run.report,cwd,context,run.status);
+  const unit=unitEvidence(p,report,'/web',context,unitDiscovery);
+  expect(verifyEvidence(p,[unit,browser],context)).toBe(true);
+  for(const entries of [[unit],[browser,browser]])expect(()=>verifyEvidence(p,entries,context)).toThrow();
+  for(const patch of [{attempt:'2'},{sha:'b'.repeat(40)},{reportHash:'bad'},{schemaVersion:2},{status:1},{coverage:{...browser.coverage,full:[]}}])expect(()=>verifyBrowserEvidence(p,{...browser,...patch},context)).toThrow();
+  expect(()=>invoke(null,1,true,{...options,files:['--project=other']})).toThrow('INVALID_FILE_SELECTION');
+  expect(()=>browserEvidence(p,discovery,{...run.report,stats:{...run.report.stats,expected:0}},cwd,context,0)).toThrow();
+  writeFileSync(resolve(dir,'a.spec.ts'),`import {test,expect} from '@playwright/test';test('actual pass',()=>expect(1).toBe(1));test.skip('declared but not executed',()=>{});`);
+  const skipDiscovery=invoke(null,1,true,options).report,skipRun=invoke(null,1,false,options);
+  expect(skipRun.report.stats.expected).toBe(1);expect(skipRun.report.stats.skipped).toBe(1);
+  expect(()=>browserEvidence(p,skipDiscovery,skipRun.report,cwd,context,skipRun.status)).toThrow('UNEXECUTED_TARGETED_BROWSER_CASE');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+},30000);
+it('does not count pending required assertions as executed unit coverage',()=>{
+ const pending={...report,testResults:[{...report.testResults[0],assertionResults:[...report.testResults[0].assertionResults,{status:'pending',title:'pending required',ancestorTitles:[]}]}]};
+ expect(()=>unitEvidence(plan,pending,'/web',context,[...unitDiscovery,{file:unitDiscovery[0].file,name:'pending required'}])).toThrow('UNEXECUTED_UNIT_ASSERTION');
+ const p={...plan,suites:[{id:'web-unit',files:[...plan.suites[0].files,{file:'tests/ui/b.test.tsx',sha256:'e'.repeat(64)}]}]};
+ const second={name:'/web/tests/ui/b.test.tsx',status:'passed',assertionResults:Array.from({length:8},(_,i)=>({status:'pending',title:`required ${i}`,ancestorTitles:[]}))};
+ expect(()=>unitEvidence(p,{...report,testResults:[...report.testResults,second]},'/web',context,[...unitDiscovery,...second.assertionResults.map(x=>({file:second.name,name:x.title}))])).toThrow('UNEXECUTED_UNIT_ASSERTION');
+});
+
+it('rejects omitted, substituted, duplicated and nonpassing discovered unit cases',()=>{
+ for(const status of ['pending','todo','skipped','failed'])expect(()=>unitEvidence(plan,{...report,testResults:[{...report.testResults[0],assertionResults:[{fullName:'actual',title:'actual',ancestorTitles:[],status}]}]},'/web',context,unitDiscovery)).toThrow();
+ for(const discovery of [[],[...unitDiscovery,{...unitDiscovery[0],name:'omitted'}],[{...unitDiscovery[0],name:'substituted'}],[...unitDiscovery,...unitDiscovery]])expect(()=>unitEvidence(plan,report,'/web',context,discovery)).toThrow();
+});

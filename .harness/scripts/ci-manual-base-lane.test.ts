@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { evaluateIf } from './lib/ci-job-conditions.mjs';
 const w=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8'));
 function admitted(name:string,eventName:string,inputs:Record<string,unknown>){
- const expression=(w.jobs[name].if??'').replaceAll('needs.doc-smoke-scope.outputs.full', "'true'").replace(/inputs\.([a-z0-9_]+)/g,(_:string,key:string)=>typeof inputs[key]==='string'?`'${inputs[key]}'`:String(inputs[key]??false));
+ const expression=(w.jobs[name].if??'').replaceAll('needs.doc-smoke-scope.outputs.mode',"'full'").replaceAll('needs.doc-smoke-scope.outputs.full', "'true'").replace(/inputs\.([a-z0-9_]+)/g,(_:string,key:string)=>typeof inputs[key]==='string'?`'${inputs[key]}'`:String(inputs[key]??false));
  return evaluateIf(expression,{id:eventName,eventName,ref:'refs/heads/develop',baseBranch:'develop',label:eventName});
 }
 describe('explicit manual base validation avoids unrelated runners without false full acceptance',()=>{
@@ -14,7 +14,7 @@ describe('explicit manual base validation avoids unrelated runners without false
  it.each([false,true])('base selection runs only the complete base job even if full flag is %s',run_e2e_full=>{
   const inputs={verification_lane:'base',run_e2e_full,run_chat_path_coverage:true,run_chat_task_workbench:true};
   const actual=Object.keys(w.jobs).filter(name=>admitted(name,'workflow_dispatch',inputs)===true);
-  expect(actual).toEqual(['base-compile','base-api-plan','base-api-shards','base-api-exclusive','web-test-plan','web-test-shards','base-package-tests','base-control-plane','full-regression-core']);
+  expect(actual).toEqual(['doc-smoke-scope','base-compile','base-api-plan','base-api-shards','base-api-exclusive','web-test-plan','web-test-shards','base-package-tests','base-control-plane','full-regression-core']);
   expect(JSON.stringify(w.jobs['base-package-tests'])).toContain("--filter='!@repo/api' --filter='!web'");
  });
  it('cannot reduce automatic PR, push or merge-group coverage through a manual-only selector',()=>{

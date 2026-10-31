@@ -44,3 +44,10 @@ it('refreshes bounded API clients across a specialist wait longer than 90 second
  await waitForSpecialists({apiFactory,sha,paths,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:180000});
  expect(now).toBe(120000);expect(clients).toBe(27);
 });
+it('requires matching plan-bound routed aggregate metadata on the new queue path',()=>{
+ const good=mode=>Object.fromEntries(['e2e-full','full-regression-core'].map(name=>[name,{result:'success',outputs:{verification_mode:mode,plan_digest:'a'.repeat(64)}}]));
+ for(const mode of ['full','targeted-ui'])expect(requireQueueResults(good(mode),{routed:true}).mode).toBe(mode);
+ for(const outputs of [{},{verification_mode:'candidate-ui',plan_digest:'a'.repeat(64)},{verification_mode:'full',plan_digest:'old'}]){
+  const x=good('targeted-ui');x['e2e-full'].outputs=outputs;expect(()=>requireQueueResults(x,{routed:true})).toThrow();
+ }
+});

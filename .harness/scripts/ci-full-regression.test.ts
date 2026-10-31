@@ -60,12 +60,12 @@ describe('full regression preserves all independent lane verdicts', () => {
   });
   it('has independent timeout budgets and a failure-aware stable aggregate', () => {
     const aggregate = workflow.jobs['e2e-full'];
-    expect(aggregate.needs).toEqual(FULL_REGRESSION_LANES);
+    expect(aggregate.needs).toEqual([...FULL_REGRESSION_LANES,'doc-smoke-scope','targeted-ui-unit','targeted-ui-browser']);
     expect(aggregate.if).toContain('always()');
     for (const name of FULL_REGRESSION_LANES.filter(name => !['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name))) {
       const job = workflow.jobs[name];
-      if(name==='full-regression-core')expect(job.needs).toEqual(['base-compile','base-api-plan','base-api-shards','base-api-exclusive','base-package-tests','base-control-plane','web-test-plan','web-test-shards']);
-      else if(name==='chat-read')expect(job.needs).toEqual(['chat-test-plan','chat-test-shards']);else expect(job.needs).toBeUndefined();
+      if(name==='full-regression-core')expect(job.needs).toEqual(['base-compile','base-api-plan','base-api-shards','base-api-exclusive','base-package-tests','base-control-plane','web-test-plan','web-test-shards','doc-smoke-scope','targeted-ui-unit','targeted-ui-browser']);
+      else if(name==='chat-read')expect(job.needs).toEqual(['chat-test-plan','chat-test-shards','doc-smoke-scope']);else expect(job.needs).toEqual(['doc-smoke-scope']);
       expect(job['continue-on-error']).toBeUndefined();
       expect(job.if).toContain("github.event_name != 'pull_request'");
       expect(job.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
@@ -75,7 +75,7 @@ describe('full regression preserves all independent lane verdicts', () => {
     }
     expect(aggregate.if).toContain("inputs.verification_lane != 'base'");
     expect(aggregate.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
-    expect(aggregate.steps.at(-1).env.CI_LANE_RESULTS).toBe('${{ toJSON(needs) }}');
+    expect(aggregate.steps.at(-1).env.CI_ROUTED_NEEDS).toBe('${{ toJSON(needs) }}');
   });
 });
 

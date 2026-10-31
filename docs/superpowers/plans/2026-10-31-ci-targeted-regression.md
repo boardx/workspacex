@@ -8,7 +8,7 @@
 
 **Tech Stack:** GitHub Actions、TypeScript/Node、Turbo、Vitest、Playwright。
 
-**Spec:** 本文记录用户本轮范围要求：先提供计划；按影响而非代码行数选择测试；支付、权限、迁移保留强制专项；未知范围扩大验证。本计划尚未批准实施。
+**Spec:** 本文记录用户本轮范围要求：先提供计划；按影响而非代码行数选择测试；支付、权限、迁移保留强制专项；未知范围扩大验证。用户已批准按阶段实施；每阶段完成状态以真实 PR、队列验证与证据为准。
 
 ## Global Constraints
 - 复用现有会话 worktree；实施前 fetch main/develop，按当时实际 develop 核对文件，禁止重建同一会话 worktree。
@@ -71,7 +71,12 @@ flowchart LR
  A[基线与影子选择器] --> B[完整覆盖并行化]
  B --> C[按模块启用小回归]
  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
- class A,B,C todo
+ classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
+ classDef active fill:#fef08a,stroke:#ca8a04,color:#111827
+ class A done
+ classDef tested fill:#e9d5ff,stroke:#9333ea,color:#111827
+ class B tested
+ class C active
 ```
 
 工作量初估：中等规模，约3个实现PR；涉及门禁与测试证据，审查风险高于业务代码行数。耗时需在阶段1完成发现后重新估算。

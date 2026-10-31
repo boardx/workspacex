@@ -25,9 +25,16 @@ export async function waitForSpecialists({apiFactory,sha,paths,clock=Date.now,sl
  }
  throw Error('SPECIALIST_TIMEOUT');
 }
-export function requireQueueResults(results){
+export function requireQueueResults(results,{routed=false}={}){
  const required=['e2e-full','full-regression-core'];
  if(!results||Object.keys(results).sort().join()!==required.sort().join()||required.some(k=>results[k]?.result!=='success'))throw Error('QUEUE_ACCEPTANCE_INCOMPLETE');
+ const metadata=required.map(k=>results[k].outputs??{});
+ if(routed||metadata.some(x=>x.verification_mode!==undefined)){
+  const mode=metadata[0].verification_mode,planDigest=metadata[0].plan_digest;
+  if(!['full','targeted-ui'].includes(mode)||!/^[a-f0-9]{64}$/.test(planDigest??'')||metadata.some(x=>x.verification_mode!==mode||x.plan_digest!==planDigest))throw Error('QUEUE_PLAN_METADATA_REJECTED');
+  return {mode,planDigest};
+ }
+ return {mode:'full',planDigest:null};
 }
 export function requireQueueProtection(rules,required=CURRENT_POLICY.requiredChecks){
  if(!Array.isArray(rules))throw Error('QUEUE_RULES_UNAVAILABLE');
@@ -53,9 +60,9 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
    message=process.argv.includes('--control-plane')?'Exact candidate control-plane verification passed; no duplicate harness suite is executed.':'Exact candidate compilation passed on the automatic producer; no second build is executed.';
   }else{
    if(process.env.GITHUB_EVENT_NAME!=='merge_group')throw Error('QUEUE_CONTEXT_REQUIRED');
-   requireQueueResults(JSON.parse(process.env.CI_QUEUE_NEEDS??'null'));
+   const accepted=requireQueueResults(JSON.parse(process.env.CI_QUEUE_NEEDS??'null'),{routed:true});
    await waitForSpecialists({apiFactory:()=>createLookupApi({repository:process.env.GITHUB_REPOSITORY,token:process.env.GH_TOKEN}),sha:process.env.GITHUB_SHA,paths:changedPaths()});
-   message='Actual queue full acceptance and affected specialist checks passed.';
+   message=accepted.mode==='targeted-ui'?'Actual queue plan-bound UI acceptance and affected specialist checks passed.':'Actual queue full acceptance and affected specialist checks passed.';
   }
   console.log(message);
   if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,`${message}\n`);

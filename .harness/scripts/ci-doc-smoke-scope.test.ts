@@ -40,14 +40,14 @@ it('skips only the three broad PR lanes; release and unknown output always retai
  const jobs=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')).jobs;
  const acceptance=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')).jobs;
  for(const name of ['fullstack-smoke','board-smoke','directory-smoke']){
-  expect(jobs[name].needs).toBe('doc-smoke-scope');
+  expect(jobs[name].needs).toEqual(['doc-smoke-scope']);
   for(const eventName of ['pull_request','workflow_dispatch','merge_group'])for(const output of ['false','true','']){
    const selected=eventName==='pull_request'?jobs[name]:acceptance[name];
-   const expression=selected.if.replaceAll('needs.doc-smoke-scope.outputs.full',`'${output}'`).replaceAll('inputs.verification_lane',"'all'");
+   const expression=selected.if.replaceAll('needs.doc-smoke-scope.outputs.mode',"'full'").replaceAll('needs.doc-smoke-scope.outputs.full',`'${output}'`).replaceAll('inputs.verification_lane',"'all'");
    expect(evaluateIf(expression,{id:eventName,eventName,ref:'refs/heads/develop',baseBranch:'develop',label:eventName})).toBe(eventName!=='pull_request'||output!=='false');
   }
  }
- for(const name of ['verify-control-plane','verify-affected','verify-full-compile','organization-create','merge-gate','full-regression-core','e2e-full'])expect(JSON.stringify(jobs[name]??acceptance[name])).not.toContain('doc-smoke-scope');
+ for(const name of ['verify-control-plane','verify-affected','verify-full-compile','organization-create','merge-gate','full-regression-core','e2e-full'])expect(JSON.stringify(jobs[name]??acceptance[name])).not.toContain('needs.doc-smoke-scope.outputs.full');
 });
 it('keeps the classification parent reachable for post-merge full coverage auditing',()=>{
  const jobs=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')).jobs;

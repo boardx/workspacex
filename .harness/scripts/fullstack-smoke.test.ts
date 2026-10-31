@@ -264,7 +264,7 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(workflow).toContain("pnpm run verify:fullstack-board");
     expect(workflow).toContain("TURBO_FORCE=true pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec turbo run test --concurrency=1 --filter='!@repo/api' --filter='!web'");
     expect(workflow).toContain("ci-parallel-evidence.mjs bundle web");
-    expect(workflow).toContain("ci-base-api.mjs prerequisites-parallel");
+    expect(workflow).toContain("ci-targeted-routing.mjs base");
     expect(workflow).not.toContain("TURBO_FORCE=true pnpm run verify:full");
     // Executed lanes upload after failures; reused lanes keep the source artifact link.
     const jobs = parse(workflow).jobs;
@@ -276,7 +276,9 @@ describe("#387 trusted full-stack gate contract", () => {
         const uploads = job.steps.filter((step: { uses?: string }) => step.uses?.startsWith("actions/upload-artifact@"));
         expect(uploads.length).toBeGreaterThan(0);
         for (const step of uploads) {
-          expect(step.if).toBe(['chat-test-shards','base-package-tests','web-test-shards','full-regression-core'].includes(name)
+          if(name==='full-regression-core')expect(step.if).toBe(step.with.name.startsWith('targeted-ui-')
+            ? "always() && needs.doc-smoke-scope.outputs.mode == 'targeted-ui'" : "always() && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'");
+          else expect(step.if).toBe(['chat-test-shards','base-package-tests','web-test-shards'].includes(name)
             ? 'always()' : "always() && steps.dedup.outputs.run == 'true'");
         }
       }

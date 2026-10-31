@@ -72,12 +72,12 @@ it('workflow preserves complete API coverage, isolation and failure verdict befo
  const w=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')),jobs=w.jobs;
  const core=jobs['full-regression-core'];
  expect(core.if).toContain('always()');
- expect(core.needs).toEqual(['base-compile',...dependencies.slice(1),'base-package-tests','base-control-plane','web-test-plan','web-test-shards']);
- const admission=core.steps.find((step:any)=>step.run?.includes('prerequisites-parallel'));
- expect(admission).toMatchObject({env:{CI_BASE_NEEDS:'${{ toJSON(needs) }}'}});
+ expect(core.needs).toEqual(['base-compile',...dependencies.slice(1),'base-package-tests','base-control-plane','web-test-plan','web-test-shards','doc-smoke-scope','targeted-ui-unit','targeted-ui-browser']);
+ const admission=core.steps.find((step:any)=>step.run?.includes('ci-targeted-routing.mjs base'));
+ expect(admission).toMatchObject({env:{CI_ROUTED_NEEDS:'${{ toJSON(needs) }}'}});
  expect(admission.if).toBeUndefined();
  expect(core.steps.some((step:any)=>step.id==='dedup')).toBe(false);
- expect(jobs['base-api-exclusive'].needs).toEqual(['base-api-plan','base-api-shards']);
+ expect(jobs['base-api-exclusive'].needs).toEqual(['base-api-plan','base-api-shards','doc-smoke-scope']);
  expect(jobs['base-api-shards'].strategy).toEqual({'fail-fast':true,matrix:{shard:'${{ fromJSON(needs.base-api-plan.outputs.shards) }}'}});
  for(const name of ['base-api-shards','base-api-exclusive']){
   const job=jobs[name];expect(job['continue-on-error']).toBeUndefined();
@@ -92,7 +92,7 @@ it('workflow preserves complete API coverage, isolation and failure verdict befo
  expect(scripts['verify:ci-base:raw']).not.toContain('--filter');
  expect(scripts['verify:ci-base-other:raw']).toContain("--filter='!@repo/api'");
  expect(core.steps.find((step:any)=>step.name==='Retain complete base evidence').run).toContain('ci-parallel-evidence.mjs combine-base');
- expect(core.steps.findIndex((step:any)=>step.run?.includes('prerequisites-parallel'))).toBeLessThan(core.steps.findIndex((step:any)=>step.run?.includes('combine-base')));
+ expect(core.steps.findIndex((step:any)=>step.run?.includes('ci-targeted-routing.mjs base'))).toBeLessThan(core.steps.findIndex((step:any)=>step.run?.includes('combine-base')));
 });
 
 import { selectProducerArtifacts } from './ci-base-api.mjs';

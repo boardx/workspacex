@@ -4,6 +4,8 @@ import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {planTargeted} from '../../.harness/scripts/ci-targeted-ui.mjs';
+import {runUnit,runIdentity} from '../../.harness/scripts/ci-targeted-runner.mjs';
 
 export const PIXEL_TEST = 'apps/web/tests/ui/board-drawing-stroke-path.test.ts';
 export function selectsWebTest(plan) {
@@ -20,6 +22,7 @@ export function runAffectedTests({
     return result.stdout;
   },
   exists = existsSync,
+  targetedPlan = planTargeted, runSelectedUnit = runUnit,
   coreCli = () => {
     // The pixel test imports playwright-core from web: use that exact installed package,
     // rather than a root/global Playwright CLI which could request another browser revision.
@@ -27,6 +30,12 @@ export function runAffectedTests({
     return join(dirname(requireWeb.resolve('playwright-core/package.json')), 'cli.js');
   },
 } = {}) {
+  const selected = targetedPlan({baseSha:env.CI_SCOPE_BASE_SHA,headSha:env.GITHUB_SHA});
+  if(selected.mode==='targeted-ui'){
+    if(!env.RUNNER_TEMP||!isAbsolute(env.RUNNER_TEMP))throw new Error('TARGETED_ARTIFACT_DIRECTORY_REQUIRED');
+    runSelectedUnit(selected,join(env.RUNNER_TEMP,'targeted-ui-affected'),join(cwd,'apps/web'),runIdentity(env));
+    return;
+  }
   const run = (command, args, options) => execute(command, args, { cwd, env, ...options });
   const args = ['turbo', 'run', 'test', '--affected', ...(env.IS_FORK_PR === 'true' ? [] : ['--filter=!@repo/api'])];
   const raw = run('pnpm', [...args, '--dry=json'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'inherit'] });

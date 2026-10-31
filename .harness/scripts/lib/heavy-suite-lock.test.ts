@@ -212,3 +212,10 @@ describe("量负载的动作本身不能挂住 —— 与 stack-admission 同一
     expect(DEFAULT_HEAVY_SUITE_LOCK_POLICY.maxWaitMs).toBeGreaterThan(26 * 60_000);
   });
 });
+
+it('serializes the canonical selected browser runner while leaving unit selection independent',()=>{
+ expect(isHeavyE2eCommand(['node','.harness/scripts/ci-targeted-runner.mjs','chat-ui','/tmp/output'])).toBe(true);
+ expect(isHeavyE2eCommand([process.execPath,'/checkout/.harness/scripts/ci-targeted-runner.mjs','chat-ui','/tmp/output'])).toBe(true);
+ expect(isHeavyE2eCommand(['node','.harness/scripts/ci-targeted-runner.mjs','web-unit','/tmp/output'])).toBe(false);
+ expect(isHeavyE2eCommand(['node','other.mjs','chat-ui'])).toBe(false);
+});
