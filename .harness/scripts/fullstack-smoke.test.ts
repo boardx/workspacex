@@ -257,7 +257,7 @@ describe("#387 trusted full-stack gate contract", () => {
   });
 
   it("CI jobs execute the public scripts and retain success or failure evidence", () => {
-    const workflow = read(".github/workflows/harness-verify.yml");
+    const workflow = read(".github/workflows/harness-acceptance.yml");
     expect(workflow).toMatch(/^  fullstack-smoke:\n/m);
     expect(workflow).toMatch(/^  e2e-full:\n/m);
     expect(workflow).toContain("pnpm run verify:fullstack-product");
@@ -282,7 +282,7 @@ describe("#387 trusted full-stack gate contract", () => {
   });
 
   it("keeps the chat-task-workbench scorecard lane opt-in and off the blocking path (issue #2114)", () => {
-    const workflow = read(".github/workflows/harness-verify.yml");
+    const workflow = read(".github/workflows/harness-acceptance.yml");
     expect(workflow).toMatch(/^  chat-task-workbench:\n/m);
     // 只认 workflow_dispatch 且显式勾选，默认 false：不会随普通 dispatch（比如只想跑
     // e2e-full）顺带被拉起,也绝不会出现在 pull_request/push/schedule 触发的运行里。

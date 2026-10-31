@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 const root = resolve(import.meta.dirname, '../..');
 for (const [file, job, event] of [
   ['backend-gates', 'backend-required', 'pull_request'],
-  ['harness-verify', 'e2e-full', 'push'],
+  ['harness-acceptance', 'e2e-full', 'push'],
 ]) {
   describe(`${job} cancellation boundary`, () => {
     const workflow = parse(readFileSync(resolve(root, `.github/workflows/${file}.yml`), 'utf8'));

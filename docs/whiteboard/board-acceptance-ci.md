@@ -36,7 +36,7 @@ The producer writes a distinct `board-functional-accessibility` report and bundl
 To request screenshot evidence for an exact published branch/tag/SHA, run:
 
 ```bash
-gh workflow run board-acceptance.yml --ref <published-ref> -f acceptance_category=visual-deferred
+gh workflow run board-manual-acceptance.yml --ref <published-ref> -f acceptance_category=visual-deferred
 ```
 
 This job does not depend on the automatic change-scope output. Selecting it excludes the pre-existing manual performance, captured-import and fifty-client jobs. `existing-manual-lanes` preserves their previous entry point. The screenshot job runs the unchanged full suite in `all` mode and retains `board-visual-deferred-<run-id>-<attempt>` for fourteen days. The blocking functional job retains `board-ui-functional-<run-id>-<attempt>`. Both keep the same exact-SHA runtime binding and original cleanup contracts.

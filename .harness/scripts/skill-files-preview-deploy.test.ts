@@ -25,7 +25,7 @@ describe("retired Skill source-preview deployment",()=>{
   expect(admitted('refs/heads/develop','merge_group')).toBe(false);
  });
  it("keeps registry build/manifest admission and fixed host activation",()=>{
-  expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest']);
+  expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest','admission']);
   expect(release.jobs.deploy.concurrency).toEqual({group:"${{ needs.plan.outputs.group }}","cancel-in-progress":false});
   expect(release.jobs.deploy.steps.some((s:{uses?:string})=>s.uses?.startsWith('actions/checkout'))).toBe(false);
   expect(release.jobs.deploy.steps.at(-1).run).toBe('sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG"');

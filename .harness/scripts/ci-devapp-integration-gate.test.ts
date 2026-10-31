@@ -2,29 +2,24 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
 const jobs = parse(readFileSync('.github/workflows/backend-gates.yml', 'utf8')).jobs;
-describe('Legacy integration validation remains read-only after image deployment cutover', () => {
-  it('has a read-only hosted admission job without retaining the old source writer', () => {
-    const gate = jobs['integration-acceptance'];
-    expect(gate).toBeDefined();
-    expect(gate['runs-on']).toBe('ubuntu-latest');
-    expect(gate.permissions).toEqual({contents:'read',actions:'read'});
-    // setup-node detects pnpm from packageManager even without an explicit cache option.
-    // This read-only helper uses only Node built-ins and must not require pnpm.
-    const nodeSetup = gate.steps.find((step: {uses?: string}) => step.uses === 'actions/setup-node@v5');
-    expect(nodeSetup.with['package-manager-cache']).toBe(false);
-    expect(gate.steps.some((step: {uses?: string}) => step.uses?.startsWith('pnpm/action-setup'))).toBe(false);
-    expect(gate.if).toContain("github.ref == 'refs/heads/develop'");
-    expect(gate.if).toContain("github.event_name == 'push'");
+describe('Image release owns read-only admission after cutover', () => {
+  it('removes duplicate legacy admission and keeps the trusted image deployment entry', () => {
+    expect(jobs['integration-acceptance']).toBeUndefined();
     expect(jobs.deploy).toBeUndefined();
     const release=parse(readFileSync('.github/workflows/image-release.yml','utf8'));
-    expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest']);
+    const gate=release.jobs.admission;
+    expect(gate['runs-on']).toBe('ubuntu-24.04');
+    expect(gate.permissions).toEqual({contents:'read',actions:'read'});
+    expect(gate.steps.find((s:{uses?:string})=>s.uses==='actions/setup-node@v5').with['package-manager-cache']).toBe(false);
+    expect(gate.steps.some((s:{run?:string})=>s.run==='node .harness/scripts/ci-devapp-integration-gate.mjs')).toBe(true);
+    expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest','admission']);
     expect(release.jobs.deploy.steps.at(-1).run).toContain('/usr/local/bin/workspacex-image-release');
   });
 });
 
 import { INTEGRATION_CHECKS, integrationVerdict, inspectIntegration, waitForIntegration } from './ci-devapp-integration-gate.mjs';
 const sha = 'a'.repeat(40);
-const run = {id:20,workflow_id:7,head_sha:sha,head_branch:'develop',event:'push',path:'.github/workflows/harness-verify.yml',run_attempt:2,created_at:'2026-10-22T10:00:00Z',status:'completed',conclusion:'success'};
+const run = {id:20,workflow_id:7,head_sha:sha,head_branch:'develop',event:'push',path:'.github/workflows/harness-acceptance.yml',run_attempt:2,created_at:'2026-10-22T10:00:00Z',status:'completed',conclusion:'success'};
 const identity = {sha,workflowId:7,since:Date.parse(run.created_at)-60000};
 const greenJobs = () => INTEGRATION_CHECKS.map(name=>({name,run_id:20,run_attempt:2,head_sha:sha,status:'completed',conclusion:'success'}));
 describe('exact-source admission rejects old, failed and uncertain integration results',()=>{
@@ -48,7 +43,7 @@ describe('exact-source admission rejects old, failed and uncertain integration r
     const paths:string[]=[];
     const api=async(path:string)=>{
       paths.push(path);
-      if(path==='/actions/workflows/harness-verify.yml')return {id:7,path:run.path,state:'active'};
+      if(path==='/actions/workflows/harness-acceptance.yml')return {id:7,path:`.github/workflows/${path.split('/').at(-1)}`,state:'active'};
       if(path.includes('/runs?'))return {total_count:2,workflow_runs:[{...run,id:19,run_attempt:1},run]};
       if(path.includes('/attempts/2/jobs'))return {total_count:greenJobs().length,jobs:greenJobs().map(j=>({...j,conclusion:'failure'}))};
       throw new Error('unexpected path');
@@ -59,17 +54,36 @@ describe('exact-source admission rejects old, failed and uncertain integration r
   it('stops on API errors and expires rather than authorizing a missing run',async()=>{
     await expect(waitForIntegration({apiFactory:()=>async()=>{throw new Error('unavailable');},sha,since:identity.since})).rejects.toThrow('unavailable');
     let now=0;
-    const api=async(path:string)=>path.includes('/runs?')?{total_count:0,workflow_runs:[]}:{id:7,path:run.path,state:'active'};
+    const api=async(path:string)=>path.includes('/runs?')?{total_count:0,workflow_runs:[]}:{id:7,path:`.github/workflows/${path.split('/').at(-1)}`,state:'active'};
     await expect(waitForIntegration({apiFactory:()=>api,sha,since:identity.since,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:50})).rejects.toThrow('TIMEOUT');
   });
 });
 it('rejects a newer attempt started between run lookup and historical jobs lookup',async()=>{
   const api=async(path:string)=>{
-    if(path==='/actions/workflows/harness-verify.yml')return {id:7,path:run.path,state:'active'};
+    if(path==='/actions/workflows/harness-acceptance.yml')return {id:7,path:`.github/workflows/${path.split('/').at(-1)}`,state:'active'};
     if(path.includes('/runs?'))return {total_count:1,workflow_runs:[run]};
     if(path.includes('/attempts/2/jobs'))return {total_count:greenJobs().length,jobs:greenJobs()};
     if(path==='/actions/runs/20')return {...run,run_attempt:3,status:'in_progress',conclusion:null};
     throw new Error('unexpected path');
   };
   await expect(inspectIntegration(api,identity)).rejects.toThrow('ATTEMPT_CHANGED');
+});
+
+import {INTEGRATION_WORKFLOWS} from './ci-devapp-integration-gate.mjs';
+it('requires both automatic and full acceptance producers, never either one alone',async()=>{
+ let now=0;
+ const makeApi=(failed:string|undefined)=>async(path:string)=>{
+  const index=path.includes('harness-verify.yml')||path.includes('/workflows/7/')||path.includes('/runs/30')?0:path.includes('backend-gates.yml')||path.includes('/workflows/9/')||path.includes('/runs/40')?2:1;
+  const spec=INTEGRATION_WORKFLOWS[index]!;
+  const id=index===0?30:index===1?20:40;
+  const producer={...run,id,workflow_id:index+7,path:spec.workflowPath};
+  if(path.startsWith('/actions/workflows/')&&!path.includes('/runs?')) return {id:index+7,path:spec.workflowPath,state:'active'};
+  if(path.includes('/runs?'))return {total_count:1,workflow_runs:[producer]};
+  if(path.endsWith('/jobs?per_page=100'))return {total_count:spec.checks.length,jobs:spec.checks.map(name=>({name,run_id:id,run_attempt:2,head_sha:sha,status:'completed',conclusion:name===failed?'failure':'success'}))};
+  return producer;
+ };
+ await expect(waitForIntegration({apiFactory:()=>makeApi(undefined),sha,since:identity.since,clock:()=>now,budgetMs:100})).resolves.toMatchObject({state:'success'});
+ for(const spec of INTEGRATION_WORKFLOWS)for(const name of spec.checks){
+  await expect(waitForIntegration({apiFactory:()=>makeApi(name),sha,since:identity.since,clock:()=>now,budgetMs:100})).rejects.toThrow('REJECTED');
+ }
 });

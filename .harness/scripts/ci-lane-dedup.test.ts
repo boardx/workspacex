@@ -46,9 +46,9 @@ import { join } from 'node:path';
 import { parse } from 'yaml';
 
 describe('workflow and executable reuse contract', () => {
-  const workflow = parse(readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8'));
-  it.each(Object.keys(LANES))('%s guards all heavy work and preserves failed reuse', lane => {
-    const job = workflow.jobs[lane];
+  const workflow = parse(readFileSync(new URL('../../.github/workflows/harness-acceptance.yml', import.meta.url), 'utf8'));
+  it.each([...Object.keys(LANES).map(lane => [lane, workflow]), ...['board-smoke', 'directory-smoke', 'fullstack-smoke'].map(lane => [lane, parse(readFileSync(new URL('../../.github/workflows/harness-verify.yml', import.meta.url), 'utf8'))])])('%s guards all heavy work and preserves failed reuse', (lane, laneWorkflow) => {
+    const job = laneWorkflow.jobs[lane];
     expect(job.concurrency['cancel-in-progress']).toBe(false);
     expect(job.concurrency.queue).toBe('max');
     expect(job.concurrency.group).toContain('github.sha');

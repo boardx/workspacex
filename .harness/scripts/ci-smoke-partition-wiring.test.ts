@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
 import { assertRuntimeCommand } from './ci-fullstack-runtime.mjs';
-const workflow = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8'));
+const workflow = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8'));
 describe('partition commands and isolated CI producers', () => {
   it('keeps local full smoke while CI selects two exact complementary commands', () => {
     const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
@@ -23,4 +23,14 @@ describe('partition commands and isolated CI producers', () => {
     expect(JSON.stringify(board)).toContain('ci-fullstack-runtime.mjs board -- pnpm run verify:fullstack-board');
     expect(JSON.stringify(workflow.jobs['fullstack-smoke'])).toContain('ci-fullstack-runtime.mjs product -- pnpm run verify:fullstack-product');
   });
+});
+
+
+it('preserves copied PR smoke execution and evidence steps', () => {
+  const automatic = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8')).jobs;
+  const acceptance = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs;
+  for (const name of ['board-smoke', 'directory-smoke', 'fullstack-smoke']) {
+    expect(automatic[name].steps).toEqual(acceptance[name].steps);
+    expect(automatic[name].outputs).toEqual(acceptance[name].outputs);
+  }
 });

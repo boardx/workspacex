@@ -182,10 +182,31 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+  admission:
+    needs: plan
+    if: needs.plan.outputs.target == 'devapp' && !inputs.build_only
+    runs-on: ubuntu-24.04
+    permissions: {contents: read, actions: read}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Require exact-source verification before Devapp activation
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_RELEASE_TAG: ${{ inputs.tag }}
+        run: node .harness/scripts/ci-devapp-integration-gate.mjs
+
   deploy:
-    needs: [plan, build, manifest]
+    needs: [plan, build, manifest, admission]
     if: >-
       always() && !cancelled() && !inputs.build_only && needs.plan.result == 'success' &&
+      ((needs.plan.outputs.target == 'devapp' && needs.admission.result == 'success') ||
+       (github.event_name == 'workflow_dispatch' && needs.plan.outputs.target != 'devapp')) &&
       ((needs.plan.outputs.build == 'true' && needs.build.result == 'success' && needs.manifest.result == 'success') ||
        (needs.plan.outputs.build == 'false' && needs.build.result == 'skipped' && needs.manifest.result == 'skipped'))
     runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}

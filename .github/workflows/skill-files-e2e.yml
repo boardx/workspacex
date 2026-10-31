@@ -2,8 +2,38 @@ name: Skill files and Agent pins
 on:
   pull_request:
     branches: [develop]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - '.harness/**'
+      - 'skills/**'
+      - '.agents/**'
+      - 'patches/**'
+      - '.github/workflows/skill-files-e2e.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - '.nvmrc'
+      - '.npmrc'
   push:
     branches: [develop]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - '.harness/**'
+      - 'skills/**'
+      - '.agents/**'
+      - 'patches/**'
+      - '.github/workflows/skill-files-e2e.yml'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'turbo.json'
+      - '.nvmrc'
+      - '.npmrc'
   workflow_dispatch:
 permissions:
   contents: read

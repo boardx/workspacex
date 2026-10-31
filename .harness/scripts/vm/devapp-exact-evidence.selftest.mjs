@@ -1,9 +1,10 @@
 import {test} from 'node:test';
+import { INTEGRATION_WORKFLOWS } from '../ci-devapp-integration-gate.mjs';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {generateKeyPairSync,verify} from 'node:crypto';
 import {dispatchAndWait,terminal,identity,authorizeParent,requireCandidateCI,waitCandidateCI} from './devapp-exact-evidence.mjs';
-import {validateCoordination,signedDevapp,authorizeCandidate,boundedEnvelope,DEVAPP_EVIDENCE_MAX_BYTES,trustedGitHubCli} from './devapp-runtime-identity.mjs';
+import {CANDIDATE_INTEGRATION_WORKFLOWS,validateCoordination,signedDevapp,authorizeCandidate,boundedEnvelope,DEVAPP_EVIDENCE_MAX_BYTES,trustedGitHubCli} from './devapp-runtime-identity.mjs';
 const source='a'.repeat(40),attempt='gha-10-2',ref='refs/heads/main-cn',requestId='12345678-1234-1234-1234-123456789abc',title=`devapp-exact:${attempt}:${requestId}`;
 const run=()=>({id:12,run_attempt:1,head_sha:source,path:'.github/workflows/real-model-chat-evidence.yml',display_title:title,event:'workflow_dispatch',repository:{full_name:'boardx/workspacex'},head_repository:{full_name:'boardx/workspacex'},status:'completed',conclusion:'success',created_at:'2026-10-01T00:01:00Z'});
 const parent=()=>({...run(),id:10,run_attempt:2,path:'.github/workflows/devapp-exact-source.yml',status:'in_progress',head_branch:'main-cn'});
@@ -11,11 +12,11 @@ const jobs=()=>[{name:'deploy',run_id:10,head_sha:source,status:'in_progress',st
 const raw=()=>({run:run(),coordination:{source,attempt,requestId,parentId:10,parentAttempt:2,runId:12,runAttempt:1}});
 const target={source,path:run().path,title};
 function ciRead(p){
- const backend=p.includes('backend-gates.yml')||/\/22(?:\/|$)/.test(p),id=backend?22:21,workflow=backend?'backend-gates.yml':'harness-verify.yml';
- if(!p.includes('/workflows/')&&!/\/(21|22)(?:\/|$)/.test(p))return undefined;
+ const backend=p.includes('backend-gates.yml')||/\/22(?:\/|$)/.test(p),acceptance=p.includes('harness-acceptance.yml')||/\/23(?:\/|$)/.test(p),id=backend?22:acceptance?23:21,workflow=backend?'backend-gates.yml':acceptance?'harness-acceptance.yml':'harness-verify.yml';
+ if(!p.includes('/workflows/')&&!/\/(21|22|23)(?:\/|$)/.test(p))return undefined;
  const r={...run(),id,head_branch:'develop',event:'push',path:'.github/workflows/'+workflow};
  if(p.includes('/runs?'))return {total_count:1,workflow_runs:[r]};
- if(p.includes('/jobs?')){const names=backend?['gates-fast','gates-test (1)','gates-test (2)','gates-runtime','e2e-core-loop','native-document-chain','native-runtime-lane']:['verify-control-plane','verify-affected','verify-full-compile','full-regression-core','e2e-full'];return {total_count:names.length,jobs:names.map(name=>({name,run_id:id,head_sha:source,status:'completed',conclusion:'success'}))};}
+ if(p.includes('/jobs?')){const names=backend?['gates-fast','gates-test (1)','gates-test (2)','gates-runtime','e2e-core-loop','native-document-chain','native-runtime-lane']:acceptance?['verify-full-compile','full-regression-core','e2e-full']:['verify-control-plane','verify-affected'];return {total_count:names.length,jobs:names.map(name=>({name,run_id:id,head_sha:source,status:'completed',conclusion:'success'}))};}
  return r;
 }
 test('validates bounded exact identities and rejects mutable/unsafe inputs',()=>{assert.deepEqual(identity(source,attempt,ref),{source,attempt,ref});for(const args of [['main',attempt,ref],[source,'gha-1-1'.repeat(20),ref],[source,attempt,'refs/heads/a..b'],[source,attempt,'main-cn']])assert.throws(()=>identity(...args));});
@@ -45,10 +46,12 @@ test('signs only after independent terminal re-read; no key request on rejected 
 });
 test('installed single-source CI gate requires harness plus backend and every matrix shard',async()=>{
  const api=async(_m,p)=>ciRead('repos/boardx/workspacex/'+p);
- assert.deepEqual(await requireCandidateCI(api,source),{'harness-verify.yml':21,'backend-gates.yml':22});
- for(const failure of ['harness-source','backend-failed','backend-shard-skipped','backend-missing-native']){
+ assert.deepEqual(await requireCandidateCI(api,source),{'harness-verify.yml':21,'harness-acceptance.yml':23,'backend-gates.yml':22});
+ for(const failure of ['harness-source','acceptance-failed','acceptance-missing-core','backend-failed','backend-shard-skipped','backend-missing-native']){
   await assert.rejects(requireCandidateCI(async(_m,p)=>{const result=ciRead('repos/boardx/workspacex/'+p);
    if(failure==='harness-source'&&p.includes('/21/')&&result.jobs)result.jobs[0].head_sha='b'.repeat(40);
+   if(failure==='acceptance-failed'&&p.includes('harness-acceptance.yml'))result.workflow_runs[0].conclusion='failure';
+   if(failure==='acceptance-missing-core'&&p.includes('/23/')&&result.jobs)result.jobs=result.jobs.filter(j=>j.name!=='full-regression-core');
    if(failure==='backend-failed'&&p.includes('backend-gates.yml'))result.workflow_runs[0].conclusion='failure';
    if(failure==='backend-shard-skipped'&&p.includes('/22/')&&result.jobs)result.jobs.find(j=>j.name==='gates-test (2)').conclusion='skipped';
    if(failure==='backend-missing-native'&&p.includes('/22/')&&result.jobs)result.jobs=result.jobs.filter(j=>j.name!=='native-runtime-lane');
@@ -233,3 +236,5 @@ test('develop CI never borrows an old green attempt when the newest run fails or
   return value;
  },source));
 });
+
+test('standalone installed candidate contract matches shared integration policy',()=>assert.deepEqual(CANDIDATE_INTEGRATION_WORKFLOWS,INTEGRATION_WORKFLOWS));

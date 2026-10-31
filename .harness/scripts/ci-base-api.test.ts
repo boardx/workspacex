@@ -69,7 +69,7 @@ describe('real report/artifact assembly counterexamples',()=>{
 });
 
 it('workflow preserves complete API coverage, isolation and failure verdict before reuse',()=>{
- const w=parse(readFileSync('.github/workflows/harness-verify.yml','utf8')),jobs=w.jobs;
+ const w=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')),jobs=w.jobs;
  const core=jobs['full-regression-core'];
  expect(core.if).toContain('always()');
  expect(core.needs).toEqual(dependencies);
