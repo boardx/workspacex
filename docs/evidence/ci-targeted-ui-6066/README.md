@@ -1,7 +1,8 @@
 # Bounded UI regression — #6066
 
-Status: implementation being validated; `ci-targeted-ui.json` remains disabled.
-Activation requires actual complete matrix evidence from #6065. No production
+Status: phase2 runtime prerequisite met; this PR enables the bounded pilot.
+The rollout must still pass its own full candidate validation and a real eligible
+canary before acceleration acceptance is claimed. No production
 configuration, branch protection or payment state is changed.
 
 ## First supported change
@@ -83,3 +84,21 @@ assertions passed and 4 existing declared skips (none from the selected pilot),
 21/21 passed. `pnpm --filter web exec tsc --noEmit`: exit 0. Source boundary
 counterexamples, both pending-assertion reproductions and real nested Vitest
 discovery/report reconciliation pass in the complete suite.
+
+## Phase2 admission prerequisite satisfied
+PR #6065 merged on 2026-10-31 at 18:39:10Z. Its actual merge-group candidate
+`de530c255fd882df80ba369ecb86e84ebdf14a10` passed all active producers and the
+mandatory aggregates (`full-regression-core`, `chat-read`, `e2e-full`,
+`queue-ready`) in run 41227906350, attempt 1. The archived API snapshot is
+`phase2-queue-proof.json`; current-attempt Web and Chat artifact bundles were
+independently downloaded and verified, including complete 959-file Web coverage
+(240/240/240/239) and both original chat-read partitions.
+
+The acceptance run took 30m50s, versus 69m01s for the immediately preceding
+pre-parallel baseline 41218718251. This one before/after observation is about
+55% lower wall time, not a controlled benchmark or long-term percentile. The
+remaining longest lane was chat shard 1 (27m24s); fullstack-smoke was 25m13s.
+Full core completed in 18m23s rather than the prior 49m22s. This evidence permits
+the bounded pilot flag to be enabled; it does not itself prove the pilot route.
+Rollback remains setting the single policy flag false, with full fallback and
+stable required checks retained.

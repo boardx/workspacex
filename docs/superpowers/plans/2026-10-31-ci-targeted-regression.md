@@ -74,7 +74,9 @@ flowchart LR
  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
  classDef active fill:#fef08a,stroke:#ca8a04,color:#111827
  class A done
- class B,C active
+ classDef tested fill:#e9d5ff,stroke:#9333ea,color:#111827
+ class B tested
+ class C active
 ```
 
 工作量初估：中等规模，约3个实现PR；涉及门禁与测试证据，审查风险高于业务代码行数。耗时需在阶段1完成发现后重新估算。

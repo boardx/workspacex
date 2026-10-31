@@ -12,8 +12,8 @@ it('permits local display changes but rejects new runtime edges and public API c
  expect(inspectUiBoundary(original.replace('react','other'),original.replace('react','other'))).toBe(false);
  for(const changed of [original.replace('Hello','<iframe/>'),original.replace('Hello','{fetch("/api")}'),original.replace('react','other'),original.replace('onUseTemplate:(x:string)','onUseTemplate:(x:number)'),original.replace('<button','<button onMouseOver={()=>onUseTemplate("x")}'),original.replace('Hello','{eval("x")}'),original.replace('Hello','{localStorage.length}')])expect(inspectUiBoundary(original,changed)).toBe(false);
 });
-it('keeps rollout disabled and fails closed on missing history',()=>{
- expect(planTargeted({baseSha:'a'.repeat(40),headSha:'b'.repeat(40)}).mode).toBe('full');
+it('supports explicit rollback and fails closed on missing history',()=>{
+ expect(planTargeted({baseSha:'a'.repeat(40),headSha:'b'.repeat(40),enabled:false}).mode).toBe('full');
  expect(planTargeted({baseSha:'bad',headSha:'b'.repeat(40),enabled:true}).mode).toBe('full');
 });
 

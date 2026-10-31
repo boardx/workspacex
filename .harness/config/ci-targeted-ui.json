@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "enabled": false,
+  "enabled": true,
   "sourceFile": "apps/web/components/chat/chat-task-workbench-empty-state.tsx",
   "unitTests": [
     "tests/ui/chat-task-workbench-empty-state.test.tsx",
