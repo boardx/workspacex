@@ -377,6 +377,27 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Report shadow test impact (does not select or skip tests)
+        continue-on-error: true # Diagnostic only; never block existing validation.
+        env:
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: |
+          if ! node .harness/scripts/ci-test-plan.mjs > "$RUNNER_TEMP/ci-test-plan.json"; then
+            echo '{"schemaVersion":1,"shadow":true,"mode":"full","error":"SHADOW_PLAN_UNAVAILABLE","suites":["full-regression"]}' > "$RUNNER_TEMP/ci-test-plan.json"
+            echo '::warning::Shadow plan unavailable; existing verification remains unchanged'
+          fi
+          echo '### Shadow test impact — existing verification remains unchanged' >> "$GITHUB_STEP_SUMMARY"
+          echo '```json' >> "$GITHUB_STEP_SUMMARY"
+          cat "$RUNNER_TEMP/ci-test-plan.json" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+      - name: Retain shadow impact plan
+        continue-on-error: true # Diagnostic upload is not an acceptance check.
+        uses: actions/upload-artifact@v6
+        with:
+          name: shadow-impact-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/ci-test-plan.json
+          if-no-files-found: error
+
       # 2026-09-08（#2972）：本 job 下面那步在 **fork PR** 上会把 @repo/api 留在
       # `--affected` 集合里跑（因为 `gates-test` 对 fork PR 整体跳过），而 @repo/api 的
       # 默认套件里有 4 个跨语言取证文件要 spawn `apps/deep-agent-service/.venv/bin/python`。
