@@ -7,7 +7,7 @@ const terminal='pnpm exec vitest run --config .harness/vitest.config.ts --dir .h
 export function staticScripts(raw){
  if(typeof raw!=='string')throw Error('INVALID_CANONICAL_HARNESS');
  const commands=raw.split(' && ');
- if(commands.length<2||commands.pop()!==terminal)throw Error('UNKNOWN_HARNESS_TEST_PRODUCER');
+ if(commands.length<2||![terminal,terminal+' --bail=1'].includes(commands.pop()))throw Error('UNKNOWN_HARNESS_TEST_PRODUCER');
  return commands.map(command=>{const match=/^pnpm run (lint:[a-z0-9-]+)$/.exec(command);if(!match)throw Error('UNKNOWN_STATIC_GATE');return match[1]});
 }
 export function runStatic(raw,run=execFileSync){
