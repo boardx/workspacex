@@ -13,8 +13,8 @@ describe('static validation has one PR producer, retaining standalone deployment
   it('retains full build followed by full typecheck/lint in the required compile gate', () => {
     const runs = harness.jobs['verify-full-compile'].steps.map((step: any) => step.run).filter(Boolean);
     expect(runs).toContain('pnpm turbo run build');
-    expect(runs).toContain('pnpm turbo run typecheck lint --continue');
-    expect(runs.indexOf('pnpm turbo run build')).toBeLessThan(runs.indexOf('pnpm turbo run typecheck lint --continue'));
+    expect(runs).toContain('pnpm turbo run typecheck lint');
+    expect(runs.indexOf('pnpm turbo run build')).toBeLessThan(runs.indexOf('pnpm turbo run typecheck lint'));
     for (const event of ['pull_request', 'merge_group']) {
       expect(evaluateIf(harness.jobs['verify-full-compile'].if, probe(event))).toBe(true);
     }
@@ -22,7 +22,7 @@ describe('static validation has one PR producer, retaining standalone deployment
     const base=acceptance.jobs['base-compile'];
     expect(base.if).toBeUndefined();
     const manual=base.steps.filter((step:any)=>step.run?.startsWith('pnpm turbo run'));
-    expect(manual.map((step:any)=>step.run)).toEqual(['pnpm turbo run build','pnpm turbo run typecheck lint --continue']);
+    expect(manual.map((step:any)=>step.run)).toEqual(['pnpm turbo run build','pnpm turbo run typecheck lint']);
     for(const step of manual){
       expect(evaluateIf(step.if,probe('merge_group'))).toBe(false);
       expect(evaluateIf(step.if,probe('workflow_dispatch'))).toBe(true);
