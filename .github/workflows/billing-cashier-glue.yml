@@ -43,7 +43,7 @@ jobs:
       - name: Install the API driver's matching Chromium
         run: pnpm --filter api exec playwright install --with-deps chromium
       - name: Real Next / Billing API / PostgreSQL / signed merchant and callback
-        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts --bail=1
       - name: Preserve integration evidence, including failures
         if: always()
         uses: actions/upload-artifact@v6

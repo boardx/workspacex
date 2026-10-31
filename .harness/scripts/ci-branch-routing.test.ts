@@ -87,7 +87,7 @@ it('separates PR readiness from the actual fail-closed queue regression verdict'
  expect(Object.keys(plan.on)).toEqual(['pull_request']);
  expect(plan.jobs['queue-ready'].steps.at(-1).run).toBe('node .harness/scripts/ci-queue-ready.mjs --pr');
  const queue=acceptance.jobs['queue-ready'];
- expect(queue.if).toBe("always() && github.event_name == 'merge_group'");
+ expect(queue.if).toBe("always() && !cancelled() && github.event_name == 'merge_group'");
  expect(queue.needs).toEqual(['e2e-full','full-regression-core']);
  expect(queue['continue-on-error']).toBeUndefined();
  expect(queue.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-queue-ready.mjs',env:{CI_QUEUE_NEEDS:'${{ toJSON(needs) }}'}});
