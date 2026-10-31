@@ -72,7 +72,7 @@ it('workflow preserves complete API coverage, isolation and failure verdict befo
  const w=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')),jobs=w.jobs;
  const core=jobs['full-regression-core'];
  expect(core.if).toContain('always()');
- expect(core.needs).toEqual(dependencies);
+ expect(core.needs).toEqual(['base-compile',...dependencies.slice(1)]);
  expect(core.steps[1]).toMatchObject({name:'Require complete base prerequisites',env:{CI_BASE_NEEDS:'${{ toJSON(needs) }}'}});
  expect(core.steps[1].if).toBeUndefined();
  expect(core.steps[2].id).toBe('dedup');
@@ -108,4 +108,11 @@ it('verifies independently retained attempts and rejects an unproven producer id
   expect(()=>bundle(directory,{count:2,shards:[1,2]},{...env,GITHUB_RUN_ATTEMPT:'3'},{...attempts,'shard-2':'1'})).toThrow();
   expect(()=>bundle(directory,{count:2,shards:[1,2]},env,{...attempts,'shard-2':'3'})).toThrow();
  }finally{rmSync(directory,{recursive:true,force:true});}
+});
+
+it.each(['merge_group','workflow_dispatch'])('requires a successful selected compilation proof on %s',event=>{
+ const needs={...Object.fromEntries(dependencies.slice(1).map(k=>[k,{result:'success'}])),'base-compile':{result:'success'}};
+ expect(()=>assertPrerequisites(needs,event)).not.toThrow();
+ for(const result of ['failure','cancelled','skipped',undefined])expect(()=>assertPrerequisites({...needs,'base-compile':{result}},event)).toThrow();
+ expect(()=>assertPrerequisites({...needs,extra:{result:'success'}},event)).toThrow();
 });

@@ -1,0 +1,17 @@
+name: PR queue readiness
+on:
+  pull_request:
+    branches: [develop]
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+jobs:
+  queue-ready:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Verify live merge queue protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-queue-ready.mjs --pr

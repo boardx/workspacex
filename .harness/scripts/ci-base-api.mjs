@@ -6,10 +6,15 @@ import { pathToFileURL } from 'node:url';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { shardPlan, discoverCoverage } from './ci-api-shards.mjs';
-const required = ['verify-full-compile', 'base-api-plan', 'base-api-shards', 'base-api-exclusive'];
+const legacyRequired = ['verify-full-compile', 'base-api-plan', 'base-api-shards', 'base-api-exclusive'];
 const hash = value => createHash('sha256').update(value).digest('hex');
-export function assertPrerequisites(needs) {
-  if (!needs || Object.keys(needs).sort().join() !== [...required].sort().join() || required.some(name => needs[name]?.result !== 'success')) throw new Error('INCOMPLETE_BASE_PREREQUISITES');
+export function assertPrerequisites(needs,event=process.env.GITHUB_EVENT_NAME) {
+  if(!['merge_group','workflow_dispatch'].includes(event)) {
+    if (!needs || Object.keys(needs).sort().join() !== [...legacyRequired].sort().join() || legacyRequired.some(name => needs[name]?.result !== 'success')) throw new Error('INCOMPLETE_BASE_PREREQUISITES');
+    return;
+  }
+  const required=['base-api-plan','base-api-shards','base-api-exclusive','base-compile'];
+  if(!needs||Object.keys(needs).sort().join()!==required.sort().join()||required.some(k=>needs[k]?.result!=='success'))throw new Error('INCOMPLETE_BASE_PREREQUISITES');
 }
 export function validateReport(report, expectedFiles) {
   if (report?.success !== true || !(report.numPassedTests > 0)

@@ -1,8 +1,8 @@
 name: Board acceptance lanes
 on:
-  pull_request:
+  merge_group:
     branches: [develop]
-  push:
+  pull_request:
     branches: [develop]
 permissions:
   contents: read
@@ -19,7 +19,7 @@ jobs:
         with: {fetch-depth: 0}
       - id: changes
         env:
-          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
         run: node .harness/scripts/ci-change-scope.mjs board >> "$GITHUB_OUTPUT"
   journeys:
     needs: scope

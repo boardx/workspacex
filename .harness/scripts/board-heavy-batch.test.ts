@@ -128,8 +128,8 @@ describe('existing Board workflow admission and verdict preservation',()=>{
  const heavy=parse(readFileSync(new URL('../../.github/workflows/board-native-acceptance.yml',import.meta.url),'utf8'));
  const manual=parse(readFileSync(new URL('../../.github/workflows/board-manual-acceptance.yml',import.meta.url),'utf8'));
  const fast=parse(readFileSync(new URL('../../.github/workflows/board-acceptance.yml',import.meta.url),'utf8'));
- it('keeps push develop/manual, single latest pending, never cancels running batch',()=>{
-  expect(heavy.on.pull_request).toBeUndefined();expect(heavy.on.push.branches).toEqual(['develop']);
+ it('keeps manual-only entry, single latest pending, never cancels running batch',()=>{
+  expect(heavy.on.pull_request).toBeUndefined();expect(heavy.on.push).toBeUndefined();expect(Object.keys(heavy.on)).toEqual(['workflow_dispatch']);
   expect(heavy.concurrency).toEqual({group:'board-heavy-develop','cancel-in-progress':false});
   expect(heavy.on.schedule).toBeUndefined();expect(fast.on.schedule).toBeUndefined();
   expect(heavy.jobs.batch.steps[0].with.ref).toBe('${{ github.sha }}');

@@ -41,8 +41,8 @@ it('skips only the three broad PR lanes; release and unknown output always retai
  const acceptance=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')).jobs;
  for(const name of ['fullstack-smoke','board-smoke','directory-smoke']){
   expect(jobs[name].needs).toBe('doc-smoke-scope');
-  for(const eventName of ['pull_request','push','merge_group'])for(const output of ['false','true','']){
-   const selected=eventName==='push'?acceptance[name]:jobs[name];
+  for(const eventName of ['pull_request','workflow_dispatch','merge_group'])for(const output of ['false','true','']){
+   const selected=eventName==='pull_request'?jobs[name]:acceptance[name];
    const expression=selected.if.replaceAll('needs.doc-smoke-scope.outputs.full',`'${output}'`).replaceAll('inputs.verification_lane',"'all'");
    expect(evaluateIf(expression,{id:eventName,eventName,ref:'refs/heads/develop',baseBranch:'develop',label:eventName})).toBe(eventName!=='pull_request'||output!=='false');
   }

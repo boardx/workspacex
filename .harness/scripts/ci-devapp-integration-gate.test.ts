@@ -69,21 +69,34 @@ it('rejects a newer attempt started between run lookup and historical jobs looku
   await expect(inspectIntegration(api,identity)).rejects.toThrow('ATTEMPT_CHANGED');
 });
 
-import {INTEGRATION_WORKFLOWS} from './ci-devapp-integration-gate.mjs';
-it('requires both automatic and full acceptance producers, never either one alone',async()=>{
+import {SOURCE_VERIFICATION_PROFILES} from './ci-devapp-integration-gate.mjs';
+it.each(['push','merge_group'] as const)('requires all producers on %s, never either one alone',async(mode)=>{
+ const specs=SOURCE_VERIFICATION_PROFILES[mode];
  let now=0;
  const makeApi=(failed:string|undefined)=>async(path:string)=>{
   const index=path.includes('harness-verify.yml')||path.includes('/workflows/7/')||path.includes('/runs/30')?0:path.includes('backend-gates.yml')||path.includes('/workflows/9/')||path.includes('/runs/40')?2:1;
-  const spec=INTEGRATION_WORKFLOWS[index]!;
+  const spec=specs[index]!;
   const id=index===0?30:index===1?20:40;
-  const producer={...run,id,workflow_id:index+7,path:spec.workflowPath};
+  const producer={...run,id,workflow_id:index+7,path:spec.workflowPath,event:mode,head_branch:mode==='push'?'develop':`gh-readonly-queue/develop/pr-1-${sha}`};
   if(path.startsWith('/actions/workflows/')&&!path.includes('/runs?')) return {id:index+7,path:spec.workflowPath,state:'active'};
   if(path.includes('/runs?'))return {total_count:1,workflow_runs:[producer]};
   if(path.endsWith('/jobs?per_page=100'))return {total_count:spec.checks.length,jobs:spec.checks.map(name=>({name,run_id:id,run_attempt:2,head_sha:sha,status:'completed',conclusion:name===failed?'failure':'success'}))};
   return producer;
  };
- await expect(waitForIntegration({apiFactory:()=>makeApi(undefined),sha,since:identity.since,clock:()=>now,budgetMs:100})).resolves.toMatchObject({state:'success'});
- for(const spec of INTEGRATION_WORKFLOWS)for(const name of spec.checks){
-  await expect(waitForIntegration({apiFactory:()=>makeApi(name),sha,since:identity.since,clock:()=>now,budgetMs:100})).rejects.toThrow('REJECTED');
+ await expect(waitForIntegration({apiFactory:()=>makeApi(undefined),sha,since:identity.since,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:100,mode})).resolves.toMatchObject({state:'success'});
+ for(const spec of specs)for(const name of spec.checks){
+  await expect(waitForIntegration({apiFactory:()=>makeApi(name),sha,since:identity.since,clock:()=>now,sleep:async(ms:number)=>{now+=ms;},budgetMs:100,mode})).rejects.toThrow('REJECTED');
  }
+});
+
+it('can admit completed compile jobs while unrelated queue work is still running, without a cyclic workflow dependency',()=>{
+ const spec=SOURCE_VERIFICATION_PROFILES.merge_group[0];
+ const active={...run,event:'merge_group',head_branch:`gh-readonly-queue/develop/pr-1-${sha}`,path:spec.workflowPath,status:'in_progress',conclusion:null};
+ const checks=['verify-full-compile'];
+ const jobs=[{name:checks[0],run_id:20,run_attempt:2,head_sha:sha,status:'completed',conclusion:'success'}];
+ const context={...identity,event:'merge_group',workflowPath:spec.workflowPath,checks,allowRunning:true};
+ expect(integrationVerdict(active,jobs,context).state).toBe('success');
+ expect(integrationVerdict(active,jobs,{...context,allowRunning:false}).state).toBe('pending');
+ expect(integrationVerdict(active,[{...jobs[0],conclusion:'failure'}],context).state).toBe('failure');
+ expect(()=>integrationVerdict({...active,event:'push'},jobs,context)).toThrow('IDENTITY');
 });

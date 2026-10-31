@@ -46,9 +46,6 @@ on:
   # 队列本身要人类在 Settings → Branches 里开——没开时本事件永不触发，这段接线是惰性的。
   merge_group:
     branches: [develop]
-  push:
-    branches: [develop]
-    # tag 发布时跑全量 —— e2e-full 已从 PR 上摘掉，发布前这一趟是它唯一的把关点。
   # 2026-09-08 人类指令：定时 cron 触发（原每小时全栈烟测 + 每 3 小时 e2e-full）已
   # 摘掉——它和人工 `workflow_dispatch` 撞车会在同一 SHA 上重复跑一遍完整门控，纯
   # 浪费跑道（实测一次撞车：手动那条已经 6/7 job 跑完，定时那条才刚起步就被砍）。
@@ -551,7 +548,7 @@ jobs:
   board-smoke:
     timeout-minutes: 30
     needs: doc-smoke-scope
-    if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    if: (github.event_name == 'pull_request') && always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -619,7 +616,7 @@ jobs:
   directory-smoke:
     timeout-minutes: 30
     needs: doc-smoke-scope
-    if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    if: (github.event_name == 'pull_request') && always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -686,7 +683,7 @@ jobs:
 
   fullstack-smoke:
     needs: doc-smoke-scope
-    if: (github.event_name == 'pull_request' || github.event_name == 'merge_group') && always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    if: (github.event_name == 'pull_request') && always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
