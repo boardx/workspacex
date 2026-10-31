@@ -14,9 +14,13 @@ An intermediate broad harness run caught the artifact-condition regression, repa
 
 Final complete run: `pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness --bail=1` — 236 files passed, 2705 tests passed, 4 existing skips (2709 total), exit0. The repaired lane/artifact conditions, supervisor tests and real Turbo termination are included. Pre-push typecheck/lint: 20/20 tasks successful. Independent read-only reviewer ACCEPT for implementation06ee1be48a888dce4c38eab71644c21d4697011c; independently reran 24 fail-fast tests including actual Turbo sibling termination.
 
+Conditional-request follow-up: API polling now runs every30s with authenticated ETag requests and endpoint-specific cloned snapshots, reducing repeated quota consumption. Mandatory pre-cancel reads bypass that cache and request no-cache; an unexpected304 on those reads fails closed. Writes never use ETags, invalidate the run cache, and API errors never reuse cached success. The same focused command above rerun after this API-client change:182 tests passed/11 files, with six additional conditional-request boundaries; Node syntax and diff checks passed. The complete-suite numbers above belong to the preceding implementation; updated-head CI remains required.
+
 ## Trust and rollout
 workflow_run supervisor executes only github.workflow_sha from the trusted default branch, with no candidate checkout/artifacts/install. actions:write stays in that supervisor. It polls only the triggering run/attempt, checks identity again before cancel, and requests normal cancellation, retaining existing cleanup/evidence conditions. GitHub may label unfinished work cancelled; this never means PASS. Supervisor success means monitoring completed, not target tests passed. API errors and monitor deadline failures remain visible.
 
 The workflow becomes active only after merging into the default branch. Current PR/queue and billing #6058 remain separate; no claim that code is merged or automatic cancellation is live yet.
 
 GitHub references: [workflow_run privileges and default-branch trigger](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run), [cancellation conditions and signals](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation).
+
+[GitHub conditional-request polling guidance](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests).

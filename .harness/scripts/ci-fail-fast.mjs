@@ -24,7 +24,7 @@ function current(run,target){
  if(!['queued','in_progress','waiting','pending','requested'].includes(run.status))throw Error('INVALID_FAIL_FAST_RUN_STATUS');
  return 'running';
 }
-export async function supervise({event,repository,allowed=watchedWorkflows(),read,write,wait=ms=>new Promise(done=>setTimeout(done,ms)),now=()=>performance.now(),pollMs=10000,maxMs=175*60000}){
+export async function supervise({event,repository,allowed=watchedWorkflows(),read,write,wait=ms=>new Promise(done=>setTimeout(done,ms)),now=()=>performance.now(),pollMs=30000,maxMs=175*60000}){
  const target=identity(event,repository,allowed),path=`repos/${repository}/actions/runs/${target.id}`,deadline=now()+maxMs;
  while(now()<deadline){
   const state=current(await read(path),target);
@@ -43,12 +43,12 @@ export async function supervise({event,repository,allowed=watchedWorkflows(),rea
   }
   if(failed.length){
    // Revalidate just before the write; never intentionally cancel a newer rerun.
-   const before=current(await read(path),target);
+   const before=current(await read(path,{fresh:true}),target);
    if(before!=='running')return {status:before,runId:target.id,attempt:target.run_attempt};
    if(now()>=deadline)throw Error('FAIL_FAST_MONITOR_TIMEOUT');
    const response=await write(`${path}/cancel`);
    if(response.status===409){
-    const raced=current(await read(path),target);
+    const raced=current(await read(path,{fresh:true}),target);
     if(raced==='running')throw Error('FAIL_FAST_CANCEL_REJECTED');
     return {status:raced,runId:target.id,attempt:target.run_attempt};
    }
@@ -59,15 +59,30 @@ export async function supervise({event,repository,allowed=watchedWorkflows(),rea
  }
  throw Error('FAIL_FAST_MONITOR_TIMEOUT');
 }
+export function createGitHubApi({token,fetchImpl=fetch}){
+ if(!token)throw Error('FAIL_FAST_TOKEN_REQUIRED');
+ const cache=new Map();
+ const request=async(path,method='GET',fresh=false)=>{
+  const previous=cache.get(path),headers={Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'};
+  if(method==='GET'&&!fresh&&previous)headers['If-None-Match']=previous.etag;
+  if(method==='GET'&&fresh)headers['Cache-Control']='no-cache';
+  const response=await fetchImpl(`https://api.github.com/${path}`,{method,headers,redirect:'error',signal:AbortSignal.timeout(15000)});
+  if(method==='POST'){cache.delete(path.replace(/\/cancel$/,''));return {status:response.status};}
+  if(response.status===304){
+   if(!previous||fresh)throw Error('FAIL_FAST_UNEXPECTED_304');
+   return structuredClone(previous.data);
+  }
+  if(!response.ok)throw Error(`FAIL_FAST_READ_HTTP_${response.status}`);
+  const data=await response.json(),etag=response.headers.get('etag');
+  if(etag)cache.set(path,{etag,data:structuredClone(data)});else cache.delete(path);
+  return data;
+ };
+ return {read:(path,{fresh=false}={})=>request(path,'GET',fresh),write:path=>request(path,'POST')};
+}
 async function main(){
  if(process.env.GITHUB_EVENT_NAME!=='workflow_run'||!process.env.GH_TOKEN)throw Error('TRUSTED_WORKFLOW_RUN_REQUIRED');
- const request=async(path,method='GET')=>{
-  const response=await fetch(`https://api.github.com/${path}`,{method,headers:{Authorization:`Bearer ${process.env.GH_TOKEN}`,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(15000)});
-  if(method==='POST')return {status:response.status};
-  if(!response.ok)throw Error(`FAIL_FAST_READ_HTTP_${response.status}`);
-  return response.json();
- };
- const result=await supervise({event:JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8')),repository:process.env.GITHUB_REPOSITORY,read:path=>request(path),write:path=>request(path,'POST')});
+ const api=createGitHubApi({token:process.env.GH_TOKEN});
+ const result=await supervise({event:JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH,'utf8')),repository:process.env.GITHUB_REPOSITORY,...api});
  // Success means supervision completed; it never certifies the target tests passed.
  process.stdout.write(JSON.stringify(result)+'\n');
 }
