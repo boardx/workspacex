@@ -34,3 +34,13 @@ it('preserves copied PR smoke execution and evidence steps', () => {
     expect(automatic[name].outputs).toEqual(acceptance[name].outputs);
   }
 });
+
+it('assigns each broad smoke candidate to exactly one event producer',()=>{
+ const automatic=parse(readFileSync('.github/workflows/harness-verify.yml','utf8'));
+ for(const name of ['board-smoke','directory-smoke','fullstack-smoke']){
+  expect(automatic.jobs[name].if).toContain("(github.event_name == 'pull_request')");
+  expect(automatic.jobs[name].if).not.toContain("github.event_name == 'merge_group'");
+  expect(workflow.on.pull_request).toBeUndefined();
+  expect(workflow.on.merge_group.branches).toEqual(['develop']);
+ }
+});

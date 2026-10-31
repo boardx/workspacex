@@ -14,7 +14,8 @@ const producer='pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --
 function validate(w,p){
  assert.deepEqual(p.deferredChecks,['visual-deferred']);
  assert.ok(Object.hasOwn(w.on,'pull_request'));
- assert.deepEqual(w.on.push.branches,['develop']);
+ assert.equal(w.on.push,undefined);
+ assert.deepEqual(w.on.merge_group.branches,['develop']);
  assert.deepEqual(w.on.pull_request.branches,['develop']);
  const functional=w.jobs['board-ui-functional'],visual=manual.jobs['visual-deferred'];
  assert.ok(functional&&visual);
@@ -83,7 +84,7 @@ test('complete three-suite main and source-backed R01 extension pass; missing or
  }
 });
 
-test('production synchronization cannot reenable Board code CI',()=>{for(const event of ['push','pull_request'])for(const branch of ['main','main-us']){const w=clone();w.on[event].branches.push(branch);assert.throws(()=>validate(w,policy));}});
+test('production synchronization cannot reenable Board code CI',()=>{for(const event of ['merge_group','pull_request'])for(const branch of ['main','main-us']){const w=clone();w.on[event].branches.push(branch);assert.throws(()=>validate(w,policy));}});
 
 test('manual lanes have dispatch-only routing and never create automatic skipped jobs',()=>{
  assert.deepEqual(Object.keys(manual.on),['workflow_dispatch']);

@@ -22,3 +22,7 @@ After this PR is green and merged:
 
 ## Acceptance boundaries
 This is source/policy verification. It does not prove a real queue, actual rollout/recovery, or production business transactions. Keep result snapshots and PR run URLs rather than recording pending as success.
+
+## 2026-10-31 stage2 observation
+
+#6053 merged; develop-only queue ruleset26262460 activated with original protections unchanged. Real #6056 candidate30bac748397349ae308a81cc2297cad78f91f9da passed all five required checks before merging as that exact SHA. Stage3 source-event and post-merge dedup cutover remains under #6057; see 2026-10-31-ci-postmerge-dedup.md. These observations do not replace live API checks.

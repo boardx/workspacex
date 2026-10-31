@@ -51,7 +51,7 @@ describe('full regression preserves all independent lane verdicts', () => {
     expect(aggregate.if).toContain('always()');
     for (const name of FULL_REGRESSION_LANES.filter(name => !['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name))) {
       const job = workflow.jobs[name];
-      if(name==='full-regression-core')expect(job.needs).toEqual(['verify-full-compile','base-api-plan','base-api-shards','base-api-exclusive']);
+      if(name==='full-regression-core')expect(job.needs).toEqual(['base-compile','base-api-plan','base-api-shards','base-api-exclusive']);
       else expect(job.needs).toBeUndefined();
       expect(job['continue-on-error']).toBeUndefined();
       expect(job.if).toContain("github.event_name != 'pull_request'");
@@ -71,14 +71,15 @@ describe('acceptance workflow topology', () => {
     const automatic = parse(readFileSync(resolve(root, '.github/workflows/harness-verify.yml'), 'utf8'));
     expect(automatic.on.workflow_dispatch).toBeUndefined();
     expect(workflow.on.pull_request).toBeUndefined();
-    expect(workflow.on.push.branches).toEqual(['develop']);
+    expect(workflow.on.push).toBeUndefined();
+    expect(workflow.on.merge_group.branches).toEqual(['develop']);
     for (const id of ['full-regression-core', 'e2e-full', 'base-api-plan', 'base-api-shards', 'base-api-exclusive', 'chat-read', 'self-service-profile', 'chat-path-coverage', 'chat-task-workbench']) {
       expect(automatic.jobs[id]).toBeUndefined();
       expect(workflow.jobs[id]).toBeDefined();
     }
     for (const id of ['verify-full-compile', 'board-smoke', 'directory-smoke', 'fullstack-smoke']) {
-      expect(automatic.jobs[id].if).toContain("github.event_name == 'pull_request' || github.event_name == 'merge_group'");
-      expect(workflow.jobs[id]).toBeDefined();
+      expect(automatic.jobs[id].if).toContain(id==='verify-full-compile'?"github.event_name == 'pull_request' || github.event_name == 'merge_group'":"github.event_name == 'pull_request'");
+      expect(workflow.jobs[id==='verify-full-compile'?'base-compile':id]).toBeDefined();
     }
     for (const job of Object.values(workflow.jobs) as {needs?: string | string[]}[]) {
       for (const id of [job.needs ?? []].flat()) expect(workflow.jobs[id]).toBeDefined();

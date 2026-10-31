@@ -19,7 +19,24 @@ describe('static validation has one PR producer, retaining standalone deployment
       expect(evaluateIf(harness.jobs['verify-full-compile'].if, probe(event))).toBe(true);
     }
     expect(evaluateIf(harness.jobs['verify-full-compile'].if, probe('push'))).toBe(false);
-    expect(acceptance.jobs['verify-full-compile'].steps).toEqual(harness.jobs['verify-full-compile'].steps);
+    const base=acceptance.jobs['base-compile'];
+    expect(base.if).toBeUndefined();
+    const manual=base.steps.filter((step:any)=>step.run?.startsWith('pnpm turbo run'));
+    expect(manual.map((step:any)=>step.run)).toEqual(['pnpm turbo run build','pnpm turbo run typecheck lint --continue']);
+    for(const step of manual){
+      expect(evaluateIf(step.if,probe('merge_group'))).toBe(false);
+      expect(evaluateIf(step.if,probe('workflow_dispatch'))).toBe(true);
+    }
+    const admission=base.steps.find((step:any)=>step.run?.includes('ci-queue-ready.mjs --compile'));
+    expect(admission).toBeDefined();
+    expect(evaluateIf(admission.if,probe('merge_group'))).toBe(true);
+    expect(evaluateIf(admission.if,probe('workflow_dispatch'))).toBe(false);
+    const runtime=base.steps.find((step:any)=>step.name==='Prepare queue compile runtime');
+    expect(runtime.with).toEqual({'node-version-file':'.nvmrc','package-manager-cache':false});
+    expect(evaluateIf(runtime.if,probe('merge_group'))).toBe(true);
+    expect(evaluateIf(runtime.if,probe('workflow_dispatch'))).toBe(false);
+    expect(base.steps.filter((step:any)=>!step.run?.includes('ci-queue-ready.mjs --compile') && step.name!=='Prepare queue compile runtime').map(({if:condition,...step}:any)=>step)).toEqual(harness.jobs['verify-full-compile'].steps);
+
   });
   it('affected validation owns tests without running static tasks a second time', () => {
     expect(commands(harness.jobs['verify-affected'])).not.toMatch(/turbo run typecheck lint/);

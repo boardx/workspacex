@@ -117,9 +117,15 @@ describe('v4 exact independent heavy revalidation', () => {
  it('keeps nonrequired pending nonblocking, but missing required still waiting and required skipped blocked', () => {
   expect(classifyChecks([...green,{name:'security',status:'IN_PROGRESS',conclusion:null}]).waitingCi).toEqual([]);
   expect(classifyChecks(green.slice(1)).waitingCi).not.toEqual([]);
-  expect(classifyChecks(green.map(c=>({...c,conclusion:'SKIPPED'}))).blocked).toHaveLength(5);
+  expect(classifyChecks(green.map(c=>({...c,conclusion:'SKIPPED'}))).blocked).toHaveLength(CURRENT_POLICY.requiredChecks.length);
  });
  it('preserves visual-deferred observations under v4', () => {
   expect(classifyChecks([...green,{name:'visual-deferred',status:'COMPLETED',conclusion:'FAILURE'}]).advisories.join('\n')).toContain('DEFERRED: visual-deferred');
  });
+});
+
+it('rejects unknown source event policy instead of silently reverting queue sources to push',()=>{
+ for(const sourceVerificationEvent of [null,'pull_request','unknown',''])expect(()=>parsePolicy({...CURRENT_POLICY,sourceVerificationEvent})).toThrow('source verification');
+ expect(()=>parsePolicy({...CURRENT_POLICY,sourceVerificationEvent:'push'})).not.toThrow();
+ expect(()=>parsePolicy({...CURRENT_POLICY,sourceVerificationEvent:'merge_group'})).not.toThrow();
 });

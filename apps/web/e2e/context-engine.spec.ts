@@ -37,6 +37,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
 import { awaitAssistantReply, bearerOf, snapshotMessageIds, V2_SEND_WIRE } from "./chat-v2-send";
 import { selectWorkbenchAgent } from "./support/workbench-run-evidence";
+import { expectSendNotBlockedOnRun } from "./support/chat-path-coverage";
 
 async function login(page: Page): Promise<void> {
   await page.goto("/login");
@@ -74,6 +75,11 @@ async function sendAndAwaitReply(page: Page, threadId: string, text: string) {
 
   const input = page.getByTestId("copilotkit-v2-input");
   await expect(input).toBeVisible({ timeout: 60_000 });
+  // A seeded historical run may still be restoring. Sending then intentionally queues
+  // the turn instead of issuing the direct AG-UI request asserted by this context test.
+  // Observe the empty composer settling before filling; a filled running composer
+  // also reports ready, so waiting after fill would not distinguish that race.
+  await expectSendNotBlockedOnRun(page);
   await input.fill(text);
   const runRequest = page.waitForRequest(
     (r) => r.method() === "POST" && V2_SEND_WIRE.test(new URL(r.url()).pathname),

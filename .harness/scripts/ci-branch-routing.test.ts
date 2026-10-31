@@ -35,8 +35,9 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     }
   });
 
-  it.each(['harness-verify','backend-gates'])('limits %s merge groups to develop', name => {
+  it.each(['harness-verify','backend-gates','harness-acceptance','board-acceptance','skill-files-e2e'])('limits %s merge groups to develop', name => {
     expect(workflow(name).on.merge_group.branches).toEqual(['develop']);
+    expect(workflow(name).on.push).toBeUndefined();
   });
 
   it('keeps production deployment separate from development validation', () => {
@@ -79,4 +80,15 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     for(const event of ['pull_request','merge_group']) expect(admitted(event,'develop')).toBe(false);
     expect(release.jobs.deploy.concurrency['cancel-in-progress']).toBe(false);
   });
+});
+
+it('separates PR readiness from the actual fail-closed queue regression verdict',()=>{
+ const plan=workflow('ci-pr-queue-plan'),acceptance=workflow('harness-acceptance');
+ expect(Object.keys(plan.on)).toEqual(['pull_request']);
+ expect(plan.jobs['queue-ready'].steps.at(-1).run).toBe('node .harness/scripts/ci-queue-ready.mjs --pr');
+ const queue=acceptance.jobs['queue-ready'];
+ expect(queue.if).toBe("always() && github.event_name == 'merge_group'");
+ expect(queue.needs).toEqual(['e2e-full','full-regression-core']);
+ expect(queue['continue-on-error']).toBeUndefined();
+ expect(queue.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-queue-ready.mjs',env:{CI_QUEUE_NEEDS:'${{ toJSON(needs) }}'}});
 });

@@ -281,6 +281,7 @@ const EXEMPTIONS = [
  * 写这里的代价是：这条 spec 被共享包改动打红时，CI 不会告诉任何人。
  */
 const CONDITIONAL_COVERAGE_EXEMPTIONS = [
+  ...["apps/web/e2e/board-connector-authority.spec.ts", "apps/web/e2e/board-connector-copy-defaults.spec.ts", "apps/web/e2e/board-connector-history.spec.ts", "apps/web/e2e/board-connector-independent-process.spec.ts", "apps/web/e2e/board-connector-interchange.spec.ts", "apps/web/e2e/board-files-boundaries.spec.ts", "apps/web/e2e/board-files-filenames.spec.ts", "apps/web/e2e/board-files-placement.spec.ts", "apps/web/e2e/board-files-retry.spec.ts", "apps/web/e2e/board-meeting-room-acceptance.spec.ts", "apps/web/e2e/board-peer-origin-close.spec.ts", "apps/web/e2e/board-r01-native-matrix.spec.ts", "apps/web/e2e/board-sync-lifecycle.spec.ts"].map(spec => ({spec,reason: "#6057: user-approved lifecycle cleanup moves independent heavy native Board measurements to explicit manual acceptance. The original suites and evidence protocol remain in board-native-acceptance.yml; normal scoped Board PR/queue and core smoke remain automatic. This is conditional manual coverage, not unconditional source acceptance."})),
   {
     spec: "apps/web/e2e/skill-file-pin-live.spec.ts",
     reason: "#6052: Skill browser acceptance is conditional on all apps/**, packages/**, scripts/**, .harness/** and root dependency/runtime configuration; ci-skill-scope.test.ts pins this conservative set. Documentation-only changes outside those inputs no longer launch the browser. This is conditional coverage, never unconditional acceptance; manual dispatch remains available.",
