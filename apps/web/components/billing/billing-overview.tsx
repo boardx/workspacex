@@ -118,8 +118,8 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
       <Card data-testid="billing-subscription-card">
         <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />月度套餐</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} wechatEnabled={providers.includes("wechat")} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} onCreditGranted={wallet.retry} />
-          <SubscriptionHistory key={`${userId}:${sessionToken}`} sessionToken={sessionToken} />
+          <LiveSubscription key={`subscription:${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} wechatEnabled={providers.includes("wechat")} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} onCreditGranted={wallet.retry} />
+          <SubscriptionHistory key={`history:${userId}:${sessionToken}`} sessionToken={sessionToken} />
         </CardContent>
       </Card>
     </div>

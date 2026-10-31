@@ -19,3 +19,5 @@ New additive migration `20261031150000_billing_subscription_amount_snapshot.sql`
 Independent review caught history pagination retained on identity change. Added failing account-switch regression, keyed history by userId/sessionToken; regression passed after fix.
 
 Cashier browser regression: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.billing-cashier.config.ts` — 1 passed (three widths, keyboard/QR/payment polling/ledger and unified personal menu). Screenshots copied under browser/cashier-*.png. Desktop and mobile overview screenshots inspected visually.
+
+Final exact-SHA review additionally caught sibling React keys sharing the same identity value. Added subscription:/history: key namespaces; all 92 UI regressions passed again without duplicate-key warnings.
