@@ -37,7 +37,7 @@ test("live cashier keyboard, QR, polling recovery and accounting across three wi
  });
  for(const width of [375,768,1280]){
   status="PENDING";readsFail=false;creditedBalance=100;settledOrder="";await page.setViewportSize({width,height:width>=1024?1100:900});await page.goto("/billing");
-  const buy=page.getByRole("button",{name:"充值 credit",exact:true});await expect(buy).toBeVisible();
+  const buy=page.getByRole("button",{name:"购买 credit",exact:true});await expect(buy).toBeVisible();
   // Reach the real trigger through ordinary document keyboard navigation.
   let reached=false;for(let i=0;i<70;i++){await page.keyboard.press("Tab");if(await buy.evaluate(node=>node===document.activeElement)){reached=true;break;}}
   expect(reached).toBe(true);await page.keyboard.press("Enter");
@@ -73,12 +73,14 @@ test("live cashier keyboard, QR, polling recovery and accounting across three wi
   await expect(page.getByTestId("billing-success-badge")).toHaveCount(0);
   await page.keyboard.press("Escape");await expect(page.getByRole("dialog")).toHaveCount(0);await expect(buy).toBeFocused();
  }
- // Configured personal-menu purchase opens the same real cashier through its URL intent.
+ // One account entry leads to billing; purchasing starts from its wallet card.
  await page.goto("/profile");await page.getByTestId("rail-profile-menu").click();
- await page.getByTestId("billing-menu-purchase").click();
+ await expect(page.getByTestId("billing-menu-purchase")).toHaveCount(0);
+ await page.getByTestId("personal-menu-billing").click();
+ await page.getByRole("button",{name:"购买 credit",exact:true}).click();
  await expect(page.getByRole("dialog")).toBeVisible();
  await expect(page).toHaveURL(/\/billing$/);
  await page.keyboard.press("Escape");
- await expect(page.getByRole("button",{name:"充值 credit",exact:true})).toBeFocused();
+ await expect(page.getByRole("button",{name:"购买 credit",exact:true})).toBeFocused();
  expect(posts).toBe(6);
 });

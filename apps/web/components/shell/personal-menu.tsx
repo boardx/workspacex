@@ -1,9 +1,6 @@
 "use client";
 import * as React from "react";
 import Link from "next/link";
-import { billingCredits } from "@repo/contracts";
-import { apiRequest } from "@/lib/api-client";
-import { useOptionalSession } from "@/components/session/session-provider";
 import { BarChart3, BrainCircuit, LogOut, User } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
@@ -32,19 +29,8 @@ export function PersonalMenu({
   avatarInitial, onLogout,
 }: { avatarInitial: string; onLogout?: () => void }) {
   const [open, setOpen] = React.useState(false);
-  const session = useOptionalSession()?.session;
-  const token = session?.sessionToken ?? null;
-  const [purchase, setPurchase] = React.useState<{ token: string; enabled: boolean } | null>(null);
-  React.useEffect(() => {
-    if (!open || !token) return;
-    const controller = new AbortController(); setPurchase(null);
-    void apiRequest<unknown>(billingCredits.operations.getBillingConfig.path, { sessionToken: token, signal: controller.signal })
-      .then(raw => { const enabled = billingCredits.operations.getBillingConfig.out.parse(raw).enabledProviders.length > 0; if (!controller.signal.aborted) setPurchase({ token, enabled }); })
-      .catch(() => { if (!controller.signal.aborted) setPurchase(null); });
-    return () => controller.abort();
-  }, [open, token]);
   return (
-    <Menu open={open} onOpenChange={next => { setPurchase(null); setOpen(next); }}>
+    <Menu open={open} onOpenChange={setOpen}>
       <MenuTrigger asChild>
         <button
           type="button"
@@ -84,9 +70,6 @@ export function PersonalMenu({
             {PERSONAL_BILLING_ENTRY.label}
           </Link>
         </MenuItem>
-        {open && token && purchase?.token === token && purchase.enabled && <MenuItem asChild data-testid="billing-menu-purchase">
-          <Link href={`${PERSONAL_BILLING_ENTRY.href}?purchase=1`} className="gap-2"><PERSONAL_BILLING_ENTRY.icon aria-hidden className="h-3.5 w-3.5" />购买额度</Link>
-        </MenuItem>}
         <MenuSeparator />
         <MenuItem asChild onSelect={(e) => e.preventDefault()}>
           <ThemeToggle testId="personal-menu-theme" className="rounded-md" />

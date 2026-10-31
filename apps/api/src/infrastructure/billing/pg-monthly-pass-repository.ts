@@ -49,7 +49,7 @@ export class PgMonthlyPassRepository implements MonthlyPassRepository {
    const start=new Date(),end=monthlyPassEnd(start);
    await grantPaidSubscriptionPeriod(s,{userId:owner.user_id,subscriptionRef:`pass_${orderId}`,invoiceRef:session.payment_intent as string,planRef:MONTHLY_PASS_PRODUCT,periodStart:start,periodEnd:end});
    await s.query(SQL.bind,[orderId,owner.user_id,session.id]);
-   await s.query(SQL.paid,[orderId,session.payment_intent,start,end]);
+   await s.query(SQL.paid,[orderId,session.payment_intent,start,end,session.amount_total,String(session.currency).toUpperCase()]);
    return true;
   });
   if(!accepted)throw new SubscriptionError("dependency_unavailable");

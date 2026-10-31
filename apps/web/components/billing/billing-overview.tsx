@@ -1,5 +1,6 @@
 "use client";
 import { LiveCashierDialog } from "./live-cashier-dialog";
+import { SubscriptionHistory } from "./subscription-history";
 import { LiveSubscription } from "./live-subscription";
 import * as React from "react";
 import Link from "next/link";
@@ -98,29 +99,30 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
       <h1 className="text-24 font-semibold">额度与订阅</h1>
       <p className="text-13 text-muted-foreground">按需充值，或购买月度套餐。</p>
     </header>
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid items-start gap-4 md:grid-cols-2">
       <Card data-testid="billing-wallet-card">
-        <CardHeader><CardTitle className="flex items-center gap-2"><Wallet aria-hidden className="h-4 w-4" />充值 credit</CardTitle><CardDescription>充值额度长期有效</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Wallet aria-hidden className="h-4 w-4" />购买 credit</CardTitle><CardDescription>充值额度长期有效</CardDescription></CardHeader>
         <CardContent className="space-y-4">
           <ReadNotice state={wallet.state} name="wallet" label="额度查询" retry={wallet.retry} />
           {wallet.state.status === "ready" && <>
-            <div><p className="text-12 text-muted-foreground">可用 credit</p><p data-testid="billing-wallet-balance" className="text-30 font-semibold tabular-nums">{number(wallet.state.data.availableBalance ?? wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">credit</span></p></div>
-            <dl className="grid grid-cols-2 gap-3 text-13"><div><dt className="text-muted-foreground">充值余额</dt><dd data-testid="billing-permanent-balance">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)}</dd></div><div><dt className="text-muted-foreground">套餐余额</dt><dd data-testid="billing-monthly-credits">{number(wallet.state.data.subscriptionCredits ?? 0)}</dd></div></dl>
-            {!!wallet.state.data.reservedCredits && <p className="text-12 text-muted-foreground">使用中 {number(wallet.state.data.reservedCredits)} credit</p>}
+            <div><p className="text-12 text-muted-foreground">剩余 credit</p><p data-testid="billing-wallet-balance" className="text-30 font-semibold tabular-nums">{number(wallet.state.data.permanentBalance ?? wallet.state.data.balance)} <span className="text-13 font-normal text-muted-foreground">credit</span></p></div>
             {wallet.state.data.balance < 0 && <p className="text-13 text-destructive">待结算欠额 {number(Math.abs(wallet.state.data.balance))} 额度。余额为负，充值后可发起新请求；已开始的请求可以完成。</p>}
 
           </>}
-          {providers.length > 0 && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>充值 credit</Button>}
+          <div className="flex flex-wrap gap-2">
+          {providers.length > 0 && <Button ref={purchaseButton} onClick={() => setCashierOpen(true)}>购买 credit</Button>}
+          <Button asChild variant="outline"><Link href="/usage">查看历史使用</Link></Button>
+          </div>
         </CardContent>
       </Card>
-      <Card>
+      <Card data-testid="billing-subscription-card">
         <CardHeader><CardTitle className="flex items-center gap-2"><CreditCard aria-hidden className="h-4 w-4" />月度套餐</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <LiveSubscription key={`${userId}:${sessionToken}`} state={subscription.state} retry={subscription.retry} wechatEnabled={providers.includes("wechat")} stripeEnabled={providers.includes("stripe")} userId={userId} sessionToken={sessionToken} onCreditGranted={wallet.retry} />
+          <SubscriptionHistory key={`${userId}:${sessionToken}`} sessionToken={sessionToken} />
         </CardContent>
       </Card>
     </div>
     <LiveCashierDialog key={`${userId}:${sessionToken}`} owner={{ ownerType: "user", ownerId: userId }} sessionToken={sessionToken} open={cashierOpen} onOpenChange={setCashierOpen} onCredited={wallet.retry} focusFallback={restorePurchaseFocus} />
-    <Button asChild variant="outline"><Link href="/usage">查看我的 AI 用量</Link></Button>
   </div>;
 }

@@ -15,13 +15,13 @@ function setup(items:unknown[]=[pack]){
 afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 describe("F06 live cashier entry",()=>{
  it("opens real package selection from configured account",async()=>{
-  setup();fireEvent.click(await screen.findByRole("button",{name:"充值 credit"}));
+  setup();fireEvent.click(await screen.findByRole("button",{name:"购买 credit"}));
   expect(await screen.findByTestId("billing-cashier-dialog")).toBeTruthy();
   expect(await screen.findByText("¥99.00")).toBeTruthy();
   expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
  });
  it("does not invent packages for an empty catalog",async()=>{
-  setup([]);fireEvent.click(await screen.findByRole("button",{name:"充值 credit"}));
+  setup([]);fireEvent.click(await screen.findByRole("button",{name:"购买 credit"}));
   expect(await screen.findByTestId("billing-packages-empty")).toBeTruthy();
   expect(screen.queryByTestId("billing-generate-qr")).toBeNull();
  });
@@ -195,7 +195,7 @@ describe("F06 purchase navigation intent",()=>{
   fireEvent.click(screen.getByRole("button",{name:"关闭"}));
   await act(async()=>{});
   expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
-  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole("button",{name:"充值 credit"})));
+  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole("button",{name:"购买 credit"})));
   view.rerender(<BillingOverview userId="user-a" sessionToken="cashier-test-session" openOnReady onPurchaseOpened={consumed}/>);
   expect(consumed).toHaveBeenCalledTimes(1);expect(screen.queryByTestId("billing-cashier-dialog")).toBeNull();
  });
