@@ -43,12 +43,23 @@ export function combineBase(directory,output){
  const logs=files.map(p=>{const text=readFileSync(p,'utf8');if(!text.trim())throw Error('EMPTY_TEST_LOG');return text;});
  writeFileSync(output,logs.join('\n'));
 }
+export function requireChatProducers(needs,{routed=false}={}){
+ const producers=['chat-test-plan','chat-test-shards'];
+ const keys=routed?[...producers,'doc-smoke-scope']:producers;
+ if(!needs||Object.keys(needs).sort().join()!==[...keys].sort().join()||keys.some(name=>needs[name]?.result!=='success'))throw Error('INCOMPLETE_CHAT_PRODUCERS');
+ if(routed){
+  const {mode,plan_digest:planDigest}=needs['doc-smoke-scope'].outputs??{};
+  if(mode!=='full'||!/^[a-f0-9]{64}$/.test(planDigest??''))throw Error('INVALID_CHAT_FULL_ROUTE');
+ }
+ return true;
+}
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const [command,kind,directory]=process.argv.slice(2);
  if(command==='combine-base')combineBase(kind,directory);
  else if(command==='chat-prerequisites'){
   const needs=JSON.parse(process.env.CI_CHAT_NEEDS??'null');
-  if(!needs||Object.keys(needs).sort().join()!=='chat-test-plan,chat-test-shards'||Object.values(needs).some(v=>v?.result!=='success'))throw Error('INCOMPLETE_CHAT_PRODUCERS');
+  if(kind!==undefined&&kind!=='--routed')throw Error('INVALID_CHAT_PREREQUISITE_MODE');
+  requireChatProducers(needs,{routed:kind==='--routed'});
  }
  else if(command==='stamp')stamp(kind);
  else if(command==='bundle'){download(kind,directory);console.log(JSON.stringify(verify(kind,directory)));}

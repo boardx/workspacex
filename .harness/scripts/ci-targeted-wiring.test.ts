@@ -3,7 +3,7 @@ import {expect,it} from 'vitest';
 import {parse} from 'yaml';
 import {evaluateIf} from './lib/ci-job-conditions.mjs';
 import {isHeavyE2eCommand} from './lib/heavy-suite-lock';
-import {UI_PRODUCERS} from './ci-targeted-routing.mjs';
+import {UI_PRODUCERS,requireRoute} from './ci-targeted-routing.mjs';
 const load=name=>parse(readFileSync(`.github/workflows/${name}.yml`,'utf8'));
 it('produces explicit plans on PR and queue, with runtime preparation only for a candidate',()=>{
  for(const name of ['harness-verify','harness-acceptance']){
@@ -46,5 +46,18 @@ it('keeps both real selected browser producers inside heavy E2E resource admissi
   expect(command).toContain('with-test-isolation.ts -- node');
   const actual=/-- (node \.harness\/scripts\/ci-targeted-runner\.mjs chat-ui) /.exec(command);
   expect(actual).not.toBeNull();expect(isHeavyE2eCommand(actual[1].split(' '))).toBe(true);
+ }
+});
+
+it.each([['full-regression-core','base'],['e2e-full','e2e']])('accepts actual %s workflow needs in both regression modes',(name,kind)=>{
+ const job=load('harness-acceptance').jobs[name];
+ for(const mode of ['full','targeted-ui']){
+  const selected=kind==='base'?['base-compile','base-control-plane',...UI_PRODUCERS]:['full-regression-core',...UI_PRODUCERS];
+  const actual=Object.fromEntries(job.needs.map((key:string)=>{
+   if(key==='doc-smoke-scope')return [key,{result:'success',outputs:{mode,plan_digest:'a'.repeat(64)}}];
+   const active=mode==='full'?!UI_PRODUCERS.includes(key):selected.includes(key);
+   return [key,{result:active?'success':'skipped',outputs:active?{verdict:'success'}:{}}];
+  }));
+  expect(requireRoute(kind,actual).mode).toBe(mode);
  }
 });

@@ -108,3 +108,20 @@ passing and one declared-skipped case. The original generic full-suite verifier
 accepts declared skips; the bounded pilot now rejects any selected case whose
 expected status is not passed and requires zero report skips. This counterexample
 failed before the pilot-specific guard and passes after it.
+
+## Actual full-fallback candidate feedback
+Candidate `7c98bcaeee3b2a6623408df276175c079ee138bb`, run 41233217767,
+correctly selected full mode and passed full core and both actual chat shards.
+The Chat aggregate then failed `INCOMPLETE_CHAT_PRODUCERS`: its newly added
+`doc-smoke-scope` dependency was included in `toJSON(needs)`, while the inherited
+strict helper accepted exactly two producer keys. The queue blocked the merge.
+This failed run is diagnostic evidence, not full acceptance.
+
+The exact original CI payload was replayed locally. An explicit routed contract
+now validates all three dependencies, full mode and a valid plan digest; the
+legacy two-producer contract remains strict. Regression tests load the actual
+workflow dependencies and actual CLI command, covering positive, missing, skipped,
+wrong-route/digest and extra-key payloads. Full core and E2E routing tests likewise
+consume the actual workflow dependency inventory. Both original Chat artifact
+bundles were independently verified, isolating the defect to prerequisite input
+adaptation. A new-source full candidate is required before merge.

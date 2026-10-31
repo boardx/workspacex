@@ -813,7 +813,7 @@ jobs:
       - name: Require complete chat producer outcomes
         env:
           CI_CHAT_NEEDS: ${{ toJSON(needs) }}
-        run: node .harness/scripts/ci-parallel-evidence.mjs chat-prerequisites
+        run: node .harness/scripts/ci-parallel-evidence.mjs chat-prerequisites --routed
       - name: Verify actual current chat reports
         env:
           GH_TOKEN: ${{ github.token }}
