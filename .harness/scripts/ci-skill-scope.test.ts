@@ -14,3 +14,24 @@ it('limits optional Skill browser workflow to source/dependency changes and pres
  expect(Object.hasOwn(w.on,'workflow_dispatch')).toBe(true);
  expect(w.jobs['skill-files-e2e'].steps.some((s:any)=>s.run?.includes('studio-skill-files-e2e.mjs'))).toBe(true);
 });
+
+import {execFileSync,spawnSync} from 'node:child_process';
+import {mkdtempSync,readFileSync as read,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+it('publishes the actual CLI result to GitHub output, not just console text',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'skill-scope-'));
+ try{
+  const output=join(dir,'out');
+  execFileSync(process.execPath,['.harness/scripts/ci-skill-scope.mjs'],{env:{...process.env,GITHUB_EVENT_NAME:'workflow_dispatch',GITHUB_OUTPUT:output}});
+  expect(read(output,'utf8')).toBe('changed=true\n');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+it('a missing comparison base fails instead of publishing an empty/false selection',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'skill-scope-'));
+ try{
+  const output=join(dir,'out');
+  const child=spawnSync(process.execPath,['.harness/scripts/ci-skill-scope.mjs'],{env:{...process.env,GITHUB_EVENT_NAME:'merge_group',CI_SCOPE_BASE_SHA:'',GITHUB_OUTPUT:output},encoding:'utf8'});
+  expect(child.status).not.toBe(0);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
