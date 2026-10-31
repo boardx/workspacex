@@ -49,6 +49,7 @@ export interface ParityGroup {
  * ⚠ 顺序无意义，分组才有意义；一个名字只能出现在一组里（测试钉住）。
  */
 export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
+  "BILLING_DEPLOYMENT",
   "BILLING_STRIPE_ENABLED",
   "BILLING_WECHAT_ENABLED",
   "WECHAT_PAY_APP_ID",

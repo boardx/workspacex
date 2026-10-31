@@ -49,3 +49,13 @@ flowchart LR
  class E todo
  class F todo
 ```
+
+## Actual candidate failure investigation (2026-10-31)
+
+Candidate0306d05a1e90bc950ebcb37bcbcf33f144071d01 failed the newly activated complete base gate: local-runtime env parity found `BILLING_DEPLOYMENT` missing from its existing billing isolation group. The existing scan reproduced red; classifying this selector with the other cloud-payment inputs passes parity and child-process isolation (8 tests).
+
+Candidate2f337f6cd4d081dd731e54a7da7261890ea2ed99 also exposed an F190 browser race. Its retained Playwright trace shows an empty composer still in `running` during historical-run restoration; fill/click issued a real `queued-messages`201 rather than the direct AG-UI request asserted by the test. The context journey now uses the existing fail-closed idle observer before filling, retaining its direct-request, committed reply, F190/L2 payload and reload checks. Browser acceptance remains required; an ENOSPC local attempt is explicitly not passing evidence.
+
+The cancelled/failed candidates are not release evidence. Fail-fast remains a separate tracked change (#6060/#6061); its owner will synchronize after this producer is actually merged. Existing protected checks remain in place.
+
+Local repair verification: billing parity/child-env 8/8; empty-composer observer 4/4; real isolated PostgreSQL/API/Next/Chromium L2 and F190 journeys 2/2 (2.2 minutes execution, plus resource admission). The initial ENOSPC attempt was discarded, owned build caches cleaned, then the actual journeys rerun successfully. Owned test containers were released; no shared database was changed. New PR/queue checks are still mandatory.
