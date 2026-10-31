@@ -48,12 +48,16 @@ export function verifyDirectory(directory,env=process.env){
  const receipt={schemaVersion:1,mode:plan.mode,...context,planDigest:plan.planDigest,policyDigest:plan.policyDigest,suites:evidence.map(x=>x.suite),status:'success'};
  writeFileSync(resolve(directory,'receipt.json'),JSON.stringify(receipt));return receipt;
 }
+export function bundleCurrent(directory,env=process.env){
+ const context=runIdentity(env);
+ for(const name of ['plan','web-unit','chat-ui'])download(name==='plan'?'regression-plan':`targeted-ui-${name}`,resolve(directory,name),context,env);
+ return verifyDirectory(directory,env);
+}
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  const [command,directory]=process.argv.slice(2);if(!directory)throw Error('ARTIFACT_DIRECTORY_REQUIRED');
  const context=runIdentity();
  if(command==='bundle'){
-  for(const name of ['plan','web-unit','chat-ui'])download(name==='plan'?'regression-plan':`targeted-ui-${name}`,resolve(directory,name),context,process.env);
-  console.log(JSON.stringify(verifyDirectory(directory)));
+  console.log(JSON.stringify(bundleCurrent(directory)));
  }else if(['web-unit','chat-ui'].includes(command)){
   const planDirectory=resolve(directory,'plan');download('regression-plan',planDirectory,context,process.env);
   const plan=JSON.parse(readFileSync(resolve(planDirectory,'plan.json'),'utf8'));

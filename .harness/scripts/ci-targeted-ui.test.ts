@@ -30,6 +30,7 @@ it('uses real source history and suite hashes; unknown, missing, renamed and non
   expect(selected.suites[0].files[0].sha256).toMatch(/^[a-f0-9]{64}$/);expect(selected.planDigest).toMatch(/^[a-f0-9]{64}$/);
   const context={baseSha:base,headSha:head,enabled:true,policyInput:p,git};
   expect(verifyTargetedPlan(selected,context)).toBe(true);
+  const preflight=planTargeted({...context,preflight:true});expect(preflight.mode).toBe('candidate-ui');expect(()=>verifyTargetedPlan(preflight,context)).toThrow();
   for(const patch of [{headSha:base},{planDigest:'bad'},{suites:[]},{policyDigest:'bad'},{baseSha:head}])expect(()=>verifyTargetedPlan({...selected,...patch},context)).toThrow();
   expect(()=>verifyTargetedPlan(selected,{...context,enabled:false})).toThrow();
   put('pnpm-lock.yaml','changed');expect(inspect(base,commit()).mode).toBe('full');

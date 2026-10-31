@@ -1,16 +1,18 @@
 /** Narrow opt-in UI selection. Unknown changes always keep full regression. */
-import {readFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,appendFileSync,mkdirSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
-import {resolve} from 'node:path';
+import {resolve,dirname} from 'node:path';
 import {pathToFileURL} from 'node:url';
-import ts from 'typescript';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);let ts;
 const root=resolve(import.meta.dirname,'../..');
 export const policy=JSON.parse(readFileSync(new URL('../config/ci-targeted-ui.json',import.meta.url),'utf8'));
 const hash=x=>createHash('sha256').update(x).digest('hex');
 const forbidden=new Set(['window','document','globalThis','global','fetch','process','require','eval','Function','XMLHttpRequest','WebSocket','navigator','location']);
 const allowedCalls=new Set(['cn','onUseTemplate','TASK_WORKBENCH_TEMPLATES.map']);
 function structure(text,allowedImports){
+ ts??=require('typescript');
  const source=ts.createSourceFile('ui.tsx',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TSX);
  if(source.parseDiagnostics.length)return null;
  const imports=[],api=[],tags=new Set(),attrs=new Set(),names=new Set();let safe=true;
@@ -46,7 +48,7 @@ function checkPolicy(p){
  const paths=[p.sourceFile,...(p.unitTests??[]),...(p.browserTests??[])];
  if(!p.unitTests?.length||!p.browserTests?.length||new Set(paths).size!==paths.length||paths.some(x=>typeof x!=='string'||x.startsWith('/')||x.split('/').includes('..'))||p.unitTests.some(x=>!/^tests\/.+\.test\.tsx?$/.test(x))||p.browserTests.some(x=>!/^e2e\/.+\.spec\.ts$/.test(x)))throw Error('UNKNOWN_POLICY');
 }
-export function planTargeted({baseSha,headSha,enabled=policy.enabled,policyInput=policy,git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8',maxBuffer:4*1024*1024})}){
+export function planTargeted({baseSha,headSha,enabled=policy.enabled,policyInput=policy,preflight=false,git=args=>execFileSync('git',args,{cwd:root,encoding:'utf8',maxBuffer:4*1024*1024})}){
  const common={schemaVersion:1,baseSha:baseSha??null,headSha:headSha??null,policyDigest:hash(JSON.stringify(policyInput))};
  const finish=(mode,reason,suites)=>{const plan={...common,mode,reason,suites};return {...plan,planDigest:hash(JSON.stringify(plan))}};
  const full=reason=>finish('full',reason,[{id:'full-regression'}]);
@@ -63,6 +65,7 @@ export function planTargeted({baseSha,headSha,enabled=policy.enabled,policyInput
    if(!tree.startsWith('100644 blob ')||!tree.endsWith(`\t${path}\0`))throw Error('NON_REGULAR_INPUT');
    return git(['show',`${sha}:${path}`]);
   };
+  if(preflight){read(baseSha,policyInput.sourceFile);read(headSha,policyInput.sourceFile);return finish('candidate-ui','requires-runtime-boundary-inspection',[]);}
   if(!inspectUiBoundary(read(baseSha,policyInput.sourceFile),read(headSha,policyInput.sourceFile),policyInput.imports))return full('runtime-or-public-boundary-changed');
   const suite=(id,files)=>({id,files:files.map(file=>({file,sha256:hash(read(headSha,`apps/web/${file}`))}))});
   return finish('targeted-ui','reviewed-local-ui-change',[suite('web-unit',policyInput.unitTests),suite('chat-ui',policyInput.browserTests)]);
@@ -76,5 +79,10 @@ export function verifyTargetedPlan(plan,options){
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
  if(!/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA??''))throw Error('SOURCE_SHA_REQUIRED');
- console.log(JSON.stringify(planTargeted({baseSha:process.env.CI_SCOPE_BASE_SHA,headSha:process.env.GITHUB_SHA}),null,2));
+ const preflight=process.argv[2]==='--preflight';
+ const plan=planTargeted({baseSha:process.env.CI_SCOPE_BASE_SHA,headSha:process.env.GITHUB_SHA,preflight});
+ if(preflight){const candidate=plan.mode==='candidate-ui';if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,`candidate=${candidate}\n`);console.log(JSON.stringify({candidate}));process.exit(0);}
+ const output=process.argv[2];if(output){mkdirSync(dirname(resolve(output)),{recursive:true});writeFileSync(output,JSON.stringify(plan,null,2));}
+ if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,`mode=${plan.mode}\nplan_digest=${plan.planDigest}\n`);
+ console.log(JSON.stringify(plan,null,2));
 }

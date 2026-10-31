@@ -45,19 +45,41 @@ concurrency:
   group: harness-acceptance-${{ github.ref }}-${{ github.run_id }}
   cancel-in-progress: false
   queue: max
+env:
+  CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+
 jobs:
   doc-smoke-scope:
-    if: github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'
+    if: always() && !cancelled()
     runs-on: ubuntu-latest
     permissions: {contents: read}
-    timeout-minutes: 5
+    timeout-minutes: 10
     outputs:
       full: ${{ steps.scope.outputs.full }}
+      mode: ${{ steps.regression.outputs.mode }}
+      plan_digest: ${{ steps.regression.outputs.plan_digest }}
     steps:
       - uses: actions/checkout@v5
         with: {fetch-depth: 0, persist-credentials: false}
       - id: scope
         run: node .harness/scripts/ci-doc-smoke-scope.mjs
+
+      - id: preflight
+        run: node .harness/scripts/ci-targeted-ui.mjs --preflight
+      - uses: pnpm/action-setup@v4.4.0
+        if: steps.preflight.outputs.candidate == 'true'
+      - uses: actions/setup-node@v5
+        if: steps.preflight.outputs.candidate == 'true'
+        with: {node-version-file: .nvmrc, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+        if: steps.preflight.outputs.candidate == 'true'
+      - id: regression
+        run: node .harness/scripts/ci-targeted-ui.mjs "$RUNNER_TEMP/regression/plan.json"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: regression-plan-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/regression/plan.json
+          if-no-files-found: error
 
   # ADR-106 batch-1/6（#1277）：原 `verify` job 是一条顺序链——控制平面静态检查
   # （doctor/lint doctor/harness 自测，全部毫秒级、不碰 DB）与"受影响模块
@@ -131,8 +153,8 @@ jobs:
   # PR 描述。没有这一步，本 job 仍然只是"CI 报红"，不是"物理挡住合并"。
   board-smoke:
     timeout-minutes: 30
-    needs: doc-smoke-scope
-    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    needs: [doc-smoke-scope]
+    if: (always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -199,8 +221,8 @@ jobs:
 
   directory-smoke:
     timeout-minutes: 30
-    needs: doc-smoke-scope
-    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    needs: [doc-smoke-scope]
+    if: (always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -266,8 +288,8 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   fullstack-smoke:
-    needs: doc-smoke-scope
-    if: always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')
+    needs: [doc-smoke-scope]
+    if: (always() && !cancelled() && ((github.event_name != 'schedule' || github.event.schedule == '0 * * * *') && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && (github.event_name != 'pull_request' || needs.doc-smoke-scope.outputs.full != 'false')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
     runs-on: ubuntu-latest
     outputs:
       verdict: ${{ steps.smoke-verdict.outputs.verdict }}
@@ -371,7 +393,8 @@ jobs:
   # Full regression shares the sole smoke producer above; core retains the complete base suite.
   # Public journey commands each create and clean their own database isolation scope.
   base-api-plan:
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
+    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+    needs: [doc-smoke-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -401,8 +424,8 @@ jobs:
           if-no-files-found: error
 
   base-api-shards:
-    needs: base-api-plan
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
+    needs: [base-api-plan, doc-smoke-scope]
+    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -449,8 +472,8 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
 
   base-api-exclusive:
-    needs: [base-api-plan, base-api-shards]
-    if: github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')
+    needs: [base-api-plan, base-api-shards, doc-smoke-scope]
+    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -493,10 +516,11 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
 
   web-test-plan:
-    if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))
+    if: (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
     outputs:
       count: ${{ steps.plan.outputs.count }}
       shards: ${{ steps.plan.outputs.shards }}
+    needs: [doc-smoke-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -520,7 +544,8 @@ jobs:
           if-no-files-found: error
 
   web-test-shards:
-    needs: web-test-plan
+    if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+    needs: [web-test-plan, doc-smoke-scope]
     strategy:
       fail-fast: true
       matrix:
@@ -552,10 +577,11 @@ jobs:
           if-no-files-found: error
 
   chat-test-plan:
-    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    if: ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
     outputs:
       count: ${{ steps.plan.outputs.count }}
       shards: ${{ steps.plan.outputs.shards }}
+    needs: [doc-smoke-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -579,8 +605,8 @@ jobs:
           if-no-files-found: error
 
   chat-test-shards:
-    if: (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.chat-test-plan.result == 'success'
-    needs: chat-test-plan
+    if: ((github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base') && needs.chat-test-plan.result == 'success') && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+    needs: [chat-test-plan, doc-smoke-scope]
     strategy:
       fail-fast: true
       matrix:
@@ -624,7 +650,8 @@ jobs:
 
 
   base-package-tests:
-    if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))
+    if: (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+    needs: [doc-smoke-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 90
     concurrency:
@@ -717,7 +744,10 @@ jobs:
 
   full-regression-core:
     if: always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))
-    needs: [base-compile, base-api-plan, base-api-shards, base-api-exclusive, base-package-tests, base-control-plane, web-test-plan, web-test-shards]
+    needs: [base-compile, base-api-plan, base-api-shards, base-api-exclusive, base-package-tests, base-control-plane, web-test-plan, web-test-shards, doc-smoke-scope, targeted-ui-unit, targeted-ui-browser]
+    outputs:
+      verification_mode: ${{ steps.route.outputs.mode }}
+      plan_digest: ${{ steps.route.outputs.plan_digest }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -727,21 +757,26 @@ jobs:
       - uses: actions/setup-node@v5
         with: {node-version-file: .nvmrc, cache: pnpm}
       - run: pnpm install --frozen-lockfile
-      - name: Require all parallel base producers
+      - id: route
+        name: Require the complete active regression route
         env:
-          CI_BASE_NEEDS: ${{ toJSON(needs) }}
-        run: node .harness/scripts/ci-base-api.mjs prerequisites-parallel
+          CI_ROUTED_NEEDS: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-targeted-routing.mjs base
       - name: Verify complete current API evidence
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           node .harness/scripts/ci-base-api.mjs download "$RUNNER_TEMP/api"
           node .harness/scripts/ci-base-api.mjs bundle "$RUNNER_TEMP/api"
       - name: Verify complete current Web evidence
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node .harness/scripts/ci-parallel-evidence.mjs bundle web "$RUNNER_TEMP/web-evidence"
       - name: Retain complete base evidence
+        if: needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -750,15 +785,22 @@ jobs:
           node .harness/scripts/ci-parallel-evidence.mjs combine-base "$RUNNER_TEMP" phases/phase-01-run-a-project/evidence/ci/e2e.log
           pnpm exec tsx .harness/scripts/record-readiness-evidence.ts --phase 01 --kind e2e --commit "$GITHUB_SHA" --command "verified API partitions + complete Web partitions + base packages + authoritative control plane" --log phases/phase-01-run-a-project/evidence/ci/e2e.log --output phases/phase-01-run-a-project/evidence/ci/e2e-manifest.json
       - uses: actions/upload-artifact@v6
-        if: always()
+        if: always() && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
         with:
           name: phase-01-e2e-full-evidence-${{ github.run_id }}
           path: phases/phase-01-run-a-project/evidence/ci/
           if-no-files-found: error
 
+      - uses: actions/upload-artifact@v6
+        if: always() && needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+        with:
+          name: targeted-ui-core-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/routed-base/receipt.json
+          if-no-files-found: error
+
   chat-read:
-    if: always() && !cancelled() && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))
-    needs: [chat-test-plan, chat-test-shards]
+    if: (always() && !cancelled() && ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base'))) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+    needs: [chat-test-plan, chat-test-shards, doc-smoke-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -778,7 +820,8 @@ jobs:
         run: node .harness/scripts/ci-parallel-evidence.mjs bundle chat "$RUNNER_TEMP/chat-evidence"
 
   self-service-profile:
-    if: (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
+    if: ((github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full)) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')) && needs.doc-smoke-scope.outputs.mode != 'targeted-ui'
+    needs: [doc-smoke-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -831,15 +874,28 @@ jobs:
   # Stable full-regression verdict: missing, skipped, failed or canceled lanes cannot pass.
   e2e-full:
     if: (always() && !cancelled() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full))) && (github.event_name != 'workflow_dispatch' || inputs.verification_lane != 'base')
-    needs: [fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile]
+    needs: [fullstack-smoke, directory-smoke, board-smoke, full-regression-core, chat-read, self-service-profile, doc-smoke-scope, targeted-ui-unit, targeted-ui-browser]
+    outputs:
+      verification_mode: ${{ steps.route.outputs.mode }}
+      plan_digest: ${{ steps.route.outputs.plan_digest }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - name: Require every full regression lane
+        with: {fetch-depth: 0}
+      - uses: pnpm/action-setup@v4.4.0
+        if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+      - uses: actions/setup-node@v5
+        if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+        with: {node-version-file: .nvmrc, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+        if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+      - id: route
+        name: Require actual evidence for the active regression route
         env:
-          CI_LANE_RESULTS: ${{ toJSON(needs) }}
-        run: node .harness/scripts/ci-full-regression.mjs
+          CI_ROUTED_NEEDS: ${{ toJSON(needs) }}
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-targeted-routing.mjs e2e
 
   # Optional evidence lanes keep separate dispatch switches and are not aggregate dependencies.
   # chat-path-coverage is the path-coverage matrix lane; chat-task-workbench is an opt-in scorecard.
@@ -952,3 +1008,65 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CI_QUEUE_NEEDS: ${{ toJSON(needs) }}
         run: node .harness/scripts/ci-queue-ready.mjs
+
+  targeted-ui-unit:
+    if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+    needs: doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: {node-version-file: .nvmrc, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - name: Execute actual web-unit selection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
+        run: |
+          mkdir -p "$RUNNER_TEMP/targeted-ui/suite"
+          set -o pipefail
+          node .harness/scripts/ci-targeted-runner.mjs web-unit "$RUNNER_TEMP/targeted-ui" 2>&1 | tee "$RUNNER_TEMP/targeted-ui/suite/runner.log"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: targeted-ui-web-unit-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/targeted-ui/suite/
+          if-no-files-found: error
+
+  targeted-ui-browser:
+    if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+    needs: doc-smoke-scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: pnpm/action-setup@v4.4.0
+      - uses: actions/setup-node@v5
+        with: {node-version-file: .nvmrc, cache: pnpm}
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+      - name: Execute actual chat-ui selection
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WORKSPACEX_WEB_TEST_MAX_WORKERS: "2"
+        run: |
+          mkdir -p "$RUNNER_TEMP/targeted-ui/suite"
+          set -o pipefail
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node .harness/scripts/ci-targeted-runner.mjs chat-ui "$RUNNER_TEMP/targeted-ui" 2>&1 | tee "$RUNNER_TEMP/targeted-ui/suite/runner.log"
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: targeted-ui-chat-ui-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/targeted-ui/suite/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: targeted-ui-browser-diagnostics-${{ github.run_id }}-${{ github.run_attempt }}
+          path: apps/web/test-results/chat-read/
+          if-no-files-found: warn
+

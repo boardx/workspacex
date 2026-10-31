@@ -144,3 +144,16 @@ test('actual full Turbo test plans preserve the exact union across isolated and 
     assert.deepEqual([...isolated, ...remaining].sort(), original);
   }
 });
+test('a validated local UI plan executes the selected real unit runner instead of full affected packages',()=>{
+ const selected=[],r=recording([],{
+  env:{GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'12',GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/runner/temp'},
+  targetedPlan:()=>({mode:'targeted-ui',headSha:'a'.repeat(40)}),
+  runSelectedUnit:(...args)=>selected.push(args),
+ });
+ r.run();assert.equal(r.calls.length,0);assert.equal(selected.length,1);assert.equal(selected[0][2],'/checkout/apps/web');
+ assert.equal(selected[0][3].sha,'a'.repeat(40));
+});
+test('a selected unit failure cannot turn into an empty or successful affected run',()=>{
+ const r=recording([],{env:{GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'12',GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:'/runner/temp'},targetedPlan:()=>({mode:'targeted-ui'}),runSelectedUnit:()=>{throw Error('actual selected failure')}});
+ assert.throws(()=>r.run(),/actual selected failure/);
+});

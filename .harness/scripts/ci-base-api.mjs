@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { spawnSync, execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { shardPlan, discoverCoverage } from './ci-api-shards.mjs';
+export const PARALLEL_BASE_PRODUCERS=['base-compile','base-api-plan','base-api-shards','base-api-exclusive','base-package-tests','base-control-plane','web-test-plan','web-test-shards'];
 const legacyRequired = ['verify-full-compile', 'base-api-plan', 'base-api-shards', 'base-api-exclusive'];
 const hash = value => createHash('sha256').update(value).digest('hex');
 export function assertPrerequisites(needs,event=process.env.GITHUB_EVENT_NAME) {
@@ -101,7 +102,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
   const [command, directory] = process.argv.slice(2);
   if (command === 'prerequisites-parallel') {
     const needs=JSON.parse(process.env.CI_BASE_NEEDS??'null');
-    const required=['base-compile','base-api-plan','base-api-shards','base-api-exclusive','base-package-tests','base-control-plane','web-test-plan','web-test-shards'];
+    const required=[...PARALLEL_BASE_PRODUCERS];
     if(!needs||Object.keys(needs).sort().join()!==required.sort().join()||required.some(k=>needs[k]?.result!=='success'))throw Error('INCOMPLETE_PARALLEL_BASE');
   }
   else if (command === 'prerequisites') assertPrerequisites(JSON.parse(process.env.CI_BASE_NEEDS ?? 'null'));
