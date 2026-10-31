@@ -39,7 +39,7 @@ export function PersonalMenu({
     if (!open || !token) return;
     const controller = new AbortController(); setPurchase(null);
     void apiRequest<unknown>(billingCredits.operations.getBillingConfig.path, { sessionToken: token, signal: controller.signal })
-      .then(raw => { const enabled = billingCredits.operations.getBillingConfig.out.parse(raw).enabledProviders.includes("wechat"); if (!controller.signal.aborted) setPurchase({ token, enabled }); })
+      .then(raw => { const enabled = billingCredits.operations.getBillingConfig.out.parse(raw).enabledProviders.length > 0; if (!controller.signal.aborted) setPurchase({ token, enabled }); })
       .catch(() => { if (!controller.signal.aborted) setPurchase(null); });
     return () => controller.abort();
   }, [open, token]);

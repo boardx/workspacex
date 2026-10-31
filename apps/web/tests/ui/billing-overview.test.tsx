@@ -71,20 +71,20 @@ describe("真实计费入口与账户状态", () => {
     expect(screen.queryByTestId("billing-wallet-balance")).toBeNull();
   });
 
-  it("Stripe单独配置时如实显示渠道，不伪装成可微信充值", async () => {
+  it("Stripe单独配置时开放充值入口，不展示微信二维码", async () => {
     requests({ "/billing/config": () => reply({ enabledProviders: ["stripe"] }) });
     renderOverview();
     await screen.findByTestId("billing-subscription-status");
     expect(screen.queryByText(/微信支付 ·/)).toBeNull();
-    expect(screen.queryByRole("button", { name: "充值 credit" })).toBeNull();
+    expect(screen.getByRole("button", { name: "充值 credit" })).toBeTruthy();
     expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();
   });
 
-  it.each([{ providers: ["wechat"] }, { providers: ["wechat", "stripe"] }, { providers: [] }])("仅显示已开启的支付渠道 $providers", async ({ providers }) => {
+  it.each([{ providers: ["stripe"] }, { providers: ["wechat"] }, { providers: ["wechat", "stripe"] }, { providers: [] }])("仅显示已开启的支付渠道 $providers", async ({ providers }) => {
     requests({ "/billing/config": () => reply({ enabledProviders: providers }) });
     renderOverview();
     await screen.findByTestId("billing-subscription-status");
-    expect(Boolean(screen.queryByRole("button",{name:"充值 credit"}))).toBe(providers.includes("wechat"));
+    expect(Boolean(screen.queryByRole("button",{name:"充值 credit"}))).toBe(providers.length>0);
     expect(screen.queryByText("支付渠道")).toBeNull();
     expect(screen.queryByText(/未开通$/)).toBeNull();
   });

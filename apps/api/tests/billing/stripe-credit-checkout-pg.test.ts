@@ -36,3 +36,11 @@ it('rejects wrong amount and cross provider without wallet writes',async()=>{
 it('rejects reconciliation under another principal owner',async()=>{
  const f=await fixture();await expect(service.reconcile({...f.owner,ownerId:'different'}, {orderNo:f.orderNo} as OrderDraft & {qrCodeUrl:string})).rejects.toThrow('order_not_found');
 });
+
+it('recovers only the existing unbound order even when new purchases are disabled',async()=>{
+ const f=await fixture();respond({...f.session,status:'open',payment_status:'unpaid',url:'https://checkout.stripe.com/c/pay/recovered'});
+ const order=await service.reconcile(f.owner,{orderNo:f.orderNo} as OrderDraft & {qrCodeUrl:string});
+ expect(order).toMatchObject({orderNo:f.orderNo,provider:'stripe',status:'PENDING',qrCodeUrl:'https://checkout.stripe.com/c/pay/recovered'});
+ expect((await asOwner(c=>c.query('SELECT * FROM billing_orders WHERE owner_id=$1',[f.owner.ownerId]))).rows).toHaveLength(1);
+ await expect(service.create(f.owner,{...order,createdBy:f.owner.ownerId})).rejects.toMatchObject({code:'payment_provider_not_configured'});
+});

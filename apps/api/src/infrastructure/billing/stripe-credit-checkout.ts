@@ -22,18 +22,21 @@ export class StripeCreditCheckout implements StripeCreditCheckoutPort{
    if(existing){if(existing.package_id!==draft.packageId)throw new BillingOrderError('order_not_pending');return existing;}
    return (await s.query<Row>(STRIPE_CREDIT_SQL.reserve,[draft.orderNo,owner.ownerType,owner.ownerId,draft.createdBy,draft.packageId,draft.amountFen,draft.baseCredits,draft.bonusCredits,draft.currency,draft.createdAt,new Date(Date.parse(draft.createdAt)+86400000).toISOString()])).rows[0]!;
   });
-  if(!row.stripe_session_ref){
-   if(Date.now()-row.created_at.getTime()>23*3600000)throw new BillingOrderError('order_not_pending');
-   const session=await this.client.create(this.draft(row));
-   await this.db.withTenant(owner.orgId,s=>s.query(STRIPE_CREDIT_SQL.bind,[row.order_no,session.id,session.url??'pending']));
-  }
+  await this.ensureSession(owner,row);
   return this.reconcile(owner,await this.view(owner,row.order_no));
+ }
+ private async ensureSession(owner:BillingOwner,row:Row):Promise<string>{
+  if(row.stripe_session_ref)return row.stripe_session_ref;
+  if(Date.now()-row.created_at.getTime()>23*3600000)throw new BillingOrderError('order_not_pending');
+  const session=await this.client.create(this.draft(row));
+  await this.db.withTenant(owner.orgId,s=>s.query(STRIPE_CREDIT_SQL.bind,[row.order_no,session.id,session.url??'pending']));
+  return session.id as string;
  }
  async reconcile(owner:BillingOwner,order:OrderView):Promise<OrderView>{
   const row=await this.db.withTenant(owner.orgId,async s=>(await s.query<Row>(K.lockOrder,[order.orderNo])).rows[0]);
   if(!row||row.provider!=='stripe'||row.owner_type!==owner.ownerType||row.owner_id!==owner.ownerId)throw new BillingOrderError('order_not_found');
-  if(!row.stripe_session_ref && row.status==='PENDING')return this.create(owner,this.draft(row));
-  if(row.stripe_session_ref)await this.accept(row.stripe_session_ref);
+  const sessionRef=row.stripe_session_ref??(row.status==='PENDING'?await this.ensureSession(owner,row):null);
+  if(sessionRef)await this.accept(sessionRef);
   return this.view(owner,order.orderNo);
  }
  async accept(sessionRef:string){
