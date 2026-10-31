@@ -92,3 +92,18 @@ it('never caches writes and invalidates the target snapshot after a cancellation
  const api=createGitHubApi({token:'test-token',fetchImpl}),path='repos/boardx/workspacex/actions/runs/10';await api.read(path);expect(await api.write(path+'/cancel')).toEqual({status:202});await api.read(path);
  expect(fetchImpl.mock.calls[1][1].headers['If-None-Match']).toBeUndefined();expect(fetchImpl.mock.calls[2][1].headers['If-None-Match']).toBeUndefined();
 });
+
+it('retains optional manual scorecard failures without cancelling regression, but still cancels required failures',async()=>{
+ const f=fixture();f.event.workflow_run.event='workflow_dispatch';let reads=0;
+ f.read.mockImplementation(async path=>path.includes('/jobs?')?{jobs:[{...job(),name:'chat-task-workbench'}]}:{...f.event.workflow_run,status:++reads>1?'completed':'in_progress'});
+ expect(await supervise(f)).toMatchObject({status:'completed'});expect(f.write).not.toHaveBeenCalled();
+ const g=fixture();g.event.workflow_run.event='workflow_dispatch';g.read.mockImplementation(async path=>path.includes('/jobs?')?{jobs:[{...job(),name:'chat-task-workbench'},{...job(),id:41,name:'full-regression-core'}]}:{...g.event.workflow_run});
+ expect(await supervise(g)).toMatchObject({status:'cancel_requested',failedJobs:[{id:41,conclusion:'failure'}]});
+});
+
+it('does not exempt matching scorecard names outside the manual acceptance workflow',async()=>{
+ for(const name of ['harness-acceptance','harness-verify']){
+  const f=fixture();f.event.workflow_run.name=name;f.read.mockImplementation(async path=>path.includes('/jobs?')?{jobs:[{...job(),name:'chat-task-workbench'}]}:{...f.event.workflow_run});
+  expect(await supervise(f)).toMatchObject({status:'cancel_requested'});
+ }
+});

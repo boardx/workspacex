@@ -37,7 +37,9 @@ export async function supervise({event,repository,allowed=watchedWorkflows(),rea
    if(!Array.isArray(result?.jobs))throw Error('INVALID_FAIL_FAST_JOBS');
    for(const job of result.jobs){
     if(job.run_id!==target.id||job.run_attempt!==undefined&&job.run_attempt!==target.run_attempt)throw Error('FAIL_FAST_JOB_IDENTITY_MISMATCH');
-    if(job.status==='completed'&&['failure','timed_out','startup_failure','action_required'].includes(job.conclusion))failed.push({id:job.id,conclusion:job.conclusion});
+    // This manually requested scorecard intentionally measures failures; it is not a regression gate.
+    const optionalScorecard=target.name==='harness-acceptance'&&target.event==='workflow_dispatch'&&job.name==='chat-task-workbench';
+    if(!optionalScorecard&&job.status==='completed'&&['failure','timed_out','startup_failure','action_required'].includes(job.conclusion))failed.push({id:job.id,conclusion:job.conclusion});
    }
    if(result.jobs.length<100)break;
   }
