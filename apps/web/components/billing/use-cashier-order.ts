@@ -29,8 +29,11 @@ function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder):
   const { order } = billing.operations.getPaymentOrder.out.parse(raw);
   if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
   const terminalStripe=order.provider==="stripe"&&["SUCCESS","CLOSED","FAILED"].includes(order.status)&&order.qrCodeUrl==="pending";
-  const qr = new URL(terminalStripe?"https://checkout.stripe.com":order.qrCodeUrl);
+  // Completed Checkout may have no URL; never render the internal placeholder as a link.
+  if(!terminalStripe){
+  const qr = new URL(order.qrCodeUrl);
   if (order.provider === "stripe" ? (qr.protocol !== "https:" || qr.hostname !== "checkout.stripe.com" || !!qr.port || !!qr.username || !!qr.password || !!qr.hash) : qr.protocol !== "weixin:" || qr.hostname !== "wxpay" || qr.pathname !== "/bizpayurl" || !qr.searchParams.get("pr") || qr.username || qr.password || qr.hash) throw new Error("INVALID_NATIVE_QR");
+  }
   if (expected && ["provider", "orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => order[key as keyof LiveOrder] !== expected[key as keyof LiveOrder])) throw new Error("ORDER_SNAPSHOT_MISMATCH");
   return order;
 }
