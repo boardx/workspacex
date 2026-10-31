@@ -19,7 +19,8 @@ test("real streaming chat uses a collapsed butterfly trace without a duplicate p
   await expect(trace.getByTestId("run-trace-toggle")).toHaveAttribute("aria-expanded", "false");
   const butterfly = trace.getByTestId("copilotkit-v2-thinking-mark");
   await expect(butterfly).toBeVisible();
-  expect(await butterfly.evaluate(el => getComputedStyle(el).animationName)).toBe("none");
+  // Streaming can replace the SVG between visibility and style reads; re-resolve until attached.
+  await expect(butterfly).toHaveCSS("animation-name", "none");
   await expect(page.getByTestId("copilotkit-v2-thinking-stage")).toHaveCount(0);
   await trace.getByTestId("run-trace-toggle").click();
   await expect(trace.getByTestId("run-trace-entry").first()).toBeVisible();
