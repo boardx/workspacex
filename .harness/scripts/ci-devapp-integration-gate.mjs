@@ -25,10 +25,32 @@ export const INTEGRATION_WORKFLOWS = SOURCE_VERIFICATION_PROFILES[SOURCE_VERIFIC
 export const INTEGRATION_CHECKS = SOURCE_VERIFICATION_PROFILES.push[1].checks;
 const WORKFLOW = '.github/workflows/harness-acceptance.yml';
 export const sourceBranchMatches = (branch,event) => event === 'push' ? branch === 'develop' : event === 'merge_group' && /^gh-readonly-queue\/develop\/pr-[1-9]\d*-[a-f0-9]{7,40}$/.test(branch ?? '');
-export function assertReleaseSource({event, ref, sha, tag}) {
+// Numeric tags are emitted only by the image-release producer. Resolve the original
+// build attempt and require successful exact-source admission plus all five builds.
+// A later deploy-only retry may authorize the same bytes; it cannot mint new bytes.
+export async function resolveVerifiedTagSource(api, tag) {
+  const match = /^([1-9]\d*)-([1-9]\d*)$/.exec(tag ?? '');
+  if (!match || !match.slice(1).every(x=>Number.isSafeInteger(Number(x)))) throw Error('DEVAPP_TAG_SOURCE_UNVERIFIED');
+  const runId=Number(match[1]), buildAttempt=Number(match[2]);
+  const workflow=await api('/actions/workflows/image-release.yml');
+  const current=await api(`/actions/runs/${runId}`);
+  const original=await api(`/actions/runs/${runId}/attempts/${buildAttempt}`);
+  const valid = run => run.id===runId && run.workflow_id===workflow.id && run.path==='.github/workflows/image-release.yml' && run.head_branch==='develop' && ['push','workflow_dispatch'].includes(run.event) && /^[a-f0-9]{40}$/.test(run.head_sha ?? '');
+  if (!Number.isSafeInteger(workflow.id) || workflow.path!=='.github/workflows/image-release.yml' || workflow.state!=='active' || !valid(current) || !valid(original) || current.head_sha!==original.head_sha || original.run_attempt!==buildAttempt || !Number.isSafeInteger(current.run_attempt) || current.run_attempt<buildAttempt || current.status!=='completed' || current.conclusion!=='success') throw Error('DEVAPP_TAG_PRODUCER_UNVERIFIED');
+  const response=await api(`/actions/runs/${runId}/attempts/${current.run_attempt}/jobs?per_page=100`);
+  if (!Array.isArray(response.jobs) || response.total_count!==response.jobs.length || response.total_count>100) throw Error('DEVAPP_TAG_JOBS_UNVERIFIED');
+  for (const name of ['plan','admission','manifest','build (api)','build (web)','build (agent)','build (sandbox)','build (postgres)']) {
+    const rows=response.jobs.filter(j=>j.name===name);
+    if(rows.length!==1 || rows[0].run_id!==runId || rows[0].head_sha!==current.head_sha || rows[0].run_attempt!==current.run_attempt || rows[0].status!=='completed' || rows[0].conclusion!=='success') throw Error('DEVAPP_TAG_JOBS_UNVERIFIED');
+  }
+  const after=await api(`/actions/runs/${runId}`);
+  if(after.run_attempt!==current.run_attempt || after.status!=='completed' || after.conclusion!=='success' || after.head_sha!==current.head_sha) throw Error('INTEGRATION_ATTEMPT_CHANGED');
+  return {sha:original.head_sha,runId,attempt:current.run_attempt};
+}
+export function assertReleaseSource({event, ref, sha, tag, verifiedTag}) {
   if (!['push', 'workflow_dispatch'].includes(event) || ref !== 'refs/heads/develop' || !/^[a-f0-9]{40}$/.test(sha ?? '')) throw new Error('DEVELOP_SOURCE_REQUIRED');
   // Existing tags need their own trusted source manifest, never today's branch green.
-  if (event === 'workflow_dispatch' && tag) throw new Error('DEVAPP_TAG_SOURCE_UNVERIFIED');
+  if (event === 'workflow_dispatch' && tag && (!verifiedTag || !/^[a-f0-9]{40}$/.test(verifiedTag.sha ?? ''))) throw new Error('DEVAPP_TAG_SOURCE_UNVERIFIED');
 }
 export function integrationVerdict(run, jobs, { sha, workflowId, since, workflowPath = WORKFLOW, checks = INTEGRATION_CHECKS, event = 'push', allowRunning = false }) {
   if (!run) return { state: 'pending', reason: 'integration_run_not_created' };
@@ -89,12 +111,13 @@ export async function waitForIntegration({ apiFactory, sha, since, clock = Date.
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
-    assertReleaseSource({event:process.env.GITHUB_EVENT_NAME,ref:process.env.GITHUB_REF,sha:process.env.GITHUB_SHA,tag:process.env.CI_RELEASE_TAG});
     const apiFactory = () => createLookupApi({ repository: process.env.GITHUB_REPOSITORY, token: process.env.GH_TOKEN });
+    const verifiedTag = process.env.GITHUB_EVENT_NAME==='workflow_dispatch' && process.env.CI_RELEASE_TAG ? await resolveVerifiedTagSource(apiFactory(),process.env.CI_RELEASE_TAG) : undefined;
+    assertReleaseSource({event:process.env.GITHUB_EVENT_NAME,ref:process.env.GITHUB_REF,sha:process.env.GITHUB_SHA,tag:process.env.CI_RELEASE_TAG,verifiedTag});
     const own = await apiFactory()(`/actions/runs/${process.env.GITHUB_RUN_ID}`);
     if (own.head_sha !== process.env.GITHUB_SHA || own.event !== process.env.GITHUB_EVENT_NAME || own.head_branch !== 'develop' || !Number.isFinite(Date.parse(own.created_at))) throw new Error('INVALID_DEPLOYMENT_RUN');
-    await waitForIntegration({ apiFactory, sha: process.env.GITHUB_SHA, since: SOURCE_VERIFICATION_EVENT === 'push' && process.env.GITHUB_EVENT_NAME === 'push' ? Date.parse(own.created_at) - 60_000 : 0 });
-    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Devapp admission: exact develop SHA ${process.env.GITHUB_SHA}, current integration attempt passed.\n`);
+    if (!verifiedTag) await waitForIntegration({ apiFactory, sha: process.env.GITHUB_SHA, since: SOURCE_VERIFICATION_EVENT === 'push' && process.env.GITHUB_EVENT_NAME === 'push' ? Date.parse(own.created_at) - 60_000 : 0 });
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Devapp admission: exact image source SHA ${verifiedTag?.sha ?? process.env.GITHUB_SHA}, current integration attempt passed.\n`);
     console.log('Exact-source integration admission passed');
   } catch (error) {
     // Only our fixed failure codes are logged; never provider bodies or credentials.
