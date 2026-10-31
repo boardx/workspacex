@@ -58,7 +58,7 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     const controller = new AbortController(); pending.current = controller;
     setState(value => ({ ...value, uncertain: true }));
     void apiRequest<unknown>(billing.operations.getPaymentOrder.path.replace(":orderNo", encodeURIComponent(orderNo)), { sessionToken, signal: controller.signal }).then(raw => {
-      const order = validateOrder(raw, owner);
+      const order = validateOrder(raw, {ownerType:owner.ownerType,ownerId:owner.ownerId});
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState({ scope, order, creating: false, uncertain: false, message: null });
     }).catch(() => {
       if (!controller.signal.aborted && currentScope.current === scope) setState(value => ({ ...value, message: "无法恢复付款订单，请联系支持，勿重复付款。" }));
@@ -95,8 +95,8 @@ export function useCashierOrder(owner: CashierOwner, sessionToken: string, open:
     try {
       const body = billing.operations.createPaymentOrder.in.parse({ ownerType: owner.ownerType, ...(owner.ownerType === "team" ? { ownerId: owner.ownerId } : {}), packageId, provider });
       const raw = await apiRequest<unknown>(billing.operations.createPaymentOrder.path, { method: "POST", body, sessionToken, signal: controller.signal });
-      const order = validateOrder(raw, owner);
-      if (order.provider !== provider || order.packageId !== packageId || !["PENDING", "CLOSED"].includes(order.status)) throw new Error("ORDER_CREATE_MISMATCH");
+      const order = validateOrder(raw, {ownerType:owner.ownerType,ownerId:owner.ownerId});
+      if (order.provider !== provider || order.packageId !== packageId || !["PENDING", "PROCESSING", "SUCCESS", "CLOSED"].includes(order.status)) throw new Error("ORDER_CREATE_MISMATCH");
       if (!controller.signal.aborted && mounted.current && currentScope.current === scope) setState({ scope, order, creating: false, uncertain: false, message: null });
     } catch (error) {
       if (mounted.current && currentScope.current === scope) {

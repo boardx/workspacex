@@ -47,9 +47,9 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
       const orderNo=path.split("/").at(-1)!;
       const payment=state.paidMonthly.get(orderNo);
       const payload=JSON.stringify(payment??{code:"ORDER_NOT_EXIST",message:"not created"});
-      const ts=String(Math.floor(Date.now()/1000)),nonce=randomBytes(16).toString("hex");
-      res.setHeader("Wechatpay-Timestamp",ts);res.setHeader("Wechatpay-Nonce",nonce);res.setHeader("Wechatpay-Serial","PUB_KEY_ID_f04");
-      res.setHeader("Wechatpay-Signature",sign("RSA-SHA256",Buffer.from(`${ts}\n${nonce}\n${payload}\n`),platform.privateKey).toString("base64"));
+      const ts=String(Math.floor(Date.now()/1000)),responseNonce=randomBytes(16).toString("hex");
+      res.setHeader("Wechatpay-Timestamp",ts);res.setHeader("Wechatpay-Nonce",responseNonce);res.setHeader("Wechatpay-Serial","PUB_KEY_ID_f04");
+      res.setHeader("Wechatpay-Signature",sign("RSA-SHA256",Buffer.from(`${ts}\n${responseNonce}\n${payload}\n`),platform.privateKey).toString("base64"));
       res.statusCode=payment?200:404;res.end(payload);return;
     }
     if (isClose) {

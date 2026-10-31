@@ -45,7 +45,7 @@ export class WechatMonthlyPassClient implements MonthlyCheckoutProvider {
    return result;
   }finally{clearTimeout(timer);}
  }
- async retrieve(id:string){
+ async retrieve(id:string):Promise<Record<string,unknown>>{
   OrderNo.parse(id);
   assertBillingGlobalStatement(SQL.wechatOrder);
   const row=await this.db.withoutTenant(async s=>(await s.query<Row>(SQL.wechatOrder,[id])).rows[0]);
