@@ -1,3 +1,4 @@
+import {CREDIT_TOPUP_PRODUCT} from "@repo/contracts/billing-credits";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
 import type {BillingOwner} from "../../application/billing/billing-wallet-service";
 import {BillingOrderError,type OrderDraft,type OrderView,type StripeCreditCheckoutPort} from "../../application/billing/billing-order-service";
@@ -49,7 +50,7 @@ export class StripeCreditCheckout implements StripeCreditCheckoutPort{
    const row=(await s.query<Row>(K.lockOrder,[orderRef])).rows[0];if(!row||row.provider!=="stripe")return false;
    if(row.stripe_session_ref!==null&&row.stripe_session_ref!==sessionRef)throw Error("stripe_credit_session_conflict");
    const meta=session.metadata as Record<string,unknown>|null;
-   if(session.mode!=='payment'||session.client_reference_id!==row.order_no||session.amount_total!==row.amount_fen||session.currency!=='cny'||row.currency!=='CNY'||meta?.product!=='credit_topup_v1'||meta.order_ref!==row.order_no)throw Error('stripe_credit_snapshot_mismatch');
+   if(session.mode!=='payment'||session.client_reference_id!==row.order_no||session.amount_total!==row.amount_fen||session.currency!=='cny'||row.currency!=='CNY'||meta?.product!==CREDIT_TOPUP_PRODUCT||meta.order_ref!==row.order_no)throw Error('stripe_credit_snapshot_mismatch');
    if(!row.stripe_session_ref)await s.query(STRIPE_CREDIT_SQL.bind,[row.order_no,sessionRef,session.url??'pending']);
    if(session.status==='expired'&&session.payment_status!=='paid')await s.query(STRIPE_CREDIT_SQL.close,[row.order_no]);
    if(session.payment_status!=='paid'||session.status!=='complete')return true;

@@ -1,3 +1,4 @@
+import {CREDIT_TOPUP_PRODUCT} from "@repo/contracts/billing-credits";
 import {MONTHLY_PASS_PRODUCT} from "@repo/contracts/billing-subscription";
 import type {StripeEvent,StripeSnapshotProvider,StripeWebhookStore} from "../../application/billing/billing-stripe-webhook-service";
 import type {MonthlyPassService} from "../../application/billing/monthly-pass-service";
@@ -12,7 +13,7 @@ export class MonthlyStripeWebhookStore implements StripeWebhookStore {
    const session=await this.client.retrieve(event.object.id);
    const product=(session.metadata as Record<string,unknown>|null)?.product;
    if(product===MONTHLY_PASS_PRODUCT)await this.monthly.accept(session);
-   else if(product==="credit_topup_v1"){
+   else if(product===CREDIT_TOPUP_PRODUCT){
     if(!this.credits||!await this.credits.accept(event.object.id))throw Error("credit_checkout_unbound");
    }
    // Financial identity is the immutable Checkout/PaymentIntent pair, not event delivery order.

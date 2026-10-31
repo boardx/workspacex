@@ -19,14 +19,14 @@ export const BillingOwnerType = z.enum(["user", "team"]);
 export type BillingOwnerType = z.infer<typeof BillingOwnerType>;
 
 /** 充值支付渠道：微信 Native 或 Stripe 一次性 Checkout。 */
+export const CREDIT_TOPUP_PRODUCT = "credit_topup_v1";
 export const BillingProvider = z.enum(["wechat", "stripe"]);
 export type BillingProvider = z.infer<typeof BillingProvider>;
 
 /**
- * 渠道启用**读模型**（`GET /billing/config` 的 `enabledProviders`）：比下单枚举宽——
- * Stripe 属 billing-subscription 束，但会出现在这个共享读模型里（要求 03 V4 的入口可用性判据）。
+ * 渠道启用读模型复用支付渠道枚举；具体新购可用性由部署配置统一决定。
  */
-export const BillingEnabledProvider = z.enum(["wechat", "stripe"]);
+export const BillingEnabledProvider = BillingProvider;
 export type BillingEnabledProvider = z.infer<typeof BillingEnabledProvider>;
 
 /** 金额：非负整数分（I-11，禁止浮点参与金额运算）。 */
