@@ -69,10 +69,10 @@ export async function inspectIntegration(api, { sha, since, workflowPath = WORKF
   return integrationVerdict(current, jobs.jobs, identity);
 }
 
-export async function waitForIntegration({ apiFactory, sha, since, clock = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), budgetMs = 55 * 60_000, mode = SOURCE_VERIFICATION_EVENT, onlyCompile = false }) {
+export async function waitForIntegration({ apiFactory, sha, since, clock = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)), budgetMs = 55 * 60_000, mode = SOURCE_VERIFICATION_EVENT, onlyCompile = false, onlyControlPlane = false }) {
   if (!/^[a-f0-9]{40}$/.test(sha ?? '') || !Number.isFinite(since) || budgetMs < 1 || budgetMs > 55 * 60_000) throw new Error('INVALID_INTEGRATION_ADMISSION');
   if (!Object.hasOwn(SOURCE_VERIFICATION_PROFILES,mode)) throw new Error('INVALID_SOURCE_EVENT');
-  const specs = onlyCompile ? [{workflowPath:'.github/workflows/harness-verify.yml',checks:['verify-full-compile'],allowRunning:true}] : SOURCE_VERIFICATION_PROFILES[mode];
+  const specs = onlyCompile || onlyControlPlane ? [{workflowPath:'.github/workflows/harness-verify.yml',checks:[onlyControlPlane?'verify-control-plane':'verify-full-compile'],allowRunning:true}] : SOURCE_VERIFICATION_PROFILES[mode];
   const deadline = clock() + budgetMs;
   let previous;
   while (clock() < deadline) {
