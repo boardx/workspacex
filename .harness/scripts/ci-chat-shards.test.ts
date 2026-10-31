@@ -33,3 +33,29 @@ describe('chat shard evidence',()=>{
   } finally {rmSync(dir,{recursive:true,force:true});}
  },120000);
 });
+
+import {readFileSync,mkdirSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
+import {parse} from 'yaml';
+import {deriveTestIsolation} from './lib/test-isolation';
+it('keeps real isolation-wrapper stdout out of the Playwright JSON report',()=>{
+ const root=resolve('.'),dir=mkdtempSync(resolve('apps/web','.chat-json-boundary-'));
+ try{
+  writeFileSync(resolve(dir,'playwright.config.ts'),`import {defineConfig} from '@playwright/test';export default defineConfig({testDir:'.',workers:1,projects:[{name:'fixture'}]});`);
+  writeFileSync(resolve(dir,'actual.spec.ts'),`import {test,expect} from '@playwright/test';test('actual wrapper child',()=>expect(1).toBe(1));`);
+  const step=parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')).jobs['chat-test-shards'].steps.find((s:any)=>s.run?.includes('with-test-isolation.ts'));
+  const temp=resolve(dir,'artifacts');mkdirSync(resolve(temp,'shard'),{recursive:true});
+  const isolation=deriveTestIsolation({worktreePath:root,isolationId:dir});
+  const env={...process.env,...isolation,WORKSPACEX_VERIFY_OUTER_DB:undefined,WORKSPACEX_VERIFY_OUTER_COMPOSE:undefined,WORKSPACEX_KEEP_TEST_STACK:undefined,RUNNER_TEMP:temp,CI_JSON_FIXTURE_CONFIG:resolve(dir,'playwright.config.ts')};delete env.PLAYWRIGHT_JSON_OUTPUT_NAME;
+  for(const [key,value]of Object.entries(step.env??{}))env[key]=String(value).replaceAll('${{ runner.temp }}',temp);
+  const command=step.run.split('\n').find((line:string)=>line.includes('with-test-isolation.ts')).trim()
+   .replaceAll('${{ matrix.shard }}','1').replaceAll('${{ needs.chat-test-plan.outputs.count }}','1')
+   .replace('--config playwright.chat-read.config.ts','--config "$CI_JSON_FIXTURE_CONFIG"').replace('--project=chat-read','--project=fixture')
+   .replaceAll('phases/phase-01-run-a-project/evidence/ci/chat-read.log','"$RUNNER_TEMP/fixture.log"');
+  expect(command).not.toContain('${{');
+  const result=spawnSync('bash',['-o','pipefail','-c',command],{cwd:root,env,encoding:'utf8',timeout:50000,maxBuffer:4*1024*1024});
+  expect(result.status,result.stderr).toBe(0);expect(result.stdout).toContain('[test-isolation]');
+  const report=JSON.parse(readFileSync(resolve(temp,'shard/report.json'),'utf8'));
+  expect(report.stats.expected).toBe(1);expect(report.stats.unexpected).toBe(0);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+},60000);
