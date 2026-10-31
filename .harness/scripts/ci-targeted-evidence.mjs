@@ -58,6 +58,7 @@ export function browserEvidence(plan,discovery,report,cwd,context,status){
 export function verifyBrowserEvidence(plan,evidence,context){
  bind(plan,evidence,context,'chat-ui');
  requireBrowserFiles(plan,evidence.discovery,evidence.cwd);requireBrowserFiles(plan,evidence.report,evidence.cwd);
+ if(identities(evidence.discovery).some(id=>JSON.parse(id).at(-1)!=='passed')||evidence.report.stats?.skipped!==0)throw Error('UNEXECUTED_TARGETED_BROWSER_CASE');
  if(JSON.stringify(identities(evidence.discovery))!==JSON.stringify(evidence.coverage.full)||!evidence.report.stats?.expected)throw Error('EMPTY_OR_CHANGED_BROWSER_DISCOVERY');
  const result={shard:1,status:evidence.status,report:evidence.report,reportHash:evidence.reportHash,discoverySha256:evidence.coverage.discoverySha256,sha:evidence.sha,runId:evidence.run,attempt:evidence.attempt,stats:evidence.report.stats,identities:identities(evidence.report)};
  return verifyResults([result],evidence.coverage,{sha:context.sha,runId:context.run,attempt:context.attempt});

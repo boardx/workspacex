@@ -102,3 +102,9 @@ Full core completed in 18m23s rather than the prior 49m22s. This evidence permit
 the bounded pilot flag to be enabled; it does not itself prove the pilot route.
 Rollback remains setting the single policy flag false, with full fallback and
 stable required checks retained.
+
+Final author audit also reproduced a real installed Playwright fixture with one
+passing and one declared-skipped case. The original generic full-suite verifier
+accepts declared skips; the bounded pilot now rejects any selected case whose
+expected status is not passed and requires zero report skips. This counterexample
+failed before the pilot-specific guard and passes after it.

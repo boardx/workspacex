@@ -32,6 +32,10 @@ it('executes a real selected browser fixture and rejects missing, replayed and c
   for(const patch of [{attempt:'2'},{sha:'b'.repeat(40)},{reportHash:'bad'},{schemaVersion:2},{status:1},{coverage:{...browser.coverage,full:[]}}])expect(()=>verifyBrowserEvidence(p,{...browser,...patch},context)).toThrow();
   expect(()=>invoke(null,1,true,{...options,files:['--project=other']})).toThrow('INVALID_FILE_SELECTION');
   expect(()=>browserEvidence(p,discovery,{...run.report,stats:{...run.report.stats,expected:0}},cwd,context,0)).toThrow();
+  writeFileSync(resolve(dir,'a.spec.ts'),`import {test,expect} from '@playwright/test';test('actual pass',()=>expect(1).toBe(1));test.skip('declared but not executed',()=>{});`);
+  const skipDiscovery=invoke(null,1,true,options).report,skipRun=invoke(null,1,false,options);
+  expect(skipRun.report.stats.expected).toBe(1);expect(skipRun.report.stats.skipped).toBe(1);
+  expect(()=>browserEvidence(p,skipDiscovery,skipRun.report,cwd,context,skipRun.status)).toThrow('UNEXECUTED_TARGETED_BROWSER_CASE');
  }finally{rmSync(dir,{recursive:true,force:true});}
 },30000);
 it('does not count pending required assertions as executed unit coverage',()=>{
