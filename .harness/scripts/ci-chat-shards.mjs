@@ -27,6 +27,7 @@ export function invoke(shard,count,list=true, options={}) {
   if(!options.config) args.push('--project=chat-read');
   if(list) args.push('--list'); else args.push('--max-failures=1');
   if(shard) args.push(`--shard=${shard}/${count}`);
+  if(options.files){if(!Array.isArray(options.files)||!options.files.length||options.files.some(file=>typeof file!=='string'||file.startsWith('/')||file.startsWith('-')||file.split('/').includes('..')||!/^[a-zA-Z0-9_./-]+\.spec\.ts$/.test(file)))throw Error('INVALID_FILE_SELECTION');args.push(...options.files);}
   const result=spawnSync('pnpm',args,{cwd:options.cwd??resolve(root,'apps/web'),env:{...process.env,...(list?sentinel:{}),PLAYWRIGHT_JSON_OUTPUT_NAME:''},encoding:'utf8',timeout:list?120000:3600000,maxBuffer:32*1024*1024});
   if(result.error) throw result.error;
   if(!list && result.stderr) process.stderr.write(result.stderr);

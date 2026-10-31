@@ -1,10 +1,10 @@
 import {expect,it} from 'vitest';
-import {inspectUiBoundary,planTargeted} from './ci-targeted-ui.mjs';
+import {inspectUiBoundary,planTargeted,verifyTargetedPlan} from './ci-targeted-ui.mjs';
 const original='import * as React from "react"; import {cn} from "@/lib/utils"; export function UI({onUseTemplate}:{onUseTemplate:(x:string)=>void}){return <button className={cn("a")} onClick={()=>onUseTemplate("a")}>Hello</button>}';
 it('permits local display changes but rejects new runtime edges and public API changes',()=>{
  expect(inspectUiBoundary(original,original.replace('Hello','Hi'))).toBe(true);
  expect(inspectUiBoundary(original.replace('react','other'),original.replace('react','other'))).toBe(false);
- for(const changed of [original.replace('Hello','<iframe/>'),original.replace('Hello','{fetch("/api")}'),original.replace('react','other'),original.replace('onUseTemplate:(x:string)','onUseTemplate:(x:number)'),original.replace('<button','<button onMouseOver={()=>onUseTemplate("x")}'),original.replace('Hello','{eval("x")}')])expect(inspectUiBoundary(original,changed)).toBe(false);
+ for(const changed of [original.replace('Hello','<iframe/>'),original.replace('Hello','{fetch("/api")}'),original.replace('react','other'),original.replace('onUseTemplate:(x:string)','onUseTemplate:(x:number)'),original.replace('<button','<button onMouseOver={()=>onUseTemplate("x")}'),original.replace('Hello','{eval("x")}'),original.replace('Hello','{localStorage.length}')])expect(inspectUiBoundary(original,changed)).toBe(false);
 });
 it('keeps rollout disabled and fails closed on missing history',()=>{
  expect(planTargeted({baseSha:'a'.repeat(40),headSha:'b'.repeat(40)}).mode).toBe('full');
@@ -28,6 +28,10 @@ it('uses real source history and suite hashes; unknown, missing, renamed and non
   const inspect=(b:string,h:string)=>planTargeted({baseSha:b,headSha:h,enabled:true,policyInput:p,git});
   const selected=inspect(base,head);expect(selected.mode).toBe('targeted-ui');expect(selected.suites.map(x=>x.id)).toEqual(['web-unit','chat-ui']);
   expect(selected.suites[0].files[0].sha256).toMatch(/^[a-f0-9]{64}$/);expect(selected.planDigest).toMatch(/^[a-f0-9]{64}$/);
+  const context={baseSha:base,headSha:head,enabled:true,policyInput:p,git};
+  expect(verifyTargetedPlan(selected,context)).toBe(true);
+  for(const patch of [{headSha:base},{planDigest:'bad'},{suites:[]},{policyDigest:'bad'},{baseSha:head}])expect(()=>verifyTargetedPlan({...selected,...patch},context)).toThrow();
+  expect(()=>verifyTargetedPlan(selected,{...context,enabled:false})).toThrow();
   put('pnpm-lock.yaml','changed');expect(inspect(base,commit()).mode).toBe('full');
   git(['reset','--hard',base]);put(p.sourceFile,original.replace('react','other'));expect(inspect(base,commit()).mode).toBe('full');
   git(['reset','--hard',base]);git(['mv',p.sourceFile,p.sourceFile+'.moved']);expect(inspect(base,commit()).mode).toBe('full');
