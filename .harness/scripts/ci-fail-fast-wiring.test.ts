@@ -82,3 +82,12 @@ it('actual Playwright stops later cases after failure while retaining teardown',
   expect(result.status,result.stdout+result.stderr).toBe(1);expect(existsSync(first),result.stdout+result.stderr).toBe(true);expect(existsSync(cleaned)).toBe(true);expect(existsSync(later)).toBe(false);
  }finally{rmSync(root,{recursive:true,force:true});}
 },20000);
+
+it('skill workflow command reaches isolation guard with its fixed first-failure browser arguments',()=>{
+ const workflow=parse(readFileSync('.github/workflows/skill-files-e2e.yml','utf8'));
+ const command=workflow.jobs['skill-files-e2e'].steps.find((s:any)=>s.run?.includes('studio-skill-files-e2e.mjs')).run;
+ const args=command.slice(command.indexOf('scripts/studio-skill-files-e2e.mjs')).trim().split(/\s+/);
+ const env={...process.env};delete env.WORKSPACEX_DB;
+ const result=spawnSync(process.execPath,args,{env,encoding:'utf8',timeout:15000});
+ expect(result.status,result.stderr).toBe(1);expect(result.stderr).toContain('test-isolation');expect(result.stderr).not.toContain('Only the fixed');
+});

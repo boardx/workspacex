@@ -31,3 +31,5 @@ Merged develop800807157 (PR6059) without dropping queue compile reuse or queue-r
 Integration validation:14 files/199 tests passed, node affected-tests19/19 passed; git diff --check clean. Updated old exact-command assertions for removed --continue and added --bail=1. Full harness verification remains in progress; these focused counts do not claim remote CI or merge success.
 
 Review follow-up: reproduced P2 optional manual scorecard cancellation with a failing test, then scoped its exemption to harness-acceptance/workflow_dispatch/chat-task-workbench only. Required failures alongside it still cancel, and matching job names outside that context remain actionable. Fresh focused validation14 files/201 tests passed. Independent read-only review ACCEPT for the exemption.
+
+Live CI found Skill wrapper rejected the newly added max-failures flag before starting browsers. Preserved its strict allowlist while adding that fixed flag to the runner command itself. Added actual workflow-command invocation with missing DB to prove command acceptance reaches the isolation guard. Red reproduced; focused7 files/76 tests green; independent read-only reviewer ACCEPT.
