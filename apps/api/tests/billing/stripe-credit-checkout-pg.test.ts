@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: exact fixture owners and their ledgers are removed in afterAll.
 // @global-scope-fixture table:billing_orders: exact recorded order numbers are removed in afterAll.
 import {afterAll,afterEach,beforeAll,expect,it,vi} from 'vitest';
 import {randomUUID} from 'node:crypto';
@@ -43,4 +44,31 @@ it('recovers only the existing unbound order even when new purchases are disable
  expect(order).toMatchObject({orderNo:f.orderNo,provider:'stripe',status:'PENDING',qrCodeUrl:'https://checkout.stripe.com/c/pay/recovered'});
  expect((await asOwner(c=>c.query('SELECT * FROM billing_orders WHERE owner_id=$1',[f.owner.ownerId]))).rows).toHaveLength(1);
  await expect(service.create(f.owner,{...order,createdBy:f.owner.ownerId})).rejects.toMatchObject({code:'payment_provider_not_configured'});
+});
+
+it.each(['balance','total_purchased'] as const)('persists paid capacity recovery for %s without later automatic credit',async(field)=>{
+ const f=await fixture();respond(f.session);
+ await asOwner(async c=>{
+  await c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance,total_purchased) VALUES('user',$1,$2,$3)",[f.owner.ownerId,field==='balance'?2147483647:0,field==='total_purchased'?2147483647:0]);
+ });
+ await expect(service.accept(f.session.id)).resolves.toBe(true);
+ const read=()=>asOwner(c=>c.query('SELECT status,last_error_code,last_error_message,channel_order_no FROM billing_orders WHERE order_no=$1',[f.orderNo]));
+ expect((await read()).rows[0]).toMatchObject({status:'FAILED',last_error_code:'invalid_amount',last_error_message:'wallet_limit_manual_recovery',channel_order_no:f.session.payment_intent});
+ await asOwner(c=>c.query('UPDATE credit_wallets SET balance=0,total_purchased=0 WHERE owner_id=$1',[f.owner.ownerId]));
+ await expect(service.accept(f.session.id)).resolves.toBe(true);
+ expect((await service.reconcile(f.owner,{orderNo:f.orderNo} as OrderDraft & {qrCodeUrl:string})).status).toBe('FAILED');
+ expect((await asOwner(c=>c.query('SELECT * FROM credit_transactions WHERE source_id=$1',[f.orderNo]))).rows).toHaveLength(0);
+ expect((await read()).rows[0].status).toBe('FAILED');
+});
+it('preserves closed paid capacity recovery across retries',async()=>{
+ const f=await fixture();respond(f.session);
+ await asOwner(async c=>{
+  await c.query("UPDATE billing_orders SET status='CLOSED',closed_at=now() WHERE order_no=$1",[f.orderNo]);
+  await c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,2147483647)",[f.owner.ownerId]);
+ });
+ await expect(service.accept(f.session.id)).resolves.toBe(true);
+ const order=await service.reconcile(f.owner,{orderNo:f.orderNo} as OrderDraft & {qrCodeUrl:string});
+ expect(order).toMatchObject({status:'CLOSED',lastErrorCode:'invalid_amount'});
+ expect((await asOwner(c=>c.query('SELECT channel_order_no FROM billing_orders WHERE order_no=$1',[f.orderNo]))).rows[0].channel_order_no).toBe(f.session.payment_intent);
+ expect((await asOwner(c=>c.query('SELECT * FROM credit_transactions WHERE source_id=$1',[f.orderNo]))).rows).toHaveLength(0);
 });

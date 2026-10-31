@@ -8,7 +8,7 @@ import {StripeCreditClient} from "./stripe-credit-client";
 import {BILLING_GLOBAL_SQL as K,assertBillingGlobalStatement} from "./billing-global-boundary";
 import {STRIPE_CREDIT_SQL} from "./stripe-credit-sql";
 export {STRIPE_CREDIT_SQL} from "./stripe-credit-sql";
-type Row={order_no:string;owner_type:OrderView['ownerType'];owner_id:string;created_by:string;package_id:string;amount_fen:number;base_credits:number;bonus_credits:number;currency:string;provider:string;status:string;channel_order_no:string|null;stripe_session_ref:string|null;created_at:Date;expired_at:Date};
+type Row={order_no:string;owner_type:OrderView['ownerType'];owner_id:string;created_by:string;package_id:string;amount_fen:number;base_credits:number;bonus_credits:number;currency:string;provider:string;status:string;channel_order_no:string|null;stripe_session_ref:string|null;last_error_code:string|null;created_at:Date;expired_at:Date};
 export class StripeCreditCheckout implements StripeCreditCheckoutPort{
  private readonly client:StripeCreditClient;
  private readonly repository:PgBillingOrderRepository;
@@ -56,17 +56,24 @@ export class StripeCreditCheckout implements StripeCreditCheckoutPort{
    if(session.payment_status!=='paid'||session.status!=='complete')return true;
    if(typeof session.payment_intent!=='string'||!/^pi_[A-Za-z0-9_]+$/.test(session.payment_intent))throw Error('stripe_credit_payment_invalid');
    if((await s.query(STRIPE_CREDIT_SQL.paymentOwner,[session.payment_intent,row.order_no])).rows.length)throw Error('stripe_credit_payment_conflict');
-   if(row.status==='SUCCESS'){if(row.channel_order_no!==session.payment_intent)throw Error('stripe_credit_payment_conflict');return true;}
+   if(row.channel_order_no!==null&&row.channel_order_no!==session.payment_intent)throw Error('stripe_credit_payment_conflict');
+   if(row.status==='SUCCESS')return true;
+   // A paid capacity failure belongs to manual recovery, even if capacity later changes.
+   if(['FAILED','CLOSED'].includes(row.status)&&row.last_error_code==='invalid_amount')return true;
    if(!['PENDING','CLOSED','PROCESSING'].includes(row.status))throw Error('stripe_credit_state_invalid');
    await this.credit(s,row,session.payment_intent);return true;
   });
  }
  private async credit(s:TenantSession,row:Row,payment:string){
   if(row.status==="PENDING")await s.query(K.claimOrder,[row.order_no,payment]);
+  if(row.status==="CLOSED")await s.query(K.bindClosedOrder,[row.order_no,payment]);
   await s.query(K.ensureWallet,[row.owner_type,row.owner_id]);
   const w=(await s.query<{wallet_id:string;balance:string;total_purchased:string}>(K.lockWallet,[row.owner_type,row.owner_id])).rows[0]!;
   const balance=Number(w.balance),total=row.base_credits+row.bonus_credits;
-  if(balance+total>2147483647||Number(w.total_purchased)+row.base_credits>2147483647)throw Error('stripe_credit_wallet_capacity');
+  if(balance+total>2147483647||Number(w.total_purchased)+row.base_credits>2147483647){
+   await s.query(row.status==='CLOSED'?K.markClosedCapacity:K.failCapacity,[row.order_no]);
+   return;
+  }
   await s.query(K.purchaseLedger,[w.wallet_id,row.base_credits,balance+row.base_credits,row.order_no]);
   if(row.bonus_credits)await s.query(K.bonusLedger,[w.wallet_id,row.bonus_credits,balance+total,row.order_no]);
   await s.query(K.updateWallet,[w.wallet_id,total,row.base_credits]);
