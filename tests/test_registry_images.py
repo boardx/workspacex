@@ -94,9 +94,23 @@ class Producer(unittest.TestCase):
             values=dict(line.split('=',1) for line in output.read_text().splitlines())
             self.assertEqual(values['tag'],'a'*40+'-123-2');self.assertEqual(values['build'],'false')
             self.assertEqual(values['environment'],'production-cn')
+    def test_develop_promotes_existing_tag_to_explicit_production_without_build(self):
+        import os, subprocess, sys
+        for target in ['cn','us']:
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as tmp:
+                output=Path(tmp)/'output'
+                env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_NAME':'develop','TARGET_ENVIRONMENT':target,
+                     'EXISTING_TAG':'41239623420-1','BUILD_ONLY':'false','GITHUB_OUTPUT':str(output)}
+                result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40,'--resolve-bases'],env=env,capture_output=True,text=True)
+                self.assertEqual(result.returncode,0,result.stderr)
+                values=dict(line.split('=',1) for line in output.read_text().splitlines())
+                self.assertEqual(values['tag'],'41239623420-1');self.assertEqual(values['build'],'false')
+                self.assertEqual(values['target'],target);self.assertEqual(values['environment'],'production-'+target)
+                self.assertEqual(json.loads(values['runner']),['self-hosted','linux','x64','workspacex-'+target+'-production'])
+
     def test_us_branch_routes_only_to_us(self):
         import os, subprocess, sys
-        for branch, target, ok in [('main-us','auto',True),('main-us','us',True),('main-us','cn',False),('main','us',False),('develop','us',False)]:
+        for branch, target, ok in [('main-us','auto',True),('main-us','us',True),('main-us','cn',False),('main','us',False),('develop','us',True)]:
             with self.subTest(branch=branch,target=target), tempfile.TemporaryDirectory() as tmp:
                 output=Path(tmp)/'output'
                 env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_NAME':branch,
@@ -113,7 +127,7 @@ class Producer(unittest.TestCase):
 
     def test_production_requires_existing_develop_tag_even_in_diagnostic_mode(self):
         import os, subprocess, sys
-        for branch, target in [('main','cn'),('main-us','us'),('diagnostic','cn'),('diagnostic','us')]:
+        for branch, target in [('main','cn'),('main-us','us'),('develop','cn'),('develop','us'),('diagnostic','cn'),('diagnostic','us')]:
             for build_only in ['false','true']:
                 with self.subTest(branch=branch,build_only=build_only), tempfile.TemporaryDirectory() as tmp:
                     output=Path(tmp)/'output'

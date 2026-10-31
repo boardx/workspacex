@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: "Environment (auto: develop → DevApp, main → CN, main-us → US)"
+        description: "Target environment (develop can promote an existing tag to CN/US; auto uses branch default)"
         required: true
         default: auto
         type: choice
