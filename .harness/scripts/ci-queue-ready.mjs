@@ -3,7 +3,28 @@ import {appendFileSync} from 'node:fs';
 import {pathToFileURL} from 'node:url';
 import {CURRENT_POLICY} from './lib/ci-check-policy.mjs';
 import {createLookupApi} from './ci-lane-dedup.mjs';
-import {waitForIntegration} from './ci-devapp-integration-gate.mjs';
+import {inspectIntegration,waitForIntegration} from './ci-devapp-integration-gate.mjs';
+import {changedPaths,isBoardPath} from './ci-change-scope.mjs';
+import {skillAffected} from './ci-skill-scope.mjs';
+import {billingAffected} from './ci-billing-scope.mjs';
+export function specialistSpecs(paths){
+ return [
+  {workflowPath:'.github/workflows/skill-files-e2e.yml',checks:['scope',...(skillAffected(paths)?['skill-files-e2e']:[])]},
+  {workflowPath:'.github/workflows/board-acceptance.yml',checks:['scope',...(paths===null||paths.some(isBoardPath)?['journeys','security','board-ui-functional','storage','import','api-ws-objectstore']:[])]},
+  {workflowPath:'.github/workflows/billing-cashier-glue.yml',checks:['scope',...(billingAffected(paths)?['billing-cashier-glue']:[])]},
+ ];
+}
+export async function waitForSpecialists({apiFactory,sha,paths,clock=Date.now,sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms)),budgetMs=45*60_000}){
+ const deadline=clock()+budgetMs;
+ while(clock()<deadline){
+  const results=await Promise.all(specialistSpecs(paths).map(spec=>inspectIntegration(apiFactory(),{sha,since:0,event:'merge_group',...spec})));
+  const failure=results.find(r=>r.state==='failure');
+  if(failure)throw Error(`SPECIALIST_REJECTED:${failure.reason}`);
+  if(results.every(r=>r.state==='success'))return;
+  await sleep(Math.min(15000,Math.max(0,deadline-clock())));
+ }
+ throw Error('SPECIALIST_TIMEOUT');
+}
 export function requireQueueResults(results){
  const required=['e2e-full','full-regression-core'];
  if(!results||Object.keys(results).sort().join()!==required.sort().join()||required.some(k=>results[k]?.result!=='success'))throw Error('QUEUE_ACCEPTANCE_INCOMPLETE');
@@ -33,7 +54,8 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
   }else{
    if(process.env.GITHUB_EVENT_NAME!=='merge_group')throw Error('QUEUE_CONTEXT_REQUIRED');
    requireQueueResults(JSON.parse(process.env.CI_QUEUE_NEEDS??'null'));
-   message='Actual queue full acceptance passed.';
+   await waitForSpecialists({apiFactory:()=>createLookupApi({repository:process.env.GITHUB_REPOSITORY,token:process.env.GH_TOKEN}),sha:process.env.GITHUB_SHA,paths:changedPaths()});
+   message='Actual queue full acceptance and affected specialist checks passed.';
   }
   console.log(message);
   if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,`${message}\n`);

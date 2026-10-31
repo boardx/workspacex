@@ -99,6 +99,12 @@ jobs:
       - name: 全仓 typecheck + lint
         if: github.event_name == 'workflow_dispatch'
         run: pnpm turbo run typecheck lint --continue
+      - name: Prepare queue compile runtime
+        if: github.event_name == 'merge_group'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
       - name: Require exact queue compile evidence
         if: github.event_name == 'merge_group'
         env:
@@ -810,7 +816,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
       - name: Require complete candidate regression
         env:
+          CI_SCOPE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          GH_TOKEN: ${{ github.token }}
           CI_QUEUE_NEEDS: ${{ toJSON(needs) }}
         run: node .harness/scripts/ci-queue-ready.mjs

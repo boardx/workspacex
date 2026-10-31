@@ -31,7 +31,11 @@ describe('static validation has one PR producer, retaining standalone deployment
     expect(admission).toBeDefined();
     expect(evaluateIf(admission.if,probe('merge_group'))).toBe(true);
     expect(evaluateIf(admission.if,probe('workflow_dispatch'))).toBe(false);
-    expect(base.steps.filter((step:any)=>!step.run?.includes('ci-queue-ready.mjs --compile')).map(({if:condition,...step}:any)=>step)).toEqual(harness.jobs['verify-full-compile'].steps);
+    const runtime=base.steps.find((step:any)=>step.name==='Prepare queue compile runtime');
+    expect(runtime.with).toEqual({'node-version-file':'.nvmrc','package-manager-cache':false});
+    expect(evaluateIf(runtime.if,probe('merge_group'))).toBe(true);
+    expect(evaluateIf(runtime.if,probe('workflow_dispatch'))).toBe(false);
+    expect(base.steps.filter((step:any)=>!step.run?.includes('ci-queue-ready.mjs --compile') && step.name!=='Prepare queue compile runtime').map(({if:condition,...step}:any)=>step)).toEqual(harness.jobs['verify-full-compile'].steps);
 
   });
   it('affected validation owns tests without running static tasks a second time', () => {
