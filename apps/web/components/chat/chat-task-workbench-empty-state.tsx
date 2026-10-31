@@ -102,6 +102,7 @@ export function TaskWorkbenchEmptyState({
       className="flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"
     >
       {/*
+        #6068：仅调整注释，验证小范围回归的真实队列链路。
         两级视觉层次（大标题 + 小字说明），对齐参照图。`data-testid` 挂在外层
         wrapper 上而不是单个 <p>——TW-P0-1① 的判据（`chat-task-workbench-empty-state.spec.ts`）
         只断言这个锚点的 innerText 同时包含「计划」「确认」两个词，不要求它们落在
