@@ -10,7 +10,7 @@ import type {VerifiedPaymentReceipt} from "../../src/application/billing/billing
 import {toOrgId} from "../../src/domain/org-id";
 const privateKey=generateKeyPairSync("rsa",{modulusLength:2048}).privateKey.export({type:"pkcs8",format:"pem"}).toString();
 const config=new DeploymentBillingConfig({BILLING_DEPLOYMENT:"cn",WECHAT_PAY_APP_ID:"wx-test",WECHAT_PAY_MCH_ID:"1900000000",WECHAT_PAY_API_V3_KEY:"01234567890123456789012345678901",WECHAT_PAY_MCH_SERIAL_NO:"ABC123",WECHAT_PAY_PRIVATE_KEY:privateKey,WECHAT_PAY_NOTIFY_URL:"https://example.test/wechat"});
-const order:MonthlyOrder={orderId:"00000000-0000-4000-8000-000000006050",userId:"wechat-user",provider:"wechat",sessionRef:"bg20261031090000abc123",state:"pending",createdAt:new Date(),periodStart:null,periodEnd:null,remainingCredits:0};
+const order:MonthlyOrder={orderId:"00000000-0000-4000-8000-000000006050",userId:"wechat-user",provider:"wechat",sessionRef:"bm20261031090000abc123",state:"pending",createdAt:new Date(),periodStart:null,periodEnd:null,remainingCredits:0};
 function fixture(createdAt=order.createdAt){
  const db={withoutTenant:async(run:Parameters<DatabasePort["withoutTenant"]>[0])=>run({query:async()=>({rows:[{order_id:order.orderId,session_ref:order.sessionRef,created_at:createdAt,checkout_url:"weixin://wxpay/bizpayurl?pr=test"}],rowCount:1})} as unknown as TenantSession)} as unknown as DatabasePort;
  return {db,client:new WechatMonthlyPassClient(config,db,{info(){},error(){}})};

@@ -5,5 +5,5 @@ export class MonthlyCheckoutRouter implements MonthlyCheckoutProvider {
  enabled(provider:MonthlyProvider="stripe"){return this.client(provider).enabled();}
  liveMode(provider:MonthlyProvider="stripe"){return this.client(provider).liveMode();}
  create(order:MonthlyOrder){return this.client(order.provider??"stripe").create(order);}
- retrieve(id:string){return (id.startsWith("bg")?this.wechat:this.stripe).retrieve(id);}
+ retrieve(id:string){return (id.startsWith("bm")?this.wechat:this.stripe).retrieve(id);}
 }

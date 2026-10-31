@@ -24,7 +24,7 @@ export function validateMonthlyCheckout(value:Record<string,unknown>,orderId:str
  const meta=value.metadata as Record<string,unknown>|null;
  if(typeof liveMode!=="boolean"||value.object!=="checkout.session"||value.mode!=="payment"||value.status!=="complete"||value.payment_status!=="paid"||
  value.amount_total!==MONTHLY_PASS_AMOUNT_FEN||value.currency!=="cny"||value.livemode!==liveMode||value.client_reference_id!==orderId||
- meta?.product!==MONTHLY_PASS_PRODUCT||meta.order_ref!==orderId||value.subscription!=null||typeof value.id!=="string"||!(provider==="wechat"?/^bg\d{14}[A-Za-z0-9]{6}$/:/^cs_[A-Za-z0-9_]+$/).test(value.id)||
+ meta?.product!==MONTHLY_PASS_PRODUCT||meta.order_ref!==orderId||value.subscription!=null||typeof value.id!=="string"||!(provider==="wechat"?/^bm\d{14}[A-Za-z0-9]{6}$/:/^cs_[A-Za-z0-9_]+$/).test(value.id)||
  (meta.provider??"stripe")!==provider||typeof value.payment_intent!=="string"||!(provider==="wechat"?/^wx_[A-Za-z0-9_]+$/:/^pi_[A-Za-z0-9_]+$/).test(value.payment_intent))throw Error("monthly_checkout_mismatch");
 }
 export class MonthlyPassService {

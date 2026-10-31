@@ -331,7 +331,7 @@ it("buys WeChat monthly pass through real QR and signed callback with replay-saf
  const created=await responsePromise;expect(created.status()).toBe(201);expect(created.request().postDataJSON()).toMatchObject({provider:"wechat"});
  await expect.poll(()=>page.getByRole("img",{name:"月度套餐微信支付二维码"}).count()).toBe(1);
  const order=(await asOwner(c=>c.query("SELECT order_id,session_ref FROM billing_monthly_orders WHERE user_id=$1 AND provider='wechat' ORDER BY created_at DESC LIMIT 1",[user]))).rows[0]!;
- expect(order.session_ref).toMatch(/^bg/);
+ expect(order.session_ref).toMatch(/^bm/);
  const notice=f.notice(order.session_ref,{transaction_id:`wx_${order.session_ref}`,amount:{total:18000,payer_total:18000,currency:"CNY"}});
  f.state.paidMonthly.set(order.session_ref,notice.payment);
  expect((await f.post(notice.body,notice.headers)).status).toBe(200);

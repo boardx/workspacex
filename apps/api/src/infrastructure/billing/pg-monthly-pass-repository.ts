@@ -22,7 +22,7 @@ export class PgMonthlyPassRepository implements MonthlyPassRepository {
   if(legacy&&!legacyExpired&&!["canceled","incomplete_expired","none"].includes(legacy.status))throw new SubscriptionError("already_subscribed");
   if((await s.query(SQL.active,[p.userId])).rows.length)throw new SubscriptionError("already_subscribed");
   const pending=(await s.query<Row>(SQL.pending,[p.userId])).rows[0];if(pending){if(pending.provider!==provider)throw new SubscriptionError("dependency_unavailable");return map(pending);}
-  const id=randomUUID(),ref=provider==="wechat"?`bg${new Date().toISOString().replace(/\D/g,"").slice(0,14)}${id.replaceAll("-","").slice(0,6)}`:null;
+  const id=randomUUID(),ref=provider==="wechat"?`bm${new Date().toISOString().replace(/\D/g,"").slice(0,14)}${id.replaceAll("-","").slice(0,6)}`:null;
   return map((await s.query<Row>(SQL.insertProvider,[id,p.userId,provider,ref])).rows[0]!);
  });}
  async bind(p:Principal,orderId:string,sessionRef:string,checkoutUrl?:string){assertPrincipal(p);await this.db.withTenant(p.orgId,async s=>{

@@ -39,8 +39,8 @@ export const CreditsAmount = z.number().int().positive();
 export const CreditBalance = z.number().finite().min(-2147483647).max(2147483647).multipleOf(0.01);
 export const CreditLedgerAmount = CreditBalance.refine(value => value > 0, "credit amount must be positive");
 
-/** 订单号：`bg<yyyyMMddHHmmss><6位随机>`，全局唯一（domain.md 值对象）。 */
-export const OrderNo = z.string().regex(/^bg\d{14}[A-Za-z0-9]{6}$/);
+/** 商户订单号：充值使用 bg，微信月卡使用 bm，隔离两类商品的商户支付身份。 */
+export const OrderNo = z.string().regex(/^b[gm]\d{14}[A-Za-z0-9]{6}$/);
 
 /** ISO 8601 时间串（毫秒精度）。 */
 export const IsoDateTime = z.string().min(1);

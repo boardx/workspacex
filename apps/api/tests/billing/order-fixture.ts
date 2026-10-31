@@ -96,7 +96,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
     vi.stubGlobal("fetch", (input: string | URL | Request, init?: RequestInit) => {
       const url = new URL(input instanceof Request ? input.url : String(input));
       if (url.origin === "https://api.mch.weixin.qq.com") {
-        if (url.pathname !== "/v3/pay/transactions/native" && !/^\/v3\/pay\/transactions\/out-trade-no\/bg[A-Za-z0-9]+(?:\/close)?$/.test(url.pathname)) throw new Error("unexpected merchant operation");
+        if (url.pathname !== "/v3/pay/transactions/native" && !/^\/v3\/pay\/transactions\/out-trade-no\/b[gm][A-Za-z0-9]+(?:\/close)?$/.test(url.pathname)) throw new Error("unexpected merchant operation");
         return nativeFetch(`http://127.0.0.1:${address.port}${url.pathname}${url.search}`, init);
       }
       return nativeFetch(input, init);

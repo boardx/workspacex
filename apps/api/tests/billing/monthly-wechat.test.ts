@@ -16,7 +16,7 @@ afterAll(async()=>{await asOwner(async s=>{
 });await db.close();});
 it("reserves a WeChat identity before network and grants a calendar month exactly once",async()=>{
  const p=principal(),o=await repo.reserve(p,"wechat");
- expect(o.provider).toBe("wechat");expect(o.sessionRef).toMatch(/^bg\d{14}[A-Za-z0-9]{6}$/);
+ expect(o.provider).toBe("wechat");expect(o.sessionRef).toMatch(/^bm\d{14}[A-Za-z0-9]{6}$/);
  const session={object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:true,
   id:o.sessionRef,payment_intent:`wx_${randomUUID().replaceAll("-","")}`,amount_total:18000,currency:"cny",client_reference_id:o.orderId,
   metadata:{product:"monthly_pass_v1",order_ref:o.orderId,provider:"wechat"}};
