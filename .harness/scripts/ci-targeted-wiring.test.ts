@@ -2,6 +2,7 @@ import {readFileSync} from 'node:fs';
 import {expect,it} from 'vitest';
 import {parse} from 'yaml';
 import {evaluateIf} from './lib/ci-job-conditions.mjs';
+import {isHeavyE2eCommand} from './lib/heavy-suite-lock';
 import {UI_PRODUCERS} from './ci-targeted-routing.mjs';
 const load=name=>parse(readFileSync(`.github/workflows/${name}.yml`,'utf8'));
 it('produces explicit plans on PR and queue, with runtime preparation only for a candidate',()=>{
@@ -35,5 +36,15 @@ it('stable aggregate outputs come from the mandatory proof-producing command',()
   expect(route.if).toBeUndefined();expect(route.env.CI_ROUTED_NEEDS).toBe('${{ toJSON(needs) }}');
   expect(job.outputs.verification_mode).toBe('${{ steps.route.outputs.mode }}');
   expect(job.outputs.plan_digest).toBe('${{ steps.route.outputs.plan_digest }}');
+ }
+});
+
+it('keeps both real selected browser producers inside heavy E2E resource admission',()=>{
+ for(const name of ['harness-verify','harness-acceptance']){
+  const job=load(name).jobs['targeted-ui-browser'];
+  const command=job.steps.find(s=>s.run?.includes('ci-targeted-runner.mjs chat-ui')).run;
+  expect(command).toContain('with-test-isolation.ts -- node');
+  const actual=/-- (node \.harness\/scripts\/ci-targeted-runner\.mjs chat-ui) /.exec(command);
+  expect(actual).not.toBeNull();expect(isHeavyE2eCommand(actual[1].split(' '))).toBe(true);
  }
 });

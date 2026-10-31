@@ -1,5 +1,5 @@
 import {expect,it} from 'vitest';
-import {mkdtempSync,writeFileSync,rmSync,readFileSync} from 'node:fs';
+import {mkdtempSync,writeFileSync,rmSync,readFileSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {tmpdir} from 'node:os';
 import {runUnit,runIdentity} from './ci-targeted-runner.mjs';
@@ -17,5 +17,11 @@ it('executes selected Vitest files rather than relying on a declared plan',()=>{
   expect(result.report.numPassedTests).toBe(1);expect(JSON.parse(readFileSync(resolve(output,'evidence.json'),'utf8')).sha).toBe(context.sha);
   writeFileSync(resolve(dir,'a.test.ts'),`import {test} from ${JSON.stringify(vitest)};test('selected failure',()=>{throw Error('real failure')});`);
   expect(()=>runUnit(plan,output,dir,context)).toThrow('TARGETED_UNIT_FAILED');
+  expect(existsSync(resolve(output,'evidence.json'))).toBe(false);
  }finally{rmSync(dir,{recursive:true,force:true});}
 },30000);
+
+import {verifyDirectory} from './ci-targeted-runner.mjs';
+it('does not retain an old success receipt when current evidence is missing',()=>{
+ const dir=mkdtempSync(resolve(tmpdir(),'targeted-stale-receipt-'));try{writeFileSync(resolve(dir,'receipt.json'),'old success');expect(()=>verifyDirectory(dir,{GITHUB_SHA:context.sha,GITHUB_RUN_ID:'12',GITHUB_RUN_ATTEMPT:'1'})).toThrow();expect(existsSync(resolve(dir,'receipt.json'))).toBe(false);}finally{rmSync(dir,{recursive:true,force:true});}
+});

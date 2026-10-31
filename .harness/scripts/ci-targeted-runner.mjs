@@ -1,5 +1,5 @@
 /** Execute/aggregate current-source selected UI suites. Rollout policy remains authoritative. */
-import {readFileSync,writeFileSync,mkdirSync,realpathSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,realpathSync,rmSync} from 'node:fs';
 import {execFileSync,spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
@@ -12,7 +12,7 @@ export function runIdentity(env=process.env){
  if(!/^[a-f0-9]{40}$/.test(x.sha??'')||!['run','attempt'].every(k=>/^[1-9]\d*$/.test(x[k]??'')))throw Error('INVALID_TARGETED_RUN');return x;
 }
 export function runUnit(plan,directory,cwd=resolve(root,'apps/web'),context=runIdentity()){
- cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});const path=resolve(directory,'report.json');
+ cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});for(const file of ['report.json','evidence.json'])rmSync(resolve(directory,file),{force:true});const path=resolve(directory,'report.json');
  const files=plan.suites.find(x=>x.id==='web-unit')?.files.map(x=>x.file);
  if(!files?.length)throw Error('MISSING_UNIT_SELECTION');
  const result=spawnSync(process.execPath,[resolve(root,'node_modules/vitest/vitest.mjs'),'run','--bail=1','--reporter=json',`--outputFile=${path}`,...files],{cwd,env:{...process.env,GH_TOKEN:undefined,GITHUB_TOKEN:undefined},encoding:'utf8',maxBuffer:32*1024*1024,timeout:20*60_000});
@@ -22,7 +22,7 @@ export function runUnit(plan,directory,cwd=resolve(root,'apps/web'),context=runI
  writeFileSync(resolve(directory,'evidence.json'),JSON.stringify(evidence));return evidence;
 }
 export function runBrowser(plan,directory,cwd=resolve(root,'apps/web'),context=runIdentity(),options={}){
- cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});
+ cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});for(const file of ['report.json','evidence.json'])rmSync(resolve(directory,file),{force:true});
  const files=plan.suites.find(x=>x.id==='chat-ui')?.files.map(x=>x.file);
  if(!files?.length)throw Error('MISSING_BROWSER_SELECTION');
  const discovery=invoke(null,1,true,{...options,cwd,files,stripTokens:true}).report;
@@ -38,6 +38,7 @@ function download(name,directory,context,env){
  execFileSync('gh',['run','download',context.run,'--repo',env.GITHUB_REPOSITORY,'--name',`${name}-${context.run}-${context.attempt}`,'--dir',directory],{stdio:'inherit',timeout:120000});
 }
 export function verifyDirectory(directory,env=process.env){
+ rmSync(resolve(directory,'receipt.json'),{force:true});
  const context=runIdentity(env),plan=JSON.parse(readFileSync(resolve(directory,'plan/plan.json'),'utf8'));
  verifyTargetedPlan(plan,{baseSha:env.CI_SCOPE_BASE_SHA,headSha:context.sha});
  const evidence=['web-unit','chat-ui'].map(suite=>{
@@ -49,6 +50,7 @@ export function verifyDirectory(directory,env=process.env){
  writeFileSync(resolve(directory,'receipt.json'),JSON.stringify(receipt));return receipt;
 }
 export function bundleCurrent(directory,env=process.env){
+ rmSync(resolve(directory,'receipt.json'),{force:true});
  const context=runIdentity(env);
  for(const name of ['plan','web-unit','chat-ui'])download(name==='plan'?'regression-plan':`targeted-ui-${name}`,resolve(directory,name),context,env);
  return verifyDirectory(directory,env);
