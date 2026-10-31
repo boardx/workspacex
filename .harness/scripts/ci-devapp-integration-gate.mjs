@@ -37,11 +37,20 @@ export async function resolveVerifiedTagSource(api, tag) {
   const original=await api(`/actions/runs/${runId}/attempts/${buildAttempt}`);
   const valid = run => run.id===runId && run.workflow_id===workflow.id && run.path==='.github/workflows/image-release.yml' && run.head_branch==='develop' && ['push','workflow_dispatch'].includes(run.event) && /^[a-f0-9]{40}$/.test(run.head_sha ?? '');
   if (!Number.isSafeInteger(workflow.id) || workflow.path!=='.github/workflows/image-release.yml' || workflow.state!=='active' || !valid(current) || !valid(original) || current.head_sha!==original.head_sha || original.run_attempt!==buildAttempt || !Number.isSafeInteger(current.run_attempt) || current.run_attempt<buildAttempt || current.status!=='completed' || current.conclusion!=='success') throw Error('DEVAPP_TAG_PRODUCER_UNVERIFIED');
-  const response=await api(`/actions/runs/${runId}/attempts/${current.run_attempt}/jobs?per_page=100`);
+  const response=await api(`/actions/runs/${runId}/attempts/${buildAttempt}/jobs?per_page=100`);
   if (!Array.isArray(response.jobs) || response.total_count!==response.jobs.length || response.total_count>100) throw Error('DEVAPP_TAG_JOBS_UNVERIFIED');
   for (const name of ['plan','admission','manifest','build (api)','build (web)','build (agent)','build (sandbox)','build (postgres)']) {
     const rows=response.jobs.filter(j=>j.name===name);
-    if(rows.length!==1 || rows[0].run_id!==runId || rows[0].head_sha!==current.head_sha || rows[0].run_attempt!==current.run_attempt || rows[0].status!=='completed' || rows[0].conclusion!=='success') throw Error('DEVAPP_TAG_JOBS_UNVERIFIED');
+    if(rows.length!==1 || rows[0].run_id!==runId || rows[0].head_sha!==current.head_sha || rows[0].run_attempt!==buildAttempt || rows[0].status!=='completed' || rows[0].conclusion!=='success') throw Error('DEVAPP_TAG_JOBS_UNVERIFIED');
+  }
+  if (current.run_attempt!==buildAttempt) {
+    const retry=await api(`/actions/runs/${runId}/attempts/${current.run_attempt}/jobs?per_page=100`);
+    if (!Array.isArray(retry.jobs) || retry.total_count!==retry.jobs.length || retry.total_count>100) throw Error('DEVAPP_TAG_RETRY_UNVERIFIED');
+    for (const job of retry.jobs) {
+      if(job.run_id!==runId || job.run_attempt!==current.run_attempt || job.head_sha!==current.head_sha || job.status!=='completed' || !['success','skipped'].includes(job.conclusion)) throw Error('DEVAPP_TAG_RETRY_UNVERIFIED');
+    }
+    const deploy=retry.jobs.filter(j=>j.name==='deploy');
+    if(deploy.length!==1 || deploy[0].conclusion!=='success') throw Error('DEVAPP_TAG_RETRY_UNVERIFIED');
   }
   const after=await api(`/actions/runs/${runId}`);
   if(after.run_attempt!==current.run_attempt || after.status!=='completed' || after.conclusion!=='success' || after.head_sha!==current.head_sha) throw Error('INTEGRATION_ATTEMPT_CHANGED');

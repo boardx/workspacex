@@ -6,7 +6,8 @@ const jobs=['plan','admission','manifest','build (api)','build (web)','build (ag
 const apiFor=(run=producer,rows=jobs)=>async(path:string)=>{
  if(path==='/actions/workflows/image-release.yml')return {id:9,path:producer.path,state:'active'};
  if(path==='/actions/runs/123/attempts/1')return {...run,run_attempt:1};
- if(path==='/actions/runs/123/attempts/2/jobs?per_page=100')return {total_count:rows.length,jobs:rows};
+ if(path==='/actions/runs/123/attempts/1/jobs?per_page=100')return {total_count:rows.length,jobs:rows.map(j=>({...j,run_attempt:1}))};
+ if(path==='/actions/runs/123/attempts/2/jobs?per_page=100')return {total_count:1,jobs:[{...jobs[0],name:'deploy'}]};
  if(path==='/actions/runs/123')return run;
  throw Error('unexpected '+path);
 };
@@ -24,4 +25,17 @@ it('rejects a producer rerun racing with admission',async()=>{
  let reads=0;const base=apiFor();
  const api=async(path:string)=>path==='/actions/runs/123'&&++reads===2?{...producer,run_attempt:3,status:'in_progress',conclusion:null}:base(path);
  await expect(resolveVerifiedTagSource(api,'123-1')).rejects.toThrow('ATTEMPT_CHANGED');
+});
+
+it('preserves original build evidence when the latest attempt reruns only deploy',async()=>{
+ const originalJobs=jobs.map(j=>({...j,run_attempt:1}));
+ const api=async(path:string)=>path.includes('/attempts/1/jobs?')?{total_count:originalJobs.length,jobs:originalJobs}:path.includes('/attempts/2/jobs?')?{total_count:1,jobs:[{...jobs[0],name:'deploy'}]}:apiFor()(path);
+ await expect(resolveVerifiedTagSource(api,'123-1')).resolves.toEqual({sha,runId:123,attempt:2});
+});
+
+it('rejects failed or missing deployment in the latest retry despite a verified original build',async()=>{
+ for(const rows of [[],[{...jobs[0],name:'deploy',conclusion:'failure'}]]){
+  const api=async(path:string)=>path.includes('/attempts/2/jobs?')?{total_count:rows.length,jobs:rows}:apiFor()(path);
+  await expect(resolveVerifiedTagSource(api,'123-1')).rejects.toThrow('RETRY_UNVERIFIED');
+ }
 });
