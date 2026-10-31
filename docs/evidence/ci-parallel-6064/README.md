@@ -7,8 +7,8 @@ full-regression-core took 48m37s and started about 20 minutes after the run.
 The changes remove the API prerequisite from independent package tests, split
 Web into four partitions and chat into two, and retain stable final check names.
 
-Installed-runner discovery finds 958 Web files (240/240/240/238) and 188 chat
-identities (95/93), including six existing declared fixmes. These declarations
+Installed-runner discovery finds 958 Web files (240/240/240/238) and 132 chat-read
+identities (66/66), including five existing declared fixmes. These declarations
 remain distinct from passed tests. Real fixture executions prove discovery and
 execution agree; actual repository CI must establish runtime and resource fit.
 No test impact selection is enabled in this stage.
@@ -28,3 +28,11 @@ recorded after the PR runs; phase 3 selection remains gated on coverage evidence
 Compatibility: retain the independent #6061 fail-fast changes and #6063 shadow
 impact planner when those branches land. No branch protection, payment config,
 production deployment or historical subscription changes are part of #6064.
+
+Runtime validation found and corrected two compatibility issues: Vitest uses
+`skipped` for four existing skipped assertions in Web shard 1 (240 files, 2,344
+passed assertions, 4m3s local execution), and chat discovery must preserve the
+original `--project=chat-read` boundary rather than including optional projects.
+The latter is protected by an installed-runner discovery test. The workflow
+keeps its actual Playwright invocation explicit so static spec coverage can
+verify the project boundary without exemptions.

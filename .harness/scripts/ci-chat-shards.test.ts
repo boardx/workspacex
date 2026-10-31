@@ -3,6 +3,11 @@ import {mkdtempSync,writeFileSync,rmSync,existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {assertCoverage,identities,verifyResults,shardPlan,discoverCoverage,invoke,reportHash} from './ci-chat-shards.mjs';
 describe('chat shard evidence',()=>{
+ it('preserves the original chat-read project boundary',()=>{
+  const coverage=discoverCoverage(shardPlan({schemaVersion:1,count:2}));
+  expect(coverage.full.length).toBeGreaterThan(0);
+  expect([...new Set(coverage.full.map(id=>JSON.parse(id)[0]))]).toEqual(['chat-read']);
+ },30000);
  it('rejects missing and duplicate partitions',()=>{expect(()=>assertCoverage(['a','b'],[['a'],['a']])).toThrow();expect(()=>assertCoverage(['a','b'],[['a']])).toThrow();});
  it('bounds fanout',()=>expect(shardPlan({schemaVersion:1,count:2}).shards).toEqual([1,2]));
  it('uses installed Playwright discovery and browserless execution with independent projects',()=>{

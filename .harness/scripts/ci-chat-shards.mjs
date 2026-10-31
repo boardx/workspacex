@@ -24,6 +24,7 @@ const sentinel = Object.fromEntries(['API','WEB','MODEL_PROVIDER','DEEP_AGENT_PR
 export function invoke(shard,count,list=true, options={}) {
   if (!options.config && !/fullyParallel:\s*false/.test(readFileSync(resolve(root,'apps/web/playwright.chat-read.config.ts'),'utf8'))) throw Error('FILE_ISOLATION_REQUIRED');
   const args=['exec','playwright','test','--config',options.config??'playwright.chat-read.config.ts','--reporter=json'];
+  if(!options.config) args.push('--project=chat-read');
   if(list) args.push('--list'); else args.push('--max-failures=1');
   if(shard) args.push(`--shard=${shard}/${count}`);
   const result=spawnSync('pnpm',args,{cwd:options.cwd??resolve(root,'apps/web'),env:{...process.env,...(list?sentinel:{}),PLAYWRIGHT_JSON_OUTPUT_NAME:''},encoding:'utf8',timeout:list?120000:3600000,maxBuffer:32*1024*1024});
@@ -66,11 +67,11 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
  const command=process.argv[2];
  if(command==='--plan') {if(!process.env.GITHUB_OUTPUT) throw Error('GITHUB_OUTPUT_REQUIRED'); writeFileSync(process.env.GITHUB_OUTPUT,`count=${plan.count}\nshards=${JSON.stringify(plan.shards)}\n`,{flag:'a'});}
  else if(command==='--verify') console.log(JSON.stringify(discoverCoverage(plan)));
- else if(command==='--run') {
+ else if(command==='--run' || command==='--record') {
   const shard=Number(process.argv[3]); if(!plan.shards.includes(shard)) throw Error('INVALID_SHARD');
   const directory=process.env.CI_CHAT_ARTIFACT_DIR; if(!directory) throw Error('ARTIFACT_DIR_REQUIRED'); mkdirSync(directory,{recursive:true});
   const coverage=discoverCoverage(plan);
-  const {report,status}=invoke(shard,plan.count,false);
+  const {report,status}=command==='--record'?{report:JSON.parse(readFileSync(resolve(directory,'report.json'),'utf8')),status:0}:invoke(shard,plan.count,false);
   writeFileSync(resolve(directory,'report.json'),JSON.stringify(report));
   writeFileSync(resolve(directory,'result.json'),JSON.stringify({shard,status,report,reportHash:reportHash(report),discoverySha256:coverage.discoverySha256,sha:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,attempt:process.env.GITHUB_RUN_ATTEMPT,stats:report.stats,identities:identities(report)})); process.exitCode=status;
  } else throw Error('INVALID_COMMAND');

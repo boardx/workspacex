@@ -13,7 +13,7 @@ const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name
 
 describe('full regression preserves all independent lane verdicts', () => {
   it('requires one base producer and one browser producer without repeating verify:full', () => {
-    const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', "--filter='!@repo/api' --filter='!web'", 'ci-chat-shards.mjs --run' , 'pnpm run verify:self-service-profile'];
+    const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', "--filter='!@repo/api' --filter='!web'", 'ci-chat-shards.mjs --record' , 'pnpm run verify:self-service-profile'];
     expect(FULL_REGRESSION_LANES).toHaveLength(commands.length);
     for (const command of commands) {
       const matches = Object.keys(workflow.jobs).filter(name => workflow.jobs[name].steps.some((s: {run?: string}) => s.run?.includes(command)));
@@ -28,7 +28,7 @@ describe('full regression preserves all independent lane verdicts', () => {
   it('keeps a visible journey log on success and preserves piped command failures', () => {
     for (const name of ['chat-read', 'self-service-profile']) {
       const steps = workflow.jobs[name==='chat-read'?'chat-test-shards':name].steps;
-      const execute = steps.find((s: { run?: string }) => s.run?.includes(name==='chat-read'?'ci-chat-shards.mjs --run':`pnpm run verify:${name}`));
+      const execute = steps.find((s: { run?: string }) => s.run?.includes(name==='chat-read'?'ci-chat-shards.mjs --record':`pnpm run verify:${name}`));
       expect(execute.run).toContain('set -o pipefail');
       expect(execute.run).toContain(`| tee phases/phase-01-run-a-project/evidence/ci/${name}.log`);
       const upload = steps.find((s: { uses?: string, with?: {path?:string} }) => s.uses?.startsWith('actions/upload-artifact@') && s.with?.path?.includes(`evidence/ci/${name}.log`));

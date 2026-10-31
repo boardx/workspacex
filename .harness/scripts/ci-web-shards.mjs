@@ -63,7 +63,7 @@ export function validateReport(report, expected, cwd) {
   if(passed<1 || report.numPassedTests!==passed) throw new Error('ZERO_OR_INCONSISTENT_EXECUTION');
   const actual = report.testResults.map(row => ({file: relative(cwd,row.name),projectName:row.projectName ?? ''}));
   if (actual.length !== expected.length || actual.some(row => !expected.some(item=>key(item)===key(row))) || new Set(actual.map(key)).size !== actual.length) throw new Error('REPORT_IDENTITY_MISMATCH');
-  if (report.testResults.some(row=>row.status !== 'passed' || !row.assertionResults?.length || row.assertionResults.some(test=>!['passed','pending','todo'].includes(test.status)))) throw new Error('EMPTY_OR_FAILED_REPORT');
+  if (report.testResults.some(row=>row.status !== 'passed' || !row.assertionResults?.length || row.assertionResults.some(test=>!['passed','pending','todo','skipped'].includes(test.status)))) throw new Error('EMPTY_OR_FAILED_REPORT');
 }
 export function validateShardEvidence(coverage, outputs, identity) {
   if(['sourceSHA','run','attempt'].some(field=>typeof identity?.[field]!=='string' || !identity[field].trim())) throw new Error('MISSING_RUN_IDENTITY');

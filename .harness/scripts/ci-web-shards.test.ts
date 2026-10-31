@@ -10,6 +10,7 @@ it('rejects missing duplicate empty and failed report identities',()=>{
  const row={file:'a.test.tsx',projectName:''};
  const report={success:true,numPassedTests:1,testResults:[{name:'/tmp/a.test.tsx',status:'passed',assertionResults:[{status:'passed'}]}]};
  expect(()=>validateReport(report,[row],'/tmp')).not.toThrow();
+ expect(()=>validateReport({...report,testResults:[{...report.testResults[0],assertionResults:[{status:'passed'},{status:'skipped'}]}]},[row],'/tmp')).not.toThrow();
  expect(()=>validateReport({...report,success:false},[row],'/tmp')).toThrow();
  expect(()=>validateReport({...report,testResults:[]},[row],'/tmp')).toThrow();
  expect(()=>validateReport({...report,testResults:[...report.testResults,...report.testResults]},[row],'/tmp')).toThrow();

@@ -604,7 +604,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/shard"
           set -o pipefail
           mkdir -p phases/phase-01-run-a-project/evidence/ci
-          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node .harness/scripts/ci-chat-shards.mjs --run ${{ matrix.shard }} 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-read.log "$RUNNER_TEMP/shard/chat-read.log"
+          pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.chat-read.config.ts --project=chat-read --max-failures=1 --shard=${{ matrix.shard }}/${{ needs.chat-test-plan.outputs.count }} --reporter=json 2> "$RUNNER_TEMP/shard/server.log" | tee phases/phase-01-run-a-project/evidence/ci/chat-read.log "$RUNNER_TEMP/shard/chat-read.log" "$RUNNER_TEMP/shard/report.json"
+          node .harness/scripts/ci-chat-shards.mjs --record ${{ matrix.shard }}
       - uses: actions/upload-artifact@v6
         if: always()
         with:
