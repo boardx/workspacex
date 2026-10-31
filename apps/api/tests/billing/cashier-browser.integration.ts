@@ -87,7 +87,9 @@ async function openCashier(page: Page) {
   await page.route(url => url.origin === origin && url.pathname === "/__fullstack_api/identity/me", route => route.fulfill({ json: { org: { id: org, name: "Isolated billing acceptance", kind: "organization", team: null, modelPolicy: "any", avatarUrl: null }, orgRole: "admin", teamId: null, projectRole: null, groupId: null, displayName: "Isolated payer", avatarUrl: null } }));
   await page.goto(`${origin}/billing`);
   await page.getByTestId("rail-profile-menu").click();
-  await page.getByTestId("billing-menu-purchase").click();
+  expect(await page.getByTestId("billing-menu-purchase").count()).toBe(0);
+  await page.getByTestId("personal-menu-billing").click();
+  await page.getByRole("button",{name:"购买 credit",exact:true}).click();
   await expect.poll(() => page.getByTestId("billing-cashier-dialog").count()).toBe(1);
 }
 async function createFromUi(page: Page, aged = false): Promise<Order> {
@@ -243,7 +245,7 @@ it("buys again after confirmed success without reloading or replaying the first 
   await expect.poll(()=>page.getByTestId("billing-success-badge").count(),{timeout:15000}).toBe(1);
   await expect.poll(()=>page.getByTestId("billing-updated-balance").textContent()).toContain("1320");
   await page.getByTestId("billing-cashier-dialog").getByRole("button",{name:"关闭",exact:true}).click();
-  await page.getByRole("button",{name:"充值 credit",exact:true}).click();
+  await page.getByRole("button",{name:"购买 credit",exact:true}).click();
   await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
   expect(f.state.calls).toBe(1);
   await page.getByTestId("billing-buy-again").click();
@@ -336,9 +338,9 @@ it("buys WeChat monthly pass through real QR and signed callback with replay-saf
  f.state.paidMonthly.set(order.session_ref,notice.payment);
  expect((await f.post(notice.body,notice.headers)).status).toBe(200);
  expect((await f.post(notice.body,notice.headers)).status).toBe(200);
- await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent(),{timeout:15000}).toBe("使用中");
- await expect.poll(()=>page.getByTestId("billing-monthly-credits").textContent()).toMatch(/20,?000/);
- await expect.poll(()=>page.getByTestId("billing-permanent-balance").textContent()).toBe("7");
+ await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent(),{timeout:15000}).toBe("Pro · 使用中");
+ await expect.poll(()=>page.getByRole("progressbar",{name:"本期剩余 credit"}).getAttribute("value")).toBe("20000");
+ await expect.poll(()=>page.getByTestId("billing-wallet-balance").textContent()).toBe("7 credit");
  const wallet=(await asOwner(c=>c.query("SELECT balance FROM credit_wallets WHERE owner_id=$1",[user]))).rows[0]!;expect(Number(wallet.balance)).toBe(20007);
  const periods=(await asOwner(c=>c.query("SELECT * FROM credit_subscription_periods WHERE wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]))).rows;expect(periods).toHaveLength(1);
  await page.screenshot({path:resolve(evidence,"wechat-monthly-success.png"),fullPage:true});
