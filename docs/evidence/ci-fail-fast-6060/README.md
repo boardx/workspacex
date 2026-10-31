@@ -24,3 +24,8 @@ The workflow becomes active only after merging into the default branch. Current 
 GitHub references: [workflow_run privileges and default-branch trigger](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run), [cancellation conditions and signals](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-cancellation).
 
 [GitHub conditional-request polling guidance](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api#use-conditional-requests).
+
+## Develop queue cutover integration
+Merged develop800807157 (PR6059) without dropping queue compile reuse or queue-ready checks. Preserved manual compile conditions while removing continuation. Added cancellation handling to the new queue aggregate. Synced root Vitest/Playwright first-failure flags and affected-test forwarding; primary API compound command uses its own bail while forwarded arguments reach exclusive tests without duplicate bail flags. Actual Turbo, Vitest compound-command and browser-free Playwright failure fixtures assert later work stops and test cleanup still runs.
+
+Integration validation:14 files/199 tests passed, node affected-tests19/19 passed; git diff --check clean. Updated old exact-command assertions for removed --continue and added --bail=1. Full harness verification remains in progress; these focused counts do not claim remote CI or merge success.

@@ -11,7 +11,7 @@ it('routes billing candidate and PR coverage through a fail-closed scope without
  expect(w.jobs.scope.steps.at(-1)).toMatchObject({run:'node .harness/scripts/ci-billing-scope.mjs',env:{CI_SCOPE_BASE_SHA:'${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}'}});
  const job=w.jobs['billing-cashier-glue'];
  expect(job.needs).toBe('scope');expect(job.if).toBe("needs.scope.outputs.changed == 'true'");
- expect(job.steps.filter((s:any)=>s.run).map((s:any)=>s.run)).toEqual(['pnpm install --frozen-lockfile','pnpm --filter api exec playwright install --with-deps chromium','pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts']);
+ expect(job.steps.filter((s:any)=>s.run).map((s:any)=>s.run)).toEqual(['pnpm install --frozen-lockfile','pnpm --filter api exec playwright install --with-deps chromium','pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts --bail=1']);
  expect(job.steps.at(-1).if).toBe('always()');
 });
 

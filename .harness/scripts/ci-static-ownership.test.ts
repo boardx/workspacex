@@ -22,7 +22,7 @@ describe('static validation has one PR producer, retaining standalone deployment
     const base=acceptance.jobs['base-compile'];
     expect(base.if).toBeUndefined();
     const manual=base.steps.filter((step:any)=>step.run?.startsWith('pnpm turbo run'));
-    expect(manual.map((step:any)=>step.run)).toEqual(['pnpm turbo run build','pnpm turbo run typecheck lint --continue']);
+    expect(manual.map((step:any)=>step.run)).toEqual(['pnpm turbo run build','pnpm turbo run typecheck lint']);
     for(const step of manual){
       expect(evaluateIf(step.if,probe('merge_group'))).toBe(false);
       expect(evaluateIf(step.if,probe('workflow_dispatch'))).toBe(true);

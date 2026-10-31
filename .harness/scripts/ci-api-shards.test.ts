@@ -18,7 +18,7 @@ describe('API isolated shard coverage',()=>{
   expect(test.strategy['fail-fast']).toBe(true);
   expect(test.env.WORKSPACEX_DB).toBe('wsx_ci_${{ github.run_id }}_test_${{ matrix.shard }}');
   const command=test.steps.find((step:any)=>step.run?.includes('vitest run')).run;
-  expect(command).toBe('pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }}');
+  expect(command).toBe('pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }} --bail=1');
   expect(read('../../apps/api/vitest.config.ts')).toMatch(/maxWorkers:\s*1/);
   expect(read('../../apps/api/vitest.config.ts')).toMatch(/minWorkers:\s*1/);
   expect(workflow.jobs['gates-fast'].steps.some((step:any)=>step.run==='node .harness/scripts/ci-api-shards.mjs --verify')).toBe(true);

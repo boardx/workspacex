@@ -215,7 +215,7 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
 
       - name: "单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard ${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }}"
-        run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }}
+        run: pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.api-test-plan.outputs.count }} --bail=1
 
       - name: 清掉本次运行的数据库
         if: always()
@@ -265,7 +265,7 @@ jobs:
       - name: Start isolated PostgreSQL
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel up -d postgres
       - name: Actual document parse and cached-source revocation
-        run: pnpm --filter api exec vitest run --config vitest.native-document.config.ts
+        run: pnpm --filter api exec vitest run --config vitest.native-document.config.ts --bail=1
       - name: Capture bounded AppArmor denials
         if: failure()
         run: sudo dmesg | grep 'apparmor="DENIED"' | tail -40 || true
@@ -332,7 +332,7 @@ jobs:
       # 与 deploy.sh 引的是同两个导出），不在这里另起一步——补种必须发生在"组织自己的
       # 同名遗留行"之后才复现得出 #3051 的次序，workflow 层做不到这个次序。
       - name: 原生准入下的真实 pins → 真实沙箱会话（#3051 / #3058 的数据形态）
-        run: pnpm --filter @repo/api exec vitest run --config vitest.native-runtime-lane.config.ts
+        run: pnpm --filter @repo/api exec vitest run --config vitest.native-runtime-lane.config.ts --bail=1
       - name: 真实沙箱发现上游前言名的 skill（#3065 的数据形态）
         working-directory: apps/deep-agent-service
         run: uv run --extra dev pytest tests/test_native_skill_activity.py -v

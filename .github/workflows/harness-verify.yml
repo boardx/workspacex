@@ -350,7 +350,7 @@ jobs:
       # turbo --affected 只认 workspace 包，.harness/ 不是包，改它一个包都不 affected。
       # 控制平面的测试不跑，等于控制平面没有测试。
       - name: harness 控制平面自测（含门控反证）
-        run: pnpm exec vitest run --dir .harness
+        run: pnpm exec vitest run --dir .harness --bail=1
 
   # 与 verify-control-plane 并行——两者互不依赖（一个测控制平面本身，一个测
   # 业务包），拆开跑 wall-clock ≈ 两者较慢的那个，不是相加。这是本 issue
@@ -528,10 +528,10 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter web exec playwright install --with-deps chromium
-      - run: pnpm --filter web exec playwright test --config playwright.organization-create.config.ts
+      - run: pnpm --filter web exec playwright test --config playwright.organization-create.config.ts --max-failures=1
       # #5969: reuse the existing API-fixture browser runner and Chromium install.
       - name: Verify research route continuity with controlled HTTP
-        run: pnpm --filter web exec playwright test --config e2e/research-route-continuity.config.ts
+        run: pnpm --filter web exec playwright test --config e2e/research-route-continuity.config.ts --max-failures=1
       - name: Upload research route fixture screenshots and traces
         if: always()
         uses: actions/upload-artifact@v6
@@ -750,7 +750,7 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
+          node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts --max-failures=1 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
       # #3205: reuse this lane's browser installation and retain independent output.
       - name: Execute trace disclosure geometry
         id: geometry
@@ -759,7 +759,7 @@ jobs:
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
+          node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry --max-failures=1 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
       - name: Upload runtime evidence (success or failure)
         id: evidence
         if: always() && steps.dedup.outputs.run == 'true'
