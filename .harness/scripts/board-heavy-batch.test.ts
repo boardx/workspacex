@@ -126,6 +126,7 @@ describe('heavy batch immutable evidence',()=>{
 });
 describe('existing Board workflow admission and verdict preservation',()=>{
  const heavy=parse(readFileSync(new URL('../../.github/workflows/board-native-acceptance.yml',import.meta.url),'utf8'));
+ const manual=parse(readFileSync(new URL('../../.github/workflows/board-manual-acceptance.yml',import.meta.url),'utf8'));
  const fast=parse(readFileSync(new URL('../../.github/workflows/board-acceptance.yml',import.meta.url),'utf8'));
  it('keeps push develop/manual, single latest pending, never cancels running batch',()=>{
   expect(heavy.on.pull_request).toBeUndefined();expect(heavy.on.push.branches).toEqual(['develop']);
@@ -133,7 +134,9 @@ describe('existing Board workflow admission and verdict preservation',()=>{
   expect(heavy.on.schedule).toBeUndefined();expect(fast.on.schedule).toBeUndefined();
   expect(heavy.jobs.batch.steps[0].with.ref).toBe('${{ github.sha }}');
   expect(fast.jobs['meeting-room']).toBeUndefined();
-  expect(Object.keys(fast.jobs)).toEqual(['scope','journeys','security','board-ui-functional','visual-deferred','storage','import','import-captured','api-ws-objectstore','performance','collaboration-50']);
+  expect([...Object.keys(fast.jobs),...Object.keys(manual.jobs)].sort()).toEqual(['scope','journeys','security','board-ui-functional','visual-deferred','storage','import','import-captured','api-ws-objectstore','performance','collaboration-50'].sort());
+  expect(Object.keys(manual.on)).toEqual(['workflow_dispatch']);
+  for(const lane of Object.keys(manual.jobs))expect(fast.jobs[lane]).toBeUndefined();
   for(const lane of ['journeys','security','board-ui-functional','storage','import','api-ws-objectstore'])expect(fast.jobs[lane].if).toBe("needs.scope.outputs.board == 'true'");
  });
  it.each(Object.keys(HEAVY_LANES))('%s checks out frozen SHA and guards every heavy step; reused failure is a real failure',lane=>{

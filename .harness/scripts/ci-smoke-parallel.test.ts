@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { LANES } from './ci-lane-dedup.mjs';
 import { failedLanes, FULL_REGRESSION_LANES } from './ci-full-regression.mjs';
 import { smokeVerdict } from './ci-smoke-verdict.mjs';
-const jobs = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8')).jobs;
+const jobs = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs;
 const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name, { result: 'success', outputs: { verdict: 'success' } }]));
 describe('directory and full-stack smoke execute independently without losing coverage', () => {
   it('creates independent runners and assigns the directory command exactly once', () => {
@@ -39,4 +39,14 @@ describe('directory and full-stack smoke execute independently without losing co
     }
     expect(smokeVerdict({ lane: 'unknown', run: 'false', sourceResult: 'success', steps: { dedup: { outcome: 'success' } } })).toBe('failure');
   });
+});
+
+
+it('preserves copied PR smoke execution and evidence steps', () => {
+  const automatic = parse(readFileSync('.github/workflows/harness-verify.yml', 'utf8')).jobs;
+  const acceptance = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs;
+  for (const name of ['board-smoke', 'directory-smoke', 'fullstack-smoke']) {
+    expect(automatic[name].steps).toEqual(acceptance[name].steps);
+    expect(automatic[name].outputs).toEqual(acceptance[name].outputs);
+  }
 });

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { failedLanes, FULL_REGRESSION_LANES } from './ci-full-regression.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
-const workflow = parse(readFileSync(resolve(root, '.github/workflows/harness-verify.yml'), 'utf8'));
+const workflow = parse(readFileSync(resolve(root, '.github/workflows/harness-acceptance.yml'), 'utf8'));
 const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name,
   ['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name) ? { result: 'success', outputs: { verdict: 'success' } } : { result: 'success' },
 ]));
@@ -62,5 +62,26 @@ describe('full regression preserves all independent lane verdicts', () => {
     expect(aggregate.if).toContain("inputs.verification_lane != 'base'");
     expect(aggregate.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
     expect(aggregate.steps.at(-1).env.CI_LANE_RESULTS).toBe('${{ toJSON(needs) }}');
+  });
+});
+
+
+describe('acceptance workflow topology', () => {
+  it('keeps full and optional lanes outside the automatic PR workflow', () => {
+    const automatic = parse(readFileSync(resolve(root, '.github/workflows/harness-verify.yml'), 'utf8'));
+    expect(automatic.on.workflow_dispatch).toBeUndefined();
+    expect(workflow.on.pull_request).toBeUndefined();
+    expect(workflow.on.push.branches).toEqual(['develop']);
+    for (const id of ['full-regression-core', 'e2e-full', 'base-api-plan', 'base-api-shards', 'base-api-exclusive', 'chat-read', 'self-service-profile', 'chat-path-coverage', 'chat-task-workbench']) {
+      expect(automatic.jobs[id]).toBeUndefined();
+      expect(workflow.jobs[id]).toBeDefined();
+    }
+    for (const id of ['verify-full-compile', 'board-smoke', 'directory-smoke', 'fullstack-smoke']) {
+      expect(automatic.jobs[id].if).toContain("github.event_name == 'pull_request' || github.event_name == 'merge_group'");
+      expect(workflow.jobs[id]).toBeDefined();
+    }
+    for (const job of Object.values(workflow.jobs) as {needs?: string | string[]}[]) {
+      for (const id of [job.needs ?? []].flat()) expect(workflow.jobs[id]).toBeDefined();
+    }
   });
 });

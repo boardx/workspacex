@@ -41,6 +41,7 @@ it('binds complete raw runtime observations including timestamps/head/app/status
 it('keeps Devapp-only orchestration out of main runtime obligations only with the exact develop guard',()=>{
  // Explicit historical deployment shape: the current workflow has no deploy job.
  const f:any=committedWorkflowFacts();
+ f.deploymentWorkflow.jobs['integration-acceptance']={if:"github.event_name == 'push' && github.ref == 'refs/heads/develop' && needs.gates-fast.outputs.skip_devapp != 'true'",steps:[]};
  f.deploymentWorkflow.jobs.deploy={needs:[...f.deploymentWorkflow.jobs['backend-required'].needs,'integration-acceptance']};
  expect(f.deploymentWorkflow.jobs.deploy.needs).toContain('integration-acceptance');
  expect(validateMainSourceAdmission(source,repo,f).prNumber).toBe(1);

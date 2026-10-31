@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parse } from 'yaml';
 import { describe, expect, it } from 'vitest';
-const steps = parse(readFileSync('.github/workflows/harness-verify.yml','utf8')).jobs['full-regression-core'].steps;
+const steps = parse(readFileSync('.github/workflows/harness-acceptance.yml','utf8')).jobs['full-regression-core'].steps;
 describe('base admission fails before expensive runtime preparation',()=>{
  it('retains the full gate but checks license admission before browsers and Python',()=>{
   const index=steps.findIndex((step:any)=>step.name==='Preflight dependency license admission');
