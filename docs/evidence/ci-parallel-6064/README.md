@@ -36,3 +36,11 @@ original `--project=chat-read` boundary rather than including optional projects.
 The latter is protected by an installed-runner discovery test. The workflow
 keeps its actual Playwright invocation explicit so static spec coverage can
 verify the project boundary without exemptions.
+
+All four real local Web partitions completed successfully: 240/240/240/238
+files, 2,344/1,991/1,959/2,082 passed assertions, 8,376 total and five existing
+skipped assertions. The latter two local wall times were anomalous and are not
+used as a speedup comparison. The first full local harness run found two legacy
+topology assertions plus a real-discovery timeout; the topology assertions were
+updated to inspect the actual producers and artifact cleanup boundaries, and
+the complete focused suite is re-executed after those changes.

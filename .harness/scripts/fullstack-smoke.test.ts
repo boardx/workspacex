@@ -262,15 +262,22 @@ describe("#387 trusted full-stack gate contract", () => {
     expect(workflow).toMatch(/^  e2e-full:\n/m);
     expect(workflow).toContain("pnpm run verify:fullstack-product");
     expect(workflow).toContain("pnpm run verify:fullstack-board");
-    expect(workflow).toContain("TURBO_FORCE=true pnpm run verify:ci-base");
+    expect(workflow).toContain("TURBO_FORCE=true pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm exec turbo run test --concurrency=1 --filter='!@repo/api' --filter='!web'");
+    expect(workflow).toContain("ci-parallel-evidence.mjs bundle web");
+    expect(workflow).toContain("ci-base-api.mjs prerequisites-parallel");
     expect(workflow).not.toContain("TURBO_FORCE=true pnpm run verify:full");
     // Executed lanes upload after failures; reused lanes keep the source artifact link.
-    for (const name of Object.keys(LANES)) {
-      const job = parse(workflow).jobs[name];
-      expect(job.steps.some((step: { uses?: string }) => step.uses?.startsWith("actions/upload-artifact@"))).toBe(true);
-      for (const step of job.steps ?? []) {
-        if (step.uses?.startsWith("actions/upload-artifact@")) {
-          expect(step.if).toBe("always() && steps.dedup.outputs.run == 'true'");
+    const jobs = parse(workflow).jobs;
+    for (const lane of Object.keys(LANES)) {
+      const producers = lane === 'chat-read' ? ['chat-test-shards']
+        : lane === 'full-regression-core' ? ['base-package-tests', 'web-test-shards', 'full-regression-core'] : [lane];
+      for (const name of producers) {
+        const job = jobs[name];
+        const uploads = job.steps.filter((step: { uses?: string }) => step.uses?.startsWith("actions/upload-artifact@"));
+        expect(uploads.length).toBeGreaterThan(0);
+        for (const step of uploads) {
+          expect(step.if).toBe(['chat-test-shards','base-package-tests','web-test-shards','full-regression-core'].includes(name)
+            ? 'always()' : "always() && steps.dedup.outputs.run == 'true'");
         }
       }
     }
