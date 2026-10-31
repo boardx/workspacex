@@ -44,3 +44,11 @@ used as a speedup comparison. The first full local harness run found two legacy
 topology assertions plus a real-discovery timeout; the topology assertions were
 updated to inspect the actual producers and artifact cleanup boundaries, and
 the complete focused suite is re-executed after those changes.
+
+Coverage correction: the existing verify-control-plane job owns the complete
+harness self-test suite but not all verify:harness:raw static gates. Queue
+base-control-plane therefore executes every canonical static gate from the
+package script before waiting for its authoritative self-test verdict. The
+static helper rejects unknown script grammar or a changed terminal test
+command, so future canonical additions cannot silently disappear. Only the
+heavy self-test execution is reused; static coverage is not discarded.

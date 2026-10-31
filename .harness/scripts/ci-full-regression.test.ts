@@ -12,6 +12,12 @@ const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name
 ]));
 
 describe('full regression preserves all independent lane verdicts', () => {
+  it('preserves canonical static gates when reusing only control-plane self-tests', () => {
+    const command = workflow.jobs['base-control-plane'].steps.map((step:any) => step.run ?? '').join('\n');
+    expect(command).toContain('node .harness/scripts/ci-harness-static.mjs');
+    expect(command).toContain('node .harness/scripts/ci-queue-ready.mjs --control-plane');
+    expect(command).toContain('pnpm run verify:harness:raw');
+  });
   it('requires one base producer and one browser producer without repeating verify:full', () => {
     const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', "--filter='!@repo/api' --filter='!web'", 'ci-chat-shards.mjs --record' , 'pnpm run verify:self-service-profile'];
     expect(FULL_REGRESSION_LANES).toHaveLength(commands.length);

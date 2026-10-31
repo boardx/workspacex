@@ -708,6 +708,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if [ "$GITHUB_EVENT_NAME" = merge_group ]; then
+            node .harness/scripts/ci-harness-static.mjs
             node .harness/scripts/ci-queue-ready.mjs --control-plane
           else
             pnpm run verify:harness:raw
