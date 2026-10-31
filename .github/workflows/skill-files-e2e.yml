@@ -1,39 +1,9 @@
 name: Skill files and Agent pins
 on:
+  merge_group:
+    branches: [develop]
   pull_request:
     branches: [develop]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'scripts/**'
-      - '.harness/**'
-      - 'skills/**'
-      - '.agents/**'
-      - 'patches/**'
-      - '.github/workflows/skill-files-e2e.yml'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'turbo.json'
-      - '.nvmrc'
-      - '.npmrc'
-  push:
-    branches: [develop]
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'scripts/**'
-      - '.harness/**'
-      - 'skills/**'
-      - '.agents/**'
-      - 'patches/**'
-      - '.github/workflows/skill-files-e2e.yml'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'turbo.json'
-      - '.nvmrc'
-      - '.npmrc'
   workflow_dispatch:
 permissions:
   contents: read
@@ -41,7 +11,20 @@ concurrency:
   group: skill-files-e2e-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
+  scope:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.scope.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - id: scope
+        env:
+          CI_SCOPE_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+        run: node .harness/scripts/ci-skill-scope.mjs
   skill-files-e2e:
+    needs: scope
+    if: needs.scope.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

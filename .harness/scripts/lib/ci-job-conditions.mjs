@@ -40,6 +40,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse as parseYaml } from "yaml";
+import {CURRENT_POLICY} from "./ci-check-policy.mjs";
 
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -65,6 +66,9 @@ export const PROBE_EVENTS = [
     baseBranch: "develop",
     label: "每次合入 develop",
   },
+  ...(CURRENT_POLICY.sourceVerificationEvent === 'merge_group' && CURRENT_POLICY.requiredChecks.includes('queue-ready') ? [{
+    id: 'merge_group', eventName: 'merge_group', ref: 'refs/heads/gh-readonly-queue/develop/pr-1-'+'a'.repeat(40), baseBranch: 'develop', label: '受保护合并队列候选',
+  }] : []),
 ];
 
 const DEFAULT_BRANCH = "develop";

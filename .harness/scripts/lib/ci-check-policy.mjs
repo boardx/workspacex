@@ -21,6 +21,7 @@ export function parsePolicy(value) {
   }
   if (value.version < 4 && Object.hasOwn(value, 'independentChecks')) throw new Error('Independent checks require v4');
   if (value.version === 4 && (!names(value.independentChecks) || value.independentChecks.some(name => !validIndependentCheck(name, value)))) throw new Error('Invalid independent revalidation policy');
+  if (Object.hasOwn(value, 'sourceVerificationEvent') && (value.version !== 4 || !['push', 'merge_group'].includes(value.sourceVerificationEvent))) throw new Error('Invalid source verification event');
   return value;
 }
 export const CURRENT_POLICY = parsePolicy(JSON.parse(readFileSync(new URL('../../config/ci-check-policy.json', import.meta.url), 'utf8')));

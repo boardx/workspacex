@@ -42,9 +42,6 @@ on:
   # merge-queue.test.ts 机械核对。队列没开时本事件永不触发，这段接线是惰性的。
   merge_group:
     branches: [develop]
-  push:
-    branches: [develop]     # 2026-07-29 开启（P-1）：自建 runner 没有分钟数成本，
-                         # 「只在打标签时跑」意味着问题在发版当天一次性爆出来
   workflow_dispatch:
     inputs:
       deploy_skill_files_preview:

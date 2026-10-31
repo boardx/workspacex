@@ -1,9 +1,6 @@
 # Four complete native suites run on independent VMs; native-board retains the stable verdict.
 name: Board independent heavy acceptance
 on:
-  push:
-    branches:
-      - develop
   workflow_dispatch:
     inputs:
       fresh_run:

@@ -1,3 +1,4 @@
+import {evaluateIf} from './ci-job-conditions.mjs';
 // merge-queue.test.ts — #3238 的正反例。
 //
 // 纪律同 pr-queue.test.ts：每一条规则都配一条**反证**（规则不生效时会红的那个用例），
@@ -260,7 +261,7 @@ describe("⑥ 候选组里有哪些 PR（merge-gate 要在候选组上继续出�
 
 // ── workflow 机械核对：纯函数判得再对，YAML 里没接上就是空转的门 ────────────
 
-const WORKFLOW_FILES = ["harness-verify.yml", "backend-gates.yml"] as const;
+const WORKFLOW_FILES = ["harness-verify.yml", "backend-gates.yml", "harness-acceptance.yml"] as const;
 const workflow = (file: string) => readFileSync(join(REPO_ROOT, ".github", "workflows", file), "utf8");
 
 /** 取某个 job 的整段 body（同 pr-queue.test.ts 的切法）。 */
@@ -312,7 +313,8 @@ describe("#3238 workflow 接线：候选组必须真的跑，部署必须真的�
     for (const file of WORKFLOW_FILES) {
       const text = workflow(file);
       const concurrency = text.slice(text.indexOf("\nconcurrency:"), text.indexOf("\njobs:"));
-      expect(concurrency, file).toMatch(/cancel-in-progress:.*github\.event_name == 'pull_request'/);
+      const cancel=/cancel-in-progress:\s*([^\n]+)/.exec(concurrency)?.[1]?.replace(/^\$\{\{\s*|\s*\}\}$/g,'')??'unknown';
+      expect(evaluateIf(cancel,{id:'merge_group',eventName:'merge_group',ref:'refs/heads/gh-readonly-queue/develop/pr-1-abc',baseBranch:'develop',label:'queue'}),file).toBe(false);
     }
   });
 });

@@ -1,7 +1,7 @@
 # Complete integration evidence for the exact develop commit; optional lanes remain manual.
 name: harness-acceptance
 on:
-  push:
+  merge_group:
     branches: [develop]
   workflow_dispatch:
     inputs:
@@ -79,21 +79,37 @@ jobs:
   #      `verify:harness` 一条命令。
   #   两项差距都是刻意的范围收窄，不是遗漏——本次只做"把已经在跑、已经全绿的
   #   两段拆成并行 job"这一件事。
-  verify-full-compile:
+  base-compile:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4.4.0
+        if: github.event_name == 'workflow_dispatch'
       - uses: actions/setup-node@v5
+        if: github.event_name == 'workflow_dispatch'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+        if: github.event_name == 'workflow_dispatch'
       # 见上：先 build，让 Next.js 生成 .next/types/**，typecheck 才有得可查。
       - name: 全仓编译（build）
+        if: github.event_name == 'workflow_dispatch'
         run: pnpm turbo run build
       - name: 全仓 typecheck + lint
+        if: github.event_name == 'workflow_dispatch'
         run: pnpm turbo run typecheck lint --continue
+      - name: Prepare queue compile runtime
+        if: github.event_name == 'merge_group'
+        uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Require exact queue compile evidence
+        if: github.event_name == 'merge_group'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node .harness/scripts/ci-queue-ready.mjs --compile
 
   # 机械合并门禁（#956）——2026-08-11 20:33 CST 事故：`pr-queue` 在 20:32 仍把
   # #954/#943/#922 裁成 WAITING_REVIEW/MERGE_BLOCKED，repo owner（有 admin bypass
@@ -477,7 +493,7 @@ jobs:
         run: docker compose -f apps/api/docker-compose.dev.yml -p workspacex-kernel down -v
 
   full-regression-core:
-    needs: [verify-full-compile, base-api-plan, base-api-shards, base-api-exclusive]
+    needs: [base-compile, base-api-plan, base-api-shards, base-api-exclusive]
     if: always() && (github.event_name != 'pull_request' && (github.event_name != 'workflow_dispatch' || inputs.run_e2e_full || inputs.verification_lane == 'base'))
     runs-on: ubuntu-latest
     timeout-minutes: 90
@@ -793,3 +809,21 @@ jobs:
         env:
           CI_SOURCE_RESULT: ${{ steps.dedup.outputs.result }}
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
+
+  queue-ready:
+    if: always() && github.event_name == 'merge_group'
+    needs: [e2e-full, full-regression-core]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: Require complete candidate regression
+        env:
+          CI_SCOPE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          GH_TOKEN: ${{ github.token }}
+          CI_QUEUE_NEEDS: ${{ toJSON(needs) }}
+        run: node .harness/scripts/ci-queue-ready.mjs

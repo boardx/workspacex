@@ -5,7 +5,8 @@
     "verify-affected",
     "verify-full-compile",
     "merge-gate",
-    "backend-required"
+    "backend-required",
+    "queue-ready"
   ],
   "aggregates": {
     "backend-required": [
@@ -29,5 +30,6 @@
   "independentChecks": [
     "native-board",
     "meeting-room"
-  ]
+  ],
+  "sourceVerificationEvent": "merge_group"
 }

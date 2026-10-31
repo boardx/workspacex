@@ -4,7 +4,7 @@ import {describe,expect,it} from 'vitest';
 import {CURRENT_POLICY} from './lib/ci-check-policy.mjs';
 import {evaluateIf} from './lib/ci-job-conditions.mjs';
 
-const files=['harness-verify','backend-gates'];
+const files=['harness-verify','backend-gates','harness-acceptance'];
 const load=()=>Object.fromEntries(files.map(name=>[name,parse(readFileSync(`.github/workflows/${name}.yml`,'utf8'))]));
 const probe={id:'merge_group',eventName:'merge_group',ref:'refs/heads/gh-readonly-queue/develop/pr-1-abc',baseBranch:'develop',label:'queue'};
 function defects(workflows:Record<string,any>){
