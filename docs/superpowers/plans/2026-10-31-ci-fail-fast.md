@@ -9,5 +9,5 @@
 
 - [x] Add failing command/matrix and supervisor boundary tests.
 - [x] Implement module, matrix and same-workflow fail-fast with bounded polling.
-- [ ] Verify policy regressions, types/lint, independent exact-SHA review.
+- [x] Verify policy regressions, types/lint, independent exact-SHA review.
 - [ ] Create a separate develop PR and follow checks; keep billing #6058 separate. Initial live incident run41192730887 canceled only after confirming chat-read failure.

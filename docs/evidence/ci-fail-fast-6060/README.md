@@ -12,6 +12,8 @@ Scope: module continuation, test shard cancellation, follow-up validation condit
 ## Full-suite boundary
 An intermediate broad harness run caught the artifact-condition regression, repaired above. It also hit a Darwin process-group EPERM in unchanged cn_auto_prepare.py/test_cn_auto_prepare.py. Exact HEAD baseline files were exported to an ordinary temporary directory (no new worktree), run in five full rounds, then removed: one of five rounds reproduced that same error. A fresh complete harness run is tracked separately; do not call the initial run all green.
 
+Final complete run: `pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness --bail=1` — 236 files passed, 2705 tests passed, 4 existing skips (2709 total), exit0. The repaired lane/artifact conditions, supervisor tests and real Turbo termination are included. Pre-push typecheck/lint: 20/20 tasks successful. Independent read-only reviewer ACCEPT for implementation06ee1be48a888dce4c38eab71644c21d4697011c; independently reran 24 fail-fast tests including actual Turbo sibling termination.
+
 ## Trust and rollout
 workflow_run supervisor executes only github.workflow_sha from the trusted default branch, with no candidate checkout/artifacts/install. actions:write stays in that supervisor. It polls only the triggering run/attempt, checks identity again before cancel, and requests normal cancellation, retaining existing cleanup/evidence conditions. GitHub may label unfinished work cancelled; this never means PASS. Supervisor success means monitoring completed, not target tests passed. API errors and monitor deadline failures remain visible.
 
