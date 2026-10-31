@@ -4,6 +4,7 @@ import type { BillingConfigPort } from "../../application/billing/billing-config
 
 function readDeployment() {
   return {
+    BILLING_DEPLOYMENT: process.env.BILLING_DEPLOYMENT,
     BILLING_WECHAT_ENABLED: process.env.BILLING_WECHAT_ENABLED,
     BILLING_STRIPE_ENABLED: process.env.BILLING_STRIPE_ENABLED,
     WECHAT_PAY_APP_ID: process.env.WECHAT_PAY_APP_ID,
@@ -105,8 +106,11 @@ export class DeploymentBillingConfig implements BillingConfigPort {
   constructor(env: Deployment = readDeployment()) {
     this.wechat = wechat(env);
     this.stripe = stripe(env);
-    this.wechatEnabled = purchaseEnabled(env, "BILLING_WECHAT_ENABLED");
-    this.stripeEnabled = purchaseEnabled(env, "BILLING_STRIPE_ENABLED");
+    const deployment=text(env,"BILLING_DEPLOYMENT").toLowerCase();
+    const valid=["","cn","us","devapp"].includes(deployment);
+    this.wechatEnabled = valid&&deployment!=="us"&&purchaseEnabled(env, "BILLING_WECHAT_ENABLED");
+    const stripeModeAllowed=deployment==="devapp"?this.stripe?.secretKey.startsWith("sk_test_"):deployment==="us"?this.stripe?.secretKey.startsWith("sk_live_"):true;
+    this.stripeEnabled = valid&&deployment!=="cn"&&!!stripeModeAllowed&&purchaseEnabled(env, "BILLING_STRIPE_ENABLED");
   }
   getPublicConfig(): ReturnType<BillingConfigPort["getPublicConfig"]> {
     return { enabledProviders: [...(this.wechat && this.wechatEnabled ? ["wechat" as const] : []), ...(this.stripe && this.stripeEnabled ? ["stripe" as const] : [])] };

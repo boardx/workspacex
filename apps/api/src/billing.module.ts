@@ -1,3 +1,7 @@
+import {StripeCreditCheckout} from "./infrastructure/billing/stripe-credit-checkout";
+import {MonthlyCheckoutRouter} from "./infrastructure/billing/monthly-checkout-router";
+import {WechatMonthlyPassClient} from "./infrastructure/billing/wechat-monthly-pass-client";
+import {MonthlyWechatCreditingStore} from "./infrastructure/billing/monthly-wechat-crediting-store";
 import {MonthlyPassService} from "./application/billing/monthly-pass-service";
 import {PgMonthlyPassRepository} from "./infrastructure/billing/pg-monthly-pass-repository";
 import {StripeMonthlyPassClient} from "./infrastructure/billing/stripe-monthly-pass-client";
@@ -61,13 +65,17 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
     { provide: BillingStripeWebhookService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => {
       const client = new StripeWebhookClient(config);
       const monthlyClient = new StripeMonthlyPassClient(config);
-      const monthly = new MonthlyPassService(new PgMonthlyPassRepository(db), monthlyClient);
-      return new BillingStripeWebhookService(client, client, new MonthlyStripeWebhookStore(db, new PgBillingStripeWebhookStore(db), monthly, monthlyClient), logger);
+      const monthly = new MonthlyPassService(new PgMonthlyPassRepository(db), new MonthlyCheckoutRouter(monthlyClient,new WechatMonthlyPassClient(config,db,logger)));
+      return new BillingStripeWebhookService(client, client, new MonthlyStripeWebhookStore(db, new PgBillingStripeWebhookStore(db), monthly, monthlyClient,new StripeCreditCheckout(db,config)), logger);
     }, inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
-    { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger), new MonthlyPassService(new PgMonthlyPassRepository(db), new StripeMonthlyPassClient(config))), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
+    { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger), new MonthlyPassService(new PgMonthlyPassRepository(db), new MonthlyCheckoutRouter(new StripeMonthlyPassClient(config),new WechatMonthlyPassClient(config,db,logger)))), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
       new BillingOrderExpiryWorker(new PgBillingOrderExpiryStore(db), logger), inject: [DATABASE_PORT, LOGGER_PORT] },
-    { provide: BILLING_CREDITING_STORE, useFactory: (db: DatabasePort) => new PgBillingCreditingStore(db), inject: [DATABASE_PORT] },
+    { provide: BILLING_CREDITING_STORE, useFactory: (db:DatabasePort,config:DeploymentBillingConfig,logger:LoggerPort) => {
+      const client=new WechatMonthlyPassClient(config,db,logger);
+      const monthly=new MonthlyPassService(new PgMonthlyPassRepository(db),new MonthlyCheckoutRouter(new StripeMonthlyPassClient(config),client));
+      return new MonthlyWechatCreditingStore(db,new PgBillingCreditingStore(db),monthly,client);
+    }, inject:[DATABASE_PORT,DeploymentBillingConfig,LOGGER_PORT] },
     { provide: BillingWechatNotifyService, useFactory: (config: DeploymentBillingConfig, store: BillingCreditingStore) =>
       new BillingWechatNotifyService(new DeploymentWechatNoticeVerifier(config), store, new ConsoleLogger()), inject: [DeploymentBillingConfig, BILLING_CREDITING_STORE] },
     { provide: BILLING_RECEIPT_WORKER, useFactory: (store: BillingCreditingStore, service: BillingWechatNotifyService) =>
@@ -77,7 +85,7 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
     { provide: BILLING_CONFIG_PORT, useExisting: DeploymentBillingConfig },
     { provide: BillingOrderService,
       useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig, logger: LoggerPort) =>
-        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger)),
+        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger),new StripeCreditCheckout(db,config)),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig, LOGGER_PORT],
     },
     { provide: BillingWalletService,

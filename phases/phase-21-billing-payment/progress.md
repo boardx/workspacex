@@ -75,3 +75,7 @@
 - Python环境修复定向重跑退出0：3文件/6测试全绿，3条原失败集成均通过，证据F01.python-env-retry.log；隔离资源已清理。剩余阻塞是既有主线PR #5585归类修复，未宣称完整门控通过。
 
 - #5585实际合入后，第三次官方verify退出0，harness自动升级F01；本轮资源wsx-4683e2a75dd8e74d45e6已清理。PR交付尚待完成，不将正式验证通过等同全支付功能完成。
+
+### 2026-10-31 四种支付组合补齐 #6050
+- 人类直接交办，PR #6051 目标 develop，补齐 Stripe 充值 credit 和微信购买月卡，并限制 CN 微信、US Stripe、devapp 双渠道。
+- 本轮验证与未发布边界见 design-deltas/four-payment-combinations/progress.md 和 session-handoff.md；CI 只认 PR 当前 head，未改功能清单 passing 状态。

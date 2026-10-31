@@ -29,6 +29,7 @@ let web: ChildProcess | undefined, webClosed: Promise<void> | undefined, closed 
 const user="stripe-browser-user", org="stripe-browser-org", secret=`whsec_${randomBytes(24).toString("hex")}`;
 const port=Number(process.env.WORKSPACEX_WEB_PORT), origin=`http://127.0.0.1:${port}`, webRoot=resolve(import.meta.dirname,"../../../web");
 const evidence=process.env.BILLING_BROWSER_EVIDENCE_DIR || resolve(import.meta.dirname,"../../test-results/billing-stripe");
+let creditSession:Record<string,unknown>|null=null;
 let monthlySession:Record<string,unknown>|null=null;
 let base="", status="active", token="", cancelAtPeriodEnd=false;
 const providerCalls: {path:string;body:string}[]=[];
@@ -37,6 +38,7 @@ async function cleanup() { await asOwner(async c=> {
   await c.query("DELETE FROM billing_monthly_orders WHERE user_id=$1",[user]);
   await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]);
   await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]);
+  await c.query("DELETE FROM billing_orders WHERE owner_type='user' AND owner_id=$1",[user]);
   await c.query("DELETE FROM credit_wallets WHERE owner_id=$1",[user]);
   await c.query("DELETE FROM billing_stripe_bindings WHERE user_id=$1",[user]);
   await c.query("DELETE FROM billing_stripe_reconciliation WHERE provider_event_id LIKE 'evt_browser_%'");
@@ -105,15 +107,17 @@ beforeAll(async()=> {
  if(!Number.isInteger(port)||port<1024||port>65535)throw Error("Use the standard test isolation wrapper");
  ensureDatabase(); await migrateOnce(); await cleanup(); await assertAllocatedPortFree(); mkdirSync(evidence,{recursive:true});
  for(const key of BILLING_ENV_KEYS)vi.stubEnv(key,"");
- for(const [key,value]of Object.entries({STRIPE_SECRET_KEY:`sk_test_${randomBytes(16).toString("hex")}`,STRIPE_WEBHOOK_SECRET:secret,STRIPE_PAYMENT_LINK:"https://buy.stripe.com/browser",STRIPE_RETURN_URL:`${origin}/billing?subscription_return=1`}))vi.stubEnv(key,value);
+ for(const [key,value]of Object.entries({BILLING_DEPLOYMENT:"devapp",STRIPE_SECRET_KEY:`sk_test_${randomBytes(16).toString("hex")}`,STRIPE_WEBHOOK_SECRET:secret,STRIPE_PAYMENT_LINK:"https://buy.stripe.com/browser",STRIPE_RETURN_URL:`${origin}/billing?subscription_return=1`}))vi.stubEnv(key,value);
  server=httpServer((req,res)=> { let body="";req.on("data",chunk=>body+=chunk);req.on("end",()=> {
   providerCalls.push({path:req.url!,body});
   if(req.headers["stripe-version"]!=="2025-09-30.clover"){res.writeHead(400);res.end("{}");return;}
   let value:unknown;
   if(req.url==="/v1/checkout/sessions"&&req.method==="POST") {
    const params=new URLSearchParams(body),id=params.get("client_reference_id");
-   value=monthlySession={id:"cs_browser_monthly",object:"checkout.session",mode:"payment",status:"open",livemode:false,payment_status:"unpaid",amount_total:18000,currency:"cny",client_reference_id:id,metadata:{product:"monthly_pass_v1",order_ref:id},url:"https://checkout.stripe.com/c/pay/monthly-browser"};
+   if(params.get("metadata[product]")==="credit_topup_v1")value=creditSession={id:"cs_browser_credit",object:"checkout.session",mode:"payment",status:"open",livemode:false,payment_status:"unpaid",amount_total:Number(params.get("line_items[0][price_data][unit_amount]")),currency:"cny",client_reference_id:id,metadata:{product:"credit_topup_v1",order_ref:id},url:"https://checkout.stripe.com/c/pay/credit-browser"};
+   else value=monthlySession={id:"cs_browser_monthly",object:"checkout.session",mode:"payment",status:"open",livemode:false,payment_status:"unpaid",amount_total:18000,currency:"cny",client_reference_id:id,metadata:{product:"monthly_pass_v1",order_ref:id},url:"https://checkout.stripe.com/c/pay/monthly-browser"};
   }
+  if(req.url==="/v1/checkout/sessions/cs_browser_credit")value=creditSession;
   if(req.url==="/v1/checkout/sessions/cs_browser_monthly")value=monthlySession;
   if(req.url==="/v1/checkout/sessions/cs_browser")value={id:"cs_browser",object:"checkout.session",mode:"subscription",status:"complete",customer:"cus_browser",subscription:"sub_browser",client_reference_id:token};
   if(req.url==="/v1/subscriptions/sub_browser")value={id:"sub_browser",object:"subscription",customer:"cus_browser",status,cancel_at_period_end:cancelAtPeriodEnd,trial_start:null,trial_end:null,items:{data:[{current_period_start:1893456000,current_period_end:1896134400,price:{id:"price_browser",recurring:{interval:"month"}}}],has_more:false}};
@@ -184,4 +188,26 @@ it("purchases a one-time CNY180 month through real browser, API, signed callback
  expect(await page.getByRole("button",{name:"管理订阅",exact:true}).count()).toBe(0);
  const wallet=await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]));expect(wallet.rows).toEqual([{balance:"20000.00",total_granted:20000}]);
  await page.screenshot({path:resolve(evidence,"monthly-pass-active-fullstack.png"),fullPage:true});await page.close();
+},120000);
+
+it("purchases permanent credits through real Stripe cashier, signed callback and PostgreSQL",async()=>{
+ await cleanup();const page=await browser!.newPage({viewport:{width:1280,height:900}});
+ await page.addInitScript(({user,org})=>{localStorage.setItem("wsx.sessionToken","stripe-browser-session");localStorage.setItem("wsx.session",JSON.stringify({version:1,userId:user,orgs:[org],currentOrgId:org,expiresAt:"2099-01-01T00:00:00Z"}));},{user,org});
+ await page.route(url=>url.origin===origin&&url.pathname==="/__fullstack_api/identity/me",route=>route.fulfill({json:{org:{id:org,name:"本地支付验收",kind:"organization",team:null,modelPolicy:"any",avatarUrl:null},orgRole:"consultant",teamId:null,projectRole:null,groupId:null,displayName:"Stripe验收",avatarUrl:null}}));
+ await page.goto(`${origin}/billing`);await page.getByRole("button",{name:"充值 credit",exact:true}).click();
+ await page.getByTestId("billing-generate-qr").click();
+ await expect.poll(()=>page.getByRole("link",{name:"前往 Stripe 付款"}).count()).toBe(1);
+ expect(creditSession).not.toBeNull();expect(creditSession!.metadata).toMatchObject({product:"credit_topup_v1"});
+ const orderNo=String(creditSession!.client_reference_id);
+ const before=await asOwner(c=>c.query("SELECT status,base_credits,bonus_credits FROM billing_orders WHERE order_no=$1 AND owner_id=$2",[orderNo,user]));expect(before.rows[0].status).toBe("PENDING");
+ Object.assign(creditSession!,{status:"complete",payment_status:"paid",payment_intent:"pi_browser_credit",url:null});
+ const body=JSON.stringify({id:"evt_browser_credit_paid",object:"event",type:"checkout.session.completed",data:{object:{id:"cs_browser_credit",mode:"payment"}}});
+ const timestamp=Math.floor(Date.now()/1000),digest=createHmac("sha256",secret).update(`${timestamp}.${body}`).digest("hex");
+ const paid=()=>fetch(`${base}/billing/webhooks/stripe`,{method:"POST",headers:{"content-type":"application/json","stripe-signature":`t=${timestamp},v1=${digest}`},body});
+ expect((await paid()).status).toBe(200);expect((await paid()).status).toBe(200);
+ await page.getByTestId("billing-refresh-status").click();await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
+ const receipt=await asOwner(async c=>({order:(await c.query("SELECT status FROM billing_orders WHERE order_no=$1",[orderNo])).rows,wallet:(await c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user])).rows,periods:(await c.query("SELECT * FROM credit_subscription_periods WHERE wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user])).rows}));
+ expect(receipt.order).toEqual([{status:"SUCCESS"}]);expect(Number(receipt.wallet[0].balance)).toBe(Number(before.rows[0].base_credits)+Number(before.rows[0].bonus_credits));expect(receipt.periods).toEqual([]);
+ await page.goto(`${origin}/billing?credit_order=${encodeURIComponent(orderNo)}`);await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
+ await page.screenshot({path:resolve(evidence,"stripe-credit-topup-fullstack.png"),fullPage:true});writeFileSync(resolve(evidence,"stripe-credit-receipt.json"),JSON.stringify({billingHttpIntercepted:false,...receipt},null,2));await page.close();
 },120000);

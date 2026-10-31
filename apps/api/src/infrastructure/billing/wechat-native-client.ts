@@ -4,7 +4,7 @@ import { BillingOrderError, type OrderDraft, type WechatNativePort } from "../..
 import type { DeploymentBillingConfig } from "./deployment-billing-config";
 import { verifyWechatSignature } from "./wechat-signature";
 const path = "/v3/pay/transactions/native";
-async function boundedBody(response: Response, signal: AbortSignal): Promise<Buffer> {
+export async function boundedBody(response: Response, signal: AbortSignal): Promise<Buffer> {
   if (!response.body) throw new Error("empty_response");
   const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
   const abort = () => { void reader.cancel().catch(() => undefined); };

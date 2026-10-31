@@ -4,7 +4,7 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import { PaymentNoticeError, type BillingCreditingStore, type CreditingResult, type VerifiedPaymentReceipt } from "../../application/billing/billing-notify-ports";
 import { assertBillingGlobalStatement, BILLING_GLOBAL_SQL } from "./billing-global-boundary";
 type Receipt = { provider_event_id: string; order_no: string; amount_fen: number; currency: string; transaction_id: string | null; trade_state: string; paid_at: Date | null; receipt_hash: string; signature_verified: boolean; state: string };
-type Order = { order_no: string; owner_type: string; owner_id: string; status: string; amount_fen: number; currency: string; base_credits: number; bonus_credits: number; channel_order_no: string | null; closed_at: Date | null; last_error_code: string | null };
+type Order = { provider: string; order_no: string; owner_type: string; owner_id: string; status: string; amount_fen: number; currency: string; base_credits: number; bonus_credits: number; channel_order_no: string | null; closed_at: Date | null; last_error_code: string | null };
 const pending: CreditingResult = { completed: false, manual: false };
 function result(state: string): CreditingResult { return { completed: state !== "pending", manual: state === "failed" }; }
 /** Only verified owner-global billing facts cross this shared-pool boundary. */
@@ -20,7 +20,7 @@ export class PgBillingCreditingStore implements BillingCreditingStore {
   }
   private async order(s: TenantSession, receipt: Receipt): Promise<Order> {
     const order = (await s.query<Order>(BILLING_GLOBAL_SQL.lockOrder, [receipt.order_no])).rows[0];
-    if (!order || order.amount_fen !== receipt.amount_fen || order.currency !== receipt.currency ||
+    if (!order || order.provider !== "wechat" || order.amount_fen !== receipt.amount_fen || order.currency !== receipt.currency ||
         (order.channel_order_no !== null && order.channel_order_no !== receipt.transaction_id))
       throw new PaymentNoticeError("order_mismatch", receipt.signature_verified, receipt.order_no);
     return order;

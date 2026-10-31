@@ -128,7 +128,7 @@ async function sourceAccounting(orderNo: string) {
 beforeAll(async () => {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error("Run through the standard test isolation wrapper with WORKSPACEX_WEB_PORT");
   mkdirSync(evidence, { recursive: true }); await assertAllocatedPortFree();
-  fixture = await notifyFixture(false, { platformVerification: false }); await fixture.reset();
+  fixture = await notifyFixture(false, { platformVerification: true }); await fixture.reset();
   const require = createRequire(resolve(webRoot, "package.json"));
   const env: NodeJS.ProcessEnv = { ...process.env, NEXT_DIST_DIR: ".next-billing-cashier-glue", NEXT_PUBLIC_API_URL: "/__fullstack_api", FULLSTACK_E2E_API_ORIGIN: fixture.base };
   // The web test process never needs payment credentials, including any host configuration.
@@ -318,4 +318,28 @@ it("unifies purchased monthly personal and enterprise credits through real billi
  await expect.poll(()=>page.getByTestId("billing-success-badge").count()).toBe(1);
  const {verifyCreditSubscriptionBrowser}=await import("./credit-subscription-browser");
  await verifyCreditSubscriptionBrowser(f,page,origin,evidence);
+},120000);
+
+it("buys WeChat monthly pass through real QR and signed callback with replay-safe permanent balance",async()=>{
+ const f=fixture!,page=await browser!.newPage({viewport:{width:1280,height:1000}});
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,7)",[user]));
+ await page.addInitScript(({userId,orgId})=>{localStorage.setItem("wsx.sessionToken","f04-user");localStorage.setItem("wsx.session",JSON.stringify({version:1,userId,orgs:[orgId],currentOrgId:orgId,expiresAt:"2099-01-01T00:00:00Z"}));},{userId:user,orgId:org});
+ await page.route(url=>url.origin===origin&&url.pathname==="/__fullstack_api/identity/me",route=>route.fulfill({json:{org:{id:org,name:"Monthly acceptance",kind:"organization",team:null,modelPolicy:"any",avatarUrl:null},orgRole:"admin",teamId:null,projectRole:null,groupId:null,displayName:"Isolated payer",avatarUrl:null}}));
+ await page.goto(`${origin}/billing`);
+ const responsePromise=page.waitForResponse(r=>new URL(r.url()).pathname==="/__fullstack_api/billing/subscription/upgrade-link"&&r.request().method()==="POST");
+ await page.getByRole("button",{name:"购买月度套餐",exact:true}).click();
+ const created=await responsePromise;expect(created.status()).toBe(201);expect(created.request().postDataJSON()).toMatchObject({provider:"wechat"});
+ await expect.poll(()=>page.getByRole("img",{name:"月度套餐微信支付二维码"}).count()).toBe(1);
+ const order=(await asOwner(c=>c.query("SELECT order_id,session_ref FROM billing_monthly_orders WHERE user_id=$1 AND provider='wechat' ORDER BY created_at DESC LIMIT 1",[user]))).rows[0]!;
+ expect(order.session_ref).toMatch(/^bm/);
+ const notice=f.notice(order.session_ref,{transaction_id:`wx_${order.session_ref}`,amount:{total:18000,payer_total:18000,currency:"CNY"}});
+ f.state.paidMonthly.set(order.session_ref,notice.payment);
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ await expect.poll(()=>page.getByTestId("billing-subscription-status").textContent(),{timeout:15000}).toBe("使用中");
+ await expect.poll(()=>page.getByTestId("billing-monthly-credits").textContent()).toMatch(/20,?000/);
+ await expect.poll(()=>page.getByTestId("billing-permanent-balance").textContent()).toBe("7");
+ const wallet=(await asOwner(c=>c.query("SELECT balance FROM credit_wallets WHERE owner_id=$1",[user]))).rows[0]!;expect(Number(wallet.balance)).toBe(20007);
+ const periods=(await asOwner(c=>c.query("SELECT * FROM credit_subscription_periods WHERE wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[user]))).rows;expect(periods).toHaveLength(1);
+ await page.screenshot({path:resolve(evidence,"wechat-monthly-success.png"),fullPage:true});
 },120000);

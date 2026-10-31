@@ -38,13 +38,15 @@ export async function verifyCreditSubscriptionBrowser(f:Awaited<ReturnType<typeo
  const call=(orgId:string,tokens:number)=>page.evaluate(async({url,orgId,tokens})=>{const r=await fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({org:orgId,tokens})});return {status:r.status,body:await r.json()};},{url:loopback,orgId,tokens});
  try{
   // Caller already completed an actual signed loopback merchant recharge through UI.
-  const end=new Date(Date.now()+15000);
+  // Keep grant alive through cold Next compilation; expire this exact fixture only after consumption assertions.
+  const end=new Date(Date.now()+3600000);
   await db.withTenant(personal,s=>grantPaidSubscriptionPeriod(s,{userId:user,subscriptionRef:"sub_browserCredits",invoiceRef:"in_browserCredits",planRef:"price_browserMonthly",periodStart:new Date(end.getTime()-30*86400000),periodEnd:end}));
   await page.keyboard.press("Escape");await page.reload();
   await expect.poll(()=>page.getByTestId("billing-monthly-credits").textContent()).toBe("20,000");
   expect((await call(personal,1000)).status).toBe(200);
   await page.reload();await expect.poll(()=>page.getByTestId("billing-monthly-credits").textContent()).toBe("19,999");
   await page.screenshot({path:resolve(evidence,"monthly-balance.png"),fullPage:true});
+  await asOwner(c=>c.query("UPDATE credit_subscription_periods SET period_end=now()-interval '1 second' WHERE subscription_ref=$1 AND wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$2)",["sub_browserCredits",user]));
   await expect.poll(async()=>((await(await f.request("/billing/wallet?ownerType=user")).json()).wallet.subscriptionCredits),{timeout:30000,interval:500}).toBe(0);
   await page.reload();await expect.poll(()=>page.getByTestId("billing-permanent-balance").textContent()).toBe("1,320");
   expect((await call(personal,1321000)).status).toBe(200);const admitted=modelCalls;

@@ -18,15 +18,15 @@ import { z } from "zod";
 export const BillingOwnerType = z.enum(["user", "team"]);
 export type BillingOwnerType = z.infer<typeof BillingOwnerType>;
 
-/** 支付渠道（**下单**枚举：本束仅微信 Native；Stripe 属 billing-subscription 束）。 */
-export const BillingProvider = z.enum(["wechat"]);
+/** 充值支付渠道：微信 Native 或 Stripe 一次性 Checkout。 */
+export const CREDIT_TOPUP_PRODUCT = "credit_topup_v1";
+export const BillingProvider = z.enum(["wechat", "stripe"]);
 export type BillingProvider = z.infer<typeof BillingProvider>;
 
 /**
- * 渠道启用**读模型**（`GET /billing/config` 的 `enabledProviders`）：比下单枚举宽——
- * Stripe 属 billing-subscription 束，但会出现在这个共享读模型里（要求 03 V4 的入口可用性判据）。
+ * 渠道启用读模型复用支付渠道枚举；具体新购可用性由部署配置统一决定。
  */
-export const BillingEnabledProvider = z.enum(["wechat", "stripe"]);
+export const BillingEnabledProvider = BillingProvider;
 export type BillingEnabledProvider = z.infer<typeof BillingEnabledProvider>;
 
 /** 金额：非负整数分（I-11，禁止浮点参与金额运算）。 */
@@ -39,8 +39,8 @@ export const CreditsAmount = z.number().int().positive();
 export const CreditBalance = z.number().finite().min(-2147483647).max(2147483647).multipleOf(0.01);
 export const CreditLedgerAmount = CreditBalance.refine(value => value > 0, "credit amount must be positive");
 
-/** 订单号：`bg<yyyyMMddHHmmss><6位随机>`，全局唯一（domain.md 值对象）。 */
-export const OrderNo = z.string().regex(/^bg\d{14}[A-Za-z0-9]{6}$/);
+/** 商户订单号：充值使用 bg，微信月卡使用 bm，隔离两类商品的商户支付身份。 */
+export const OrderNo = z.string().regex(/^b[gm]\d{14}[A-Za-z0-9]{6}$/);
 
 /** ISO 8601 时间串（毫秒精度）。 */
 export const IsoDateTime = z.string().min(1);
@@ -119,7 +119,7 @@ export const BillingOrder = z
     baseCredits: CreditsAmount,
     bonusCredits: z.number().int().nonnegative(),
     currency: z.string().min(1),
-    qrCodeUrl: z.string().min(1), // I-13：订单存在即有二维码（微信下单失败不落库）
+    qrCodeUrl: z.string().min(1), // 微信为 Native 二维码；Stripe 为可信 Checkout 地址（保留兼容字段名）
     createdAt: IsoDateTime,
     paidAt: IsoDateTime.nullable(), // 仅 SUCCESS 后可非空（I-14）
     notifyAt: IsoDateTime.nullable(),

@@ -29,7 +29,7 @@ export class BillingSubscriptionController {
   @Header("Cache-Control", "no-store")
   @Post(operations.getUpgradeLink.path)
   upgrade(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Body(new ZodBodyPipe(operations.getUpgradeLink.in)) _input: z.infer<typeof operations.getUpgradeLink.in>) {
-    return this.mapped(() => this.service.upgrade(principal, traceIdOf(req)));
+    return this.mapped(() => this.service.upgrade(principal, traceIdOf(req),_input.provider));
   }
   @Header("Cache-Control", "no-store")
   @Get(operations.getManagementLink.path)

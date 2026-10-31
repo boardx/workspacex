@@ -44,9 +44,9 @@ export class BillingSubscriptionService {
     return SubscriptionInfo.parse(value ? { status: expired && ["active", "trialing"].includes(value.status) ? "canceled" : value.status, planRef: value.planRef, currentPeriodEnd: value.currentPeriodEnd, cancelAtPeriodEnd: value.cancelAtPeriodEnd, ...(value.creditGrant?{creditGrant:value.creditGrant}:{}), ...(monthly?.paymentReviewRequired ? {paymentReviewRequired:true} : {}) }
       : { status: "none", planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false });
   }
-  async upgrade(principal: Principal, traceId = "no-trace") {
+  async upgrade(principal: Principal, traceId = "no-trace",provider:"stripe"|"wechat"="stripe") {
     const value = await this.snapshot(principal, traceId);
-    if (this.monthly) return this.monthlyResult(() => this.monthly!.checkout(principal));
+    if (this.monthly) return this.monthlyResult(() => this.monthly!.checkout(principal,provider));
     if (!(this.provider.purchaseEnabled?.() ?? this.provider.enabled())) throw new SubscriptionError("payment_provider_not_configured");
     if (!subscriptionEligibility(value?.status ?? "none").canCreateSubscription) throw new SubscriptionError("already_subscribed");
     return { url: this.provider.purchaseLink(await this.repository.createIntent(principal, traceId)) };

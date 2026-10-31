@@ -23,6 +23,12 @@ export interface BillingOrderRepository {
   close(owner: BillingOwner, orderNo: string): Promise<OrderView | null>;
 }
 export interface WechatNativePort { createNativeOrder(order: OrderDraft, traceId?: string): Promise<string>; closeNativeOrder(orderNo: string, traceId?: string): Promise<void> }
+/** Stripe adapter persists the snapshot before contacting the payment provider. */
+export interface StripeCreditCheckoutPort {
+  create(owner: BillingOwner, order: OrderDraft, traceId?: string): Promise<OrderView>;
+  reconcile(owner: BillingOwner, order: OrderView): Promise<OrderView>;
+  cancel(owner: BillingOwner, order: OrderView, traceId?: string): Promise<OrderView>;
+}
 export class BillingOrderError extends Error {
   constructor(readonly code: BillingErrorCode) { super(code); }
 }
@@ -33,6 +39,7 @@ export class BillingOrderService {
     private readonly identity: Pick<IdentityRepository, "findOrgMembership">,
     private readonly config: BillingConfigPort,
     private readonly native: WechatNativePort,
+    private readonly stripe?: StripeCreditCheckoutPort,
   ) {}
   private async owner(principal: Principal, ownerType: "user" | "team", ownerId: string | undefined, admin: boolean): Promise<BillingOrderOwner> {
     assertPrincipal(principal);
@@ -57,7 +64,7 @@ export class BillingOrderService {
   async create(principal: Principal, input: z.infer<typeof operations.createPaymentOrder.in>, traceId?: string) {
     assertPrincipal(principal);
     const request = operations.createPaymentOrder.in.parse(input);
-    if (!this.config.getPublicConfig().enabledProviders.includes("wechat")) throw new BillingOrderError("payment_provider_not_configured");
+    if (!this.config.getPublicConfig().enabledProviders.includes(request.provider)) throw new BillingOrderError("payment_provider_not_configured");
     const owner = await this.owner(principal, request.ownerType, request.ownerId, true);
     if (owner.ownerType === "team" && !await this.repository.creditEnabled(owner)) throw new BillingOrderError("org_billing_disabled");
     const pkg = await this.repository.package(owner.orgId, request.packageId);
@@ -69,11 +76,15 @@ export class BillingOrderService {
     const order: OrderDraft = {
       orderNo: `bg${createdAt.toISOString().replace(/\D/g, "").slice(0, 14)}${suffix}`,
       ownerType: owner.ownerType, ownerId: owner.ownerId, createdBy: principal.userId,
-      provider: "wechat", status: "PENDING", packageId: pkg.packageId,
+      provider: request.provider, status: "PENDING", packageId: pkg.packageId,
       amountFen: pkg.amountFen, baseCredits: pkg.baseCredits, bonusCredits: pkg.bonusCredits, currency: pkg.currency,
       createdAt: createdAt.toISOString(), expiredAt: new Date(createdAt.getTime() + 900000).toISOString(),
       paidAt: null, notifyAt: null, closedAt: null, lastErrorCode: null,
     };
+    if (request.provider === "stripe") {
+      if (!this.stripe) throw new BillingOrderError("payment_provider_not_configured");
+      return operations.createPaymentOrder.out.parse({ order: await this.stripe.create(owner, order, traceId) });
+    }
     // No database transaction spans the upstream call, and no PENDING row exists without a verified QR.
     const qrCodeUrl = await this.native.createNativeOrder(order, traceId);
     // A failed INSERT is an uncertain intent, not permission to create another upstream order automatically.
@@ -84,6 +95,11 @@ export class BillingOrderService {
     const { order } = await this.get(principal, { orderNo });
     if (order.status === "CLOSED" && order.lastErrorCode === null) return operations.cancelPaymentOrder.out.parse({ order });
     if (order.status !== "PENDING") throw new BillingOrderError("order_not_cancelable");
+    if (order.provider === "stripe") {
+      if (!this.stripe) throw new BillingOrderError("payment_provider_not_configured");
+      const owner = await this.owner(principal, order.ownerType, order.ownerId, true);
+      return operations.cancelPaymentOrder.out.parse({ order: await this.stripe.cancel(owner, order, traceId) });
+    }
     // No DB lock spans the upstream call. A concurrent paid callback wins the CAS below.
     await this.native.closeNativeOrder(orderNo, traceId);
     const owner = await this.owner(principal, order.ownerType, order.ownerId, true);
@@ -101,6 +117,6 @@ export class BillingOrderService {
     catch (error) { if (error instanceof BillingOrderError) throw new BillingOrderError("order_not_found"); throw error; }
     const order = await this.repository.order(owner, orderNo);
     if (!order) throw new BillingOrderError("order_not_found");
-    return operations.getPaymentOrder.out.parse({ order });
+    return operations.getPaymentOrder.out.parse({ order: order.provider === "stripe" && this.stripe ? await this.stripe.reconcile(owner, order) : order });
   }
 }
