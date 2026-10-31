@@ -103,7 +103,7 @@ function jobsWithConfigs(): { workflow: string; job: string; configs: string[] }
 describe("同一 job 内的多趟 playwright 不得共用 outputDir（#3002）", () => {
   it("split journeys still resolve their real Playwright configs", () => {
     const jobs = jobsWithConfigs().filter(j => j.workflow === "harness-acceptance.yml");
-    for (const name of ["chat-read", "self-service-profile"]) {
+    for (const name of ["chat-test-shards", "self-service-profile"]) {
       expect(jobs.find(j => j.job === name)?.configs.length).toBeGreaterThan(0);
     }
     // Keep the collision detector live even after moving journeys onto separate runners.

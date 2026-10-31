@@ -5,12 +5,12 @@ import { spawnSync } from 'node:child_process';
 import { parse } from 'yaml';
 import { expect, it } from 'vitest';
 
-const lane = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs['full-regression-core'];
+const lane = parse(readFileSync('.github/workflows/harness-acceptance.yml', 'utf8')).jobs['base-package-tests'];
 
 it('retains unfinished package logs after a failed or timed-out base step, without requiring any log', () => {
   const collect = lane.steps.find((step: { name?: string }) => step.name === 'Collect base task logs (success or failure)');
   expect(collect).toBeDefined();
-  expect(collect.if).toBe("always() && steps.dedup.outputs.run == 'true'");
+  expect(collect.if).toBe('always()');
   const root = mkdtempSync(join(tmpdir(), 'wsx-base-logs-'));
   try {
     for (const file of ['apps/api/.turbo/turbo-test.log', 'packages/nested/a package/.turbo/turbo-test.log', 'apps/api/node_modules/ignored/.turbo/turbo-test.log']) {

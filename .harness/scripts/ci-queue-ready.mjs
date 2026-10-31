@@ -46,11 +46,11 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
    const body=await response.text();if(body.length>262144)throw Error('QUEUE_RULES_UNAVAILABLE');
    requireQueueProtection(JSON.parse(body));
    message='PR queue routing ready. Full acceptance has NOT run here; it must pass on merge_group before merge.';
-  }else if(process.argv.includes('--compile')){
+  }else if((process.argv.includes('--compile')||process.argv.includes('--control-plane'))){
    if(process.env.GITHUB_EVENT_NAME!=='merge_group'||!/^refs\/heads\/gh-readonly-queue\/develop\/pr-/.test(process.env.GITHUB_REF??''))throw Error('QUEUE_CONTEXT_REQUIRED');
    const apiFactory=()=>createLookupApi({repository:process.env.GITHUB_REPOSITORY,token:process.env.GH_TOKEN});
-   await waitForIntegration({apiFactory,sha:process.env.GITHUB_SHA,since:0,mode:'merge_group',onlyCompile:true});
-   message='Exact candidate compilation passed on the automatic producer; no second build is executed.';
+   await waitForIntegration({apiFactory,sha:process.env.GITHUB_SHA,since:0,mode:'merge_group',onlyCompile:!process.argv.includes('--control-plane'),onlyControlPlane:process.argv.includes('--control-plane')});
+   message=process.argv.includes('--control-plane')?'Exact candidate control-plane verification passed; no duplicate harness suite is executed.':'Exact candidate compilation passed on the automatic producer; no second build is executed.';
   }else{
    if(process.env.GITHUB_EVENT_NAME!=='merge_group')throw Error('QUEUE_CONTEXT_REQUIRED');
    requireQueueResults(JSON.parse(process.env.CI_QUEUE_NEEDS??'null'));
