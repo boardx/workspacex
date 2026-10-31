@@ -58,6 +58,7 @@ export class StripeCreditCheckout implements StripeCreditCheckoutPort{
   });
  }
  private async credit(s:TenantSession,row:Row,payment:string){
+  if(row.status==="PENDING")await s.query(K.claimOrder,[row.order_no,payment]);
   await s.query(K.ensureWallet,[row.owner_type,row.owner_id]);
   const w=(await s.query<{wallet_id:string;balance:string;total_purchased:string}>(K.lockWallet,[row.owner_type,row.owner_id])).rows[0]!;
   const balance=Number(w.balance),total=row.base_credits+row.bonus_credits;

@@ -21,14 +21,15 @@ export function billingFailure(error: unknown): string {
     const code = raw && typeof raw === "object" && "code" in raw ? raw.code : null;
     if (code === "org_billing_disabled") return "组织已关闭购买，请联系组织管理员。";
     if (code === "package_disabled" || code === "package_not_found") return "此套餐已下架，请刷新套餐。";
-    if (code === "payment_provider_not_configured") return "微信支付暂未开通。";
+    if (code === "payment_provider_not_configured") return "当前支付方式暂未开通。";
   }
   return "暂时无法确认结果，请保留当前页面并联系支持，勿重复付款。";
 }
 function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder): LiveOrder {
   const { order } = billing.operations.getPaymentOrder.out.parse(raw);
   if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
-  const qr = new URL(order.qrCodeUrl);
+  const terminalStripe=order.provider==="stripe"&&["SUCCESS","CLOSED","FAILED"].includes(order.status)&&order.qrCodeUrl==="pending";
+  const qr = new URL(terminalStripe?"https://checkout.stripe.com":order.qrCodeUrl);
   if (order.provider === "stripe" ? (qr.protocol !== "https:" || qr.hostname !== "checkout.stripe.com" || !!qr.port || !!qr.username || !!qr.password || !!qr.hash) : qr.protocol !== "weixin:" || qr.hostname !== "wxpay" || qr.pathname !== "/bizpayurl" || !qr.searchParams.get("pr") || qr.username || qr.password || qr.hash) throw new Error("INVALID_NATIVE_QR");
   if (expected && ["provider", "orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => order[key as keyof LiveOrder] !== expected[key as keyof LiveOrder])) throw new Error("ORDER_SNAPSHOT_MISMATCH");
   return order;

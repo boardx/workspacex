@@ -368,7 +368,7 @@ it("retains Stripe order and locks provider while pending",async()=>{
  expect(JSON.parse(String(f.fetcher.mock.calls.find(([,init])=>init.method==="POST")![1].body)).provider).toBe("stripe");
 });
 it("keeps an already paid Stripe creation response and refreshes its credits",async()=>{
- live({providers:["stripe"],post:()=>reply({order:{...order,provider:"stripe",qrCodeUrl:"https://checkout.stripe.com/c/pay/test",status:"SUCCESS",paidAt:new Date().toISOString()}})});
+ live({providers:["stripe"],post:()=>reply({order:{...order,provider:"stripe",qrCodeUrl:"pending",status:"SUCCESS",paidAt:new Date().toISOString()}})});
  await generate();
  expect(await screen.findByTestId("billing-success-badge")).toBeTruthy();
  expect(screen.queryByRole("link",{name:"前往 Stripe 付款"})).toBeNull();
