@@ -43,7 +43,7 @@ it('resets history pagination when the account changes',async()=>{
  const original=globalThis.fetch,calls:Array<{token:string;offset:number}>=[];
  vi.stubGlobal('fetch',vi.fn((url:string,options:RequestInit)=>{
   if(!new URL(url).pathname.endsWith('/history'))return original(url,options);
-  const offset=Number(new URL(url).searchParams.get('offset')),token=(options.headers as Record<string,string>).Authorization;calls.push({token,offset});
+  const offset=Number(new URL(url).searchParams.get('offset')),token=new Headers(options.headers).get('Authorization') ?? '';calls.push({token,offset});
   return Promise.resolve(new Response(JSON.stringify({items:token==='Bearer session-b'&&offset>0?[]:[row],hasMore:false})));
  }));
  fireEvent.click(screen.getByRole('button',{name:'下一页'}));await screen.findByRole('table',{name:'订阅历史'});
