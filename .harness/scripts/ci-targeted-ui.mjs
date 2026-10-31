@@ -1,5 +1,5 @@
 /** Narrow opt-in UI selection. Unknown changes always keep full regression. */
-import {readFileSync,writeFileSync,appendFileSync,mkdirSync} from 'node:fs';
+import {readFileSync,writeFileSync,appendFileSync,mkdirSync,realpathSync,existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {resolve,dirname} from 'node:path';
@@ -77,8 +77,8 @@ export function verifyTargetedPlan(plan,options){
  if(expected.mode!=='targeted-ui'||JSON.stringify(plan)!==JSON.stringify(expected))throw Error('TARGETED_PLAN_MISMATCH');
  return true;
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
- if(!/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA??''))throw Error('SOURCE_SHA_REQUIRED');
+if(process.argv[1]&&existsSync(resolve(process.argv[1]))&&import.meta.url===pathToFileURL(realpathSync(resolve(process.argv[1]))).href){
+ if(!/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA??'')||/^0+$/.test(process.env.GITHUB_SHA??''))throw Error('SOURCE_SHA_REQUIRED');
  const preflight=process.argv[2]==='--preflight';
  const plan=planTargeted({baseSha:process.env.CI_SCOPE_BASE_SHA,headSha:process.env.GITHUB_SHA,preflight});
  if(preflight){const candidate=plan.mode==='candidate-ui';if(process.env.GITHUB_OUTPUT)appendFileSync(process.env.GITHUB_OUTPUT,`candidate=${candidate}\n`);console.log(JSON.stringify({candidate}));process.exit(0);}

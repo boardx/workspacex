@@ -15,7 +15,7 @@ export function runUnit(plan,directory,cwd=resolve(root,'apps/web'),context=runI
  cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});const path=resolve(directory,'report.json');
  const files=plan.suites.find(x=>x.id==='web-unit')?.files.map(x=>x.file);
  if(!files?.length)throw Error('MISSING_UNIT_SELECTION');
- const result=spawnSync(process.execPath,[resolve(root,'node_modules/vitest/vitest.mjs'),'run','--bail=1','--reporter=json',`--outputFile=${path}`,...files],{cwd,encoding:'utf8',maxBuffer:32*1024*1024,timeout:20*60_000});
+ const result=spawnSync(process.execPath,[resolve(root,'node_modules/vitest/vitest.mjs'),'run','--bail=1','--reporter=json',`--outputFile=${path}`,...files],{cwd,env:{...process.env,GH_TOKEN:undefined,GITHUB_TOKEN:undefined},encoding:'utf8',maxBuffer:32*1024*1024,timeout:20*60_000});
  writeFileSync(resolve(directory,'run.log'),(result.stdout??'')+(result.stderr??''));
  if(result.error||result.status!==0)throw Error('TARGETED_UNIT_FAILED');
  const evidence=unitEvidence(plan,JSON.parse(readFileSync(path,'utf8')),cwd,context);
@@ -25,8 +25,8 @@ export function runBrowser(plan,directory,cwd=resolve(root,'apps/web'),context=r
  cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});
  const files=plan.suites.find(x=>x.id==='chat-ui')?.files.map(x=>x.file);
  if(!files?.length)throw Error('MISSING_BROWSER_SELECTION');
- const discovery=invoke(null,1,true,{...options,cwd,files}).report;
- const result=invoke(null,1,false,{...options,cwd,files});
+ const discovery=invoke(null,1,true,{...options,cwd,files,stripTokens:true}).report;
+ const result=invoke(null,1,false,{...options,cwd,files,stripTokens:true});
  writeFileSync(resolve(directory,'report.json'),JSON.stringify(result.report));
  if(result.status!==0)throw Error('TARGETED_BROWSER_FAILED');
  const evidence=browserEvidence(plan,discovery,result.report,cwd,context,result.status);

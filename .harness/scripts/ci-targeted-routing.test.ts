@@ -17,3 +17,15 @@ it.each(['base','e2e'])('requires complete %s outcomes for either verified route
  }
 });
 it('retains full browser actual verdict requirements',()=>{const good=needs('e2e','full');good['fullstack-smoke'].outputs.verdict='failure';expect(()=>requireRoute('e2e',good)).toThrow();});
+import {spawnSync} from 'node:child_process';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {resolve} from 'node:path';
+it('actual CLI retains full prerequisites and cannot accept UI merely from green job results',()=>{
+ const directory=mkdtempSync(resolve(tmpdir(),'routed-acceptance-'));
+ try{
+  const run=(mode:string)=>spawnSync(process.execPath,['.harness/scripts/ci-targeted-routing.mjs','base'],{encoding:'utf8',env:{...process.env,CI_ROUTED_NEEDS:JSON.stringify(needs('base',mode)),GITHUB_OUTPUT:undefined,GITHUB_STEP_SUMMARY:undefined,GITHUB_REPOSITORY:'fixture/forbidden',GH_TOKEN:'',GITHUB_SHA:'a'.repeat(40),GITHUB_RUN_ID:'1',GITHUB_RUN_ATTEMPT:'1',RUNNER_TEMP:directory}});
+  expect(run('full').status).toBe(0);
+  const selected=run('targeted-ui');expect(selected.status).not.toBe(0);expect(selected.stderr).toContain('UNTRUSTED_REPOSITORY');
+ }finally{rmSync(directory,{recursive:true,force:true});}
+});

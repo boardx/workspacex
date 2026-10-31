@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {tmpdir} from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -28,12 +29,17 @@ export function invoke(shard,count,list=true, options={}) {
   if(list) args.push('--list'); else args.push('--max-failures=1');
   if(shard) args.push(`--shard=${shard}/${count}`);
   if(options.files){if(!Array.isArray(options.files)||!options.files.length||options.files.some(file=>typeof file!=='string'||file.startsWith('/')||file.startsWith('-')||file.split('/').includes('..')||!/^[a-zA-Z0-9_./-]+\.spec\.ts$/.test(file)))throw Error('INVALID_FILE_SELECTION');args.push(...options.files);}
-  const result=spawnSync('pnpm',args,{cwd:options.cwd??resolve(root,'apps/web'),env:{...process.env,...(list?sentinel:{}),PLAYWRIGHT_JSON_OUTPUT_NAME:''},encoding:'utf8',timeout:list?120000:3600000,maxBuffer:32*1024*1024});
-  if(result.error) throw result.error;
-  if(!list && result.stderr) process.stderr.write(result.stderr);
-  let report; try { report=JSON.parse(result.stdout); } catch {throw Error(`INVALID_PLAYWRIGHT_REPORT: ${result.stderr}`);}
-  if(list&&result.status!==0) throw Error('DISCOVERY_FAILED');
-  return {report,status:result.status??1};
+  const scratch=mkdtempSync(resolve(tmpdir(),'chat-json-report-')),output=resolve(scratch,'report.json');
+  try{
+    const env={...process.env,...(list?sentinel:{}),PLAYWRIGHT_JSON_OUTPUT_NAME:output,...(options.stripTokens?{GH_TOKEN:undefined,GITHUB_TOKEN:undefined}:{})};
+    const result=spawnSync('pnpm',args,{cwd:options.cwd??resolve(root,'apps/web'),env,encoding:'utf8',timeout:list?120000:3600000,maxBuffer:32*1024*1024});
+    if(result.error) throw result.error;
+    if(!list){if(result.stdout)process.stdout.write(result.stdout);if(result.stderr)process.stderr.write(result.stderr);}
+    if(list&&result.status!==0) throw Error('DISCOVERY_FAILED');
+    let report;try{report=JSON.parse(readFileSync(output,'utf8'));}catch{throw Error('INVALID_PLAYWRIGHT_REPORT');}
+    return {report,status:result.status??1};
+  }finally{rmSync(scratch,{recursive:true,force:true});}
+
 }
 export function discoverCoverage(plan,options={}) {
   const full=identities(invoke(null,plan.count,true,options).report);

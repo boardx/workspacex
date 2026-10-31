@@ -831,7 +831,7 @@ jobs:
   # Public journey commands each create and clean their own database isolation scope.
 
   targeted-ui-browser:
-    if: needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
+    if: github.event_name == 'pull_request' && needs.doc-smoke-scope.outputs.mode == 'targeted-ui'
     needs: doc-smoke-scope
     runs-on: ubuntu-latest
     timeout-minutes: 40

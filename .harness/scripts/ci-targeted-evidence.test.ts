@@ -17,7 +17,7 @@ import {browserEvidence,verifyBrowserEvidence,verifyEvidence} from './ci-targete
 it('executes a real selected browser fixture and rejects missing, replayed and changed suite evidence',()=>{
  const cwd=resolve('apps/web'),dir=mkdtempSync(resolve(cwd,'.targeted-browser-'));
  try{
-  writeFileSync(resolve(dir,'playwright.config.ts'),`import {defineConfig} from '@playwright/test';export default defineConfig({testDir:'.',workers:1,projects:[{name:'selected'}]});`);
+  writeFileSync(resolve(dir,'playwright.config.ts'),`console.log('configuration diagnostic outside JSON');import {defineConfig} from '@playwright/test';export default defineConfig({testDir:'.',workers:1,projects:[{name:'selected'}]});`);
   for(const file of ['a','b'])writeFileSync(resolve(dir,file+'.spec.ts'),`import {test,expect} from '@playwright/test';test('actual ${file}',()=>expect(1).toBe(1));`);
   const file=relative(cwd,resolve(dir,'a.spec.ts'));
   const options={cwd,config:resolve(dir,'playwright.config.ts'),files:[file]};

@@ -2,6 +2,9 @@ import {expect,it} from 'vitest';
 import {inspectUiBoundary,planTargeted,verifyTargetedPlan} from './ci-targeted-ui.mjs';
 const original='import * as React from "react"; import {cn} from "@/lib/utils"; export function UI({onUseTemplate}:{onUseTemplate:(x:string)=>void}){return <button className={cn("a")} onClick={()=>onUseTemplate("a")}>Hello</button>}';
 it('permits local display changes but rejects new runtime edges and public API changes',()=>{
+ const actual=readFileSync('.harness/config/ci-targeted-ui.json','utf8');
+ const component=readFileSync(JSON.parse(actual).sourceFile,'utf8');
+ expect(inspectUiBoundary(component,component.replace('今天，想完成什么？','今天，你想完成什么？'))).toBe(true);
  expect(inspectUiBoundary(original,original.replace('Hello','Hi'))).toBe(true);
  expect(inspectUiBoundary(original.replace('react','other'),original.replace('react','other'))).toBe(false);
  for(const changed of [original.replace('Hello','<iframe/>'),original.replace('Hello','{fetch("/api")}'),original.replace('react','other'),original.replace('onUseTemplate:(x:string)','onUseTemplate:(x:number)'),original.replace('<button','<button onMouseOver={()=>onUseTemplate("x")}'),original.replace('Hello','{eval("x")}'),original.replace('Hello','{localStorage.length}')])expect(inspectUiBoundary(original,changed)).toBe(false);
@@ -41,3 +44,19 @@ it('uses real source history and suite hashes; unknown, missing, renamed and non
   expect(inspect(head,base).mode).toBe('full');
  }finally{rmSync(dir,{recursive:true,force:true});}
 },30000);
+it('keeps disabled/full preflight dependency-free and never publishes an invalid source identity',()=>{
+ const dir=mkdtempSync(resolve(tmpdir(),'ui-preflight-cli-'));
+ try{
+  const script=resolve(dir,'.harness/scripts/ci-targeted-ui.mjs');mkdirSync(dirname(script),{recursive:true});
+  writeFileSync(script,readFileSync('.harness/scripts/ci-targeted-ui.mjs'));
+  mkdirSync(resolve(dir,'.harness/config'),{recursive:true});
+  const p=JSON.parse(readFileSync('.harness/config/ci-targeted-ui.json','utf8'));p.enabled=false;
+  writeFileSync(resolve(dir,'.harness/config/ci-targeted-ui.json'),JSON.stringify(p));
+  const output=resolve(dir,'output'),env={...process.env,GITHUB_SHA:'a'.repeat(40),GITHUB_OUTPUT:output};
+  expect(JSON.parse(execFileSync(process.execPath,[script,'--preflight'],{env,encoding:'utf8'})).candidate).toBe(false);
+  expect(readFileSync(output,'utf8')).toContain('candidate=false');
+  const planFile=resolve(dir,'plan.json');execFileSync(process.execPath,[script,planFile],{env});
+  expect(JSON.parse(readFileSync(planFile,'utf8')).mode).toBe('full');
+  expect(()=>execFileSync(process.execPath,[script],{env:{...env,GITHUB_SHA:'0'.repeat(40)},stdio:'pipe'})).toThrow();
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});

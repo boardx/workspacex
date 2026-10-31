@@ -2,6 +2,7 @@ import {readFileSync} from 'node:fs';
 import {parse} from 'yaml';
 import {describe,expect,it} from 'vitest';
 import {CURRENT_POLICY} from './lib/ci-check-policy.mjs';
+import {UI_PRODUCERS} from './ci-targeted-routing.mjs';
 import {evaluateIf} from './lib/ci-job-conditions.mjs';
 
 const files=['harness-verify','backend-gates','harness-acceptance'];
@@ -22,7 +23,8 @@ function defects(workflows:Record<string,any>){
    const needs=typeof job.needs==='string'?[job.needs]:job.needs??[];
    for(const dependency of needs)check(dependency);
    const needsResults=new Map(needs.map((dependency:string)=>[dependency,'success']));
-   if(evaluateIf(job.if??'',probe,{needsResults})!==true)errors.push(`${file}/${name}:condition`);
+   const active=evaluateIf(job.if??'',probe,{needsResults});
+   if(UI_PRODUCERS.includes(name)?active!==false:active!==true)errors.push(`${file}/${name}:condition`);
    for(const step of job.steps??[]){
     if(step.uses?.startsWith('actions/checkout@')&&/pull_request|head_ref/.test(step.with?.ref??''))errors.push(`${file}/${name}:checkout`);
    }

@@ -311,6 +311,9 @@ function probeContext(probe, { needsResults }) {
   return {
     lookup(pathExpr) {
       if (table.has(pathExpr)) return table.get(pathExpr);
+      // Static full-route probe inventories the unchanged broad fallback. UI
+      // routing has separate outcome/evidence contract tests; unknown fields stay unknown.
+      if(pathExpr==='needs.doc-smoke-scope.outputs.mode'&&needsResults.get('doc-smoke-scope')==='success')return probe.regressionMode??'full';
       // `inputs.x` / `github.event.inputs.x`：只有 workflow_dispatch / workflow_call
       // 才有值，两个探针事件下都是空。
       if (/^(github\.event\.)?inputs\./.test(pathExpr)) return null;
@@ -444,12 +447,13 @@ function reachableJobs(workflow, probe) {
       if (needs.some((parent) => !verdicts.has(parent))) continue;
       let reachable = admitted.admits;
       let why = admitted.why;
-      if (reachable && needs.some((parent) => verdicts.get(parent).reachable === false)) {
+      if (reachable && needs.some((parent) => verdicts.get(parent).reachable === false) && !/\balways\s*\(/.test(job?.if??'')) {
         reachable = false;
         why = `needs 的父 job 在该事件下不跑（${needs.join(", ")}）`;
       }
       if (reachable) {
-        const value = evaluateIf(job?.if, probe, { needsResults });
+        const directResults=new Map(needs.map(name=>[name,needsResults.get(name)]));
+        const value = evaluateIf(job?.if, probe, { needsResults:directResults });
         if (value !== true) {
           reachable = false;
           why = value === UNKNOWN ? `job if: 判不出来（保守当作不跑）` : `job if: 在该事件下为假`;

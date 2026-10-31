@@ -11,7 +11,7 @@ describe('directory and full-stack smoke execute independently without losing co
     expect(jobs['directory-smoke']).toBeDefined();
     expect(jobs['directory-smoke']['timeout-minutes']).toBe(30);
     for (const name of ['fullstack-smoke', 'directory-smoke']) {
-      expect(jobs[name].needs).toBe('doc-smoke-scope');
+      expect(jobs[name].needs).toEqual(['doc-smoke-scope']);
       expect(jobs[name].needs).not.toContain('fullstack-smoke');
       expect(jobs[name].needs).not.toContain('directory-smoke');
       expect(jobs[name].outputs.verdict).toBe('${{ steps.smoke-verdict.outputs.verdict }}');

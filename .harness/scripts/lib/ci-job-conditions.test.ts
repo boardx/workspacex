@@ -137,3 +137,12 @@ describe("job 的 if: 表达式", () => {
     expect(evaluateIf("${{ github.event_name == 'pull_request' }}", PR)).toBe(true);
   });
 });
+
+it('models only the declared regression plan and preserves unknown contexts',()=>{
+ const expression="needs.doc-smoke-scope.outputs.mode == 'targeted-ui'";
+ const needsResults=new Map([['doc-smoke-scope','success']]);
+ expect(evaluateIf(expression,PR,{needsResults})).toBe(false);
+ expect(evaluateIf(expression,{...PR,regressionMode:'targeted-ui'},{needsResults})).toBe(true);
+ expect(evaluateIf(expression,PR)).toBe(UNKNOWN);
+ expect(evaluateIf("needs.unreviewed.outputs.mode == 'full'",PR,{needsResults})).toBe(UNKNOWN);
+});
