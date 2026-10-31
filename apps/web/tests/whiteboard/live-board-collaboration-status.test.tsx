@@ -3,12 +3,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { WhiteboardConnectionState } from "@/lib/whiteboard-provider";
 import { BoardSyncIndicator, type BoardSyncVisualState, type BoardSyncPhase } from "@/components/whiteboard/board-sync-indicator";
 
-const harness = vi.hoisted(() => ({ state: null as ((value: WhiteboardConnectionState) => void) | null, retry: vi.fn(), close: vi.fn(), update:vi.fn(), confirm:vi.fn(), readUndo:vi.fn(), clearUndo:vi.fn(), recordUndo:vi.fn(), organizeUndo:null as unknown, organizeOnUndone:null as null|(()=>void), editor:null as null|{organizeFitRequest?:unknown;followViewport:unknown;onManualViewportChange:()=>void} }));
+const harness = vi.hoisted(() => ({ state: null as ((value: WhiteboardConnectionState) => void) | null, retry: vi.fn(), close: vi.fn(), update:vi.fn(), confirm:vi.fn(), readUndo:vi.fn(), clearUndo:vi.fn(), recordUndo:vi.fn(), organizeUndo:null as unknown, organizeOnUndone:null as null|(()=>void), editor:null as null|{organizeFitRequest?:unknown;followViewport:unknown;onViewportObserved?:(viewport:{x:number;y:number;zoom:number})=>void;onManualViewportChange:()=>void} }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }), useSearchParams:()=>new URLSearchParams() }));
 vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session: { userId: "owner-1" } }) }));
 vi.mock("@/lib/live-whiteboard", () => ({ getBoard: vi.fn(async () => ({ id: "00000000-0000-4000-8000-000000000007", name: "协作板", ownerId: "owner-1", role: "owner", archived: false, createdAt: "2026-09-26T00:00:00.000Z", updatedAt: "2026-09-26T00:00:00.000Z" })) }));
 vi.mock("@/lib/whiteboard-provider", () => ({ WhiteboardProvider: class { constructor(_doc: unknown, _id: string, callback: (value: WhiteboardConnectionState) => void) { harness.state = callback; } awareness() {} retryNow = harness.retry; close = harness.close; } }));
-vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: (props: { dockExtension?:React.ReactNode;status:string;syncState?:BoardSyncVisualState;syncPhase?:BoardSyncPhase;syncDetails?:string;onRetrySync?:()=>void;readOnly:boolean;commentsReadOnly:boolean;organizeFitRequest?:unknown;followViewport:unknown;onManualViewportChange:()=>void }) => {harness.editor=props;return <div data-testid="editor-status" data-comments-readonly={String(props.commentsReadOnly)} data-sync-phase={props.syncPhase}>{props.status}<BoardSyncIndicator status={props.status} syncState={props.syncState} syncPhase={props.syncPhase} syncDetails={props.syncDetails} readOnly={props.readOnly} onRetry={props.onRetrySync}/>{props.dockExtension}</div>;} }));
+vi.mock("@/components/whiteboard/collaborative-editor", () => ({ CollaborativeEditor: (props: { dockExtension?:React.ReactNode;status:string;syncState?:BoardSyncVisualState;syncPhase?:BoardSyncPhase;syncDetails?:string;onRetrySync?:()=>void;readOnly:boolean;commentsReadOnly:boolean;organizeFitRequest?:unknown;followViewport:unknown;onViewportObserved?:(viewport:{x:number;y:number;zoom:number})=>void;onManualViewportChange:()=>void }) => {harness.editor=props;return <div data-testid="editor-status" data-comments-readonly={String(props.commentsReadOnly)} data-sync-phase={props.syncPhase}>{props.status}<BoardSyncIndicator status={props.status} syncState={props.syncState} syncPhase={props.syncPhase} syncDetails={props.syncDetails} readOnly={props.readOnly} onRetry={props.onRetrySync}/>{props.dockExtension}</div>;} }));
 vi.mock("@/components/whiteboard/board-organize-controls",()=>({BoardOrganizeControls:({onProposal,undo,onUndone}:{onProposal:(value:unknown)=>void;undo:unknown;onUndone:()=>void})=>{harness.organizeUndo=undo;harness.organizeOnUndone=onUndone;return <button onClick={()=>onProposal({proposalId:'local-proposal'})}>Generate test proposal</button>;}}));
 vi.mock("@/components/whiteboard/board-presentation-controls",()=>({BoardPresentationControls:()=>null}));
 vi.mock("@/lib/whiteboard-operation-client",()=>({readPresentation:vi.fn(async()=>({revision:3,presenterId:'presenter',followers:['owner-1'],viewport:{x:300,y:200,zoom:2}})),updatePresentation:(...args:unknown[])=>harness.update(...args),readAIProposal:vi.fn(),joinBoardRoom:vi.fn(),readBoardUndoReceipt:(...args:unknown[])=>harness.readUndo(...args),clearBoardUndoReceipt:(...args:unknown[])=>harness.clearUndo(...args),recordBoardUndoReceipt:(...args:unknown[])=>harness.recordUndo(...args),confirmAIProposal:(...args:unknown[])=>harness.confirm(...args),cancelAIProposal:vi.fn()}));
@@ -133,4 +133,25 @@ it('restores the last server-authorized AI undo target after the board remounts'
  act(()=>harness.organizeOnUndone?.());
  expect(harness.clearUndo).toHaveBeenCalledWith(undo.boardId,undo.operationId);
  await waitFor(()=>expect(harness.organizeUndo).toBeNull());
+});
+
+it('acknowledges a delayed presentation before publishing viewport under the committed role',async()=>{
+ vi.useFakeTimers();const original=vi.mocked(readPresentation).getMockImplementation();
+ let resolveRead!:(value:typeof pollingState)=>void;
+ vi.mocked(readPresentation).mockImplementationOnce(()=>new Promise(resolve=>{resolveRead=resolve;}));
+ try{
+  render(<LiveBoard boardId={pollingState.boardId}/>);
+  await act(async()=>{await Promise.resolve();await Promise.resolve();});
+  const region=screen.getByTestId('board-editor-region');
+  act(()=>harness.editor?.onViewportObserved?.({x:0,y:0,zoom:1.1}));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(100);});expect(harness.update).not.toHaveBeenCalled();
+  expect(region).toHaveAttribute('data-presentation-revision','');
+  await act(async()=>{resolveRead({...pollingState,revision:7,presenterId:'owner-1',followers:[]});await Promise.resolve();});
+  expect(region).toHaveAttribute('data-presentation-revision','7');
+  expect(region).toHaveAttribute('data-presentation-presenter','owner-1');
+  expect(region).toHaveAttribute('data-presentation-following','false');
+  act(()=>harness.editor?.onViewportObserved?.({x:0,y:0,zoom:1.2}));
+  await act(async()=>{await vi.advanceTimersByTimeAsync(100);});
+  expect(harness.update).toHaveBeenCalledWith(pollingState.boardId,'default',{type:'viewport',actorId:'owner-1',expectedRevision:7,viewport:{x:0,y:0,zoom:1.2}},null);
+ }finally{cleanup();if(original)vi.mocked(readPresentation).mockImplementation(original);vi.useRealTimers();}
 });
