@@ -19,9 +19,10 @@ function defects(workflows:Record<string,any>){
    if(visited.has(name))return;visited.add(name);
    const job=w.jobs[name];
    if(!job){errors.push(`${file}/${name}:missing`);return;}
-   if(evaluateIf(job.if??'',probe)!==true)errors.push(`${file}/${name}:condition`);
    const needs=typeof job.needs==='string'?[job.needs]:job.needs??[];
    for(const dependency of needs)check(dependency);
+   const needsResults=new Map(needs.map((dependency:string)=>[dependency,'success']));
+   if(evaluateIf(job.if??'',probe,{needsResults})!==true)errors.push(`${file}/${name}:condition`);
    for(const step of job.steps??[]){
     if(step.uses?.startsWith('actions/checkout@')&&/pull_request|head_ref/.test(step.with?.ref??''))errors.push(`${file}/${name}:checkout`);
    }

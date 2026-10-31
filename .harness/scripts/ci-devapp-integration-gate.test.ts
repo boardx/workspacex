@@ -100,3 +100,15 @@ it('can admit completed compile jobs while unrelated queue work is still running
  expect(integrationVerdict(active,[{...jobs[0],conclusion:'failure'}],context).state).toBe('failure');
  expect(()=>integrationVerdict({...active,event:'push'},jobs,context)).toThrow('IDENTITY');
 });
+
+it('reuses only the exact candidate control-plane result while compile is still running',async()=>{
+ const qrun={...run,path:'.github/workflows/harness-verify.yml',event:'merge_group',head_branch:'gh-readonly-queue/develop/pr-6064-'+ 'b'.repeat(40),status:'in_progress',conclusion:null};
+ const api=async(path:string)=>{
+  if(path==='/actions/workflows/harness-verify.yml')return{id:7,path:qrun.path,state:'active'};
+  if(path.includes('/runs?'))return{total_count:1,workflow_runs:[qrun]};
+  if(path.includes('/jobs?'))return{total_count:1,jobs:[{name:'verify-control-plane',run_id:qrun.id,run_attempt:qrun.run_attempt,head_sha:sha,status:'completed',conclusion:'success'}]};
+  if(path===`/actions/runs/${qrun.id}`)return qrun;
+  throw Error('unexpected producer');
+ };
+ expect((await waitForIntegration({apiFactory:()=>api,sha,since:0,mode:'merge_group',onlyControlPlane:true})).state).toBe('success');
+});

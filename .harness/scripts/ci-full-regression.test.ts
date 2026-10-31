@@ -13,10 +13,10 @@ const success = () => Object.fromEntries(FULL_REGRESSION_LANES.map(name => [name
 
 describe('full regression preserves all independent lane verdicts', () => {
   it('requires one base producer and one browser producer without repeating verify:full', () => {
-    const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', 'TURBO_FORCE=true pnpm run verify:ci-base-other', 'pnpm run verify:chat-read', 'pnpm run verify:self-service-profile'];
+    const commands = ['pnpm run verify:digital-directory-cards', 'pnpm run verify:fullstack-product', 'pnpm run verify:fullstack-board', "--filter='!@repo/api' --filter='!web'", 'ci-chat-shards.mjs --run' , 'pnpm run verify:self-service-profile'];
     expect(FULL_REGRESSION_LANES).toHaveLength(commands.length);
     for (const command of commands) {
-      const matches = FULL_REGRESSION_LANES.filter(name => workflow.jobs[name].steps.some((s: {run?: string}) => s.run?.includes(command)));
+      const matches = Object.keys(workflow.jobs).filter(name => workflow.jobs[name].steps.some((s: {run?: string}) => s.run?.includes(command)));
       expect(matches).toHaveLength(1);
     }
     const results = { ...success(), 'fullstack-smoke': { result: 'success', outputs: { verdict: 'success' } } };
@@ -27,11 +27,18 @@ describe('full regression preserves all independent lane verdicts', () => {
   });
   it('keeps a visible journey log on success and preserves piped command failures', () => {
     for (const name of ['chat-read', 'self-service-profile']) {
-      const steps = workflow.jobs[name].steps;
-      const execute = steps.find((s: { run?: string }) => s.run?.includes(`pnpm run verify:${name}`));
+      const steps = workflow.jobs[name==='chat-read'?'chat-test-shards':name].steps;
+      const execute = steps.find((s: { run?: string }) => s.run?.includes(name==='chat-read'?'ci-chat-shards.mjs --run':`pnpm run verify:${name}`));
       expect(execute.run).toContain('set -o pipefail');
       expect(execute.run).toContain(`| tee phases/phase-01-run-a-project/evidence/ci/${name}.log`);
-      const upload = steps.find((s: { uses?: string }) => s.uses?.startsWith('actions/upload-artifact@'));
+      const upload = steps.find((s: { uses?: string, with?: {path?:string} }) => s.uses?.startsWith('actions/upload-artifact@') && s.with?.path?.includes(`evidence/ci/${name}.log`));
+      expect(upload).toBeDefined();
+      expect(upload.if).toContain('always()');
+      if(name==='chat-read'){
+        const metadata=steps.find((s:any)=>s.uses?.startsWith('actions/upload-artifact@') && s.with?.name?.startsWith('parallel-chat-'));
+        expect(metadata.with.path).toBe('${{ runner.temp }}/shard/');
+        expect(metadata.if).toBe('always()');
+      }
       expect(upload.with.path).toContain(`evidence/ci/${name}.log`);
     }
   });
@@ -51,13 +58,14 @@ describe('full regression preserves all independent lane verdicts', () => {
     expect(aggregate.if).toContain('always()');
     for (const name of FULL_REGRESSION_LANES.filter(name => !['fullstack-smoke', 'directory-smoke', 'board-smoke'].includes(name))) {
       const job = workflow.jobs[name];
-      if(name==='full-regression-core')expect(job.needs).toEqual(['base-compile','base-api-plan','base-api-shards','base-api-exclusive']);
-      else expect(job.needs).toBeUndefined();
+      if(name==='full-regression-core')expect(job.needs).toEqual(['base-compile','base-api-plan','base-api-shards','base-api-exclusive','base-package-tests','base-control-plane','web-test-plan','web-test-shards']);
+      else if(name==='chat-read')expect(job.needs).toEqual(['chat-test-plan','chat-test-shards']);else expect(job.needs).toBeUndefined();
       expect(job['continue-on-error']).toBeUndefined();
       expect(job.if).toContain("github.event_name != 'pull_request'");
       expect(job.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
-      const measured = job.steps.find((step: Record<string, unknown>) => step['timeout-minutes']);
-      expect(measured['timeout-minutes']).toBeLessThan(job['timeout-minutes']);
+      const producer=workflow.jobs[name==='full-regression-core'?'base-package-tests':name==='chat-read'?'chat-test-shards':name];
+      const measured = producer.steps.find((step: Record<string, unknown>) => step['timeout-minutes']);
+      expect(measured['timeout-minutes']).toBeLessThan(producer['timeout-minutes']);
     }
     expect(aggregate.if).toContain("inputs.verification_lane != 'base'");
     expect(aggregate.if).toContain("github.event_name != 'workflow_dispatch' || inputs.run_e2e_full");
