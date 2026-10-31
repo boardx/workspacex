@@ -55,7 +55,7 @@ describe('preinstalled fullstack CI runtime', () => {
   });
   it('requires the workflow explicit canonical command and refuses partial or altered coverage', () => {
     expect(() => assertRuntimeCommand('run', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).not.toThrow();
-    expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry'])).not.toThrow();
+    expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', '--filter', 'web', 'run', 'e2e:trace-geometry', '--max-failures=1'])).not.toThrow();
     expect(() => assertRuntimeCommand('geometry', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
     expect(() => assertRuntimeCommand('run', ['--', 'pnpm', 'run', 'verify:fullstack-smoke', '--grep', 'one'])).toThrow();
   });
@@ -65,7 +65,7 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(args).not.toContain('exec pnpm run verify:fullstack-smoke');
   });
   it('runs complete sticky coverage in the sealed browser environment without import credentials', () => {
-    const command = ['--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts'];
+    const command = ['--', 'pnpm', '--filter', 'web', 'exec', 'playwright', 'test', '--config', 'playwright.chat-sticky-browser.config.ts', '--max-failures=1'];
     expect(() => assertRuntimeCommand('sticky', command)).not.toThrow();
     expect(() => assertRuntimeCommand('sticky', [...command, '--grep', 'one'])).toThrow();
     expect(() => assertRuntimeCommand('sticky', ['--', 'pnpm', 'run', 'verify:fullstack-smoke'])).toThrow();
@@ -108,4 +108,13 @@ describe('preinstalled fullstack CI runtime', () => {
     expect(lane).toContain('Upload runtime evidence (success or failure)');
     expect(lane).toContain('Preserve reused verification verdict');
   });
+});
+
+it('accepts actual sticky and geometry workflow commands with first-failure limits',()=>{
+ for(const file of ['harness-verify','harness-acceptance']){
+  const source=readFileSync(`.github/workflows/${file}.yml`,'utf8');
+  const commands=[...source.matchAll(/ci-fullstack-runtime\.mjs (sticky|geometry) (-- [^\n]+)/g)];
+  expect(commands).toHaveLength(2);
+  for(const [,mode,args] of commands)expect(()=>assertRuntimeCommand(mode,args.split(' 2>&1')[0].trim().split(/\s+/))).not.toThrow();
+ }
 });

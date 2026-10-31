@@ -20,7 +20,7 @@ test('selected executable web test installs its core Chromium shell before test,
   assert.deepEqual(r.calls[0].args, ['turbo', 'run', 'test', '--affected', '--filter=!@repo/api', '--dry=json']);
   assert.equal(r.calls[1].command, process.execPath);
   assert.deepEqual(r.calls[1].args, ['/checkout/apps/web/node_modules/playwright-core/cli.js', 'install', '--with-deps', '--only-shell', 'chromium']);
-  assert.deepEqual(r.calls[2].args, r.calls[0].args.slice(0, -1));
+  assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--', '--bail=1']);
   for (const c of r.calls) { assert.equal(c.options.env, r.env); assert.equal(c.options.cwd, '/checkout'); }
 });
 for (const [name, tasks, exists] of [
@@ -37,13 +37,13 @@ for (const [name, tasks, exists] of [
 test('fork plan and actual test both retain API coverage', () => {
   const r = recording([], { env: { IS_FORK_PR: 'true' } }); r.run();
   assert.deepEqual(r.calls[0].args, ['turbo', 'run', 'test', '--affected', '--dry=json']);
-  assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--affected']);
+  assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--affected', '--', '--bail=1']);
 });
 test('fork and same-repository executable web plans install before their identical actual test', () => {
   for (const fork of ['true', 'false']) {
     const r = recording([{ taskId: '@repo/api#test', command: 'vitest run' }, web], { env: { IS_FORK_PR: fork, TURBO_SCM_BASE: 'origin/base', PLAYWRIGHT_BROWSERS_PATH: '/runner/temp/browser' } });
     r.run(); assert.equal(r.calls.length, 3);
-    assert.deepEqual(r.calls[2].args, r.calls[0].args.slice(0, -1));
+    assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--', '--bail=1']);
     assert.equal(r.calls[0].args.includes('--filter=!@repo/api'), fork === 'false');
     assert.ok(r.calls[1].args.includes('install'));
   }
@@ -99,8 +99,8 @@ test('selected cloud fixtures run fresh before remaining affected coverage witho
       { env: { IS_FORK_PR: fork, TURBO_SCM_BASE: 'origin/exact-base' } });
     r.run();
     assert.equal(r.calls.length, 3);
-    assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--filter=@repo/cloud-deploy', '--force']);
-    assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--filter=!@repo/cloud-deploy']);
+    assert.deepEqual(r.calls[1].args, ['turbo', 'run', 'test', '--filter=@repo/cloud-deploy', '--force', '--', '--bail=1']);
+    assert.deepEqual(r.calls[2].args, [...r.calls[0].args.slice(0, -1), '--filter=!@repo/cloud-deploy', '--', '--bail=1']);
     for (const call of r.calls) assert.equal(call.options.env, r.env);
   }
 });
@@ -118,7 +118,7 @@ test('cloud fixture failure fails the gate before other packages can start', () 
 test('nonexistent cloud task does not add an isolated lane or remove coverage', () => {
   const r = recording([{ ...cloud, command: '<NONEXISTENT>' }]); r.run();
   assert.equal(r.calls.length, 2);
-  assert.deepEqual(r.calls[1].args, r.calls[0].args.slice(0, -1));
+  assert.deepEqual(r.calls[1].args, [...r.calls[0].args.slice(0, -1), '--', '--bail=1']);
 });
 
 test('browser preparation finishes before selected cloud lane and remaining web coverage', () => {

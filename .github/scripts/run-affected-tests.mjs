@@ -51,10 +51,10 @@ export function runAffectedTests({
   const selectedCloud = plan.tasks.some(task => task.taskId === '@repo/cloud-deploy#test' &&
     typeof task.command === 'string' && task.command.length > 0 && task.command !== '<NONEXISTENT>');
   if (selectedCloud) {
-    run('pnpm', ['turbo', 'run', 'test', '--filter=@repo/cloud-deploy', '--force'], { stdio: 'inherit' });
+    run('pnpm', ['turbo', 'run', 'test', '--filter=@repo/cloud-deploy', '--force', '--', '--bail=1'], { stdio: 'inherit' });
   }
   // Same base, fork filter and browser path; exclude only a package that just passed in full.
-  run('pnpm', [...args, ...(selectedCloud ? ['--filter=!@repo/cloud-deploy'] : [])], { stdio: 'inherit' });
+  run('pnpm', [...args, ...(selectedCloud ? ['--filter=!@repo/cloud-deploy'] : []), '--', '--bail=1'], { stdio: 'inherit' });
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try { runAffectedTests(); } catch (error) { console.error(error); process.exitCode = 1; }

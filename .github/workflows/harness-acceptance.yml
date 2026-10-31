@@ -120,7 +120,7 @@ jobs:
         run: pnpm turbo run build
       - name: 全仓 typecheck + lint
         if: github.event_name == 'workflow_dispatch'
-        run: pnpm turbo run typecheck lint --continue
+        run: pnpm turbo run typecheck lint
       - name: Prepare queue compile runtime
         if: github.event_name == 'merge_group'
         uses: actions/setup-node@v5
@@ -351,21 +351,21 @@ jobs:
           exit "$status"
       - name: Verify real Fabric sticky text containment
         id: sticky
-        if: always() && steps.dedup.outputs.run == 'true'
+        if: success() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
+          node .harness/scripts/ci-fullstack-runtime.mjs sticky -- pnpm --filter web exec playwright test --config playwright.chat-sticky-browser.config.ts --max-failures=1 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/chat-sticky-browser.log
       # #3205: reuse this lane's browser installation and retain independent output.
       - name: Execute trace disclosure geometry
         id: geometry
-        if: always() && steps.dedup.outputs.run == 'true'
+        if: success() && steps.dedup.outputs.run == 'true'
         shell: bash
         run: |
           mkdir -p phases/phase-01-run-a-project/evidence/ci
           set -o pipefail
-          node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
+          node .harness/scripts/ci-fullstack-runtime.mjs geometry -- pnpm --filter web run e2e:trace-geometry --max-failures=1 2>&1 | tee phases/phase-01-run-a-project/evidence/ci/trace-geometry.log
       - name: Upload runtime evidence (success or failure)
         id: evidence
         if: always() && steps.dedup.outputs.run == 'true'
@@ -429,7 +429,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
-      fail-fast: false
+      fail-fast: true # Stop remaining shards after the first failure.
       matrix:
         shard: ${{ fromJSON(needs.base-api-plan.outputs.shards) }}
     env:
@@ -458,7 +458,7 @@ jobs:
         run: |
           mkdir -p "$API_EVIDENCE"
           set -o pipefail
-          pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.base-api-plan.outputs.count }} --reporter=default --reporter=json --outputFile="$GITHUB_WORKSPACE/$API_EVIDENCE/report.json" 2>&1 | tee "$API_EVIDENCE/test.log"
+          pnpm --filter api exec vitest run --shard=${{ matrix.shard }}/${{ needs.base-api-plan.outputs.count }} --reporter=default --reporter=json --outputFile="$GITHUB_WORKSPACE/$API_EVIDENCE/report.json" --bail=1 2>&1 | tee "$API_EVIDENCE/test.log"
           node .harness/scripts/ci-base-api.mjs record "$API_EVIDENCE"
       - name: Retain API execution evidence
         if: always()
@@ -502,7 +502,7 @@ jobs:
         run: |
           mkdir -p "$API_EVIDENCE"
           set -o pipefail
-          pnpm --filter api exec vitest run --config vitest.exclusive.config.ts --reporter=default --reporter=json --outputFile="$GITHUB_WORKSPACE/$API_EVIDENCE/report.json" 2>&1 | tee "$API_EVIDENCE/test.log"
+          pnpm --filter api exec vitest run --config vitest.exclusive.config.ts --reporter=default --reporter=json --outputFile="$GITHUB_WORKSPACE/$API_EVIDENCE/report.json" --bail=1 2>&1 | tee "$API_EVIDENCE/test.log"
           node .harness/scripts/ci-base-api.mjs record "$API_EVIDENCE"
       - name: Retain API execution evidence
         if: always()
@@ -992,7 +992,7 @@ jobs:
         run: node .harness/scripts/ci-lane-dedup.mjs verdict
 
   queue-ready:
-    if: always() && github.event_name == 'merge_group'
+    if: always() && !cancelled() && github.event_name == 'merge_group'
     needs: [e2e-full, full-regression-core]
     runs-on: ubuntu-latest
     steps:

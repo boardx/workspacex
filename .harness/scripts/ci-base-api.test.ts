@@ -78,7 +78,7 @@ it('workflow preserves complete API coverage, isolation and failure verdict befo
  expect(admission.if).toBeUndefined();
  expect(core.steps.some((step:any)=>step.id==='dedup')).toBe(false);
  expect(jobs['base-api-exclusive'].needs).toEqual(['base-api-plan','base-api-shards','doc-smoke-scope']);
- expect(jobs['base-api-shards'].strategy).toEqual({'fail-fast':false,matrix:{shard:'${{ fromJSON(needs.base-api-plan.outputs.shards) }}'}});
+ expect(jobs['base-api-shards'].strategy).toEqual({'fail-fast':true,matrix:{shard:'${{ fromJSON(needs.base-api-plan.outputs.shards) }}'}});
  for(const name of ['base-api-shards','base-api-exclusive']){
   const job=jobs[name];expect(job['continue-on-error']).toBeUndefined();
   expect(job.env.WORKSPACEX_DB.replace(/\$\{\{.*?\}\}/g,'1')).toMatch(/^[a-z0-9_]+$/);

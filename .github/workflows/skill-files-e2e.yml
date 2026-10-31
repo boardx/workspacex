@@ -47,7 +47,7 @@ jobs:
         env:
           TMPDIR: ${{ runner.temp }}
           WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN: ${{ (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && secrets.WORKSPACEX_SKILL_IMPORT_GITHUB_TOKEN || '' }}
-        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts
+        run: pnpm exec tsx .harness/scripts/with-test-isolation.ts -- node scripts/studio-skill-files-e2e.mjs -- pnpm --filter web exec playwright test --config playwright.skill-files.config.ts --max-failures=1
       - name: Retain structured browser evidence
         if: always()
         uses: actions/upload-artifact@v6
