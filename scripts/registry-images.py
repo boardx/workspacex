@@ -183,6 +183,9 @@ def main():
         requested=os.environ.get('TARGET_ENVIRONMENT') or 'auto'
         if event=='push':
             target=expected
+        elif branch=='develop':
+            # Explicit promotion reuses the develop-built immutable tag; auto remains DevApp.
+            target=expected if requested=='auto' else requested
         elif expected:
             need(requested in ('auto',expected),'BRANCH_ENVIRONMENT_MISMATCH')
             target=expected
