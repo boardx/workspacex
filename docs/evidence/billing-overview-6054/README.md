@@ -1,5 +1,8 @@
 # Billing overview verification — #6054
 
+## Review follow-up: canceled legacy history
+PR review identified that canceling a legacy subscription removed its history fallback. Added a real PostgreSQL regression for active-to-canceled continuity, known start/end preservation, unknown fees, owner isolation and incomplete/incomplete_expired exclusion. The regression first failed because canceled history was empty; after including canceled snapshots and reading the known period start, all 58 API tests passed across subscription-history/monthly-pass/subscription-links. Existing incomplete purchases remain excluded. No entitlement or payment write behavior changed.
+
 Confirmed design: `docs/superpowers/specs/2026-10-31-billing-overview-design.md`.
 Base: develop `4d3bebf8db27348cbd9257fcdf7522d48f42eab0`. User confirmed implementation on 2026-10-31.
 

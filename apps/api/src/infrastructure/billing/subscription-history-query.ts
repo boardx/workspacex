@@ -13,8 +13,8 @@ const HISTORY_SQL=`WITH history AS (
  AND NOT EXISTS(SELECT 1 FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id)
  WHERE p.invoice_ref=o.payment_ref AND w.owner_type='user' AND w.owner_id=$1)
  UNION ALL
- SELECT 'legacy','Pro 订阅',NULL,s.current_period_end,NULL,NULL
- FROM billing_subscriptions s WHERE s.user_id=$1 AND s.status IN ('active','trialing','past_due','unpaid','paused')
+ SELECT 'legacy','Pro 订阅',s.current_period_start,s.current_period_end,NULL,NULL
+ FROM billing_subscriptions s WHERE s.user_id=$1 AND s.status IN ('active','trialing','past_due','unpaid','paused','canceled')
  AND NOT EXISTS(SELECT 1 FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id)
  WHERE p.subscription_ref=s.subscription_ref AND w.owner_type='user' AND w.owner_id=$1)
 ) SELECT * FROM history ORDER BY period_start DESC NULLS LAST,period_end DESC NULLS LAST,id DESC LIMIT $2 OFFSET $3`;
