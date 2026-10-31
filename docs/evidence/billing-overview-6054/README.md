@@ -21,3 +21,5 @@ Independent review caught history pagination retained on identity change. Added 
 Cashier browser regression: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.billing-cashier.config.ts` — 1 passed (three widths, keyboard/QR/payment polling/ledger and unified personal menu). Screenshots copied under browser/cashier-*.png. Desktop and mobile overview screenshots inspected visually.
 
 Final exact-SHA review additionally caught sibling React keys sharing the same identity value. Added subscription:/history: key namespaces; all 92 UI regressions passed again without duplicate-key warnings.
+
+CI control-plane check reproduced a missing same-origin history rewrite (would return 404). Added the exact /billing/subscription/history proxy rule. rewrite-coverage, contract-route-coverage, ui-wiring, contract-negative-assertion, body-path-param-leak and e2e-testid-gate passed. Subscription browser regression rerun passed.
