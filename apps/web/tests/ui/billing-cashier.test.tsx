@@ -374,3 +374,12 @@ it("keeps an already paid Stripe creation response and refreshes its credits",as
  expect(screen.queryByRole("link",{name:"前往 Stripe 付款"})).toBeNull();
  expect(screen.queryByText(/暂时无法确认结果/)).toBeNull();
 });
+
+it("recovers a paid return order even after every new purchase channel is disabled",async()=>{
+ window.history.replaceState({},"",`/billing?credit_order=${order.orderNo}`);
+ try{
+  const f=live({providers:[],get:()=>reply({order:{...order,provider:"stripe",qrCodeUrl:"pending",status:"SUCCESS",paidAt:new Date().toISOString()}})});
+  expect(await screen.findByTestId("billing-success-badge")).toBeTruthy();
+  expect(f.fetcher.mock.calls.filter(([,options])=>options.method==="POST")).toHaveLength(0);
+ }finally{window.history.replaceState({},"","/");}
+});

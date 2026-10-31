@@ -85,8 +85,10 @@ export function BillingOverview({ userId, sessionToken, openOnReady = false, onP
   const providers = config.state.status === "ready" ? config.state.data.enabledProviders : [];
   const consumed = React.useRef(false);
   React.useEffect(() => {
-    if (!openOnReady && !new URLSearchParams(window.location.search).has("credit_order")) { consumed.current = false; return; }
-    if (!consumed.current && config.state.status === "ready" && config.state.data.enabledProviders.length > 0) {
+    const returningOrder = new URLSearchParams(window.location.search).has("credit_order");
+    if (!openOnReady && !returningOrder) { consumed.current = false; return; }
+    // Existing payment recovery must remain reachable when new purchases are disabled.
+    if (!consumed.current && (returningOrder || config.state.status === "ready" && config.state.data.enabledProviders.length > 0)) {
       consumed.current = true; setCashierOpen(true); onPurchaseOpened?.();
     }
   }, [openOnReady, config.state, onPurchaseOpened]);
