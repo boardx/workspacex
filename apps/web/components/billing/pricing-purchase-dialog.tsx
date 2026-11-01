@@ -52,7 +52,7 @@ export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCyc
             <span data-testid="pricing-seat-count" className="tabular-nums">{seats}</span><Button data-testid="pricing-seat-plus" variant="outline" aria-label="增加本次增购席位" disabled={seats >= 100} onClick={() => setSeats(v => v + 1)}>＋</Button>
           </div></div>
           <dl className="space-y-3 text-13"><div className="flex justify-between"><dt className="text-muted-foreground">标准单价</dt><dd>{previewMoney(region, p.seat[cycle])}/席/{cycle === "month" ? "月" : "年"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">本次演示剩余有效期</dt><dd>50%</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">与团队订阅同时到期</dt><dd>{cycle === "year" ? "2027/11/01" : "2026/12/01"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">后续完整月新增共享额度</dt><dd>{numberLabel(15000 * seats)} credit/月</dd></div></dl>
-          <p className="text-12 text-muted-foreground">按剩余有效期补差价。首期新增额度折算方式待确认；此处仅演示报价。</p>
+          <p className="text-12 text-muted-foreground">按剩余有效期补差价。首期新增额度按剩余月度周期折算；此处仅演示报价。</p>
         </div>}
         <div className="space-y-2 border-t border-border pt-4">
           <p className="text-12 font-medium">支付方式</p><div className="flex flex-wrap gap-2">{(region === "devapp" ? ["wechat", "stripe"] as const : [region === "us" ? "stripe" : "wechat"] as const).map(value => <Button data-testid={`pricing-provider-${value}`} key={value} variant={provider === value ? "outline" : "ghost"} aria-pressed={provider === value} onClick={() => setProvider(value)}><CreditCard className="mr-2 h-4 w-4" aria-hidden="true" />{value === "wechat" ? "微信支付" : "Stripe"}</Button>)}{region === "devapp" && <Badge>测试环境</Badge>}</div>
@@ -60,7 +60,7 @@ export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCyc
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-13 text-muted-foreground">{kind === "seats" ? "本次补差价" : "本次支付"}<strong data-testid="pricing-total" className="ml-3 text-24 font-semibold text-foreground tabular-nums">{previewMoney(region, amount)}</strong></span>
           <Button data-testid="pricing-pay-preview" variant="primary" onClick={() => { setConfirmed(true); onPurchased("购买成功演示已完成，尚未产生真实扣款或额度。"); }}>模拟确认支付</Button></div>
-        {kind === "plans" && <p className="text-12 text-muted-foreground">Free 为新用户提供一次性 1,000 credit。Community 免费开源自部署，自备服务器与模型。</p>}
+        {kind === "plans" && <p className="text-12 text-muted-foreground">Free 为新用户提供一次性 1,000 credit，到账后 30 天到期。Community 免费开源自部署，自备服务器与模型。</p>}
       </div>}
     </DialogContent>
   </Dialog>;
