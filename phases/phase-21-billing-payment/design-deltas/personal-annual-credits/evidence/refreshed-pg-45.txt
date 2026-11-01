@@ -1,0 +1,27 @@
+[stack-admission] load1=7.17 cores=10 perCore=0.72 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyah6ix-ec11d820-0b3a9fae61dc db=wsx_0b3a9fae61dc85ef89a7 compose=wsx-0b3a9fae61dc85ef89a7 pg=20342 redis=21342 api=24342 web=25342 sandbox=26342 model=27342 deep-agent=28342 asr=29342 vision=30342 loopback-sandbox=31342 mail=19342
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_0b3a9fae61dc85ef89a7 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-credit-terms-pg.test.ts (16 tests) 15699ms
+   ✓ paginates 101 due owners without losing the second batch 674ms
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 1283ms
+ ✓ tests/billing/credit-period-lifecycle-pg.test.ts (6 tests) 1261ms
+ ✓ tests/billing/credit-admission-policy-pg.test.ts (6 tests) 924ms
+ ✓ tests/billing/credit-periods-pg.test.ts (1 test) 419ms
+
+ Test Files  5 passed (5)
+      Tests  45 passed (45)
+   Start at  04:35:10
+   Duration  27.38s (transform 1.10s, setup 26ms, collect 2.56s, tests 19.59s, environment 1ms, prepare 231ms)
+
+[db-isolation] db=wsx_0b3a9fae61dc85ef89a7 peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-credit-terms-pg.test.ts tests/billing/credit-admission-policy-pg.test.ts tests/billing/credit-consumption-pg.test.ts tests/billing/credit-period-lifecycle-pg.test.ts tests/billing/credit-periods-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：28s
+  清理：0s
+  总计：29s

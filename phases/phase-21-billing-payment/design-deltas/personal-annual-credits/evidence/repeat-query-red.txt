@@ -1,0 +1,41 @@
+[stack-admission] load1=5.10 cores=10 perCore=0.51 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvxynafs-78e32828-a06506100c24 db=wsx_a06506100c24ca719ac0 compose=wsx-a06506100c24ca719ac0 pg=20248 redis=21248 api=24248 web=25248 sandbox=26248 model=27248 deep-agent=28248 asr=29248 vision=30248 loopback-sandbox=31248 mail=19248
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_a06506100c24ca719ac0 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-credit-terms-pg.test.ts (11 tests | 1 failed | 10 skipped) 30681ms
+   × reconciles a fully processed annual term without reentering twelve monthly grants 470ms
+     → expected 50 to be less than or equal to 8
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-credit-terms-pg.test.ts > reconciles a fully processed annual term without reentering twelve monthly grants
+AssertionError: expected 50 to be less than or equal to 8
+ ❯ tests/billing/personal-credit-terms-pg.test.ts:134:26
+    132|   await db.withTenant(org,s=>grantDuePersonalTerms({query(sql,params){…
+    133|   expect(await f.wallet()).toEqual(before);
+    134|   expect(queries.length).toBeLessThanOrEqual(8);
+       |                          ^
+    135| });
+    136| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 skipped (11)
+   Start at  23:04:01
+   Duration  39.30s (transform 2.13s, setup 19ms, collect 2.86s, tests 30.68s, environment 0ms, prepare 99ms)
+
+[db-isolation] db=wsx_a06506100c24ca719ac0 peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-credit-terms-pg.test.ts -t fully processed
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-credit-terms-pg.test.ts -t fully processed
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：41s
+  清理：1s
+  总计：42s

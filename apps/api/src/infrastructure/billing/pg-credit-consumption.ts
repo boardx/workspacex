@@ -3,6 +3,7 @@ import type {DatabasePort,TenantSession} from "../../application/ports/database.
 import type {OrgId} from "../../domain/org-id";
 import type {TokenUsageMeterPort,TokenUsageRecord} from "../../application/agent-run/ports";
 import {CreditConsumptionError,creditFacts as facts,creditHundredths,tokenCreditHundredths} from "../../application/billing/credit-consumption";
+import {grantDuePersonalTerms} from "./personal-credit-terms";
 import {normalizeCreditPeriods} from "./pg-credit-periods";
 import {settleCreditReceipt} from "./pg-credit-receipt";
 type Start=Parameters<NonNullable<TokenUsageMeterPort["startRequest"]>>[1];
@@ -22,6 +23,7 @@ export class PgCreditConsumption {
  private error(p:Payer,message:string,code:"credit_required"|"credit_accounting_unavailable"="credit_accounting_unavailable"){return new CreditConsumptionError(code,p.ownerType,p.ownerId,message);}
  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promise<void>{
   const p=await this.payer(s,orgId,input.userId);
+  if(p.ownerType === "user") await grantDuePersonalTerms(s,p.ownerId);
   await s.query(`INSERT INTO credit_wallets(owner_type,owner_id) VALUES($1,$2) ON CONFLICT(owner_type,owner_id) DO NOTHING`,[p.ownerType,p.ownerId]);
   const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[p.ownerType,p.ownerId])).rows[0]!;
   await normalizeCreditPeriods(s,wallet.wallet_id,new Date());

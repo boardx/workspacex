@@ -25,11 +25,10 @@ export async function normalizeCreditPeriods(s: TenantSession, walletId: string,
 }
 
 /** Caller has authenticated a paid monthly invoice; this function never trusts browser state. */
-export async function grantPaidSubscriptionPeriod(s: TenantSession, input: PaidPeriod): Promise<"granted" | "duplicate"> {
+export async function grantPaidSubscriptionPeriod(s: TenantSession, input: PaidPeriod, at: Date = new Date()): Promise<"granted" | "duplicate"> {
   const duration = input.periodEnd.getTime() - input.periodStart.getTime();
-  if (!Number.isFinite(duration) || duration < 27 * 86_400_000 || duration > 32 * 86_400_000 ||
+  if (!Number.isFinite(at.getTime()) || !Number.isFinite(duration) || duration < 27 * 86_400_000 || duration > 32 * 86_400_000 ||
     !input.userId || !input.subscriptionRef || !input.invoiceRef || !input.planRef) throw new Error("credit_period_invalid");
-  const at = new Date();
   // Advance events may be retried at the actual period start; never grant future credits early.
   if (input.periodStart > at) throw new Error("credit_period_not_started");
   await s.query(SQL.periodEnsureUserWallet, [input.userId]);

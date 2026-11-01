@@ -2,6 +2,7 @@ import { CreditWallet, CreditTransaction, BillingOwnerType, BillingTransactionTy
 import type { DatabasePort } from "../../application/ports/database.port";
 import { BillingWalletCursorError, type BillingOwner, type BillingWalletRepository, type LedgerQuery } from "../../application/billing/billing-wallet-service";
 import {creditDecimal, creditHundredths} from "../../application/billing/credit-consumption";
+import {grantDuePersonalTerms} from "./personal-credit-terms";
 import {normalizeCreditPeriods, creditPeriodSnapshot} from "./pg-credit-periods";
 
 type Cursor = {ownerType:BillingOwner["ownerType"];ownerId:string;type:NonNullable<LedgerQuery["type"]>|null;timestamp:string;txnId:string};
@@ -25,6 +26,7 @@ export class PgBillingWalletRepository implements BillingWalletRepository {
   constructor(private readonly db: DatabasePort) {}
   async wallet(owner: BillingOwner) {
     return this.db.withTenant(owner.orgId, async s => {
+      if(owner.ownerType === "user") await grantDuePersonalTerms(s,owner.ownerId);
       const r=await s.query<WalletRow>(`SELECT wallet_id,owner_type,owner_id,balance::text,held_hundredths::text,total_purchased,total_granted,updated_at
         FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[owner.ownerType,owner.ownerId]);
       const row=r.rows[0];
