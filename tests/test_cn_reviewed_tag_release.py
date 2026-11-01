@@ -22,9 +22,9 @@ class TransactionTests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class WriterOrchestrationTests(unittest.TestCase):
- def exercise(self,failure=None):
+ def exercise(self,failure=None,capability=None,initial_ledger='BASELINE'):
   import tempfile,json,types,hashlib
-  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);attempt=root/'attempt';attempt.mkdir();events=[];state={'ledger':'BASELINE','images':{'api':'old'},'running':True};nginx=root/'nginx';nginx.write_bytes(b'original');pending=root/'pending.json';pending.write_bytes(b'pending');(attempt/'schema-request.json').write_bytes(b'request')
+  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);attempt=root/'attempt';attempt.mkdir();events=[];state={'ledger':initial_ledger,'images':{'api':'old'},'running':True};nginx=root/'nginx';nginx.write_bytes(b'original');pending=root/'pending.json';pending.write_bytes(b'pending');(attempt/'schema-request.json').write_bytes(b'request')
   def save(path,value):
    with open(path,'x') as f:json.dump(value,f)
    Path(path).chmod(0o600)
@@ -58,12 +58,16 @@ class WriterOrchestrationTests(unittest.TestCase):
     return b'CN_PUBLIC_BROWSER_PASSED\n'
   class Adapter:
    def __init__(self,*a):
-    self.base={'baseline':'a'*64};self.cn=types.SimpleNamespace(HOST='rds',DB='database',SHELL='readonly ',read_source=lambda d:{'ledger':self.base if state['ledger']=='BASELINE' else {**self.base,**migrations}},helper=lambda d,operation,fn:fn(['docker','dump']))
+    self.base={'baseline':'a'*64};self.cn=types.SimpleNamespace(HOST='rds',DB='database',SHELL='readonly ',read_source=self.read_source,helper=lambda d,operation,fn:fn(['docker','dump']))
+   def read_source(self,d):
+    if failure=='stopped-metadata':state['ledger']='BASELINE'
+    return {'ledger':self.base if state['ledger']=='BASELINE' else {**self.base,**migrations}}
    def stopped(self):
     if state['running']:raise ValueError('NOT_STOPPED')
    def execute(self,mode):
     events.append('sql-'+mode)
     if mode=='preflight' and failure=='ledger-preflight':return {'status':'DRIFT'}
+    if mode=='preflight' and failure=='migration-entry' and events.count('sql-preflight')==2:state['ledger']='BASELINE'
     if mode=='drain':return {'status':'DRAINED','ledgerStatus':state['ledger']}
     if mode=='apply':
      self.stopped();state['ledger']='COMPLETE'
@@ -79,6 +83,7 @@ class WriterOrchestrationTests(unittest.TestCase):
   maint=types.SimpleNamespace(Host=Host,runtime_set=lambda *a:None,pinned=lambda ref,**kw: (_ for _ in ()).throw(ValueError('INPUT_HASH_DRIFT')) if failure=='env-drift' and 'backup' in events and ref['path']==str(nginx) else Path(ref['path']),maintenance_bytes=lambda raw,env:b'held')
   request={k:k for k in ('environment','tag','sourceRevision','planSha256','manifestSha256')}
   ctx={'policy':{'runtimeSeconds':10,'businessSeconds':10,'rollbackSeconds':30},'policyRef':{'path':'policy','sha256':'a'*64},'mods':{'schema-restore-rehearsal':core,'tag-maintenance-release':maint,'tag-migrated-activation':act,'minimal-docker-release':types.SimpleNamespace(),'cn-tag-migration-adapter':types.SimpleNamespace(Adapter=Adapter),'schema-tag-prepare':types.SimpleNamespace(env_map=lambda r:{'PGHOST':'rds','PGDATABASE':'database','PGPORT':'5433' if failure=='api-env' else '5432','APP_DB_USER':'app_rw'}),'schema-release-handoff':types.SimpleNamespace(IDENTITY=tuple(request))},'attempt':attempt,'config':cfg,'d':D(),'base':base,'fd':3,'manifest':{'images':{'api':{'imageId':'new'}}},'command':['compose'],'request':request,'receipt':attempt/'result.json'}
+  ctx['policy'].update(capability or {})
   # Failure recovery arms a bounded alarm; suppress it only inside fake orchestration.
   from unittest.mock import patch
   if failure=='old-once':(root/('cn-reviewed-'+m.TAG+'-once.json')).write_bytes(b'original spent capability')
@@ -141,3 +146,24 @@ class ReservationBoundaryTests(unittest.TestCase):
   m,ctx,state,events,nginx,pending,error=self.exercise();self.assertIsNone(error);self.assertLess(events.index('sql-preflight'),events.index('reserve-once'));self.assertLess(events.index('reserve-once'),events.index('nginx-held'));self.assertEqual(events.count('reserve-once'),1)
  def test_preexisting_spent_capability_still_rejects_and_is_never_rewritten(self):
   m,ctx,state,events,nginx,pending,error=self.exercise('old-once');self.assertRegex(str(error),'CAPABILITY_ALREADY_SPENT');self.assertEqual(events,[]);self.assertEqual((pending.parent/('cn-reviewed-'+m.TAG+'-once.json')).read_bytes(),b'original spent capability');self.assertFalse((ctx['attempt']/'policy.json').exists());self.assertTrue(pending.exists())
+
+class CompleteOnlyResumeTests(unittest.TestCase):
+ exercise=WriterOrchestrationTests.exercise
+ def test_complete_capability_real_writer_never_applies_sql(self):
+  import json
+  m,ctx,state,events,nginx,pending,error=self.exercise(capability={'expectedSchemaState':'COMPLETE'},initial_ledger='COMPLETE');self.assertIsNone(error);self.assertNotIn('sql-apply',events);self.assertNotIn('database-event-1.json',[p.name for p in ctx['attempt'].iterdir()]);self.assertEqual(state['images'],{'api':'new'});proof=json.loads((ctx['attempt']/'migration-ledger.json').read_bytes());self.assertFalse(proof['migrationExecuted']);self.assertEqual(proof['status'],'COMPLETE')
+ def test_baseline_rejects_before_reservation_hold_or_stop(self):
+  m,ctx,state,events,nginx,pending,error=self.exercise(capability={'expectedSchemaState':'COMPLETE'});self.assertRegex(str(error),'COMPLETE_SCHEMA_REQUIRED');self.assertNotIn('reserve-once',events);self.assertNotIn('nginx-held',events);self.assertNotIn('stop-old',events);self.assertNotIn('sql-apply',events);self.assertEqual(nginx.read_bytes(),b'original');self.assertTrue(pending.exists())
+ def test_stopped_backup_and_migration_entry_drift_never_apply_and_restore_old(self):
+  import json
+  for failure,code in [('stopped-metadata','COMPLETE_BACKUP_LEDGER_REQUIRED'),('migration-entry','COMPLETE_SCHEMA_REQUIRED')]:
+   with self.subTest(failure=failure):
+    m,ctx,state,events,nginx,pending,error=self.exercise(failure,{'expectedSchemaState':'COMPLETE'},'COMPLETE');self.assertRegex(str(error),code);self.assertNotIn('sql-apply',events);self.assertNotIn('up-new',events);self.assertEqual(state['images'],{'api':'old'});self.assertEqual(nginx.read_bytes(),b'original');self.assertEqual(json.loads((ctx['attempt']/'cn-once-failure.json').read_bytes())['status'],'OLD_APPLICATION_RESTORED')
+ def test_invalid_explicit_capability_values_fail_before_any_action(self):
+  for value in (None,'','BASELINE','complete',True,0,[],{}):
+   with self.subTest(value=value):
+    m,ctx,state,events,nginx,pending,error=self.exercise(capability={'expectedSchemaState':value},initial_ledger='COMPLETE');self.assertRegex(str(error),'EXPECTED_SCHEMA_STATE_INVALID');self.assertEqual(events,[]);self.assertFalse((ctx['attempt']/'policy.json').exists())
+ def test_migrate_complete_scope_rejects_baseline_without_draining_or_apply(self):
+  m=module();a=Mock();a.execute.return_value={'status':'BASELINE'};record=Mock()
+  with self.assertRaisesRegex(ValueError,'COMPLETE_SCHEMA_REQUIRED'):m.migrate_once(a,record,expected_state='COMPLETE')
+  self.assertEqual([c.args[0] for c in a.execute.call_args_list],['preflight']);a.stopped.assert_not_called();record.assert_not_called()
