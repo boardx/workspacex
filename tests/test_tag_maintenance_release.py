@@ -8,6 +8,9 @@ def rows(running=True):
  return [{'Id':s,'Image':'image-'+s,'Config':{'Labels':{'com.docker.compose.service':s,'com.docker.compose.project':'app'}},'State':{'Running':running}} for s in sorted(m.SERVICES)]
 class Host:
  def __init__(self,failure=None):self.running=True;self.calls=[];self.failure=failure;self.applied=False
+ def capture_startup(self,rows):self.calls.append(('capture',None))
+ def wait_readiness(self):self.calls.append(('ready',self.running))
+ def database_proof_ref(self,mode,status):return {'fixture':True,'mode':mode,'status':status}
  def runtime(self):return rows(self.running)
  def adapter(self,name,mode):
   self.calls.append((name,mode))
@@ -24,6 +27,51 @@ class Host:
  def start(self):self.calls.append(('start',None));self.running=True
  def nginx(self,a,b):self.calls.append(('nginx',b))
 class Tests(unittest.TestCase):
+ def test_realistic_drain_is_not_called_after_verified_commit_old_restart(self):
+  class Strict(Host):
+   def adapter(self,name,mode):
+    if mode=='drain' and self.running:raise ValueError('BUSINESS_WRITER_NOT_STOPPED')
+    return super().adapter(name,mode)
+   def verify_old(self):
+    self.calls.append(('business',self.applied))
+    if self.applied:raise RuntimeError('unknown business outcome')
+  with patch.dict(self.execute.__func__.__globals__,{'Host':Strict}):h,r,state=self.execute()
+  self.assertIn('COMMIT_VERIFIED_COMPLETE',state);self.assertEqual(h.calls.count(('business',True)),1)
+  self.assertNotIn('UNKNOWN_WRITER_STILL_ACTIVE',state)
+ def test_frozen_startup_marker_must_exist_and_match_api_web(self):
+  import copy
+  values=rows();marker='01234567-89ab-cdef-0123-456789abcdef'
+  for x in values:x['Config']['Env']=['WORKSPACEX_DEPLOYMENT_MARKER='+marker]
+  self.assertEqual(m.startup_marker(values),marker)
+  bad=copy.deepcopy(values);next(x for x in bad if x['Id']=='web')['Config']['Env']=[]
+  with self.assertRaises(m.Rejected):m.startup_marker(bad)
+ def test_readiness_uses_only_fixed_loopback_tls_gets(self):
+  from unittest.mock import Mock
+  marker='01234567-89ab-cdef-0123-456789abcdef';run=Mock(side_effect=[b'{"trustworthy":true,"deploymentMarker":"'+marker.encode()+b'"}\n200',b'{"deploymentMarker":"'+marker.encode()+b'"}\n200'])
+  m.readiness_pair('us',marker,run,3)
+  self.assertEqual(run.call_count,2)
+  for args,kw in run.call_args_list:
+   command=args[0];self.assertEqual(command[:2],['/usr/bin/curl','--disable']);self.assertIn('appv1.boardx.us:443:127.0.0.1',command);self.assertIn('GET',command);self.assertNotIn('--insecure',command);self.assertNotIn('POST',command)
+
+ def test_readiness_rejects_bad_health_marker_and_tls_failure(self):
+  from unittest.mock import Mock
+  marker='01234567-89ab-cdef-0123-456789abcdef'
+  for raw in [b'{"trustworthy":true}\n200',b'{"trustworthy":false,"deploymentMarker":"'+marker.encode()+b'"}\n200',b'{}\n503',b'{}\n301']:
+   with self.assertRaises(m.Rejected):m.readiness_pair('us',marker,Mock(return_value=raw),3)
+  with self.assertRaises(RuntimeError):m.readiness_pair('us',marker,Mock(side_effect=RuntimeError('TLS verification failed')),3)
+ def test_original_ack_and_reconcile_proof_are_frozen_and_hashed(self):
+  import json
+  with tempfile.TemporaryDirectory() as directory:
+   attempt=Path(directory);path=attempt/'databaseCommand-apply.json';raw=json.dumps({'status':'COMMITTED','commitAcknowledged':True,'source':m.SOURCE,'tag':m.TAG,'environment':'us'}).encode();path.write_bytes(raw)
+   host=m.Host({'environment':'us'},attempt,3)
+   with patch.object(m,'trusted',side_effect=lambda p,**kw:Path(p)):ref=host.database_proof_ref('apply','COMMITTED')
+   self.assertEqual(ref['original']['path'],str(path));self.assertEqual(ref['sha256'],m.digest(raw));self.assertEqual(Path(ref['path']).read_bytes(),raw)
+   path.write_text('{}');self.assertEqual(Path(ref['path']).read_bytes(),raw)
+ def test_start_readiness_precedes_first_post_start_business_probe(self):
+  class Ordered(Host):
+   def verify_old(self):self.calls.append(('business',self.applied));super().verify_old()
+  with patch.dict(self.execute.__func__.__globals__,{'Host':Ordered}):h,r,state=self.execute()
+  start=h.calls.index(('start',None));ready=h.calls.index(('ready',True),start);business=h.calls.index(('business',True));self.assertLess(start,ready);self.assertLess(ready,business);self.assertEqual(h.calls.count(('business',True)),1)
  def test_host_adapter_inherits_same_lock_file_description(self):
   import json
   policy={'environment':'us','databaseCommand':{'executable':{'path':'/fixed'},'timeoutSeconds':30}}
@@ -109,7 +157,7 @@ class Tests(unittest.TestCase):
  def test_backup_failure_never_applies(self):
   h,r,_=self.execute(('backupCommand','prepare'));self.assertIsNone(r);self.assertNotIn(('databaseCommand','apply'),h.calls);self.assertTrue(h.running)
  def test_unknown_commit_never_replays(self):
-  h,r,state=self.execute(('databaseCommand','apply'));self.assertIsNone(r);self.assertEqual(h.calls.count(('databaseCommand','apply')),1);self.assertIn(('databaseCommand','reconcile'),h.calls)
+  h,r,state=self.execute(('databaseCommand','apply'));self.assertIsNone(r);self.assertEqual(h.calls.count(('databaseCommand','apply')),1);self.assertIn(('databaseCommand','reconcile'),h.calls);self.assertLess(max(i for i,v in enumerate(h.calls) if v==('databaseCommand','drain')),h.calls.index(('databaseCommand','reconcile')))
  def test_old_application_failure_keeps_maintenance(self):
   h,r,state=self.execute('old');self.assertIsNone(r);self.assertIn('OPERATOR_RECONCILIATION_REQUIRED',state);self.assertIn('"maintenanceHeld":true',state)
 if __name__=='__main__':unittest.main()
