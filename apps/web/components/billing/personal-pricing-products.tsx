@@ -38,7 +38,7 @@ export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,o
     <p data-testid="pricing-renewal-note" className="text-12 text-muted-foreground">{kind==="credits"?"一次性购买，不自动续费。":provider==="stripe"?"自动续费，可在订阅管理中取消下一期续费。":"一次性购买，到期后手动续费。"}{kind==="plans"&&" 每月按原购买日发放，当期未用额度到期清零。"}</p>
    </div>
    {blocked&&<p role="status" className="text-13 text-muted-foreground">请先处理原订阅付款或管理已有订阅，避免重复购买。</p>}
-   <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-13 text-muted-foreground">本次支付<strong data-testid="pricing-total" className="ml-3 text-24 font-semibold text-foreground tabular-nums">{selected?pricingMoney(selected.currency,selected.amountMinor):"—"}</strong></span><Button data-testid="pricing-continue-checkout" variant="primary" disabled={Boolean(disabled)} onClick={()=>{if(!disabled&&selected&&provider)onSelect(selected.sku,provider);}}>{busy?"正在创建付款…":"继续付款"}</Button></div>
+   <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-13 text-muted-foreground">本次支付<strong data-testid="pricing-total" className="ml-3 text-24 font-semibold text-background-foreground tabular-nums">{selected?pricingMoney(selected.currency,selected.amountMinor):"—"}</strong></span><Button data-testid="pricing-continue-checkout" variant="primary" disabled={Boolean(disabled)} onClick={()=>{if(!disabled&&selected&&provider)onSelect(selected.sku,provider);}}>{busy?"正在创建付款…":"继续付款"}</Button></div>
    {kind==="plans"&&<p className="text-12 text-muted-foreground">Free 为新用户提供一次性 {number(WELCOME_CREDITS)} credit，到账后 {WELCOME_CREDIT_VALIDITY_DAYS} 天到期。Community 免费开源自部署，自备服务器与模型。</p>}
   </div>
  </DialogContent></Dialog>;

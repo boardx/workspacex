@@ -1,0 +1,9 @@
+
+> agentic-harness-template@ lint:tailwind-color-tokens /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> node .harness/scripts/lint-tailwind-color-tokens.mjs
+
+❌ [tailwind-color-tokens] 颜色类名对不上 token：
+   components/billing/pricing-preview.tsx:26  text-foreground  ← 本仓没有这个颜色 token，Tailwind 什么都不会生成
+   components/billing/pricing-purchase-dialog.tsx:61  text-foreground  ← 本仓没有这个颜色 token，Tailwind 什么都不会生成
+   合法名来自 apps/web/tailwind.config.ts 的 colors 块（destructive / warning / success / muted-foreground …）。
+ ELIFECYCLE  Command failed with exit code 1.

@@ -54,3 +54,5 @@ Stripe 绑定与到账：新增不可变 subscription/purchase/session/customer/
 最终 reset 的待办风险：P3 grantDuePersonalTerms/定时发放、AI 预留与消费落账、durable usage replay、legacy 回调实际财务事务均须在同一实际 DB 事务获取 epoch shared lock；清理持 exclusive lock。只在外层读 mode 或 worker 选取待处理列表不够，避免清理后由缓存旧记录重建钱包/补回旧额度。不要外层连接持 shared lock 又开内层连接重新获取，以免 exclusive 排队时产生互锁。仍须冻结旧销售、排空旧进程/任务、关闭未付订单并取消应用所属旧自动续费，再执行审阅过的清理和启用。
 
 前置 #6088 / PR #6094 已正常合入 develop，合并提交 a2d305d11cac86df01737461b5b241bbac3c430e，2026-11-01T17:56:49Z；issue 已由该 PR 关闭。后续四个依赖分支仍须按顺序剥离旧父、单 issue PR、独立审查、正常合入。
+
+独立review7ac972e45发现products新text-foreground无效，已改合法text-background-foreground；权威颜色扫描器针对新组件零问题。当前P5旧父全仓另有prototype两条旧问题，不豁免/不称全仓绿；切到已合UI的P2基线时全仓颜色门已绿，后续顺序rebase应带入正确版本，再全门复验。待签材料补齐同一payer/SKU/provider/catalogVersion、销售关闭后原key恢复、所有恢复先GET状态、三类终态零新增支付请求约束；仍pending未实现nullable。

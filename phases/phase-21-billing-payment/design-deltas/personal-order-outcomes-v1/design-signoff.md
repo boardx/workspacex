@@ -32,3 +32,5 @@ covers: []
 
 ## 一致性复核（不代替人工签核）
 独立 reviewer 已只读核对该具体修订与原设计一致。采纳补充：PENDING和PROCESSING分别覆盖地址缺失、期限缺失及二者缺失的拒绝；三种终态分别覆盖null；已知字段保留真实值；客户端终态不显示继续支付、不对null期限倒计时。OrderDraft.expiredAt显式保持string。本复核不代替人类签核。
+
+补充恢复一致性约束：终态POST恢复先核对同一payer/SKU/provider/catalogVersion，同键改参仍冲突；关闭新销售后既有购买可恢复且零支付商创建调用。客户端所有恢复响应（包括仍有非空真实地址的终态）都先GET权威状态，不因存在地址再次打开支付页。分别覆盖fulfilled/closed/manualReview三种恢复、原purchaseRef与零新增支付请求，null本身不是成功证明。独立reviewer已只读确认该补充与设计一致，仍不代替人工签核。

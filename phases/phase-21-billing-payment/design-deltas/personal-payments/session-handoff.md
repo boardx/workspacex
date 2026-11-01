@@ -55,3 +55,5 @@ c517证据：provider15文件129项、API type/lint、PG意图7项、真实回�
 保留备份stash 61a9667d79b2d7fed0ec3ced0e8ba17064b9cd59 已应用且后续c517保存；旧ba557b9372293e2755363dba3bc29cb2596a9917也已全部提交。共享stash有别人的条目，不碰。当前没有自有浏览器/Next server；隔离数据库测试wrapper负责栈清理，结束后确认结果与cleanup。不要动发布会话的Chrome/服务器。
 
 契约6094 b296再次正常入队，当前候选a2d305d11cac86df01737461b5b241bbac3c430e，队列位置2。候选可能含队列前序PR，不取消其工作流；用check-runs per_page=100完整核对，并以实际mergedAt/mergeCommit判断合入。
+
+独立review7ac972e45发现products新text-foreground无效，已改合法text-background-foreground；权威颜色扫描器针对新组件零问题。当前P5旧父全仓另有prototype两条旧问题，不豁免/不称全仓绿；切到已合UI的P2基线时全仓颜色门已绿，后续顺序rebase应带入正确版本，再全门复验。待签材料补齐同一payer/SKU/provider/catalogVersion、销售关闭后原key恢复、所有恢复先GET状态、三类终态零新增支付请求约束；仍pending未实现nullable。
