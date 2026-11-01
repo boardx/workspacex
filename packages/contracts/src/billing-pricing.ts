@@ -1,7 +1,7 @@
 /**
- * #6088 confirmed personal billing contracts; runtime wiring follows separately.
- * Legacy billing data is reset at cutover, with no legacy entitlement migration.
- * Immutable snapshots below protect purchases created by the new system.
+ * Signed personal pricing API contracts. Design authority:
+ * phases/phase-21-billing-payment/design-deltas/personal-pricing-v1/.
+ * Runtime activation and accounting cutover follow that bundle; this file does not activate billing.
  */
 import { z } from "zod";
 import { BillingProvider } from "./billing-credits";

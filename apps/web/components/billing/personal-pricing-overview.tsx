@@ -21,12 +21,13 @@ function ReadNotice({state,name,label,retry}:{state:PricingReadState<unknown>;na
  if(state.status==="loading")return <div role="status" aria-label={`正在查询${label}`} className="h-24 animate-pulse rounded-card bg-muted"/>;
  return <div data-testid={`pricing-${name}-error`} className="space-y-3 rounded-card border border-border p-5"><p role="status" className="text-13 text-muted-foreground">{state.status==="ready"?`暂时无法刷新${label}，显示上次查询结果。`:`暂时无法查询${label}，请重试。`}</p><Button variant="outline" size="sm" onClick={retry}>重试{label}</Button></div>;
 }
-export function PersonalPricingOverview({userId,sessionToken,onPurchase,navigate=(url:string)=>window.location.assign(url)}:{
- userId:string;sessionToken:string;onPurchase:(kind:"plans"|"credits",catalog:PricingCatalog,entitlement:PricingSubscriptionInfo)=>void;navigate?:(url:string)=>void;
+export function PersonalPricingOverview({userId,sessionToken,onPurchase,onReady,navigate=(url:string)=>window.location.assign(url)}:{
+ userId:string;sessionToken:string;onPurchase:(kind:"plans"|"credits",catalog:PricingCatalog,entitlement:PricingSubscriptionInfo)=>void;onReady?:(catalog:PricingCatalog,entitlement:PricingSubscriptionInfo)=>void;navigate?:(url:string)=>void;
 }) {
  const catalog=usePersonalPricingRead(pricing.getPricingCatalog.path,parseCatalog,userId,sessionToken);
  const wallet=usePersonalPricingRead(billingCredits.operations.getWallet.path,parseWallet,userId,sessionToken,walletQuery);
  const entitlement=usePersonalPricingRead(pricing.getPricingEntitlement.path,parseEntitlement,userId,sessionToken);
+ React.useEffect(()=>{if(catalog.state.status==="ready"&&entitlement.state.status==="ready")onReady?.(catalog.state.data,entitlement.state.data);},[catalog.state,entitlement.state,onReady]);
  const [message,setMessage]=React.useState<string|null>(null),[managementPending,setManagementPending]=React.useState(false);
  const busy=React.useRef(false),managementAbort=React.useRef<AbortController|null>(null),scope=`${userId}\0${sessionToken}`,latestScope=React.useRef(scope);latestScope.current=scope;
  React.useEffect(()=>{setMessage(null);setManagementPending(false);busy.current=false;return()=>managementAbort.current?.abort();},[scope]);

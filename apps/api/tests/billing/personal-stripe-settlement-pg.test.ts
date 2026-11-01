@@ -42,6 +42,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await asOwner(async c => {
     await c.query("DELETE FROM billing_orders WHERE created_by=ANY($1::text[])", [users]);
+    await c.query("DELETE FROM billing_webhook_events WHERE order_no IN (SELECT purchase_ref FROM billing_personal_purchases WHERE user_id=ANY($1::text[]))", [users]);
     await c.query("DELETE FROM billing_personal_stripe_bindings WHERE purchase_ref IN (SELECT purchase_ref FROM billing_personal_purchases WHERE user_id=ANY($1::text[]))", [users]);
     await c.query("DELETE FROM billing_personal_payment_receipts WHERE purchase_ref IN (SELECT purchase_ref FROM billing_personal_purchases WHERE user_id=ANY($1::text[]))", [users]);
     await c.query("DELETE FROM billing_personal_terms WHERE user_id=ANY($1::text[])", [users]);
@@ -350,4 +351,12 @@ it("reads the new immutable quote and payment outcome without exposing another p
   const review = await reader.read({ userId: old.userId, orgId: org }, old.purchase.purchaseRef);
   if (review.mode !== "active") throw Error("active_expected");
   expect(review.order).toMatchObject({ status: "FAILED", paidAt: null });
+});
+
+it("permits rejection audits in the active epoch without reopening legacy financial writes", async () => {
+  const f = await fixture("active-rejection-audit");
+  await new PgBillingCreditingStore(db).auditRejection(false,f.purchase.purchaseRef);
+  const rows = await asOwner(async c => (await c.query("SELECT signature_verified,result FROM billing_webhook_events WHERE order_no=$1",[f.purchase.purchaseRef])).rows);
+  expect(rows).toEqual([{signature_verified:false,result:"rejected"}]);expect(await f.wallet()).toBeUndefined();
+  await expect(new PgBillingCreditingStore(db).due()).rejects.toMatchObject({code:"payment_provider_not_configured"});
 });

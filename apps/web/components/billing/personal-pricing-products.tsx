@@ -11,8 +11,8 @@ import { cn } from "@/lib/utils";
 import { pricingMoney, pricingNumber as number } from "./personal-pricing-format";
 
 /** Pure server-catalog selection. Only SKU and channel leave this component; no client-owned quote is submitted. */
-export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,onSelect,onClose}:{
- kind:"plans"|"credits";catalog:PricingCatalog;entitlement:PricingSubscriptionInfo;busy?:boolean;
+export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,message,onSelect,onClose}:{
+ kind:"plans"|"credits";catalog:PricingCatalog;entitlement:PricingSubscriptionInfo;busy?:boolean;message?:string;
  onSelect:(sku:string,provider:z.infer<typeof BillingProvider>)=>void;onClose:()=>void;
 }) {
  const subscriptions=React.useMemo(()=>catalog.products.filter(p=>p.kind==="subscription"),[catalog.products]);
@@ -29,6 +29,7 @@ export function PersonalPricingProducts({kind,catalog,entitlement:e,busy=false,o
  return <Dialog open onOpenChange={open=>{if(!open)onClose();}}><DialogContent data-testid="pricing-products-dialog" className="max-h-[90vh] max-w-2xl overflow-y-auto">
   <DialogHeader><DialogTitle>{kind==="plans"?"选择适合你的套餐":"购买 AI 额度"}</DialogTitle><DialogDescription>确认套餐和支付方式后继续付款，以支付确认结果为准。</DialogDescription></DialogHeader>
   <div className="space-y-5">
+   {message&&<p role="alert" className="text-13 text-destructive">{message}</p>}
    {kind==="plans"&&<div className="flex gap-1 rounded-control bg-muted p-1" aria-label="付款周期">{(["month","year"]as const).map(value=><Button key={value} data-testid={`pricing-cycle-${value}`} disabled={busy||!subscriptions.some(p=>p.cycle===value)} variant={cycle===value?"outline":"ghost"} aria-pressed={cycle===value} className="h-auto min-w-0 flex-1 whitespace-normal py-2 text-12" onClick={()=>setCycle(value)}>{value==="month"?"月付":"年付"}</Button>)}</div>}
    {kind==="plans"&&selected?.kind==="subscription"&&<div className="space-y-3 rounded-card border border-primary p-5 ring-1 ring-primary"><span className="flex items-center justify-between text-16 font-semibold">Pro<Check className="h-4 w-4" aria-hidden="true"/></span><p><strong className="text-30 font-semibold tabular-nums">{pricingMoney(selected.currency,selected.amountMinor)}</strong><span className="text-12 text-muted-foreground"> / {cycle==="month"?"月":"年"}</span></p><p className="text-13">1 个核心成员 · 每月 {number(selected.monthlyCredits)} credit</p><p className="text-12 text-muted-foreground">适合个人持续使用 AI</p></div>}
    {kind==="credits"&&<div className="space-y-2">{packs.map(p=><Button key={p.sku} data-testid={`pricing-pack-${p.credits}`} variant="outline" aria-pressed={selected?.sku===p.sku} disabled={busy} onClick={()=>setPack(p.sku)} className={cn("h-auto w-full justify-between gap-3 p-4",selected?.sku===p.sku&&"border-primary ring-1 ring-primary")}><span className="flex items-center gap-3"><Wallet className="h-4 w-4" aria-hidden="true"/>{number(p.credits)} credit{selected?.sku===p.sku&&<Check className="h-4 w-4" aria-hidden="true"/>}</span><strong className="text-16">{pricingMoney(p.currency,p.amountMinor)}</strong></Button>)}<p className="text-12 text-muted-foreground">充值额度长期有效；订阅额度不足时可额外充值。</p></div>}

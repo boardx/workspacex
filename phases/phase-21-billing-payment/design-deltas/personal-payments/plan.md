@@ -11,8 +11,9 @@ flowchart TD
   S7[自动补账与停机恢复]
   S8[管理历史与旧入口退役]
   S9[正式UI及真实浏览器]
+  S10[缺失支付页终态恢复的契约签核]
   S6[独立审查与绿色PR集成]
-  G --> S1 --> S2 --> S3 --> S4 --> S7 --> S8 --> S9 --> S5 --> S6
+  G --> S1 --> S2 --> S3 --> S4 --> S7 --> S8 --> S9 --> S5 --> S10 --> S6
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
@@ -30,8 +31,12 @@ flowchart TD
   class S5 doing
   class S7 tested
   %% evidence S7: 177872994独立增量ACCEPT，root自动恢复与生命周期3项
-  class S8 doing
-  class S9 todo
+  class S8 tested
+  %% evidence S8: management与旧财务回归，当前53PG含active审计修复
+  class S9 doing
+  %% evidence S9: 正常链路完整browser16及React93；异常恢复仍待S10
+  class S10 blocked
+  %% evidence S10: personal-order-outcomes-v1/design-signoff.md；人类确认pending
   class S6 todo
 ```
 

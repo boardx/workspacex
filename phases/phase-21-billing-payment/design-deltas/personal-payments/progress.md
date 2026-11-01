@@ -1,5 +1,17 @@
 # 个人支付闭环进展
 
+正式个人/billing路由代码已接入采用的UI，服务端BILLING_PERSONAL_PRICING_UI_ENABLED默认关闭；没有改部署开关、生产计费epoch或生产数据。正常微信与Stripe购买、真实账户读模型、本人订单状态、原key恢复、订阅门户/取消下一期均已接线。见ui-runtime.md。
+
+当前完整浏览器车道4文件16项通过（原11+新CN2+DevApp USD3），计费HTTP不拦截；真实API/PG及独立RSA/HMAC支付商fixture，生产商户实付未验证。截图已目视核对；年付有效至一年、可用额度仅当月20k，取消下一期后权益保留。React93、审计/旧财务边界PG53、API/Web/local-runtime type/lint11及全仓颜色门通过；PGlite完整迁移和真实注册无赠送（epoch未启用）3项通过。390px移动端另补1项通过（另外2项被过滤），订阅历史可滚动访问并可刷新；证据见evidence/ui-runtime/。
+
+真实浏览器先发现旧P5父缺已合Contract代理，已刷新依赖栈而非补假数据；之后发现active拒绝回调审计误受旧财务写入门控，新增红测后把只写安全事件的audit路径限定为两种已知epoch可用，旧金融事务仍只legacy；错误回调400、正常签名付款和重放均有真实验证。
+
+当前本地依赖栈：P2 source48e04b39c（PR6098候选398603d48因chat shard2对/api/copilotkit/info发生ECONNRESET退队，未合入，待分诊重试）；P3 local63d23e154在base48，P4 localb4ddf725在P3，P5已重放11提交到5bdd0be77，range-diff逐项相等，当前运行时/审计增量待提交精确SHA复审。P3/P4未新建PR也未推此临时栈。P2实际合入后P3应从48剥离onto实际develop，再依次处理P4/P5。
+
+阻塞整#6093完成的已知P2：到账早于支付页绑定落库时，旧非空字段契约导致恢复读取503。具体GET及同key POST可空语义修订在../personal-order-outcomes-v1/design-signoff.md；已完成独立一致性复核并异步请求人类签核，仍未代签/未改契约。用户本次定价正常集成develop授权持续有效，不重复询问续作或合入。Team/Enterprise与全旧数据重置仍后续阶段，未标passing。
+
+## 历史检查点（不作为当前完成状态）
+
 套餐选择及浏览器恢复指针组件增量：使用真实目录SKU/月年周期/渠道，阻止重复Pro和USD微信；只向上游选择器传SKU/provider，不提交客户端金额。请求前保存本人原幂等键，损坏恢复指针不静默清除；结果仅绑定原payer/请求/provider，拒绝不可信地址。付款/门户URL校验收敛单源并复用旧收银台/月卡组件。新13UI+恢复4及旧cashier51/liveSubscription17合计85通过，Web type/lint4任务通过，见ui-quote-state-*。未接生产路由/未冒充真实商户E2E。待签修订已补同一POST幂等恢复的null地址与原purchaseRef，客户端随后GET权威结果；仍pending、未改契约。
 
 当前边界更新：ecb383b16订单读取检查点独立审查有P2（已到账但原创建绑定缺失时503），尚未ACCEPT。已准备personal-order-outcomes-v1具体修订并独立一致性复核：终态地址/期限可null、待支付强制真值，异步等待人类签核；未实施依赖该修订的代码。
@@ -56,3 +68,5 @@ Stripe 绑定与到账：新增不可变 subscription/purchase/session/customer/
 前置 #6088 / PR #6094 已正常合入 develop，合并提交 a2d305d11cac86df01737461b5b241bbac3c430e，2026-11-01T17:56:49Z；issue 已由该 PR 关闭。后续四个依赖分支仍须按顺序剥离旧父、单 issue PR、独立审查、正常合入。
 
 独立review7ac972e45发现products新text-foreground无效，已改合法text-background-foreground；权威颜色扫描器针对新组件零问题。当前P5旧父全仓另有prototype两条旧问题，不豁免/不称全仓绿；切到已合UI的P2基线时全仓颜色门已绿，后续顺序rebase应带入正确版本，再全门复验。待签材料补齐同一payer/SKU/provider/catalogVersion、销售关闭后原key恢复、所有恢复先GET状态、三类终态零新增支付请求约束；仍pending未实现nullable。
+
+未提交UI运行时WIP：PersonalPricingCheckout真实POST前持久化、模糊错误只用户动作同key重试、GET本人状态后才QR/成功、截止后不假关单；生产/billing路由新增默认关闭的服务端UI开关，未设置任何部署开关。React总89与Web type/lint4通过，但本轮新API浏览器fixture尚未API type/lint。首轮真实browser1失败/后续bail未跑：旧P5父缺已合入Contract PR的Next代理，catalog/entitlement实际404导致quota不可见。不是账务断言通过；保留失败日志，不放宽断言。先stash这份WIP、刷新P3→P4→P5到P2当前已审48e04b39c，再重跑。新owned browser helper已补启动早期handle回传，失败也能关闭独占进程；此修正也尚待重跑。待签nullable仍pending/未改契约，旧ecb P2保持open。

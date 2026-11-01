@@ -23,7 +23,8 @@ import { toOrgId } from "../../src/domain/org-id";
 export const user = "f04-order-user", other = "f04-order-other";
 export const org = toOrgId("f04-order-org"), otherOrg = toOrgId("f04-order-other-org");
 export type Mode = "success" | "non2xx" | "bad-signature" | "wrong-rsa" | "tampered" | "missing-signature" | "missing-nonce" | "missing-time" | "stale" | "unknown-key" | "missing-qr" | "bad-qr" | "malformed" | "redirect" | "oversize" | "timeout-headers" | "timeout-body";
-export async function orderFixture(beforeListen?: (app: NestExpressApplication) => void, options: { platformVerification?: boolean } = {}) {
+export interface BillingFixtureOptions { platformVerification?: boolean; billingEnv?: Readonly<Record<string,string>> }
+export async function orderFixture(beforeListen?: (app: NestExpressApplication) => void, options: BillingFixtureOptions = {}) {
   const platformVerification = options.platformVerification !== false;
   ensureDatabase(); await migrateOnce();
   const merchant = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -109,6 +110,7 @@ export async function orderFixture(beforeListen?: (app: NestExpressApplication) 
       WECHAT_PAY_PLATFORM_PUBLIC_KEY: platformVerification ? platform.publicKey.export({ type: "spki", format: "pem" }).toString() : "",
       WECHAT_PAY_PLATFORM_PUBLIC_KEY_PATH: "",
       WECHAT_PAY_NOTIFY_URL: "https://billing.example.test/api/billing/webhooks/wechat",
+      ...options.billingEnv,
     };
     const saved = Object.fromEntries(Object.keys(env).map(key => [key, process.env[key]]));
     Object.assign(process.env, env);
