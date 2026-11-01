@@ -1,9 +1,11 @@
 # Team / Enterprise 设计进展
 
-Issue #6099，分支worker/cn-us-team-billing-design，基线为已实际合入的develop6a1a3c62e；唯一worktree继续使用cn-us-pricing-ui。用户已采用UI及商业规则；新增核心席位口径、折算精度／渠道差异、Enterprise生效及个人／组织归属方案在design-signoff.md明确待人确认，未代签。
+Issue6099，worker/cn-us-team-billing-design，基线实际develop685fcd33f26b4e547ff583f82d2060bd4af52067（fetch读取，包含充值d886及另一会话6097集成）。原476草案重放为e21d7d66d；只改本束文档，不修改其他会话实现或运行时。
 
-已核对源码：商业组织与teams分组不同；计费ownerType=team使用organization ID；平台已有Plan/version/audit及PlatformOperatorGuard。材料包括UI对应、T01–T10/E01–E06、领域不变量、拟议API、覆盖矩阵和后续切片候选。没有修改运行时契约、数据库或业务代码，执行计划、UI材料、第三件材料三项静态门退出0；证据evidence/*lint.txt。待精确提交独立一致性复核，未声称任何运行时测试通过。
+已修首次独立审查两点：首次/到期续购quote不再受旧term截止日影响；T06全部成员路径容量门禁前移到任何Team可售之前，补付款期间待购容量防并发超席。依据实际已采用组件，平台手动加额度仅Enterprise、整数和原因表单；纠正原稿/其他交接中“所有列表行可加额度”的错误观察，不扩展授权。新增T11覆盖原型已有的Team永久充值；Enterprise新额度仅平台管理。
 
-前置当前信号：充值PR6098 source48e04，原候选聊天分片一次重跑65通过/1跳过后正常重新排队，新候选d886e24310ae50e8f7c6a74bbceb87c052514025待检查，未实际合入。年付P3远端b766a58cc（剥离父48e04）；Free P4远端63bd75abd（剥离父b766）；个人支付P5远端1b6748d18（剥离父b4dd）。必须重读实际mergedAt/mergeCommit，不能凭此记录判断已合。
+待精确SHA草案一致性复审；可执行schema、原型消费与反例验证仍须补齐，再进行正式复核和人工签核。design-signoff.md仍pending，核心成员/折算/续购容量/Enterprise生效口径仍待人采纳；原个人恢复确认不覆盖本束。没有运行时验证通过声明。现有三项静态lint只为仓库文档基础，不替代草案一致性/人工签核；usecase与coverage共17项待实现行为。
 
-个人缺支付页绑定的终态恢复设计仍在P5分支待人签核；本设计没有覆盖它。生产reset、epoch、支付开关和部署均未操作。
+年付PR6100已创建、head5310e834b2fa54e2cc04e0a2ffe55e181e03aa20、已正常入队；最新候选98de549bbe77c459362ed42fc9455c5589dd1f1e检查进行中，尚未实际合并，仍由本线程负责正常集成。P4远端63bd旧父b766，P5远端52e2旧父b4dd；必须在前置实际merge后依次剥离，不能错用新头。充值6098已真实merge d886且6090关闭。个人恢复增量52e2独立ACCEPT及browser17等证据已推。
+
+本材料先以draft承载草案审阅；api.md不代替packages/contracts可执行第③件，补齐后才请求正式人工签核，不能借文档合入启用新接口。旧计费reset/epoch/生产部署未操作。
