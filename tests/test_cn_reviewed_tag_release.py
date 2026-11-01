@@ -28,6 +28,7 @@ class WriterOrchestrationTests(unittest.TestCase):
   def save(path,value):
    with open(path,'x') as f:json.dump(value,f)
    Path(path).chmod(0o600)
+   if Path(path).name=='cn-reviewed-'+m.TAG+'-once.json':events.append('reserve-once')
   def sha(raw):return hashlib.sha256(raw).hexdigest()
   base={'environment':'cn','source':m.SOURCE,'tag':m.TAG,'baseline':{'api':{'containerId':'old-cid','imageId':'old'}},'nginx':{'path':str(nginx)},'configurationPins':[],'project':'p','bootstrapProbe':{'binding':{'baselineEnvSha256':sha(json.dumps({'PGHOST':'rds','PGDATABASE':'database','PGPORT':'5432','APP_DB_USER':'app_rw'},sort_keys=True).encode())}}}
   cfg={'stateDirectory':str(root),'project':'p','services':{'api':'api'},'composeFiles':[],'envFile':{'path':str(nginx)},'verificationCommand':['public-probe']}
@@ -62,6 +63,7 @@ class WriterOrchestrationTests(unittest.TestCase):
     if state['running']:raise ValueError('NOT_STOPPED')
    def execute(self,mode):
     events.append('sql-'+mode)
+    if mode=='preflight' and failure=='ledger-preflight':return {'status':'DRIFT'}
     if mode=='drain':return {'status':'DRAINED','ledgerStatus':state['ledger']}
     if mode=='apply':
      self.stopped();state['ledger']='COMPLETE'
@@ -73,12 +75,13 @@ class WriterOrchestrationTests(unittest.TestCase):
    self.assertNotIn('--no-owner',args[-1]);self.assertNotIn('--no-acl',args[-1]);events.append('backup');archive=out/'database.pgdump.enc';key=out/'backup.key';archive.write_bytes(b'x'*1100);key.write_bytes(b'a'*64);return archive,key
   core=types.SimpleNamespace(save=save,MIGRATIONS=migrations,sha=sha,encrypt_dump=encrypt,private_backup_files=lambda *a:None)
   def health(ctx,command,images):events.append('health-'+images['api']);self.assertTrue(state['running']);return {'healthy':True}
-  act=types.SimpleNamespace(runtime_rows=lambda d,p,services,images:rows(images),live_config_cas=lambda *a:None,verify_held_runtime=health)
+  act=types.SimpleNamespace(runtime_rows=lambda d,p,services,images:rows(images),live_config_cas=lambda *a: (_ for _ in ()).throw(ValueError('LIVE_CONFIG_DRIFT')) if failure=='config-preflight' else None,verify_held_runtime=health)
   maint=types.SimpleNamespace(Host=Host,runtime_set=lambda *a:None,pinned=lambda ref,**kw: (_ for _ in ()).throw(ValueError('INPUT_HASH_DRIFT')) if failure=='env-drift' and 'backup' in events and ref['path']==str(nginx) else Path(ref['path']),maintenance_bytes=lambda raw,env:b'held')
   request={k:k for k in ('environment','tag','sourceRevision','planSha256','manifestSha256')}
   ctx={'policy':{'runtimeSeconds':10,'businessSeconds':10,'rollbackSeconds':30},'policyRef':{'path':'policy','sha256':'a'*64},'mods':{'schema-restore-rehearsal':core,'tag-maintenance-release':maint,'tag-migrated-activation':act,'minimal-docker-release':types.SimpleNamespace(),'cn-tag-migration-adapter':types.SimpleNamespace(Adapter=Adapter),'schema-tag-prepare':types.SimpleNamespace(env_map=lambda r:{'PGHOST':'rds','PGDATABASE':'database','PGPORT':'5433' if failure=='api-env' else '5432','APP_DB_USER':'app_rw'}),'schema-release-handoff':types.SimpleNamespace(IDENTITY=tuple(request))},'attempt':attempt,'config':cfg,'d':D(),'base':base,'fd':3,'manifest':{'images':{'api':{'imageId':'new'}}},'command':['compose'],'request':request,'receipt':attempt/'result.json'}
   # Failure recovery arms a bounded alarm; suppress it only inside fake orchestration.
   from unittest.mock import patch
+  if failure=='old-once':(root/('cn-reviewed-'+m.TAG+'-once.json')).write_bytes(b'original spent capability')
   with patch.object(m.signal,'setitimer'):
    try:m.writer(ctx);error=None
    except ValueError as e:error=e
@@ -127,3 +130,14 @@ class PreUpDriftTests(unittest.TestCase):
  exercise=WriterOrchestrationTests.exercise
  def test_environment_drift_after_backup_rejects_before_candidate_up(self):
   m,ctx,state,events,nginx,pending,error=self.exercise('env-drift');self.assertRegex(str(error),'INPUT_HASH_DRIFT');self.assertNotIn('up-new',events);self.assertEqual(state['images'],{'api':'old'});self.assertEqual(state['ledger'],'COMPLETE')
+
+class ReservationBoundaryTests(unittest.TestCase):
+ exercise=WriterOrchestrationTests.exercise
+ def test_readonly_config_or_ledger_preflight_failure_never_reserves_or_recovers(self):
+  for failure,code in [('config-preflight','LIVE_CONFIG_DRIFT'),('ledger-preflight','INITIAL_LEDGER')]:
+   with self.subTest(failure=failure):
+    m,ctx,state,events,nginx,pending,error=self.exercise(failure);self.assertRegex(str(error),code);self.assertFalse((pending.parent/('cn-reviewed-'+m.TAG+'-once.json')).exists());self.assertFalse((ctx['attempt']/'cn-once-failure.json').exists());self.assertNotIn('stop-old',events);self.assertNotIn('nginx-held',events);self.assertEqual(nginx.read_bytes(),b'original');self.assertTrue(state['running']);self.assertEqual(state['ledger'],'BASELINE')
+ def test_durable_reservation_between_readonly_preflight_and_first_hold(self):
+  m,ctx,state,events,nginx,pending,error=self.exercise();self.assertIsNone(error);self.assertLess(events.index('sql-preflight'),events.index('reserve-once'));self.assertLess(events.index('reserve-once'),events.index('nginx-held'));self.assertEqual(events.count('reserve-once'),1)
+ def test_preexisting_spent_capability_still_rejects_and_is_never_rewritten(self):
+  m,ctx,state,events,nginx,pending,error=self.exercise('old-once');self.assertRegex(str(error),'CAPABILITY_ALREADY_SPENT');self.assertEqual(events,[]);self.assertEqual((pending.parent/('cn-reviewed-'+m.TAG+'-once.json')).read_bytes(),b'original spent capability');self.assertFalse((ctx['attempt']/'policy.json').exists());self.assertTrue(pending.exists())

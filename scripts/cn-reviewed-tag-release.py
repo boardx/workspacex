@@ -93,7 +93,6 @@ def writer(ctx):
  p=ctx['policy'];m=ctx['mods'];core=m['schema-restore-rehearsal'];maint=m['tag-maintenance-release'];act=m['tag-migrated-activation'];engine=m['minimal-docker-release'];attempt=ctx['attempt'];cfg=ctx['config'];d=ctx['d'];base=copy.deepcopy(ctx['base']);base['attempt']=attempt.name
  # One root capability may be spent only once, regardless of request nonce/ACK.
  barrier=Path(cfg['stateDirectory'])/('cn-reviewed-'+TAG+'-once.json');need(not barrier.exists() and not barrier.is_symlink(),'CAPABILITY_ALREADY_SPENT')
- core.save(barrier,{'request':ref(attempt/'schema-request.json'),'policy':ctx['policyRef'],'source':SOURCE,'tag':TAG,'automaticRetryAllowed':False,'time':time.time()})
  core.save(attempt/'policy.json',base);host=maint.Host(base,attempt,ctx['fd']);adapter=m['cn-tag-migration-adapter'].Adapter(attempt,ctx['fd'])
  original_nginx=maint.pinned(base['nginx']).read_bytes();held=maint.maintenance_bytes(original_nginx,'cn');old={s:base['baseline'][s]['imageId'] for s in cfg['services']};images={s:ctx['manifest']['images'][r]['imageId'] for s,r in cfg['services'].items()}
  live=act.runtime_rows(d,cfg['project'],cfg['services'],old);maint.runtime_set(live,cfg['project'],base['baseline'],True)
@@ -113,8 +112,11 @@ def writer(ctx):
  def public_business(name):
   core.save(attempt/(name+'-once.json'),{'source':SOURCE,'tag':TAG,'time':time.time(),'automaticRetryAllowed':False})
   raw=host.run(cfg['verificationCommand'],timeout=p['businessSeconds']);need(len(raw)<=65536 and b'CN_PUBLIC_BROWSER_PASSED' in raw,'PUBLIC_BROWSER_FAILED');path=attempt/(name+'-raw.json');core.save(path,{'stdoutHex':raw.hex(),'createdAt':time.time(),'source':SOURCE,'tag':TAG,'scope':'actual-public-browser'});return ref(path)
+ # All preflight failures remain read-only and do not enter recovery or spend
+ # the capability. Existing spent markers still reject at entry; never clear one.
+ need(adapter.execute('preflight').get('status') in ('BASELINE','COMPLETE'),'INITIAL_LEDGER')
+ core.save(barrier,{'request':ref(attempt/'schema-request.json'),'policy':ctx['policyRef'],'source':SOURCE,'tag':TAG,'automaticRetryAllowed':False,'time':time.time()})
  try:
-  need(adapter.execute('preflight').get('status') in ('BASELINE','COMPLETE'),'INITIAL_LEDGER')
   host.nginx(original_nginx,held);hold=True;host.stop();maint.runtime_set(host.runtime(),cfg['project'],base['baseline'],False);adapter.stopped();need(adapter.execute('drain').get('status')=='DRAINED','SOURCE_NOT_DRAINED')
   backup=attempt/'stopped-backup';backup.mkdir(mode=0o700);metadata=adapter.cn.read_source(d)
   observed=metadata['ledger'];need(observed in (adapter.base,{**adapter.base,**core.MIGRATIONS}),'BACKUP_LEDGER')

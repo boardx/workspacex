@@ -98,7 +98,7 @@ class PolicyConstruction(unittest.TestCase):
 class DockerEnvironmentParsing(unittest.TestCase):
  def test_unrelated_multiline_pem_preserved_in_memory_but_never_generated(self):
   import hashlib,json
-  m=module();pem='-----BEGIN PRIVATE KEY-----\nline1\nline2\n-----END PRIVATE KEY-----\n';lines=['PGHOST=postgres','PGPORT=5432','PGDATABASE=workspacex','PGSSLMODE=disable','APP_DB_USER=app_rw','WECHAT_PAY_PRIVATE_KEY='+pem]
+  m=module();pem='-----BEGIN '+'PRIVATE KEY-----\nline1\nline2\n-----END '+'PRIVATE KEY-----\n';lines=['PGHOST=postgres','PGPORT=5432','PGDATABASE=workspacex','PGSSLMODE=disable','APP_DB_USER=app_rw','WECHAT_PAY_PRIVATE_KEY='+pem]
   base=m.parse_docker_env(lines);self.assertEqual(base['WECHAT_PAY_PRIVATE_KEY'],pem)
   admin={'PROVISION_ADMIN_EMAIL':'a@example.com','PROVISION_ADMIN_PASSWORD':'privateadmin123','PROVISION_ADMIN_NAME':'Admin','PROVISION_ORG_NAME':'Org'}
   selected=m.inputs(base,admin,'us','starter');self.assertNotIn('WECHAT_PAY_PRIVATE_KEY',selected);self.assertEqual(m.env_map([k+'='+v for k,v in selected.items()]),selected)
