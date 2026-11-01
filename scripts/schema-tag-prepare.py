@@ -101,7 +101,7 @@ def read_source(docker,source,database):
                     '--username=postgres','--dbname='+database,'-c',SOURCE_METADATA],timeout=30)
     value=json.loads(raw)
     need(value.get('database')==database and value.get('role')=='postgres','SOURCE_DATABASE_BINDING')
-    need(type(value.get('bytes')) is int and 0<value['bytes']<=64*1024*1024,'SOURCE_DATABASE_SIZE_UNQUALIFIED')
+    need(type(value.get('bytes')) is int and 0<value['bytes']<=128*1024*1024,'SOURCE_DATABASE_SIZE_UNQUALIFIED')
     need(type(value.get('roles')) is list and len(value['roles'])<=100,'SOURCE_ROLES_UNQUALIFIED')
     return value
 

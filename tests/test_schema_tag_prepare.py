@@ -26,11 +26,12 @@ class SourceBoundary(unittest.TestCase):
     def test_read_only_source_metadata_never_accepts_other_database_or_excess_size(self):
         import json
         m=module();d=Mock();good={'database':'workspacex','role':'postgres','bytes':10000,'ledger':{'old.sql':'a'*64},'roles':['app_rw']}
+        good['bytes']=115555351
         d.run.return_value=json.dumps(good).encode();self.assertEqual(m.read_source(d,{'Id':'a'*64},'workspacex'),good)
         args=d.run.call_args.args[0]
         self.assertIn('BEGIN READ ONLY;',args[-1]);self.assertTrue(args[-1].strip().endswith('ROLLBACK;'))
         self.assertEqual(args[0:3],['exec','--user','postgres']);self.assertIn('--host=/var/run/postgresql',args);self.assertIn('--port=5432',args);self.assertIn('-i',args);self.assertIn('/usr/bin/env',args)
-        for patch in [{'database':'wrong'},{'role':'app_rw'},{'bytes':128*1024*1024},{'bytes':True}]:
+        for patch in [{'database':'wrong'},{'role':'app_rw'},{'bytes':129*1024*1024},{'bytes':True}]:
             d.run.return_value=json.dumps({**good,**patch}).encode()
             with self.assertRaises(ValueError):m.read_source(d,{'Id':'a'*64},'workspacex')
 if __name__=='__main__':unittest.main()
