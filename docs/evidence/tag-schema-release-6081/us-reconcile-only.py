@@ -10,6 +10,7 @@ from pathlib import Path
 ROOT=Path('/var/lib/workspacex-image-release/us/qualification-tools-dfb8d2c6a')
 OLD=Path('/var/lib/workspacex-image-release/us/tag-maintenance-9ac8c1d2b679466ca8035b68c41bc3b3')
 STATE=OLD.parent
+POLICY_INPUT=STATE/'maintenance-inputs-043cd95adc7149f5b579f602255ccf73/policy.json'
 CFG=Path('/etc/workspacex-image-release/us.json')
 LOCK=Path('/run/workspacex-selfhost-deploy.lock')
 MARKER=Path('/var/lib/workspacex-selfhost-state/business-probe-uncertain')
@@ -65,7 +66,8 @@ def main():
   need(not (OLD/'receipt.json').exists() and not (OLD/'receipt.json').is_symlink(),'ORIGINAL_RECEIPT_EXISTS')
   need(not MARKER.exists() and not MARKER.is_symlink(),'EXISTING_BUSINESS_MARKER_REQUIRES_SEPARATE_RECONCILIATION')
   p=freeze(OLD/'policy.json');identity(p);need(p.get('attempt')==OLD.name,'POLICY_ATTEMPT');need(p['stateDirectory']==str(STATE) and p['lockFile']==str(LOCK),'ORIGINAL_POLICY_LOCATION')
-  need(pending_v.get('policySha256')==FROZEN[str(OLD/'policy.json')],'PENDING_POLICY_HASH')
+  original_input=freeze(POLICY_INPUT);need(original_input==p,'POLICY_SEMANTIC_DRIFT')
+  need(pending_v.get('policySha256')==FROZEN[str(POLICY_INPUT)],'PENDING_POLICY_HASH')
   need(0<=time.time()-p['preparedAt']<3600,'POLICY_EXPIRED')
   cfg=freeze(CFG);need(FROZEN[str(CFG)]==initial_cfg_hash,'CONFIG_CHANGED_DURING_LOAD');need(cfg['environment']=='us' and cfg['lockFile']==str(LOCK) and cfg['stateDirectory']==str(STATE),'CONFIG_BINDING')
   need(any(r['path']==str(CFG) and r['sha256']==FROZEN[str(CFG)] for r in p['configurationPins']),'CONFIG_NOT_ORIGINALLY_PINNED')
