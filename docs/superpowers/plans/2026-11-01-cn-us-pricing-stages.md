@@ -83,7 +83,7 @@
 flowchart TD
   G([中美定价分阶段交付])
   S1[读取方案与确认商业规则]
-  S2[隔离工作区及UI用例API设计]
+  S2[个人UI用例与API设计]
   S3[个人月年付与充值赠送]
   S4[Team共享额度与增员]
   S5[Enterprise管理员能力]
@@ -96,8 +96,9 @@ flowchart TD
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
   class G doing
   class S1 done
-  class S2 doing
-  class S3 todo
+  class S2 tested
+  %% evidence S2: UI已确认；个人用例/API用户已确认；schema7项及contracts1247项通过，证据见personal-pricing-v1/evidence
+  class S3 doing
   class S4 todo
   class S5 todo
   class S6 todo

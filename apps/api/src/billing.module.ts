@@ -1,5 +1,7 @@
 import {StripeCreditCheckout} from "./infrastructure/billing/stripe-credit-checkout";
 import {MonthlyCheckoutRouter} from "./infrastructure/billing/monthly-checkout-router";
+import { BillingCatalogService } from "./application/billing/billing-catalog-service";
+import { BillingCatalogController } from "./interface/controllers/billing-catalog.controller";
 import {WechatMonthlyPassClient} from "./infrastructure/billing/wechat-monthly-pass-client";
 import {MonthlyWechatCreditingStore} from "./infrastructure/billing/monthly-wechat-crediting-store";
 import {MonthlyPassService} from "./application/billing/monthly-pass-service";
@@ -56,8 +58,9 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
 
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [NativeCreditTariffController, ConsumptionSettingsController, BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
+  controllers: [BillingCatalogController, NativeCreditTariffController, ConsumptionSettingsController, BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
+    { provide: BillingCatalogService, useFactory: (config: DeploymentBillingConfig) => new BillingCatalogService(config), inject: [DeploymentBillingConfig] },
     {provide:CreditUsageReplayWorker,useFactory:(db:DatabasePort,logger:LoggerPort)=>new CreditUsageReplayWorker(db,logger),inject:[DATABASE_PORT,LOGGER_PORT]},
     {provide:NativeCreditTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new NativeCreditTariffService(new PgNativeCreditTariffRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
     {provide:APP_INTERCEPTOR,useClass:CreditExecutionContextInterceptor},
