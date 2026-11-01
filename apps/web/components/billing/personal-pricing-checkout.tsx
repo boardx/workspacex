@@ -17,7 +17,7 @@ const POLL_LIMIT=12,POLL_INTERVAL_MS=5000;
 export function PersonalPricingCheckout(props:Props){return <ScopedCheckout key={JSON.stringify([props.userId,props.sessionToken])} {...props}/>;}
 function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,onPaid,navigate=(url:string)=>window.location.assign(url)}:Props){
  const [loading,setLoading]=React.useState(true),[context,setContext]=React.useState<PendingPersonalCheckout|null>(null),[order,setOrder]=React.useState<Order|null>(null);
- const [creating,setCreating]=React.useState(false),[fatal,setFatal]=React.useState<string|null>(null),[message,setMessage]=React.useState<string|null>(null),[readError,setReadError]=React.useState(false),[qrError,setQrError]=React.useState(false),[now,setNow]=React.useState(Date.now);
+ const [creating,setCreating]=React.useState(false),[fatal,setFatal]=React.useState<string|null>(null),[message,setMessage]=React.useState<string|null>(null),[readError,setReadError]=React.useState(false),[qrError,setQrError]=React.useState(false),[qrVersion,setQrVersion]=React.useState(0),[now,setNow]=React.useState(Date.now);
  const mounted=React.useRef(false),busy=React.useRef(false),reading=React.useRef(false),completed=React.useRef(false),autoStripe=React.useRef(false),requests=React.useRef(new Set<AbortController>()),canvas=React.useRef<HTMLCanvasElement>(null),snapshot=React.useRef<Order|null>(null);
  React.useEffect(()=>{
   mounted.current=true;const controllers=requests.current;
@@ -36,7 +36,7 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
    const quoted=catalog.version===pending.request.catalogVersion?catalog.products.find(p=>p.sku===pending.request.sku):null;
    if(quoted&&(current.amountFen!==quoted.amountMinor||current.currency!==quoted.currency||current.baseCredits!==(quoted.kind==="subscription"?quoted.monthlyCredits:quoted.credits)||current.bonusCredits!==0))throw Error("payment_quote_mismatch");
    if(snapshot.current&&["amountFen","currency","baseCredits","bonusCredits","packageId","qrCodeUrl","expiredAt"].some(key=>current[key as keyof Order]!==snapshot.current![key as keyof Order]))throw Error("payment_snapshot_mismatch");
-   if(!mounted.current||controller.signal.aborted)return;snapshot.current=current;setOrder(current);setReadError(false);setNow(Date.now());
+   if(!mounted.current||controller.signal.aborted)return;snapshot.current=current;setOrder(current);setReadError(false);setNow(Date.now());setQrVersion(version=>version+1);
    if(current.status==="SUCCESS"){
     autoStripe.current=false;
     if(!completed.current){completed.current=true;try{clearPersonalCheckout(localStorage,userId,pending.request.idempotencyKey);}catch{setMessage("支付已确认，本地记录未能清理，请保留订单号。");}try{onPaid();}catch{/* A refresh callback cannot reverse verified payment. */}}
@@ -64,7 +64,7 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
  React.useEffect(()=>{
   setQrError(false);if(!canPay||order?.provider!=="wechat"||!canvas.current)return;
   let alive=true;void QRCode.toCanvas(canvas.current,order.qrCodeUrl,{width:240,margin:2,errorCorrectionLevel:"M"}).catch(()=>{if(alive)setQrError(true);});return()=>{alive=false;};
- },[canPay,order?.provider,order?.qrCodeUrl]);
+ },[canPay,order?.provider,order?.qrCodeUrl,qrVersion]);
  const submit=async(pending:PendingPersonalCheckout)=>{
   if(busy.current)return;busy.current=true;setCreating(true);setMessage(null);
   const controller=new AbortController();requests.current.add(controller);const timer=setTimeout(()=>controller.abort(),15000);
@@ -104,7 +104,7 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
     {!order&&!readError&&<p role="status">正在核实付款状态…</p>}
     {readError&&<p data-testid="pricing-payment-read-error" role="status" className="text-13 text-muted-foreground">暂时无法确认付款状态，请稍后刷新，勿重复付款。</p>}
     {order?.status==="SUCCESS"?<div className="space-y-3"><p data-testid="pricing-checkout-success" role="status" className="rounded-control bg-success p-3 text-success-foreground">支付已确认，请查看账户额度。</p><Button data-testid="pricing-payment-done" variant="primary" onClick={onClose}>完成</Button></div>:order?.status==="FAILED"?<p role="alert" className="text-13 text-destructive">付款需要人工核实，请保留订单号并联系支持，勿重复付款。</p>:order?.status==="CLOSED"?<div className="space-y-3"><p role="status">订单已确认关闭。</p><Button onClick={()=>{try{clearPersonalCheckout(localStorage,userId,context.request.idempotencyKey);setContext(null);setOrder(null);snapshot.current=null;completed.current=false;setMessage(null);}catch{setFatal("无法清理原订单记录，请联系支持。");}}}>重新选择套餐</Button></div>:<>
-     {canPay&&order?.provider==="wechat"&&!qrError&&<canvas data-testid="pricing-checkout-qr" ref={canvas} className="mx-auto" role="img" aria-label="微信支付二维码"/>}
+     {canPay&&order?.provider==="wechat"&&<canvas hidden={qrError} data-testid="pricing-checkout-qr" ref={canvas} className="mx-auto" role="img" aria-label="微信支付二维码"/>}
      {qrError&&<p role="status" className="text-13 text-destructive">二维码暂时无法显示，请刷新付款状态后重试。</p>}
      {canPay&&order?.provider==="stripe"&&<Button variant="primary" onClick={()=>navigate(requirePaymentUrl(order.qrCodeUrl,"stripe"))}>前往 Stripe 付款</Button>}
      {order&&order.status==="PENDING"&&!canPay&&!readError&&<p role="status" className="text-13 text-muted-foreground">付款时间已过，正在核实最终结果，勿重复付款。</p>}

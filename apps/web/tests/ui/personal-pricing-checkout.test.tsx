@@ -1,4 +1,5 @@
 import * as React from "react";
+import QRCode from "qrcode";
 import {afterEach,expect,it,vi} from "vitest";
 import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {PersonalPricingCheckout} from "@/components/billing/personal-pricing-checkout";
@@ -12,7 +13,7 @@ const result={purchaseRef:ref,url:"weixin://wxpay/bizpayurl?pr=fixture",expiresA
 const order={orderNo:ref,ownerType:"user",ownerId:userId,provider:"wechat",status:"PENDING",packageId:"pack",amountFen:12900,currency:"CNY",baseCredits:10000,bonusCredits:0,qrCodeUrl:result.url,createdAt:"2026-11-02T00:00:00Z",expiredAt:result.expiresAt,paidAt:null,notifyAt:null,closedAt:null,lastErrorCode:null};
 const reply=(value:unknown)=>new Response(JSON.stringify(value));
 function mount(onPaid=vi.fn()){return render(<PersonalPricingCheckout kind="credits" userId={userId} sessionToken="session" catalog={catalog} entitlement={entitlement} onClose={()=>{}} onPaid={onPaid}/>);}
-afterEach(()=>{cleanup();localStorage.clear();vi.unstubAllGlobals();});
+afterEach(()=>{cleanup();localStorage.clear();vi.unstubAllGlobals();vi.mocked(QRCode.toCanvas).mockReset().mockResolvedValue(undefined);});
 it("saves the original request before posting and only shows success after the owned server outcome",async()=>{
  let paid=false,posts=0;const onPaid=vi.fn();vi.stubGlobal("fetch",vi.fn(async(input:string,init:RequestInit)=>{
   expect(init.headers).toMatchObject({Authorization:"Bearer session"});const path=new URL(input).pathname;
@@ -60,4 +61,13 @@ it("keeps the original key when the page closes during an unresolved creation re
  const view=mount(paid);fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await waitFor(()=>expect(finish).toBeTypeOf("function"));
  const original=loadPersonalCheckout(localStorage,userId);view.unmount();finish!(reply(result));await Promise.resolve();
  expect(loadPersonalCheckout(localStorage,userId)?.request).toEqual(original?.request);expect(loadPersonalCheckout(localStorage,userId)?.result).toBeNull();expect(paid).not.toHaveBeenCalled();
+});
+
+it("redraws a failed QR after refreshing the same pending order without creating a second payment",async()=>{
+ vi.mocked(QRCode.toCanvas).mockRejectedValueOnce(Error("canvas_unavailable")).mockResolvedValue(undefined);
+ let posts=0;vi.stubGlobal("fetch",vi.fn(async(input:string)=>{if(new URL(input).pathname==="/billing/checkout"){posts++;return reply(result);}return reply({order});}));
+ mount();fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await screen.findByText(/二维码暂时无法显示/);
+ fireEvent.click(screen.getByTestId("pricing-refresh-payment"));
+ await waitFor(()=>expect(QRCode.toCanvas).toHaveBeenCalledTimes(2));expect(await screen.findByTestId("pricing-checkout-qr")).toBeVisible();
+ expect(screen.queryByText(/二维码暂时无法显示/)).toBeNull();expect(posts).toBe(1);
 });

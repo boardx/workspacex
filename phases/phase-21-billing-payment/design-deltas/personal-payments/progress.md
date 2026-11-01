@@ -1,5 +1,7 @@
 # 个人支付闭环进展
 
+独立增量审查3e034a8ce发现二维码首次绘制失败后刷新同一订单无法重绘的P2。新增反例先1失败/8通过，修复为保留画布并在成功权威状态刷新后重试绘制；最终9项通过，断言零第二次支付请求，Web type/lint4任务通过。旧93全UI及16browser证据在该小修复之前；本次未把未重跑的全套计为新通过。当前待修复SHA独立复审。
+
 正式个人/billing路由代码已接入采用的UI，服务端BILLING_PERSONAL_PRICING_UI_ENABLED默认关闭；没有改部署开关、生产计费epoch或生产数据。正常微信与Stripe购买、真实账户读模型、本人订单状态、原key恢复、订阅门户/取消下一期均已接线。见ui-runtime.md。
 
 当前完整浏览器车道4文件16项通过（原11+新CN2+DevApp USD3），计费HTTP不拦截；真实API/PG及独立RSA/HMAC支付商fixture，生产商户实付未验证。截图已目视核对；年付有效至一年、可用额度仅当月20k，取消下一期后权益保留。React93、审计/旧财务边界PG53、API/Web/local-runtime type/lint11及全仓颜色门通过；PGlite完整迁移和真实注册无赠送（epoch未启用）3项通过。390px移动端另补1项通过（另外2项被过滤），订阅历史可滚动访问并可刷新；证据见evidence/ui-runtime/。
