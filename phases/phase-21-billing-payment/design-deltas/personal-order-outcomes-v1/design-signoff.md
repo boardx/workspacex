@@ -23,9 +23,9 @@ covers: []
 ## ③ API 契约
 复用 GET /billing/orders/:orderNo，身份仍由PrincipalGuard决定，输出no-store。
 
-仅将同一权威BillingOrder中的qrCodeUrl和expiredAt改为nullable。增加机械条件：PENDING/PROCESSING必须二者非null；SUCCESS/FAILED/CLOSED可null，表示没有已保存且可验证的支付页事实。其余字段和操作路径不变，不新增公开写余额/改订单权限。客户端只在待支付且地址非null时展示支付操作；终态只显示结果。OrderDraft继续要求真实非空expiredAt，不能把可空读字段流入新下单。
+仅将同一权威BillingOrder中的qrCodeUrl和expiredAt改为nullable。增加机械条件：PENDING/PROCESSING必须二者非null；SUCCESS/FAILED/CLOSED可null，表示没有已保存且可验证的支付页事实。同一恢复场景也覆盖POST /billing/checkout的幂等重试响应PersonalCheckoutResult：url与expiresAt同样可空且二者一致；当原购买已fulfilled、closed或需人工复核时，重试返回原purchaseRef，不再新建支付。正常待支付仍须真实非空支付页绑定；客户端取得原purchaseRef后读取GET订单结果，不把null地址或浏览器回跳当付款证明。响应字段和操作路径除此不变，不新增公开写余额/改订单权限。客户端只在待支付且地址非null时展示支付操作；终态只显示结果。OrderDraft继续要求真实非空expiredAt，不能把可空读字段流入新下单。
 
-验证：真实PG支付先到账后原绑定缺失、重复读取余额/receipt不变；真实HTTP200/401/404/no-store；契约对待支付null地址的拒绝；现有微信/Stripe收银台终态与类型/lint回归。
+验证：真实PG支付先到账后原绑定缺失、同一幂等键重试返回原purchaseRef再GET成功，重复读取余额/receipt不变；真实HTTP200/401/404/no-store；契约对待支付null地址的拒绝；现有微信/Stripe收银台终态与类型/lint回归。
 
 ## 人工授权记录
 已在本会话异步请求确认，尚未收到答复/回填。只有人类采纳修订后才回填本文件的签核状态；不将已有签核默认为本次新增可空语义的确认。

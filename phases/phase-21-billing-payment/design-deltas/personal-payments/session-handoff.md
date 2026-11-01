@@ -1,5 +1,7 @@
 # 个人支付闭环在建交接
 
+套餐选择及浏览器恢复指针组件增量：使用真实目录SKU/月年周期/渠道，阻止重复Pro和USD微信；只向上游选择器传SKU/provider，不提交客户端金额。请求前保存本人原幂等键，损坏恢复指针不静默清除；结果仅绑定原payer/请求/provider，拒绝不可信地址。付款/门户URL校验收敛单源并复用旧收银台/月卡组件。新13UI+恢复4及旧cashier51/liveSubscription17合计85通过，Web type/lint4任务通过，见ui-quote-state-*。未接生产路由/未冒充真实商户E2E。待签修订已补同一POST幂等恢复的null地址与原purchaseRef，客户端随后GET权威结果；仍pending、未改契约。
+
 当前边界更新：ecb383b16订单读取检查点独立审查有P2（已到账但原创建绑定缺失时503），尚未ACCEPT。已准备personal-order-outcomes-v1具体修订并独立一致性复核：终态地址/期限可null、待支付强制真值，异步等待人类签核；未实施依赖该修订的代码。
 
 不依赖修订的账户只读UI已按采用布局实现为组件，尚未接生产路由/支付弹窗：真实catalog/wallet/entitlement读取，严格本人钱包且必须有永久余额，独立错误/重试、不虚构Free赠送，年付/额度周期分离，按实际provider显示续费；scope切换即时隐藏旧数据，门户链接限可信Stripe地址。React9项、Web typecheck/lint通过，见ui-account/overview/read证据；这是组件验证，不冒充真实浏览器支付证据。

@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { PersonalPricingWalletCard, PersonalPricingSubscriptionCard, type PersonalPricingWallet } from "./personal-pricing-account";
 import { usePersonalPricingRead, type PricingReadState } from "./personal-pricing-read";
+import { requireManagementUrl } from "./payment-url";
 import { SubscriptionHistory } from "./subscription-history";
 const walletQuery={ownerType:"user"};
 const parseCatalog=(raw:unknown)=>pricing.getPricingCatalog.out.parse(raw);
@@ -38,9 +39,8 @@ export function PersonalPricingOverview({userId,sessionToken,onPurchase,navigate
   const controller=new AbortController();managementAbort.current=controller;const timer=setTimeout(()=>controller.abort(),15000);
   try {
    const link=billingSubscription.operations.getManagementLink.out.parse(await apiRequest<unknown>(billingSubscription.operations.getManagementLink.path,{sessionToken,signal:controller.signal}));
-   const url=new URL(link.url);
-   if(url.protocol!=="https:"||url.hostname!=="billing.stripe.com"||url.port||url.username||url.password||!url.pathname.startsWith("/p/session/"))throw Error("invalid_management_link");
-   if(!controller.signal.aborted&&latestScope.current===scope)navigate(url.toString());
+   const url=requireManagementUrl(link.url);
+   if(!controller.signal.aborted&&latestScope.current===scope)navigate(url);
   }catch{if(latestScope.current===scope)setMessage("暂时无法打开订阅管理，请重试。已有权益不会因此改变。");}
   finally{clearTimeout(timer);if(latestScope.current===scope){busy.current=false;setManagementPending(false);}}
  };

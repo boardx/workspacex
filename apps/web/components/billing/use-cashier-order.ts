@@ -1,4 +1,5 @@
 "use client";
+import { requirePaymentUrl } from "./payment-url";
 import type { z } from "zod";
 import * as React from "react";
 import { billingCredits as billing } from "@repo/contracts";
@@ -32,8 +33,7 @@ function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder):
   const terminalStripe=order.provider==="stripe"&&["SUCCESS","CLOSED","FAILED"].includes(order.status)&&order.qrCodeUrl==="pending";
   // Completed Checkout may have no URL; never render the internal placeholder as a link.
   if(!terminalStripe){
-  const qr = new URL(order.qrCodeUrl);
-  if (order.provider === "stripe" ? (qr.protocol !== "https:" || qr.hostname !== "checkout.stripe.com" || !!qr.port || !!qr.username || !!qr.password || !!qr.hash) : qr.protocol !== "weixin:" || qr.hostname !== "wxpay" || qr.pathname !== "/bizpayurl" || !qr.searchParams.get("pr") || qr.username || qr.password || qr.hash) throw new Error("INVALID_NATIVE_QR");
+  requirePaymentUrl(order.qrCodeUrl, order.provider);
   }
   if (expected && ["provider", "orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => order[key as keyof LiveOrder] !== expected[key as keyof LiveOrder])) throw new Error("ORDER_SNAPSHOT_MISMATCH");
   return order;

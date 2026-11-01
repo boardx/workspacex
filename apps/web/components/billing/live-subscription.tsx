@@ -1,5 +1,6 @@
 "use client";
 import QRCode from "qrcode";
+import {requirePaymentUrl,requireManagementUrl} from "./payment-url";
 import * as React from "react";
 import {billingSubscription} from "@repo/contracts";
 import {ApiError,apiRequest} from "@/lib/api-client";
@@ -10,8 +11,8 @@ type Info=ReturnType<typeof billingSubscription.operations.getSubscriptionInfo.o
 type Read={status:"loading"}|{status:"ready";data:Info;refreshing?:boolean;refreshError?:string}|{status:"error";message:string};
 const POLL_LIMIT=6;
 function trustedUrl(raw:unknown,management:boolean){
- const {url}=billingSubscription.SubscriptionLink.parse(raw),target=new URL(url);
- if(target.protocol!=="https:"||target.port||target.username||target.password||!(management?["billing.stripe.com"]:["checkout.stripe.com"]).includes(target.hostname))throw Error("invalid_destination");return url;
+ const {url}=billingSubscription.SubscriptionLink.parse(raw);
+ return management?requireManagementUrl(url):requirePaymentUrl(url,"stripe");
 }
 export function LiveSubscription({state,retry,stripeEnabled,wechatEnabled=false,sessionToken,onCreditGranted}:{state:Read;retry:()=>void;stripeEnabled:boolean;wechatEnabled?:boolean;userId:string;sessionToken:string;onCreditGranted?:()=>void}){
  const [selectedProvider,setProvider]=React.useState<"stripe"|"wechat">(wechatEnabled?"wechat":"stripe");
@@ -67,8 +68,7 @@ export function LiveSubscription({state,retry,stripeEnabled,wechatEnabled=false,
    const raw=await apiRequest<unknown>(operation.path,{method:operation.method,...(!legacy?{body:{provider}}:{}),sessionToken,signal:controller.signal});
    if(controller.signal.aborted)return;let url:string;
    if(!legacy&&provider==="wechat"){
-    url=billingSubscription.SubscriptionLink.parse(raw).url;const target=new URL(url);
-    if(target.protocol!=="weixin:"||target.hostname!=="wxpay"||target.pathname!=="/bizpayurl"||!target.searchParams.get("pr")||target.port||target.username||target.password||target.hash)throw Error("invalid_destination");
+    url=requirePaymentUrl(billingSubscription.SubscriptionLink.parse(raw).url,"wechat");
     setQr(url);
    }else{url=trustedUrl(raw,legacy);navigateToStripe(url);}
    setReturning(true);setPolls(0);retry();
