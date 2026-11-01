@@ -4,6 +4,18 @@ import unittest
 from unittest.mock import Mock
 s=importlib.util.spec_from_file_location('activation',Path(__file__).resolve().parents[1]/'scripts/tag-migrated-activation.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class Tests(unittest.TestCase):
+ def test_fresh_complete_backup_is_revalidated_instead_of_replaying_old_backup(self):
+  validator=Mock(return_value={'status':'COMPLETE_SCHEMA_RESTORE_QUALIFIED'})
+  adapter=Mock()
+  ctx={'adapter':adapter,'complete_backup':{'validate':validator,'inputs':{'archive':'pinned'},'image':'immutable','output':'owned'}}
+  m.require_current_backup(ctx)
+  validator.assert_called_once_with({'archive':'pinned'},'immutable','owned')
+  adapter.require_backup.assert_not_called()
+  validator.side_effect=ValueError('COMPLETE_SOURCE_EXPIRED')
+  with self.assertRaisesRegex(ValueError,'COMPLETE_SOURCE_EXPIRED'):m.require_current_backup(ctx)
+  adapter.require_backup.assert_not_called()
+ def test_legacy_backup_gate_remains_mandatory_without_explicit_complete_proof(self):
+  adapter=Mock();m.require_current_backup({'adapter':adapter});adapter.require_backup.assert_called_once_with()
  def test_budget_reserves_recovery_verifier_and_outer_probe(self):
   p={'bootstrapProbe':{'timeoutSeconds':10},'activationSeconds':140,'rollbackSeconds':120,'verifierSeconds':30,'outerVerificationSeconds':120,'runtimeSeconds':20,'candidateProbe':{'timeoutSeconds':30},'oldProbe':{'timeoutSeconds':30}}
   m.budget(p,{'expiresAt':600},now=1)
@@ -109,3 +121,74 @@ class ActivationFlow(unittest.TestCase):
 
  def test_bootstrap_failure_prevents_target_up_but_old_recovery_still_runs(self):
   result,up,nginx,calls=self.execute(fail_bootstrap=True);self.assertEqual(result['status'],'OLD_APPLICATION_RESTORED_ON_FORWARD_SCHEMA');self.assertEqual(up,[]);self.assertNotIn(b'return 503',nginx)
+
+
+class FreshRecoveryAdmission(unittest.TestCase):
+ def test_complete_recovery_identity_cannot_replace_or_retime_original(self):
+  from pathlib import Path
+  receipt={'kind':'complete-schema-recovery-v1','status':'COMPLETE_SCHEMA_RECOVERY_VERIFIED','environment':'us','sourceRevision':m.SOURCE,'tag':m.TAG,'createdAt':99,'originalAttempt':'/private/original','originalPolicy':{'path':'/private/policy','sha256':'a'*64}}
+  m.recovery_identity(receipt,'us',Path('/private/original'),receipt['originalPolicy'],100)
+  for patch in [{'status':'SCHEMA_COMPLETE_OLD_APPLICATION_AVAILABLE'},{'environment':'cn'},{'createdAt':-1801},{'originalAttempt':'/private/other'},{'originalPolicy':{'path':'/changed','sha256':'a'*64}}]:
+   with self.assertRaises(ValueError):m.recovery_identity({**receipt,**patch},'us',Path('/private/original'),receipt['originalPolicy'],100)
+ def test_new_core_wrong_tool_pin_prevents_import(self):
+  from unittest.mock import patch,Mock
+  import tempfile,json
+  with tempfile.TemporaryDirectory() as directory:
+   root=Path(directory);binding=root/'binding.json';binding.write_text(json.dumps({'toolPins':{'schema-complete-restore.py':'a'*64}}))
+   maint=Mock();maint.pinned.return_value=binding
+   with patch.object(m,'load') as load,self.assertRaises(ValueError):m.load_complete_core({'binding':{}},maint)
+   load.assert_not_called()
+
+class CompleteRecoveryFixtures(unittest.TestCase):
+ """Filesystem/hash fixtures, mocked historical DB and fresh restore validators."""
+ def execute(self,mutation=None):
+  import tempfile,json,hashlib,time,copy
+  from types import SimpleNamespace
+  from unittest.mock import patch
+  with tempfile.TemporaryDirectory() as directory:
+   root=Path(directory);original=root/('tag-maintenance-'+'a'*32);original.mkdir();fresh=root/('tag-maintenance-'+'b'*32);fresh.mkdir()
+   def write(path,value):
+    path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(value));path.chmod(0o600);return {'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+   def ref(path):return {'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+   def read(r):
+    path=Path(r['path']);self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),r['sha256']);return json.loads(path.read_text())
+   def pinned(r,**kw):readable=Path(r['path']);self.assertEqual(hashlib.sha256(readable.read_bytes()).hexdigest(),r['sha256']);return readable
+   base={f'old_{i}.sql':'a'*64 for i in range(435)};new={f'new_{i}.sql':'b'*64 for i in range(3)};pgimage='sha256:'+'c'*64;pgcid='d'*64;apiid='sha256:'+'e'*64;apidigest='sha256:'+'f'*64
+   db={'baselineLedger':base,'containerId':pgcid,'imageId':pgimage,'targetApiImageId':apiid};old_policy={'project':'project','baseline':{'api':{'imageId':'old-api','containerId':'old-api-cid'}},'usDatabase':db}
+   policy_ref=write(original/'policy.json',old_policy)
+   input_path=root/'original-input-policy.json';input_path.write_text(json.dumps(old_policy,indent=2));input_path.chmod(0o600);input_ref=ref(input_path);self.assertNotEqual(input_ref['sha256'],policy_ref['sha256'])
+   ack_ref=write(original/'databaseCommand-apply.json',{'status':'COMMITTED','commitAcknowledged':True,'ledgerCount':438,'source':m.SOURCE,'tag':m.TAG,'environment':'us'})
+   write(original/'databaseCommand-reconcile.json',{'status':'COMPLETE','source':m.SOURCE,'tag':m.TAG,'environment':'us'})
+   for name in ['qualification.json','database.pgdump.enc','backup.key','isolated/intent.json','isolated/restored.json','isolated/receipt.json','isolated/cleanup.json']:write(original/'stopped-backup'/name,{'historicalFixture':True})
+   history={str(p.relative_to(original)):ref(p)['sha256'] for p in original.rglob('*') if p.is_file()}
+   binding={'baselineEnvSha256':'1'*64,'adminEnv':{'sha256':'2'*64},'network':'network'};spec={'binding':binding,'timeoutSeconds':10,'inputs':[{'fixture':True}],'executable':{'fixture':True}}
+   fp={**old_policy,'kind':'complete-schema-recovery','preparedAt':time.time(),'environment':'us','source':m.SOURCE,'tag':m.TAG,'bootstrapProbe':spec}
+   fp_ref=write(fresh/'policy.json',fp)
+   output=fresh/'restore';qref=write(output/'qualification.json',{'fixture':True});inputrefs={'baselineLedger':write(fresh/'base.json',base),'completeLedger':write(fresh/'complete.json',{**base,**new}),'binding':write(fresh/'binding.json',{})}
+   source_binding={'environment':'us','sourceRevision':m.SOURCE,'tag':m.TAG,'postgresImageId':pgimage,'sourceContainerId':pgcid,'targetApiImageId':apiid,'targetApiRepoDigest':'registry/api@'+apidigest}
+   fresh_validator=Mock(return_value={'sourceBinding':source_binding,'qualificationSha256':qref['sha256']});fc=SimpleNamespace(validate_qualification=fresh_validator)
+   lock={'path':'/run/fixed','device':1,'inode':2};manifest_ref=write(fresh/'manifest.json',{'images':{'api':{'image': 'registry/api@'+apidigest,'imageId':apiid}}})
+   raw_path=fresh/('bootstrap-raw-'+'c'*32+'.txt');raw_path.write_text('CN_BOOTSTRAP_COMPAT_JSON={}\n');raw_path.chmod(0o600);raw_ref=ref(raw_path)
+   boot_ref=write(fresh/('bootstrap-receipt-'+'c'*32+'.json'),{'status':'CANDIDATE_BOOTSTRAP_COMPATIBLE','source':m.SOURCE,'tag':m.TAG,'environment':'us','imageId':apiid,'imageDigest':apidigest,'rawOutput':raw_ref,'attempt':str(fresh),'createdAt':time.time(),'baselineEnvSha256':binding['baselineEnvSha256'],'adminEnvSha256':binding['adminEnv']['sha256'],'network':'network','canonicalLock':lock})
+   business_ref=write(fresh/'business.json',{'status':'OLD_APPLICATION_VERIFIED','source':m.SOURCE,'tag':m.TAG,'environment':'us'})
+   pending_ref=write(root/'pending-archived.json',{'attempt':str(original),'policySha256':input_ref['sha256'],'source':m.SOURCE,'tag':m.TAG})
+   record={'kind':'complete-schema-recovery-v1','status':'COMPLETE_SCHEMA_RECOVERY_VERIFIED','environment':'us','sourceRevision':m.SOURCE,'tag':m.TAG,'createdAt':time.time(),'originalAttempt':str(original),'originalPolicy':policy_ref,'originalInputPolicy':input_ref,'originalHistory':{'files':history},'originalAck':ack_ref,'originalBackup':{'qualification':ref(original/'stopped-backup/qualification.json'),'validAt':Path(ack_ref['path']).stat().st_mtime},'pendingArchive':pending_ref,'freshPolicy':fp_ref,'recoveryAttempt':str(fresh),'freshBackup':{'inputs':inputrefs,'image':pgimage,'output':str(output),'qualification':qref},'bootstrap':{'raw':raw_ref,'receipt':boot_ref},'business':business_ref}
+   if mutation=='ack-time':record['originalBackup']['validAt']+=1
+   if mutation=='history':record['originalHistory']['files'].pop('policy.json')
+   if mutation=='input-semantic':record['originalInputPolicy']=write(input_path,{**old_policy,'project':'foreign'})
+   if mutation=='input-hash':record['originalInputPolicy']={**input_ref,'sha256':'0'*64}
+   if mutation=='expired':record['createdAt']-=1801
+   if mutation=='fresh-expired':fresh_validator.side_effect=ValueError('BACKUP_EXPIRED')
+   if mutation=='pending':record['pendingArchive']=write(root/'pending-archived.json',{'attempt':'foreign','source':m.SOURCE,'tag':m.TAG})
+   if mutation=='boot-digest':record['bootstrap']['receipt']=write(Path(boot_ref['path']),{**read(boot_ref),'imageDigest':'sha256:'+'0'*64})
+   record_ref=write(fresh/'recovery-receipt.json',record);p={'completeRecovery':record_ref,'maintenancePolicy':policy_ref,'bootstrapProbe':spec,'closure':[{'path':str(m.HERE/n)} for n in ('tag-bootstrap-probe.py','schema-tag-prepare.py')]}
+   maint=SimpleNamespace(pinned=pinned,require_bootstrap=lambda p:None);us=SimpleNamespace(validate_backup=Mock());adapter=Mock();adapter.backup_identity.return_value={'attempt':str(original)};probe=SimpleNamespace(validate_output=Mock())
+   before={str(p):p.read_bytes() for p in original.rglob('*') if p.is_file()}
+   with patch.object(m,'trusted',side_effect=lambda p,*a:Path(p)),patch.object(m,'load_complete_core',return_value=fc),patch.object(m,'load',return_value=probe):
+    result=m.complete_recovery(p,{'environment':'us','manifest':manifest_ref,'canonicalLock':lock},{'stateDirectory':str(root)},old_policy,original,adapter,Mock(),maint,SimpleNamespace(MIGRATIONS=new),us,read)
+   self.assertEqual(before,{str(p):p.read_bytes() for p in original.rglob('*') if p.is_file()});us.validate_backup.assert_called_once();self.assertEqual(us.validate_backup.call_args.kwargs['now'],Path(ack_ref['path']).stat().st_mtime);adapter.require_backup.assert_not_called();self.assertEqual(result['attempt'],fresh)
+   return result
+ def test_explicit_complete_recovery_uses_fresh_proof_and_preserves_original(self):self.execute()
+ def test_missing_history_wrong_ack_time_expired_spliced_records_fail_closed(self):
+  for mode in ('ack-time','history','expired','fresh-expired','pending','boot-digest','input-semantic'):
+   with self.subTest(mode=mode),self.assertRaises(ValueError):self.execute(mode)

@@ -56,6 +56,70 @@ def live_config_cas(engine,d,original,project,rows,attempt):
   expected=engine.resolved_config_hash(d,original,project,service,attempt)
   need(len(expected)==2 and expected[0]==service and row['Config']['Labels'].get('com.docker.compose.config-hash')==expected[1],'LIVE_CONFIG_DRIFT')
 
+def require_current_backup(ctx):
+ """Keep legacy proof strict; an explicit completed-schema proof is distinct."""
+ fresh=ctx.get('complete_backup')
+ if fresh is None:return ctx['adapter'].require_backup()
+ return fresh['validate'](fresh['inputs'],fresh['image'],fresh['output'])
+
+def recovery_identity(receipt,environment,original_attempt,original_policy_ref,now):
+ need(environment=='us' and receipt.get('kind')=='complete-schema-recovery-v1' and receipt.get('status')=='COMPLETE_SCHEMA_RECOVERY_VERIFIED' and receipt.get('environment')==environment and receipt.get('sourceRevision')==SOURCE and receipt.get('tag')==TAG,'COMPLETE_RECOVERY_IDENTITY')
+ need(receipt.get('originalAttempt')==str(original_attempt) and receipt.get('originalPolicy')==original_policy_ref,'COMPLETE_RECOVERY_ORIGINAL_BINDING')
+ need(type(receipt.get('createdAt')) in (int,float) and 0<=now-receipt['createdAt']<1800,'COMPLETE_RECOVERY_EXPIRED')
+
+def load_complete_core(inputs,maint):
+ # Do not execute the new consumer before independently hashing its exact tool
+ # closure from the original protected binding bytes using installed primitives.
+ binding_path=maint.pinned(inputs['binding'],private=True);binding=json.loads(binding_path.read_bytes());pins=binding.get('toolPins',{})
+ required={'schema-complete-restore.py','schema-restore-rehearsal.py','schema-acl-rehearsal.py','minimal-docker-release.py'}
+ need(type(pins) is dict and set(pins)==required,'COMPLETE_CORE_TOOL_SET')
+ for name,checksum in pins.items():maint.pinned({'path':str(HERE/name),'sha256':checksum})
+ return load('schema-complete-restore')
+
+def complete_recovery(p,request,config,original_policy,original_attempt,adapter,engine,maint,core,us,read,now=None):
+ now=time.time() if now is None else now;ref=p.get('completeRecovery')
+ need(type(ref) is dict and set(ref)=={'path','sha256'},'COMPLETE_RECOVERY_REFERENCE')
+ receipt=read(ref);recovery_identity(receipt,request['environment'],original_attempt,p['maintenancePolicy'],now)
+ history=receipt.get('originalHistory',{}).get('files',{})
+ minimum={'policy.json','databaseCommand-apply.json','databaseCommand-reconcile.json','stopped-backup/qualification.json','stopped-backup/database.pgdump.enc','stopped-backup/backup.key','stopped-backup/isolated/intent.json','stopped-backup/isolated/restored.json','stopped-backup/isolated/receipt.json','stopped-backup/isolated/cleanup.json'}
+ need(type(history) is dict and minimum<=set(history),'ORIGINAL_HISTORY_INCOMPLETE')
+ actual={str(path.relative_to(original_attempt)) for path in original_attempt.rglob('*') if path.is_file() or path.is_symlink()}
+ need(actual==set(history),'ORIGINAL_HISTORY_FILE_SET')
+ for name,checksum in history.items():
+  relative=Path(name);need(not relative.is_absolute() and '..' not in relative.parts,'ORIGINAL_HISTORY_PATH');maint.pinned({'path':str(original_attempt/relative),'sha256':checksum},private=True)
+ ack_ref=receipt['originalAck'];need(ack_ref=={'path':str(original_attempt/'databaseCommand-apply.json'),'sha256':history['databaseCommand-apply.json']},'ORIGINAL_ACK_BINDING');ack=read(ack_ref)
+ need(ack.get('status')=='COMMITTED' and ack.get('commitAcknowledged') is True and ack.get('ledgerCount')==438 and ack.get('environment')==request['environment'] and ack.get('source')==SOURCE and ack.get('tag')==TAG,'ORIGINAL_ACK_NOT_COMMITTED')
+ old_reconcile=read({'path':str(original_attempt/'databaseCommand-reconcile.json'),'sha256':history['databaseCommand-reconcile.json']})
+ need(old_reconcile.get('status')=='COMPLETE' and old_reconcile.get('source')==SOURCE and old_reconcile.get('tag')==TAG and old_reconcile.get('environment')==request['environment'],'ORIGINAL_RECONCILE_BINDING')
+ backup=receipt['originalBackup'];need(backup.get('qualification')=={'path':str(original_attempt/'stopped-backup/qualification.json'),'sha256':history['stopped-backup/qualification.json']},'ORIGINAL_BACKUP_BINDING')
+ ack_time=maint.pinned(ack_ref,private=True).stat().st_mtime
+ need(type(backup.get('validAt')) in (int,float) and backup['validAt']==ack_time,'ORIGINAL_BACKUP_ACK_TIME')
+ us.validate_backup(original_attempt,adapter.backup_identity(),core,trusted,now=ack_time)
+ original_input=receipt.get('originalInputPolicy');need(type(original_input) is dict and set(original_input)=={'path','sha256'},'ORIGINAL_INPUT_POLICY_REQUIRED');need(read(original_input)==original_policy,'ORIGINAL_INPUT_POLICY_SEMANTICS')
+ archive=receipt['pendingArchive'];archive_path=maint.pinned(archive,private=True)
+ need(archive_path.parent==Path(config['stateDirectory']) and archive_path.name!='pending.json' and archive_path.name.startswith('pending'),'ORIGINAL_PENDING_ARCHIVE_PATH')
+ archived=json.loads(archive_path.read_bytes());need(archived.get('attempt')==str(original_attempt) and archived.get('policySha256')==original_input['sha256'] and archived.get('source')==SOURCE and archived.get('tag')==TAG,'ORIGINAL_PENDING_ARCHIVE_BINDING')
+ fresh_policy=read(receipt['freshPolicy']);recovery_attempt=Path(receipt['recoveryAttempt'])
+ need(recovery_attempt.parent==Path(config['stateDirectory']) and re.fullmatch('tag-maintenance-[a-f0-9]{32}',recovery_attempt.name) and recovery_attempt!=original_attempt,'FRESH_RECOVERY_ATTEMPT')
+ need(json.loads(trusted(recovery_attempt/'policy.json',True).read_bytes())==fresh_policy,'FRESH_POLICY_DRIFT')
+ need(fresh_policy.get('kind')=='complete-schema-recovery' and fresh_policy.get('environment')==request['environment'] and fresh_policy.get('source')==SOURCE and fresh_policy.get('tag')==TAG and fresh_policy.get('project')==original_policy['project'] and fresh_policy.get('baseline')==original_policy['baseline'] and fresh_policy.get('usDatabase')==original_policy['usDatabase'],'FRESH_POLICY_ORIGINAL_RUNTIME_BINDING')
+ need(type(fresh_policy.get('preparedAt')) in (int,float) and 0<=now-fresh_policy['preparedAt']<1800,'FRESH_POLICY_EXPIRED');maint.require_bootstrap(fresh_policy);maint.require_bootstrap(p);need(p['bootstrapProbe']==fresh_policy['bootstrapProbe'],'FRESH_BOOTSTRAP_PROFILE_DRIFT')
+ fresh=receipt['freshBackup'];fresh_core=load_complete_core(fresh['inputs'],maint)
+ qualification=maint.pinned(fresh['qualification'],private=True);need(qualification==Path(fresh['output'])/'qualification.json','FRESH_QUALIFICATION_PATH')
+ result=fresh_core.validate_qualification(fresh['inputs'],fresh['image'],fresh['output'],now)
+ need(result['qualificationSha256']==fresh['qualification']['sha256'],'FRESH_QUALIFICATION_HASH_DRIFT')
+ need(read(fresh['inputs']['baselineLedger'])==original_policy['usDatabase']['baselineLedger'] and read(fresh['inputs']['completeLedger'])=={**original_policy['usDatabase']['baselineLedger'],**core.MIGRATIONS},'FRESH_LEDGER_ORIGINAL_BINDING')
+ binding=result['sourceBinding'];need(binding.get('environment')==request['environment'] and binding.get('sourceRevision')==SOURCE and binding.get('tag')==TAG and binding.get('postgresImageId')==original_policy['usDatabase']['imageId'] and binding.get('sourceContainerId')==original_policy['usDatabase']['containerId'] and binding.get('targetApiImageId')==original_policy['usDatabase']['targetApiImageId'],'FRESH_SOURCE_BINDING')
+ bootstrap=receipt['bootstrap'];raw_path=maint.pinned(bootstrap['raw'],private=True);bootstrap_receipt=read(bootstrap['receipt'])
+ need(raw_path.parent==recovery_attempt and re.fullmatch('bootstrap-raw-[a-f0-9]{32}[.]txt',raw_path.name) and Path(bootstrap['receipt']['path']).parent==recovery_attempt and re.fullmatch('bootstrap-receipt-[a-f0-9]{32}[.]json',Path(bootstrap['receipt']['path']).name) and 0<=now-raw_path.stat().st_mtime<1800,'FRESH_BOOTSTRAP_RAW_PATH_TTL')
+ manifest=read(request['manifest']);api=manifest['images']['api'];need(binding.get('targetApiRepoDigest')==api['image'],'FRESH_TARGET_DIGEST_BINDING');digest=api['image'].split('@')[-1]
+ for name in ('tag-bootstrap-probe.py','schema-tag-prepare.py'):need(any(r.get('path')==str(HERE/name) for r in p['closure']),'BOOTSTRAP_VERIFIER_CLOSURE')
+ probe_module=load('tag-bootstrap-probe');probe_module.validate_output(raw_path.read_bytes(),SOURCE,digest)
+ need(bootstrap_receipt.get('status')=='CANDIDATE_BOOTSTRAP_COMPATIBLE' and bootstrap_receipt.get('source')==SOURCE and bootstrap_receipt.get('tag')==TAG and bootstrap_receipt.get('environment')==request['environment'] and bootstrap_receipt.get('imageId')==api['imageId'] and bootstrap_receipt.get('imageDigest')==digest and bootstrap_receipt.get('rawOutput')==bootstrap['raw'] and bootstrap_receipt.get('attempt')==str(recovery_attempt) and type(bootstrap_receipt.get('createdAt')) in (int,float) and 0<=now-bootstrap_receipt['createdAt']<1800,'FRESH_BOOTSTRAP_RECEIPT_BINDING')
+ boot_binding=fresh_policy['bootstrapProbe']['binding'];need(bootstrap_receipt.get('baselineEnvSha256')==boot_binding['baselineEnvSha256'] and bootstrap_receipt.get('adminEnvSha256')==boot_binding['adminEnv']['sha256'] and bootstrap_receipt.get('network')==boot_binding['network'] and bootstrap_receipt.get('canonicalLock')==request['canonicalLock'],'FRESH_BOOTSTRAP_INPUT_BINDING')
+ business_path=maint.pinned(receipt['business'],private=True);business=read(receipt['business']);need(business_path.parent==recovery_attempt and 0<=now-business_path.stat().st_mtime<1800 and business.get('status')=='OLD_APPLICATION_VERIFIED' and business.get('source')==SOURCE and business.get('tag')==TAG and business.get('environment')==request['environment'],'FRESH_BUSINESS_NOT_VERIFIED')
+ return {'policy':fresh_policy,'attempt':recovery_attempt,'receipt':ref,'backup':{'validate':fresh_core.validate_qualification,'inputs':fresh['inputs'],'image':fresh['image'],'output':fresh['output'],'qualification':fresh['qualification']}}
+
 def bind_context(request_path):
  need(os.geteuid()==0,'ROOT_REQUIRED')
  for name in ('tag-migrated-activation','schema-release-handoff','tag-maintenance-release','minimal-docker-release','schema-restore-rehearsal','us-tag-migration-adapter'):trusted(HERE/(name+'.py'))
@@ -76,14 +140,20 @@ def bind_context(request_path):
  need(manifest['sourceRevision']==SOURCE and manifest['tag']==TAG and set(manifest['images'])=={'api','web','agent','sandbox','postgres'},'MANIFEST_IDENTITY')
  lock_fd=int(os.environ.get('WSX_RELEASE_LOCK_FD','-1'));us.inherited_lock(lock_fd,maint.canonical_lock({'environment':env,'lockFile':config['lockFile']}))
  lock=os.fstat(lock_fd);need(request['canonicalLock']=={'path':config['lockFile'],'device':lock.st_dev,'inode':lock.st_ino},'REQUEST_LOCK_BINDING')
- old_policy=read(p['maintenancePolicy']);maint.require_bootstrap(old_policy);maint.require_bootstrap(p);need(p['bootstrapProbe']==old_policy['bootstrapProbe'],'BOOTSTRAP_PROFILE_DRIFT');old_attempt=Path(p['maintenanceAttempt'])
+ old_policy=read(p['maintenancePolicy']);old_attempt=Path(p['maintenanceAttempt'])
  need(old_attempt.is_absolute() and re.fullmatch('tag-maintenance-[a-f0-9]{32}',old_attempt.name),'MAINTENANCE_ATTEMPT')
  need(json.loads(trusted(old_attempt/'policy.json',True).read_bytes())==old_policy,'ORIGINAL_POLICY_DRIFT')
- completed=json.loads(trusted(old_attempt/'receipt.json',True).read_bytes())
- need(completed.get('status')=='SCHEMA_COMPLETE_OLD_APPLICATION_AVAILABLE' and completed.get('source')==SOURCE and completed.get('tag')==TAG and completed.get('environment')==env,'MAINTENANCE_NOT_COMPLETE')
+ original_attempt=old_attempt;adapter=load(env+'-tag-migration-adapter').Adapter(original_attempt,lock_fd);recovery=None
+ if 'completeRecovery' in p:
+  recovery=complete_recovery(p,request,config,old_policy,original_attempt,adapter,engine,maint,core,us,read)
+  old_policy=recovery['policy'];old_attempt=recovery['attempt']
+ else:
+  maint.require_bootstrap(old_policy);maint.require_bootstrap(p);need(p['bootstrapProbe']==old_policy['bootstrapProbe'],'BOOTSTRAP_PROFILE_DRIFT')
+  completed=json.loads(trusted(old_attempt/'receipt.json',True).read_bytes())
+  need(completed.get('status')=='SCHEMA_COMPLETE_OLD_APPLICATION_AVAILABLE' and completed.get('source')==SOURCE and completed.get('tag')==TAG and completed.get('environment')==env,'MAINTENANCE_NOT_COMPLETE')
+  adapter.require_backup()
  need(old_policy['project']==config['project'] and set(config['services'])==maint.SERVICES,'PROJECT_SERVICE_BINDING')
  for ref in [*config['composeFiles'],config['envFile'],*old_policy['configurationPins']]:maint.pinned(ref)
- adapter=load(env+'-tag-migration-adapter').Adapter(old_attempt,lock_fd);adapter.require_backup()
  need(adapter.run('reconcile')['status']=='COMPLETE','LIVE_MIGRATION_NOT_COMPLETE')
  # No caller can feed a successful status: both old and candidate probes are
  # hash-pinned executables under the separately protected activation policy.
@@ -95,7 +165,7 @@ def bind_context(request_path):
   engine.image(d,row['imageId'],SOURCE);ins=d.json(['image','inspect',row['imageId']]);need(len(ins)==1 and row['image'] in ins[0].get('RepoDigests',[]),'REGISTRY_DIGEST_IDENTITY')
  base=['compose','--project-name',config['project'],'--env-file',config['envFile']['path']]
  for ref in config['composeFiles']:base+=['--file',ref['path']]
- return dict(request=request,p=p,config=config,manifest=manifest,plan=plan,maint=maint,engine=engine,core=core,handoff=handoff,adapter=adapter,d=d,images=images,base=base,old_policy=old_policy,old_attempt=old_attempt,attempt=request_path.parent,fd=lock_fd)
+ return dict(request=request,p=p,config=config,manifest=manifest,plan=plan,maint=maint,engine=engine,core=core,handoff=handoff,adapter=adapter,d=d,images=images,base=base,old_policy=old_policy,old_attempt=old_attempt,attempt=request_path.parent,fd=lock_fd,complete_backup=recovery['backup'] if recovery else None,complete_recovery=recovery['receipt'] if recovery else None,history_attempt=original_attempt)
 
 def probe(ctx,which,attempt):
  p=ctx['p'][which];host=ctx['maint'].Host(ctx['old_policy'],attempt,ctx['fd'])
@@ -158,6 +228,7 @@ def activate(ctx,receipt_path):
   host.nginx(original_nginx,held);hold=True
   for ref in [*config['composeFiles'],config['envFile']]:maint.pinned(ref)
   need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','FINAL_LEDGER_DRIFT')
+  require_current_backup(ctx)
   bootstrap_host=maint.Host(ctx['old_policy'],ctx['old_attempt'],ctx['fd'])
   bootstrap_proof=bootstrap_host.adapter('bootstrapProbe','preactivate');need(bootstrap_proof['status']=='CANDIDATE_BOOTSTRAP_COMPATIBLE','PREACTIVATION_BOOTSTRAP_UNPROVEN')
   live_config_cas(engine,d,original,config['project'],runtime_rows(d,config['project'],config['services'],old),attempt)
@@ -171,7 +242,10 @@ def activate(ctx,receipt_path):
   need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','POST_ACTIVATION_LEDGER_DRIFT')
   host.nginx(held,original_nginx);hold=False
   proofs={}
-  contents={'backup-restore':{'originalAttempt':str(ctx['old_attempt']),'qualification':{'path':str(ctx['old_attempt']/'stopped-backup/qualification.json'),'sha256':engine.sha_file(ctx['old_attempt']/'stopped-backup/qualification.json')}},'baseline-compatibility':{'originalMaintenanceReceipt':{'path':str(ctx['old_attempt']/'receipt.json'),'sha256':engine.sha_file(ctx['old_attempt']/'receipt.json')},'oldImages':old},'migration-ledger':{'status':'COMPLETE','originalAttempt':str(ctx['old_attempt']),'databaseMigrationExecuted':False},'candidate-acceptance':{'images':images,'health':health,'business':accepted,'bootstrap':bootstrap_proof}}
+  fresh=ctx.get('complete_backup')
+  backup_evidence={'schemaState':'COMPLETE','sqlNotReplayed':True,'qualification':fresh['qualification'],'recoveryReceipt':ctx['complete_recovery']} if fresh else {'originalAttempt':str(ctx['old_attempt']),'qualification':{'path':str(ctx['old_attempt']/'stopped-backup/qualification.json'),'sha256':engine.sha_file(ctx['old_attempt']/'stopped-backup/qualification.json')}}
+  baseline_evidence={'completeRecoveryReceipt':ctx['complete_recovery'],'originalAttempt':str(ctx['history_attempt']),'oldImages':old} if fresh else {'originalMaintenanceReceipt':{'path':str(ctx['old_attempt']/'receipt.json'),'sha256':engine.sha_file(ctx['old_attempt']/'receipt.json')},'oldImages':old}
+  contents={'backup-restore':backup_evidence,'baseline-compatibility':baseline_evidence,'migration-ledger':{'status':'COMPLETE','originalAttempt':str(ctx['old_attempt']),'databaseMigrationExecuted':False},'candidate-acceptance':{'images':images,'health':health,'business':accepted,'bootstrap':bootstrap_proof}}
   for name,value in contents.items():
    path=attempt/(name+'.json');maint.save(path,{**value,'source':SOURCE,'tag':TAG,'environment':request['environment'],'createdAt':time.time()});proofs[name]={'path':str(path),'sha256':engine.sha_file(path)}
   result={k:request[k] for k in ctx['handoff'].IDENTITY};result.update(kind='schema-release-result-v1',status='SUCCEEDED',proofs=proofs);maint.save(receipt_path,result)
@@ -197,7 +271,7 @@ def verify(ctx,receipt_path):
  result=ctx['handoff'].read_receipt(trusted(receipt_path,True));ctx['handoff'].verify_receipt(ctx['request'],result)
  for ref in result['proofs'].values():
   path=ctx['maint'].pinned(ref,private=True);need(path.parent==ctx['attempt'],'PROOF_ATTEMPT_BINDING');value=json.loads(path.read_bytes());need(value['source']==SOURCE and value['tag']==TAG and value['environment']==ctx['request']['environment'] and 0<=time.time()-value['createdAt']<600,'PROOF_IDENTITY_TTL')
- ctx['adapter'].require_backup();need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','VERIFIER_LEDGER_DRIFT')
+ require_current_backup(ctx);need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','VERIFIER_LEDGER_DRIFT')
  runtime_rows(ctx['d'],ctx['config']['project'],ctx['config']['services'],ctx['images'])
  # Outer consumer performs fresh actual health and pinned public business probe
  # before committing current.json; this verifier never claims browser acceptance.
