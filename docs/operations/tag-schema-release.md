@@ -231,3 +231,14 @@ The follow-up retains owner/ACL and password-free role/catalog metadata in a sep
 Maintenance health uses the fixed HTTPS production hostname resolved to loopback, with default curl configuration, proxy and redirects disabled; system TLS and expected health body remain mandatory. Outer public verification remains independent. CN browser fingerprints were re-read from actual bytes and cross-checked against the unchanged root-owned `cn.json` verificationFiles; two transcribed 63-character pins are corrected and all embedded fingerprints now require 64 lowercase hexadecimal characters before filesystem access. Original browser source and private env contents were not changed.
 
 Focused verification on the final follow-up snapshot: 15 ACL unit/real-PostgreSQL tests passed in 144.378 seconds; activation and CN browser regressions passed 15/15. These timings are local fixture measurements, not measured production activation budgets.
+
+Actual host qualification subsequently passed the existing US authenticated login,
+file roundtrip, Agent reply, model and sandbox probe in 10.807 seconds, and the
+CN Chromium baseline journey in 3.639 seconds. Neither result is candidate-image
+acceptance. Password-free owner/ACL source capture succeeded on both hosts.
+The US owner/ACL-preserving clone then failed `SOURCE_OWNER_ACL_DRIFT` before
+reviewed SQL execution; retain private restored catalog and comparison evidence
+to diagnose the mismatch without weakening exact comparison. CN provider role
+attributes require an explicitly source-bound, nonroot, network-none clone
+profile; the default privileged-role refusal remains. Production migration and
+activation remain pending these qualifications and dynamic bootstrap validation.

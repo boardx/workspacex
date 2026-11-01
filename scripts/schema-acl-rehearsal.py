@@ -99,7 +99,12 @@ UPDATE public.billing_monthly_orders SET checkout_url='https://example.invalid/u
 ROLLBACK;"""
 
 
-def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr/bin/openssl'):
+def load_cn_profile():
+    spec=importlib.util.spec_from_file_location('cn_clone_profile',Path(__file__).with_name('schema-cn-acl-profile.py'))
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+
+def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr/bin/openssl',cn_profile=None):
     """All SQL here targets ONLY a freshly created owned clone over docker exec.
 
     A host adapter must independently bind source backup, source DB identity,
@@ -110,7 +115,11 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
     sql=reviewed_sql(files);check_ledger(ledger);private_backup_files(archive,key)
     archive_hash=file_sha(archive)
     need(type(image) is str and re.fullmatch('sha256:[a-f0-9]{64}',image),'IMMUTABLE_CLONE_IMAGE_REQUIRED')
-    roles_sql=role_sql(snapshot)
+    capability=None;profile_record=None
+    if cn_profile is not None:
+        capability=load_cn_profile()
+        profile_record=capability.validate(cn_profile,archive,key,ledger,snapshot,image)
+    roles_sql=capability.role_sql(snapshot,quote_ident) if capability else role_sql(snapshot)
     need(type(snapshot.get('catalog')) is dict and snapshot['catalog'],'SOURCE_CATALOG_REQUIRED')
     need('app_rw' in {r['name'] for r in snapshot['roles']},'APP_ROLE_REQUIRED')
     spec=importlib.util.spec_from_file_location('restore_engine',Path(__file__).with_name('minimal-docker-release.py'))
@@ -134,10 +143,12 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
     def actual_ledger():
         return json.loads(query("SELECT COALESCE(json_object_agg(name,checksum),'{}'::json) FROM public._kernel_migrations"))
     try:
-        cid=d.run(['create','--pull=never','--name',name,'--label',label,'--network','none',
+        extra=['--user','postgres','--cap-drop','ALL','--env','PGDATA=/var/lib/postgresql/data/pgdata'] if capability else []
+        mode=',mode=1777' if capability else ''
+        cid=d.run(['create',*extra,'--pull=never','--name',name,'--label',label,'--network','none',
             '--read-only','--security-opt=no-new-privileges','--memory=1g','--cpus=1','--pids-limit=128',
-            '--tmpfs','/tmp:rw,nosuid,nodev,size=32m','--tmpfs','/var/run/postgresql:rw,nosuid,nodev,size=16m',
-            '--tmpfs','/var/lib/postgresql/data:rw,nosuid,nodev,size=512m',
+            '--tmpfs','/tmp:rw,nosuid,nodev,size=32m'+mode,'--tmpfs','/var/run/postgresql:rw,nosuid,nodev,size=16m'+mode,
+            '--tmpfs','/var/lib/postgresql/data:rw,nosuid,nodev,size=512m'+mode,
             '--env','POSTGRES_DB=workspacex','--env','POSTGRES_HOST_AUTH_METHOD=trust',image]).decode().strip()
         need(re.fullmatch('[a-f0-9]{64}',cid),'CLONE_ID_INVALID')
         value=d.json(['container','inspect',cid])[0]
@@ -145,21 +156,37 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
              value['HostConfig']['NetworkMode']=='none' and not value['HostConfig'].get('PortBindings') and
              not value['HostConfig'].get('Privileged') and not value['HostConfig'].get('Binds') and
              all(v.get('Type')=='tmpfs' for v in value.get('Mounts',[])),'CLONE_ISOLATION_INVALID')
+        if capability:capability.isolation(value,cid,image,name,token,config.get('Env',[]))
         d.run(['start',cid]);deadline=time.monotonic()+60
         while True:
             try:
                 query('SELECT 1');break
             except Exception:
                 need(time.monotonic()<deadline,'CLONE_NOT_READY');time.sleep(.2)
-        compare_builtin_postgres(snapshot,json.loads(query(POSTGRES_ROLE_SQL)))
+        initial_postgres=json.loads(query(POSTGRES_ROLE_SQL))
+        compare_builtin_postgres(snapshot,initial_postgres)
+        save(out/'clone-bootstrap-role.json',{'name':'postgres','attributes':initial_postgres,'sourceRole':any(r['name']=='postgres' for r in snapshot['roles']),'scope':'initial-clone-scaffolding-only'})
         compare_builtin_memberships(snapshot,json.loads(query(BUILTIN_MEMBERSHIPS_SQL)))
+        if capability:
+            capability.validate(cn_profile,archive,key,ledger,snapshot,image)
+            capability.isolation(d.json(['container','inspect',cid])[0],cid,image,name,token,config.get('Env',[]))
+            capability.running_nonroot(d.run(['exec',cid,'cat','/proc/1/status']).decode())
         if roles_sql:query(roles_sql)
+        if capability:
+            roles_query="SELECT COALESCE(json_agg(json_build_object('name',rolname,'login',rolcanlogin,'inherit',rolinherit,'superuser',rolsuper,'bypassrls',rolbypassrls,'createrole',rolcreaterole,'createdb',rolcreatedb,'replication',rolreplication) ORDER BY rolname),'[]'::json) FROM pg_roles WHERE left(rolname,3)<>'pg_'"
+            capability.readback(snapshot,json.loads(query(roles_query)),json.loads(query(BUILTIN_MEMBERSHIPS_SQL)),initial_postgres)
         # Plain dump bytes travel only through a kernel pipe, never to host disk.
         pipe([openssl,'enc','-d','-aes-256-cbc','-pbkdf2','-pass','file:'+str(key),'-in',str(archive)],
              [docker,'exec','--user','postgres','-i',cid,'pg_restore','--exit-on-error','--username=postgres','--dbname=workspacex'])
         need(file_sha(archive)==archive_hash,'BACKUP_CHANGED')
+        if capability:capability.readback(snapshot,json.loads(query(roles_query)),json.loads(query(BUILTIN_MEMBERSHIPS_SQL)),initial_postgres)
         need(actual_ledger()==ledger,'RESTORED_LEDGER_MISMATCH')
-        need(json.loads(query(CATALOG_SQL))==snapshot['catalog'],'SOURCE_OWNER_ACL_DRIFT')
+        actual_catalog=json.loads(query(CATALOG_SQL))
+        save(out/'restored-catalog.json',actual_catalog)
+        source_catalog=snapshot['catalog']
+        different=sorted(key for key in set(source_catalog)|set(actual_catalog) if source_catalog.get(key)!=actual_catalog.get(key))
+        save(out/'catalog-comparison.json',{'sourceCatalogSha256':sha(json.dumps(source_catalog,sort_keys=True).encode()),'actualCatalogSha256':sha(json.dumps(actual_catalog,sort_keys=True).encode()),'sourceKeyCount':len(source_catalog),'actualKeyCount':len(actual_catalog),'differentKeys':different,'equal':not different})
+        need(actual_catalog==source_catalog,'SOURCE_OWNER_ACL_DRIFT')
         save(out/'restored.json',{'status':'RESTORED','archiveSha256':archive_hash,
                                   'ledgerSha256':sha(json.dumps(ledger,sort_keys=True).encode()),'ledgerCount':len(ledger),'cloneImageId':image})
         need(type(snapshot.get('migrationRole')) is str and snapshot['migrationRole'] in {r['name'] for r in snapshot['roles']},'MIGRATION_ROLE_REQUIRED')
@@ -170,9 +197,10 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
         need(actual_ledger()=={**ledger,**MIGRATIONS},'REHEARSED_LEDGER_MISMATCH')
         role_query(app_transaction(),'app_rw')
         need(query("SELECT count(*) FROM billing_monthly_orders WHERE order_id='00000000-0000-4000-8000-000000000607'")=='0','APP_TRANSACTION_ROLLBACK_UNPROVEN')
+        if capability:capability.readback(snapshot,json.loads(query(roles_query)),json.loads(query(BUILTIN_MEMBERSHIPS_SQL)),initial_postgres)
         result={'status':'OWNER_ACL_SQL_REHEARSED','scope':'owner-acl-and-sql-only','appRoleTransactionRollback':True,'sourceOwnerAclRestored':True,'apiBootstrap':'NOT_PERFORMED',
                 'migrationNames':sorted(MIGRATIONS),'cloneImageId':image,'postgresVersion':query('SHOW server_version'),'sourceDatabaseAccessed':False,
-                'activationAllowed':False,'oldApiAcceptance':'NOT_PERFORMED','migrationRoleAcceptance':'EXACT_REVIEWED_SQL_LOGIN_ONLY','roleSettingsAcceptance':'NOT_PERFORMED'}
+                'activationAllowed':False,'oldApiAcceptance':'NOT_PERFORMED','migrationRoleAcceptance':'EXACT_REVIEWED_SQL_LOGIN_ONLY','roleSettingsAcceptance':'NOT_PERFORMED','cnFaithfulSourceProfileUsed':bool(capability),'capturedPermissionAttributesOnly':True,'cloneScaffoldingNotSourceRoles':[] if any(r['name']=='postgres' for r in snapshot['roles']) else ['postgres']}
     except Exception as error:
         failure=str(error) if isinstance(error,(ValueError,engine.Rejected)) else 'REHEARSAL_FAILED'
         result={'status':'REHEARSAL_FAILED','code':failure,'activationAllowed':False,'sourceDatabaseAccessed':False}
