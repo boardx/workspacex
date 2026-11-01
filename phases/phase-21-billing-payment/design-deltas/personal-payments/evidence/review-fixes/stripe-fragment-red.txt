@@ -1,0 +1,64 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/payment-url.test.ts (8 tests | 1 failed) 6ms
+   × preserves the complete hosted Stripe Checkout address including its fragment 3ms
+     → invalid_payment_address
+ ❯ tests/ui/personal-checkout-state.test.ts (5 tests | 2 failed) 10ms
+   × binds the verified-shaped response only to its original account, request and payment provider 4ms
+     → invalid_payment_address
+   × keeps a terminal recovery reference without inventing a payment address and accepts later known binding facts 1ms
+     → invalid_payment_address
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/payment-url.test.ts > preserves the complete hosted Stripe Checkout address including its fragment
+Error: invalid_payment_address
+ ❯ Module.requirePaymentUrl components/billing/payment-url.ts:6:67
+      4|  const invalid=provider==="stripe" ? url.protocol!=="https:"||url.host…
+      5|   : url.protocol!=="weixin:"||url.hostname!=="wxpay"||url.pathname!=="…
+      6|  if(invalid||url.port||url.username||url.password||url.hash)throw Erro…
+       |                                                                   ^
+      7|  return value;
+      8| }
+ ❯ tests/ui/payment-url.test.ts:5:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/ui/personal-checkout-state.test.ts > binds the verified-shaped response only to its original account, request and payment provider
+Error: invalid_payment_address
+ ❯ Module.requirePaymentUrl components/billing/payment-url.ts:6:67
+      4|  const invalid=provider==="stripe" ? url.protocol!=="https:"||url.host…
+      5|   : url.protocol!=="weixin:"||url.hostname!=="wxpay"||url.pathname!=="…
+      6|  if(invalid||url.port||url.username||url.password||url.hash)throw Erro…
+       |                                                                   ^
+      7|  return value;
+      8| }
+ ❯ Module.bindPersonalCheckout components/billing/personal-checkout-state.ts:30:23
+ ❯ tests/ui/personal-checkout-state.test.ts:19:69
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/ui/personal-checkout-state.test.ts > keeps a terminal recovery reference without inventing a payment address and accepts later known binding facts
+Error: invalid_payment_address
+ ❯ Module.requirePaymentUrl components/billing/payment-url.ts:6:67
+      4|  const invalid=provider==="stripe" ? url.protocol!=="https:"||url.host…
+      5|   : url.protocol!=="weixin:"||url.hostname!=="wxpay"||url.pathname!=="…
+      6|  if(invalid||url.port||url.username||url.password||url.hash)throw Erro…
+       |                                                                   ^
+      7|  return value;
+      8| }
+ ❯ Module.bindPersonalCheckout components/billing/personal-checkout-state.ts:30:23
+ ❯ tests/ui/personal-checkout-state.test.ts:34:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  2 failed (2)
+      Tests  3 failed | 10 passed (13)
+   Start at  06:10:00
+   Duration  788ms (transform 84ms, setup 379ms, collect 95ms, tests 16ms, environment 0ms, prepare 117ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/payment-url.test.ts tests/ui/personal-checkout-state.test.ts

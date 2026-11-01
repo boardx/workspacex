@@ -236,7 +236,7 @@ it("keeps actual past_due state separate from a still-valid paid entitlement", a
   expect(info).toMatchObject({ plan: "pro", status: "past_due", creditGrant: { status: "granted" } });
 });
 it("handles signed raw HTTP Stripe callbacks with real HMAC and one financial grant", async () => {
-  const f = await fixture("signed-http"), handler = callback(f), secret = "whsec_personal_http_fixture";
+  const f = await fixture("signed-http"), handler = callback(f), secret = `whsec_${randomUUID().replaceAll("-", "")}`;
   const config = new DeploymentBillingConfig({ BILLING_DEPLOYMENT: "us", STRIPE_SECRET_KEY: "sk_test_fixture", STRIPE_WEBHOOK_SECRET: secret,
     STRIPE_RETURN_URL: "https://example.test/billing" });
   const service = new BillingStripeWebhookService(new StripeWebhookClient(config), handler.provider, handler.store, { info: vi.fn(), error: vi.fn() });

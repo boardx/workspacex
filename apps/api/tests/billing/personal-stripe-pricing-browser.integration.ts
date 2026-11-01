@@ -35,7 +35,7 @@ async function start(page:Page,kind:"plans"|"credits",year=false){
  await hosted(page);await openPersonalPricingPage(page,owned!.origin);await page.getByTestId(kind==="plans"?"pricing-open-plans":"pricing-buy-credits").click();if(year)await page.getByTestId("pricing-cycle-year").click();
  expect(await page.getByTestId("pricing-provider-wechat").count()).toBe(0);
  const [response]=await Promise.all([page.waitForResponse(r=>new URL(r.url()).pathname==="/__fullstack_api/billing/checkout"&&r.request().method()==="POST"),page.getByTestId("pricing-continue-checkout").click()]);expect(response.status()).toBe(201);
- const result=PersonalCheckoutResult.parse(await response.json());await page.waitForURL("https://checkout.stripe.com/**");
+ const result=PersonalCheckoutResult.parse(await response.json());await page.waitForURL("https://checkout.stripe.com/**");expect(page.url()).toBe(result.url);expect(new URL(page.url()).hash).toBe("#fidkdWxFixture%2Fcheckout");
  expect(result.provider).toBe("stripe");expect(result.renewalMode).toBe(kind==="plans"?"automatic":"manual");return result;
 }
 async function callback(type:string,object:Record<string,unknown>){
@@ -61,7 +61,7 @@ beforeAll(async()=>{
     expect(input.get("mode")).toBe(recurring?"subscription":"payment");expect(input.get("line_items[0][price_data][currency]")).toBe("usd");expect(Number(input.get("line_items[0][price_data][unit_amount]"))).toBe(purchase.product.amountMinor);expect(input.get("adaptive_pricing[enabled]")).toBe("false");expect(req.headers["idempotency-key"]).toBe(`personal-purchase:${ref}`);
     const financial=recurring?personalStripePaymentFixture(purchase,anchor):undefined;
     const complete:Record<string,unknown>=financial?.checkout??{object:"checkout.session",id:`cs_${ref}`,livemode:false,mode:"payment",status:"complete",payment_status:"paid",amount_total:purchase.product.amountMinor,currency:"usd",client_reference_id:ref,payment_intent:`pi_${ref}`,metadata:{product:"personal_pricing_v1",purchase_ref:ref,generation:purchase.generation,sku:purchase.product.sku},expires_at:anchor.getTime()/1000+86400,url:null};
-    const open={...complete,status:"open",payment_status:"unpaid",subscription:null,url:`https://checkout.stripe.com/c/pay/${ref}`};sessions.set(String(complete.id),{purchase,open,complete,paid:false,anchor,financial});
+    const open={...complete,status:"open",payment_status:"unpaid",subscription:null,url:`https://checkout.stripe.com/c/pay/${ref}#fidkdWxFixture%2Fcheckout`};sessions.set(String(complete.id),{purchase,open,complete,paid:false,anchor,financial});
     if(loseCheckoutResponse){res.statusCode=500;res.end(JSON.stringify({error:{code:"fixture_lost_checkout_response"}}));return;}value=open;
    }else if(path.startsWith("/v1/checkout/sessions/")){const entry=sessions.get(path.split("/").at(-1)!)!;value=entry.paid?entry.complete:entry.open;}
    else if(path.startsWith("/v1/subscriptions/"))value=[...sessions.values()].find(e=>e.financial?.subscription.id===path.split("/").at(-1))?.financial?.subscription;

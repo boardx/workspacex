@@ -91,3 +91,12 @@ it.each([false,true])("never redirects a newly returned paid Stripe checkout, mi
  fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await screen.findByTestId("pricing-checkout-success");
  expect(paid).toHaveBeenCalledTimes(1);expect(navigate).not.toHaveBeenCalled();expect(screen.queryByText("前往 Stripe 付款")).toBeNull();expect(reads).toBe(1);expect(posts).toBe(1);
 });
+
+it("navigates to the original Stripe fragment address only after reading the owned pending order",async()=>{
+ const usdCatalog:PricingCatalog={...catalog,market:"us",enabledProviders:["stripe"],products:[{sku:"pack",kind:"credit_topup",currency:"USD",amountMinor:1900,credits:10000}]};
+ const stripe={...result,provider:"stripe",url:"https://checkout.stripe.com/c/pay/cs_test_fixture#fidkdWxFixture%2Fcheckout"},navigate=vi.fn(),calls:string[]=[];
+ vi.stubGlobal("fetch",vi.fn(async(input:string)=>{const path=new URL(input).pathname;calls.push(path);return path==="/billing/checkout"?reply(stripe):reply({order:{...order,provider:"stripe",currency:"USD",amountFen:1900,qrCodeUrl:stripe.url}});}));
+ render(<PersonalPricingCheckout kind="credits" userId={userId} sessionToken="session" catalog={usdCatalog} entitlement={entitlement} onClose={()=>{}} onPaid={vi.fn()} navigate={navigate}/>);
+ fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await waitFor(()=>expect(navigate).toHaveBeenCalledWith(stripe.url));
+ expect(calls).toEqual(["/billing/checkout",`/billing/orders/${ref}`]);expect(loadPersonalCheckout(localStorage,userId)?.result?.url).toBe(stripe.url);
+});

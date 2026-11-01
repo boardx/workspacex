@@ -2,7 +2,7 @@ import {expect,it} from "vitest";
 import {beginPersonalCheckout,bindPersonalCheckout,loadPersonalCheckout,clearPersonalCheckout} from "@/components/billing/personal-checkout-state";
 const request={sku:"pro-cn-year-v1",catalogVersion:"pricing-v1",provider:"stripe" as const,idempotencyKey:"first-purchase-key-123"};
 function storage(){const values=new Map<string,string>();return {getItem:(k:string)=>values.get(k)??null,setItem:(k:string,v:string)=>{values.set(k,v);},removeItem:(k:string)=>{values.delete(k);},values};}
-const result={purchaseRef:"bg20261102000000abcdef",url:"https://checkout.stripe.com/c/pay/fixture",expiresAt:"2026-11-03T00:00:00Z",provider:"stripe" as const,renewalMode:"automatic" as const};
+const result={purchaseRef:"bg20261102000000abcdef",url:"https://checkout.stripe.com/c/pay/cs_test_fixture#fidkdWxFixture%2Fcheckout",expiresAt:"2026-11-03T00:00:00Z",provider:"stripe" as const,renewalMode:"automatic" as const};
 it("persists the original key before network work and does not replace an unresolved purchase",()=>{
  const local=storage();expect(beginPersonalCheckout(local,"payer",request).request).toEqual(request);
  expect(loadPersonalCheckout(local,"payer")?.request).toEqual(request);

@@ -1,0 +1,48 @@
+[stack-admission] load1=4.98 cores=10 perCore=0.50 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvydvngi-134a8f4a-5a3c8bdfef5a db=wsx_5a3c8bdfef5a0bc54c64 compose=wsx-5a3c8bdfef5a0bc54c64 pg=20407 redis=21407 api=24407 web=25407 sandbox=26407 model=27407 deep-agent=28407 asr=29407 vision=30407 loopback-sandbox=31407 mail=19407
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_5a3c8bdfef5a0bc54c64 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (34 tests | 1 failed | 33 skipped) 13812ms
+   × handles signed raw HTTP Stripe callbacks with real HMAC and one financial grant 141ms
+     → expected 400 to be 200 // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > handles signed raw HTTP Stripe callbacks with real HMAC and one financial grant
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:256:39
+    254|     expect((await send(false)).status).toBe(400); expect((await send(t…
+    255|     expect(await f.wallet()).toBeUndefined();
+    256|     expect((await send(true)).status).toBe(200); expect((await send(tr…
+       |                                       ^
+    257|     expect(await f.wallet()).toMatchObject({ balance: "20000.00", tota…
+    258|   } finally { await app.close(); }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 33 skipped (34)
+   Start at  06:10:25
+   Duration  19.19s (transform 1.02s, setup 8ms, collect 1.70s, tests 13.81s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_5a3c8bdfef5a0bc54c64 peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t signed raw HTTP
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t signed raw HTTP
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：20s
+  清理：1s
+  总计：21s

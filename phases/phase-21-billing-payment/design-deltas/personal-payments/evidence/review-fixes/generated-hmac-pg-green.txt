@@ -1,0 +1,23 @@
+[stack-admission] load1=4.42 cores=10 perCore=0.44 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvydw7vi-5bfd5fdd-a388a6309f51 db=wsx_a388a6309f5106b526ad compose=wsx-a388a6309f5106b526ad pg=20648 redis=21648 api=24648 web=25648 sandbox=26648 model=27648 deep-agent=28648 asr=29648 vision=30648 loopback-sandbox=31648 mail=19648
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_a388a6309f5106b526ad capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (34 tests | 33 skipped) 13719ms
+   ✓ handles signed raw HTTP Stripe callbacks with real HMAC and one financial grant 335ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 33 skipped (34)
+   Start at  06:10:51
+   Duration  18.35s (transform 1.02s, setup 7ms, collect 1.63s, tests 13.72s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_a388a6309f5106b526ad peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t signed raw HTTP
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19s
+  清理：1s
+  总计：20s

@@ -78,3 +78,9 @@ Stripe 绑定与到账：新增不可变 subscription/purchase/session/customer/
 恢复fixture的精确reviewedSuffix遗漏继承的P3/P4及本P5四项迁移，现有actual-catalog测试真实失败UNREVIEWED_MIGRATION_SUFFIX（red证据），核对四项SQL为购买意图、收据、Stripe绑定及恢复调度后精确追加，不放宽未知/缺失/重复拒绝。相同命令 `pnpm exec tsx --test tests/fixtures/cn-application-recovery/migration-scope.test.ts` 2/2通过；证据evidence/migration-scope-{red,green}.txt。不声称重新执行PG或生产迁移。最终在P4实际合入、重基后仍核对前置列表。
 
 已纠正本交接对Enterprise按钮的旧错误观察：实际采用UI仅Enterprise显示手动加额度，整数1..1,000,000及原因。Team设计Draft PR6101仍pending、可执行第③件未齐。个人恢复签核与正常develop集成授权持续，无新增确认请求。
+
+## 全source预审P1修订中
+
+独立审查4e506f947发现合法Stripe Checkout fragment被统一URL边界拒绝。官方固定Clover响应包含#fid，已核对 https://docs.stripe.com/api/checkout/sessions/create?api-version=2025-09-30.clover 。原state fixture改真实形态，URL/state实际3项红；仅可信Stripe Checkout允许原fragment，HTTPS/host/port/credentials约束不变，微信及管理门户仍拒绝fragment。URL、持久化及checkout组件29项绿，含原样导航、先ownedGET及恶意地址反例。浏览器上游fixture已改含fragment并断言完整原地址，尚待重跑，P1不提前宣称最终闭环。
+
+init --full首次真实失败于assigned-secret扫描，来自独立签名测试的固定假密钥；改为每次生成临时随机HMAC key，扫描器/基线均未改。首版裸UUID不符合部署whsec前缀，目标PG测试400失败已保留；补合法前缀后目标真实签名HTTP PG 1通过、33过滤。完整基础检查仍待重跑，不把目标测试称为全PG。
