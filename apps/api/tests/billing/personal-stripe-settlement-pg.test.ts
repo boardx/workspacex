@@ -199,6 +199,12 @@ it("keeps a webhook-established Checkout identity when the creation response arr
   const result = { sessionRef: "cs_wronglateidentity", url: "https://checkout.stripe.com/c/pay/fixture", expiresAt: new Date(Date.now() + 86400000) };
   await expect(checkout.bind({ userId: f.userId, orgId: org }, f.purchase.purchaseRef, result)).rejects.toThrow("idempotency_conflict");
 });
+it("recovers through the verified financial binding if the original checkout response never finished binding", async () => {
+  const f = await fixture("financial-session-fallback"), handler = callback(f); await f.settle();
+  await asOwner(c => c.query("UPDATE billing_personal_purchases SET session_ref=NULL,payment_url=NULL,expires_at=NULL WHERE purchase_ref=$1", [f.purchase.purchaseRef]));
+  expect(await handler.store.reconcileSubscription(f.snapshots.subscription.id, handler.provider)).toBe(true);
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 20000 });
+});
 it("reads annual payment expiry separately from the current monthly quota", async () => {
   const f = await fixture("entitlement-year"), handler = callback(f); await handler.apply();
   const info = await new PgPersonalEntitlementRepository(db).read({ userId: f.userId, orgId: org });

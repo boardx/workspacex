@@ -15,6 +15,7 @@ import { personalPurchaseView, type PersonalPurchaseRow } from "./pg-personal-ch
 import { recordPaidPersonalTerm } from "./personal-credit-terms";
 import { normalizeCreditPeriods } from "./pg-credit-periods";
 import type { PersonalStripeBinding } from "../../domain/billing/personal-stripe-receipt";
+import { PERSONAL_STRIPE_RECONCILE_INTERVAL_MS } from "../../application/billing/personal-payment-recovery.port";
 
 type ReceiptRow = { purchase_ref: string; amount_minor: string; currency: string; paid_at: Date | null; manual_review: boolean };
 type StripeBindingRow = { subscription_ref: string; purchase_ref: string; session_ref: string; customer_ref: string; price_ref: string; purchase_anchor: Date };
@@ -143,7 +144,8 @@ export class PgPersonalPaymentRepository {
     const rows = (await session.query<StripeBindingRow>(SQL.personalStripeBinding, [binding.subscriptionRef, purchase.purchaseRef])).rows;
     if (rows.some(row => row.subscription_ref !== binding.subscriptionRef || row.purchase_ref !== purchase.purchaseRef || row.session_ref !== binding.sessionRef ||
       row.customer_ref !== binding.customerRef || row.price_ref !== binding.priceRef || row.purchase_anchor.getTime() !== binding.purchaseAnchor.getTime())) throw Error("personal_stripe_binding_mismatch");
-    const next = ["canceled", "incomplete_expired"].includes(binding.status) ? null : nextCheck;
+    // A paid year or terminal status must not hide missed invoices/cancellation updates until that year ends.
+    const next = new Date(Math.min(nextCheck.getTime(), this.clock().getTime() + PERSONAL_STRIPE_RECONCILE_INTERVAL_MS));
     if (!rows.length) await session.query(SQL.personalStripeBind, [binding.subscriptionRef, purchase.purchaseRef, binding.sessionRef, binding.customerRef,
       binding.priceRef, binding.purchaseAnchor, binding.status, binding.cancelAtPeriodEnd, next]);
     else await session.query(SQL.personalStripeSnapshot, [binding.subscriptionRef, binding.status, binding.cancelAtPeriodEnd, next]);

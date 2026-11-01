@@ -11,6 +11,7 @@ export const PERSONAL_PAYMENT_SQL = Object.freeze({
   personalStripeBinding: "SELECT * FROM billing_personal_stripe_bindings WHERE subscription_ref=$1 OR purchase_ref=$2",
   personalStripePurchase: `SELECT p.purchase_ref FROM billing_personal_stripe_bindings b JOIN billing_personal_purchases p USING(purchase_ref)
     WHERE b.subscription_ref=$1 AND p.generation=$2`,
+  personalStripeSession: "SELECT session_ref FROM billing_personal_stripe_bindings WHERE subscription_ref=$1 AND purchase_ref=$2",
   personalStripeCustomerOwner: `SELECT p.user_id FROM billing_personal_stripe_bindings b JOIN billing_personal_purchases p USING(purchase_ref)
     WHERE b.customer_ref=$1 AND p.user_id<>$2 LIMIT 1`,
   personalStripeBind: `INSERT INTO billing_personal_stripe_bindings(subscription_ref,purchase_ref,session_ref,customer_ref,price_ref,purchase_anchor,status,cancel_at_period_end,next_check_at)

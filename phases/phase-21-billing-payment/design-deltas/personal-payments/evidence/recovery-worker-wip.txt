@@ -1,0 +1,9 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/personal-payment-recovery-worker.test.ts (3 tests) 37ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  02:50:32
+   Duration  1.14s (transform 107ms, setup 0ms, collect 119ms, tests 37ms, environment 1ms, prepare 398ms)

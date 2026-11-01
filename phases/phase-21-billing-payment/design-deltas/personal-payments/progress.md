@@ -1,5 +1,12 @@
 # 个人支付闭环进展
 
+自动补账组件已完成正式BillingModule接线：共享StripeStore供webhook与worker使用，0/60秒有界公平队列、失败重试、停机排空、单进程不重叠；每次入账仍走权威支付验证和代际锁。完整createApp/真实HTTP/PG/平台RSA查单证明：关闭新销售时无需回调或手动runOnce，遗漏微信付款自动补回且receipt/ledger各一笔。Stripe原session未落库时可从已验证财务绑定恢复；未绑定且超过原支付重试窗口的意图转人工复核，不新建第二笔支付。
+
+本轮provider162、隔离PG/HTTP54（主命令实际5文件39项，另正确路径意图/微信2文件15项）、API typecheck/lint7任务通过，隔离资源清理成功；证据recovery-auto-*。主命令包含两个不存在的过滤路径，未计入通过数量，已另跑正确文件。当前准备精确SHA独立审查与检查点推送，#6093整体仍待管理/历史/正式UI及旧入口代际隔离，未完成、未创建整feature PR。
+
+
+目录PR #6095 已实际合入develop：mergedAt2026-11-01T18:58:35Z，mergeCommit6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a；此后的旧“队列检查中”是历史记录。下一步充值 #6090 剥离旧父41cf，单issue PR继续。
+
 分页补账组件：固定Clover invoice list官方Markdown已核对；请求仅取对应subscription已付账单，每页5张、列表响应256KiB上限，拒绝重复/不前进游标/跨订阅或环境页。每张账单独立走原财务验证并核实receipt属于原绑定购买；页失败或停机保留原游标，已入账单重放幂等；过期月份不会恢复可用额度。先13项缺方法红，修正fixture密钥并收紧负例断言后13项协议绿；新增PG3项先缺方法红，再含跨页路径共25项最终通过。provider159、API typecheck/lint7项门禁通过，见evidence/invoice-*。仍为组件，自动定时调度、unbound处理、管理历史和正式UI未完成；不宣称 #6093 完成。
 
 目录 #6095 source319d89d已获仓库READY_TO_MERGE且审查线程0，按已授权正常入队，记录时候选6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a（位置1）仍检查中。后续必须重读实际mergedAt/mergeCommit，不把入队当合入。

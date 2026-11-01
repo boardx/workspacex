@@ -4,6 +4,7 @@ import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../do
 import type { BillingConfigPort } from "./billing-config.port";
 import type { PersonalCheckoutProvider, PersonalCheckoutRepository, StoredPersonalPurchase } from "./personal-checkout-ports";
 import { assertSamePersonalPurchase, PersonalCheckoutError } from "./personal-checkout-error";
+import { PERSONAL_CHECKOUT_RETRY_WINDOW_MS } from "../../domain/billing/personal-purchase";
 
 export class PersonalCheckoutService {
   constructor(private readonly repository: PersonalCheckoutRepository, private readonly config: BillingConfigPort, private readonly provider: PersonalCheckoutProvider) {}
@@ -25,7 +26,7 @@ export class PersonalCheckoutService {
     if (purchase.userId !== principal.userId) throw new PersonalCheckoutError("product_unavailable");
     if (purchase.url !== null && purchase.expiresAt !== null) return this.result(purchase);
     // Stripe idempotency expires after at least 24h. Unresolved old intents never create a second payment.
-    const maxAge = purchase.provider === "stripe" ? 23 * 3600000 : 15 * 60000;
+    const maxAge = PERSONAL_CHECKOUT_RETRY_WINDOW_MS[purchase.provider];
     if (Date.now() - purchase.createdAt.getTime() >= maxAge || purchase.closedAt || purchase.fulfilledAt) throw new PersonalCheckoutError("dependency_unavailable");
     let checkout;
     try { checkout = await this.provider.create(purchase); }

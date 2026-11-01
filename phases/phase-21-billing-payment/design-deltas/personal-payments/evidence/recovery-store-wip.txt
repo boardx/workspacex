@@ -1,0 +1,24 @@
+[stack-admission] load1=3.61 cores=10 perCore=0.36 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy70hd8-9bc6b4f3-76eb8542af98 db=wsx_76eb8542af98a0da6f9e compose=wsx-76eb8542af98a0da6f9e pg=20562 redis=21562 api=24562 web=25562 sandbox=26562 model=27562 deep-agent=28562 asr=29562 vision=30562 loopback-sandbox=31562 mail=19562
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_76eb8542af98a0da6f9e capacity=100 current=6 required=32
+ ✓ tests/billing/personal-payment-recovery-pg.test.ts (7 tests) 32470ms
+   ✓ moves beyond hot failed rows using a bounded fair cursor 398ms
+   ✓ synchronizes a due Stripe binding and every missed paid month, then defers the next poll 474ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  02:58:14
+   Duration  42.93s (transform 1.50s, setup 19ms, collect 652ms, tests 32.47s, environment 0ms, prepare 110ms)
+
+[db-isolation] db=wsx_76eb8542af98a0da6f9e peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-payment-recovery-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：45s
+  清理：1s
+  总计：46s

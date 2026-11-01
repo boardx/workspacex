@@ -34,6 +34,12 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
       return { mode, purchase: row ? personalPurchaseView(row) : null };
     });
   }
+  private activeRead<T>(query: (session: TenantSession) => Promise<T>): Promise<T> {
+    return this.db.withoutTenant(async raw => {
+      const session: TenantSession = { query(sql, params) { assertBillingGlobalStatement(sql); return raw.query(sql, params); } };
+      await requireActivePricingEpoch(session); return query(session);
+    });
+  }
   async apply(event: StripeEvent, provider: StripeSnapshotProvider): Promise<boolean> {
     if ((await this.select()).mode === "legacy") return this.legacy.apply(event, provider);
     return this.synchronize(event.type, event.object.id, provider);
@@ -52,11 +58,7 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
     shouldContinue: () => boolean = () => true): Promise<{ nextCursor: string | null; interrupted: boolean }> {
     reference(subscriptionRef, "sub"); if (cursor !== undefined) reference(cursor, "in");
     if (!shouldContinue()) return { nextCursor: cursor ?? null, interrupted: true };
-    const read = <T>(query: (session: TenantSession) => Promise<T>) => this.db.withoutTenant(async raw => {
-      const session: TenantSession = { query(sql, params) { assertBillingGlobalStatement(sql); return raw.query(sql, params); } };
-      await requireActivePricingEpoch(session); return query(session);
-    });
-    const owner = await read(async session => (await session.query<{ purchase_ref: string }>(SQL.personalStripePurchase, [subscriptionRef, BILLING_ACCOUNTING_GENERATION])).rows[0]);
+    const owner = await this.activeRead(async session => (await session.query<{ purchase_ref: string }>(SQL.personalStripePurchase, [subscriptionRef, BILLING_ACCOUNTING_GENERATION])).rows[0]);
     if (!owner) throw Error("personal_stripe_binding_missing");
     if (!provider.paidInvoices) throw Error("personal_stripe_provider_incomplete");
     const page = await provider.paidInvoices(subscriptionRef, cursor);
@@ -68,7 +70,7 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
       if (!shouldContinue()) return { nextCursor: cursor ?? null, interrupted: true };
       if (!await this.synchronize("invoice.paid", id, provider)) throw Error("personal_recovery_retry_required");
       // An ignored foreign/retired event is not a recovered invoice for this immutable binding.
-      const receipt = await read(async session => (await session.query<{ purchase_ref: string }>(SQL.personalReceiptFind, ["stripe", id])).rows[0]);
+      const receipt = await this.activeRead(async session => (await session.query<{ purchase_ref: string }>(SQL.personalReceiptFind, ["stripe", id])).rows[0]);
       if (receipt?.purchase_ref !== owner.purchase_ref) throw Error("personal_recovery_receipt_missing");
     }
     return { nextCursor: page.hasMore ? ids.at(-1)! : null, interrupted: false };
@@ -99,11 +101,15 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
     const { purchase } = await this.select(String(metadata.purchase_ref));
     if (!purchase) return true;
     if (purchase.provider !== "stripe" || purchase.product.kind !== "subscription") throw Error("personal_stripe_purchase_mismatch");
+    const subRef = reference(subscription.id, "sub");
     if (!session) {
-      if (!purchase.sessionRef) return false; // The original idempotent Checkout creation must finish binding first.
-      session = this.environment(await this.checkout.retrieve(purchase.sessionRef));
+      const financialBinding = purchase.sessionRef === null ? await this.activeRead(async s =>
+        (await s.query<{ session_ref: string }>(SQL.personalStripeSession, [subRef, purchase.purchaseRef])).rows[0]) : null;
+      const sessionRef = purchase.sessionRef ?? financialBinding?.session_ref;
+      if (!sessionRef) return false;
+      session = this.environment(await this.checkout.retrieve(sessionRef));
     }
-    const checkout = session, subRef = reference(subscription.id, "sub");
+    const checkout = session;
     const items = object(subscription.items), data = items.data;
     if (!Array.isArray(data) || data.length !== 1) throw Error("personal_stripe_subscription_invalid");
     const price = this.environment(await provider.price(reference(object(object(data[0]).price).id, "price")));

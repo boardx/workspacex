@@ -2,6 +2,7 @@ import { randomBytes, sign } from "node:crypto";
 import { z } from "zod";
 import { OrderNo } from "@repo/contracts/billing-credits";
 import type { PersonalPurchase } from "../../domain/billing/personal-purchase";
+import { PERSONAL_WECHAT_PAYMENT_TTL_MS } from "../../domain/billing/personal-purchase";
 import { BILLING_ACCOUNTING_GENERATION } from "../../domain/billing/billing-generation";
 import type { LoggerPort } from "../../application/ports/logger.port";
 import type { PersonalCheckoutBinding } from "../../application/billing/personal-checkout-ports";
@@ -21,7 +22,7 @@ export class PersonalWechatPaymentClient {
   }
   async create(purchase: PersonalPurchase): Promise<PersonalCheckoutBinding> {
     this.assertPurchase(purchase);
-    const expiresAt = new Date(purchase.createdAt.getTime() + 900000);
+    const expiresAt = new Date(purchase.createdAt.getTime() + PERSONAL_WECHAT_PAYMENT_TTL_MS);
     if (expiresAt.getTime() <= Date.now() + 60000) throw Error("personal_wechat_creation_expired");
     const product = purchase.product;
     const description = product.kind === "subscription" ? `WorkspaceX Pro ${product.cycle === "year" ? "年付" : "月付"}（额度按月发放）` : undefined;
@@ -69,7 +70,7 @@ export class PersonalWechatPaymentClient {
   }
   async reconcile(purchase: PersonalPurchase): Promise<PersonalWechatPaymentState> {
     const state = await this.read(purchase);
-    if (state.state !== "pending" || Date.now() < purchase.createdAt.getTime() + 900000) return state;
+    if (state.state !== "pending" || Date.now() < purchase.createdAt.getTime() + PERSONAL_WECHAT_PAYMENT_TTL_MS) return state;
     try { await this.native.closeNativeOrder(purchase.purchaseRef); } catch { /* Payment may have won; only the following authoritative read decides. */ }
     return this.read(purchase);
   }

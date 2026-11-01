@@ -1,5 +1,16 @@
 # 个人支付闭环在建交接
 
+自动补账组件已完成正式BillingModule接线：共享StripeStore供webhook与worker使用，0/60秒有界公平队列、失败重试、停机排空、单进程不重叠；每次入账仍走权威支付验证和代际锁。完整createApp/真实HTTP/PG/平台RSA查单证明：关闭新销售时无需回调或手动runOnce，遗漏微信付款自动补回且receipt/ledger各一笔。Stripe原session未落库时可从已验证财务绑定恢复；未绑定且超过原支付重试窗口的意图转人工复核，不新建第二笔支付。
+
+本轮provider162、隔离PG/HTTP54（主命令实际5文件39项，另正确路径意图/微信2文件15项）、API typecheck/lint7任务通过，隔离资源清理成功；证据recovery-auto-*。主命令包含两个不存在的过滤路径，未计入通过数量，已另跑正确文件。当前准备精确SHA独立审查与检查点推送，#6093整体仍待管理/历史/正式UI及旧入口代际隔离，未完成、未创建整feature PR。
+
+
+最新WIP覆盖下文：BillingModule恢复worker已接线，PersonalStripeWebhookStore成为webhook/worker共享singleton；真实完整createApp自动漏通知补账root测试1通过（新销售关、实际HTTP401、真实RSA平台查单响应、PG只入账一次），worker3、PG队列7、financial-binding fallback针对1均绿。仍未全type/lint及完整定向回归，不能提交为完成。当前需再次精确stash，切充值分支修PR #6098 cashier-browser.integration.ts仍选择已停用pkg-cn-100导致CI超时；应改验证新catalog充值包，保留商户取消/无入账断言，不恢复旧套餐、不加超时绕过。根因日志/tmp/cn-us-topup-cashier-ci-failed.log。修完充值并使新SHA审查/门禁后，恢复本WIP做全部验证与精确审查。原db679备份保留，第二份stash会另记完整hash。
+
+最新现场：目录 #6095 已实际合入develop，2026-11-01T18:58:35Z / 6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a。支付已推送检查点346223a734f54782140c992fa4a0b1d0223f82c3获增量独立ACCEPT、20门禁通过。未提交WIP包含新恢复worker/端口、PG队列和400迁移、财务绑定session fallback、统一TTL常量。worker3、PG队列7、fallback针对1已绿；尚未全类型/lint，也未BillingModule正式DI接线。当前准备将这些自有路径精确stash，切充值分支剥离旧父41cf后提单issue PR，再恢复本WIP。不能把下文的检查点测试结果套到这批新源码。
+
+恢复WIP后先修完root接线并全量定向验证（应含Stripe26及队列7），然后精确审查/提交。队列选取持epoch共享锁后释放，网络在外、实际财务再次验epoch；每种最多5条且游标公平，错误隔离。Stripe后台页中断不推进游标，status先权威同步、完整invoice页逐账入账；终态仍每天重查以捕捉晚付。未绑定超过原窗口保留人工复核，不制造新支付。正式Root目前仍旧factory内创建StripeStore，需抽成singleton provider给webhook与worker共享；worker.onDestroy停止后续工作并等待当前财务处理完成。
+
 最新分页补账增量已验证：provider159（新增列表协议13）、PG Stripe25（含跨页、部分失败重放、停机页游标保留及过期不恢复）、API type/lint7项通过。页内每张invoice独立财务提交，确认receipt归属原binding购买后才推进页；列表不是付款授权。该增量待精确SHA独立复核。上一检查点d196fb5dfbf47a1bdb073154b91aa13fbb5aab52已远端保存、独立增量ACCEPT、20推送门禁通过。仍未接自动调度，unbound/管理历史/UI待做，具体规划见recovery-notes.md；全feature未完成。
 
 目录PR #6095已在source319d89d上获READY_TO_MERGE、独立ACCEPT、审查线程0后按授权正常入队。记录时队列位置1，候选6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a；不能从本文件推断当前是否已合入，先查实时queue/mergedAt/check-runs（per_page100+分页）。仅实际合入后依序集成充值、年付、Free；保留单issue PR，不把本支付源码混入目录PR。
