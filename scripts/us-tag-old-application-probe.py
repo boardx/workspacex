@@ -6,6 +6,8 @@ The probe creates synthetic application data and retains policy-managed objects.
 """
 import importlib.util
 import hashlib
+import pwd
+import grp
 import json
 import os
 from pathlib import Path
@@ -24,6 +26,24 @@ def trusted(path):
  for item in (*reversed(p.parents),p):
   s=item.lstat();need(s.st_uid==0 and not stat.S_ISLNK(s.st_mode) and not s.st_mode&0o022,'ROOT_CLOSURE_REQUIRED')
  return p
+DATA_MOUNTS={'/etc/workspacex-selfhost/sandbox':'/run/sandbox','/etc/workspacex-selfhost/sessions':'/run/sessions'}
+def data_directory(path):
+ p=Path(path);need(str(p) in DATA_MOUNTS,'FIXED_DATA_PATH_REQUIRED')
+ # Writable socket directories are data, not executable closure. Their root
+ # parent remains protected, while only this exact service account may own leaf.
+ trusted(p.parent)
+ account=pwd.getpwnam('wsx-runner');group=grp.getgrnam('wsx-runner')
+ need(account.pw_uid>0 and group.gr_gid>0 and account.pw_gid==group.gr_gid,'DATA_ACCOUNT_BINDING')
+ value=p.lstat()
+ need(stat.S_ISDIR(value.st_mode) and not stat.S_ISLNK(value.st_mode) and value.st_uid==account.pw_uid and value.st_gid==group.gr_gid and stat.S_IMODE(value.st_mode)==0o700,'PRIVATE_RUNNER_DATA_DIRECTORY')
+ return p
+
+def data_mounts(container):
+ mounts=container.get('Mounts',[])
+ for source,target in DATA_MOUNTS.items():
+  selected=[m for m in mounts if m.get('Source')==source or m.get('Destination')==target]
+  need(len(selected)==1 and selected[0].get('Type')=='bind' and selected[0].get('Source')==source and selected[0].get('Destination')==target and selected[0].get('RW') is True,'ACTUAL_API_DATA_MOUNT_BINDING')
+
 def load(path):
  s=importlib.util.spec_from_file_location('us_maintenance_source',path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 
@@ -67,7 +87,7 @@ def main():
  for path in required:
   need(path in refs,'PROBE_INPUT_PIN_REQUIRED');need(hashlib.sha256(prep.trusted(path,private=path.endswith('probe.env')).read_bytes()).hexdigest()==refs[path]['sha256'],'PROBE_INPUT_DRIFT')
  budget=probe_env(prep.trusted(required[0],private=True).read_bytes())
- for path in ['/etc/workspacex-selfhost/sandbox','/etc/workspacex-selfhost/sessions']:need(trusted(path).is_dir(),'SANDBOX_MOUNT_BINDING')
+ for path in DATA_MOUNTS:data_directory(path)
  state=trusted('/var/lib/workspacex-selfhost-state');uncertain=state/'business-probe-uncertain'
  need(not uncertain.exists() and not uncertain.is_symlink(),'PROBE_PREVIOUSLY_UNCERTAIN')
  baseline=p['baseline']['api'];docker='/usr/bin/docker';env={'PATH':'/usr/bin:/bin','HOME':'/root','LANG':'C.UTF-8'}
@@ -76,6 +96,7 @@ def main():
  rows=json.loads(run([docker,'inspect',baseline['containerId']]))
  need(len(rows)==1,'API_CONTAINER_SET');row=rows[0]
  need(row['Id']==baseline['containerId'] and row['Image']==baseline['imageId'] and row['State']['Running'] is True and row['Config']['Labels'].get('com.docker.compose.service')=='api' and row['Config']['Labels'].get('com.docker.compose.project')==p['project'],'API_BASELINE_DRIFT')
+ data_mounts(row)
  token=uuid.uuid4().hex;name='wsx-us-old-business-'+token;success=False
  fd=os.open(uncertain,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600);os.fsync(fd);os.close(fd)
  directory_fd=os.open(state,os.O_RDONLY);os.fsync(directory_fd);os.close(directory_fd)
