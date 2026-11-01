@@ -136,3 +136,24 @@ switch on rejection, fixed adapter protocol, verifier/binding failures and durab
 unknown-state blocking. Docker behavior is simulated in the early-probe test;
 writer proofs in protocol tests are explicitly fixture-only. These do not prove
 production recovery, real SQL migration, host installation or public acceptance.
+
+## Isolated restore component
+
+`schema-restore-rehearsal.py` now supplies the restore-and-reviewed-SQL part of
+preparation. It is not a runner-facing command, source backup authority, full
+writer or activation adapter. The caller must independently bind the source DB,
+original encrypted backup, actual ledger, target SQL and immutable clone image.
+Only the three exact SQL checksums are accepted. It restores through a kernel pipe
+into a newly owned network-none/no-ports/tmpfs PostgreSQL container, checks the
+restored ledger, replays the SQL in one clone transaction, verifies the expanded
+ledger and removes the exact owned clone. Unknown cleanup cannot succeed. Backup
+files must be private regular bounded files; raw data and keys are not uploaded.
+
+Three real PostgreSQL 16 Docker fixture cases cover success, ledger mismatch and
+corrupt encrypted archive, and verify the source fixture remains unchanged. This
+is real restore/SQL execution on synthetic data, not production recovery proof.
+The result explicitly says `activationAllowed=false`, old API and migration-role
+acceptance `NOT_PERFORMED`: no owners/ACLs are restored in this component. A later
+full verifier must not promote it into application compatibility or readiness.
+It is bundled with the tools; enabling a production schema route still requires
+the separate qualified source/profile/writer/verifier and actual host acceptance.

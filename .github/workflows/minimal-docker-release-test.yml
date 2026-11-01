@@ -6,6 +6,8 @@ on:
     paths:
       - scripts/minimal-docker-release.py
       - tests/test_minimal_docker_release*.py
+      - scripts/schema-restore-rehearsal.py
+      - tests/test_schema_restore_rehearsal*.py
       - deploy/examples/minimal-*.json
       - .github/workflows/minimal-docker-release-test.yml
   workflow_dispatch:
@@ -21,6 +23,12 @@ jobs:
       - uses: actions/checkout@v5
       - name: Exercise a real isolated Docker deployment
         run: python3 -I -B tests/test_minimal_docker_release_real.py --output "$RUNNER_TEMP/minimal-release-real"
+      - name: Exercise isolated encrypted PostgreSQL restore and reviewed SQL
+        env:
+          WSX_SCHEMA_RESTORE_TEST_OUTPUT: ${{ runner.temp }}/schema-rehearsal-real
+        run: |
+          docker image inspect postgres:16-alpine >/dev/null 2>&1 || docker pull postgres:16-alpine
+          python3 -I -B tests/test_schema_restore_rehearsal_real.py
       - name: Retain fixture receipts and cleanup proof
         if: always()
         uses: actions/upload-artifact@v6
@@ -28,6 +36,7 @@ jobs:
           name: minimal-docker-release-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/minimal-release-real/result.json
+            ${{ runner.temp }}/schema-rehearsal-real/**/*.json
             ${{ runner.temp }}/minimal-release-real/cleanup.json
             ${{ runner.temp }}/minimal-release-real/base-image.json
             ${{ runner.temp }}/minimal-release-real/schema-rejection.json

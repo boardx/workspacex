@@ -47,3 +47,29 @@ recovery rehearsal and reviewed installed root closure remain prerequisites befo
 using automatic schema promotion. CN's existing TOC inspection is explicitly not
 restore acceptance; US's full schema driver was not verified. Do not bypass the
 old image-only schema guard or close this gap using today's branch green.
+
+## Actual PostgreSQL component rehearsal
+
+`schema-restore-rehearsal.py` SHA256
+`371ed8a42980e43f51493b413eae2feb5455d67f8d39b446c87398fff8eb808a`
+passed 4 policy tests and 3 actual PostgreSQL 16 Docker fixture cases. The latter
+executed real encrypted pg_dump restoration and the 3 exact SQL files. Success,
+wrong-ledger rejection and corrupt-archive rejection all left the source fixture
+unchanged and removed the owned clones. The final artifact-capture run completed
+in 67.081 seconds locally; this is not a production release duration.
+
+Original sanitized JSON outputs are under `postgres-fixtures/`; they are clearly
+synthetic-local-postgres-only, activationAllowed=false, productionAcceptance=false.
+Raw dumps, keys and database records are NOT included. The first actual run found
+a SQL-loop variable shadowing the clone name and therefore refusing cleanup; it
+failed, the exact ownership-checked test clone was removed, the variable was fixed,
+and subsequent real runs passed. Test teardown now also reconciles only its own
+intent-labelled resources on failure. No owned rehearsal containers remain.
+
+A broader local harness run hit a 5-second timeout in the unchanged
+fullstack-smoke failed-child fixture during concurrent heavy tests and was stopped
+(owned child tree only). The same original case passed alone in 1.191 seconds;
+this is not evidence that the broad run passed. Required PR CI remains the merge
+authority. The first CI failure in our PR was the old literal-shell equality check;
+it was updated to execute real Bash with a fake sudo, asserting the exact fixed
+privileged argv, exit codes 0/1/23 and summary redaction.

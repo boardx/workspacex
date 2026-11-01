@@ -7,7 +7,7 @@ environment=${2:-both}
 [[ "$environment" =~ ^(cn|devapp|us|both)$ ]] || exit 2
 [[ "$runner_user" =~ ^[a-z_][a-z0-9_-]*$ ]] && id "$runner_user" >/dev/null
 source_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-files=(deploy-registry-images.py registry-images.py minimal-docker-release.py tag-schema-plan.py schema-release-handoff.py hosted-release.py canonical_control.py image-release-host-permissions.py)
+files=(deploy-registry-images.py registry-images.py minimal-docker-release.py tag-schema-plan.py schema-release-handoff.py schema-restore-rehearsal.py hosted-release.py canonical_control.py image-release-host-permissions.py)
 # Content-address the full Python closure so an in-flight deployment never imports a mixed installation.
 release_hash=$(cd "$source_dir" && sha256sum "${files[@]}" | sha256sum | cut -d' ' -f1)
 target="/usr/local/lib/workspacex-image-release/$release_hash"

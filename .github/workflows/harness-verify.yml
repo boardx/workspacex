@@ -146,6 +146,7 @@ jobs:
         run: |
           python3 -I -B -m unittest discover -s tests -p test_tag_schema_plan.py
           python3 -I -B -m unittest discover -s tests -p test_schema_release_handoff.py
+          python3 -I -B -m unittest discover -s tests -p test_schema_restore_rehearsal.py
           python3 -I -B -m unittest discover -s tests -p test_deploy_registry_images.py
 
       # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段

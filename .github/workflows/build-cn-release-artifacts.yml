@@ -103,6 +103,7 @@ jobs:
             scripts/minimal-docker-release.py
             scripts/tag-schema-plan.py
             scripts/schema-release-handoff.py
+            scripts/schema-restore-rehearsal.py
             scripts/hosted-release.py
             scripts/canonical_control.py
           sparse-checkout-cone-mode: false
@@ -119,6 +120,7 @@ jobs:
             scripts/minimal-docker-release.py
             scripts/tag-schema-plan.py
             scripts/schema-release-handoff.py
+            scripts/schema-restore-rehearsal.py
             scripts/hosted-release.py
             scripts/canonical_control.py
           retention-days: 1
