@@ -92,3 +92,9 @@ init --full首次真实失败于assigned-secret扫描，来自独立签名测试
 修后full init继续真实失败于user-facing-error-text静态规则：`.includes(error.reasonCode??"")`用于错误分类、不输出内部码，但命中统一规则。改明确字符串类型判断，不改扫描规则；原扫描红、修后绿，checkout组件22绿（新增四种已知错误清原意图／中文重选提示，未知／null错误保留原意图两种反例）。其余后段10项lint单独预检，9项绿，config-reachability发现本feature新增的个人browser子集config无自动入口。该config无活代码引用，两个spec已由canonical billing-cashier config及CI入口覆盖且完整17/17实跑；移除多余子集config，保留唯一完整入口，门禁转绿。该修订不改商户/支付账务/导航逻辑。
 
 完整基础仍须最终全命令重跑，不将上述分项绿拼成full init通过；两次真实full失败日志均保存。
+
+## 基础环境复现与真实依赖进展
+
+第三次full init所有静态门禁已过，harness28文件856测试通过后，studio原生ESM加载因本机Node22.14解析嵌套TS失败。相关三份源码与actual develop无差异；已安装22.23.2下同一目标真实通过（1过15过滤），仅改变命令PATH，不修改隔离器或门禁。完整失败及新补丁目标输出保留review-fixes；完整full仍未通过，将在实际依赖基线继续，绝不把目标通过拼作全仓通过。第三次wrapper清理1s完成，compose只剩其他会话扩展。
+
+年付PR6100已真实正常merge98de549bbe77c459362ed42fc9455c5589dd1f1e，issue6091由PR关闭，非只停在source。P4下一步按旧b766剥离；P5原父b4dd不变。

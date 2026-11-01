@@ -1,21 +1,20 @@
 # 个人支付在建交接
 
-唯一worktree `/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui`，当前worker/cn-us-personal-payments；不要新建第二个worktree或切换共享checkout。恢复增量源码bdddf4ff61863cd472b0540cf64595822eb45122与最终文档52e2f95bc447cc4471ccaabedb824ec56b6298ed均已独立ACCEPT并正常推送；正在补迁移范围验证及交接纠错，完整P5仍待前置实际集成后的最终复核。
+唯一worktree `/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui`，当前worker/cn-us-personal-payments；不用第二个worktree、不切共享checkout。远端source c2d3873c267e6f82f2686bfd15f4c3e968a9dc2f已正常push（prepush25/25、21cache），本提交只补验证记录与当前集成事实。保留共享stash，不回放旧UI/recovery备份覆盖当前源码。
 
-用户已明确采用personal-order-outcomes-v1并授权回填/继续，签核已记录；原缺绑定P2已闭合。GET终态nil、POST原key恢复、正常待支付真绑定、客户端先GET且不重新支付、Draft真实expiry均有验证。contracts1254/provider166/UI107/PGHTTP39/旧PG42/local parity12、类型lint11及受影响25任务通过；完整browser17通过且nil到账恢复截图已目视。证据personal-payments/evidence/order-outcomes；首次红及fixture类型失败保留。商户是独立签名fixture，不是在线实付。当前无本任务自有Next/Chromium/Docker栈/编译器在跑，wrapper清理已结束。
+用户已采用personal-order-outcomes-v1并授权回填/继续，签核已记录；本次正常集成develop授权持续，不重问、不admin bypass。Stripe fragment P1于f2884c794修复并独立代码闭环；c2错误分类与移除重复子集config增量独立ACCEPT。原缺绑定及QR重试P2已闭环。最终新base全feature审查和PR CI仍未完成，不假passing。
 
-下一步按实际队列集成：
-1. 当前P5检查点精确复核后正常push（不含未完成整feature PR）。
-2. 充值PR6098已在2026-11-01T21:24:25Z正常merge develop，commit d886e24310ae50e8f7c6a74bbceb87c052514025，6090已关闭；fetch后旧source48与当前develop源码树diff为空。P3远端b766a58cc从**48e04b39c668b15cd16bdba4e4f6967a9df5dd87**剥离到实际origin/develop；源码等价仍核对range-diff，复验/最终SHA独立review，单issue6091 PR正常集成。
-3. P3实际merge后，P4远端63bd75abd从**b766a58ccbf9b14dcccaf6e1a47c086f3b5ea2db**剥离到实际develop；同样复核/单issue6092 PR。P4原实现重放为0cf4，补scope+证据5dc/63bd。
-4. P4实际merge后，P5仍从原父**b4ddf725f79b2607a186ff82782ed10b520272a8**剥离，不能错用新P4头当旧父。当前已准确追加继承P3/P4及P5四项SQL到tests/fixtures/cn-application-recovery/migration-scope.ts，保留unknown/missing/duplicate拒绝；重基若冲突，保持实际前置列表加P5四项，不恢复旧列表。再跑最终基础init/检查、整#6093独立范围review和单issue PR，CI真绿后正常merge。
+证据：contracts1254/provider166/UI107/PGHTTP39/旧PG42/parity12及browser17在order-outcomes；后续fragment URL/state/React29、更新checkout22、canonical完整browser17、types/lint9、目标实际HMAC PG1（33过滤）在review-fixes。HMAC每次随机合法whsec格式，不改扫描门。浏览器独立签名loopback，未在线商户扣款。邮件worker关闭，不向真人发信。
 
-个人正式UI开关默认off、计费epoch未激活；不得执行生产reset/支付/部署。全旧订单/订阅/余额/流水/消费脏数据最终清空，外部旧续费/可支付单、旧应用及在途AI/usage replay先处理，实际事务epoch屏障和最终排他重置仍后续任务；不凭当前只读模式检查宣称可安全生产cutover。用户本次定价正常集成develop授权持续，不需重问；不使用admin bypass。
+基础状态：普通init快速路径通过。full第一次scan固定假key误报、第二次错误码分类静态误报及无入口重复config已修，各项红绿/独立审查已保存。第三次full全部静态门禁通过，harness28文件856测试通过后停在studio原生ESM加载测试：当前shell Node22.14解析嵌套TS失败，相关源与actual develop无差异。已安装Node22.23.2下同一目标1通过、15过滤；这是补丁版环境差异，不改业务/门禁。后续命令显式PATH使用/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin。尚未声称完整full init通过，最终实际依赖基线上还须完整检查；不把目标修复绿拼作全仓通过。
 
-Team/Enterprise设计Draft PR #6101已发布，分支worker/cn-us-team-billing-design，head096892902；独立草案复审1944d13无新增P1/P2，原报价期限及T06问题已闭环。此前“所有列表行可加额度”观察错误：已采用pricing-enterprise-preview.tsx按钮实际受team.enterprise条件限制，仅Enterprise，整数1至1,000,000且必填原因；草案已按该事实修正。签核pending，api.md不代替packages/contracts可执行第③件，须补schema/原型消费反例及正式复核后再请求人确认，不能自动扩展个人签核。
+实际集成：充值PR6098 merge d886e24310ae50e8f7c6a74bbceb87c052514025；年付PR6100已在2026-11-01T22:32:25Z正常merge develop98de549bbe77c459362ed42fc9455c5589dd1f1e，6091于22:32:27Z由PR关闭，fetch后ancestor退出0。合入前72check均success/skipped/neutral；合入后plan另算，不混为合前证据。
 
-保留共享stash，不pop/drop别人条目。我们的23e17f6e7ead2c0610953a7f195042310a46f102为旧UI运行时备份，不是最新源码；最新已在本分支commits。其他旧backup8ac/c2b/db67等已被后续commits覆盖，不要反向覆盖。progress.md保留历史，旧pending/旧SHA文字不是当前事实；使用GitHub mergedAt/mergeCommit/当前checks确认实际状态。
+接着：
+1. P4远端63bd75abd29109a6ca7750060dd9687c2fd864f4从**旧父b766a58ccbf9b14dcccaf6e1a47c086f3b5ea2db**剥离到actual develop，range-diff/精确源码复核，再单issue6092 PR，负责到绿正常合入。
+2. P4实际merge后，P5从**原父b4ddf725f79b2607a186ff82782ed10b520272a8**剥离，不能用新P4头当旧父。reviewedSuffix现含继承P3/P4三项及P5四项；冲突时保留实际base列表再加P5四项，不恢复旧列表。
+3. 最终基础/全feature精确SHA独立复核、单issue6093 PR及真实绿CI。默认UIflagoff、epoch未激活，禁止生产reset/支付/部署。全旧计费数据清理与外部旧款/在途usage屏障仍是独立后续工作，未执行。
 
-当前年付PR6100 source5310已正常入队，候选98de549检查进行中、未实际merge；不得把历史P3待开PR描述当实时事实。
+Team/Enterprise是独立Draft PR6101，分支worker/cn-us-team-billing-design head096892902；原草案问题已复审闭环、pending。采用原型的添加额度按钮仅Enterprise可见、整数1..1,000,000且原因必填，旧“所有列表行”观察错误已纠正。api.md不代替packages/contracts第③件；须补可执行schema/原型消费反例/正式复核后再一次请求人工确认。个人签核不覆盖Team。
 
-全source预审4e506发现Stripe Checkout fragment被拒P1，已在f2884c794修复并获独立代码闭环复核；完整canonical browser现17/17、URL/state/React29、types/lint9、目标实际HMAC PG1（33过滤）通过。源证据evidence/review-fixes。完整init首次因固定HMAC假key触发扫描失败，已改每次合法随机key；裸UUID中间失败也保留。修后fullinit执行中，必须读取最终退出码再声明基础通过。不能复用旧“all source ACCEPT”覆盖新base/最终CI。
+当前所有本会话测试栈已由wrapper释放，第三次full清理1s，无自有Next/Chromium/compiler/compose剩余；Node目标测试无资源栈。其他发布/邮件会话资源不动。
