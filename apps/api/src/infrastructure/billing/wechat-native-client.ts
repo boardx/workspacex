@@ -54,7 +54,7 @@ export class WechatNativeClient implements WechatNativePort {
       throw new BillingOrderError("wechat_upstream_failed");
     } finally { clearTimeout(timer); }
   }
-  async createNativeOrder(order: OrderDraft, traceId = "no-trace"): Promise<string> {
+  async createNativeOrder(order: OrderDraft, traceId = "no-trace", description?: string): Promise<string> {
     const config = this.deployment.getWechat();
     if (!config) throw new BillingOrderError("payment_provider_not_configured");
     let stage = "request";
@@ -62,7 +62,7 @@ export class WechatNativeClient implements WechatNativePort {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const body = JSON.stringify({ appid: config.appId, mchid: config.mchId, description: `WorkspaceX ${order.baseCredits + order.bonusCredits} credits`, out_trade_no: order.orderNo,
+      const body = JSON.stringify({ appid: config.appId, mchid: config.mchId, description: description ?? `WorkspaceX ${order.baseCredits + order.bonusCredits} credits`, out_trade_no: order.orderNo,
         time_expire: order.expiredAt, notify_url: config.notifyUrl, amount: { total: order.amountFen, currency: order.currency } });
       const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("hex");
       const signature = sign("RSA-SHA256", Buffer.from(`POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`), config.privateKey).toString("base64");

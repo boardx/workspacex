@@ -1,0 +1,33 @@
+[stack-admission] load1=5.68 cores=10 perCore=0.57 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy2hx93-08e70a12-33f83cfd0d29 db=wsx_33f83cfd0d295633ceef compose=wsx-33f83cfd0d295633ceef pg=20557 redis=21557 api=24557 web=25557 sandbox=26557 model=27557 deep-agent=28557 asr=29557 vision=30557 loopback-sandbox=31557 mail=19557
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_33f83cfd0d295633ceef capacity=100 current=6 required=32
+ ❯ tests/billing/personal-checkout-http.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-checkout-http.test.ts [ tests/billing/personal-checkout-http.test.ts ]
+Error: Failed to load url ../../src/interface/controllers/personal-checkout.controller (resolved id: ../../src/interface/controllers/personal-checkout.controller) in /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/tests/billing/personal-checkout-http.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  00:51:49
+   Duration  7.04s (transform 564ms, setup 21ms, collect 0ms, tests 0ms, environment 0ms, prepare 135ms)
+
+[db-isolation] db=wsx_33f83cfd0d295633ceef peak_connections=1
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-checkout-http.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-checkout-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：9s
+  清理：1s
+  总计：10s
