@@ -3,6 +3,16 @@ from pathlib import Path
 import unittest
 P=Path(__file__).resolve().parents[1]/'scripts/cn-tag-old-application-probe.py';s=importlib.util.spec_from_file_location('cn_old_browser',P);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class Routing(unittest.TestCase):
+ def test_every_embedded_pin_has_exact_sha256_shape(self):
+  import re
+  for value in [*m.PINS.values(),m.ENV_SHA]:self.assertIsNotNone(re.fullmatch('[a-f0-9]{64}',value),value)
+ def test_invalid_sha_shape_rejects_before_read(self):
+  from unittest.mock import patch
+  with patch.object(m,'trusted') as trusted:
+   for value in ['a'*63,'a'*65,'A'*64,'g'*64,'a'*63+'\n','a'*64+'\n',None]:
+    with self.assertRaisesRegex(ValueError,'BROWSER_PIN_FORMAT'):m.verify_pin(Path('/unused'),value)
+   trusted.assert_not_called()
+
  def test_exact_one_launch_patch_preserves_tls(self):
   raw=b'const url="https://app.boardx.com.cn";\n    args: process.getuid?.() === 0 ? ["--no-sandbox"] : [],\n'
   result=m.loopback_source(raw);self.assertIn(b'MAP app.boardx.com.cn 127.0.0.1',result);self.assertIn(b'https://app.boardx.com.cn',result);self.assertNotIn(b'ignoreHTTP',result)

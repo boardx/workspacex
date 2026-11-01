@@ -21,6 +21,31 @@ class Tests(unittest.TestCase):
   with self.assertRaisesRegex(ValueError,'LIVE_CONFIG_DRIFT'):m.live_config_cas(engine,Mock(),{},'project',rows,Path('/private'))
   rows[0]['Config']['Labels']['com.docker.compose.config-hash']='current-config'
   m.live_config_cas(engine,Mock(),{},'project',rows,Path('/private'))
+ def test_health_uses_loopback_route_with_real_tls_hostname(self):
+  for environment,host in [('us','appv1.boardx.us'),('cn','app.boardx.com.cn')]:
+   run=Mock(return_value=b'{"trustworthy":true}\n200')
+   result=m.loopback_health(environment,{'url':'https://'+host+'/api/healthz','expected':{'trustworthy':True}},3,run)
+   args=run.call_args.args[0];self.assertEqual(args[:2],['/usr/bin/curl','--disable']);self.assertTrue(result['tlsVerification']);self.assertIn(host+':443:127.0.0.1',args);self.assertEqual(args[-1],'https://'+host+'/api/healthz');self.assertIn('--fail',args);self.assertNotIn('--insecure',args);self.assertNotIn('-k',args);self.assertNotIn('--location',args);self.assertEqual(args[args.index('--write-out')+1],r'\n%{http_code}')
+ def test_health_rejects_foreign_host_http_redirect_or_wrong_body(self):
+  config={'url':'https://appv1.boardx.us/api/healthz','expected':{'trustworthy':True}}
+  run=Mock(return_value=b'{"trustworthy":true}\n200')
+  for url in ['http://appv1.boardx.us/api/healthz','https://evil/api/healthz','https://appv1.boardx.us:444/api/healthz','https://appv1.boardx.us/api/healthz?skip=1']:
+   with self.assertRaises(ValueError):m.loopback_health('us',{**config,'url':url},3,run)
+  run.assert_not_called()
+  for raw in [b'{"trustworthy":true}\n503',b'{"trustworthy":true}\n301',b'{"trustworthy":false}\n200',b'[]\n200']:
+   with self.assertRaises(ValueError):m.loopback_health('us',config,3,Mock(return_value=raw))
+  with self.assertRaises(RuntimeError):m.loopback_health('us',config,3,Mock(side_effect=RuntimeError('certificate verification failed')))
+ def test_held_runtime_scopes_transport_and_restores_engine_health(self):
+  from types import SimpleNamespace
+  original=Mock(side_effect=RuntimeError('public health is blocked by maintenance'))
+  engine=SimpleNamespace(health=original)
+  engine.verify_runtime=lambda d,command,services,images,config:engine.health(config['health'],timeout=3)
+  host=SimpleNamespace(run=Mock(return_value=b'{"trustworthy":true}\n200'))
+  ctx={'engine':engine,'maint':SimpleNamespace(Host=Mock(return_value=host)),'old_policy':{},'attempt':Path('/private'),'fd':3,'request':{'environment':'us'},'config':{'services':{},'health':{'url':'https://appv1.boardx.us/api/healthz','expected':{'trustworthy':True}}},'d':None,'p':{'runtimeSeconds':10}}
+  self.assertEqual(m.verify_held_runtime(ctx,[],{})['httpStatus'],200);self.assertIs(engine.health,original);original.assert_not_called()
+  host.run.side_effect=RuntimeError('TLS failed')
+  with self.assertRaises(RuntimeError):m.verify_held_runtime(ctx,[],{})
+  self.assertIs(engine.health,original)
  def test_no_ddl_or_schema_equal_waiver(self):
   text=Path(m.__file__).read_text();self.assertNotIn("run('apply')",text);self.assertNotIn('engine.release(',text);self.assertNotIn('schemaInventoriesEqual=True',text)
 if __name__=='__main__':unittest.main()

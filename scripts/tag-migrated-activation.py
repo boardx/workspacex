@@ -103,6 +103,34 @@ def probe(ctx,which,attempt):
  need(len(raw)<=65536,'PROBE_BOUND');value=json.loads(raw)
  need(value.get('status') in ('OLD_APPLICATION_VERIFIED','CANDIDATE_APPLICATION_VERIFIED') and value.get('source')==SOURCE and value.get('tag')==TAG and value.get('environment')==ctx['request']['environment'],'ACTUAL_BUSINESS_PROBE_FAILED');return value
 
+def loopback_health(environment,config,timeout,run):
+ host={'us':'appv1.boardx.us','cn':'app.boardx.com.cn'}.get(environment)
+ need(host and config.get('url')=='https://'+host+'/api/healthz','LOOPBACK_HEALTH_URL_BINDING')
+ expected=config.get('expected');need(type(expected) is dict and bool(expected),'LOOPBACK_HEALTH_EXPECTED')
+ need(type(timeout) in (int,float) and 0<timeout<=10,'LOOPBACK_HEALTH_TIMEOUT')
+ # --resolve changes routing only. HTTPS hostname/SNI and system certificate
+ # verification remain mandatory; no redirects, proxy, alternate CA or -k.
+ args=['/usr/bin/curl','--disable','--silent','--show-error','--fail','--noproxy','*',
+       '--proto','=https','--tlsv1.2','--max-redirs','0','--connect-timeout',str(min(timeout,3)),
+       '--max-time',str(timeout),'--max-filesize','65536','--resolve',host+':443:127.0.0.1',
+       '--write-out','\\n%{http_code}',config['url']]
+ raw=run(args,timeout=timeout)
+ need(len(raw)<=65540,'LOOPBACK_HEALTH_SIZE')
+ body,status=raw.rsplit(b'\n',1);need(status==b'200','LOOPBACK_HEALTH_HTTP')
+ value=json.loads(body);need(type(value) is dict and all(value.get(k)==v for k,v in expected.items()),'LOOPBACK_HEALTH_BODY')
+ return {'httpStatus':200,'expectedFieldsMatched':True,'routing':'loopback-tls','tlsVerification':True}
+
+def verify_held_runtime(ctx,command,images):
+ engine=ctx['engine'];host=ctx['maint'].Host(ctx['old_policy'],ctx['attempt'],ctx['fd'])
+ original_health=engine.health
+ # The existing verifier still checks exact images, states and health. Only its
+ # transport is scoped to this synchronous held-traffic invocation.
+ engine.health=lambda config,timeout:loopback_health(ctx['request']['environment'],config,timeout,host.run)
+ try:
+  return engine.verify_runtime(ctx['d'],command,ctx['config']['services'],images,
+      {**ctx['config'],'verificationCommand':None,'readinessTimeoutSeconds':ctx['p']['runtimeSeconds']})
+ finally:engine.health=original_health
+
 def activate(ctx,receipt_path):
  p=ctx['p'];request=ctx['request'];maint=ctx['maint'];engine=ctx['engine'];attempt=ctx['attempt'];d=ctx['d'];config=ctx['config'];base=ctx['base'];images=ctx['images']
  budget(p,request)
@@ -131,7 +159,7 @@ def activate(ctx,receipt_path):
   need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','FINAL_LEDGER_DRIFT')
   live_config_cas(engine,d,original,config['project'],runtime_rows(d,config['project'],config['services'],old),attempt)
   mutated=True;d.run(command+['up','--detach','--no-deps','--pull','never','--no-build',*config['services']],timeout=p['runtimeSeconds'])
-  health=engine.verify_runtime(d,command,config['services'],images,{**config,'verificationCommand':None,'readinessTimeoutSeconds':p['runtimeSeconds']})
+  health=verify_held_runtime(ctx,command,images)
   # Candidate probe gets private expected actual image/container identities.
   candidate=attempt/('tag-maintenance-'+os.urandom(16).hex());candidate.mkdir(mode=0o700)
   candidate_policy=copy.deepcopy(ctx['old_policy']);live=runtime_rows(d,config['project'],config['services'],images)
@@ -151,7 +179,7 @@ def activate(ctx,receipt_path):
    if not hold:host.nginx(original_nginx,held);hold=True
    need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','RECOVERY_DATABASE_DRIFT')
    if mutated:d.run(base+['--file',str(rollback),'up','--detach','--no-deps','--pull','never','--no-build',*config['services']],timeout=p['runtimeSeconds'])
-   engine.verify_runtime(d,base+['--file',str(rollback)],config['services'],old,{**config,'verificationCommand':None,'readinessTimeoutSeconds':p['runtimeSeconds']})
+   verify_held_runtime(ctx,base+['--file',str(rollback)],old)
    # Original old policy checks old immutable CIDs; compose may recreate them.
    # Dedicated recovery probe must independently bind image IDs after recreation.
    recovery=attempt/('tag-maintenance-'+os.urandom(16).hex());recovery.mkdir(mode=0o700);rp=copy.deepcopy(ctx['old_policy']);live=runtime_rows(d,config['project'],config['services'],old);rp['baseline']={x['Config']['Labels']['com.docker.compose.service']:{'containerId':x['Id'],'imageId':x['Image']} for x in live};maint.save(recovery/'policy.json',rp);probe(ctx,'oldProbe',recovery)

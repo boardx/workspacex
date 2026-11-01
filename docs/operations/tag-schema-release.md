@@ -221,3 +221,13 @@ The US full outer source preparation also succeeded after the readiness fix
 outer source/baseline recheck rather than only the earlier diagnostic clone.
 It still explicitly reports migration-role and old-API acceptance as
 `NOT_PERFORMED`; no general schema-release production policy is enabled.
+
+### Follow-up qualification (issue #6081)
+
+PR #6080 merged as `48ac496d59e2eb8d4026c56d0f6c20964ec5b1cc`. The CN host subsequently completed the actual encrypted source backup, isolated restore, and exact three-SQL rehearsal for tag `41248889927-1` using the reviewed 192 MiB source bound. This remains `restore-and-reviewed-sql-only`: no production SQL, stopped writers, activation, migration-role or API acceptance is implied. US had already completed the same limited qualification.
+
+The follow-up retains owner/ACL and password-free role/catalog metadata in a separate read-only capture, and tests actual clone logins, including exact source-versus-clone PostgreSQL builtin role attributes and membership comparison. Provider authority and role-GUC/API qualifications are not inferred from a successful clone SQL transaction.
+
+Maintenance health uses the fixed HTTPS production hostname resolved to loopback, with default curl configuration, proxy and redirects disabled; system TLS and expected health body remain mandatory. Outer public verification remains independent. CN browser fingerprints were re-read from actual bytes and cross-checked against the unchanged root-owned `cn.json` verificationFiles; two transcribed 63-character pins are corrected and all embedded fingerprints now require 64 lowercase hexadecimal characters before filesystem access. Original browser source and private env contents were not changed.
+
+Focused verification on the final follow-up snapshot: 15 ACL unit/real-PostgreSQL tests passed in 144.378 seconds; activation and CN browser regressions passed 15/15. These timings are local fixture measurements, not measured production activation budgets.

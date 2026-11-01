@@ -45,14 +45,35 @@ def role_sql(snapshot):
     for role in roles:
         need(type(role) is dict and set(role)=={'name','login','inherit','superuser','bypassrls','createrole','createdb','replication'},'ROLE_FIELDS')
         name=role['name'];quote_ident(name)
-        need(name not in names and name!='postgres' and not name.startswith('pg_'),'SYSTEM_ROLE_COPY_FORBIDDEN');names.add(name)
+        need(name not in names and not name.startswith('pg_'),'SYSTEM_ROLE_COPY_FORBIDDEN');names.add(name)
         need(all(type(role[k]) is bool for k in role if k!='name'),'ROLE_BOOLEAN')
+        if name=='postgres':continue  # Existing clone identity, independently compared before restore.
         need(not any(role[k] for k in ('superuser','bypassrls','createrole','createdb','replication')),'PRIVILEGED_ROLE_COPY_FORBIDDEN')
         sql.append('CREATE ROLE '+quote_ident(name)+(' LOGIN' if role['login'] else ' NOLOGIN')+(' INHERIT' if role['inherit'] else ' NOINHERIT')+' NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB NOREPLICATION;')
     for member in members:
-        need(set(member)=={'role','member','admin','inherit','set'} and all(type(member[k]) is bool for k in ('admin','inherit','set')) and member['role'] in names and member['member'] in names,'MEMBERSHIP_AUTHORITY')
+        need(set(member)=={'role','member','admin','inherit','set'} and all(type(member[k]) is bool for k in ('admin','inherit','set')),'MEMBERSHIP_FIELDS')
+        if builtin_edge(member):continue  # Existing builtin grants must match clone, never recreated.
+        need(member['role'] in names-{'postgres'} and member['member'] in names-{'postgres'},'MEMBERSHIP_AUTHORITY')
         sql.append('GRANT '+quote_ident(member['role'])+' TO '+quote_ident(member['member'])+' WITH ADMIN '+str(member['admin']).upper()+', INHERIT '+str(member['inherit']).upper()+', SET '+str(member['set']).upper()+';')
     return '\n'.join(sql)
+
+def builtin_edge(member):
+    return all(type(member[k]) is str and (member[k]=='postgres' or member[k].startswith('pg_')) for k in ('role','member'))
+
+BUILTIN_MEMBERSHIPS_SQL="SELECT COALESCE(json_agg(json_build_object('role',r.rolname,'member',u.rolname,'admin',a.admin_option,'inherit',a.inherit_option,'set',a.set_option) ORDER BY r.rolname,u.rolname),'[]'::json) FROM pg_auth_members a JOIN pg_roles r ON r.oid=a.roleid JOIN pg_roles u ON u.oid=a.member"
+
+def compare_builtin_memberships(snapshot,actual):
+    expected=[m for m in snapshot['memberships'] if builtin_edge(m)]
+    found=[m for m in actual if builtin_edge(m)]
+    key=lambda m:(m['role'],m['member'])
+    need(sorted(expected,key=key)==sorted(found,key=key),'BUILTIN_MEMBERSHIPS_DIFFER')
+
+POSTGRES_ROLE_SQL="SELECT json_build_object('name',rolname,'login',rolcanlogin,'inherit',rolinherit,'superuser',rolsuper,'bypassrls',rolbypassrls,'createrole',rolcreaterole,'createdb',rolcreatedb,'replication',rolreplication) FROM pg_roles WHERE rolname='postgres'"
+
+def compare_builtin_postgres(snapshot,actual):
+    expected=[r for r in snapshot['roles'] if r['name']=='postgres']
+    need(len(expected)<=1,'POSTGRES_ROLE_DUPLICATE')
+    if expected:need(actual==expected[0],'POSTGRES_ROLE_ATTRIBUTES_DIFFER')
 
 # Names and ACL text, never catalog OIDs, are compared against source readback.
 CATALOG_SQL="""SELECT COALESCE(json_object_agg(k,v),'{}'::json) FROM (
@@ -130,7 +151,9 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
                 query('SELECT 1');break
             except Exception:
                 need(time.monotonic()<deadline,'CLONE_NOT_READY');time.sleep(.2)
-        query(roles_sql)
+        compare_builtin_postgres(snapshot,json.loads(query(POSTGRES_ROLE_SQL)))
+        compare_builtin_memberships(snapshot,json.loads(query(BUILTIN_MEMBERSHIPS_SQL)))
+        if roles_sql:query(roles_sql)
         # Plain dump bytes travel only through a kernel pipe, never to host disk.
         pipe([openssl,'enc','-d','-aes-256-cbc','-pbkdf2','-pass','file:'+str(key),'-in',str(archive)],
              [docker,'exec','--user','postgres','-i',cid,'pg_restore','--exit-on-error','--username=postgres','--dbname=workspacex'])
