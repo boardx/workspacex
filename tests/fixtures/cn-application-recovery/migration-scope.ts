@@ -24,6 +24,7 @@ export const reviewedSuffix = [
   "20261031090000_billing_stripe_topups.sql",
   "20261031091000_billing_wechat_monthly.sql",
   "20261031150000_billing_subscription_amount_snapshot.sql",
+  "20261101220000_personal_credit_packages.sql",
 ];
 export function migrationScope(names:string[]) {
  assert.deepEqual(names,[...new Set(names)].sort(),'SORTED_UNIQUE_MIGRATIONS_REQUIRED');
