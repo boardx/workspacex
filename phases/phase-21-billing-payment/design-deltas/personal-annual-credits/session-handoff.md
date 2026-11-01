@@ -1,5 +1,7 @@
 # 年付发放交接
 
+2026-11-02依赖刷新：本地63d23e154以充值source48e04b39c为父，两个提交range-diff均与此前已审版本相同，独立静态复核ACCEPT；未重跑重数据库，不代表最终集成。P2 PR6098尚未实际合入；最终仍要剥离base48 onto实际develop并复验精确SHA。为避免合并候选遗漏新迁移，明确将本项两份SQL（personal_credit_terms及personal_credit_schedule）加入既有reviewedSuffix；当前仓库目录反例先1失败/1通过，补清单后2/2通过，未知/缺失/重复迁移门保留。此清单只定义fixture升级边界，不执行生产迁移/激活。
+
 唯一工作区 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui；当前分支worker/cn-us-annual-credits，父d5c6539c6。该父及之前为UI/契约/目录/充值依赖，待按序集成develop后剥离，单独PR关联6091。
 
 源：domain/billing/personal-credit-calendar.ts；infrastructure/billing/personal-credit-terms.ts及SQL；migration20261101230000。新表是已验证付款期限元数据，不是钱包。后续供应商接线必须可信验证支付归属，再用recordPaidPersonalTerm；不得直接暴露内部输入或时钟。Stripe续费复用原purchase_anchor与month_offset，不用短月份的period_start重设锚点。后台worker已在BillingModule注册；migration20261101233000增加可重建next_check_at提示，只有该提示字段可由app更新，原锚点仍决定发放。
