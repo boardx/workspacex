@@ -46,6 +46,16 @@ class HistoricalProofTests(unittest.TestCase):
   us=Mock();us.validate_backup.return_value=proof;boot=Mock()
   patcher=patch.object(m,'trusted',side_effect=lambda path,*a,**kw:Path(path));patcher.start();self.addCleanup(patcher.stop)
   return m,{'stateDirectory':str(state),'project':'project'},old,inp,core,us,boot,save
+ def test_refresh_reads_archived_original_pending_without_recreating_it(self):
+  m,cfg,old,inp,core,us,boot,save=self.fixture();state=Path(cfg['stateDirectory']);archive=state/'pending-complete-original.json';(state/'pending.json').rename(archive)
+  files={str(p.relative_to(old)):m.sha(p) for p in old.rglob('*') if p.is_file()}
+  prior=save(state/'prior.json',{'kind':'complete-schema-recovery-v1','status':'COMPLETE_SCHEMA_RECOVERY_VERIFIED','environment':'us','sourceRevision':m.SOURCE,'tag':m.TAG,'originalAttempt':str(old),'originalPolicy':{'path':str(old/'policy.json'),'sha256':m.sha(old/'policy.json')},'originalInputPolicy':{'path':str(inp),'sha256':m.sha(inp)},'originalHistory':{'files':files},'pendingArchive':{'path':str(archive),'sha256':m.sha(archive)}})
+  # Current outer-release pending is separate and must remain byte-identical.
+  current=save(state/'pending.json',{'outerRelease':'prebind-failed'});before=(state/'pending.json').read_bytes()
+  m.history(cfg,old,inp,core,us,boot,archived_recovery=prior)
+  self.assertEqual((state/'pending.json').read_bytes(),before);self.assertEqual(us.validate_backup.call_args.kwargs['now'],1000)
+  (old/'databaseCommand-reconcile.json').write_text('{}')
+  with self.assertRaisesRegex(ValueError,'ARCHIVED_RECOVERY_HISTORY_DRIFT'):m.history(cfg,old,inp,core,us,boot,archived_recovery=prior)
  def test_historical_backup_uses_ack_time_not_current_time(self):
   m,cfg,old,inp,core,us,boot,save=self.fixture();p,refs,pending=m.history(cfg,old,inp,core,us,boot)
   self.assertEqual(us.validate_backup.call_args.kwargs['now'],1000)

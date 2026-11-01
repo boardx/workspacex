@@ -112,13 +112,19 @@ def complete_recovery(p,request,config,original_policy,original_attempt,adapter,
  binding=result['sourceBinding'];need(binding.get('environment')==request['environment'] and binding.get('sourceRevision')==SOURCE and binding.get('tag')==TAG and binding.get('postgresImageId')==original_policy['usDatabase']['imageId'] and binding.get('sourceContainerId')==original_policy['usDatabase']['containerId'] and binding.get('targetApiImageId')==original_policy['usDatabase']['targetApiImageId'],'FRESH_SOURCE_BINDING')
  bootstrap=receipt['bootstrap'];raw_path=maint.pinned(bootstrap['raw'],private=True);bootstrap_receipt=read(bootstrap['receipt'])
  need(raw_path.parent==recovery_attempt and re.fullmatch('bootstrap-raw-[a-f0-9]{32}[.]txt',raw_path.name) and Path(bootstrap['receipt']['path']).parent==recovery_attempt and re.fullmatch('bootstrap-receipt-[a-f0-9]{32}[.]json',Path(bootstrap['receipt']['path']).name) and 0<=now-raw_path.stat().st_mtime<1800,'FRESH_BOOTSTRAP_RAW_PATH_TTL')
- manifest=read(request['manifest']);api=manifest['images']['api'];need(binding.get('targetApiRepoDigest')==api['image'],'FRESH_TARGET_DIGEST_BINDING');digest=api['image'].split('@')[-1]
+ manifest=json.loads(maint.pinned(request['manifest'],private=False).read_bytes());api=manifest['images']['api'];need(binding.get('targetApiRepoDigest')==api['image'],'FRESH_TARGET_DIGEST_BINDING');digest=api['image'].split('@')[-1]
  for name in ('tag-bootstrap-probe.py','schema-tag-prepare.py'):need(any(r.get('path')==str(HERE/name) for r in p['closure']),'BOOTSTRAP_VERIFIER_CLOSURE')
  probe_module=load('tag-bootstrap-probe');probe_module.validate_output(raw_path.read_bytes(),SOURCE,digest)
  need(bootstrap_receipt.get('status')=='CANDIDATE_BOOTSTRAP_COMPATIBLE' and bootstrap_receipt.get('source')==SOURCE and bootstrap_receipt.get('tag')==TAG and bootstrap_receipt.get('environment')==request['environment'] and bootstrap_receipt.get('imageId')==api['imageId'] and bootstrap_receipt.get('imageDigest')==digest and bootstrap_receipt.get('rawOutput')==bootstrap['raw'] and bootstrap_receipt.get('attempt')==str(recovery_attempt) and type(bootstrap_receipt.get('createdAt')) in (int,float) and 0<=now-bootstrap_receipt['createdAt']<1800,'FRESH_BOOTSTRAP_RECEIPT_BINDING')
  boot_binding=fresh_policy['bootstrapProbe']['binding'];need(bootstrap_receipt.get('baselineEnvSha256')==boot_binding['baselineEnvSha256'] and bootstrap_receipt.get('adminEnvSha256')==boot_binding['adminEnv']['sha256'] and bootstrap_receipt.get('network')==boot_binding['network'] and bootstrap_receipt.get('canonicalLock')==request['canonicalLock'],'FRESH_BOOTSTRAP_INPUT_BINDING')
  business_path=maint.pinned(receipt['business'],private=True);business=read(receipt['business']);need(business_path.parent==recovery_attempt and 0<=now-business_path.stat().st_mtime<1800 and business.get('status')=='OLD_APPLICATION_VERIFIED' and business.get('source')==SOURCE and business.get('tag')==TAG and business.get('environment')==request['environment'],'FRESH_BUSINESS_NOT_VERIFIED')
  return {'policy':fresh_policy,'attempt':recovery_attempt,'receipt':ref,'backup':{'validate':fresh_core.validate_qualification,'inputs':fresh['inputs'],'image':fresh['image'],'output':fresh['output'],'qualification':fresh['qualification']}}
+
+def read_request_inputs(request,maint):
+ # The generic release producer publishes the nonsecret immutable manifest as
+ # 0644. All inputs still require root ancestry, no writable aliases and SHA CAS.
+ # Configuration and schema plans retain their private-file contract.
+ return tuple(json.loads(maint.pinned(request[key],private=key!='manifest').read_bytes()) for key in ('config','manifest','schemaPlan'))
 
 def bind_context(request_path):
  need(os.geteuid()==0,'ROOT_REQUIRED')
@@ -130,7 +136,7 @@ def bind_context(request_path):
  need(p['source']==SOURCE and p['tag']==TAG and p['environment']==env,'ACTIVATION_POLICY_IDENTITY')
  for ref in p['closure']:maint.pinned(ref)
  read=lambda ref:json.loads(maint.pinned(ref,private=True).read_bytes())
- config=read(request['config']);manifest=read(request['manifest']);plan=read(request['schemaPlan'])
+ config,manifest,plan=read_request_inputs(request,maint)
  need(request_path.parent.parent==Path(config['stateDirectory']) and re.fullmatch('attempt-[a-f0-9]{32}',request_path.parent.name),'CONSUMER_ATTEMPT_BINDING')
  pending=json.loads(trusted(Path(config['stateDirectory'])/'pending.json',True).read_bytes())
  need(pending.get('attempt')==str(request_path.parent) and pending.get('requestSha256')==engine.sha_file(request_path),'PENDING_REQUEST_BINDING')

@@ -56,8 +56,17 @@ def validate_source(value,collector):
 def dump_args(docker,cid):
  need(docker=='/usr/bin/docker' and re.fullmatch('[a-f0-9]{64}',cid),'FIXED_DUMP_SOURCE')
  return [docker,'exec','--user','postgres',cid,'/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=5000','pg_dump','--host=/var/run/postgresql','--port=5432','--no-password','--username=postgres','--dbname=workspacex','--format=custom']
-def history(cfg,old,original_input,core,us,boot):
- refs={};p=read(original_input,refs);canonical=read(old/'policy.json',refs);pending_path=Path(cfg['stateDirectory'])/'pending.json';pending=read(pending_path,refs)
+def history(cfg,old,original_input,core,us,boot,*,archived_recovery=None):
+ refs={};p=read(original_input,refs);canonical=read(old/'policy.json',refs)
+ if archived_recovery is None:pending_path=Path(cfg['stateDirectory'])/'pending.json'
+ else:
+  prior_path=pinned({**archived_recovery,'private':True},refs);prior=read(prior_path,refs)
+  need(prior.get('kind')=='complete-schema-recovery-v1' and prior.get('status')=='COMPLETE_SCHEMA_RECOVERY_VERIFIED' and prior.get('environment')=='us' and prior.get('sourceRevision')==SOURCE and prior.get('tag')==TAG and prior.get('originalAttempt')==str(old),'ARCHIVED_RECOVERY_IDENTITY')
+  need(prior['originalPolicy']=={'path':str(old/'policy.json'),'sha256':refs[str(old/'policy.json')]} and prior['originalInputPolicy']=={'path':str(Path(original_input)),'sha256':refs[str(Path(original_input))]},'ARCHIVED_RECOVERY_POLICY')
+  need(all_history_files(old)=={str(old/name):checksum for name,checksum in prior['originalHistory']['files'].items()},'ARCHIVED_RECOVERY_HISTORY_DRIFT')
+  pending_path=pinned({**prior['pendingArchive'],'private':True},refs)
+  need(pending_path.parent==Path(cfg['stateDirectory']) and pending_path.name.startswith('pending-') and pending_path.name!='pending.json','ARCHIVED_PENDING_PATH')
+ pending=read(pending_path,refs)
  need(canonical==p and p['environment']=='us' and p['source']==SOURCE and p['tag']==TAG and p['attempt']==old.name and p['lockFile']==LOCK and p['stateDirectory']==cfg['stateDirectory'] and p['project']==cfg['project'],'HISTORICAL_POLICY_BINDING')
  need(pending=={'kind':'reviewed-schema-maintenance','attempt':str(old),'policySha256':refs[str(Path(original_input))],'source':SOURCE,'tag':TAG},'HISTORICAL_PENDING_BINDING')
  ackpath=old/'databaseCommand-apply.json';ack=read(ackpath,refs);acktime=ackpath.stat().st_mtime
@@ -95,7 +104,7 @@ def all_history_files(old):
    path=trusted(path,True);total+=s.st_size
    need(len(files)<512 and total<=512*1024*1024,'HISTORY_TOTAL_BOUND');files[str(path)]=sha(path)
  return files
-def capture_complete(config_path,original_attempt,original_input,lock_fd,*,closure_pins=None):
+def capture_complete(config_path,original_attempt,original_input,lock_fd,*,closure_pins=None,archived_recovery=None):
  need((str(config_path),str(original_attempt),str(original_input))==(CONFIG,OLD,INPUT),'FIXED_INPUTS')
  need(os.geteuid()==0,'ROOT_REQUIRED')
  cfg=read(config_path);need(cfg['environment']=='us' and cfg['lockFile']==LOCK and cfg['docker']=='/usr/bin/docker','CONFIG_BINDING')
@@ -105,7 +114,7 @@ def capture_complete(config_path,original_attempt,original_input,lock_fd,*,closu
   code=trusted(HERE/name);need(code.stat().st_size<=2*1024*1024 and re.fullmatch('[a-f0-9]{64}',pins[name]) and sha(code)==pins[name],'CAPTURE_CLOSURE_DRIFT')
  core=load('schema-restore-rehearsal',pins);us=load('us-tag-migration-adapter',pins);prep=load('schema-tag-prepare',pins);engine=load('minimal-docker-release',pins);acl=load('schema-acl-rehearsal',pins);collector=load('schema-acl-source-prepare',pins);boot=load('tag-bootstrap-probe',pins)
  us.inherited_lock(lock_fd,LOCK);old=trusted(original_attempt,True,True);trusted(cfg['stateDirectory'],True,True)
- p,refs,pendinghash=history(cfg,old,original_input,core,us,boot);refs.update(all_history_files(old));refs[str(Path(config_path))]=sha(config_path)
+ p,refs,pendinghash=history(cfg,old,original_input,core,us,boot,archived_recovery=archived_recovery);refs.update(all_history_files(old));refs[str(Path(config_path))]=sha(config_path)
  for ref in (*cfg['composeFiles'],cfg['envFile'],*cfg.get('verificationFiles',[])):pinned(ref,refs)
  d=engine.Docker(str(trusted(cfg['docker'])));services=('api','web','agent','sandbox','sandbox-sessions')
  def runtime():

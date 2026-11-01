@@ -53,7 +53,7 @@ class ArchiveAndQuietTests(unittest.TestCase):
    self.assertEqual(dest.read_bytes(),b'old archive');self.assertEqual(p.read_bytes(),b'pending')
 
 class ProducerOrchestrationTests(unittest.TestCase):
- def exercise(self,fail=None):
+ def exercise(self,fail=None,refresh_mode=False):
   import tempfile,json,hashlib,types,contextlib
   m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);state=root/'state';state.mkdir();old=state/'tag-maintenance-old';old.mkdir();config=root/'config.json';original=root/'input.json';lock=root/'lock';lock.write_bytes(b'');lock.chmod(0o600);pending=state/'pending.json';pending.write_bytes(b'{ "historicalPending": true }');pending.chmod(0o600);events=[]
   def save(path,value):
@@ -74,7 +74,7 @@ class ProducerOrchestrationTests(unittest.TestCase):
    captureout.mkdir();st=__import__('os').fstat(args[3]);binding={'postgresImageId':'tool','canonicalLock':{'path':str(lock),'device':st.st_dev,'inode':st.st_ino},'originalEvidenceHashes':{**old_inventory,str(config):m.sha(config),str(original):m.sha(original),str(pending):pending_hash}}
    for name,value in {'binding':binding,'snapshot':{},'baselineLedger':{},'completeLedger':{}}.items():save(captureout/(name+'.json'),value);inputs[name]=ref(captureout/(name+'.json'))
    return inputs
-  capture=types.SimpleNamespace(CLOSURE=('us-complete-source-capture.py',),read=read,history=lambda *a:(policy,{},pending_hash),all_history_files=inventory,capture_complete=capture_complete,pinned=lambda ref:Path(ref['path']))
+  capture=types.SimpleNamespace(CLOSURE=('us-complete-source-capture.py',),read=read,history=lambda *a,**kw:(policy,{},pending_hash),all_history_files=inventory,capture_complete=capture_complete,pinned=lambda ref:Path(ref['path']))
   def qualify(docker,image,refs,out):events.append('qualify');Path(out).mkdir();save(Path(out)/'qualification.json',{'actualFakeRestore':True})
   def validate(*args):events.append('validate-qualification');return {}
   complete=types.SimpleNamespace(qualify_complete=qualify,validate_qualification=validate)
@@ -111,15 +111,35 @@ class ProducerOrchestrationTests(unittest.TestCase):
   with contextlib.ExitStack() as stack:
    for key,val in {'CONFIG':str(config),'OLD':str(old),'INPUT':str(original),'LOCK':str(lock)}.items():stack.enter_context(patch.object(m,key,val))
    stack.enter_context(patch.object(m,'trusted',side_effect=lambda p,*a,**kw:Path(p)));stack.enter_context(patch.object(m.os,'geteuid',return_value=0));stack.enter_context(patch.object(m,'load',side_effect=lambda name,pins:modules[name]))
-   try:result=m.reconcile_complete(pins)
+   refresh=None
+   if refresh_mode:
+    original_archive=state/'pending-complete-original.json';original_archive.write_bytes(b'original maintenance pending');original_archive.chmod(0o600)
+    prior={'pendingArchive':ref(original_archive)};refresh={'priorRecovery':{'path':'fixed-prior','sha256':'e'*64},'preBindFailureAudit':{'path':'audit','sha256':'f'*64}}
+    stack.enter_context(patch.object(m,'refresh_inputs',return_value=(prior,{},refresh['priorRecovery'],ref(pending))))
+   try:result=m.reconcile_complete(pins,refresh=refresh)
    except ValueError as error:
     if fail=='business_lost_ack':
      self.assertEqual(str(error),'BUSINESS_SUCCEEDED_ACK_LOST')
-     try:m.reconcile_complete(pins)
+     try:m.reconcile_complete(pins,refresh=refresh)
      except ValueError as retry_error:error=retry_error
      else:raise AssertionError('lost-ACK retry must reject')
     return None,events,pending,old,root,error,old_inventory
   return result,events,pending,old,root,None,old_inventory
+ def test_explicit_refresh_reuses_full_body_and_preserves_original_archive(self):
+  import json
+  result,events,pending,old,root,error,original=self.exercise(refresh_mode=True)
+  self.assertIsNone(error);receipt=json.loads(Path(result['path']).read_bytes())
+  self.assertEqual(Path(receipt['pendingArchive']['path']).read_bytes(),b'original maintenance pending')
+  self.assertEqual(Path(receipt['preBindFailure']['pendingArchive']['path']).read_bytes(),b'{ "historicalPending": true }')
+  self.assertFalse(pending.exists());self.assertIn('refreshOf',receipt)
+  self.assertEqual(events.count('capture'),1);self.assertEqual(events.count('qualify'),1);self.assertEqual(events.count('bootstrapProbe'),1);self.assertEqual(events.count('oldApplicationProbe'),1)
+  self.assertEqual(events.count('reconcile-reconcile'),1);self.assertNotIn('reconcile-apply',events)
+  self.assertEqual(len(list(pending.parent.glob('complete-refresh-*.json'))),1)
+ def test_refresh_lost_business_ack_blocks_second_bootstrap_or_business(self):
+  result,events,pending,old,root,error,original=self.exercise('business_lost_ack',refresh_mode=True)
+  self.assertIsNone(result);self.assertRegex(str(error),'RECONCILIATION_ALREADY_ATTEMPTED');self.assertTrue(pending.exists())
+  self.assertEqual(events.count('bootstrapProbe'),1);self.assertEqual(events.count('oldApplicationProbe'),1)
+  self.assertEqual(len(list(pending.parent.glob('complete-refresh-*.json'))),1)
  def test_real_entry_success_orders_proofs_then_archives_exact_bytes(self):
   import json
   result,events,pending,old,root,error,original=self.exercise()
@@ -139,3 +159,45 @@ class ProducerOrchestrationTests(unittest.TestCase):
   self.assertRegex(str(error),'RECONCILIATION_ALREADY_ATTEMPTED');self.assertTrue(pending.exists());self.assertEqual(events.count('oldApplicationProbe'),1);self.assertEqual(events.count('bootstrapProbe'),1)
   self.assertEqual(len(list(pending.parent.glob('complete-reconciliation-*.json'))),1)
   self.assertEqual(len(list(pending.parent.glob('tag-maintenance-*/business-once-intent.json'))),1)
+
+class RefreshTests(unittest.TestCase):
+ def test_refresh_requires_explicit_fixed_prior_and_operator_audit(self):
+  m=module()
+  for value in ({},{'priorRecovery':{}},{'priorRecovery':{'path':'/foreign','sha256':'a'*64},'preBindFailureAudit':{}}):
+   with self.assertRaises(ValueError):m.refresh_inputs(value,{},None,None,None,None,None,None,0)
+ def test_prebind_file_set_rejects_writer_artifacts_and_missing_probe_cleanup(self):
+  m=module();base={'images.json','manifest.json','receipt.json','schema-config.json','schema-plan.json','schema-request.json'}
+  probes={name for i in range(6) for name in ('probe-'+format(i,'032x')+'.json','probe-'+format(i,'032x')+'-cleanup.json')}
+  m.prebind_names(base|probes)
+  for bad in ((base|probes|{'writer-receipt.json'}),(base|probes)-{'probe-'+format(0,'032x')+'-cleanup.json'},base):
+   with self.assertRaises(ValueError):m.prebind_names(bad)
+ def test_actual_refresh_audit_files_and_historical_time_are_bound(self):
+  import tempfile,json,time,types
+  m=module()
+  with tempfile.TemporaryDirectory() as tmp:
+   state=Path(tmp);attempt=state/'attempt-51c94e15ec2e485e89fe10bae71a8b44';attempt.mkdir();now=time.time()
+   def write(path,value):
+    path.write_text(json.dumps(value));path.chmod(0o600);return {'path':str(path),'sha256':m.sha(path)}
+   def read(path):return json.loads(Path(path).read_bytes())
+   def pin(ref):
+    path=Path(ref['path'])
+    if ref.get('private') and path.stat().st_mode&0o077:raise ValueError('PRIVATE_FILE_REQUIRED')
+    if m.sha(path)!=ref['sha256']:raise ValueError('PIN_DRIFT')
+    return path
+   manifest=write(attempt/'manifest.json',{});request=write(attempt/'schema-request.json',{'manifest':manifest,'environment':'us'})
+   write(attempt/'receipt.json',{'status':'FAILED_OR_UNCERTAIN','code':'SCHEMA_RELEASE_RECONCILIATION_REQUIRED','stage':'schema-release'})
+   for name in ('images.json','schema-config.json','schema-plan.json'):write(attempt/name,{})
+   for i in range(6):
+    for suffix in ('.json','-cleanup.json'):write(attempt/('probe-'+format(i,'032x')+suffix),{})
+   for path in attempt.iterdir():
+    if path.name in ('images.json','manifest.json') or path.name.startswith('probe-'):path.chmod(0o644)
+   pending=write(state/'pending.json',{'attempt':str(attempt),'requestSha256':request['sha256'],'tag':m.TAG,'route':'schema-preparation'})
+   prior=write(state/'prior.json',{'createdAt':now-3600});rootpolicy={'completeRecovery':prior}
+   auditvalue={'kind':'reviewed-pre-bind-failure-v1','attempt':str(attempt),'priorRecovery':prior,'reason':'MANIFEST_PRIVATE_FILE_REQUIRED_BEFORE_WRITER_BIND','writerNeverStarted':True,'automaticRetryAllowed':False,'createdAt':now,'files':{p.name:m.sha(p) for p in attempt.iterdir()},'pending':pending}
+   audit=write(state/'audit.json',auditvalue);refresh={'priorRecovery':prior,'preBindFailureAudit':audit};capture=types.SimpleNamespace(pinned=pin,read=lambda path:rootpolicy if str(path)=='/etc/workspacex-image-release/us-tag-activation.json' else {} if str(path)==m.INPUT else read(path));activation=Mock();us=Mock()
+   with patch.object(m,'PRIOR',prior['path']),patch.object(m,'FAILED_ATTEMPT',str(attempt)):
+    m.refresh_inputs(refresh,{'stateDirectory':str(state)},capture,activation,Mock(),Mock(),us,3,now)
+    self.assertEqual(activation.complete_recovery.call_args.kwargs['now'],now-3600)
+    before=(state/'pending.json').read_bytes();activation.reset_mock();(attempt/'manifest.json').write_text('{"changed":true}')
+    with self.assertRaisesRegex(ValueError,'PIN_DRIFT'):m.refresh_inputs(refresh,{'stateDirectory':str(state)},capture,activation,Mock(),Mock(),us,3,now)
+    activation.complete_recovery.assert_not_called();self.assertEqual((state/'pending.json').read_bytes(),before)

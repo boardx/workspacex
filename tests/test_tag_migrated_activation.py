@@ -3,6 +3,33 @@ from pathlib import Path
 import unittest
 from unittest.mock import Mock
 s=importlib.util.spec_from_file_location('activation',Path(__file__).resolve().parents[1]/'scripts/tag-migrated-activation.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
+class RequestInputPermissions(unittest.TestCase):
+ def test_generated_public_manifest_and_private_request_inputs(self):
+  import tempfile, json, hashlib, stat
+  from unittest.mock import patch
+  spec=importlib.util.spec_from_file_location('maintenance_permissions',Path(__file__).resolve().parents[1]/'scripts/tag-maintenance-release.py');maint=importlib.util.module_from_spec(spec);spec.loader.exec_module(maint)
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);request={}
+   for key,mode in [('config',0o600),('manifest',0o644),('schemaPlan',0o600)]:
+    path=root/(key+'.json');raw=json.dumps({'role':key}).encode();path.write_bytes(raw);path.chmod(mode);request[key]={'path':str(path),'sha256':hashlib.sha256(raw).hexdigest()}
+   # Exercise the real pinned SHA checker and real file modes. Root ancestry is
+   # host-specific; only ownership checking is substituted for this local test.
+   def local_trusted(path,private=False):
+    path=Path(path);mode=path.lstat().st_mode
+    if stat.S_ISLNK(mode) or mode&0o022:raise ValueError('ROOT_PATH_REQUIRED')
+    if private and mode&0o077:raise ValueError('PRIVATE_FILE_REQUIRED')
+    return path
+   with patch.object(maint,'trusted',side_effect=local_trusted):
+    self.assertEqual(m.read_request_inputs(request,maint),({'role':'config'},{'role':'manifest'},{'role':'schemaPlan'}))
+    for key in ('config','schemaPlan'):
+     path=Path(request[key]['path']);path.chmod(0o644)
+     with self.assertRaisesRegex(ValueError,'PRIVATE_FILE_REQUIRED'):m.read_request_inputs(request,maint)
+     path.chmod(0o600)
+    manifest=Path(request['manifest']['path']);manifest.chmod(0o666)
+    with self.assertRaisesRegex(ValueError,'ROOT_PATH_REQUIRED'):m.read_request_inputs(request,maint)
+    manifest.chmod(0o644);manifest.write_text('{}')
+    with self.assertRaisesRegex(maint.Rejected,'INPUT_HASH_DRIFT'):m.read_request_inputs(request,maint)
+
 class Tests(unittest.TestCase):
  def test_fresh_complete_backup_is_revalidated_instead_of_replaying_old_backup(self):
   validator=Mock(return_value={'status':'COMPLETE_SCHEMA_RESTORE_QUALIFIED'})
@@ -151,8 +178,9 @@ class CompleteRecoveryFixtures(unittest.TestCase):
     path.parent.mkdir(parents=True,exist_ok=True);path.write_text(json.dumps(value));path.chmod(0o600);return {'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
    def ref(path):return {'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
    def read(r):
-    path=Path(r['path']);self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),r['sha256']);return json.loads(path.read_text())
-   def pinned(r,**kw):readable=Path(r['path']);self.assertEqual(hashlib.sha256(readable.read_bytes()).hexdigest(),r['sha256']);return readable
+    path=Path(r['path']);m.need(not path.stat().st_mode&0o077,'PRIVATE_FILE_REQUIRED');self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),r['sha256']);return json.loads(path.read_text())
+   def pinned(r,**kw):
+    readable=Path(r['path']);m.need(not kw.get('private') or not readable.stat().st_mode&0o077,'PRIVATE_FILE_REQUIRED');self.assertEqual(hashlib.sha256(readable.read_bytes()).hexdigest(),r['sha256']);return readable
    base={f'old_{i}.sql':'a'*64 for i in range(435)};new={f'new_{i}.sql':'b'*64 for i in range(3)};pgimage='sha256:'+'c'*64;pgcid='d'*64;apiid='sha256:'+'e'*64;apidigest='sha256:'+'f'*64
    db={'baselineLedger':base,'containerId':pgcid,'imageId':pgimage,'targetApiImageId':apiid};old_policy={'project':'project','baseline':{'api':{'imageId':'old-api','containerId':'old-api-cid'}},'usDatabase':db}
    policy_ref=write(original/'policy.json',old_policy)
@@ -167,7 +195,7 @@ class CompleteRecoveryFixtures(unittest.TestCase):
    output=fresh/'restore';qref=write(output/'qualification.json',{'fixture':True});inputrefs={'baselineLedger':write(fresh/'base.json',base),'completeLedger':write(fresh/'complete.json',{**base,**new}),'binding':write(fresh/'binding.json',{})}
    source_binding={'environment':'us','sourceRevision':m.SOURCE,'tag':m.TAG,'postgresImageId':pgimage,'sourceContainerId':pgcid,'targetApiImageId':apiid,'targetApiRepoDigest':'registry/api@'+apidigest}
    fresh_validator=Mock(return_value={'sourceBinding':source_binding,'qualificationSha256':qref['sha256']});fc=SimpleNamespace(validate_qualification=fresh_validator)
-   lock={'path':'/run/fixed','device':1,'inode':2};manifest_ref=write(fresh/'manifest.json',{'images':{'api':{'image': 'registry/api@'+apidigest,'imageId':apiid}}})
+   lock={'path':'/run/fixed','device':1,'inode':2};manifest_ref=write(fresh/'manifest.json',{'images':{'api':{'image': 'registry/api@'+apidigest,'imageId':apiid}}});Path(manifest_ref['path']).chmod(0o644)
    raw_path=fresh/('bootstrap-raw-'+'c'*32+'.txt');raw_path.write_text('CN_BOOTSTRAP_COMPAT_JSON={}\n');raw_path.chmod(0o600);raw_ref=ref(raw_path)
    boot_ref=write(fresh/('bootstrap-receipt-'+'c'*32+'.json'),{'status':'CANDIDATE_BOOTSTRAP_COMPATIBLE','source':m.SOURCE,'tag':m.TAG,'environment':'us','imageId':apiid,'imageDigest':apidigest,'rawOutput':raw_ref,'attempt':str(fresh),'createdAt':time.time(),'baselineEnvSha256':binding['baselineEnvSha256'],'adminEnvSha256':binding['adminEnv']['sha256'],'network':'network','canonicalLock':lock})
    business_ref=write(fresh/'business.json',{'status':'OLD_APPLICATION_VERIFIED','source':m.SOURCE,'tag':m.TAG,'environment':'us'})
