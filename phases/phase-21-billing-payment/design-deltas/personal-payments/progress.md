@@ -84,3 +84,5 @@ Stripe 绑定与到账：新增不可变 subscription/purchase/session/customer/
 独立审查4e506f947发现合法Stripe Checkout fragment被统一URL边界拒绝。官方固定Clover响应包含#fid，已核对 https://docs.stripe.com/api/checkout/sessions/create?api-version=2025-09-30.clover 。原state fixture改真实形态，URL/state实际3项红；仅可信Stripe Checkout允许原fragment，HTTPS/host/port/credentials约束不变，微信及管理门户仍拒绝fragment。URL、持久化及checkout组件29项绿，含原样导航、先ownedGET及恶意地址反例。浏览器上游fixture已改含fragment并断言完整原地址，尚待重跑，P1不提前宣称最终闭环。
 
 init --full首次真实失败于assigned-secret扫描，来自独立签名测试的固定假密钥；改为每次生成临时随机HMAC key，扫描器/基线均未改。首版裸UUID不符合部署whsec前缀，目标PG测试400失败已保留；补合法前缀后目标真实签名HTTP PG 1通过、33过滤。完整基础检查仍待重跑，不把目标测试称为全PG。
+
+精确f2884c7942792ed1d47417043c29674642a6ef4c独立静态复核确认原P1代码闭环、全source预审无其他具体源码缺陷。其后完整canonical billing-cashier浏览器4文件17/17通过（含Stripe真实上游原fragment及exact导航断言），wrapper总计2m47、cleanup0s；API/Web typecheck/lint9/9通过（5cache）。均非在线商户扣款证据。首次完整init失败日志保留；修后init --full正在执行，尚不宣称其绿。

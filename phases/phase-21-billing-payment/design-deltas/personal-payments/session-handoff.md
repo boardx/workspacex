@@ -17,3 +17,5 @@ Team/Enterprise设计Draft PR #6101已发布，分支worker/cn-us-team-billing-d
 保留共享stash，不pop/drop别人条目。我们的23e17f6e7ead2c0610953a7f195042310a46f102为旧UI运行时备份，不是最新源码；最新已在本分支commits。其他旧backup8ac/c2b/db67等已被后续commits覆盖，不要反向覆盖。progress.md保留历史，旧pending/旧SHA文字不是当前事实；使用GitHub mergedAt/mergeCommit/当前checks确认实际状态。
 
 当前年付PR6100 source5310已正常入队，候选98de549检查进行中、未实际merge；不得把历史P3待开PR描述当实时事实。
+
+全source预审4e506发现Stripe Checkout fragment被拒P1，已在f2884c794修复并获独立代码闭环复核；完整canonical browser现17/17、URL/state/React29、types/lint9、目标实际HMAC PG1（33过滤）通过。源证据evidence/review-fixes。完整init首次因固定HMAC假key触发扫描失败，已改每次合法随机key；裸UUID中间失败也保留。修后fullinit执行中，必须读取最终退出码再声明基础通过。不能复用旧“all source ACCEPT”覆盖新base/最终CI。
