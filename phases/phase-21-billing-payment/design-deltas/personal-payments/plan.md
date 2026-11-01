@@ -28,13 +28,13 @@ flowchart TD
   %% evidence S3: provider162及PG/HTTP54，evidence/recovery-auto-*
   class S4 tested
   %% evidence S4: Stripe26含原锚点与重复账单，evidence/recovery-auto-pg-http.txt
-  class S5 doing
+  class S5 tested
   class S7 tested
   %% evidence S7: 177872994独立增量ACCEPT，root自动恢复与生命周期3项
   class S8 tested
   %% evidence S8: management与旧财务回归，当前53PG含active审计修复
-  class S9 doing
-  %% evidence S9: 正常链路完整browser16及React93；异常恢复仍待S10
+  class S9 tested
+  %% evidence S9: 完整browser17及React107；已含先到账而原支付页绑定丢失的真实恢复
   class S10 done
   %% evidence S10: personal-order-outcomes-v1/design-signoff.md；用户明确采用并授权回填，2026-11-01T21:10:18Z记录
   class S6 doing

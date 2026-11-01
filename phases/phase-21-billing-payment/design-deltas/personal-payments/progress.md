@@ -1,20 +1,16 @@
 # 个人支付闭环进展
 
-已实现本次人工确认的缺绑定终态恢复：GET三终态可空且保留已知事实，POST原key/原参数先恢复原引用（销售关闭仍可，零新增provider），待支付/处理中仍拒绝缺绑定；OrderDraft非空expiry保持。客户端nil不是付款证明、先GET且终态不重开付款，支持未知绑定后补真实事实。先红后绿证据evidence/order-outcomes：contracts1254、provider166、UI107、真实PG/HTTP39通过。首轮类型9/11在四个旧测试fixture出错，已显式断言原真实期限而非放宽Draft；最终API/Web/local-runtime type/lint11/11通过（8缓存）。完整17浏览器正在运行（新增真实Stripe创建响应丢失后到账恢复）；三份改过的旧PG fixture回归尚待执行，独立恢复P2关闭审查尚待。没有整feature完成/PR/生产激活声明。
+最新恢复实现源码检查点：bdddf4ff61863cd472b0540cf64595822eb45122，独立恢复增量ACCEPT；原缺支付页绑定的severity P2已闭合。用户明确回复“采用修订，授权回填并继续”，人工签核记录于personal-order-outcomes-v1/design-signoff.md，未借旧UI确认代签。
 
-2026-11-01T21:10:18Z记录：用户已明确采纳personal-order-outcomes-v1修订并授权回填/继续，签核已按该人工回复记录。现在优先实施GET终态可空、同key POST原购买恢复和客户端空值处理；正常待支付仍要求真绑定。原P2尚未用验证关闭，不冒充已修复。Team设计草案已提交独立分支worker/cn-us-team-billing-design的476566c4d（Issue6099），只读审查指出续购quote有效期不应受已过原期限限制、Team销售必须等T06容量约束完成、手动加额度范围需明确，待本支付修复检查点后回该分支修订；不把Team草案当已签核。P3远端b766（base48），P4远端63bd（baseb766），P5剥离父仍b4dd；充值新候选d886e243还须读实际状态。
+实际行为：三种终态GET允许未知地址/期限为null且保留已知事实；同key同参数POST返回原purchaseRef，销售关闭仍恢复且零新增provider调用。SUCCESS仍需真实receipt与fulfilled；未知paidAt/notifyAt不编造；PENDING/PROCESSING机械要求真绑定。OrderDraft期限保持string。客户端先GET权威结果，null不证明付款，终态即使有地址也不重新打开付款；原用户/请求/报价边界保持。
 
-独立增量审查3e034a8ce发现二维码首次绘制失败后刷新同一订单无法重绘的P2。新增反例先1失败/8通过，修复为保留画布并在成功权威状态刷新后重试绘制；最终9项通过，断言零第二次支付请求，Web type/lint4任务通过。旧93全UI及16browser证据在该小修复之前；本次未把未重跑的全套计为新通过。当前待修复SHA独立复审。
+最终恢复增量验证：契约1254、provider166、React107、真实PG/HTTP39、改动过的旧PG回归42、本地环境parity12、API/Web/local-runtime类型及lint11任务、受影响类型/lint及依赖25任务均通过。完整真实浏览器4文件17项通过，新增独立Stripe HTTP/HMAC“创建响应丢失→先到账→原key恢复”证明没有第二次支付创建/跳转、真实额度与receipt保持一笔；截图已目视核对。支付商为fixture，未在线商户扣款。17项wrapper peak7/清理1s，旧PG42 peak5/清理0s；本任务Next/Chromium/DB资源均已释放。证据evidence/order-outcomes/，包含先失败日志和首轮旧fixture类型错误，未冒充首次全绿。
 
-正式个人/billing路由代码已接入采用的UI，服务端BILLING_PERSONAL_PRICING_UI_ENABLED默认关闭；没有改部署开关、生产计费epoch或生产数据。正常微信与Stripe购买、真实账户读模型、本人订单状态、原key恢复、订阅门户/取消下一期均已接线。见ui-runtime.md。
+正式个人/billing接线已采用UI，BILLING_PERSONAL_PRICING_UI_ENABLED默认关闭；详见ui-runtime.md。没有设置部署变量、执行生产清理或激活epoch。整#6093还待前置顺序集成后的最终重基、恢复fixture迁移清单核对、最终基础验证和整功能PR/CI，未标passing；恢复增量ACCEPT不是整个定价任务完成。
 
-当前完整浏览器车道4文件16项通过（原11+新CN2+DevApp USD3），计费HTTP不拦截；真实API/PG及独立RSA/HMAC支付商fixture，生产商户实付未验证。截图已目视核对；年付有效至一年、可用额度仅当月20k，取消下一期后权益保留。React93、审计/旧财务边界PG53、API/Web/local-runtime type/lint11及全仓颜色门通过；PGlite完整迁移和真实注册无赠送（epoch未启用）3项通过。390px移动端另补1项通过（另外2项被过滤），订阅历史可滚动访问并可刷新；证据见evidence/ui-runtime/。
+充值PR6098已实际正常合入develop：2026-11-01T21:24:25Z，mergeCommit d886e24310ae50e8f7c6a74bbceb87c052514025，issue6090已由PR关闭。fetch后git diff --quiet 48e04b39c668b15cd16bdba4e4f6967a9df5dd87 origin/develop退出0（相同源码树）。P3远端b766a58cc仍从base48剥离到实际develop；P3实际合入后P4远端63bd75abd从baseb766剥离；P4实际合入后P5从原baseb4ddf725剥离。不能用旧父d5/a1/1d覆盖这些当前映射。
 
-真实浏览器先发现旧P5父缺已合Contract代理，已刷新依赖栈而非补假数据；之后发现active拒绝回调审计误受旧财务写入门控，新增红测后把只写安全事件的audit路径限定为两种已知epoch可用，旧金融事务仍只legacy；错误回调400、正常签名付款和重放均有真实验证。
-
-当前本地依赖栈：P2 source48e04b39c（PR6098候选398603d48因chat shard2对/api/copilotkit/info发生ECONNRESET退队，未合入，待分诊重试）；P3 local63d23e154在base48，P4 localb4ddf725在P3，P5已重放11提交到5bdd0be77，range-diff逐项相等，当前运行时/审计增量待提交精确SHA复审。P3/P4未新建PR也未推此临时栈。P2实际合入后P3应从48剥离onto实际develop，再依次处理P4/P5。
-
-阻塞整#6093完成的已知P2：到账早于支付页绑定落库时，旧非空字段契约导致恢复读取503。具体GET及同key POST可空语义修订在../personal-order-outcomes-v1/design-signoff.md；已完成独立一致性复核并异步请求人类签核，仍未代签/未改契约。用户本次定价正常集成develop授权持续有效，不重复询问续作或合入。Team/Enterprise与全旧数据重置仍后续阶段，未标passing。
+Team/Enterprise设计草案476566c4d在独立分支worker/cn-us-team-billing-design、issue6099，尚未签核/修改runtime；独立初审有续购quote有效期、销售启用前容量门禁及手动额度范围三个待修订点，已记issue。全旧计费数据重置及生产发布仍后续独立阶段。用户对本次定价逐PR正常集成develop授权持续有效，无admin bypass，不重复索要该授权。
 
 ## 历史检查点（不作为当前完成状态）
 

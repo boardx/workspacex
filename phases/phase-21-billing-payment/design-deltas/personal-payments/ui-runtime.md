@@ -8,6 +8,8 @@
 
 本次隔离浏览器使用真实Next、BillingModule、PrincipalGuard、PostgreSQL与签名支付商HTTP fixture；仅身份显示和托管支付商网页受控，计费HTTP未拦截。不代表在线商户实付或生产验收。标准入口为API的`vitest.billing-cashier.config.ts`，拥有的Next进程组、端口、Chromium与隔离数据库必须完整释放。
 
-上线前仍须完成待签的缺失支付页终态恢复修订及整功能审查/CI、前置年付/赠送顺序集成、全量旧计费清理与外部旧续费处理。由独立发布步骤同时核对新界面开关和计费epoch，禁止把这个界面开关当成reset/激活授权。本文件不授权生产部署。
+缺失支付页终态恢复修订已获本次人工确认并实现，独立恢复增量审查与真实浏览器异常链路通过。上线前仍须完成整功能审查/CI、前置年付/赠送顺序集成、全量旧计费清理与外部旧续费处理。由独立发布步骤同时核对新界面开关和计费epoch，禁止把这个界面开关当成reset/激活授权。本文件不授权生产部署。
 
-验证：完整浏览器16项、移动端补测1项（另2项过滤）、React93项、金融/审计PG53项、PGlite迁移与注册3项、API/Web/local-runtime类型与lint11任务及全仓颜色门通过。见evidence/ui-runtime/。截图中的移动端历史刷新为请求中画面，不作为历史内容到账断言。
+本次恢复修订验证：完整browser17、React107、contracts1254、provider166、真实PG/HTTP39、旧PG42、local parity12、API/Web/local-runtime类型lint11及受影响25任务通过。见evidence/order-outcomes/；paid-without-binding.png为真实API/PG及独立Stripe HTTP/HMAC fixture的成功恢复画面，不是在线商户实付。
+
+此前UI运行时检查点的移动端补测1项（2项过滤）与PGlite迁移/注册3项另见evidence/ui-runtime/，不是本次重跑结果。移动端历史刷新截图为请求中画面，不作为历史到账内容断言。
