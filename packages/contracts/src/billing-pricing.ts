@@ -8,12 +8,13 @@ import { BillingProvider } from "./billing-credits";
 import { MONTHLY_SUBSCRIPTION_CREDITS, SubscriptionInfo } from "./billing-subscription";
 
 export const PricingMarket = z.enum(["cn", "us"]);
+export const PricingCurrency = z.enum(["CNY", "USD"]);
 export const BillingCycle = z.enum(["month", "year"]);
 export const RenewalMode = z.enum(["manual", "automatic"]);
 const Identifier = z.string().min(1).max(128);
 const Timestamp = z.string().datetime({ offset: true });
 const AmountMinor = z.number().int().positive().safe();
-const ProductBase = z.object({ sku: Identifier, currency: z.enum(["CNY", "USD"]), amountMinor: AmountMinor }).strict();
+const ProductBase = z.object({ sku: Identifier, currency: PricingCurrency, amountMinor: AmountMinor }).strict();
 export const PricingProduct = z.discriminatedUnion("kind", [
   ProductBase.extend({ kind: z.literal("subscription"), cycle: BillingCycle, monthlyCredits: z.literal(MONTHLY_SUBSCRIPTION_CREDITS) }),
   ProductBase.extend({ kind: z.literal("credit_topup"), credits: z.union([z.literal(10000), z.literal(50000), z.literal(200000)]) }),

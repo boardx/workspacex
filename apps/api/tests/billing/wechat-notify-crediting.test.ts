@@ -117,3 +117,11 @@ describe("F05 durable idempotent PostgreSQL crediting", () => {
     expect((await (await f.request(`/billing/orders/${order.orderNo}`)).json()).order.status).toBe("FAILED");
   });
 });
+
+it.each([["credit-cn-10000-v1",12900,10000],["credit-cn-50000-v1",59900,50000],["credit-cn-200000-v1",219900,200000]] as const)('credits new CN package %s exactly once',async(packageId,amount,credits)=>{
+ const order=await f.createOrder({packageId}),notice=f.notice(order.orderNo,{amount:{total:amount,payer_total:amount,currency:"CNY"}});
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ expect((await f.post(notice.body,notice.headers)).status).toBe(200);
+ expect(await wallet()).toMatchObject({balance:credits,totalPurchased:credits});
+ expect(await transactions(order.orderNo)).toEqual([{type:"purchase",credits,balance_after:credits}]);
+});

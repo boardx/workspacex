@@ -2,6 +2,7 @@
 import type { z } from "zod";
 import * as React from "react";
 import { billingCredits as billing } from "@repo/contracts";
+import { PricingCurrency } from "@repo/contracts/billing-pricing";
 import { apiRequest, ApiError } from "@/lib/api-client";
 export type CashierOwner = { ownerType: "user" | "team"; ownerId: string };
 export type LiveOrder = z.infer<typeof billing.BillingOrder>;
@@ -27,7 +28,7 @@ export function billingFailure(error: unknown): string {
 }
 function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder): LiveOrder {
   const { order } = billing.operations.getPaymentOrder.out.parse(raw);
-  if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
+  if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || !PricingCurrency.safeParse(order.currency).success || order.provider === "wechat" && order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
   const terminalStripe=order.provider==="stripe"&&["SUCCESS","CLOSED","FAILED"].includes(order.status)&&order.qrCodeUrl==="pending";
   // Completed Checkout may have no URL; never render the internal placeholder as a link.
   if(!terminalStripe){

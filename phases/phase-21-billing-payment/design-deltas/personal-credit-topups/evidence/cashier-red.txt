@@ -1,0 +1,1355 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/billing-cashier.test.tsx (51 tests | 1 failed | 50 skipped) 1402ms
+   × shows a USD credit purchase and keeps the Stripe snapshot 1401ms
+     → Unable to find role="link" and name "前往 Stripe 付款"
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] max-w-6xl gap-6 overflow-y-auto p-5 sm:p-8"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-2 pr-6"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"font-bold tracking-tight text-24"[39m
+        [33mid[39m=[32m"radix-:r1:"[39m
+      [36m>[39m
+        [0m购买额度[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-muted-foreground text-14"[39m
+        [33mid[39m=[32m"radix-:r2:"[39m
+      [36m>[39m
+        [0m为个人账户充值，用于个人工作区的 AI 使用。[0m
+        [0m关闭窗口会保留当前订单。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-8"[39m
+      [33mdata-testid[39m=[32m"billing-cashier-layout"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-w-0 space-y-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"充值套餐"[39m
+          [33mclass[39m=[32m"grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"[39m
+          [33mrole[39m=[32m"radiogroup"[39m
+        [36m>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"relative flex min-w-0 flex-col rounded-card border p-4 transition-colors focus-within:ring-2 focus-within:ring-ring sm:p-5 cursor-default border-background-foreground bg-muted"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mchecked[39m=[32m""[39m
+              [33mclass[39m=[32m"absolute inset-0 m-0 h-full w-full cursor-inherit opacity-0"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mname[39m=[32m"billing-package"[39m
+              [33mtype[39m=[32m"radio"[39m
+              [33mvalue[39m=[32m"credit-us-10000-v1"[39m
+            [36m/>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-24 font-semibold tabular-nums sm:text-30"[39m
+            [36m>[39m
+              [0m10,000[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+            [36m>[39m
+              [0m额度[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-5 text-16 font-semibold tabular-nums"[39m
+            [36m>[39m
+              [0m$19.00[0m
+            [36m</span>[39m
+          [36m</label>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-11 px-5 text-14 w-full sm:w-auto"[39m
+          [33mdata-testid[39m=[32m"billing-generate-qr"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code mr-1 h-5 w-5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m创建付款订单[0m
+        [36m</button>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-refresh-hint"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m暂时无法确认结果，请保留当前页面并联系支持，勿重复付款。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"微信支付订单"[39m
+        [33mclass[39m=[32m"flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-border bg-muted/30 p-6 text-center"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex h-24 w-24 items-center justify-center rounded-card border border-dashed border-border bg-card text-muted-foreground"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code h-12 w-12"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-2"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-14 font-medium"[39m
+          [36m>[39m
+            [0m使用 Stripe 付款[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m选择充值套餐后创建付款订单。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+        [36m>[39m
+          [0m当前余额 [0m
+          [0m100[0m
+          [0m 额度[0m
+        [36m</span>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"overflow-hidden rounded-card border border-border"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"border-b border-border px-5 py-4 text-14 font-semibold"[39m
+      [36m>[39m
+        [0m最近额度流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"py-6 text-center text-13 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+          [36m>[39m
+            [0m暂无流水[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] max-w-6xl gap-6 overflow-y-auto p-5 sm:p-8"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-2 pr-6"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"font-bold tracking-tight text-24"[39m
+        [33mid[39m=[32m"radix-:r1:"[39m
+      [36m>[39m
+        [0m购买额度[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-muted-foreground text-14"[39m
+        [33mid[39m=[32m"radix-:r2:"[39m
+      [36m>[39m
+        [0m为个人账户充值，用于个人工作区的 AI 使用。[0m
+        [0m关闭窗口会保留当前订单。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-8"[39m
+      [33mdata-testid[39m=[32m"billing-cashier-layout"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-w-0 space-y-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"充值套餐"[39m
+          [33mclass[39m=[32m"grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"[39m
+          [33mrole[39m=[32m"radiogroup"[39m
+        [36m>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"relative flex min-w-0 flex-col rounded-card border p-4 transition-colors focus-within:ring-2 focus-within:ring-ring sm:p-5 cursor-default border-background-foreground bg-muted"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mchecked[39m=[32m""[39m
+              [33mclass[39m=[32m"absolute inset-0 m-0 h-full w-full cursor-inherit opacity-0"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mname[39m=[32m"billing-package"[39m
+              [33mtype[39m=[32m"radio"[39m
+              [33mvalue[39m=[32m"credit-us-10000-v1"[39m
+            [36m/>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-24 font-semibold tabular-nums sm:text-30"[39m
+            [36m>[39m
+              [0m10,000[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+            [36m>[39m
+              [0m额度[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-5 text-16 font-semibold tabular-nums"[39m
+            [36m>[39m
+              [0m$19.00[0m
+            [36m</span>[39m
+          [36m</label>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-11 px-5 text-14 w-full sm:w-auto"[39m
+          [33mdata-testid[39m=[32m"billing-generate-qr"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code mr-1 h-5 w-5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m创建付款订单[0m
+        [36m</button>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-refresh-hint"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m暂时无法确认结果，请保留当前页面并联系支持，勿重复付款。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"微信支付订单"[39m
+        [33mclass[39m=[32m"flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-border bg-muted/30 p-6 text-center"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex h-24 w-24 items-center justify-center rounded-card border border-dashed border-border bg-card text-muted-foreground"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code h-12 w-12"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-2"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-14 font-medium"[39m
+          [36m>[39m
+            [0m使用 Stripe 付款[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m选择充值套餐后创建付款订单。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+        [36m>[39m
+          [0m当前余额 [0m
+          [0m100[0m
+          [0m 额度[0m
+        [36m</span>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"overflow-hidden rounded-card border border-border"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"border-b border-border px-5 py-4 text-14 font-semibold"[39m
+      [36m>[39m
+        [0m最近额度流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"py-6 text-center text-13 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+          [36m>[39m
+            [0m暂无流水[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/billing-cashier.test.tsx > shows a USD credit purchase and keeps the Stripe snapshot
+TestingLibraryElementError: Unable to find role="link" and name "前往 Stripe 付款"
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] max-w-6xl gap-6 overflow-y-auto p-5 sm:p-8"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-2 pr-6"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"font-bold tracking-tight text-24"[39m
+        [33mid[39m=[32m"radix-:r1:"[39m
+      [36m>[39m
+        [0m购买额度[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-muted-foreground text-14"[39m
+        [33mid[39m=[32m"radix-:r2:"[39m
+      [36m>[39m
+        [0m为个人账户充值，用于个人工作区的 AI 使用。[0m
+        [0m关闭窗口会保留当前订单。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-8"[39m
+      [33mdata-testid[39m=[32m"billing-cashier-layout"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-w-0 space-y-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"充值套餐"[39m
+          [33mclass[39m=[32m"grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"[39m
+          [33mrole[39m=[32m"radiogroup"[39m
+        [36m>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"relative flex min-w-0 flex-col rounded-card border p-4 transition-colors focus-within:ring-2 focus-within:ring-ring sm:p-5 cursor-default border-background-foreground bg-muted"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mchecked[39m=[32m""[39m
+              [33mclass[39m=[32m"absolute inset-0 m-0 h-full w-full cursor-inherit opacity-0"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mname[39m=[32m"billing-package"[39m
+              [33mtype[39m=[32m"radio"[39m
+              [33mvalue[39m=[32m"credit-us-10000-v1"[39m
+            [36m/>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-24 font-semibold tabular-nums sm:text-30"[39m
+            [36m>[39m
+              [0m10,000[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+            [36m>[39m
+              [0m额度[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-5 text-16 font-semibold tabular-nums"[39m
+            [36m>[39m
+              [0m$19.00[0m
+            [36m</span>[39m
+          [36m</label>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-11 px-5 text-14 w-full sm:w-auto"[39m
+          [33mdata-testid[39m=[32m"billing-generate-qr"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code mr-1 h-5 w-5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m创建付款订单[0m
+        [36m</button>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-refresh-hint"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m暂时无法确认结果，请保留当前页面并联系支持，勿重复付款。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"微信支付订单"[39m
+        [33mclass[39m=[32m"flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-border bg-muted/30 p-6 text-center"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex h-24 w-24 items-center justify-center rounded-card border border-dashed border-border bg-card text-muted-foreground"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code h-12 w-12"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-2"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-14 font-medium"[39m
+          [36m>[39m
+            [0m使用 Stripe 付款[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m选择充值套餐后创建付款订单。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+        [36m>[39m
+          [0m当前余额 [0m
+          [0m100[0m
+          [0m 额度[0m
+        [36m</span>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"overflow-hidden rounded-card border border-border"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"border-b border-border px-5 py-4 text-14 font-semibold"[39m
+      [36m>[39m
+        [0m最近额度流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"py-6 text-center text-13 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+          [36m>[39m
+            [0m暂无流水[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mdata-scroll-locked[39m=[32m"1"[39m
+  [33mstyle[39m=[32m"pointer-events: none;"[39m
+[36m>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mclass[39m=[32m"fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+  [36m/>[39m
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"radix-:r2:"[39m
+    [33maria-labelledby[39m=[32m"radix-:r1:"[39m
+    [33mclass[39m=[32m"fixed left-1/2 top-1/2 z-50 flex w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 flex-col rounded-container border border-border bg-popover text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-h-[90dvh] max-w-6xl gap-6 overflow-y-auto p-5 sm:p-8"[39m
+    [33mdata-state[39m=[32m"open"[39m
+    [33mdata-testid[39m=[32m"billing-cashier-dialog"[39m
+    [33mid[39m=[32m"radix-:r0:"[39m
+    [33mrole[39m=[32m"dialog"[39m
+    [33mstyle[39m=[32m"pointer-events: auto;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+  [36m>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"space-y-2 pr-6"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"font-bold tracking-tight text-24"[39m
+        [33mid[39m=[32m"radix-:r1:"[39m
+      [36m>[39m
+        [0m购买额度[0m
+      [36m</h2>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-muted-foreground text-14"[39m
+        [33mid[39m=[32m"radix-:r2:"[39m
+      [36m>[39m
+        [0m为个人账户充值，用于个人工作区的 AI 使用。[0m
+        [0m关闭窗口会保留当前订单。[0m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] lg:gap-8"[39m
+      [33mdata-testid[39m=[32m"billing-cashier-layout"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-w-0 space-y-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"充值套餐"[39m
+          [33mclass[39m=[32m"grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4"[39m
+          [33mrole[39m=[32m"radiogroup"[39m
+        [36m>[39m
+          [36m<label[39m
+            [33mclass[39m=[32m"relative flex min-w-0 flex-col rounded-card border p-4 transition-colors focus-within:ring-2 focus-within:ring-ring sm:p-5 cursor-default border-background-foreground bg-muted"[39m
+          [36m>[39m
+            [36m<input[39m
+              [33mchecked[39m=[32m""[39m
+              [33mclass[39m=[32m"absolute inset-0 m-0 h-full w-full cursor-inherit opacity-0"[39m
+              [33mdisabled[39m=[32m""[39m
+              [33mname[39m=[32m"billing-package"[39m
+              [33mtype[39m=[32m"radio"[39m
+              [33mvalue[39m=[32m"credit-us-10000-v1"[39m
+            [36m/>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-24 font-semibold tabular-nums sm:text-30"[39m
+            [36m>[39m
+              [0m10,000[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+            [36m>[39m
+              [0m额度[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"mt-5 text-16 font-semibold tabular-nums"[39m
+            [36m>[39m
+              [0m$19.00[0m
+            [36m</span>[39m
+          [36m</label>[39m
+        [36m</div>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-11 px-5 text-14 w-full sm:w-auto"[39m
+          [33mdata-testid[39m=[32m"billing-generate-qr"[39m
+          [33mdisabled[39m=[32m""[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code mr-1 h-5 w-5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m创建付款订单[0m
+        [36m</button>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"billing-refresh-hint"[39m
+          [33mrole[39m=[32m"status"[39m
+        [36m>[39m
+          [0m暂时无法确认结果，请保留当前页面并联系支持，勿重复付款。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<section[39m
+        [33maria-label[39m=[32m"微信支付订单"[39m
+        [33mclass[39m=[32m"flex min-h-72 flex-col items-center justify-center gap-4 rounded-card border border-border bg-muted/30 p-6 text-center"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex h-24 w-24 items-center justify-center rounded-card border border-dashed border-border bg-card text-muted-foreground"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-qr-code h-12 w-12"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"16"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"5"[39m
+              [33mrx[39m=[32m"1"[39m
+              [33mwidth[39m=[32m"5"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"16"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 16h-3a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 21v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v3a2 2 0 0 1-2 2H7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M3 12h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 3h.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 16v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 12h1"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 12v.01"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 21v-1"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-2"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-14 font-medium"[39m
+          [36m>[39m
+            [0m使用 Stripe 付款[0m
+          [36m</p>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+          [36m>[39m
+            [0m选择充值套餐后创建付款订单。[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</section>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex flex-wrap items-center justify-between gap-4 border-t border-border pt-5"[39m
+    [36m>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+        [33mdata-testid[39m=[32m"billing-updated-balance"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mdata-testid[39m=[32m"billing-cashier-balance"[39m
+        [36m>[39m
+          [0m当前余额 [0m
+          [0m100[0m
+          [0m 额度[0m
+        [36m</span>[39m
+      [36m</p>[39m
+    [36m</div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"最近额度流水"[39m
+      [33mclass[39m=[32m"overflow-hidden rounded-card border border-border"[39m
+      [33mdata-testid[39m=[32m"billing-recent-ledger"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"border-b border-border px-5 py-4 text-14 font-semibold"[39m
+      [36m>[39m
+        [0m最近额度流水[0m
+      [36m</h3>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"p-5"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"space-y-3"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"py-6 text-center text-13 text-muted-foreground"[39m
+            [33mdata-testid[39m=[32m"billing-ledger-empty"[39m
+          [36m>[39m
+            [0m暂无流水[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</section>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"关闭"[39m
+      [33mclass[39m=[32m"absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"dialog-close"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-x h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 6 6 18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"m6 6 12 12"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+  [36m<span[39m
+    [33maria-hidden[39m=[32m"true"[39m
+    [33mdata-aria-hidden[39m=[32m"true"[39m
+    [33mdata-radix-focus-guard[39m=[32m""[39m
+    [33mstyle[39m=[32m"outline: none; opacity: 0; position: fixed; pointer-events: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/billing-cashier.test.tsx:397:22
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 50 skipped (51)
+   Start at  22:31:52
+   Duration  22.14s (transform 2.05s, setup 370ms, collect 3.38s, tests 1.40s, environment 15.36s, prepare 716ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/billing-cashier.test.tsx -t USD credit purchase
