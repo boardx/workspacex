@@ -29,6 +29,7 @@ flowchart TD
   class S4 tested
   %% evidence S4: Stripe26含原锚点与重复账单，evidence/recovery-auto-pg-http.txt
   class S5 tested
+  %% evidence S5: evidence/order-outcomes/pg-http-39.txt：隔离真实PG及HTTP39项通过；evidence/order-outcomes/legacy-pg-42.txt：旧付款PG42项通过；重基source251路径字节一致，明确复用
   class S7 tested
   %% evidence S7: 177872994独立增量ACCEPT，root自动恢复与生命周期3项
   class S8 tested
