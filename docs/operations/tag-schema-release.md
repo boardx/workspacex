@@ -211,3 +211,13 @@ clone's 512 MiB PGDATA tmpfs, or its 1 GiB memory limit. Database size is not a
 promise of restore fit: dump or restore exceeding those independent limits must
 fail, clean up the owned clone, and leave production unchanged. Capacity readback
 alone is not a successful original-source restore receipt or migration approval.
+
+
+The US full outer source preparation also succeeded after the readiness fix
+(using the reviewed `707f813da` source closure), with
+`sourceLedgerCountBefore=435`, `sourceLedgerCountAfter=435`,
+`sourceReadOnlyTransactions=true`, `sourceDatabaseWriteAttempted=false`,
+`writersStopped=false` and `activationAllowed=false`. This result includes the
+outer source/baseline recheck rather than only the earlier diagnostic clone.
+It still explicitly reports migration-role and old-API acceptance as
+`NOT_PERFORMED`; no general schema-release production policy is enabled.
