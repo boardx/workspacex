@@ -42,7 +42,7 @@ class SignalBoundary(unittest.TestCase):
   with patch.object(m.signal,'signal',side_effect=lambda sig,handler:captured.update({sig:handler})):
    m.install_signal_handler()
   d=Mock();d.run.return_value=b''
-  with self.assertRaises(InterruptedError):
+  with self.assertRaises(RuntimeError):
    m.helper(d,'metadata',lambda args:captured[signal.SIGTERM](signal.SIGTERM,None))
   self.assertEqual(d.run.call_count,2)
   self.assertTrue(all(call.args[0][0]=='ps' for call in d.run.call_args_list))
@@ -51,3 +51,10 @@ class HostIdentity(unittest.TestCase):
  def test_l_is_not_numeric_one(self):
   self.assertEqual(m.HOST,'pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com')
   self.assertNotEqual(m.HOST,'pgm-uf6rg214cp381149.rwlb.rds.aliyuncs.com')
+
+class ToolIdentity(unittest.TestCase):
+ def test_actual_full_image_pin_and_truncated_pin(self):
+  correct='sha256:af6e55371441513bbe1093a588ff4b2b5c9dbcb3c96e2b8e432f4ee1a283973c'
+  self.assertEqual(m.tool_identity(correct),correct)
+  for bad in (correct[:-1],correct+'a','sha256:'+'0'*64,'sha256:af6e55371441513bbe1093a588ff4b2b5c9dbc3c96e2b8e432f4ee1a283973c'):
+   with self.assertRaisesRegex(ValueError,'CN_TOOL_PIN_INVALID'):m.tool_identity(bad)

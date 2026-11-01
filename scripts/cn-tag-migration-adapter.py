@@ -83,7 +83,7 @@ class Adapter:
   return self.execute(mode)
 def main():
  need(os.geteuid()==0 and len(sys.argv)==3,'ROOT_MODE_REQUIRED');mode,attempt=sys.argv[1:]
- def interrupted(*_):raise InterruptedError('CN_ADAPTER_INTERRUPTED')
+ def interrupted(*_):raise RuntimeError('CN_ADAPTER_INTERRUPTED')
  signal.signal(signal.SIGTERM,interrupted)
  result=Adapter(attempt,int(os.environ.get('WSX_RELEASE_LOCK_FD','-1'))).run(mode);result.update(source=SOURCE,tag=TAG,environment='cn');print(json.dumps(result));return 0 if result['status'] in ('BASELINE','COMPLETE','DRAINED','COMMITTED','BACKUP_RESTORE_VERIFIED') else 1
 if __name__=='__main__':

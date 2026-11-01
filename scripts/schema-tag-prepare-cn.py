@@ -18,7 +18,7 @@ DB='workspacex_a1cb_20261006'
 HOST='pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com'
 ENV='/var/lib/workspacex-cn/runtime/a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0-newdb-20261006/migration.env'
 ENV_SHA='d0199bc4e0674ea70348832b4fd82fe2be695253bcbc2ae0447eb45094510773'
-TOOL='sha256:af6e55371441513bbe1093a588ff4b2b5c9dbc3c96e2b8e432f4ee1a283973c'
+TOOL='sha256:af6e55371441513bbe1093a588ff4b2b5c9dbcb3c96e2b8e432f4ee1a283973c'
 NETWORK='workspacex-cn-runtime'
 
 def need(ok,code):
@@ -53,7 +53,12 @@ def bind_env(p):
 SHELL='export PGUSER="$MIGRATION_DB_USER" PGPASSWORD="$MIGRATION_DB_PASSWORD" PGSSLMODE=disable PGCONNECT_TIMEOUT=10 PGOPTIONS="-c default_transaction_read_only=on -c statement_timeout=30000"; '
 QUERY="BEGIN READ ONLY; SELECT json_build_object('database',current_database(),'role',current_user,'bytes',pg_database_size(current_database()),'ledger',(SELECT json_object_agg(name,checksum) FROM public._kernel_migrations),'roles',(SELECT json_agg(rolname) FROM pg_roles WHERE rolname='app_rw')); ROLLBACK;"
 
+def tool_identity(value):
+    need(type(value) is str and re.fullmatch('sha256:[a-f0-9]{64}',value) and value==TOOL,'CN_TOOL_PIN_INVALID')
+    return value
+
 def command(operation):
+    tool_identity(TOOL)
     need(operation in ('metadata','dump'),'CN_FIXED_OPERATION')
     args=['/usr/bin/docker','run','--rm','--pull=never','--network',NETWORK,'--read-only','--cap-drop=ALL','--security-opt=no-new-privileges','--memory=512m','--pids-limit=128','--tmpfs','/tmp:rw,nosuid,nodev,size=32m','--env-file',ENV,'--entrypoint','/bin/sh',TOOL,'-c']
     if operation=='dump':tail='exec pg_dump --no-password --format=custom --no-owner --no-acl'
@@ -119,7 +124,7 @@ def prepare(tag):
     finally:os.close(fd)
 
 def install_signal_handler():
-    def interrupted(*_):raise InterruptedError('CN_PREPARATION_INTERRUPTED')
+    def interrupted(*_):raise RuntimeError('CN_PREPARATION_INTERRUPTED')
     signal.signal(signal.SIGTERM,interrupted)
 
 

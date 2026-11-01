@@ -187,10 +187,16 @@ def prepare_us(tag):
     finally:os.close(lock)
 
 
+def install_signal_handlers():
+    # selectors catches InterruptedError as a spurious OS interruption.
+    # RuntimeError must propagate to backup/rehearsal finally cleanup.
+    def interrupted(*_):raise RuntimeError('PREPARATION_INTERRUPTED')
+    for name in ('SIGTERM','SIGHUP','SIGINT'):signal.signal(getattr(signal,name),interrupted)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('environment',choices=('us',));parser.add_argument('tag');args=parser.parse_args()
-    def interrupted(*_):raise InterruptedError('PREPARATION_INTERRUPTED')
-    signal.signal(signal.SIGTERM,interrupted)
+    install_signal_handlers()
     try:
         result=prepare_us(args.tag);print(json.dumps(result,sort_keys=True));return 0
     except Exception as error:

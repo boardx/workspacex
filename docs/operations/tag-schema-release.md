@@ -115,8 +115,8 @@ The concrete tag adds three files (no historical removals/rewrites in the CN
 comparison): `20261031090000_billing_stripe_topups.sql`,
 `20261031091000_billing_wechat_monthly.sql`,
 `20261031150000_billing_subscription_amount_snapshot.sql`. CN's read-only ledger
-check found all three unapplied. US's failure code proves schema drift only; it
-does not independently prove its ledger contents.
+check found all three unapplied. US's subsequent read-only source query also found all three unapplied
+and 435 baseline ledger entries.
 
 Rollout: merge reviewed code; stage the entire content-addressed consumer closure
 with `install-image-release.sh` while preserving existing protected environment
@@ -157,3 +157,47 @@ acceptance `NOT_PERFORMED`: no owners/ACLs are restored in this component. A lat
 full verifier must not promote it into application compatibility or readiness.
 It is bundled with the tools; enabling a production schema route still requires
 the separate qualified source/profile/writer/verifier and actual host acceptance.
+
+
+## Incident qualification progress (2026-11-01)
+
+US production is the same instance `i-rj9117enz64hpoifa3cq`, now at
+`47.254.69.39`; the operator confirmed that address in ECS and Workbench.
+Operational connection examples are maintained in `deploy/us/README.md`.
+No production DDL or target-image activation has been executed in this incident.
+
+A real US encrypted source backup was actually restored into an owned isolated
+PostgreSQL 16.15 container. The exact three SQL files succeeded there and the
+clone was removed. Independent readback retained the original 435-entry source
+ledger and baseline API image. Its evidence remains private on the host at
+`/var/lib/workspacex-image-release/us/prepare-rehearsal-_cemr920/isolated-diagnostic`.
+This diagnostic execution is not the failed preceding outer preparation result,
+and neither receipt proves owners/ACLs, application compatibility or activation.
+
+The operator closure now includes fixed CN/US read-only source adapters,
+maintenance policy builders, stopped-writer backup/restore qualification and
+transaction adapters, and separate old-application probes. Each policy is derived
+from original fresh restore files and live baseline checks, not a caller-provided
+success flag. Maintenance stops the five exact application containers, drains
+other database connections, repeats backup/restore with writers stopped, and
+applies only the reviewed SQL set in one transaction. Unknown execution retains
+`pending.json` and cannot be automatically replayed. Interrupted child adapters
+receive TERM and a bounded cleanup grace period before escalation.
+
+CN's actual source rehearsal exposed two transcription errors in fixed host
+bindings: the RDS hostname contains lowercase `l`, and the PostgreSQL tool image
+ID must contain all 64 hex characters. Both bindings were corrected against
+actual host readback, with regression tests; no identity check was weakened.
+CN's complete actual source restore still needs a successful original receipt.
+
+CN's old-application probe uses the already installed hash-pinned browser runtime
+with the real HTTPS hostname resolved to loopback during maintenance. US uses
+the baseline image's actual login/file/Agent/model/sandbox business probe with
+the same TLS hostname routed to loopback. The US probe does not claim browser
+acceptance. Both must run successfully on their actual hosts before production
+DDL; unit tests alone do not establish that qualification.
+
+These operator components do not install a general `schemaRelease` policy or
+bypass the image-only schema guard. Actual migration, candidate activation,
+public browser acceptance and database-aware recovery qualification remain
+required before this incident can be closed.

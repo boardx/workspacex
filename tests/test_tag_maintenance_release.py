@@ -26,9 +26,10 @@ class Tests(unittest.TestCase):
  def test_host_adapter_inherits_same_lock_file_description(self):
   import json
   policy={'environment':'us','databaseCommand':{'executable':{'path':'/fixed'},'timeoutSeconds':30}}
-  with tempfile.TemporaryDirectory() as directory, patch.object(m,'pinned',return_value=Path('/fixed')), patch.object(m.subprocess,'run') as run:
+  with tempfile.TemporaryDirectory() as directory, patch.object(m,'pinned',return_value=Path('/fixed')), patch.object(m.subprocess,'Popen') as run:
    run.return_value.returncode=0
-   run.return_value.stdout=json.dumps({'source':m.SOURCE,'tag':m.TAG,'environment':'us','status':'BASELINE'}).encode()
+   raw=json.dumps({'source':m.SOURCE,'tag':m.TAG,'environment':'us','status':'BASELINE'}).encode()
+   run.return_value.communicate.return_value=(raw,None)
    host=m.Host(policy,Path(directory),lock_fd=19)
    host.adapter('databaseCommand','preflight')
    self.assertEqual(run.call_args.kwargs['pass_fds'],(19,))
@@ -46,6 +47,29 @@ class Tests(unittest.TestCase):
    consumer=(Path(__file__).resolve().parents[1]/'scripts/deploy-registry-images.py').read_text()
    self.assertIn("pending=state/'pending.json'",consumer)
    self.assertIn("not pending.exists(),'UNRESOLVED_DEPLOYMENT_REQUIRES_RECONCILIATION'",consumer)
+ def test_termination_and_hangup_raise_recovery_exception(self):
+  import signal
+  for sig in (signal.SIGTERM,signal.SIGHUP,signal.SIGINT):
+   old=signal.getsignal(sig)
+   try:
+    m.install_signal_handlers()
+    with self.assertRaisesRegex(m.MaintenanceInterrupted,'MAINTENANCE_INTERRUPTED'):signal.getsignal(sig)(sig,None)
+   finally:signal.signal(sig,old)
+ def test_real_supervisor_signal_allows_child_finally(self):
+  import subprocess,sys,time,signal
+  module_path=Path(m.__file__)
+  for sig in (signal.SIGTERM,signal.SIGHUP):
+   with self.subTest(signal=sig),tempfile.TemporaryDirectory() as directory:
+    ready=Path(directory)/'ready';clean=Path(directory)/'clean'
+    worker="import signal,time,pathlib;signal.signal(signal.SIGTERM,lambda *_:exit(3));pathlib.Path(%r).write_text('ready');\ntry: time.sleep(30)\nfinally: pathlib.Path(%r).write_text('clean')"%(str(ready),str(clean))
+    code="import importlib.util,os,sys;from pathlib import Path;s=importlib.util.spec_from_file_location('maintenance',%r);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);m.install_signal_handlers();fd=os.open('/dev/null',os.O_RDONLY);h=m.Host({},Path(%r),fd);\ntry:h.run([sys.executable,'-c',%r])\nexcept m.MaintenanceInterrupted:sys.exit(3)"%(str(module_path),directory,worker)
+    parent=subprocess.Popen([sys.executable,'-c',code],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    try:
+     deadline=time.time()+5
+     while not ready.exists() and time.time()<deadline:time.sleep(.01)
+     self.assertTrue(ready.exists());parent.send_signal(sig);self.assertEqual(parent.wait(timeout=5),3);self.assertTrue(clean.exists())
+    finally:
+     if parent.poll() is None:parent.kill();parent.wait()
  def test_nginx_only_exact_environment_host(self):
   raw=b'server { server_name appv1.boardx.us; location / { proxy_pass http://a; } }'
   self.assertIn(b'return 503',m.maintenance_bytes(raw,'us'))

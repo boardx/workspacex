@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import signal
 import stat
 import subprocess
 import sys
@@ -20,6 +21,7 @@ SOURCE='e44119db91e9539418ad605ca6aaef2c155d0116'
 TAG='41248889927-1'
 SERVICES={'api','web','agent','sandbox','sandbox-sessions'}
 class Rejected(Exception):pass
+class MaintenanceInterrupted(RuntimeError):pass
 def need(value,code):
  if not value:raise Rejected(code)
 def digest(value):return hashlib.sha256(value).hexdigest()
@@ -79,8 +81,17 @@ def runtime_set(rows,project,baseline,running):
 class Host:
  def __init__(self,policy,attempt,lock_fd):self.p=policy;self.attempt=attempt;self.lock_fd=lock_fd
  def run(self,args,timeout=120):
-  result=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=timeout,pass_fds=(self.lock_fd,),env={'PATH':'/usr/bin:/bin','HOME':'/root','LANG':'C.UTF-8','WSX_RELEASE_LOCK_FD':str(self.lock_fd)})
-  need(result.returncode==0,'HOST_COMMAND_FAILED');return result.stdout
+  child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,pass_fds=(self.lock_fd,),env={'PATH':'/usr/bin:/bin','HOME':'/root','LANG':'C.UTF-8','WSX_RELEASE_LOCK_FD':str(self.lock_fd)})
+  try:output,_=child.communicate(timeout=timeout)
+  except BaseException:
+   # subprocess.run kills immediately on InterruptedError. Give the fixed
+   # adapter its own SIGTERM/finally cleanup before bounded escalation.
+   if child.poll() is None:
+    child.terminate()
+    try:child.communicate(timeout=15)
+    except subprocess.TimeoutExpired:child.kill();child.communicate(timeout=5)
+   raise
+  need(child.returncode==0,'HOST_COMMAND_FAILED');return output
  def runtime(self):
   ids=[self.p['baseline'][s]['containerId'] for s in sorted(SERVICES)]
   return json.loads(self.run(['/usr/bin/docker','inspect',*ids]))
@@ -176,7 +187,12 @@ def main():
   pending=reserve_pending(state,attempt,digest(policy_path.read_bytes()))
   result=run_attempt(p,attempt,Host(p,attempt,fd));pending.unlink();print(json.dumps(result));return 0
  finally:os.close(fd)
+def install_signal_handlers():
+ def interrupted(*_):raise MaintenanceInterrupted('MAINTENANCE_INTERRUPTED')
+ for name in ('SIGTERM','SIGHUP','SIGINT'):signal.signal(getattr(signal,name),interrupted)
+
 if __name__=='__main__':
+ install_signal_handlers()
  try:raise SystemExit(main())
  except Exception as e:
   print(json.dumps({'status':'MAINTENANCE_FAILED','code':str(e) if isinstance(e,Rejected) else 'HOST_OPERATION_FAILED'}));raise SystemExit(1)

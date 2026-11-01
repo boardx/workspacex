@@ -7,6 +7,18 @@ def module():
     spec=importlib.util.spec_from_file_location('source_prepare',ROOT/'scripts/schema-tag-prepare.py')
     value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
 class SourceBoundary(unittest.TestCase):
+    def test_signal_interrupts_real_selector_and_reaches_finally(self):
+        import subprocess,sys,signal
+        for sig in (signal.SIGTERM,signal.SIGHUP):
+            code="import importlib.util,selectors,sys;s=importlib.util.spec_from_file_location('prepare',%r);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);m.install_signal_handlers();print('ready',flush=True);selector=selectors.DefaultSelector();\ntry: selector.select(timeout=30)\nexcept RuntimeError: sys.exit(3)\nfinally: print('cleanup',flush=True);selector.close()"%str(ROOT/'scripts/schema-tag-prepare.py')
+            child=subprocess.Popen([sys.executable,'-c',code],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+            try:
+                self.assertEqual(child.stdout.readline().strip(),'ready');child.send_signal(sig)
+                output,_=child.communicate(timeout=3)
+                self.assertEqual(child.returncode,3);self.assertIn('cleanup',output)
+            finally:
+                if child.poll() is None:child.kill();child.communicate()
+
     def test_duplicate_runtime_environment_cannot_select_another_database(self):
         m=module()
         with self.assertRaisesRegex(ValueError,'RUNTIME_ENV_AMBIGUOUS'):

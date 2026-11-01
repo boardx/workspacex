@@ -134,7 +134,7 @@ class Adapter:
   return {'status':'COMMITTED','commitAcknowledged':True,'ledgerCount':len(target)}
 def main():
  need(os.geteuid()==0 and len(sys.argv)==3,'ROOT_FIXED_MODE_REQUIRED')
- def interrupted(*_):raise InterruptedError('ADAPTER_INTERRUPTED')
+ def interrupted(*_):raise RuntimeError('ADAPTER_INTERRUPTED')
  signal.signal(signal.SIGTERM,interrupted)
  mode,attempt=sys.argv[1:];fd=int(os.environ.get('WSX_RELEASE_LOCK_FD','-1'))
  result=Adapter(attempt,fd).run(mode);result.update(source=SOURCE,tag=TAG,environment='us');print(json.dumps(result));return 0 if result['status']!='COMMIT_UNKNOWN_RECONCILE_REQUIRED' else 1
