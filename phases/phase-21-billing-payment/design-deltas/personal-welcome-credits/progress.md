@@ -1,5 +1,7 @@
 # 新用户赠送进展
 
+2026-11-02刷新依赖：P4原本b4ddf725的一提交已从旧base63d23剥离到P3暂存栈b766a58cc，重放后0cf4c071；当前P4剥离父应为b766，P5仍从其原父b4dd剥离，勿混用。P2充值尚未实际合入，P3/P4均未提前PR集成。精确追加本项welcome SQL至恢复fixture reviewedSuffix：先1失败/1通过，补清单后2/2通过，未知/缺失/重复拒绝不变。当前实际复验provider61/61、隔离PG/真实注册HTTP六文件58/58，peak7，清理3s完成；真实注册邮件worker禁用，仅验证durable outbox。证据refreshed-*及migration-scope-*。默认epoch仍关闭；没有存量赠送或生产激活。保存检查点后独立复审，最终仍须前置实际合入、重基到实际develop并复核SHA。
+
 Issue6092，基线a1d5cbf93，分支worker/cn-us-welcome-credits。依据personal-pricing-v1已确认设计；ADR126 Proposed记录封闭类型及来源。
 
 已实现credentials AFTER INSERT事务触发器，SECURITY INVOKER；所有真实新建账号入口共用一次赠送，不改邮件/邀请/项目角色逻辑。默认未激活的会计代际标记仅供app读取，正式激活留待旧计费重置发布窗口；会计代际独立于未来商品目录版本。

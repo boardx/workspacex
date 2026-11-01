@@ -1,5 +1,7 @@
 # 新用户赠送交接
 
+2026-11-02刷新依赖：P4原本b4ddf725的一提交已从旧base63d23剥离到P3暂存栈b766a58cc，重放后0cf4c071；当前P4剥离父应为b766，P5仍从其原父b4dd剥离，勿混用。P2充值尚未实际合入，P3/P4均未提前PR集成。精确追加本项welcome SQL至恢复fixture reviewedSuffix：先1失败/1通过，补清单后2/2通过，未知/缺失/重复拒绝不变。当前实际复验provider61/61、隔离PG/真实注册HTTP六文件58/58，peak7，清理3s完成；真实注册邮件worker禁用，仅验证durable outbox。证据refreshed-*及migration-scope-*。默认epoch仍关闭；没有存量赠送或生产激活。保存检查点后独立复审，最终仍须前置实际合入、重基到实际develop并复核SHA。
+
 唯一worktree /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui；当前worker/cn-us-welcome-credits，父a1d5cbf93。本session不新建worktree、不改共享checkout分支。UI6087已正常合入develop25320a892，issue6086已由PR关闭。
 
 本项已完成本地实现及验证，接着提交并按exact SHA独立复核。当前验证进程均已结束，可以切个人契约分支准备6088独立PR；保留本项分支，前置合入后再剥离依赖。所有开发前fetch main/develop；仅目标develop。
