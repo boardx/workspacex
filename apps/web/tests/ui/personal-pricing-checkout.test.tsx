@@ -100,3 +100,14 @@ it("navigates to the original Stripe fragment address only after reading the own
  fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await waitFor(()=>expect(navigate).toHaveBeenCalledWith(stripe.url));
  expect(calls).toEqual(["/billing/checkout",`/billing/orders/${ref}`]);expect(loadPersonalCheckout(localStorage,userId)?.result?.url).toBe(stripe.url);
 });
+
+it.each(["catalog_changed","product_unavailable","payment_provider_not_configured","already_subscribed"])("shows a human-readable reselection notice for %s without exposing the code",async reasonCode=>{
+ vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({error:"conflict",reasonCode}),{status:409})));
+ mount();fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await screen.findByText("套餐或订阅状态已更新，请刷新账户后重新选择。");
+ expect(screen.queryByText(reasonCode)).toBeNull();expect(loadPersonalCheckout(localStorage,userId)).toBeNull();
+});
+it.each([null,"unknown_provider_failure"])("retains the original intent for unresolved errors: %s",async reasonCode=>{
+ vi.stubGlobal("fetch",vi.fn(async()=>new Response(JSON.stringify({error:"unavailable",reasonCode}),{status:503})));
+ mount();fireEvent.click(await screen.findByTestId("pricing-continue-checkout"));await screen.findByText("暂时无法确认付款结果，请继续原付款或稍后刷新，勿重复购买。");
+ expect(loadPersonalCheckout(localStorage,userId)).not.toBeNull();if(reasonCode)expect(screen.queryByText(reasonCode)).toBeNull();
+});

@@ -86,3 +86,9 @@ Stripe 绑定与到账：新增不可变 subscription/purchase/session/customer/
 init --full首次真实失败于assigned-secret扫描，来自独立签名测试的固定假密钥；改为每次生成临时随机HMAC key，扫描器/基线均未改。首版裸UUID不符合部署whsec前缀，目标PG测试400失败已保留；补合法前缀后目标真实签名HTTP PG 1通过、33过滤。完整基础检查仍待重跑，不把目标测试称为全PG。
 
 精确f2884c7942792ed1d47417043c29674642a6ef4c独立静态复核确认原P1代码闭环、全source预审无其他具体源码缺陷。其后完整canonical billing-cashier浏览器4文件17/17通过（含Stripe真实上游原fragment及exact导航断言），wrapper总计2m47、cleanup0s；API/Web typecheck/lint9/9通过（5cache）。均非在线商户扣款证据。首次完整init失败日志保留；修后init --full正在执行，尚不宣称其绿。
+
+## 后续基础门禁修订
+
+修后full init继续真实失败于user-facing-error-text静态规则：`.includes(error.reasonCode??"")`用于错误分类、不输出内部码，但命中统一规则。改明确字符串类型判断，不改扫描规则；原扫描红、修后绿，checkout组件22绿（新增四种已知错误清原意图／中文重选提示，未知／null错误保留原意图两种反例）。其余后段10项lint单独预检，9项绿，config-reachability发现本feature新增的个人browser子集config无自动入口。该config无活代码引用，两个spec已由canonical billing-cashier config及CI入口覆盖且完整17/17实跑；移除多余子集config，保留唯一完整入口，门禁转绿。该修订不改商户/支付账务/导航逻辑。
+
+完整基础仍须最终全命令重跑，不将上述分项绿拼成full init通过；两次真实full失败日志均保存。

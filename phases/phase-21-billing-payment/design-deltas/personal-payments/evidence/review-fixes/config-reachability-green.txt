@@ -1,0 +1,5 @@
+
+> agentic-harness-template@ lint:vitest-config-reachability /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> pnpm exec tsx .harness/scripts/lint-vitest-config-reachability.mjs
+
+✓ [vitest-config-reachability] 62 个 config 全部可从 npm script / workflow 到达，12 个 live spec 全部被可达 config 覆盖
