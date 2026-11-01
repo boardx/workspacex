@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { PersonalCheckoutRequest, PersonalCheckoutResult, PricingCatalog, PricingSubscriptionInfo, WelcomeCreditGrant } from "../src/billing-pricing";
-import { SubscriptionInfo } from "../src/billing-subscription";
 
 const catalog = {
   version: "pricing-2026-11-v1", market: "cn", enabledProviders: ["wechat"],
@@ -53,9 +52,8 @@ describe("personal pricing contract design", () => {
     expect(WelcomeCreditGrant.safeParse({ status: "expired", grant: { ...grant, remainingCredits: 0 } }).success).toBe(true);
     expect(WelcomeCreditGrant.safeParse({ status: "none", grant }).success).toBe(false);
   });
-  it("keeps the legacy response on its unchanged contract; the new endpoint requires explicit facts", () => {
+  it("requires explicit new entitlement facts instead of inferring the plan from incomplete state", () => {
     const legacy = { status: "none", planRef: null, currentPeriodEnd: null, cancelAtPeriodEnd: false };
-    expect(SubscriptionInfo.safeParse(legacy).success).toBe(true);
     expect(PricingSubscriptionInfo.safeParse(legacy).success).toBe(false);
     expect(PricingSubscriptionInfo.safeParse({ ...legacy, plan: null, billingCycle: null, renewalMode: null, welcomeCreditGrant: { status: "none", grant: null } }).success).toBe(true);
   });

@@ -41,7 +41,7 @@
 
 涉及：`packages/contracts/src/billing-{credits,subscription}.ts`、`apps/api/src/application/billing/monthly-pass-service.ts`、`apps/api/src/infrastructure/billing/{stripe-monthly-pass-client,stripe-paid-credit-period,pg-credit-periods}.ts` 及支付目录迁移、`apps/web/components/billing/`。
 
-- [ ] 先定义版本化目录与订单快照的失败测试，再实现中美金额／币种与新充值包；历史订单回调仍校验原快照。
+- [ ] 先定义版本化目录与订单快照的失败测试，再实现中美金额／币种与新充值包；旧计费数据按用户最新裁决整体重置；旧事件被版本屏障隔离。
 - [ ] 扩展微信一次性月／年购买及 Stripe 自动续费；验证付款归属、金额、币种及周期，不凭浏览器回跳发放。
 - [ ] 以可控时钟的真实数据库测试覆盖十二个月、1 月 31 日、闰年、迟到发放和重复调度，再实现年度权益月度授予。
 - [ ] 在新用户持久化创建路径增加一次性赠送；验证两个并发注册完成事件只产生一笔赠送，存量登录及切组织不赠送。
@@ -68,7 +68,7 @@
 
 ## 5．迁移、回归及发布交接
 
-- [ ] 编写旧订阅 dry-run 与执行清单，先在测试环境覆盖外部取消失败、迟到事件及重复执行。
+- [ ] 编写旧计费数据重置 dry-run 与执行清单，先在测试环境覆盖外部取消失败、迟到事件及重复执行。
 - [ ] 每 feature 的 verification 在实现前固定，证据可入库；通过 harness 门控及当前 PR head CI 后交付 develop。
 - [ ] 回归现有 `pnpm --filter @repo/api test:billing-provider`、`pnpm --filter @repo/api test:credit-runtime`，以及受影响包 typecheck；新增年付／席位／管理功能须有独立测试，旧测试不能代替新验收。
 - [ ] 数据库与浏览器测试走仓库标准隔离外壳，结束后释放本 session 资源。
@@ -108,3 +108,5 @@ flowchart TD
 ## UI 阶段证据（2026-11-01）
 
 Issue #6086；原型 `/preview/pricing`；截图与人工确认清单见 `phases/phase-21-billing-payment/ui-preview/pricing-v1/README.md`。命令证据见 `phases/phase-21-billing-payment/design-deltas/pricing-v1/evidence/`。UI 已获用户确认；正式 API 设计在 issue #6088 展开，后端阶段未开始。
+
+2026-11-01 最新用户裁决：旧订单、订阅、余额、流水全部为脏数据，重置后按新系统运行；不实现旧权益恢复。此裁决覆盖早先保留旧余额／流水的建议。
