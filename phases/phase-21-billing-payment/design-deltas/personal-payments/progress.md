@@ -98,3 +98,11 @@ init --full首次真实失败于assigned-secret扫描，来自独立签名测试
 第三次full init所有静态门禁已过，harness28文件856测试通过后，studio原生ESM加载因本机Node22.14解析嵌套TS失败。相关三份源码与actual develop无差异；已安装22.23.2下同一目标真实通过（1过15过滤），仅改变命令PATH，不修改隔离器或门禁。完整失败及新补丁目标输出保留review-fixes；完整full仍未通过，将在实际依赖基线继续，绝不把目标通过拼作全仓通过。第三次wrapper清理1s完成，compose只剩其他会话扩展。
 
 年付PR6100已真实正常merge98de549bbe77c459362ed42fc9455c5589dd1f1e，issue6091由PR关闭，非只停在source。P4下一步按旧b766剥离；P5原父b4dd不变。
+
+## Node22.23.2全面检查的真实边界
+
+源码66c067388旧stack运行full：全部静态门禁、harness249文件2816通过/4跳过、全仓types/lint、contracts1254/local-runtime250及Web966文件8438通过/5跳过。原native ESM加载整16项通过。API已输出完成82文件、无全量汇总；因本地固定单worker，将剩余完整API验证交由最终PR的标准独立DB分片和队列，不缩小CI。执行方主动SIGINT，init最终exit1，未宣称full PASS；原始gzip输出和summary保留。
+
+停止时隔离器未完成自动清理，已手动对唯一wsx-64681d02d21b9ca03b25 down-v退出0，核对owned进程退出及ports可绑定后仅释放本owner1 stack lease/13 port markers，其他owner未碰。当前无本任务进程/栈。不能将本次称自动cleanup成功。
+
+P4 PR6102 source521502493已canonical READY并正常入队，候选c04c332a1563f8168964e9497a59dcb51ad4017c还在等待检查，未actualmerge。P5仍原父b4dd，不提前混入P4 PR。Team新发现已付年费未来额度处置P2已公开6099，并已发一项业务口径问题等待用户回答；不是新的个人签核或合并授权请求。

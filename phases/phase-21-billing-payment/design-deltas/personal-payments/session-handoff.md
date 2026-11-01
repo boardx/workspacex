@@ -18,3 +18,13 @@
 Team/Enterprise是独立Draft PR6101，分支worker/cn-us-team-billing-design head096892902；原草案问题已复审闭环、pending。采用原型的添加额度按钮仅Enterprise可见、整数1..1,000,000且原因必填，旧“所有列表行”观察错误已纠正。api.md不代替packages/contracts第③件；须补可执行schema/原型消费反例/正式复核后再一次请求人工确认。个人签核不覆盖Team。
 
 当前所有本会话测试栈已由wrapper释放，第三次full清理1s，无自有Next/Chromium/compiler/compose剩余；Node目标测试无资源栈。其他发布/邮件会话资源不动。
+
+## 最新覆盖（以上旧待跑边界已被本节更新）
+
+Node22.23.2 full在66旧stack上已过全部静态、harness249/2816（4skip）、types/lint、contracts1254/local-runtime250、Web966/8438（5skip）。API部分已过，主动SIGINT停止本地串行，exit1，不是完整full PASS；剩余完整API必须由最终PR标准CI独立DB分片及queue证明，不能提前合。raw gzip/summary/手动cleanup实录在review-fixes/node22-full-partial-*。无源代码改变、无全量API完成声明。原Node加载文件16全绿。
+
+主动停止后wrapper未自动完成清理，已手动清理本次project、核对无owned后代并探测ports，再仅移除owner43114的stack lease/13 port标记，其他owner不动；Docker只剩他人扩展。不要再让同一全API串行重复占工时，标准CI分片完整范围不缩小。
+
+P4 #6102已canonical READY后正常入队，candidate c04c332a1563f8168964e9497a59dcb51ad4017c，当前仍AWAITING_CHECKS；新现场要读GraphQL candidate而非只看旧SHA。actualmerge后P5仍从原b4dd剥离，精确lease以届时本P5远端为准。
+
+Team待裁决P2：Enterprise升级时已付年费剩余窗口不能被“不自动新增额度”偷换为停止已付额度。已在6099公开并用request_user_input_async问“继续原计划至已付期结束（推荐）/停止原计划剩额手动处理”；问题尚未回答，不重复问/不把超时当采用。待答案统一schema/确认摘要/收据/worker/测试及一次正式签核，pending不变。
