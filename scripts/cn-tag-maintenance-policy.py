@@ -57,8 +57,8 @@ def baseline_identity(baseline,intent):
 def main():
  need(os.geteuid()==0 and len(sys.argv)==4,'ROOT_FIXED_INPUTS_REQUIRED')
  source_dir=Path(sys.argv[1]);probe=trusted(sys.argv[2]);out=Path(sys.argv[3]);need(not out.exists(),'OUTPUT_EXISTS')
- for name in ('schema-tag-prepare.py','schema-restore-rehearsal.py','minimal-docker-release.py','cn-tag-migration-adapter.py','schema-tag-prepare-cn.py','us-tag-migration-adapter.py','tag-reviewed-migration-driver.mjs','tag-maintenance-release.py'):trusted(HERE/name)
- p=load('schema-tag-prepare');p.trusted(source_dir,private=True,directory=True);p.trusted(out.parent,directory=True);core=load('schema-restore-rehearsal');engine=load('minimal-docker-release');cn=load('schema-tag-prepare-cn');maintenance=load('tag-maintenance-release')
+ for name in ('schema-tag-prepare.py','schema-restore-rehearsal.py','minimal-docker-release.py','cn-tag-migration-adapter.py','schema-tag-prepare-cn.py','us-tag-migration-adapter.py','tag-reviewed-migration-driver.mjs','tag-maintenance-release.py','tag-bootstrap-probe.py'):trusted(HERE/name)
+ p=load('schema-tag-prepare');p.trusted(source_dir,private=True,directory=True);p.trusted(out.parent,directory=True);core=load('schema-restore-rehearsal');engine=load('minimal-docker-release');cn=load('schema-tag-prepare-cn');maintenance=load('tag-maintenance-release');bootstrap=load('tag-bootstrap-probe')
  cfgpath=trusted('/etc/workspacex-image-release/cn.json',True);cfg=json.loads(cfgpath.read_bytes());need(cfg['environment']=='cn','CONFIG_ENVIRONMENT')
  lockpath=trusted('/var/lib/workspacex-cn/runtime/release.lock',True);fd=os.open(lockpath,os.O_RDONLY|os.O_NOFOLLOW)
  try:
@@ -73,12 +73,17 @@ def main():
   pins=[*cfg['composeFiles'],cfg['envFile'],*cfg.get('verificationFiles',[]),{**ref(cn.ENV),'private':True},ref(cfgpath)]
   for pin in pins:maintenance.pinned(pin,private=pin.get('private',False))
   out.mkdir(mode=0o700);attempt='tag-maintenance-'+uuid.uuid4().hex
-  closure=[ref(HERE/name) for name in ('schema-tag-prepare.py','schema-restore-rehearsal.py','minimal-docker-release.py','cn-tag-migration-adapter.py','schema-tag-prepare-cn.py','us-tag-migration-adapter.py','tag-reviewed-migration-driver.mjs')]
+  closure=[ref(HERE/name) for name in ('schema-tag-prepare.py','schema-restore-rehearsal.py','minimal-docker-release.py','cn-tag-migration-adapter.py','schema-tag-prepare-cn.py','us-tag-migration-adapter.py','tag-reviewed-migration-driver.mjs','tag-bootstrap-probe.py')]
   adapter={'executable':ref(HERE/'cn-tag-migration-adapter.py'),'inputs':closure,'timeoutSeconds':600}
   need(os.access(probe,os.X_OK) and os.access(HERE/'cn-tag-migration-adapter.py',os.X_OK),'EXECUTABLE_ADAPTER_REQUIRED')
   prepared={'status':'PREPARED_FOR_MAINTENANCE','environment':'cn','source':SOURCE,'tag':TAG,'sourceEvidenceDirectory':str(source_dir),'originalProofHashes':proofs,'preparedAt':time.time(),'productionMigrationExecuted':False}
   core.save(out/'prepared.json',prepared)
   policy={'environment':'cn','source':SOURCE,'tag':TAG,'project':cfg['project'],'baseline':baseline,'preparedAt':prepared['preparedAt'],'preparationReceipt':ref(out/'prepared.json'),'lockFile':str(lockpath),'stateDirectory':cfg['stateDirectory'],'attempt':attempt,'nginx':ref(nginx),'configurationPins':pins,'databaseCommand':adapter,'backupCommand':adapter,'oldApplicationProbe':{'executable':ref(probe),'inputs':cfg.get('verificationFiles',[]),'timeoutSeconds':300},'cnDatabase':{'baselineLedger':metadata['ledger'],'baselineApiImageId':intent['baselineApiImageId'],'targetApiImageId':intent['target']['imageId']}}
+  api=next(row for row in rows if row['Config']['Labels']['com.docker.compose.service']=='api')
+  consumer=p.installed_consumer();target=consumer.registry.resolve('/usr/bin/docker',cfg['registryPrefix'],TAG,'api',pull=False)
+  policy['bootstrapProbe']=bootstrap.policy_spec('cn',cfg,api,target,policy,d,p,core,closure,cn)
+  maintenance.require_bootstrap(policy)
+  pins.extend(policy['bootstrapProbe']['inputs'])
   core.save(out/'policy.json',policy);print(json.dumps({'status':'POLICY_CONSTRUCTED','policy':str(out/'policy.json'),'productionMigrationExecuted':False}))
  finally:os.close(fd)
 if __name__=='__main__':

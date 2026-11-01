@@ -211,3 +211,52 @@ clone's 512 MiB PGDATA tmpfs, or its 1 GiB memory limit. Database size is not a
 promise of restore fit: dump or restore exceeding those independent limits must
 fail, clean up the owned clone, and leave production unchanged. Capacity readback
 alone is not a successful original-source restore receipt or migration approval.
+
+
+The US full outer source preparation also succeeded after the readiness fix
+(using the reviewed `707f813da` source closure), with
+`sourceLedgerCountBefore=435`, `sourceLedgerCountAfter=435`,
+`sourceReadOnlyTransactions=true`, `sourceDatabaseWriteAttempted=false`,
+`writersStopped=false` and `activationAllowed=false`. This result includes the
+outer source/baseline recheck rather than only the earlier diagnostic clone.
+It still explicitly reports migration-role and old-API acceptance as
+`NOT_PERFORMED`; no general schema-release production policy is enabled.
+
+### Follow-up qualification (issue #6081)
+
+PR #6080 merged as `48ac496d59e2eb8d4026c56d0f6c20964ec5b1cc`. The CN host subsequently completed the actual encrypted source backup, isolated restore, and exact three-SQL rehearsal for tag `41248889927-1` using the reviewed 192 MiB source bound. This remains `restore-and-reviewed-sql-only`: no production SQL, stopped writers, activation, migration-role or API acceptance is implied. US had already completed the same limited qualification.
+
+The follow-up retains owner/ACL and password-free role/catalog metadata in a separate read-only capture, and tests actual clone logins, including exact source-versus-clone PostgreSQL builtin role attributes and membership comparison. Provider authority and role-GUC/API qualifications are not inferred from a successful clone SQL transaction.
+
+Maintenance health uses the fixed HTTPS production hostname resolved to loopback, with default curl configuration, proxy and redirects disabled; system TLS and expected health body remain mandatory. Outer public verification remains independent. CN browser fingerprints were re-read from actual bytes and cross-checked against the unchanged root-owned `cn.json` verificationFiles; two transcribed 63-character pins are corrected and all embedded fingerprints now require 64 lowercase hexadecimal characters before filesystem access. Original browser source and private env contents were not changed.
+
+Focused verification on the final follow-up snapshot: 15 ACL unit/real-PostgreSQL tests passed in 144.378 seconds; activation and CN browser regressions passed 15/15. These timings are local fixture measurements, not measured production activation budgets.
+
+Actual host qualification subsequently passed the existing US authenticated login,
+file roundtrip, Agent reply, model and sandbox probe in 10.807 seconds, and the
+CN Chromium baseline journey in 3.639 seconds. Neither result is candidate-image
+acceptance. Password-free owner/ACL source capture succeeded on both hosts.
+The US owner/ACL-preserving clone then failed `SOURCE_OWNER_ACL_DRIFT` before
+reviewed SQL execution; retain private restored catalog and comparison evidence
+to diagnose the mismatch without weakening exact comparison. CN provider role
+attributes require an explicitly source-bound, nonroot, network-none clone
+profile; the default privileged-role refusal remains. Production migration and
+activation remain pending these qualifications and dynamic bootstrap validation.
+
+The US retained comparison showed six non-permission index-attribute name
+differences after index reconstruction, and one explicit owner-default relation
+ACL restored as its equivalent NULL default. Catalog capture now uses object-kind
+`acldefault` plus sorted `aclexplode` entries, preserving owner, grantor, grantee,
+PUBLIC, privilege and grant option. Unsupported relation ACLs retain their raw
+value. Source and clone must still compare exactly; original evidence must be
+recaptured with the same SQL rather than rewriting an old snapshot. Seven real
+PostgreSQL semantic regressions passed in 91.384 seconds. This is fixture
+qualification, not actual-host acceptance.
+
+The candidate image's canonical dynamic bootstrap compatibility probe is a hard
+gate after migration completion and before candidate switch. It binds the real
+source database network and original protected admin input, emits only bounded
+private evidence, and preserves the existing application DB configuration.
+Its timeout and cleanup allowance count toward the activation budget; candidate
+probe failure does not prevent recovery of the old application. No successful
+production bootstrap or activation is claimed by the component tests.

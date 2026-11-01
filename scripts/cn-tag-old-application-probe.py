@@ -10,8 +10,8 @@ import subprocess
 import signal
 import sys
 ROOT=Path('/usr/local/lib/workspacex-image-release/cn-short-tags-5925-d6c34ee8ea4f')
-PINS={'cn-image-browser-probe.py':'910f57905ad240425ec1966087902723519a2bc6bb89026c0e1d3760e79c39d9','cn-image-browser-probe.mjs':'95af5956212dfb905cb3c1d5b377a69893277317428caef7fbe248e720dd4b8'}
-ENV=Path('/etc/workspacex-image-release/cn-browser.env');ENV_SHA='7659580d4e9bf115d11944280bd3ec6338c0fc2a4a954c794393bd10092dcc6e1'
+PINS={'cn-image-browser-probe.py':'910f57905ad240425ec1966087902723519a2bc6bb89026c0e1d3760e79c39d9','cn-image-browser-probe.mjs':'95af5956212bdfb905cb3c1d5b377a69893277317428caef7fbe248e720dd4b8'}
+ENV=Path('/etc/workspacex-image-release/cn-browser.env');ENV_SHA='7659580d4e9bf115d11944280bd3ec6338c0fc2a4a954c79439bd10092dcc6e1'
 SOURCE='e44119db91e9539418ad605ca6aaef2c155d0116';TAG='41248889927-1'
 def need(v,c):
  if not v:raise ValueError(c)
@@ -25,6 +25,7 @@ def trusted(path,private=False):
  return p
 
 def verify_pin(path,digest,private=False):
+ need(type(digest) is str and re.fullmatch('[a-f0-9]{64}',digest),'BROWSER_PIN_FORMAT')
  raw=trusted(path,private).read_bytes();need(hashlib.sha256(raw).hexdigest()==digest,'BROWSER_PIN_DRIFT');return raw
 
 def loopback_source(raw):
