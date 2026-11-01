@@ -23,7 +23,7 @@ export function PricingPreview() {
   const [message, setMessage] = React.useState("");
   function openPurchase(kind: PurchaseKind) { setPurchaseCycle(cycle); setPurchase(kind); }
   function changeView(value: PricingView) { setView(value); setState("default"); setMessage(""); }
-  return <div className="min-h-screen bg-background text-foreground">
+  return <div className="min-h-screen bg-background text-background-foreground">
     <div className="border-b border-border bg-muted px-4 py-3" data-testid="pricing-preview-controls">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
         <Badge tone="outline">UI 设计预览</Badge><span className="text-12 text-muted-foreground">模拟数据，不会扣款或修改账户</span>

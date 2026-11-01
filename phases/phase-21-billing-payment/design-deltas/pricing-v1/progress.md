@@ -12,12 +12,14 @@
 
 ## 尚未完成
 
-UI 已由用户在 2026-11-01 本会话明确确认；正式 API 契约、后端支付、真实权限校验、Free 发放、年度调度、旧订阅清理、发布均未开始。未修改 feature 状态或人工签核状态。PR #6087／CI 当前状态以 GitHub 为准，不把本地验证当作 CI 绿。
+UI 已由用户在 2026-11-01 本会话明确确认；本PR仅交付UI原型；正式契约及后端基础在独立issue6088–6091推进，完整真实支付、Free/Team/Enterprise与旧计费重置和发布尚未完成。未修改 feature 状态或人工签核状态。PR #6087／CI 当前状态以 GitHub 为准，不把本地验证当作 CI 绿。
 
 ## 证据与资源
 
-`evidence/` 保存命令输出；截图位于 `ui-preview/pricing-v1/`。本轮不启动 Docker、不访问生产服务器，不占用其他会话的 Chrome／Workbench。隔离 worktree 为后续阶段保留；本地预览端口 3526 用于人工审阅。
+`evidence/` 保存命令输出；截图位于 `ui-preview/pricing-v1/`。本轮不启动 Docker、不访问生产服务器，不占用其他会话的 Chrome／Workbench。隔离 worktree 为后续阶段保留；本地预览端口3526已在审阅及重测后停止，需要时按交接命令启动。
 
 ## CI 迭代
 
 verify-control-plane 的跨层接线检查发现新增预览路由未登记。使用标准 `lint-ui-wiring.mjs --update` 生成原型分类，保持原棘轮上限和规则不变；本地复验通过。
+
+2026-11-01 合并候选0f3e6348的base-control-plane发现两处无效text-foreground，已改用仓库合法text-background-foreground。原先只读取check-runs默认30条漏掉失败；之后统一完整分页核对。颜色token红测复现，修复后通过，5项真实浏览器测试及定向ESLint通过，截图刷新；静态门检查日志另存。此记录不代表新head CI通过或已合入。

@@ -1,0 +1,7 @@
+Candidate 0f3e6348ec8672b99d1adcf3e6f4fd0f2d3ab1f4
+https://github.com/boardx/workspacex/actions/runs/41318048519/job/124882184241
+2026-11-01T14:51:28.2194759Z > agentic-harness-template@ lint:tailwind-color-tokens /home/runner/work/workspacex/workspacex
+2026-11-01T14:51:28.3059433Z    components/billing/pricing-preview.tsx:26  text-foreground  ← 本仓没有这个颜色 token，Tailwind 什么都不会生成
+2026-11-01T14:51:28.3060199Z    components/billing/pricing-purchase-dialog.tsx:61  text-foreground  ← 本仓没有这个颜色 token，Tailwind 什么都不会生成
+2026-11-01T14:51:28.3306991Z Error: Command failed: pnpm run lint:tailwind-color-tokens
+2026-11-01T14:51:28.3345058Z ##[error]Process completed with exit code 1.
