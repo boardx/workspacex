@@ -33,8 +33,8 @@ flowchart TD
   class S4 tested
   %% evidence S4: tested
   class S5 tested
-  %% evidence S5: tested
-  class S6 todo
+  %% evidence S5: actual-base-provider-61 / actual-base-pg-http-58 / actual-base-migration-scope-2；source2706独立静态ACCEPT
+  class S6 doing
 ```
 
 ## 实施与验证顺序
