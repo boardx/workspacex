@@ -4,11 +4,13 @@
 
 ```mermaid
 flowchart LR
- S1[核对真实组织与权限事实] --> S2[用例与API材料]
- S2 --> S3[独立一致性复核]
- S3 --> S4[人类签核]
- S4 --> S5[逐切片实现与真实验证]
- S5 --> S6[逐PR正常集成develop]
+ S1[核对真实组织与权限事实] --> S2[用例与API草案]
+ S2 --> S3[草案独立复核]
+ S3 --> S4[可执行schema与原型消费验证]
+ S4 --> S5[正式一致性复核]
+ S5 --> S6[人类签核]
+ S6 --> S7[逐切片实现与真实验证]
+ S7 --> S8[逐PR正常集成develop]
  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
@@ -16,7 +18,7 @@ flowchart LR
  class S1 done
  class S2 done
  class S3 doing
-class S4,S5,S6 todo
+ class S4,S5,S6,S7,S8 todo
 ```
 
-S1为源码核对，不冒充动态权限验证。S3通过后仍不自动满足S4；设计文档PR可先承载人工审阅材料，不能借其合入激活运行时。前置个人支付PR尚按顺序排队，重置／上线继续归独立发布步骤。
+S1为源码核对，不冒充动态权限验证。草案复核不代替可执行第③件、正式复核或人工签核；先发布draft材料供审阅，完善同一材料PR而不提前关闭设计issue，不借文档合入激活运行时。前置个人支付PR尚按顺序排队，重置／上线继续归独立发布步骤。
