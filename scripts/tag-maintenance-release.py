@@ -77,9 +77,9 @@ def runtime_set(rows,project,baseline,running):
  need(set(seen)==SERVICES,'RUNTIME_SERVICES');return seen
 
 class Host:
- def __init__(self,policy,attempt):self.p=policy;self.attempt=attempt
+ def __init__(self,policy,attempt,lock_fd):self.p=policy;self.attempt=attempt;self.lock_fd=lock_fd
  def run(self,args,timeout=120):
-  result=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=timeout,env={'PATH':'/usr/bin:/bin','HOME':'/root','LANG':'C.UTF-8'})
+  result=subprocess.run(args,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=timeout,pass_fds=(self.lock_fd,),env={'PATH':'/usr/bin:/bin','HOME':'/root','LANG':'C.UTF-8','WSX_RELEASE_LOCK_FD':str(self.lock_fd)})
   need(result.returncode==0,'HOST_COMMAND_FAILED');return result.stdout
  def runtime(self):
   ids=[self.p['baseline'][s]['containerId'] for s in sorted(SERVICES)]
@@ -174,7 +174,7 @@ def main():
   # Persist global no-retry marker before any maintenance action. Only a
   # separately reviewed reconciliation operation may clear an uncertain marker.
   pending=reserve_pending(state,attempt,digest(policy_path.read_bytes()))
-  result=run_attempt(p,attempt,Host(p,attempt));pending.unlink();print(json.dumps(result));return 0
+  result=run_attempt(p,attempt,Host(p,attempt,fd));pending.unlink();print(json.dumps(result));return 0
  finally:os.close(fd)
 if __name__=='__main__':
  try:raise SystemExit(main())

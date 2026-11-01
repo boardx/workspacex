@@ -15,7 +15,7 @@ import uuid
 
 HERE=Path(__file__).resolve().parent
 DB='workspacex_a1cb_20261006'
-HOST='pgm-uf6rg214cp381149.rwlb.rds.aliyuncs.com'
+HOST='pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com'
 ENV='/var/lib/workspacex-cn/runtime/a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0-newdb-20261006/migration.env'
 ENV_SHA='d0199bc4e0674ea70348832b4fd82fe2be695253bcbc2ae0447eb45094510773'
 TOOL='sha256:af6e55371441513bbe1093a588ff4b2b5c9dbc3c96e2b8e432f4ee1a283973c'

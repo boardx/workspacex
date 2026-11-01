@@ -46,3 +46,8 @@ class SignalBoundary(unittest.TestCase):
    m.helper(d,'metadata',lambda args:captured[signal.SIGTERM](signal.SIGTERM,None))
   self.assertEqual(d.run.call_count,2)
   self.assertTrue(all(call.args[0][0]=='ps' for call in d.run.call_args_list))
+
+class HostIdentity(unittest.TestCase):
+ def test_l_is_not_numeric_one(self):
+  self.assertEqual(m.HOST,'pgm-uf6rg214cp381l49.rwlb.rds.aliyuncs.com')
+  self.assertNotEqual(m.HOST,'pgm-uf6rg214cp381149.rwlb.rds.aliyuncs.com')

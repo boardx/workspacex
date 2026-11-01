@@ -23,6 +23,16 @@ class Host:
  def start(self):self.running=True
  def nginx(self,a,b):self.calls.append(('nginx',b))
 class Tests(unittest.TestCase):
+ def test_host_adapter_inherits_same_lock_file_description(self):
+  import json
+  policy={'environment':'us','databaseCommand':{'executable':{'path':'/fixed'},'timeoutSeconds':30}}
+  with tempfile.TemporaryDirectory() as directory, patch.object(m,'pinned',return_value=Path('/fixed')), patch.object(m.subprocess,'run') as run:
+   run.return_value.returncode=0
+   run.return_value.stdout=json.dumps({'source':m.SOURCE,'tag':m.TAG,'environment':'us','status':'BASELINE'}).encode()
+   host=m.Host(policy,Path(directory),lock_fd=19)
+   host.adapter('databaseCommand','preflight')
+   self.assertEqual(run.call_args.kwargs['pass_fds'],(19,))
+   self.assertEqual(run.call_args.kwargs['env']['WSX_RELEASE_LOCK_FD'],'19')
  def test_fixed_canonical_lock_for_both_environments(self):
   for environment,path in [('us','/run/workspacex-selfhost-deploy.lock'),('cn','/var/lib/workspacex-cn/runtime/release.lock')]:
    self.assertEqual(m.canonical_lock({'environment':environment,'lockFile':path}),path)
