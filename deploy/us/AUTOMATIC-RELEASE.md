@@ -1,6 +1,6 @@
 # US 手动触发镜像发布
 
-目标：`main-us` → GitHub Environment `production-us` → Runner `workspacex-us-production` → `43.110.25.66`，访问地址 `https://appv1.boardx.us`。
+目标：`main-us` → GitHub Environment `production-us` → Runner `workspacex-us-production` → `47.254.69.39`，访问地址 `https://appv1.boardx.us`。
 
 构建仍在 GitHub 托管的 `ubuntu-24.04` 执行器上完成。US 的自托管 Runner 仅接收 deploy job、调用受限发布入口，不下载应用源码或在服务器构建镜像。填已有 tag 时跳过构建。
 

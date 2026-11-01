@@ -30,6 +30,8 @@ def sibling(name):
 
 registry=sibling('registry-images')
 engine=sibling('minimal-docker-release')
+schema_plans=sibling('tag-schema-plan')
+schema_handoff=sibling('schema-release-handoff')
 
 class NoAuthRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
@@ -129,6 +131,111 @@ def deploy(environment,tag,config_root=Path('/etc/workspacex-image-release')):
     trusted(docker_config/'config.json',private=True)
     return deploy_config(environment,tag,config,docker,docker_config)
 
+def schema_preflight(environment,tag,source,config,images,out,docker,roles=('api','agent')):
+    """Read actual stopped-image inventories before downloading unrelated images.
+
+    This only classifies a release. The image-only engine repeats all binding,
+    config-hash and schema checks under the same lock before any mutation.
+    """
+    d=engine.Docker(docker)
+    base=['compose','--project-name',config['project'],'--env-file',config['envFile']['path']]
+    for row in config['composeFiles']: base+=['--file',row['path']]
+    before={};after={};old={};new={}
+    for role in roles:
+        services=[service for service,value in config['services'].items() if value==role]
+        registry.need(len(services)==1,'SCHEMA_SERVICE_AMBIGUOUS')
+        service=services[0]
+        ids=d.run(base+['ps','--quiet',service]).decode().split()
+        registry.need(len(ids)==1,'EXISTING_CONTAINER_REQUIRED')
+        rows=d.json(['container','inspect',ids[0]])
+        registry.need(len(rows)==1,'LIVE_BINDING')
+        value=rows[0];labels=value.get('Config',{}).get('Labels',{})
+        registry.need(labels.get('com.docker.compose.project')==config['project'] and
+                      labels.get('com.docker.compose.service')==service and
+                      value.get('State',{}).get('Running') is True,'LIVE_BINDING')
+        old[role]=value['Image'];new[role]=images[role]['imageId']
+        before[role]=engine.schema(d,old[role],role,out)
+        after[role]=engine.schema(d,new[role],role,out)
+    return schema_plans.plan(environment,tag,source,old,new,before,after,roles)
+
+def schema_release(environment,tag,config,manifest,schema_plan,attempt,state,lock,pending,previous=None):
+    """Dispatch a separately admitted complete release, never waive engine.schema.
+
+    The root-installed writer owns backup, hold/drain, exact migration, DB-aware
+    recovery and activation. Its separately pinned verifier must consume actual
+    proof files. A second independent runtime check runs here before commit.
+    """
+    services=config.get('services')
+    registry.need(type(services) is dict and len(services) in (4,5) and
+                  set(services.values())=={'api','web','agent','sandbox'} and
+                  all(re.fullmatch('[a-z][a-z0-9_-]{0,40}',name) and name not in ('postgres','redis')
+                      for name in services),'SCHEMA_APPLICATION_SERVICES')
+    registry.need(schema_plan.get('environment')==environment and schema_plan.get('tag')==tag and
+                  schema_plan.get('sourceRevision')==manifest.get('sourceRevision'),'SCHEMA_RELEASE_REQUEST_BINDING')
+    def check_ref(ref):
+        return engine.trusted_file(str(trusted(ref['path'])),ref['sha256'])
+    policy=schema_handoff.validate_policy(schema_plan,config.get('schemaRelease'),check_ref)
+    manifest_file=attempt/'manifest.json';engine.save(manifest_file,manifest)
+    config_file=attempt/'schema-config.json';atomic(config_file,config)
+    override=attempt/'images.json'
+    engine.save(override,{'services':{service:{'image':manifest['images'][role]['imageId']}
+                                    for service,role in config['services'].items()}})
+    request={key:schema_plan[key] for key in ('environment','tag','sourceRevision','planSha256')}
+    request.update(kind='schema-release-request-v1',manifestSha256=engine.sha_file(manifest_file),
+                   manifest={'path':str(manifest_file),'sha256':engine.sha_file(manifest_file)},
+                   schemaPlan={'path':str(attempt/'schema-plan.json'),'sha256':engine.sha_file(attempt/'schema-plan.json')},
+                   config={'path':str(config_file),'sha256':engine.sha_file(config_file)},
+                   canonicalLock={'path':config['lockFile'],'device':os.fstat(lock).st_dev,'inode':os.fstat(lock).st_ino})
+    deadline=time.monotonic()+policy['timeoutSeconds']
+    request['expiresAt']=int(time.time())+policy['timeoutSeconds']
+    def remaining():
+        value=deadline-time.monotonic()
+        registry.need(value>1,'SCHEMA_RELEASE_DEADLINE')
+        return value
+    request_file=attempt/'schema-request.json';atomic(request_file,request)
+    result_file=attempt/'schema-result.json'
+    # Persist uncertainty before handing any capability to the full release.
+    atomic(pending,{'tag':tag,'attempt':str(attempt),'route':'schema-preparation',
+                    'requestSha256':engine.sha_file(request_file),'previous':previous,'automaticRetry':False})
+    try:
+        schema_handoff.invoke([policy['writer']['path']],request_file,result_file,remaining(),lock)
+        trusted(result_file,private=True)
+        result=schema_handoff.read_receipt(result_file);schema_handoff.verify_receipt(request,result)
+        for proof in result['proofs'].values():
+            registry.need(Path(proof['path']).resolve().is_relative_to(attempt.resolve()),'SCHEMA_PROOF_OUTSIDE_ATTEMPT')
+            proof_path=trusted(proof['path'],private=True)
+            registry.need(proof_path.stat().st_size<=1048576,'SCHEMA_PROOF_SIZE')
+            check_ref(proof)
+        result_hash=engine.sha_file(result_file)
+        # The verifier is a read-only, independently reviewed executable; it
+        # must reject stale/fixture receipts and inspect the actual DB/proofs.
+        schema_handoff.invoke([policy['verifier']['path']],request_file,result_file,remaining(),lock)
+        registry.need(engine.sha_file(result_file)==result_hash,'SCHEMA_VERIFIER_CHANGED_RECEIPT')
+        for ref in [*config['composeFiles'],config['envFile']]: check_ref(ref)
+        check_ref(policy['writer']);check_ref(policy['verifier'])
+        d=engine.Docker(config['docker'])
+        base=['compose','--project-name',config['project'],'--env-file',config['envFile']['path']]
+        for ref in config['composeFiles']:base+=['--file',ref['path']]
+        base+=['--file',str(override)]
+        live=engine.verify_runtime(d,base,config['services'],
+            {service:manifest['images'][role]['imageId'] for service,role in config['services'].items()},
+            {**config,'readinessTimeoutSeconds':min(config.get('readinessTimeoutSeconds',120),int(remaining()))})
+        atomic(state/'current.json',{'tag':tag,'sourceRevision':manifest['sourceRevision'],
+                                    'path':str(override),'sha256':engine.sha_file(override)})
+        final={'status':'SUCCEEDED','environment':environment,'tag':tag,'route':'schema-preparation',
+               'sourceRevision':manifest['sourceRevision'],'schemaPlanComplete':True,'health':live,
+               'schemaReceiptSha256':result_hash,'evidenceDirectory':str(attempt)}
+        atomic(attempt/'receipt.json',final);pending.unlink()
+        return final
+    except Exception:
+        # May include a committed DB change. Do NOT apply the image-only rollback,
+        # clear intent, rerun SQL, or describe old images as recovered data.
+        final={'status':'FAILED_OR_UNCERTAIN','code':'SCHEMA_RELEASE_RECONCILIATION_REQUIRED',
+               'stage':'schema-release','environment':environment,'tag':tag,'automaticRetry':False,
+               'evidenceDirectory':str(attempt)}
+        atomic(attempt/'receipt.json',final)
+        return final
+
 def deploy_config(environment,tag,config,docker,docker_config):
     state=trusted(config['stateDirectory'],directory=True,private=True)
     lock_path=trusted(config['lockFile'],private=True)
@@ -159,16 +266,57 @@ def deploy_config(environment,tag,config,docker,docker_config):
         # A durable intent blocks new writes after host/daemon loss or uncertain state commit.
         pending=state/'pending.json'
         registry.need(not pending.exists(),'UNRESOLVED_DEPLOYMENT_REQUIRES_RECONCILIATION')
-        images={role:registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,role) for role in registry.SERVICES}
+        # Establish source using the two schema-bearing images first. CN/US
+        # must not download Web/Sandbox/Postgres only to reject known schema drift.
+        early=('api',) if environment in ('cn','us') else registry.SERVICES
+        images={role:registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,role) for role in early}
         sources=[image.get('sourceRevision') for image in images.values()]
         registry.need(all(isinstance(source,str) and registry.SHA.fullmatch(source) for source in sources) and len(set(sources))==1,'IMAGE_SOURCE_MISMATCH')
         source=sources[0]
         attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)
+        schema_plan=None
+        if environment in ('cn','us'):
+            baseline={**config,'composeFiles':compose_files}
+            for roles in (('api',),('api','agent')):
+                if 'agent' in roles:
+                    images['agent']=registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,'agent')
+                    registry.need(images['agent'].get('sourceRevision')==source,'IMAGE_SOURCE_MISMATCH')
+                schema_plan=schema_preflight(environment,tag,source,baseline,images,attempt,docker,roles)
+                atomic(attempt/'schema-plan.json',schema_plan)
+                if schema_plan['route']!='image-only':
+                    if config.get('schemaRelease') and schema_plan['route']=='schema-preparation':
+                        continue
+                    result={'status':'REJECTED','code':'SCHEMA_CHANGE_REQUIRES_SEPARATE_RELEASE',
+                            'environment':environment,'tag':tag,'stage':'schema-preflight',
+                            'route':schema_plan['route'],'schemaChanges':schema_plan['changes'],
+                            'schemaPlanComplete':schema_plan.get('complete',False),
+                            'uncheckedRoles':schema_plan.get('uncheckedRoles',[]),
+                            'planSha256':schema_plan['planSha256'],'applyAttempted':False,
+                            'evidenceDirectory':str(attempt),'nextAction':'PREPARE_REVIEWED_SCHEMA_RELEASE'}
+                    atomic(attempt/'receipt.json',result)
+                    return result
+        for role in registry.SERVICES:
+            if role not in images:
+                images[role]=registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,role)
+        registry.need(all(image.get('sourceRevision')==source for image in images.values()),'IMAGE_SOURCE_MISMATCH')
+        if schema_plan and schema_plan['route']!='image-only':
+            # This route owns the WHOLE release; the old image-only admission and
+            # engine are never bypassed then reused on a changed database.
+            return schema_release(environment,tag,{**config,'composeFiles':compose_files},
+                {'kind':'registry-images-v1','sourceRevision':source,'tag':tag,'platform':'linux/amd64','images':images},
+                schema_plan,attempt,state,lock,pending,current)
         if admission:
             # Fixed host adapter retains CN preactivation/backup/compatibility admission.
-            checked=subprocess.run([*admission,tag],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=120,
-                                   env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8'})
-            registry.need(checked.returncode==0,'HOST_ADMISSION_REJECTED')
+            with tempfile.TemporaryFile() as diagnostic:
+                checked=subprocess.run([*admission,tag],stdout=subprocess.DEVNULL,stderr=diagnostic,timeout=120,
+                                       env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8'})
+                diagnostic.seek(0)
+                code=schema_plans.admission_code(diagnostic.read(129))
+            if checked.returncode!=0:
+                result={'status':'REJECTED','code':code,'stage':'host-admission',
+                        'environment':environment,'tag':tag,'applyAttempted':False,'evidenceDirectory':str(attempt)}
+                atomic(attempt/'receipt.json',result)
+                return result
         manifest={'kind':'registry-images-v1','sourceRevision':source,'tag':tag,'platform':'linux/amd64','images':images}
         manifest_file=attempt/'manifest.json';engine.save(manifest_file,manifest)
         effective={k:config[k] for k in ('project','services','envFile','health','lockFile','verificationCommand')}
@@ -200,9 +348,9 @@ def report_worker_result(unit):
         for line in reversed(rows.stdout.splitlines()):
             try: result=json.loads(line)
             except ValueError: continue
-            if not isinstance(result,dict) or result.get('status') not in ('SUCCEEDED','REJECTED','ROLLED_BACK','ROLLBACK_FAILED','DEPLOYMENT_FAILED'):
+            if not isinstance(result,dict) or result.get('status') not in ('SUCCEEDED','REJECTED','ROLLED_BACK','ROLLBACK_FAILED','DEPLOYMENT_FAILED','FAILED_OR_UNCERTAIN'):
                 continue
-            allowed=('status','code','environment','tag','evidenceDirectory','stage','applyAttempted')
+            allowed=('status','code','environment','tag','evidenceDirectory','stage','applyAttempted','route','schemaChanges','schemaPlanComplete','uncheckedRoles','planSha256','nextAction')
             print(json.dumps({key:result[key] for key in allowed if key in result},sort_keys=True))
             return
     except (OSError,subprocess.TimeoutExpired): pass
