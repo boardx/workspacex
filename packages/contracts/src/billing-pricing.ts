@@ -41,6 +41,7 @@ export const PersonalCheckoutResult = z.object({
   if (value.provider === "wechat" && value.renewalMode !== "manual") ctx.addIssue({ code: "custom", message: "WeChat purchases renew manually" });
 });
 
+export const WELCOME_CREDIT_PROGRAM = "welcome-credit-v1";
 export const WELCOME_CREDITS = 1000;
 export const WELCOME_CREDIT_VALIDITY_DAYS = 30;
 const WelcomeGrant = z.object({

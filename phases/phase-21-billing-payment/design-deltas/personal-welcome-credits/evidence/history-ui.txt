@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/billing-overview-history.test.tsx (5 tests) 14116ms
+   ✓ keeps permanent credit separate from subscription credit with remaining percentage 8691ms
+   ✓ shows real subscription periods and preserves missing historical fees 1215ms
+   ✓ does not turn a failed history read into an empty list 1001ms
+   ✓ paginates subscription history using a fixed page size and offers previous page 1744ms
+   ✓ resets history pagination when the account changes 1462ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  00:06:36
+   Duration  60.74s (transform 12.02s, setup 2.87s, collect 23.52s, tests 14.12s, environment 12.86s, prepare 1.05s)
+

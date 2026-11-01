@@ -1,0 +1,46 @@
+[stack-admission] load1=9.91 cores=10 perCore=0.99 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy0ivbd-a2b496f5-7da0dc7d2b54 db=wsx_7da0dc7d2b54b87a0808 compose=wsx-7da0dc7d2b54b87a0808 pg=20205 redis=21205 api=24205 web=25205 sandbox=26205 model=27205 deep-agent=28205 asr=29205 vision=30205 loopback-sandbox=31205 mail=19205
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_7da0dc7d2b54b87a0808 capacity=100 current=6 required=32
+ ❯ tests/billing/welcome-credit-pg.test.ts (7 tests | 1 failed) 50423ms
+   ✓ does not gift while inactive and never backfills an existing account after activation 359ms
+   × background expiry reaches welcome-only wallets without a paid term 172ms
+     → expected '1000.00' to be '0.00' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/welcome-credit-pg.test.ts > background expiry reaches welcome-only wallets without a paid term
+AssertionError: expected '1000.00' to be '0.00' // Object.is equality
+
+Expected: "0.00"
+Received: "1000.00"
+
+ ❯ tests/billing/welcome-credit-pg.test.ts:83:19
+     81|   await new PgPersonalCreditScheduleStore(db,{info:vi.fn(),error:vi.fn…
+     82|   const balance=await asApp(f.org,async c=>(await c.query("SELECT bala…
+     83|   expect(balance).toBe("0.00");
+       |                   ^
+     84| });
+     85| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  23:56:34
+   Duration  60.30s (transform 930ms, setup 33ms, collect 738ms, tests 50.42s, environment 1ms, prepare 179ms)
+
+[db-isolation] db=wsx_7da0dc7d2b54b87a0808 peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/welcome-credit-pg.test.ts
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/welcome-credit-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m2s
+  清理：1s
+  总计：1m4s

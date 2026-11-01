@@ -52,14 +52,18 @@ export const BillingOrderStatus = z.enum(["PENDING", "PROCESSING", "SUCCESS", "F
 export type BillingOrderStatus = z.infer<typeof BillingOrderStatus>;
 
 /** 入账与模型消费流水。 */
-export const BillingTransactionType = z.enum(["purchase", "bonus", "grant", "consume", "subscription_grant", "subscription_expire"]);
+export const BillingTransactionType = z.enum(["purchase", "bonus", "grant", "consume", "subscription_grant", "subscription_expire", "welcome_grant", "welcome_expire"]);
 export type BillingTransactionType = z.infer<typeof BillingTransactionType>;
 
 /** 流水方向：+1 入账 / −1 出账（本阶段只有入账，出账为未来语义预留值）。 */
 export const BillingTransactionDirection = z.union([z.literal(1), z.literal(-1)]);
 
 /** 钱包的来源类型（流水去重键的一半，I-2/I-8）。 */
-export const BillingTransactionSourceType = z.enum(["payment_order", "admin_grant", "model_request", "subscription_period"]);
+export const BillingTransactionSourceType = z.enum(["payment_order", "admin_grant", "model_request", "subscription_period", "welcome_period"]);
+
+/** ADR-126: one wallet with independently expiring paid and welcome batches. */
+export const CreditPeriodKind = z.enum(["subscription", "welcome"]);
+export type CreditPeriodKind = z.infer<typeof CreditPeriodKind>;
 
 export const BillingErrorCode = z.enum([
   "payment_provider_not_configured", // E1：渠道未配置（入口不可用；不展示永远失败的二维码）

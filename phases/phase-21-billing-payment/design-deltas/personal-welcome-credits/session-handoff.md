@@ -1,0 +1,13 @@
+# 新用户赠送交接
+
+唯一worktree /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui；当前worker/cn-us-welcome-credits，父a1d5cbf93。本session不新建worktree、不改共享checkout分支。UI6087已正常合入develop25320a892，issue6086已由PR关闭。
+
+本项已完成本地实现及验证，接着提交并按exact SHA独立复核。当前验证进程均已结束，可以切个人契约分支准备6088独立PR；保留本项分支，前置合入后再剥离依赖。所有开发前fetch main/develop；仅目标develop。
+
+依赖对齐：contract分支原head499c22a20、旧UI父d4cf39b6e，rebase --onto origin/develop d4cf39b6e worker/cn-us-pricing-contract，并重写旧subject中的(#6088)为Refs #6088，避免队列解析issue为PR。原contracts billing-pricing.ts文件头仍有旧snapshot兼容措辞，须改为新系统/旧数据全部重置，不承诺旧权益。契约合入后目录旧父499、充值旧父41cf、年付旧父d5依次剥离；每个PR只含自己issue，最后本项剥离旧a1d5父。强推仅自有分支且精确force-with-lease。所有新提交用Refs #N，不用括号issue号。
+
+赠送：SQL由generate-welcome-credit-schema.ts生成。新账号创建是唯一赠送入口，触发器在原注册事务中运行，不新增高权限函数。只读billing_pricing_epoch默认空；正式激活/全量旧计费清理由最后窗口做，不可在普通app路径启用。BILLING_ACCOUNTING_GENERATION独立于价格目录。不要把首次读/登录当补赠入口。
+
+readWelcomeCreditGrant是内部读取组件，完整权益HTTP仍未注册。所有公开读取继续通过既有可信user owner校验；不得直接暴露该函数的userId/时钟参数。生产期限固定时间长度，SQL数值/枚举源为contracts，不手改生成迁移。赠送与付费批次一起按到期优先扣，永久余额是推导值。
+
+证据：contracts1248/provider61/PG56/HTTP2/UI5以及API/Web类型、lint；HTTP邮件worker明确禁用，未向真人发信。旧auth未激活回归56项通过。所有测试通过标准隔离wrapper运行，结束后自动释放；3526预览已停止，不碰部署/邮件会话Chrome或服务器。独立审查通过但须最终exact SHA复核。
