@@ -20,6 +20,14 @@ import { toOrgId } from "../../src/domain/org-id";
 import { personalStripePaymentFixture } from "./personal-stripe-payment-fixture";
 import { PersonalStripeWebhookStore } from "../../src/infrastructure/billing/personal-stripe-webhook-store";
 import { vi } from "vitest";
+import { PgBillingCreditingStore } from "../../src/infrastructure/billing/pg-billing-crediting-store";
+import { PgBillingStripeWebhookStore } from "../../src/infrastructure/billing/pg-billing-stripe-webhook-store";
+import { BillingOrderService } from "../../src/application/billing/billing-order-service";
+import { PgBillingOrderRepository } from "../../src/infrastructure/billing/pg-billing-order-repository";
+import { PgMonthlyPassRepository } from "../../src/infrastructure/billing/pg-monthly-pass-repository";
+import { PgBillingSubscriptionRepository } from "../../src/infrastructure/billing/pg-billing-subscription-repository";
+import { BillingSubscriptionService } from "../../src/application/billing/billing-subscription-service";
+import { PgPersonalSubscriptionAccess } from "../../src/infrastructure/billing/pg-personal-subscription-access";
 import { PgPersonalEntitlementRepository } from "../../src/infrastructure/billing/pg-personal-entitlement-repository";
 
 const prefix = `stripe-term-${randomUUID().slice(0, 8)}`, org = toOrgId(prefix), users: string[] = [];
@@ -32,6 +40,7 @@ beforeAll(async () => {
 });
 afterAll(async () => {
   await asOwner(async c => {
+    await c.query("DELETE FROM billing_orders WHERE created_by=ANY($1::text[])", [users]);
     await c.query("DELETE FROM billing_personal_stripe_bindings WHERE purchase_ref IN (SELECT purchase_ref FROM billing_personal_purchases WHERE user_id=ANY($1::text[]))", [users]);
     await c.query("DELETE FROM billing_personal_payment_receipts WHERE purchase_ref IN (SELECT purchase_ref FROM billing_personal_purchases WHERE user_id=ANY($1::text[]))", [users]);
     await c.query("DELETE FROM billing_personal_terms WHERE user_id=ANY($1::text[])", [users]);
@@ -272,4 +281,49 @@ it("credits the Stripe pack once as permanent credits across repeated callbacks"
 it.each([{ amount_total: 1 }, { currency: "cny" }, { payment_intent: "in_wrongkind" }])("rejects an inconsistent paid Stripe pack %j", async patch => {
   const f = await packCallback(); Object.assign(f.session, patch);
   await expect(f.apply()).rejects.toThrow(); expect(await f.wallet()).toBeUndefined();
+});
+
+it("uses the verified new binding for management and returns actual paid annual history only to its owner", async () => {
+  const f = await fixture("management-history"); await f.settle();
+  const legacy = { read: vi.fn(async () => { throw Error("legacy_read_forbidden"); }), createIntent: vi.fn(async () => { throw Error("legacy_sales_forbidden"); }) };
+  const provider = { enabled: () => true, purchaseEnabled: () => false, purchaseLink: () => { throw Error("sales_disabled"); }, portal: vi.fn(async (_customer: string) => "https://billing.stripe.com/p/session/fixture") };
+  const service = new BillingSubscriptionService(legacy, provider, undefined, new PgPersonalSubscriptionAccess(db));
+  const principal = { userId: f.userId, orgId: org };
+  expect(await service.management(principal)).toEqual({ url: "https://billing.stripe.com/p/session/fixture" });
+  expect(provider.portal.mock.calls).toEqual([[f.snapshots.subscription.customer, "no-trace"]]);
+  const history = await service.history(principal, { limit: 5, offset: 0 });
+  expect(history.hasMore).toBe(false); expect(history.items).toHaveLength(1);
+  expect(history.items[0]).toMatchObject({ item: "Pro 订阅", amountMinor: f.purchase.product.amountMinor, currency: "USD", periodStart: f.anchor.toISOString(), periodEnd: creditMonthBoundary(f.anchor, 12).toISOString() });
+  const stranger = { userId: `${prefix}-history-stranger`, orgId: org };
+  expect(await service.history(stranger, {})).toEqual({ items: [], hasMore: false });
+  await expect(service.management(stranger)).rejects.toMatchObject({ code: "not_subscribed" });
+  await expect(service.info(principal)).rejects.toMatchObject({ code: "dependency_unavailable" });
+  await expect(service.upgrade(principal)).rejects.toMatchObject({ code: "dependency_unavailable" });
+  expect(legacy.read).not.toHaveBeenCalled(); expect(legacy.createIntent).not.toHaveBeenCalled();
+});
+it("rejects management for a verified terminal binding without calling the portal", async () => {
+  const f = await fixture("management-terminal"); await f.settle();
+  await asOwner(c => c.query("UPDATE billing_personal_stripe_bindings SET status='canceled' WHERE purchase_ref=$1", [f.purchase.purchaseRef]));
+  const provider = { enabled: () => true, purchaseLink: () => "unused", portal: vi.fn(async () => "unused") };
+  const service = new BillingSubscriptionService({ read: async () => null, createIntent: async () => "unused" }, provider, undefined, new PgPersonalSubscriptionAccess(db));
+  await expect(service.management({ userId: f.userId, orgId: org })).rejects.toMatchObject({ code: "not_subscribed" });
+  expect(provider.portal).not.toHaveBeenCalled();
+});
+
+it("retires old sales before merchant calls and rejects direct legacy reservation in the active epoch", async () => {
+  const f = await fixture("retired-sales"), principal = { userId: f.userId, orgId: org };
+  const native = { createNativeOrder: vi.fn(async () => "weixin://wxpay/fixture"), closeNativeOrder: vi.fn(async () => {}) };
+  const service = new BillingOrderService(new PgBillingOrderRepository(db), { findOrgMembership: async () => null },
+    { getPricingMarket: () => "cn", getPublicConfig: () => ({ enabledProviders: ["wechat"] }) }, native);
+  await expect(service.create(principal, { ownerType: "user", packageId: PERSONAL_PRICE_CATALOG.cn[2]!.sku, provider: "wechat" })).rejects.toMatchObject({ code: "payment_provider_not_configured" });
+  expect(native.createNativeOrder).not.toHaveBeenCalled();
+  await expect(new PgMonthlyPassRepository(db).reserve(principal)).rejects.toMatchObject({ code: "dependency_unavailable" });
+  const logger = { info: () => {}, error: () => {} };
+  await expect(new PgBillingSubscriptionRepository(db, logger).createIntent(principal)).rejects.toMatchObject({ code: "dependency_unavailable" });
+  await expect(new PgBillingCreditingStore(db).due()).rejects.toMatchObject({ code: "payment_provider_not_configured" });
+  const upstream = { checkout: vi.fn(async () => ({})), subscription: vi.fn(async () => ({})) };
+  await expect(new PgBillingStripeWebhookStore(db).apply({ id: `evt_${f.purchase.purchaseRef}`, type: "fixture.unknown", object: {} }, upstream)).rejects.toMatchObject({ code: "dependency_unavailable" });
+  expect(upstream.checkout).not.toHaveBeenCalled(); expect(upstream.subscription).not.toHaveBeenCalled();
+  const orders = await asApp(org, async c => (await c.query("SELECT order_no FROM billing_orders WHERE created_by=$1", [f.userId])).rows);
+  expect(orders).toEqual([]);
 });

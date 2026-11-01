@@ -11,6 +11,12 @@ export interface SubscriptionRepository {
   read(principal: Principal, traceId?: string): Promise<SubscriptionSnapshot | null>;
   createIntent(principal: Principal, traceId?: string): Promise<string>;
 }
+/** Existing private management/history routes read the new accounting epoch without reviving legacy sales. */
+export interface PersonalSubscriptionAccess {
+  assertLegacy(principal: Principal): Promise<void>;
+  history(principal: Principal, input: {limit:number;offset:number}): Promise<ReturnType<typeof SubscriptionHistory.parse> | null>;
+  management(principal: Principal): Promise<{ mode: "legacy" } | { mode: "active"; customerRef: string | null }>;
+}
 export interface SubscriptionProvider {
   enabled(): boolean;
   purchaseEnabled?(): boolean;
@@ -26,7 +32,7 @@ export class SubscriptionError extends Error {
   constructor(readonly code: SubscriptionErrorCode | "dependency_unavailable") { super(code); }
 }
 export class BillingSubscriptionService {
-  constructor(private readonly repository: SubscriptionRepository, private readonly provider: SubscriptionProvider, private readonly monthly?: MonthlyPassService) {}
+  constructor(private readonly repository: SubscriptionRepository, private readonly provider: SubscriptionProvider, private readonly monthly?: MonthlyPassService, private readonly personal?: PersonalSubscriptionAccess) {}
   private async snapshot(principal: Principal, traceId: string) {
     assertPrincipal(principal);
     const value = await this.repository.read(principal, traceId);
@@ -37,6 +43,7 @@ export class BillingSubscriptionService {
     try { return await run(); } catch (error) { if (error instanceof SubscriptionError) throw error; throw new SubscriptionError("dependency_unavailable"); }
   }
   async info(principal: Principal, traceId = "no-trace") {
+    assertPrincipal(principal); await this.personal?.assertLegacy(principal);
     const value = await this.snapshot(principal, traceId);
     const expired = value?.cancelAtPeriodEnd && value.currentPeriodEnd && Date.parse(value.currentPeriodEnd) <= Date.now();
     const legacyNeedsManagement = value && !(expired && ["active","trialing"].includes(value.status)) && subscriptionEligibility(value.status).canManageSubscription;
@@ -48,10 +55,13 @@ export class BillingSubscriptionService {
   async history(principal:Principal, input:unknown) {
     assertPrincipal(principal);
     const query=SubscriptionHistoryQuery.parse(input);
+    const modern = await this.personal?.history(principal,query);
+    if (modern) return modern;
     if(!this.repository.history)throw new SubscriptionError("dependency_unavailable");
     return this.monthlyResult(async()=>SubscriptionHistory.parse(await this.repository.history!(principal,query)));
   }
   async upgrade(principal: Principal, traceId = "no-trace",provider:"stripe"|"wechat"="stripe") {
+    assertPrincipal(principal); await this.personal?.assertLegacy(principal);
     const value = await this.snapshot(principal, traceId);
     if (this.monthly) return this.monthlyResult(() => this.monthly!.checkout(principal,provider));
     if (!(this.provider.purchaseEnabled?.() ?? this.provider.enabled())) throw new SubscriptionError("payment_provider_not_configured");
@@ -59,6 +69,13 @@ export class BillingSubscriptionService {
     return { url: this.provider.purchaseLink(await this.repository.createIntent(principal, traceId)) };
   }
   async management(principal: Principal, traceId = "no-trace") {
+    assertPrincipal(principal);
+    const modern = await this.personal?.management(principal);
+    if (modern?.mode === "active") {
+      if (!this.provider.enabled()) throw new SubscriptionError("payment_provider_not_configured");
+      if (!modern.customerRef) throw new SubscriptionError("not_subscribed");
+      return { url: await this.provider.portal(modern.customerRef, traceId) };
+    }
     const value = await this.snapshot(principal, traceId);
     if (!this.provider.enabled()) throw new SubscriptionError("payment_provider_not_configured");
     if (!subscriptionEligibility(value?.status ?? "none").canManageSubscription) throw new SubscriptionError("not_subscribed");

@@ -8,6 +8,7 @@ import { PersonalStripeCheckoutClient } from "./infrastructure/billing/personal-
 import { PersonalWechatPaymentClient } from "./infrastructure/billing/personal-wechat-payment-client";
 import { PersonalWechatCreditingStore } from "./infrastructure/billing/personal-wechat-crediting-store";
 import { PersonalStripeWebhookStore } from "./infrastructure/billing/personal-stripe-webhook-store";
+import { PgPersonalSubscriptionAccess } from "./infrastructure/billing/pg-personal-subscription-access";
 import { PersonalPaymentReconciler } from "./infrastructure/billing/personal-payment-reconciler";
 import { PgPersonalPaymentRecoveryStore } from "./infrastructure/billing/pg-personal-payment-recovery-store";
 import { PersonalPaymentRecoveryWorker } from "./infrastructure/billing/personal-payment-recovery-worker";
@@ -102,7 +103,7 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
         new PgPersonalPaymentRepository(db), new PgPersonalCheckoutRepository(db), { reconcileCheckout: id => stripe.reconcileCheckout(id, provider) });
       return new PersonalPaymentRecoveryWorker(new PgPersonalPaymentRecoveryStore(db, pending, stripe, provider, logger), logger);
     }, inject: [DATABASE_PORT, DeploymentBillingConfig, PersonalStripeWebhookStore, LOGGER_PORT] },
-    { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger), new MonthlyPassService(new PgMonthlyPassRepository(db), new MonthlyCheckoutRouter(new StripeMonthlyPassClient(config),new WechatMonthlyPassClient(config,db,logger)))), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
+    { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger), new MonthlyPassService(new PgMonthlyPassRepository(db), new MonthlyCheckoutRouter(new StripeMonthlyPassClient(config),new WechatMonthlyPassClient(config,db,logger))),new PgPersonalSubscriptionAccess(db)), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: PersonalCreditPeriodWorker, useFactory: (db: DatabasePort, logger: LoggerPort) => new PersonalCreditPeriodWorker(new PgPersonalCreditScheduleStore(db,logger),logger), inject: [DATABASE_PORT,LOGGER_PORT] },
     { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
       new BillingOrderExpiryWorker(new PgBillingOrderExpiryStore(db), logger), inject: [DATABASE_PORT, LOGGER_PORT] },

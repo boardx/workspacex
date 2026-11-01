@@ -8,8 +8,11 @@ flowchart TD
   S3[微信一次性及Stripe自动续费]
   S4[核实到账与原购买日逐月权益]
   S5[真实数据库及HTTP验证]
+  S7[自动补账与停机恢复]
+  S8[管理历史与旧入口退役]
+  S9[正式UI及真实浏览器]
   S6[独立审查与绿色PR集成]
-  G --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
+  G --> S1 --> S2 --> S3 --> S4 --> S7 --> S8 --> S9 --> S5 --> S6
   classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
   classDef doing fill:#fde68a,stroke:#d97706,color:#111827
   classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
@@ -20,9 +23,15 @@ flowchart TD
   %% evidence S1: provider 113 tests passed; evidence/provider-current.txt
   class S2 tested
   %% evidence S2: PostgreSQL 7 and HTTP 2 passed; evidence/intents-green.txt and http-green.txt
-  class S3 doing
-  class S4 doing
+  class S3 tested
+  %% evidence S3: provider162及PG/HTTP54，evidence/recovery-auto-*
+  class S4 tested
+  %% evidence S4: Stripe26含原锚点与重复账单，evidence/recovery-auto-pg-http.txt
   class S5 doing
+  class S7 tested
+  %% evidence S7: 177872994独立增量ACCEPT，root自动恢复与生命周期3项
+  class S8 doing
+  class S9 todo
   class S6 todo
 ```
 

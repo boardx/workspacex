@@ -1,3 +1,4 @@
+import { requireLegacyOrderEpoch } from "./legacy-billing-epoch";
 import { ConsoleLogger } from "../logging/console-logger";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -15,6 +16,7 @@ export class PgBillingCreditingStore implements BillingCreditingStore {
     return this.db.withoutTenant(async session => {
       await session.query("SET LOCAL statement_timeout = '2000ms'");
       await session.query("SET LOCAL lock_timeout = '750ms'");
+      await requireLegacyOrderEpoch(session);
       return fn({ query: (sql, params) => { assertBillingGlobalStatement(sql); return session.query(sql, params); } });
     });
   }

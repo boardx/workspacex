@@ -1,5 +1,7 @@
 # 个人支付闭环在建交接
 
+管理/历史及旧购买入口退役增量：管理门户只读取当前payer、当前generation的已验证Stripe绑定，销售开关关闭仍可管理；终态不可管理；年付历史按实际paid term一行，保留真实金额/币种/有效期而非月度额度行。active epoch旧info/upgrade退役，旧订单在商户调用前及实际落库/到账事务内拒绝，旧Stripe无session的GET恢复也先检查。未知epoch拒绝，不推断旧权益。新增3个PG用例先红后绿，Stripe全29项及旧模式/Root/HTTP9文件97项通过；补充直接旧财务边界1项通过（过滤其余28项），不把过滤用例计为执行。API type/lint7任务通过。证据management-*、retired-sales-*。最终reset仍须冻结销售并排空旧进程，不能仅凭新代码advisory锁宣布老版本已受控；未执行生产reset。待本增量精确审查，订单状态读模型/正式UI继续。
+
 自动补账组件已完成正式BillingModule接线：共享StripeStore供webhook与worker使用，0/60秒有界公平队列、失败重试、停机排空、单进程不重叠；每次入账仍走权威支付验证和代际锁。完整createApp/真实HTTP/PG/平台RSA查单证明：关闭新销售时无需回调或手动runOnce，遗漏微信付款自动补回且receipt/ledger各一笔。Stripe原session未落库时可从已验证财务绑定恢复；未绑定且超过原支付重试窗口的意图转人工复核，不新建第二笔支付。
 
 本轮provider162、隔离PG/HTTP54（主命令实际5文件39项，另正确路径意图/微信2文件15项）、API typecheck/lint7任务通过，隔离资源清理成功；证据recovery-auto-*。主命令包含两个不存在的过滤路径，未计入通过数量，已另跑正确文件。当前准备精确SHA独立审查与检查点推送，#6093整体仍待管理/历史/正式UI及旧入口代际隔离，未完成、未创建整feature PR。

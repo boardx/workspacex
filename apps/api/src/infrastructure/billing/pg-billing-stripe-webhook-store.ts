@@ -1,3 +1,4 @@
+import { requireLegacySubscriptionEpoch } from "./legacy-billing-epoch";
 import {MONTHLY_PASS_SQL} from "./monthly-pass-sql";
 import { SubscriptionStatus } from "@repo/contracts/billing-subscription";
 import { createHash } from "node:crypto";
@@ -25,6 +26,7 @@ export class PgBillingStripeWebhookStore implements StripeWebhookStore {
     return this.db.withoutTenant(async session => {
       await session.query("SET LOCAL statement_timeout = '12000ms'"); await session.query("SET LOCAL lock_timeout = '2000ms'");
       const s: TenantSession = { query(sql,params) { assertBillingGlobalStatement(sql); return session.query(sql,params); } };
+      await requireLegacySubscriptionEpoch(s);
       await s.query(SQL.stripeEventLock,[`billing-stripe-event:${event.id}`]);
       const seen=(await s.query<{provider:string;signature_verified:boolean;result:string}>(SQL.readEvent,[event.id])).rows[0];
       const paid=["invoice.paid","invoice.payment_succeeded"].includes(event.type);

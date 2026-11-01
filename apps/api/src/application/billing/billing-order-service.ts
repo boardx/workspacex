@@ -14,6 +14,7 @@ export type PackageView = z.infer<typeof operations.listPackages.out>["items"][n
 export type OrderDraft = Omit<OrderView, "qrCodeUrl"> & { readonly createdBy: string };
 export type BillingOrderOwner = BillingOwner & { readonly decision: PermissionDecision };
 export interface BillingOrderRepository {
+  assertLegacySales?(orgId: OrgId): Promise<void>;
   packages(owner: BillingOwner): Promise<PackageView[]>;
   package(orgId: OrgId, packageId: string): Promise<(PackageView & { enabled: boolean }) | null>;
   creditEnabled(owner: BillingOrderOwner): Promise<boolean>;
@@ -67,6 +68,7 @@ export class BillingOrderService {
   async create(principal: Principal, input: z.infer<typeof operations.createPaymentOrder.in>, traceId?: string) {
     assertPrincipal(principal);
     const request = operations.createPaymentOrder.in.parse(input);
+    await this.repository.assertLegacySales?.(principal.orgId);
     if (!this.config.getPublicConfig().enabledProviders.includes(request.provider)) throw new BillingOrderError("payment_provider_not_configured");
     const owner = await this.owner(principal, request.ownerType, request.ownerId, true);
     if (owner.ownerType === "team" && !await this.repository.creditEnabled(owner)) throw new BillingOrderError("org_billing_disabled");

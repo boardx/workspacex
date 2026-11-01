@@ -1,3 +1,4 @@
+import {requireLegacySubscriptionEpoch} from "./legacy-billing-epoch";
 import {randomUUID} from "node:crypto";
 import {MONTHLY_PASS_PRODUCT} from "@repo/contracts/billing-subscription";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
@@ -15,6 +16,7 @@ export class PgMonthlyPassRepository implements MonthlyPassRepository {
  constructor(private readonly db:DatabasePort){}
  latest(p:Principal){assertPrincipal(p);return this.db.withTenant(p.orgId,async s=>{const r=(await s.query<Row>(SQL.latest,[p.userId])).rows[0];return r?map(r):null;});}
  reserve(p:Principal,provider:MonthlyProvider="stripe"){assertPrincipal(p);return this.db.withTenant(p.orgId,async s=>{
+  await requireLegacySubscriptionEpoch(s);
   await lock(s,p.userId);
   if((await s.query(SQL.userConflict,[p.userId])).rows.length)throw new SubscriptionError("dependency_unavailable");
   const legacy=await readLegacySubscription(s,p.userId);
@@ -35,6 +37,7 @@ export class PgMonthlyPassRepository implements MonthlyPassRepository {
   validateMonthlyCheckout(session,orderId,session.livemode as boolean,provider);
   const accepted=await this.db.withoutTenant(async raw=>{
    const s:TenantSession={query(sql,params){assertBillingGlobalStatement(sql);return raw.query(sql,params);}};
+   await requireLegacySubscriptionEpoch(s);
    const owner=(await s.query<{user_id:string}>(SQL.owner,[orderId])).rows[0];if(!owner)throw Error("monthly_order_unknown");
    await lock(s,owner.user_id);const row=(await s.query<Row>(SQL.lock,[orderId])).rows[0]!;
    if(row.provider!==provider)throw Error("monthly_provider_mismatch");

@@ -1,3 +1,4 @@
+import {requireLegacyOrderEpoch} from "./legacy-billing-epoch";
 import {CREDIT_TOPUP_PRODUCT} from "@repo/contracts/billing-credits";
 import {PricingCurrency} from "@repo/contracts/billing-pricing";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
@@ -19,6 +20,7 @@ export class StripeCreditCheckout implements StripeCreditCheckoutPort{
  async create(owner:BillingOwner,draft:OrderDraft):Promise<OrderView>{
   if(!this.client.enabled())throw new BillingOrderError("payment_provider_not_configured");
   const row=await this.db.withTenant(owner.orgId,async s=>{
+   await requireLegacyOrderEpoch(s);
    await s.query(STRIPE_CREDIT_SQL.ownerLock,[`stripe-credit:${owner.ownerType}:${owner.ownerId}`]);
    const existing=(await s.query<Row>(STRIPE_CREDIT_SQL.pending,[owner.ownerType,owner.ownerId])).rows[0];
    if(existing){if(existing.package_id!==draft.packageId)throw new BillingOrderError('order_not_pending');return existing;}
@@ -30,6 +32,7 @@ export class StripeCreditCheckout implements StripeCreditCheckoutPort{
  private async ensureSession(owner:BillingOwner,row:Row):Promise<string>{
   if(row.stripe_session_ref)return row.stripe_session_ref;
   if(Date.now()-row.created_at.getTime()>23*3600000)throw new BillingOrderError('order_not_pending');
+  await this.repository.assertLegacySales(owner.orgId);
   const session=await this.client.create(this.draft(row));
   await this.db.withTenant(owner.orgId,s=>s.query(STRIPE_CREDIT_SQL.bind,[row.order_no,session.id,session.url??'pending']));
   return session.id as string;
@@ -45,6 +48,7 @@ export class StripeCreditCheckout implements StripeCreditCheckoutPort{
   const session=await this.client.retrieve(sessionRef);
   return this.db.withoutTenant(async raw=>{
    const s:TenantSession={query(sql,params){assertBillingGlobalStatement(sql);return raw.query(sql,params);}};
+   await requireLegacyOrderEpoch(s);
    const metadata=session.metadata as Record<string,unknown>|null;
    const orderRef=metadata?.order_ref;
    if(typeof orderRef!=="string"||!/^bg[0-9]{14}[A-Za-z0-9]{6}$/.test(orderRef))return false;
