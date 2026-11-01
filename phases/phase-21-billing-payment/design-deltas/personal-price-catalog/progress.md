@@ -1,5 +1,7 @@
 # 真实商品目录进展
 
+集成验收：PR #6095 已于2026-11-01T18:58:35Z正常合入develop，mergeCommit6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a，issue #6089于18:58:36Z由该PR关闭；source319d89d通过独立ACCEPT、provider41及20推送门禁，并经仓库READY及正常合并队列完成。此为代码集成，不表示生产支付启用或数据清理已执行。
+
 Issue #6089。实现真实 GET /billing/catalog，金额只存在服务端 domain 目录，市场从不可变部署配置获取；CN CNY、US USD、DevApp CN。部署渠道关闭时仍可查看价格，未知市场503，非法查询400，PrincipalGuard未绕过。
 
 验证：先运行因目标service未实现退出1；新增目录6项通过（含真实HTTP，使用隔离PrincipalResolver fixture与实际PrincipalGuard）；provider专项41项通过；API typecheck与完整API lint通过。独立只读审查再次运行6/6，无需修问题。证据在 evidence/。
