@@ -30,7 +30,7 @@ export class PgBillingWalletRepository implements BillingWalletRepository {
       const r=await s.query<WalletRow>(`SELECT wallet_id,owner_type,owner_id,balance::text,held_hundredths::text,total_purchased,total_granted,updated_at
         FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[owner.ownerType,owner.ownerId]);
       const row=r.rows[0];
-      let subscription={hundredths:0n,expiresAt:null as string|null};
+      let subscription={hundredths:0n,welcomeHundredths:0n,expiresAt:null as string|null};
       if(row){
         await normalizeCreditPeriods(s,row.wallet_id,new Date());
         const current=(await s.query<{balance:string;updated_at:Date}>("SELECT balance::text,updated_at FROM credit_wallets WHERE wallet_id=$1",[row.wallet_id])).rows[0]!;
@@ -38,7 +38,7 @@ export class PgBillingWalletRepository implements BillingWalletRepository {
         subscription=await creditPeriodSnapshot(s,row.wallet_id);
       }
       return {wallet:CreditWallet.parse(row ? {
-        ownerType:row.owner_type,ownerId:row.owner_id,balance:Number(row.balance),permanentBalance:Number(creditDecimal(creditHundredths(row.balance)-subscription.hundredths)),subscriptionCredits:Number(creditDecimal(subscription.hundredths)),subscriptionExpiresAt:subscription.expiresAt,reservedCredits:Number(row.held_hundredths)/100,availableBalance:Number(row.balance),totalPurchased:Number(row.total_purchased),totalGranted:Number(row.total_granted),updatedAt:row.updated_at.toISOString(),
+        ownerType:row.owner_type,ownerId:row.owner_id,balance:Number(row.balance),permanentBalance:Number(creditDecimal(creditHundredths(row.balance)-subscription.hundredths-subscription.welcomeHundredths)),subscriptionCredits:Number(creditDecimal(subscription.hundredths)),subscriptionExpiresAt:subscription.expiresAt,reservedCredits:Number(row.held_hundredths)/100,availableBalance:Number(row.balance),totalPurchased:Number(row.total_purchased),totalGranted:Number(row.total_granted),updatedAt:row.updated_at.toISOString(),
       } : {ownerType:owner.ownerType,ownerId:owner.ownerId,balance:0,permanentBalance:0,subscriptionCredits:0,subscriptionExpiresAt:null,reservedCredits:0,availableBalance:0,totalPurchased:0,totalGranted:0,updatedAt:new Date().toISOString()})};
     });
   }

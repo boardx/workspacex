@@ -1,0 +1,76 @@
+[stack-admission] load1=5.87 cores=10 perCore=0.59 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy15scq-48144fe7-d6c4ff7ee1fe db=wsx_d6c4ff7ee1fe9c65430d compose=wsx-d6c4ff7ee1fe9c65430d pg=20686 redis=21686 api=24686 web=25686 sandbox=26686 model=27686 deep-agent=28686 asr=29686 vision=30686 loopback-sandbox=31686 mail=19686
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_d6c4ff7ee1fe9c65430d capacity=100 current=6 required=32
+ ✓ tests/auth/member-invite-activation.test.ts (15 tests) 39688ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 邮箱规范化后落库，status=pending，sent_at 已写（= 已入出站队列） 471ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > V7 越权：顾问调用一律拒，且**没有留下任何邀请行** 555ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > I-3 / O-28 ⑥：邀请管理员 → awaiting-review，**且不签发令牌** 565ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 幂等重放：同 (org, email, 角色, 团队) 再提交返回既有 inviteId，不新建行、不再吐令牌 522ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > I-5 冲突：同邮箱但**换了角色**的第二次提交是 INVITE_DUPLICATE，不是重放 525ms
+   ✓ ① 管理员邀请：待激活行按服务端指派的角色与团队落库 > 已经是成员的邮箱 → INVITE_ALREADY_MEMBER（引导去登录，不是「重复邀请」） 561ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 激活前 NO_ORG_MEMBERSHIP；激活后本团队 allowed、别的团队 denied 1038ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 账号建在邀请行记录的邮箱上，且**直接是已验证的**（O-28 ⑤：点链接即证明邮箱所有权） 694ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > 已有账号分支：不新建凭据，只加一条成员关系（O-12 一人多组织） 780ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > I-1 幂等重放：同一 token 第二次调用是 INVITE_NOT_FOUND，**不是「已激活成功」** 576ms
+   ✓ ② 激活：入场即带组织角色 + 团队 > V10 四种失效返回同一个码：不存在 / 已过期 / 已核销 / 已撤销 680ms
+   ✓ ③ ALLOWLIST 例外的前提：邀请行的内容不出仓储 > activate() 的返回值只有授予值这五个键 654ms
+   ✓ ③ ALLOWLIST 例外的前提：邀请行的内容不出仓储 > 反证：把 email 加进返回值，上一条当场红 579ms
+   ✓ invitation session delivery (#3600) > concurrent/replayed single-use activation delivers only one bearer with the granted org and standard TTL 550ms
+   ✓ invitation session delivery (#3600) > session-store failure leaves the created account recoverable but cannot replay the consumed invitation 552ms
+ ✓ tests/auth/shared-invite-links.test.ts (17 tests) 5565ms
+   ✓ 多次语义（拍板①） > 同一链接两个不同的人先后加入都成功；used_count 逐次 +1 352ms
+   ✓ 多次语义（拍板①） > max_uses=2 时第三人被拒（统一 INVITE_NOT_FOUND），计数停在 2 370ms
+   ✓ 席位配额硬闸（拍板① / I-9） > 配额耗尽时加入被拒且什么都没变（成员数 / used_count / credentials） 394ms
+   ✓ 邮箱查重（拍板①：明确拒绝、不重复建号） > 已是成员的邮箱走链接 → INVITE_ALREADY_MEMBER，credentials 行数不变 328ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"af1f26ff-523f-44df-9c39-8c6fdee4bfea","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"1be3530c-d1dc-4097-a27c-1642ad009f46","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"6e3cb30b-1767-45eb-8abe-2dbc4714f864","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"4858f852-75af-444e-b260-175ef33da852","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"cc5218e6-cc49-4fca-97b8-19806516ec02","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"3850b922-963c-46a3-8146-9ebcd5c8ea98","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"aa6eb29f-192f-442f-966a-b2698fd5494d","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.register (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:195:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/auth/register-http-contract.test.ts (14 tests) 35293ms
+   ✓ the route is reachable WITHOUT authentication, and only this route is > registration does not require a principal (@Public), but a protected route still does 1340ms
+   ✓ no invite code is required or accepted -- decision ④, issue #1929 > a body with NO code field at all succeeds 1296ms
+   ✓ success: the response conforms to the contract > 201 with a durable queued delivery status 1929ms
+   ✓ success: the response conforms to the contract > the response carries NO organization content and no credential material 1102ms
+   ✓ failure: email already registered > 409 + EMAIL_TAKEN, and no second account or organization is created 1592ms
+ ✓ tests/auth/register-new-account-atomic.test.ts (5 tests) 8803ms
+   ✓ the happy path writes all four things, no code involved > creates credential + organization + admin membership + verification 984ms
+   ✓ the happy path writes all four things, no code involved > normalizes the email, so `Founder@...` and `founder@...` are one account 885ms
+   ✓ the happy path writes all four things, no code involved > each caller gets their OWN organization -- no shared resource to contend on 1676ms
+   ✓ the only failure left (EMAIL_TAKEN) leaves NO half organization (I-4) > email taken: refused, and nothing but the FIRST account's rows exist 3363ms
+   ✓ the contract really has no invite-code failure mode any more > registerNewAccount.err is exactly [EMAIL_TAKEN] 462ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"ead1f4e2-5918-448b-8254-050be72c2269","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.bootstrap (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:133:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"d7673572-3c4a-4b98-8b59-3398256aef0a","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.bootstrap (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:133:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"f2fee160-fb03-4e42-b6cb-69e5ac353b76","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.bootstrap (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:133:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"ea46a2c3-136f-48ce-b3ab-9eb961963f21","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.bootstrap (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:133:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"28de1e2d-7511-4ddb-8d3d-1e47ac28e979","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.bootstrap (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:133:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"7d81b6b2-3ee0-4967-b911-593eabba0121","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.bootstrap (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:133:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/auth/bootstrap-first-user-concurrency.test.ts (1 test) 58860ms
+   ✓ global first-user bootstrap > five real concurrent requests commit exactly one verified admin and no loser residue 4233ms
+ ✓ tests/auth/registration-repo-is-write-only.test.ts (4 tests) 11ms
+
+ Test Files  6 passed (6)
+      Tests  56 passed (56)
+   Start at  00:14:24
+   Duration  168.76s (transform 16.93s, setup 91ms, collect 10.02s, tests 148.22s, environment 1ms, prepare 756ms)
+
+[db-isolation] db=wsx_d6c4ff7ee1fe9c65430d peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/auth/register-new-account-atomic.test.ts tests/auth/register-http-contract.test.ts tests/auth/bootstrap-first-user-concurrency.test.ts tests/auth/member-invite-activation.test.ts tests/auth/shared-invite-links.test.ts tests/auth/registration-repo-is-write-only.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m51s
+  清理：1s
+  总计：2m52s

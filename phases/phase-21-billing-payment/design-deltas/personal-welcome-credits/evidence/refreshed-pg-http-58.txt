@@ -1,0 +1,50 @@
+[stack-admission] load1=8.25 cores=10 perCore=0.83 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyanlpj-3c3ac90e-2405c8768c8d db=wsx_2405c8768c8dfe7c3a42 compose=wsx-2405c8768c8dfe7c3a42 pg=20774 redis=21774 api=24774 web=25774 sandbox=26774 model=27774 deep-agent=28774 asr=29774 vision=30774 loopback-sandbox=31774 mail=19774
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_2405c8768c8dfe7c3a42 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-credit-terms-pg.test.ts (16 tests) 49503ms
+   ✓ recovers twelve elapsed periods without reviving expired credits or deleting permanent debt 654ms
+   ✓ advances across all twelve anchored months with a controlled database clock 1401ms
+   ✓ AI admission reconciles a due personal term before deciding whether debt blocks the request 329ms
+   ✓ reconciles a fully processed annual term without reentering twelve monthly grants 382ms
+   ✓ periodic sweep grants a due month while isolating a conflicting account 404ms
+   ✓ paginates 101 due owners without losing the second batch 5539ms
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 4014ms
+   ✓ enterprise debt and concurrent starts remain admitted independently of the legacy preflight flag 394ms
+   ✓ accepts monotonic late token dimensions without another debit and rejects known conflicts 355ms
+ ✓ tests/billing/welcome-credit-pg.test.ts (12 tests) 4385ms
+   ✓ does not gift while inactive and never backfills an existing account after activation 323ms
+   ✓ expires the welcome source once while retaining a permanent balance 329ms
+   ✓ reads real welcome facts and never revives a terminal expired batch 477ms
+   ✓ welcome and paid batches share one debit and expire independently 340ms
+ ✓ tests/billing/credit-period-lifecycle-pg.test.ts (6 tests) 3801ms
+   ✓ expires only unused monthly credits once and preserves permanent funds 319ms
+   ✓ preserves debt through expiry and a partial recharge 307ms
+   ✓ deduplicates a second invoice for the same subscription period but rejects invoice reassignment 328ms
+ ✓ tests/billing/credit-admission-policy-pg.test.ts (6 tests) 2961ms
+   ✓ completes every concurrent request admitted before personal debt becomes visible 354ms
+{"level":"info","msg":"instance telemetry disabled (endpoint_unset)","traceId":"instance-telemetry"}
+{"level":"info","msg":"dev-process projection sync disabled (WSX_DEV_PROJECTION_SYNC_ORG unset)","traceId":"dev-process-projection-sync"}
+{"level":"info","msg":"kg embedding worker not started: no embedding model configured; memory recall uses text + graph only","traceId":"kg-embedding","code":"embedding_not_configured"}
+{"level":"error","msg":"http exception","traceId":"1387f589-cb5c-41f9-8039-9815830481bc","detail":{"name":"UnauthorizedException","message":"unauthenticated","stack":"UnauthorizedException: unauthenticated\n    at PrincipalGuard.canActivate (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/guards/principal.guard.ts:54:27)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"http exception","traceId":"29b327a6-785a-4b80-bd5f-c0dc70ce6652","detail":{"name":"ConflictException","message":"Conflict Exception","stack":"ConflictException: Conflict Exception\n    at AuthRegistrationController.register (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/controllers/auth-registration.controller.ts:195:15)\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+{"level":"error","msg":"contract validation failed","traceId":"123082b6-1a06-41dd-a9b5-7c3a13548c05","detail":{"name":"ContractValidationError","message":"validation_failed","stack":"ContractValidationError: validation_failed\n    at ZodBodyPipe.transform (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/src/interface/pipes/zod-body.pipe.ts:41:11)\n    at /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_class-transformer@0.5.1_class-validator@0.14.4_re_sgffei4zmw63aa4v2dkhbu25m4/node_modules/@nestjs/core/pipes/pipes-consumer.js:16:33\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)"}}
+ ✓ tests/auth/welcome-registration-http.test.ts (2 tests) 34819ms
+   ✓ real registration commits its one welcome batch and durable verification outbox together 2200ms
+
+ Test Files  6 passed (6)
+      Tests  58 passed (58)
+   Start at  04:40:11
+   Duration  126.85s (transform 19.97s, setup 110ms, collect 10.12s, tests 99.48s, environment 2ms, prepare 1.20s)
+
+[db-isolation] db=wsx_2405c8768c8dfe7c3a42 peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/welcome-credit-pg.test.ts tests/billing/personal-credit-terms-pg.test.ts tests/billing/credit-period-lifecycle-pg.test.ts tests/billing/credit-admission-policy-pg.test.ts tests/billing/credit-consumption-pg.test.ts tests/auth/welcome-registration-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m10s
+  清理：3s
+  总计：2m13s

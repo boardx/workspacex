@@ -4,6 +4,8 @@ import type { LoggerPort } from "../../application/ports/logger.port";
 import { PERSONAL_CREDIT_SWEEP_BATCH_SIZE, type PersonalCreditScheduleStore, type PersonalCreditSweep } from "../../application/billing/personal-credit-schedule.port";
 import { assertBillingGlobalStatement } from "./billing-global-boundary";
 import { PERSONAL_CREDIT_TERM_SQL as SQL } from "./personal-credit-term-sql";
+import { CREDIT_PERIOD_GRANT_SQL } from "./credit-period-sql";
+import { normalizeCreditPeriods } from "./pg-credit-periods";
 import { grantDuePersonalTerms } from "./personal-credit-terms";
 
 /** Only closed billing metadata/accounting statements cross the owner-global scheduler boundary. */
@@ -19,7 +21,11 @@ export class PgPersonalCreditScheduleStore implements PersonalCreditScheduleStor
       try {
         await this.db.withoutTenant(raw => {
           const s: TenantSession = { query(sql,params) { assertBillingGlobalStatement(sql); return raw.query(sql,params); } };
-          return grantDuePersonalTerms(s,owner.user_id);
+          return (async()=>{
+            await grantDuePersonalTerms(s,owner.user_id);
+            const wallet=(await s.query<{wallet_id:string}>(CREDIT_PERIOD_GRANT_SQL.periodLockUserWallet,[owner.user_id])).rows[0];
+            if(wallet)await normalizeCreditPeriods(s,wallet.wallet_id,new Date());
+          })();
         });
         processed++;
       } catch(error) {

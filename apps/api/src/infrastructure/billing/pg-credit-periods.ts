@@ -1,9 +1,10 @@
+import {CreditPeriodKind} from "@repo/contracts/billing-credits";
 import {MONTHLY_SUBSCRIPTION_CREDITS} from "@repo/contracts/billing-subscription";
 import type {TenantSession} from "../../application/ports/database.port";
 import {creditDecimal, creditHundredths} from "../../application/billing/credit-consumption";
 import {CREDIT_PERIOD_GRANT_SQL as SQL} from "./credit-period-sql";
 
-type Period = {period_id: string; wallet_id: string; subscription_ref: string; invoice_ref: string; plan_ref: string;
+type Period = {source_kind: string; period_id: string; wallet_id: string; subscription_ref: string; invoice_ref: string; plan_ref: string;
   period_start: Date; period_end: Date; granted_hundredths: string; remaining_hundredths: string};
 type PaidPeriod = {userId: string; subscriptionRef: string; invoiceRef: string; periodStart: Date; periodEnd: Date; planRef: string};
 const monthlyHundredths = BigInt(MONTHLY_SUBSCRIPTION_CREDITS) * 100n;
@@ -11,14 +12,15 @@ const creditLimit = 214748364700n;
 
 /** Caller holds the wallet lock. Expiration and financial audit commit together. */
 export async function normalizeCreditPeriods(s: TenantSession, walletId: string, at: Date): Promise<void> {
-  const periods = (await s.query<Pick<Period, "period_id" | "remaining_hundredths">>(
+  const periods = (await s.query<Pick<Period, "period_id" | "source_kind" | "remaining_hundredths">>(
     SQL.periodDue, [walletId, at])).rows;
   for (const period of periods) {
+    const kind=CreditPeriodKind.parse(period.source_kind);
     const remaining = BigInt(period.remaining_hundredths);
     if (remaining > 0n) {
       const wallet = (await s.query<{balance: string}>(SQL.periodExpireWallet, [walletId, creditDecimal(remaining)])).rows[0];
       if (!wallet) throw new Error("credit_wallet_missing");
-      await s.query(SQL.periodExpireLedger, [walletId, creditDecimal(remaining), wallet.balance, period.period_id]);
+      await s.query(kind === "welcome" ? SQL.welcomePeriodExpireLedger : SQL.periodExpireLedger, [walletId, creditDecimal(remaining), wallet.balance, period.period_id]);
     }
     await s.query(SQL.periodMarkExpired, [period.period_id, at]);
   }
@@ -67,8 +69,9 @@ export async function allocateCreditDebit(s: TenantSession, input: {walletId: st
 }
 
 /** Read after normalization under the wallet lock; expiry is not dependent on a background job. */
-export async function creditPeriodSnapshot(s: TenantSession, walletId: string): Promise<{hundredths: bigint; expiresAt: string | null}> {
-  const row = (await s.query<{hundredths: string; expires_at: Date | null}>(`SELECT COALESCE(sum(remaining_hundredths),0)::text AS hundredths,
-    min(period_end) AS expires_at FROM credit_subscription_periods WHERE wallet_id=$1 AND expired_at IS NULL`, [walletId])).rows[0]!;
-  return {hundredths: BigInt(row.hundredths), expiresAt: row.expires_at?.toISOString() ?? null};
+export async function creditPeriodSnapshot(s: TenantSession, walletId: string): Promise<{hundredths: bigint; welcomeHundredths: bigint; expiresAt: string | null}> {
+  const row = (await s.query<{hundredths: string; welcome_hundredths: string; expires_at: Date | null}>(`SELECT COALESCE(sum(remaining_hundredths) FILTER(WHERE source_kind='subscription'),0)::text AS hundredths,
+    COALESCE(sum(remaining_hundredths) FILTER(WHERE source_kind='welcome'),0)::text AS welcome_hundredths,
+    min(period_end) FILTER(WHERE source_kind='subscription') AS expires_at FROM credit_subscription_periods WHERE wallet_id=$1 AND expired_at IS NULL`, [walletId])).rows[0]!;
+  return {hundredths: BigInt(row.hundredths), welcomeHundredths: BigInt(row.welcome_hundredths), expiresAt: row.expires_at?.toISOString() ?? null};
 }

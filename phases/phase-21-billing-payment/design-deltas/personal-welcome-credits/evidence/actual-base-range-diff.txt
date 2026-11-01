@@ -1,0 +1,3 @@
+1:  0cf4c0710 = 1:  d2bc06260 feat(billing): grant expiring welcome credits on account creation
+2:  5dc026ce5 = 2:  55538a31d test(billing): verify welcome credit migration and registration; Refs #6092
+3:  63bd75abd = 3:  2706a5be5 docs(billing): retain welcome checkpoint gate results; Refs #6092
