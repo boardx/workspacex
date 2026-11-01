@@ -1,6 +1,7 @@
 /**
- * #6088 pricing design delta. Draft API contracts, not connected to runtime.
- * Existing v1 orders and callbacks keep their original contracts and snapshots.
+ * #6088 confirmed personal billing contracts; runtime wiring follows separately.
+ * Legacy billing data is reset at cutover, with no legacy entitlement migration.
+ * Immutable snapshots below protect purchases created by the new system.
  */
 import { z } from "zod";
 import { BillingProvider } from "./billing-credits";
