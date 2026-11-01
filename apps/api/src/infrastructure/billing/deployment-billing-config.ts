@@ -99,6 +99,7 @@ function stripe(env: Deployment): StripeDeployment | null {
 
 /** One immutable startup snapshot, shared by public availability and later payment adapters. */
 export class DeploymentBillingConfig implements BillingConfigPort {
+  private readonly pricingMarket: "cn" | "us" | null;
   private readonly wechat: WechatDeployment | null;
   private readonly stripe: StripeDeployment | null;
   private readonly wechatEnabled: boolean;
@@ -107,6 +108,7 @@ export class DeploymentBillingConfig implements BillingConfigPort {
     this.wechat = wechat(env);
     this.stripe = stripe(env);
     const deployment=text(env,"BILLING_DEPLOYMENT").toLowerCase();
+    this.pricingMarket = deployment === "us" ? "us" : deployment === "cn" || deployment === "devapp" ? "cn" : null;
     const valid=["","cn","us","devapp"].includes(deployment);
     this.wechatEnabled = valid&&deployment!=="us"&&purchaseEnabled(env, "BILLING_WECHAT_ENABLED");
     const stripeModeAllowed=deployment==="devapp"?this.stripe?.secretKey.startsWith("sk_test_"):deployment==="us"?this.stripe?.secretKey.startsWith("sk_live_"):true;
@@ -115,6 +117,7 @@ export class DeploymentBillingConfig implements BillingConfigPort {
   getPublicConfig(): ReturnType<BillingConfigPort["getPublicConfig"]> {
     return { enabledProviders: [...(this.wechat && this.wechatEnabled ? ["wechat" as const] : []), ...(this.stripe && this.stripeEnabled ? ["stripe" as const] : [])] };
   }
+  getPricingMarket(): "cn" | "us" | null { return this.pricingMarket; }
   // Credential access remains available for existing-order callbacks and renewal settlement.
   getWechat(): WechatDeployment | null { return this.wechat; }
   getStripe(): StripeDeployment | null { return this.stripe; }
