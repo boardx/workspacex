@@ -1,9 +1,11 @@
+import {PERSONAL_CREDIT_TERM_SQL} from "./personal-credit-term-sql";
 import {STRIPE_CREDIT_SQL} from "./stripe-credit-sql";
 import {MONTHLY_PASS_SQL} from "./monthly-pass-sql";
 import {CREDIT_PERIOD_GRANT_SQL} from "./credit-period-sql";
 /** Single-source global billing statements for verified receipts, Stripe subscription synchronization and order expiry. No caller-supplied SQL is admitted. */
 export const BILLING_GLOBAL_SQL = Object.freeze({
   ...CREDIT_PERIOD_GRANT_SQL,
+  ...PERSONAL_CREDIT_TERM_SQL,
   ...MONTHLY_PASS_SQL,
   stripeEventLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
   stripeUserLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
