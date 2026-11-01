@@ -75,6 +75,7 @@ class PolicyConstruction(unittest.TestCase):
    file=Path(directory)/'input';file.write_text('PROVISION_ADMIN_EMAIL=a@example.com\nPROVISION_ADMIN_PASSWORD=fixture-password\nPROVISION_ADMIN_NAME=Admin\nPROVISION_ORG_NAME=Org\n')
    for environment in ('us','cn'):
     base={'PGHOST':'postgres','PGPORT':'5432','PGDATABASE':'workspacex','PGSSLMODE':'disable','APP_DB_USER':'app_rw'}
+    base['WECHAT_PAY_PRIVATE_KEY']='-----BEGIN KEY-----\r\nfixture\n-----END KEY-----\n'
     if environment=='cn':base['WORKSPACEX_DEPLOY_PROFILE']='production'
     api={'Config':{'Env':[k+'='+v for k,v in base.items()]},'NetworkSettings':{'Networks':{('workspacex-selfhost-runtime' if environment=='us' else 'cn-network'):{'NetworkID':'a'*64}}}}
     target={'sourceRevision':m.SOURCE,'imageId':'target','image':'registry/api@sha256:'+'a'*64};policy={environment+'Database':{'targetApiImageId':'target'}}
@@ -83,7 +84,7 @@ class PolicyConstruction(unittest.TestCase):
     def trust(path,*args):observed.append(str(path));return file
     with patch.object(m,'trusted',side_effect=trust),patch.object(m,'database_network') as network,patch.object(m.os,'access',return_value=True):
      spec=m.policy_spec(environment,{},api,target,policy,Mock(),Mock(),core,[],cn)
-    self.assertEqual(spec['timeoutSeconds'],60);self.assertEqual(spec['binding']['profile'],'starter' if environment=='us' else 'production');self.assertEqual(spec['binding']['networkId'],'a'*64);self.assertIn(spec['binding']['adminEnv'],spec['inputs']);network.assert_called_once()
+    self.assertEqual(spec['binding']['baselineEnvSha256'],hashlib.sha256(__import__('json').dumps(base,sort_keys=True).encode()).hexdigest());self.assertEqual(spec['timeoutSeconds'],60);self.assertEqual(spec['binding']['profile'],'starter' if environment=='us' else 'production');self.assertEqual(spec['binding']['networkId'],'a'*64);self.assertIn(spec['binding']['adminEnv'],spec['inputs']);network.assert_called_once()
     expected='/etc/workspacex-selfhost/probe.env' if environment=='us' else '/fixed/original/bootstrap.env';self.assertIn(expected,observed)
     with self.assertRaisesRegex(ValueError,'BOOTSTRAP_TARGET_SOURCE'):m.policy_spec(environment,{},api,{**target,'sourceRevision':'b'*40},policy,Mock(),Mock(),core,[],cn)
     with self.assertRaisesRegex(ValueError,'BOOTSTRAP_PREPARED_TARGET_DRIFT'):m.policy_spec(environment,{},api,{**target,'imageId':'foreign'},policy,Mock(),Mock(),core,[],cn)
@@ -93,3 +94,22 @@ class PolicyConstruction(unittest.TestCase):
   for path in ['/run/other/ca.pem','relative.pem','/run/tls/../outside']:
    with self.assertRaises(ValueError):m.original_ca_file(api,path)
   with self.assertRaises(ValueError):m.original_ca_file({'Mounts':api['Mounts']*2},'/run/tls/ca.pem')
+
+class DockerEnvironmentParsing(unittest.TestCase):
+ def test_unrelated_multiline_pem_preserved_in_memory_but_never_generated(self):
+  import hashlib,json
+  m=module();pem='-----BEGIN PRIVATE KEY-----\nline1\nline2\n-----END PRIVATE KEY-----\n';lines=['PGHOST=postgres','PGPORT=5432','PGDATABASE=workspacex','PGSSLMODE=disable','APP_DB_USER=app_rw','WECHAT_PAY_PRIVATE_KEY='+pem]
+  base=m.parse_docker_env(lines);self.assertEqual(base['WECHAT_PAY_PRIVATE_KEY'],pem)
+  admin={'PROVISION_ADMIN_EMAIL':'a@example.com','PROVISION_ADMIN_PASSWORD':'privateadmin123','PROVISION_ADMIN_NAME':'Admin','PROVISION_ORG_NAME':'Org'}
+  selected=m.inputs(base,admin,'us','starter');self.assertNotIn('WECHAT_PAY_PRIVATE_KEY',selected);self.assertEqual(m.env_map([k+'='+v for k,v in selected.items()]),selected)
+  self.assertNotEqual(hashlib.sha256(json.dumps(base,sort_keys=True).encode()).hexdigest(),hashlib.sha256(json.dumps({**base,'WECHAT_PAY_PRIVATE_KEY':pem.replace('\n','')},sort_keys=True).encode()).hexdigest())
+ def test_docker_parser_rejects_null_duplicate_or_malformed_names(self):
+  m=module()
+  for bad in (['A=1','A=2'],['A=has\0null'],['A\nB=x'],['INVALID KEY=x'],['missing-equals'],[None]):
+   with self.subTest(bad=bad),self.assertRaises(ValueError):m.parse_docker_env(bad)
+ def test_selected_db_and_admin_controls_remain_rejected(self):
+  m=module();base={'PGHOST':'postgres','PGPORT':'5432','PGDATABASE':'workspacex','PGSSLMODE':'disable','APP_DB_USER':'app_rw','APP_DB_PASSWORD':'password'};admin={'PROVISION_ADMIN_EMAIL':'a@example.com','PROVISION_ADMIN_PASSWORD':'privateadmin123','PROVISION_ADMIN_NAME':'Admin','PROVISION_ORG_NAME':'Org'}
+  for control in ('\r','\n','\0'):
+   with self.subTest(control=repr(control)):
+    with self.assertRaisesRegex(ValueError,'ENV_SERIALIZATION'):m.inputs({**base,'APP_DB_PASSWORD':'before'+control+'after'},admin,'us','starter')
+    with self.assertRaisesRegex(ValueError,'ENV_SERIALIZATION'):m.inputs(base,{**admin,'PROVISION_ADMIN_NAME':'before'+control+'after'},'us','starter')

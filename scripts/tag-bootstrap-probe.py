@@ -42,6 +42,19 @@ def env_map(lines):
   k,v=line.split('=',1);need(re.fullmatch('[A-Za-z_][A-Za-z0-9_]*',k) and k not in result,'ENV_AMBIGUOUS');result[k]=v
  return result
 
+def parse_docker_env(lines):
+ """Docker inspect values may contain PEM newlines; never an env-file serializer.
+
+ Preserve complete original values for the baseline identity hash. Only inputs()
+ selects DB/admin fields, and its strict env_map roundtrip gates every line that
+ is subsequently written to a generated env file.
+ """
+ result={}
+ for line in lines:
+  need(type(line) is str and '=' in line and '\0' not in line,'ENV_SERIALIZATION')
+  k,v=line.split('=',1);need(re.fullmatch('[A-Za-z_][A-Za-z0-9_]*',k) and k not in result,'ENV_AMBIGUOUS');result[k]=v
+ return result
+
 def inputs(base,admin,environment,profile):
  need(all(type(admin.get(k)) is str and admin[k] for k in ADMIN),'BOOTSTRAP_ADMIN_INPUT_MISSING')
  need(profile in ('starter','production'),'BOOTSTRAP_PROFILE')
@@ -112,7 +125,7 @@ def policy_spec(environment,cfg,api,target,source_policy,docker,prep,core,closur
  need(target.get('sourceRevision')==SOURCE,'BOOTSTRAP_TARGET_SOURCE')
  need(target.get('imageId')==source_policy[environment+'Database']['targetApiImageId'],'BOOTSTRAP_PREPARED_TARGET_DRIFT')
  admin_path=Path('/etc/workspacex-selfhost/probe.env') if environment=='us' else Path(cn.ENV).parent/'bootstrap.env'
- admin_path=trusted(admin_path,True);raw=admin_path.read_text();admin=env_map([l for l in raw.splitlines() if l and not l.startswith('#')]);base=env_map(api['Config']['Env'])
+ admin_path=trusted(admin_path,True);raw=admin_path.read_text();admin=env_map([l for l in raw.splitlines() if l and not l.startswith('#')]);base=parse_docker_env(api['Config']['Env'])
  profile='starter' if environment=='us' else base.get('WORKSPACEX_DEPLOY_PROFILE')
  inputs(base,admin,environment,profile)
  network='workspacex-selfhost-runtime' if environment=='us' else cn.NETWORK
@@ -154,7 +167,7 @@ def main():
   path=trusted(ref['path'],ref.get('private',False));need(core.file_sha(path)==ref['sha256'],'BOOTSTRAP_INPUT_DRIFT')
  d=engine.Docker('/usr/bin/docker');baseline=p['baseline']['api'];rows=d.json(['inspect',baseline['containerId']]);need(len(rows)==1,'API_CONTAINER_SET');row=rows[0]
  need(row['Id']==baseline['containerId'] and row['Image']==baseline['imageId'] and row['Config']['Labels'].get('com.docker.compose.project')==p['project'] and row['Config']['Labels'].get('com.docker.compose.service')=='api','BASELINE_API_BINDING')
- base=env_map(row['Config']['Env']);env_sha=core.sha(json.dumps(base,sort_keys=True).encode());need(env_sha==binding['baselineEnvSha256'],'BASELINE_ENV_DRIFT')
+ base=parse_docker_env(row['Config']['Env']);env_sha=core.sha(json.dumps(base,sort_keys=True).encode());need(env_sha==binding['baselineEnvSha256'],'BASELINE_ENV_DRIFT')
  image=binding['image'];image_rows=d.json(['image','inspect',image['imageId']]);need(len(image_rows)==1,'TARGET_IMAGE_SET');target=image_rows[0]
  need(target['Os']=='linux' and target['Architecture']=='amd64' and target['Id']==image['imageId'] and target['Config']['Labels'].get('org.opencontainers.image.revision')==SOURCE and image['image'] in target.get('RepoDigests',[]),'TARGET_IMAGE_BINDING')
  digest=image['image'].split('@')[-1];need(re.fullmatch('sha256:[a-f0-9]{64}',digest),'TARGET_REGISTRY_DIGEST')
