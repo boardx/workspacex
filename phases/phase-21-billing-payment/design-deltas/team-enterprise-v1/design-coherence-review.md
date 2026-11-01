@@ -10,3 +10,5 @@
 核心成员口径、续购保留已购容量、Stripe权威折算与首期取整、Enterprise不受Team期限/席位上限及不自动月发仍明确列为待人工采纳提案。个人缺绑定恢复已单独人工签核并验过，不自动覆盖本束。
 
 现有execution-plan/ui-material/third-artifact静态命令主要扫描既有计划/契约束；其退出0不表示本草案有运行时证据。当前新增API、Team财务/成员门禁及Enterprise操作均未实现，测试矩阵全部为计划验证。
+
+修订草案独立复审：1944d13dfadcf03e3c0d51c729fc077f5a644bd3，reviewer /root/pricing_ui_review，结论可作为Draft PR发布，无新增P1/P2；原两项P2闭环。仅静态复核，未运行测试。P3残留“个人恢复独立待签”已改为单独人工确认、实现待顺序集成；不改变Team pending或未完成第③件的边界。
