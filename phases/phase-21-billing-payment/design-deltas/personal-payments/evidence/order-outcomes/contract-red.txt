@@ -1,0 +1,131 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-order-outcomes.test.ts (6 tests | 4 failed) 14ms
+   × preserves known fields and allows unknown original binding for SUCCESS 6ms
+     → [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "qrCodeUrl"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+   × preserves known fields and allows unknown original binding for FAILED 1ms
+     → [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "qrCodeUrl"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+   × preserves known fields and allows unknown original binding for CLOSED 0ms
+     → [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "qrCodeUrl"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+   × returns the original checkout reference with either a complete binding or two explicit nulls 1ms
+     → [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "url"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "expiresAt"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-order-outcomes.test.ts > preserves known fields and allows unknown original binding for SUCCESS
+ FAIL  tests/billing-order-outcomes.test.ts > preserves known fields and allows unknown original binding for FAILED
+ FAIL  tests/billing-order-outcomes.test.ts > preserves known fields and allows unknown original binding for CLOSED
+ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "qrCodeUrl"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodObject.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-order-outcomes.test.ts:12:49
+     10| });
+     11| it.each(["SUCCESS","FAILED","CLOSED"])("preserves known fields and all…
+     12|  for(const patch of missing)expect(BillingOrder.parse({...order,status…
+       |                                                 ^
+     13| });
+     14| it("returns the original checkout reference with either a complete bin…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/billing-order-outcomes.test.ts > returns the original checkout reference with either a complete binding or two explicit nulls
+ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "url"
+    ],
+    "message": "Expected string, received null"
+  },
+  {
+    "code": "invalid_type",
+    "expected": "string",
+    "received": "null",
+    "path": [
+      "expiresAt"
+    ],
+    "message": "Expected string, received null"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-order-outcomes.test.ts:16:32
+     14| it("returns the original checkout reference with either a complete bin…
+     15|  const result={purchaseRef:order.orderNo,url:order.qrCodeUrl,expiresAt…
+     16|  expect(PersonalCheckoutResult.parse({...result,url:null,expiresAt:nul…
+       |                                ^
+     17|  expect(PersonalCheckoutResult.safeParse({...result,url:null}).success…
+     18|  expect(PersonalCheckoutResult.safeParse({...result,expiresAt:null}).s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 2 passed (6)
+   Start at  05:13:20
+   Duration  578ms (transform 120ms, setup 0ms, collect 124ms, tests 14ms, environment 0ms, prepare 125ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-order-outcomes.test.ts

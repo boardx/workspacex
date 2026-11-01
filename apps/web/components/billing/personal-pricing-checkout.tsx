@@ -31,16 +31,19 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
   try{
    const path=billingCredits.operations.getPaymentOrder.path.replace(":orderNo",encodeURIComponent(pending.result.purchaseRef));
    const {order:current}=billingCredits.operations.getPaymentOrder.out.parse(await apiRequest<unknown>(path,{sessionToken,signal:controller.signal}));
-   if(current.ownerType!=="user"||current.ownerId!==userId||current.orderNo!==pending.result.purchaseRef||current.provider!==pending.request.provider||current.packageId!==pending.request.sku||current.qrCodeUrl!==pending.result.url||current.expiredAt!==pending.result.expiresAt)throw Error("payment_scope_mismatch");
-   requirePaymentUrl(current.qrCodeUrl,current.provider);
+   if(current.ownerType!=="user"||current.ownerId!==userId||current.orderNo!==pending.result.purchaseRef||current.provider!==pending.request.provider||current.packageId!==pending.request.sku||(pending.result.url!==null&&current.qrCodeUrl!==pending.result.url)||(pending.result.expiresAt!==null&&current.expiredAt!==pending.result.expiresAt))throw Error("payment_scope_mismatch");
+   if(current.qrCodeUrl!==null)requirePaymentUrl(current.qrCodeUrl,current.provider);
    const quoted=catalog.version===pending.request.catalogVersion?catalog.products.find(p=>p.sku===pending.request.sku):null;
    if(quoted&&(current.amountFen!==quoted.amountMinor||current.currency!==quoted.currency||current.baseCredits!==(quoted.kind==="subscription"?quoted.monthlyCredits:quoted.credits)||current.bonusCredits!==0))throw Error("payment_quote_mismatch");
-   if(snapshot.current&&["amountFen","currency","baseCredits","bonusCredits","packageId","qrCodeUrl","expiredAt"].some(key=>current[key as keyof Order]!==snapshot.current![key as keyof Order]))throw Error("payment_snapshot_mismatch");
+   if(snapshot.current&&["amountFen","currency","baseCredits","bonusCredits","packageId","qrCodeUrl","expiredAt"].some(key=>{
+    const previous=snapshot.current![key as keyof Order];return current[key as keyof Order]!==previous&&!((key==="qrCodeUrl"||key==="expiredAt")&&previous===null);
+   }))throw Error("payment_snapshot_mismatch");
    if(!mounted.current||controller.signal.aborted)return;snapshot.current=current;setOrder(current);setReadError(false);setNow(Date.now());setQrVersion(version=>version+1);
+   if(["SUCCESS","FAILED","CLOSED"].includes(current.status))autoStripe.current=false;
    if(current.status==="SUCCESS"){
     autoStripe.current=false;
     if(!completed.current){completed.current=true;try{clearPersonalCheckout(localStorage,userId,pending.request.idempotencyKey);}catch{setMessage("支付已确认，本地记录未能清理，请保留订单号。");}try{onPaid();}catch{/* A refresh callback cannot reverse verified payment. */}}
-   }else if(current.status==="PENDING"&&current.provider==="stripe"&&autoStripe.current&&Date.parse(current.expiredAt)>Date.now()){
+   }else if(current.status==="PENDING"&&current.provider==="stripe"&&autoStripe.current&&current.expiredAt!==null&&current.qrCodeUrl!==null&&Date.parse(current.expiredAt)>Date.now()){
     autoStripe.current=false;navigate(requirePaymentUrl(current.qrCodeUrl,"stripe"));
    }
   }catch{if(mounted.current){autoStripe.current=false;setReadError(true);}}
@@ -54,15 +57,15 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
   return()=>clearInterval(timer);
  },[context]);
  React.useEffect(()=>{
-  if(!context?.result)return;
-  const delay=Date.parse(context.result.expiresAt)-Date.now();
+  const expiresAt=context?.result?.expiresAt;if(!expiresAt)return;
+  const delay=Date.parse(expiresAt)-Date.now();
   if(delay<=0){setNow(Date.now());return;}
   if(delay>2147483647)return;
   const timer=setTimeout(()=>setNow(Date.now()),delay+1);return()=>clearTimeout(timer);
  },[context]);
- const canPay=order?.status==="PENDING"&&!readError&&Date.parse(order.expiredAt)>now;
+ const canPay=order?.status==="PENDING"&&!readError&&order.expiredAt!==null&&order.qrCodeUrl!==null&&Date.parse(order.expiredAt)>now;
  React.useEffect(()=>{
-  setQrError(false);if(!canPay||order?.provider!=="wechat"||!canvas.current)return;
+  setQrError(false);if(!canPay||order?.provider!=="wechat"||order.qrCodeUrl===null||!canvas.current)return;
   let alive=true;void QRCode.toCanvas(canvas.current,order.qrCodeUrl,{width:240,margin:2,errorCorrectionLevel:"M"}).catch(()=>{if(alive)setQrError(true);});return()=>{alive=false;};
  },[canPay,order?.provider,order?.qrCodeUrl,qrVersion]);
  const submit=async(pending:PendingPersonalCheckout)=>{
@@ -74,7 +77,7 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
    if(saved.result){setContext(saved);return;}
    const response=await apiRequest<unknown>(pricing.createPersonalCheckout.path,{method:pricing.createPersonalCheckout.method,body:pending.request,sessionToken,signal:controller.signal});
    if(!mounted.current||controller.signal.aborted)return;
-   const bound=bindPersonalCheckout(localStorage,userId,pending.request.idempotencyKey,response);autoStripe.current=true;setContext(bound);
+   const bound=bindPersonalCheckout(localStorage,userId,pending.request.idempotencyKey,response);autoStripe.current=bound.result?.url!=null;setContext(bound);
   }catch(error){
    if(!mounted.current)return;
    const noIntent=error instanceof ApiError&&["catalog_changed","product_unavailable","payment_provider_not_configured","already_subscribed"].includes(error.reasonCode??"");
@@ -106,7 +109,7 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
     {order?.status==="SUCCESS"?<div className="space-y-3"><p data-testid="pricing-checkout-success" role="status" className="rounded-control bg-success p-3 text-success-foreground">支付已确认，请查看账户额度。</p><Button data-testid="pricing-payment-done" variant="primary" onClick={onClose}>完成</Button></div>:order?.status==="FAILED"?<p role="alert" className="text-13 text-destructive">付款需要人工核实，请保留订单号并联系支持，勿重复付款。</p>:order?.status==="CLOSED"?<div className="space-y-3"><p role="status">订单已确认关闭。</p><Button onClick={()=>{try{clearPersonalCheckout(localStorage,userId,context.request.idempotencyKey);setContext(null);setOrder(null);snapshot.current=null;completed.current=false;setMessage(null);}catch{setFatal("无法清理原订单记录，请联系支持。");}}}>重新选择套餐</Button></div>:<>
      {canPay&&order?.provider==="wechat"&&<canvas hidden={qrError} data-testid="pricing-checkout-qr" ref={canvas} className="mx-auto" role="img" aria-label="微信支付二维码"/>}
      {qrError&&<p role="status" className="text-13 text-destructive">二维码暂时无法显示，请刷新付款状态后重试。</p>}
-     {canPay&&order?.provider==="stripe"&&<Button variant="primary" onClick={()=>navigate(requirePaymentUrl(order.qrCodeUrl,"stripe"))}>前往 Stripe 付款</Button>}
+     {canPay&&order?.provider==="stripe"&&order.qrCodeUrl!==null&&<Button variant="primary" onClick={()=>navigate(requirePaymentUrl(order.qrCodeUrl!,"stripe"))}>前往 Stripe 付款</Button>}
      {order&&order.status==="PENDING"&&!canPay&&!readError&&<p role="status" className="text-13 text-muted-foreground">付款时间已过，正在核实最终结果，勿重复付款。</p>}
      {order?.status==="PROCESSING"&&<p role="status">付款正在处理，请稍后刷新。</p>}
     </>}

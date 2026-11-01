@@ -123,15 +123,17 @@ export const BillingOrder = z
     baseCredits: CreditsAmount,
     bonusCredits: z.number().int().nonnegative(),
     currency: z.string().min(1),
-    qrCodeUrl: z.string().min(1), // 微信为 Native 二维码；Stripe 为可信 Checkout 地址（保留兼容字段名）
+    qrCodeUrl: z.string().min(1).nullable(), // 终态原支付页未知时为空；待支付必须是真实绑定
     createdAt: IsoDateTime,
     paidAt: IsoDateTime.nullable(), // 仅 SUCCESS 后可非空（I-14）
     notifyAt: IsoDateTime.nullable(),
-    expiredAt: IsoDateTime, // createdAt + 15min
+    expiredAt: IsoDateTime.nullable(), // 原支付页真实期限；终态未知时不编造
     closedAt: IsoDateTime.nullable(), // 仅 CLOSED 后可非空
     lastErrorCode: BillingErrorCode.nullable(), // 失败留痕（用户可读错误码）
   })
-  .strict();
+  .strict().superRefine((value,ctx)=>{
+    if((value.status==="PENDING"||value.status==="PROCESSING")&&(value.qrCodeUrl===null||value.expiredAt===null))ctx.addIssue({code:"custom",message:"pending payment requires its original address and expiry"});
+  });
 
 export const CreditWallet = z
   .object({

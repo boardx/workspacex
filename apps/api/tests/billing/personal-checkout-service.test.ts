@@ -64,3 +64,19 @@ it("does not reserve a new purchase when new sales are disabled", async () => {
   await expect(f.service.checkout(principal, request)).rejects.toThrow("payment_provider_not_configured");
   expect(f.stored()).toBeNull(); expect(f.calls()).toBe(0);
 });
+it.each([
+ {label:"fulfilled",patch:{fulfilledAt:new Date()}},
+ {label:"closed",patch:{closedAt:new Date()}},
+ {label:"manual review",patch:{paymentReviewRequired:true}},
+])("recovers a $label purchase without original payment binding or another provider call",async({patch})=>{
+ const f=fixture();f.timeOut(true);await expect(f.service.checkout(principal,request)).rejects.toThrow("dependency_unavailable");
+ Object.assign(f.stored()!,patch);f.disable();f.timeOut(false);const before=f.calls();
+ expect(await f.service.checkout(principal,request)).toEqual({purchaseRef:f.stored()!.purchaseRef,url:null,expiresAt:null,provider:"stripe",renewalMode:"automatic"});
+ expect(f.calls()).toBe(before);
+ for(const changed of [{sku:"pro-us-month-v1"},{provider:"wechat"},{catalogVersion:"a-different-catalog"}])await expect(f.service.checkout(principal,{...request,...changed})).rejects.toThrow("idempotency_conflict");
+ expect(f.calls()).toBe(before);
+});
+it("preserves a known terminal binding and never recreates it after the provider retry window",async()=>{
+ const f=fixture(),first=await f.service.checkout(principal,request);Object.assign(f.stored()!,{fulfilledAt:new Date(),createdAt:new Date(0)});f.disable();
+ expect(await f.service.checkout(principal,request)).toEqual(first);expect(f.calls()).toBe(1);
+});

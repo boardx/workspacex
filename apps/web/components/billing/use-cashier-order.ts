@@ -32,10 +32,12 @@ function validateOrder(raw: unknown, owner: CashierOwner, expected?: LiveOrder):
   if (order.ownerType !== owner.ownerType || order.ownerId !== owner.ownerId || !PricingCurrency.safeParse(order.currency).success || order.provider === "wechat" && order.currency !== "CNY") throw new Error("ORDER_SCOPE_MISMATCH");
   const terminalStripe=order.provider==="stripe"&&["SUCCESS","CLOSED","FAILED"].includes(order.status)&&order.qrCodeUrl==="pending";
   // Completed Checkout may have no URL; never render the internal placeholder as a link.
-  if(!terminalStripe){
+  if(!terminalStripe&&order.qrCodeUrl!==null){
   requirePaymentUrl(order.qrCodeUrl, order.provider);
   }
-  if (expected && ["provider", "orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => order[key as keyof LiveOrder] !== expected[key as keyof LiveOrder])) throw new Error("ORDER_SNAPSHOT_MISMATCH");
+  if (expected && ["provider", "orderNo", "packageId", "amountFen", "baseCredits", "bonusCredits", "currency", "expiredAt", "qrCodeUrl"].some(key => {
+    const previous=expected[key as keyof LiveOrder];return order[key as keyof LiveOrder]!==previous&&!((key==="qrCodeUrl"||key==="expiredAt")&&previous===null);
+  })) throw new Error("ORDER_SNAPSHOT_MISMATCH");
   return order;
 }
 /** A completed order stays in this hook when the dialog closes. No GET can create an intent. */

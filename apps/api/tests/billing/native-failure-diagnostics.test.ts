@@ -23,9 +23,10 @@ describe("Native merchant failure diagnostics",()=>{
     ["timeout-headers","request_timeout"],
   ] satisfies [Mode,string][])("retains safe %s cause and trace without signed bodies or credentials",async(mode,reason)=>{
     const response=await f.create(); const {order}=operations.createPaymentOrder.out.parse(await response.json());
+    const expiredAt=order.expiredAt;if(expiredAt===null)throw Error("pending_order_expiry_required");
     f.state.mode=mode;
     const client=new WechatNativeClient(f.app.get(DeploymentBillingConfig),f.requestLogger);
-    await expect(client.createNativeOrder({...order,createdBy:user},"native-safe-trace")).rejects.toMatchObject({code:"wechat_upstream_failed"});
+    await expect(client.createNativeOrder({...order,expiredAt,createdBy:user},"native-safe-trace")).rejects.toMatchObject({code:"wechat_upstream_failed"});
     const entries=f.requestLogger.drain();
     expect(entries).toContainEqual(expect.objectContaining({msg:"billing_native_failed",fields:expect.objectContaining({traceId:"native-safe-trace",err:expect.objectContaining({reason})})}));
     const log=JSON.stringify(entries);

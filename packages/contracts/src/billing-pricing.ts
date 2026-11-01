@@ -35,10 +35,11 @@ export const PersonalCheckoutRequest = z.object({
   idempotencyKey: z.string().min(16).max(128),
 }).strict();
 export const PersonalCheckoutResult = z.object({
-  purchaseRef: Identifier, url: z.string().url(), expiresAt: Timestamp,
+  purchaseRef: Identifier, url: z.string().url().nullable(), expiresAt: Timestamp.nullable(),
   provider: BillingProvider, renewalMode: RenewalMode,
 }).strict().superRefine((value, ctx) => {
   if (value.provider === "wechat" && value.renewalMode !== "manual") ctx.addIssue({ code: "custom", message: "WeChat purchases renew manually" });
+  if((value.url===null)!==(value.expiresAt===null))ctx.addIssue({code:"custom",message:"checkout address and expiry must both be known or both be null"});
 });
 
 export const WELCOME_CREDIT_PROGRAM = "welcome-credit-v1";

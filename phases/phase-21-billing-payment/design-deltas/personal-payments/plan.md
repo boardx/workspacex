@@ -37,7 +37,7 @@ flowchart TD
   %% evidence S9: 正常链路完整browser16及React93；异常恢复仍待S10
   class S10 done
   %% evidence S10: personal-order-outcomes-v1/design-signoff.md；用户明确采用并授权回填，2026-11-01T21:10:18Z记录
-  class S6 todo
+  class S6 doing
 ```
 
 约束：先在本地 PostgreSQL 保存原请求／金额币种快照及 provider 幂等身份，再联系支付商；同一用户相同幂等键重试复用原意图，改 SKU／付款渠道／目录版本须冲突。创建支付与不可变账单/价格/Checkout查询在事务外。Stripe 可变订阅快照在绑定锁内重新读取一次（上游8秒期限，财务事务12秒statement/2秒lock期限），防止较早查询覆盖较晚取消状态；故障回滚、不持久化猜测状态。Stripe 为 subscription 模式及服务端 month/year recurring price，微信为 Native 一次性付款；不通过旧月卡 mode=payment 冒充自动续费。

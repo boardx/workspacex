@@ -11,7 +11,7 @@ export function loadPersonalCheckout(storage:CheckoutStorage,userId:string):Pend
   const raw=storage.getItem(storageKey(userId));if(raw===null)return null;
   const pending=Pending.parse(JSON.parse(raw));
   if(pending.userId!==userId||pending.result&&pending.result.provider!==pending.request.provider)throw Error("scope_mismatch");
-  if(pending.result)requirePaymentUrl(pending.result.url,pending.result.provider);
+  if(pending.result&&pending.result.url!==null)requirePaymentUrl(pending.result.url,pending.result.provider);
   return pending;
  }catch{throw Error("pending_purchase_unreadable");}
 }
@@ -27,8 +27,11 @@ export function bindPersonalCheckout(storage:CheckoutStorage,userId:string,key:s
  const existing=loadPersonalCheckout(storage,userId);if(!existing)throw Error("pending_purchase_missing");
  const result=PersonalCheckoutResult.parse(input);
  if(existing.request.idempotencyKey!==key||existing.request.provider!==result.provider)throw Error("pending_purchase_conflict");
- requirePaymentUrl(result.url,result.provider);
- if(existing.result&&Object.keys(result).some(field=>existing.result![field as keyof typeof result]!==result[field as keyof typeof result]))throw Error("pending_purchase_conflict");
+ if(result.url!==null)requirePaymentUrl(result.url,result.provider);
+ if(existing.result&&Object.keys(result).some(field=>{
+  const previous=existing.result![field as keyof typeof result];
+  return previous!==result[field as keyof typeof result]&&!((field==="url"||field==="expiresAt")&&previous===null);
+ }))throw Error("pending_purchase_conflict");
  const pending={...existing,result};storage.setItem(storageKey(userId),JSON.stringify(pending));return pending;
 }
 export function clearPersonalCheckout(storage:CheckoutStorage,userId:string,key:string):void {

@@ -43,7 +43,8 @@ it('recovers only the existing unbound order even when new purchases are disable
  const order=await service.reconcile(f.owner,{orderNo:f.orderNo} as OrderDraft & {qrCodeUrl:string});
  expect(order).toMatchObject({orderNo:f.orderNo,provider:'stripe',status:'PENDING',qrCodeUrl:'https://checkout.stripe.com/c/pay/recovered'});
  expect((await asOwner(c=>c.query('SELECT * FROM billing_orders WHERE owner_id=$1',[f.owner.ownerId]))).rows).toHaveLength(1);
- await expect(service.create(f.owner,{...order,createdBy:f.owner.ownerId})).rejects.toMatchObject({code:'payment_provider_not_configured'});
+ const expiredAt=order.expiredAt;if(expiredAt===null)throw Error('pending_order_expiry_required');
+ await expect(service.create(f.owner,{...order,expiredAt,createdBy:f.owner.ownerId})).rejects.toMatchObject({code:'payment_provider_not_configured'});
 });
 
 it.each(['balance','total_purchased'] as const)('persists paid capacity recovery for %s without later automatic credit',async(field)=>{

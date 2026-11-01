@@ -400,3 +400,13 @@ it("shows a USD credit purchase and keeps the Stripe snapshot",async()=>{
  expect(request).toMatchObject({provider:"stripe",packageId:usdOrder.packageId});
  expect(request.amountFen).toBeUndefined();
 });
+it.each(["wechat","stripe"].flatMap(provider=>["SUCCESS","FAILED","CLOSED"].map(status=>({provider,status}))))("restores nullable terminal $provider $status without paying again or counting down",async({provider,status})=>{
+ window.history.replaceState({},"",`/billing?credit_order=${order.orderNo}`);
+ try{
+  const terminal={...order,provider,status,qrCodeUrl:null,expiredAt:null,paidAt:status==="SUCCESS"?new Date().toISOString():null,closedAt:status==="CLOSED"?new Date().toISOString():null};
+  const f=live({providers:[provider as "wechat"|"stripe"],get:()=>reply({order:terminal})});
+  await waitFor(()=>expect(screen.getByTestId("billing-order-status").textContent).toBe(({SUCCESS:"已到账",FAILED:"到账处理失败",CLOSED:"已关闭"} as Record<string,string>)[status]));
+  expect(screen.queryByTestId("billing-qr-code-area")).toBeNull();expect(screen.queryByTestId("billing-order-countdown")).toBeNull();expect(screen.queryByRole("link",{name:"前往 Stripe 付款"})).toBeNull();
+  expect(f.fetcher.mock.calls.filter(([,init])=>init.method==="POST")).toHaveLength(0);expect(QRCode.toCanvas).not.toHaveBeenCalled();
+ }finally{window.history.replaceState({},"","/");}
+});

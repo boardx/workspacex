@@ -9,14 +9,14 @@ export function LiveQrPanel({ order, refresh, regenerate, cancel, cancelling = f
   const [now, setNow] = React.useState(Date.now);
   const [revision, redraw] = React.useReducer((x: number) => x + 1, 0);
   const [qrFailed, setQrFailed] = React.useState(false);
-  const remaining = Math.max(0, Math.ceil((Date.parse(order.expiredAt) - now) / 1000));
+  const remaining = order.expiredAt===null?0:Math.max(0, Math.ceil((Date.parse(order.expiredAt) - now) / 1000));
   const waiting = order.status === "PENDING";
   const stripe = order.provider === "stripe";
-  const visible = !stripe && waiting && remaining > 0 && !cancelling;
+  const visible = !stripe && waiting && remaining > 0 && !cancelling && order.qrCodeUrl!==null;
   const manualClosed = order.status === "CLOSED" && !canRegenerateOrder(order);
   React.useEffect(() => { const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, [order.orderNo]);
   React.useEffect(() => {
-    if (!visible || !canvas.current) return;
+    if (!visible || !canvas.current || order.qrCodeUrl===null) return;
     let stale = false; setQrFailed(false);
     void QRCode.toCanvas(canvas.current, order.qrCodeUrl, { width: 240, margin: 2, errorCorrectionLevel: "M" }).catch(() => { if (!stale) setQrFailed(true); });
     return () => { stale = true; };
@@ -25,7 +25,7 @@ export function LiveQrPanel({ order, refresh, regenerate, cancel, cancelling = f
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-14 font-medium">{stripe ? "Stripe 付款" : "微信扫码支付"}</h3><span className="text-20 font-semibold tabular-nums">{new Intl.NumberFormat("zh-CN", { style: "currency", currency: order.currency }).format(order.amountFen / 100)}</span></div>
     {!visible && <div data-testid="billing-qr-placeholder" className="sr-only">当前无可扫描二维码</div>}
     {visible && <div hidden={qrFailed} data-testid="billing-qr-code-area" className="mx-auto w-fit max-w-full rounded-card bg-white p-3"><canvas ref={canvas} className="h-auto max-w-full" role="img" aria-label="微信支付二维码" /></div>}
-    {stripe && waiting && remaining > 0 && !cancelling && <a className="inline-flex rounded-lg border p-3" href={order.qrCodeUrl} target="_blank" rel="noopener noreferrer">前往 Stripe 付款</a>}
+    {stripe && waiting && remaining > 0 && !cancelling && order.qrCodeUrl!==null && <a className="inline-flex rounded-lg border p-3" href={order.qrCodeUrl} target="_blank" rel="noopener noreferrer">前往 Stripe 付款</a>}
     {order.status === "SUCCESS" && <div className="flex min-h-48 flex-col items-center justify-center gap-4 text-center"><CircleCheck aria-hidden className="h-16 w-16 text-success"/><div role="status" className="space-y-2"><p data-testid="billing-success-badge" className="text-20 font-semibold">支付已确认</p><p data-testid="billing-order-credited" className="text-14 text-muted-foreground">本次到账 {order.baseCredits + order.bonusCredits} 额度</p></div></div>}
     <div className="space-y-3 border-t border-border pt-4"><p data-testid="billing-order-no" className="break-all text-12 leading-relaxed text-muted-foreground">订单号：{order.orderNo}</p>
     <div className="flex items-center gap-2 text-14">{order.status === "SUCCESS" ? <CircleCheck aria-hidden className="h-4 w-4 shrink-0 text-success"/> : order.status === "FAILED" || manualClosed ? <ShieldAlert aria-hidden className="h-4 w-4 shrink-0 text-destructive"/> : <Clock3 aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground"/>}<p data-testid="billing-order-status">{manualClosed ? "等待人工处理" : ({ PENDING: "待支付", PROCESSING: "确认到账中", SUCCESS: "已到账", CLOSED: "已关闭", FAILED: "到账处理失败" })[order.status]}</p></div></div>

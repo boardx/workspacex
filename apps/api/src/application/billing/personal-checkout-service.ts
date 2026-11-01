@@ -24,10 +24,12 @@ export class PersonalCheckoutService {
   }
   private async resume(principal: Principal, purchase: StoredPersonalPurchase) {
     if (purchase.userId !== principal.userId) throw new PersonalCheckoutError("product_unavailable");
+    // Terminal recovery only returns the original identity; a missing creation response cannot create a second payment.
+    if(purchase.fulfilledAt||purchase.closedAt||purchase.paymentReviewRequired)return this.result(purchase);
     if (purchase.url !== null && purchase.expiresAt !== null) return this.result(purchase);
     // Stripe idempotency expires after at least 24h. Unresolved old intents never create a second payment.
     const maxAge = PERSONAL_CHECKOUT_RETRY_WINDOW_MS[purchase.provider];
-    if (Date.now() - purchase.createdAt.getTime() >= maxAge || purchase.closedAt || purchase.fulfilledAt) throw new PersonalCheckoutError("dependency_unavailable");
+    if (Date.now() - purchase.createdAt.getTime() >= maxAge) throw new PersonalCheckoutError("dependency_unavailable");
     let checkout;
     try { checkout = await this.provider.create(purchase); }
     catch { throw new PersonalCheckoutError("dependency_unavailable"); }
@@ -35,7 +37,8 @@ export class PersonalCheckoutService {
     return this.result(bound);
   }
   private result(purchase: StoredPersonalPurchase) {
-    return PersonalCheckoutResult.parse({ purchaseRef: purchase.purchaseRef, url: purchase.url, expiresAt: purchase.expiresAt?.toISOString(),
+    const bound=purchase.url!==null&&purchase.expiresAt!==null;
+    return PersonalCheckoutResult.parse({ purchaseRef: purchase.purchaseRef, url: bound?purchase.url:null, expiresAt: bound?purchase.expiresAt!.toISOString():null,
       provider: purchase.provider, renewalMode: purchase.provider === "stripe" && purchase.product.kind === "subscription" ? "automatic" : "manual" });
   }
 }

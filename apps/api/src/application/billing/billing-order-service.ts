@@ -14,7 +14,7 @@ export interface PersonalOrderReader {
   read(principal: Principal, orderNo: string): Promise<{mode:"legacy"} | {mode:"active";order:OrderView|null}>;
 }
 export type PackageView = z.infer<typeof operations.listPackages.out>["items"][number];
-export type OrderDraft = Omit<OrderView, "qrCodeUrl"> & { readonly createdBy: string };
+export type OrderDraft = Omit<OrderView, "qrCodeUrl" | "expiredAt"> & { readonly createdBy: string; readonly expiredAt: string };
 export type BillingOrderOwner = BillingOwner & { readonly decision: PermissionDecision };
 export interface BillingOrderRepository {
   assertLegacySales?(orgId: OrgId): Promise<void>;

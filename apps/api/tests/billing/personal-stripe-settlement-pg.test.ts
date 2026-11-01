@@ -53,13 +53,13 @@ afterAll(async () => {
     await c.query("UPDATE billing_pricing_epoch SET generation=NULL,activated_at=NULL WHERE singleton=true");
   }); await db.close();
 });
-async function fixture(label: string, year = true, anchor = new Date(Math.floor(Date.now() / 1000) * 1000)) {
+async function fixture(label: string, year = true, anchor = new Date(Math.floor(Date.now() / 1000) * 1000), withBinding = true) {
   const userId = `${prefix}-${label}`; users.push(userId); const principal = { userId, orgId: org }, product = PERSONAL_PRICE_CATALOG.us[year ? 1 : 0];
   let purchase = await checkout.reserve(principal, { sku: product.sku, provider: "stripe", catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `stripe-${randomUUID()}` }, product);
   // Test-only virtual clock: app_rw cannot alter this immutable creation column.
   await asOwner(c => c.query("UPDATE billing_personal_purchases SET created_at=$2 WHERE purchase_ref=$1", [purchase.purchaseRef, anchor]));
   const result = { sessionRef: `cs_${purchase.purchaseRef}`, url: "https://checkout.stripe.com/c/pay/fixture", expiresAt: new Date(anchor.getTime() + 86400000) };
-  purchase = await checkout.bind(principal, purchase.purchaseRef, result);
+  if(withBinding)purchase = await checkout.bind(principal, purchase.purchaseRef, result);
   const snapshots = personalStripePaymentFixture(purchase, anchor);
   const at = new Date(anchor.getTime() + 1000), store = new PgPersonalPaymentRepository(db, () => at);
   const settle = (value = snapshots, current = store) => current.settleStripe(purchase.purchaseRef, value.subscription.id, value.invoice.id, async locked => value.proof(locked));
@@ -359,4 +359,18 @@ it("permits rejection audits in the active epoch without reopening legacy financ
   const rows = await asOwner(async c => (await c.query("SELECT signature_verified,result FROM billing_webhook_events WHERE order_no=$1",[f.purchase.purchaseRef])).rows);
   expect(rows).toEqual([{signature_verified:false,result:"rejected"}]);expect(await f.wallet()).toBeUndefined();
   await expect(new PgBillingCreditingStore(db).due()).rejects.toMatchObject({code:"payment_provider_not_configured"});
+});
+it("reads verified payment settled without original checkout binding without regranting credits",async()=>{
+ const f=await fixture("missing-original-binding",true,undefined,false),reader=new PgPersonalOrderReader(db),principal={userId:f.userId,orgId:org};
+ await expect(reader.read(principal,f.purchase.purchaseRef)).rejects.toMatchObject({code:"payment_provider_not_configured"});
+ await f.settle();const before=await f.wallet();
+ for(let n=0;n<2;n++)expect(await reader.read(principal,f.purchase.purchaseRef)).toMatchObject({mode:"active",order:{status:"SUCCESS",qrCodeUrl:null,expiredAt:null,paidAt:f.anchor.toISOString(),notifyAt:null}});
+ expect(await f.wallet()).toEqual(before);
+ expect(await asApp(org,async c=>(await c.query("SELECT count(*)::int AS n FROM billing_personal_payment_receipts WHERE purchase_ref=$1",[f.purchase.purchaseRef])).rows[0].n)).toBe(1);
+});
+it.each(["closed","manual review"])("reads %s without original checkout binding as a terminal outcome",async state=>{
+ const f=await fixture(`missing-original-${state.replaceAll(" ","-")}`,false,undefined,false);
+ await asOwner(c=>c.query(state==="closed"?"UPDATE billing_personal_purchases SET closed_at=clock_timestamp() WHERE purchase_ref=$1":"UPDATE billing_personal_purchases SET payment_review_required=true WHERE purchase_ref=$1",[f.purchase.purchaseRef]));
+ expect(await new PgPersonalOrderReader(db).read({userId:f.userId,orgId:org},f.purchase.purchaseRef)).toMatchObject({mode:"active",order:{status:state==="closed"?"CLOSED":"FAILED",qrCodeUrl:null,expiredAt:null,paidAt:null,notifyAt:null}});
+ expect(await f.wallet()).toBeUndefined();
 });

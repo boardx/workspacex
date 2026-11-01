@@ -1,0 +1,23 @@
+[stack-admission] load1=2.81 cores=10 perCore=0.28 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvybxmzm-dcbe8a70-cf9f3c8d66f7 db=wsx_cf9f3c8d66f7d68671b6 compose=wsx-cf9f3c8d66f7d68671b6 pg=20437 redis=21437 api=24437 web=25437 sandbox=26437 model=27437 deep-agent=28437 asr=29437 vision=30437 loopback-sandbox=31437 mail=19437
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_cf9f3c8d66f7d68671b6 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (34 tests) 16396ms
+ ✓ tests/billing/personal-checkout-http.test.ts (5 tests) 721ms
+
+ Test Files  2 passed (2)
+      Tests  39 passed (39)
+   Start at  05:15:59
+   Duration  24.38s (transform 1.40s, setup 15ms, collect 2.56s, tests 17.12s, environment 0ms, prepare 99ms)
+
+[db-isolation] db=wsx_cf9f3c8d66f7d68671b6 peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts tests/billing/personal-checkout-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：26s
+  清理：0s
+  总计：27s

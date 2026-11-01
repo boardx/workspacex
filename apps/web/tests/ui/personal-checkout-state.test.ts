@@ -28,3 +28,9 @@ it("retains unreadable pending state and rejects unsafe checkout destinations",(
  expect(loadPersonalCheckout(local,"payer")?.result).toBeNull();
  const [key]=[...local.values.keys()];local.setItem(key!,"broken-json");expect(()=>loadPersonalCheckout(local,"payer")).toThrow("pending_purchase_unreadable");expect(local.getItem(key!)).toBe("broken-json");
 });
+it("keeps a terminal recovery reference without inventing a payment address and accepts later known binding facts",()=>{
+ const local=storage();beginPersonalCheckout(local,"payer",request);const absent={...result,url:null,expiresAt:null};
+ bindPersonalCheckout(local,"payer",request.idempotencyKey,absent);expect(loadPersonalCheckout(local,"payer")?.result).toEqual(absent);
+ bindPersonalCheckout(local,"payer",request.idempotencyKey,result);expect(loadPersonalCheckout(local,"payer")?.result).toEqual(result);
+ expect(()=>bindPersonalCheckout(local,"payer",request.idempotencyKey,{...result,url:"https://checkout.stripe.com/c/pay/another"})).toThrow("pending_purchase_conflict");
+});
