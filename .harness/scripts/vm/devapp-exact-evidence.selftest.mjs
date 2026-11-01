@@ -100,7 +100,16 @@ for(const signal of ['SIGTERM','SIGINT','SIGHUP'])test('real signing supervisor 
  const parent=cp.spawn(process.execPath,['--input-type=module','-e',code],{stdio:['ignore','pipe','pipe']});let output='';parent.stdout.on('data',b=>output+=b);const completion=new Promise(resolve=>parent.once('close',resolve));
  try{
   const deadline=Date.now()+5000;while(!fs.existsSync(ready)&&Date.now()<deadline)await new Promise(r=>setTimeout(r,10));assert.ok(fs.existsSync(ready));const childPid=Number(fs.readFileSync(ready,'utf8'));
-  parent.kill(signal);assert.equal(await completion,3);assert.equal(output,'');assert.equal(fs.existsSync(owned),false);assert.throws(()=>process.kill(childPid,0));
+  parent.kill(signal);assert.equal(await completion,3);assert.equal(output,'');assert.equal(fs.existsSync(owned),false);
+  // A process exit/stdio close can precede the kernel's final PID removal.
+  // Observe termination rather than assuming kill(pid, 0) must fail immediately.
+  const reapedBy=Date.now()+1000;
+  let gone=false;
+  while(Date.now()<reapedBy){
+   try{process.kill(childPid,0);}catch(error){if(error.code==='ESRCH'){gone=true;break;}throw error;}
+   await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  assert.ok(gone,'signing worker must be reaped after supervisor termination');
  }finally{if(parent.exitCode===null)parent.kill('SIGKILL');fs.rmSync(directory,{recursive:true,force:true});}
 });
 
