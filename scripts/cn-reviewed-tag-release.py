@@ -40,9 +40,14 @@ def pinned(value,private=True):
  need(type(value) is dict and set(value)=={'path','sha256'},'PIN_FORMAT');p=trusted(value['path'],private);need(sha(p)==value['sha256'],'PIN_DRIFT');return p
 def load(name,pins):
  p=trusted(HERE/(name+'.py'));need(sha(p)==pins[p.name],'CODE_DRIFT');s=importlib.util.spec_from_file_location('cn_once_'+name.replace('-','_'),p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
-def migrate_once(adapter,record):
+def expected_schema_state(policy):
+ need('expectedSchemaState' not in policy or type(policy['expectedSchemaState']) is str and policy['expectedSchemaState']=='COMPLETE','EXPECTED_SCHEMA_STATE_INVALID')
+ return policy.get('expectedSchemaState')
+def migrate_once(adapter,record,expected_state=None):
  """All or none fixed migration set. Uncertain apply is never replayed."""
+ need(expected_state is None or type(expected_state) is str and expected_state=='COMPLETE','EXPECTED_SCHEMA_STATE_INVALID')
  state=adapter.execute('preflight').get('status');need(state in ('BASELINE','COMPLETE'),'SOURCE_LEDGER_DRIFT')
+ if expected_state=='COMPLETE':need(state=='COMPLETE','COMPLETE_SCHEMA_REQUIRED')
  if state=='COMPLETE':return {'status':'COMPLETE','migrationExecuted':False,'commitAcknowledgementLost':False}
  adapter.stopped();need(adapter.execute('drain').get('ledgerStatus')=='BASELINE','SOURCE_NOT_DRAINED');record({'status':'TRANSACTION_INTENT','source':SOURCE,'tag':TAG,'environment':'cn'})
  unknown=False
@@ -60,6 +65,7 @@ def release_budget(policy,expires,mode,now=None):
  need(mode in ('writer','verifier') and needed<=expires-now<=600,'RELEASE_TOTAL_BUDGET')
 def bind(request_path,receipt_path,mode):
  need(os.geteuid()==0,'ROOT_REQUIRED');policy_path=trusted(POLICY,True);policy=read(policy_path)
+ expected_schema_state(policy)
  need(policy.get('kind')=='cn-reviewed-tag-once-v1' and policy.get('source')==SOURCE and policy.get('tag')==TAG and policy.get('environment')=='cn' and policy.get('restoreNotPerformed') is True,'FIXED_CAPABILITY')
  need(all(type(policy.get(k)) is int and lo<=policy[k]<=hi for k,lo,hi in [('runtimeSeconds',10,120),('businessSeconds',10,120),('writerSeconds',120,400),('rollbackSeconds',30,180),('verifierSeconds',10,120),('outerVerificationSeconds',10,120)]),'BOUNDED_BUDGETS')
  need(policy['rollbackSeconds']>=policy['businessSeconds']+2*policy['runtimeSeconds']+15,'ROLLBACK_BUDGET')
@@ -91,6 +97,7 @@ def bind(request_path,receipt_path,mode):
  return dict(policy=policy,policyRef=ref(policy_path),mods=mods,request=request,config=cfg,manifest=manifest,attempt=attempt,receipt=Path(receipt_path),base=base,fd=fd,d=d,command=command,originalPending=ref(Path(cfg['stateDirectory'])/'pending.json'))
 def writer(ctx):
  p=ctx['policy'];m=ctx['mods'];core=m['schema-restore-rehearsal'];maint=m['tag-maintenance-release'];act=m['tag-migrated-activation'];engine=m['minimal-docker-release'];attempt=ctx['attempt'];cfg=ctx['config'];d=ctx['d'];base=copy.deepcopy(ctx['base']);base['attempt']=attempt.name
+ schema_state=expected_schema_state(p)
  # One root capability may be spent only once, regardless of request nonce/ACK.
  barrier=Path(cfg['stateDirectory'])/('cn-reviewed-'+TAG+'-once.json');need(not barrier.exists() and not barrier.is_symlink(),'CAPABILITY_ALREADY_SPENT')
  core.save(attempt/'policy.json',base);host=maint.Host(base,attempt,ctx['fd']);adapter=m['cn-tag-migration-adapter'].Adapter(attempt,ctx['fd'])
@@ -114,18 +121,21 @@ def writer(ctx):
   raw=host.run(cfg['verificationCommand'],timeout=p['businessSeconds']);need(len(raw)<=65536 and b'CN_PUBLIC_BROWSER_PASSED' in raw,'PUBLIC_BROWSER_FAILED');path=attempt/(name+'-raw.json');core.save(path,{'stdoutHex':raw.hex(),'createdAt':time.time(),'source':SOURCE,'tag':TAG,'scope':'actual-public-browser'});return ref(path)
  # All preflight failures remain read-only and do not enter recovery or spend
  # the capability. Existing spent markers still reject at entry; never clear one.
- need(adapter.execute('preflight').get('status') in ('BASELINE','COMPLETE'),'INITIAL_LEDGER')
+ initial_state=adapter.execute('preflight').get('status');need(initial_state in ('BASELINE','COMPLETE'),'INITIAL_LEDGER')
+ if schema_state=='COMPLETE':need(initial_state=='COMPLETE','COMPLETE_SCHEMA_REQUIRED')
  core.save(barrier,{'request':ref(attempt/'schema-request.json'),'policy':ctx['policyRef'],'source':SOURCE,'tag':TAG,'automaticRetryAllowed':False,'time':time.time()})
  try:
   host.nginx(original_nginx,held);hold=True;host.stop();maint.runtime_set(host.runtime(),cfg['project'],base['baseline'],False);adapter.stopped();need(adapter.execute('drain').get('status')=='DRAINED','SOURCE_NOT_DRAINED')
   backup=attempt/'stopped-backup';backup.mkdir(mode=0o700);metadata=adapter.cn.read_source(d)
-  observed=metadata['ledger'];need(observed in (adapter.base,{**adapter.base,**core.MIGRATIONS}),'BACKUP_LEDGER')
+  observed=metadata['ledger']
+  if schema_state=='COMPLETE':need(observed=={**adapter.base,**core.MIGRATIONS},'COMPLETE_BACKUP_LEDGER_REQUIRED')
+  need(observed in (adapter.base,{**adapter.base,**core.MIGRATIONS}),'BACKUP_LEDGER')
   def dump(args):
    args[-1]=adapter.cn.SHELL+'exec pg_dump --no-password --format=custom';return core.encrypt_dump(args,backup)
   archive,key=adapter.cn.helper(d,'dump',dump);core.private_backup_files(archive,key);adapter.stopped();need(adapter.cn.read_source(d)['ledger']==observed,'POST_BACKUP_LEDGER_DRIFT')
   core.save(backup/'source-metadata.json',metadata)
   backup_proof={'metadata':ref(backup/'source-metadata.json'),'archive':ref(archive),'key':ref(key),'sourceLedgerSha256':core.sha(json.dumps(observed,sort_keys=True).encode()),'sourceHost':adapter.cn.HOST,'database':adapter.cn.DB,'role':'migration_admin','restoreNotPerformed':True,'restoreAcceptance':'NOT_PERFORMED','createdAt':time.time()}
-  intent=True;transaction=migrate_once(adapter,record)
+  intent=True;transaction=migrate_once(adapter,record,expected_state=schema_state)
   # Bootstrap is real and read-only, after independently verified COMPLETE.
   bootstrap=host.adapter('bootstrapProbe','preactivate');need(bootstrap.get('status')=='CANDIDATE_BOOTSTRAP_COMPATIBLE','POST_SQL_BOOTSTRAP_FAILED')
   host.start();health(old_command,old)
