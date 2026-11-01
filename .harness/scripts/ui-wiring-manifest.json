@@ -83,28 +83,13 @@
         "agent-skill-pins/set-agent-skill-pins-draft"
       ]
     },
-    "AgentStarterImportController": {
-      "useCases": [
-        "agent-import/get-official-role-pack-offer",
-        "agent-import/import-agent-starter-pack",
-        "agent-import/import-official-agent-role-pack",
-        "agent-import/upgrade-official-roles"
-      ]
-    },
     "AgentTrialRunController": {
       "useCases": [
         "agent-run/trial-run-agent"
       ]
     },
-    "AgentUrlImportController": {
-      "useCases": [
-        "agent-import/import-agent-from-url"
-      ]
-    },
     "AiUsageController": {
-      "useCases": [
-        "auth/self-ai-usage-service"
-      ],
+      "useCases": [],
       "note": "Read-only metadata analytics directly uses the tenant-scoped usage port after application membership/self-scope authorization; no mutation or content disclosure."
     },
     "ApplyBlueprintController": {
@@ -143,7 +128,6 @@
     },
     "AuthOrgController": {
       "useCases": [
-        "auth/create-organization",
         "auth/errors",
         "auth/export-organization",
         "auth/join-org-with-invite",
@@ -288,14 +272,6 @@
         "chat/get-thread"
       ]
     },
-    "ChatShareController": {
-      "useCases": [
-        "chat/get-attachment-content",
-        "chat/get-thread",
-        "chat/resolve-visibility",
-        "chat/share-chat"
-      ]
-    },
     "CheckinBoardController": {
       "useCases": [
         "auth/get-checkin-board",
@@ -431,11 +407,6 @@
       "useCases": [
         "files/get-retention-policy",
         "files/set-retention-policy"
-      ]
-    },
-    "FirstValueController": {
-      "useCases": [
-        "first-value/first-value-recorder"
       ]
     },
     "GuidedResearchController": {
@@ -601,12 +572,6 @@
         "org-admin/resolve-resource-scope"
       ]
     },
-    "OrgCoreModelController": {
-      "useCases": [
-        "model/org-core-model",
-        "model/org-core-model-candidates"
-      ]
-    },
     "OrgInviteController": {
       "useCases": [
         "auth/activate-org-member",
@@ -629,16 +594,6 @@
     "PlatformAccessController": {
       "useCases": [],
       "note": "只读访问位：回答「当前 principal 是不是平台管理员」，直接读 CREDENTIAL/PLATFORM_ADMIN 仓储，没有独立用例模块。"
-    },
-    "PlatformModelTestController": {
-      "useCases": [
-        "model/platform-model-test"
-      ]
-    },
-    "PlatformOrganizationController": {
-      "useCases": [
-        "system/ai-policy-models"
-      ]
     },
     "ProjectAiSettingsController": {
       "useCases": [
@@ -734,13 +689,6 @@
         "recording/session-lifecycle"
       ]
     },
-    "SkillArtifactImportController": {
-      "useCases": [
-        "artifacts-steering/errors",
-        "skill-import/import-skill-artifact",
-        "skill-import/import-skill-starter-pack"
-      ]
-    },
     "SkillController": {
       "useCases": [
         "security/permission-filter",
@@ -770,37 +718,10 @@
         "skill/submit-skill-for-review"
       ]
     },
-    "SkillStarterImportController": {
-      "useCases": [
-        "skill-import/import-skill-starter-pack"
-      ]
-    },
     "SkillTrialRunController": {
       "useCases": [
         "skill/submit-trial-run",
         "skill/trial-run-skill"
-      ]
-    },
-    "SkillUrlImportController": {
-      "useCases": [
-        "skill-import/discover-skills-from-url",
-        "skill-import/import-skill-from-url",
-        "skill-import/url-import-draft"
-      ]
-    },
-    "SkillVersionEditController": {
-      "useCases": [
-        "skill/edit-skill-version-content"
-      ]
-    },
-    "SystemErrorLogController": {
-      "useCases": [
-        "system/update-system-error-lifecycle"
-      ]
-    },
-    "SystemMailController": {
-      "useCases": [
-        "notifications/send-test-email"
       ]
     },
     "ToolPermissionGrantController": {
@@ -825,17 +746,93 @@
       ],
       "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
     },
-    "WorkflowCapabilityGrantController": {
-      "useCases": [
-        "workflow/workflow-capability-grants"
-      ]
-    },
     "WorkflowRuntimeController": {
       "useCases": [
         "workflow/instance-commands",
         "workflow/instance-queries",
         "workflow/workflow-errors",
         "workflow/workflow-runtime-service"
+      ]
+    },
+    "WorkflowCapabilityGrantController": {
+      "useCases": [
+        "workflow/workflow-capability-grants"
+      ]
+    },
+    "FirstValueController": {
+      "useCases": [
+        "first-value/first-value-recorder"
+      ]
+    },
+    "PlatformOrganizationController": {
+      "useCases": [
+        "system/ai-policy-models"
+      ]
+    },
+    "PlatformModelTestController": {
+      "useCases": [
+        "model/platform-model-test"
+      ]
+    },
+    "AgentStarterImportController": {
+      "useCases": [
+        "agent-import/get-official-role-pack-offer",
+        "agent-import/import-agent-starter-pack",
+        "agent-import/import-official-agent-role-pack",
+        "agent-import/upgrade-official-roles"
+      ]
+    },
+    "AgentUrlImportController": {
+      "useCases": [
+        "agent-import/import-agent-from-url"
+      ]
+    },
+    "OrgCoreModelController": {
+      "useCases": [
+        "model/org-core-model",
+        "model/org-core-model-candidates"
+      ]
+    },
+    "SkillArtifactImportController": {
+      "useCases": [
+        "artifacts-steering/errors",
+        "skill-import/import-skill-artifact",
+        "skill-import/import-skill-starter-pack"
+      ]
+    },
+    "SkillStarterImportController": {
+      "useCases": [
+        "skill-import/import-skill-starter-pack"
+      ]
+    },
+    "SkillUrlImportController": {
+      "useCases": [
+        "skill-import/discover-skills-from-url",
+        "skill-import/import-skill-from-url",
+        "skill-import/url-import-draft"
+      ]
+    },
+    "SkillVersionEditController": {
+      "useCases": [
+        "skill/edit-skill-version-content"
+      ]
+    },
+    "SystemErrorLogController": {
+      "useCases": [
+        "system/update-system-error-lifecycle"
+      ]
+    },
+    "SystemMailController": {
+      "useCases": [
+        "notifications/send-test-email"
+      ]
+    },
+    "ChatShareController": {
+      "useCases": [
+        "chat/get-attachment-content",
+        "chat/get-thread",
+        "chat/resolve-visibility",
+        "chat/share-chat"
       ]
     }
   },
