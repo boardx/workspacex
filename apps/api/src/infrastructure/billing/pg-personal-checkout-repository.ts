@@ -4,11 +4,13 @@ import { PricingProduct, type PersonalCheckoutRequest } from "@repo/contracts/bi
 import { assertPrincipal, type Principal } from "../../domain/principal";
 import { BILLING_ACCOUNTING_GENERATION } from "../../domain/billing/billing-generation";
 import { PERSONAL_PRICE_CATALOG_VERSION } from "../../domain/billing/personal-price-catalog";
-import type { DatabasePort } from "../../application/ports/database.port";
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { PersonalCheckoutBinding, PersonalCheckoutRepository, PersonalPurchase, StoredPersonalPurchase } from "../../application/billing/personal-checkout-ports";
 import { PersonalCheckoutError, assertSamePersonalPurchase } from "../../application/billing/personal-checkout-error";
 import { requireActivePricingEpoch } from "./personal-pricing-epoch";
 import { PERSONAL_CHECKOUT_SQL as SQL } from "./personal-checkout-sql";
+import { PERSONAL_PAYMENT_SQL } from "./personal-payment-sql";
+import { assertBillingGlobalStatement } from "./billing-global-boundary";
 
 type Row = { purchase_ref: string; user_id: string; idempotency_key: string; generation: string; catalog_version: string;
   provider: string; product: unknown; created_at: Date; session_ref: string | null; payment_url: string | null;
@@ -24,6 +26,20 @@ export type { Row as PersonalPurchaseRow };
 export { view as personalPurchaseView };
 export class PgPersonalCheckoutRepository implements PersonalCheckoutRepository {
   constructor(private readonly db: DatabasePort) {}
+  /** Internal recovery boundary: caller first proves closure by authoritative provider read, never a local expiry timer. */
+  async confirmClosed(expected: StoredPersonalPurchase): Promise<boolean> {
+    return this.db.withoutTenant(async raw => {
+      const session: TenantSession = { query(sql, params) { assertBillingGlobalStatement(sql); return raw.query(sql, params); } };
+      await requireActivePricingEpoch(session);
+      await session.query(SQL.personalPurchaseUserLock, [`billing-subscription:${expected.userId}`]);
+      const row = (await session.query<Row>(PERSONAL_PAYMENT_SQL.personalPurchaseRefLock, [expected.purchaseRef])).rows[0];
+      if (!row || row.user_id !== expected.userId || row.provider !== expected.provider || row.session_ref === null || row.session_ref !== expected.sessionRef ||
+        row.generation !== expected.generation || row.catalog_version !== expected.catalogVersion) throw new PersonalCheckoutError("product_unavailable");
+      if (row.fulfilled_at !== null || row.payment_review_required) return false;
+      if (row.closed_at === null) await session.query(SQL.personalPurchaseClose, [expected.purchaseRef]);
+      return true;
+    });
+  }
   async find(principal: Principal, key: string) {
     assertPrincipal(principal);
     return this.db.withTenant(principal.orgId, async session => {

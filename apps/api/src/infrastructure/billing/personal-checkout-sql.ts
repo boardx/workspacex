@@ -9,6 +9,7 @@ export const PERSONAL_CHECKOUT_SQL = Object.freeze({
   personalPurchaseRenewingStripe: `SELECT 1 FROM billing_personal_stripe_bindings b JOIN billing_personal_purchases p USING(purchase_ref)
     WHERE p.user_id=$1 AND b.status NOT IN ('canceled','incomplete_expired') LIMIT 1`,
   personalPurchaseBoundStripeSession: "SELECT session_ref FROM billing_personal_stripe_bindings WHERE purchase_ref=$1",
+  personalPurchaseClose: "UPDATE billing_personal_purchases SET closed_at=COALESCE(closed_at,clock_timestamp()) WHERE purchase_ref=$1 AND fulfilled_at IS NULL AND NOT payment_review_required",
   personalPurchaseOpenPro: "SELECT * FROM billing_personal_purchases WHERE user_id=$1 AND product->>'kind'='subscription' AND fulfilled_at IS NULL AND closed_at IS NULL",
   personalPurchaseInsert: `INSERT INTO billing_personal_purchases(purchase_ref,user_id,idempotency_key,generation,catalog_version,provider,product)
     VALUES($1,$2,$3,$4,$5,$6,$7::jsonb) RETURNING *`,

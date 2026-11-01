@@ -36,14 +36,26 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
   }
   async apply(event: StripeEvent, provider: StripeSnapshotProvider): Promise<boolean> {
     if ((await this.select()).mode === "legacy") return this.legacy.apply(event, provider);
-    const isCheckout = ["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type);
-    const isSubscription = ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"].includes(event.type);
-    const isInvoice = ["invoice.paid", "invoice.payment_succeeded", "invoice.payment_failed"].includes(event.type);
+    return this.synchronize(event.type, event.object.id, provider);
+  }
+  /** Authoritative background reconciliation is distinct from a signature-verified webhook event. */
+  async reconcileCheckout(id: string, provider: StripeSnapshotProvider): Promise<boolean> {
+    if ((await this.select()).mode !== "active") throw Error("personal_recovery_inactive");
+    return this.synchronize("checkout.session.completed", id, provider);
+  }
+  async reconcileSubscription(id: string, provider: StripeSnapshotProvider): Promise<boolean> {
+    if ((await this.select()).mode !== "active") throw Error("personal_recovery_inactive");
+    return this.synchronize("customer.subscription.updated", id, provider);
+  }
+  private async synchronize(type: string, id: unknown, provider: StripeSnapshotProvider): Promise<boolean> {
+    const isCheckout = ["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(type);
+    const isSubscription = ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"].includes(type);
+    const isInvoice = ["invoice.paid", "invoice.payment_succeeded", "invoice.payment_failed"].includes(type);
     if (!isCheckout && !isSubscription && !isInvoice) return true;
     if (!provider.invoice || !provider.price) throw Error("personal_stripe_provider_incomplete");
     let session: Record<string, unknown> | undefined, invoice: Record<string, unknown> | undefined, subscription: Record<string, unknown>;
     if (isCheckout) {
-      session = this.environment(await this.checkout.retrieve(reference(event.object.id, "cs")));
+      session = this.environment(await this.checkout.retrieve(reference(id, "cs")));
       const metadata = object(session.metadata);
       if (metadata.product !== PERSONAL_PAYMENT_PRODUCT || metadata.generation !== BILLING_ACCOUNTING_GENERATION) return true;
       const selected = await this.select(String(metadata.purchase_ref));
@@ -51,11 +63,11 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
       if (selected.purchase.product.kind === "credit_topup") return this.pack(selected.purchase.purchaseRef, session);
       subscription = this.environment(await provider.subscription(reference(session.subscription, "sub")));
     } else if (isInvoice) {
-      invoice = this.environment(await provider.invoice(reference(event.object.id, "in")));
+      invoice = this.environment(await provider.invoice(reference(id, "in")));
       const parent = object(invoice.parent);
       if (parent.type !== "subscription_details") return true;
       subscription = this.environment(await provider.subscription(reference(object(parent.subscription_details).subscription, "sub")));
-    } else subscription = this.environment(await provider.subscription(reference(event.object.id, "sub")));
+    } else subscription = this.environment(await provider.subscription(reference(id, "sub")));
     const metadata = object(subscription.metadata);
     if (metadata.product !== PERSONAL_PAYMENT_PRODUCT || metadata.generation !== BILLING_ACCOUNTING_GENERATION) return true;
     const { purchase } = await this.select(String(metadata.purchase_ref));
@@ -81,7 +93,7 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
         return { binding, term: verifiedPersonalStripeTerm(binding, paidInvoice, price), paidAt: new Date(seconds * 1000) };
       });
     } else {
-      if (isInvoice && ["invoice.paid", "invoice.payment_succeeded"].includes(event.type)) return false;
+      if (isInvoice && ["invoice.paid", "invoice.payment_succeeded"].includes(type)) return false;
       await this.payments.syncStripe(purchase.purchaseRef, subRef, verify);
     }
     return true;

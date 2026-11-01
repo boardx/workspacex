@@ -96,6 +96,24 @@ it("credits an authoritative invoice once across different Stripe event ids", as
   expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 20000 });
   expect(handler.legacy.apply).not.toHaveBeenCalled();
 });
+it("recovers a missed Stripe callback without fabricating a signature-verified event", async () => {
+  const f = await fixture("poll-recovery"), handler = callback(f);
+  expect(await handler.store.reconcileCheckout(f.purchase.sessionRef!, handler.provider)).toBe(true);
+  f.snapshots.subscription.cancel_at_period_end = true;
+  expect(await handler.store.reconcileSubscription(f.snapshots.subscription.id, handler.provider)).toBe(true);
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 20000 });
+  expect(handler.legacy.apply).not.toHaveBeenCalled();
+});
+it("does not use legacy synchronization when an internal new-generation poll runs before activation", async () => {
+  const f = await fixture("inactive-poll"), handler = callback(f);
+  await asOwner(c => c.query("UPDATE billing_pricing_epoch SET generation=NULL,activated_at=NULL WHERE singleton=true"));
+  try {
+    await expect(handler.store.reconcileCheckout(f.purchase.sessionRef!, handler.provider)).rejects.toThrow("personal_recovery_inactive");
+    expect(handler.legacy.apply).not.toHaveBeenCalled(); expect(await f.wallet()).toBeUndefined();
+  } finally {
+    await asOwner(c => c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton=true", [BILLING_ACCOUNTING_GENERATION]));
+  }
+});
 it("reads fresh cancellation state instead of trusting the subscription event payload", async () => {
   const f = await fixture("fresh-snapshot"), handler = callback(f); await handler.apply();
   f.snapshots.subscription.cancel_at_period_end = true;

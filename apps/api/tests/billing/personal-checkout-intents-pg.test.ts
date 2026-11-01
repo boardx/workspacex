@@ -74,3 +74,32 @@ it("keeps one immutable Checkout result and rejects a second provider session", 
   const other = fixture("cannot-bind");
   await expect(repository.bind(other.principal, row.purchaseRef, result)).rejects.toThrow("product_unavailable");
 });
+it("retains a confirmed-closed purchase for idempotent reads while allowing a new Pro purchase", async () => {
+  const f = fixture("closed"), original = await f.reserve();
+  const result = { sessionRef: `cs_${original.purchaseRef}`, url: "https://checkout.stripe.com/c/pay/closed", expiresAt: new Date(Date.now() + 86400000) };
+  const bound = await repository.bind(f.principal, original.purchaseRef, result);
+  expect(await repository.confirmClosed(bound)).toBe(true);
+  const first = await repository.find(f.principal, f.request.idempotencyKey); expect(first?.closedAt).toBeInstanceOf(Date);
+  expect(await repository.confirmClosed(bound)).toBe(true);
+  expect((await repository.find(f.principal, f.request.idempotencyKey))?.closedAt).toEqual(first?.closedAt);
+  const next = await repository.reserve(f.principal, { ...f.request, idempotencyKey: `next-${randomUUID()}` }, f.product);
+  expect(next.purchaseRef).not.toBe(original.purchaseRef);
+});
+it("cannot confirm closure against a different owner or Checkout session", async () => {
+  const f = fixture("close-identity"), original = await f.reserve();
+  const bound = await repository.bind(f.principal, original.purchaseRef, { sessionRef: `cs_${original.purchaseRef}`, url: "https://checkout.stripe.com/c/pay/closed", expiresAt: new Date(Date.now() + 86400000) });
+  for (const patch of [{ userId: "another-user" }, { sessionRef: "cs_wrongclosedidentity" }, { provider: "wechat" as const }]) {
+    await expect(repository.confirmClosed({ ...bound, ...patch })).rejects.toThrow("product_unavailable");
+  }
+  expect((await repository.find(f.principal, f.request.idempotencyKey))?.closedAt).toBeNull();
+});
+it("keeps fulfilled or manual-review purchases open to financial reconciliation", async () => {
+  for (const flag of ["fulfilled_at=clock_timestamp()", "payment_review_required=true"]) {
+    const f = fixture(`close-paid-${users.length}`), original = await f.reserve();
+    const bound = await repository.bind(f.principal, original.purchaseRef, { sessionRef: `cs_${original.purchaseRef}`, url: "https://checkout.stripe.com/c/pay/closed", expiresAt: new Date(Date.now() + 86400000) });
+    // Test-only owned row mutation; app_rw cannot alter immutable purchase data.
+    await asOwner(c => c.query(`UPDATE billing_personal_purchases SET ${flag} WHERE purchase_ref=$1`, [original.purchaseRef]));
+    expect(await repository.confirmClosed(bound)).toBe(false);
+    expect((await repository.find(f.principal, f.request.idempotencyKey))?.closedAt).toBeNull();
+  }
+});

@@ -1,0 +1,51 @@
+[stack-admission] load1=31.13 cores=10 perCore=3.11 running=0/2
+[stack-admission] 排队中：机器每核负载 3.11（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.01（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.88（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.78（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.67（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.76（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.94（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.94（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.86（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.74（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.58（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 55s
+[test-isolation] id=run-mvy5m9lb-a189eef3-d8d25fad304b db=wsx_d8d25fad304b2b20eab6 compose=wsx-d8d25fad304b2b20eab6 pg=20709 redis=21709 api=24709 web=25709 sandbox=26709 model=27709 deep-agent=28709 asr=29709 vision=30709 loopback-sandbox=31709 mail=19709
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_d8d25fad304b2b20eab6 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (21 tests) 88778ms
+   ✓ persists one annual Stripe invoice and binding while granting only the first month 553ms
+   ✓ preserves the stored Jan31 anchor through a clamped February renewal 663ms
+   ✓ updates a verified cancellation snapshot on an invoice replay without regranting 504ms
+   ✓ does not bind another user's purchase to an existing Stripe customer 572ms
+   ✓ credits an authoritative invoice once across different Stripe event ids 450ms
+   ✓ recovers a missed Stripe callback without fabricating a signature-verified event 336ms
+   ✓ reads fresh cancellation state instead of trusting the subscription event payload 325ms
+   ✓ handles signed raw HTTP Stripe callbacks with real HMAC and one financial grant 894ms
+   ✓ credits the Stripe pack once as permanent credits across repeated callbacks 388ms
+ ✓ tests/billing/personal-wechat-callback-pg.test.ts (5 tests) 3502ms
+   ✓ verifies real RSA/AES bytes and merchant reads before one annual HTTP grant 655ms
+ ✓ tests/billing/personal-checkout-intents-pg.test.ts (10 tests) 6015ms
+   ✓ keeps the new checkout closed until the accounting epoch is explicitly active 1149ms
+   ✓ rejects a partial provider binding and prevents changes to the original price 640ms
+   ✓ keeps one immutable Checkout result and rejects a second provider session 300ms
+   ✓ keeps fulfilled or manual-review purchases open to financial reconciliation 310ms
+ ✓ tests/billing/personal-checkout-http.test.ts (3 tests) 4115ms
+   ✓ returns one durable result across actual HTTP retries and safely exposes a declared conflict 583ms
+
+ Test Files  4 passed (4)
+      Tests  39 passed (39)
+   Start at  02:20:07
+   Duration  151.47s (transform 5.59s, setup 151ms, collect 17.56s, tests 102.41s, environment 1ms, prepare 1.19s)
+
+[db-isolation] db=wsx_d8d25fad304b2b20eab6 peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts tests/billing/personal-checkout-intents-pg.test.ts tests/billing/personal-wechat-callback-pg.test.ts tests/billing/personal-checkout-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：55s
+  命令执行：2m34s
+  清理：2s
+  总计：3m31s

@@ -1,5 +1,9 @@
 # 个人支付闭环进展
 
+恢复组件新增：confirmClosed 在epoch/user/购买行锁下校验原归属与session，只释放支付商权威确认关闭且未到账、未人工复核的购买，保留原幂等读取；旧本地计时器不能证明关单。PersonalPaymentReconciler 校验完整报价/代际/session后查单，微信付款赢关单竞态时走原到账事务；Stripe后台同步有独立 reconcileCheckout/reconcileSubscription 入口，不捏造验签事件。意图关闭3项先红后绿，恢复单元12项先缺实现后绿；最终39项隔离PG/HTTP（Stripe21、意图10、微信5、HTTP3）、provider146、API类型和lint均通过，资源已清理，见evidence/recovery-*。组件尚未接自动调度；未绑定意图仍安全返回unbound，完整分页漏通知对账、管理历史、UI待办见recovery-notes.md。
+
+前置目录 PR #6095 已创建，head319d89d44c74346cf2b5763bf6c4d7eabead20be，基线a2d305；新基线provider41、独立ACCEPT、20项推送门禁通过，持续跟进CI。当前这份支付代码仍是后续独立issue #6093，不混入该PR。
+
 微信正式接线后的独立复验已完成：personal-wechat-callback-pg.test.ts 5/5通过，隔离资源清理完成；证据 evidence/wechat-wired-final.txt。本轮全部列出的检查点验证均结束，不表示漏通知/恢复/正式UI等待办完成。
 
 最新检查点：Stripe 财务/回调19项及共用到账10项合计29/29，另含真实HMAC回调HTTP及权益鉴权的18/18，provider15文件134项，API typecheck/lint 均通过。29项命令误带了不存在的微信HTTP过滤文件名，因此该日志实际只有两个文件，**不包含微信5项**；微信按真实文件 personal-wechat-callback-pg.test.ts 单独复验。新增权益查询只读取对应订阅/方案的额度窗口，不混用另一份 Stripe 绑定。证据为隔离 PG、真实签名/HTTP，支付商权威查询仍是 fixture，未进行在线商户扣款。本轮是 #6093 检查点，未完成全 feature；尚待异常购买恢复、漏通知对账、管理/历史、正式 UI 接入和完整独立审查。下文保留各历史步骤。
