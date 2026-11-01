@@ -12,14 +12,16 @@ import { PERSONAL_CHECKOUT_SQL as SQL } from "./personal-checkout-sql";
 
 type Row = { purchase_ref: string; user_id: string; idempotency_key: string; generation: string; catalog_version: string;
   provider: string; product: unknown; created_at: Date; session_ref: string | null; payment_url: string | null;
-  expires_at: Date | null; fulfilled_at: Date | null; closed_at: Date | null };
+  expires_at: Date | null; fulfilled_at: Date | null; closed_at: Date | null; payment_review_required: boolean };
 function view(row: Row): StoredPersonalPurchase {
   if (row.generation !== BILLING_ACCOUNTING_GENERATION) throw new PersonalCheckoutError("product_unavailable");
   return { purchaseRef: OrderNo.parse(row.purchase_ref), userId: row.user_id, idempotencyKey: row.idempotency_key,
     generation: row.generation, catalogVersion: row.catalog_version, provider: BillingProvider.parse(row.provider),
     product: PricingProduct.parse(row.product), createdAt: row.created_at, sessionRef: row.session_ref,
-    url: row.payment_url, expiresAt: row.expires_at, fulfilledAt: row.fulfilled_at, closedAt: row.closed_at };
+    url: row.payment_url, expiresAt: row.expires_at, fulfilledAt: row.fulfilled_at, closedAt: row.closed_at, paymentReviewRequired: row.payment_review_required };
 }
+export type { Row as PersonalPurchaseRow };
+export { view as personalPurchaseView };
 export class PgPersonalCheckoutRepository implements PersonalCheckoutRepository {
   constructor(private readonly db: DatabasePort) {}
   async find(principal: Principal, key: string) {

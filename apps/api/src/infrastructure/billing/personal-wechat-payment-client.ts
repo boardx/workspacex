@@ -29,7 +29,7 @@ export class PersonalWechatPaymentClient {
       packageId: product.sku, amountFen: product.amountMinor, currency: product.currency,
       baseCredits: product.kind === "subscription" ? product.monthlyCredits : product.credits, bonusCredits: 0, provider: "wechat", status: "PENDING",
       createdAt: purchase.createdAt.toISOString(), expiredAt: expiresAt.toISOString(), paidAt: null, notifyAt: null, closedAt: null, lastErrorCode: null,
-    }, undefined, description);
+    }, undefined, { description, attachment: `${purchase.generation}:${purchase.purchaseRef}` });
     return { sessionRef: purchase.purchaseRef, url, expiresAt };
   }
   private async query(purchase: PersonalPurchase): Promise<Record<string, unknown>> {
@@ -57,7 +57,7 @@ export class PersonalWechatPaymentClient {
     const result = await this.query(purchase);
     if (result.trade_state === "SUCCESS") {
       const amount = result.amount as Record<string, unknown> | undefined;
-      if (amount?.total !== purchase.product.amountMinor || amount.currency !== "CNY" || typeof result.transaction_id !== "string" ||
+      if (amount?.total !== purchase.product.amountMinor || amount.currency !== "CNY" || result.attach !== `${purchase.generation}:${purchase.purchaseRef}` || typeof result.transaction_id !== "string" ||
         !/^[A-Za-z0-9_]{1,128}$/.test(result.transaction_id)) throw Error("personal_wechat_payment_mismatch");
       const paidAt = new Date(paymentTime.parse(result.success_time));
       if (paidAt.getTime() < Math.floor(purchase.createdAt.getTime() / 1000) * 1000) throw Error("personal_wechat_payment_time_invalid");

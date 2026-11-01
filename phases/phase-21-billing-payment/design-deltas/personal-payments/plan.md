@@ -21,8 +21,8 @@ flowchart TD
   class S2 tested
   %% evidence S2: PostgreSQL 7 and HTTP 2 passed; evidence/intents-green.txt and http-green.txt
   class S3 doing
-  class S4 todo
-  class S5 todo
+  class S4 doing
+  class S5 doing
   class S6 todo
 ```
 

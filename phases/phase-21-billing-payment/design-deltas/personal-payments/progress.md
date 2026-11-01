@@ -17,3 +17,5 @@ Ruling: 单次购买意图使用服务端持久化报价与原始 provider 幂�
 尚未将新控制器注册进BillingModule；微信适配器、支付到账持久化回调、Stripe续费状态与过期意图恢复仍待实现。只完成上述组件，不宣称 #6093 已完成，暂不创建未完成PR。API类型检查复验运行中。
 
 检查点：新增微信一次性月/年/充值适配器、权威查单和关单后重读，配置平台公钥时拒绝未签名响应。provider全量15文件129项、API typecheck、API lint均通过；PG意图7项和HTTP2项的证据仍为此前对应实现。正式BillingModule接线、到账持久化、Stripe订阅续费/管理与异常恢复继续待实现，本检查点不等于feature完成。微信官方Native说明已核实：支付结束时间不足下单后1分钟会被上游调整，故创建前留1分钟余量；关闭结果只认权威重读，不能仅凭本地时钟。资料：https://pay.wechatpay.cn/doc/v3/merchant/4012791877。
+
+微信到账检查点：真实RSA/AES回环HTTP与PG回调5项（含激活前旧路径、激活后旧订单忽略、未知generation拒绝）；支付事务10项。两文件最终15/15通过。此前意图7项/HTTP2项及provider131通过；本次API类型与lint通过。外部支付商仍为带真实签名的fixture，不代表在线扣款；正式BillingModule接线及Stripe Pro绑定/自动续费尚未完成。

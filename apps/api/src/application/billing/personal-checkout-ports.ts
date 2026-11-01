@@ -6,6 +6,7 @@ import type { Principal } from "../../domain/principal";
 export type StoredPersonalPurchase = PersonalPurchase & Readonly<{
   idempotencyKey: string; sessionRef: string | null; url: string | null; expiresAt: Date | null;
   fulfilledAt: Date | null; closedAt: Date | null;
+  paymentReviewRequired: boolean;
 }>;
 export type PersonalCheckoutBinding = Readonly<{ sessionRef: string; url: string; expiresAt: Date }>;
 export interface PersonalCheckoutRepository {

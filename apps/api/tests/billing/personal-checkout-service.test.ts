@@ -17,7 +17,7 @@ function fixture() {
     async reserve(_principal, input, product) {
       stored ??= { purchaseRef: "bm20261102010000ABC123", userId: principal.userId, provider: input.provider,
         idempotencyKey: input.idempotencyKey, generation: BILLING_ACCOUNTING_GENERATION, catalogVersion: input.catalogVersion, product,
-        createdAt: new Date(), sessionRef: null, url: null, expiresAt: null, fulfilledAt: null, closedAt: null };
+        createdAt: new Date(), sessionRef: null, url: null, expiresAt: null, fulfilledAt: null, closedAt: null, paymentReviewRequired: false };
       return stored;
     },
     async bind(_principal, _id, result: PersonalCheckoutBinding) { stored = { ...stored!, ...result }; return stored; },

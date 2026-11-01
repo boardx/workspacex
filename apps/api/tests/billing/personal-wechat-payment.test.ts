@@ -15,6 +15,7 @@ function purchase(index = 0) { return { purchaseRef: "bm20261102010000ABC123", u
 const client = () => new PersonalWechatPaymentClient(config, { info() {}, error() {} });
 function upstream(intent = purchase(), patch: Record<string, unknown> = {}) {
   return { appid: "wx-personal-fixture", mchid: "1900000000", out_trade_no: intent.purchaseRef, trade_state: "SUCCESS",
+    attach: `${intent.generation}:${intent.purchaseRef}`,
     transaction_id: "420000123456", success_time: new Date(intent.createdAt.getTime() + 1000).toISOString(), amount: { total: intent.product.amountMinor, currency: "CNY" }, ...patch };
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -26,6 +27,7 @@ it.each([0, 1, 2])("creates a one-time Native purchase using the persisted CNY q
   const [url, options] = fetcher.mock.calls[0]!; expect(url).toBe("https://api.mch.weixin.qq.com/v3/pay/transactions/native");
   const body = JSON.parse(String(options?.body));
   expect(body).toMatchObject({ out_trade_no: intent.purchaseRef, amount: { total: intent.product.amountMinor, currency: "CNY" } });
+  expect(body.attach).toBe(`${intent.generation}:${intent.purchaseRef}`);
   expect(body).not.toHaveProperty("contract_id");
   if (index < 2) expect(body.description).toContain(index === 0 ? "Pro 月付" : "Pro 年付");
 });
@@ -37,6 +39,7 @@ it.each([
   { amount: { total: 1, currency: "CNY" } }, { amount: { total: 19900, currency: "USD" } },
   { appid: "other-app" }, { mchid: "other-merchant" }, { out_trade_no: "another-purchase" },
   { success_time: "not-a-date" }, { transaction_id: "../not-a-transaction" }, { trade_state: "REFUND" },
+  { attach: "legacy-generation:old-purchase" }, { attach: undefined },
 ])("rejects mismatched or unsupported merchant facts %j", async patch => {
   const intent = purchase(); vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(upstream(intent, patch)))));
   await expect(client().read(intent)).rejects.toThrow();
