@@ -10,6 +10,9 @@ import { decideOrderOwner } from "../../domain/billing/order-access";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
 
 export type OrderView = z.infer<typeof operations.getPaymentOrder.out>["order"];
+export interface PersonalOrderReader {
+  read(principal: Principal, orderNo: string): Promise<{mode:"legacy"} | {mode:"active";order:OrderView|null}>;
+}
 export type PackageView = z.infer<typeof operations.listPackages.out>["items"][number];
 export type OrderDraft = Omit<OrderView, "qrCodeUrl"> & { readonly createdBy: string };
 export type BillingOrderOwner = BillingOwner & { readonly decision: PermissionDecision };
@@ -41,6 +44,7 @@ export class BillingOrderService {
     private readonly config: BillingConfigPort,
     private readonly native: WechatNativePort,
     private readonly stripe?: StripeCreditCheckoutPort,
+    private readonly personal?: PersonalOrderReader,
   ) {}
   private async owner(principal: Principal, ownerType: "user" | "team", ownerId: string | undefined, admin: boolean): Promise<BillingOrderOwner> {
     assertPrincipal(principal);
@@ -99,7 +103,10 @@ export class BillingOrderService {
     return operations.createPaymentOrder.out.parse({ order: await this.repository.insert(owner, order, qrCodeUrl) });
   }
   async cancel(principal: Principal, input: z.infer<typeof operations.cancelPaymentOrder.in>, traceId?: string) {
+    assertPrincipal(principal);
     const { orderNo } = operations.cancelPaymentOrder.in.parse(input);
+    const modern = await this.personal?.read(principal, orderNo);
+    if (modern?.mode === "active") throw new BillingOrderError(modern.order ? "order_not_cancelable" : "order_not_found");
     const { order } = await this.get(principal, { orderNo });
     if (order.status === "CLOSED" && order.lastErrorCode === null) return operations.cancelPaymentOrder.out.parse({ order });
     if (order.status !== "PENDING") throw new BillingOrderError("order_not_cancelable");
@@ -118,6 +125,11 @@ export class BillingOrderService {
   async get(principal: Principal, input: z.infer<typeof operations.getPaymentOrder.in>) {
     assertPrincipal(principal);
     const { orderNo } = operations.getPaymentOrder.in.parse(input);
+    const modern = await this.personal?.read(principal, orderNo);
+    if (modern?.mode === "active") {
+      if (!modern.order) throw new BillingOrderError("order_not_found");
+      return operations.getPaymentOrder.out.parse({ order: modern.order });
+    }
     const scope = await this.repository.scope(principal.orgId, orderNo);
     if (!scope) throw new BillingOrderError("order_not_found");
     let owner: BillingOwner;

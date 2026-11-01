@@ -20,6 +20,7 @@ import { toOrgId } from "../../src/domain/org-id";
 import { personalStripePaymentFixture } from "./personal-stripe-payment-fixture";
 import { PersonalStripeWebhookStore } from "../../src/infrastructure/billing/personal-stripe-webhook-store";
 import { vi } from "vitest";
+import { PgPersonalOrderReader } from "../../src/infrastructure/billing/pg-personal-order-reader";
 import { PgBillingCreditingStore } from "../../src/infrastructure/billing/pg-billing-crediting-store";
 import { PgBillingStripeWebhookStore } from "../../src/infrastructure/billing/pg-billing-stripe-webhook-store";
 import { BillingOrderService } from "../../src/application/billing/billing-order-service";
@@ -326,4 +327,27 @@ it("retires old sales before merchant calls and rejects direct legacy reservatio
   expect(upstream.checkout).not.toHaveBeenCalled(); expect(upstream.subscription).not.toHaveBeenCalled();
   const orders = await asApp(org, async c => (await c.query("SELECT order_no FROM billing_orders WHERE created_by=$1", [f.userId])).rows);
   expect(orders).toEqual([]);
+});
+
+it("reads the new immutable quote and payment outcome without exposing another payer or inventing expiry", async () => {
+  const f = await fixture("order-read"), principal = { userId: f.userId, orgId: org }, reader = new PgPersonalOrderReader(db);
+  const pending = await reader.read(principal, f.purchase.purchaseRef);
+  expect(pending.mode).toBe("active");
+  if (pending.mode !== "active") throw Error("active_expected");
+  expect(pending.order).toMatchObject({ orderNo: f.purchase.purchaseRef, ownerType: "user", ownerId: f.userId, provider: "stripe", status: "PENDING", packageId: f.purchase.product.sku, amountFen: f.purchase.product.amountMinor, currency: "USD", baseCredits: 20000, bonusCredits: 0, paidAt: null, notifyAt: null, closedAt: null });
+  expect(await reader.read({ userId: `${prefix}-other-order-payer`, orgId: org }, f.purchase.purchaseRef)).toEqual({ mode: "active", order: null });
+  await f.settle();
+  const paid = await reader.read(principal, f.purchase.purchaseRef);
+  if (paid.mode !== "active") throw Error("active_expected");
+  expect(paid.order).toMatchObject({ status: "SUCCESS", paidAt: f.anchor.toISOString(), amountFen: f.purchase.product.amountMinor });
+  // Provider verification may be a recovery query; it does not prove webhook delivery time.
+  expect(paid.order?.notifyAt).toBeNull();
+  const old = await fixture("order-past-expiry", false, new Date(Date.now()-2*86400000));
+  const expired = await reader.read({ userId: old.userId, orgId: org }, old.purchase.purchaseRef);
+  if (expired.mode !== "active") throw Error("active_expected");
+  expect(expired.order).toMatchObject({ status: "PENDING", closedAt: null });
+  await asOwner(c => c.query("UPDATE billing_personal_purchases SET payment_review_required=true WHERE purchase_ref=$1", [old.purchase.purchaseRef]));
+  const review = await reader.read({ userId: old.userId, orgId: org }, old.purchase.purchaseRef);
+  if (review.mode !== "active") throw Error("active_expected");
+  expect(review.order).toMatchObject({ status: "FAILED", paidAt: null });
 });

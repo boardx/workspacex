@@ -1,5 +1,7 @@
 # 个人支付闭环在建交接
 
+新订单状态读取复用既有私有GET /billing/orders/:orderNo：按payer与generation绑定，真实快照金额/币种/额度，实际fulfilled为成功、人工复核为失败、权威closed才关闭，本地超时仍pending。notifyAt未知保留null，不拿恢复查单验证时间冒充回调时间。active不回退旧表；旧cancel拒绝新订单，避免绕过新财务流程关商户单。完整Stripe30及真实HTTP/旧订单/Root45通过；notifyAt修正后针对1项再通过，其余29为过滤。初版type/lint7通过，最终源由推送门禁复验。尚待正式UI绑定与整feature审查/PR。
+
 管理/历史及旧购买入口退役增量：管理门户只读取当前payer、当前generation的已验证Stripe绑定，销售开关关闭仍可管理；终态不可管理；年付历史按实际paid term一行，保留真实金额/币种/有效期而非月度额度行。active epoch旧info/upgrade退役，旧订单在商户调用前及实际落库/到账事务内拒绝，旧Stripe无session的GET恢复也先检查。未知epoch拒绝，不推断旧权益。新增3个PG用例先红后绿，Stripe全29项及旧模式/Root/HTTP9文件97项通过；补充直接旧财务边界1项通过（过滤其余28项），不把过滤用例计为执行。API type/lint7任务通过。证据management-*、retired-sales-*。最终reset仍须冻结销售并排空旧进程，不能仅凭新代码advisory锁宣布老版本已受控；未执行生产reset。待本增量精确审查，订单状态读模型/正式UI继续。
 
 自动补账组件已完成正式BillingModule接线：共享StripeStore供webhook与worker使用，0/60秒有界公平队列、失败重试、停机排空、单进程不重叠；每次入账仍走权威支付验证和代际锁。完整createApp/真实HTTP/PG/平台RSA查单证明：关闭新销售时无需回调或手动runOnce，遗漏微信付款自动补回且receipt/ledger各一笔。Stripe原session未落库时可从已验证财务绑定恢复；未绑定且超过原支付重试窗口的意图转人工复核，不新建第二笔支付。

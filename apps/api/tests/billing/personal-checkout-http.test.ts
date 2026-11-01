@@ -3,6 +3,10 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { APP_GUARD, NestFactory } from "@nestjs/core";
 import type { INestApplication } from "@nestjs/common";
+import { BillingOrderService } from "../../src/application/billing/billing-order-service";
+import { BillingOrderController } from "../../src/interface/controllers/billing-order.controller";
+import { PgBillingOrderRepository } from "../../src/infrastructure/billing/pg-billing-order-repository";
+import { PgPersonalOrderReader } from "../../src/infrastructure/billing/pg-personal-order-reader";
 import { PersonalCheckoutResult } from "@repo/contracts/billing-pricing";
 import { PersonalCheckoutController } from "../../src/interface/controllers/personal-checkout.controller";
 import { PersonalEntitlementController } from "../../src/interface/controllers/personal-entitlement.controller";
@@ -33,10 +37,13 @@ beforeAll(async () => {
   }, { enabled: () => true, create: async purchase => {
     calls++; return { sessionRef: `cs_${purchase.purchaseRef}`, url: "https://checkout.stripe.com/c/pay/fixture", expiresAt: new Date(Date.now() + 86400000) };
   } });
-  app = await NestFactory.create({ module: class CheckoutHttpFixture {}, controllers: [PersonalCheckoutController, PersonalEntitlementController], providers: [
+  app = await NestFactory.create({ module: class CheckoutHttpFixture {}, controllers: [PersonalCheckoutController, PersonalEntitlementController, BillingOrderController], providers: [
     { provide: PersonalCheckoutService, useValue: service },
+    { provide: BillingOrderService, useValue: new BillingOrderService(new PgBillingOrderRepository(db), { findOrgMembership: async () => null },
+      { getPricingMarket: () => "us", getPublicConfig: () => ({ enabledProviders: [] }) },
+      { createNativeOrder: async () => { throw Error("unexpected_native_creation"); }, closeNativeOrder: async () => { throw Error("unexpected_native_close"); } }, undefined, new PgPersonalOrderReader(db)) },
     { provide: PersonalEntitlementService, useValue: new PersonalEntitlementService(new PgPersonalEntitlementRepository(db)) },
-    { provide: PRINCIPAL_RESOLVER_PORT, useValue: { resolve: async (headers: Record<string, string | undefined>) => headers.authorization === "Bearer checkout-fixture" ? { userId, orgId: org } : null } },
+    { provide: PRINCIPAL_RESOLVER_PORT, useValue: { resolve: async (headers: Record<string, string | undefined>) => headers.authorization === "Bearer checkout-fixture" ? { userId, orgId: org } : headers.authorization === "Bearer other-fixture" ? { userId: `${prefix}-stranger`, orgId: org } : null } },
     { provide: APP_GUARD, useClass: PrincipalGuard },
   ] }, { logger: false });
   app.useGlobalFilters(new AllExceptionsFilter({ info: vi.fn(), error: vi.fn() }, { record: vi.fn(), list: vi.fn(), getLifecycle: vi.fn(), updateLifecycle: vi.fn() }));
@@ -73,4 +80,15 @@ it("authenticates the entitlement read and rejects attempts to choose another ac
   expect(response.headers.get("cache-control")).toBe("no-store");
   expect(await response.json()).toMatchObject({ status: "none", plan: null, billingCycle: null, renewalMode: null,
     checkoutPending: true, creditGrant: { status: "none", grant: null }, welcomeCreditGrant: { status: "none", grant: null } });
+});
+
+it("reads new orders through the existing private HTTP operation and refuses cross-payer reads or legacy cancellation", async () => {
+  const result = PersonalCheckoutResult.parse(await (await post(request)).json()), path = `${base}/billing/orders/${result.purchaseRef}`;
+  expect((await fetch(path)).status).toBe(401);
+  expect((await fetch(path, { headers: { authorization: "Bearer other-fixture" } })).status).toBe(404);
+  const headers = { authorization: "Bearer checkout-fixture" }, response = await fetch(path, { headers });
+  expect(response.status).toBe(200); expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(await response.json()).toMatchObject({ order: { orderNo: result.purchaseRef, ownerId: userId, status: "PENDING", amountFen: 29000, currency: "USD", packageId: request.sku, baseCredits: 20000 } });
+  expect((await fetch(`${path}/cancel`, { method: "POST", headers })).status).toBe(409);
+  expect(calls).toBe(1);
 });

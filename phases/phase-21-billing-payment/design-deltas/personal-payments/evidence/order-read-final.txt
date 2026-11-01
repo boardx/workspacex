@@ -1,0 +1,21 @@
+[stack-admission] load1=2.48 cores=10 perCore=0.25 running=0/2
+[test-isolation] id=run-mvy8ffpc-5ae0ba87-2e6b0650415a db=wsx_2e6b0650415a7c12962e compose=wsx-2e6b0650415a7c12962e pg=20904 redis=21904 api=24904 web=25904 sandbox=26904 model=27904 deep-agent=28904 asr=29904 vision=30904 loopback-sandbox=31904 mail=19904
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_2e6b0650415a7c12962e capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (30 tests | 29 skipped) 14431ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 29 skipped (30)
+   Start at  03:37:50
+   Duration  19.25s (transform 1.06s, setup 8ms, collect 1.56s, tests 14.43s, environment 0ms, prepare 44ms)
+
+[db-isolation] db=wsx_2e6b0650415a7c12962e peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t reads the new immutable quote
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：20s
+  清理：0s
+  总计：20s

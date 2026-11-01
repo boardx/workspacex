@@ -8,6 +8,7 @@ import { PersonalStripeCheckoutClient } from "./infrastructure/billing/personal-
 import { PersonalWechatPaymentClient } from "./infrastructure/billing/personal-wechat-payment-client";
 import { PersonalWechatCreditingStore } from "./infrastructure/billing/personal-wechat-crediting-store";
 import { PersonalStripeWebhookStore } from "./infrastructure/billing/personal-stripe-webhook-store";
+import { PgPersonalOrderReader } from "./infrastructure/billing/pg-personal-order-reader";
 import { PgPersonalSubscriptionAccess } from "./infrastructure/billing/pg-personal-subscription-access";
 import { PersonalPaymentReconciler } from "./infrastructure/billing/personal-payment-reconciler";
 import { PgPersonalPaymentRecoveryStore } from "./infrastructure/billing/pg-personal-payment-recovery-store";
@@ -122,7 +123,7 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
     { provide: BILLING_CONFIG_PORT, useExisting: DeploymentBillingConfig },
     { provide: BillingOrderService,
       useFactory: (db: DatabasePort, identity: IdentityRepository, config: DeploymentBillingConfig, logger: LoggerPort) =>
-        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger),new StripeCreditCheckout(db,config)),
+        new BillingOrderService(new PgBillingOrderRepository(db), identity, config, new WechatNativeClient(config, logger),new StripeCreditCheckout(db,config),new PgPersonalOrderReader(db)),
       inject: [DATABASE_PORT, IDENTITY_REPOSITORY, DeploymentBillingConfig, LOGGER_PORT],
     },
     { provide: BillingWalletService,
