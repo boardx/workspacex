@@ -130,7 +130,9 @@ test('browser preparation finishes before selected cloud lane and remaining web 
 });
 test('actual full Turbo test plans preserve the exact union across isolated and remaining lanes', () => {
   const plan = args => {
-    const r = spawnSync('pnpm', ['turbo', 'run', 'test', ...args, '--dry=json'], { encoding: 'utf8' });
+    // Real repository plans exceed spawnSync's 1 MiB default; retain bounded, complete JSON.
+    const r = spawnSync('pnpm', ['turbo', 'run', 'test', ...args, '--dry=json'], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
+    assert.ifError(r.error);
     assert.equal(r.status, 0, r.stderr);
     return JSON.parse(r.stdout).tasks.filter(t => t.taskId.endsWith('#test') &&
       t.command && t.command !== '<NONEXISTENT>').map(t => t.taskId).sort();

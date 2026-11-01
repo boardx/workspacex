@@ -633,6 +633,9 @@ export default {
       // `/chat/:path*`（#2021）与 `/workflows`（#3492）两次同型事故）。缺任一条 =
       // 同源代理部署下被 Next 接住返回 404 HTML（`lint-rewrite-coverage --strict` 实测抓到）。
       { source: `${prefix}/billing/config`, destination: `${apiOrigin}/billing/config` },
+      { source: `${prefix}/billing/catalog`, destination: `${apiOrigin}/billing/catalog` },
+      { source: `${prefix}/billing/checkout`, destination: `${apiOrigin}/billing/checkout` },
+      { source: `${prefix}/billing/subscription/entitlement`, destination: `${apiOrigin}/billing/subscription/entitlement` },
       { source: `${prefix}/billing/consumption/settings`, destination: `${apiOrigin}/billing/consumption/settings` },
       { source: `${prefix}/billing/packages`, destination: `${apiOrigin}/billing/packages` },
       { source: `${prefix}/billing/orders`, destination: `${apiOrigin}/billing/orders` },

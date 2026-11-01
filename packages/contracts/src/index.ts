@@ -162,3 +162,6 @@ export * as organizationCoreModel from "./organization-core-model";
 export * as chatShare from "./chat-share";
 
 export * as billingConsumption from "./billing-consumption";
+
+/** #6088 draft pricing delta; runtime adoption requires the delta signoff. */
+export * as billingPricing from "./billing-pricing";
