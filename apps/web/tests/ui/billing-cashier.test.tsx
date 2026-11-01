@@ -389,3 +389,14 @@ it("recovers a paid return order with purchases disabled without consuming its r
   expect(fetcher.mock.calls.filter(([url])=>new URL(url).pathname.endsWith(`/orders/${order.orderNo}`))).toHaveLength(1);
  }finally{window.history.replaceState({},"","/");}
 });
+
+it("shows a USD credit purchase and keeps the Stripe snapshot",async()=>{
+ const usdOrder={...order,packageId:"credit-us-10000-v1",provider:"stripe",currency:"USD",amountFen:1900,baseCredits:10000,bonusCredits:0,qrCodeUrl:"https://checkout.stripe.com/c/pay/us-credit"};
+ const f=live({providers:["stripe"],items:[{...pack,packageId:usdOrder.packageId,region:"us",currency:"USD",amountFen:1900,displayAmount:"$19.00",baseCredits:10000,bonusCredits:0,bonusRate:0,totalCredits:10000}],post:()=>reply({order:usdOrder}),get:()=>reply({order:usdOrder})});
+ await generate();
+ expect(await screen.findByRole("link",{name:"前往 Stripe 付款"})).toBeTruthy();
+ expect(screen.getByTestId("billing-order-no").textContent).toContain(usdOrder.orderNo);
+ const request=JSON.parse(String(f.fetcher.mock.calls.find(([,init])=>init.method==="POST")![1].body));
+ expect(request).toMatchObject({provider:"stripe",packageId:usdOrder.packageId});
+ expect(request.amountFen).toBeUndefined();
+});

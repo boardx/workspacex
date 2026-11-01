@@ -5,6 +5,7 @@ import type { BillingConfigPort } from "../../application/billing/billing-config
 function readDeployment() {
   return {
     BILLING_DEPLOYMENT: process.env.BILLING_DEPLOYMENT,
+    BILLING_CATALOG_MARKET: process.env.BILLING_CATALOG_MARKET,
     BILLING_WECHAT_ENABLED: process.env.BILLING_WECHAT_ENABLED,
     BILLING_STRIPE_ENABLED: process.env.BILLING_STRIPE_ENABLED,
     WECHAT_PAY_APP_ID: process.env.WECHAT_PAY_APP_ID,
@@ -108,11 +109,15 @@ export class DeploymentBillingConfig implements BillingConfigPort {
     this.wechat = wechat(env);
     this.stripe = stripe(env);
     const deployment=text(env,"BILLING_DEPLOYMENT").toLowerCase();
-    this.pricingMarket = deployment === "us" ? "us" : deployment === "cn" || deployment === "devapp" ? "cn" : null;
+    const testMarket = text(env, "BILLING_CATALOG_MARKET").toLowerCase();
+    this.pricingMarket = deployment === "devapp"
+      ? testMarket === "us" ? "us" : !testMarket || testMarket === "cn" ? "cn" : null
+      : deployment === "us" ? "us" : deployment === "cn" ? "cn" : null;
     const valid=["","cn","us","devapp"].includes(deployment);
-    this.wechatEnabled = valid&&deployment!=="us"&&purchaseEnabled(env, "BILLING_WECHAT_ENABLED");
+    const validTestMarket = deployment !== "devapp" || this.pricingMarket !== null;
+    this.wechatEnabled = valid&&validTestMarket&&deployment!=="us"&&!(deployment==="devapp"&&this.pricingMarket==="us")&&purchaseEnabled(env, "BILLING_WECHAT_ENABLED");
     const stripeModeAllowed=deployment==="devapp"?this.stripe?.secretKey.startsWith("sk_test_"):deployment==="us"?this.stripe?.secretKey.startsWith("sk_live_"):true;
-    this.stripeEnabled = valid&&deployment!=="cn"&&!!stripeModeAllowed&&purchaseEnabled(env, "BILLING_STRIPE_ENABLED");
+    this.stripeEnabled = valid&&validTestMarket&&deployment!=="cn"&&!!stripeModeAllowed&&purchaseEnabled(env, "BILLING_STRIPE_ENABLED");
   }
   getPublicConfig(): ReturnType<BillingConfigPort["getPublicConfig"]> {
     return { enabledProviders: [...(this.wechat && this.wechatEnabled ? ["wechat" as const] : []), ...(this.stripe && this.stripeEnabled ? ["stripe" as const] : [])] };

@@ -1,5 +1,7 @@
 # 真实商品目录交接
 
+本项目录已正常合入develop：PR #6095 / 6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a / 2026-11-01T18:58:35Z，issue6089已由PR关闭。下文目录分支/待CI文字为合入前历史，当前集成后续充值6090。未进行生产清理、启用或部署。
+
 唯一工作区 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui，当前分支 worker/cn-us-price-catalog。UI #6087 和契约 #6094 已合入develop；本分支已去掉旧父499c22a20，对齐 develop a2d305d11cac86df01737461b5b241bbac3c430e，仅含 #6089 目录交付。
 
 测试命令：pnpm --filter @repo/api test:billing-provider；pnpm --filter @repo/api typecheck；pnpm --filter @repo/api lint。HTTP目录测试为 tests/billing/pricing-catalog.test.ts，通过vitest.billing-provider.config.ts纳入测试，真实loopback listener会自行关闭。

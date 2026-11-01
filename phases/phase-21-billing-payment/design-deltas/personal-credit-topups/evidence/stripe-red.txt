@@ -1,0 +1,25 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/stripe-credit-client.test.ts (8 tests | 1 failed) 77ms
+   × Stripe credit checkout protocol > creates a USD snapshot without conversion or CNY fallback 11ms
+     → invalid_checkout
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/stripe-credit-client.test.ts > Stripe credit checkout protocol > creates a USD snapshot without conversion or CNY fallback
+Error: invalid_checkout
+ ❯ StripeCreditClient.create src/infrastructure/billing/stripe-credit-client.ts:38:249
+
+ ❯ tests/billing/stripe-credit-client.test.ts:20:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  22:29:13
+   Duration  779ms (transform 178ms, setup 0ms, collect 243ms, tests 77ms, environment 0ms, prepare 136ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/stripe-credit-client.test.ts

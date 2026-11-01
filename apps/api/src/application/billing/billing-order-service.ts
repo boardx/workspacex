@@ -59,7 +59,10 @@ export class BillingOrderService {
   async packages(principal: Principal, input: z.infer<typeof operations.listPackages.in>) {
     const query = operations.listPackages.in.parse(input);
     const owner = await this.owner(principal, query.ownerType, undefined, false);
-    return operations.listPackages.out.parse({ items: await this.repository.packages(owner) });
+    const market = this.config.getPricingMarket?.();
+    if (market !== "cn" && market !== "us") throw new BillingOrderError("payment_provider_not_configured");
+    const items = await this.repository.packages(owner);
+    return operations.listPackages.out.parse({ items: items.filter(item => item.region === market) });
   }
   async create(principal: Principal, input: z.infer<typeof operations.createPaymentOrder.in>, traceId?: string) {
     assertPrincipal(principal);
@@ -69,7 +72,10 @@ export class BillingOrderService {
     if (owner.ownerType === "team" && !await this.repository.creditEnabled(owner)) throw new BillingOrderError("org_billing_disabled");
     const pkg = await this.repository.package(owner.orgId, request.packageId);
     if (!pkg) throw new BillingOrderError("package_not_found");
-    if (!pkg.enabled || pkg.ownerType !== "both" && pkg.ownerType !== owner.ownerType || pkg.currency !== "CNY" || pkg.amountFen <= 0) throw new BillingOrderError("package_disabled");
+    const market = this.config.getPricingMarket?.();
+    if (market !== "cn" && market !== "us") throw new BillingOrderError("payment_provider_not_configured");
+    const currency = market === "us" ? "USD" : "CNY";
+    if (!pkg.enabled || pkg.ownerType !== "both" && pkg.ownerType !== owner.ownerType || pkg.currency !== currency || market && pkg.region !== market || request.provider === "wechat" && pkg.currency !== "CNY" || pkg.amountFen <= 0) throw new BillingOrderError("package_disabled");
     const createdAt = new Date();
     const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     const suffix = Array.from({ length: 6 }, () => alphabet[randomInt(alphabet.length)]).join("");

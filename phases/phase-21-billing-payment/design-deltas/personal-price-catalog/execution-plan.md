@@ -31,15 +31,18 @@ flowchart TD
   classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
   classDef blocked fill:#fecaca,stroke:#dc2626,color:#111827
 
-  class G doing
+  class G tested
+  %% evidence G: 目录PR6095正常合入develop6a1a3c62，来源319d89d通过独立审查和全部仓库必需门禁
   class S1 tested
   %% evidence S1: 目标service缺失时测试退出1；实际金额和HTTP断言已固定，证据将归档evidence/
-  class S2 done
+  class S2 tested
+  %% evidence S2: 目录HTTP6/provider41验证通过，见evidence/provider-rebased.txt
   class S3 tested
   %% evidence S3: 支付专项及HTTP边界通过，最终输出见evidence/provider-tests.txt
   class S4 tested
   %% evidence S4: API typecheck/lint退出0，provider41项通过，独立审查6/6；证据evidence/
-  class S5 doing
+  class S5 tested
+  %% evidence S5: PR6095经READY及正常队列合入develop6a1a3c62；issue6089已关闭
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）

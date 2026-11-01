@@ -13,6 +13,17 @@ const credentials = {
   WECHAT_PAY_PRIVATE_KEY: privateKey, WECHAT_PAY_NOTIFY_URL: "https://pay.example.test/wechat",
   STRIPE_SECRET_KEY: "sk_test_fixture", STRIPE_WEBHOOK_SECRET: "whsec_fixture", STRIPE_PAYMENT_LINK: "https://buy.stripe.com/test_fixture",
 };
+it("lets DevApp test USD with test Stripe while production markets remain deployment-owned", () => {
+  const dev = new DeploymentBillingConfig({ ...credentials, BILLING_DEPLOYMENT: "devapp", BILLING_CATALOG_MARKET: "us" });
+  expect(dev.getPricingMarket()).toBe("us");
+  expect(dev.getPublicConfig().enabledProviders).toEqual(["stripe"]);
+  expect(dev.getWechat()).not.toBeNull();
+  const cn = new DeploymentBillingConfig({ ...credentials, BILLING_DEPLOYMENT: "cn", BILLING_CATALOG_MARKET: "us" });
+  expect(cn.getPricingMarket()).toBe("cn");
+  const invalid = new DeploymentBillingConfig({ ...credentials, BILLING_DEPLOYMENT: "devapp", BILLING_CATALOG_MARKET: "invalid" });
+  expect(invalid.getPricingMarket()).toBeNull();
+  expect(invalid.getPublicConfig().enabledProviders).toEqual([]);
+});
 afterEach(() => { vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe("independent payment purchase switches", () => {
