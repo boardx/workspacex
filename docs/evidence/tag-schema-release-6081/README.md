@@ -1,0 +1,7 @@
+# Fixed-tag US reconciliation operation
+
+Issue #6081; incident #6078. The exact US production transaction for tag `41248889927-1` committed the three reviewed SQL files once (435 to 438 migration entries). Dynamic target bootstrap passed. The subsequent old-service restart business probe failed; the original failure and pending intent remain retained. Independent terminality checks and a fresh full business probe restored the old application and original Nginx configuration; public health returned HTTP 200. Target application activation is not yet accepted.
+
+`us-reconcile-only.py` is a reviewed, fixed-host, one-shot operator operation. It never applies SQL, prepares a backup, starts/stops services or changes Nginx. It binds the original failed attempt, Git-derived installed code hashes, original backup/ACK/bootstrap, current configuration/runtime, fresh bootstrap/business/public checks and pending CAS. Only successful actual checks can create a reconciliation receipt and archive the original pending record. Existing uncertain business state and expired proof reject; do not retry a failed operation blindly or refresh timestamps. The script has not yet been executed at the time of this record.
+
+The script contains no credentials, backup data, user content or provider output. Original sensitive proof stays private on the production host. Code review and compilation are not production acceptance.
