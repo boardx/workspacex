@@ -1,0 +1,18 @@
+
+> @repo/api@0.0.0 test:billing-provider /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+> vitest run --config vitest.billing-provider.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/provider-switches.test.ts (15 tests) 38ms
+ ✓ tests/billing/wechat-monthly-client.test.ts (9 tests) 41ms
+ ✓ tests/billing/pricing-catalog.test.ts (6 tests) 212ms
+ ✓ tests/billing/stripe-credit-client.test.ts (7 tests) 24ms
+ ✓ tests/billing/monthly-checkout-client.test.ts (4 tests) 19ms
+
+ Test Files  5 passed (5)
+      Tests  41 passed (41)
+   Start at  02:11:02
+   Duration  2.06s (transform 183ms, setup 0ms, collect 920ms, tests 333ms, environment 1ms, prepare 232ms)
+
