@@ -1,5 +1,9 @@
 # 个人支付闭环在建交接
 
+当前边界更新：ecb383b16订单读取检查点独立审查有P2（已到账但原创建绑定缺失时503），尚未ACCEPT。已准备personal-order-outcomes-v1具体修订并独立一致性复核：终态地址/期限可null、待支付强制真值，异步等待人类签核；未实施依赖该修订的代码。
+
+不依赖修订的账户只读UI已按采用布局实现为组件，尚未接生产路由/支付弹窗：真实catalog/wallet/entitlement读取，严格本人钱包且必须有永久余额，独立错误/重试、不虚构Free赠送，年付/额度周期分离，按实际provider显示续费；scope切换即时隐藏旧数据，门户链接限可信Stripe地址。React9项、Web typecheck/lint通过，见ui-account/overview/read证据；这是组件验证，不冒充真实浏览器支付证据。
+
 新订单状态读取复用既有私有GET /billing/orders/:orderNo：按payer与generation绑定，真实快照金额/币种/额度，实际fulfilled为成功、人工复核为失败、权威closed才关闭，本地超时仍pending。notifyAt未知保留null，不拿恢复查单验证时间冒充回调时间。active不回退旧表；旧cancel拒绝新订单，避免绕过新财务流程关商户单。完整Stripe30及真实HTTP/旧订单/Root45通过；notifyAt修正后针对1项再通过，其余29为过滤。初版type/lint7通过，最终源由推送门禁复验。尚待正式UI绑定与整feature审查/PR。
 
 管理/历史及旧购买入口退役增量：管理门户只读取当前payer、当前generation的已验证Stripe绑定，销售开关关闭仍可管理；终态不可管理；年付历史按实际paid term一行，保留真实金额/币种/有效期而非月度额度行。active epoch旧info/upgrade退役，旧订单在商户调用前及实际落库/到账事务内拒绝，旧Stripe无session的GET恢复也先检查。未知epoch拒绝，不推断旧权益。新增3个PG用例先红后绿，Stripe全29项及旧模式/Root/HTTP9文件97项通过；补充直接旧财务边界1项通过（过滤其余28项），不把过滤用例计为执行。API type/lint7任务通过。证据management-*、retired-sales-*。最终reset仍须冻结销售并排空旧进程，不能仅凭新代码advisory锁宣布老版本已受控；未执行生产reset。待本增量精确审查，订单状态读模型/正式UI继续。
