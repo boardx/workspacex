@@ -13,3 +13,5 @@ Issue #6088。仅 schema／用例／领域约束设计，未注册新 API、未�
 2026-11-01 用户明确确认：旧订单、订阅、余额和流水全部为脏数据并清空；API/usecase 修订后再次确认并授权回填 design-signoff.md。没有执行生产重置。
 
 2026-11-02：UI PR #6087 已正常合入 develop，merge SHA 25320a892a74ffa90c12e4169637a3be84ced661。契约分支重基于该 SHA，定向 schema 测试重新运行 7/7。用户明确授权本次定价任务在逐 PR 检查与独立审查通过后正常集成 develop；不使用 admin bypass，不含生产部署。当前仅准备 #6088 PR，运行时后续增量仍各自交付。
+
+PR #6094 首轮 CI verify-control-plane 发现新增契约的三条同源代理缺失。本地严格 rewrite 门重现退出1；仅在 Next afterFiles 补 /billing/catalog、/billing/checkout、/billing/subscription/entitlement 三条精确代理，无通配或前端页面路由改动。严格 rewrite 门及 node --check 均退出0，证据 rewrite-red/green.txt；完整 PR checks 仍须等待新 head，不能以此次定向检查代替。

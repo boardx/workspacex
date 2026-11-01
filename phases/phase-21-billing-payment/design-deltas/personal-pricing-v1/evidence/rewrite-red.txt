@@ -1,0 +1,7 @@
+✓ [rewrite-coverage] 431 条路由、87 条 rewrite 覆盖一致（5 条历史缺口在棘轮名单里，只能变短）
+✓ [rewrite-shadow] 37 条动态页面路由（共 137 个 page.tsx）、220 条 afterFiles 规则，没有新的遮蔽（4 条既有遮蔽在棘轮名单里，只能变短）
+✗ [contract-rewrite-coverage] 3 条契约路由没有同源代理规则：
+   · /billing/catalog（packages/contracts/src/billing-pricing.ts）—— 走同源代理会被 Next 接住返回 404
+   · /billing/subscription/entitlement（packages/contracts/src/billing-pricing.ts）—— 走同源代理会被 Next 接住返回 404
+   · /billing/checkout（packages/contracts/src/billing-pricing.ts）—— 走同源代理会被 Next 接住返回 404
+   在 apps/web/next.config.mjs 的 afterFiles 补对应规则（有前端页面同名的前缀逐条写，别写通配）。

@@ -1,0 +1,3 @@
+✓ [rewrite-coverage] 431 条路由、87 条 rewrite 覆盖一致（5 条历史缺口在棘轮名单里，只能变短）
+✓ [rewrite-shadow] 37 条动态页面路由（共 137 个 page.tsx）、223 条 afterFiles 规则，没有新的遮蔽（4 条既有遮蔽在棘轮名单里，只能变短）
+✓ [contract-rewrite-coverage] 924 条契约路由全部有同源代理规则
