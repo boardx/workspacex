@@ -232,8 +232,42 @@ jobs:
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
         run: |
           printf '### Requested deployment\n\nEnvironment: `%s`\n\nImage tag: `%s`\n\nThis is the requested tag; deployment outcome is recorded below in the job log.\n' "$TARGET_ENVIRONMENT" "$IMAGE_TAG" >> "$GITHUB_STEP_SUMMARY"
-      - name: Pull tag, deploy, verify and recover automatically on failure
+      - name: Preflight schema, route release, verify and recover on failure
         env:
           TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
           IMAGE_TAG: ${{ needs.plan.outputs.tag }}
-        run: sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG"
+        run: |
+          set -uo pipefail
+          result=$(mktemp)
+          trap 'rm -f -- "$result"' EXIT
+          set +e
+          sudo -n /usr/local/bin/workspacex-image-release "$TARGET_ENVIRONMENT" "$IMAGE_TAG" | tee "$result"
+          release_status=${PIPESTATUS[0]}
+          set -e
+          python3 - "$result" "$GITHUB_STEP_SUMMARY" <<'PY'
+          import json,re,sys
+          result={}
+          for line in open(sys.argv[1]):
+              try:
+                  row=json.loads(line)
+                  if isinstance(row,dict) and isinstance(row.get('status'),str): result=row
+              except ValueError: pass
+          safe={}
+          for key in ('status','code','stage','route','nextAction'):
+              value=result.get(key)
+              if isinstance(value,str) and re.fullmatch(r'[A-Za-z0-9_-]{1,128}',value): safe[key]=value
+          if result.get('applyAttempted') is False: safe['applyAttempted']=False
+          if result.get('schemaPlanComplete') is False: safe['schemaPlanComplete']=False
+          changes=[]
+          for row in result.get('schemaChanges',[]) if isinstance(result.get('schemaChanges'),list) else []:
+              if not isinstance(row,dict) or row.get('role') not in ('api','agent'): continue
+              change={'role':row['role']}
+              for key in ('added','removed','changed'):
+                  values=row.get(key,[])
+                  if isinstance(values,list): change[key]=[name for name in values if isinstance(name,str) and re.fullmatch(r'[A-Za-z0-9_./-]{1,200}',name)][:100]
+              changes.append(change)
+          if changes: safe['schemaChanges']=changes[:20]
+          with open(sys.argv[2],'a') as out:
+              out.write('\n### Deployment outcome\n\n```json\n'+json.dumps(safe or {'status':'STRUCTURED_RESULT_UNAVAILABLE'},ensure_ascii=True,indent=2)+'\n```\n')
+          PY
+          exit "$release_status"

@@ -142,6 +142,12 @@ jobs:
       - name: Exercise minimal Docker release command offline
         run: python3 -I -B tests/test_minimal_docker_release.py
 
+      - name: Exercise tag schema routing and durable handoff offline
+        run: |
+          python3 -I -B -m unittest discover -s tests -p test_tag_schema_plan.py
+          python3 -I -B -m unittest discover -s tests -p test_schema_release_handoff.py
+          python3 -I -B -m unittest discover -s tests -p test_deploy_registry_images.py
+
       # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段
       # (pnpm@9.0.0) 读取。两处都写会触发 ERR_PNPM_BAD_PM_VERSION。
       - name: Setup pnpm
