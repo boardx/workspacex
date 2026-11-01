@@ -1,30 +1,17 @@
 # 个人支付在建交接
 
-唯一worktree `/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui`，当前worker/cn-us-personal-payments；不用第二个worktree、不切共享checkout。远端source c2d3873c267e6f82f2686bfd15f4c3e968a9dc2f已正常push（prepush25/25、21cache），本提交只补验证记录与当前集成事实。保留共享stash，不回放旧UI/recovery备份覆盖当前源码。
+唯一worktree `/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui`，当前worker/cn-us-personal-payments。不新建第二个worktree，不切共享checkout。所有命令显式workdir，后续用PATH=/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin:$PATH。共享stash不回放，不动其他发布/邮件会话资源。
 
-用户已采用personal-order-outcomes-v1并授权回填/继续，签核已记录；本次正常集成develop授权持续，不重问、不admin bypass。Stripe fragment P1于f2884c794修复并独立代码闭环；c2错误分类与移除重复子集config增量独立ACCEPT。原缺绑定及QR重试P2已闭环。最终新base全feature审查和PR CI仍未完成，不假passing。
+actual base c04c332a1563f8168964e9497a59dcb51ad4017c为P4 PR6102真实merge（2026-11-01T23:34:47Z，6092关闭23:34:49Z，合入前72checks无异常）。P3 PR6100已merge98de。P5旧父b4ddf725f79b2607a186ff82782ed10b520272a8已剥离，22提交重放source fb5f2270237b0b5ddf696abb2f621358e0081d69独立全scope ACCEPT，待本次docs最终SHA复核。旧远端仍80e287ca9716c1e07859b62d6034e22d4457a230；仅精确lease强推自有分支，正常hook，不admin bypass。
 
-证据：contracts1254/provider166/UI107/PGHTTP39/旧PG42/parity12及browser17在order-outcomes；后续fragment URL/state/React29、更新checkout22、canonical完整browser17、types/lint9、目标实际HMAC PG1（33过滤）在review-fixes。HMAC每次随机合法whsec格式，不改扫描门。浏览器独立签名loopback，未在线商户扣款。邮件worker关闭，不向真人发信。
+原251条P5触及路径与旧80逐字相同；唯一migration-scope冲突已机械证明actual-base prefix+四P5 SQL==旧80。range-diff只该前置3项上下文变化，其余=。新base quickinit与scope2已实际绿。证据review-fixes/actual-base-*。不要把旧b4dd再当本分支新父，也不要重放P4。
 
-基础状态：普通init快速路径通过。full第一次scan固定假key误报、第二次错误码分类静态误报及无入口重复config已修，各项红绿/独立审查已保存。第三次full全部静态门禁通过，harness28文件856测试通过后停在studio原生ESM加载测试：当前shell Node22.14解析嵌套TS失败，相关源与actual develop无差异。已安装Node22.23.2下同一目标1通过、15过滤；这是补丁版环境差异，不改业务/门禁。后续命令显式PATH使用/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin。尚未声称完整full init通过，最终实际依赖基线上还须完整检查；不把目标修复绿拼作全仓通过。
+下一步：最终docs SHA独立复核/正常push25，单PR目标develop、Closes #6093；canonical classifyChecks实时判定，修红和review到绿后按已授权正常入队，跟进actual merge。source ACCEPT不是CI绿。剩余完整API必须在标准独立DB分片及queue实际证明；本地full主动中止exit1，不能宣称full PASS。
 
-实际集成：充值PR6098 merge d886e24310ae50e8f7c6a74bbceb87c052514025；年付PR6100已在2026-11-01T22:32:25Z正常merge develop98de549bbe77c459362ed42fc9455c5589dd1f1e，6091于22:32:27Z由PR关闭，fetch后ancestor退出0。合入前72check均success/skipped/neutral；合入后plan另算，不混为合前证据。
+功能：持久化原意图/严格服务端报价、Wechat手动续费/Stripe自动续费、权威验签重读结算/真实历史和取消、自动恢复；正常个人UI默认off、epoch不激活。用户已确认personal-order-outcomes-v1并授权回填/继续，confirmed已记，不重复问。nilbinding/QR P2和Stripe fragment P1代码均闭环；信任ownedGET，不信回跳/空URL。Team/Enterprise不在本PR。旧订单/订阅/余额/流水全部重置、不兼容旧权益，但生产reset/部署/epoch不由本项执行。
 
-接着：
-1. P4远端63bd75abd29109a6ca7750060dd9687c2fd864f4从**旧父b766a58ccbf9b14dcccaf6e1a47c086f3b5ea2db**剥离到actual develop，range-diff/精确源码复核，再单issue6092 PR，负责到绿正常合入。
-2. P4实际merge后，P5从**原父b4ddf725f79b2607a186ff82782ed10b520272a8**剥离，不能用新P4头当旧父。reviewedSuffix现含继承P3/P4三项及P5四项；冲突时保留实际base列表再加P5四项，不恢复旧列表。
-3. 最终基础/全feature精确SHA独立复核、单issue6093 PR及真实绿CI。默认UIflagoff、epoch未激活，禁止生产reset/支付/部署。全旧计费数据清理与外部旧款/在途usage屏障仍是独立后续工作，未执行。
+验证：order-outcomes contracts1254/provider166/React107/金融PGHTTP39/旧PG42/parity12/browser17；review-fixes另有URL-state-checkout29、错误分类checkout22、真实随机HMAC HTTP目标1（33过滤）、typeslint9及canonical browser17。不是在线商户实付，邮件worker关闭，billing HTTP不拦截。源字节不变的证据明确复用，不因SHA重写冒称重跑。
 
-Team/Enterprise是独立Draft PR6101，分支worker/cn-us-team-billing-design head096892902；原草案问题已复审闭环、pending。采用原型的添加额度按钮仅Enterprise可见、整数1..1,000,000且原因必填，旧“所有列表行”观察错误已纠正。api.md不代替packages/contracts第③件；须补可执行schema/原型消费反例/正式复核后再一次请求人工确认。个人签核不覆盖Team。
+Node22.23.2 oldstack66全面检查已过所有static、harness249文件2816/4skip、typeslint、contracts/local等包、Web966文件8438/5skip；API完成82文件主动中止串行，exit1且无API全量汇总。gzip raw/summary证明在node22-full-partial-*，前3次真实full失败也保留。Node22.14嵌套TS加载故障在22.23.2整16项绿；不改隔离器。停止后wrapper没自动完成收尾，已手动down-v唯一wsx-6468及核对无owned后代/ports后仅清owner43114的1stack lease/13port标记；当前无自有进程/栈，其他owner不碰。
 
-当前所有本会话测试栈已由wrapper释放，第三次full清理1s，无自有Next/Chromium/compiler/compose剩余；Node目标测试无资源栈。其他发布/邮件会话资源不动。
-
-## 最新覆盖（以上旧待跑边界已被本节更新）
-
-Node22.23.2 full在66旧stack上已过全部静态、harness249/2816（4skip）、types/lint、contracts1254/local-runtime250、Web966/8438（5skip）。API部分已过，主动SIGINT停止本地串行，exit1，不是完整full PASS；剩余完整API必须由最终PR标准CI独立DB分片及queue证明，不能提前合。raw gzip/summary/手动cleanup实录在review-fixes/node22-full-partial-*。无源代码改变、无全量API完成声明。原Node加载文件16全绿。
-
-主动停止后wrapper未自动完成清理，已手动清理本次project、核对无owned后代并探测ports，再仅移除owner43114的stack lease/13 port标记，其他owner不动；Docker只剩他人扩展。不要再让同一全API串行重复占工时，标准CI分片完整范围不缩小。
-
-P4 #6102已canonical READY后正常入队，candidate c04c332a1563f8168964e9497a59dcb51ad4017c，当前仍AWAITING_CHECKS；新现场要读GraphQL candidate而非只看旧SHA。actualmerge后P5仍从原b4dd剥离，精确lease以届时本P5远端为准。
-
-Team待裁决P2：Enterprise升级时已付年费剩余窗口不能被“不自动新增额度”偷换为停止已付额度。已在6099公开并用request_user_input_async问“继续原计划至已付期结束（推荐）/停止原计划剩额手动处理”；问题尚未回答，不重复问/不把超时当采用。待答案统一schema/确认摘要/收据/worker/测试及一次正式签核，pending不变。
+Team Draft6101 head096892902仍pending，原草案quote/T06等已复审，正式第③件schema/原型消费及正式复核未齐。真实采用UI手动额度仅Enterprise、整数1..1,000,000且必填原因，旧“所有行”观察错误已修。新P2“升级是否停止已付年费剩余窗口”已公开6099，并通过request_user_input_async问继续原计划至已付期结束（推荐）/停止原计划剩额手动处理，答案未到，不重复问/不把超时当采用；统一材料后才正式签核，不自行改pending。

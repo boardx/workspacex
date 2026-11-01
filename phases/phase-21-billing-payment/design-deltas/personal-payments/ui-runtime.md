@@ -13,3 +13,7 @@
 本次恢复修订验证：完整browser17、React107、contracts1254、provider166、真实PG/HTTP39、旧PG42、local parity12、API/Web/local-runtime类型lint11及受影响25任务通过。见evidence/order-outcomes/；paid-without-binding.png为真实API/PG及独立Stripe HTTP/HMAC fixture的成功恢复画面，不是在线商户实付。
 
 此前UI运行时检查点的移动端补测1项（2项过滤）与PGlite迁移/注册3项另见evidence/ui-runtime/，不是本次重跑结果。移动端历史刷新截图为请求中画面，不作为历史到账内容断言。
+
+## 实际集成基线核对
+
+P4已真实merge c04c332a，个人source fb5f2270237b0b5ddf696abb2f621358e0081d69独立ACCEPT且251触及路径与旧检查点80逐字一致。当前正常UI保留Stripe原Checkout fragment；完整canonical4spec/17项及全Web966文件8438项通过来源见review-fixes，前者独立签名fixture非online商户。全部本地API未完成，full主动中止exit1，最终标准CI及queue仍须验证；不把UI证据扩展成Team后端或生产启用。
