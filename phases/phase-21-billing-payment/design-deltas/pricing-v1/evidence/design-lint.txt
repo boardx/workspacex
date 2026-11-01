@@ -1,0 +1,4 @@
+
+✅ lint-design：全部通过（扫描 app/preview/pricing components/billing/pricing-preview.tsx components/billing/pricing-account-preview.tsx components/billing/pricing-enterprise-preview.tsx components/billing/pricing-purchase-dialog.tsx components/billing/pricing-preview-data.ts）
+
+退出码：0
