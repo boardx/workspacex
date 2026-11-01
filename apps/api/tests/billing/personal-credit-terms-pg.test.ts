@@ -1,11 +1,13 @@
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { ensureDatabase, migrateOnce, seedOrg, asOwner, asApp } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { recordPaidPersonalTerm, grantDuePersonalTerms } from "../../src/infrastructure/billing/personal-credit-terms";
+import { PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import { PgPersonalCreditScheduleStore } from "../../src/infrastructure/billing/pg-personal-credit-schedule-store";
 import { PgCreditConsumption } from "../../src/infrastructure/billing/pg-credit-consumption";
 import { PgBillingWalletRepository } from "../../src/infrastructure/billing/pg-billing-wallet-repository";
 import { creditMonthBoundary } from "../../src/domain/billing/personal-credit-calendar";
@@ -13,6 +15,7 @@ import { creditMonthBoundary } from "../../src/domain/billing/personal-credit-ca
 const prefix = `annual-${randomUUID().slice(0, 12)}`, org = toOrgId(prefix);
 const db = new PgDatabase(appConfig()), users: string[] = [];
 beforeAll(async () => { ensureDatabase(); await migrateOnce(); await seedOrg({ orgId: org, kind: "personal-local", ownerUserId: `${prefix}-root`, projectId: `${prefix}-project` }); });
+// @global-scope-fixture table:billing_personal_terms: afterAll deletes only the exact recorded user IDs, including pagination fixtures.
 // @global-scope-fixture table:credit_wallets: only exact recorded owners of this test are deleted.
 afterAll(async () => {
   await asOwner(async c => {
@@ -140,4 +143,53 @@ it("does not hide a conflicting existing credit batch when skipping settled wind
   await asOwner(c=>c.query("UPDATE credit_subscription_periods SET granted_hundredths=granted_hundredths+100 WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[f.userId]));
   await expect(f.sync()).rejects.toThrow("credit_period_replay_mismatch");
   expect(await f.wallet()).toEqual(before);
+});
+
+it("periodic sweep grants a due month while isolating a conflicting account", async () => {
+  const good=await fixture("sweep-good"), bad=await fixture("sweep-bad");
+  const prior=new Date(good.input.periodStart); prior.setUTCMonth(prior.getUTCMonth()-1);
+  await db.withTenant(org,s=>recordPaidPersonalTerm(s,{...good.input,purchaseAnchor:prior,periodStart:prior,periodEnd:creditMonthBoundary(prior,12)},prior));
+  await bad.record(); const badBefore=await bad.wallet();
+  await asOwner(async c=>{
+    await c.query("UPDATE billing_personal_terms SET next_check_at=now() WHERE user_id=$1",[bad.userId]);
+    await c.query("UPDATE credit_subscription_periods SET granted_hundredths=granted_hundredths+100 WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_id=$1)",[bad.userId]);
+  });
+  const log={info:vi.fn(),error:vi.fn()};
+  const result=await new PgPersonalCreditScheduleStore(db,log).reconcileDue(null);
+  expect(result).toMatchObject({processed:1,failed:1,nextCursor:null});
+  expect(await good.wallet()).toMatchObject({balance:"20007.00",total_granted:40000});
+  expect(await bad.wallet()).toEqual(badBefore);
+  expect(log.error).toHaveBeenCalledWith("billing_personal_credit_account_failed",expect.objectContaining({ownerId:bad.userId}));
+});
+it("a forced early schedule hint cannot release next month's credits", async () => {
+  const f=await fixture("early-hint"); await f.record();
+  await asOwner(c=>c.query("UPDATE billing_personal_terms SET next_check_at=now() WHERE user_id=$1",[f.userId]));
+  await new PgPersonalCreditScheduleStore(db,{info:vi.fn(),error:vi.fn()}).reconcileDue(null);
+  expect(await f.wallet()).toMatchObject({balance:"20007.00",total_granted:20000});
+  const next=await asApp(org,async c=>(await c.query("SELECT next_check_at FROM billing_personal_terms WHERE user_id=$1",[f.userId])).rows[0].next_check_at);
+  expect(next.getTime()).toBeGreaterThan(Date.now());
+});
+
+it("two scheduler instances cannot grant a due monthly window twice", async () => {
+  const f=await fixture("multi-worker");
+  const prior=new Date(f.input.periodStart); prior.setUTCMonth(prior.getUTCMonth()-1);
+  await db.withTenant(org,s=>recordPaidPersonalTerm(s,{...f.input,purchaseAnchor:prior,periodStart:prior,periodEnd:creditMonthBoundary(prior,12)},prior));
+  const log={info:vi.fn(),error:vi.fn()};
+  await Promise.all([new PgPersonalCreditScheduleStore(db,log).reconcileDue(null),new PgPersonalCreditScheduleStore(db,log).reconcileDue(null)]);
+  expect(await f.wallet()).toMatchObject({balance:"20007.00",total_granted:40000});
+  const grants=await asApp(org,async c=>(await c.query("SELECT count(*)::int AS n FROM credit_transactions t JOIN credit_wallets w USING(wallet_id) WHERE w.owner_id=$1 AND t.type='subscription_grant'",[f.userId])).rows[0].n);
+  expect(grants).toBe(2);
+});
+it("paginates 101 due owners without losing the second batch", async () => {
+  const pagePrefix=`${prefix}-zz-page`, ids=Array.from({length:101},(_,i)=>`${pagePrefix}-${String(i).padStart(3,"0")}`);
+  users.push(...ids);
+  const anchor=new Date(); anchor.setUTCDate(1); anchor.setUTCHours(0,0,0,0);
+  await asOwner(c=>c.query(`INSERT INTO billing_personal_terms(user_id,provider,payment_ref,subscription_ref,catalog_version,sku,billing_cycle,currency,amount_minor,purchase_anchor,month_offset,period_start,period_end,next_check_at)
+    SELECT id,'wechat','wx_'||id,'pass_'||id,$2,'pro-cn-month-v1','month','CNY',19900,$3,0,$3,$4,now() FROM unnest($1::text[]) AS item(id)`,[ids,PERSONAL_PRICE_CATALOG_VERSION,anchor,creditMonthBoundary(anchor,1)]));
+  const store=new PgPersonalCreditScheduleStore(db,{info:vi.fn(),error:vi.fn()});
+  const first=await store.reconcileDue(pagePrefix);
+  expect(first).toEqual({processed:100,failed:0,nextCursor:ids[99]});
+  expect(await store.reconcileDue(first.nextCursor)).toEqual({processed:1,failed:0,nextCursor:null});
+  const credited=await asApp(org,async c=>(await c.query("SELECT count(*)::int AS n FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[]) AND balance=20000 AND total_granted=20000",[ids])).rows[0].n);
+  expect(credited).toBe(101);
 });

@@ -8,5 +8,7 @@ export const PERSONAL_CREDIT_TERM_SQL = Object.freeze({
     VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(provider,payment_ref) DO NOTHING`,
   personalTermWindows: `SELECT p.invoice_ref,p.subscription_ref,p.plan_ref,p.period_start,p.period_end,p.granted_hundredths::text
     FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id) WHERE w.owner_type='user' AND w.owner_id=$1`,
+  personalTermNextCheck: "UPDATE billing_personal_terms SET next_check_at=$2 WHERE term_id=$1 AND next_check_at IS DISTINCT FROM $2",
+  personalTermDueOwners: "SELECT user_id FROM billing_personal_terms WHERE next_check_at<=now() AND ($1::text IS NULL OR user_id>$1) GROUP BY user_id ORDER BY user_id LIMIT $2",
   personalTermsOwner: "SELECT * FROM billing_personal_terms WHERE user_id=$1 ORDER BY period_start,term_id",
 });

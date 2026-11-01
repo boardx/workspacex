@@ -13,12 +13,19 @@ export function creditMonthBoundary(anchor: Date, offset: number): Date {
   return boundary;
 }
 
+export function paidCreditMonthCount(cycle: "month" | "year"): number {
+  if(cycle === "month") return 1;
+  if(cycle === "year") return 12;
+  throw new Error("credit_term_invalid");
+}
+
 export type PaidCreditWindow = { index: number; start: Date; end: Date };
 /** Includes elapsed windows for auditable late recovery; accounting expires their unused credit. */
 export function paidCreditWindows(anchor: Date, cycle: "month" | "year", at: Date, monthOffset = 0): PaidCreditWindow[] {
-  if (!Number.isFinite(anchor.getTime()) || !Number.isFinite(at.getTime()) || !["month", "year"].includes(cycle) || !Number.isSafeInteger(monthOffset) || monthOffset < 0) throw new Error("credit_term_invalid");
+  if (!Number.isFinite(anchor.getTime()) || !Number.isFinite(at.getTime()) || !Number.isSafeInteger(monthOffset) || monthOffset < 0) throw new Error("credit_term_invalid");
+  const count=paidCreditMonthCount(cycle);
   const result: PaidCreditWindow[] = [];
-  for (let index = 0; index < (cycle === "year" ? 12 : 1); index++) {
+  for (let index = 0; index < count; index++) {
     const start = creditMonthBoundary(anchor, monthOffset + index);
     if (start > at) break;
     result.push({ index, start, end: creditMonthBoundary(anchor, monthOffset + index + 1) });

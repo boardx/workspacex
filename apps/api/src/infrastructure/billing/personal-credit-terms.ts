@@ -1,5 +1,5 @@
 import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../domain/billing/personal-price-catalog";
-import { creditMonthBoundary, paidCreditWindows } from "../../domain/billing/personal-credit-calendar";
+import { creditMonthBoundary, paidCreditWindows, paidCreditMonthCount } from "../../domain/billing/personal-credit-calendar";
 import type { TenantSession } from "../../application/ports/database.port";
 import { CREDIT_PERIOD_GRANT_SQL } from "./credit-period-sql";
 import { grantPaidSubscriptionPeriod, normalizeCreditPeriods } from "./pg-credit-periods";
@@ -12,7 +12,7 @@ export type VerifiedPersonalPayment = {
 };
 type TermRow = { term_id: string; user_id: string; provider: string; payment_ref: string; subscription_ref: string;
   catalog_version: string; sku: string; billing_cycle: "month" | "year"; currency: string; amount_minor: string;
-  purchase_anchor: Date; month_offset: number; period_start: Date; period_end: Date };
+  next_check_at: Date | null; purchase_anchor: Date; month_offset: number; period_start: Date; period_end: Date };
 type ExistingWindow = { invoice_ref: string; subscription_ref: string; plan_ref: string; period_start: Date; period_end: Date; granted_hundredths: string };
 const windowKey = (subscription: string, start: Date, end: Date) => JSON.stringify([subscription, start.toISOString(), end.toISOString()]);
 function productFor(input: VerifiedPersonalPayment, at: Date) {
@@ -22,7 +22,7 @@ function productFor(input: VerifiedPersonalPayment, at: Date) {
     [input.userId, input.paymentRef, input.subscriptionRef].some(value => typeof value !== "string" || !value || value.length > 255)) throw new Error("personal_term_invalid");
   if (!Number.isFinite(at.getTime()) || !Number.isSafeInteger(input.monthOffset) || input.monthOffset < 0 ||
     creditMonthBoundary(input.purchaseAnchor, input.monthOffset).getTime() !== input.periodStart.getTime() ||
-    creditMonthBoundary(input.purchaseAnchor, input.monthOffset + (product.cycle === "year" ? 12 : 1)).getTime() !== input.periodEnd.getTime()) throw new Error("personal_term_invalid");
+    creditMonthBoundary(input.purchaseAnchor, input.monthOffset + paidCreditMonthCount(product.cycle)).getTime() !== input.periodEnd.getTime()) throw new Error("personal_term_invalid");
   if (input.periodStart > at) throw new Error("personal_term_not_started");
   return product;
 }
@@ -67,7 +67,8 @@ export async function grantDuePersonalTerms(s: TenantSession, userId: string, at
       subscriptionRef: term.subscription_ref, sku: term.sku, currency: term.currency, amountMinor: Number(term.amount_minor), purchaseAnchor: term.purchase_anchor, monthOffset: term.month_offset, periodStart: term.period_start, periodEnd: term.period_end };
     const product = productFor(input, at);
     if (term.catalog_version !== PERSONAL_PRICE_CATALOG_VERSION || product.cycle !== term.billing_cycle) throw new Error("personal_term_invalid");
-    for (const window of paidCreditWindows(term.purchase_anchor, term.billing_cycle, at, term.month_offset)) {
+    const windows=paidCreditWindows(term.purchase_anchor, term.billing_cycle, at, term.month_offset);
+    for (const window of windows) {
       const invoiceRef = `term:${term.term_id}:${window.index}`;
       const prior = byInvoice.get(invoiceRef) ?? byWindow.get(windowKey(term.subscription_ref,window.start,window.end));
       if(prior) {
@@ -79,5 +80,9 @@ export async function grantDuePersonalTerms(s: TenantSession, userId: string, at
       await grantPaidSubscriptionPeriod(s, { userId, subscriptionRef: term.subscription_ref, invoiceRef,
         planRef: term.sku, periodStart: window.start, periodEnd: window.end }, at);
     }
+    const total=paidCreditMonthCount(term.billing_cycle);
+    const next = windows.length < total ? creditMonthBoundary(term.purchase_anchor,term.month_offset+windows.length)
+      : term.period_end > at ? term.period_end : null;
+    if((term.next_check_at?.getTime() ?? null) !== (next?.getTime() ?? null)) await s.query(SQL.personalTermNextCheck,[term.term_id,next]);
   }
 }

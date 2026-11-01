@@ -1,3 +1,5 @@
+import {PersonalCreditPeriodWorker} from "./infrastructure/billing/personal-credit-period-worker";
+import {PgPersonalCreditScheduleStore} from "./infrastructure/billing/pg-personal-credit-schedule-store";
 import {StripeCreditCheckout} from "./infrastructure/billing/stripe-credit-checkout";
 import {MonthlyCheckoutRouter} from "./infrastructure/billing/monthly-checkout-router";
 import { BillingCatalogService } from "./application/billing/billing-catalog-service";
@@ -72,6 +74,7 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
       return new BillingStripeWebhookService(client, client, new MonthlyStripeWebhookStore(db, new PgBillingStripeWebhookStore(db), monthly, monthlyClient,new StripeCreditCheckout(db,config)), logger);
     }, inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
     { provide: BillingSubscriptionService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) => new BillingSubscriptionService(new PgBillingSubscriptionRepository(db, logger), new StripePortalClient(config, logger), new MonthlyPassService(new PgMonthlyPassRepository(db), new MonthlyCheckoutRouter(new StripeMonthlyPassClient(config),new WechatMonthlyPassClient(config,db,logger)))), inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
+    { provide: PersonalCreditPeriodWorker, useFactory: (db: DatabasePort, logger: LoggerPort) => new PersonalCreditPeriodWorker(new PgPersonalCreditScheduleStore(db,logger),logger), inject: [DATABASE_PORT,LOGGER_PORT] },
     { provide: BILLING_ORDER_EXPIRY_WORKER, useFactory: (db: DatabasePort, logger: LoggerPort) =>
       new BillingOrderExpiryWorker(new PgBillingOrderExpiryStore(db), logger), inject: [DATABASE_PORT, LOGGER_PORT] },
     { provide: BILLING_CREDITING_STORE, useFactory: (db:DatabasePort,config:DeploymentBillingConfig,logger:LoggerPort) => {

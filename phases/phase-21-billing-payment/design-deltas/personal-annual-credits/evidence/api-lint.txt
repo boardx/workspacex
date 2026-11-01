@@ -5,7 +5,7 @@
 ✅ lint-error-leak: 196 files in the interface layer, no error detail reaches a response
 scanned=196
 ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
-scanned=2166 tenant-tables=324 allowlisted=162
+scanned=2169 tenant-tables=324 allowlisted=162
 · [debt] apps/web/lib/mock/admin-limits.ts:31  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/admin-limits.ts:32  built-in capability entry `Ledger`
 · [debt] apps/web/lib/mock/admin-limits.ts:33  built-in capability entry `Ava`
@@ -96,7 +96,7 @@ scanned=2166 tenant-tables=324 allowlisted=162
 · [debt] apps/web/lib/mock/tasks.ts:171  built-in capability entry `Scout`
 · [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
 ✅ lint-no-builtin-capabilities: no built-in capability list in product code
-scanned=3726 violations=0 debt=89 migrations=440
+scanned=3729 violations=0 debt=89 migrations=441
 ✓ global-scope test fixtures：57 个文件全部已声明
 · [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (13 distinct keys)
 · [debt] apps/web/lib/mock/tpl.ts:523  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
@@ -107,7 +107,7 @@ scanned=3726 violations=0 debt=89 migrations=440
 · [debt] apps/web/lib/mock/tpl.ts:564  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
 · [debt] apps/web/components/tpl/designer-panels.tsx:710  second design-facet definition table spread over multiple lines (11 distinct keys)
 ✅ lint-design-facet-single-source: the definition table has one source
-scanned=5490 violations=0 debt=8 keys=13 groups=5
+scanned=5494 violations=0 debt=8 keys=13 groups=5
 ✅ design-facet catalog is in sync with the definition table
 ✅ agenda tier catalog is in sync with the definition table
 ✅ lint-skill-context-api-only: 78 个文件，skill 取数只经 Context API（I-25）
@@ -115,5 +115,5 @@ scanned=78 violations=0
 ✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
 scanned-roots=4
 lint-work-skill-manifests: 89/89 个 Work Skill manifest 通过
-✅ lint-arch-deps: 2163 files, all dependencies point inward
-scanned=2163
+✅ lint-arch-deps: 2166 files, all dependencies point inward
+scanned=2166
