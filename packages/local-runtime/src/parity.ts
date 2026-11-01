@@ -50,6 +50,7 @@ export interface ParityGroup {
  */
 export const BILLING_PAYMENT_ENV_KEYS: readonly string[] = [
   "BILLING_DEPLOYMENT",
+  "BILLING_CATALOG_MARKET",
   "BILLING_STRIPE_ENABLED",
   "BILLING_WECHAT_ENABLED",
   "WECHAT_PAY_APP_ID",

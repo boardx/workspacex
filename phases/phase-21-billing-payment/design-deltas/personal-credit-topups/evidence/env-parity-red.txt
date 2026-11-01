@@ -1,0 +1,38 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+
+ ❯ test/parity.test.ts (5 tests | 1 failed) 472ms
+   × local/cloud env parity > classifies every environment variable the API reads 334ms
+     → expected [ 'BILLING_CATALOG_MARKET' ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/parity.test.ts > local/cloud env parity > classifies every environment variable the API reads
+AssertionError: expected [ 'BILLING_CATALOG_MARKET' ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "BILLING_CATALOG_MARKET",
++ ]
+
+ ❯ test/parity.test.ts:33:33
+     31|     });
+     32|     // 一条都不许漏：新增的变量要么由 config.ts 供给，要么在 parity.ts…
+     33|     expect(report.unclassified).toEqual([]);
+       |                                 ^
+     34|     // 归类了又供给 = 两处打架，读的人不知道信哪个。
+     35|     expect(report.classifiedButSupplied).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  03:53:10
+   Duration  736ms (transform 75ms, setup 0ms, collect 85ms, tests 472ms, environment 0ms, prepare 54ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/parity.test.ts
