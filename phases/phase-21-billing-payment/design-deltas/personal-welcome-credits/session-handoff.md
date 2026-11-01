@@ -1,5 +1,7 @@
 # 新用户赠送交接
 
+暂存栈5dc026ce5获独立只读ACCEPT。首轮prepush实际24/25，Web typecheck退出137，不能称绿；宿主swap约13GB，仅处理本会话编译器，根因未确定。随后相同API/Web类型检查串行7/7（6缓存）通过，正常再次推送完整25/25（24缓存）通过，5dc已在自有远端。没有跳过hook。证据push-first-24-of-25、serial-types-7、push-final-25。P2充值旧候选聊天分片重跑65通过/1跳过，已按授权正常重新排队，尚未合入；本项仍等待P3实际集成后最终重基。
+
 2026-11-02刷新依赖：P4原本b4ddf725的一提交已从旧base63d23剥离到P3暂存栈b766a58cc，重放后0cf4c071；当前P4剥离父应为b766，P5仍从其原父b4dd剥离，勿混用。P2充值尚未实际合入，P3/P4均未提前PR集成。精确追加本项welcome SQL至恢复fixture reviewedSuffix：先1失败/1通过，补清单后2/2通过，未知/缺失/重复拒绝不变。当前实际复验provider61/61、隔离PG/真实注册HTTP六文件58/58，peak7，清理3s完成；真实注册邮件worker禁用，仅验证durable outbox。证据refreshed-*及migration-scope-*。默认epoch仍关闭；没有存量赠送或生产激活。保存检查点后独立复审，最终仍须前置实际合入、重基到实际develop并复核SHA。
 
 唯一worktree /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui；当前worker/cn-us-welcome-credits，父a1d5cbf93。本session不新建worktree、不改共享checkout分支。UI6087已正常合入develop25320a892，issue6086已由PR关闭。
