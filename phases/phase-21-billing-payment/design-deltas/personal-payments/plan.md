@@ -35,8 +35,8 @@ flowchart TD
   %% evidence S8: management与旧财务回归，当前53PG含active审计修复
   class S9 doing
   %% evidence S9: 正常链路完整browser16及React93；异常恢复仍待S10
-  class S10 blocked
-  %% evidence S10: personal-order-outcomes-v1/design-signoff.md；人类确认pending
+  class S10 done
+  %% evidence S10: personal-order-outcomes-v1/design-signoff.md；用户明确采用并授权回填，2026-11-01T21:10:18Z记录
   class S6 todo
 ```
 

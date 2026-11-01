@@ -1,8 +1,11 @@
 ---
-status: pending
+status: confirmed
 bundle: personal-order-outcomes-v1
 base_bundles: [billing-credits, personal-pricing-v1]
 covers: []
+confirmed_by: "本会话用户（明确授权回填）"
+confirmed_at: "2026-11-01T21:10:18Z"
+confirmed_via: "用户回复：采用修订，授权回填并继续；agent 仅记录此次人工决定。"
 ---
 
 # 个人订单到账结果：缺少支付页绑定的查询修订
@@ -28,7 +31,7 @@ covers: []
 验证：真实PG支付先到账后原绑定缺失、同一幂等键重试返回原purchaseRef再GET成功，重复读取余额/receipt不变；真实HTTP200/401/404/no-store；契约对待支付null地址的拒绝；现有微信/Stripe收银台终态与类型/lint回归。
 
 ## 人工授权记录
-已在本会话异步请求确认，尚未收到答复/回填。只有人类采纳修订后才回填本文件的签核状态；不将已有签核默认为本次新增可空语义的确认。
+用户在本会话对本文件的异步审阅请求明确回复“采用修订，授权回填并继续”。本次据此记录人工签核，可以继续实现上述GET及同key POST恢复与客户端处理；不表示实现、验证、PR集成或生产激活已完成。
 
 ## 一致性复核（不代替人工签核）
 独立 reviewer 已只读核对该具体修订与原设计一致。采纳补充：PENDING和PROCESSING分别覆盖地址缺失、期限缺失及二者缺失的拒绝；三种终态分别覆盖null；已知字段保留真实值；客户端终态不显示继续支付、不对null期限倒计时。OrderDraft.expiredAt显式保持string。本复核不代替人类签核。
