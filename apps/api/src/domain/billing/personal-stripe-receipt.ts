@@ -1,4 +1,5 @@
 import type { PersonalPurchase } from "./personal-purchase";
+import { SubscriptionStatus } from "@repo/contracts/billing-subscription";
 import { BILLING_ACCOUNTING_GENERATION } from "./billing-generation";
 import { PERSONAL_PAYMENT_PRODUCT } from "./personal-payment-product";
 import { creditMonthBoundary, paidCreditMonthCount } from "./personal-credit-calendar";
@@ -7,6 +8,7 @@ type ProProduct = Extract<PersonalPurchase["product"], { kind: "subscription" }>
 export type PersonalStripeBinding = Omit<PersonalPurchase, "product" | "provider"> & Readonly<{
   product: ProProduct; provider: "stripe"; sessionRef: string; subscriptionRef: string;
   customerRef: string; priceRef: string; purchaseAnchor: Date;
+  status: Exclude<SubscriptionStatus, "none">; cancelAtPeriodEnd: boolean;
 }>;
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("personal_stripe_object_invalid");
@@ -28,6 +30,8 @@ function matchingPrice(price: Record<string, unknown>, product: ProProduct, pric
 /** Only authoritative provider reads reach this function; metadata never chooses a user. */
 export function bindPersonalStripeSubscription(purchase: PersonalPurchase & { sessionRef: string }, checkout: Record<string, unknown>, subscription: Record<string, unknown>, price: Record<string, unknown>): PersonalStripeBinding {
   if (purchase.provider !== "stripe" || purchase.generation !== BILLING_ACCOUNTING_GENERATION || purchase.product.kind !== "subscription") throw Error("personal_stripe_purchase_invalid");
+  const status = SubscriptionStatus.safeParse(subscription.status), cancel = subscription.cancel_at_period_end;
+  if (!status.success || status.data === "none" || typeof cancel !== "boolean") throw Error("personal_stripe_renewal_state_invalid");
   const product = purchase.product;
   const metadata = { product: PERSONAL_PAYMENT_PRODUCT, purchase_ref: purchase.purchaseRef, generation: purchase.generation, sku: product.sku };
   for (const source of [checkout, subscription]) {
@@ -43,7 +47,7 @@ export function bindPersonalStripeSubscription(purchase: PersonalPurchase & { se
     checkout.mode !== "subscription" || checkout.status !== "complete" || checkout.payment_status !== "paid" ||
     checkout.client_reference_id !== purchase.purchaseRef || checkout.subscription !== subscriptionRef || checkout.customer !== customerRef ||
     checkout.amount_total !== product.amountMinor || checkout.currency !== product.currency.toLowerCase()) throw Error("personal_stripe_checkout_mismatch");
-  return { ...purchase, product, provider: "stripe", subscriptionRef, customerRef, priceRef, purchaseAnchor: timestamp(subscription.billing_cycle_anchor) };
+  return { ...purchase, product, provider: "stripe", subscriptionRef, customerRef, priceRef, purchaseAnchor: timestamp(subscription.billing_cycle_anchor), status: status.data, cancelAtPeriodEnd: cancel };
 }
 
 /** A paid invoice, rather than an active subscription event, proves one complete paid term. */

@@ -1,0 +1,101 @@
+import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
+import type { StripeEvent, StripeSnapshotProvider, StripeWebhookStore } from "../../application/billing/billing-stripe-webhook-service";
+import { BILLING_ACCOUNTING_GENERATION } from "../../domain/billing/billing-generation";
+import { PERSONAL_PAYMENT_PRODUCT } from "../../domain/billing/personal-payment-product";
+import { bindPersonalStripeSubscription, verifiedPersonalStripeTerm } from "../../domain/billing/personal-stripe-receipt";
+import { pricingEpochMode } from "./personal-pricing-epoch";
+import { assertBillingGlobalStatement } from "./billing-global-boundary";
+import { PERSONAL_PAYMENT_SQL as SQL } from "./personal-payment-sql";
+import { personalPurchaseView, type PersonalPurchaseRow } from "./pg-personal-checkout-repository";
+import type { PgPersonalPaymentRepository } from "./pg-personal-payment-repository";
+
+type CheckoutReader = { retrieve(id: string): Promise<Record<string, unknown>>; liveMode(): boolean };
+function object(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw Error("personal_stripe_object_invalid");
+  return value as Record<string, unknown>;
+}
+function reference(value: unknown, prefix: string): string {
+  if (typeof value !== "string" || value.length > 255 || !new RegExp(`^${prefix}_[A-Za-z0-9_]+$`).test(value)) throw Error("personal_stripe_reference_invalid");
+  return value;
+}
+/** Events are wakeups. Only authenticated provider reads and a persisted server quote establish rights. */
+export class PersonalStripeWebhookStore implements StripeWebhookStore {
+  constructor(private readonly db: DatabasePort, private readonly checkout: CheckoutReader,
+    private readonly payments: PgPersonalPaymentRepository, private readonly legacy: StripeWebhookStore) {}
+  private environment(value: Record<string, unknown>) {
+    if (value.livemode !== this.checkout.liveMode()) throw Error("personal_stripe_environment_mismatch");
+    return value;
+  }
+  private async select(ref?: string) {
+    return this.db.withoutTenant(async raw => {
+      const session: TenantSession = { query(sql, params) { assertBillingGlobalStatement(sql); return raw.query(sql, params); } };
+      const mode = await pricingEpochMode(session);
+      const row = mode === "active" && ref ? (await session.query<PersonalPurchaseRow>(SQL.personalPurchaseRef, [ref])).rows[0] : null;
+      return { mode, purchase: row ? personalPurchaseView(row) : null };
+    });
+  }
+  async apply(event: StripeEvent, provider: StripeSnapshotProvider): Promise<boolean> {
+    if ((await this.select()).mode === "legacy") return this.legacy.apply(event, provider);
+    const isCheckout = ["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(event.type);
+    const isSubscription = ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"].includes(event.type);
+    const isInvoice = ["invoice.paid", "invoice.payment_succeeded", "invoice.payment_failed"].includes(event.type);
+    if (!isCheckout && !isSubscription && !isInvoice) return true;
+    if (!provider.invoice || !provider.price) throw Error("personal_stripe_provider_incomplete");
+    let session: Record<string, unknown> | undefined, invoice: Record<string, unknown> | undefined, subscription: Record<string, unknown>;
+    if (isCheckout) {
+      session = this.environment(await this.checkout.retrieve(reference(event.object.id, "cs")));
+      const metadata = object(session.metadata);
+      if (metadata.product !== PERSONAL_PAYMENT_PRODUCT || metadata.generation !== BILLING_ACCOUNTING_GENERATION) return true;
+      const selected = await this.select(String(metadata.purchase_ref));
+      if (!selected.purchase) return true;
+      if (selected.purchase.product.kind === "credit_topup") return this.pack(selected.purchase.purchaseRef, session);
+      subscription = this.environment(await provider.subscription(reference(session.subscription, "sub")));
+    } else if (isInvoice) {
+      invoice = this.environment(await provider.invoice(reference(event.object.id, "in")));
+      const parent = object(invoice.parent);
+      if (parent.type !== "subscription_details") return true;
+      subscription = this.environment(await provider.subscription(reference(object(parent.subscription_details).subscription, "sub")));
+    } else subscription = this.environment(await provider.subscription(reference(event.object.id, "sub")));
+    const metadata = object(subscription.metadata);
+    if (metadata.product !== PERSONAL_PAYMENT_PRODUCT || metadata.generation !== BILLING_ACCOUNTING_GENERATION) return true;
+    const { purchase } = await this.select(String(metadata.purchase_ref));
+    if (!purchase) return true;
+    if (purchase.provider !== "stripe" || purchase.product.kind !== "subscription") throw Error("personal_stripe_purchase_mismatch");
+    if (!session) {
+      if (!purchase.sessionRef) return false; // The original idempotent Checkout creation must finish binding first.
+      session = this.environment(await this.checkout.retrieve(purchase.sessionRef));
+    }
+    const checkout = session, subRef = reference(subscription.id, "sub");
+    const items = object(subscription.items), data = items.data;
+    if (!Array.isArray(data) || data.length !== 1) throw Error("personal_stripe_subscription_invalid");
+    const price = this.environment(await provider.price(reference(object(object(data[0]).price).id, "price")));
+    if (!invoice && subscription.latest_invoice != null) invoice = this.environment(await provider.invoice(reference(subscription.latest_invoice, "in")));
+    // Cancellation and past_due may change while earlier events are in flight. Read again inside the binding lock.
+    const verify = async (locked: typeof purchase) => bindPersonalStripeSubscription({ ...locked, sessionRef: reference(checkout.id, "cs") }, checkout,
+      this.environment(await provider.subscription(subRef)), price);
+    if (invoice?.status === "paid") {
+      const paidInvoice = invoice, transition = object(invoice.status_transitions), seconds = transition.paid_at;
+      if (typeof seconds !== "number" || !Number.isSafeInteger(seconds) || seconds <= 0 || seconds > 253402300799) throw Error("personal_stripe_payment_time_invalid");
+      await this.payments.settleStripe(purchase.purchaseRef, subRef, reference(invoice.id, "in"), async locked => {
+        const binding = await verify(locked);
+        return { binding, term: verifiedPersonalStripeTerm(binding, paidInvoice, price), paidAt: new Date(seconds * 1000) };
+      });
+    } else {
+      if (isInvoice && ["invoice.paid", "invoice.payment_succeeded"].includes(event.type)) return false;
+      await this.payments.syncStripe(purchase.purchaseRef, subRef, verify);
+    }
+    return true;
+  }
+  private async pack(purchaseRef: string, session: Record<string, unknown>) {
+    const { purchase } = await this.select(purchaseRef);
+    if (!purchase || purchase.provider !== "stripe" || purchase.product.kind !== "credit_topup") throw Error("personal_stripe_purchase_mismatch");
+    const metadata = object(session.metadata);
+    if (session.mode !== "payment" || session.status !== "complete" || session.payment_status !== "paid" ||
+      session.client_reference_id !== purchaseRef || metadata.sku !== purchase.product.sku ||
+      (purchase.sessionRef !== null && purchase.sessionRef !== session.id) ||
+      session.amount_total !== purchase.product.amountMinor || session.currency !== purchase.product.currency.toLowerCase()) throw Error("personal_stripe_checkout_mismatch");
+    await this.payments.settle({ purchaseRef, provider: "stripe", paymentRef: reference(session.payment_intent, "pi"),
+      amountMinor: purchase.product.amountMinor, currency: purchase.product.currency, paidAt: null });
+    return true;
+  }
+}

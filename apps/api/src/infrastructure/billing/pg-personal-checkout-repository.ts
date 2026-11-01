@@ -43,6 +43,7 @@ export class PgPersonalCheckoutRepository implements PersonalCheckoutRepository 
       const quote = PricingProduct.parse(product);
       if (quote.sku !== request.sku || (request.provider === "wechat" && quote.currency !== "CNY")) throw new PersonalCheckoutError("product_unavailable");
       if (quote.kind === "subscription" && ((await session.query(SQL.personalPurchaseActiveTerm, [principal.userId])).rows.length ||
+        (await session.query(SQL.personalPurchaseRenewingStripe, [principal.userId])).rows.length ||
         (await session.query(SQL.personalPurchaseOpenPro, [principal.userId])).rows.length)) throw new PersonalCheckoutError("already_subscribed");
       const now = new Date(), alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       const suffix = Array.from({ length: 6 }, () => alphabet[randomInt(alphabet.length)]).join("");
@@ -56,8 +57,11 @@ export class PgPersonalCheckoutRepository implements PersonalCheckoutRepository 
     assertPrincipal(principal);
     return this.db.withTenant(principal.orgId, async session => {
       await requireActivePricingEpoch(session);
+      await session.query(SQL.personalPurchaseUserLock, [`billing-subscription:${principal.userId}`]);
       const row = (await session.query<Row>(SQL.personalPurchaseOwnerLock, [principal.userId, purchaseRef])).rows[0];
       if (!row) throw new PersonalCheckoutError("product_unavailable");
+      const verifiedBinding = (await session.query<{ session_ref: string }>(SQL.personalPurchaseBoundStripeSession, [purchaseRef])).rows[0];
+      if (verifiedBinding && verifiedBinding.session_ref !== result.sessionRef) throw new PersonalCheckoutError("idempotency_conflict");
       if (row.session_ref !== null) {
         if (row.session_ref !== result.sessionRef) throw new PersonalCheckoutError("idempotency_conflict");
         return view(row); // The first successful response remains immutable across retries.

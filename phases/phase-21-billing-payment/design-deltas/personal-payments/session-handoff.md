@@ -1,5 +1,13 @@
 # 个人支付闭环在建交接
 
+微信补充复验已结束且5/5通过（evidence/wechat-wired-final.txt），隔离清理完成；下段“正复验”为此前记录。
+
+最新状态覆盖下文历史记录：#6088 / PR #6094 已于2026-11-01T17:56:49Z正常合入develop（a2d305d11cac86df01737461b5b241bbac3c430e），issue已由PR关闭；已通知授权协调父会话。当前 #6093 新增 Stripe 绑定迁移、权威 Checkout/订阅/价格/已付invoice到账与原锚点续费、真实status/cancel快照、账户权益API（付款结束/月度额度/Free批次独立）及正式BillingModule接线。原 Stripe 仍可续费时禁止第二单；回调先到的session不可被晚创建覆盖。新入口epoch仍默认关闭，未生产激活/清理。
+
+最新验证：Stripe19 + 共用到账10 =29/29；此前真实HMAC回调及权益鉴权HTTP相关18/18；provider134、API typecheck/lint通过。29项日志中误带不存在的微信HTTP文件过滤名，不能算微信回归已跑；正用真实 personal-wechat-callback-pg.test.ts 单独复验。支付商为fixture，非在线商户。全项未完成：购买超时/过期恢复、漏通知续费对账、管理/历史适配、正式UI和完整独立审查仍待做，不创建未完成PR或标passing。四个前置依赖分支需顺序剥离父后单issue PR集成。
+
+最终cutover另须落实：所有旧API创建购买/上游支付前拒绝active epoch，所有实际财务事务（定时发放、AI准入/消费、durable usage replay、legacy到账）持同事务shared epoch锁，清理持exclusive锁；先冻结销售、排空旧进程/任务、关闭旧未付订单并取消app-owned旧Stripe自动续费。外层mode读取不是实际事务屏障；避免跨连接嵌套shared锁与排队exclusive造成互锁。Stripe worker不能伪造“验签通过”的事件审计，应复用权威同步函数而非捏造回调。下面的 c517/344 与未接线描述为历史检查点。
+
 唯一 worktree /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui；共享 checkout 不切分支、不新建第二个worktree。当前 worker/cn-us-personal-payments，已推送检查点 c517aabf6（父1d2411a2fa769756efd28175c59fb6aee8441dea）。本项 #6093 尚未完成，不创建未完成PR，不标passing。
 
 前置契约PR #6094 当前head b296e1385e03c8f215f573756727261f9c967126，等待新CI。此前 fa09 已source READY并正常入队，候选40f63ce5因Turbo自测默认1MiB stdout溢出退队；b296仅补有界8MiB和assert.ifError，21项自测红→绿、独立exact SHA ACCEPT、推送前20/20通过。父协调会话明确要求最小修复后正常重入队。旧候选剩余backend run41329227728已提交取消（确认新head且queue空），不要取消其他会话的run。用户已授权本次定价任务逐PR检查/独立审查通过后正常集成develop，无admin bypass，无生产权限。

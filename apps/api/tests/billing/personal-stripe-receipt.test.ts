@@ -15,7 +15,7 @@ function fixture(year = false, offset = 0) {
     recurring: { interval: product.cycle, interval_count: 1, usage_type: "licensed" } };
   const checkout = { object: "checkout.session", id: purchase.sessionRef, mode: "subscription", status: "complete", payment_status: "paid",
     amount_total: product.amountMinor, currency: "usd", client_reference_id: purchase.purchaseRef, subscription: "sub_personal", customer: "cus_personal", metadata };
-  const subscription = { object: "subscription", id: "sub_personal", customer: "cus_personal", billing_cycle_anchor: seconds(anchor), metadata,
+  const subscription = { object: "subscription", id: "sub_personal", customer: "cus_personal", billing_cycle_anchor: seconds(anchor), status: "active", cancel_at_period_end: false, metadata,
     items: { has_more: false, data: [{ quantity: 1, price: { id: price.id } }] } };
   const line = { quantity: 1, amount: product.amountMinor, currency: "usd",
     parent: { type: "subscription_item_details", subscription_item_details: { subscription: subscription.id, proration: false } },
@@ -30,10 +30,14 @@ function fixture(year = false, offset = 0) {
 }
 it.each([false, true])("binds the full server purchase chain and records only the paid term (%s)", year => {
   const f = fixture(year); const binding = bindPersonalStripeSubscription(f.purchase, f.checkout, f.subscription, f.price);
+  expect(binding).toMatchObject({ status: "active", cancelAtPeriodEnd: false });
   const term = verifiedPersonalStripeTerm(binding, f.invoice, f.price);
   expect(term).toMatchObject({ userId: "buyer", provider: "stripe", paymentRef: "in_personal", subscriptionRef: "sub_personal",
     sku: f.purchase.product.sku, amountMinor: f.purchase.product.amountMinor, currency: "USD", purchaseAnchor: anchor, monthOffset: 0, periodStart: anchor });
   expect(term.periodEnd).toEqual(creditMonthBoundary(anchor, year ? 12 : 1));
+});
+it.each([{ status: "future-unknown-status" }, { status: "none" }, { cancel_at_period_end: null }])("rejects unknown or incomplete renewal facts %j", patch => {
+  const f = fixture(); expect(() => bindPersonalStripeSubscription(f.purchase, f.checkout, { ...f.subscription, ...patch }, f.price)).toThrow();
 });
 it.each([1, 2, 12])("preserves Jan31 across a renewal at month offset %s", offset => {
   const f = fixture(false, offset); const binding = bindPersonalStripeSubscription(f.purchase, f.checkout, f.subscription, f.price);

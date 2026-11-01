@@ -5,6 +5,9 @@ import { APP_GUARD, NestFactory } from "@nestjs/core";
 import type { INestApplication } from "@nestjs/common";
 import { PersonalCheckoutResult } from "@repo/contracts/billing-pricing";
 import { PersonalCheckoutController } from "../../src/interface/controllers/personal-checkout.controller";
+import { PersonalEntitlementController } from "../../src/interface/controllers/personal-entitlement.controller";
+import { PersonalEntitlementService } from "../../src/application/billing/personal-entitlement-service";
+import { PgPersonalEntitlementRepository } from "../../src/infrastructure/billing/pg-personal-entitlement-repository";
 import { PersonalCheckoutService } from "../../src/application/billing/personal-checkout-service";
 import { PgPersonalCheckoutRepository } from "../../src/infrastructure/billing/pg-personal-checkout-repository";
 import { AllExceptionsFilter } from "../../src/interface/filters/all-exceptions.filter";
@@ -30,8 +33,9 @@ beforeAll(async () => {
   }, { enabled: () => true, create: async purchase => {
     calls++; return { sessionRef: `cs_${purchase.purchaseRef}`, url: "https://checkout.stripe.com/c/pay/fixture", expiresAt: new Date(Date.now() + 86400000) };
   } });
-  app = await NestFactory.create({ module: class CheckoutHttpFixture {}, controllers: [PersonalCheckoutController], providers: [
+  app = await NestFactory.create({ module: class CheckoutHttpFixture {}, controllers: [PersonalCheckoutController, PersonalEntitlementController], providers: [
     { provide: PersonalCheckoutService, useValue: service },
+    { provide: PersonalEntitlementService, useValue: new PersonalEntitlementService(new PgPersonalEntitlementRepository(db)) },
     { provide: PRINCIPAL_RESOLVER_PORT, useValue: { resolve: async (headers: Record<string, string | undefined>) => headers.authorization === "Bearer checkout-fixture" ? { userId, orgId: org } : null } },
     { provide: APP_GUARD, useClass: PrincipalGuard },
   ] }, { logger: false });
@@ -60,4 +64,13 @@ it("returns one durable result across actual HTTP retries and safely exposes a d
   const conflict = await post({ ...request, sku: "pro-us-month-v1" });
   expect(conflict.status).toBe(409); expect(await conflict.json()).toMatchObject({ code: "idempotency_conflict" });
   expect(calls).toBe(1);
+});
+it("authenticates the entitlement read and rejects attempts to choose another account", async () => {
+  const path = `${base}/billing/subscription/entitlement`, headers = { authorization: "Bearer checkout-fixture" };
+  expect((await fetch(path)).status).toBe(401);
+  expect((await fetch(`${path}?userId=victim`, { headers })).status).toBe(400);
+  const response = await fetch(path, { headers }); expect(response.status).toBe(200);
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(await response.json()).toMatchObject({ status: "none", plan: null, billingCycle: null, renewalMode: null,
+    checkoutPending: true, creditGrant: { status: "none", grant: null }, welcomeCreditGrant: { status: "none", grant: null } });
 });
