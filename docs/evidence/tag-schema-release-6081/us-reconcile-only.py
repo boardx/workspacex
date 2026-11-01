@@ -8,7 +8,7 @@ sys.dont_write_bytecode=True
 sys.pycache_prefix="/dev/null/wsx-reconcile-no-bytecode"
 from pathlib import Path
 ROOT=Path('/var/lib/workspacex-image-release/us/qualification-tools-dfb8d2c6a')
-OLD=Path('/var/lib/workspacex-image-release/us/tag-maintenance-9ac1d2b679466ca8035b68c41bc3b3')
+OLD=Path('/var/lib/workspacex-image-release/us/tag-maintenance-9ac8c1d2b679466ca8035b68c41bc3b3')
 STATE=OLD.parent
 CFG=Path('/etc/workspacex-image-release/us.json')
 LOCK=Path('/run/workspacex-selfhost-deploy.lock')
@@ -43,6 +43,7 @@ def fsyncdir(p):
  finally:os.close(fd)
 def main():
  need(os.geteuid()==0 and len(__import__('sys').argv)==1,'ROOT_NO_ARGUMENTS')
+ need(re.fullmatch('tag-maintenance-[a-f0-9]{32}',OLD.name),'FIXED_ATTEMPT_FORMAT')
  trusted(ROOT,directory=True);files=[p for p in ROOT.iterdir() if p.is_file()]
  need({p.name for p in files}==set(CODE_MANIFEST)|set(WRAPPERS.values()),'EXACT_KNOWN_CLOSURE_SET')
  for name,h in CODE_MANIFEST.items():
