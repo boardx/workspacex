@@ -8,6 +8,12 @@ def module():
     spec=importlib.util.spec_from_file_location('schema_restore',ROOT/'scripts/schema-restore-rehearsal.py')
     value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value);return value
 class ReviewPolicy(unittest.TestCase):
+    def test_readiness_excludes_unix_only_temporary_init_server(self):
+        args=module().clone_psql('/usr/bin/docker','a'*64,'SELECT 1')
+        self.assertIn('--host=127.0.0.1',args)
+        self.assertIn('--port=5432',args)
+        self.assertEqual(args[-1],'SELECT 1')
+
     def test_only_exact_three_reviewed_sql_bytes_are_rehearsed(self):
         m=module();files={name:(ROOT/'apps/api/migrations'/name).read_bytes() for name in m.MIGRATIONS}
         self.assertEqual(len(m.reviewed_sql(files)),3)

@@ -111,6 +111,14 @@ def encrypt_dump(command,directory,openssl='/usr/bin/openssl'):
     return archive,key
 
 
+def clone_psql(docker,cid,query):
+    # The official entrypoint temporarily exposes a Unix-only init server.
+    # TCP readiness excludes that server and its subsequent shutdown.
+    return [docker,'exec','--user','postgres','-i',cid,'psql','--host=127.0.0.1',
+            '--port=5432','-X','-w','-v','ON_ERROR_STOP=1','-At',
+            '--username=postgres','--dbname=workspacex','-c',query]
+
+
 def rehearse(docker,image,archive,key,ledger,roles,files,output,openssl='/usr/bin/openssl'):
     """All SQL here targets ONLY a freshly created owned clone over docker exec.
 
@@ -135,7 +143,7 @@ def rehearse(docker,image,archive,key,ledger,roles,files,output,openssl='/usr/bi
     cid=None;result=None;failure=None;cleanup=False
     def command(query):
         need(cid is not None,'CLONE_ID_REQUIRED')
-        return [docker,'exec','--user','postgres','-i',cid,'psql','-X','-w','-v','ON_ERROR_STOP=1','-At','--username=postgres','--dbname=workspacex','-c',query]
+        return clone_psql(docker,cid,query)
     def query(value):
         return d.run(command(value)[1:],timeout=60).decode().strip()
     def actual_ledger():
