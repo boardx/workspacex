@@ -1,6 +1,6 @@
 # 中美定价 UI 会话交接
 
-继续复用 `.worktrees/cn-us-pricing-ui`，不要再建 worktree，不切换共享 checkout。当前阶段只做 UI 供人工确认；确认 UI 之前不接真实 API、不运行旧订阅清理。商业规则见 `docs/superpowers/specs/2026-11-01-cn-us-pricing-design.md`。
+继续复用 `.worktrees/cn-us-pricing-ui`，不要再建 worktree，不切换共享 checkout。UI 已获用户确认（本会话 2026-11-01 明确回复采用）。下一步在 issue #6088 准备个人支付契约与用例签核；未签核 API 前不接真实支付，不运行旧订阅清理。商业规则见 `docs/superpowers/specs/2026-11-01-cn-us-pricing-design.md`。
 
 ## 查看与复验
 

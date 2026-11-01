@@ -83,13 +83,28 @@
         "agent-skill-pins/set-agent-skill-pins-draft"
       ]
     },
+    "AgentStarterImportController": {
+      "useCases": [
+        "agent-import/get-official-role-pack-offer",
+        "agent-import/import-agent-starter-pack",
+        "agent-import/import-official-agent-role-pack",
+        "agent-import/upgrade-official-roles"
+      ]
+    },
     "AgentTrialRunController": {
       "useCases": [
         "agent-run/trial-run-agent"
       ]
     },
+    "AgentUrlImportController": {
+      "useCases": [
+        "agent-import/import-agent-from-url"
+      ]
+    },
     "AiUsageController": {
-      "useCases": [],
+      "useCases": [
+        "auth/self-ai-usage-service"
+      ],
       "note": "Read-only metadata analytics directly uses the tenant-scoped usage port after application membership/self-scope authorization; no mutation or content disclosure."
     },
     "ApplyBlueprintController": {
@@ -128,6 +143,7 @@
     },
     "AuthOrgController": {
       "useCases": [
+        "auth/create-organization",
         "auth/errors",
         "auth/export-organization",
         "auth/join-org-with-invite",
@@ -272,6 +288,14 @@
         "chat/get-thread"
       ]
     },
+    "ChatShareController": {
+      "useCases": [
+        "chat/get-attachment-content",
+        "chat/get-thread",
+        "chat/resolve-visibility",
+        "chat/share-chat"
+      ]
+    },
     "CheckinBoardController": {
       "useCases": [
         "auth/get-checkin-board",
@@ -407,6 +431,11 @@
       "useCases": [
         "files/get-retention-policy",
         "files/set-retention-policy"
+      ]
+    },
+    "FirstValueController": {
+      "useCases": [
+        "first-value/first-value-recorder"
       ]
     },
     "GuidedResearchController": {
@@ -572,6 +601,12 @@
         "org-admin/resolve-resource-scope"
       ]
     },
+    "OrgCoreModelController": {
+      "useCases": [
+        "model/org-core-model",
+        "model/org-core-model-candidates"
+      ]
+    },
     "OrgInviteController": {
       "useCases": [
         "auth/activate-org-member",
@@ -594,6 +629,16 @@
     "PlatformAccessController": {
       "useCases": [],
       "note": "只读访问位：回答「当前 principal 是不是平台管理员」，直接读 CREDENTIAL/PLATFORM_ADMIN 仓储，没有独立用例模块。"
+    },
+    "PlatformModelTestController": {
+      "useCases": [
+        "model/platform-model-test"
+      ]
+    },
+    "PlatformOrganizationController": {
+      "useCases": [
+        "system/ai-policy-models"
+      ]
     },
     "ProjectAiSettingsController": {
       "useCases": [
@@ -689,6 +734,13 @@
         "recording/session-lifecycle"
       ]
     },
+    "SkillArtifactImportController": {
+      "useCases": [
+        "artifacts-steering/errors",
+        "skill-import/import-skill-artifact",
+        "skill-import/import-skill-starter-pack"
+      ]
+    },
     "SkillController": {
       "useCases": [
         "security/permission-filter",
@@ -718,91 +770,15 @@
         "skill/submit-skill-for-review"
       ]
     },
+    "SkillStarterImportController": {
+      "useCases": [
+        "skill-import/import-skill-starter-pack"
+      ]
+    },
     "SkillTrialRunController": {
       "useCases": [
         "skill/submit-trial-run",
         "skill/trial-run-skill"
-      ]
-    },
-    "ToolPermissionGrantController": {
-      "useCases": [
-        "agent-run/tool-permission-grants"
-      ]
-    },
-    "WhiteboardController": {
-      "useCases": [
-        "whiteboard/recovery-service"
-      ],
-      "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
-    },
-    "WhiteboardImportController": {
-      "useCases": [
-        "whiteboard/import-service"
-      ]
-    },
-    "WhiteboardTagController": {
-      "useCases": [
-        "whiteboard/recovery-service"
-      ],
-      "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
-    },
-    "WorkflowRuntimeController": {
-      "useCases": [
-        "workflow/instance-commands",
-        "workflow/instance-queries",
-        "workflow/workflow-errors",
-        "workflow/workflow-runtime-service"
-      ]
-    },
-    "WorkflowCapabilityGrantController": {
-      "useCases": [
-        "workflow/workflow-capability-grants"
-      ]
-    },
-    "FirstValueController": {
-      "useCases": [
-        "first-value/first-value-recorder"
-      ]
-    },
-    "PlatformOrganizationController": {
-      "useCases": [
-        "system/ai-policy-models"
-      ]
-    },
-    "PlatformModelTestController": {
-      "useCases": [
-        "model/platform-model-test"
-      ]
-    },
-    "AgentStarterImportController": {
-      "useCases": [
-        "agent-import/get-official-role-pack-offer",
-        "agent-import/import-agent-starter-pack",
-        "agent-import/import-official-agent-role-pack",
-        "agent-import/upgrade-official-roles"
-      ]
-    },
-    "AgentUrlImportController": {
-      "useCases": [
-        "agent-import/import-agent-from-url"
-      ]
-    },
-    "OrgCoreModelController": {
-      "useCases": [
-        "model/org-core-model",
-        "model/org-core-model-candidates"
-      ]
-    },
-    "SkillArtifactImportController": {
-      "useCases": [
-        "artifacts-steering/errors",
-        "skill-import/import-skill-artifact",
-        "skill-import/import-skill-starter-pack"
-      ]
-    },
-    "SkillStarterImportController": {
-      "useCases": [
-        "skill-import/import-skill-starter-pack"
       ]
     },
     "SkillUrlImportController": {
@@ -827,12 +803,39 @@
         "notifications/send-test-email"
       ]
     },
-    "ChatShareController": {
+    "ToolPermissionGrantController": {
       "useCases": [
-        "chat/get-attachment-content",
-        "chat/get-thread",
-        "chat/resolve-visibility",
-        "chat/share-chat"
+        "agent-run/tool-permission-grants"
+      ]
+    },
+    "WhiteboardController": {
+      "useCases": [
+        "whiteboard/recovery-service"
+      ],
+      "note": "Resource metadata CRUD: direct typed repository port; tenant and owner/member predicates are enforced atomically in PgWhiteboardRepository, validated by real PostgreSQL and HTTP negative tests (#3926). Content collaboration is a separate use case."
+    },
+    "WhiteboardImportController": {
+      "useCases": [
+        "whiteboard/import-service"
+      ]
+    },
+    "WhiteboardTagController": {
+      "useCases": [
+        "whiteboard/recovery-service"
+      ],
+      "note": "白板标签的增删改查：直接调 WHITEBOARD_TAG_REPOSITORY（list/create/rename/delete），入参由 ZodBodyPipe 按 whiteboard 契约校验，没有跨聚合编排，没有独立用例模块。"
+    },
+    "WorkflowCapabilityGrantController": {
+      "useCases": [
+        "workflow/workflow-capability-grants"
+      ]
+    },
+    "WorkflowRuntimeController": {
+      "useCases": [
+        "workflow/instance-commands",
+        "workflow/instance-queries",
+        "workflow/workflow-errors",
+        "workflow/workflow-runtime-service"
       ]
     }
   },
@@ -1717,6 +1720,10 @@
         "PublicDesignShareController"
       ]
     },
+    "/dev/org-home-fixture": {
+      "kind": "preview",
+      "screen": "apps/web/app/dev/org-home-fixture/page.tsx"
+    },
     "/group": {
       "kind": "mock",
       "screen": "apps/web/app/(entry)/group/page.tsx",
@@ -2472,6 +2479,76 @@
         "PublicDesignShareController"
       ]
     },
+    "/platform-admin/model-tests": {
+      "kind": "wired",
+      "screen": "apps/web/app/platform-admin/model-tests/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-admin-nav-counts.ts",
+        "apps/web/lib/live-asr-draft.ts",
+        "apps/web/lib/live-capabilities.ts",
+        "apps/web/lib/live-chat.ts",
+        "apps/web/lib/live-feedback.ts",
+        "apps/web/lib/live-identity.ts",
+        "apps/web/lib/live-org-admin.ts",
+        "apps/web/lib/live-platform-access.ts",
+        "apps/web/lib/live-platform-model-test.ts",
+        "apps/web/lib/live-platform-organizations.ts",
+        "apps/web/lib/live-projects.ts",
+        "apps/web/lib/live-recording.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "artifact",
+        "chat",
+        "chat-file-upload",
+        "chat-knowledge-graph",
+        "design-workbench",
+        "feedback-loop",
+        "identity",
+        "org-admin",
+        "plan-permissions",
+        "platform-members",
+        "platform-model-test",
+        "platform-organizations",
+        "project"
+      ],
+      "controllers": [
+        "AgentRunController",
+        "ArtifactBindingController",
+        "ArtifactReferenceController",
+        "CapabilityController",
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "CheckinBoardController",
+        "CopilotkitAguiController",
+        "DesignWorkbenchController",
+        "DeviceSessionController",
+        "DocumentGenerationAutoApproveController",
+        "EvidenceWithdrawalController",
+        "FeedbackController",
+        "HomeProjectPreviewsController",
+        "IdentityController",
+        "KernelProbeController",
+        "KnowledgeConsolidationController",
+        "KnowledgeGraphController",
+        "KnowledgeShareController",
+        "LocalExportController",
+        "LocalOrgController",
+        "OrgAdminManagementController",
+        "OrgAdminScopeController",
+        "OrgInviteController",
+        "OrgInviteLinkController",
+        "PlatformAccessController",
+        "PlatformModelTestController",
+        "PlatformOrganizationController",
+        "ProjectAiSettingsController",
+        "ProjectController",
+        "ProjectInviteController",
+        "PublicDesignShareController",
+        "ToolPermissionGrantController"
+      ]
+    },
     "/platform-admin/skill/[id]": {
       "kind": "wired",
       "screen": "apps/web/app/platform-admin/skill/[id]/page.tsx",
@@ -2679,6 +2756,10 @@
     "/preview/plan-control-live": {
       "kind": "preview",
       "screen": "apps/web/app/preview/plan-control-live/page.tsx"
+    },
+    "/preview/pricing": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/pricing/page.tsx"
     },
     "/preview/tasks": {
       "kind": "preview",
@@ -3054,6 +3135,27 @@
       "screen": "apps/web/app/(entry)/session/page.tsx",
       "mocks": [
         "apps/web/lib/mock/entry.ts"
+      ]
+    },
+    "/share/chat/[token]": {
+      "kind": "wired",
+      "screen": "apps/web/app/share/chat/[token]/page.tsx",
+      "adapters": [
+        "apps/web/lib/live-chat-share.ts",
+        "apps/web/lib/live-chat.ts"
+      ],
+      "contracts": [
+        "agent-defaults",
+        "chat",
+        "chat-file-upload",
+        "chat-share"
+      ],
+      "controllers": [
+        "ChatAttachmentController",
+        "ChatController",
+        "ChatFollowUpSuggestionsController",
+        "ChatShareController",
+        "CopilotkitAguiController"
       ]
     },
     "/skill": {
@@ -4621,101 +4723,6 @@
         "PublicDesignShareController",
         "ToolPermissionGrantController"
       ]
-    },
-    "/platform-admin/model-tests": {
-      "kind": "wired",
-      "screen": "apps/web/app/platform-admin/model-tests/page.tsx",
-      "adapters": [
-        "apps/web/lib/live-admin-nav-counts.ts",
-        "apps/web/lib/live-asr-draft.ts",
-        "apps/web/lib/live-capabilities.ts",
-        "apps/web/lib/live-chat.ts",
-        "apps/web/lib/live-feedback.ts",
-        "apps/web/lib/live-identity.ts",
-        "apps/web/lib/live-org-admin.ts",
-        "apps/web/lib/live-platform-access.ts",
-        "apps/web/lib/live-platform-model-test.ts",
-        "apps/web/lib/live-platform-organizations.ts",
-        "apps/web/lib/live-projects.ts",
-        "apps/web/lib/live-recording.ts"
-      ],
-      "contracts": [
-        "agent-defaults",
-        "artifact",
-        "chat",
-        "chat-file-upload",
-        "chat-knowledge-graph",
-        "design-workbench",
-        "feedback-loop",
-        "identity",
-        "org-admin",
-        "plan-permissions",
-        "platform-members",
-        "platform-model-test",
-        "platform-organizations",
-        "project"
-      ],
-      "controllers": [
-        "AgentRunController",
-        "ArtifactBindingController",
-        "ArtifactReferenceController",
-        "CapabilityController",
-        "ChatAttachmentController",
-        "ChatController",
-        "ChatFollowUpSuggestionsController",
-        "CheckinBoardController",
-        "CopilotkitAguiController",
-        "DesignWorkbenchController",
-        "DeviceSessionController",
-        "DocumentGenerationAutoApproveController",
-        "EvidenceWithdrawalController",
-        "FeedbackController",
-        "HomeProjectPreviewsController",
-        "IdentityController",
-        "KernelProbeController",
-        "KnowledgeConsolidationController",
-        "KnowledgeGraphController",
-        "KnowledgeShareController",
-        "LocalExportController",
-        "LocalOrgController",
-        "OrgAdminManagementController",
-        "OrgAdminScopeController",
-        "OrgInviteController",
-        "OrgInviteLinkController",
-        "PlatformAccessController",
-        "PlatformModelTestController",
-        "PlatformOrganizationController",
-        "ProjectAiSettingsController",
-        "ProjectController",
-        "ProjectInviteController",
-        "PublicDesignShareController",
-        "ToolPermissionGrantController"
-      ]
-    },
-    "/share/chat/[token]": {
-      "kind": "wired",
-      "screen": "apps/web/app/share/chat/[token]/page.tsx",
-      "adapters": [
-        "apps/web/lib/live-chat-share.ts",
-        "apps/web/lib/live-chat.ts"
-      ],
-      "contracts": [
-        "agent-defaults",
-        "chat",
-        "chat-file-upload",
-        "chat-share"
-      ],
-      "controllers": [
-        "ChatAttachmentController",
-        "ChatController",
-        "ChatFollowUpSuggestionsController",
-        "ChatShareController",
-        "CopilotkitAguiController"
-      ]
-    },
-    "/dev/org-home-fixture": {
-      "kind": "preview",
-      "screen": "apps/web/app/dev/org-home-fixture/page.tsx"
     }
   }
 }

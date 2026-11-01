@@ -12,8 +12,12 @@
 
 ## 尚未完成
 
-UI 待人工确认；正式 API 契约、后端支付、真实权限校验、Free 发放、年度调度、旧订阅清理、发布均未开始。未修改 feature 状态或人工签核状态。PR／CI 当前状态以 GitHub 为准，不把本地验证当作 CI 绿。
+UI 已由用户在 2026-11-01 本会话明确确认；正式 API 契约、后端支付、真实权限校验、Free 发放、年度调度、旧订阅清理、发布均未开始。未修改 feature 状态或人工签核状态。PR #6087／CI 当前状态以 GitHub 为准，不把本地验证当作 CI 绿。
 
 ## 证据与资源
 
 `evidence/` 保存命令输出；截图位于 `ui-preview/pricing-v1/`。本轮不启动 Docker、不访问生产服务器，不占用其他会话的 Chrome／Workbench。隔离 worktree 为后续阶段保留；本地预览端口 3526 用于人工审阅。
+
+## CI 迭代
+
+verify-control-plane 的跨层接线检查发现新增预览路由未登记。使用标准 `lint-ui-wiring.mjs --update` 生成原型分类，保持原棘轮上限和规则不变；本地复验通过。

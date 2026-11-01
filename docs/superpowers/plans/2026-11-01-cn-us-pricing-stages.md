@@ -107,4 +107,4 @@ flowchart TD
 
 ## UI 阶段证据（2026-11-01）
 
-Issue #6086；原型 `/preview/pricing`；截图与人工确认清单见 `phases/phase-21-billing-payment/ui-preview/pricing-v1/README.md`。命令证据见 `phases/phase-21-billing-payment/design-deltas/pricing-v1/evidence/`。UI 尚待人工确认，正式 API 设计及后端阶段未开始。
+Issue #6086；原型 `/preview/pricing`；截图与人工确认清单见 `phases/phase-21-billing-payment/ui-preview/pricing-v1/README.md`。命令证据见 `phases/phase-21-billing-payment/design-deltas/pricing-v1/evidence/`。UI 已获用户确认；正式 API 设计在 issue #6088 展开，后端阶段未开始。
