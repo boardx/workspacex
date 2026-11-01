@@ -2,21 +2,38 @@
  * CT06 —— W029 persist / notify 两个副作用阶段的工具体（经 effect-gateway 执行：`artifact.write` /
  * `notify.inapp`，重查权限、receipt 恰好一次）。
  *
- * - artifact.write：平台内部 PRD 工件 = 本实例 persist 阶段落库的 `PrdArtifact`（workflow_stage_outputs，
- *   由 Runtime 在副作用 finalize 后写入），对外只经 UC-WC-3 `GET /workflow-instances/:instanceId/output`
- *   读（可见性同 getInstance）。工件引用即该读取路径，不另造第二份存储（同一事实不声明两处）。
+ * - artifact.write：已装配 PRD 通过现有 materializeArtifact 写入不可变 Markdown 与来源文件。
+ *   文件回执随 persist/effect 一起保存；UC-WC-3 按实例可见性重新读取并校验存储字节。
  * - notify.inapp：给发起人发一条站内通知（通知中心），同一实例只一条（sourceKey 去重）。
  */
 import * as workContent from "@repo/contracts/work-content";
 import type { NotificationPublisher } from "../notifications/notification-center";
 import { toOrgId } from "../../domain/org-id";
+import { materializeArtifact, type MaterializeDeps } from "../artifact/materialize-artifact";
 
 export function prdArtifactRefOf(instanceId: string): string {
   return workContent.operations.getInstanceOutput.path.replace(":instanceId", encodeURIComponent(instanceId));
 }
 
-export async function publishPrdArtifact(args: { instanceId: string }): Promise<{ artifactRef: string }> {
-  return { artifactRef: prdArtifactRefOf(args.instanceId) };
+export async function publishPrdArtifact(deps: MaterializeDeps, args: {
+  orgId: string; instanceId: string; initiatorUserId: string; prd: Record<string, unknown>;
+}) {
+  const prd = workContent.PrdArtifact.parse(args.prd);
+  const markdown = [`# ${prd.title}`, "", "## 问题陈述", prd.problem.text,
+    `来源：${prd.problem.evidenceRefs.join("、")}；置信度：${prd.problem.confidence}`,
+    "", "## 需求", ...prd.requirements.map(r => `- ${r.id} [${r.priority}] ${r.text}`),
+    "", "## 衡量指标", ...prd.metrics.map(m => `- ${m.name}：${m.definition}`), ""].join("\n");
+  const file = await materializeArtifact(deps, {
+    orgId: toOrgId(args.orgId), projectId: null, source: "ai-generated", title: prd.title,
+    // A workflow instance is not an agent_runs row. The initiator commits this generated
+    // version; claiming creatorKind=agent without a real agentRunId violates F44's constraint.
+    actorId: args.initiatorUserId, versionCreatorKind: "user", versionChangeSource: "materialize",
+    parts: { "content.md": Buffer.from(markdown, "utf8"), "provenance.json": Buffer.from(JSON.stringify({
+      workflowId: "W029", instanceId: args.instanceId, prdDigest: prd.digest,
+      synthesized: true, producerKind: "workflow", initiatorUserId: args.initiatorUserId, semanticSupportVerified: false,
+    }) + "\n", "utf8") },
+  });
+  return { artifactRef: prdArtifactRefOf(args.instanceId), file: workContent.PrdFileReceipt.parse(file) };
 }
 
 export function prdPublishedNotifier(notifications: NotificationPublisher) {
