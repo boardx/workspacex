@@ -53,6 +53,12 @@ ALTER DEFAULT PRIVILEGES FOR ROLE migration_admin IN SCHEMA public GRANT SELECT 
   def test_acl_owner_and_real_role_sql(self):
    out=self.root/'acl-success';result=self.acl.rehearse(self.docker,self.image,self.archive,self.key,self.ledger,self.snapshot,self.files,out)
    self.assertEqual(result['scope'],'owner-acl-and-sql-only');self.assertEqual(result['apiBootstrap'],'NOT_PERFORMED');self.assert_source_unchanged();self.assert_rehearsal_cleaned(out)
+  def test_create_source_roles_failure_persists_sanitized_stage(self):
+   from unittest.mock import patch
+   out=self.root/'roles-failed'
+   with patch.object(self.acl,'role_sql',return_value='SELECT 1/0;'):
+    with self.assertRaises(ValueError):self.acl.rehearse(self.docker,self.image,self.archive,self.key,self.ledger,self.snapshot,self.files,out)
+   failure=json.loads((out/'failure.json').read_bytes());self.assertEqual(failure['stage'],'CREATE_SOURCE_ROLES');self.assertEqual(failure['code'],'CREATE_SOURCE_ROLES_FAILED');self.assertTrue(failure['cleanupComplete']);self.assert_source_unchanged();self.assert_rehearsal_cleaned(out)
   def test_changed_source_acl_is_refused(self):
    out=self.root/'acl-drift';self.snapshot['catalog']['schema:public']['owner']='wrong'
    with self.assertRaisesRegex(ValueError,'SOURCE_OWNER_ACL_DRIFT'):self.acl.rehearse(self.docker,self.image,self.archive,self.key,self.ledger,self.snapshot,self.files,out)
@@ -88,3 +94,41 @@ class BuiltinGrants(unittest.TestCase):
   m.compare_builtin_memberships({'memberships':[edge]},[edge])
   for actual in ([],[{**edge,'admin':True}]):
    with self.assertRaisesRegex(ValueError,'BUILTIN_MEMBERSHIPS_DIFFER'):m.compare_builtin_memberships({'memberships':[edge]},actual)
+
+if os.environ.get('WSX_ACL_REAL')=='1':
+ class RealCatalogSemantics(unittest.TestCase):
+  run_docker=fixture.RealRestore.run_docker;psql=fixture.RealRestore.psql;remove_source=fixture.RealRestore.remove_source
+  def setUp(self):fixture.RealRestore.setUp(self);self.acl=mod()
+  def catalog(self):return json.loads(self.psql(self.acl.CATALOG_SQL))
+  def test_owner_default_explicit_acl_and_null_are_semantically_equal(self):
+   before=self.catalog();self.psql('GRANT ALL ON billing_orders TO postgres');self.assertEqual(before,self.catalog())
+  def test_extra_grant_revoke_and_grant_option_remain_detectable(self):
+   baseline=self.catalog();self.psql('GRANT SELECT ON billing_orders TO app_rw');granted=self.catalog();self.assertNotEqual(baseline,granted)
+   self.psql('GRANT SELECT ON billing_orders TO app_rw WITH GRANT OPTION');option=self.catalog();self.assertNotEqual(granted,option)
+   self.psql('REVOKE GRANT OPTION FOR SELECT ON billing_orders FROM app_rw');self.assertEqual(granted,self.catalog())
+   self.psql('REVOKE SELECT ON billing_orders FROM app_rw');self.assertEqual(baseline,self.catalog())
+  def test_revoked_owner_and_real_column_grants_are_not_defaults(self):
+   baseline=self.catalog();self.psql('REVOKE SELECT ON billing_orders FROM postgres');self.assertNotEqual(baseline,self.catalog())
+   self.psql('GRANT SELECT ON billing_orders TO postgres');self.assertEqual(baseline,self.catalog())
+   self.psql('GRANT UPDATE(qr_code_url) ON billing_orders TO app_rw');column=self.catalog();self.assertNotEqual(baseline,column)
+   self.psql('GRANT UPDATE(qr_code_url) ON billing_orders TO app_rw WITH GRANT OPTION');self.assertNotEqual(column,self.catalog())
+  def test_sequence_function_and_default_privilege_kinds_are_normalized(self):
+   self.psql("CREATE SEQUENCE acl_seq; CREATE FUNCTION public.acl_fn() RETURNS int LANGUAGE sql AS 'SELECT 1'; ALTER DEFAULT PRIVILEGES FOR ROLE postgres GRANT SELECT ON TABLES TO app_rw");baseline=self.catalog()
+   self.psql('GRANT ALL ON SEQUENCE acl_seq TO postgres; GRANT ALL ON FUNCTION public.acl_fn() TO postgres');self.assertEqual(baseline,self.catalog())
+   self.psql('GRANT USAGE ON SEQUENCE acl_seq TO app_rw');self.assertNotEqual(baseline,self.catalog())
+  def test_grantor_difference_is_not_erased(self):
+   self.psql('CREATE ROLE grantor_a; CREATE ROLE grantor_b; GRANT USAGE ON SCHEMA public TO grantor_a,grantor_b; GRANT SELECT ON billing_orders TO grantor_a,grantor_b WITH GRANT OPTION; SET ROLE grantor_a; GRANT SELECT ON billing_orders TO app_rw; RESET ROLE;');before=self.catalog()
+   self.psql('SET ROLE grantor_a; REVOKE SELECT ON billing_orders FROM app_rw; RESET ROLE; SET ROLE grantor_b; GRANT SELECT ON billing_orders TO app_rw; RESET ROLE;');self.assertNotEqual(before,self.catalog())
+  def test_unsupported_index_acl_content_is_preserved_strictly(self):
+   self.psql("CREATE INDEX acl_unknown_index ON billing_orders(provider); UPDATE pg_class SET relacl=ARRAY['app_rw=r/postgres']::aclitem[] WHERE relname='acl_unknown_index'");before=self.catalog()
+   self.psql("UPDATE pg_class SET relacl=ARRAY['app_rw=w/postgres']::aclitem[] WHERE relname='acl_unknown_index'");after=self.catalog()
+   key='relation:public.acl_unknown_index';self.assertTrue(before[key]['unsupportedAclPresent']);self.assertTrue(after[key]['unsupportedAclPresent']);self.assertNotEqual(before[key]['unsupportedAclRaw'],after[key]['unsupportedAclRaw']);self.assertNotEqual(before,after)
+  def test_index_rebuilt_attribute_names_do_not_create_permission_drift(self):
+   self.psql('CREATE INDEX acl_fixture_index ON billing_orders(provider); ALTER TABLE billing_orders RENAME COLUMN provider TO provider_renamed');before=self.catalog()
+   self.psql('DROP INDEX acl_fixture_index; CREATE INDEX acl_fixture_index ON billing_orders(provider_renamed)');self.assertEqual(before,self.catalog())
+
+class FailureStages(unittest.TestCase):
+ def test_failure_stage_is_stable_and_secret_error_is_redacted(self):
+  m=mod();value=m.failure_receipt('CREATE_SOURCE_ROLES','password=secret-role-name',True)
+  self.assertEqual(value['stage'],'CREATE_SOURCE_ROLES');self.assertEqual(value['code'],'CREATE_SOURCE_ROLES_FAILED');self.assertEqual(value['causeCode'],'REHEARSAL_FAILED');self.assertNotIn('secret',str(value))
+  with self.assertRaises(ValueError):m.failure_receipt('arbitrary stage','QUERY_FAILED',True)

@@ -242,3 +242,21 @@ to diagnose the mismatch without weakening exact comparison. CN provider role
 attributes require an explicitly source-bound, nonroot, network-none clone
 profile; the default privileged-role refusal remains. Production migration and
 activation remain pending these qualifications and dynamic bootstrap validation.
+
+The US retained comparison showed six non-permission index-attribute name
+differences after index reconstruction, and one explicit owner-default relation
+ACL restored as its equivalent NULL default. Catalog capture now uses object-kind
+`acldefault` plus sorted `aclexplode` entries, preserving owner, grantor, grantee,
+PUBLIC, privilege and grant option. Unsupported relation ACLs retain their raw
+value. Source and clone must still compare exactly; original evidence must be
+recaptured with the same SQL rather than rewriting an old snapshot. Seven real
+PostgreSQL semantic regressions passed in 91.384 seconds. This is fixture
+qualification, not actual-host acceptance.
+
+The candidate image's canonical dynamic bootstrap compatibility probe is a hard
+gate after migration completion and before candidate switch. It binds the real
+source database network and original protected admin input, emits only bounded
+private evidence, and preserves the existing application DB configuration.
+Its timeout and cleanup allowance count toward the activation budget; candidate
+probe failure does not prevent recovery of the old application. No successful
+production bootstrap or activation is claimed by the component tests.

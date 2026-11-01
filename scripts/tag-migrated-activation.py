@@ -31,10 +31,11 @@ def load(name):
 
 def budget(p,request,now=None):
  now=time.time() if now is None else now
+ bootstrap=p.get('bootstrapProbe');need(type(bootstrap) is dict and type(bootstrap.get('timeoutSeconds')) is int and 5<=bootstrap['timeoutSeconds']<=60,'BOOTSTRAP_PROBE_REQUIRED')
  names=('activationSeconds','rollbackSeconds','verifierSeconds','outerVerificationSeconds')
  need(all(type(p.get(k)) is int and p[k]>=10 for k in names),'ACTIVATION_BUDGET_REQUIRED')
  need(sum(p[k] for k in names)+p['oldProbe']['timeoutSeconds']+40<=request['expiresAt']-now<=600,'ACTIVATION_BUDGET_INSUFFICIENT')
- need(p['candidateProbe']['timeoutSeconds']+2*p['runtimeSeconds']+30<=p['activationSeconds'],'CANDIDATE_BUDGET')
+ need(p['candidateProbe']['timeoutSeconds']+2*p['runtimeSeconds']+bootstrap['timeoutSeconds']+45<=p['activationSeconds'],'CANDIDATE_BUDGET')
  need(p['oldProbe']['timeoutSeconds']+2*p['runtimeSeconds']+30<=p['rollbackSeconds'],'RECOVERY_BUDGET')
 
 def exact_changes(plan,migrations):
@@ -75,7 +76,7 @@ def bind_context(request_path):
  need(manifest['sourceRevision']==SOURCE and manifest['tag']==TAG and set(manifest['images'])=={'api','web','agent','sandbox','postgres'},'MANIFEST_IDENTITY')
  lock_fd=int(os.environ.get('WSX_RELEASE_LOCK_FD','-1'));us.inherited_lock(lock_fd,maint.canonical_lock({'environment':env,'lockFile':config['lockFile']}))
  lock=os.fstat(lock_fd);need(request['canonicalLock']=={'path':config['lockFile'],'device':lock.st_dev,'inode':lock.st_ino},'REQUEST_LOCK_BINDING')
- old_policy=read(p['maintenancePolicy']);old_attempt=Path(p['maintenanceAttempt'])
+ old_policy=read(p['maintenancePolicy']);maint.require_bootstrap(old_policy);maint.require_bootstrap(p);need(p['bootstrapProbe']==old_policy['bootstrapProbe'],'BOOTSTRAP_PROFILE_DRIFT');old_attempt=Path(p['maintenanceAttempt'])
  need(old_attempt.is_absolute() and re.fullmatch('tag-maintenance-[a-f0-9]{32}',old_attempt.name),'MAINTENANCE_ATTEMPT')
  need(json.loads(trusted(old_attempt/'policy.json',True).read_bytes())==old_policy,'ORIGINAL_POLICY_DRIFT')
  completed=json.loads(trusted(old_attempt/'receipt.json',True).read_bytes())
@@ -86,7 +87,7 @@ def bind_context(request_path):
  need(adapter.run('reconcile')['status']=='COMPLETE','LIVE_MIGRATION_NOT_COMPLETE')
  # No caller can feed a successful status: both old and candidate probes are
  # hash-pinned executables under the separately protected activation policy.
- for probe in (p['candidateProbe'],p['oldProbe']):
+ for probe in (p['candidateProbe'],p['oldProbe'],p['bootstrapProbe']):
   maint.pinned(probe['executable'])
   for ref in probe.get('inputs',[]):maint.pinned(ref,private=ref.get('private',False))
  d=engine.Docker(config['docker']);images={s:manifest['images'][r]['imageId'] for s,r in config['services'].items()}
@@ -157,6 +158,8 @@ def activate(ctx,receipt_path):
   host.nginx(original_nginx,held);hold=True
   for ref in [*config['composeFiles'],config['envFile']]:maint.pinned(ref)
   need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','FINAL_LEDGER_DRIFT')
+  bootstrap_host=maint.Host(ctx['old_policy'],ctx['old_attempt'],ctx['fd'])
+  bootstrap_proof=bootstrap_host.adapter('bootstrapProbe','preactivate');need(bootstrap_proof['status']=='CANDIDATE_BOOTSTRAP_COMPATIBLE','PREACTIVATION_BOOTSTRAP_UNPROVEN')
   live_config_cas(engine,d,original,config['project'],runtime_rows(d,config['project'],config['services'],old),attempt)
   mutated=True;d.run(command+['up','--detach','--no-deps','--pull','never','--no-build',*config['services']],timeout=p['runtimeSeconds'])
   health=verify_held_runtime(ctx,command,images)
@@ -168,7 +171,7 @@ def activate(ctx,receipt_path):
   need(ctx['adapter'].run('reconcile')['status']=='COMPLETE','POST_ACTIVATION_LEDGER_DRIFT')
   host.nginx(held,original_nginx);hold=False
   proofs={}
-  contents={'backup-restore':{'originalAttempt':str(ctx['old_attempt']),'qualification':{'path':str(ctx['old_attempt']/'stopped-backup/qualification.json'),'sha256':engine.sha_file(ctx['old_attempt']/'stopped-backup/qualification.json')}},'baseline-compatibility':{'originalMaintenanceReceipt':{'path':str(ctx['old_attempt']/'receipt.json'),'sha256':engine.sha_file(ctx['old_attempt']/'receipt.json')},'oldImages':old},'migration-ledger':{'status':'COMPLETE','originalAttempt':str(ctx['old_attempt']),'databaseMigrationExecuted':False},'candidate-acceptance':{'images':images,'health':health,'business':accepted}}
+  contents={'backup-restore':{'originalAttempt':str(ctx['old_attempt']),'qualification':{'path':str(ctx['old_attempt']/'stopped-backup/qualification.json'),'sha256':engine.sha_file(ctx['old_attempt']/'stopped-backup/qualification.json')}},'baseline-compatibility':{'originalMaintenanceReceipt':{'path':str(ctx['old_attempt']/'receipt.json'),'sha256':engine.sha_file(ctx['old_attempt']/'receipt.json')},'oldImages':old},'migration-ledger':{'status':'COMPLETE','originalAttempt':str(ctx['old_attempt']),'databaseMigrationExecuted':False},'candidate-acceptance':{'images':images,'health':health,'business':accepted,'bootstrap':bootstrap_proof}}
   for name,value in contents.items():
    path=attempt/(name+'.json');maint.save(path,{**value,'source':SOURCE,'tag':TAG,'environment':request['environment'],'createdAt':time.time()});proofs[name]={'path':str(path),'sha256':engine.sha_file(path)}
   result={k:request[k] for k in ctx['handoff'].IDENTITY};result.update(kind='schema-release-result-v1',status='SUCCEEDED',proofs=proofs);maint.save(receipt_path,result)

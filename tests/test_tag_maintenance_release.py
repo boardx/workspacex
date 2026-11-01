@@ -12,6 +12,7 @@ class Host:
  def adapter(self,name,mode):
   self.calls.append((name,mode))
   if (name,mode)==self.failure:raise RuntimeError('lost response')
+  if name=='bootstrapProbe':return {'status':'CANDIDATE_BOOTSTRAP_COMPATIBLE'}
   if name=='oldApplicationProbe':return {'status':'OLD_APPLICATION_VERIFIED'}
   if name=='backupCommand':return {'status':'BACKUP_RESTORE_VERIFIED','writersStopped':True}
   if mode=='apply':self.applied=True;return {'status':'COMMITTED','commitAcknowledged':True}
@@ -20,7 +21,7 @@ class Host:
   if self.failure=='old' and self.applied:raise RuntimeError('old failed')
   assert self.running
  def stop(self):self.running=False
- def start(self):self.running=True
+ def start(self):self.calls.append(('start',None));self.running=True
  def nginx(self,a,b):self.calls.append(('nginx',b))
 class Tests(unittest.TestCase):
  def test_host_adapter_inherits_same_lock_file_description(self):
@@ -91,14 +92,20 @@ class Tests(unittest.TestCase):
  def execute(self,failure=None):
   with tempfile.TemporaryDirectory() as d:
    p=Path(d)/'nginx';p.write_bytes(b'server { server_name appv1.boardx.us; }')
-   policy={'environment':'us','nginx':{'path':str(p)},'configurationPins':[],'project':'app','baseline':{r['Id']:{'containerId':r['Id'],'imageId':r['Image']} for r in rows()}}
+   policy={'bootstrapProbe':{'executable':{'path':'/fixture/bootstrap'},'inputs':[{'path':'/fixture/input'}],'binding':{'fixture':True},'timeoutSeconds':10},'environment':'us','nginx':{'path':str(p)},'configurationPins':[],'project':'app','baseline':{r['Id']:{'containerId':r['Id'],'imageId':r['Image']} for r in rows()}}
    h=Host(failure)
    with patch.object(m,'pinned',side_effect=lambda ref,**kw:Path(ref['path'])):
     try:r=m.run_attempt(policy,Path(d),h)
     except m.Rejected:r=None
    return h,r,(Path(d)/'state.json').read_text()
+ def test_missing_bootstrap_gate_rejects_before_maintenance(self):
+  from unittest.mock import Mock
+  with tempfile.TemporaryDirectory() as directory,self.assertRaisesRegex(m.Rejected,'BOOTSTRAP_PROBE_REQUIRED'):
+   m.run_attempt({},Path(directory),Mock())
+ def test_failed_bootstrap_restores_old_application_without_requiring_candidate_gate(self):
+  h,r,state=self.execute(('bootstrapProbe','preactivate'));self.assertIsNone(r);self.assertTrue(h.running);self.assertIn('FAILED_OLD_APPLICATION_VERIFIED',state);self.assertEqual(h.calls.count(('bootstrapProbe','preactivate')),1)
  def test_success_migrates_once_and_restores_old_application(self):
-  h,r,_=self.execute();self.assertEqual(r['status'],'SCHEMA_COMPLETE_OLD_APPLICATION_AVAILABLE');self.assertFalse(r['targetImagesActivated']);self.assertEqual(h.calls.count(('databaseCommand','apply')),1)
+  h,r,_=self.execute();self.assertEqual(r['status'],'SCHEMA_COMPLETE_OLD_APPLICATION_AVAILABLE');self.assertFalse(r['targetImagesActivated']);self.assertEqual(h.calls.count(('databaseCommand','apply')),1);self.assertLess(h.calls.index(('databaseCommand','reconcile')),h.calls.index(('bootstrapProbe','preactivate')));self.assertLess(h.calls.index(('bootstrapProbe','preactivate')),h.calls.index(('start',None)))
  def test_backup_failure_never_applies(self):
   h,r,_=self.execute(('backupCommand','prepare'));self.assertIsNone(r);self.assertNotIn(('databaseCommand','apply'),h.calls);self.assertTrue(h.running)
  def test_unknown_commit_never_replays(self):

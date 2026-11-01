@@ -5,12 +5,19 @@ from unittest.mock import Mock
 s=importlib.util.spec_from_file_location('activation',Path(__file__).resolve().parents[1]/'scripts/tag-migrated-activation.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class Tests(unittest.TestCase):
  def test_budget_reserves_recovery_verifier_and_outer_probe(self):
-  p={'activationSeconds':120,'rollbackSeconds':120,'verifierSeconds':30,'outerVerificationSeconds':120,'runtimeSeconds':20,'candidateProbe':{'timeoutSeconds':30},'oldProbe':{'timeoutSeconds':30}}
+  p={'bootstrapProbe':{'timeoutSeconds':10},'activationSeconds':140,'rollbackSeconds':120,'verifierSeconds':30,'outerVerificationSeconds':120,'runtimeSeconds':20,'candidateProbe':{'timeoutSeconds':30},'oldProbe':{'timeoutSeconds':30}}
   m.budget(p,{'expiresAt':600},now=1)
   for change in [{'expiresAt':300},{'expiresAt':700}]:
    with self.assertRaises(ValueError):m.budget(p,change,now=1)
   p['oldProbe']['timeoutSeconds']=300
   with self.assertRaises(ValueError):m.budget(p,{'expiresAt':600},now=1)
+ def test_missing_bootstrap_gate_is_not_optional(self):
+  p={'bootstrapProbe':{'timeoutSeconds':10},'activationSeconds':140,'rollbackSeconds':120,'verifierSeconds':30,'outerVerificationSeconds':120,'runtimeSeconds':20,'candidateProbe':{'timeoutSeconds':30},'oldProbe':{'timeoutSeconds':30}}
+  p.pop('bootstrapProbe')
+  with self.assertRaisesRegex(ValueError,'BOOTSTRAP_PROBE_REQUIRED'):m.budget(p,{'expiresAt':599},now=0)
+ def test_bootstrap_runtime_and_cleanup_explicitly_count_toward_activation_budget(self):
+  p={'bootstrapProbe':{'timeoutSeconds':60},'activationSeconds':140,'rollbackSeconds':120,'verifierSeconds':30,'outerVerificationSeconds':120,'runtimeSeconds':20,'candidateProbe':{'timeoutSeconds':30},'oldProbe':{'timeoutSeconds':30}}
+  with self.assertRaisesRegex(ValueError,'CANDIDATE_BUDGET'):m.budget(p,{'expiresAt':599},now=0)
  def test_only_exact_three_api_additions_can_activate(self):
   plan={'complete':True,'route':'schema-preparation','changes':[{'role':'api','added':['a','b','c'],'removed':[],'changed':[]}]};m.exact_changes(plan,{'a':1,'b':2,'c':3})
   for value in [dict(plan,complete=False),dict(plan,route='maintenance-review'),dict(plan,changes=[{'role':'agent','added':['a','b','c'],'removed':[],'changed':[]}])]:
@@ -51,7 +58,7 @@ class Tests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class ActivationFlow(unittest.TestCase):
- def execute(self,fail_candidate=False):
+ def execute(self,fail_candidate=False,fail_bootstrap=False):
   import tempfile,json,copy
   from unittest.mock import patch
   from types import SimpleNamespace
@@ -78,12 +85,15 @@ class ActivationFlow(unittest.TestCase):
    d=Docker();engine=Mock();engine.save=maint.save;engine.sha_file=lambda p:__import__('hashlib').sha256(Path(p).read_bytes()).hexdigest();engine.resolved_config_hash=lambda d,o,p,s,a:[s,'same'];engine.schema=lambda *a:{};engine.verify_runtime.return_value={'healthy':True}
    class Host:
     def __init__(self,*args):pass
+    def adapter(self,name,mode):
+     if fail_bootstrap:raise RuntimeError('dynamic bootstrap failed')
+     return {'status':'CANDIDATE_BOOTSTRAP_COMPATIBLE'}
     def nginx(self,a,b):
      if nginx.read_bytes()!=a:raise ValueError('nginxcas')
      nginx.write_bytes(b)
    fake_maint=SimpleNamespace(save=maint.save,pinned=lambda ref,**kw:Path(ref['path']),maintenance_bytes=maint.maintenance_bytes,Host=Host)
    request={'sourceRevision':m.SOURCE,'tag':m.TAG,'environment':'us','expiresAt':__import__('time').time()+599,'planSha256':'plan','manifestSha256':'manifest'}
-   p={'activationSeconds':120,'rollbackSeconds':120,'verifierSeconds':30,'outerVerificationSeconds':120,'runtimeSeconds':20,'candidateProbe':{'timeoutSeconds':30},'oldProbe':{'timeoutSeconds':30},'nginx':{'path':str(nginx)}}
+   p={'bootstrapProbe':{'timeoutSeconds':10},'activationSeconds':140,'rollbackSeconds':120,'verifierSeconds':30,'outerVerificationSeconds':120,'runtimeSeconds':20,'candidateProbe':{'timeoutSeconds':30},'oldProbe':{'timeoutSeconds':30},'nginx':{'path':str(nginx)}}
    ctx={'p':p,'request':request,'maint':fake_maint,'engine':engine,'attempt':attempt,'d':d,'config':{'project':'project','services':services,'composeFiles':[],'envFile':{'path':'env'}},'base':['compose'],'images':new,'old_policy':{'baseline':{s:{'containerId':'id-'+s,'imageId':old[s]} for s in services}},'plan':{'baselineInventories':{'api':{},'agent':{}},'candidateInventories':{'api':{},'agent':{}}},'old_attempt':old_attempt,'fd':3,'adapter':Mock(),'handoff':SimpleNamespace(IDENTITY=('environment','tag','sourceRevision','planSha256','manifestSha256'))};ctx['adapter'].run.return_value={'status':'COMPLETE'}
    def probe(c,which,a):
     if which=='candidateProbe' and fail_candidate:raise RuntimeError('businessfailure')
@@ -96,3 +106,6 @@ class ActivationFlow(unittest.TestCase):
   result,up,nginx,calls=self.execute();self.assertEqual(result['status'],'SUCCEEDED');self.assertEqual(len(up),1);self.assertNotIn(b'return 503',nginx);self.assertTrue(all(c.args==('reconcile',) for c in calls))
  def test_candidate_failure_restores_forward_schema_old_images(self):
   result,up,nginx,calls=self.execute(True);self.assertEqual(result['status'],'OLD_APPLICATION_RESTORED_ON_FORWARD_SCHEMA');self.assertEqual(len(up),2);self.assertTrue(all(x.startswith('old-') for x in up[-1].values()));self.assertNotIn(b'return 503',nginx);self.assertFalse(result['sqlRollbackAttempted'])
+
+ def test_bootstrap_failure_prevents_target_up_but_old_recovery_still_runs(self):
+  result,up,nginx,calls=self.execute(fail_bootstrap=True);self.assertEqual(result['status'],'OLD_APPLICATION_RESTORED_ON_FORWARD_SCHEMA');self.assertEqual(up,[]);self.assertNotIn(b'return 503',nginx)

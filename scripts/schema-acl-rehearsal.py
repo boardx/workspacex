@@ -75,14 +75,30 @@ def compare_builtin_postgres(snapshot,actual):
     need(len(expected)<=1,'POSTGRES_ROLE_DUPLICATE')
     if expected:need(actual==expected[0],'POSTGRES_ROLE_ATTRIBUTES_DIFFER')
 
-# Names and ACL text, never catalog OIDs, are compared against source readback.
+def _acl_json(acl,kind,owner):
+    """Catalog SQL fragment: normalize effective default ACLs without erasing grants.
+
+    ACL row order and NULL-versus-explicit owner defaults are representational.
+    Grantor, grantee (including PUBLIC), privilege and grant option are semantic.
+    All identifiers/fragments below are fixed source constants, never user SQL.
+    """
+    return "(SELECT COALESCE(json_agg(json_build_object('grantor',pg_get_userbyid(e.grantor),'grantee',CASE WHEN e.grantee=0 THEN NULL ELSE pg_get_userbyid(e.grantee) END,'public',e.grantee=0,'privilege',e.privilege_type,'grantable',e.is_grantable) ORDER BY pg_get_userbyid(e.grantor),e.grantee=0,CASE WHEN e.grantee=0 THEN '' ELSE pg_get_userbyid(e.grantee) END,e.privilege_type,e.is_grantable),'[]'::json) FROM aclexplode(COALESCE("+acl+",acldefault("+kind+","+owner+"))) e)"
+
+# Permission-bearing columns belong to tables/partitioned tables, views,
+# materialized views and foreign tables, never index pg_attribute rows.
+_REL_ACL=_acl_json('c.relacl',"(CASE WHEN c.relkind='S' THEN 's' ELSE 'r' END)::\"char\"",'c.relowner')
+_COL_ACL=_acl_json('a.attacl',"'c'::\"char\"",'c.relowner')
+_FUNC_ACL=_acl_json('p.proacl',"'f'::\"char\"",'p.proowner')
+_SCHEMA_ACL=_acl_json('nspacl',"'n'::\"char\"",'nspowner')
+_DEFAULT_ACL=_acl_json('d.defaclacl',"(CASE WHEN d.defaclobjtype='S' THEN 's' ELSE d.defaclobjtype END)::\"char\"",'d.defaclrole')
 CATALOG_SQL="""SELECT COALESCE(json_object_agg(k,v),'{}'::json) FROM (
- SELECT 'relation:'||n.nspname||'.'||c.relname k,json_build_object('owner',pg_get_userbyid(c.relowner),'acl',c.relacl::text) v FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
- UNION ALL SELECT 'column:'||c.relname||'.'||a.attname,json_build_object('acl',a.attacl::text) FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND a.attnum>0 AND NOT a.attisdropped
- UNION ALL SELECT 'function:'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')',json_build_object('owner',pg_get_userbyid(p.proowner),'acl',p.proacl::text) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public'
- UNION ALL SELECT 'schema:public',json_build_object('owner',pg_get_userbyid(nspowner),'acl',nspacl::text) FROM pg_namespace WHERE nspname='public'
- UNION ALL SELECT 'default:'||pg_get_userbyid(d.defaclrole)||':'||COALESCE(n.nspname,'')||':'||d.defaclobjtype::text,json_build_object('acl',d.defaclacl::text) FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace
+ SELECT 'relation:'||n.nspname||'.'||c.relname k,json_build_object('owner',pg_get_userbyid(c.relowner),'acl',CASE WHEN c.relkind IN ('r','p','v','m','f','S') THEN """+_REL_ACL+""" ELSE '[]'::json END,'unsupportedAclPresent',CASE WHEN c.relkind IN ('r','p','v','m','f','S') THEN false ELSE c.relacl IS NOT NULL END,'unsupportedAclRaw',CASE WHEN c.relkind IN ('r','p','v','m','f','S') THEN NULL ELSE c.relacl::text END) v FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
+ UNION ALL SELECT 'column:'||c.relname||'.'||a.attname,json_build_object('acl',"""+_COL_ACL+""") FROM pg_attribute a JOIN pg_class c ON c.oid=a.attrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f') AND a.attnum>0 AND NOT a.attisdropped
+ UNION ALL SELECT 'function:'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')',json_build_object('owner',pg_get_userbyid(p.proowner),'acl',"""+_FUNC_ACL+""") FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='public'
+ UNION ALL SELECT 'schema:public',json_build_object('owner',pg_get_userbyid(nspowner),'acl',"""+_SCHEMA_ACL+""") FROM pg_namespace WHERE nspname='public'
+ UNION ALL SELECT 'default:'||pg_get_userbyid(d.defaclrole)||':'||COALESCE(n.nspname,'')||':'||d.defaclobjtype::text,json_build_object('acl',"""+_DEFAULT_ACL+""") FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid=d.defaclnamespace
 ) x"""
+
 
 def app_transaction():
     return """BEGIN;
@@ -102,6 +118,15 @@ ROLLBACK;"""
 def load_cn_profile():
     spec=importlib.util.spec_from_file_location('cn_clone_profile',Path(__file__).with_name('schema-cn-acl-profile.py'))
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+
+FAILURE_STAGES={'CLONE_CREATE','CLONE_START','VERIFY_BUILTIN_ROLES','VERIFY_CLONE_ISOLATION','CREATE_SOURCE_ROLES','VERIFY_SOURCE_ROLES','RESTORE_ARCHIVE','VERIFY_CATALOG','APPLY_SQL','APP_ROLE','FINAL_READBACK','CLONE_CLEANUP'}
+
+def failure_receipt(stage,cause,cleanup):
+    need(stage in FAILURE_STAGES,'UNKNOWN_REHEARSAL_STAGE')
+    safe=str(cause)
+    if not re.fullmatch('[A-Z0-9_]{1,100}',safe):safe='REHEARSAL_FAILED'
+    return {'status':'REHEARSAL_FAILED','stage':stage,'code':stage+'_FAILED','causeCode':safe,'cleanupComplete':cleanup,'activationAllowed':False,'sourceDatabaseAccessed':False}
 
 
 def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr/bin/openssl',cn_profile=None):
@@ -130,7 +155,7 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
     need(env.get('PGDATA')=='/var/lib/postgresql/data' and set(config.get('Volumes',{}) or {})<={'/var/lib/postgresql/data'},'CLONE_DATA_LAYOUT_UNSUPPORTED')
     token=uuid.uuid4().hex;name='wsx-schema-restore-'+token;label='wsx.schema-rehearsal='+token
     save(out/'intent.json',{'name':name,'ownerLabel':label,'imageId':image,'network':'none','sourceDatabaseAccessed':False})
-    cid=None;result=None;failure=None;cleanup=False
+    cid=None;result=None;failure=None;cleanup=False;stage='CLONE_CREATE';failure_stage=None
     def command(query):
         need(cid is not None,'CLONE_ID_REQUIRED')
         return clone_psql(docker,cid,query)
@@ -157,27 +182,34 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
              not value['HostConfig'].get('Privileged') and not value['HostConfig'].get('Binds') and
              all(v.get('Type')=='tmpfs' for v in value.get('Mounts',[])),'CLONE_ISOLATION_INVALID')
         if capability:capability.isolation(value,cid,image,name,token,config.get('Env',[]))
+        stage='CLONE_START'
         d.run(['start',cid]);deadline=time.monotonic()+60
         while True:
             try:
                 query('SELECT 1');break
             except Exception:
                 need(time.monotonic()<deadline,'CLONE_NOT_READY');time.sleep(.2)
+        stage='VERIFY_BUILTIN_ROLES'
         initial_postgres=json.loads(query(POSTGRES_ROLE_SQL))
         compare_builtin_postgres(snapshot,initial_postgres)
         save(out/'clone-bootstrap-role.json',{'name':'postgres','attributes':initial_postgres,'sourceRole':any(r['name']=='postgres' for r in snapshot['roles']),'scope':'initial-clone-scaffolding-only'})
         compare_builtin_memberships(snapshot,json.loads(query(BUILTIN_MEMBERSHIPS_SQL)))
+        stage='VERIFY_CLONE_ISOLATION'
         if capability:
             capability.validate(cn_profile,archive,key,ledger,snapshot,image)
             capability.isolation(d.json(['container','inspect',cid])[0],cid,image,name,token,config.get('Env',[]))
             capability.running_nonroot(d.run(['exec',cid,'cat','/proc/1/status']).decode())
+        stage='CREATE_SOURCE_ROLES'
         if roles_sql:query(roles_sql)
+        stage='VERIFY_SOURCE_ROLES'
         if capability:
             roles_query="SELECT COALESCE(json_agg(json_build_object('name',rolname,'login',rolcanlogin,'inherit',rolinherit,'superuser',rolsuper,'bypassrls',rolbypassrls,'createrole',rolcreaterole,'createdb',rolcreatedb,'replication',rolreplication) ORDER BY rolname),'[]'::json) FROM pg_roles WHERE left(rolname,3)<>'pg_'"
             capability.readback(snapshot,json.loads(query(roles_query)),json.loads(query(BUILTIN_MEMBERSHIPS_SQL)),initial_postgres)
         # Plain dump bytes travel only through a kernel pipe, never to host disk.
+        stage='RESTORE_ARCHIVE'
         pipe([openssl,'enc','-d','-aes-256-cbc','-pbkdf2','-pass','file:'+str(key),'-in',str(archive)],
              [docker,'exec','--user','postgres','-i',cid,'pg_restore','--exit-on-error','--username=postgres','--dbname=workspacex'])
+        stage='VERIFY_CATALOG'
         need(file_sha(archive)==archive_hash,'BACKUP_CHANGED')
         if capability:capability.readback(snapshot,json.loads(query(roles_query)),json.loads(query(BUILTIN_MEMBERSHIPS_SQL)),initial_postgres)
         need(actual_ledger()==ledger,'RESTORED_LEDGER_MISMATCH')
@@ -189,21 +221,25 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
         need(actual_catalog==source_catalog,'SOURCE_OWNER_ACL_DRIFT')
         save(out/'restored.json',{'status':'RESTORED','archiveSha256':archive_hash,
                                   'ledgerSha256':sha(json.dumps(ledger,sort_keys=True).encode()),'ledgerCount':len(ledger),'cloneImageId':image})
+        stage='APPLY_SQL'
         need(type(snapshot.get('migrationRole')) is str and snapshot['migrationRole'] in {r['name'] for r in snapshot['roles']},'MIGRATION_ROLE_REQUIRED')
         statements=['BEGIN; SET LOCAL lock_timeout=\'5s\'; SET LOCAL statement_timeout=\'30s\';']
         for migration_name,body in sql:
             statements += [body,"INSERT INTO public._kernel_migrations(name,checksum) VALUES('"+migration_name+"','"+MIGRATIONS[migration_name]+"');"]
         statements+=['COMMIT;'];role_query('\n'.join(statements),snapshot['migrationRole'])
         need(actual_ledger()=={**ledger,**MIGRATIONS},'REHEARSED_LEDGER_MISMATCH')
+        stage='APP_ROLE'
         role_query(app_transaction(),'app_rw')
         need(query("SELECT count(*) FROM billing_monthly_orders WHERE order_id='00000000-0000-4000-8000-000000000607'")=='0','APP_TRANSACTION_ROLLBACK_UNPROVEN')
+        stage='FINAL_READBACK'
         if capability:capability.readback(snapshot,json.loads(query(roles_query)),json.loads(query(BUILTIN_MEMBERSHIPS_SQL)),initial_postgres)
         result={'status':'OWNER_ACL_SQL_REHEARSED','scope':'owner-acl-and-sql-only','appRoleTransactionRollback':True,'sourceOwnerAclRestored':True,'apiBootstrap':'NOT_PERFORMED',
                 'migrationNames':sorted(MIGRATIONS),'cloneImageId':image,'postgresVersion':query('SHOW server_version'),'sourceDatabaseAccessed':False,
                 'activationAllowed':False,'oldApiAcceptance':'NOT_PERFORMED','migrationRoleAcceptance':'EXACT_REVIEWED_SQL_LOGIN_ONLY','roleSettingsAcceptance':'NOT_PERFORMED','cnFaithfulSourceProfileUsed':bool(capability),'capturedPermissionAttributesOnly':True,'cloneScaffoldingNotSourceRoles':[] if any(r['name']=='postgres' for r in snapshot['roles']) else ['postgres']}
     except Exception as error:
-        failure=str(error) if isinstance(error,(ValueError,engine.Rejected)) else 'REHEARSAL_FAILED'
-        result={'status':'REHEARSAL_FAILED','code':failure,'activationAllowed':False,'sourceDatabaseAccessed':False}
+        failure=str(error) if isinstance(error,(ValueError,engine.Rejected)) and re.fullmatch('[A-Z0-9_]{1,100}',str(error)) else 'REHEARSAL_FAILED'
+        failure_stage=stage
+        result=failure_receipt(failure_stage,failure,False)
     finally:
         try:
             # Reconcile by unique name even after a lost create acknowledgement.
@@ -217,7 +253,10 @@ def rehearse(docker,image,archive,key,ledger,snapshot,files,output,openssl='/usr
             cleanup=True
         except Exception:failure=failure or 'CLONE_CLEANUP_UNPROVEN'
         save(out/'cleanup.json',{'name':name,'ownerLabel':label,'removed':cleanup})
-        if not cleanup:result={'status':'REHEARSAL_FAILED','code':failure,'activationAllowed':False}
+        if not cleanup and failure_stage is None:failure_stage='CLONE_CLEANUP'
+        if failure is not None:
+            result=failure_receipt(failure_stage or 'CLONE_CLEANUP',failure,cleanup)
+            save(out/'failure.json',result)
         save(out/'receipt.json',result)
     need(failure is None,failure or 'REHEARSAL_FAILED')
     return result

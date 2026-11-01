@@ -109,7 +109,14 @@ class Host:
   runtime_set(self.runtime(),self.p['project'],self.p['baseline'],True)
   need(self.adapter('oldApplicationProbe','verify')['status']=='OLD_APPLICATION_VERIFIED','OLD_APPLICATION_FAILED')
 
+def require_bootstrap(policy):
+ spec=policy.get('bootstrapProbe')
+ need(type(spec) is dict and bool(spec) and type(spec.get('binding')) is dict and bool(spec['binding']) and type(spec.get('inputs')) is list and bool(spec['inputs']) and type(spec.get('executable')) is dict,'BOOTSTRAP_PROBE_REQUIRED')
+ need(type(spec.get('timeoutSeconds')) is int and 5<=spec['timeoutSeconds']<=60,'BOOTSTRAP_PROBE_BUDGET')
+ return spec
+
 def run_attempt(p,attempt,host,now=time.time):
+ require_bootstrap(p)
  original=pinned(p['nginx']).read_bytes();held=maintenance_bytes(original,p['environment'])
  save(attempt/'nginx-original.json',{'sha256':digest(original),'bytesHex':original.hex()})
  for ref in p['configurationPins']:pinned(ref,private=ref.get('private',False))
@@ -133,6 +140,7 @@ def run_attempt(p,attempt,host,now=time.time):
   result=host.adapter('databaseCommand','apply')
   need(result['status']=='COMMITTED' and result.get('commitAcknowledged') is True,'TRANSACTION_UNCERTAIN')
   need(host.adapter('databaseCommand','reconcile')['status']=='COMPLETE','POST_MIGRATION_LEDGER')
+  need(host.adapter('bootstrapProbe','preactivate')['status']=='CANDIDATE_BOOTSTRAP_COMPATIBLE','POST_MIGRATION_BOOTSTRAP_UNPROVEN')
   host.start();host.verify_old()
   save(attempt/'state.json',{'status':'FORWARD_SCHEMA_OLD_APPLICATION_VERIFIED','source':SOURCE,'tag':TAG,'time':now(),'maintenanceHeld':True})
   host.nginx(held,original);held_active=False
@@ -167,14 +175,14 @@ def reserve_pending(state,attempt,policy_sha):
 
 def main():
  need(os.geteuid()==0 and len(sys.argv)==2,'ROOT_FIXED_POLICY_REQUIRED')
- policy_path=trusted(sys.argv[1],private=True);p=json.loads(policy_path.read_bytes())
+ policy_path=trusted(sys.argv[1],private=True);p=json.loads(policy_path.read_bytes());require_bootstrap(p)
  need(p['source']==SOURCE and p['tag']==TAG and p['environment'] in ('cn','us'),'RELEASE_BINDING')
  need(set(p['baseline'])==SERVICES and len({v['containerId'] for v in p['baseline'].values()})==5,'BASELINE_SERVICE_SET')
  for v in p['baseline'].values():need(re.fullmatch('[a-f0-9]{64}',v['containerId']) and re.fullmatch('sha256:[a-f0-9]{64}',v['imageId']),'BASELINE_ID')
  need(0<time.time()-p['preparedAt']<3600,'PREPARATION_EXPIRED')
  receipt=json.loads(pinned(p['preparationReceipt'],private=True).read_bytes())
  need(receipt.get('source')==SOURCE and receipt.get('tag')==TAG and receipt.get('environment')==p['environment'] and receipt.get('status')=='PREPARED_FOR_MAINTENANCE','PREPARATION_BINDING')
- for key in ('databaseCommand','backupCommand','oldApplicationProbe'):
+ for key in ('databaseCommand','backupCommand','oldApplicationProbe','bootstrapProbe'):
   need(1<=p[key]['timeoutSeconds']<=600,'ADAPTER_TIMEOUT');pinned(p[key]['executable'])
  lock_path=trusted(canonical_lock(p),private=True);fd=os.open(lock_path,os.O_RDONLY|os.O_NOFOLLOW)
  try:
