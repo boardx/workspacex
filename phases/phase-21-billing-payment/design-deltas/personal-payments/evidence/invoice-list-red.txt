@@ -1,0 +1,98 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts (13 tests | 13 failed) 24ms
+   × lists a bounded paid invoice page for the exact subscription on pinned Clover 13ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects unsafe pagination identities before a provider request 1ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects unsafe pagination identities before a provider request 1ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"object":"invoice"} 1ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"has_more":true,"data":[]} 1ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"has_more":"false"} 1ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_page_one","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]} 0ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_0","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_1","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_2","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_3","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_4","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_5","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]} 0ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":true,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]} 2ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":false,"status":"open","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]} 1ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_other"}}}]} 0ms
+     → (intermediate value).paidInvoices is not a function
+   × rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_cursor","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}],"has_more":true} 0ms
+     → (intermediate value).paidInvoices is not a function
+   × caps the invoice list response body independently of page size 0ms
+     → (intermediate value).paidInvoices is not a function
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > lists a bounded paid invoice page for the exact subscription on pinned Clover
+TypeError: (intermediate value).paidInvoices is not a function
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts:12:50
+     10| it("lists a bounded paid invoice page for the exact subscription on pi…
+     11|   const fetcher = vi.fn(async () => new Response(JSON.stringify(page()…
+     12|   expect(await new StripeWebhookClient(config()).paidInvoices("sub_own…
+       |                                                  ^
+     13|   const [url, init] = fetcher.mock.calls[0] as unknown as [string, Req…
+     14|   expect(target.origin + target.pathname).toBe("https://api.stripe.com…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects unsafe pagination identities before a provider request
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects unsafe pagination identities before a provider request
+TypeError: (intermediate value).paidInvoices is not a function
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts:20:50
+     18| it.each([["sub_wrong?customer=other", undefined], ["sub_owned", "cs_wr…
+     19|   const fetcher = vi.fn(); vi.stubGlobal("fetch", fetcher);
+     20|   await expect(new StripeWebhookClient(config()).paidInvoices(subscrip…
+       |                                                  ^
+     21| });
+     22| it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"object":"invoice"}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"has_more":true,"data":[]}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"has_more":"false"}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_page_one","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_0","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_1","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_2","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_3","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_4","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}},{"object":"invoice","id":"in_5","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":true,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":false,"status":"open","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}]}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_page_one","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_other"}}}]}
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > rejects an invalid or non-progressing paid invoice page {"data":[{"object":"invoice","id":"in_cursor","livemode":false,"status":"paid","parent":{"type":"subscription_details","subscription_details":{"subscription":"sub_owned"}}}],"has_more":true}
+TypeError: (intermediate value).paidInvoices is not a function
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts:30:50
+     28| ])("rejects an invalid or non-progressing paid invoice page %j", async…
+     29|   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify…
+     30|   await expect(new StripeWebhookClient(config()).paidInvoices("sub_own…
+       |                                                  ^
+     31| });
+     32| it("caps the invoice list response body independently of page size", a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  tests/billing/personal-stripe-invoice-list.test.ts > caps the invoice list response body independently of page size
+TypeError: (intermediate value).paidInvoices is not a function
+ ❯ tests/billing/personal-stripe-invoice-list.test.ts:34:50
+     32| it("caps the invoice list response body independently of page size", a…
+     33|   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify…
+     34|   await expect(new StripeWebhookClient(config()).paidInvoices("sub_own…
+       |                                                  ^
+     35| });
+     36| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ Test Files  1 failed (1)
+      Tests  13 failed (13)
+   Start at  02:28:44
+   Duration  784ms (transform 182ms, setup 0ms, collect 273ms, tests 24ms, environment 0ms, prepare 150ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/personal-stripe-invoice-list.test.ts

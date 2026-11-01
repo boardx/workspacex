@@ -1,5 +1,9 @@
 # 个人支付闭环进展
 
+分页补账组件：固定Clover invoice list官方Markdown已核对；请求仅取对应subscription已付账单，每页5张、列表响应256KiB上限，拒绝重复/不前进游标/跨订阅或环境页。每张账单独立走原财务验证并核实receipt属于原绑定购买；页失败或停机保留原游标，已入账单重放幂等；过期月份不会恢复可用额度。先13项缺方法红，修正fixture密钥并收紧负例断言后13项协议绿；新增PG3项先缺方法红，再含跨页路径共25项最终通过。provider159、API typecheck/lint7项门禁通过，见evidence/invoice-*。仍为组件，自动定时调度、unbound处理、管理历史和正式UI未完成；不宣称 #6093 完成。
+
+目录 #6095 source319d89d已获仓库READY_TO_MERGE且审查线程0，按已授权正常入队，记录时候选6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a（位置1）仍检查中。后续必须重读实际mergedAt/mergeCommit，不把入队当合入。
+
 恢复组件新增：confirmClosed 在epoch/user/购买行锁下校验原归属与session，只释放支付商权威确认关闭且未到账、未人工复核的购买，保留原幂等读取；旧本地计时器不能证明关单。PersonalPaymentReconciler 校验完整报价/代际/session后查单，微信付款赢关单竞态时走原到账事务；Stripe后台同步有独立 reconcileCheckout/reconcileSubscription 入口，不捏造验签事件。意图关闭3项先红后绿，恢复单元12项先缺实现后绿；最终39项隔离PG/HTTP（Stripe21、意图10、微信5、HTTP3）、provider146、API类型和lint均通过，资源已清理，见evidence/recovery-*。组件尚未接自动调度；未绑定意图仍安全返回unbound，完整分页漏通知对账、管理历史、UI待办见recovery-notes.md。
 
 前置目录 PR #6095 已创建，head319d89d44c74346cf2b5763bf6c4d7eabead20be，基线a2d305；新基线provider41、独立ACCEPT、20项推送门禁通过，持续跟进CI。当前这份支付代码仍是后续独立issue #6093，不混入该PR。

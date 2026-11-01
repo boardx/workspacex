@@ -114,6 +114,55 @@ it("does not use legacy synchronization when an internal new-generation poll run
     await asOwner(c => c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton=true", [BILLING_ACCOUNTING_GENERATION]));
   }
 });
+async function missedInvoiceFixture(label: string) {
+  // Virtual accounting time keeps historical expiry assertions independent of the wall clock running CI.
+  const anchor = new Date("2026-08-31T12:00:00Z"), f = await fixture(label, false, anchor); await f.settle();
+  const records = [2, 1, 0].map(offset => personalStripePaymentFixture(f.purchase, anchor, offset));
+  const provider = { checkout: async () => f.snapshots.checkout, subscription: async () => records[0]!.subscription,
+    price: async () => records[0]!.price, invoice: async (id: string) => {
+      const value = records.find(record => record.invoice.id === id)?.invoice; if (!value) throw Error("unknown_invoice_fixture"); return value;
+    }, paidInvoices: vi.fn(async () => ({ data: records.map(record => record.invoice), hasMore: false })) };
+  const store = new PersonalStripeWebhookStore(db, { retrieve: provider.checkout, liveMode: () => false },
+    new PgPersonalPaymentRepository(db, () => new Date("2026-11-01T12:00:00Z")), { apply: async () => { throw Error("unexpected_legacy_poll"); } });
+  return { ...f, records, provider, store };
+}
+it("recovers every paid month in a page without duplicating the latest or restoring expired credits", async () => {
+  const f = await missedInvoiceFixture("invoice-page");
+  expect(await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, undefined, f.provider)).toEqual({ nextCursor: null, interrupted: false });
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 60000 });
+  await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, undefined, f.provider);
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 60000 });
+  const rows = await asApp(org, async c => (await c.query("SELECT month_offset,purchase_anchor FROM billing_personal_terms WHERE user_id=$1 ORDER BY month_offset", [f.userId])).rows);
+  expect(rows.map(row => row.month_offset)).toEqual([0, 1, 2]); expect(rows.every(row => row.purchase_anchor.getTime() === f.anchor.getTime())).toBe(true);
+});
+it("finishes an admitted invoice but keeps the original page cursor when shutdown interrupts a page", async () => {
+  const f = await missedInvoiceFixture("invoice-drain"); let stopped = false;
+  const provider = { ...f.provider, invoice: async (id: string) => { const value = await f.provider.invoice(id); stopped = true; return value; } };
+  expect(await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, undefined, provider, () => !stopped)).toEqual({ nextCursor: null, interrupted: true });
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 40000 });
+  await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, undefined, f.provider);
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 60000 });
+});
+it("does not skip a page after a later invoice fails monetary verification", async () => {
+  const f = await missedInvoiceFixture("invoice-page-fail"), damaged = f.records[1]!.invoice, amount = damaged.amount_paid;
+  damaged.amount_paid = 1;
+  await expect(f.store.reconcilePaidInvoices(f.snapshots.subscription.id, undefined, f.provider)).rejects.toThrow("personal_stripe_invoice_mismatch");
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 40000 });
+  damaged.amount_paid = amount;
+  await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, undefined, f.provider);
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 60000 });
+});
+it("advances to the next invoice page only after the entire current page is confirmed", async () => {
+  const f = await missedInvoiceFixture("invoice-two-pages"), last = f.records[1]!.invoice.id;
+  const provider = { ...f.provider, paidInvoices: vi.fn(async (_subscription: string, cursor?: string) => cursor === last
+    ? { data: [f.records[2]!.invoice], hasMore: false }
+    : { data: [f.records[0]!.invoice, f.records[1]!.invoice], hasMore: true }) };
+  expect(await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, undefined, provider)).toEqual({ nextCursor: last, interrupted: false });
+  expect(await f.store.reconcilePaidInvoices(f.snapshots.subscription.id, last, provider)).toEqual({ nextCursor: null, interrupted: false });
+  expect(provider.paidInvoices).toHaveBeenNthCalledWith(1, f.snapshots.subscription.id, undefined);
+  expect(provider.paidInvoices).toHaveBeenNthCalledWith(2, f.snapshots.subscription.id, last);
+  expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_granted: 60000 });
+});
 it("reads fresh cancellation state instead of trusting the subscription event payload", async () => {
   const f = await fixture("fresh-snapshot"), handler = callback(f); await handler.apply();
   f.snapshots.subscription.cancel_at_period_end = true;

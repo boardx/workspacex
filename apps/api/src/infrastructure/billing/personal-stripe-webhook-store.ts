@@ -1,9 +1,9 @@
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
-import type { StripeEvent, StripeSnapshotProvider, StripeWebhookStore } from "../../application/billing/billing-stripe-webhook-service";
+import { STRIPE_INVOICE_PAGE_SIZE, type StripeEvent, type StripeSnapshotProvider, type StripeWebhookStore } from "../../application/billing/billing-stripe-webhook-service";
 import { BILLING_ACCOUNTING_GENERATION } from "../../domain/billing/billing-generation";
 import { PERSONAL_PAYMENT_PRODUCT } from "../../domain/billing/personal-payment-product";
 import { bindPersonalStripeSubscription, verifiedPersonalStripeTerm } from "../../domain/billing/personal-stripe-receipt";
-import { pricingEpochMode } from "./personal-pricing-epoch";
+import { pricingEpochMode, requireActivePricingEpoch } from "./personal-pricing-epoch";
 import { assertBillingGlobalStatement } from "./billing-global-boundary";
 import { PERSONAL_PAYMENT_SQL as SQL } from "./personal-payment-sql";
 import { personalPurchaseView, type PersonalPurchaseRow } from "./pg-personal-checkout-repository";
@@ -46,6 +46,32 @@ export class PersonalStripeWebhookStore implements StripeWebhookStore {
   async reconcileSubscription(id: string, provider: StripeSnapshotProvider): Promise<boolean> {
     if ((await this.select()).mode !== "active") throw Error("personal_recovery_inactive");
     return this.synchronize("customer.subscription.updated", id, provider);
+  }
+  /** A bounded page commits individual verified invoices. A failed/interrupted page keeps its original cursor. */
+  async reconcilePaidInvoices(subscriptionRef: string, cursor: string | undefined, provider: StripeSnapshotProvider,
+    shouldContinue: () => boolean = () => true): Promise<{ nextCursor: string | null; interrupted: boolean }> {
+    reference(subscriptionRef, "sub"); if (cursor !== undefined) reference(cursor, "in");
+    if (!shouldContinue()) return { nextCursor: cursor ?? null, interrupted: true };
+    const read = <T>(query: (session: TenantSession) => Promise<T>) => this.db.withoutTenant(async raw => {
+      const session: TenantSession = { query(sql, params) { assertBillingGlobalStatement(sql); return raw.query(sql, params); } };
+      await requireActivePricingEpoch(session); return query(session);
+    });
+    const owner = await read(async session => (await session.query<{ purchase_ref: string }>(SQL.personalStripePurchase, [subscriptionRef, BILLING_ACCOUNTING_GENERATION])).rows[0]);
+    if (!owner) throw Error("personal_stripe_binding_missing");
+    if (!provider.paidInvoices) throw Error("personal_stripe_provider_incomplete");
+    const page = await provider.paidInvoices(subscriptionRef, cursor);
+    if (!Array.isArray(page.data) || page.data.length > STRIPE_INVOICE_PAGE_SIZE || typeof page.hasMore !== "boolean" ||
+      page.hasMore && page.data.length === 0) throw Error("personal_recovery_invoice_page_invalid");
+    const ids = page.data.map(invoice => reference(invoice.id, "in"));
+    if (new Set(ids).size !== ids.length || cursor !== undefined && ids.includes(cursor)) throw Error("personal_recovery_invoice_page_invalid");
+    for (const id of ids) {
+      if (!shouldContinue()) return { nextCursor: cursor ?? null, interrupted: true };
+      if (!await this.synchronize("invoice.paid", id, provider)) throw Error("personal_recovery_retry_required");
+      // An ignored foreign/retired event is not a recovered invoice for this immutable binding.
+      const receipt = await read(async session => (await session.query<{ purchase_ref: string }>(SQL.personalReceiptFind, ["stripe", id])).rows[0]);
+      if (receipt?.purchase_ref !== owner.purchase_ref) throw Error("personal_recovery_receipt_missing");
+    }
+    return { nextCursor: page.hasMore ? ids.at(-1)! : null, interrupted: false };
   }
   private async synchronize(type: string, id: unknown, provider: StripeSnapshotProvider): Promise<boolean> {
     const isCheckout = ["checkout.session.completed", "checkout.session.async_payment_succeeded"].includes(type);

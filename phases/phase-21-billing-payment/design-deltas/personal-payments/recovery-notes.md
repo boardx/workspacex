@@ -6,7 +6,7 @@
 
 只同步 latest_invoice 不足以恢复多个月的漏通知。实现前核对固定Clover官方invoice list API；按subscription查已付账单，分页受限，完整校验原Checkout/订阅/客户/价格/金额币种/原锚点，每张invoice独立幂等到账。页中失败不能跳过账单，游标仅在该页处理成功后推进；扫到尾部重置游标使下轮能发现新账单。查询结果大小和每轮网络操作均有限，不能单次扫完无限历史。
 
-资料：官方 [List all invoices](https://docs.stripe.com/api/invoices/list) 可按subscription/status过滤并使用starting_after/limit分页，按创建时间倒序。此次web工具无法直接打开固定Clover版本URL；搜索读取到官方通用参数说明，尚不能宣称固定版本列表协议已完成验证，写代码前再核对官方版本资料/结构。
+资料：官方 [List all invoices](https://docs.stripe.com/api/invoices/list.md?api-version=2025-09-30.clover) 已通过 curl 核对固定版本 Markdown，示例明确Stripe-Version:2025-09-30.clover；支持subscription/status、starting_after/limit，按创建时间倒序。web工具直接打开失败后改用同一官方URL的HTTPS读取；未使用在线支付凭据。列表每页5张、响应最多256KiB，完整账单金额与期限仍逐张在财务边界校验，列表本身不是批量授权证明。
 
 订阅状态提示宜至少每5分钟重读，不能仅等到年度付款到期，避免漏取消通知后长时间展示旧状态。状态同步不等于付费额度，未付账单不能发额度。
 

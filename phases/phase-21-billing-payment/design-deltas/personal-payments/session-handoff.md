@@ -1,5 +1,9 @@
 # 个人支付闭环在建交接
 
+最新分页补账增量已验证：provider159（新增列表协议13）、PG Stripe25（含跨页、部分失败重放、停机页游标保留及过期不恢复）、API type/lint7项通过。页内每张invoice独立财务提交，确认receipt归属原binding购买后才推进页；列表不是付款授权。该增量待精确SHA独立复核。上一检查点d196fb5dfbf47a1bdb073154b91aa13fbb5aab52已远端保存、独立增量ACCEPT、20推送门禁通过。仍未接自动调度，unbound/管理历史/UI待做，具体规划见recovery-notes.md；全feature未完成。
+
+目录PR #6095已在source319d89d上获READY_TO_MERGE、独立ACCEPT、审查线程0后按授权正常入队。记录时队列位置1，候选6a1a3c62efa31d78cfd5337eccecb672ddb6dd0a；不能从本文件推断当前是否已合入，先查实时queue/mergedAt/check-runs（per_page100+分页）。仅实际合入后依序集成充值、年付、Free；保留单issue PR，不把本支付源码混入目录PR。
+
 最新增量为权威关闭/漏通知恢复组件，39项隔离PG/HTTP（Stripe21+意图10+微信5+HTTP3）、provider146、API typecheck/lint已通过。新增PersonalPaymentReconciler、confirmClosed、独立Stripe后台同步入口，尚未接自动调度。未绑定意图不生成第二支付身份；多期漏通知需完整分页而非latest_invoice，管理/历史/UI仍待，详见recovery-notes.md。新证据recovery-*。上一检查点7073ad7dede9a999224d4b456d7292bb1d8d31b6已远端保存并增量独立ACCEPT、20门禁通过；本轮增量后续精确审查，不能沿用其审查宣称全feature完成。
 
 前置目录 PR #6095 / issue #6089 当前head319d89d44c74346cf2b5763bf6c4d7eabead20be（base a2d305），独立ACCEPT+provider41+20推送门禁，CI运行中。已真实剥离旧父499并创建单issue PR到develop；本工作区现已切回支付分支，不在目录分支上改支付代码。继续检查当前远端状态，READY后按已获任务级授权正常合入develop，再顺序剥离其余前置分支。禁止admin绕过或误取消他人run。
