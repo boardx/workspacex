@@ -1,0 +1,6 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+> tsc --noEmit
+
+
+退出码：0

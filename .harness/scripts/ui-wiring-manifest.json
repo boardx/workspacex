@@ -2604,6 +2604,10 @@
       "kind": "preview",
       "screen": "apps/web/app/preview/ai-capability-studio/workbench/page.tsx"
     },
+    "/preview/pricing": {
+      "kind": "preview",
+      "screen": "apps/web/app/preview/pricing/page.tsx"
+    },
     "/preview/billing": {
       "kind": "preview",
       "screen": "apps/web/app/preview/billing/page.tsx"
