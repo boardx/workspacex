@@ -11,3 +11,5 @@
 新基线已复验provider51、隔离PG27、cashier51和SQL生成--check。后续精确SHA审查、20项推送门禁、PR CI及正常集成；不可把历史审查当当前SHA授权。充值集成后年付剥离旧d5c6539c6、Free剥离旧a1d5cbf93。
 
 支付分支worker/cn-us-personal-payments远端检查点346223a734f54782140c992fa4a0b1d0223f82c3已增量ACCEPT、20推送门禁。最新恢复worker/400迁移/PG队列WIP精确stash在db6797c407cf645750b0e1de008955928f8609d5（描述pricing-payment-recovery-runtime-before-topup-integration），含worker3、队列PG7及session fallback针对1已绿，尚未完整type/lint或BillingModule接线。提本PR后可切回支付分支，按该完整hash apply恢复继续；不要pop共享stash或动他人条目。旧自有61a966/ba557备份也保留。不新建第二个worktree。
+
+PR #6098 的 billing-cashier-glue 首次失败定位为浏览器用例仍选择已停用的旧一元 SKU pkg-cn-100。修订为从权威目录选择 CN 10,000 credit 产品，断言旧 SKU 不可选、订单金额/币种/额度精确匹配，并保留真实取消请求、支付商关单、PG CLOSED 及零入账断言。隔离真实浏览器两文件共11项通过（117.96秒），峰值连接7、清理成功；见 evidence/browser-current-package.txt 与 customer-cancel-current-package.png。该截图含测试专用历史 fixture；不作为最终定价 UI 签核材料。修正待精确SHA审查和CI，未合入。
