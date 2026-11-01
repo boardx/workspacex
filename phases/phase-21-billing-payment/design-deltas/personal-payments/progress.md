@@ -72,3 +72,9 @@ Stripe 绑定与到账：新增不可变 subscription/purchase/session/customer/
 独立review7ac972e45发现products新text-foreground无效，已改合法text-background-foreground；权威颜色扫描器针对新组件零问题。当前P5旧父全仓另有prototype两条旧问题，不豁免/不称全仓绿；切到已合UI的P2基线时全仓颜色门已绿，后续顺序rebase应带入正确版本，再全门复验。待签材料补齐同一payer/SKU/provider/catalogVersion、销售关闭后原key恢复、所有恢复先GET状态、三类终态零新增支付请求约束；仍pending未实现nullable。
 
 未提交UI运行时WIP：PersonalPricingCheckout真实POST前持久化、模糊错误只用户动作同key重试、GET本人状态后才QR/成功、截止后不假关单；生产/billing路由新增默认关闭的服务端UI开关，未设置任何部署开关。React总89与Web type/lint4通过，但本轮新API浏览器fixture尚未API type/lint。首轮真实browser1失败/后续bail未跑：旧P5父缺已合入Contract PR的Next代理，catalog/entitlement实际404导致quota不可见。不是账务断言通过；保留失败日志，不放宽断言。先stash这份WIP、刷新P3→P4→P5到P2当前已审48e04b39c，再重跑。新owned browser helper已补启动早期handle回传，失败也能关闭独占进程；此修正也尚待重跑。待签nullable仍pending/未改契约，旧ecb P2保持open。
+
+## 最终迁移清单预检（前置重基前）
+
+恢复fixture的精确reviewedSuffix遗漏继承的P3/P4及本P5四项迁移，现有actual-catalog测试真实失败UNREVIEWED_MIGRATION_SUFFIX（red证据），核对四项SQL为购买意图、收据、Stripe绑定及恢复调度后精确追加，不放宽未知/缺失/重复拒绝。相同命令 `pnpm exec tsx --test tests/fixtures/cn-application-recovery/migration-scope.test.ts` 2/2通过；证据evidence/migration-scope-{red,green}.txt。不声称重新执行PG或生产迁移。最终在P4实际合入、重基后仍核对前置列表。
+
+已纠正本交接对Enterprise按钮的旧错误观察：实际采用UI仅Enterprise显示手动加额度，整数1..1,000,000及原因。Team设计Draft PR6101仍pending、可执行第③件未齐。个人恢复签核与正常develop集成授权持续，无新增确认请求。
