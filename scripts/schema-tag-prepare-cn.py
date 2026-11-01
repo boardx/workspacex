@@ -20,6 +20,9 @@ ENV='/var/lib/workspacex-cn/runtime/a1cb4c7683768566b0cf38ffe6a27b0a8c13f4f0-new
 ENV_SHA='d0199bc4e0674ea70348832b4fd82fe2be695253bcbc2ae0447eb45094510773'
 TOOL='sha256:af6e55371441513bbe1093a588ff4b2b5c9dbcb3c96e2b8e432f4ee1a283973c'
 NETWORK='workspacex-cn-runtime'
+# Measured source: 150494231 bytes; host 16 GiB RAM / 74 GiB free.
+# Clone memory/tmpfs and encrypted archive limits remain independently bounded.
+SOURCE_SIZE_LIMIT=192*1024*1024
 
 def need(ok,code):
     if not ok:raise ValueError(code)
@@ -85,7 +88,7 @@ def helper(docker,operation,execute):
 def read_source(docker):
     value=json.loads(helper(docker,'metadata',lambda args:docker.run(args[1:],timeout=45)))
     need(value.get('database')==DB and value.get('role')=='migration_admin','CN_CONNECTED_IDENTITY')
-    need(type(value.get('bytes')) is int and 0<value['bytes']<=64*1024*1024,'CN_SOURCE_SIZE_UNQUALIFIED')
+    need(type(value.get('bytes')) is int and 0<value['bytes']<=SOURCE_SIZE_LIMIT,'CN_SOURCE_SIZE_UNQUALIFIED')
     need(value.get('roles')==['app_rw'],'CN_APP_ROLE_REQUIRED');return value
 
 def prepare(tag):

@@ -152,6 +152,7 @@ jobs:
           python3 -I -B -m unittest discover -s tests -p 'test_*_tag_migration_adapter.py'
           python3 -I -B -m unittest discover -s tests -p 'test_*_tag_maintenance_policy.py'
           python3 -I -B -m unittest discover -s tests -p 'test_*_tag_old_application_probe.py'
+          python3 -I -B -m unittest discover -s tests -p test_tag_migrated_activation.py
           node --test tests/tag-reviewed-migration-driver.test.mjs
           python3 -I -B -m unittest discover -s tests -p test_deploy_registry_images.py
 

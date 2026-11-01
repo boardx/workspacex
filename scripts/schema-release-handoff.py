@@ -64,10 +64,17 @@ def invoke(command,request,receipt,timeout,lock_fd=None):
     """No output from an adapter is forwarded. Only its protected receipt is read."""
     try:
         kwargs={'pass_fds':(lock_fd,)} if lock_fd is not None else {}
-        reply=subprocess.run([*command,'--request',str(request),'--receipt',str(receipt)],
+        reply=subprocess.Popen([*command,'--request',str(request),'--receipt',str(receipt)],
                              stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
-                             timeout=timeout,env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8',
+                             env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8',
                                                  **({'WSX_RELEASE_LOCK_FD':str(lock_fd)} if lock_fd is not None else {})},**kwargs)
+        try:reply.communicate(timeout=timeout)
+        except BaseException:
+            if reply.poll() is None:
+                reply.terminate()
+                try:reply.communicate(timeout=15)
+                except subprocess.TimeoutExpired:reply.kill();reply.communicate(timeout=5)
+            raise
         need(reply.returncode==0 and receipt.is_file() and not receipt.is_symlink(),
              'SCHEMA_RELEASE_RECONCILIATION_REQUIRED')
     except (subprocess.TimeoutExpired,OSError):

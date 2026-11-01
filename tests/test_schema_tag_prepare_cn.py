@@ -15,7 +15,7 @@ class CnSource(unittest.TestCase):
  def test_wrong_source_or_size_rejected(self):
   good={'database':m.DB,'role':'migration_admin','bytes':1000,'roles':['app_rw'],'ledger':{'old.sql':'a'*64}}
   d=Mock();d.run.side_effect=lambda args,**kwargs:json.dumps(good).encode() if args[0]=='run' else b'';self.assertEqual(m.read_source(d),good)
-  for patch in ({'database':'wrong'},{'role':'app_rw'},{'bytes':True},{'bytes':128*1024*1024},{'roles':[]}):
+  for patch in ({'database':'wrong'},{'role':'app_rw'},{'bytes':True},{'bytes':192*1024*1024+1},{'roles':[]}):
    d.run.side_effect=lambda args,**kwargs:json.dumps({**good,**patch}).encode() if args[0]=='run' else b''
    with self.assertRaises(ValueError):m.read_source(d)
 if __name__=='__main__':unittest.main()
@@ -58,3 +58,12 @@ class ToolIdentity(unittest.TestCase):
   self.assertEqual(m.tool_identity(correct),correct)
   for bad in (correct[:-1],correct+'a','sha256:'+'0'*64,'sha256:af6e55371441513bbe1093a588ff4b2b5c9dbc3c96e2b8e432f4ee1a283973c'):
    with self.assertRaisesRegex(ValueError,'CN_TOOL_PIN_INVALID'):m.tool_identity(bad)
+
+class MeasuredSourceCapacity(unittest.TestCase):
+ def test_measured_cn_source_and_fixed_limit(self):
+  good={'database':m.DB,'role':'migration_admin','bytes':150494231,'roles':['app_rw'],'ledger':{'old.sql':'a'*64}}
+  d=Mock();d.run.side_effect=lambda args,**kwargs:json.dumps(good).encode() if args[0]=='run' else b''
+  self.assertEqual(m.read_source(d)['bytes'],150494231)
+  good['bytes']=192*1024*1024;self.assertEqual(m.read_source(d)['bytes'],192*1024*1024)
+  good['bytes']+=1
+  with self.assertRaisesRegex(ValueError,'CN_SOURCE_SIZE_UNQUALIFIED'):m.read_source(d)

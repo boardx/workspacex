@@ -201,3 +201,13 @@ These operator components do not install a general `schemaRelease` policy or
 bypass the image-only schema guard. Actual migration, candidate activation,
 public browser acceptance and database-aware recovery qualification remain
 required before this incident can be closed.
+
+CN source capacity qualification (2026-11-01): the actual read-only query measured
+150,494,231 bytes, 435 ledger entries and the `app_rw` role. The CN source adapter
+therefore accepts at most 192 MiB of database size; US keeps its separate existing
+limit. This bounded adjustment uses the observed CN host capacity (16 GiB RAM,
+74 GiB free disk). It does not raise the encrypted archive's 128 MiB limit, the
+clone's 512 MiB PGDATA tmpfs, or its 1 GiB memory limit. Database size is not a
+promise of restore fit: dump or restore exceeding those independent limits must
+fail, clean up the owned clone, and leave production unchanged. Capacity readback
+alone is not a successful original-source restore receipt or migration approval.

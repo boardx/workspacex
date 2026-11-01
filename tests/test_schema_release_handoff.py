@@ -32,10 +32,19 @@ class Handoff(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);request=root/'request.json';request.write_text('{}')
             for error in [subprocess.TimeoutExpired('adapter',1),OSError('missing')]:
-                with patch.object(m.subprocess,'run',side_effect=error),self.assertRaisesRegex(ValueError,'SCHEMA_RELEASE_RECONCILIATION_REQUIRED'):
+                with patch.object(m.subprocess,'Popen',side_effect=error),self.assertRaisesRegex(ValueError,'SCHEMA_RELEASE_RECONCILIATION_REQUIRED'):
                     m.invoke(['/fixed/adapter'],request,root/'receipt.json',30)
-            with patch.object(m.subprocess,'run',return_value=type('Reply',(),{'returncode':1})()),self.assertRaisesRegex(ValueError,'SCHEMA_RELEASE_RECONCILIATION_REQUIRED'):
+            with patch.object(m.subprocess,'Popen',return_value=type('Reply',(),{'returncode':1,'communicate':lambda *a,**k:(None,None)})()),self.assertRaisesRegex(ValueError,'SCHEMA_RELEASE_RECONCILIATION_REQUIRED'):
                 m.invoke(['/fixed/adapter'],request,root/'receipt.json',30)
+    def test_timeout_terms_adapter_and_waits_for_finally(self):
+        import sys
+        m=module()
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);script=root/'adapter.py';clean=root/'cleanup'
+            script.write_text("import signal,time,pathlib\ndef stop(*_):raise RuntimeError('term')\nsignal.signal(signal.SIGTERM,stop)\ntry:time.sleep(30)\nfinally:pathlib.Path(%r).write_text('clean')\n"%str(clean))
+            with self.assertRaisesRegex(ValueError,'SCHEMA_RELEASE_RECONCILIATION_REQUIRED'):
+                m.invoke([sys.executable,str(script)],root/'request',root/'receipt',2)
+            self.assertEqual(clean.read_text(),'clean')
     def test_receipt_rejects_duplicate_keys_and_unbounded_output(self):
         m=module()
         with tempfile.TemporaryDirectory() as temp:
@@ -48,6 +57,6 @@ class Handoff(unittest.TestCase):
         m=module()
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);request=root/'request.json';request.write_text('{}')
-            with patch.object(m.subprocess,'run',return_value=type('Reply',(),{'returncode':0})()),self.assertRaisesRegex(ValueError,'SCHEMA_RELEASE_RECONCILIATION_REQUIRED'):
+            with patch.object(m.subprocess,'Popen',return_value=type('Reply',(),{'returncode':0,'communicate':lambda *a,**k:(None,None)})()),self.assertRaisesRegex(ValueError,'SCHEMA_RELEASE_RECONCILIATION_REQUIRED'):
                 m.invoke(['/fixed/adapter'],request,root/'receipt.json',30)
 if __name__=='__main__':unittest.main()
