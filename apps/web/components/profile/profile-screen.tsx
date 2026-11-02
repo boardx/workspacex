@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PaginationLoadMore } from "@/components/ui/pagination";
 import { StateShell, type UiState } from "@/components/state/state-shell";
-import { navigationLabel } from "@/lib/i18n/navigation";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey, MessageParams } from "@/lib/i18n/messages";
 import { ApiError } from "@/lib/api-client";
@@ -100,7 +99,7 @@ export function ProfileScreen() {
         >
           <PERSONAL_BILLING_ENTRY.icon aria-hidden className="h-5 w-5 text-muted-foreground" />
           <div className="flex flex-1 flex-col">
-            <span className="text-13 font-medium">{navigationLabel(PERSONAL_BILLING_ENTRY.key, PERSONAL_BILLING_ENTRY.label, t)}</span>
+            <span className="text-13 font-medium">{t("ui.creditsAndSubscription")}</span>
             <span className="text-10 text-muted-foreground">{t("profile.billingHint")}</span>
           </div>
           <ChevronRight aria-hidden className="h-4 w-4 text-muted-foreground" />
