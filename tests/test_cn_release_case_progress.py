@@ -42,7 +42,7 @@ class CaseProgress(unittest.TestCase):
 
     def test_manual_release_measurement_keeps_original_budget_and_linux_bound(self):
         text = (ROOT / '.github/workflows/cn-release-simulation.yml').read_text()
-        self.assertIn("inputs.lane == 'release' && '[\"release\"]'", text)
+        self.assertEqual(m.workflow_plan('release',1,'acceptance'),dict(suites=['release'],split=False))
         self.assertIn("if: matrix.suite == 'release'", text)
         self.assertIn('timeout --signal=TERM --kill-after=2s 25s', text)
         self.assertIn('faulthandler.dump_traceback_later(15)', text)

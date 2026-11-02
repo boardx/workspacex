@@ -5,11 +5,18 @@ import argparse,concurrent.futures,csv,datetime,hashlib,importlib.util,json,os,p
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candidate':['test_cn_candidate_*.py'],'image-archive':['test_cn_image*.py','test_cn_archive*.py'],'legacy-faults':['test_release_failure_matrix.py'],'linux-process':['cn_hk_performance_linux.py'],'linux-domain':['cn_release_simulation_domain_linux.py'],'linux-postgres':['cn_release_postgres_linux.py'],'linux-postgres-lifecycle':['cn_release_postgres_lifecycle_linux.py'],'linux-storage':['cn_release_storage_linux.py'],'linux-readiness':['cn_release_readiness_linux.py'],'linux-api-startup':['cn_release_api_startup_linux.py'],'linux-docker-cleanup':['cn_release_docker_cleanup_linux.py'],'linux-boundary-reap':['cn_release_boundary_reap_linux.py'],'linux-entry':['cn_release_cgroup_linux.py'],'linux-browser':['cn_release_browser_linux.py'],'linux-api-outer-recovery':['cn_release_api_outer_recovery_linux.py'],'linux-postclear-recovery':['cn_release_postclear_recovery_linux.py'],'linux-application-recovery':['cn_release_application_recovery_linux.py'],'linux-application-recovery-complete':['cn_release_application_recovery_complete_linux.py'],'linux-six-business':['cn_release_six_business_linux.py'],'linux-six-cleanup':['cn_release_six_cleanup_linux.py'],'linux-migration-guard':['cn_release_migration_guard_linux.py'],'linux-migration-terminal':['cn_release_migration_terminal_linux.py'],'linux-migration-owner':['cn_release_migration_owner_linux.py'],'linux-fsync':['cn_release_fsync_linux.py'],'linux-fsync-entry':['cn_release_fsync_entry_linux.py'],'offline-contracts':['test_cn_formal_save_bound.py','test_cn_repeated_layers.py','test_cn_formal_budget_profile.py','test_cn_exact_source_admission.py','test_cn_agent_postbuild_diagnostic.py','test_cloud_build_only.py','test_aliyun_release_auth.py','test_auth_action_hardening.py','test_cn_main_registration.py']}
-# Share one slot for CPU-heavy release fixtures and database/browser suites.
-# Linux measurements: release-only 170s, concurrent all 285-300s (#6136).
-HEAVY_SUITES=frozenset(('release','linux-postgres','linux-postgres-lifecycle','linux-api-startup','linux-docker-cleanup','linux-api-outer-recovery','linux-postclear-recovery','linux-application-recovery','linux-application-recovery-complete','linux-six-business','linux-six-cleanup'))
+# Share one slot for database/browser-heavy suites on the standard runner.
+HEAVY_SUITES=frozenset(('linux-postgres','linux-postgres-lifecycle','linux-api-startup','linux-docker-cleanup','linux-api-outer-recovery','linux-postclear-recovery','linux-application-recovery','linux-application-recovery-complete','linux-six-business','linux-six-cleanup'))
 DOCKER_SUITE_REGISTRIES={'linux-api-startup':'api-container-owner','linux-application-recovery':'application-recovery-owner','linux-application-recovery-complete':'application-recovery-complete-owner'}
 HEAVY_SLOT=threading.Semaphore(1)
+def workflow_plan(lane,rounds,mode):
+    lanes={'all':['all'],'release':['release'],'targeted':['release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'],
+           **{n:[n] for n in ('linux-application-recovery-complete','linux-six-business','linux-boundary-reap')}}
+    if lane not in lanes or type(rounds)is not int or rounds not in (1,10) or mode not in ('acceptance','development'):raise ValueError('CI_FIXED_LANE_REQUIRED')
+    if rounds==10 and lane!='all':raise ValueError('CI_TEN_ALL_REQUIRED')
+    split=lane=='all' and rounds==1 and mode=='acceptance'
+    return dict(suites=['release','remaining'] if split else lanes[lane],split=split)
+
 def scheduled_execute(name,*args,**kwargs):
     def observed_execute():
         # Runner termination can prevent artifact upload. Keep bounded metadata
@@ -378,7 +385,7 @@ def status_snapshot(raw):
     return {'dirty':bool(raw),'entries':entries,'entryCount':len(raw.splitlines()),'truncated':len(raw.splitlines())>64,'rawSha256':hashlib.sha256(data).hexdigest()}
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--export-parent',type=Path);p.add_argument('--child',choices=SUITES);p.add_argument('--result',type=Path);p.add_argument('--output',type=Path);p.add_argument('--suite',choices=['all',*SUITES],default='all');p.add_argument('--workers',type=int,choices=range(1,4),default=3);p.add_argument('--timeout-seconds',type=int,default=480);p.add_argument('--rounds',type=int,choices=(1,10),default=1);p.add_argument('--seed',type=int,default=0);p.add_argument('--mode',choices=('acceptance','development'),default='acceptance');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--export-parent',type=Path);p.add_argument('--child',choices=SUITES);p.add_argument('--result',type=Path);p.add_argument('--output',type=Path);p.add_argument('--suite',choices=['all','remaining',*SUITES],default='all');p.add_argument('--workers',type=int,choices=range(1,4),default=3);p.add_argument('--timeout-seconds',type=int,default=480);p.add_argument('--rounds',type=int,choices=(1,10),default=1);p.add_argument('--seed',type=int,default=0);p.add_argument('--mode',choices=('acceptance','development'),default='acceptance');args=p.parse_args()
     if args.export_parent is not None:
         print(json.dumps(export_reports(args.export_parent),sort_keys=True));return 0
     if args.child:
@@ -393,7 +400,7 @@ def main():
     state_before=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))
     dirty=state_before['dirty'];initial_state=state_before
     if args.rounds==10 and dirty:raise ValueError('TEN_ROUNDS_REQUIRE_CLEAN_FIXED_COMMIT')
-    names=list(SUITES)if args.suite=='all'else[args.suite]
+    names=[n for n in SUITES if args.suite!='remaining' or n!='release']if args.suite in ('all','remaining')else[args.suite]
     if args.rounds==10 and args.suite!='all':raise ValueError('TEN_ROUNDS_REQUIRE_ALL_SUITES')
     started=datetime.datetime.now(datetime.timezone.utc).isoformat();rounds=[]
     for index in range(args.rounds):
@@ -413,7 +420,7 @@ def main():
         write_json(folder/'round.json',value);rounds.append(value);state_before=state_after
         print(json.dumps({'event':'round-finished','roundId':round_id,'mode':args.mode,'status':value['status'],'continueAllowed':value['continuation']['allowed'],'reason':value['continuation']['reason'],'completedSuites':len(rows)},sort_keys=True),flush=True)
         if not value['continuation']['allowed']:break
-    summary=dict(kind='cn-release-isolated-simulation-v1',mode=args.mode,commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=GAPS)
+    summary=dict(kind='cn-release-isolated-simulation-v1',suiteSelection=args.suite,mode=args.mode,commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=GAPS)
     quantify(summary,output)
     if args.mode=='development':
         summary['completeRegressionAccepted']=False;summary['isolatedAcceptance']=False

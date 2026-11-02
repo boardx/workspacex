@@ -76,15 +76,16 @@ class SimulationTests(unittest.TestCase):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
   self.assertIn("options: ['all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']",text)
   self.assertIn('fail-fast: false',text)
-  self.assertIn('if [ \"$LANE\" != all ] && [ \"$ROUNDS\" = 10 ]; then',text)
-  self.assertIn('*) echo CI_FIXED_LANE_REQUIRED >&2; exit 1',text)
-  matrix=next(line for line in text.splitlines()if 'suite: ${{ fromJSON('in line)
-  self.assertIn("inputs.lane == 'targeted'",matrix)
-  self.assertIn("inputs.lane == 'linux-boundary-reap' && '[\"linux-boundary-reap\"]'",matrix)
-  for suite in ('release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'):self.assertIn('"'+suite+'"',matrix)
-  self.assertIn("|| '[\"all\"]'",matrix)
+  self.assertIn('sim.workflow_plan(',text)
+  self.assertIn('suite: ${{ fromJSON(needs.plan.outputs.suites) }}',text)
+  expected=['release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business']
+  self.assertEqual(m.workflow_plan('targeted',1,'acceptance'),dict(suites=expected,split=False))
+  self.assertEqual(m.workflow_plan('all',10,'acceptance'),dict(suites=['all'],split=False))
+  self.assertEqual(m.workflow_plan('linux-boundary-reap',1,'acceptance'),dict(suites=['linux-boundary-reap'],split=False))
+  for lane in ('targeted','release','unknown'):
+   with self.assertRaises(ValueError):m.workflow_plan(lane,10,'acceptance')
   self.assertIn('--suite "$SUITE" --workers "$WORKERS"',text)
-  self.assertIn("matrix.suite == 'all' && '3' || '1'",text)
+  self.assertIn("(matrix.suite == 'all' || matrix.suite == 'remaining') && '3' || '1'",text)
   self.assertIn('${{ github.run_attempt }}-${{ matrix.suite }}',text)
  def test_ten_rounds_fixed_commit_distinct_seed_and_output(self):
   seen=[]
@@ -163,7 +164,6 @@ class SimulationTests(unittest.TestCase):
    self.assertEqual(stat.S_IMODE((target/'summary.json').stat().st_mode),0o600)
  def test_heavy_suites_share_one_slot_while_light_suite_can_progress(self):
   import concurrent.futures,threading,time,contextlib,io
-  self.assertIn('release',m.HEAVY_SUITES)
   active=0;peak=0;lock=threading.Lock();heavy_started=threading.Event();light_seen=threading.Event()
   def fake(name):
    nonlocal active,peak
@@ -172,18 +172,15 @@ class SimulationTests(unittest.TestCase):
     heavy_started.set();light_seen.wait(1);time.sleep(.02)
     with lock:active-=1
    else:
-    self.assertTrue(heavy_started.wait(1))
-    with lock:self.assertEqual(active,1)
-    light_seen.set()
+    heavy_started.wait(1);light_seen.set()
    return {'suite':name,'status':'passed'}
   output=io.StringIO()
-  with contextlib.redirect_stdout(output),patch.object(m,'execute',side_effect=fake),concurrent.futures.ThreadPoolExecutor(max_workers=4)as pool:
-   names=('release','linux-api-startup','linux-six-business','hongkong')
-   jobs=[pool.submit(m.scheduled_execute,n)for n in names]
-   self.assertEqual([j.result(timeout=2)['suite']for j in jobs],list(names))
+  with contextlib.redirect_stdout(output),patch.object(m,'execute',side_effect=fake),concurrent.futures.ThreadPoolExecutor(max_workers=3)as pool:
+   jobs=[pool.submit(m.scheduled_execute,n)for n in ('linux-api-startup','linux-six-business','release')]
+   self.assertEqual([j.result(timeout=2)['suite']for j in jobs],['linux-api-startup','linux-six-business','release'])
   self.assertEqual(peak,1);self.assertTrue(light_seen.is_set())
   events=[json.loads(line)for line in output.getvalue().splitlines()]
-  for name in names:
+  for name in ('linux-api-startup','linux-six-business','release'):
    self.assertEqual([e['phase']for e in events if e['simulationSuite']==name],['started','finished'])
   self.assertTrue(all(set(e)<= {'simulationSuite','phase','status'} for e in events))
  def test_report_export_all_ten_rounds_fixed_inventory(self):

@@ -103,24 +103,40 @@ on:
 permissions:
   contents: read
 jobs:
-  simulation:
-    strategy:
-      fail-fast: false
-      matrix:
-        suite: ${{ fromJSON(inputs.lane == 'release' && '["release"]' || inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || inputs.lane == 'linux-boundary-reap' && '["linux-boundary-reap"]' || '["all"]') }}
+  plan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 5
+    outputs:
+      suites: ${{ steps.plan.outputs.suites }}
+      split: ${{ steps.plan.outputs.split }}
     steps:
-      - name: Reject partial ten-round requests before setup
+      - uses: actions/checkout@v5
+        with: { ref: '${{ github.sha }}', persist-credentials: false }
+      - name: Resolve fixed single-round workflow plan
+        id: plan
         env:
           LANE: ${{ inputs.lane || 'all' }}
           ROUNDS: ${{ inputs.rounds || '1' }}
+          MODE: ${{ inputs.mode || 'acceptance' }}
         run: |
-          case "$LANE" in all|release|targeted|linux-application-recovery-complete|linux-six-business|linux-boundary-reap) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
-          if [ "$LANE" != all ] && [ "$ROUNDS" = 10 ]; then
-            echo 'CI_TEN_ALL_REQUIRED' >&2
-            exit 1
-          fi
+          python3 -I -B - <<'PYPLAN'
+          import importlib.util,json,os
+          spec=importlib.util.spec_from_file_location('sim','scripts/cn-release-simulation.py')
+          sim=importlib.util.module_from_spec(spec);spec.loader.exec_module(sim)
+          plan=sim.workflow_plan(os.environ['LANE'],int(os.environ['ROUNDS']),os.environ['MODE'])
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('suites='+json.dumps(plan['suites'])+'\n')
+              output.write('split='+str(plan['split']).lower()+'\n')
+          PYPLAN
+  simulation:
+    needs: plan
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.plan.outputs.suites) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    steps:
       - uses: actions/checkout@v5
         with:
           ref: ${{ github.sha }}
@@ -199,7 +215,7 @@ jobs:
           SEED: ${{ inputs.seed || '0' }}
           MODE: ${{ inputs.mode || 'acceptance' }}
           SUITE: ${{ matrix.suite }}
-          WORKERS: ${{ matrix.suite == 'all' && '3' || '1' }}
+          WORKERS: ${{ (matrix.suite == 'all' || matrix.suite == 'remaining') && '3' || '1' }}
         run: 'sudo -n env -i PATH="$PATH" CN_ARCHIVE_TEST_NODE="$CN_ARCHIVE_TEST_NODE" CN_ARCHIVE_TEST_RUNTIME="$CN_ARCHIVE_TEST_RUNTIME" NODE_PATH="$NODE_PATH" CN_TEST_PLAYWRIGHT="$CN_TEST_PLAYWRIGHT" CN_TEST_CHROMIUM="$CN_TEST_CHROMIUM" GITHUB_ACTIONS=true CN_API_STARTUP_PG_IMAGE="$CN_API_STARTUP_PG_IMAGE" CN_SIX_REDIS_IMAGE="$CN_SIX_REDIS_IMAGE" GITHUB_RUN_ID="$GITHUB_RUN_ID" GITHUB_RUN_ATTEMPT="$GITHUB_RUN_ATTEMPT" GITHUB_WORKSPACE="$GITHUB_WORKSPACE" RUNNER_TEMP="$RUNNER_TEMP" "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA" --rounds "$ROUNDS" --seed "$SEED" --suite "$SUITE" --workers "$WORKERS" --mode "$MODE"'
       - name: Export bounded reports for the unprivileged artifact uploader
         if: always()
@@ -235,5 +251,39 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-infra-owner/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-target-owner/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/six-kill-control-owner/*.json
+          retention-days: 7
+          if-no-files-found: warn
+
+  aggregate:
+    name: ${{ needs.plan.outputs.split == 'true' && 'simulation (all)' || 'split-aggregation (not selected)' }}
+    needs: [plan, simulation]
+    if: always() && needs.plan.outputs.split == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Require both producer jobs to succeed
+        env:
+          RESULT: ${{ needs.simulation.result }}
+        run: test "$RESULT" = success
+      - uses: actions/checkout@v5
+        with: { ref: '${{ github.sha }}', fetch-depth: 0, persist-credentials: false }
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-release
+          path: ${{ runner.temp }}/cn-split-parts/release
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-remaining
+          path: ${{ runner.temp }}/cn-split-parts/remaining
+      - name: Reconcile exact complete suite and case inventories
+        env:
+          SEED: ${{ inputs.seed || '0' }}
+        run: python3 -I -B scripts/cn-release-simulation-aggregate.py --parts "$RUNNER_TEMP/cn-split-parts" --output "$RUNNER_TEMP/cn-split-combined" --sha "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT" --seed "$SEED"
+      - name: Retain combined report without widening acceptance
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: cn-simulation-${{ github.run_id }}-${{ github.run_attempt }}-combined
+          path: ${{ runner.temp }}/cn-split-combined
           retention-days: 7
           if-no-files-found: warn
