@@ -1,6 +1,8 @@
+import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
+  ...activityZhCN,
   ...profileZhCN,
   ...stateZhCN,
   "common.language": "语言",

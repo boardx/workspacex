@@ -30,6 +30,7 @@
  * 是必然。所以这里种了一个只有本文件会碰的专属账号/组织，见
  * `self-service-profile-fixture.ts` 与 `scripts/seed-self-service-profile-e2e.ts`。
  */
+import { operations as identityOperations } from "@repo/contracts/identity";
 import { expect, test, type Page } from "@playwright/test";
 import { expectedPostLoginLanding, judgeLogoutLanding } from "./logout-landing";
 import { SELF_SERVICE_PROFILE_E2E } from "./self-service-profile-fixture";
@@ -98,6 +99,32 @@ test.describe.serial("用户个人资料自助服务", () => {
     const activityItems = page.getByTestId("profile-activity-list").locator("li");
     await expect(activityItems).not.toHaveCount(0);
     await expect(activityItems.first()).toContainText(`显示名改为"${newDisplayName}"`);
+
+    // The real API negotiates display metadata; legacy callers keep the exact strict shape.
+    const [structuredResponse] = await Promise.all([
+      page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return url.pathname === identityOperations.listOwnActivity.path && url.searchParams.get("displayFormat") === "structured-v1";
+      }),
+      page.reload(),
+    ]);
+    expect(structuredResponse.ok()).toBe(true);
+    const structured = identityOperations.listOwnActivity.out.parse(await structuredResponse.json());
+    expect(structured.events.some((event) => event.display?.code === "profile-renamed" && event.display.params.displayName === newDisplayName)).toBe(true);
+    const legacyUrl = new URL(structuredResponse.url());
+    legacyUrl.searchParams.delete("displayFormat");
+    const authorization = structuredResponse.request().headers().authorization;
+    expect(authorization).toBeTruthy();
+    const legacyResponse = await page.request.get(legacyUrl.toString(), { headers: { authorization: authorization! } });
+    expect(legacyResponse.ok()).toBe(true);
+    const legacy = identityOperations.listOwnActivity.out.parse(await legacyResponse.json());
+    expect(legacy.events.every((event) => !Object.hasOwn(event, "display"))).toBe(true);
+    expect(legacy.events.some((event) => event.summary === `显示名改为"${newDisplayName}"`)).toBe(true);
+    await page.getByTestId("language-switcher").first().selectOption("en");
+    await expect(activityItems.first()).toContainText(`Display name changed to "${newDisplayName}"`);
+    await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(activityItems.first()).toContainText(`显示名改为"${newDisplayName}"`);
+
 
     /* ── 2. 改密码：正确当前密码 + 符合策略的新密码 ──────────────────────── */
     await page.getByTestId("profile-current-password-input").fill(SELF_SERVICE_PROFILE_E2E.adminPassword);
