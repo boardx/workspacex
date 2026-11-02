@@ -68,3 +68,9 @@ the actual exports and override their existing session hook. No product fallback
 permission assertion changed. `session-mock-regressions.txt` records all 184 tests
 in the 22 affected files passing with one worker. The initial ChatRead reproduction
 failed 36 tests; a broader sample also failed before the mock repair.
+
+Latest CI found eight screen dependency declarations missing the shared Locale
+contract. `wiring-red.txt` reproduces exactly those eight mismatches. The repository
+generator was inspected, and only those eight contract additions were retained;
+other generated snapshot churn was excluded. `wiring-green.txt` confirms the same
+137-route scan passes. No ratchet, exemption, controller or runtime code changed.
