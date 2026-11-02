@@ -120,7 +120,7 @@ export async function listOwnActivity(input: {
 }): Promise<ListOwnActivityOut> {
   return apiRequest<ListOwnActivityOut>(identity.operations.listOwnActivity.path, {
     method: "GET",
-    query: { cursor: input.cursor ?? "", limit: String(input.limit), displayFormat: "structured-v1" },
+    query: { cursor: input.cursor ?? "", limit: String(input.limit), displayFormat: identity.OWN_ACTIVITY_DISPLAY_FORMAT },
   });
 }
 

@@ -18,7 +18,7 @@
  * closed 的，`detail` 缺字段时退化成不带具体值的版本，不会因为字段变化而崩）。
  */
 import type { z } from "zod";
-import type { identity } from "@repo/contracts";
+import { identity } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
 import type { ProvenanceEventRecord, ProvenanceReader } from "../provenance/ports";
 
@@ -45,7 +45,7 @@ export async function listOwnActivity(
 
   return {
     events: page.events.map((e) => {
-      const display = input.displayFormat === "structured-v1" ? activityDisplay(e) : undefined;
+      const display = input.displayFormat === identity.OWN_ACTIVITY_DISPLAY_FORMAT ? activityDisplay(e) : undefined;
       return {
         eventId: e.id, kind: e.type, occurredAt: e.at, summary: summarize(e),
         ...(display === undefined ? {} : { display }),

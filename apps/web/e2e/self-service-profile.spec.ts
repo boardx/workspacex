@@ -120,6 +120,11 @@ test.describe.serial("用户个人资料自助服务", () => {
     const legacy = identityOperations.listOwnActivity.out.parse(await legacyResponse.json());
     expect(legacy.events.every((event) => !Object.hasOwn(event, "display"))).toBe(true);
     expect(legacy.events.some((event) => event.summary === `显示名改为"${newDisplayName}"`)).toBe(true);
+    const invalidVersionUrl = new URL(legacyUrl);
+    invalidVersionUrl.searchParams.set("displayFormat", "structured-v2");
+    const invalidVersionResponse = await page.request.get(invalidVersionUrl.toString(), { headers: { authorization: authorization! } });
+    expect(invalidVersionResponse.status()).toBe(400);
+
     await page.getByTestId("language-switcher").first().selectOption("en");
     await expect(activityItems.first()).toContainText(`Display name changed to "${newDisplayName}"`);
     await page.getByTestId("language-switcher").first().selectOption("zh-CN");
