@@ -1,0 +1,4 @@
+apps/api @repo/contracts/survey-runtime /Users/shenyangjun/boardx/workspacex/.worktrees/survey-r1-isolation-6118/packages/contracts/src/survey-runtime.ts
+apps/api @repo/contracts/survey-report /Users/shenyangjun/boardx/workspacex/.worktrees/survey-r1-isolation-6118/packages/contracts/src/survey-report.ts
+apps/web @repo/contracts/survey-runtime /Users/shenyangjun/boardx/workspacex/.worktrees/survey-r1-isolation-6118/packages/contracts/src/survey-runtime.ts
+apps/web @repo/contracts/survey-report /Users/shenyangjun/boardx/workspacex/.worktrees/survey-r1-isolation-6118/packages/contracts/src/survey-report.ts
