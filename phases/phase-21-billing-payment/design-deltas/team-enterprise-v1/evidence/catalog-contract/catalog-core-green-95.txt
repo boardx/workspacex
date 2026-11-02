@@ -1,0 +1,14 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ✓ tests/billing-pricing.test.ts (7 tests) 10ms
+ ✓ tests/billing-team-catalog-design.test.ts (14 tests) 10ms
+ ✓ tests/billing-team-quote-design.test.ts (19 tests) 12ms
+ ✓ tests/billing-team-design.test.ts (30 tests) 13ms
+ ✓ tests/billing-team-entitlement-design.test.ts (25 tests) 16ms
+
+ Test Files  5 passed (5)
+      Tests  95 passed (95)
+   Start at  08:36:56
+   Duration  475ms (transform 275ms, setup 0ms, collect 686ms, tests 61ms, environment 1ms, prepare 526ms)
+

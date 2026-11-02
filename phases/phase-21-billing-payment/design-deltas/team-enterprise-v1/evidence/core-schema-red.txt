@@ -1,0 +1,309 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-design.test.ts (26 tests | 25 failed) 18ms
+   × proposed Team/Enterprise contract material (not runtime permission) > accepts the adopted integer manual grant boundary 1 6ms
+     → expected { credits: 1, …(2) } to deeply equal { credits: 1, reason: '本月额外额度', …(1) }
+   × proposed Team/Enterprise contract material (not runtime permission) > accepts the adopted integer manual grant boundary 1000000 1ms
+     → expected { credits: 1000000, …(2) } to deeply equal { credits: 1000000, …(2) }
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits 0 1ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits -1 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits 0.5 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits 1000001 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits Infinity 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits NaN 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > requires the bounded human grant reason 1ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > requires the bounded human grant reason 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > requires the bounded human grant reason 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field actorId 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field orgId 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field generation 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field expiresAt 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field balance 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field plan 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field contractId 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > uses the existing optimistic Plan input without adding an upgrade reason field 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > separates total purchased seats from a strictly positive add-on quantity 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > keeps permanent top-up independent of seat or term-changing fields 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > checkout only accepts the original quote and idempotency identity 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > does not convert annual payment into an annual upfront quota or lower the paid capacity 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > allows a continuous renewal to retain the original purchase anchor 0ms
+     → expected true to be false // Object.is equality
+   × proposed Team/Enterprise contract material (not runtime permission) > keeps the actual grant receipt and signed balance separate from entitlement changes 0ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 25 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > accepts the adopted integer manual grant boundary 1
+AssertionError: expected { credits: 1, …(2) } to deeply equal { credits: 1, reason: '本月额外额度', …(1) }
+
+- Expected
++ Received
+
+  Object {
+    "credits": 1,
+    "idempotencyKey": "team-request-key-00001",
+-   "reason": "本月额外额度",
++   "reason": "  本月额外额度  ",
+  }
+
+ ❯ tests/billing-team-design.test.ts:11:86
+      9|  });
+     10|  it.each([1,1000000])("accepts the adopted integer manual grant bounda…
+     11|   expect(EnterpriseCreditGrantRequest.parse({...grant,credits,reason:"…
+       |                                                                                      ^
+     12|  });
+     13|  it.each([0,-1,0.5,1000001,Infinity,NaN])("rejects invalid manual cred…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > accepts the adopted integer manual grant boundary 1000000
+AssertionError: expected { credits: 1000000, …(2) } to deeply equal { credits: 1000000, …(2) }
+
+- Expected
++ Received
+
+  Object {
+    "credits": 1000000,
+    "idempotencyKey": "team-request-key-00001",
+-   "reason": "本月额外额度",
++   "reason": "  本月额外额度  ",
+  }
+
+ ❯ tests/billing-team-design.test.ts:11:86
+      9|  });
+     10|  it.each([1,1000000])("accepts the adopted integer manual grant bounda…
+     11|   expect(EnterpriseCreditGrantRequest.parse({...grant,credits,reason:"…
+       |                                                                                      ^
+     12|  });
+     13|  it.each([0,-1,0.5,1000001,Infinity,NaN])("rejects invalid manual cred…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits 0
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits -1
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits 0.5
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits 1000001
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits Infinity
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects invalid manual credits NaN
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:14:78
+     12|  });
+     13|  it.each([0,-1,0.5,1000001,Infinity,NaN])("rejects invalid manual cred…
+     14|   expect(EnterpriseCreditGrantRequest.safeParse({...grant,credits}).su…
+       |                                                                              ^
+     15|  });
+     16|  it.each(["", "   ","x".repeat(501)])("requires the bounded human gran…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > requires the bounded human grant reason
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > requires the bounded human grant reason
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > requires the bounded human grant reason
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:17:77
+     15|  });
+     16|  it.each(["", "   ","x".repeat(501)])("requires the bounded human gran…
+     17|   expect(EnterpriseCreditGrantRequest.safeParse({...grant,reason}).suc…
+       |                                                                             ^
+     18|  });
+     19|  it.each(["actorId","orgId","generation","expiresAt","balance","plan",…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field actorId
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field orgId
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field generation
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field expiresAt
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field balance
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field plan
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > rejects caller-owned financial/authority field contractId
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:20:87
+     18|  });
+     19|  it.each(["actorId","orgId","generation","expiresAt","balance","plan",…
+     20|   expect(EnterpriseCreditGrantRequest.safeParse({...grant,[field]:"for…
+       |                                                                                       ^
+     21|  });
+     22|  it("uses the existing optimistic Plan input without adding an upgrade…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > uses the existing optimistic Plan input without adding an upgrade reason field
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:26:78
+     24|   expect(EnterpriseUpgradeRequest.parse(upgrade)).toEqual(upgrade);
+     25|   for(const patch of [{expectedPlanVersion:-1},{expectedPlanVersion:1.…
+     26|    expect(EnterpriseUpgradeRequest.safeParse({...upgrade,...patch}).su…
+       |                                                                              ^
+     27|  });
+     28|  it("separates total purchased seats from a strictly positive add-on q…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > separates total purchased seats from a strictly positive add-on quantity
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:34:54
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > keeps permanent top-up independent of seat or term-changing fields
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:40:68
+     38|   expect(TeamQuoteRequest.parse(value)).toEqual(value);
+     39|   for(const patch of [{seats:5},{additionalSeats:1},{expectedPlanVersi…
+     40|    expect(TeamQuoteRequest.safeParse({...value,...patch}).success).toB…
+       |                                                                    ^
+     41|  });
+     42|  it("checkout only accepts the original quote and idempotency identity…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > checkout only accepts the original quote and idempotency identity
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:46:71
+     44|   expect(TeamCheckoutRequest.parse(value)).toEqual(value);
+     45|   for(const patch of [{quoteRef:""},{idempotencyKey:"short"},{amountMi…
+     46|    expect(TeamCheckoutRequest.safeParse({...value,...patch}).success).…
+       |                                                                       ^
+     47|  });
+     48|  it("does not convert annual payment into an annual upfront quota or l…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > does not convert annual payment into an annual upfront quota or lower the paid capacity
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:52:63
+     50|   expect(TeamPaidTerm.safeParse({...term,purchasedSeats:7,monthlyCredi…
+     51|   for(const patch of [{purchasedSeats:4},{purchasedSeats:5.5},{monthly…
+     52|    expect(TeamPaidTerm.safeParse({...term,...patch}).success).toBe(fal…
+       |                                                               ^
+     53|  });
+     54|  it("allows a continuous renewal to retain the original purchase ancho…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > allows a continuous renewal to retain the original purchase anchor
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:56:91
+     54|  it("allows a continuous renewal to retain the original purchase ancho…
+     55|   expect(TeamPaidTerm.safeParse({...term,paidPeriodStart:"2027-11-01T1…
+     56|   expect(TeamPaidTerm.safeParse({...term,purchaseAnchor:"2027-11-02T10…
+       |                                                                                           ^
+     57|  });
+     58|  it("keeps the actual grant receipt and signed balance separate from e…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/25]⎯
+
+ FAIL  tests/billing-team-design.test.ts > proposed Team/Enterprise contract material (not runtime permission) > keeps the actual grant receipt and signed balance separate from entitlement changes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:62:80
+     60|   expect(EnterpriseCreditGrantResult.parse(result)).toEqual(result);
+     61|   for(const patch of [{ledgerRef:""},{credits:0.5},{balance:Infinity},…
+     62|    expect(EnterpriseCreditGrantResult.safeParse({...result,...patch}).…
+       |                                                                                ^
+     63|  });
+     64| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/25]⎯
+
+ Test Files  1 failed (1)
+      Tests  25 failed | 1 passed (26)
+   Start at  07:45:19
+   Duration  459ms (transform 47ms, setup 0ms, collect 47ms, tests 18ms, environment 0ms, prepare 66ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-design.test.ts

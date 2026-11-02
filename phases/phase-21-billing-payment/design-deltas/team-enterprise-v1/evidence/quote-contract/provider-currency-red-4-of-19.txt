@@ -1,0 +1,45 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-quote-design.test.ts (19 tests | 4 failed) 15ms
+   × rejects a WeChat USD quote for 'initial' 4ms
+     → expected true to be false // Object.is equality
+   × rejects a WeChat USD quote for 'renewal' 0ms
+     → expected true to be false // Object.is equality
+   × rejects a WeChat USD quote for 'add_seats' 0ms
+     → expected true to be false // Object.is equality
+   × rejects a WeChat USD quote for 'credit_topup' 0ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > rejects a WeChat USD quote for 'initial'
+ FAIL  tests/billing-team-quote-design.test.ts > rejects a WeChat USD quote for 'renewal'
+ FAIL  tests/billing-team-quote-design.test.ts > rejects a WeChat USD quote for 'add_seats'
+ FAIL  tests/billing-team-quote-design.test.ts > rejects a WeChat USD quote for 'credit_topup'
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-quote-design.test.ts:47:65
+     45|  {...base,purpose:"credit_topup",credits:10000,renewalMode:"manual"},
+     46| ])("rejects a WeChat USD quote for $purpose",quote=>{
+     47|  expect(TeamQuote.safeParse({...quote,currency:"USD"}).success).toBe(f…
+       |                                                                 ^
+     48| });
+     49| it.each(["CNY","USD"])("retains Stripe %s quotes for every purpose",cu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 15 passed (19)
+   Start at  08:17:44
+   Duration  405ms (transform 113ms, setup 0ms, collect 138ms, tests 15ms, environment 0ms, prepare 60ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-quote-design.test.ts
