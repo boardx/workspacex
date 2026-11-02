@@ -23,9 +23,9 @@ export function EnterpriseManagementPanel(props:Props){
  },[context?.status,session?.sessionToken,session?.userId,props.orgId]);
  if(context&&(context.status!=="authenticated"||!session||!scope||scope.token!==session.sessionToken||scope.identity!==JSON.stringify([session.userId,props.orgId])))return <p>正在恢复会话操作记录…</p>;
  const storageKey=context?scope?.key??null:null;
- return <EnterprisePanel key={storageKey??"memory"} {...props} storageKey={storageKey}/>;
+ return <EnterprisePanel key={storageKey??"memory"} {...props} storageKey={storageKey} sessionToken={context?.session?.sessionToken} actorId={context?.session?.userId}/>;
 }
-function EnterprisePanel({orgId,orgName,balance,version,enterprise,onApplied,storageKey}:Props&{storageKey:string|null}){
+function EnterprisePanel({orgId,orgName,balance,version,enterprise,onApplied,storageKey,sessionToken,actorId}:Props&{storageKey:string|null;sessionToken?:string;actorId?:string}){
  const [confirmation,setConfirmation]=React.useState<"grant"|"upgrade"|null>(null);
  const [credits,setCredits]=React.useState("");const [reason,setReason]=React.useState("");
  const [busy,setBusy]=React.useState(false);const [message,setMessage]=React.useState("");
@@ -53,11 +53,11 @@ function EnterprisePanel({orgId,orgName,balance,version,enterprise,onApplied,sto
   const request=attempt.current;if(!request){setBusy(false);return;}
   try{
    if(request.kind==="grant"){
-    const result=await grantEnterpriseCredits(orgId,request.input);
+    const result=await grantEnterpriseCredits(orgId,request.input,sessionToken);
     setMessage(`已添加 ${result.credits.toLocaleString()} 额度，余额 ${result.balance.toLocaleString()}。审计编号：${result.auditRef}`);
     clear(request);setCredits("");setReason("");onApplied();
    }else{
-    const result=await upgradeEnterprise(orgId,request.input);setOperation(result);
+    const result=await upgradeEnterprise(orgId,request.input,sessionToken,actorId);setOperation(result);
     if(result.status==="succeeded"){clear(request);setMessage(result.receipt.retainedTeamPayment?"已升级 Enterprise。原已付 Team 额度按原周期继续至到期。":"已升级 Enterprise。当前没有待发放的 Team 已付额度计划。");onApplied();}
     else setMessage(result.status==="needs_review"?"升级需要平台复核，套餐尚未变更。":"升级处理中，套餐尚未变更。可重试原操作。");
    }

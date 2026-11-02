@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import {useOptionalSession} from "@/components/session/session-provider";
+import {useAuthenticatedSessionScope} from "@/lib/authenticated-session-scope";
 import {EnterpriseManagementPanel} from "./enterprise-management-panel";
 import { AiUsagePanel } from "./ai-usage-panel";
 import { AdminScreen } from "./admin-screen";
@@ -24,7 +26,15 @@ function explain(error: unknown): string {
 const planLabel = (plan: PlanInput["plan"] | null) => plan === null ? "未配置" : plan === "enterprise" ? "企业" : "普通";
 
 /** lint-no-backend-badge:backed-by-children — real catalog, detail and plan APIs in this screen. */
-export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
+export function PlatformOrganizationsScreen(props:{state:UiState}){
+  const context=useOptionalSession();
+  return context?<ScopedOrganizations {...props}/>:<OrganizationsBody {...props}/>;
+}
+function ScopedOrganizations(props:{state:UiState}){
+  const scope=useAuthenticatedSessionScope();
+  return scope===null?<p>正在确认管理会话…</p>:<OrganizationsBody key={scope} {...props}/>;
+}
+function OrganizationsBody({ state }: { state: UiState }) {
   const [search, setSearch] = React.useState("");
   const [query, setQuery] = React.useState("");
   const [cursor, setCursor] = React.useState<string | undefined>();

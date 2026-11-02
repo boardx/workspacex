@@ -1,4 +1,4 @@
-import {EnterpriseHttpException} from "../controllers/enterprise-http-exception";
+import {EnterpriseHttpException,ENTERPRISE_CACHE_CONTROL} from "../controllers/enterprise-http-exception";
 import {operations as enterpriseOperations,TeamBillingErrorCode} from "@repo/contracts/billing-team";
 import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import {CreditRequiredBody} from "@repo/contracts/billing-consumption";
@@ -675,6 +675,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const res = http.getResponse<Response>();
     const traceId = traceIdOf(http.getRequest());
+    const routePath=http.getRequest<{route?:{path?:unknown}}>().route?.path;
+    const enterpriseRoute=Object.values(enterpriseOperations).some(operation=>operation.path===routePath);
+    const platformFinancialRead=routePath===platformOrganizations.operations.listOrganizations.path||routePath===platformOrganizations.operations.getOrganization.path;
+    if((enterpriseRoute||platformFinancialRead)&&!res.headersSent)res.setHeader("Cache-Control",ENTERPRISE_CACHE_CONTROL);
 
     // A streaming handler (SSE / chunked) that fails after its headers went out cannot get a JSON
     // body: `res.json` would throw ERR_HTTP_HEADERS_SENT out of the filter and take the whole
@@ -711,8 +715,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
       const status = exception.getStatus();
       this.logger.error("http exception", { traceId, err: exception, status });
       const permission=permissionReasonOf(exception);
-      const routePath=http.getRequest<{route?:{path?:unknown}}>().route?.path;
-      const enterpriseRoute=Object.values(enterpriseOperations).some(operation=>operation.path===routePath);
       const permissionCode=enterpriseRoute?TeamBillingErrorCode.safeParse(permission.reasonCode):null;
       res.status(status).json({
         error: CODE_BY_STATUS[status] ?? "internal_error",

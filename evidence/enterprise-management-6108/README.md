@@ -34,3 +34,11 @@ Added authenticated-session recovery: canonical original request is held in sess
 Current owned backend selection is 19 targeted cases: Enterprise PG 7, precision PG 8, real HTTP 2, two generator-source checks. Admission was interrupted at the coordinator's instruction before any stack/Vitest startup; `pg-admission-interrupted.txt` is queue output, not verification. Wait for an explicit resource release; do not allow admission timeout to force-start under load. No full typecheck/browser is running.
 
 Browser acceptance now includes a deterministic test-only transport fault after the real grant commit: the runtime closes the first successful response, then the real browser reloads and explicitly retries the same key. Actual wallet/ledger/audit must remain unchanged by replay. This is a real backend plus a fault-injection runtime, not a merchant-payment or production-deployment claim. Browser run is still pending.
+
+## Independent review follow-up (pending execution)
+
+- Response correlation: a schema-valid grant must still match requested organization/credits; upgrades also match requested version and known authenticated actor; operation reads match organization/reference. Mismatches remain unknown and retain the original request. Detail reads bind the returned organization before it can become a financial target. Seven pure client counterexamples are prepared.
+- Cache policy: the three financial operations and the existing directory reads now carrying real wallet data use `private, no-store`; the existing filter applies it before guard failures too. Only the three new routes convert their reviewed permission code to the Team billing envelope; legacy directory error semantics remain unchanged. Real HTTP assertions cover success and 403.
+- Session transitions: financial requests pass the captured bearer instead of silently selecting another account's current global token; directory state uses the existing authenticated session scope to unmount old financial read data.
+
+These source changes have not run while the coordinator's one normal push group owns heavy resources. Planned next selections: owned backend 19, UI recovery 11 plus pure client 7, then a separate browser slot. No standalone typecheck has been started.

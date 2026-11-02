@@ -4,7 +4,7 @@ import {randomUUID} from "node:crypto";
 import {afterAll,beforeAll,expect,it,vi} from "vitest";
 import type {NestExpressApplication} from "@nestjs/platform-express";
 import {TeamBillingRejection,operations as C} from "@repo/contracts/billing-team";
-import {auth} from "@repo/contracts";
+import {auth,platformOrganizations as P} from "@repo/contracts";
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {addOrgMember,asOwner,ensureDatabase,migrateOnce,seedOrg} from "../support/db";
 import {ensureRedis,seedCredential} from "../support/auth";
@@ -25,20 +25,21 @@ beforeAll(async()=>{
 },180000);
 afterAll(async()=>{await app?.close();vi.unstubAllEnvs();});
 function route(template:string,org=target){return template.replace(":orgId",org);}
-async function post(path:string,token:string,input:unknown){const response=await fetch(`${base}${path}`,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify(input)});return {status:response.status,body:await response.json()};}
+async function post(path:string,token:string,input:unknown){const response=await fetch(`${base}${path}`,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify(input)});return {status:response.status,cache:response.headers.get("cache-control"),body:await response.json()};}
 it("real authenticated org admin is denied both same-org and cross-org Enterprise writes",async()=>{
  for(const org of [source,target]){
-  const upgrade=await post(route(C.createEnterpriseUpgrade.path,org),adminToken,{expectedPlanVersion:org===target?1:0,idempotencyKey:randomUUID()});expect(upgrade.status).toBe(403);expect(TeamBillingRejection.parse(upgrade.body).code).toBe("NOT_PLATFORM_SUPERUSER");
-  const grant=await post(route(C.grantEnterpriseCredits.path,org),adminToken,{credits:1,reason:"must be denied",idempotencyKey:randomUUID()});expect(grant.status).toBe(403);expect(TeamBillingRejection.parse(grant.body).code).toBe("NOT_PLATFORM_SUPERUSER");
+  const upgrade=await post(route(C.createEnterpriseUpgrade.path,org),adminToken,{expectedPlanVersion:org===target?1:0,idempotencyKey:randomUUID()});expect(upgrade.status).toBe(403);expect(upgrade.cache).toBe("private, no-store");expect(TeamBillingRejection.parse(upgrade.body).code).toBe("NOT_PLATFORM_SUPERUSER");
+  const grant=await post(route(C.grantEnterpriseCredits.path,org),adminToken,{credits:1,reason:"must be denied",idempotencyKey:randomUUID()});expect(grant.status).toBe(403);expect(grant.cache).toBe("private, no-store");expect(TeamBillingRejection.parse(grant.body).code).toBe("NOT_PLATFORM_SUPERUSER");
  }
  await asOwner(async c=>{expect((await c.query("SELECT count(*)::int AS n FROM enterprise_upgrade_operations WHERE org_id IN($1,$2)",[source,target])).rows[0].n).toBe(0);});
 });
 it("real HTTP composition upgrades, grants once, resumes original receipt and rejects version conflicts",async()=>{
- const upgrade=await post(route(C.createEnterpriseUpgrade.path),operatorToken,{expectedPlanVersion:1,idempotencyKey:randomUUID()});expect(upgrade.status,JSON.stringify(upgrade.body)).toBe(201);
+ const upgrade=await post(route(C.createEnterpriseUpgrade.path),operatorToken,{expectedPlanVersion:1,idempotencyKey:randomUUID()});expect(upgrade.status,JSON.stringify(upgrade.body)).toBe(201);expect(upgrade.cache).toBe("private, no-store");
  const operation=C.createEnterpriseUpgrade.out.parse(upgrade.body);expect(operation.status).toBe("succeeded");
- const response=await fetch(`${base}${route(C.getEnterpriseUpgradeOperation.path).replace(":operationRef",operation.operationRef)}`,{headers:{authorization:`Bearer ${operatorToken}`}});expect(response.status).toBe(200);expect(C.getEnterpriseUpgradeOperation.out.parse(await response.json())).toEqual(operation);
- const input={credits:42,reason:"HTTP acceptance",idempotencyKey:randomUUID()};const first=await post(route(C.grantEnterpriseCredits.path),operatorToken,input);expect(first.status,JSON.stringify(first.body)).toBe(201);const receipt=C.grantEnterpriseCredits.out.parse(first.body);
+ const response=await fetch(`${base}${route(C.getEnterpriseUpgradeOperation.path).replace(":operationRef",operation.operationRef)}`,{headers:{authorization:`Bearer ${operatorToken}`}});expect(response.status).toBe(200);expect(response.headers.get("cache-control")).toBe("private, no-store");expect(C.getEnterpriseUpgradeOperation.out.parse(await response.json())).toEqual(operation);
+ const input={credits:42,reason:"HTTP acceptance",idempotencyKey:randomUUID()};const first=await post(route(C.grantEnterpriseCredits.path),operatorToken,input);expect(first.status,JSON.stringify(first.body)).toBe(201);expect(first.cache).toBe("private, no-store");const receipt=C.grantEnterpriseCredits.out.parse(first.body);
  expect((await post(route(C.grantEnterpriseCredits.path),operatorToken,input)).body).toEqual(receipt);
+ const organization=await fetch(`${base}${P.operations.getOrganization.path.replace(":orgId",target)}`,{headers:{authorization:`Bearer ${operatorToken}`}});expect(organization.status).toBe(200);expect(organization.headers.get("cache-control")).toBe("private, no-store");expect(P.operations.getOrganization.out.parse(await organization.json()).organization.billingSummary?.wallet.balance).toBe(42);
  const conflict=await post(route(C.createEnterpriseUpgrade.path),operatorToken,{expectedPlanVersion:0,idempotencyKey:randomUUID()});expect(conflict.status).toBe(409);expect(conflict.body).toMatchObject({code:"PLAN_VERSION_CONFLICT",traceId:expect.any(String)});
  const foreign=await fetch(`${base}${route(C.getEnterpriseUpgradeOperation.path,source).replace(":operationRef",operation.operationRef)}`,{headers:{authorization:`Bearer ${operatorToken}`}});expect(foreign.status).toBe(404);expect(await foreign.json()).toMatchObject({code:"order_not_found"});
  await asOwner(async c=>{const wallet=(await c.query("SELECT balance::text,total_granted::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[target])).rows[0];expect(Number(wallet.balance)).toBe(42);expect(Number(wallet.total_granted)).toBe(42);expect((await c.query("SELECT count(*)::int AS n FROM enterprise_credit_grants WHERE org_id=$1",[target])).rows[0].n).toBe(1);});
