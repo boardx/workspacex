@@ -1,0 +1,25 @@
+[stack-admission] load1=3.11 cores=10 perCore=0.31 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzu76yr-7340a247-7c69366c0729 db=wsx_7c69366c0729ba9b30d3 compose=wsx-7c69366c0729ba9b30d3 pg=20996 redis=21996 api=24996 web=25996 sandbox=26996 model=27996 deep-agent=28996 asr=29996 vision=30996 loopback-sandbox=31996 mail=19996
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] db=wsx_7c69366c0729ba9b30d3 capacity=100 current=6 required=32
+ ✓ tests/kernel/role-label-migration-upgrade-path.test.ts (1 test) 16755ms
+   ✓ 已经有 agent 数据的库能升级：i1705 回填既有行而不是被既有行卡死 15773ms
+ ✓ tests/kernel/i619-migration-upgrade-path.test.ts (1 test) 15278ms
+   ✓ 已经有 agent listing 的库能升级：i619 回填既有行而不是被既有行卡死 14338ms
+
+ Test Files  2 passed (2)
+      Tests  2 passed (2)
+   Start at  06:35:03
+   Duration  35.77s (transform 215ms, setup 14ms, collect 141ms, tests 32.03s, environment 0ms, prepare 87ms)
+
+[db-isolation] db=wsx_7c69366c0729ba9b30d3 peak_connections=1
+[timing] pnpm --filter @repo/api exec vitest run tests/kernel/i619-migration-upgrade-path.test.ts tests/kernel/role-label-migration-upgrade-path.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：36s
+  清理：0s
+  总计：37s

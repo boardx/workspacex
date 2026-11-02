@@ -30,3 +30,13 @@ The first synchronized push was deliberately interrupted after this missing
 counterproof expectation was found. Only the verified owned Git-push process tree
 was stopped. It does not count as a passing mandatory check; the corrected head
 must pass the normal pre-push path and required CI.
+
+CI integration repair at `694a7ecb9`: the two historical upgrade fixtures now
+exclude the new source-view migration from their intentionally incomplete legacy
+phase and assert its application after prerequisite columns exist. Existing backfill
+and rejection assertions remain. The recovery fixture explicitly appends this one
+reviewed migration to its allowlist; unknown/missing/reordered migration rejection
+remains. `legacy-upgrade-tests.txt` records both real PostgreSQL upgrades passing
+under the normal isolation wrapper (owned stack cleaned in zero seconds);
+`recovery-scope-tests.txt` records both scope tests passing after a failing reproduction.
+These receipts do not claim the separate full simulation suite has passed.
