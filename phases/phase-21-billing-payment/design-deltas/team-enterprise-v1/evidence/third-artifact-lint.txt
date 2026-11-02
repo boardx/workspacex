@@ -1,0 +1,64 @@
+
+> agentic-harness-template@ lint:third-artifact /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> node .harness/scripts/lint-third-artifact.mjs
+
+  ✓ phase-00-shared-kernel/api-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-00-shared-kernel/artifact              形态 A  R12   8 行  packages/contracts/src/artifact.ts
+  ✓ phase-00-shared-kernel/auth                  形态 A  R12  12 行  packages/contracts/src/auth.ts
+  ✓ phase-00-shared-kernel/context-pack          形态 A  R12  13 行  packages/contracts/src/context-pack.ts
+  ✓ phase-00-shared-kernel/identity              形态 A  R12  23 行  packages/contracts/src/identity.ts
+  ✓ phase-00-shared-kernel/web-kernel            形态 B  R12  10 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-01-run-a-project/agent-interrupts      形态 A  R12  16 行  packages/contracts/src/agent-interrupts.ts
+  ✓ phase-01-run-a-project/agent-runtime         形态 A  R12 160 行  packages/contracts/src/agent-runtime.ts
+  ✓ phase-01-run-a-project/asset-governance      形态 A  R12 108 行  packages/contracts/src/asset-governance.ts
+  ✓ phase-01-run-a-project/canvas                形态 A  R12  57 行  packages/contracts/src/canvas.ts
+  ✓ phase-01-run-a-project/chat                  形态 A  R12  67 行  packages/contracts/src/chat.ts
+  ✓ phase-01-run-a-project/chat-context-engine   形态 B  R12   7 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-01-run-a-project/chat-file-upload      形态 A  R12   7 行  packages/contracts/src/chat-file-upload.ts
+  ✓ phase-01-run-a-project/curated-capability-packs 形态 A  R12  12 行  packages/contracts/src/curated-capability-packs.ts
+  ✓ phase-01-run-a-project/files                 形态 A  R12  50 行  packages/contracts/src/files.ts
+  ✓ phase-01-run-a-project/interview             形态 A  R12 105 行  packages/contracts/src/interview.ts
+  ✓ phase-01-run-a-project/org-admin             形态 A  R12  61 行  packages/contracts/src/org-admin.ts
+  ✓ phase-01-run-a-project/personal-realtime-transcription 形态 A  R12   9 行  packages/contracts/src/personal-realtime-transcription.ts
+  ✓ phase-01-run-a-project/plan-control          形态 A  R12  10 行  packages/contracts/src/plan-control.ts
+  ✓ phase-01-run-a-project/project               形态 A  R12  38 行  packages/contracts/src/project.ts
+  ✓ phase-01-run-a-project/recording             形态 A  R12  48 行  packages/contracts/src/recording.ts
+  ✓ phase-01-run-a-project/research              形态 A  R12  41 行  packages/contracts/src/research.ts
+  ✓ phase-01-run-a-project/skills                形态 A  R12  77 行  packages/contracts/src/skills.ts
+  ✓ phase-01-run-a-project/templates             形态 A  R12  64 行  packages/contracts/src/templates.ts
+  ✓ phase-02-visible-outcomes/survey             形态 A  R12   7 行  packages/contracts/src/survey.ts
+  ✓ phase-03-reuse-and-governance/design-ai-collab 形态 A  R12   9 行  packages/contracts/src/design-ai-collab.ts
+  ✓ phase-03-reuse-and-governance/design-prototype 形态 A  R12  16 行  packages/contracts/src/design-prototype.ts
+  ✓ phase-03-reuse-and-governance/design-workbench 形态 A  R12   9 行  packages/contracts/src/design-workbench.ts
+  ✓ phase-03-reuse-and-governance/feedback-drafts 形态 A  R12   9 行  packages/contracts/src/feedback-loop.ts
+  ✓ phase-03-reuse-and-governance/feedback-loop  形态 A  R12  12 行  packages/contracts/src/feedback-loop.ts
+  ✓ phase-03-reuse-and-governance/inbox-unified  形态 A  R12  12 行  packages/contracts/src/inbox.ts
+  ✓ phase-04-digital-expert-interview-studio/digital-expert-interview 形态 A  R12   9 行  packages/contracts/src/interview.ts
+  ✓ phase-05-studio-style-unification/studio-style 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-06-deep-research/deep-research         形态 A  R12   5 行  packages/contracts/src/research.ts
+  ✓ phase-07-user-research/user-research         形态 A  R12   3 行  packages/contracts/src/research.ts
+  ✓ phase-08-transcription/transcription         形态 A  R12   4 行  packages/contracts/src/recording.ts
+  ✓ phase-09-survey/survey                       形态 A  R12   6 行  packages/contracts/src/survey.ts
+  ✓ phase-10-live-collaboration-orchestration/group-checkin 形态 A  R12   7 行  packages/contracts/src/org-admin.ts
+  ✓ phase-10-live-collaboration-orchestration/module-routing 形态 A  R12   7 行  packages/contracts/src/live-collab-module-routing.ts
+  ✓ phase-10-live-collaboration-orchestration/segment-engine 形态 A  R12   7 行  packages/contracts/src/project.ts
+  ✓ phase-10-live-collaboration-orchestration/stage-aggregation 形态 A  R12   9 行  packages/contracts/src/live-collab-stage-aggregation.ts
+  ✓ phase-10-live-collaboration-orchestration/viewer-role 形态 A  R12  11 行  packages/contracts/src/viewer-role.ts
+  ✓ phase-12-uiux-foundation/accessibility-guardrails 形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/interaction-primitives 形态 B  R12   5 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/motion-microinteraction 形态 B  R12   6 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-12-uiux-foundation/review-governance   形态 B  R12   4 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-14-agent-kernel-unification/artifacts-steering 形态 A  R12   5 行  packages/contracts/src/artifacts-steering.ts
+  ✓ phase-14-agent-kernel-unification/error-observability 形态 A  R12   4 行  packages/contracts/src/error-observability.ts
+  ✓ phase-14-agent-kernel-unification/kernel-gateway 形态 A  R12   6 行  packages/contracts/src/kernel-gateway.ts
+  ✓ phase-14-agent-kernel-unification/plan-permissions 形态 A  R12   7 行  packages/contracts/src/plan-permissions.ts
+  ✓ phase-14-agent-kernel-unification/streaming-transport 形态 A  R12   5 行  packages/contracts/src/streaming-transport.ts
+  ✓ phase-19-board-visual-workspace/board-fabric-surface 形态 B  R12   7 行  无对外 HTTP 面（已显式声明 + 门控命令列已填）
+  ✓ phase-20-work-stack-foundation/agent-role    形态 A  R12  13 行  packages/contracts/src/agent-role.ts
+  ✓ phase-20-work-stack-foundation/work-content  形态 A  R12   9 行  packages/contracts/src/work-content.ts
+  ✓ phase-20-work-stack-foundation/work-eval     形态 A  R12  16 行  packages/contracts/src/work-eval.ts
+  ✓ phase-20-work-stack-foundation/work-skill-meta 形态 A  R12  19 行  packages/contracts/src/work-skill-meta.ts
+  ✓ phase-20-work-stack-foundation/workflow-runtime 形态 A  R12  16 行  packages/contracts/src/workflow-runtime.ts
+  ✓ phase-21-billing-payment/billing-credits     形态 A  R12  19 行  packages/contracts/src/billing-credits.ts
+  ✓ phase-21-billing-payment/billing-subscription 形态 A  R12   8 行  packages/contracts/src/billing-subscription.ts
+✅ lint-third-artifact: 59 个契约束的第 ③ 件均成立（形态 A 50 束 / 形态 B 9 束）

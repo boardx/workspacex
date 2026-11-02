@@ -1,0 +1,21 @@
+
+> agentic-harness-template@ lint:execution-plan /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> node .harness/scripts/execution-plan.mjs check
+
+✓ .agents/skills/execution-plan/SKILL.md（只引用规范，不复述调色板）
+✓ .harness/instructions/execution-plan-visualization.md（classDef 副本与调色板一致）
+✓ .harness/templates/execution-plan.template.md
+✓ phases/phase-09-survey/sprints/sprint-03/plans/F09.plan.md
+✓ phases/phase-09-survey/sprints/sprint-04/plans/F10.plan.md
+✓ phases/phase-09-survey/sprints/sprint-05/plans/F11.plan.md
+✓ phases/phase-09-survey/sprints/sprint-06/plans/F12.plan.md
+✓ phases/phase-09-survey/sprints/sprint-07/plans/F13.plan.md
+✓ phases/phase-09-survey/sprints/sprint-08/plans/F14.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-01/plans/F01.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-02/plans/F02.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-03/plans/F03.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-04/plans/F04.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-05/plans/F05.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-06/plans/F06.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-07/plans/F07.plan.md
+✓ phases/phase-21-billing-payment/sprints/sprint-08/plans/F08.plan.md

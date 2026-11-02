@@ -1,0 +1,47 @@
+• turbo 2.10.5
+
+   • Packages in scope: @repo/contracts, web
+   • Running typecheck, lint in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/contracts:typecheck: cache miss, executing 6400e5f9616ec561
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/contracts:lint: cache miss, executing 10ad08bc633fa612
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/dev-mode-accounts:build: cache miss, executing e6052a13d9cc025d
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+web:typecheck: cache miss, executing 4ba9764ce0cc0c8f
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+web:lint: cache miss, executing d06fc979f79703a7
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint: 
+web:lint: ✔ No ESLint warnings or errors
+web:lint: ✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+
+ Tasks:    6 successful, 6 total
+Cached:    1 cached, 6 total
+  Time:    1m33.554s 
+
+ WARNING  no output files found for task @repo/dev-mode-accounts#build. Please check your `outputs` key in `turbo.json`

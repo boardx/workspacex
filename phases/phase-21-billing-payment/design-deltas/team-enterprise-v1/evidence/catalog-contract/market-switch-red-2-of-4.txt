@@ -1,0 +1,186 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+stderr | tests/ui/pricing-team-contract-preview.test.tsx > opens a US seat quote with Stripe on the first render
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+    at Object.get error [as error] (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31)
+    at ZodEffects.parse (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22)
+    at Module.previewSeatQuote (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-preview-data.ts:29:25)
+    at PricingPurchaseDialog (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-purchase-dialog.tsx:24:40)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+    at Object.get error [as error] (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31)
+    at ZodEffects.parse (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22)
+    at Module.previewSeatQuote (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-preview-data.ts:29:25)
+    at PricingPurchaseDialog (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-purchase-dialog.tsx:24:40)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+The above error occurred in the <PricingPurchaseDialog> component:
+
+    at PricingPurchaseDialog (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-purchase-dialog.tsx:20:34)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/pricing-team-contract-preview.test.tsx > switches an open seat quote from CNY to USD without constructing a WeChat USD quote
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+    at Object.get error [as error] (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31)
+    at ZodEffects.parse (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22)
+    at Module.previewSeatQuote (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-preview-data.ts:29:25)
+    at PricingPurchaseDialog (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-purchase-dialog.tsx:24:40)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at updateFunctionComponent (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:19617:20)
+    at beginWork (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21640:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+    at Object.get error [as error] (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31)
+    at ZodEffects.parse (file:///Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22)
+    at Module.previewSeatQuote (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-preview-data.ts:29:25)
+    at PricingPurchaseDialog (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-purchase-dialog.tsx:24:40)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at updateFunctionComponent (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:19617:20)
+    at beginWork (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21640:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+The above error occurred in the <PricingPurchaseDialog> component:
+
+    at PricingPurchaseDialog (/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web/components/billing/pricing-purchase-dialog.tsx:20:34)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ ❯ tests/ui/pricing-team-contract-preview.test.tsx (4 tests | 2 failed) 194ms
+   × opens a US seat quote with Stripe on the first render 12ms
+     → [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+   × switches an open seat quote from CNY to USD without constructing a WeChat USD quote 18ms
+     → [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/pricing-team-contract-preview.test.tsx > opens a US seat quote with Stripe on the first render
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ Module.previewSeatQuote components/billing/pricing-preview-data.ts:29:25
+     27|  const creditPeriodEnd=year?"2027-06-01T10:00:00Z":"2026-12-01T10:00:0…
+     28|  const fraction=(Date.parse(creditPeriodEnd)-Date.parse(createdAt))/(D…
+     29|  const parsed=TeamQuote.parse({
+       |                         ^
+     30|   orgId:"preview-organization",generation:"pricing-preview-only",quote…
+     31|   catalogVersion:"preview-only-v1",sku:`team-${region==="us"?"us":"cn"…
+ ❯ PricingPurchaseDialog components/billing/pricing-purchase-dialog.tsx:24:40
+ ❯ renderWithHooks ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/pricing-team-contract-preview.test.tsx > switches an open seat quote from CNY to USD without constructing a WeChat USD quote
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "currency"
+    ],
+    "message": "WeChat quotes require CNY"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ Module.previewSeatQuote components/billing/pricing-preview-data.ts:29:25
+     27|  const creditPeriodEnd=year?"2027-06-01T10:00:00Z":"2026-12-01T10:00:0…
+     28|  const fraction=(Date.parse(creditPeriodEnd)-Date.parse(createdAt))/(D…
+     29|  const parsed=TeamQuote.parse({
+       |                         ^
+     30|   orgId:"preview-organization",generation:"pricing-preview-only",quote…
+     31|   catalogVersion:"preview-only-v1",sku:`team-${region==="us"?"us":"cn"…
+ ❯ PricingPurchaseDialog components/billing/pricing-purchase-dialog.tsx:24:40
+ ❯ renderWithHooks ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ updateFunctionComponent ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:19617:20
+ ❯ beginWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21640:16
+ ❯ beginWork$1 ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  08:35:50
+   Duration  2.00s (transform 133ms, setup 139ms, collect 274ms, tests 194ms, environment 759ms, prepare 79ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/pricing-team-contract-preview.test.tsx

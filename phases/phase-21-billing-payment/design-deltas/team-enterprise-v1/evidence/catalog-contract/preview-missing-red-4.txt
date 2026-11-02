@@ -1,0 +1,50 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/pricing-team-catalog-preview.test.ts (4 tests | 4 failed) 11ms
+   × uses one strict organization catalog for cn Team quotes 4ms
+     → previewTeamCatalog is not a function
+   × uses one strict organization catalog for us Team quotes 0ms
+     → previewTeamCatalog is not a function
+   × uses one strict organization catalog for devapp Team quotes 0ms
+     → previewTeamCatalog is not a function
+   × only uses channels present in the selected mock catalog 6ms
+     → expected [Function] to throw an error
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/pricing-team-catalog-preview.test.ts > uses one strict organization catalog for cn Team quotes
+ FAIL  tests/ui/pricing-team-catalog-preview.test.ts > uses one strict organization catalog for us Team quotes
+ FAIL  tests/ui/pricing-team-catalog-preview.test.ts > uses one strict organization catalog for devapp Team quotes
+TypeError: previewTeamCatalog is not a function
+ ❯ tests/ui/pricing-team-catalog-preview.test.ts:5:16
+      3| import {previewTeamCatalog,previewSeatQuote} from "@/components/billin…
+      4| it.each(["cn","us","devapp"] as const)("uses one strict organization c…
+      5|  const catalog=previewTeamCatalog(region);expect(TeamCatalog.parse(cat…
+       |                ^
+      6|  expect(catalog.products).toHaveLength(5);
+      7|  for(const cycle of ["month","year"] as const){
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/pricing-team-catalog-preview.test.ts > only uses channels present in the selected mock catalog
+AssertionError: expected [Function] to throw an error
+ ❯ tests/ui/pricing-team-catalog-preview.test.ts:18:56
+     16| });
+     17| it("only uses channels present in the selected mock catalog",()=>{
+     18|  expect(()=>previewSeatQuote("cn","month",1,"stripe")).toThrow();
+       |                                                        ^
+     19|  expect(()=>previewSeatQuote("us","month",1,"wechat")).toThrow();
+     20|  expect(previewSeatQuote("devapp","month",1,"stripe").currency).toBe("…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  08:37:34
+   Duration  740ms (transform 142ms, setup 135ms, collect 172ms, tests 11ms, environment 0ms, prepare 119ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/pricing-team-catalog-preview.test.ts
