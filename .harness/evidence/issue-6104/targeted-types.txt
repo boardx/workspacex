@@ -1,0 +1,1 @@
+Actual precision PG test passes targeted semantic diagnostics with the repository tsconfig.

@@ -21,7 +21,7 @@ afterAll(async()=>{
   await c.query("DELETE FROM credit_wallets WHERE owner_id=ANY($1::text[])",[users]);
   await c.query("DELETE FROM credentials WHERE user_id=ANY($1::text[])",[users]);
   await c.query("UPDATE billing_pricing_epoch SET generation=NULL,activated_at=NULL WHERE singleton=true");
- });await resetOrgs(...users);await db.close();
+ });await resetOrgs(users);await db.close();
 });
 async function fixture(suffix:string,total="100000.25",balance=total,ownerType:"user"|"team"="user"){
  const userId=`${prefix}-${suffix}`,org=toOrgId(userId);users.push(userId);
