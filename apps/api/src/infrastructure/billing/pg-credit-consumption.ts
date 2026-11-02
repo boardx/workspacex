@@ -1,3 +1,4 @@
+import {lockTeamFinancialOwner} from "./team-financial-owner";
 import {prepareTeamCreditAdmission} from "./team-credit-admission";
 import {isLocalOrg} from "../../domain/identity/local-org";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
@@ -57,6 +58,9 @@ export class PgCreditConsumption {
   await s.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2,unbounded_requests=unbounded_requests+$3 WHERE wallet_id=$1",[wallet.wallet_id,reserved.toString(),reserved===0n?1:0]);
  }
  async settleInSession(s:TenantSession,orgId:OrgId,usage:TokenUsageRecord):Promise<void>{
+  // Replay/settlement uses the immutable admitted payer, without rechecking membership or licensing.
+  const owner=(await s.query<{owner_type:"user"|"team"}>("SELECT w.owner_type FROM credit_consumption_requests r JOIN credit_wallets w ON w.wallet_id=r.wallet_id WHERE r.request_id=$1 AND r.org_id=$2",[usage.eventId??null,orgId])).rows[0];
+  if(owner?.owner_type==="team")await lockTeamFinancialOwner(s,orgId);
   await settleCreditReceipt(s,orgId,usage);
  }
  /** Reconcile only authoritative receipts; never expire uncertain holds on a timer. */
