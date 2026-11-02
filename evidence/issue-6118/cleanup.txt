@@ -1,0 +1,9 @@
+Source: f8bc399db64d886559fdada7b1151560f28db47d
+Targeted command exit code: 1 (webServer startup timeout; zero tests executed)
+Exact owned Docker Compose project: wsx-f6ef93414e90f3d936ca
+docker ps -a --filter label=com.docker.compose.project=wsx-f6ef93414e90f3d936ca --format '{{.Names}} {{.Status}}'
+Output: empty
+ps -p 64033,65349 -o pid,ppid,pcpu,rss,comm
+Output: header only; neither wrapper nor Next build process remained.
+Canonical wrapper reported cleanup: 3s.
+No other task's containers or processes were stopped.
