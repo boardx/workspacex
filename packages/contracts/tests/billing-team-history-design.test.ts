@@ -25,3 +25,13 @@ it("bounds cursor paging without permitting query-selected organization or gener
  expect(TeamHistoryQuery.parse({limit:"50",cursor:"opaque-scope-bound-cursor"})).toEqual({limit:50,cursor:"opaque-scope-bound-cursor"});
  for(const query of [{limit:51},{limit:0},{cursor:""},{cursor:"x".repeat(2049)},{orgId:"org-b"},{generation:"old"}])expect(TeamHistoryQuery.safeParse(query).success).toBe(false);
 });
+it("does not present a future payment as confirmed paid history",()=>{
+ expect(TeamSubscriptionHistory.safeParse({...history,items:[{...item,paidAt:"2026-11-17T10:00:00Z"}]}).success).toBe(false);
+});
+it("compares paid time and read time as instants, including equal offset timestamps",()=>{
+ expect(TeamSubscriptionHistory.safeParse({...history,items:[{...item,paidAt:"2026-11-16T18:00:00+08:00"}]}).success).toBe(true);
+});
+it("preserves an actually paid future licensing period without calling it current entitlement",()=>{
+ const paidTerm={...term,paidPeriodStart:"2027-11-01T10:00:00Z",paidPeriodEnd:"2028-11-01T10:00:00Z"};
+ expect(TeamSubscriptionHistory.safeParse({...history,items:[{...item,purpose:"renewal",paidTerm}]}).success).toBe(true);
+});

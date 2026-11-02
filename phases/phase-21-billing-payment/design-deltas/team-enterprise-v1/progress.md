@@ -41,3 +41,5 @@ Issue6099，worker/cn-us-team-billing-design，当前base actual develop c04c332
 独立复审5809b682发现真实P2：cancelAtPeriodEnd=true只覆盖安排取消，已实际取消的Stripe可能false，不能因此丢旧付款事实。读模型现复用SubscriptionStatus闭集，Enterprise接受真实canceled/incomplete_expired或安排到期取消，拒绝未知/none及仍续费；微信status为null。更新可信响应fixture和反例后先8红17绿，再核心74绿、原型14绿、全contracts133文件1322绿。此为付款状态技术修正，不决定未答的已付未来窗口政策。最终新SHA独立复审仍待执行。
 
 取消状态最终修正后的API/web串行typecheck/lint9/9通过（4cached）。浏览器5证据属于仅新增状态/负例约束前的相同界面，未宣称本轮再次运行；后续新SHA正常hook、CI及独立静态复审继续。
+
+历史d6e4复审P2已补：先1红14绿，逐项paidAt<=asOf按instant比较，保留已付款未来许可与等价时区正例；最终定向Team103/原型22通过。browser5未因仅增加时间负例约束重复运行，不虚报。最终新SHA复核和正常hook/push仍待执行；旧type9属于此前同一读模型结构，未称修后重跑。
