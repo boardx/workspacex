@@ -24,9 +24,9 @@ of the original source and version/file snapshot (bytes, paths and digests).
 
 - `admin-translation.png`: readonly originals alongside editable English copy.
 - `member-translation.png`: member search and detail show the translated content.
-- `browser.log`: complete successful lane receipt; expected member 403 is exercised.
-- `ui-tests.log`: 43 focused tests passed before the avatar review follow-up.
-- `avatar-tests.log`: two final avatar/locale tests passed after that follow-up.
+- `browser.txt`: complete successful lane receipt; expected member 403 is exercised.
+- `ui-tests.txt`: 43 focused tests passed before the avatar review follow-up.
+- `avatar-tests.txt`: two final avatar/locale tests passed after that follow-up.
 
 Independent review of `28d926f38..75a7cc012` found one missing avatarAlt consumer.
 It was reproduced with a failing accessible-label assertion and fixed in directory,
