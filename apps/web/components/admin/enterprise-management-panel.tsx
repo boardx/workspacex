@@ -14,13 +14,14 @@ type Props={orgId:string;orgName?:string;balance?:number;version:number;enterpri
 export function EnterpriseManagementPanel(props:Props){
  const context=useOptionalSession(),session=context?.session;
  const [scope,setScope]=React.useState<{token:string;identity:string;key:string}|null>(null);
+ const token=session?.sessionToken,actorId=session?.userId;
  React.useEffect(()=>{
-  let active=true;if(context?.status!=="authenticated"||!session)return;
-  void Promise.resolve().then(()=>crypto.subtle.digest("SHA-256",new TextEncoder().encode(session.sessionToken))).then(hash=>{
-   if(active)setScope({token:session.sessionToken,identity:JSON.stringify([session.userId,props.orgId]),key:`wsx.enterprise.pending:${encodeURIComponent(session.userId)}:${encodeURIComponent(props.orgId)}:${Array.from(new Uint8Array(hash),value=>value.toString(16).padStart(2,"0")).join("")}`});
+  let active=true;if(context?.status!=="authenticated"||!token||!actorId)return;
+  void Promise.resolve().then(()=>crypto.subtle.digest("SHA-256",new TextEncoder().encode(token))).then(hash=>{
+   if(active)setScope({token:token,identity:JSON.stringify([actorId,props.orgId]),key:`wsx.enterprise.pending:${encodeURIComponent(actorId)}:${encodeURIComponent(props.orgId)}:${Array.from(new Uint8Array(hash),value=>value.toString(16).padStart(2,"0")).join("")}`});
   }).catch(()=>{if(active)setScope(null);});
   return()=>{active=false;};
- },[context?.status,session?.sessionToken,session?.userId,props.orgId]);
+ },[context?.status,token,actorId,props.orgId]);
  if(context&&(context.status!=="authenticated"||!session||!scope||scope.token!==session.sessionToken||scope.identity!==JSON.stringify([session.userId,props.orgId])))return <p>正在恢复会话操作记录…</p>;
  const storageKey=context?scope?.key??null:null;
  return <EnterprisePanel key={storageKey??"memory"} {...props} storageKey={storageKey} sessionToken={context?.session?.sessionToken} actorId={context?.session?.userId}/>;
