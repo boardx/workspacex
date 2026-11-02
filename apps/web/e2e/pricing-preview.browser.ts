@@ -104,6 +104,8 @@ test("Team separates seats used and purchased, prorates and explains expiry", as
 test("Enterprise upgrade confirmation, grant validation and visible result", async ({ page }) => {
   await page.getByTestId("pricing-view-admin").click();
   await page.getByTestId("pricing-upgrade-studio").click();
+  await expect(page.getByTestId("pricing-admin-dialog")).toContainText("按原购买日发放至原到期日");
+  await expect(page.getByTestId("pricing-admin-dialog")).toContainText("停止 Team 后续续费");
   await capture(page, "enterprise-upgrade");
   await page.getByTestId("pricing-admin-cancel").click();
   await expect(page.getByTestId("pricing-admin-plan-studio")).toHaveText("Team");

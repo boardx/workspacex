@@ -81,3 +81,7 @@ it("requires authoritative subscription status and still rejects future Stripe r
  }
  expect(TeamEntitlement.safeParse({...active,teamPayment:{...active.teamPayment,subscriptionStatus:"canceled"}}).success).toBe(false);
 });
+it("does not shift a monthly grant away from the original purchase anchor",()=>{
+ const creditGrant={...grant,grant:{...grant.grant,periodStart:"2026-11-02T10:00:00Z",periodEnd:"2026-12-02T10:00:00Z"}};
+ expect(TeamEntitlement.safeParse({...active,creditGrant,wallet:{...wallet,subscriptionExpiresAt:creditGrant.grant.periodEnd}}).success).toBe(false);
+});

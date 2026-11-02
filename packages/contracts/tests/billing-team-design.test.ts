@@ -1,5 +1,5 @@
 import {describe,expect,it} from "vitest";
-import {EnterpriseCreditGrantRequest,EnterpriseCreditGrantResult,EnterpriseUpgradeRequest,TeamQuoteRequest,TeamCheckoutRequest,TeamPaidTerm,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS,ENTERPRISE_MANUAL_CREDIT_MAX} from "../src/billing-team";
+import {EnterprisePrepaidTeamPolicy,EnterpriseCreditGrantRequest,EnterpriseCreditGrantResult,EnterpriseUpgradeRequest,TeamQuoteRequest,TeamCheckoutRequest,TeamPaidTerm,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS,ENTERPRISE_MANUAL_CREDIT_MAX} from "../src/billing-team";
 const key="team-request-key-00001";
 const grant={credits:10000,reason:"本月额外额度",idempotencyKey:key};
 const term={purchaseAnchor:"2026-11-01T10:00:00Z",paidPeriodStart:"2026-11-01T10:00:00Z",paidPeriodEnd:"2027-11-01T10:00:00Z",billingCycle:"year",purchasedSeats:5,monthlyCredits:100000};
@@ -72,4 +72,19 @@ describe("proposed Team/Enterprise contract material (not runtime permission)",(
   for(const patch of [{ledgerRef:""},{credits:0.5},{balance:Infinity},{isEnterprise:true},{expiresAt:null}])
    expect(EnterpriseCreditGrantResult.safeParse({...result,...patch}).success).toBe(false);
  });
+});
+it("rejects paid periods that have a plausible duration but drift from the original UTC anchor",()=>{
+ for(const patch of [{billingCycle:"month",paidPeriodEnd:"2026-12-02T10:00:00Z"},{billingCycle:"month",paidPeriodEnd:"2026-12-01T10:00:01Z"},{paidPeriodStart:"2026-11-02T10:00:00Z",paidPeriodEnd:"2027-11-02T10:00:00Z"}])
+  expect(TeamPaidTerm.safeParse({...term,...patch}).success).toBe(false);
+});
+
+it("fixes the human-confirmed prepaid Team treatment without a stop or conversion option",()=>{
+ expect(EnterprisePrepaidTeamPolicy.parse("continue_until_paid_end")).toBe("continue_until_paid_end");
+ for(const policy of ["stop","manual_reconciliation","refund","convert_to_enterprise"])
+  expect(EnterprisePrepaidTeamPolicy.safeParse(policy).success).toBe(false);
+});
+it("does not let an upgrade caller override prepaid handling or manufacture a new term",()=>{
+ const input={expectedPlanVersion:3,idempotencyKey:key};
+ for(const patch of [{prepaidTeamPolicy:"stop"},{prepaidTeamPolicy:"continue_until_paid_end"},{paidPeriodEnd:"2030-01-01T00:00:00Z"}])
+  expect(EnterpriseUpgradeRequest.safeParse({...input,...patch}).success).toBe(false);
 });

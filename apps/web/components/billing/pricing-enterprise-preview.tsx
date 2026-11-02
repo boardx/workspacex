@@ -55,7 +55,7 @@ export function PricingEnterprisePreview() {
     </table></div>
     <p className="text-12 text-muted-foreground">仅平台管理员可操作。此处为模拟团队，修改不会保存到真实账户。</p>
     <Dialog open={action !== null} onOpenChange={open => { if (!open) setAction(null); }}><DialogContent data-testid="pricing-admin-dialog"><DialogHeader><DialogTitle>{action?.kind === "upgrade" ? "升级为 Enterprise" : "添加团队额度"}</DialogTitle><DialogDescription>{selected?.name} · 设计预览，不修改真实团队。</DialogDescription></DialogHeader>
-      {action?.kind === "upgrade" ? <p className="text-13 leading-relaxed">确认后，该团队将显示 Enterprise 标识。此操作不产生支付或额外自动发放额度；新增额度由平台管理员单独添加。</p> : <div className="space-y-4">
+      {action?.kind === "upgrade" ? <p className="text-13 leading-relaxed">升级后停止 Team 后续续费。已付 Team 额度仍按原购买日发放至原到期日，已发额度保留原有效期。Enterprise 额外额度由平台管理员手动添加，不新增默认自动额度。</p> : <div className="space-y-4">
         <div className="space-y-2"><Label htmlFor="pricing-grant-amount">添加额度（credit）</Label><Input id="pricing-grant-amount" data-testid="pricing-grant-amount" type="number" min={1} max={ENTERPRISE_MANUAL_CREDIT_MAX} step={1} value={amount} onChange={event => { setAmount(event.target.value); setError(""); }} aria-invalid={!!error} aria-describedby={error ? "pricing-grant-error" : undefined} /></div>
         <div className="space-y-2"><Label htmlFor="pricing-grant-reason">添加原因</Label><Input id="pricing-grant-reason" data-testid="pricing-grant-reason" maxLength={EnterpriseCreditGrantRequest.shape.reason.maxLength ?? undefined} value={reason} onChange={event => { setReason(event.target.value); setError(""); }} placeholder="例如：本月额外额度" aria-invalid={!!error} aria-describedby={error ? "pricing-grant-error" : undefined} /></div>
         <p className="text-12 text-muted-foreground">确认时将记录团队、额度、原因与操作人。</p>

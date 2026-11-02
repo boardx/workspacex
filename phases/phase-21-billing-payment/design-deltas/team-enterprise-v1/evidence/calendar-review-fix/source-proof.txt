@@ -1,0 +1,3 @@
+Existing calendar source is an exact prefix of shared module.
+API compatibility module defines no implementation; exports the shared functions/types.
+API runtime identity test and existing financial tests are executed separately.

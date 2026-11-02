@@ -1,49 +1,21 @@
-# Team / Enterprise 设计进展
+# Team / Enterprise 当前设计进展
 
-已付历史材料：TeamSubscriptionHistory/TeamHistoryQuery保留实际purchase/receipt、付款快照/期限和增员正增量，默认10/最多50的opaque cursor分页不接收query里的org/generation。年付一笔付款一项，月额度不造付款记录，永久充值留在钱包/订单历史。Purpose改为同一闭集供request/quote/history复用；微信币种也复用同一判据。签名、真实范围和付款仍待runtime验证。
+Issue6099 / Draft6101，唯一worktree为本会话cn-us-pricing-ui；分支worker/cn-us-team-billing-design。Team runtime尚未开始，design-signoff pending/covers[]。不执行生产reset、epoch激活或部署。
 
-先schema12红、原型占位行2红；最终定向Team五文件100通过（含新12），原型六文件22通过、扩展真实browser5通过（含年付一行/过期状态、零计费HTTP，清理0秒），最终API/web串行typeslint9通过。前一轮全contracts1336保持为前一轮证据，不伪称本次跑过全1348。截图已目视复核，raw在evidence/history-contract/。
+用户2026-11-02已确认：升级Enterprise保留已付Team计划至原paidPeriodEnd，停止未来续费，额外Enterprise额度仍手动添加。规范在domain.md，原答复记录见human-decisions.md；B1已解除，不再等待此问题，也不把业务答复扩张为整束签核。
 
-设计签核文件已整理为当前单一范围说明，pending/covers[]保持不变；剩完整支付恢复、平台摘要/操作结果/错误/operations和未决已付窗口政策。目录检查点1309已正常push并独立Draft ACCEPT，本历史增量待新SHA复核/push。P5正常queue candidate1f63仍awaiting，未宣称合入；生产未操作。
+个人P5 PR6103已于2026-11-02T01:00:14Z正常合入develop 1f63fb1144a3b4df865fa88d62161303140ad164，6093由PR关闭。fetch及ancestor退出0；72个合入前启动的check均在合入前完成允许结论，post-merge7项单独统计。证据personal-prerequisite-merged，未将此前本地full主动停止exit1改写为PASS。
 
-组织目录增量：TeamCatalog 物化目标组织目录，基础5席/100,000月额度、增员单价/每席15,000月额度及同schema永久充值。个人GET /billing/catalog保持既有严格形状，新组织GET /billing/organizations/:orgId/catalog仍是待接线路由。共享PricingCatalogBase/validatePricingCatalog保证两类目录同源约束，不复制价格；没有新后端或operations导出。
+Team从c04上12提交重基到实际P5：源码检查点299fc7a274273543298ecb56ba2353fbb8532f33，range-diff全=；独立临时index将原Team全量delta作用于P5，整树与该检查点精确相同eadb9e221dece7fdcaaf6c6a94b31252a9751029。后续新增日历修正是该检查点之外的明确增量，不把旧整树证明冒充当前无变化。actual-p5-base保存quick init、全contracts1372/UI65/browser5/typeslint9原始通过结果。
 
-原型Team价格和quote的org/version/SKU/currency从严格模拟目录消费。先目录13红/1既有个人正例绿，新增mock4红，最终全contracts134文件1336通过、核心目录相关95通过、原型5文件20通过。直接US增员及CN->US组件切换曾真实2红2绿，修为随当前市场同步选支持渠道；真实browser仍5用例，新增US Team增员并实跑通过、清理0秒，截图目视复核。最终API/web串行types/lint9通过。证据在evidence/catalog-contract/。
+已物化核心输入、Team付费期、quote、目录、组织权益/月授予、已付订阅历史、手动额度输入/收据、支付恢复/首期收据。原型消费目录/quote/权益/历史/增员收据/手动额度；没有真实计费HTTP，所有结果是演示。平台摘要、升级操作/结果/错误/operations尚待完成，之后正式一致性复核及一次整束人签。
 
-完整历史/支付恢复/平台摘要/operations及未决已付未来窗口仍待补齐，signoff pending不改。数据库小数累计和所有成员入口容量前置尚未实现，销售保持关闭。本增量待新精确SHA独立审查和push；个人P5 source f826已获门禁READY并正常进队列，实际candidate 1f63fb1144a3b4df865fa88d62161303140ad164仍AWAITING_CHECKS，尚未合入。
+支付结果检查点299的独立复审P2已修：实际paidAt决定首期月窗，不能迟处理时换到下一月复活旧首期；付费期、quote和grant也绑定原UTC锚点。先6红/118绿，旧个人calendar函数逐字移动至共享billing-credit-calendar，API旧路径只转发同一函数/类型。新定位函数覆盖月底/闰日/等价时区。calendar-review-fix下定向132、全contracts1386、UI65、原个人API/真实PG94、typeslint9、browser5通过；PG及browser各自动清理0秒。此轮未实现真实Team worker，也未迁移total_granted。
 
-组织权益材料：TeamEntitlement 区分未开通/有效/到期/Enterprise，许可不代替成员、AI策略与余额准入。原已付期限/容量、当前月授予和同组织共享钱包分开，保留永久余额及负债，未知事实不填0。Enterprise可无旧付费期；有旧事实时保留，不由读模型决定未来已付窗口处置。原型已消费严格模拟权益取得人数、已购容量、余额及月余量，布局不改，无真实HTTP。
+人类决定已物化EnterprisePrepaidTeamPolicy闭集，升级body不能覆盖政策/制造期限；UI确认说明保留计划且不预发剩余9月，余额不因演示升级增加。先核心1红32绿/界面1红6绿，随后全contracts1388和UI66通过；最终policy版本types/browser仍在单独核对，未用前一轮结果冒称重跑。证据prepaid-human-decision。
 
-先缺schema19红，再时区等价1红/20绿，新增小数累计与余额分量2红/21绿。共享CreditWallet.totalGranted改为非负两位精度以支持首期小数，不另建Team钱包契约；现数据库total_granted仍integer，已在domain/coverage明确迁移及所有授予写入适配为销售前置，材料不执行SQL、不假装PG支持已完成。最终全contracts133文件1320通过，原型四文件14通过；原型消费权益后的实际browser5通过，清理0秒，之后仅小数/余额负例约束改动，未虚报再次browser运行。完整历史/恢复/目录/平台摘要/operations仍待完成。
+真实Team销售前仍须落实所有成员入口的容量锁/并发，以及total_granted两位精度迁移和所有授予/读取路径适配。Enterprise已付9窗继续、每窗仅一次、原截止后停止等E03反例目前是coverage.md中的runtime验收计划，不能把schema/模拟文案测试称为已通过这些业务链路。
 
-报价材料增量：TeamQuote 封闭四 purpose 结果，绑定组织/代际/目录/整数金额及有效期。增员保留原付费期限，另列当前月额度窗口与首期预计 credit。到期前极短窗口向下舍入可为0。先缺失 schema 12红，再零估计1红/12绿；最终核心两文件43通过。原型消费严格模拟报价的金额及共同到期日，保留原布局/价格/50%演示，无真实 HTTP；新增 fixture 先3红，合并原组件三文件11绿，真实 browser5绿，清理0秒，截图已目视核对。证据在 evidence/quote-contract/。完整 catalog、权益/历史/恢复/平台摘要/operation 等仍待完成，签核保持 pending。
+当前未提交的日历修复与业务决定增量需保存最终证据、精确SHA独立复审，再以远端旧head1b79b19d0371a24aa1092c072a5ee54f1904fc04为精确lease正常push重基后的分支。旧Draft检查点ACCEPT不覆盖新增量；不合入未完成草案。
 
-P5 错误信封已修复并推送 f82673afaa7573d4a72a2402a4cbd6a21c60b365，独立增量 ACCEPT、原审查线程已回应并解决。新 CI 仍运行，继续跟进正常合入。Team 首批4c6已发布 Draft6101，独立检查点 ACCEPT；本报价增量待新 SHA 复审与 push。
-
-Issue6099，worker/cn-us-team-billing-design，当前base actual develop c04c332a（P4 PR6102真实merge），原Draft远端096892902从685剥离重放为84c4eafdcffde0974a3db99aad4eeabc32a8e426。本次开始可执行第③件材料，不实现Team backend/SQL/支付/真实账务，不改pending，不混入P5 PR。
-
-首批packages/contracts/src/billing-team.ts：严格购买quote/checkout输入、Team付款期限与月额度、Enterprise升级输入及手动额度输入/收据。复用既有BillingProvider/周期/额度/Plan版本及原因边界；新增Team基础席位和月度额度常量供已采用原型消费，不在原型再持多份。Enterprise原型使用实际schema校验输入及模拟receipt后才更新模拟余额，UI仍仅Enterprise加额度、无真实请求；原布局和危险动作确认保留。
-
-真实验证：初始宽松stub反证26中25红，严格schema后首26绿，补全四purpose财务/身份注入反例后全contracts1278通过（含新30case）；原型原因超限真实1红5绿，修后2file8项绿。serial types/lint54/54（39cached）通过；随后把已有pricing-preview5用例接进既有prototype-audit profile，实际browser5过、0s清理，包含响应式/地区价格/Team容量和到期/Enterprise确认与原因校验/7态，并断言无billing/平台组织请求。原始输出保留evidence；新增4张图在ui-preview/team-contract-v1，未覆盖已采用截图。此材料层通过不证明真实guard/付款/并发。
-
-未完成第③件：catalog/quote响应、完整组织权益/历史/支付恢复结果、平台列表summary、升级操作/影响及错误/operation导出仍待补齐，再正式一致性复核及一次人签核。schema模块当前不导出runtime operations，没有新生产路由。下表runtime验证全部计划，不因30case或5browser宣称17UC完成。
-
-新P2业务口径：原稿“停止未来Team额度”会包含已付年费未发窗口，现已在domain/UC/API/signoff明确等待用户裁决，不默认停止/退款/折抵，取消未来续费不能偷换为停止本期已付额度。已用request_user_input_async问“继续原计划至已付期结束（推荐）/停止原计划剩额手动处理”，答案未到，不重复问或把超时当采纳。只阻塞依赖的升级影响/worker定稿及正式复核。
-
-个人支付PR6103 source e419 CI已全完成，但GitHub自动审查指出P2：后端错误在code，前端只读ApiError.reasonCode导致目录拒绝后保留失效意图。当前未入队/未合入，须先保存本设计检查点，回P5修真实envelope回归、按新SHA独立复审与正常CI到绿，不直接resolve绕过。本次定价正常develop集成授权持续，生产未操作。
-
-本报价增量受影响 contracts/web 串行类型及 lint 6/6 通过。前文首批检查点“quote结果待补”的范围现已由本增量补齐；其余完整响应及 operation 缺口仍保留。
-
-独立增量复审095671339指出P2：微信报价缺少CNY交叉约束。补四purpose反例先4失败/15通过，公共refinement修复后核心49通过，保留Stripe CNY/USD四purpose正例；原型11再通过。错误已修，待最终精确SHA复核。原browser5在仅缺这项负例约束时运行，正向原型数据未变化，不重复声称本轮重新浏览器运行。
-
-共享累计字段和余额约束最终修改后，API/web受影响依赖的串行类型/lint9/9再通过（4cached），execution-plan check通过。待精确SHA独立复审与正常push，不把旧报价ACCEPT扩张为本增量批准。
-
-独立复审5809b682发现真实P2：cancelAtPeriodEnd=true只覆盖安排取消，已实际取消的Stripe可能false，不能因此丢旧付款事实。读模型现复用SubscriptionStatus闭集，Enterprise接受真实canceled/incomplete_expired或安排到期取消，拒绝未知/none及仍续费；微信status为null。更新可信响应fixture和反例后先8红17绿，再核心74绿、原型14绿、全contracts133文件1322绿。此为付款状态技术修正，不决定未答的已付未来窗口政策。最终新SHA独立复审仍待执行。
-
-取消状态最终修正后的API/web串行typecheck/lint9/9通过（4cached）。浏览器5证据属于仅新增状态/负例约束前的相同界面，未宣称本轮再次运行；后续新SHA正常hook、CI及独立静态复审继续。
-
-历史d6e4复审P2已补：先1红14绿，逐项paidAt<=asOf按instant比较，保留已付款未来许可与等价时区正例；最终定向Team103/原型22通过。browser5未因仅增加时间负例约束重复运行，不虚报。最终新SHA复核和正常hook/push仍待执行；旧type9属于此前同一读模型结构，未称修后重跑。
-
-P5已实际正常合入：PR6103于2026-11-02T01:00:14Z，merge/queue candidate1f63fb1144a3b4df865fa88d62161303140ad164，6093由PR关闭。已fetch main/develop并ancestor退出0；72个merge前启动的checks均在merge前以允许结论完成，另7个post-merge单列，raw在evidence/personal-prerequisite-merged。生产reset/epoch/部署未执行。
-
-本地支付恢复材料检查点：TeamPurchaseOutcome复用付款状态、quote不可变快照和实际首期收据，pending/processing要求真实完整付款页，SUCCESS可无原页但必须真实paidAt/receipt；人工核对不当成功，零首期不伪造ledger，增员保持原期限且付款需在原期限内。先15红，过期付款反例再1红/14绿，最终Team118/UI25绿；增员模拟确认已接实际schema，browser/types/精确SHA审查仍待在实际P5基线上执行。当前仅保存本地检查点，接着重基actual develop；不称完成或正式签核。
+最终政策版本serial API/web types/lint9及browser5均通过，browser零计费HTTP、cleanup0秒；原始输出已保存prepaid-human-decision，升级图已目视复核。日历函数本体和个人API转发未因这次文案/政策闭集修改改变，之前真实API/PG94证据仍明确限定日历提取回归。

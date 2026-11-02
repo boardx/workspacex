@@ -12,8 +12,13 @@ Issue6099 / Draft6101。沿用已采用UI，记录核心schema与原型消费的
 - [权益消费：已用／已购、月度余额及永久余额](team-entitlement.png)
 - [目录／渠道消费：美国Team增员](team-us-add-seats.png)
 
-新增报价、权益和美国增员图均已目视复核，布局沿用原采用版本。输入取packages/contracts/src/billing-team.ts，原因和额度精度复用共享契约。真实平台权限、事务幂等、支付、全部成员入口容量与小数累计PG前置仍待正式签核后实现。已付Team剩余窗口在Enterprise升级后的处置仍待用户答复，不默认停止、退款或折抵。
+新增报价、权益和美国增员图均已目视复核，布局沿用原采用版本。输入取packages/contracts/src/billing-team.ts，原因和额度精度复用共享契约。真实平台权限、事务幂等、支付、全部成员入口容量与小数累计PG前置仍待正式签核后实现。
 
 - [已付订阅历史消费：年付仅一条真实形状记录](team-annual-history.png)
 
 历史增量对应evidence/history-contract的定向Team100、原型22、browser5和types/lint9。历史schema/mock验证不代表真实付款或cursor范围验证；年付截图已目视复核。
+
+- [增员模拟确认消费实际形状的收据](team-seat-receipt.png)
+- [人类确认：升级保留原已付发放计划](enterprise-prepaid-retained.png)
+
+用户已确认升级后的已付计划处理，规范见同束domain及human-decisions；旧待答标记已解除。最新browser5实际覆盖保留计划文案且零计费HTTP，自动清理0秒；升级图已目视复核。业务确认不等于整束签核或真实九月worker已实现。

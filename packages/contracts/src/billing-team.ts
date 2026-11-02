@@ -2,18 +2,20 @@
  * Proposed Team / Enterprise contract design material, issue #6099.
  * Authority: phases/phase-21-billing-payment/design-deltas/team-enterprise-v1/.
  * Human signoff remains pending. These schemas do not register a runtime route,
- * grant permission, activate billing or decide remaining prepaid credit treatment.
+ * grant permission or activate billing; prepaid treatment follows the recorded human decision.
  */
 import {z} from "zod";
 import {BillingProvider,BillingOrderStatus,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
 import {BillingCycle,PricingCurrency,PricingProduct,PricingCatalogBase,validatePricingCatalog,RenewalMode} from "./billing-pricing";
 import {SubscriptionStatus} from "./billing-subscription";
+import {creditMonthBoundary,creditMonthWindowAt,paidCreditMonthCount} from "./billing-credit-calendar";
 import {operations as PlatformOrganizations,PlanState} from "./platform-organizations";
 
 export const TEAM_INCLUDED_SEATS=5;
 export const TEAM_MONTHLY_CREDITS=100000;
 export const TEAM_SEAT_MONTHLY_CREDITS=15000;
 export const ENTERPRISE_MANUAL_CREDIT_MAX=1000000;
+export const EnterprisePrepaidTeamPolicy=z.literal("continue_until_paid_end");
 const Identifier=z.string().min(1).max(128);
 const IdempotencyKey=z.string().min(16).max(128);
 const Timestamp=z.string().datetime({offset:true});
@@ -21,6 +23,12 @@ const Count=z.number().int().nonnegative().safe();
 export const TeamPurchasePurpose=z.enum(["initial","renewal","add_seats","credit_topup"]);
 const Purpose=TeamPurchasePurpose.enum;
 const paymentCurrencySupported=(provider:z.infer<typeof BillingProvider>,currency:z.infer<typeof PricingCurrency>)=>provider!=="wechat"||currency==="CNY";
+function anchoredWindowMatches(anchor:string,at:number,start:string,end:string):boolean{
+ try{
+  const window=creditMonthWindowAt(new Date(anchor),new Date(at));
+  return window!==null&&window.start.getTime()===Date.parse(start)&&window.end.getTime()===Date.parse(end);
+ }catch{return false;}
+}
 const teamMonthlyCredits=(seats:number)=>TEAM_MONTHLY_CREDITS+(seats-TEAM_INCLUDED_SEATS)*TEAM_SEAT_MONTHLY_CREDITS;
 // Reuse the existing Plan write's version and reason constraints; no second range.
 const ExpectedPlanVersion=PlatformOrganizations.setPlan.in.shape.expectedVersion;
@@ -57,6 +65,12 @@ export const TeamPaidTerm=z.object({
 }).strict().superRefine((value,ctx)=>{
  const anchor=Date.parse(value.purchaseAnchor),start=Date.parse(value.paidPeriodStart),end=Date.parse(value.paidPeriodEnd);
  if(anchor>start)ctx.addIssue({code:"custom",path:["purchaseAnchor"],message:"purchase anchor cannot follow the paid period"});
+ let anchored=false;
+ try{
+  const anchor=new Date(value.purchaseAnchor),window=creditMonthWindowAt(anchor,new Date(start));
+  anchored=window!==null&&window.start.getTime()===start&&creditMonthBoundary(anchor,window.offset+paidCreditMonthCount(value.billingCycle)).getTime()===end;
+ }catch{/* Invalid input remains a schema issue, never an invented period. */}
+ if(!anchored)ctx.addIssue({code:"custom",path:["paidPeriodEnd"],message:"paid period must follow the original UTC purchase anchor"});
  const days=(end-start)/86400000;
  const [minimum,maximum]=value.billingCycle==="month"?([28,31] as const):([365,366] as const);
  if(days<minimum||days>maximum)ctx.addIssue({code:"custom",path:["paidPeriodEnd"],message:"paid period must match its billing cycle"});
@@ -107,6 +121,7 @@ export const TeamQuote=z.discriminatedUnion("purpose",[
   const start=Date.parse(value.creditPeriodStart),end=Date.parse(value.creditPeriodEnd),days=(end-start)/86400000;
   if(created<termStart||created>=termEnd||expires>termEnd)ctx.addIssue({code:"custom",path:["expiresAt"],message:"seat quote must remain inside the original paid term"});
   if(start<termStart||end>termEnd||created<start||created>=end||days<28||days>31)ctx.addIssue({code:"custom",path:["creditPeriodEnd"],message:"seat estimate requires the current monthly credit window"});
+  if(!anchoredWindowMatches(value.term.purchaseAnchor,created,value.creditPeriodStart,value.creditPeriodEnd))ctx.addIssue({code:"custom",path:["creditPeriodEnd"],message:"seat estimate must use the original-anchor current month"});
   const seats=value.term.purchasedSeats+value.additionalSeats,expected=teamMonthlyCredits(seats);
   if(!Number.isSafeInteger(seats)||!Number.isSafeInteger(expected)||value.monthlyCreditsAfter!==expected)ctx.addIssue({code:"custom",path:["monthlyCreditsAfter"],message:"seat quote must preserve existing capacity and add the requested increment"});
   if(value.estimatedFirstCredits>value.additionalSeats*TEAM_SEAT_MONTHLY_CREDITS)ctx.addIssue({code:"custom",path:["estimatedFirstCredits"],message:"first estimate cannot exceed one full monthly increment"});
@@ -156,6 +171,7 @@ export const TeamEntitlement=z.object({
  if(grant){
   const start=Date.parse(grant.periodStart),end=Date.parse(grant.periodEnd);
   if(!payment||start<Date.parse(payment.term.paidPeriodStart)||end>Date.parse(payment.term.paidPeriodEnd)||grant.credits>payment.term.monthlyCredits)ctx.addIssue({code:"custom",path:["creditGrant"],message:"included monthly credits must remain within their paid Team facts"});
+  if(payment&&!anchoredWindowMatches(payment.term.purchaseAnchor,start,grant.periodStart,grant.periodEnd))ctx.addIssue({code:"custom",path:["creditGrant"],message:"monthly grant must preserve the original purchase anchor"});
   if(creditGrant.status==="granted"&&(now<start||now>=end)||creditGrant.status==="expired"&&now<end)ctx.addIssue({code:"custom",path:["creditGrant"],message:"grant status must agree with the read time"});
  }
  if(Math.round(wallet.balance*100)!==Math.round((wallet.permanentBalance+wallet.subscriptionCredits)*100))ctx.addIssue({code:"custom",path:["wallet","balance"],message:"wallet components must preserve the signed total"});
@@ -251,6 +267,7 @@ export const TeamPurchaseOutcome=z.object({
  if(credits>0&&window===null)ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"included first credits require their real monthly window"});
  if(window!==null){
   const start=Date.parse(window.periodStart),end=Date.parse(window.periodEnd),days=(end-start)/86400000;
+  if(value.quote.purpose==="add_seats"&&!anchoredWindowMatches(term.purchaseAnchor,paid,window.periodStart,window.periodEnd))ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"first seat credits belong to the actual payment month, not the processing month"});
   if(days<28||days>31||start<Date.parse(term.paidPeriodStart)||end>Date.parse(term.paidPeriodEnd)||credits>0&&(applied<start||applied>=end))ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"first included credits cannot mint outside a paid current monthly window"});
  }
 });

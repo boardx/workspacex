@@ -1,6 +1,6 @@
 # 拟议 API 及验证边界
 
-本文件描述待签核接口，不是现有路由清单。严格输入、期限、目录、报价、组织权益/月授予和已付订阅历史已物化于 `packages/contracts/src/billing-team.ts`；完整支付恢复/平台摘要/操作结果及operations仍待补齐。金额为服务端整数最小货币单位，credit复用两位精度，所有mutation拒绝多余字段，不在本文另写DTO。
+本文件描述待签核接口，不是现有路由清单。严格输入、期限、目录、报价、组织权益/月授予和已付订阅历史已物化于 `packages/contracts/src/billing-team.ts`；平台摘要/操作结果/错误及operations仍待补齐。金额为服务端整数最小货币单位，credit复用两位精度，所有mutation拒绝多余字段，不在本文另写DTO。
 
 ## 复用的接口与权限
 
@@ -49,7 +49,7 @@
 
 操作者只取 principal，body 拒绝 actorId、generation、套餐生效时间、钱包余额、合同和自动发放计划。平台手动额度的范围和整数上限与已采用原型一致，提取为契约单源；零、负数、小数、超限、溢出或非当前Enterprise不落账。增员折算及钱包仍保留既有0.01精度，不与手动表单混为一谈。幂等键按原组织／generation 唯一，绑定原操作者及参数；不同参数／操作者冲突，不能再次记账。
 
-Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及未来 Stripe 扣款，再原子写既有 Plan／当前代际／审计。已付Team未来窗口的处置单列待确认；未得到答案前不得把取消未来续费实现成停止已付额度，升级影响摘要／收据／worker和反例必须随决定统一。并发版本冲突保留原操作，客户端刷新后处理，不盲重放新 key。手工额度仅对当前Enterprise开放，不改变套餐或虚构有效期；Team通过购买额外额度充值，但到期仍挡新AI，直到订阅续购或Enterprise真正生效。
+Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及未来 Stripe 扣款，再原子写既有 Plan／当前代际／审计。用户已确认已付Team基础/增员窗口按原购买日继续发到原paidPeriodEnd，同时停止未来续费；Enterprise额外额度仍手动添加，不新增默认月额度。升级影响摘要、收据与worker均须保留原已付期限，不改锚点、预发、退款或折抵。并发版本冲突保留原操作，客户端刷新后处理，不盲重放新 key。手工额度仅对当前Enterprise开放，不改变套餐或虚构有效期；Team通过购买额外额度充值，但到期仍挡新AI，直到订阅续购或Enterprise真正生效。
 
 ## 错误与交易测试
 
@@ -65,11 +65,11 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 
 ### 可执行组织权益材料增量
 
-`TeamEntitlement` 明确 licenseStatus 为 none/active/expired/enterprise，并绑定读取时刻、组织、当前代际和既有 Plan 版本。实际人数与 teamPayment.term.purchasedSeats 分开；许可状态不代替 membership、AI模型策略或额度准入。Enterprise不受已记录旧Team期限的许可约束，旧付款和已发额度仍可作为事实返回，不承诺尚未决定的未来发放政策；没有旧付款时保持null，不虚构5席或期限。
+`TeamEntitlement` 明确 licenseStatus 为 none/active/expired/enterprise，并绑定读取时刻、组织、当前代际和既有 Plan 版本。实际人数与 teamPayment.term.purchasedSeats 分开；许可状态不代替 membership、AI模型策略或额度准入。Enterprise不受已记录旧Team期限的许可约束，旧付款和已发额度仍可作为事实返回，其已付计划继续按原锚点发放到原到期日，不新增Enterprise默认发放；没有旧付款时保持null，不虚构5席或期限。
 
 包含的 TeamMonthlyCreditGrant 只描述当前或最近一次实际月度授予，none/pending不构造grant；已发的额度窗口不得越过已付期，余额不能大于实际发放，过期剩余为0。钱包直接复用共享CreditWallet，要求真实永久余额、订阅余额和到期事实；wallet必须是该组织的team owner，余额分量与当前授予一致，保留已确认消费产生的负余额。依赖失败返回不可用，不将未知值填0。相同到期时刻允许不同合法ISO时区表示。
 
-本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations仍待物化，Enterprise未决已付窗口不由此schema裁决。
+本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations仍待物化，已付窗口按本束domain中的人类确认口径执行。
 
 付款事实补充：teamPayment 复用现有 SubscriptionStatus 闭集；微信 subscriptionStatus 必须为null、manual且无到期取消标志，Stripe须有真实非none状态且为automatic。Enterprise停止未来扣款既可由真实cancelAtPeriodEnd安排证明，也可由canceled/incomplete_expired终止状态证明；不要求将已取消订阅的真实false标志改为true，不丢弃旧term。未知状态或仍会续费的Stripe不得据此宣称Enterprise生效。
 
@@ -90,3 +90,13 @@ TeamSubscriptionHistory 返回读取时刻、实际org/generation、已确认许
 原型Team订阅历史消费严格模拟已付记录，按记录期限与读取时刻显示已到期/尚未生效/本期有效，替换原占位历史行。个人原型历史不变。mock仍只是材料，不证明真实付款、cursor隔离或数据库行数；对应实际API/PG证据须待runtime阶段。
 
 已付历史逐项校验paidAt不晚于asOf，以时间戳而非ISO字符串比较。已真实付款但许可在未来生效的记录仍允许，由UI显示尚未生效；未来付款不能冒充已付。真实server应保证读取截止时间/记录快照一致，不能用schema失败后补0或改日期掩盖不一致。
+
+### 可执行付款及恢复材料增量
+
+TeamPurchaseOutcome 是本组织原purchase的只读视图：不可变quote、真实状态/读取时刻、已知的完整paymentPage、paidAt及实际fulfillment。PENDING/PROCESSING必须保留真实URL与期限，不伪造值；绑定尚未建立则接口返回依赖不可用，重试原key。SUCCESS允许原paymentPage为null，但必须有实际付款与收据。FAILED用于需核对的结果，可以保留已知cash但不声称许可已生效；CLOSED不能包含已到账事实。回跳、客户端状态和结构校验都不构成到账证明。
+
+fulfillment保留receipt/audit、首期实际授予、真实ledger及当次paidTerm。首期0不伪造零额流水；永久充值不附许可期或月窗。订阅付款与月额度分开，增员只增加原期限内正数量，不延长/移动锚点。quote估计可以与实际首期不同，实际过期付款需核对，付款未过期但回调迟到可保留原已付事实与0个已过期首期credit。后续完整月授予仍由原计划单独处理。
+
+共享 `billing-credit-calendar.ts` 复用原个人UTC算法，API旧路径只转发同一函数/类型。Team已付期、报价月窗、额度月窗和增员首期使用同一原购买锚点；首期窗口取实际paidAt所属月，不能用晚处理所在月补发过期首期，月末/闰日夹取后恢复原日。原型增员模拟确认实际parse该结果，仍不做真实请求或持久化。
+
+paymentPage的schema只校验结构与URL语法。后续真实cashier须复用P5的`payment-url.ts`可信域边界，并先GET当前身份/组织拥有的结果再显示付款或成功；不复制host白名单，不以create响应/本地receipt替代权威恢复。当前仍是设计材料，不证明真实组织guard、商户或账务已完成。

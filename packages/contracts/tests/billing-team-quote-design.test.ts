@@ -52,3 +52,6 @@ it.each(["CNY","USD"])("retains Stripe %s quotes for every purpose",currency=>{
  expect(TeamQuote.safeParse({...addon,provider:"stripe",currency}).success).toBe(true);
  expect(TeamQuote.safeParse({...base,purpose:"credit_topup",credits:10000,renewalMode:"manual",provider:"stripe",currency}).success).toBe(true);
 });
+it("binds a seat quote's current monthly window to the original purchase anchor",()=>{
+ expect(TeamQuote.safeParse({...addon,creditPeriodStart:"2026-11-02T10:00:00Z",creditPeriodEnd:"2026-12-02T10:00:00Z"}).success).toBe(false);
+});

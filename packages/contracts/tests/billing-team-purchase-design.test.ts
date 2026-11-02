@@ -46,3 +46,25 @@ it("does not report future cash or application as an existing result",()=>{
  expect(TeamPurchaseOutcome.safeParse({...paid,paidAt:"2026-11-17T10:00:00Z"}).success).toBe(false);
  expect(TeamPurchaseOutcome.safeParse({...paid,fulfillment:{...receipt,appliedAt:"2026-11-17T10:00:00Z"}}).success).toBe(false);
 });
+function annualAddon(){
+ const before={...term,purchaseAnchor:"2026-11-01T10:00:00Z",paidPeriodStart:"2026-11-01T10:00:00Z",paidPeriodEnd:"2027-11-01T10:00:00Z"};
+ const createdAt="2027-05-02T22:00:00Z";
+ return {...paid,createdAt,paidAt:createdAt,asOf:"2027-05-03T10:00:00Z",quote:{orgId:quote.orgId,generation:quote.generation,quoteRef:quote.quoteRef,catalogVersion:quote.catalogVersion,sku:"team-year",provider:"wechat",currency:"CNY",amountMinor:149000,createdAt,expiresAt:"2027-05-02T22:05:00Z",purpose:"add_seats",term:before,additionalSeats:2,monthlyCreditsAfter:130000,estimatedFirstCredits:28548.38,creditPeriodStart:"2027-05-01T10:00:00Z",creditPeriodEnd:"2027-06-01T10:00:00Z",planVersion:2},fulfillment:{...receipt,appliedAt:"2027-05-03T09:00:00Z",paidTerm:{...before,purchasedSeats:7,monthlyCredits:130000},firstCreditsApplied:28548.38,firstCreditPeriod:{periodStart:"2027-05-01T10:00:00Z",periodEnd:"2027-06-01T10:00:00Z"}}};
+}
+it("cannot replace an expired actual payment month with the later processing month",()=>{
+ const original=annualAddon();expect(TeamPurchaseOutcome.safeParse(original).success).toBe(true);
+ const late={...original,asOf:"2027-06-02T10:00:00Z",fulfillment:{...original.fulfillment,appliedAt:"2027-06-02T09:00:00Z",firstCreditPeriod:{periodStart:"2027-06-01T10:00:00Z",periodEnd:"2027-07-01T10:00:00Z"}}};
+ expect(TeamPurchaseOutcome.safeParse(late).success).toBe(false);
+ expect(TeamPurchaseOutcome.safeParse({...late,fulfillment:{...late.fulfillment,firstCreditPeriod:original.fulfillment.firstCreditPeriod,firstCreditsApplied:0,ledgerRef:null}}).success).toBe(true);
+});
+it("rejects shifted monthly boundaries even if they contain actual payment and application",()=>{
+ const original=annualAddon();
+ expect(TeamPurchaseOutcome.safeParse({...original,fulfillment:{...original.fulfillment,firstCreditPeriod:{periodStart:"2027-04-20T10:00:00Z",periodEnd:"2027-05-20T10:00:00Z"}}}).success).toBe(false);
+});
+it("restores the original day 31 after February instead of retaining the clamped day 28",()=>{
+ const original=annualAddon(),anchor="2026-01-31T10:00:00Z",createdAt="2026-02-28T11:00:00Z";
+ const before={...original.quote.term,purchaseAnchor:anchor,paidPeriodStart:anchor,paidPeriodEnd:"2027-01-31T10:00:00Z"};
+ const feb={...original,createdAt,paidAt:createdAt,asOf:"2026-03-01T11:00:00Z",quote:{...original.quote,createdAt,expiresAt:"2026-02-28T11:05:00Z",term:before,creditPeriodStart:"2026-02-28T10:00:00Z",creditPeriodEnd:"2026-03-31T10:00:00Z"},fulfillment:{...original.fulfillment,paidTerm:{...before,purchasedSeats:7,monthlyCredits:130000},appliedAt:"2026-03-01T10:00:00Z",firstCreditPeriod:{periodStart:"2026-02-28T10:00:00Z",periodEnd:"2026-03-31T10:00:00Z"}}};
+ expect(TeamPurchaseOutcome.safeParse(feb).success).toBe(true);
+ expect(TeamPurchaseOutcome.safeParse({...feb,fulfillment:{...feb.fulfillment,firstCreditPeriod:{...feb.fulfillment.firstCreditPeriod,periodEnd:"2026-03-28T10:00:00Z"}}}).success).toBe(false);
+});

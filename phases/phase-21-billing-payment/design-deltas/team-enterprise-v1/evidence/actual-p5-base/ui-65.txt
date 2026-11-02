@@ -1,0 +1,28 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/payment-url.test.ts (8 tests) 5ms
+ ✓ tests/ui/personal-checkout-state.test.ts (5 tests) 16ms
+ ✓ tests/ui/pricing-team-entitlement-preview.test.ts (3 tests) 17ms
+ ✓ tests/ui/pricing-team-purchase-preview.test.ts (3 tests) 19ms
+ ✓ tests/ui/pricing-team-catalog-preview.test.ts (4 tests) 54ms
+ ✓ tests/ui/pricing-team-quote-preview.test.ts (3 tests) 17ms
+ ✓ tests/ui/pricing-team-contract-preview.test.tsx (4 tests) 1427ms
+   ✓ shows purchased capacity and its full monthly pool independently of four current members 349ms
+   ✓ uses the same monthly seat grant in the adopted add-on quote preview 805ms
+ ✓ tests/ui/pricing-team-history-preview.test.tsx (2 tests) 1573ms
+   ✓ renders one confirmed annual payment from the strict history response 1241ms
+   ✓ preserves the actual expired payment term without presenting it as current entitlement 326ms
+ ✓ tests/ui/pricing-enterprise-contract.test.tsx (6 tests) 2133ms
+   ✓ rejects the overlong reason through the shared contract without modifying the preview balance 1164ms
+ ✓ tests/ui/personal-pricing-checkout.test.tsx (27 tests) 5977ms
+   ✓ saves the original request before posting and only shows success after the owned server outcome 1231ms
+   ✓ only releases the original local purchase after confirmed closure and explicit reselection 445ms
+   ✓ can reopen with a fresh catalog and a new key after a server-declared uncreated checkout 322ms
+
+ Test Files  10 passed (10)
+      Tests  65 passed (65)
+   Start at  09:07:34
+   Duration  14.17s (transform 3.75s, setup 5.44s, collect 9.17s, tests 11.24s, environment 10.53s, prepare 1.72s)
+

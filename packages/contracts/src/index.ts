@@ -168,3 +168,5 @@ export * as billingPricing from "./billing-pricing";
 
 /** #6099 proposed Team design; no runtime operations are registered. */
 export * as billingTeam from "./billing-team";
+
+export * as billingCreditCalendar from "./billing-credit-calendar";
