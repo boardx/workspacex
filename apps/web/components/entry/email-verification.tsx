@@ -64,9 +64,9 @@ export function EmailVerification() {
   return (
     <AuthShell testId={content.testId} icon={content.icon} title={content.title}>
       <p className="text-13 text-muted-foreground" data-testid="email-verification-status">{content.body}</p>
-      {(state === "completed" || state === "unavailable" || state === "session-failed") && (
+      {(state === "completed" || state === "invalid" || state === "unavailable" || state === "session-failed") && (
         <Button asChild variant="primary" size="lg">
-          <a href="/login">前往登录</a>
+          <a href="/login">{state === "invalid" ? "前往登录并重新发送" : "前往登录"}</a>
         </Button>
       )}
     </AuthShell>

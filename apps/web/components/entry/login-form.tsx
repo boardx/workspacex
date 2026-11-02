@@ -15,6 +15,8 @@ import {
   login,
   requestPasswordReset,
 } from "@/lib/auth";
+import { apiRequest } from "@/lib/api-client";
+import { auth as AuthContract } from "@repo/contracts";
 import { useSession } from "@/components/session/session-provider";
 import { sanitizeReturnTo } from "@/lib/return-to";
 
@@ -50,6 +52,15 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
   const [email, setEmail] = React.useState(state === "invalid" ? LOGIN_BRAND.sampleEmail : "");
   const [password, setPassword] = React.useState(state === "invalid" ? "••••••••" : "");
   const [loginError, setLoginError] = React.useState<string | null>(null);
+  const [verificationNeeded, setVerificationNeeded] = React.useState(false);
+  const [resending, setResending] = React.useState(false);
+  const [resendCooling, setResendCooling] = React.useState(false);
+  const [resendStatus, setResendStatus] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!resendCooling) return;
+    const timer = window.setTimeout(() => setResendCooling(false), AuthContract.AUTH_POLICY.resendCooldownSeconds * 1000);
+    return () => window.clearTimeout(timer);
+  }, [resendCooling]);
   const [forgot, setForgot] = React.useState(false);
   const [resetSent, setResetSent] = React.useState(false);
   const [resetEmail, setResetEmail] = React.useState("");
@@ -203,6 +214,8 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
           if (!hydrated || submitting) return;
           setSubmitting(true);
           setLoginError(null);
+          setVerificationNeeded(false);
+          setResendStatus(null);
           try {
             const out = await login(email, password);
             await session.startSession(out);
@@ -220,6 +233,7 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
             if (isLoginRejected(e)) {
               setLoginError("邮箱或密码不正确");
             } else if (isEmailNotVerified(e)) {
+              setVerificationNeeded(true);
               setLoginError("邮箱尚未验证，请查收验证邮件后再登录");
             } else if (isAccountLocked(e)) {
               setLoginError(
@@ -239,6 +253,29 @@ export function LoginForm({ state, next }: { state: UiState; next?: string }) {
           {loginError}
         </p>
       ) : null}
+
+      {verificationNeeded && (
+        <div className="flex flex-col gap-2">
+          <Button variant="outline" data-testid="login-verification-resend" disabled={submitting || resending || resendCooling}
+            onClick={async () => {
+              if (resending || resendCooling) return;
+              setResending(true);
+              setResendStatus(null);
+              try {
+                await apiRequest(AuthContract.operations.resendEmailVerification.path, {
+                  method: "POST", sessionToken: null, body: { email, password },
+                });
+                setResendCooling(true);
+                setResendStatus("重发请求已提交，请查收验证邮件；如未收到，请稍后重试。");
+              } catch (error) {
+                setResendStatus(isAccountLocked(error) ? "尝试次数过多，请稍后再试" : isLoginRejected(error) ? "邮箱或密码不正确，请重新输入后重试" : "发送失败，请稍后重新发送验证邮件");
+              } finally { setResending(false); }
+            }}>
+            {resending ? "正在提交…" : resendCooling ? `${AuthContract.AUTH_POLICY.resendCooldownSeconds} 秒后可再次发送` : "重新发送验证邮件"}
+          </Button>
+          {resendStatus && <p role="status" className="text-12 text-muted-foreground">{resendStatus}</p>}
+        </div>
+      )}
 
       {/* ── 分隔 · 第三方（D-02：保留视觉位但 disabled，phase-1 只走邮箱 + 密码）── */}
       <div className="flex items-center gap-3 py-1">
