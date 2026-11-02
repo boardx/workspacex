@@ -46,7 +46,7 @@ it("actual paid license remains unchanged while upgrade is processing",async()=>
 it("audit CHECK failure rolls back actual wallet and ledger",async()=>{
  await asOwner(c=>c.query("ALTER TABLE enterprise_credit_grants ADD CONSTRAINT enterprise_6108_test_audit_failure CHECK(reason<>'forced audit failure')"));
  try{
-  await expect(grants.grant(org,"operator",{credits:42,reason:"forced audit failure",idempotencyKey:"rollback-audit-001"})).rejects.toThrow();
+  await expect(grants.grant(org,"operator",{credits:42,reason:"forced audit failure",idempotencyKey:"rollback-audit-001"})).rejects.toMatchObject({code:"23514",constraint:"enterprise_6108_test_audit_failure"});
   await asOwner(async c=>{expect((await c.query("SELECT count(*)::int AS n FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0].n).toBe(0);expect((await c.query("SELECT count(*)::int AS n FROM enterprise_credit_grants WHERE org_id=$1",[org])).rows[0].n).toBe(0);});
  }finally{await asOwner(c=>c.query("ALTER TABLE enterprise_credit_grants DROP CONSTRAINT enterprise_6108_test_audit_failure"));}
 });

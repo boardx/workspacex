@@ -101,7 +101,7 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
         <Input id="plan-change-reason" value={reason} maxLength={500} disabled={busy} onChange={e => setReason(e.target.value)} />
         <Button className="my-3" disabled={busy || !reason.trim()} onClick={() => void save()}>{busy ? "保存中…" : "保存套餐"}</Button>
         </>}
-        <EnterpriseManagementPanel key={`enterprise-${detail.organization.orgId}`} orgId={detail.organization.orgId} version={detail.organization.plan.version} enterprise={detail.organization.billingSummary?.licenseStatus==="enterprise"&&detail.organization.plan.enforcement==="active"&&detail.organization.plan.billingGeneration===detail.organization.billingSummary.generation} onApplied={()=>setRefresh(n=>n+1)}/>
+        <EnterpriseManagementPanel key={`enterprise-${detail.organization.orgId}`} orgId={detail.organization.orgId} orgName={detail.organization.name} balance={detail.organization.billingSummary?.wallet.balance} version={detail.organization.plan.version} enterprise={detail.organization.billingSummary?.licenseStatus==="enterprise"&&detail.organization.plan.enforcement==="active"&&detail.organization.plan.billingGeneration===detail.organization.billingSummary.generation} onApplied={()=>setRefresh(n=>n+1)}/>
         <AiPolicyPanel key={`policy-${detail.organization.orgId}`} orgId={detail.organization.orgId}/>
         <AiUsagePanel key={detail.organization.orgId} orgId={detail.organization.orgId} platform/>
         <h3 className="font-semibold">最近变更</h3>
