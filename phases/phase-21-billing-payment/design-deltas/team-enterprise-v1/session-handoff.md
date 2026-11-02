@@ -1,15 +1,11 @@
 # Team 设计接续
 
-唯一树 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui，分支worker/cn-us-team-billing-design。当前HEAD299fc7a274273543298ecb56ba2353fbb8532f33，基线实际P5 merge1f63。远端仍旧1b79，后续正常hook+精确lease推本分支，不另建worktree，不触碰共享原checkout。
+唯一树 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui，分支worker/cn-us-team-billing-design，已发布fd462440；基线实际P5 merge1f63。不新建树，不操作共享原checkout，不触碰其他会话服务。
 
-用户已答已付Team计划继续到原paidPeriodEnd，未来Team续费停止，Enterprise额外额度手动添加；业务阻塞解除。domain/usecases/coverage/API/文案/plan已更新，human-decisions.md有原答复。整束签核仍pending，平台摘要/操作结果/错误/operations未齐，不能开始Team runtime或重复索要已回答问题。
+用户已确认保留原已付Team发放到期，停止未来续费，Enterprise额外额度手动；整束pending。个人P5已真实合入，证明见personal-prerequisite-merged。日历修复和政策闭集fd已独立审查ACCEPT并正常精确lease发布，PR6101明确Draft/未排队。不得自动ready不完整草案。
 
-P5已真实正常合入且6093由PR关；merge前72checks全完成允许结论，ancestor退出0。证据personal-prerequisite-merged。Team12提交重基全=，独立index证明实际P5+原Team delta整树同eadb9e2，见actual-p5-base；299后日历修正是显式新增量，不能称当前仍与旧树逐字等价。
+当前新增平台摘要、organization-plan单源、升级processing/needs_review/succeeded与真实收据、错误闭集，平台原型消费严格目录及模拟升级收据。十项新操作定义在本束operations.proposal.ts，仅设计提案；签核后随真实路由迁入正式contracts.operations并补代理。首次直接注册触发rewrite缺口已保留，未加豁免。19项定向与1407全契约、29项平台/TeamUI、四门禁通过；完整契约发生于提案迁出前，之后19项覆盖新导入再次通过。
 
-当前未提交源码：将个人UTC calendar逐字移到contracts，API只re-export；新lookup供Team付费期/报价/grant/首期绑定原锚点和实际paidAt。修复独立复审299的迟处理换月窗P2。先6红118绿，后Team+calendar132、全contracts1386、UI65、原个人API/PG94、serial类型lint9、browser5通过，隔离清理0秒。新政策constant与UI文案又有各1红后全contracts1388/UI66绿；/tmp/cn-us-team-prepaid-policy-types-lint.log和-browser.log为最终版本，需确认完成后复制evidence、再commit/review。
+待完成：最终固定fixture时钟的UI重跑；/tmp/cn-us-team-platform-types-lint.log类型任务、/tmp/cn-us-team-platform-browser.log资源排队浏览器；API授权裸跑因隔离保护拒绝，需要改用with-test-isolation执行，不能伪报通过。保存最终证据并精确SHA独立一致性复核，准备一次完整束签核，不重复问商业问题。
 
-继续：完成该检查点最终证据/精确SHA静态审查/push，随后补平台摘要/升级结果/错误/operations，正式一致性复核后请求一次整束签核；已付继续政策不再待答。旧calendar算法source-prefix与API函数引用相同有机械证明和真实PG回归。真实Team销售前的成员容量和小数PG迁移未做，不能假完成。
-
-Node固定22.23.2。仅运行拥有的isolation栈并自动清理，最近PG94/browser5均cleanup0秒；不要碰其他发布/邮件会话资源。不得执行生产reset/epoch或部署。旧全量本地init主动中止仍为exit1，不修改历史失败。
-
-最终policy的types/lint9和browser5已确认退出0并复制evidence/prepaid-human-decision，升级新图已目视；现在可commit并请最终精确SHA复审。不要再把最终两个命令写成“仍运行”。
+Node22.23.2。隔离车道拥有并清理自己的进程/栈；不绕过共享负载门禁。未实施Team运行时/小数PG迁移/容量锁，不开放销售，不执行生产reset/epoch或部署。旧full init主动中止仍为exit1，不覆盖历史失败。

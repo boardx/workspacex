@@ -1,6 +1,6 @@
 # 拟议 API 及验证边界
 
-本文件描述待签核接口，不是现有路由清单。严格输入、期限、目录、报价、组织权益/月授予和已付订阅历史已物化于 `packages/contracts/src/billing-team.ts`；平台摘要/操作结果/错误及operations仍待补齐。金额为服务端整数最小货币单位，credit复用两位精度，所有mutation拒绝多余字段，不在本文另写DTO。
+本文件描述待签核接口，不是现有路由清单。严格输入、期限、目录、报价、组织权益/月授予和已付订阅历史已物化于 `packages/contracts/src/billing-team.ts`；平台摘要/操作结果/错误及operations已物化，真实路由仍待实现。金额为服务端整数最小货币单位，credit复用两位精度，所有mutation拒绝多余字段，不在本文另写DTO。
 
 ## 复用的接口与权限
 
@@ -43,7 +43,7 @@
 
 | 方法／路径 | 输入 | 成功结果 |
 |---|---|---|
-| POST `/platform/organizations/:orgId/billing/enterprise-upgrades` | 原 expectedPlanVersion、idempotencyKey | operationRef、真实操作状态及实际生效后组织摘要；处理中不声称已升级；服务端记录固定“平台管理员手动升级”操作原因 |
+| POST `/platform/organizations/:orgId/billing/enterprise-upgrades` | 原 expectedPlanVersion、idempotencyKey | operationRef、真实操作状态及实际生效收据；成功后刷新既有组织摘要；处理中不声称已升级；服务端记录固定“平台管理员手动升级”操作原因 |
 | GET `/platform/organizations/:orgId/billing/operations/:operationRef` | 路径 | 该组织原操作的当前状态及可恢复动作，不泄露商户凭据 |
 | POST `/platform/organizations/:orgId/billing/credit-grants` | 1至1,000,000整数credit、idempotencyKey、非空 reason；服务器校验当前Enterprise | 原 grantRef、实际 ledgerRef／审计引用、余额和创建时刻；重放返回原收据 |
 
@@ -61,7 +61,7 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 
 `billing-team.ts` 的 `TeamQuote` 已将 initial / renewal / add_seats / credit_topup 四种响应分别封闭。所有结果绑定组织、代际、目录/商品、渠道、整数金额及正向不超过五分钟的有效期；许可购买包含真实待购容量和月额度，年付不扩大为全年一次额度。增员另保存原已付期限、正增量、增员后月额度及独立的当前月度额度窗口，报价不得超过原到期日；第一期明确是预计值，允许最后极短窗口向下折算为0。永久充值结果不接受席位、期限或许可版本，Stripe充值也是一次性购买。该schema不执行支付、折算入账或权限判断。
 
-原型增员弹窗消费 `previewSeatQuote` 的严格模拟结果取得金额与共同到期日；数据位于原有UI-only fixture模块，明确不是生产报价计算入口。模拟付款仍无HTTP。实际runtime必须读取服务端报价，到账后按权威付款时刻重新计算首期额度。其他响应和完整operation闭集仍待完成，不将本增量标为第③件全部完成。
+原型增员弹窗消费 `previewSeatQuote` 的严格模拟结果取得金额与共同到期日；数据位于原有UI-only fixture模块，明确不是生产报价计算入口。模拟付款仍无HTTP。实际runtime必须读取服务端报价，到账后按权威付款时刻重新计算首期额度。其他响应和完整operation闭集现已补齐，见文末；正式一致性复核及本束人类签核仍未完成。
 
 ### 可执行组织权益材料增量
 
@@ -69,7 +69,7 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 
 包含的 TeamMonthlyCreditGrant 只描述当前或最近一次实际月度授予，none/pending不构造grant；已发的额度窗口不得越过已付期，余额不能大于实际发放，过期剩余为0。钱包直接复用共享CreditWallet，要求真实永久余额、订阅余额和到期事实；wallet必须是该组织的team owner，余额分量与当前授予一致，保留已确认消费产生的负余额。依赖失败返回不可用，不将未知值填0。相同到期时刻允许不同合法ISO时区表示。
 
-本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations仍待物化，已付窗口按本束domain中的人类确认口径执行。
+本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations现已物化，已付窗口按本束domain中的人类确认口径执行。
 
 付款事实补充：teamPayment 复用现有 SubscriptionStatus 闭集；微信 subscriptionStatus 必须为null、manual且无到期取消标志，Stripe须有真实非none状态且为automatic。Enterprise停止未来扣款既可由真实cancelAtPeriodEnd安排证明，也可由canceled/incomplete_expired终止状态证明；不要求将已取消订阅的真实false标志改为true，不丢弃旧term。未知状态或仍会续费的Stripe不得据此宣称Enterprise生效。
 
@@ -100,3 +100,13 @@ fulfillment保留receipt/audit、首期实际授予、真实ledger及当次paidT
 共享 `billing-credit-calendar.ts` 复用原个人UTC算法，API旧路径只转发同一函数/类型。Team已付期、报价月窗、额度月窗和增员首期使用同一原购买锚点；首期窗口取实际paidAt所属月，不能用晚处理所在月补发过期首期，月末/闰日夹取后恢复原日。原型增员模拟确认实际parse该结果，仍不做真实请求或持久化。
 
 paymentPage的schema只校验结构与URL语法。后续真实cashier须复用P5的`payment-url.ts`可信域边界，并先GET当前身份/组织拥有的结果再显示付款或成功；不复制host白名单，不以create响应/本地receipt替代权威恢复。当前仍是设计材料，不证明真实组织guard、商户或账务已完成。
+
+## 平台目录与可恢复操作（本次补齐）
+
+可执行操作提案闭集为本目录 `operations.proposal.ts`（签核后随实际路由逐项迁入 billingTeam.operations；当前不宣告已存在的运行时操作），组织目录继续使用 `platformOrganizations.operations.listOrganizations/getOrganization`，不增加第二套列表。其 `OrganizationRow.billingSummary` 复用严格 TeamEntitlement，组织、成员数、原 Plan 版本及当前代际须一致。旧 pending 目录无摘要仍可读取；旧 Enterprise 元数据不能恢复当前付费权限。Plan/PlanState/PlanWrite 唯一来源提取为 organization-plan，平台模块保留原导出；现有后台仍返回 pending，此设计不声称真实 enforcement 已开启。
+
+Enterprise 升级响应为 EnterpriseUpgradeOperation：processing 保留原 operationRef、receipt=null，使用 retry_original；needs_review 保留原操作及 code，要求 contact_platform；succeeded 必须含真实 auditRef、actor、原子 Plan 写入时间与 expectedPlanVersion+1、相同 generation，以及固定 continue_until_paid_end 政策和保留的 Team 付款。仍将自动续费的 Stripe 状态不能成为成功凭据；已取消且 cancelAtPeriodEnd=false 的真实状态有效。没有旧 Team 付款时 retainedTeamPayment=null，不凭空创建订阅。操作恢复 GET 使用原组织与 operationRef，不创建第二个升级。
+
+升级成功收据用于随后刷新既有组织目录，响应不再重复一份完整 billingSummary；前端不得在 processing/needs_review 状态先改目录的 Enterprise 标志。原型平台列表消费同一 OrganizationRow，模拟升级消费请求与成功操作收据后投影，当前余额和旧授予批次保持原样；手动额度仍消费实际 grant/ledger/audit 收据后更新模拟钱包。模拟过程没有 HTTP 或财务写入。
+
+错误体沿用既有 `{error,traceId,code}`，不引入 reasonCode 方言。TeamBillingErrorCode 是封闭枚举，覆盖已有支付错误、组织 Plan 版本错误和本束容量、报价到期、已付期限到期、待处理商业变化、付款核对、升级冲突、依赖失败、Enterprise 专属、额度精度溢出、未订阅等错误。通用未登录及未知5xx仍遵循现有全局 envelope，不被伪装成已判定的业务拒绝。未来控制器必须验证 HTTP status/envelope 与 guards，当前仅有契约及反例，未声明真实后端已完成。

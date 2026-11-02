@@ -28,3 +28,5 @@
 - 停止未来Stripe续费后，worker仍读取已付term；不得以Plan非ordinary或Stripe已canceled为由跳过剩余已付窗。升级/worker/补账并发不重复、不预发整年，不覆盖Enterprise为Team。
 - 原paidPeriodEnd后不再新增Team授予，旧批次按原到期清零；Enterprise许可不因旧Team到期而失效，新增额度只走管理员手动授予。手动永久额度与保留的Team月批次分开，不延长原批次。
 - 无已付term、已过期term或旧generation不得因Enterprise升级新建自动发放计划；上游取消成功、本地提交失败重试仍保留原已付计划和同一操作收据。
+
+平台操作锚点补齐：E01/E03→既有platformOrganizations.listOrganizations/getOrganization；E02/E06→createEnterpriseUpgrade/getEnterpriseUpgradeOperation；E04/E05→grantEnterpriseCredits。新操作提案见本束operations.proposal.ts，尚未成为正式runtime操作。目录/报价/权益/历史/支付恢复/平台结果均有严格schema及反例，平台原型已消费；正式一致性复核及整束签核未完成，本表真实运行时验证仍全为计划。

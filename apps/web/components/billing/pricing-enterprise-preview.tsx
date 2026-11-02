@@ -5,41 +5,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {previewPlatformTeams,previewEnterpriseUpgrade,previewPlatformCreditGrant} from "./pricing-platform-preview-data";
 import { numberLabel } from "./pricing-preview-data";
 import { EnterpriseCreditGrantRequest, EnterpriseCreditGrantResult, ENTERPRISE_MANUAL_CREDIT_MAX } from "@repo/contracts/billing-team";
 
-const organizations = [
-  { id: "studio", name: "山海设计工作室", members: 4, enterprise: false, credits: 64000 },
-  { id: "research", name: "远见研究团队", members: 12, enterprise: true, credits: 238500 },
-  { id: "product", name: "星河产品团队", members: 5, enterprise: false, credits: 18500 },
-];
 export function PricingEnterprisePreview() {
-  const [teams, setTeams] = React.useState(organizations);
+  const [teams, setTeams] = React.useState(previewPlatformTeams);
   const [action, setAction] = React.useState<{ id: string; kind: "upgrade" | "grant" } | null>(null);
   const [amount, setAmount] = React.useState("10000");
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState("");
   const [message, setMessage] = React.useState("");
-  const selected = teams.find(team => team.id === action?.id);
+  const selected = teams.find(team => team.orgId === action?.id);
   function confirm() {
     if (!action || !selected) return;
     if (action.kind === "upgrade") {
-      setTeams(old => old.map(team => team.id === selected.id ? { ...team, enterprise: true } : team));
+      const {row}=previewEnterpriseUpgrade(selected,crypto.randomUUID());
+      setTeams(old => old.map(team => team.orgId === row.orgId ? row : team));
       setMessage(`${selected.name}已在预览中升级为 Enterprise。`);
       setAction(null); return;
     }
-    if (!selected.enterprise) { setError("请先将团队升级为 Enterprise。"); return; }
+    if (!(selected.billingSummary.licenseStatus === "enterprise")) { setError("请先将团队升级为 Enterprise。"); return; }
     const reference = crypto.randomUUID();
     const input = EnterpriseCreditGrantRequest.safeParse({ credits: Number(amount), reason, idempotencyKey: reference });
     if (!input.success) {
       setError(`请输入 1 至 ${numberLabel(ENTERPRISE_MANUAL_CREDIT_MAX)} 的整数额度，并填写有效的添加原因。`); return;
     }
     // Controlled preview receipt only; no platform request or financial write occurs.
-    const receipt = EnterpriseCreditGrantResult.safeParse({ orgId: selected.id, grantRef: `preview:${reference}`,
+    const receipt = EnterpriseCreditGrantResult.safeParse({ orgId: selected.orgId, grantRef: `preview:${reference}`,
       ledgerRef: `preview-ledger:${reference}`, auditRef: `preview-audit:${reference}`, credits: input.data.credits,
-      balance: selected.credits + input.data.credits, createdAt: new Date().toISOString() });
+      balance: selected.billingSummary.wallet.balance + input.data.credits, createdAt: new Date(Date.parse(selected.billingSummary.asOf)+1000).toISOString() });
     if (!receipt.success) { setError("无法生成预览额度记录，请调整额度后重试。"); return; }
-    setTeams(old => old.map(team => team.id === receipt.data.orgId ? { ...team, credits: receipt.data.balance } : team));
+    setTeams(old => old.map(team => team.orgId === receipt.data.orgId ? previewPlatformCreditGrant(team,receipt.data.credits,receipt.data.createdAt) : team));
     setMessage(`已在预览中为${selected.name}添加 ${numberLabel(receipt.data.credits)} credit。`);
     setAction(null);
   }
@@ -48,9 +45,9 @@ export function PricingEnterprisePreview() {
     {message && <p data-testid="pricing-admin-saved" role="status" className="rounded-control bg-success p-3 text-13 text-success-foreground">{message}</p>}
     <div className="overflow-x-auto rounded-card border border-border bg-card"><table className="w-full text-left text-13">
       <caption className="sr-only">平台团队套餐与额度</caption><thead className="border-b border-border text-12 text-muted-foreground"><tr><th className="p-4 font-medium">团队</th><th className="p-4 font-medium">套餐</th><th className="p-4 font-medium">可用额度</th><th className="p-4 font-medium">管理</th></tr></thead>
-      <tbody>{teams.map(team => <tr data-testid={`pricing-admin-row-${team.id}`} key={team.id} className="border-b border-border last:border-0"><td className="p-4"><div className="min-w-32 font-medium">{team.name}</div><p className="mt-1 text-12 text-muted-foreground">{team.members} 位成员</p></td><td className="p-4"><Badge data-testid={`pricing-admin-plan-${team.id}`} tone={team.enterprise ? "primary" : "neutral"}>{team.enterprise ? "Enterprise" : "Team"}</Badge></td><td className="p-4 tabular-nums">{numberLabel(team.credits)}</td><td className="p-4"><div className="flex flex-wrap gap-2">
-        {!team.enterprise && <Button data-testid={`pricing-upgrade-${team.id}`} size="sm" variant="outline" onClick={() => { setAction({ id: team.id, kind: "upgrade" }); setError(""); }}>升级 Enterprise</Button>}
-        {team.enterprise && <Button data-testid={`pricing-grant-${team.id}`} size="sm" variant="outline" onClick={() => { setAction({ id: team.id, kind: "grant" }); setReason(""); setAmount("10000"); setError(""); }}>添加额度</Button>}
+      <tbody>{teams.map(team => <tr data-testid={`pricing-admin-row-${team.orgId}`} key={team.orgId} className="border-b border-border last:border-0"><td className="p-4"><div className="min-w-32 font-medium">{team.name}</div><p className="mt-1 text-12 text-muted-foreground">{team.memberCount} 位成员</p></td><td className="p-4"><Badge data-testid={`pricing-admin-plan-${team.orgId}`} tone={(team.billingSummary.licenseStatus === "enterprise") ? "primary" : "neutral"}>{(team.billingSummary.licenseStatus === "enterprise") ? "Enterprise" : "Team"}</Badge></td><td className="p-4 tabular-nums">{numberLabel(team.billingSummary.wallet.balance)}</td><td className="p-4"><div className="flex flex-wrap gap-2">
+        {!(team.billingSummary.licenseStatus === "enterprise") && <Button data-testid={`pricing-upgrade-${team.orgId}`} size="sm" variant="outline" onClick={() => { setAction({ id: team.orgId, kind: "upgrade" }); setError(""); }}>升级 Enterprise</Button>}
+        {(team.billingSummary.licenseStatus === "enterprise") && <Button data-testid={`pricing-grant-${team.orgId}`} size="sm" variant="outline" onClick={() => { setAction({ id: team.orgId, kind: "grant" }); setReason(""); setAmount("10000"); setError(""); }}>添加额度</Button>}
       </div></td></tr>)}</tbody>
     </table></div>
     <p className="text-12 text-muted-foreground">仅平台管理员可操作。此处为模拟团队，修改不会保存到真实账户。</p>

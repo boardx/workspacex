@@ -32,8 +32,8 @@ Team开放销售前，全部成员入口容量门和真实PG小数累计前置�
 
 `api.md` 是拟议路径及约束，`packages/contracts/src/billing-team.ts` 为可执行schema单源。已物化严格购买/升级/手动额度输入、Team已付期限、四类quote、组织目录、组织权益/月授予、已付订阅历史及手动额度收据；原型实际消费这些结构与反例。个人目录形状和20,000月额度保持不变，组织目录采用独立作用域GET并复用同版市场/币种/充值商品约束。
 
-尚未完成完整支付恢复结果、平台摘要、操作结果/错误/operations。身份/平台guards、原Plan版本/审计及组织钱包继续复用，不创建第二个Enterprise布尔值或权限体系。原型与schema不证明真实权限、cursor隔离、支付或事务已完成。
+已补齐完整支付恢复结果、平台摘要、升级操作结果、错误及 operations。身份/平台guards、原Plan版本/审计及组织钱包继续复用，不创建第二个Enterprise布尔值或权限体系。原型与schema不证明真实权限、cursor隔离、支付或事务已完成。
 
-依据[契约设计执行书](../../../../.harness/instructions/contract-design.md)，正式签核前仍须完成全部响应/操作定义、原型消费和正式一致性复核。各精确SHA Draft检查点ACCEPT只代表可保存草案，不是正式一致性结论。agent不得自行将status改为confirmed，本材料不授权生产部署、epoch激活或旧账清理。
+依据[契约设计执行书](../../../../.harness/instructions/contract-design.md)，响应/操作定义及原型消费现已补齐，正式签核前仍须完成当前修订的独立一致性复核及验证。各精确SHA Draft检查点ACCEPT只代表可保存草案，不是正式一致性结论。agent不得自行将status改为confirmed，本材料不授权生产部署、epoch激活或旧账清理。
 
-支付恢复材料已补齐TeamPurchaseOutcome及实际首期收据，增员预览已消费；剩平台摘要/操作结果/错误/operations。首期实际月窗通过共享原个人UTC日历绑定paidAt，迟到账不换月窗恢复过期首期。原个人函数逐字共享、旧导入路径保留；此处不代表原型已具备真实guard或支付能力。
+支付恢复材料已补齐TeamPurchaseOutcome及实际首期收据，增员预览已消费；平台摘要复用既有组织目录，Plan 类型为单源，升级使用 processing/needs_review/succeeded 操作与实际生效收据，错误沿用 code envelope；平台原型已消费严格摘要及模拟成功操作。首期实际月窗通过共享原个人UTC日历绑定paidAt，迟到账不换月窗恢复过期首期。原个人函数逐字共享、旧导入路径保留；此处不代表原型已具备真实guard或支付能力。

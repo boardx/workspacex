@@ -5,11 +5,11 @@
  * grant permission or activate billing; prepaid treatment follows the recorded human decision.
  */
 import {z} from "zod";
-import {BillingProvider,BillingOrderStatus,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
-import {BillingCycle,PricingCurrency,PricingProduct,PricingCatalogBase,validatePricingCatalog,RenewalMode} from "./billing-pricing";
+import {BillingProvider,BillingOrderStatus,BillingErrorCode,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
+import {BillingCycle,PricingCurrency,PricingProduct,PricingCatalogBase,validatePricingCatalog,RenewalMode,operations as PersonalPricingOperations} from "./billing-pricing";
 import {SubscriptionStatus} from "./billing-subscription";
 import {creditMonthBoundary,creditMonthWindowAt,paidCreditMonthCount} from "./billing-credit-calendar";
-import {operations as PlatformOrganizations,PlanState} from "./platform-organizations";
+import {PlanState,PlanWrite,OrganizationPlanErrorCode} from "./organization-plan";
 
 export const TEAM_INCLUDED_SEATS=5;
 export const TEAM_MONTHLY_CREDITS=100000;
@@ -31,8 +31,8 @@ function anchoredWindowMatches(anchor:string,at:number,start:string,end:string):
 }
 const teamMonthlyCredits=(seats:number)=>TEAM_MONTHLY_CREDITS+(seats-TEAM_INCLUDED_SEATS)*TEAM_SEAT_MONTHLY_CREDITS;
 // Reuse the existing Plan write's version and reason constraints; no second range.
-const ExpectedPlanVersion=PlatformOrganizations.setPlan.in.shape.expectedVersion;
-const OperatorReason=PlatformOrganizations.setPlan.in.shape.reason;
+const ExpectedPlanVersion=PlanWrite.shape.expectedVersion;
+const OperatorReason=PlanWrite.shape.reason;
 
 /** orgId is a route parameter; actor and generation come from trusted state. */
 export const EnterpriseCreditGrantRequest=z.object({
@@ -148,6 +148,9 @@ const TeamPayment=z.object({
 }).strict().superRefine((value,ctx)=>{
  if(value.provider==="wechat"&&(value.renewalMode!=="manual"||value.cancelAtPeriodEnd||value.subscriptionStatus!==null)||value.provider==="stripe"&&(value.renewalMode!=="automatic"||value.subscriptionStatus===null||value.subscriptionStatus==="none"))ctx.addIssue({code:"custom",message:"Team renewal facts must agree with the provider"});
 });
+function teamRenewalStopped(payment:z.infer<typeof TeamPayment>):boolean{
+ return payment.provider==="wechat"||payment.cancelAtPeriodEnd||payment.subscriptionStatus==="canceled"||payment.subscriptionStatus==="incomplete_expired";
+}
 /** Licensing read model, never a replacement for membership, AI policy or credit admission. */
 export const TeamEntitlement=z.object({
  orgId:Identifier,generation:Identifier,planVersion:PlanState.shape.version,asOf:Timestamp,
@@ -166,8 +169,7 @@ export const TeamEntitlement=z.object({
    if(value.licenseStatus==="active"&&(now<start||now>=end)||value.licenseStatus==="expired"&&now<end)ctx.addIssue({code:"custom",path:["licenseStatus"],message:"Team licensing status must agree with its paid term"});
   }
  }
- const subscriptionEnded=payment?.subscriptionStatus==="canceled"||payment?.subscriptionStatus==="incomplete_expired";
- if(value.licenseStatus==="enterprise"&&payment?.provider==="stripe"&&!payment.cancelAtPeriodEnd&&!subscriptionEnded)ctx.addIssue({code:"custom",path:["teamPayment"],message:"Enterprise activation must first stop future owned Team renewal"});
+ if(value.licenseStatus==="enterprise"&&payment!==null&&!teamRenewalStopped(payment))ctx.addIssue({code:"custom",path:["teamPayment"],message:"Enterprise activation must first stop future owned Team renewal"});
  if(grant){
   const start=Date.parse(grant.periodStart),end=Date.parse(grant.periodEnd);
   if(!payment||start<Date.parse(payment.term.paidPeriodStart)||end>Date.parse(payment.term.paidPeriodEnd)||grant.credits>payment.term.monthlyCredits)ctx.addIssue({code:"custom",path:["creditGrant"],message:"included monthly credits must remain within their paid Team facts"});
@@ -272,3 +274,33 @@ export const TeamPurchaseOutcome=z.object({
  }
 });
 export type TeamPurchaseOutcome=z.infer<typeof TeamPurchaseOutcome>;
+
+/** Operation-specific business codes use the actual HTTP `code` envelope. Generic auth/5xx may have none. */
+export const TeamBillingErrorCode=z.enum([
+ ...PersonalPricingOperations.createPersonalCheckout.err,...OrganizationPlanErrorCode.options,
+ BillingErrorCode.enum.forbidden,BillingErrorCode.enum.owner_not_found,BillingErrorCode.enum.order_not_found,
+ "capacity_insufficient","quote_expired","paid_term_expired","commercial_change_pending","payment_review_required",
+ "unsupported_plan_transition","dependency_unavailable","enterprise_required","credit_balance_unrepresentable","not_subscribed",
+]);
+export const TeamBillingRejection=z.object({error:z.string().min(1).max(200),traceId:Identifier,code:TeamBillingErrorCode}).strict();
+export const EnterpriseUpgradeReceipt=z.object({
+ auditRef:Identifier,actorId:Identifier,appliedAt:Timestamp,plan:PlanState,
+ prepaidTeamPolicy:EnterprisePrepaidTeamPolicy,retainedTeamPayment:TeamPayment.nullable(),
+}).strict().superRefine((value,ctx)=>{
+ if(value.plan.plan!=="enterprise"||value.plan.enforcement!=="active"||value.plan.updatedBy!==value.actorId||value.plan.updatedAt===null||Date.parse(value.plan.updatedAt)!==Date.parse(value.appliedAt))ctx.addIssue({code:"custom",path:["plan"],message:"activation receipt must retain the actual atomic Plan write"});
+ if(value.retainedTeamPayment!==null&&!teamRenewalStopped(value.retainedTeamPayment))ctx.addIssue({code:"custom",path:["retainedTeamPayment"],message:"future owned Team renewal must stop before Enterprise activation"});
+});
+const UpgradeOperationBase=z.object({orgId:Identifier,generation:Identifier,operationRef:Identifier,expectedPlanVersion:ExpectedPlanVersion,createdAt:Timestamp,asOf:Timestamp}).strict();
+export const EnterpriseUpgradeOperation=z.discriminatedUnion("status",[
+ UpgradeOperationBase.extend({status:z.literal("processing"),receipt:z.null(),code:z.literal("dependency_unavailable").nullable(),nextAction:z.literal("retry_original")}),
+ UpgradeOperationBase.extend({status:z.literal("needs_review"),receipt:z.null(),code:z.enum(["dependency_unavailable","payment_review_required",OrganizationPlanErrorCode.enum.PLAN_VERSION_CONFLICT]),nextAction:z.literal("contact_platform")}),
+ UpgradeOperationBase.extend({status:z.literal("succeeded"),receipt:EnterpriseUpgradeReceipt,code:z.null(),nextAction:z.null()}),
+]).superRefine((value,ctx)=>{
+ const created=Date.parse(value.createdAt),now=Date.parse(value.asOf);
+ if(created>now)ctx.addIssue({code:"custom",path:["createdAt"],message:"operation cannot follow its read time"});
+ if(value.status==="succeeded"){
+  const receipt=value.receipt,applied=Date.parse(receipt.appliedAt);
+  if(receipt.plan.billingGeneration!==value.generation||receipt.plan.version!==value.expectedPlanVersion+1||applied<created||applied>now)ctx.addIssue({code:"custom",path:["receipt"],message:"activation must match the original version, generation and observed operation"});
+ }
+});
+export type EnterpriseUpgradeOperation=z.infer<typeof EnterpriseUpgradeOperation>;

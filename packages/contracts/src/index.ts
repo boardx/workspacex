@@ -170,3 +170,5 @@ export * as billingPricing from "./billing-pricing";
 export * as billingTeam from "./billing-team";
 
 export * as billingCreditCalendar from "./billing-credit-calendar";
+
+export * as organizationPlan from "./organization-plan";
