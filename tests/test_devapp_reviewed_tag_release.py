@@ -77,9 +77,12 @@ class FullWriterStateMachine(unittest.TestCase):
     if failure=='partial':state['schema']='PARTIAL';raise TimeoutError()
     state['schema']='COMPLETE';return {'status':'NATIVE_BATCH_COMPLETE'}
   core=types.SimpleNamespace(save=save,private_backup_files=lambda *a:None);engine=types.SimpleNamespace();act=types.SimpleNamespace(runtime_rows=lambda d,p,services,images:rows(images),live_config_cas=lambda *a:None)
-  cfg={'stateDirectory':str(root),'project':'workspacex-image','services':{'api':'api'},'composeFiles':[],'envFile':{},'verificationFiles':[]};p={'historicalAdmission':{},'closurePins':{},'baseline':{'api':{'containerId':'oldcid','imageId':'old'}},'baselineLedger':baseline,'runtimeSeconds':10,'rollbackSeconds':60};identities=('environment','tag','sourceRevision','planSha256','manifestSha256');ctx={'p':p,'cfg':cfg,'attempt':attempt,'d':D(),'mods':{'schema-restore-rehearsal':core,'schema-tag-prepare':types.SimpleNamespace(),'minimal-docker-release':engine,'schema-release-handoff':types.SimpleNamespace(IDENTITY=identities)},'command':['compose'],'manifest':{'images':{'api':{'imageId':'new'}}},'requestRef':{},'policyRef':{},'request':{k:k for k in identities},'receipt':attempt/'result.json'}
+  cfg={'stateDirectory':str(root),'project':'workspacex-image','services':{'api':'api'},'composeFiles':[],'envFile':{},'verificationFiles':[],'verificationCommand':['/fixed/probe']};p={'historicalAdmission':{},'closurePins':{},'baseline':{'api':{'containerId':'oldcid','imageId':'old'}},'baselineLedger':baseline,'runtimeSeconds':10,'rollbackSeconds':60};identities=('environment','tag','sourceRevision','planSha256','manifestSha256');ctx={'p':p,'cfg':cfg,'attempt':attempt,'d':D(),'mods':{'schema-restore-rehearsal':core,'schema-tag-prepare':types.SimpleNamespace(),'minimal-docker-release':engine,'schema-release-handoff':types.SimpleNamespace(IDENTITY=identities)},'command':['compose'],'manifest':{'images':{'api':{'imageId':'new'}}},'requestRef':{},'policyRef':{},'request':{k:k for k in identities},'receipt':attempt/'result.json'}
   def business(ctx,phase):
    events.append('business-'+phase)
+   if resume:
+    save(attempt/(phase+'-once.json'),{'source':m.SOURCE,'tag':m.TAG});save(attempt/(phase+'-outcome.json'),{'phase':phase,'source':m.SOURCE,'tag':m.TAG,'command':cfg['verificationCommand'],'processGroupOwned':True,'ownedProcessGroupGone':not (failure=='cleanup' and phase=='candidate'),'status':'SUCCEEDED','exitCode':0})
+    if failure=='cleanup' and phase=='candidate':raise ValueError('OWNED_PROCESS_GROUP_NOT_REAPED')
    if failure=='business' and phase=='candidate':raise ValueError('BUSINESS_FAILED')
    out=attempt/(phase+'-proof.json');save(out,{'actualFakeBusiness':True});return m.ref(out)
   def health(ctx,cmd,images,*args):assert state['running'];events.append('health-'+images['api']);return {'healthy':True}
@@ -172,7 +175,10 @@ class IndependentVerifierSemantics(unittest.TestCase):
   def save(name,value):
    path=out/name;path.write_text(json.dumps(value));path.chmod(0o600);return m.ref(path)
   command=['/fixed/business'];biz={'source':m.SOURCE,'tag':m.TAG,'command':command,'exitCode':0,'createdAt':time.time()}
-  baseline_business=save('baseline-forward-business.json',biz);candidate_business=save('candidate-business.json',biz)
+  baseline_value=dict(biz);candidate_value=dict(biz)
+  if resume:
+   for phase,value in [('baseline-forward',baseline_value),('candidate',candidate_value)]:value['outcome']=save(phase+'-outcome.json',{**biz,'phase':phase,'status':'SUCCEEDED','processGroupOwned':True,'ownedProcessGroupGone':True})
+  baseline_business=save('baseline-forward-business.json',baseline_value);candidate_business=save('candidate-business.json',candidate_value)
   archive=out/'archive';archive.write_bytes(b'e'*1100);archive.chmod(0o600);key=out/'key';key.write_bytes(b'a'*64);key.chmod(0o600)
   proof={'backup-restore':{'restoreNotPerformed':True,'archive':m.ref(archive),'key':m.ref(key),'source':save('source.json',{'ledger':baseline,'epoch':{'exists':False}})},'baseline-compatibility':{'oldImages':{'api':'old'},'actualForwardSchemaHealth':True,'resetPerformed':False,'business':baseline_business},'migration-ledger':{'baselineLedger':baseline,'completeLedger':complete,'epoch':epoch,'force':False,'resetPerformed':False,'migrationExecuted':False,'sqlReplayed':False},'candidate-acceptance':{'images':{'api':'new'},'business':candidate_business}}
   if mutate:mutate(proof,biz,save)
@@ -284,7 +290,7 @@ class OwnedBusinessProcessGroup(unittest.TestCase):
     with patch.object(m.time,'monotonic',side_effect=relative_ready_clock):
      with self.assertRaises(subprocess.TimeoutExpired):m.run_resume_business(ctx,[sys.executable,'-c',script],.25,'candidate')
     child=int(pidfile.read_text());r=subprocess.run(['ps','-p',str(child),'-o','stat='],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=5);self.assertTrue(r.returncode!=0 or r.stdout.strip().startswith(b'Z'),r.stdout)
-    raw=(root/'candidate-outcome.json').read_text();v=json.loads(raw);self.assertEqual(v['status'],'TIMEOUT');self.assertTrue(v['processGroupOwned']);self.assertEqual(v['browserDiagnostics'],[{'phase':'startup','code':'TIMEOUT'}]);self.assertNotIn('private-value',raw)
+    raw=(root/'candidate-outcome.json').read_text();v=json.loads(raw);self.assertEqual(v['status'],'TIMEOUT');self.assertTrue(v['processGroupOwned']);self.assertEqual(v['browserDiagnostics'],[{'phase':'startup','code':'TIMEOUT'}]);self.assertNotIn('private-value',json.dumps({k:value for k,value in v.items() if k!='command'}))
    finally:os.close(fd)
  def test_unrecognized_diagnostic_keys_and_values_never_escape(self):
   m=module();self.assertEqual(m.browser_diagnostics(b'BROWSER_DIAG {"phase":"attacker-secret","code":"unknown-secret","url":"private"}\n'),[])
@@ -300,3 +306,16 @@ class ResumeIndependentVerifier(unittest.TestCase):
   self.exercise(resume=True)
   with self.assertRaisesRegex(ValueError,'ORIGINAL_HISTORY_DRIFT'):self.exercise(resume=True,history_error=True)
   with self.assertRaisesRegex(ValueError,'VERIFIER_ACTIVATION_ONLY'):self.exercise(lambda p,b,s:p['migration-ledger'].update(migrationExecuted=True),resume=True)
+
+class CleanupFailureRecovery(unittest.TestCase):
+ exercise=FullWriterStateMachine.exercise
+ def test_cleanup_not_proven_restores_images_health_only_without_second_business(self):
+  import json
+  m,ctx,state,events,pending,error=self.exercise('cleanup',resume=True);self.assertRegex(str(error),'OWNED_PROCESS_GROUP_NOT_REAPED');self.assertNotIn('business-recovery',events);self.assertEqual(state['images'],{'api':'old'});proof=json.loads((ctx['attempt']/'failure.json').read_bytes());self.assertEqual(proof['status'],'RECONCILIATION_REQUIRED');self.assertEqual(proof['recovery'],'OPERATOR_REQUIRED');self.assertTrue(proof['businessRecoverySkipped']);self.assertTrue(proof['readonlyHealthVerified']);self.assertTrue(pending.exists())
+class VerifierRequiresGroupOutcome(unittest.TestCase):
+ exercise=IndependentVerifierSemantics.exercise
+ def test_valid_hash_and_zero_leader_exit_do_not_replace_group_terminal_proof(self):
+  import time
+  def mutate(p,b,save):
+   outcome=save('candidate-outcome.json',{**b,'phase':'candidate','status':'SUCCEEDED','exitCode':0,'processGroupOwned':True,'ownedProcessGroupGone':False});p['candidate-acceptance']['business']=save('candidate-business.json',{**b,'outcome':outcome})
+  with self.assertRaisesRegex(ValueError,'BUSINESS_OUTCOME_NOT_TERMINAL'):self.exercise(mutate,resume=True)

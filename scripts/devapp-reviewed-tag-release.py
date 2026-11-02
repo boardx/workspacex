@@ -186,7 +186,7 @@ def run(ctx,args,timeout=120,phase=None):
 
 def business(ctx,phase):
  core=ctx['mods']['schema-restore-rehearsal'];core.save(ctx['attempt']/(phase+'-once.json'),{'source':SOURCE,'tag':TAG,'automaticRetryAllowed':False})
- command=ctx['cfg']['verificationCommand'];raw=run(ctx,command,ctx['p'].get('businessSeconds',ctx['p']['runtimeSeconds']),phase=phase);path=ctx['attempt']/(phase+'-business.json');core.save(path,{'source':SOURCE,'tag':TAG,'createdAt':time.time(),'command':command,'exitCode':0,'stdoutHex':raw.hex(),'scope':'actual-configured-business-probe'});return ref(path)
+ command=ctx['cfg']['verificationCommand'];raw=run(ctx,command,ctx['p'].get('businessSeconds',ctx['p']['runtimeSeconds']),phase=phase);path=ctx['attempt']/(phase+'-business.json');core.save(path,{'source':SOURCE,'tag':TAG,'createdAt':time.time(),'command':command,'exitCode':0,'stdoutHex':raw.hex(),'scope':'actual-configured-business-probe',**({'outcome':ref(ctx['attempt']/(phase+'-outcome.json'))} if 'resumeOriginal' in ctx['p'] else {})});return ref(path)
 def health(ctx,command,images,held=False):
  engine=ctx['mods']['minimal-docker-release'];original=engine.health
  def loopback(config,timeout):
@@ -236,13 +236,17 @@ def writer(ctx):
    for r in (*cfg['composeFiles'],cfg['envFile']):pinned(r,False)
    need(d.json(old_command+['config','--format','json'])==original,'ROLLBACK_CONFIG_DRIFT');d.run(old_command+['up','--detach','--no-deps','--pull','never','--no-build',*cfg['services']],timeout=p['runtimeSeconds']);health(ctx,old_command,old)
    # Release traffic only after actual old configured business probe succeeds.
-   business(ctx,'recovery');failure.update(status='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA',schemaState=observed['state'])
+   if resume and not resume_business_cleanup(ctx):failure.update(recovery='OPERATOR_REQUIRED',businessRecoverySkipped=True,oldImagesRestored=True,readonlyHealthVerified=True)
+   else:business(ctx,'recovery');failure.update(status='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA',schemaState=observed['state'])
   except BaseException:failure['recovery']='OPERATOR_REQUIRED'
   failure['trafficControl']='stopped-five-applications';core.save(attempt/'failure.json',failure);raise
 
 def verify_business_proof(ctx,value,phase):
  path=pinned(value);need(path.parent==ctx['attempt'] and path.name==phase+'-business.json','BUSINESS_ATTEMPT')
  v=read(path);need(v.get('command')==ctx['cfg']['verificationCommand'] and type(v.get('exitCode')) is int and v['exitCode']==0 and v.get('source')==SOURCE and v.get('tag')==TAG and type(v.get('createdAt')) in (int,float) and 0<=time.time()-v['createdAt']<600,'VERIFIER_BUSINESS')
+ if 'resumeOriginal' in ctx['p']:
+  need(type(v.get('outcome')) is dict,'BUSINESS_OUTCOME_REQUIRED');outcome=pinned(v['outcome']);need(outcome.parent==ctx['attempt'] and outcome.name==phase+'-outcome.json','BUSINESS_OUTCOME_ATTEMPT');proof=read(outcome)
+  need(proof.get('phase')==phase and proof.get('source')==SOURCE and proof.get('tag')==TAG and proof.get('command')==ctx['cfg']['verificationCommand'] and proof.get('status')=='SUCCEEDED' and type(proof.get('exitCode')) is int and proof['exitCode']==0 and proof.get('processGroupOwned') is True and proof.get('ownedProcessGroupGone') is True and type(proof.get('createdAt')) in (int,float) and 0<=time.time()-proof['createdAt']<600,'BUSINESS_OUTCOME_NOT_TERMINAL')
 
 def verifier(ctx):
  handoff=ctx['mods']['schema-release-handoff'];result=read(ctx['receipt']);handoff.verify_receipt(ctx['request'],result);need(result.get('restoreNotPerformed') is True,'RESTORE_SCOPE')
@@ -359,7 +363,7 @@ def browser_diagnostics(raw):
  return result[-32:]
 def run_resume_business(ctx,args,timeout,phase):
  import tempfile
- outcome={'phase':phase,'createdAt':time.time(),'processGroupOwned':True};child=None
+ outcome={'phase':phase,'source':SOURCE,'tag':TAG,'command':args,'createdAt':time.time(),'processGroupOwned':True};child=None
  with tempfile.TemporaryFile() as stdout,tempfile.TemporaryFile() as stderr:
   try:
    child=subprocess.Popen(args,stdout=stdout,stderr=stderr,pass_fds=(ctx['fd'],),start_new_session=True,env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8','WSX_RELEASE_LOCK_FD':str(ctx['fd'])})
@@ -392,3 +396,12 @@ def run_resume_business(ctx,args,timeout,phase):
    stderr.seek(0);outcome['browserDiagnostics']=browser_diagnostics(stderr.read(65536));ctx['mods']['schema-restore-rehearsal'].save(ctx['attempt']/(phase+'-outcome.json'),outcome)
    need(outcome.get('ownedProcessGroupGone') is True,'OWNED_PROCESS_GROUP_NOT_REAPED')
   need(outcome['status']=='SUCCEEDED','BUSINESS_'+phase.upper().replace('-','_')+'_'+outcome['status']);return raw
+
+def resume_business_cleanup(ctx):
+ for phase in ('baseline-forward','candidate'):
+  if not (ctx['attempt']/(phase+'-once.json')).exists():continue
+  try:
+   proof=read(ctx['attempt']/(phase+'-outcome.json'))
+   if not (proof.get('phase')==phase and proof.get('source')==SOURCE and proof.get('tag')==TAG and proof.get('command')==ctx['cfg']['verificationCommand'] and proof.get('processGroupOwned') is True and proof.get('ownedProcessGroupGone') is True):return False
+  except Exception:return False
+ return True
