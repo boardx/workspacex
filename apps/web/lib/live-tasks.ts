@@ -12,9 +12,9 @@
  * ## 范围收窄（如实记录，与后端 `board.controller.ts` 一致）
  *
  * `GET /tasks/today` 和 `GET /tasks` 都需要一个 `projectId` 作为角色判定的锚点——
- * 后端还没做"多项目角色求并集"（那是 F04 的范围）。前端因此取调用方所在组织的
- * **第一个可见项目**作为锚点（`listProjects` 返回的 member 列表第一项），不是真正的
- * "跨全部项目"聚合；这是一个记录在案的过渡态，不是最终形态。
+ * 后端还没做"多项目角色求并集"（那是 F04 的范围）。前端由 `TodayBoardLive.findBoardAnchor`
+ * 按扁平项目列表顺序尝试工作坊，跳过普通项目与看板读取 403，取第一个可读工作坊
+ * 作为锚点；不是真正的"跨全部项目"聚合。
  */
 import { board, workContent } from "@repo/contracts";
 import type { z } from "zod";

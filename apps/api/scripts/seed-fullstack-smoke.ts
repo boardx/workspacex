@@ -18,6 +18,10 @@ const required = (name: string): string => {
   return value;
 };
 
+const tasksEmail = required("FULLSTACK_E2E_TASKS_EMAIL");
+const tasksPassword = required("FULLSTACK_E2E_TASKS_PASSWORD");
+const tasksUserId = required("FULLSTACK_E2E_TASKS_USER_ID");
+
 const email = required("FULLSTACK_E2E_EMAIL");
 const password = required("FULLSTACK_E2E_PASSWORD");
 const orgId = required("FULLSTACK_E2E_ORG_ID");
@@ -79,8 +83,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, tasksUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, tasksEmail],
     ],
   );
 });
@@ -89,6 +93,9 @@ await asApp(orgId, (client) => client.query(
   "UPDATE projects SET name = $1 WHERE id = $2 AND org_id = $3",
   [projectName, projectId, orgId],
 ));
+await addOrgMember(orgId, tasksUserId, "consultant", fixture.teams.fullstack ?? null);
+await addProjectMember(orgId, projectId, tasksUserId, "facilitator", null, true);
+
 await addOrgMember(orgId, userId, "consultant", fixture.teams.fullstack ?? null);
 await addProjectMember(orgId, projectId, userId, "facilitator", null, true);
 
@@ -117,6 +124,7 @@ await asApp(orgId, async client => {
 });
 
 const hasher = new BcryptPasswordHasher();
+const tasksPasswordHash = await hasher.hash(tasksPassword);
 const passwordHash = await hasher.hash(password);
 const adminPasswordHash = await hasher.hash(adminPassword);
 const feedbackAdminPasswordHash = await hasher.hash(feedbackAdminPassword);
@@ -127,7 +135,7 @@ await asOwner(async (client) => {
   await client.query(
     `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
      VALUES ($1,$2,$3,$4,now()), ($5,$6,$7,$8,now()), ($9,$10,$11,$12,now()), ($13,$14,$15,$16,now()),
-            ($17,$18,$19,$20,now()), ($21,$22,$23,$24,now())`,
+            ($17,$18,$19,$20,now()), ($21,$22,$23,$24,now()), ($25,$26,$27,$28,now())`,
     [
       userId, email, "Fullstack E2E", passwordHash,
       adminUserId, adminEmail, "Fullstack E2E admin", adminPasswordHash,
@@ -136,6 +144,7 @@ await asOwner(async (client) => {
       securityReviewerPasswordHash,
       leadUserId, leadEmail, "Fullstack E2E lead", leadPasswordHash,
       feedbackAdminUserId, feedbackAdminEmail, "Fullstack E2E feedback admin", feedbackAdminPasswordHash,
+      tasksUserId, tasksEmail, "Fullstack E2E tasks", tasksPasswordHash,
     ],
   );
 });

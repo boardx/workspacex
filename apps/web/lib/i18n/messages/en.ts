@@ -1,7 +1,11 @@
+import { enTasks } from "./tasks";
+import { enFailures } from "./failures";
 import { profileEn } from "../namespaces/profile";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...enTasks,
+  ...enFailures,
   ...profileEn,
   ...stateEn,
   "common.language": "Language",

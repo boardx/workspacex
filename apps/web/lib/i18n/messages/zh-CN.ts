@@ -1,6 +1,10 @@
+import { zhTasks } from "./tasks";
+import { zhFailures } from "./failures";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
+  ...zhTasks,
+  ...zhFailures,
   ...profileZhCN,
   ...stateZhCN,
   "common.language": "语言",
