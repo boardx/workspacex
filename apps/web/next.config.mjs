@@ -30,7 +30,7 @@ if (existsSync(monacoVsSrc) && !existsSync(monacoVsDest)) {
 }
 
 /** @type {import('next').NextConfig} */
-export default {
+const nextConfig = {
   reactStrictMode: true,
   // Serve original images without the optional sharp/libvips optimizer.
   images: { unoptimized: true },
@@ -671,3 +671,5 @@ export default {
     return { beforeFiles: [...chatV2BranchRewrites, ...projectsApiRewrites], afterFiles };
   },
 };
+
+export default nextConfig;
