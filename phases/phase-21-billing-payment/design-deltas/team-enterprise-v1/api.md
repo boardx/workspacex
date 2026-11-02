@@ -88,3 +88,5 @@ TeamHistoryQuery 只接收不超过2048字符的opaque cursor及limit（默认10
 TeamSubscriptionHistory 返回读取时刻、实际org/generation、已确认许可付款记录和nextCursor。每项保留真实purchaseRef/receiptRef、付款时SKU/渠道/币种/整数金额、paidAt及当次paidTerm；增员另带正增量，不能与已购总容量混淆。新增系统不把未知历史金额填0、不导入旧脏订单；年付一笔付款一项，月度额度发放不重复生成付款历史。永久充值沿用钱包/订单历史，不混入本许可历史。重复purchaseRef或receiptRef被拒绝。
 
 原型Team订阅历史消费严格模拟已付记录，按记录期限与读取时刻显示已到期/尚未生效/本期有效，替换原占位历史行。个人原型历史不变。mock仍只是材料，不证明真实付款、cursor隔离或数据库行数；对应实际API/PG证据须待runtime阶段。
+
+已付历史逐项校验paidAt不晚于asOf，以时间戳而非ISO字符串比较。已真实付款但许可在未来生效的记录仍允许，由UI显示尚未生效；未来付款不能冒充已付。真实server应保证读取截止时间/记录快照一致，不能用schema失败后补0或改日期掩盖不一致。

@@ -202,6 +202,9 @@ export const TeamSubscriptionHistoryItem=z.object({
 export const TeamSubscriptionHistory=z.object({
  orgId:Identifier,generation:Identifier,asOf:Timestamp,items:z.array(TeamSubscriptionHistoryItem).max(TEAM_HISTORY_PAGE_MAX),nextCursor:HistoryCursor.nullable(),
 }).strict().superRefine((value,ctx)=>{
+ value.items.forEach((item,index)=>{
+  if(Date.parse(item.paidAt)>Date.parse(value.asOf))ctx.addIssue({code:"custom",path:["items",index,"paidAt"],message:"confirmed payment cannot follow the history read time"});
+ });
  if(new Set(value.items.map(item=>item.purchaseRef)).size!==value.items.length||new Set(value.items.map(item=>item.receiptRef)).size!==value.items.length)ctx.addIssue({code:"custom",path:["items"],message:"one actual payment must appear only once"});
 });
 export type TeamSubscriptionHistory=z.infer<typeof TeamSubscriptionHistory>;
