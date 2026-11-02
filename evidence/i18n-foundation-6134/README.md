@@ -9,3 +9,5 @@
 - 初轮完整web typecheck退出0、Next lint零警告；后续局部模板/状态及反馈文案修改会由最终检查再次覆盖。
 - Homepage HomeConfig API内容（横幅、组织名称、推荐Agent/Skill名字/简介）保留源文本，后续数据库展示翻译独立处理。
 - local版能力差异/出网契约及通知弹层的领域文案仍需二期按稳定id接入资源，不能将一期称为全站全量英文化。
+
+独立复核修正：完整HomeConfigError闭集与HTTP兜底已改走统一资源，保持中文原语义，并补英文FILE_TOO_LARGE行为断言。计数支持按Intl.PluralRules选择`key.<category>`资源，缺相应变体使用基础模板；英文artifact已覆盖1/2的单复数，中文保持原句式。先见2条预期失败，再实现后6文件72项全绿（review-tests.log）。

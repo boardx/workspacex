@@ -27,17 +27,15 @@ function WorkMeta({ left, iso }: { left: React.ReactNode; iso: string | null }):
   );
 }
 
-
-
 export function ChatCard({ thread }: { thread: HomeThread }) {
   const { t } = useI18n();
   const THREAD_STATUS: Record<string, { label: string; tone: Tone } | undefined> = {
-  running: { label: t("ui.inProgress"), tone: "primary" },
-  "awaiting-approval": { label: t("ui.awaitingApproval"), tone: "warning" },
-  done: { label: t("ui.completed"), tone: "success" },
-  failed: { label: t("ui.failed"), tone: "warning" },
-  paused: { label: t("ui.paused"), tone: "neutral" },
-};
+    running: { label: t("ui.inProgress"), tone: "primary" },
+    "awaiting-approval": { label: t("ui.awaitingApproval"), tone: "warning" },
+    done: { label: t("ui.completed"), tone: "success" },
+    failed: { label: t("ui.failed"), tone: "warning" },
+    paused: { label: t("ui.paused"), tone: "neutral" },
+  };
   const st = THREAD_STATUS[thread.status];
   return (
     <ResourceCard
@@ -82,8 +80,6 @@ export function ProjectCard({ project }: { project: HomeProject }) {
   );
 }
 
-
-
 export function ResearchCard({ item }: { item: HomeResearch }) {
   const { t } = useI18n();
   const RESEARCH_STATUS = { active: t("ui.inProgress"), completed: t("ui.completed"), failed: t("ui.failed") } as const;
@@ -104,14 +100,12 @@ export function ResearchCard({ item }: { item: HomeResearch }) {
   );
 }
 
-
-
 export function InterviewCard({ item }: { item: HomeInterview }) {
   const { t } = useI18n();
   const INTERVIEW_STATUS: Record<string, string | undefined> = {
-  draft: t("ui.draft"), topic_pending: t("ui.awaitingTopicApproval"), experts_pending: t("ui.awaitingExpertApproval"), questions_pending: t("ui.awaitingQuestionApproval"),
-  running: t("ui.interviewInProgress"), report_pending: t("ui.awaitingReport"), completed: t("ui.completed"), failed: t("ui.failed"),
-};
+    draft: t("ui.draft"), topic_pending: t("ui.awaitingTopicApproval"), experts_pending: t("ui.awaitingExpertApproval"), questions_pending: t("ui.awaitingQuestionApproval"),
+    running: t("ui.interviewInProgress"), report_pending: t("ui.awaitingReport"), completed: t("ui.completed"), failed: t("ui.failed"),
+  };
   return (
     <ResourceCard
       href={item.href}

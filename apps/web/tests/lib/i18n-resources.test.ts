@@ -20,3 +20,14 @@ describe("language resources", () => {
   expect(formatRelativeTime("2026-11-03T00:00:00Z", now)).toBe("5 分钟前");
  });
 });
+
+import { ApiError } from "@/lib/api-client";
+import { describeHomeConfigFailure } from "@/lib/home-config-failure";
+it("preserves a specific upload failure in English", () => {
+  expect(describeHomeConfigFailure(new ApiError(413, "FILE_TOO_LARGE", {}), "en")).toBe("The image exceeds 5 MB. Choose a smaller image.");
+});
+it("uses English singular and plural count forms", () => {
+  expect(translate("en", "home.artifacts", { count: 1 })).toBe("1 artifact");
+  expect(translate("en", "home.artifacts", { count: 2 })).toBe("2 artifacts");
+  expect(translate("zh-CN", "home.artifacts", { count: 1 })).toBe("1 个产出物");
+});

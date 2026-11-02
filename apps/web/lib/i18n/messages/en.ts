@@ -217,5 +217,18 @@ export const en: Record<keyof typeof zhCN, string> = {
   "policy.policy": "Organization policy · Configurable by admins",
   "policy.description": "An administrator has configured this organization to use self-hosted models only. This is a configurable policy, separate from the local workspace guarantee.",
   "feedback.short": "Feedback",
-  "feedback.target": "Send feedback about {kind}{name}"
+  "feedback.target": "Send feedback about {kind}{name}",
+  "home.error.NO_ORG_MEMBERSHIP": "You are not a member of this organization and cannot view its home configuration.",
+  "home.error.FORBIDDEN": "Only organization administrators can edit the home configuration.",
+  "home.error.BANNER_ARTIFACT_NOT_OWNED": "This banner image is no longer available. Upload it again.",
+  "home.error.BANNER_COLOR_REQUIRED": "Enter a color in #RRGGBB format for the custom color scheme.",
+  "home.error.FILE_TOO_LARGE": "The image exceeds 5 MB. Choose a smaller image.",
+  "home.error.UNSUPPORTED_CONTENT_TYPE": "Only PNG, JPEG, and WebP images are supported.",
+  "common.error.network": "Could not connect to the server. Check your connection and try again.",
+  "common.http.auth": "Your session has expired. Refresh the page and sign in again.",
+  "common.http.notFound": "The requested item is no longer available.",
+  "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
+  "common.http.server": "The server encountered an error. Please try again later.",
+  "common.http.failure": "The request failed. Please try again later.",
+  "home.artifacts.one": "{count} artifact"
 };

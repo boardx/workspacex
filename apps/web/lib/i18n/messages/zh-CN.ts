@@ -216,5 +216,18 @@ export const zhCN = {
   "policy.policy": "组织策略 · 管理员可改",
   "policy.description": "本组织的模型策略被管理员设为「只用自托管模型」。这是可配置策略，与个人本地组织的产品承诺不同。",
   "feedback.short": "反馈",
-  "feedback.target": "对{kind}{name}提反馈"
+  "feedback.target": "对{kind}{name}提反馈",
+  "home.error.NO_ORG_MEMBERSHIP": "你不是这个组织的成员，看不到它的首页配置",
+  "home.error.FORBIDDEN": "首页配置仅组织管理员可编辑",
+  "home.error.BANNER_ARTIFACT_NOT_OWNED": "这张横幅图片已经失效，请重新上传",
+  "home.error.BANNER_COLOR_REQUIRED": "选了「自定义」配色，请先填一个 #RRGGBB 格式的颜色",
+  "home.error.FILE_TOO_LARGE": "图片超过 5MB，换一张小一点的",
+  "home.error.UNSUPPORTED_CONTENT_TYPE": "只支持 PNG / JPEG / WebP 图片",
+  "common.error.network": "连不上服务器，检查一下网络再试",
+  "common.http.auth": "登录状态过期了，刷新页面重新登录",
+  "common.http.notFound": "要找的东西不在了",
+  "common.http.rateLimit": "操作太频繁了，等一下再试",
+  "common.http.server": "服务器出错了，稍后再试一次",
+  "common.http.failure": "这次请求没成功，稍后再试一次",
+  "home.artifacts.one": "{count} 个产出物"
 } as const;
