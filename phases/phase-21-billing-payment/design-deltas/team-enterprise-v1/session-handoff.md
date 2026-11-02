@@ -1,5 +1,11 @@
 # Team设计在建交接
 
+已付历史材料：TeamSubscriptionHistory/TeamHistoryQuery保留实际purchase/receipt、付款快照/期限和增员正增量，默认10/最多50的opaque cursor分页不接收query里的org/generation。年付一笔付款一项，月额度不造付款记录，永久充值留在钱包/订单历史。Purpose改为同一闭集供request/quote/history复用；微信币种也复用同一判据。签名、真实范围和付款仍待runtime验证。
+
+先schema12红、原型占位行2红；最终定向Team五文件100通过（含新12），原型六文件22通过、扩展真实browser5通过（含年付一行/过期状态、零计费HTTP，清理0秒），最终API/web串行typeslint9通过。前一轮全contracts1336保持为前一轮证据，不伪称本次跑过全1348。截图已目视复核，raw在evidence/history-contract/。
+
+设计签核文件已整理为当前单一范围说明，pending/covers[]保持不变；剩完整支付恢复、平台摘要/操作结果/错误/operations和未决已付窗口政策。目录检查点1309已正常push并独立Draft ACCEPT，本历史增量待新SHA复核/push。P5正常queue candidate1f63仍awaiting，未宣称合入；生产未操作。
+
 组织目录增量：TeamCatalog 物化目标组织目录，基础5席/100,000月额度、增员单价/每席15,000月额度及同schema永久充值。个人GET /billing/catalog保持既有严格形状，新组织GET /billing/organizations/:orgId/catalog仍是待接线路由。共享PricingCatalogBase/validatePricingCatalog保证两类目录同源约束，不复制价格；没有新后端或operations导出。
 
 原型Team价格和quote的org/version/SKU/currency从严格模拟目录消费。先目录13红/1既有个人正例绿，新增mock4红，最终全contracts134文件1336通过、核心目录相关95通过、原型5文件20通过。直接US增员及CN->US组件切换曾真实2红2绿，修为随当前市场同步选支持渠道；真实browser仍5用例，新增US Team增员并实跑通过、清理0秒，截图目视复核。最终API/web串行types/lint9通过。证据在evidence/catalog-contract/。

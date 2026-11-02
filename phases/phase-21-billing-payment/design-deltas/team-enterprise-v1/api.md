@@ -1,6 +1,6 @@
 # 拟议 API 及验证边界
 
-本文件描述待签核接口，**不是现有路由清单**。核心严格输入／Team期限和四purpose不可变报价结果已物化于 `packages/contracts/src/billing-team.ts`，其余权益/历史/恢复响应、目录及operation尚未完成；本文不另写 Zod／DTO。钱数为服务端整数最小货币单位，credit 复用既有两位精度；所有 mutation 严格拒绝多余字段。
+本文件描述待签核接口，不是现有路由清单。严格输入、期限、目录、报价、组织权益/月授予和已付订阅历史已物化于 `packages/contracts/src/billing-team.ts`；完整支付恢复/平台摘要/操作结果及operations仍待补齐。金额为服务端整数最小货币单位，credit复用两位精度，所有mutation拒绝多余字段，不在本文另写DTO。
 
 ## 复用的接口与权限
 
@@ -15,6 +15,7 @@
 
 | 方法／路径 | 输入 | 成功结果 |
 |---|---|---|
+| GET `/billing/organizations/:orgId/catalog` | 路径 orgId | TeamCatalog：实际组织、目录版本、部署市场、可用渠道及基础/增员价格与月度额度；充值商品与个人同源 |
 | GET `/billing/organizations/:orgId/entitlement` | 路径 orgId | 当前代际、真实套餐及商业版本、付款期限、额度窗口、已用／已购席位、实际额度余额、渠道／续费状态及可操作项 |
 | POST `/billing/organizations/:orgId/quotes` | `purpose`（开通／到期续购／增员／永久充值）、`sku`、`provider`、目录版本；许可变更另含预期商业版本及相应席数 | 不可变 quoteRef、适用时的期限／月窗、报价／到期时刻、币种／本次金额；许可变更返回购买后容量／月额度／下期数量，充值返回本次永久credit且不产生新期限 |
 | POST `/billing/organizations/:orgId/checkout` | `quoteRef`、原 `idempotencyKey` | 原 purchaseRef、权威购买结果、存在时的真实付款绑定；同 key 恢复不再创建支付 |
@@ -79,3 +80,11 @@ TeamCatalog 对应新 GET `/billing/organizations/:orgId/catalog`，响应为组
 PricingCatalogBase 和 validatePricingCatalog 是个人/组织共用的结构及市场币种/唯一性约束单源。既有个人PricingCatalog的输入/输出和20,000个人月额度保持原形状，由同一组现有反例继续验证；不把Team商品混进已签个人数组。原型Team价格、增员单价及quote的org/version/SKU/currency从严格模拟组织目录读取，仍只投影原有UI-only价目fixture，生产价格依旧只能来自服务端。
 
 直接以美国市场打开增员，以及组件在打开状态切换地区的反例已补。受限市场同步选择其支持渠道，devapp仍允许用户在已启用的微信/Stripe间选择；不能用前一市场的微信状态构造USD报价。现有真实browser增加US Team增员链路，仍断言零计费HTTP。
+
+### 可执行已付订阅历史材料增量
+
+TeamHistoryQuery 只接收不超过2048字符的opaque cursor及limit（默认10、最多50），不得通过query指定其他组织、代际、用户或金额。cursor的签名与实际org/generation绑定由后续server实现验证，Zod长度检查不是权限或签名证明。
+
+TeamSubscriptionHistory 返回读取时刻、实际org/generation、已确认许可付款记录和nextCursor。每项保留真实purchaseRef/receiptRef、付款时SKU/渠道/币种/整数金额、paidAt及当次paidTerm；增员另带正增量，不能与已购总容量混淆。新增系统不把未知历史金额填0、不导入旧脏订单；年付一笔付款一项，月度额度发放不重复生成付款历史。永久充值沿用钱包/订单历史，不混入本许可历史。重复purchaseRef或receiptRef被拒绝。
+
+原型Team订阅历史消费严格模拟已付记录，按记录期限与读取时刻显示已到期/尚未生效/本期有效，替换原占位历史行。个人原型历史不变。mock仍只是材料，不证明真实付款、cursor隔离或数据库行数；对应实际API/PG证据须待runtime阶段。
