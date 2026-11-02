@@ -1,6 +1,6 @@
 import {spawnSync} from "node:child_process";
 import {mkdirSync,rmSync,writeFileSync} from "node:fs";
-/** API webServer has already migrated the owned database; do not create another stack. */
+/** On the browser-owned warm DB run only the new retained-history boundary. */
 export default async function enterpriseWarmSchema(){
  rmSync("test-results/enterprise-management-6108/browser-success.json",{force:true});
  if(!process.env.WORKSPACEX_ISOLATION_ID||!process.env.PGDATABASE?.startsWith("wsx_"))throw Error("owned warm database required");
