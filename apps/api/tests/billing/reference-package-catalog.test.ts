@@ -4,7 +4,7 @@ import {readFileSync} from "node:fs";
 import {asOwner,asApp,ensureDatabase,migrateOnce} from "../support/db";
 beforeAll(async()=>{ensureDatabase();await migrateOnce();});
 it("serves the confirmed CN credit packages with exact server prices",async()=>{
- const rows=await asApp(null,async c=>(await c.query("SELECT amount_fen,base_credits,bonus_credits,total_credits,owner_type FROM credit_packages WHERE enabled AND region='cn' ORDER BY sort_order")).rows);
+ const rows=await asApp(null,async c=>(await c.query("SELECT amount_fen,base_credits,bonus_credits,total_credits,owner_type FROM credit_packages WHERE enabled AND product_kind='credit_topup' AND region='cn' ORDER BY sort_order")).rows);
  expect(rows).toEqual([[12900,10000],[59900,50000],[219900,200000]].map(([amount,credits])=>({amount_fen:amount,base_credits:credits,bonus_credits:0,total_credits:credits,owner_type:"both"})));
 });
 

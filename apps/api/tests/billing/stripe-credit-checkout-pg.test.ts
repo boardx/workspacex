@@ -18,7 +18,7 @@ afterAll(async()=>{await asOwner(async c=>{await c.query('DELETE FROM credit_tra
 async function fixture(provider='stripe',pricing:{currency:string;amount:number;base:number;bonus:number;packageId?:string}={currency:'CNY',amount:100,base:10,bonus:2}){
  const id=`stripe6050-${randomUUID()}`,orderNo=`bg20261031090000${randomUUID().replaceAll('-','').slice(0,6)}`;owners.push(id);orders.push(orderNo);
  const owner={orgId:toOrgId('stripe6050'),ownerType:'user' as const,ownerId:id};
- const p=(await asOwner(c=>c.query('SELECT * FROM credit_packages WHERE enabled=true AND currency=$1 AND ($2::text IS NULL OR package_id=$2) ORDER BY sort_order LIMIT 1',[pricing.currency,pricing.packageId??null]))).rows[0]!;
+ const p=(await asOwner(c=>c.query('SELECT * FROM credit_packages WHERE enabled=true AND product_kind<>\'subscription\' AND currency=$1 AND ($2::text IS NULL OR package_id=$2) ORDER BY sort_order LIMIT 1',[pricing.currency,pricing.packageId??null]))).rows[0]!;
  await asOwner(c=>c.query("INSERT INTO billing_orders(order_no,owner_type,owner_id,created_by,package_id,amount_fen,base_credits,bonus_credits,currency,provider,status,qr_code_url,created_at,expired_at) VALUES($1,'user',$2,$2,$3,$5,$6,$7,$8,$4,'PENDING','pending',now(),now()+interval '1 day')",[orderNo,id,p.package_id,provider,pricing.amount,pricing.base,pricing.bonus,pricing.currency]));
  const session={object:'checkout.session',id:`cs_${randomUUID().replaceAll('-','')}`,mode:'payment',livemode:false,status:'complete',payment_status:'paid',currency:pricing.currency.toLowerCase(),amount_total:pricing.amount,client_reference_id:orderNo,metadata:{product:'credit_topup_v1',order_ref:orderNo},payment_intent:`pi_${randomUUID().replaceAll('-','')}`};
  return {owner,orderNo,session};

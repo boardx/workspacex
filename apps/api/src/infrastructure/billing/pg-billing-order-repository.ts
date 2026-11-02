@@ -21,10 +21,10 @@ export class PgBillingOrderRepository implements BillingOrderRepository {
   constructor(private readonly db: DatabasePort) {}
   assertLegacySales(orgId: OrgId) { return this.db.withTenant(orgId, requireLegacyOrderEpoch); }
   async packages(owner: BillingOwner) {
-    return this.db.withTenant(owner.orgId, async s => (await s.query<PackageRow>("SELECT * FROM credit_packages WHERE enabled=true AND owner_type IN ($1,'both') ORDER BY sort_order,package_id", [owner.ownerType])).rows.map(packageView));
+    return this.db.withTenant(owner.orgId, async s => (await s.query<PackageRow>("SELECT * FROM credit_packages WHERE product_kind<>'subscription' AND enabled=true AND owner_type IN ($1,'both') ORDER BY sort_order,package_id", [owner.ownerType])).rows.map(packageView));
   }
   async package(orgId: OrgId, packageId: string) {
-    return this.db.withTenant(orgId, async s => { const row = (await s.query<PackageRow>("SELECT * FROM credit_packages WHERE package_id=$1", [packageId])).rows[0]; return row ? { ...packageView(row), enabled: row.enabled } : null; });
+    return this.db.withTenant(orgId, async s => { const row = (await s.query<PackageRow>("SELECT * FROM credit_packages WHERE package_id=$1 AND product_kind<>'subscription'", [packageId])).rows[0]; return row ? { ...packageView(row), enabled: row.enabled } : null; });
   }
   async creditEnabled(owner: BillingOrderOwner) {
     return this.db.withTenant(owner.orgId, async s => {

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { ensureDatabase, migrateOnce, seedOrg, asOwner, asApp } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { PgBillingOrderRepository } from "../../src/infrastructure/billing/pg-billing-order-repository";
 import { PgBillingCatalogRepository } from "../../src/infrastructure/billing/pg-billing-catalog-repository";
 import { PgPersonalCheckoutRepository } from "../../src/infrastructure/billing/pg-personal-checkout-repository";
 import { PgPersonalPaymentRepository } from "../../src/infrastructure/billing/pg-personal-payment-repository";
@@ -19,7 +20,7 @@ const checkout = new PgPersonalCheckoutRepository(db), payments = new PgPersonal
 const sku = "pro-cn-year-v1";
 let original: {amount_fen: number; total_credits: number; base_credits: number; bonus_credits: number};
 let epoch: {generation: string | null; activated_at: string | null};
-// @global-scope-fixture table:credit_packages: beforeAll snapshots the exact SKU; afterAll restores its changed price/quantity columns.
+// Configuration fixture ownership: beforeAll snapshots the exact SKU; afterAll restores its changed price/quantity columns.
 // Epoch fixture ownership: restore the original generation and full-precision timestamp after the serial test.
 beforeAll(async () => {
   ensureDatabase(); await migrateOnce();
@@ -37,6 +38,12 @@ afterAll(async () => {
       if (epoch) await c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton=true", [epoch.generation,epoch.activated_at]);
     });
   } finally { await db.close(); }
+});
+it("keeps subscription SKUs out of legacy one-time package checkout", async () => {
+  const legacy = new PgBillingOrderRepository(db);
+  expect(await legacy.package(orgId,sku)).toBeNull();
+  const rows = await legacy.packages({orgId,ownerType:"user",ownerId:principal.userId});
+  expect(rows.some(row => row.packageId === sku)).toBe(false);
 });
 it("prices new orders from configuration while paid annual grants retain their purchased quantity", async () => {
   await asOwner(c => c.query("UPDATE credit_packages SET amount_fen=123456,total_credits=23456,base_credits=23456,bonus_credits=0 WHERE package_id=$1", [sku]));
