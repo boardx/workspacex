@@ -89,6 +89,7 @@ export const TeamQuote=z.discriminatedUnion("purpose",[
   purpose:z.literal("credit_topup"),credits:PricingProduct.options[1].shape.credits,renewalMode:z.literal("manual"),
  }),
 ]).superRefine((value,ctx)=>{
+ if(value.provider==="wechat"&&value.currency!=="CNY")ctx.addIssue({code:"custom",path:["currency"],message:"WeChat quotes require CNY"});
  const created=Date.parse(value.createdAt),expires=Date.parse(value.expiresAt);
  if(expires<=created||expires-created>300000)ctx.addIssue({code:"custom",path:["expiresAt"],message:"quote lifetime must be positive and at most five minutes"});
  if(value.purpose==="initial"||value.purpose==="renewal"){

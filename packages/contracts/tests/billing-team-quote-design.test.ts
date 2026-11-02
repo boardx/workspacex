@@ -40,3 +40,15 @@ it("rejects extra account, paid-result or merchant authority in a quote",()=>{
 it("allows a zero-credit estimate when rounding the final fraction below 0.01",()=>{
  expect(TeamQuote.safeParse({...addon,createdAt:"2026-12-01T09:59:59.999Z",expiresAt:"2026-12-01T10:04:59.999Z",estimatedFirstCredits:0}).success).toBe(true);
 });
+it.each([
+ initial,{...initial,purpose:"renewal"},addon,
+ {...base,purpose:"credit_topup",credits:10000,renewalMode:"manual"},
+])("rejects a WeChat USD quote for $purpose",quote=>{
+ expect(TeamQuote.safeParse({...quote,currency:"USD"}).success).toBe(false);
+});
+it.each(["CNY","USD"])("retains Stripe %s quotes for every purpose",currency=>{
+ for(const quote of [initial,{...initial,purpose:"renewal"}])
+  expect(TeamQuote.safeParse({...quote,provider:"stripe",currency,renewalMode:"automatic"}).success).toBe(true);
+ expect(TeamQuote.safeParse({...addon,provider:"stripe",currency}).success).toBe(true);
+ expect(TeamQuote.safeParse({...base,purpose:"credit_topup",credits:10000,renewalMode:"manual",provider:"stripe",currency}).success).toBe(true);
+});
