@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-03：strict 事件响应新增展示元数据需显式版本协商并保留旧摘要回退；query 校验复用 ZodBodyPipe，裸 schema.parse 的 ZodError 不会自动成为400。白名单投影与真实新旧HTTP证据见 issue #6145 / evidence/i18n-activity-6145。
 - 2026-11-02：验证邮件重发不能只依赖24小时注册cookie；过期/换浏览器恢复须先复用登录密码校验与锁定规则，再将可信userId传入事务重发，保持challenge→credential锁顺序、限频与旧链接原子失效；API存活不证明发信配置完整（issue #6085）。
 
 - 2026-11-02：成员加入容量检查必须在同一真实事务内先取计费 epoch 共享锁、再锁组织行，然后读 canonical 商业许可并数实际 membership；新账号创建会触发赠送钱包，因此项目邀请的容量检查要放在 `INSERT credentials` 之前，避免钱包→组织的反向锁序。单邀须在组织锁之后锁定权威邀请，再条件核销 token；重发同样先邀请后 token，避免反向锁序。单邀、共享组织邀、项目邀三个实际写入入口复用 `infrastructure/org-capacity/pg-commercial-capacity.ts`；项目纯来宾不写组织 membership。真实末席跨连接反例与失败零副作用证据见 `evidence/org-capacity-6107/`（issue #6107）。
