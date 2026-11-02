@@ -5,6 +5,10 @@ P=Path(__file__).resolve().parents[1]/'scripts/devapp-active-epoch-release.py'
 def load():
  s=importlib.util.spec_from_file_location('active_release',P);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 class ActiveEpoch(unittest.TestCase):
+ def test_hashes_match_actual_repository_sql_bytes(self):
+  import hashlib
+  m=load();root=P.parents[1]
+  for name,checksum in m.MIGRATIONS.items():self.assertEqual(hashlib.sha256((root/'apps/api/migrations'/name).read_bytes()).hexdigest(),checksum,name)
  def test_live_epoch_preserved(self):
   m=load();v={'exists':True,'rows':[{'generation':m.GENERATION,'activated_at':'2026-11-02T13:00:00+00:00'}]};m.check_epoch(v,True)
  def test_dormant_wrong_missing_rejected(self):

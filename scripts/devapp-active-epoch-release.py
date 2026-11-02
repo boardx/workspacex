@@ -17,7 +17,7 @@ SOURCE='4581a58a1f002c39db28f04155a1d5436b78280f';TAG='41474708224-1'
 MIGRATIONS={
  '20261102030500_credit_grant_precision.sql':'f1874b14566c98526a4975d121a00e63c42eee614e3e537f9b83ecfd0ad8b67c',
  '20261102031000_org_commercial_capacity.sql':'e3e751abc1681a9224938a898539b8b5c7888f45efe9113a1138edf43a22d5fd',
- '20261102050000_product_configuration.sql':'19ce1d1b68e10fcb4c7958e44b27c9d662a19cbd71aa182fce06893e716102b'}
+ '20261102050000_product_configuration.sql':'19ce1d1b68e10fcb4c7958e44b27c9d662a19cbad71aa182fce06893e716102b'}
 POLICY='/etc/workspacex-image-release/devapp-active-epoch-release.json'
 def check_epoch(value,required=False):
  base.need(type(value) is dict and value.get('exists') is True,'ACTIVE_EPOCH_REQUIRED')
