@@ -1,3 +1,5 @@
+// @global-scope-fixture table:billing_pricing_epoch: isolated disposable PG only; proves active-epoch gating, never a production activation.
+// @global-scope-fixture table:credit_wallets: isolated per-test random team owner; asserts actual rollback and exact grant totals.
 import {randomUUID} from "node:crypto";
 import {afterAll,beforeAll,beforeEach,expect,it} from "vitest";
 import {asOwner,ensureDatabase,migrateOnce,resetOrgs,seedOrg} from "../support/db";
@@ -50,4 +52,11 @@ it("overflow leaves actual wallet unchanged and creates no grant receipt",async(
  await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('team',$1,2147483647)",[org]));
  await expect(grants.grant(org,"operator",{credits:1,reason:"overflow denial",idempotencyKey:"overflow-attempt-001"})).rejects.toMatchObject({code:"credit_balance_unrepresentable"});
  await asOwner(async c=>{expect(Number((await c.query("SELECT balance::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0].balance)).toBe(2147483647);expect((await c.query("SELECT count(*)::int AS n FROM enterprise_credit_grants WHERE org_id=$1",[org])).rows[0].n).toBe(0);});
+});
+it("platform detail hydrates active Enterprise from the same real wallet",async()=>{
+ const {PgPlatformOrganizationRepository}=await import("../../src/infrastructure/system/pg-platform-organization-repository");const {platformOrganizations:C}=await import("@repo/contracts");
+ await grants.grant(org,"operator",{credits:61,reason:"read model allowance",idempotencyKey:"summary-attempt-001"});
+ const repository=new PgPlatformOrganizationRepository(db,null);
+ const result=await repository.detail(org,"operator");expect(C.operations.getOrganization.out.safeParse(result).success).toBe(true);
+ expect(result.organization.billingSummary).toMatchObject({licenseStatus:"enterprise",teamPayment:null,planVersion:1,generation,wallet:{balance:61,permanentBalance:61,subscriptionCredits:0,totalGranted:61}});
 });

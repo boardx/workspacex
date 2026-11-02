@@ -1,3 +1,5 @@
+import {EnterpriseHttpException} from "../controllers/enterprise-http-exception";
+import {TeamBillingErrorCode} from "@repo/contracts/billing-team";
 import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import {CreditRequiredBody} from "@repo/contracts/billing-consumption";
 import { SubscriptionHttpException } from "../controllers/subscription-http-exception";
@@ -711,6 +713,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       res.status(status).json({
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
+        ...(exception instanceof EnterpriseHttpException && TeamBillingErrorCode.safeParse(exception.enterpriseCode).success ? { code: exception.enterpriseCode } : {}),
         ...(exception instanceof BillingHttpException && BillingErrorCode.safeParse(exception.billingCode).success ? { code: exception.billingCode } : {}),
         ...(exception instanceof SubscriptionHttpException && SubscriptionErrorCode.safeParse(exception.subscriptionCode).success ? { code: exception.subscriptionCode } : {}),
         ...(exception instanceof PersonalCheckoutHttpException && personalPricingOperations.createPersonalCheckout.err.includes(exception.checkoutCode) ? { code: exception.checkoutCode } : {}),

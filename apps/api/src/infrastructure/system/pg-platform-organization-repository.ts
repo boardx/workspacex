@@ -1,4 +1,6 @@
-import { BILLING_ACCOUNTING_GENERATION } from "../../domain/billing/billing-generation";
+import {OrganizationRow} from "@repo/contracts/platform-organizations";
+import {enterpriseSummary} from "../billing/enterprise-summary";
+import { BILLING_ACCOUNTING_GENERATION, BILLING_PRICING_EPOCH_LOCK } from "../../domain/billing/billing-generation";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import { PlatformOrganizationError, type PlatformOrganizationRepository, type OrganizationListInput, type OrganizationList,
@@ -103,6 +105,7 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
 
   async setPlan(orgId: OrgId, input: PlanInput, actorId: string): Promise<PlanState> {
     return this.db.withTenant(orgId, async s => {
+      await s.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))",[BILLING_PRICING_EPOCH_LOCK]);
       // Lock the existing org, including initially unconfigured plans: no missing-row race.
       const org = await s.query<Metadata>("SELECT id, name, kind FROM organizations WHERE id=$1 AND kind='organization' FOR UPDATE", [orgId]);
       if (!org.rows[0]) throw new PlatformOrganizationError("ORGANIZATION_NOT_FOUND");
@@ -122,11 +125,18 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
   }
 
   private async readOrganization(s: TenantSession, orgId: OrgId): Promise<OrganizationDetail["organization"] | null> {
-    const row = (await s.query<Metadata>("SELECT id, name, kind FROM organizations WHERE id=$1 AND kind='organization'", [orgId])).rows[0];
+    await s.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))",[BILLING_PRICING_EPOCH_LOCK]);
+    const row = (await s.query<Metadata>("SELECT id, name, kind FROM organizations WHERE id=$1 AND kind='organization' FOR UPDATE", [orgId])).rows[0];
     if (!row) return null;
     const count = (await s.query<{ count: string }>("SELECT COUNT(*) AS count FROM org_memberships WHERE org_id=$1", [orgId])).rows[0];
     const plan = (await s.query<PlanRow>("SELECT plan, version, updated_at, updated_by, billing_generation FROM organization_plans WHERE org_id=$1", [orgId])).rows[0];
-    return { orgId: row.id, name: row.name, kind: row.kind, memberCount: Number(count?.count ?? 0), plan: state(plan) };
+    const memberCount=Number(count?.count??0);
+    let billingSummary;
+    if(plan?.plan==="enterprise"&&plan.billing_generation===BILLING_ACCOUNTING_GENERATION){
+      try{billingSummary=await enterpriseSummary(s,orgId,plan.version,memberCount);}
+      catch{throw new PlatformOrganizationError("PLATFORM_CATALOG_UNAVAILABLE");}
+    }
+    return OrganizationRow.parse({ orgId: row.id, name: row.name, kind: row.kind, memberCount, plan: state(plan),...(billingSummary?{billingSummary}:{}) });
   }
 
   private async assertCatalogRole(s: TenantSession): Promise<void> {

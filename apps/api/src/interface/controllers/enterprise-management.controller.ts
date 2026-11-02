@@ -1,4 +1,5 @@
-import {Body,Controller,Get,HttpException,Inject,Param,Post,UseGuards} from "@nestjs/common";
+import {EnterpriseHttpException} from "./enterprise-http-exception";
+import {Body,Controller,Get,Inject,Param,Post,UseGuards} from "@nestjs/common";
 import {EnterpriseCreditGrantRequest,EnterpriseCreditGrantResult,EnterpriseUpgradeRequest,EnterpriseUpgradeOperation} from "@repo/contracts/billing-team";
 import {ENTERPRISE_MANAGEMENT,EnterpriseError,type EnterpriseManagement} from "../../application/billing/enterprise-ports";
 import {PlatformOperatorGuard} from "../guards/platform-operator.guard";
@@ -11,7 +12,7 @@ import {ZodBodyPipe} from "../pipes/zod-body.pipe";
 export class EnterpriseManagementController {
  constructor(@Inject(ENTERPRISE_MANAGEMENT)private readonly management:EnterpriseManagement){}
  private async execute<T>(fn:()=>Promise<T>){try{return await fn();}catch(error){
-  if(error instanceof EnterpriseError)throw new HttpException({code:error.code,reasonCode:error.code},error.code==="dependency_unavailable"?503:error.code==="ORGANIZATION_NOT_FOUND"||error.code==="order_not_found"?404:409);
+  if(error instanceof EnterpriseError)throw new EnterpriseHttpException(error.code,error.code==="dependency_unavailable"?503:error.code==="ORGANIZATION_NOT_FOUND"||error.code==="order_not_found"?404:409);
   throw error;
  }}
  @Post("credit-grants")
