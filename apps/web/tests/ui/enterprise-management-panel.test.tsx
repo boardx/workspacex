@@ -1,3 +1,4 @@
+import {ApiError} from "@/lib/api-client";
 import * as React from "react";
 import {afterEach,expect,it,vi} from "vitest";
 import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
@@ -18,4 +19,11 @@ it("processing keeps original operation and does not announce successful upgrade
  render(<EnterpriseManagementPanel orgId="org" version={2} enterprise={false} onApplied={applied}/>);
  fireEvent.click(screen.getByRole("button",{name:"手动升级 Enterprise"}));expect(await screen.findByText(/套餐尚未变更/)).toBeInTheDocument();expect(applied).not.toHaveBeenCalled();
  fireEvent.click(screen.getByRole("button",{name:"重试原升级"}));await waitFor(()=>expect(mocks.upgrade).toHaveBeenCalledTimes(2));expect(mocks.upgrade.mock.calls[1]).toEqual(mocks.upgrade.mock.calls[0]);
+});
+
+it("definitive overflow leaves amount editable instead of trapping an impossible retry",async()=>{
+ mocks.grant.mockRejectedValue(new ApiError(409,null,{error:"conflict",code:"credit_balance_unrepresentable",traceId:"trace"}));
+ render(<EnterpriseManagementPanel orgId="org" version={2} enterprise onApplied={()=>{}}/>);
+ fireEvent.change(screen.getByLabelText("添加额度"),{target:{value:"42"}});fireEvent.change(screen.getByLabelText("添加原因"),{target:{value:"approved"}});fireEvent.click(screen.getByRole("button",{name:"添加额度"}));
+ expect(await screen.findByText(/额度余额或累计发放已达上限/)).toBeInTheDocument();expect(screen.getByLabelText("添加额度")).not.toBeDisabled();
 });
