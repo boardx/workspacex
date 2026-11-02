@@ -148,3 +148,40 @@ it("a logged-in project invite cannot add an existing account beyond commercial 
  const invite=await asApp(ORG,c=>c.query("SELECT status FROM project_invitations WHERE token_hash=$1",[tokenHash]));
  expect(invite.rows[0].status).toBe("pending");
 });
+
+it.each(["link-reset", "email-expiry"] as const)("project %s and acceptance obey organization-before-invitation locking",async mode=>{
+ const projectId=`lock-project-${mode}-${RUN}`,oldId=`lock-old-${mode}-${RUN}`,oldToken=`lock-token-${mode}-${RUN}`;
+ const now=new Date(),expiresAt=new Date(now.getTime()+(mode==="email-expiry"?-1000:3600000));
+ await asApp(ORG,async c=>{await c.query("INSERT INTO projects(id,org_id,name,kind) VALUES($1,$2,'Lock ordering','general')",[projectId,ORG]);await c.query("INSERT INTO general_projects(id,org_id) VALUES($1,$2)",[projectId,ORG]);});
+ const project=new PgProjectInvitationRepository(db);
+ expect((await project.issueLink({orgId:toOrgId(ORG),projectId,invitedBy:admin,now,dailyCap:100,invitationId:oldId,tokenHash:oldToken,expiresAt})).ok).toBe(true);
+ let issuerLocked!:()=>void,releaseIssuer!:()=>void,acceptPid!:()=>void;
+ const locked=new Promise<void>(r=>{issuerLocked=r;}),release=new Promise<void>(r=>{releaseIssuer=r;}),pidReady=new Promise<void>(r=>{acceptPid=r;});
+ let issuerBackend=0,acceptBackend=0;
+ type Database=import("../../src/application/ports/database.port").DatabasePort;
+ const issuerDb:Database={withTenant:(org,fn)=>db.withTenant(org,async s=>{issuerBackend=Number((await s.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0]!.pid);return fn({query:async<R>(sql:string,params?:readonly unknown[])=>{const result=await s.query<R>(sql,params);if(sql.includes(mode==="link-reset"?"UPDATE project_invitations SET status = 'revoked'":"UPDATE project_invitations SET status = 'expired'")){issuerLocked();await release;}return result;}});}),withoutTenant:fn=>db.withoutTenant(fn),close:async()=>{}};
+ const acceptDb:Database={withTenant:(org,fn)=>db.withTenant(org,fn),withoutTenant:fn=>db.withoutTenant(async s=>{acceptBackend=Number((await s.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0]!.pid);acceptPid();return fn(s);}),close:async()=>{}};
+ const issuer=new PgProjectInvitationRepository(issuerDb),common={orgId:toOrgId(ORG),projectId,invitedBy:admin,now,dailyCap:100};
+ const issuing=mode==="link-reset"?issuer.issueLink({...common,invitationId:`lock-new-${mode}-${RUN}`,tokenHash:`lock-new-token-${mode}-${RUN}`,expiresAt:new Date(now.getTime()+3600000)}):issuer.prepareEmailInvitations({...common,items:[{email:`lock-email-${RUN}@example.test`,invitationId:`lock-new-${mode}-${RUN}`,tokenHash:`lock-new-token-${mode}-${RUN}`,expiresAt:new Date(now.getTime()+3600000)}]});
+ // Attach rejection handling immediately: a real baseline deadlock is an assertion result.
+ const issuingResult=issuing.then(value=>({ok:true as const,value}),error=>({ok:false as const,error}));
+ await locked;
+ const accepting=new PgProjectInvitationRepository(acceptDb).acceptLoggedIn({tokenHash:oldToken,now,userId:admin});
+ const acceptingResult=accepting.then(value=>({ok:true as const,value}),error=>({ok:false as const,error}));
+ try{
+  await pidReady;
+  let blocked=false;
+  for(let n=0;n<200;n++){
+   const observed=await asOwner(c=>c.query<{blocked:boolean}>("SELECT $2::int=ANY(pg_blocking_pids($1::int)) AS blocked",[acceptBackend,issuerBackend]));
+   if(observed.rows[0]?.blocked){blocked=true;break;}
+   await new Promise<void>(r=>setTimeout(r,20));
+  }
+  expect(blocked).toBe(true);
+ }finally{releaseIssuer();}
+ const [issued,accepted]=await Promise.all([issuingResult,acceptingResult]);
+ expect(issued).toMatchObject({ok:true,value:{ok:true}});
+ expect(accepted).toEqual({ok:true,value:{ok:false,reason:"invalid"}});
+ const rows=await asApp(ORG,c=>c.query<{id:string;status:string}>("SELECT id,status FROM project_invitations WHERE project_id=$1 ORDER BY id",[projectId]));
+ expect(rows.rows.find(row=>row.id===oldId)?.status).toBe(mode==="link-reset"?"revoked":"expired");
+ expect(rows.rows.filter(row=>row.status==="pending")).toHaveLength(1);
+},30000);
