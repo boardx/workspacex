@@ -1,3 +1,4 @@
+import { TEAM_INCLUDED_SEATS } from "@repo/contracts/billing-team";
 /** Opaque current billing epoch; supplied by the canonical billing authority. */
 export interface CommercialCapacityFacts {
   readonly generation: string;
@@ -23,7 +24,7 @@ export function resolveCommercialCapacity(
   if (plan?.plan === "enterprise" && plan.billingGeneration === currentGeneration) return { kind: "unlimited" };
   if (license === null) return { kind: plan?.billingGeneration != null ? "invalid" : "legacy" };
   if ((license.pendingSeats === null) !== (license.pendingPurchaseRef === null)) return { kind: "invalid" };
-  const parse = (value: string | null): bigint | null => value !== null && /^\d+$/.test(value) && BigInt(value) >= 5n ? BigInt(value) : null;
+  const parse = (value: string | null): bigint | null => value !== null && /^\d+$/.test(value) && BigInt(value) >= BigInt(TEAM_INCLUDED_SEATS) ? BigInt(value) : null;
   const purchased = parse(license.purchasedSeats), pending = parse(license.pendingSeats);
   if ((license.purchasedSeats !== null && purchased === null) || (license.pendingSeats !== null && pending === null)
     || (purchased === null && pending === null) || license.pendingPurchaseRef === "") return { kind: "invalid" };
