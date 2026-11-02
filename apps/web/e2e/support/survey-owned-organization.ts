@@ -9,7 +9,7 @@ export function surveyAccountFixture() {
   const id = randomUUID(), password = `Survey-R1-${randomUUID()}!`;
   function run(command: "seed" | "cleanup") {
     const stdout = execFileSync("pnpm", ["--filter", "@repo/api", "exec", "tsx", "scripts/survey-r1-fixture.ts", command], {
-      cwd: resolve(__dirname, "../../../.."), encoding: "utf8", env: process.env,
+      cwd: resolve(__dirname, "../../../.."), encoding: "utf8", env: process.env, timeout: 60_000,
       input: JSON.stringify({ id, ...(command === "seed" ? { password } : {}) }),
       stdio: ["pipe", "pipe", "pipe"],
     });

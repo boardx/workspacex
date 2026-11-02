@@ -285,7 +285,7 @@ test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({pa
  await page.screenshot({path:testInfo.outputPath('r1-created-ai-entry.png'),fullPage:true});
  await switchSurveyOrganization(page,identityUrl,authenticated.org.id);
  expect(await api(`/surveys/${foreign.id}`)).toEqual(foreignBefore);
- } finally { await page.close();fixture.cleanup(); }
+ } finally { try { await page.close(); } finally { fixture.cleanup(); } }
 });
 
 test('R1 问卷体验：读取失败后直接重选同一文件保留原文',async({page},testInfo)=>{
