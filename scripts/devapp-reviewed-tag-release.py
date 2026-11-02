@@ -10,6 +10,8 @@ or overwrites the old 439-entry admission artifact.
 import hashlib
 import json
 from pathlib import Path
+BASELINE_LEDGER_COUNT=439
+CAPABILITY_KIND='devapp-exact-eight-release-v1'
 SOURCE='b3e9977de08b056a564058ca0419d85d421fdd4a';TAG='41388409479-1'
 MIGRATIONS={
 '20261101220000_personal_credit_packages.sql':'20ddf64f76f72d2b5f3d63f1384b98949ff54b35f63ce5063c8c1db140ad3497',
@@ -24,7 +26,7 @@ def need(v,code):
  if not v:raise ValueError(code)
 def ledger_state(baseline,current):
  import re
- need(type(baseline) is dict and len(baseline)==439 and not set(baseline)&set(MIGRATIONS) and all(type(k) is str and type(v) is str and re.fullmatch('[a-f0-9]{64}',v) for k,v in baseline.items()),'HISTORICAL_LEDGER_REQUIRED')
+ need(type(baseline) is dict and len(baseline)==BASELINE_LEDGER_COUNT and not set(baseline)&set(MIGRATIONS) and all(type(k) is str and type(v) is str and re.fullmatch('[a-f0-9]{64}',v) for k,v in baseline.items()),'HISTORICAL_LEDGER_REQUIRED')
  need(type(current) is dict and all(current.get(k)==v for k,v in baseline.items()) and set(current)<=set(baseline)|set(MIGRATIONS) and all(current[k]==MIGRATIONS[k] for k in set(current)&set(MIGRATIONS)),'LEDGER_DRIFT')
  names=set(current)&set(MIGRATIONS)
  return 'COMPLETE' if names==set(MIGRATIONS) else 'PARTIAL' if names else 'BASELINE'
@@ -76,7 +78,7 @@ def load(name,pins):
 def bind(request_path,receipt_path,mode):
  need(os.geteuid()==0,'ROOT_REQUIRED');policy=read(POLICY)
  need('expectedSchemaState' not in policy or 'resumeOriginal' in policy and type(policy['expectedSchemaState']) is str and policy['expectedSchemaState']=='COMPLETE','RESUME_CAPABILITY_REQUIRED')
- need(policy.get('kind')=='devapp-exact-eight-release-v1' and policy.get('source')==SOURCE and policy.get('tag')==TAG and policy.get('restoreNotPerformed') is True,'FIXED_CAPABILITY')
+ need(policy.get('kind')==CAPABILITY_KIND and policy.get('source')==SOURCE and policy.get('tag')==TAG and policy.get('restoreNotPerformed') is True,'FIXED_CAPABILITY')
  need(type(policy.get('expiresAt')) is int and time.time()<policy['expiresAt']<=time.time()+3600,'POLICY_EXPIRED')
  pins=policy.get('closurePins');need(type(pins) is dict and set(pins)==set(CLOSURE)|({'devapp-diagnostic-browser-probe.py'} if policy.get('diagnosticBrowser') is True else set()),'EXACT_CLOSURE')
  for name,checksum in pins.items():need(file_sha(trusted(HERE/name))==checksum,'CLOSURE_DRIFT')
@@ -167,8 +169,10 @@ def remaining(ctx,limit):
  if deadline is None:return limit
  value=deadline-time.monotonic();need(value>0,'OPERATION_DEADLINE');return min(limit,value)
 
+def owned_business(ctx):return 'resumeOriginal' in ctx.get('p',{}) or ctx.get('p',{}).get('activeEpochThree') is True
+
 def run(ctx,args,timeout=120,phase=None):
- if phase and 'resumeOriginal' in ctx.get('p',{}):return run_resume_business(ctx,args,timeout,phase)
+ if phase and owned_business(ctx):return run_resume_business(ctx,args,timeout,phase)
  child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,pass_fds=(ctx['fd'],),env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8','WSX_RELEASE_LOCK_FD':str(ctx['fd'])})
  outcome={'phase':phase,'createdAt':time.time()};out=None
  try:
@@ -186,7 +190,7 @@ def run(ctx,args,timeout=120,phase=None):
 
 def business(ctx,phase):
  core=ctx['mods']['schema-restore-rehearsal'];core.save(ctx['attempt']/(phase+'-once.json'),{'source':SOURCE,'tag':TAG,'automaticRetryAllowed':False})
- command=ctx['cfg']['verificationCommand'];raw=run(ctx,command,ctx['p'].get('businessSeconds',ctx['p']['runtimeSeconds']),phase=phase);path=ctx['attempt']/(phase+'-business.json');core.save(path,{'source':SOURCE,'tag':TAG,'createdAt':time.time(),'command':command,'exitCode':0,'stdoutHex':raw.hex(),'scope':'actual-configured-business-probe',**({'outcome':ref(ctx['attempt']/(phase+'-outcome.json'))} if 'resumeOriginal' in ctx['p'] else {})});return ref(path)
+ command=ctx['cfg']['verificationCommand'];raw=run(ctx,command,ctx['p'].get('businessSeconds',ctx['p']['runtimeSeconds']),phase=phase);path=ctx['attempt']/(phase+'-business.json');core.save(path,{'source':SOURCE,'tag':TAG,'createdAt':time.time(),'command':command,'exitCode':0,'stdoutHex':raw.hex(),'scope':'actual-configured-business-probe',**({'outcome':ref(ctx['attempt']/(phase+'-outcome.json'))} if owned_business(ctx) else {})});return ref(path)
 def health(ctx,command,images,held=False):
  engine=ctx['mods']['minimal-docker-release'];original=engine.health
  def loopback(config,timeout):
@@ -223,7 +227,7 @@ def writer(ctx):
   mutated=True;d.run(command+['up','--detach','--no-deps','--pull','never','--no-build',*cfg['services']],timeout=p['runtimeSeconds']);candidate_health=health(ctx,command,images)
   public_business=business(ctx,'candidate');health(ctx,command,images);after=database.read();need(after['state']=='COMPLETE','FINAL_LEDGER_DRIFT');check_epoch(after['epoch'])
   if resume:need(validate_resume(ctx)==resume,'RESUME_ORIGINAL_HISTORY_DRIFT')
-  contents={'backup-restore':{'archive':ref(archive),'key':ref(key),'source':ref(backup/'source.json'),'restoreNotPerformed':True},'baseline-compatibility':{'oldImages':old,'actualForwardSchemaHealth':True,'business':baseline_business,'resetPerformed':False},'migration-ledger':{**transaction,'baselineLedger':p['baselineLedger'],'completeLedger':after['ledger'],'epoch':after['epoch'],'force':False,'resetPerformed':False},'candidate-acceptance':{'images':images,'health':candidate_health,'business':public_business,'epochActivated':False}}
+  contents={'backup-restore':{'archive':ref(archive),'key':ref(key),'source':ref(backup/'source.json'),'restoreNotPerformed':True},'baseline-compatibility':{'oldImages':old,'actualForwardSchemaHealth':True,'business':baseline_business,'resetPerformed':False},'migration-ledger':{**transaction,'baselineLedger':p['baselineLedger'],'completeLedger':after['ledger'],'epoch':after['epoch'],'force':False,'resetPerformed':False,**ctx.get('additionalMigrationProof',{})},'candidate-acceptance':{'images':images,'health':candidate_health,'business':public_business,'epochActivated':False}}
   proofs={}
   for name,v in contents.items():path=attempt/(name+'.json');core.save(path,{**v,'sourceRevision':SOURCE,'tag':TAG,'createdAt':time.time()});proofs[name]=ref(path)
   result={k:ctx['request'][k] for k in ctx['mods']['schema-release-handoff'].IDENTITY};result.update(kind='schema-release-result-v1',status='SUCCEEDED',proofs=proofs,restoreNotPerformed=True,postSuccessAdmissionAdoptionRequired=True,historicalAdmission=p['historicalAdmission'],activationOnly=bool(resume),originalResumeEvidence=resume);core.save(ctx['receipt'],result)
@@ -236,7 +240,7 @@ def writer(ctx):
    for r in (*cfg['composeFiles'],cfg['envFile']):pinned(r,False)
    need(d.json(old_command+['config','--format','json'])==original,'ROLLBACK_CONFIG_DRIFT');d.run(old_command+['up','--detach','--no-deps','--pull','never','--no-build',*cfg['services']],timeout=p['runtimeSeconds']);health(ctx,old_command,old)
    # Release traffic only after actual old configured business probe succeeds.
-   if resume and not resume_business_cleanup(ctx):failure.update(recovery='OPERATOR_REQUIRED',businessRecoverySkipped=True,oldImagesRestored=True,readonlyHealthVerified=True)
+   if owned_business(ctx) and not resume_business_cleanup(ctx):failure.update(recovery='OPERATOR_REQUIRED',businessRecoverySkipped=True,oldImagesRestored=True,readonlyHealthVerified=True)
    else:business(ctx,'recovery');failure.update(status='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA',schemaState=observed['state'])
   except BaseException:failure['recovery']='OPERATOR_REQUIRED'
   if failure['status']=='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA':failure['trafficControl']='verified-old-application-running'
@@ -252,7 +256,7 @@ def verify_business_proof(ctx,value,phase,now=None):
  now=time.time() if now is None else now
  path=pinned(value);need(path.parent==ctx['attempt'] and path.name==phase+'-business.json','BUSINESS_ATTEMPT')
  v=read(path);need(v.get('command')==ctx['cfg']['verificationCommand'] and type(v.get('exitCode')) is int and v['exitCode']==0 and v.get('source')==SOURCE and v.get('tag')==TAG and type(v.get('createdAt')) in (int,float) and 0<=now-v['createdAt']<600,'VERIFIER_BUSINESS')
- if 'resumeOriginal' in ctx['p']:
+ if owned_business(ctx):
   need(type(v.get('outcome')) is dict,'BUSINESS_OUTCOME_REQUIRED');outcome=pinned(v['outcome']);need(outcome.parent==ctx['attempt'] and outcome.name==phase+'-outcome.json','BUSINESS_OUTCOME_ATTEMPT');proof=read(outcome)
   need(proof.get('phase')==phase and proof.get('source')==SOURCE and proof.get('tag')==TAG and proof.get('command')==ctx['cfg']['verificationCommand'] and proof.get('status')=='SUCCEEDED' and type(proof.get('exitCode')) is int and proof['exitCode']==0 and proof.get('processGroupOwned') is True and proof.get('ownedProcessGroupGone') is True and type(proof.get('createdAt')) in (int,float) and 0<=now-proof['createdAt']<600,'BUSINESS_OUTCOME_NOT_TERMINAL')
 
