@@ -62,6 +62,8 @@ beforeAll(() => {
   unlinkSync(join(legacyDir, "20260821180000_i1705_agent_role_label.sql"));
   // 依赖 i1705 所加列的后续迁移一并摘掉（同 i619-migration-upgrade-path 的说明）。
   unlinkSync(join(legacyDir, "20260930123000_dh_official_names_zh.sql"));
+  // This view reads role_label; it belongs to the full upgrade in step ③.
+  unlinkSync(join(legacyDir, "20261103120000_entity_localizations.sql"));
 }, 120_000);
 
 afterAll(() => {
@@ -102,6 +104,8 @@ it("已经有 agent 数据的库能升级：i1705 回填既有行而不是被既
   // ③ 真实升级路径。若回填逻辑有误，这一步会抛 NOT NULL 违规或 CHECK 违规。
   const result = await migrate(cfg());
   expect(result.applied).toContain("20260821180000_i1705_agent_role_label.sql");
+  expect(result.applied).toContain("20261103120000_entity_localizations.sql");
+  expect(psql(DB, "SELECT to_regclass('entity_localization_sources') IS NOT NULL").trim()).toBe("t");
 
   // 回填要给出**非空**值，不是把约束放宽——`agents.role_label` 取自 `role` 前 8 字。
   const agentsRoleLabel = psql(DB, "SELECT role_label FROM agents WHERE id='agent-legacy'").trim();
