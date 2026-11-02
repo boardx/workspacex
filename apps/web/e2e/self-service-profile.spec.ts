@@ -71,11 +71,27 @@ test.describe.serial("用户个人资料自助服务", () => {
 
     const newDisplayName = "SSP E2E Admin 改名后";
     await page.getByTestId("profile-display-name-input").fill(newDisplayName);
-    await page.getByTestId("profile-save").click();
+    // Locale is presentation state: preserve a pending edit, then save through the real API.
+    await page.getByTestId("language-switcher").first().selectOption("en");
+    await expect(page.getByRole("heading", { name: "Profile", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(newDisplayName);
+    await expect(page.getByRole("button", { name: "Change avatar" })).toBeVisible();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByTestId("profile-display-name-input")).toHaveValue(newDisplayName);
 
     await page.reload();
     await expect(page.getByTestId("profile-display-name-input")).toHaveValue(newDisplayName);
+
+    await expect(page.getByRole("heading", { name: "Profile", exact: true })).toBeVisible();
+    for (const width of [375, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(newDisplayName);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: test.info().outputPath(`profile-en-${width}.png`) });
+    }
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(page.getByRole("heading", { name: "个人资料", exact: true })).toBeVisible();
 
     /* ── 1b. 活动记录非空：改名写的 provenance 事件真的能读回来（迭代 4） ───── */
     await expect(page.getByTestId("profile-activity-section")).toBeVisible();

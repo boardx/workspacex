@@ -1,8 +1,9 @@
 "use client";
 import * as React from "react";
 import { AlertTriangle, Inbox, Loader2, Lock, PlugZap, Check } from "lucide-react";
+import { useI18n } from "@/lib/i18n/provider";
 import { cn } from "@/lib/utils";
-import { UI_STATES, UI_STATE_LABEL, RESERVED_STATE_TESTID, type UiState } from "@/lib/ui-state";
+import { UI_STATES, RESERVED_STATE_TESTID, type UiState } from "@/lib/ui-state";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -39,16 +40,17 @@ interface StateShellProps {
 }
 
 export function StateShell({
-  state, children, emptyHint = "还没有内容", onCreate, errors, depFailure,
-  denial, successMessage = "已保存", className, skeletonRows = 3,
+  state, children, emptyHint, onCreate, errors, depFailure,
+  denial, successMessage, className, skeletonRows = 3,
 }: StateShellProps) {
+  const { t } = useI18n();
   if (state === "loading") {
     return (
       <div data-testid={RESERVED_STATE_TESTID["loading"]} className={cn("flex animate-pulse flex-col gap-3 p-4", className)}>
         {Array.from({ length: skeletonRows }).map((_, i) => (
           <div key={i} className="h-14 rounded-lg bg-muted" />
         ))}
-        <span className="sr-only">加载中</span>
+        <span className="sr-only">{t("state.loading")}</span>
       </div>
     );
   }
@@ -63,10 +65,10 @@ export function StateShell({
         )}
       >
         <Inbox aria-hidden className="h-6 w-6 text-muted-foreground" />
-        <p className="text-13 text-muted-foreground">{emptyHint}</p>
+        <p className="text-13 text-muted-foreground">{emptyHint ?? t("state.empty")}</p>
         {onCreate && (
           <Button size="sm" variant="primary" onClick={onCreate} data-testid="empty-create-action">
-            新建
+            {t("state.create")}
           </Button>
         )}
       </div>
@@ -74,7 +76,7 @@ export function StateShell({
   }
 
   if (state === "invalid") {
-    const entries = Object.entries(errors ?? { form: "请检查输入内容" });
+    const entries = Object.entries(errors ?? { form: t("state.checkInput") });
     return (
       <div className={cn("flex flex-col gap-3", className)}>
         {children}
@@ -101,14 +103,14 @@ export function StateShell({
       >
         <PlugZap aria-hidden className="h-6 w-6 text-warning" />
         <div className="flex flex-col gap-1">
-          <p className="text-13 font-medium">依赖不可用</p>
+          <p className="text-13 font-medium">{t("state.unavailable")}</p>
           <p className="text-12 text-muted-foreground">
-            {depFailure?.what ?? "上游服务暂时不可用"}
+            {depFailure?.what ?? t("state.upstreamUnavailable")}
           </p>
         </div>
         {depFailure?.retry && (
           <Button size="sm" variant="outline" onClick={depFailure.retry} data-testid="dep-failed-retry">
-            重试
+            {t("state.retry")}
           </Button>
         )}
       </div>
@@ -129,11 +131,11 @@ export function StateShell({
       >
         <Lock aria-hidden className="h-6 w-6 text-muted-foreground" />
         <div className="flex flex-col gap-1">
-          <p className="text-13 font-medium">你没有查看这块内容的权限</p>
+          <p className="text-13 font-medium">{t("state.denied")}</p>
           <p className="text-12 text-muted-foreground" data-testid="denied-layer">
             {denial?.layer === "organization"
-              ? `组织层限制：${denial.reason}`
-              : `项目层限制：${denial?.reason ?? "你在本项目中没有对应的角色"}`}
+              ? t("state.organizationRestriction", { reason: denial.reason })
+              : t("state.projectRestriction", { reason: denial?.reason ?? t("state.noProjectRole") })}
           </p>
         </div>
       </div>
@@ -149,7 +151,7 @@ export function StateShell({
           className="inline-flex items-center gap-1 text-12 text-success transition-opacity duration-300"
         >
           <Check aria-hidden className="h-3.5 w-3.5" />
-          {successMessage}
+          {successMessage ?? t("state.saved")}
         </p>
       </div>
     );
@@ -160,13 +162,14 @@ export function StateShell({
 
 /** 开发/预览环境的状态切换器。⚠ 生产构建不渲染（UC-0.4 R9 / R12 V8） */
 export function StatePreviewSwitcher({ current }: { current: UiState }) {
+  const { t } = useI18n();
   if (process.env.NODE_ENV === "production") return null;
   return (
     <div
       data-testid="state-preview-switcher"
       className="flex flex-wrap items-center gap-1 rounded-md border border-border-subtle bg-panel p-1"
     >
-      <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">预览状态</span>
+      <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">{t("state.preview")}</span>
       {UI_STATES.map((s) => (
         <Button
           key={s}
@@ -175,7 +178,7 @@ export function StatePreviewSwitcher({ current }: { current: UiState }) {
           variant={s === current ? "primary" : "ghost"}
           data-testid={`state-switch-${s}`}
         >
-          <a href={`?state=${s}`}>{UI_STATE_LABEL[s]}</a>
+          <a href={`?state=${s}`}>{t(`state.preview.${s}`)}</a>
         </Button>
       ))}
     </div>

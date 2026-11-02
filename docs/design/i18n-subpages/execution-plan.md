@@ -34,9 +34,8 @@ flowchart TD
   class G doing
   class S1 done
   class S2 done
-  class S3 blocked
-  %% blocked S3: depends on foundation issue #6134 merge into develop; module resources prepared
-  class S4 todo
+  class S3 done
+  class S4 doing
   class S5 todo
 ```
 
