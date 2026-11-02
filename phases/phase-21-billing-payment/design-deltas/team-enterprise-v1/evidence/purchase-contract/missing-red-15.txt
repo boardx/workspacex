@@ -1,0 +1,133 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-purchase-design.test.ts (15 tests | 15 failed) 7ms
+   × keeps real pending payment details and permits paid recovery without the old page 4ms
+     → Cannot read properties of undefined (reading 'parse')
+   × requires both original payment facts for PENDING 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × requires both original payment facts for PROCESSING 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an unproven or contradictory paid result {"paidAt":null} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an unproven or contradictory paid result {"fulfillment":null} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an unproven or contradictory paid result {"status":"PENDING"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an unproven or contradictory paid result {"fulfillment":{"receiptRef":"receipt-a","auditRef":"audit-a","ledgerRef":null,"appliedAt":"2026-11-16T10:01:30Z","paidTerm":{"purchaseAnchor":"2026-11-16T10:01:00Z","paidPeriodStart":"2026-11-16T10:01:00Z","paidPeriodEnd":"2027-11-16T10:01:00Z","billingCycle":"year","purchasedSeats":5,"monthlyCredits":100000},"firstCreditsApplied":100000,"firstCreditPeriod":{"periodStart":"2026-11-16T10:01:00Z","periodEnd":"2026-12-16T10:01:00Z"}}} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an unproven or contradictory paid result {"fulfillment":{"receiptRef":"receipt-a","auditRef":"audit-a","ledgerRef":"ledger-a","appliedAt":"2026-11-16T10:01:30Z","paidTerm":null,"firstCreditsApplied":100000,"firstCreditPeriod":{"periodStart":"2026-11-16T10:01:00Z","periodEnd":"2026-12-16T10:01:00Z"}}} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an unproven or contradictory paid result {"ownerId":"org-b"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an unproven or contradictory paid result {"success":true} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × keeps confirmed cash under manual review distinct from applied entitlement 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × does not turn an annual receipt into an annual upfront quota or mint an expired first window 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × does not attach license capacity or a credit window to a permanent purchase 0ms
+     → Cannot read properties of undefined (reading 'parse')
+   × applies only the co-term positive increment and allows actual first credits to differ from the estimate 0ms
+     → Cannot read properties of undefined (reading 'parse')
+   × does not report future cash or application as an existing result 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 15 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > keeps real pending payment details and permits paid recovery without the old page
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-purchase-design.test.ts:10:29
+      8| const paid={...pending,status:"SUCCESS",paymentPage:null,paidAt:term.p…
+      9| it("keeps real pending payment details and permits paid recovery witho…
+     10|  expect(TeamPurchaseOutcome.parse(pending)).toEqual(pending);expect(Te…
+       |                             ^
+     11| });
+     12| it.each(["PENDING","PROCESSING"])("requires both original payment fact…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/15]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > requires both original payment facts for PENDING
+ FAIL  tests/billing-team-purchase-design.test.ts > requires both original payment facts for PROCESSING
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-purchase-design.test.ts:13:29
+     11| });
+     12| it.each(["PENDING","PROCESSING"])("requires both original payment fact…
+     13|  expect(TeamPurchaseOutcome.safeParse({...pending,status,paymentPage:n…
+       |                             ^
+     14|  expect(TeamPurchaseOutcome.safeParse({...pending,status,paymentPage:{…
+     15| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/15]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects an unproven or contradictory paid result {"paidAt":null}
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects an unproven or contradictory paid result {"fulfillment":null}
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects an unproven or contradictory paid result {"status":"PENDING"}
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects an unproven or contradictory paid result {"fulfillment":{"receiptRef":"receipt-a","auditRef":"audit-a","ledgerRef":null,"appliedAt":"2026-11-16T10:01:30Z","paidTerm":{"purchaseAnchor":"2026-11-16T10:01:00Z","paidPeriodStart":"2026-11-16T10:01:00Z","paidPeriodEnd":"2027-11-16T10:01:00Z","billingCycle":"year","purchasedSeats":5,"monthlyCredits":100000},"firstCreditsApplied":100000,"firstCreditPeriod":{"periodStart":"2026-11-16T10:01:00Z","periodEnd":"2026-12-16T10:01:00Z"}}}
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects an unproven or contradictory paid result {"fulfillment":{"receiptRef":"receipt-a","auditRef":"audit-a","ledgerRef":"ledger-a","appliedAt":"2026-11-16T10:01:30Z","paidTerm":null,"firstCreditsApplied":100000,"firstCreditPeriod":{"periodStart":"2026-11-16T10:01:00Z","periodEnd":"2026-12-16T10:01:00Z"}}}
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects an unproven or contradictory paid result {"ownerId":"org-b"}
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects an unproven or contradictory paid result {"success":true}
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-purchase-design.test.ts:17:29
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/15]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > keeps confirmed cash under manual review distinct from applied entitlement
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-purchase-design.test.ts:20:29
+     18| });
+     19| it("keeps confirmed cash under manual review distinct from applied ent…
+     20|  expect(TeamPurchaseOutcome.safeParse({...paid,status:"FAILED",fulfill…
+       |                             ^
+     21|  expect(TeamPurchaseOutcome.safeParse({...paid,status:"FAILED"}).succe…
+     22|  expect(TeamPurchaseOutcome.safeParse({...pending,status:"CLOSED",paym…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/15]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > does not turn an annual receipt into an annual upfront quota or mint an expired first window
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-purchase-design.test.ts:26:29
+     24| });
+     25| it("does not turn an annual receipt into an annual upfront quota or mi…
+     26|  expect(TeamPurchaseOutcome.safeParse({...paid,fulfillment:{...receipt…
+       |                             ^
+     27|  const late={...paid,asOf:"2026-12-17T10:00:00Z",fulfillment:{...recei…
+     28|  expect(TeamPurchaseOutcome.safeParse(late).success).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/15]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > does not attach license capacity or a credit window to a permanent purchase
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-purchase-design.test.ts:33:29
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/15]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > applies only the co-term positive increment and allows actual first credits to differ from the estimate
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-purchase-design.test.ts:39:29
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/15]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > does not report future cash or application as an existing result
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-purchase-design.test.ts:43:29
+     41| });
+     42| it("does not report future cash or application as an existing result",…
+     43|  expect(TeamPurchaseOutcome.safeParse({...paid,paidAt:"2026-11-17T10:0…
+       |                             ^
+     44|  expect(TeamPurchaseOutcome.safeParse({...paid,fulfillment:{...receipt…
+     45| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/15]⎯
+
+ Test Files  1 failed (1)
+      Tests  15 failed (15)
+   Start at  08:59:47
+   Duration  447ms (transform 127ms, setup 0ms, collect 145ms, tests 7ms, environment 0ms, prepare 71ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-purchase-design.test.ts

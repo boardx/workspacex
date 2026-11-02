@@ -1,4 +1,4 @@
-import {TeamSubscriptionHistory,TeamCatalog,TeamEntitlement,TeamQuote,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS} from "@repo/contracts/billing-team";
+import {TeamPurchaseOutcome,TeamSubscriptionHistory,TeamCatalog,TeamEntitlement,TeamQuote,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS} from "@repo/contracts/billing-team";
 /** UI-only fixtures for #6086. Not an API contract or a production price catalog. */
 export type PricingRegion = "cn" | "us" | "devapp";
 export type PricingCycle = "month" | "year";
@@ -95,5 +95,17 @@ export function previewTeamSubscriptionHistory(region:PricingRegion,cycle:Pricin
   items:[{purchaseRef:ref,receiptRef:`receipt-${ref}`,purpose:term.purchaseAnchor===term.paidPeriodStart?"initial":"renewal",
    sku:product.sku,provider:facts.teamPayment.provider,currency:product.currency,amountMinor:product.amountMinor,
    paidAt:term.paidPeriodStart,paidTerm:term,additionalSeats:null}],nextCursor:null,
+ });
+}
+
+/** Simulated owned result only. The live cashier must GET the owned server result first. */
+export function previewTeamSeatPurchase(quote:Extract<TeamQuote,{purpose:"add_seats"}>){
+ const appliedAt=new Date(Date.parse(quote.createdAt)+1000).toISOString();
+ return TeamPurchaseOutcome.parse({purchaseRef:`purchase-${quote.quoteRef}`,quote,status:"SUCCESS",
+  createdAt:quote.createdAt,asOf:new Date(Date.parse(appliedAt)+1000).toISOString(),paymentPage:null,paidAt:quote.createdAt,
+  fulfillment:{receiptRef:`receipt-${quote.quoteRef}`,auditRef:`audit-${quote.quoteRef}`,
+   ledgerRef:quote.estimatedFirstCredits>0?`ledger-${quote.quoteRef}`:null,appliedAt,
+   paidTerm:{...quote.term,purchasedSeats:quote.term.purchasedSeats+quote.additionalSeats,monthlyCredits:quote.monthlyCreditsAfter},
+   firstCreditsApplied:quote.estimatedFirstCredits,firstCreditPeriod:{periodStart:quote.creditPeriodStart,periodEnd:quote.creditPeriodEnd}},
  });
 }

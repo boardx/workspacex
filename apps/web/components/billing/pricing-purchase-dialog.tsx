@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { PACK_CREDITS, numberLabel, previewMoney, previewPrices, previewSeatQuote, previewTeamSubscription, type PricingCycle, type PricingRegion } from "./pricing-preview-data";
+import { PACK_CREDITS, numberLabel, previewMoney, previewPrices, previewSeatQuote, previewTeamSeatPurchase, previewTeamSubscription, type PricingCycle, type PricingRegion } from "./pricing-preview-data";
 
 export type PurchaseKind = "plans" | "credits" | "seats";
 export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCycleChange, onClose, onPurchased }: {
@@ -62,7 +62,7 @@ export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCyc
           <p data-testid="pricing-renewal-note" className="text-12 text-muted-foreground">{kind === "credits" ? "一次性购买，不自动续费。" : provider === "wechat" ? "一次性购买，到期后手动续费。" : "自动续费，可在订阅管理中取消下一期续费。"}{kind !== "credits" && " 每月按购买日发放，当期未用额度到期清零。"}</p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3"><span className="text-13 text-muted-foreground">{kind === "seats" ? "本次补差价" : "本次支付"}<strong data-testid="pricing-total" className="ml-3 text-24 font-semibold text-background-foreground tabular-nums">{previewMoney(region, amount)}</strong></span>
-          <Button data-testid="pricing-pay-preview" variant="primary" onClick={() => { setConfirmed(true); onPurchased("购买成功演示已完成，尚未产生真实扣款或额度。"); }}>模拟确认支付</Button></div>
+          <Button data-testid="pricing-pay-preview" variant="primary" onClick={() => { if(seatQuote)previewTeamSeatPurchase(seatQuote); setConfirmed(true); onPurchased("购买成功演示已完成，尚未产生真实扣款或额度。"); }}>模拟确认支付</Button></div>
         {kind === "plans" && <p className="text-12 text-muted-foreground">Free 为新用户提供一次性 1,000 credit，到账后 30 天到期。Community 免费开源自部署，自备服务器与模型。</p>}
       </div>}
     </DialogContent>

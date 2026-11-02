@@ -71,6 +71,9 @@ test("Team separates seats used and purchased, prorates and explains expiry", as
   await expect(page.getByTestId("pricing-total")).toHaveText("¥149");
   await expect(page.getByTestId("pricing-purchase-dialog")).toContainText("2026/12/01");
   await capture(page, "team-add-seats");
+  await page.getByTestId("pricing-pay-preview").click();
+  await expect(page.getByTestId("pricing-payment-result")).toContainText("已演示购买成功");
+  await capture(page, "team-seat-receipt");
   await page.keyboard.press("Escape");
   await select(page, "pricing-region", "美国 · USD");
   await page.getByTestId("pricing-add-seats").click();

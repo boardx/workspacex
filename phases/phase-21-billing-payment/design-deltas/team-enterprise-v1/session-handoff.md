@@ -39,3 +39,5 @@ P5 错误信封已修复并推送 f82673afaa7573d4a72a2402a4cbd6a21c60b365，独
 5809权益复审P2已修：新增真实subscriptionStatus，已取消Stripe可保留false的cancelAtPeriodEnd及原paid term；未知和仍续费反例保留。核心74/原型14/全contracts1322新绿，raw证据已保存；等待最终新SHA复核，不沿用5809为ACCEPT。
 
 历史复审d6e4的未来paidAt P2已修：instant校验不晚于asOf，未来已付款期限允许；红1/15后Team103和原型22绿。当前需最终SHA复审/正常push；不要用此前browser5/type9冒称修后再跑。
+
+P5真实merge1f63、6093已关闭且已验ancestor/premerge72绿，proof在personal-prerequisite-merged；旧“queued”段为历史。当前新增Outcome本地待验证检查点：Team118/UI25已绿，browser/type/review未跑最终source。先保存，再将本会话同一Team分支从c04重基到1f63，保留共享钱包/目录改动并验证P5原代码，再补最终证据/独立审查/push。不要新建worktree。

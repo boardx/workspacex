@@ -43,3 +43,7 @@ Issue6099，worker/cn-us-team-billing-design，当前base actual develop c04c332
 取消状态最终修正后的API/web串行typecheck/lint9/9通过（4cached）。浏览器5证据属于仅新增状态/负例约束前的相同界面，未宣称本轮再次运行；后续新SHA正常hook、CI及独立静态复审继续。
 
 历史d6e4复审P2已补：先1红14绿，逐项paidAt<=asOf按instant比较，保留已付款未来许可与等价时区正例；最终定向Team103/原型22通过。browser5未因仅增加时间负例约束重复运行，不虚报。最终新SHA复核和正常hook/push仍待执行；旧type9属于此前同一读模型结构，未称修后重跑。
+
+P5已实际正常合入：PR6103于2026-11-02T01:00:14Z，merge/queue candidate1f63fb1144a3b4df865fa88d62161303140ad164，6093由PR关闭。已fetch main/develop并ancestor退出0；72个merge前启动的checks均在merge前以允许结论完成，另7个post-merge单列，raw在evidence/personal-prerequisite-merged。生产reset/epoch/部署未执行。
+
+本地支付恢复材料检查点：TeamPurchaseOutcome复用付款状态、quote不可变快照和实际首期收据，pending/processing要求真实完整付款页，SUCCESS可无原页但必须真实paidAt/receipt；人工核对不当成功，零首期不伪造ledger，增员保持原期限且付款需在原期限内。先15红，过期付款反例再1红/14绿，最终Team118/UI25绿；增员模拟确认已接实际schema，browser/types/精确SHA审查仍待在实际P5基线上执行。当前仅保存本地检查点，接着重基actual develop；不称完成或正式签核。

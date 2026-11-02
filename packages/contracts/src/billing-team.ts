@@ -5,7 +5,7 @@
  * grant permission, activate billing or decide remaining prepaid credit treatment.
  */
 import {z} from "zod";
-import {BillingProvider,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
+import {BillingProvider,BillingOrderStatus,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
 import {BillingCycle,PricingCurrency,PricingProduct,PricingCatalogBase,validatePricingCatalog,RenewalMode} from "./billing-pricing";
 import {SubscriptionStatus} from "./billing-subscription";
 import {operations as PlatformOrganizations,PlanState} from "./platform-organizations";
@@ -208,3 +208,50 @@ export const TeamSubscriptionHistory=z.object({
  if(new Set(value.items.map(item=>item.purchaseRef)).size!==value.items.length||new Set(value.items.map(item=>item.receiptRef)).size!==value.items.length)ctx.addIssue({code:"custom",path:["items"],message:"one actual payment must appear only once"});
 });
 export type TeamSubscriptionHistory=z.infer<typeof TeamSubscriptionHistory>;
+
+const CreditWindow=z.object({periodStart:Timestamp,periodEnd:Timestamp}).strict();
+/** The first grant can be zero when its original monthly window has already expired. */
+export const TeamPurchaseFulfillment=z.object({
+ receiptRef:Identifier,auditRef:Identifier,ledgerRef:Identifier.nullable(),appliedAt:Timestamp,
+ paidTerm:TeamPaidTerm.nullable(),firstCreditsApplied:CreditBalance.refine(value=>value>=0),firstCreditPeriod:CreditWindow.nullable(),
+}).strict();
+/** Read-only owned purchase view. Neither a redirect nor a caller-owned field proves payment. */
+export const TeamPurchaseOutcome=z.object({
+ purchaseRef:Identifier,quote:TeamQuote,status:BillingOrderStatus,createdAt:Timestamp,asOf:Timestamp,
+ paymentPage:z.object({url:z.string().url(),expiresAt:Timestamp}).strict().nullable(),
+ paidAt:Timestamp.nullable(),fulfillment:TeamPurchaseFulfillment.nullable(),
+}).strict().superRefine((value,ctx)=>{
+ const now=Date.parse(value.asOf),paid=value.paidAt===null?null:Date.parse(value.paidAt),receipt=value.fulfillment;
+ if(Date.parse(value.createdAt)>now||paid!==null&&paid>now)ctx.addIssue({code:"custom",message:"purchase facts cannot follow their read time"});
+ const awaiting=value.status==="PENDING"||value.status==="PROCESSING";
+ if(awaiting&&(value.paymentPage===null||value.paidAt!==null))ctx.addIssue({code:"custom",message:"unresolved payment needs its real original page and no confirmed cash"});
+ if(value.status==="CLOSED"&&value.paidAt!==null)ctx.addIssue({code:"custom",message:"a closed unpaid purchase cannot claim received cash"});
+ if(value.status!=="SUCCESS"){
+  if(receipt!==null)ctx.addIssue({code:"custom",path:["fulfillment"],message:"only an applied purchase has a fulfillment receipt"});
+  if(awaiting&&value.quote.purpose==="add_seats"&&value.paymentPage!==null&&Date.parse(value.paymentPage.expiresAt)>Date.parse(value.quote.term.paidPeriodEnd))ctx.addIssue({code:"custom",path:["paymentPage","expiresAt"],message:"seat payment cannot outlive the original paid term"});
+  return;
+ }
+ if(paid===null||receipt===null){ctx.addIssue({code:"custom",message:"paid outcome requires confirmed cash and its actual receipt"});return;}
+ const applied=Date.parse(receipt.appliedAt),credits=receipt.firstCreditsApplied,term=receipt.paidTerm,window=receipt.firstCreditPeriod;
+ if(applied>now||applied<paid)ctx.addIssue({code:"custom",path:["fulfillment","appliedAt"],message:"application must follow confirmed cash and precede the read time"});
+ if((credits>0)!==(receipt.ledgerRef!==null))ctx.addIssue({code:"custom",path:["fulfillment","ledgerRef"],message:"a positive first grant requires its real ledger entry"});
+ if(value.quote.purpose==="credit_topup"){
+  if(term!==null||window!==null||credits!==value.quote.credits)ctx.addIssue({code:"custom",path:["fulfillment"],message:"permanent purchase cannot change license capacity or a monthly window"});
+  return;
+ }
+ if(term===null){ctx.addIssue({code:"custom",path:["fulfillment","paidTerm"],message:"licensing purchase must retain its actual paid term"});return;}
+ if(value.quote.purpose==="initial"||value.quote.purpose==="renewal"){
+  if(term.purchasedSeats!==value.quote.seats||term.monthlyCredits!==value.quote.monthlyCredits||term.billingCycle!==value.quote.billingCycle||credits>term.monthlyCredits)ctx.addIssue({code:"custom",path:["fulfillment"],message:"license receipt must match the purchased capacity and monthly quota"});
+ }else{
+  const original=value.quote.term;
+  if(paid<Date.parse(original.paidPeriodStart)||paid>=Date.parse(original.paidPeriodEnd))ctx.addIssue({code:"custom",path:["paidAt"],message:"seat cash must arrive inside the original paid term"});
+  const termFields=["purchaseAnchor","paidPeriodStart","paidPeriodEnd"] as const;
+  if(termFields.some(field=>Date.parse(term[field])!==Date.parse(original[field]))||term.billingCycle!==original.billingCycle||term.purchasedSeats!==original.purchasedSeats+value.quote.additionalSeats||term.monthlyCredits!==value.quote.monthlyCreditsAfter||credits>value.quote.additionalSeats*TEAM_SEAT_MONTHLY_CREDITS)ctx.addIssue({code:"custom",path:["fulfillment"],message:"seat receipt must preserve the original term and apply only the requested increment"});
+ }
+ if(credits>0&&window===null)ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"included first credits require their real monthly window"});
+ if(window!==null){
+  const start=Date.parse(window.periodStart),end=Date.parse(window.periodEnd),days=(end-start)/86400000;
+  if(days<28||days>31||start<Date.parse(term.paidPeriodStart)||end>Date.parse(term.paidPeriodEnd)||credits>0&&(applied<start||applied>=end))ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"first included credits cannot mint outside a paid current monthly window"});
+ }
+});
+export type TeamPurchaseOutcome=z.infer<typeof TeamPurchaseOutcome>;
