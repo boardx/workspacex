@@ -10,9 +10,11 @@ it.each([
  {path:operations.createEnterpriseUpgrade.path,error:new EnterpriseHttpException("PLAN_VERSION_CONFLICT",409),code:"PLAN_VERSION_CONFLICT"},
 ])("retains the closed $code envelope and financial cache policy after composition",({path,error,code})=>{
  const json=vi.fn(),setHeader=vi.fn(),status=vi.fn(()=>({json}));
+ const errorLog={record:vi.fn(),list:vi.fn(),getLifecycle:vi.fn(),updateLifecycle:vi.fn()};
  const host={switchToHttp:()=>({getRequest:()=>({traceId:"integration-trace",route:{path}}),getResponse:()=>({headersSent:false,setHeader,status})})} as unknown as ArgumentsHost;
- new AllExceptionsFilter({info:vi.fn(),error:vi.fn()}).catch(error,host);
+ new AllExceptionsFilter({info:vi.fn(),error:vi.fn()},errorLog).catch(error,host);
  expect(status).toHaveBeenCalledWith(409);
  expect(json).toHaveBeenCalledWith({error:"conflict",traceId:"integration-trace",code});
  expect(setHeader).toHaveBeenCalledWith("Cache-Control",ENTERPRISE_CACHE_CONTROL);
+ expect(errorLog.record).not.toHaveBeenCalled();
 });
