@@ -1,3 +1,5 @@
+import { IdentityController } from "../../src/interface/controllers/identity.controller";
+import { ContractValidationError } from "../../src/interface/pipes/zod-body.pipe";
 import { describe, expect, it, vi } from "vitest";
 import { identity, provenance } from "@repo/contracts";
 import { listOwnActivity } from "../../src/application/identity/list-own-activity";
@@ -41,4 +43,10 @@ describe("own activity opt-in presentation projection", () => {
     expect(result.events[0]?.summary).toBe(`执行了操作：${kind}`);
     expect(JSON.stringify(result)).not.toContain("private");
   });
+});
+
+it("rejects an unsupported presentation version as a contract validation 400", async () => {
+  const controller = Object.create(IdentityController.prototype) as IdentityController;
+  await expect(controller.ownActivity({ userId: input.userId, orgId: input.orgId }, undefined, undefined, "structured-v2"))
+    .rejects.toBeInstanceOf(ContractValidationError);
 });
