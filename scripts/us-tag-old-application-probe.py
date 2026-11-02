@@ -58,12 +58,18 @@ def probe_env(raw):
  budget=values.get('PROVISION_TIMEOUT_MS','');need(budget.isdigit() and 1<=int(budget)<=300000,'PROBE_BUDGET')
  return int(budget)
 
-def command(image,name,token):
+def profile_budget(profile,original):
+ need(profile is None or profile=='bounded-30s-v1','PROBE_RUNTIME_PROFILE')
+ return 30000 if profile=='bounded-30s-v1' else original
+
+def command(image,name,token,profile=None):
+ profile_budget(profile,90000)
+ override=['--env','PROVISION_TIMEOUT_MS=30000'] if profile=='bounded-30s-v1' else []
  need(re.fullmatch('sha256:[a-f0-9]{64}',image),'BASELINE_API_IMAGE')
  return ['/usr/bin/docker','run','--rm','--pull','never','--name',name,'--label','wsx.us-maintenance-probe='+token,
   '--network','host','--add-host','appv1.boardx.us:127.0.0.1',
   '--cap-drop','ALL','--security-opt','no-new-privileges','--pids-limit','256','--memory','2g','--cpus','2',
-  '--env-file','/etc/workspacex-selfhost/probe.env',
+  '--env-file','/etc/workspacex-selfhost/probe.env',*override,
   '--mount','type=bind,src=/etc/workspacex-selfhost/sandbox,dst=/run/sandbox',
   '--mount','type=bind,src=/etc/workspacex-selfhost/sessions,dst=/run/sessions',
   '--entrypoint','node',image,'--import','tsx','scripts/cloud-business-probe.ts']
@@ -86,7 +92,8 @@ def main():
  required=['/etc/workspacex-selfhost/probe.env','/usr/local/bin/workspacex-selfhost-business-probe','/usr/local/bin/workspacex-us-release-probe']
  for path in required:
   need(path in refs,'PROBE_INPUT_PIN_REQUIRED');need(hashlib.sha256(prep.trusted(path,private=path.endswith('probe.env')).read_bytes()).hexdigest()==refs[path]['sha256'],'PROBE_INPUT_DRIFT')
- budget=probe_env(prep.trusted(required[0],private=True).read_bytes())
+ profile=p['oldApplicationProbe'].get('runtimeProfile')
+ budget=profile_budget(profile,probe_env(prep.trusted(required[0],private=True).read_bytes()))
  for path in DATA_MOUNTS:data_directory(path)
  state=trusted('/var/lib/workspacex-selfhost-state');uncertain=state/'business-probe-uncertain'
  need(not uncertain.exists() and not uncertain.is_symlink(),'PROBE_PREVIOUSLY_UNCERTAIN')
@@ -104,7 +111,7 @@ def main():
   # An intent is private, durable and remains after interruption; it does not
   # claim that accepted remote Agent work has terminated.
   us.load('probe_core',trusted(HERE/'schema-restore-rehearsal.py')).save(attempt/('business-probe-intent-'+token+'.json'),{'source':SOURCE,'tag':TAG,'containerName':name,'syntheticBusinessWrites':True})
-  raw=run(command(baseline['imageId'],name,token),timeout=budget/1000+45)
+  raw=run(command(baseline['imageId'],name,token,profile),timeout=budget/1000+45)
   need(len(raw)<=65536,'PROBE_OUTPUT_BOUND');need(accepted(json.loads(raw)),'BUSINESS_PROBE_FAILED');success=True
  finally:
   if not success:
@@ -117,7 +124,7 @@ def main():
   need(not run([docker,'ps','--all','--quiet','--filter','label=wsx.us-maintenance-probe='+token]).strip(),'PROBE_CLEANUP_UNPROVEN')
  need(success,'BUSINESS_PROBE_FAILED');uncertain.unlink()
  directory_fd=os.open(state,os.O_RDONLY);os.fsync(directory_fd);os.close(directory_fd)
- print(json.dumps({'status':'OLD_APPLICATION_VERIFIED','source':SOURCE,'tag':TAG,'environment':'us','routing':'host-network-loopback-TLS','authenticatedLogin':True,'fileRoundtrip':True,'agentReply':True,'model':True,'sandbox':True,'browserVerified':False,'syntheticBusinessWrites':True}));return 0
+ print(json.dumps({'status':'OLD_APPLICATION_VERIFIED','source':SOURCE,'tag':TAG,'environment':'us','routing':'host-network-loopback-TLS','authenticatedLogin':True,'fileRoundtrip':True,'agentReply':True,'model':True,'sandbox':True,'browserVerified':False,'syntheticBusinessWrites':True,'runtimeProfile':profile,'probeBudgetMs':budget}));return 0
 if __name__=='__main__':
  def interrupted(*_):raise RuntimeError('PROBE_INTERRUPTED')
  signal.signal(signal.SIGTERM,interrupted)

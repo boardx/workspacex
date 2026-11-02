@@ -3,6 +3,23 @@ from pathlib import Path
 import unittest
 p=Path(__file__).resolve().parents[1]/'scripts/us-tag-old-application-probe.py';s=importlib.util.spec_from_file_location('oldprobe',p);m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class Tests(unittest.TestCase):
+ def test_bounded_profile_changes_only_budget_and_is_explicit(self):
+  self.assertEqual(m.profile_budget(None,90000),90000)
+  self.assertEqual(m.profile_budget('bounded-30s-v1',90000),30000)
+  for value in ['unknown','bounded-1s-v1','',30000,False]:
+   with self.assertRaises(ValueError):m.profile_budget(value,90000)
+   with self.assertRaises(ValueError):m.command('sha256:'+'a'*64,'name','token',value)
+  original=m.command('sha256:'+'a'*64,'name','token')
+  bounded=m.command('sha256:'+'a'*64,'name','token','bounded-30s-v1')
+  self.assertNotIn('--env',original);offset=bounded.index('--env')
+  self.assertEqual(bounded[offset:offset+2],['--env','PROVISION_TIMEOUT_MS=30000']);self.assertLess(bounded.index('--env-file'),offset)
+  self.assertEqual(bounded[:offset]+bounded[offset+2:],original)
+ def test_real_child_receives_exact_bounded_docker_argv(self):
+  import subprocess,sys,json
+  args=m.command('sha256:'+'a'*64,'owned','token','bounded-30s-v1')
+  raw=subprocess.check_output([sys.executable,'-c','import sys,json;print(json.dumps(sys.argv[1:]))',*args])
+  received=json.loads(raw);self.assertEqual(received,args);offset=received.index('--env');self.assertEqual(received[offset+1],'PROVISION_TIMEOUT_MS=30000');self.assertGreater(offset,received.index('--env-file'))
+
  def test_only_fixed_runner_owned_data_directories(self):
   import stat
   from unittest.mock import Mock,patch
