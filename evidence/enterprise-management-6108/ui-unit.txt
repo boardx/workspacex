@@ -2,13 +2,14 @@
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web
 
- ✓ tests/ui/platform-organizations-screen.test.tsx (3 tests) 861ms
-   ✓ organization management API-bound screen > shows zero-member unconfigured organizations and saves versioned plan with mandatory audit reason 786ms
- ✓ tests/ui/enterprise-management-panel.test.tsx (3 tests) 361ms
-   ✓ retains grant request identity and amount after uncertain network failure 313ms
+ ✓ tests/ui/platform-organizations-screen.test.tsx (4 tests) 1782ms
+   ✓ organization management API-bound screen > shows zero-member unconfigured organizations and saves versioned plan with mandatory audit reason 1300ms
+   ✓ organization management API-bound screen > keeps the confirmed grant receipt visible during and after same-organization refresh 350ms
+ ✓ tests/ui/enterprise-management-panel.test.tsx (3 tests) 735ms
+   ✓ retains grant request identity and amount after uncertain network failure 629ms
 
  Test Files  2 passed (2)
-      Tests  6 passed (6)
-   Start at  12:44:33
-   Duration  7.68s (transform 1.62s, setup 318ms, collect 2.74s, tests 1.22s, environment 2.17s, prepare 211ms)
+      Tests  7 passed (7)
+   Start at  12:50:38
+   Duration  14.94s (transform 3.91s, setup 976ms, collect 6.57s, tests 2.52s, environment 3.12s, prepare 394ms)
 

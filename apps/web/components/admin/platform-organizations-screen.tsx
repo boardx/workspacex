@@ -45,7 +45,8 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
   }, [query, cursor, refresh]);
   React.useEffect(() => {
     let active = true;
-    setDetail(null); setReason("");
+    // Keep a confirmed financial receipt mounted during same-organization refresh.
+    setDetail(current=>current?.organization.orgId===selectedId?current:null); setReason("");
     if (selectedId) void getPlatformOrganization(selectedId).then(out => {
       if (active) { setDetail(out); setPlan(out.organization.plan.plan ?? "ordinary"); }
     }).catch(e => { if (active) setError(explain(e)); });

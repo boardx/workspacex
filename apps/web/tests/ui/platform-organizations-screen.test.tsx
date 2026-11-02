@@ -2,8 +2,9 @@ import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { PlatformOrganizationsScreen } from "@/components/admin/platform-organizations-screen";
-const mocks=vi.hoisted(()=>({list:vi.fn(),detail:vi.fn(),save:vi.fn()}));
+const mocks=vi.hoisted(()=>({list:vi.fn(),detail:vi.fn(),save:vi.fn(),grant:vi.fn()}));
 vi.mock("@/lib/live-platform-organizations",()=>({listPlatformOrganizations:mocks.list,getPlatformOrganization:mocks.detail,setPlatformOrganizationPlan:mocks.save,getPlatformAiPolicy:async()=>({version:0,configuration:null,priceVersion:null,updatedAt:null,updatedBy:null,enforcement:"pending",changes:[]}),getPlatformAiCandidates:async()=>[]}));
+vi.mock("@/lib/live-enterprise-management",()=>({grantEnterpriseCredits:mocks.grant,upgradeEnterprise:vi.fn()}));
 vi.mock("@/components/admin/admin-screen",()=>({AdminScreen:({children}:{children:React.ReactNode})=><div>{children}</div>}));
 const org={orgId:"empty-saas",name:"Empty SaaS",kind:"organization",memberCount:0,
  plan:{plan:null,version:0,updatedAt:null,updatedBy:null,enforcement:"pending"}};
@@ -22,6 +23,13 @@ describe("organization management API-bound screen",()=>{
   fireEvent.click(save);
   await waitFor(()=>expect(mocks.save).toHaveBeenCalledWith("empty-saas",{plan:"enterprise",expectedVersion:0,reason:"Approved enterprise agreement"}));
   expect(await screen.findByText(/套餐额度以实际计费记录为准/)).toBeInTheDocument();
+ });
+ it("keeps the confirmed grant receipt visible during and after same-organization refresh",async()=>{
+  const active={...org,plan:{plan:"enterprise",version:1,updatedAt:"2026-11-01T00:00:00Z",updatedBy:"operator",enforcement:"active",billingGeneration:"generation"},billingSummary:{licenseStatus:"enterprise",generation:"generation"}};
+  mocks.list.mockResolvedValue({organizations:[active],nextCursor:null});mocks.detail.mockResolvedValueOnce({organization:active,changes:[]}).mockImplementation(()=>new Promise(resolve=>setTimeout(()=>resolve({organization:active,changes:[]}),50)));
+  mocks.grant.mockResolvedValue({credits:42,balance:42,auditRef:"audit-confirmed"});render(<PlatformOrganizationsScreen state="default"/>);
+  fireEvent.click(await screen.findByRole("button",{name:"详情与套餐"}));fireEvent.change(await screen.findByLabelText("添加额度"),{target:{value:"42"}});fireEvent.change(screen.getByLabelText("添加原因"),{target:{value:"approved"}});fireEvent.click(screen.getByRole("button",{name:"添加额度"}));
+  await waitFor(()=>expect(mocks.detail).toHaveBeenCalledTimes(2));await new Promise(resolve=>setTimeout(resolve,80));expect(screen.getByText(/审计编号：audit-confirmed/)).toBeInTheDocument();
  });
  it("search changes the server query and pagination sends the cursor",async()=>{
   mocks.list.mockResolvedValue({organizations:[org],nextCursor:"empty-saas"});render(<PlatformOrganizationsScreen state="default"/>);
