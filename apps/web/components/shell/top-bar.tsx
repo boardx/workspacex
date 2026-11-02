@@ -1,12 +1,14 @@
 "use client";
+import { LanguageSwitcher } from "./language-switcher";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Building2, FolderKanban, Lock, ShieldCheck } from "lucide-react";
 import { FeedbackButton } from "@/components/feedback/feedback-button";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
-  describeOrgLayer, describeProjectLayer, isLocalOrg, LOCAL_ORG_GUARANTEES,
-  selfHostedOnly, SELF_HOSTED_SOURCE_LABEL,
-  PROJECT_ROLES, PROJECT_ROLE_LABEL, type Identity, type ProjectRole,
+  isLocalOrg, LOCAL_ORG_GUARANTEES,
+  selfHostedOnly,
+  PROJECT_ROLES, type Identity, type ProjectRole,
 } from "@/lib/identity";
 import { resolveProjectContext } from "@/lib/project-context";
 import { listProjects } from "@/lib/live-projects";
@@ -102,6 +104,7 @@ export function TopBar({
   onSwitchOrganization: (orgId: string) => void;
   switching?: boolean;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   // 只有 /chat 才读这个查询串——其它路由的 projectId 出现在路径段里，已经被
   // resolveProjectContext 的第一条规则接住了，这里不重复解析。`chatProjectId` 由下方
@@ -113,10 +116,10 @@ export function TopBar({
   const projectName = useProjectName(identity.org.id, project?.id ?? null);
   // 名称尚未解析或不在当前可见列表时沿用 main 的「项目」占位，不展示内部 ID。
   const displayProject = project
-    ? { ...project, name: projectName ?? (project.name === project.id ? "项目" : project.name) }
+    ? { ...project, name: projectName ?? (project.name === project.id ? t("ui.projects") : project.name) }
     : project;
   const isDev = process.env.NODE_ENV !== "production";
-  const projectLayer = project ? describeProjectLayer(identity) : null;
+  const projectLayer = project && identity.projectRole ? [t(`role.${identity.projectRole}`), identity.groupName].filter(Boolean).join(" · ") : null;
   // UC-0.5 R8：切到本地组织时整个应用要有**可感知**的状态变化——
   // 隐私模式若不可见，等于不存在。
   const local = isLocalOrg(identity.org);
@@ -188,7 +191,7 @@ export function TopBar({
 
       {!isAdminRoute && (
         <p data-testid="role-bar-org" className="min-w-0 flex-1 truncate text-12 text-muted-foreground">
-          {describeOrgLayer(identity)}
+          {[t(`role.${identity.orgRole}`), identity.org.team].filter(Boolean).join(" · ")}
         </p>
       )}
 
@@ -214,10 +217,10 @@ export function TopBar({
           data-testid="role-preview-switcher"
           className="ml-auto hidden shrink-0 items-center gap-1 rounded-md border border-border-subtle bg-panel p-1 lg:flex"
         >
-          <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">本项目视角</span>
+          <span className="px-1 text-10 uppercase tracking-wide text-muted-foreground">{t("ui.projectPerspective")}</span>
           {PROJECT_ROLES.map((r) => (
             <Button key={r} asChild size="xs" variant={r === previewRole ? "primary" : "ghost"} data-testid={`role-switch-${r}`}>
-              <a href={`?as=${r}`}>{PROJECT_ROLE_LABEL[r]}</a>
+              <a href={`?as=${r}`}>{t(`role.${r}`)}</a>
             </Button>
           ))}
         </div>
@@ -231,8 +234,7 @@ export function TopBar({
           title={LOCAL_ORG_GUARANTEES.map((g) => g.statement).join("；")}
           className="ml-auto hidden shrink-0 text-10 font-medium text-ai-tint-foreground lg:block"
         >
-          本地模式 · 只用本地模型 · 数据不出本机
-          <span className="ml-1 text-muted-foreground">（{SELF_HOSTED_SOURCE_LABEL.promise}）</span>
+          {t("ui.localModeLocalModelsOnlyDataStaysOnThisDevice")}<span className="ml-1 text-muted-foreground">（{t("policy.promise")}）</span>
         </p>
       )}
 
@@ -241,12 +243,11 @@ export function TopBar({
         <p
           data-testid="topbar-selfhosted-policy"
           data-guarantee-source="policy"
-          title="本组织的模型策略被管理员设为「只用自托管模型」。这是可配置策略，与个人本地组织的产品承诺不同。"
+          title={t("policy.description")}
           className="ml-auto hidden shrink-0 items-center gap-1 text-10 font-medium text-accent-foreground lg:flex"
         >
           <ShieldCheck aria-hidden className="h-3 w-3" />
-          本组织只用自托管模型
-          <span className="text-muted-foreground">（{SELF_HOSTED_SOURCE_LABEL.policy}）</span>
+          {t("ui.thisOrganizationUsesSelfHostedModelsOnly")}<span className="text-muted-foreground">（{t("policy.policy")}）</span>
         </p>
       )}
 
@@ -280,10 +281,10 @@ export function TopBar({
         && pathname !== "/admin" && !pathname.startsWith("/admin/")
         && pathname !== "/platform-admin" && !pathname.startsWith("/platform-admin/") && (
         <p className="ml-auto hidden shrink-0 text-10 text-muted-foreground lg:block" data-testid="topbar-no-project-hint">
-          不在具体项目里 · 引导师/组长/组员等项目内角色暂不适用
-        </p>
+          {t("ui.outsideAProjectProjectRolesDoNotApply")}</p>
       )}
 
+      <div className="ml-auto shrink-0"><LanguageSwitcher /></div>
     </header>
   );
 }

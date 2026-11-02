@@ -1,3 +1,6 @@
+"use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
 import * as React from "react";
 import { WorkspaceXWordmark } from "@/components/shell/workspacex-logo";
 import { Metamorphosis } from "@/components/entry/metamorphosis";
@@ -36,6 +39,7 @@ export function AuthShell({
     <div className="mx-auto flex min-h-screen w-full max-w-7xl bg-background lg:my-8 lg:w-[calc(100%-4rem)] lg:min-h-0 lg:overflow-hidden lg:rounded-container lg:border lg:border-border-subtle" data-testid="auth-shell">
       <BrandPanel />
       <main className="flex min-h-screen min-w-0 flex-1 flex-col bg-card px-6 py-8 sm:px-10 lg:min-h-0 lg:px-10 lg:py-6">
+        <div className="flex justify-end"><LanguageSwitcher /></div>
         {aside ? <div className="mx-auto w-full max-w-auth">{aside}</div> : null}
         <div className="mx-auto flex w-full max-w-auth flex-1 flex-col justify-center gap-8 py-8 lg:py-6">
           <WorkspaceXWordmark className="-ml-2 h-14 w-auto self-start lg:hidden" />
@@ -60,6 +64,7 @@ export function AuthShell({
 }
 
 function BrandPanel() {
+  const { t } = useI18n();
   return (
     <aside
       className="hidden w-1/2 max-w-xl shrink-0 flex-col justify-between gap-6 overflow-y-auto border-r border-border-subtle bg-panel p-10 lg:flex lg:p-10"
@@ -69,9 +74,8 @@ function BrandPanel() {
       <div className="flex flex-col gap-8">
         <div className="flex flex-col gap-3">
           <h2 className="text-30 font-semibold leading-snug tracking-tight lg:text-40">
-            与 AI 一起，<br />把工作做好。
-          </h2>
-          <p className="text-14 text-muted-foreground">团队协作与知识，汇于一个工作空间。</p>
+            {t("ui.togetherWithAi")}<br />{t("ui.doGreatWork")}</h2>
+          <p className="text-14 text-muted-foreground">{t("ui.teamworkAndKnowledgeTogetherInOneWorkspace")}</p>
         </div>
         <Metamorphosis />
       </div>

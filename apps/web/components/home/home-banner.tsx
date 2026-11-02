@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { useOptionalSession } from "@/components/session/session-provider";
 import { useOrgAvatarUrl } from "@/components/shell/org-menu";
@@ -30,6 +31,7 @@ const TEXT_ON_DARK = "rgb(255 255 255)";
 const TEXT_ON_LIGHT = "rgb(23 23 26)";
 
 export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, color, imageUrl, className }: HomeBannerProps) {
+  const { t } = useI18n();
   const session = useOptionalSession();
   const logoUrl = useOrgAvatarUrl(orgId ?? session?.identity?.org.id ?? "", session?.identity?.org.avatarUrl ?? null, session?.identity?.orgRole === "admin");
   const { src: logo } = useAuthedImageSrc(logoUrl ? apiUrl(logoUrl) : null);
@@ -48,7 +50,7 @@ export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, 
 
   return (
     <section
-      aria-label="组织首页横幅"
+      aria-label={t("ui.organizationHomeBanner")}
       data-testid="home-banner"
       data-banner-source={hasImage ? "image" : customColor !== null ? "custom" : "preset"}
       style={style}
@@ -68,7 +70,7 @@ export function HomeBanner({ orgId, title, greeting, headline, tagline, preset, 
       ) : null}
       <div className={cn("relative flex items-start gap-4", hasImage && "text-inverse-foreground")}>
         {/* eslint-disable-next-line @next/next/no-img-element -- authenticated organization logo */}
-        {logo ? <img src={logo} alt="组织 Logo" className="h-12 w-12 shrink-0 rounded-control bg-card p-1 object-contain sm:h-16 sm:w-16" /> : null}
+        {logo ? <img src={logo} alt={t("ui.organizationLogo")} className="h-12 w-12 shrink-0 rounded-control bg-card p-1 object-contain sm:h-16 sm:w-16" /> : null}
         <div className="min-w-0">
         <p className="text-13 font-medium leading-relaxed" data-testid="home-greeting">{greeting}</p>
         <h1 className="mt-2 max-w-lg break-words text-24 sm:text-30 font-semibold leading-tight tracking-tight">{title}</h1>
