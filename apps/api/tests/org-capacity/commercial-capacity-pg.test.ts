@@ -73,7 +73,7 @@ it("an initial pending intent constrains actual admission and unknown generation
  const links=new PgOrgInviteLinkRepository(db);
  const input={tokenHash:"capacity-6107-link-hash",now:new Date(),email:`capacity-initial-${RUN}@example.test`,newAccount:{userId:`capacity-initial-${RUN}`,displayName:"Pending initial",passwordHash:`$2b$12$${"a".repeat(53)}`}};
  expect((await links.activate(input)).ok).toBe(true);
- await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET generation='unsupported-generation' WHERE org_id=$1",[ORG]));
+ await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET generation='unsupported-generation',pending_seats=8 WHERE org_id=$1",[ORG]));
  expect(await links.activate({...input,email:`capacity-unknown-${RUN}@example.test`,newAccount:{...input.newAccount,userId:`capacity-unknown-${RUN}`}})).toEqual({ok:false,reason:"quota-exhausted"});
  const count=await asOwner(c=>c.query("SELECT count(*)::int AS n FROM credentials WHERE user_id=$1",[`capacity-unknown-${RUN}`]));
  expect(count.rows[0].n).toBe(0);
