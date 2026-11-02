@@ -4,6 +4,7 @@ import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { Locale } from "@repo/contracts/locale";
+import { translatedText } from "@/lib/entity-localization";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -52,6 +53,7 @@ export function readinessReasonText(card: Pick<AgentDirectoryCard, "readiness" |
 
 function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartChat: (agentId: string, prefill?: string) => void }) {
   const name = agentDisplayName(card);
+  const avatarAlt = translatedText(card.display, "avatarAlt");
   const subtitle = agentSubtitle(card);
   const detailHref = `/agent/${encodeURIComponent(card.agentId)}`;
   const workflowLabels = workflowLabelsOf(card);
@@ -70,6 +72,7 @@ function AgentCard({ card, onStartChat }: { card: AgentDirectoryCard; onStartCha
           data-testid="agent-card-avatar"
           initials={card.initials}
           avatarKey={card.avatar?.key ?? null}
+          {...(avatarAlt ? { "aria-label": avatarAlt } : {})}
           tone="ai"
           className="h-16 w-16 text-20"
         />

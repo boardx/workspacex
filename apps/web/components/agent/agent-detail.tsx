@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { Locale } from "@repo/contracts/locale";
-import { localizedText } from "@/lib/entity-localization";
+import { localizedText, translatedText } from "@/lib/entity-localization";
 import type { agentRole } from "@repo/contracts";
 import type { z } from "zod";
 import Link from "next/link";
@@ -266,6 +266,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
   onStartChat: (agentId: string, prefill?: string) => void;
 }) {
   const name = agentDisplayName(card);
+  const avatarAlt = translatedText(card.display, "avatarAlt");
   const serverDuty = extras.kind === "ready" ? extras.extras.duty : null;
   const duty = serverDuty ?? officialRoleDuty(card);
   const subtitle = agentSubtitle(card, duty);
@@ -279,6 +280,7 @@ function AgentDetailBody({ card, extras, onStartChat }: {
           data-testid="agent-detail-portrait"
           initials={card.initials}
           avatarKey={card.avatar?.key ?? null}
+          {...(avatarAlt ? { "aria-label": avatarAlt } : {})}
           tone="ai"
           className="h-20 w-20 text-24 ring-2 ring-ai-tint"
         />
@@ -429,19 +431,22 @@ function AgentDetailBody({ card, extras, onStartChat }: {
             {extras.kind === "ready" && extras.extras.delegationTargets.length > 0 && (
               <>
                 <ul className="mt-3 flex flex-col gap-1">
-                  {extras.extras.delegationTargets.map((t) => (
-                    <li key={t.agentId} data-testid="agent-detail-handoff-target">
-                      <Link
-                        href={`/agent/${encodeURIComponent(t.agentId)}`}
-                        className="flex items-center gap-2.5 rounded-control px-2 py-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      >
-                        <Avatar initials={t.initials} avatarKey={t.avatar?.key ?? null} tone="ai" size="lg" />
-                        <span className="min-w-0 truncate text-12 font-medium text-card-foreground">
-                          {agentDisplayNameByAvatar(t.avatar?.key, t.name, t.display)}
-                        </span>
-                      </Link>
-                    </li>
-                  ))}
+                  {extras.extras.delegationTargets.map((t) => {
+                    const targetAvatarAlt = translatedText(t.display, "avatarAlt");
+                    return (
+                      <li key={t.agentId} data-testid="agent-detail-handoff-target">
+                        <Link
+                          href={`/agent/${encodeURIComponent(t.agentId)}`}
+                          className="flex items-center gap-2.5 rounded-control px-2 py-1.5 transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <Avatar initials={t.initials} avatarKey={t.avatar?.key ?? null} {...(targetAvatarAlt ? { "aria-label": targetAvatarAlt } : {})} tone="ai" size="lg" />
+                          <span className="min-w-0 truncate text-12 font-medium text-card-foreground">
+                            {agentDisplayNameByAvatar(t.avatar?.key, t.name, t.display)}
+                          </span>
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
                 <p className="mt-2 text-11 text-muted-foreground">
                   {extras.extras.requireApprovalForHandoff ? "转交前会先征得你的确认。" : "遇到对方更擅长的事，它会直接转交。"}
