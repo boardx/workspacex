@@ -74,3 +74,13 @@ contract. `wiring-red.txt` reproduces exactly those eight mismatches. The reposi
 generator was inspected, and only those eight contract additions were retained;
 other generated snapshot churn was excluded. `wiring-green.txt` confirms the same
 137-route scan passes. No ratchet, exemption, controller or runtime code changed.
+
+CI then reached the later spec-coverage gate and identified the new browser spec
+as local-only (run 41542426673, job 125609658462, head `3395bf1b3`). It is now
+registered in the CI-reachable `seeded-github-import` product project, after the
+seeded catalog-empty assertions because the spec imports a Work package.
+`spec-gate-coverage-green.txt` records the complete unchanged coverage gate passing
+and identifies the spec as covered; no exemption was added.
+The published-null-avatar backend review fix `bca308178` is merged here. The test
+merge retains both authoring-budget cases and both review regressions;
+`published-avatar-budget-tests.txt` records all 15 PostgreSQL cases passing.
