@@ -1,5 +1,5 @@
-export const SUPPORTED_LOCALES = ["zh-CN", "en"] as const;
-export type Locale = typeof SUPPORTED_LOCALES[number];
+import { SUPPORTED_LOCALES, type Locale } from "@repo/contracts/locale";
+export { SUPPORTED_LOCALES, type Locale } from "@repo/contracts/locale";
 export const DEFAULT_LOCALE: Locale = "zh-CN";
 export const LOCALE_COOKIE = "workspacex-locale";
 export function isLocale(value: unknown): value is Locale {
