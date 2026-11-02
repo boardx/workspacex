@@ -1,6 +1,6 @@
 # 拟议 API 及验证边界
 
-本文件描述待签核接口，**不是现有路由清单**。后续在 `packages/contracts` 生成可执行单源；本文不再另写 Zod／DTO。钱数为服务端整数最小货币单位，credit 复用既有两位精度；所有 mutation 严格拒绝多余字段。
+本文件描述待签核接口，**不是现有路由清单**。核心严格输入／Team期限已开始物化于 `packages/contracts/src/billing-team.ts`，其余响应、目录及operation尚未完成；本文不另写 Zod／DTO。钱数为服务端整数最小货币单位，credit 复用既有两位精度；所有 mutation 严格拒绝多余字段。
 
 ## 复用的接口与权限
 
@@ -22,7 +22,7 @@
 | GET `/billing/organizations/:orgId/history` | 绑定组织及代际的 cursor、limit | 实际已付期限／增员订单历史，一笔真实付款一条，不把逐月 quota 伪装为十二笔付款 |
 | POST `/billing/organizations/:orgId/subscription/manage` | 空严格对象 | 本组织已验证 Stripe customer 的可信门户 URL；无 Stripe 绑定明确不可用 |
 
-`purpose` 的精确枚举和共享付款结果类型只在后续可执行契约定义一次。付款绑定／终态恢复衔接[已单独人工确认的个人恢复修订](https://github.com/boardx/workspacex/blob/52e2f95bc447cc4471ccaabedb824ec56b6298ed/phases/phase-21-billing-payment/design-deltas/personal-order-outcomes-v1/design-signoff.md)，该实现仍待顺序集成；本束不扩展已有个人接口的授权范围。待支付必须有真实绑定；无绑定终态不能伪造 URL／期限，也不能被当作新购买。
+`purpose`与严格body的首批定义在`billing-team.ts`，许可初购/续购提交总席位、增员提交正增量、充值不提交席位；最终共享付款结果及operation仍待物化。付款绑定／终态恢复衔接[已单独人工确认的个人恢复修订](https://github.com/boardx/workspacex/blob/52e2f95bc447cc4471ccaabedb824ec56b6298ed/phases/phase-21-billing-payment/design-deltas/personal-order-outcomes-v1/design-signoff.md)，该实现仍待顺序集成；本束不扩展已有个人接口的授权范围。待支付必须有真实绑定；无绑定终态不能伪造 URL／期限，也不能被当作新购买。
 
 权益按实际状态区分未开通、Team和Enterprise：Team返回真实固定容量／已付期限，Enterprise明确人工管理、无Team容量上限／默认到期日／自动月度额度，未开通不伪装成已购基础容量。已发余额与历史来源保留，缺失事实不可当成0。Enterprise不开放新的组织自助购买／增员，但此前合法创建的购买仍可读取／恢复／到账。
 
@@ -48,7 +48,7 @@
 
 操作者只取 principal，body 拒绝 actorId、generation、套餐生效时间、钱包余额、合同和自动发放计划。平台手动额度的范围和整数上限与已采用原型一致，提取为契约单源；零、负数、小数、超限、溢出或非当前Enterprise不落账。增员折算及钱包仍保留既有0.01精度，不与手动表单混为一谈。幂等键按原组织／generation 唯一，绑定原操作者及参数；不同参数／操作者冲突，不能再次记账。
 
-Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及未来 Stripe 扣款，再原子写既有 Plan／当前代际／审计。并发版本冲突保留原操作，客户端刷新后处理，不盲重放新 key。手工额度仅对当前Enterprise开放，不改变套餐或虚构有效期；Team通过购买额外额度充值，但到期仍挡新AI，直到订阅续购或Enterprise真正生效。
+Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及未来 Stripe 扣款，再原子写既有 Plan／当前代际／审计。已付Team未来窗口的处置单列待确认；未得到答案前不得把取消未来续费实现成停止已付额度，升级影响摘要／收据／worker和反例必须随决定统一。并发版本冲突保留原操作，客户端刷新后处理，不盲重放新 key。手工额度仅对当前Enterprise开放，不改变套餐或虚构有效期；Team通过购买额外额度充值，但到期仍挡新AI，直到订阅续购或Enterprise真正生效。
 
 ## 错误与交易测试
 

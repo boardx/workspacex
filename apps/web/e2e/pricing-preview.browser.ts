@@ -1,8 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
+import { EnterpriseCreditGrantRequest } from "@repo/contracts/billing-team";
 
-const shots = path.resolve(__dirname, "../../../phases/phase-21-billing-payment/ui-preview/pricing-v1");
+// Generated review evidence must not overwrite already adopted signoff screenshots.
+const shots = process.env.PRICING_PREVIEW_EVIDENCE_DIR ?? path.resolve(__dirname, "../test-results/pricing-preview");
+const billingCalls = new WeakMap<Page, string[]>();
 async function capture(page: Page, name: string) {
   await mkdir(shots, { recursive: true });
   await page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true });
@@ -11,7 +14,14 @@ async function select(page: Page, id: string, label: string) {
   await page.getByTestId(id).click();
   await page.getByRole("menuitemradio", { name: label, exact: true }).click();
 }
-test.beforeEach(async ({ page }) => { await page.goto("/preview/pricing"); await expect(page.getByTestId("pricing-wallet")).toBeVisible(); });
+test.beforeEach(async ({ page }) => {
+  const calls: string[] = []; billingCalls.set(page, calls);
+  for (const pattern of ["**/billing/**", "**/platform/organizations**"]) await page.route(pattern, route => {
+    calls.push(new URL(route.request().url()).pathname); return route.abort();
+  });
+  await page.goto("/preview/pricing"); await expect(page.getByTestId("pricing-wallet")).toBeVisible();
+});
+test.afterEach(async ({ page }) => { expect(billingCalls.get(page)).toEqual([]); });
 
 test("responsive account and purchase UI has no horizontal overflow", async ({ page }) => {
   for (const width of [375, 768, 1280]) {
@@ -84,6 +94,8 @@ test("Enterprise upgrade confirmation, grant validation and visible result", asy
   await page.getByTestId("pricing-grant-studio").click();
   await page.getByTestId("pricing-admin-confirm").click();
   await expect(page.getByTestId("err-pricing-grant")).toBeVisible();
+  await expect(page.getByTestId("pricing-grant-reason")).toHaveAttribute("maxlength", String(EnterpriseCreditGrantRequest.shape.reason.maxLength));
+  await capture(page, "team-contract-grant-invalid");
   await page.getByTestId("pricing-grant-reason").fill("演示追加额度");
   await capture(page, "enterprise-grant");
   await page.getByTestId("pricing-admin-confirm").click();

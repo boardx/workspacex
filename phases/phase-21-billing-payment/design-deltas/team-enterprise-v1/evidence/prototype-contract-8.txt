@@ -1,0 +1,15 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/pricing-team-contract-preview.test.tsx (2 tests) 943ms
+   ✓ uses the same monthly seat grant in the adopted add-on quote preview 619ms
+ ✓ tests/ui/pricing-enterprise-contract.test.tsx (6 tests) 1911ms
+   ✓ rejects the overlong reason through the shared contract without modifying the preview balance 910ms
+   ✓ rejects invalid manual credit 0 without modifying the preview 301ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed (8)
+   Start at  07:51:37
+   Duration  6.20s (transform 454ms, setup 1.17s, collect 1.87s, tests 2.85s, environment 4.13s, prepare 451ms)
+

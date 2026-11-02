@@ -1,11 +1,13 @@
 # Team / Enterprise 设计进展
 
-Issue6099，worker/cn-us-team-billing-design，基线实际develop685fcd33f26b4e547ff583f82d2060bd4af52067（fetch读取，包含充值d886及另一会话6097集成）。原476草案重放为e21d7d66d；只改本束文档，不修改其他会话实现或运行时。
+Issue6099，worker/cn-us-team-billing-design，当前base actual develop c04c332a（P4 PR6102真实merge），原Draft远端096892902从685剥离重放为84c4eafdcffde0974a3db99aad4eeabc32a8e426。本次开始可执行第③件材料，不实现Team backend/SQL/支付/真实账务，不改pending，不混入P5 PR。
 
-已修首次独立审查两点：首次/到期续购quote不再受旧term截止日影响；T06全部成员路径容量门禁前移到任何Team可售之前，补付款期间待购容量防并发超席。依据实际已采用组件，平台手动加额度仅Enterprise、整数和原因表单；纠正原稿/其他交接中“所有列表行可加额度”的错误观察，不扩展授权。新增T11覆盖原型已有的Team永久充值；Enterprise新额度仅平台管理。
+首批packages/contracts/src/billing-team.ts：严格购买quote/checkout输入、Team付款期限与月额度、Enterprise升级输入及手动额度输入/收据。复用既有BillingProvider/周期/额度/Plan版本及原因边界；新增Team基础席位和月度额度常量供已采用原型消费，不在原型再持多份。Enterprise原型使用实际schema校验输入及模拟receipt后才更新模拟余额，UI仍仅Enterprise加额度、无真实请求；原布局和危险动作确认保留。
 
-待精确SHA草案一致性复审；可执行schema、原型消费与反例验证仍须补齐，再进行正式复核和人工签核。design-signoff.md仍pending，核心成员/折算/续购容量/Enterprise生效口径仍待人采纳；原个人恢复确认不覆盖本束。没有运行时验证通过声明。现有三项静态lint只为仓库文档基础，不替代草案一致性/人工签核；usecase与coverage共17项待实现行为。
+真实验证：初始宽松stub反证26中25红，严格schema后首26绿，补全四purpose财务/身份注入反例后全contracts1278通过（含新30case）；原型原因超限真实1红5绿，修后2file8项绿。serial types/lint54/54（39cached）通过；随后把已有pricing-preview5用例接进既有prototype-audit profile，实际browser5过、0s清理，包含响应式/地区价格/Team容量和到期/Enterprise确认与原因校验/7态，并断言无billing/平台组织请求。原始输出保留evidence；新增4张图在ui-preview/team-contract-v1，未覆盖已采用截图。此材料层通过不证明真实guard/付款/并发。
 
-年付PR6100已创建、head5310e834b2fa54e2cc04e0a2ffe55e181e03aa20、已正常入队；最新候选98de549bbe77c459362ed42fc9455c5589dd1f1e检查进行中，尚未实际合并，仍由本线程负责正常集成。P4远端63bd旧父b766，P5远端52e2旧父b4dd；必须在前置实际merge后依次剥离，不能错用新头。充值6098已真实merge d886且6090关闭。个人恢复增量52e2独立ACCEPT及browser17等证据已推。
+未完成第③件：catalog/quote响应、完整组织权益/历史/支付恢复结果、平台列表summary、升级操作/影响及错误/operation导出仍待补齐，再正式一致性复核及一次人签核。schema模块当前不导出runtime operations，没有新生产路由。下表runtime验证全部计划，不因30case或5browser宣称17UC完成。
 
-本材料先以draft承载草案审阅；api.md不代替packages/contracts可执行第③件，补齐后才请求正式人工签核，不能借文档合入启用新接口。旧计费reset/epoch/生产部署未操作。
+新P2业务口径：原稿“停止未来Team额度”会包含已付年费未发窗口，现已在domain/UC/API/signoff明确等待用户裁决，不默认停止/退款/折抵，取消未来续费不能偷换为停止本期已付额度。已用request_user_input_async问“继续原计划至已付期结束（推荐）/停止原计划剩额手动处理”，答案未到，不重复问或把超时当采纳。只阻塞依赖的升级影响/worker定稿及正式复核。
+
+个人支付PR6103 source e419 CI已全完成，但GitHub自动审查指出P2：后端错误在code，前端只读ApiError.reasonCode导致目录拒绝后保留失效意图。当前未入队/未合入，须先保存本设计检查点，回P5修真实envelope回归、按新SHA独立复审与正常CI到绿，不直接resolve绕过。本次定价正常develop集成授权持续，生产未操作。
