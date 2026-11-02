@@ -19,7 +19,7 @@
   "src/infrastructure/billing/team-credit-terms.ts": "7a5e0b6e3ccedd4d7cf1d634041b60bfb2c201d8feb938c78a574c5ff98b0f33",
   "src/infrastructure/billing/team-payment-reconciler.ts": "fb7759083c97507bb0291b7408198693f3d4415512fae40467401fae6ead3016",
   "src/infrastructure/billing/pg-team-recovery-sweep.ts": "d0c6b819960ff1cbbf36a2fd16a81569597038ee1e0a429982045ce1b14f39b5",
-  "src/infrastructure/billing/team-wechat-crediting-store.ts": "acc08a0d340f571a7c82124e71b8afa0e7631d3beb387dba30013c0b9c8236e4",
+  "src/infrastructure/billing/team-wechat-crediting-store.ts": "8e13010e6837e0c17938dd29dd0c33ddecb61080f5c06a9f29d994297ea09129",
   "src/infrastructure/billing/team-wechat-payment-client.ts": "057bb1d529eebec96d7f0bd71f33592c4ba56099c1c9d55599f73c2ee5e3be42",
   "src/infrastructure/billing/team-wechat-checkout-client.ts": "5fd478cd562acbb818f11845bb5a181300c228696affefcc178a76bd79da91de",
   "src/infrastructure/billing/team-payment-recovery-worker.ts": "08f3aff9dfd6d94916cc11cbcd07d5e36bd5541e6a44937c03098e8bd3982e3a",
