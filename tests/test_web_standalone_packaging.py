@@ -34,5 +34,5 @@ class WebStandalonePackaging(unittest.TestCase):
     def test_builder_requires_actual_standalone_entry(self):
         text=(ROOT/'deploy/aliyun/images/web.Dockerfile').read_text()
         self.assertIn('test -f apps/web/.next/standalone/apps/web/server.js',text)
-        self.assertIn('RUN --network=none pnpm --filter @repo/contracts typecheck',text)
+        self.assertIn('RUN --network=none pnpm --filter @repo/contracts exec tsc -p tsconfig.release.json',text)
 if __name__=='__main__':unittest.main()
