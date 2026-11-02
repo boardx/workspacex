@@ -1,3 +1,5 @@
+// @global-scope-fixture table:billing_personal_purchases: cross-owner claim probe uses a random exact purchase ref and deletes it in its finally block.
+// @global-scope-fixture table:credit_wallets: legacy paid-period claim probe uses an exact user wallet and deletes it in its finally block.
 import {readFileSync} from "node:fs";
 import {randomUUID} from "node:crypto";
 import {afterAll,beforeAll,expect,it,vi} from "vitest";
@@ -81,7 +83,7 @@ it("rejects a legacy paid-period reuse and replays both new migrations over paid
  expect((await repo.result(org,originalRef)).status).toBe("SUCCESS");
 });
 
-// @global-scope-fixture table:credit_packages: mutate a seeded default only within a rolled-back owner transaction to verify seed replay preserves operator changes.
+// Mutate a seeded default only within a rolled-back owner transaction; seed replay preserves operator changes.
 it("seed replay never overwrites configured Team money",async()=>{
  const seed=readFileSync(new URL("../../migrations/20261102072000_team_product_seed.sql",import.meta.url),"utf8");
  await asOwner(async c=>{await c.query("BEGIN");try{
