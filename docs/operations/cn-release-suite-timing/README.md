@@ -34,7 +34,17 @@ owned cleanup verdict. Existing bounds on exported files and total bytes apply.
 - Mac single last case passed in 0.589s; TerminalTests 12 passed in 10.199s.
   These are not Linux acceptance or evidence of runner performance.
 - Added timeout-survival, monotonic/status, export and workflow-bound tests.
-- Linux release-only run, actual slow-segment comparison, and any evidenced
-  follow-up fix remain pending. Do not shard speculatively or raise the budget.
+- Linux run 41505638586: TerminalTests 12 passed in 1.857s. Release-only
+  766 cases passed in 170.482s, boundary faults 71.697s, 1532 progress records.
+  Artifact 13170289002 SHA256 e259d7ac286babd6c6aaee45cf4370e00d0778326918697e5051a9d5bbf3bddd.
+- Same script Git blob b0e7932201d7ef2a2cfb00f3776d215bbb17aa0a in PR all run
+  41505637488: 766 cases passed in 284.637s, boundary faults 124.935s,
+  whole round 600.237s, all suites and owned cleanup passed.
+- The measured fix classifies `release` into the existing heavy semaphore.
+  It cannot overlap database/browser heavy suites, while light suites keep
+  progressing. The original timeout starts inside the acquired slot; queue wait
+  does not consume it. No cases, suites, cleanup gates or coverage are removed.
+- Post-fix full all-run acceptance and wall-clock tradeoff remain pending.
+  Release speed alone is not evidence of overall CI speedup.
 - No local database, Docker stack, production operation or full simulation is
   required for the diagnostic unit tests.
