@@ -156,3 +156,30 @@ class InventoryScope(unittest.TestCase):
   m=module();change={'role':'api','added':list(m.MIGRATIONS),'removed':[],'changed':[]};m.exact_plan({'changes':[change]})
   for value in ({**change,'role':'agent'},{**change,'removed':['old.sql']},{**change,'changed':['old.sql']},{**change,'added':list(m.MIGRATIONS)[:-1]}):
    with self.assertRaisesRegex(ValueError,'EXACT_EIGHT_IMAGE_CHANGES'):m.exact_plan({'changes':[value]})
+
+class IndependentVerifierSemantics(unittest.TestCase):
+ def exercise(self,mutate=None):
+  import tempfile,json,types,contextlib,time
+  from unittest.mock import patch
+  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);out=Path(tmp.name);baseline={str(i):'a'*64 for i in range(439)};complete={**baseline,**m.MIGRATIONS};epoch={'exists':True,'rows':[{'generation':None,'activated_at':None}]};current={'state':'COMPLETE','ledger':complete,'epoch':epoch}
+  def save(name,value):
+   path=out/name;path.write_text(json.dumps(value));path.chmod(0o600);return m.ref(path)
+  command=['/fixed/business'];biz={'source':m.SOURCE,'tag':m.TAG,'command':command,'exitCode':0,'createdAt':time.time()}
+  baseline_business=save('baseline-forward-business.json',biz);candidate_business=save('candidate-business.json',biz)
+  archive=out/'archive';archive.write_bytes(b'e'*1100);archive.chmod(0o600);key=out/'key';key.write_bytes(b'a'*64);key.chmod(0o600)
+  proof={'backup-restore':{'restoreNotPerformed':True,'archive':m.ref(archive),'key':m.ref(key),'source':save('source.json',{'ledger':baseline,'epoch':{'exists':False}})},'baseline-compatibility':{'oldImages':{'api':'old'},'actualForwardSchemaHealth':True,'resetPerformed':False,'business':baseline_business},'migration-ledger':{'baselineLedger':baseline,'completeLedger':complete,'epoch':epoch,'force':False,'resetPerformed':False},'candidate-acceptance':{'images':{'api':'new'},'business':candidate_business}}
+  if mutate:mutate(proof,biz,save)
+  refs={name:save(name+'.json',{**value,'sourceRevision':m.SOURCE,'tag':m.TAG,'createdAt':time.time()}) for name,value in proof.items()};receipt=save('result.json',{'restoreNotPerformed':True,'proofs':refs})
+  ctx={'receipt':Path(receipt['path']),'attempt':out,'request':{},'mods':{'schema-release-handoff':types.SimpleNamespace(verify_receipt=lambda *a:None),'schema-restore-rehearsal':types.SimpleNamespace(),'minimal-docker-release':types.SimpleNamespace()},'p':{'baselineLedger':baseline,'baseline':{'api':{'imageId':'old'}},'closurePins':{}},'cfg':{'services':{'api':'api'},'verificationCommand':command,'project':'p'},'manifest':{'images':{'api':{'imageId':'new'}}},'command':[],'d':types.SimpleNamespace(json=lambda *a:{})}
+  act=types.SimpleNamespace(runtime_rows=lambda *a:[],live_config_cas=lambda *a:None)
+  with contextlib.ExitStack() as stack:
+   stack.enter_context(patch.object(m,'trusted',side_effect=lambda path,*a:Path(path)));stack.enter_context(patch.object(m,'Database',return_value=types.SimpleNamespace(read=lambda:current)));stack.enter_context(patch.object(m,'health',return_value={}));stack.enter_context(patch.object(m,'load',return_value=act))
+   m.verifier(ctx)
+ def test_all_original_semantics_pass(self):self.exercise()
+ def test_correct_hash_cannot_hide_missing_or_wrong_baseline_business(self):
+  mutations=[lambda p,b,s:p['baseline-compatibility'].pop('business'),lambda p,b,s:p['baseline-compatibility'].update(oldImages={'api':'wrong'}),lambda p,b,s:p['baseline-compatibility'].update(actualForwardSchemaHealth=False),lambda p,b,s:p['baseline-compatibility'].update(resetPerformed=True),lambda p,b,s:p['baseline-compatibility'].update(business=s('baseline-forward-business.json',{**b,'tag':'foreign'})),lambda p,b,s:p['baseline-compatibility'].update(business=s('wrong-phase.json',b))]
+  for index,mutate in enumerate(mutations):
+   with self.subTest(index=index),self.assertRaises(ValueError):self.exercise(mutate)
+ def test_candidate_business_tag_and_current_epoch_must_match(self):
+  for mutate in (lambda p,b,s:p['candidate-acceptance'].update(business=s('candidate-business.json',{**b,'tag':'foreign'})),lambda p,b,s:p['migration-ledger'].update(epoch={'exists':False})):
+   with self.assertRaises(ValueError):self.exercise(mutate)

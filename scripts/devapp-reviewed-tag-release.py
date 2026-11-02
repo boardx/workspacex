@@ -211,14 +211,19 @@ def writer(ctx):
   except BaseException:failure['recovery']='OPERATOR_REQUIRED'
   failure['trafficControl']='stopped-five-applications';core.save(attempt/'failure.json',failure);raise
 
+def verify_business_proof(ctx,value,phase):
+ path=pinned(value);need(path.parent==ctx['attempt'] and path.name==phase+'-business.json','BUSINESS_ATTEMPT')
+ v=read(path);need(v.get('command')==ctx['cfg']['verificationCommand'] and type(v.get('exitCode')) is int and v['exitCode']==0 and v.get('source')==SOURCE and v.get('tag')==TAG and type(v.get('createdAt')) in (int,float) and 0<=time.time()-v['createdAt']<600,'VERIFIER_BUSINESS')
+
 def verifier(ctx):
  handoff=ctx['mods']['schema-release-handoff'];result=read(ctx['receipt']);handoff.verify_receipt(ctx['request'],result);need(result.get('restoreNotPerformed') is True,'RESTORE_SCOPE')
  proofs={}
  for name,r in result['proofs'].items():
   path=pinned(r);need(path.parent==ctx['attempt'],'PROOF_ATTEMPT');v=read(path);need(v['sourceRevision']==SOURCE and v['tag']==TAG and 0<=time.time()-v['createdAt']<600,'PROOF_IDENTITY');proofs[name]=v
+ baseline=proofs['baseline-compatibility'];need(baseline.get('oldImages')=={s:ctx['p']['baseline'][s]['imageId'] for s in ctx['cfg']['services']} and baseline.get('actualForwardSchemaHealth') is True and baseline.get('resetPerformed') is False and type(baseline.get('business')) is dict,'VERIFIER_BASELINE_COMPATIBILITY');verify_business_proof(ctx,baseline['business'],'baseline-forward')
  core=ctx['mods']['schema-restore-rehearsal'];b=proofs['backup-restore'];need(b.get('restoreNotPerformed') is True,'RESTORE_NOT_PERFORMED_REQUIRED');backup_files(pinned(b['archive']),pinned(b['key']));source=read(pinned(b['source']));ledger_state(ctx['p']['baselineLedger'],source['ledger']);check_epoch(source['epoch'])
- database=Database(ctx);current=database.read();need(current['state']=='COMPLETE','VERIFIER_LEDGER');proof=proofs['migration-ledger'];need(proof['baselineLedger']==ctx['p']['baselineLedger'] and proof['completeLedger']==current['ledger'] and proof.get('force') is False and proof.get('resetPerformed') is False,'VERIFIER_HISTORY')
- images={s:ctx['manifest']['images'][r]['imageId'] for s,r in ctx['cfg']['services'].items()};need(proofs['candidate-acceptance']['images']==images,'VERIFIER_IMAGES');business_ref=proofs['candidate-acceptance']['business'];business_path=pinned(business_ref);need(business_path.parent==ctx['attempt'],'BUSINESS_ATTEMPT');v=read(business_path);need(v['command']==ctx['cfg']['verificationCommand'] and v['exitCode']==0 and v['source']==SOURCE and 0<=time.time()-v['createdAt']<600,'VERIFIER_BUSINESS')
+ database=Database(ctx);current=database.read();need(current['state']=='COMPLETE','VERIFIER_LEDGER');proof=proofs['migration-ledger'];need(proof['baselineLedger']==ctx['p']['baselineLedger'] and proof['completeLedger']==current['ledger'] and proof.get('force') is False and proof.get('resetPerformed') is False and proof.get('epoch')==current['epoch'],'VERIFIER_HISTORY')
+ images={s:ctx['manifest']['images'][r]['imageId'] for s,r in ctx['cfg']['services'].items()};need(proofs['candidate-acceptance']['images']==images,'VERIFIER_IMAGES');verify_business_proof(ctx,proofs['candidate-acceptance']['business'],'candidate')
  command=ctx['command']+['--file',str(ctx['attempt']/'candidate-images.json')];health(ctx,command,images)
  act=load('tag-migrated-activation',ctx['p']['closurePins']);rows=act.runtime_rows(ctx['d'],ctx['cfg']['project'],ctx['cfg']['services'],images);act.live_config_cas(ctx['mods']['minimal-docker-release'],ctx['d'],ctx['d'].json(command+['config','--format','json']),ctx['cfg']['project'],rows,ctx['attempt'])
 
