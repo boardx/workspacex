@@ -78,8 +78,9 @@ afterAll(cleanup);
 describe("计费六表结构", () => {
   it("列的集合被逐表钉住", async () => {
     expect(await columns("credit_packages")).toEqual([
-      "amount_fen", "base_credits", "bonus_credits", "bonus_rate", "currency", "enabled",
-      "owner_type", "package_id", "region", "sort_order", "total_credits",
+      "amount_fen", "base_credits", "billing_cycle", "bonus_credits", "bonus_rate", "currency", "enabled",
+      "extra_seat_amount_fen", "extra_seat_monthly_credits", "included_seats",
+      "owner_type", "package_id", "product_kind", "region", "sort_order", "total_credits",
     ]);
     expect(await columns("billing_orders")).toEqual([
       "amount_fen", "base_credits", "bonus_credits", "channel_order_no", "closed_at", "created_at",
