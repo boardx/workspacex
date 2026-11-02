@@ -1,0 +1,89 @@
+diff --git a/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts b/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts
+index 584c9b88f..0e089a756 100644
+--- a/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts
++++ b/apps/api/src/infrastructure/auth/pg-org-invite-repository.ts
+@@ -285,21 +285,13 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+ 
+   private async activateAll(s: TenantSession, input: ActivateOrgInviteInput) {
+     await lockCapacityEpoch(s);
+-    // (1) 核销令牌 —— 条件 UPDATE，一条语句同时判「存在 / 未核销 / 未过期」。
+-    //
+-    // 三种失效在同一个 WHERE 里，所以它们**由构造**产生同一个零行结果（V10），
+-    // 而不是靠应用层记得把三个分支合并成一句话。
+-    // 并发两次点击在这条语句上串行：第二路重新求值 WHERE，看到 consumed_at 非空，匹配零行。
+-    const consumed = await s.query<{ invite_id: string; org_id_hint: string }>(
+-      `UPDATE org_invite_tokens
+-          SET consumed_at = $2
+-        WHERE token = $1
+-          AND consumed_at IS NULL
+-          AND expires_at > $2
+-        RETURNING invite_id, org_id_hint`,
+-      [input.token, input.now],
++    // (1) Index lookup only: never hold a token row while waiting for the organization
++    // or invite. Resend locks invite -> token; activation must use the same order.
++    const located = await s.query<{ invite_id: string; org_id_hint: string }>(
++      `SELECT invite_id, org_id_hint FROM org_invite_tokens WHERE token = $1`,
++      [input.token],
+     );
+-    const tokenRow = consumed.rows[0];
++    const tokenRow = located.rows[0];
+     if (tokenRow === undefined) throw new Rollback("not-found");
+ 
+     // (2) 切租户上下文。事务内、事务局部。
+@@ -307,6 +299,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+     // ⚠ `org_id_hint` 到此为止：它决定去哪张表的哪一行找答案，不决定答案是什么。
+     const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
+     await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
++    await lockOrganizationCapacity(s, orgId);
+ 
+     // (3) 🔴 **服务端记录 —— 授予的唯一来源（I-2）**。
+     //
+@@ -315,17 +308,32 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+     // ⇒ 行还在、status 变成 revoked ⇒ 这里零行 ⇒ 当前步骤立即失败（E7）。
+     const inviteRes = await s.query<InviteRow>(
+       `SELECT id, org_id, email, org_role, team_id, status FROM org_invites
+-        WHERE id = $1 AND status = 'pending'`,
++        WHERE id = $1 AND status = 'pending' FOR UPDATE`,
+       [tokenRow.invite_id],
+     );
+     const invite = inviteRes.rows[0];
+     if (invite === undefined) throw new Rollback("not-found");
+ 
++    // (3.5) One atomic live-token consumption, AFTER the authoritative invite lock.
++    // Expired, consumed and absent tokens remain indistinguishable; any later failure
++    // throws through the original transaction and restores consumed_at as well.
++    const consumed = await s.query<{ invite_id: string; org_id_hint: string }>(
++      `UPDATE org_invite_tokens
++          SET consumed_at = $2
++        WHERE token = $1
++          AND consumed_at IS NULL
++          AND expires_at > $2
++        RETURNING invite_id, org_id_hint`,
++      [input.token, input.now],
++    );
++    if (consumed.rows[0] === undefined || consumed.rows[0].invite_id !== invite.id || consumed.rows[0].org_id_hint !== orgId) {
++      throw new Rollback("not-found");
++    }
++
+     // ⚠ `invite.email` 到此为止：它只在下面 (4) 里当 INSERT 的参数用，
+     //   不进返回值。ALLOWLIST 里那条例外的前提就是这一点（见文件头）。
+     const actual = { orgId: invite.org_id, orgRole: invite.org_role, teamId: invite.team_id };
+ 
+-    await lockOrganizationCapacity(s, orgId);
+     if (input.existingUserId !== null) {
+       const existing = await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);
+       if (existing.rows.length) throw new Rollback("already-member");
+@@ -381,10 +389,11 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
+     }
+ 
+     // (6) 邀请行终态。`used` + 谁用的 + 什么时候用的，三者一起动（迁移里的 CHECK）。
+-    await s.query(
+-      `UPDATE org_invites SET status = 'used', used_at = $2, used_by_user_id = $3 WHERE id = $1`,
++    const completed = await s.query<{ id: string }>(
++      `UPDATE org_invites SET status = 'used', used_at = $2, used_by_user_id = $3 WHERE id = $1 AND status = 'pending' RETURNING id`,
+       [invite.id, input.now, userId],
+     );
++    if (!completed.rows.length) throw new Rollback("not-found");
+ 
+     // (7) 篡改留痕。**在同一个事务里**——分开写意味着授予成功而留痕失败时，
+     //     那次尝试就消失了，而它恰好是最值得留下来的那一条。

@@ -1,3 +1,4 @@
+import { lockOrganizationCapacity, commercialSeatAvailable } from "../org-capacity/pg-commercial-capacity";
 /**
  * `OrgInviteLinkRepository` on PostgreSQL —— 共享链接的 I-1 / I-2 住在这个文件里。
  *
@@ -274,6 +275,8 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
     const orgId: OrgId = toOrgId(tokenRow.org_id_hint);
     await s.query("SELECT set_config('app.current_org', $1, true)", [orgId]);
 
+    await lockOrganizationCapacity(s, orgId);
+
     // (3) 🔴 授予的唯一来源 + 多次语义的串行点。FOR UPDATE 把并发加入串行在链接行上；
     //     状态 / 过期 / 上限三种失效在同一个 WHERE 之外逐条判——但都映射同一个
     //     Rollback("not-found")（V10：五种失效对外逐字节相同）。
@@ -303,22 +306,26 @@ export class PgOrgInviteLinkRepository implements OrgInviteLinkRepository {
 
     // (4) I-9 配额硬闸（拍板①）：锁组织行再数座位——与 create@pg-org-invite-repository
     //     同一形状、同一"数出来不存出来"的账本纪律。
-    const quota = await s.query<{ seat_quota: string }>(
-      `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
-      [orgId],
-    );
-    const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
-    const usedMembers = await s.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
-      [orgId],
-    );
-    const usedInvites = await s.query<{ n: string }>(
-      `SELECT count(*)::text AS n FROM org_invites
-        WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
-      [orgId],
-    );
-    const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
-    if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+    const available = await commercialSeatAvailable(s, orgId);
+    if (available === false) throw new Rollback("quota-exhausted");
+    if (available === null) {
+      const quota = await s.query<{ seat_quota: string }>(
+        `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
+        [orgId],
+      );
+      const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
+      const usedMembers = await s.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
+        [orgId],
+      );
+      const usedInvites = await s.query<{ n: string }>(
+        `SELECT count(*)::text AS n FROM org_invites
+          WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
+        [orgId],
+      );
+      const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
+      if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+    }
 
     // (5) 建号。邮箱查重靠 credentials 的唯一约束，不是先查后插（两步窗口下两路
     //     并发同邮箱都能查到「没有」）。已有账号 → already-member（OA12②：明确拒绝、

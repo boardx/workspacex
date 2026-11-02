@@ -1,0 +1,72 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_be57b584690acd41508a capacity=100 current=6 required=32
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts (3 tests | 3 failed) 797ms
+   × pending invitations do not occupy commercial seats even with legacy quota zero 21ms
+     → expected false to be true // Object.is equality
+   × distinct invitation paths compete for the final seat with atomic rollback 67ms
+     → expected [ { ok: true, grant: { …(5) } }, …(2) ] to have a length of 1 but got 3
+   × full commercial capacity rejects project invitation activation before credentials, gift and outbox 52ms
+     → expected { ok: true, …(4) } to deeply equal { ok: false, reason: 'quota' }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/org-capacity/commercial-capacity-pg.test.ts > pending invitations do not occupy commercial seats even with legacy quota zero
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts:25:21
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/org-capacity/commercial-capacity-pg.test.ts > distinct invitation paths compete for the final seat with atomic rollback
+AssertionError: expected [ { ok: true, grant: { …(5) } }, …(2) ] to have a length of 1 but got 3
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts:40:35
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/org-capacity/commercial-capacity-pg.test.ts > full commercial capacity rejects project invitation activation before credentials, gift and outbox
+AssertionError: expected { ok: true, …(4) } to deeply equal { ok: false, reason: 'quota' }
+
+- Expected
++ Received
+
+  Object {
+-   "ok": false,
+-   "reason": "quota",
++   "emailVerified": false,
++   "ok": true,
++   "orgId": "org-capacity-6107",
++   "projectId": "org-capacity-6107-general",
++   "userId": "capacity-6107-project-e9f7678a-36e4-4179-a6e9-6fafd034469b",
+  }
+
+ ❯ tests/org-capacity/commercial-capacity-pg.test.ts:61:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  12:44:10
+   Duration  4.69s (transform 1.73s, setup 20ms, collect 2.28s, tests 797ms, environment 1ms, prepare 121ms)
+
+[db-isolation] db=wsx_be57b584690acd41508a peak_connections=5
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/org-capacity/commercial-capacity-pg.test.ts

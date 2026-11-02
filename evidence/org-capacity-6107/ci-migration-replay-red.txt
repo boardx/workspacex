@@ -1,0 +1,33 @@
+gates-runtime	迁移幂等（无视版本表强制重放）	﻿2026-11-02T08:20:30.7198489Z ##[group]Run pnpm --filter api run migrate:check
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:30.7199175Z ^[[36;1mpnpm --filter api run migrate:check^[[0m
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:30.7242890Z shell: /usr/bin/bash -e {0}
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:30.7243167Z env:
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:30.7243384Z   WORKSPACEX_DB: wsx_ci_41411995743_runtime
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:30.7243746Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:30.7244070Z ##[endgroup]
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:31.1856716Z 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:31.1857856Z > @repo/api@0.0.0 migrate:check /home/runner/work/workspacex/workspacex/apps/api
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:31.1858764Z > ./scripts/verify-migrations.sh
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:31.1859088Z 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:31.3118167Z  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:31.7296414Z  Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:31.7411538Z  Container workspacex-kernel-postgres-1 Recreate 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:32.1680186Z  Container workspacex-kernel-postgres-1 Recreated 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:32.1786125Z  Container workspacex-kernel-postgres-1 Starting 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:32.3143200Z  Container workspacex-kernel-postgres-1 Started 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:33.6905298Z NOTICE:  database "wsx_ci_41411995743_runtime" does not exist, skipping
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:20:51.2229946Z   applied 447 migration(s) to an empty database
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0331074Z /home/runner/work/workspacex/workspacex/apps/api/src/infrastructure/db/migrator.ts:131
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0332457Z           throw new Error(`migration ${name} failed: ${msg}`);
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0333276Z                 ^
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0333541Z 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0334364Z Error: migration 20261102031000_org_commercial_capacity.sql failed: relation "org_commercial_licenses" already exists
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0335287Z     at migrate (/home/runner/work/workspacex/workspacex/apps/api/src/infrastructure/db/migrator.ts:131:17)
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0336524Z     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0337302Z     at async <anonymous> (/home/runner/work/workspacex/workspacex/apps/api/scripts/migrate-check.ts:128:16)
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0337767Z 
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0337881Z Node.js v22.23.4
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0595091Z /home/runner/work/workspacex/workspacex/apps/api:
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0596839Z  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @repo/api@0.0.0 migrate:check: `./scripts/verify-migrations.sh`
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0597630Z Exit status 1
+gates-runtime	迁移幂等（无视版本表强制重放）	2026-11-02T08:21:17.0836018Z ##[error]Process completed with exit code 1.
