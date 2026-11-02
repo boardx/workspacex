@@ -14,3 +14,13 @@ it("a failed purchase does not starve another owned pending recharge",async()=>{
  expect(await new PgTeamRecoverySweep(db as never,{reconcile}).sweep()).toEqual({processed:1,failed:1});
  expect(reconcile.mock.calls).toEqual([["org-b","first-failed"],["org-b","second-owned"]]);
 });
+it("resumes after a bounded page budget and wraps so permanently due owners cannot starve later cash",async()=>{
+ const owners=Array.from({length:101},(_,i)=>`org-${String(i).padStart(3,"0")}`),last=owners[100];
+ if(!last)throw Error("last fixture owner missing");
+ const db={withoutTenant:async(fn:Function)=>fn({query:async(sql:string,params?:unknown[])=>({rows:sql.includes("billing_pricing_epoch")?[{generation,active:true}]:sql.includes("billing_team_due_orgs")?owners.filter(org=>params?.[1]===null||org>String(params?.[1])).slice(0,20).map(org_id=>({org_id})):[]})}),withTenant:async(org:string,fn:Function)=>fn({query:async(sql:string)=>({rows:sql.includes("FROM organizations WHERE")?[{id:org,writable:org===last}]:sql.includes("billing_pricing_epoch")?[{generation,active:true}]:sql.startsWith("SELECT purchase_ref FROM")&&org===last?[{purchase_ref:"later-real-cash"}]:[]})})};
+ const reconcile=vi.fn().mockResolvedValue(undefined),sweep=new PgTeamRecoverySweep(db as never,{reconcile});
+ expect(await sweep.sweep()).toEqual({processed:100,failed:0});expect(reconcile).not.toHaveBeenCalled();
+ expect(await sweep.sweep()).toEqual({processed:1,failed:0});expect(reconcile.mock.calls).toEqual([[last,"later-real-cash"]]);
+ expect(await sweep.sweep()).toEqual({processed:100,failed:0});
+ expect(await sweep.sweep()).toEqual({processed:1,failed:0});expect(reconcile).toHaveBeenCalledTimes(2);
+});

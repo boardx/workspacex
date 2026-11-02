@@ -1,0 +1,24 @@
+[stack-admission] load1=7.88 cores=10 perCore=0.79 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzhnyws-e6cd1c3e-48b2efbe8bce db=wsx_48b2efbe8bceccb0d35e compose=wsx-48b2efbe8bceccb0d35e pg=20334 redis=21334 api=24334 web=25334 sandbox=26334 model=27334 deep-agent=28334 asr=29334 vision=30334 loopback-sandbox=31334 mail=19334
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_48b2efbe8bceccb0d35e capacity=100 current=6 required=32
+{"level":"error","msg":"billing_stripe_webhook_failed","traceId":"no-trace","detail":{"reason":"synchronization_failed"}}
+ ✓ tests/billing/stripe-webhook.test.ts (30 tests | 28 skipped) 15835ms
+ ✓ tests/billing/team-settlement-edge-pg.test.ts (6 tests) 1848ms
+
+ Test Files  2 passed (2)
+      Tests  8 passed | 28 skipped (36)
+   Start at  00:44:11
+   Duration  26.39s (transform 1.87s, setup 12ms, collect 3.25s, tests 17.68s, environment 0ms, prepare 100ms)
+
+[db-isolation] db=wsx_48b2efbe8bceccb0d35e peak_connections=6
+[timing] pnpm --filter api exec vitest run tests/billing/team-settlement-edge-pg.test.ts tests/billing/stripe-webhook.test.ts -t retains late cash|does not revive|cannot settle another|retains trusted cash|refuses a fresh checkout|displays a recovered expired renewal|retains legacy management and defers an overlapping|accepts a historical nonoverlapping --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：27s
+  清理：0s
+  总计：28s

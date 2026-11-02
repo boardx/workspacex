@@ -8,16 +8,17 @@ import {grantDueTeamTerms} from "./team-credit-terms";
 interface Reconciler{reconcile(org:string,ref:string):Promise<void>}
 /** Bounded financial owner pointers only; all license/term/wallet work remains tenant-bound. */
 export class PgTeamRecoverySweep{
+ private cursor:string|null=null;
  constructor(private readonly db:DatabasePort,private readonly reconciler:Reconciler){}
  async sweep(){
-  let cursor:string|null=null,processed=0,failed=0;
+  let processed=0,failed=0;
   for(let page=0;page<5;page++){
    const orgs=await this.db.withoutTenant(async raw=>{
     const s={query:<R>(sql:string,params?:readonly unknown[])=>{assertBillingGlobalStatement(sql);return raw.query<R>(sql,params);}};
-    if(await pricingEpochMode(s)!=="active")return [];return (await s.query<{org_id:string}>(GLOBAL.teamDueOrgs,[generation,cursor,20])).rows;
+    if(await pricingEpochMode(s)!=="active")return [];return (await s.query<{org_id:string}>(GLOBAL.teamDueOrgs,[generation,this.cursor,20])).rows;
    });
-   if(!orgs.length)break;
-   for(const {org_id:orgId} of orgs){cursor=orgId;
+   if(!orgs.length){this.cursor=null;break;}
+   for(const {org_id:orgId} of orgs){this.cursor=orgId;
     try{
      const refs=await this.db.withTenant(toOrgId(orgId),async s=>{
       const writable=await lockTeamFinancialOwner(s,orgId);await requireActivePricingEpoch(s);if(writable)await grantDueTeamTerms(s,orgId,new Date());
