@@ -1,11 +1,11 @@
 -- Additive Team purchase facts. No production epoch activation or catalog enabling.
 CREATE TABLE IF NOT EXISTS billing_team_quotes (
- quote_ref text PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id),generation text NOT NULL,
+ quote_ref text PRIMARY KEY, org_id text NOT NULL,generation text NOT NULL,
  quote jsonb NOT NULL CHECK(jsonb_typeof(quote)='object'),created_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,
  CHECK(expires_at>created_at)
 );
 CREATE TABLE IF NOT EXISTS billing_team_purchases (
- purchase_ref text PRIMARY KEY CHECK(length(purchase_ref) BETWEEN 6 AND 32),org_id text NOT NULL REFERENCES organizations(id),
+ purchase_ref text PRIMARY KEY CHECK(length(purchase_ref) BETWEEN 6 AND 32),org_id text NOT NULL,
  generation text NOT NULL,idempotency_key text NOT NULL CHECK(length(idempotency_key) BETWEEN 16 AND 128),
  quote_ref text NOT NULL REFERENCES billing_team_quotes(quote_ref),quote jsonb NOT NULL CHECK(jsonb_typeof(quote)='object'),
  created_by text NOT NULL,created_at timestamptz NOT NULL,checkout_expires_at timestamptz NOT NULL,
@@ -20,18 +20,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS billing_team_open_license ON billing_team_purc
  WHERE quote->>'purpose' IN ('initial','renewal','add_seats') AND fulfilled_at IS NULL AND closed_at IS NULL;
 CREATE TABLE IF NOT EXISTS billing_team_receipts (
  provider text NOT NULL,payment_ref text NOT NULL,purchase_ref text NOT NULL REFERENCES billing_team_purchases(purchase_ref),
- org_id text NOT NULL REFERENCES organizations(id),amount_minor bigint NOT NULL CHECK(amount_minor>0),currency text NOT NULL,
+ org_id text NOT NULL,amount_minor bigint NOT NULL CHECK(amount_minor>0),currency text NOT NULL,
  paid_at timestamptz NOT NULL,verified_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  manual_review boolean NOT NULL DEFAULT false,manual_reason text,PRIMARY KEY(provider,payment_ref)
 );
 CREATE TABLE IF NOT EXISTS billing_team_terms (
- purchase_ref text PRIMARY KEY REFERENCES billing_team_purchases(purchase_ref),org_id text NOT NULL REFERENCES organizations(id),
+ purchase_ref text PRIMARY KEY REFERENCES billing_team_purchases(purchase_ref),org_id text NOT NULL,
  generation text NOT NULL,paid_term jsonb NOT NULL CHECK(jsonb_typeof(paid_term)='object'),next_check_at timestamptz
 );
 DO $policies$
 DECLARE t text;
 BEGIN
  FOREACH t IN ARRAY ARRAY['billing_team_quotes','billing_team_purchases','billing_team_receipts','billing_team_terms'] LOOP
+  -- Financial facts outlive organization lifecycle. New purchase admission checks canonical writability.
+  -- Converge replay of this unpublished schema without carrying automatic lifecycle freeze policies.
+  EXECUTE format('ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I',t,t||'_org_id_fkey');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON %I',t||'_org_frozen_ins',t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON %I',t||'_org_frozen_upd',t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON %I',t||'_org_frozen_del',t);
   EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY',t);
   EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY',t);
   EXECUTE format('DROP POLICY IF EXISTS tenant_scope ON %I',t);

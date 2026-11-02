@@ -1,5 +1,6 @@
+import {TeamBillingError} from "../../application/billing/team-billing-error";
 import {Body,Controller,Get,Post,Param,Header,Inject} from "@nestjs/common";
-import {operations,TeamBillingErrorCode} from "@repo/contracts/billing-team";
+import {operations} from "@repo/contracts/billing-team";
 import type {Principal} from "../../domain/principal";
 import {CurrentPrincipal} from "../current-principal.decorator";
 import {ZodBodyPipe} from "../pipes/zod-body.pipe";
@@ -19,9 +20,8 @@ export class TeamBillingController{
  @Get(operations.getTeamPurchase.path) @Header("Cache-Control","private, no-store")
  purchase(@CurrentPrincipal()p:Principal,@Param("orgId")org:string,@Param("purchaseRef")ref:string){return this.call(()=>this.service.purchase(p,org,ref));}
  private async call<T>(fn:()=>Promise<T>){try{return await fn();}catch(e){
-  const code=e instanceof Error?e.message:"dependency_unavailable";
-  const parsed=TeamBillingErrorCode.safeParse(code);
-  if(!parsed.success)throw e;
-  throw new TeamBillingHttpException(parsed.data,code==="forbidden"?403:code==="order_not_found"?404:code==="dependency_unavailable"||code==="payment_provider_not_configured"?503:409);
+  if(!(e instanceof TeamBillingError))throw e;
+  const code=e.code;
+  throw new TeamBillingHttpException(code,code==="forbidden"?403:code==="order_not_found"?404:code==="dependency_unavailable"||code==="payment_provider_not_configured"?503:409);
  }}
 }

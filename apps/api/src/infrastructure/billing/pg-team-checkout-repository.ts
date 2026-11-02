@@ -31,6 +31,7 @@ export class PgTeamCheckoutRepository implements TeamCheckoutRepository{
   if(member?.org_role!=="admin")throw Error("forbidden");
   const existing=(await s.query<TeamPurchaseRow>("SELECT * FROM billing_team_purchases WHERE org_id=$1 AND generation=$2 AND idempotency_key=$3",[orgId,generation,request.idempotencyKey])).rows[0];
   if(existing){const p=teamPurchaseView(existing);if(p.quote.quoteRef!==request.quoteRef)throw Error("idempotency_conflict");return p;}
+  if(!(await s.query<{writable:boolean}>("SELECT kernel_org_is_writable($1) AS writable",[orgId])).rows[0]?.writable)throw Error("forbidden");
   if(!this.salesEnabled())throw Error("dependency_unavailable");
   const q=(await s.query<{quote:unknown}>("SELECT quote FROM billing_team_quotes WHERE org_id=$1 AND generation=$2 AND quote_ref=$3",[orgId,generation,request.quoteRef])).rows[0];
   if(!q)throw Error("quote_expired");

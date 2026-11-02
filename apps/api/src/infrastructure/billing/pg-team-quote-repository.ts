@@ -17,6 +17,7 @@ export class PgTeamQuoteRepository{
   if(market!=="cn")throw Error("payment_provider_not_configured");
   return this.db.withTenant(orgId,async s=>{
    await lockOrganizationCapacity(s,orgId);await requireActivePricingEpoch(s);
+   if(!(await s.query<{writable:boolean}>("SELECT kernel_org_is_writable($1) AS writable",[orgId])).rows[0]?.writable)throw Error("forbidden");
    if(!this.salesEnabled())throw Error("dependency_unavailable");
    const member=(await s.query<{org_role:string}>("SELECT org_role FROM org_memberships WHERE org_id=$1 AND user_id=$2 FOR SHARE",[orgId,principal.userId])).rows[0];
    if(member?.org_role!=="admin")throw Error("forbidden");

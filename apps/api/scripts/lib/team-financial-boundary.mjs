@@ -8,9 +8,9 @@ import {fileURLToPath} from "node:url";
  * Source remains authoritative; the digest is a derived drift gate, never a permission fact or runtime fallback.
  * Changes require explicit regeneration visible beside their source diff and independent security review. */
 export const TEAM_REVIEW_FILES=[
- "src/application/billing/team-billing-access.ts","src/application/billing/team-checkout-service.ts","src/application/billing/team-checkout-ports.ts","src/application/billing/team-account-service.ts","src/application/billing/team-payment-provider.port.ts",
+ "src/application/billing/team-billing-error.ts","src/application/billing/team-billing-access.ts","src/application/billing/team-checkout-service.ts","src/application/billing/team-checkout-ports.ts","src/application/billing/team-account-service.ts","src/application/billing/team-payment-provider.port.ts",
  "src/domain/billing/team-purchase.ts","src/domain/billing/team-payment-decision.ts","src/domain/billing/team-ai-license.ts","src/domain/billing/team-payment-product.ts",
- "src/infrastructure/billing/team-product-configuration.ts","src/infrastructure/billing/pg-team-account-repository.ts","src/infrastructure/billing/pg-team-checkout-repository.ts","src/infrastructure/billing/pg-team-payment-repository.ts","src/infrastructure/billing/pg-team-quote-repository.ts",
+ "src/infrastructure/billing/team-financial-owner.ts","src/infrastructure/billing/team-product-configuration.ts","src/infrastructure/billing/pg-team-account-repository.ts","src/infrastructure/billing/pg-team-checkout-repository.ts","src/infrastructure/billing/pg-team-payment-repository.ts","src/infrastructure/billing/pg-team-quote-repository.ts",
  "src/infrastructure/billing/team-credit-admission.ts","src/infrastructure/billing/team-credit-terms.ts","src/infrastructure/billing/team-payment-reconciler.ts","src/infrastructure/billing/pg-team-recovery-sweep.ts","src/infrastructure/billing/team-wechat-crediting-store.ts","src/infrastructure/billing/team-wechat-payment-client.ts","src/infrastructure/billing/team-wechat-checkout-client.ts","src/infrastructure/billing/team-payment-recovery-worker.ts",
  "src/interface/controllers/team-billing.controller.ts","src/interface/controllers/team-billing-http-exception.ts",
 ];

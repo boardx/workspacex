@@ -23,9 +23,10 @@ async function fixture(){
  const quoteRef=`tq-${randomUUID()}`,quote={orgId:org,generation,quoteRef,catalogVersion:"frozen",sku:"team-year",provider:"wechat",currency:"CNY",amountMinor:12345,createdAt:start.toISOString(),expiresAt:new Date(start.getTime()+300000).toISOString(),purpose:"initial",seats:5,monthlyCredits:100000,billingCycle:"year",renewalMode:"manual",planVersion:0};
  await asOwner(c=>c.query("INSERT INTO billing_team_quotes(quote_ref,org_id,generation,quote,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6)",[quoteRef,org,generation,quote,start,quote.expiresAt]));
  const repo=new PgTeamCheckoutRepository(db,{authorize:async()=>org} as never,()=>true,()=>start);
- const p=await repo.reserve({userId:user,orgId:org},org,{quoteRef,idempotencyKey:`edge-${randomUUID()}`});
+ const input={quoteRef,idempotencyKey:`edge-${randomUUID()}`};
+ const p=await repo.reserve({userId:user,orgId:org},org,input);
  const proof={provider:"wechat" as const,purchaseRef:p.purchaseRef,paymentRef:`wx_${randomUUID().replaceAll("-","")}`,amountMinor:quote.amountMinor,currency:"CNY",paidAt:new Date(start.getTime()+60000)};
- return {org,user,p,proof};
+ return {org,user,p,proof,input};
 }
 it("retains late cash and Plan-version races as real reconciliation receipts without financial side effects",async()=>{
  for(const mode of ["late","version","amount"]){
@@ -58,4 +59,33 @@ it("cannot settle another organization's purchase or write an orphan claim",asyn
  const own=await fixture(),other=await fixture();
  await expect(new PgTeamPaymentRepository(db,()=>applied).settle(other.org,own.proof)).rejects.toThrow("order_not_found");
  expect(await asOwner(async c=>(await c.query("SELECT count(*)::int AS n FROM billing_payment_claims WHERE provider='wechat' AND payment_ref=$1",[own.proof.paymentRef])).rows[0].n)).toBe(0);
+});
+
+it("retains trusted cash and its original owner after organization disable or deletion without granting rights",async()=>{
+ for(const mode of ["disabled","missing"]){
+  const f=await fixture();
+  await asOwner(async c=>{
+   if(mode==="disabled")await c.query("UPDATE organizations SET status='disabled',disabled_at=now(),retention_until=now()+interval '180 days' WHERE id=$1",[f.org]);
+   else{
+    await c.query("DELETE FROM org_commercial_licenses WHERE org_id=$1",[f.org]);
+    await c.query("DELETE FROM organizations WHERE id=$1",[f.org]);
+   }
+  });
+  const payments=new PgTeamPaymentRepository(db,()=>applied);
+  expect(await payments.settle(f.org,f.proof)).toEqual({completed:true,manual:true});
+  expect(await payments.settle(f.org,f.proof)).toEqual({completed:true,manual:true});
+  await asOwner(async c=>{
+   expect((await c.query("SELECT amount_minor,manual_review FROM billing_team_receipts WHERE purchase_ref=$1",[f.p.purchaseRef])).rows).toEqual([{amount_minor:"12345",manual_review:true}]);
+   expect((await c.query("SELECT owner_id FROM billing_payment_claims WHERE provider='wechat' AND payment_ref=$1",[f.proof.paymentRef])).rows[0].owner_id).toBe(f.org);
+   expect((await c.query("SELECT count(*)::int AS n FROM billing_team_terms WHERE org_id=$1",[f.org])).rows[0].n).toBe(0);
+   expect((await c.query("SELECT count(*)::int AS n FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[f.org])).rows[0].n).toBe(0);
+  });
+ }
+});
+it("refuses a fresh checkout after disable while recovering an existing frozen intent",async()=>{
+ const f=await fixture();
+ await asOwner(c=>c.query("UPDATE organizations SET status='disabled',disabled_at=now(),retention_until=now()+interval '180 days' WHERE id=$1",[f.org]));
+ const repo=new PgTeamCheckoutRepository(db,{authorize:async()=>f.org} as never,()=>true,()=>start);
+ await expect(repo.reserve({userId:f.user,orgId:f.org},f.org,{quoteRef:f.p.quote.quoteRef,idempotencyKey:`new-${randomUUID()}`})).rejects.toThrow("forbidden");
+ expect((await repo.reserve({userId:f.user,orgId:f.org},f.org,f.input)).purchaseRef).toBe(f.p.purchaseRef);
 });

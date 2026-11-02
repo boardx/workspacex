@@ -1,3 +1,4 @@
+import {TeamBillingError} from "./team-billing-error";
 import {TeamCheckoutService} from "./team-checkout-service";
 import type {TeamCheckoutRepository} from "./team-checkout-ports";
 import type {Principal} from "../../domain/principal";
@@ -16,5 +17,5 @@ export class TeamAccountService{
   await this.reconciler.reconcile(org,ref);
   return this.purchases.result(org,ref);});
  }
- private async call<T>(fn:()=>Promise<T>):Promise<T>{try{return await fn();}catch(e){if(e instanceof Error&&TeamBillingErrorCode.safeParse(e.message).success)throw e;throw Error("dependency_unavailable",{cause:e});}}
+ private async call<T>(fn:()=>Promise<T>):Promise<T>{try{return await fn();}catch(e){if(e instanceof TeamBillingError)throw e;const parsed=TeamBillingErrorCode.safeParse(e instanceof Error?e.message:undefined);throw new TeamBillingError(parsed.success?parsed.data:"dependency_unavailable",{cause:e});}}
 }

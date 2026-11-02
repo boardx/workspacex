@@ -6,7 +6,7 @@ import {toOrgId} from "../../domain/org-id";
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../domain/billing/billing-generation";
 import {assessTeamPayment,type VerifiedTeamPayment} from "../../domain/billing/team-payment-decision";
 import {creditHundredths,creditDecimal} from "../../application/billing/credit-consumption";
-import {lockOrganizationCapacity} from "../org-capacity/pg-commercial-capacity";
+import {lockTeamFinancialOwner} from "./team-financial-owner";
 import {requireActivePricingEpoch} from "./personal-pricing-epoch";
 import {grantPaidSubscriptionPeriod,normalizeCreditPeriods} from "./pg-credit-periods";
 import {teamPurchaseView,type TeamPurchaseRow} from "./pg-team-checkout-repository";
@@ -14,7 +14,7 @@ import {teamPurchaseView,type TeamPurchaseRow} from "./pg-team-checkout-reposito
 export class PgTeamPaymentRepository{
  constructor(private readonly db:DatabasePort,private readonly clock:()=>Date=()=>new Date()){}
  async settle(orgId:string,proof:VerifiedTeamPayment){return this.db.withTenant(toOrgId(orgId),async s=>{
-  await lockOrganizationCapacity(s,orgId);await requireActivePricingEpoch(s);
+  const writable=await lockTeamFinancialOwner(s,orgId);await requireActivePricingEpoch(s);
   const row=(await s.query<TeamPurchaseRow&{created_by:string}>("SELECT * FROM billing_team_purchases WHERE org_id=$1 AND generation=$2 AND purchase_ref=$3 FOR UPDATE",[orgId,generation,proof.purchaseRef])).rows[0];
   if(!row)throw Error("order_not_found");const p=teamPurchaseView(row),at=this.clock();
   if(proof.provider!==p.quote.provider||!/^wx_[A-Za-z0-9_]{1,128}$/.test(proof.paymentRef)||!Number.isSafeInteger(proof.amountMinor)||proof.amountMinor<=0||!Number.isFinite(proof.paidAt.getTime()))throw Error("payment_review_required");
@@ -23,6 +23,7 @@ export class PgTeamPaymentRepository{
   if(previous){if(previous.purchase_ref!==p.purchaseRef||BigInt(previous.amount_minor)!==BigInt(proof.amountMinor)||previous.currency!==proof.currency||previous.paid_at.getTime()!==proof.paidAt.getTime())throw Error("payment_review_required");return {completed:true,manual:previous.manual_review};}
   // The INSERT trigger claims this real provider identity across personal and Team receipts.
   await s.query("INSERT INTO billing_team_receipts(provider,payment_ref,purchase_ref,org_id,amount_minor,currency,paid_at) VALUES($1,$2,$3,$4,$5,$6,$7)",[proof.provider,proof.paymentRef,p.purchaseRef,orgId,proof.amountMinor,proof.currency,proof.paidAt]);
+  if(!writable)return this.review(s,orgId,proof,"organization_unavailable");
   const plan=(await s.query<{plan:string;version:number}>("SELECT plan,version FROM organization_plans WHERE org_id=$1 FOR UPDATE",[orgId])).rows[0];
   const license=(await s.query<{pending_purchase_ref:string|null}>("SELECT pending_purchase_ref FROM org_commercial_licenses WHERE org_id=$1 AND generation=$2 FOR UPDATE",[orgId,generation])).rows[0];
   const count=(await s.query<{n:string}>("SELECT count(*)::text AS n FROM org_memberships WHERE org_id=$1",[orgId])).rows[0];
