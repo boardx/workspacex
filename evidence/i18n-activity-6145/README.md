@@ -13,3 +13,5 @@ Logs retain command output with trailing whitespace normalized. The pure API uni
 ## CI correction
 
 Initial gates-fast failed because identity.mock.ts had not been regenerated with the new contract. Regeneration also exposed unsupported ZodDiscriminatedUnion sampling (display:null); a new generated-sample→real-schema assertion failed before the generator fix. The generator now deterministically selects the first union option. Contract suite is9/9 and the original CI lint-contract-source command exits0. The generated artifact is committed from gen:mock, not manually edited. API/controller/UI product code is unchanged by this correction; final latest-head CI must still run.
+
+The later control-plane failure was the secret scanner matching a synthetic test-only password field literal. The fixture now references an explicitly named omitted-value marker; negative leakage assertions remain. The original scanner command exits0 with0 new baseline hits, and API/controller unit tests remain11/11. Scanner rules/baseline were not changed. Foundation menu keyboard fix86426a2a8 is synchronized via updated profile branch. Latest-head CI remains required.
