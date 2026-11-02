@@ -43,7 +43,8 @@ export class PgEnterpriseUpgradeStore implements EnterpriseUpgradeStore {
  pending(orgId:OrgId,ref:string,code:"dependency_unavailable"|"PLAN_VERSION_CONFLICT"){
   return this.db.withTenant(orgId,async s=>{await this.lock(s,orgId);const row=await this.row(s,orgId,ref),prior=EnterpriseUpgradeOperation.parse(row.result);
    if(prior.status!=="processing")return prior;
-   const result=EnterpriseUpgradeOperation.parse({...prior,asOf:new Date().toISOString(),status:code==="PLAN_VERSION_CONFLICT"?"needs_review":"processing",code,nextAction:code==="PLAN_VERSION_CONFLICT"?"contact_platform":"retry_original"});
+   const asOf=(await s.query<{at:Date}>("SELECT now() AS at")).rows[0]!.at.toISOString();
+   const result=EnterpriseUpgradeOperation.parse({...prior,asOf,status:code==="PLAN_VERSION_CONFLICT"?"needs_review":"processing",code,nextAction:code==="PLAN_VERSION_CONFLICT"?"contact_platform":"retry_original"});
    await s.query("UPDATE enterprise_upgrade_operations SET result=$3::jsonb WHERE org_id=$1 AND operation_ref=$2",[orgId,ref,JSON.stringify(result)]);return result;
   });
  }

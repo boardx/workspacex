@@ -91,6 +91,7 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
         <p>{detail.organization.name} · {detail.organization.memberCount} 位成员</p>
         <p className="text-13 text-muted-foreground">套餐：{planLabel(detail.organization.plan.plan)}{detail.organization.plan.plan==="enterprise"&&detail.organization.plan.enforcement!=="active"?"（待生效）":""} · 版本 {detail.organization.plan.version}</p>
         <p className="my-3 text-13 text-muted-foreground">套餐额度以实际计费记录为准，所有套餐均记录用量并保留安全和供应商限制。</p>
+        {detail.organization.plan.enforcement!=="active"&&<>
         <label className="block" htmlFor="organization-plan">套餐</label>
         <select id="organization-plan" className="my-2 rounded border bg-background p-2" value={plan} disabled={busy} onChange={e => setPlan(e.target.value === "enterprise" ? "enterprise" : "ordinary")}>
           <option value="ordinary">普通</option><option value="enterprise">企业</option>
@@ -98,6 +99,7 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
         <label className="block" htmlFor="plan-change-reason">变更理由（写入审计记录）</label>
         <Input id="plan-change-reason" value={reason} maxLength={500} disabled={busy} onChange={e => setReason(e.target.value)} />
         <Button className="my-3" disabled={busy || !reason.trim()} onClick={() => void save()}>{busy ? "保存中…" : "保存套餐"}</Button>
+        </>}
         <EnterpriseManagementPanel key={`enterprise-${detail.organization.orgId}`} orgId={detail.organization.orgId} version={detail.organization.plan.version} enterprise={detail.organization.billingSummary?.licenseStatus==="enterprise"&&detail.organization.plan.enforcement==="active"&&detail.organization.plan.billingGeneration===detail.organization.billingSummary.generation} onApplied={()=>setRefresh(n=>n+1)}/>
         <AiPolicyPanel key={`policy-${detail.organization.orgId}`} orgId={detail.organization.orgId}/>
         <AiUsagePanel key={detail.organization.orgId} orgId={detail.organization.orgId} platform/>
