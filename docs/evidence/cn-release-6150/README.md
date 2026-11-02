@@ -49,14 +49,17 @@ Role settings and complete end-to-end disaster recovery remain unqualified.
 Local regression:54 registry tests,10 workflow/tag-reuse tests, release strict tsc
 and25 affected typecheck/lint tasks passed. Independent code review accepted the
 workflow changes. First build-only CN dispatch:41521008088, sourcefe961032e;
-all five image builds succeeded; the immutable manifest job is still running at this checkpoint.
+all five image builds and the immutable manifest succeeded. Downloaded manifest
+readback bound tag41521008088-1 to sourcefe961032e and all five registry digests.
+Deployment was intentionally skipped (build_only); production acceptance is outstanding.
 
 Browser tool subsequently reported the Mac locked. The reconciliation script was
 **not staged or executed**. No production write, maintenance hold, new capability
 installation, migration, candidate activation or final browser acceptance occurred.
 The user has a pending unlock request. Keep #6150/#6079 open until actual acceptance.
 
-Operational proposal regression: three offline tests passed, covering exact SQL
+Operational proposal regression: four offline tests passed, covering exact SQL
 byte/extra-file rejection, actual JavaScript driver source/tag binding, and COMPLETE
-state refusal before reservation/hold/stop/replay. Bundle manifest SHA-256:
+state refusal before reservation/hold/stop/replay; original-proof archive tampering
+and semantic failed-restore rejection. Bundle manifest SHA-256:
 `eb4d1f5c19c23208f605a7742a65bf27e13a9b91f5cde9ed81989a9337adf6b2`.

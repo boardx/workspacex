@@ -45,3 +45,34 @@ class FixedProposal(unittest.TestCase):
                 self.assertNotIn('reserve-once',events);self.assertNotIn('nginx-held',events);self.assertNotIn('stop-old',events);self.assertNotIn('sql-apply',events)
                 self.assertTrue(state['running']);self.assertEqual(nginx.read_bytes(),b'original');self.assertTrue(pending.exists())
             finally:case.doCleanups()
+
+    def test_independent_restore_verifier_rejects_changed_archive_and_failed_result(self):
+        import hashlib,types
+        helper=load(self.out/'cn-reviewed-backup-6150.py','backup6150verify')
+        with tempfile.TemporaryDirectory() as tmp:
+            attempt=Path(tmp);out=attempt/'stopped-backup';clone=out/'owner-acl-rehearsal';clone.mkdir(parents=True)
+            def save(name,value):
+                path=out/name;path.write_text(json.dumps(value));return path
+            def ref(path):return {'path':str(path),'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
+            for name in ('database.pgdump.enc','backup.key','snapshot.json','source-capture.json','cn-clone-profile.json'):save(name,{'syntheticFixtureOnly':True})
+            save('owner-acl-rehearsal/intent.json',{'syntheticFixtureOnly':True});save('owner-acl-rehearsal/restored.json',{'syntheticFixtureOnly':True});save('owner-acl-rehearsal/restored-catalog.json',{'syntheticFixtureOnly':True})
+            save('owner-acl-rehearsal/catalog-comparison.json',{'equal':True});save('owner-acl-rehearsal/cleanup.json',{'removed':True})
+            result={'status':'OWNER_ACL_SQL_REHEARSED','sourceOwnerAclRestored':True,'appRoleTransactionRollback':True,'migrationRoleAcceptance':'EXACT_REVIEWED_SQL_LOGIN_ONLY','migrationNames':list(self.manifest['migrations'])}
+            save('owner-acl-rehearsal/receipt.json',result)
+            def proof():
+                import time
+                return save('owner-acl-qualification.json',{'kind':'cn-owner-acl-restore-6150','status':'STOPPED_OWNER_ACL_SQL_RESTORE_VERIFIED','environment':'cn','source':self.manifest['source'],'tag':self.manifest['tag'],'migrationChecksums':self.manifest['migrations'],'baselineLedgerCount':438,'targetLedgerCount':449,'createdAt':time.time(),'files':{str(p.relative_to(out)):ref(p)['sha256'] for p in out.rglob('*') if p.is_file() and p.name!='owner-acl-qualification.json'}})
+            # Root ancestry is separately covered by the shared pin-reader suite.
+            # This local fixture preserves real byte-hash checks; never host proof.
+            def pinned(reference,**kw):
+                p=Path(reference['path'])
+                if ref(p)['sha256']!=reference['sha256']:raise ValueError('INPUT_HASH_DRIFT')
+                return p
+            modules={'schema-restore-rehearsal':object(),'tag-maintenance-release':types.SimpleNamespace(pinned=pinned)}
+            path=proof()
+            with patch.object(helper,'load',side_effect=lambda name:modules[name]):
+                helper.verify(ref(path),attempt,self.manifest['migrations'])
+                (out/'database.pgdump.enc').write_bytes(b'tampered')
+                with self.assertRaisesRegex(ValueError,'INPUT_HASH_DRIFT'):helper.verify(ref(path),attempt,self.manifest['migrations'])
+                result['appRoleTransactionRollback']=False;save('owner-acl-rehearsal/receipt.json',result);path=proof()
+                with self.assertRaisesRegex(ValueError,'RESTORE_RESULT_NOT_PASSED'):helper.verify(ref(path),attempt,self.manifest['migrations'])
