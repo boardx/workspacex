@@ -35,8 +35,9 @@ flowchart TD
   class S1 done
   class S2 done
   class S3 done
-  class S4 doing
-  class S5 todo
+  class S4 tested
+  %% evidence S4: 24 scoped tests; lint; real backend browser pass; evidence/i18n-profile-6141; final static push gate pending
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
