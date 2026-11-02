@@ -54,7 +54,11 @@ def validate(folder, sha, run_id, attempt, seed):
         return value if pinned else value[0]
     rows=[]; case_ids=set(); files={}; starts=[]; finishes=[]; durations={}; parts=[]
     for part in ('release','remaining'):
-        root=folder/part; summary,summary_digest=load(root/'summary.json',pinned=True); round_=load(root/'round-01/round.json')
+        packet=folder/part; root=packet/'cn-simulation-artifacts'
+        names={p.name for p in packet.iterdir()}
+        allowed={'cn-simulation-artifacts'} | ({'cn-terminal-diagnostic.log'} if part=='release' else set())
+        need('cn-simulation-artifacts' in names and names<=allowed,'PART_ARCHIVE_LAYOUT')
+        summary,summary_digest=load(root/'summary.json',pinned=True); round_=load(root/'round-01/round.json')
         need(summary.get('kind')=='cn-release-isolated-simulation-v1' and summary.get('suiteSelection')==part,'PART_KIND')
         need((summary.get('commit'),summary.get('githubRunId'),summary.get('githubRunAttempt'),summary.get('baseSeed'))
              ==(sha,run_id,attempt,seed),'PART_IDENTITY')

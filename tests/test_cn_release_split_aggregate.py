@@ -20,7 +20,7 @@ class SplitAggregate(unittest.TestCase):
         self.sha = 'a' * 40
         self.parts = {}
         for name, suites in [('release', ['release']), ('remaining', [n for n in m.sim.SUITES if n != 'release'])]:
-            p = self.root / name; rd = p / 'round-01'; rd.mkdir(parents=True)
+            p = self.root / name / 'cn-simulation-artifacts'; rd = p / 'round-01'; rd.mkdir(parents=True)
             rows = []
             for suite in suites:
                 cid = 'fixture.' + suite
@@ -90,6 +90,15 @@ class SplitAggregate(unittest.TestCase):
                 self.change(p,lambda x:x.update({field:value}))
                 with self.assertRaises(ValueError): self.validate()
                 p.write_text(original)
+
+    def test_uploaded_archive_layout_is_fixed_and_unambiguous(self):
+        packet=self.parts['release'].parent
+        # Actual upload uses RUNNER_TEMP as common ancestor because the terminal
+        # diagnostic is outside the exported report directory.
+        (packet/'cn-terminal-diagnostic.log').write_text('fixture only')
+        self.validate()
+        (packet/'summary.json').write_text((self.parts['release']/'summary.json').read_text())
+        with self.assertRaises(ValueError):self.validate()
 
     def test_missing_part_suite_or_changed_round_rejected(self):
         p=self.parts['remaining']/'summary.json'; raw=p.read_text()
