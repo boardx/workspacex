@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { PACK_CREDITS, numberLabel, previewMoney, previewPrices, type PricingCycle, type PricingRegion } from "./pricing-preview-data";
+import { PACK_CREDITS, numberLabel, previewMoney, previewPrices, previewSeatQuote, type PricingCycle, type PricingRegion } from "./pricing-preview-data";
 
 export type PurchaseKind = "plans" | "credits" | "seats";
 export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCycleChange, onClose, onPurchased }: {
@@ -21,7 +21,8 @@ export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCyc
   const [confirmed, setConfirmed] = React.useState(false);
   React.useEffect(() => { setConfirmed(false); setProvider(region === "us" ? "stripe" : "wechat"); setPlan(team ? "team" : "pro"); }, [kind, region, team]);
   const p = previewPrices(region);
-  const amount = kind === "credits" ? p.packs[pack]! : kind === "seats" ? Math.ceil(p.seat[cycle] * seats * 0.5 * 100) / 100 : p[plan][cycle];
+  const seatQuote = kind === "seats" ? previewSeatQuote(region,cycle,seats,provider) : null;
+  const amount = kind === "credits" ? p.packs[pack]! : seatQuote ? seatQuote.amountMinor / 100 : p[plan][cycle];
   const title = kind === "credits" ? "购买 AI 额度" : kind === "seats" ? "增加团队席位" : "选择适合你的套餐";
   return <Dialog open={kind !== null} onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent data-testid="pricing-purchase-dialog" className="max-h-[90vh] max-w-2xl overflow-y-auto">
@@ -52,7 +53,7 @@ export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCyc
             <Button data-testid="pricing-seat-minus" variant="outline" aria-label="减少本次增购席位" disabled={seats <= 1} onClick={() => setSeats(v => v - 1)}>−</Button>
             <span data-testid="pricing-seat-count" className="tabular-nums">{seats}</span><Button data-testid="pricing-seat-plus" variant="outline" aria-label="增加本次增购席位" disabled={seats >= 100} onClick={() => setSeats(v => v + 1)}>＋</Button>
           </div></div>
-          <dl className="space-y-3 text-13"><div className="flex justify-between"><dt className="text-muted-foreground">标准单价</dt><dd>{previewMoney(region, p.seat[cycle])}/席/{cycle === "month" ? "月" : "年"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">本次演示剩余有效期</dt><dd>50%</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">与团队订阅同时到期</dt><dd>{cycle === "year" ? "2027/11/01" : "2026/12/01"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">后续完整月新增共享额度</dt><dd>{numberLabel(TEAM_SEAT_MONTHLY_CREDITS * seats)} credit/月</dd></div></dl>
+          <dl className="space-y-3 text-13"><div className="flex justify-between"><dt className="text-muted-foreground">标准单价</dt><dd>{previewMoney(region, p.seat[cycle])}/席/{cycle === "month" ? "月" : "年"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">本次演示剩余有效期</dt><dd>50%</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">与团队订阅同时到期</dt><dd>{seatQuote?.term.paidPeriodEnd.slice(0,10).replaceAll("-","/")}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">后续完整月新增共享额度</dt><dd>{numberLabel(TEAM_SEAT_MONTHLY_CREDITS * seats)} credit/月</dd></div></dl>
           <p className="text-12 text-muted-foreground">按剩余有效期补差价。首期新增额度按剩余月度周期折算；此处仅演示报价。</p>
         </div>}
         <div className="space-y-2 border-t border-border pt-4">

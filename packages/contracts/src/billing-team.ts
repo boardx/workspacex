@@ -6,7 +6,7 @@
  */
 import {z} from "zod";
 import {BillingProvider,CreditBalance,CreditLedgerAmount} from "./billing-credits";
-import {BillingCycle} from "./billing-pricing";
+import {BillingCycle,PricingCurrency,PricingProduct,RenewalMode} from "./billing-pricing";
 import {operations as PlatformOrganizations} from "./platform-organizations";
 
 export const TEAM_INCLUDED_SEATS=5;
@@ -17,6 +17,7 @@ const Identifier=z.string().min(1).max(128);
 const IdempotencyKey=z.string().min(16).max(128);
 const Timestamp=z.string().datetime({offset:true});
 const Count=z.number().int().nonnegative().safe();
+const teamMonthlyCredits=(seats:number)=>TEAM_MONTHLY_CREDITS+(seats-TEAM_INCLUDED_SEATS)*TEAM_SEAT_MONTHLY_CREDITS;
 // Reuse the existing Plan write's version and reason constraints; no second range.
 const ExpectedPlanVersion=PlatformOrganizations.setPlan.in.shape.expectedVersion;
 const OperatorReason=PlatformOrganizations.setPlan.in.shape.reason;
@@ -55,7 +56,7 @@ export const TeamPaidTerm=z.object({
  const days=(end-start)/86400000;
  const [minimum,maximum]=value.billingCycle==="month"?([28,31] as const):([365,366] as const);
  if(days<minimum||days>maximum)ctx.addIssue({code:"custom",path:["paidPeriodEnd"],message:"paid period must match its billing cycle"});
- const credits=TEAM_MONTHLY_CREDITS+(value.purchasedSeats-TEAM_INCLUDED_SEATS)*TEAM_SEAT_MONTHLY_CREDITS;
+ const credits=teamMonthlyCredits(value.purchasedSeats);
  if(!Number.isSafeInteger(credits)||value.monthlyCredits!==credits)ctx.addIssue({code:"custom",path:["monthlyCredits"],message:"monthly quota must match purchased capacity"});
 });
 
@@ -65,3 +66,45 @@ export type EnterpriseUpgradeRequest=z.infer<typeof EnterpriseUpgradeRequest>;
 export type TeamQuoteRequest=z.infer<typeof TeamQuoteRequest>;
 export type TeamCheckoutRequest=z.infer<typeof TeamCheckoutRequest>;
 export type TeamPaidTerm=z.infer<typeof TeamPaidTerm>;
+
+/** Immutable server quote; estimates never establish payment, capacity or a new anchor. */
+const QuoteSnapshot=z.object({
+ orgId:Identifier,generation:Identifier,quoteRef:Identifier,catalogVersion:Identifier,sku:Identifier,
+ provider:BillingProvider,currency:PricingCurrency,amountMinor:PricingProduct.options[0].shape.amountMinor,
+ createdAt:Timestamp,expiresAt:Timestamp,
+}).strict();
+const LicenseQuoteSnapshot=QuoteSnapshot.extend({
+ seats:Count.min(TEAM_INCLUDED_SEATS),monthlyCredits:CreditLedgerAmount,
+ billingCycle:BillingCycle,renewalMode:RenewalMode,planVersion:ExpectedPlanVersion,
+});
+export const TeamQuote=z.discriminatedUnion("purpose",[
+ LicenseQuoteSnapshot.extend({purpose:z.literal("initial")}),
+ LicenseQuoteSnapshot.extend({purpose:z.literal("renewal")}),
+ QuoteSnapshot.extend({
+  purpose:z.literal("add_seats"),term:TeamPaidTerm,additionalSeats:Count.positive(),
+  monthlyCreditsAfter:CreditLedgerAmount,estimatedFirstCredits:CreditBalance.refine(value=>value>=0,"credit estimate must be nonnegative"),
+  creditPeriodStart:Timestamp,creditPeriodEnd:Timestamp,planVersion:ExpectedPlanVersion,
+ }),
+ QuoteSnapshot.extend({
+  purpose:z.literal("credit_topup"),credits:PricingProduct.options[1].shape.credits,renewalMode:z.literal("manual"),
+ }),
+]).superRefine((value,ctx)=>{
+ const created=Date.parse(value.createdAt),expires=Date.parse(value.expiresAt);
+ if(expires<=created||expires-created>300000)ctx.addIssue({code:"custom",path:["expiresAt"],message:"quote lifetime must be positive and at most five minutes"});
+ if(value.purpose==="initial"||value.purpose==="renewal"){
+  const expected=teamMonthlyCredits(value.seats);
+  if(!Number.isSafeInteger(expected)||value.monthlyCredits!==expected)ctx.addIssue({code:"custom",path:["monthlyCredits"],message:"quote monthly quota must match purchased capacity"});
+  const renewal=value.provider==="wechat"?"manual":"automatic";
+  if(value.renewalMode!==renewal)ctx.addIssue({code:"custom",path:["renewalMode"],message:"subscription renewal must match its payment provider"});
+ }
+ if(value.purpose==="add_seats"){
+  const termStart=Date.parse(value.term.paidPeriodStart),termEnd=Date.parse(value.term.paidPeriodEnd);
+  const start=Date.parse(value.creditPeriodStart),end=Date.parse(value.creditPeriodEnd),days=(end-start)/86400000;
+  if(created<termStart||created>=termEnd||expires>termEnd)ctx.addIssue({code:"custom",path:["expiresAt"],message:"seat quote must remain inside the original paid term"});
+  if(start<termStart||end>termEnd||created<start||created>=end||days<28||days>31)ctx.addIssue({code:"custom",path:["creditPeriodEnd"],message:"seat estimate requires the current monthly credit window"});
+  const seats=value.term.purchasedSeats+value.additionalSeats,expected=teamMonthlyCredits(seats);
+  if(!Number.isSafeInteger(seats)||!Number.isSafeInteger(expected)||value.monthlyCreditsAfter!==expected)ctx.addIssue({code:"custom",path:["monthlyCreditsAfter"],message:"seat quote must preserve existing capacity and add the requested increment"});
+  if(value.estimatedFirstCredits>value.additionalSeats*TEAM_SEAT_MONTHLY_CREDITS)ctx.addIssue({code:"custom",path:["estimatedFirstCredits"],message:"first estimate cannot exceed one full monthly increment"});
+ }
+});
+export type TeamQuote=z.infer<typeof TeamQuote>;
