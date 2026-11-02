@@ -138,7 +138,7 @@ it("recovers the paid original HTTP request without original checkout binding af
  await asOwner(c=>c.query("UPDATE billing_personal_purchases SET created_at=$2 WHERE purchase_ref=$1",[purchase!.purchaseRef,anchor]));
  purchase=(await repository.find(principal,body.idempotencyKey))!;const snapshots=personalStripePaymentFixture(purchase,anchor);
  await new PgPersonalPaymentRepository(db).settleStripe(purchase.purchaseRef,snapshots.subscription.id,snapshots.invoice.id,async locked=>snapshots.proof(locked));
- const facts=()=>asOwner(async c=>(await c.query("SELECT balance::text,total_granted,(SELECT count(*)::int FROM billing_personal_payment_receipts WHERE purchase_ref=$1) AS receipts,(SELECT count(*)::int FROM credit_transactions t WHERE t.wallet_id=w.wallet_id) AS entries FROM credit_wallets w WHERE owner_type='user' AND owner_id=$2",[purchase!.purchaseRef,recoveryUserId])).rows[0]);
+ const facts=()=>asOwner(async c=>(await c.query("SELECT balance::text,total_granted::float8 AS total_granted,(SELECT count(*)::int FROM billing_personal_payment_receipts WHERE purchase_ref=$1) AS receipts,(SELECT count(*)::int FROM credit_transactions t WHERE t.wallet_id=w.wallet_id) AS entries FROM credit_wallets w WHERE owner_type='user' AND owner_id=$2",[purchase!.purchaseRef,recoveryUserId])).rows[0]);
  const credited=await facts();expect(credited).toEqual({balance:"20000.00",total_granted:20000,receipts:1,entries:1});
  salesEnabled=false;loseCreationResponse=false;const retry=await send();expect(retry.status).toBe(201);expect(retry.headers.get("cache-control")).toBe("no-store");
  expect(await retry.json()).toMatchObject({purchaseRef:purchase.purchaseRef,url:null,expiresAt:null});expect(calls).toBe(beforeCalls+1);

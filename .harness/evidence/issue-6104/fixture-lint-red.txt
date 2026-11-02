@@ -1,0 +1,5 @@
+global-scope test fixtures（issue #2982）：
+  ✗ tests/billing/credit-grant-precision-pg.test.ts: 写全局作用域夹具 `table:credit_transactions`，但没有 `// @global-scope-fixture table:credit_transactions: <谁收敛它>` 声明
+
+写到自己 org 之外的夹具没有文件能清理，会让「哪个文件先跑」决定「后面的文件看见什么」，
+失败表现为『单独跑绿、全量跑红』。加一行声明说明谁负责收敛它，或者把它改成写进自己的 org。

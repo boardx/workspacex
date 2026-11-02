@@ -104,7 +104,7 @@ it("grants a verified paid monthly invoice exactly once across duplicate and sib
  const responses=await Promise.all([post("invoice.paid",{id:"in_f09monthly"},"evt_f09paid1"),post("invoice.payment_succeeded",{id:"in_f09monthly"},"evt_f09paid2")]);
  expect(responses.map(r=>r.status)).toEqual([200,200]);
  expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09paid1")).status).toBe(200);
- expect((await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+ expect((await asOwner(c=>c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
  expect((await asOwner(c=>c.query("SELECT count(*)::int AS count FROM credit_subscription_periods p JOIN credit_wallets w USING(wallet_id) WHERE w.owner_id=$1",[user]))).rows).toEqual([{count:1}]);
  const info=await(await fetch(`${base}/billing/subscription`,{headers:{authorization:"Bearer fixture"}})).json();
  expect(info.creditGrant).toMatchObject({status:"granted",grant:{credits:20000,remainingCredits:20000,periodEnd:new Date(period.end*1000).toISOString()}});
@@ -143,7 +143,7 @@ it("preserves paid current credits when auto renewal is canceled and never grant
  (snapshots["/v1/subscriptions/sub_f09A"] as any).cancel_at_period_end=true;
  expect((await post("customer.subscription.updated",{id:"sub_f09A"},"evt_f09cancelrenewal")).status).toBe(200);
  expect((await post("invoice.payment_failed",{parent:{subscription_details:{subscription:"sub_f09A"}}},"evt_f09failedrenewal")).status).toBe(200);
- expect((await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+ expect((await asOwner(c=>c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
 });
 it("can reconcile a previously ignored paid event after enabling monthly credit grants",async()=>{
  monthlyFixture();expect((await checkout(await intent())).status).toBe(200);

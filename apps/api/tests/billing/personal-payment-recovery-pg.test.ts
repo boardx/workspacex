@@ -137,7 +137,7 @@ it("synchronizes a due Stripe binding and every missed paid month, then defers t
   await asOwner(c => c.query("UPDATE billing_personal_stripe_bindings SET next_check_at=clock_timestamp()-interval '1 second' WHERE subscription_ref=$1", [original.subscription.id]));
   const store = new PgPersonalPaymentRecoveryStore(db, r.reconciler, sync, provider, r.logger);
   expect(await store.reconcileDue(() => true)).toEqual({ processed: 1, failed: 0 });
-  const wallet = await asApp(org, async c => (await c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [f.principal.userId])).rows[0]);
+  const wallet = await asApp(org, async c => (await c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [f.principal.userId])).rows[0]);
   expect(wallet).toMatchObject({ balance: "20000.00", total_granted: 60000 });
   const hint = await asApp(org, async c => (await c.query("SELECT invoice_cursor,next_check_at>clock_timestamp() AS deferred FROM billing_personal_stripe_bindings WHERE subscription_ref=$1", [original.subscription.id])).rows[0]);
   expect(hint).toEqual({ invoice_cursor: null, deferred: true });

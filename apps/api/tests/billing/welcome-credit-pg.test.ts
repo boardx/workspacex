@@ -116,7 +116,7 @@ it("concurrent duplicate registration creates only one account and one gift",asy
   const a=registration("race-a"),b=registration("race-b",a.email),repo=new PgRegistrationRepository(db);
   const results=await Promise.all([repo.createAccountAndOrg(a),repo.createAccountAndOrg(b)]);
   expect(results.filter(r=>r.ok)).toHaveLength(1);expect(results.filter(r=>!r.ok)).toHaveLength(1);
-  const rows=await asOwner(async c=>(await c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[])",[[a.userId,b.userId]])).rows);
+  const rows=await asOwner(async c=>(await c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[])",[[a.userId,b.userId]])).rows);
   expect(rows).toEqual([{balance:"1000.00",total_granted:1000}]);
 });
 

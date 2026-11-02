@@ -36,7 +36,7 @@ async function post(body:unknown){const response=await fetch(`${base}/auth/regis
 it("real registration commits its one welcome batch and durable verification outbox together",async()=>{
   const result=await post(input("real"));expect(result.status,JSON.stringify(result.body)).toBe(201);
   const out=auth.operations.registerNewAccount.out.parse(result.body);users.push(out.userId);
-  const state=await asOwner(async c=>(await c.query(`SELECT w.balance::text,w.total_granted,
+  const state=await asOwner(async c=>(await c.query(`SELECT w.balance::text,w.total_granted::float8 AS total_granted,
     (SELECT count(*)::int FROM credit_subscription_periods p WHERE p.wallet_id=w.wallet_id AND p.source_kind='welcome') AS batches,
     (SELECT count(*)::int FROM mail_outbox m JOIN email_verification_challenges e ON e.id=m.challenge_id WHERE e.user_id=$1) AS queued
     FROM credit_wallets w WHERE w.owner_type='user' AND w.owner_id=$1`,[out.userId])).rows[0]);

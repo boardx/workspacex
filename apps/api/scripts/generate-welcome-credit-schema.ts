@@ -40,7 +40,15 @@ ALTER TABLE credit_transactions ADD CONSTRAINT credit_transactions_welcome_check
   (type='welcome_expire' AND source_type='welcome_period' AND direction=-1)
 );
 
--- Invoker privileges: the trigger receives no new authority beyond registration's existing role.
+${renderWelcomeCreditTrigger()}`;
+}
+/** Shared trigger source: historical integer snapshot and the decimal successor stay generated. */
+export function renderWelcomeCreditTrigger(decimalTotals=false):string {
+ const max=CreditBalance.maxValue;
+ if(max===null)throw Error("welcome_schema_invalid");
+ const grantedTotal=decimalTotals?`total_granted+${WELCOME_CREDITS}`:`(total_granted::bigint+${WELCOME_CREDITS})::integer`;
+ const checkedTotal=decimalTotals?`total_granted+${WELCOME_CREDITS}`:`total_granted::bigint+${WELCOME_CREDITS}`;
+ return `-- Invoker privileges: the trigger receives no new authority beyond registration's existing role.
 CREATE OR REPLACE FUNCTION billing_new_account_welcome() RETURNS trigger LANGUAGE plpgsql SECURITY INVOKER SET search_path=public,pg_temp AS $welcome$
 DECLARE
   epoch billing_pricing_epoch%ROWTYPE;
@@ -61,8 +69,8 @@ BEGIN
   issued_at:=date_trunc('milliseconds',clock_timestamp());
   INSERT INTO credit_subscription_periods(wallet_id,subscription_ref,invoice_ref,plan_ref,period_start,period_end,granted_hundredths,remaining_hundredths,source_kind)
     VALUES(wallet.wallet_id,'welcome:'||NEW.user_id,'welcome:'||NEW.user_id,${quote(WELCOME_CREDIT_PROGRAM)},issued_at,issued_at+${WELCOME_CREDIT_VALIDITY_DAYS * 86400000}*interval '1 millisecond',${WELCOME_CREDITS * 100},${WELCOME_CREDITS * 100},'welcome') RETURNING period_id INTO batch_id;
-  UPDATE credit_wallets SET balance=balance+${WELCOME_CREDITS},total_granted=(total_granted::bigint+${WELCOME_CREDITS})::integer,updated_at=now()
-    WHERE wallet_id=wallet.wallet_id AND balance+${WELCOME_CREDITS}<=${max} AND total_granted::bigint+${WELCOME_CREDITS}<=${max} RETURNING balance INTO granted_balance;
+  UPDATE credit_wallets SET balance=balance+${WELCOME_CREDITS},total_granted=${grantedTotal},updated_at=now()
+    WHERE wallet_id=wallet.wallet_id AND balance+${WELCOME_CREDITS}<=${max} AND ${checkedTotal}<=${max} RETURNING balance INTO granted_balance;
   IF NOT FOUND THEN RAISE EXCEPTION 'credit_balance_unrepresentable'; END IF;
   INSERT INTO credit_transactions(wallet_id,type,direction,credits,balance_after,source_type,source_id)
     VALUES(wallet.wallet_id,'welcome_grant',1,${WELCOME_CREDITS},granted_balance,'welcome_period',batch_id::text);

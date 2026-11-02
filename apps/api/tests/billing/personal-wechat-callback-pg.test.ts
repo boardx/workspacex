@@ -93,7 +93,7 @@ it("verifies real RSA/AES bytes and merchant reads before one annual HTTP grant"
   const f = await fixture("annual"); merchant = f.payment; const item = notice(f.payment);
   await expect.poll(async () => (await post(item)).status, { timeout: 15000, interval: 100 }).toBe(200);
   expect((await post(item)).status).toBe(200);
-  const wallet = await asApp(org, async c => (await c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [f.userId])).rows[0]);
+  const wallet = await asApp(org, async c => (await c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [f.userId])).rows[0]);
   expect(wallet).toMatchObject({ balance: "20000.00", total_granted: 20000 }); expect(legacy.accept).not.toHaveBeenCalled();
 });
 it("rejects a signed wrong amount and a tampered signature without minting credits", async () => {
