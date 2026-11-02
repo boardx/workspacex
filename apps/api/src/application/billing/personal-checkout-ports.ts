@@ -11,7 +11,7 @@ export type StoredPersonalPurchase = PersonalPurchase & Readonly<{
 export type PersonalCheckoutBinding = Readonly<{ sessionRef: string; url: string; expiresAt: Date }>;
 export interface PersonalCheckoutRepository {
   find(principal: Principal, key: string): Promise<StoredPersonalPurchase | null>;
-  reserve(principal: Principal, request: PersonalCheckoutRequest, product: PersonalPurchase["product"]): Promise<StoredPersonalPurchase>;
+  reserve(principal: Principal, request: PersonalCheckoutRequest, market: "cn" | "us"): Promise<StoredPersonalPurchase>;
   bind(principal: Principal, purchaseRef: string, result: PersonalCheckoutBinding): Promise<StoredPersonalPurchase>;
 }
 export interface PersonalCheckoutProvider {

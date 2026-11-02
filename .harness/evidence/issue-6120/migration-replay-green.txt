@@ -1,0 +1,33 @@
+[stack-admission] load1=3.98 cores=10 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvz00pnh-e02e4ffa-6f6a182f0359 db=wsx_6f6a182f03596448200f compose=wsx-6f6a182f03596448200f pg=20983 redis=21983 api=24983 web=25983 sandbox=26983 model=27983 deep-agent=28983 asr=29983 vision=30983 loopback-sandbox=31983 mail=19983
+
+> @repo/api@0.0.0 migrate:check /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+> ./scripts/verify-migrations.sh
+
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
+ Network wsx-6f6a182f03596448200f_default Creating 
+ Network wsx-6f6a182f03596448200f_default Created 
+ Container wsx-6f6a182f03596448200f-postgres-1 Creating 
+ Container wsx-6f6a182f03596448200f-postgres-1 Created 
+ Container wsx-6f6a182f03596448200f-postgres-1 Starting 
+ Container wsx-6f6a182f03596448200f-postgres-1 Started 
+NOTICE:  database "wsx_6f6a182f03596448200f" does not exist, skipping
+  applied 448 migration(s) to an empty database
+  ✓ force replay re-ran every file (not silently skipped by the version table)
+  ✓ schema digest identical after replay
+  ✓ populated database data identical after replay
+  ✓ populated replay fixture survived
+  ✓ legacy prototype version survived replay byte-for-byte
+  ✓ prototype version remains append-only after replay
+  ✓ every file in migrations/ is recorded in the version table
+  (migrations dir: /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api/migrations/)
+✅ migrate:check: migrations rebuild from empty and are individually replayable
+[timing] pnpm --filter @repo/api migrate:check
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：39s
+  清理：1s
+  总计：39s

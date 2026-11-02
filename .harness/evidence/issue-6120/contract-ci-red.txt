@@ -1,0 +1,46 @@
+2026-11-02T08:12:21.0898473Z  ✓ tests/files/contract-stub-ontology-edge-invalidate.test.ts (26 tests) 43ms
+2026-11-02T08:12:21.0899942Z  ❯ tests/billing-pricing.test.ts (7 tests | 1 failed) 54ms
+2026-11-02T08:12:21.0901441Z    × personal pricing contract design > requires integer minor units and the confirmed Pro monthly entitlement 22ms
+2026-11-02T08:12:21.0902574Z      → expected true to be false // Object.is equality
+2026-11-02T08:12:21.0903540Z  ✓ tests/out-schemas-strict.test.ts (2 tests) 1ms
+2026-11-02T08:12:21.0905063Z  ↓ tests/billing-team-quote-design.test.ts (20 tests)
+2026-11-02T08:12:21.0905742Z 
+2026-11-02T08:12:21.0906211Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-02T08:12:21.0907531Z 
+2026-11-02T08:12:21.0909025Z  FAIL  tests/billing-pricing.test.ts > personal pricing contract design > requires integer minor units and the confirmed Pro monthly entitlement
+2026-11-02T08:12:21.0910835Z AssertionError: expected true to be false // Object.is equality
+2026-11-02T08:12:21.0911403Z 
+2026-11-02T08:12:21.0911742Z - Expected
+2026-11-02T08:12:21.0912258Z + Received
+2026-11-02T08:12:21.0912585Z 
+2026-11-02T08:12:21.0912906Z - false
+2026-11-02T08:12:21.0913363Z + true
+2026-11-02T08:12:21.0913680Z 
+2026-11-02T08:12:21.0914269Z  ❯ tests/billing-pricing.test.ts:19:114
+2026-11-02T08:12:21.0915304Z      17|   it("requires integer minor units and the confirmed Pro monthly entit…
+2026-11-02T08:12:21.0916784Z      18|     for (const patch of [{ amountMinor: 199.5 }, { amountMinor: -1 }, …
+2026-11-02T08:12:21.0918410Z      19|       expect(PricingCatalog.safeParse({ ...catalog, products: [{ ...ca…
+2026-11-02T08:12:21.0919914Z        |                                                                                                                  ^
+2026-11-02T08:12:21.0920647Z      20|     }
+2026-11-02T08:12:21.0921199Z      21|   });
+2026-11-02T08:12:21.0921575Z 
+2026-11-02T08:12:21.0922298Z ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+2026-11-02T08:12:21.0922768Z 
+2026-11-02T08:12:21.0923661Z  Test Files  1 failed | 47 passed | 1 skipped (140)
+2026-11-02T08:12:21.0924849Z       Tests  1 failed | 910 passed (938)
+2026-11-02T08:12:21.0925677Z    Start at  08:11:56
+2026-11-02T08:12:21.0926758Z    Duration  24.25s (transform 8.46s, setup 0ms, collect 25.09s, tests 7.62s, environment 49ms, prepare 12.51s)
+2026-11-02T08:12:21.0927472Z 
+2026-11-02T08:12:21.0927619Z 
+2026-11-02T08:12:21.0953749Z ##[error]AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-pricing.test.ts:19:114
+
+
+2026-11-02T08:12:21.0973680Z  ELIFECYCLE  Test failed. See above for more details.

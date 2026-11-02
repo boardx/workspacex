@@ -1,0 +1,60 @@
+[stack-admission] load1=4.00 cores=10 perCore=0.40 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyystjy-cb913f10-26a5f6ed09fc db=wsx_26a5f6ed09fcdaf97b78 compose=wsx-26a5f6ed09fcdaf97b78 pg=20861 redis=21861 api=24861 web=25861 sandbox=26861 model=27861 deep-agent=28861 asr=29861 vision=30861 loopback-sandbox=31861 mail=19861
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_26a5f6ed09fcdaf97b78 capacity=100 current=6 required=32
+ ❯ tests/billing/product-configuration.integration.ts (2 tests | 1 failed) 13679ms
+   × keeps subscription SKUs out of legacy one-time package checkout 15ms
+     → expected { packageId: 'pro-cn-year-v1', …(10) } to be null
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/product-configuration.integration.ts > keeps subscription SKUs out of legacy one-time package checkout
+AssertionError: expected { packageId: 'pro-cn-year-v1', …(10) } to be null
+
+- Expected: 
+null
+
++ Received: 
+Object {
+  "amountFen": 199000,
+  "baseCredits": 20000,
+  "bonusCredits": 0,
+  "bonusRate": 0,
+  "currency": "CNY",
+  "displayAmount": "¥1990.00",
+  "enabled": true,
+  "ownerType": "user",
+  "packageId": "pro-cn-year-v1",
+  "region": "cn",
+  "totalCredits": 20000,
+}
+
+ ❯ tests/billing/product-configuration.integration.ts:44:43
+     42| it("keeps subscription SKUs out of legacy one-time package checkout", …
+     43|   const legacy = new PgBillingOrderRepository(db);
+     44|   expect(await legacy.package(orgId,sku)).toBeNull();
+       |                                           ^
+     45|   const rows = await legacy.packages({orgId,ownerType:"user",ownerId:p…
+     46|   expect(rows.some(row => row.packageId === sku)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (2)
+   Start at  15:56:04
+   Duration  18.79s (transform 1.11s, setup 7ms, collect 1.31s, tests 13.68s, environment 0ms, prepare 52ms)
+
+[db-isolation] db=wsx_26a5f6ed09fcdaf97b78 peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+[timing] pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：20s
+  清理：0s
+  总计：20s

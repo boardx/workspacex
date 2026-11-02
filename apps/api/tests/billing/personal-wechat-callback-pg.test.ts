@@ -8,7 +8,8 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { BILLING_ACCOUNTING_GENERATION } from "../../src/domain/billing/billing-generation";
-import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import { PERSONAL_PRICE_CATALOG } from "../../src/domain/billing/personal-price-catalog";
+import { PgBillingCatalogRepository } from "../../src/infrastructure/billing/pg-billing-catalog-repository";
 import { PgPersonalCheckoutRepository } from "../../src/infrastructure/billing/pg-personal-checkout-repository";
 import { PgPersonalPaymentRepository } from "../../src/infrastructure/billing/pg-personal-payment-repository";
 import { PersonalWechatCreditingStore } from "../../src/infrastructure/billing/personal-wechat-crediting-store";
@@ -80,7 +81,7 @@ function notice(payment: Record<string, unknown>) {
 }
 async function fixture(label: string, index = 1) {
   const userId = `${prefix}-${label}`; users.push(userId); const product = PERSONAL_PRICE_CATALOG.cn[index]!;
-  const purchase = await checkout.reserve({ userId, orgId: org }, { sku: product.sku, provider: "wechat", catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `native-${randomUUID()}` }, product);
+  const purchase = await checkout.reserve({ userId, orgId: org }, { sku: product.sku, provider: "wechat", catalogVersion: (await new PgBillingCatalogRepository(db).read({ userId, orgId: org }, "cn")).version, idempotencyKey: `native-${randomUUID()}` }, "cn");
   const payment = { appid: "wx-personal-notify", mchid: "1900000099", out_trade_no: purchase.purchaseRef, transaction_id: `tx${randomBytes(8).toString("hex")}`,
     trade_state: "SUCCESS", success_time: new Date().toISOString(), amount: { total: product.amountMinor, currency: "CNY" }, attach: `${purchase.generation}:${purchase.purchaseRef}` };
   return { userId, purchase, payment };

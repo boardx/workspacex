@@ -1,0 +1,47 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/pricing-catalog.test.ts (8 tests | 2 failed) 893ms
+   ✓ server-owned personal pricing catalog > returns 503 for an unconfigured deployment instead of inventing a market 773ms
+   × reads subscription money and monthly credits from the injected configured catalog 23ms
+     → expected 'pricing-2026-11-v1' to be 'configured-v2' // Object.is equality
+   × reads each configuration version afresh without changing a previously returned snapshot 3ms
+     → expected 'pricing-2026-11-v1' to be 'configured-v2' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/pricing-catalog.test.ts > reads subscription money and monthly credits from the injected configured catalog
+AssertionError: expected 'pricing-2026-11-v1' to be 'configured-v2' // Object.is equality
+
+Expected: "configured-v2"
+Received: "pricing-2026-11-v1"
+
+ ❯ tests/billing/pricing-catalog.test.ts:79:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/pricing-catalog.test.ts > reads each configuration version afresh without changing a previously returned snapshot
+AssertionError: expected 'pricing-2026-11-v1' to be 'configured-v2' // Object.is equality
+
+Expected: "configured-v2"
+Received: "pricing-2026-11-v1"
+
+ ❯ tests/billing/pricing-catalog.test.ts:88:27
+     86|  const original=await service.catalog(principal);amountMinor=29900;ver…
+     87|  const current=await service.catalog(principal);
+     88|  expect(original.version).toBe("configured-v2");expect(original.produc…
+       |                           ^
+     89|  expect(current.version).toBe("configured-v3");expect(current.products…
+     90| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  15:06:43
+   Duration  5.29s (transform 607ms, setup 0ms, collect 3.05s, tests 893ms, environment 1ms, prepare 322ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/pricing-catalog.test.ts

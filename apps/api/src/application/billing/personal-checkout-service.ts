@@ -1,6 +1,5 @@
 import { PersonalCheckoutRequest, PersonalCheckoutResult } from "@repo/contracts/billing-pricing";
 import { assertPrincipal, type Principal } from "../../domain/principal";
-import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../domain/billing/personal-price-catalog";
 import type { BillingConfigPort } from "./billing-config.port";
 import type { PersonalCheckoutProvider, PersonalCheckoutRepository, StoredPersonalPurchase } from "./personal-checkout-ports";
 import { assertSamePersonalPurchase, PersonalCheckoutError } from "./personal-checkout-error";
@@ -15,11 +14,8 @@ export class PersonalCheckoutService {
     if (existing) { assertSamePersonalPurchase(existing, request); return this.resume(principal, existing); }
     const market = this.config.getPricingMarket();
     if (market !== "cn" && market !== "us") throw new PersonalCheckoutError("dependency_unavailable");
-    if (request.catalogVersion !== PERSONAL_PRICE_CATALOG_VERSION) throw new PersonalCheckoutError("catalog_changed");
-    const product = PERSONAL_PRICE_CATALOG[market].find(item => item.sku === request.sku);
-    if (!product || (request.provider === "wechat" && product.currency !== "CNY")) throw new PersonalCheckoutError("product_unavailable");
     if (!this.config.getPublicConfig().enabledProviders.includes(request.provider) || !this.provider.enabled(request.provider)) throw new PersonalCheckoutError("payment_provider_not_configured");
-    const purchase = await this.repository.reserve(principal, request, product);
+    const purchase = await this.repository.reserve(principal, request, market);
     return this.resume(principal, purchase);
   }
   private async resume(principal: Principal, purchase: StoredPersonalPurchase) {

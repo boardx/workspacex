@@ -10,6 +10,7 @@
  * 参考实现已知缺陷**不照搬**：Stripe 配置缺失不得阻塞服务启动（requirements/00-overview.md R2-3）。
  */
 import { z } from "zod";
+import {CreditBalance,ConfiguredCreditQuantity} from "./billing-credits";
 
 /** Monthly credit entitlement; payment prices remain deployment configuration. */
 export const MONTHLY_SUBSCRIPTION_CREDITS = 20_000;
@@ -19,10 +20,11 @@ export const MONTHLY_PASS_PRODUCT = "monthly_pass_v1";
 /** Paid credit entitlement is distinct from the subscription's provider status. */
 export const SubscriptionCreditGrant = z.object({
   status:z.enum(["none","pending","granted","expired"]),
-  grant:z.object({credits:z.literal(MONTHLY_SUBSCRIPTION_CREDITS),remainingCredits:z.number().finite().min(0).max(MONTHLY_SUBSCRIPTION_CREDITS).multipleOf(0.01),
+  grant:z.object({credits:ConfiguredCreditQuantity,remainingCredits:CreditBalance.refine(value=>value>=0),
     periodStart:z.string().datetime({offset:true}),periodEnd:z.string().datetime({offset:true})}).strict().nullable(),
 }).strict().superRefine((value,context)=>{
   if((value.status==="granted"||value.status==="expired")!==Boolean(value.grant))context.addIssue({code:"custom",message:"grant state and period must agree"});
+  if(value.grant&&value.grant.remainingCredits>value.grant.credits)context.addIssue({code:"custom",message:"remaining credits exceed their frozen grant"});
   if(value.grant&&(Date.parse(value.grant.periodEnd)<=Date.parse(value.grant.periodStart)||value.status==="expired"&&value.grant.remainingCredits!==0))context.addIssue({code:"custom",message:"invalid grant period"});
 });
 export type SubscriptionCreditGrant = z.infer<typeof SubscriptionCreditGrant>;

@@ -4,8 +4,8 @@
  * Runtime activation and accounting cutover follow that bundle; this file does not activate billing.
  */
 import { z } from "zod";
-import { BillingProvider } from "./billing-credits";
-import { MONTHLY_SUBSCRIPTION_CREDITS, SubscriptionInfo } from "./billing-subscription";
+import { BillingProvider,ConfiguredCreditQuantity } from "./billing-credits";
+import { SubscriptionInfo } from "./billing-subscription";
 
 export const PricingMarket = z.enum(["cn", "us"]);
 export const PricingCurrency = z.enum(["CNY", "USD"]);
@@ -16,8 +16,8 @@ const Timestamp = z.string().datetime({ offset: true });
 const AmountMinor = z.number().int().positive().safe();
 const ProductBase = z.object({ sku: Identifier, currency: PricingCurrency, amountMinor: AmountMinor }).strict();
 export const PricingProduct = z.discriminatedUnion("kind", [
-  ProductBase.extend({ kind: z.literal("subscription"), cycle: BillingCycle, monthlyCredits: z.literal(MONTHLY_SUBSCRIPTION_CREDITS) }),
-  ProductBase.extend({ kind: z.literal("credit_topup"), credits: z.union([z.literal(10000), z.literal(50000), z.literal(200000)]) }),
+  ProductBase.extend({ kind: z.literal("subscription"), cycle: BillingCycle, monthlyCredits: ConfiguredCreditQuantity }),
+  ProductBase.extend({ kind: z.literal("credit_topup"), credits: ConfiguredCreditQuantity }),
 ]);
 export const PricingCatalogBase = z.object({
   version: Identifier, market: PricingMarket,

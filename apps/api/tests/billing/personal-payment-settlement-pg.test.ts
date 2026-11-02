@@ -5,10 +5,11 @@ import { ensureDatabase, migrateOnce, seedOrg, asOwner, asApp } from "../support
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import type { DatabasePort, TenantSession } from "../../src/application/ports/database.port";
+import { PgBillingCatalogRepository } from "../../src/infrastructure/billing/pg-billing-catalog-repository";
 import { PgPersonalCheckoutRepository } from "../../src/infrastructure/billing/pg-personal-checkout-repository";
 import { PgPersonalPaymentRepository } from "../../src/infrastructure/billing/pg-personal-payment-repository";
 import { PERSONAL_PAYMENT_SQL } from "../../src/infrastructure/billing/personal-payment-sql";
-import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import { PERSONAL_PRICE_CATALOG } from "../../src/domain/billing/personal-price-catalog";
 import { BILLING_ACCOUNTING_GENERATION } from "../../src/domain/billing/billing-generation";
 import { creditMonthBoundary } from "../../src/domain/billing/personal-credit-calendar";
 import { toOrgId } from "../../src/domain/org-id";
@@ -38,7 +39,7 @@ async function fixture(label: string, index = 1, market: "cn" | "us" = "cn") {
   const userId = `${prefix}-${label}`; users.push(userId);
   const product = PERSONAL_PRICE_CATALOG[market][index]!, provider = market === "cn" ? "wechat" as const : "stripe" as const;
   const principal = { userId, orgId: org };
-  const purchase = await checkout.reserve(principal, { sku: product.sku, provider, catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `settle-${randomUUID()}` }, product);
+  const purchase = await checkout.reserve(principal, { sku: product.sku, provider, catalogVersion: (await new PgBillingCatalogRepository(db).read(principal, market)).version, idempotencyKey: `settle-${randomUUID()}` }, market);
   const receipt = { purchaseRef: purchase.purchaseRef, provider, paymentRef: `${provider === "wechat" ? "wx" : "pi"}_${randomUUID().replaceAll("-", "")}`,
     amountMinor: product.amountMinor, currency: product.currency, paidAt: new Date() };
   const wallet = () => asApp(org, async c => (await c.query("SELECT balance::text,total_granted::float8 AS total_granted,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [userId])).rows[0]);

@@ -2,7 +2,8 @@ import { expect, it } from "vitest";
 import { PersonalCheckoutService } from "../../src/application/billing/personal-checkout-service";
 import type { PersonalCheckoutRepository, StoredPersonalPurchase, PersonalCheckoutBinding } from "../../src/application/billing/personal-checkout-ports";
 import type { BillingConfigPort } from "../../src/application/billing/billing-config.port";
-import { PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import {PersonalCheckoutError} from "../../src/application/billing/personal-checkout-error";
+import { PERSONAL_PRICE_CATALOG,PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
 import { BILLING_ACCOUNTING_GENERATION } from "../../src/domain/billing/billing-generation";
 import { toOrgId } from "../../src/domain/org-id";
 
@@ -10,11 +11,13 @@ const principal = { userId: "checkout-user", orgId: toOrgId("checkout-org") };
 const request = { sku: "pro-us-year-v1", provider: "stripe" as const, catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: "checkout-fixture-0001" };
 function fixture() {
   let stored: StoredPersonalPurchase | null = null, enabled = true, timeout = false, calls = 0;
-  const identities: string[] = [];
+  const identities: string[] = [];let reservationError: "catalog_changed"|"product_unavailable"|null=null;
   const config: BillingConfigPort = { getPricingMarket: () => "us", getPublicConfig: () => ({ enabledProviders: enabled ? ["stripe", "wechat"] : [] }) };
   const repository: PersonalCheckoutRepository = {
     async find(_principal, key) { return stored?.idempotencyKey === key ? stored : null; },
-    async reserve(_principal, input, product) {
+    async reserve(_principal, input, market) {
+      if(reservationError)throw new PersonalCheckoutError(reservationError);
+      const product=PERSONAL_PRICE_CATALOG[market].find(item=>item.sku===input.sku);if(!product)throw Error("fixture_product_missing");
       stored ??= { purchaseRef: "bm20261102010000ABC123", userId: principal.userId, provider: input.provider,
         idempotencyKey: input.idempotencyKey, generation: BILLING_ACCOUNTING_GENERATION, catalogVersion: input.catalogVersion, product,
         createdAt: new Date(), sessionRef: null, url: null, expiresAt: null, fulfilledAt: null, closedAt: null, paymentReviewRequired: false };
@@ -28,7 +31,7 @@ function fixture() {
   } };
   const service = new PersonalCheckoutService(repository, config, provider);
   return { service, disable: () => { enabled = false; }, timeOut: (value: boolean) => { timeout = value; },
-    calls: () => calls, identities, stored: () => stored };
+    rejectReservation:(value:"catalog_changed"|"product_unavailable")=>{reservationError=value;}, calls: () => calls, identities, stored: () => stored };
 }
 it("uses server currency, annual price and automatic renewal instead of browser money", async () => {
   const f = fixture(); const result = await f.service.checkout(principal, request);
@@ -56,8 +59,8 @@ it.each([
   { patch: { catalogVersion: "old-catalog" }, error: "catalog_changed" },
   { patch: { sku: "pro-cn-year-v1" }, error: "product_unavailable" },
   { patch: { provider: "wechat" as const }, error: "product_unavailable" },
-])("rejects stale quotes and foreign market products: $error", async ({ patch, error }) => {
-  const f = fixture(); await expect(f.service.checkout(principal, { ...request, ...patch })).rejects.toThrow(error); expect(f.calls()).toBe(0);
+])("stops before the provider when trusted reservation rejects its catalog: $error", async ({ patch, error }) => {
+  const f = fixture();f.rejectReservation(error as "catalog_changed"|"product_unavailable"); await expect(f.service.checkout(principal, { ...request, ...patch })).rejects.toThrow(error); expect(f.calls()).toBe(0);
 });
 it("does not reserve a new purchase when new sales are disabled", async () => {
   const f = fixture(); f.disable();

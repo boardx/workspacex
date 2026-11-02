@@ -8,7 +8,8 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { BILLING_ACCOUNTING_GENERATION } from "../../src/domain/billing/billing-generation";
-import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import { PERSONAL_PRICE_CATALOG } from "../../src/domain/billing/personal-price-catalog";
+import { PgBillingCatalogRepository } from "../../src/infrastructure/billing/pg-billing-catalog-repository";
 import { PgPersonalCheckoutRepository } from "../../src/infrastructure/billing/pg-personal-checkout-repository";
 
 const prefix = `recovery-root-${randomUUID().slice(0, 8)}`, userId = `${prefix}-user`, org = toOrgId(prefix);
@@ -21,8 +22,8 @@ beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); await seedOrg({ orgId: org, kind: "personal-local", ownerUserId: userId, projectId: `${prefix}-project` });
   await asOwner(c => c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton=true", [BILLING_ACCOUNTING_GENERATION]));
   const repository = new PgPersonalCheckoutRepository(db), principal = { userId, orgId: org }, product = PERSONAL_PRICE_CATALOG.cn[2]!;
-  const purchase = await repository.reserve(principal, { sku: product.sku, provider: "wechat", catalogVersion: PERSONAL_PRICE_CATALOG_VERSION,
-    idempotencyKey: `root-${randomUUID()}` }, product); ref = purchase.purchaseRef;
+  const purchase = await repository.reserve(principal, { sku: product.sku, provider: "wechat", catalogVersion: (await new PgBillingCatalogRepository(db).read(principal, "cn")).version,
+    idempotencyKey: `root-${randomUUID()}` }, "cn"); ref = purchase.purchaseRef;
   await repository.bind(principal, ref, { sessionRef: ref, url: "weixin://wxpay/bizpayurl?pr=rootfixture", expiresAt: new Date(Date.now() + 900000) });
   const payment = { appid: "wx-recovery-root", mchid: "1900000088", out_trade_no: ref, transaction_id: `tx${randomBytes(8).toString("hex")}`,
     trade_state: "SUCCESS", success_time: new Date().toISOString(), amount: { total: product.amountMinor, currency: "CNY" }, attach: `${purchase.generation}:${ref}` };

@@ -8,7 +8,8 @@ import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { toOrgId } from "../../src/domain/org-id";
 import { BILLING_ACCOUNTING_GENERATION } from "../../src/domain/billing/billing-generation";
-import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import { PERSONAL_PRICE_CATALOG } from "../../src/domain/billing/personal-price-catalog";
+import { PgBillingCatalogRepository } from "../../src/infrastructure/billing/pg-billing-catalog-repository";
 import { PgPersonalCheckoutRepository } from "../../src/infrastructure/billing/pg-personal-checkout-repository";
 import { PgPersonalPaymentRepository } from "../../src/infrastructure/billing/pg-personal-payment-repository";
 import { PersonalPaymentReconciler } from "../../src/infrastructure/billing/personal-payment-reconciler";
@@ -47,8 +48,8 @@ function activate() { return asOwner(c => c.query("UPDATE billing_pricing_epoch 
 async function purchase(provider: "stripe" | "wechat" = "stripe", pro = false) {
   const userId = `${prefix}-${randomUUID().slice(0, 8)}`; users.push(userId);
   const principal = { userId, orgId: org }, product = PERSONAL_PRICE_CATALOG[provider === "stripe" ? "us" : "cn"][pro ? 0 : 2]!;
-  const reserved = await purchases.reserve(principal, { sku: product.sku, provider, catalogVersion: PERSONAL_PRICE_CATALOG_VERSION,
-    idempotencyKey: `recovery-${randomUUID()}` }, product);
+  const reserved = await purchases.reserve(principal, { sku: product.sku, provider, catalogVersion: (await new PgBillingCatalogRepository(db).read(principal, provider === "stripe" ? "us" : "cn")).version,
+    idempotencyKey: `recovery-${randomUUID()}` }, provider === "stripe" ? "us" : "cn");
   const bound = await purchases.bind(principal, reserved.purchaseRef, { sessionRef: provider === "stripe" ? `cs_${reserved.purchaseRef}` : reserved.purchaseRef,
     url: provider === "stripe" ? "https://checkout.stripe.com/c/pay/recovery" : "weixin://wxpay/bizpayurl?pr=recovery", expiresAt: new Date(Date.now() + 86400000) });
   return { principal, purchase: bound };
@@ -85,8 +86,8 @@ it("keeps recovery dormant before activation without calling a provider", async 
 it("closes an authoritative expired Stripe session and releases its Pro purchase slot", async () => {
   const f = await purchase("stripe", true), r = runtime(); r.add(f.purchase).status = "expired";
   await r.store.reconcileDue(() => true); expect((await row(f.purchase.purchaseRef)).closed_at).toBeInstanceOf(Date);
-  expect((await purchases.reserve(f.principal, { sku: f.purchase.product.sku, provider: "stripe", catalogVersion: PERSONAL_PRICE_CATALOG_VERSION,
-    idempotencyKey: `replacement-${randomUUID()}` }, f.purchase.product)).purchaseRef).not.toBe(f.purchase.purchaseRef);
+  expect((await purchases.reserve(f.principal, { sku: f.purchase.product.sku, provider: "stripe", catalogVersion: (await new PgBillingCatalogRepository(db).read(f.principal,"us")).version,
+    idempotencyKey: `replacement-${randomUUID()}` }, "us")).purchaseRef).not.toBe(f.purchase.purchaseRef);
 });
 it("recovers a missed WeChat callback into one permanent credit grant", async () => {
   const f = await purchase("wechat"), r = runtime(), paidAt = new Date();

@@ -37,6 +37,8 @@ export const CreditsAmount = z.number().int().positive();
 
 /** Exact hundredth credit values; signed balance records unpaid confirmed consumption. */
 export const CreditBalance = z.number().finite().min(-2147483647).max(2147483647).multipleOf(0.01);
+/** Configurable whole-credit allowance, bounded by the financial quantity type. */
+export const ConfiguredCreditQuantity=CreditBalance.refine(value=>Number.isInteger(value)&&value>0,"positive integer credits required");
 export const CreditLedgerAmount = CreditBalance.refine(value => value > 0, "credit amount must be positive");
 
 /** 商户订单号：充值使用 bg，微信月卡使用 bm，隔离两类商品的商户支付身份。 */
