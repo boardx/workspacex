@@ -80,3 +80,5 @@
 - 本文只记录代码审计，无测试通过或功能完成声明。开发前需在隔离工作区执行 `./init.sh`。
 - 本次尚无附属 worktree；建议仅创建一个并复用。部署会话独占 CN／US Chrome／Workbench，本会话不接管；邮件 issue #6085 不在范围。
 - readiness 已读取，用户直接交办优先于队列取活，后续 issue 应注明原因；tick 因缺少 COORD_GATEWAY_URL 失败，身份依用户此前选择保持未认领。
+
+Enterprise升级后已付Team计划的2026-11-02人类决定与执行边界，统一见 `phases/phase-21-billing-payment/design-deltas/team-enterprise-v1/domain.md` 的Enterprise章节及同束 `human-decisions.md`；该业务答复不替代整束签核。

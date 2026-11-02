@@ -33,7 +33,7 @@ async function fixture(suffix: string, balance = 7) {
   const input = { userId, provider: "wechat" as const, paymentRef: `wx_${randomUUID()}`, subscriptionRef: `new_${randomUUID()}`, sku: "pro-cn-year-v1", currency: "CNY", amountMinor: 199000, purchaseAnchor: start, monthOffset: 0, periodStart: start, periodEnd: creditMonthBoundary(start, 12) };
   const record = (value = input) => db.withTenant(org, s => recordPaidPersonalTerm(s, value));
   const sync = () => db.withTenant(org, s => grantDuePersonalTerms(s, userId));
-  const wallet = () => asApp(org, async c => (await c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [userId])).rows[0]);
+  const wallet = () => asApp(org, async c => (await c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [userId])).rows[0]);
   return { userId, input, record, sync, wallet };
 }
 it("persists one annual payment but initially grants only one monthly batch under concurrency", async () => {

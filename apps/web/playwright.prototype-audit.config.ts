@@ -16,7 +16,7 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://localhost:${port}`;
  */
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: /(?:prototype-audit|whiteboard-preview|research-ui-consistency|billing-subscription-live)\.spec\.ts/,
+  testMatch: /(?:(?:prototype-audit|whiteboard-preview|research-ui-consistency|billing-subscription-live)\.spec\.ts|pricing-preview\.browser\.ts)/,
   fullyParallel: false,
   workers: 1,
   reporter: "list",

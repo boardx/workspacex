@@ -1,0 +1,38 @@
+
+> agentic-harness-template@ lint:rewrite-coverage /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> pnpm exec tsx .harness/scripts/lint-rewrite-coverage.mjs
+
+✓ [rewrite-coverage] 431 条路由、87 条 rewrite 覆盖一致（5 条历史缺口在棘轮名单里，只能变短）
+✓ [rewrite-shadow] 37 条动态页面路由（共 137 个 page.tsx）、223 条 afterFiles 规则，没有新的遮蔽（4 条既有遮蔽在棘轮名单里，只能变短）
+✓ [contract-rewrite-coverage] 924 条契约路由全部有同源代理规则
+
+> agentic-harness-template@ lint:contract-route-coverage /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> pnpm exec tsx .harness/scripts/lint-contract-route-coverage.mjs
+
+✓ [contract-route-ratchet] 没有新增的「契约有、路由没有」：名单 249 条，其中 249 条今天仍是缺口。
+
+> agentic-harness-template@ lint:body-path-param-leak /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> pnpm exec tsx .harness/scripts/lint-body-path-param-leak.mjs
+
+✓ [body-path-param-leak] 375 个文件，body 里没有未豁免的路径参数泄漏（4 条已知合法冗余在棘轮名单里）
+
+> agentic-harness-template@ lint:contract-negative-assertion /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> pnpm exec tsx .harness/scripts/lint-contract-negative-assertion.mjs
+
+[contract-negative-assertion] 扫了 8025 个源文件、872 个契约 operation、2665 个契约字段；扫到 115 条否定性断言。
+  STALE=0  VERIFIED_ABSENT=10  FIELD_ONLY=3  PROSE=103
+  ✓ apps/web/components/canvas/template-admin.tsx:662 断言没有 `deleteTemplate`——契约里确实查不到它。
+  ✓ apps/web/components/canvas/template-admin.tsx:889 断言没有 `deleteTemplate`——契约里确实查不到它。
+  ✓ apps/web/components/design-loop/drafts-screen.tsx:86 断言没有 `restoreFeedbackDraft`——契约里确实查不到它。
+  ✓ apps/web/components/design-loop/drafts-screen.tsx:449 断言没有 `attachmentFileName`——契约里确实查不到它。
+  ✓ apps/web/lib/live-design-workbench.ts:14 断言没有 `getProject`——契约里确实查不到它。
+  ✓ apps/web/tests/session/canvas-template-body-completeness.test.ts:71 断言没有 `nonexistentField`——契约里确实查不到它。
+  ✓ apps/api/src/domain/mcp/review-flow.ts:13 断言没有 `deleteReview`——契约里确实查不到它。
+  ✓ apps/api/src/domain/mcp/review-flow.ts:13 断言没有 `updateReview`——契约里确实查不到它。
+  ✓ apps/api/src/infrastructure/identity/pg-capability-repository.ts:215 断言没有 `enable`——契约里确实查不到它。
+  ✓ apps/api/tests/auth/org-disabled-readonly.test.ts:298 断言没有 `purged`——契约里确实查不到它。
+  ~ apps/web/components/canvas/template-admin.tsx:1246 `ownerTeamId` 不是 operation，只在 packages/contracts/src/canvas.ts:1011 作字段出现——本门不据此判定（字段名不定位契约里的位置）。
+  ~ apps/api/src/application/canvas/create-template.ts:88 `ownerTeamId` 不是 operation，只在 packages/contracts/src/canvas.ts:1011 作字段出现——本门不据此判定（字段名不定位契约里的位置）。
+  ~ apps/api/src/application/chat/ports.ts:671 `citations` 不是 operation，只在 packages/contracts/src/chat.ts:394 作字段出现——本门不据此判定（字段名不定位契约里的位置）。
+  （加 --list 看全部逐条结论，含 PROSE 那些）
+✅ lint-contract-negative-assertion: 没有已经变假的契约否定性断言。

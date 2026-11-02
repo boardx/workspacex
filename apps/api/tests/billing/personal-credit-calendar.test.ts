@@ -45,3 +45,11 @@ it("keeps the original purchase day across monthly and annual renewal boundaries
   expect(renewed[0]!.start).toEqual(date("2025-02-28T06:07:08.009Z"));
   expect(renewed[0]!.end).toEqual(date("2025-03-29T06:07:08.009Z"));
 });
+
+it("reuses the same shared calendar functions instead of maintaining another implementation",async()=>{
+ const shared=await import("@repo/contracts/billing-credit-calendar");
+ const api=await import("../../src/domain/billing/personal-credit-calendar");
+ expect(api.creditMonthBoundary).toBe(shared.creditMonthBoundary);
+ expect(api.paidCreditMonthCount).toBe(shared.paidCreditMonthCount);
+ expect(api.paidCreditWindows).toBe(shared.paidCreditWindows);
+});

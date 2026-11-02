@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ✓ tests/edition-capability-enforcement.test.ts (5 tests) 1902ms
+   ✓ passes on the real matrix and names every known gap 710ms
+   ✓ rejects a gated row whose enforcementRef cannot be found in the implementation 304ms
+   ✓ rejects a new known gap that nobody accounted for 305ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  12:03:00
+   Duration  2.38s (transform 70ms, setup 0ms, collect 66ms, tests 1.90s, environment 0ms, prepare 98ms)
+

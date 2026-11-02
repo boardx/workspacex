@@ -1,0 +1,118 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-quote-design.test.ts (12 tests | 12 failed) 7ms
+   × keeps annual payment distinct from monthly quota in the initial or renewal quote 3ms
+     → Cannot read properties of undefined (reading 'parse')
+   × quotes a co-term increment against a paid annual term and a separate monthly credit window 0ms
+     → Cannot read properties of undefined (reading 'parse')
+   × rejects an expired or overlong quote expiry 2026-11-16T10:00:00Z 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects an expired or overlong quote expiry 2026-11-16T10:05:01Z 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × clamps only the seat add-on quote to the original paid expiry 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × keeps permanent top-up independent of paid term and subscription renewal 0ms
+     → Cannot read properties of undefined (reading 'parse')
+   × rejects unsafe quote money 0 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects unsafe quote money -1 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects unsafe quote money 0.5 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects unsafe quote money Infinity 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects unsafe quote money 9007199254740992 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects extra account, paid-result or merchant authority in a quote 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > keeps annual payment distinct from monthly quota in the initial or renewal quote
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-quote-design.test.ts:8:19
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > quotes a co-term increment against a paid annual term and a separate monthly credit window
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-quote-design.test.ts:13:19
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > rejects an expired or overlong quote expiry 2026-11-16T10:00:00Z
+ FAIL  tests/billing-team-quote-design.test.ts > rejects an expired or overlong quote expiry 2026-11-16T10:05:01Z
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-quote-design.test.ts:17:19
+     15| });
+     16| it.each(["2026-11-16T10:00:00Z","2026-11-16T10:05:01Z"])("rejects an e…
+     17|  expect(TeamQuote.safeParse({...initial,expiresAt}).success).toBe(fals…
+       |                   ^
+     18| });
+     19| it("clamps only the seat add-on quote to the original paid expiry",()=…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > clamps only the seat add-on quote to the original paid expiry
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-quote-design.test.ts:22:19
+     20|  const createdAt="2027-11-01T09:59:00Z";
+     21|  const nearEnd={...addon,createdAt,expiresAt:term.paidPeriodEnd,credit…
+     22|  expect(TeamQuote.safeParse(nearEnd).success).toBe(true);
+       |                   ^
+     23|  expect(TeamQuote.safeParse({...nearEnd,expiresAt:"2027-11-01T10:01:00…
+     24|  // A renewal quote can outlive the old term; its paid term has not be…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > keeps permanent top-up independent of paid term and subscription renewal
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-quote-design.test.ts:29:19
+     27| it("keeps permanent top-up independent of paid term and subscription r…
+     28|  const topup={...base,purpose:"credit_topup",credits:10000,provider:"s…
+     29|  expect(TeamQuote.parse(topup)).toEqual(topup);
+       |                   ^
+     30|  for(const patch of [{credits:1},{renewalMode:"automatic"},{seats:5},{…
+     31| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > rejects unsafe quote money 0
+ FAIL  tests/billing-team-quote-design.test.ts > rejects unsafe quote money -1
+ FAIL  tests/billing-team-quote-design.test.ts > rejects unsafe quote money 0.5
+ FAIL  tests/billing-team-quote-design.test.ts > rejects unsafe quote money Infinity
+ FAIL  tests/billing-team-quote-design.test.ts > rejects unsafe quote money 9007199254740992
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-quote-design.test.ts:33:19
+     31| });
+     32| it.each([0,-1,0.5,Infinity,Number.MAX_SAFE_INTEGER+1])("rejects unsafe…
+     33|  expect(TeamQuote.safeParse({...initial,amountMinor}).success).toBe(fa…
+       |                   ^
+     34| });
+     35| it("rejects extra account, paid-result or merchant authority in a quot…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > rejects extra account, paid-result or merchant authority in a quote
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-quote-design.test.ts:37:20
+     35| it("rejects extra account, paid-result or merchant authority in a quot…
+     36|  for(const field of ["ownerId","actorId","customerId","paymentRef","su…
+     37|   expect(TeamQuote.safeParse({...initial,[field]:"forged"}).success).t…
+       |                    ^
+     38| });
+     39| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/12]⎯
+
+ Test Files  1 failed (1)
+      Tests  12 failed (12)
+   Start at  08:13:49
+   Duration  408ms (transform 117ms, setup 0ms, collect 132ms, tests 7ms, environment 0ms, prepare 66ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-quote-design.test.ts

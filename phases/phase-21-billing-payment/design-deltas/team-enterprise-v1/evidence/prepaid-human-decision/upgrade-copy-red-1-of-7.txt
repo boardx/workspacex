@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/pricing-enterprise-contract.test.tsx (7 tests | 1 failed) 307ms
+   × explains retained prepaid Team grants and does not pregrant them during an Enterprise upgrade 14ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  按原购买日发放至原到期日
+Received:
+  升级为 Enterprise山海设计工作室 · 设计预览，不修改真实团队。确认后，该团队将显示 Enterprise 标识。此操作不产生支付或额外自动发放额度；新增额度由平台管理员单独添加。取消确认升级
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/pricing-enterprise-contract.test.tsx > explains retained prepaid Team grants and does not pregrant them during an Enterprise upgrade
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  按原购买日发放至原到期日
+Received:
+  升级为 Enterprise山海设计工作室 · 设计预览，不修改真实团队。确认后，该团队将显示 Enterprise 标识。此操作不产生支付或额外自动发放额度；新增额度由平台管理员单独添加。取消确认升级
+ ❯ tests/ui/pricing-enterprise-contract.test.tsx:31:53
+     29| it("explains retained prepaid Team grants and does not pregrant them d…
+     30|  render(<PricingEnterprisePreview/>);fireEvent.click(screen.getByTestI…
+     31|  expect(screen.getByTestId("pricing-admin-dialog")).toHaveTextContent(…
+       |                                                     ^
+     32|  expect(screen.getByTestId("pricing-admin-dialog")).toHaveTextContent(…
+     33|  expect(screen.getByTestId("pricing-admin-dialog")).toHaveTextContent(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed (7)
+   Start at  09:44:20
+   Duration  2.89s (transform 163ms, setup 242ms, collect 358ms, tests 307ms, environment 1.10s, prepare 81ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/pricing-enterprise-contract.test.tsx

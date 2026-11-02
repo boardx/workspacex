@@ -1,0 +1,29 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-design.test.ts (33 tests | 1 failed) 18ms
+   × fixes the human-confirmed prepaid Team treatment without a stop or conversion option 4ms
+     → Cannot read properties of undefined (reading 'parse')
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-design.test.ts > fixes the human-confirmed prepaid Team treatment without a stop or conversion option
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-design.test.ts:82:37
+     80| 
+     81| it("fixes the human-confirmed prepaid Team treatment without a stop or…
+     82|  expect(EnterprisePrepaidTeamPolicy.parse("continue_until_paid_end")).…
+       |                                     ^
+     83|  for(const policy of ["stop","manual_reconciliation","refund","convert…
+     84|   expect(EnterprisePrepaidTeamPolicy.safeParse(policy).success).toBe(f…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 32 passed (33)
+   Start at  09:44:18
+   Duration  828ms (transform 193ms, setup 0ms, collect 215ms, tests 18ms, environment 0ms, prepare 126ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-design.test.ts

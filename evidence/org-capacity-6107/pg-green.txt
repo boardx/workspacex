@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+[db-isolation] db=wsx_be57b584690acd41508a capacity=100 current=6 required=32
+ ✓ tests/org-capacity/commercial-capacity-pg.test.ts (3 tests) 1631ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  12:44:28
+   Duration  5.23s (transform 1.73s, setup 12ms, collect 2.29s, tests 1.63s, environment 0ms, prepare 86ms)
+
+[db-isolation] db=wsx_be57b584690acd41508a peak_connections=5

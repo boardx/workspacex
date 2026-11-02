@@ -1,0 +1,30 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/pricing-team-quote-preview.test.ts (3 tests) 34ms
+ ✓ tests/ui/pricing-team-entitlement-preview.test.ts (3 tests) 84ms
+ ✓ tests/ui/pricing-team-catalog-preview.test.ts (4 tests) 87ms
+ ✓ tests/ui/pricing-platform-preview.test.ts (3 tests) 36ms
+ ✓ tests/ui/pricing-team-purchase-preview.test.ts (3 tests) 142ms
+ ✓ tests/ui/pricing-team-contract-preview.test.tsx (4 tests) 5447ms
+   ✓ shows purchased capacity and its full monthly pool independently of four current members 517ms
+   ✓ uses the same monthly seat grant in the adopted add-on quote preview 3739ms
+   ✓ opens a US seat quote with Stripe on the first render 392ms
+   ✓ switches an open seat quote from CNY to USD without constructing a WeChat USD quote 782ms
+ ✓ tests/ui/pricing-team-history-preview.test.tsx (2 tests) 6101ms
+   ✓ renders one confirmed annual payment from the strict history response 5352ms
+   ✓ preserves the actual expired payment term without presenting it as current entitlement 747ms
+ ✓ tests/ui/pricing-enterprise-contract.test.tsx (7 tests) 7991ms
+   ✓ rejects the overlong reason through the shared contract without modifying the preview balance 5131ms
+   ✓ rejects invalid manual credit 0 without modifying the preview 550ms
+   ✓ rejects invalid manual credit -1 without modifying the preview 744ms
+   ✓ rejects invalid manual credit 0.5 without modifying the preview 792ms
+   ✓ rejects invalid manual credit 1000001 without modifying the preview 326ms
+   ✓ applies only the parsed grant receipt to the Enterprise preview row 301ms
+
+ Test Files  8 passed (8)
+      Tests  29 passed (29)
+   Start at  10:42:58
+   Duration  29.59s (transform 3.58s, setup 18.31s, collect 14.55s, tests 19.92s, environment 30.65s, prepare 11.23s)
+

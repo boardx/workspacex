@@ -545,7 +545,7 @@ export const operations = {
         session: AuthenticatedSession,
       })
       .strict(),
-    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
+    err: ["INVITE_NOT_FOUND", "INVITE_ALREADY_MEMBER", "QUOTA_EXHAUSTED", "VERSION_CHANGED", "AUTH_SERVICE_UNAVAILABLE"] as const,
   },
 
   /* ══ 一.二、组织共享邀请链接（shared-invite-links delta，人类 2026-08-13 三条拍板）══

@@ -186,7 +186,7 @@ it("purchases a one-time CNY180 month through real browser, API, signed callback
  expect((await paid()).status).toBe(200);expect((await paid()).status).toBe(200);
  await page.goto(`${origin}/billing?subscription_return=1`);await expect.poll(()=>page.getByRole("progressbar",{name:"本期剩余 credit"}).getAttribute("aria-valuenow")).toBe("100");
  expect(await page.getByRole("button",{name:"管理订阅",exact:true}).count()).toBe(0);
- const wallet=await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]));expect(wallet.rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+ const wallet=await asOwner(c=>c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_id=$1",[user]));expect(wallet.rows).toEqual([{balance:"20000.00",total_granted:20000}]);
  await page.screenshot({path:resolve(evidence,"monthly-pass-active-fullstack.png"),fullPage:true});await page.close();
 },120000);
 

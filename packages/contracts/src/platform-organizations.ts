@@ -4,18 +4,25 @@
  */
 import { z } from "zod";
 import * as A from "./ai-policy";
-export const Plan = z.enum(["ordinary", "enterprise"]);
-export const ErrorCode = z.enum(["NOT_PLATFORM_SUPERUSER", "ORGANIZATION_NOT_FOUND", "PLAN_VERSION_CONFLICT", "PLATFORM_CATALOG_UNAVAILABLE", "AI_POLICY_VERSION_CONFLICT", "AI_POLICY_MODEL_UNAVAILABLE", "AI_POLICY_WINDOW_LOCKED"]);
-export const PlanState = z.object({
-  plan: Plan.nullable(), version: z.number().int().nonnegative(),
-  updatedAt: z.string().nullable(), updatedBy: z.string().nullable(),
-  /** Entitlement designation only: quota enforcement is inactive until admission is connected. */
-  enforcement: z.literal("pending"),
-}).strict();
+import {Plan,PlanState,PlanWrite,OrganizationPlanErrorCode} from "./organization-plan";
+import {TeamEntitlement} from "./billing-team";
+export {Plan,PlanState} from "./organization-plan";
+export const ErrorCode=z.enum([...OrganizationPlanErrorCode.options,"AI_POLICY_VERSION_CONFLICT","AI_POLICY_MODEL_UNAVAILABLE","AI_POLICY_WINDOW_LOCKED"]);
 export const OrganizationRow = z.object({
   orgId: z.string(), name: z.string(), kind: z.literal("organization"),
   memberCount: z.number().int().nonnegative(), plan: PlanState,
-}).strict();
+  billingSummary:TeamEntitlement.optional(),
+}).strict().superRefine((value,ctx)=>{
+ const summary=value.billingSummary;
+ if(!summary){
+  if(value.plan.enforcement==="active")ctx.addIssue({code:"custom",path:["billingSummary"],message:"active billing enforcement requires actual billing facts"});
+  return;
+ }
+ if(summary.orgId!==value.orgId||summary.memberCount!==value.memberCount||summary.planVersion!==value.plan.version||value.plan.enforcement!=="active")ctx.addIssue({code:"custom",path:["billingSummary"],message:"organization and billing facts must share one coherent snapshot"});
+ const current=value.plan.billingGeneration===summary.generation;
+ if(summary.licenseStatus!=="none"&&!current)ctx.addIssue({code:"custom",path:["plan","billingGeneration"],message:"legacy Plan metadata cannot restore current billing rights"});
+ if(summary.licenseStatus==="enterprise"&&value.plan.plan!=="enterprise"||["active","expired"].includes(summary.licenseStatus)&&value.plan.plan!=="ordinary"||current&&value.plan.plan==="enterprise"&&summary.licenseStatus!=="enterprise")ctx.addIssue({code:"custom",path:["billingSummary","licenseStatus"],message:"billing tier must derive from the same current Plan"});
+});
 const Query = z.object({
   search: z.string().trim().max(200).default(""), cursor: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(25),
@@ -33,6 +40,6 @@ export const operations = {
       actorId: z.string(), changedAt: z.string(), reason: z.string(),
     }).strict()) }).strict(), err: ErrorCode.options },
   setPlan: { method: "PATCH", path: "/platform/organizations/:orgId/plan",
-    in: z.object({ plan: Plan, expectedVersion: z.number().int().min(0).max(2147483646), reason: z.string().trim().min(1).max(500) }).strict(),
+    in: PlanWrite,
     out: PlanState, err: ErrorCode.options },
 } as const;

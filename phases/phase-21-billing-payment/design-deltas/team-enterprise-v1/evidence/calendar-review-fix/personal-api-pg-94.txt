@@ -1,0 +1,27 @@
+[stack-admission] load1=1.83 cores=10 perCore=0.18 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvykmyje-f8068193-d8a07b9346ad db=wsx_d8a07b9346ad91ac2684 compose=wsx-d8a07b9346ad91ac2684 pg=20051 redis=21051 api=24051 web=25051 sandbox=26051 model=27051 deep-agent=28051 asr=29051 vision=30051 loopback-sandbox=31051 mail=19051
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_d8a07b9346ad91ac2684 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (34 tests) 18477ms
+ ✓ tests/billing/personal-credit-terms-pg.test.ts (16 tests) 2317ms
+   ✓ paginates 101 due owners without losing the second batch 783ms
+ ✓ tests/billing/personal-payment-settlement-pg.test.ts (10 tests) 821ms
+ ✓ tests/billing/personal-stripe-receipt.test.ts (27 tests) 8ms
+ ✓ tests/billing/personal-credit-calendar.test.ts (7 tests) 5ms
+
+ Test Files  5 passed (5)
+      Tests  94 passed (94)
+   Start at  09:19:39
+   Duration  36.59s (transform 3.59s, setup 28ms, collect 6.02s, tests 21.63s, environment 1ms, prepare 408ms)
+
+[db-isolation] db=wsx_d8a07b9346ad91ac2684 peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-credit-calendar.test.ts tests/billing/personal-stripe-receipt.test.ts tests/billing/personal-credit-terms-pg.test.ts tests/billing/personal-payment-settlement-pg.test.ts tests/billing/personal-stripe-settlement-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：0s
+  总计：40s

@@ -42,7 +42,7 @@ it("binds checkout to the principal and grants once for duplicate deliveries",as
  const pass=await repo.latest(p);expect(pass?.state).toBe("paid");
  const snapshot=await asOwner(c=>c.query("SELECT amount_minor::text,currency FROM billing_monthly_orders WHERE order_id=$1",[o.orderId]));expect(snapshot.rows).toEqual([{amount_minor:"18000",currency:"CNY"}]);
  const history=await new PgBillingSubscriptionRepository(db,{info(){},error(){}}).history(p,{limit:5,offset:0});expect(history.items).toHaveLength(1);expect(history.items[0]).toMatchObject({amountMinor:18000,currency:"CNY",item:"Pro 月度订阅"});
- const balances=await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[p.userId]));
+ const balances=await asOwner(c=>c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[p.userId]));
  expect(balances.rows).toEqual([{balance:"20000.00",total_granted:20000}]);
  await expect(repo.reserve(p)).rejects.toThrow("already_subscribed");
  expect(await repo.latest(principal())).toBeNull();

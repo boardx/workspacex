@@ -1,0 +1,7 @@
+# issue6105 契约反例测试隔离
+
+原CI阻塞：PR6101/head8e07，verify-affected run41385094690/job125084386968，ops-telemetry合法上报出现undefined._parse。单独worker11通过。旧edition-capability测试直接writeFileSync共享deployment.ts；新增断言在负例改写期间检查真实源码保持原样，确定性1红4绿，证明共享源码确实被修改。
+
+修复将原门禁脚本和待测契约复制到任务拥有的临时根目录，仅给实现搜索面只读目录链接。所有负例只改fixture，原门禁/并发设置/运行时均未改变；afterAll删除本测试创建的临时目录。5项原样/负例验证通过。
+
+并发运行完整contracts1255与ops-telemetry三组真实workerd共25项全部通过，git diff deployment.ts为空。消除了已证明的共享写入路径，不宣称在本机精确重放CI中的微秒truncate窗口。最终仍要求正常PR CI及独立审查。
