@@ -53,7 +53,7 @@ export function previewTeamEntitlement(region:PricingRegion,cycle:PricingCycle,e
   licenseStatus:expired?"expired":"active",memberCount:4,
   teamPayment:{term:{purchaseAnchor:expired&&!year?"2026-08-31T10:00:00Z":paidPeriodStart,
    paidPeriodStart,paidPeriodEnd,billingCycle:cycle,purchasedSeats:TEAM_INCLUDED_SEATS,monthlyCredits:TEAM_MONTHLY_CREDITS},
-   provider,renewalMode:provider==="stripe"?"automatic":"manual",cancelAtPeriodEnd:provider==="stripe"&&expired},
+   provider,renewalMode:provider==="stripe"?"automatic":"manual",cancelAtPeriodEnd:false,subscriptionStatus:provider==="stripe"?(expired?"canceled":"active"):null},
   creditGrant:{status:expired?"expired":"granted",grant:{credits:TEAM_MONTHLY_CREDITS,remainingCredits,periodStart,periodEnd}},
   wallet:{ownerType:"team",ownerId:"preview-organization",balance:8600+remainingCredits,permanentBalance:8600,
    subscriptionCredits:remainingCredits,subscriptionExpiresAt:expired?null:periodEnd,totalPurchased:10000,

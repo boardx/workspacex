@@ -3,7 +3,7 @@ import {TeamEntitlement} from "../src/billing-team";
 const term={purchaseAnchor:"2026-11-01T10:00:00Z",paidPeriodStart:"2026-11-01T10:00:00Z",paidPeriodEnd:"2027-11-01T10:00:00Z",billingCycle:"year",purchasedSeats:5,monthlyCredits:100000};
 const grant={status:"granted",grant:{credits:100000,remainingCredits:64000,periodStart:"2026-11-01T10:00:00Z",periodEnd:"2026-12-01T10:00:00Z"}};
 const wallet={ownerType:"team",ownerId:"org-a",balance:72600,permanentBalance:8600,subscriptionCredits:64000,subscriptionExpiresAt:"2026-12-01T10:00:00Z",totalPurchased:8600,totalGranted:100000,updatedAt:"2026-11-16T10:00:00Z"};
-const active={orgId:"org-a",generation:"pricing-v1",planVersion:1,asOf:"2026-11-16T10:00:00Z",licenseStatus:"active",memberCount:4,teamPayment:{term,provider:"wechat",renewalMode:"manual",cancelAtPeriodEnd:false},creditGrant:grant,wallet,checkoutPending:false,paymentReviewRequired:false};
+const active={orgId:"org-a",generation:"pricing-v1",planVersion:1,asOf:"2026-11-16T10:00:00Z",licenseStatus:"active",memberCount:4,teamPayment:{term,provider:"wechat",renewalMode:"manual",cancelAtPeriodEnd:false,subscriptionStatus:null},creditGrant:grant,wallet,checkoutPending:false,paymentReviewRequired:false};
 it("keeps actual members, purchased capacity, paid year and current monthly grant separate",()=>{
  expect(TeamEntitlement.parse(active)).toEqual(active);
  expect(TeamEntitlement.safeParse({...active,memberCount:7}).success).toBe(true); // Existing over-capacity members are not deleted.
@@ -35,7 +35,7 @@ it("keeps an unconfigured organization distinct from a purchased five-seat team"
 });
 it("shows Enterprise without inventing Team limits or destroying known prepaid facts",()=>{
  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise"}).success).toBe(true);
- const stripe={...active.teamPayment,provider:"stripe",renewalMode:"automatic",cancelAtPeriodEnd:true};
+ const stripe={...active.teamPayment,provider:"stripe",renewalMode:"automatic",cancelAtPeriodEnd:true,subscriptionStatus:"active"};
  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise",teamPayment:stripe}).success).toBe(true);
  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise",teamPayment:{...stripe,cancelAtPeriodEnd:false}}).success).toBe(false);
 });
@@ -66,4 +66,18 @@ it("preserves fractional first-seat grants in the shared wallet total",()=>{
 it("does not erase confirmed credit debt or accept mismatched wallet components",()=>{
  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,balance:-100.25,permanentBalance:-64100.25}}).success).toBe(true);
  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,balance:72601}}).success).toBe(false);
+});
+
+it("retains genuinely canceled Stripe payment facts during Enterprise activation",()=>{
+ for(const subscriptionStatus of ["canceled","incomplete_expired"]){
+  const teamPayment={...active.teamPayment,provider:"stripe",renewalMode:"automatic",subscriptionStatus,cancelAtPeriodEnd:false};
+  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise",teamPayment}).success).toBe(true);
+ }
+});
+it("requires authoritative subscription status and still rejects future Stripe renewal",()=>{
+ for(const subscriptionStatus of [null,"none","unknown","active","past_due","unpaid"]){
+  const teamPayment={...active.teamPayment,provider:"stripe",renewalMode:"automatic",subscriptionStatus,cancelAtPeriodEnd:false};
+  expect(TeamEntitlement.safeParse({...active,licenseStatus:"enterprise",teamPayment}).success).toBe(false);
+ }
+ expect(TeamEntitlement.safeParse({...active,teamPayment:{...active.teamPayment,subscriptionStatus:"canceled"}}).success).toBe(false);
 });

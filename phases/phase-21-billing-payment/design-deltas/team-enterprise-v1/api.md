@@ -69,3 +69,5 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 包含的 TeamMonthlyCreditGrant 只描述当前或最近一次实际月度授予，none/pending不构造grant；已发的额度窗口不得越过已付期，余额不能大于实际发放，过期剩余为0。钱包直接复用共享CreditWallet，要求真实永久余额、订阅余额和到期事实；wallet必须是该组织的team owner，余额分量与当前授予一致，保留已确认消费产生的负余额。依赖失败返回不可用，不将未知值填0。相同到期时刻允许不同合法ISO时区表示。
 
 本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations仍待物化，Enterprise未决已付窗口不由此schema裁决。
+
+付款事实补充：teamPayment 复用现有 SubscriptionStatus 闭集；微信 subscriptionStatus 必须为null、manual且无到期取消标志，Stripe须有真实非none状态且为automatic。Enterprise停止未来扣款既可由真实cancelAtPeriodEnd安排证明，也可由canceled/incomplete_expired终止状态证明；不要求将已取消订阅的真实false标志改为true，不丢弃旧term。未知状态或仍会续费的Stripe不得据此宣称Enterprise生效。
