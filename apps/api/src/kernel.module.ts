@@ -1,3 +1,4 @@
+import { LocalizationModule } from "./localization.module";
 import {AuxiliaryModelUsageController} from './interface/controllers/auxiliary-model-usage.controller';
 import {AUXILIARY_MODEL_ACCOUNTING} from './application/billing/auxiliary-model-accounting';
 import {PgAuxiliaryModelAccounting} from './infrastructure/billing/pg-auxiliary-model-accounting';
@@ -1234,7 +1235,7 @@ const BOARD_AGENT_API_ACCEPTANCE = boardAgentApiAcceptanceEnabled();
 const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRepository');
 
 @Module({
-  imports: [BillingModule, IdentityPersistenceModule],
+  imports: [BillingModule, IdentityPersistenceModule, LocalizationModule],
   controllers: [
     WhiteboardFilesController,
     WorkflowRuntimeController,

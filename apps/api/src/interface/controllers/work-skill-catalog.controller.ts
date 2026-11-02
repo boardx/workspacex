@@ -17,6 +17,7 @@ import {
   HttpException,
   Inject,
   NotFoundException,
+  Optional,
   Param,
   Patch,
   Query,
@@ -51,6 +52,9 @@ import {
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
+import { parseDisplayLocale } from "../parse-display-locale";
+import { ENTITY_LOCALIZATION_REPOSITORY, type EntityLocalizationRepository } from "../../application/localization/entity-localization";
+import { localizeAuthorizedItems } from "../../application/localization/localize-authorized-items";
 
 const TextId = z.string().min(1).max(255);
 
@@ -122,6 +126,7 @@ export class WorkSkillCatalogController {
     @Inject(IDENTITY_REPOSITORY) private readonly identities: IdentityRepository,
     @Inject(WORK_SKILL_CATALOG_REPOSITORY) private readonly catalog: WorkSkillCatalogRepository,
     @Inject(TOOL_GRANT_READER) private readonly grants: ToolGrantReader,
+    @Optional() @Inject(ENTITY_LOCALIZATION_REPOSITORY) private readonly localizations?: EntityLocalizationRepository,
   ) {}
 
   private get deps() {
@@ -136,7 +141,7 @@ export class WorkSkillCatalogController {
     const offset = decodeCursor(parsed.data.cursor);
     if (offset === null) throw validationFailed("invalid cursor");
     try {
-      const { domain, channel, q, includeDeprecated, limit } = parsed.data;
+      const { domain, channel, q, includeDeprecated, limit, locale } = parsed.data;
       const page = await listWorkSkillCatalog(this.deps, {
         actorId: principal.userId,
         orgId: principal.orgId,
@@ -147,9 +152,12 @@ export class WorkSkillCatalogController {
           includeDeprecated: includeDeprecated || channel === "deprecated",
           offset,
           limit,
+          ...(locale !== undefined ? { locale } : {}),
         },
       });
-      return { items: page.items, nextCursor: page.nextOffset === null ? null : encodeCursor(page.nextOffset) };
+      const items = await localizeAuthorizedItems(page.items, { orgId: principal.orgId, kind: "skill", locale,
+        idOf: row => row.skillId, versionOf: row => row.currentVersionId, repository: this.localizations });
+      return { items, nextCursor: page.nextOffset === null ? null : encodeCursor(page.nextOffset) };
     } catch (error) {
       return mapError(error);
     }
@@ -180,15 +188,19 @@ export class WorkSkillCatalogController {
     @CurrentPrincipal() principal: Principal,
     @Param("skillId") skillId: string,
     @Query("versionId") versionId: string | undefined,
+    @Query("locale") localeRaw?: string,
   ) {
     assertPrincipal(principal);
+    const locale = parseDisplayLocale(localeRaw);
     if (!TextId.safeParse(skillId).success || (versionId !== undefined && !TextId.safeParse(versionId).success)) {
       throw validationFailed("invalid id");
     }
     try {
-      return await getWorkSkillCatalogEntry(this.deps, {
+      const item = await getWorkSkillCatalogEntry(this.deps, {
         actorId: principal.userId, orgId: principal.orgId, skillId, ...(versionId !== undefined ? { versionId } : {}),
       });
+      return (await localizeAuthorizedItems([item], { orgId: principal.orgId, kind: "skill", locale,
+        idOf: row => row.skillId, versionOf: row => versionId ?? row.currentVersionId, repository: this.localizations }))[0];
     } catch (error) {
       return mapError(error);
     }

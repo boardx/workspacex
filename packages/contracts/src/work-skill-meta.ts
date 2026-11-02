@@ -9,6 +9,8 @@
  * 本文件不在 index.ts 中导出（导出由单独步骤负责）。
  */
 import { z } from "zod";
+import { Locale } from "./locale";
+import { LocalizedEntityDisplay } from "./entity-localization";
 
 const Id = z.string().uuid();
 const Cursor = z.string().min(1).max(512);
@@ -135,6 +137,7 @@ export const SkillReadinessSummary = SkillReadiness.pick({ overall: true, missin
 
 export const WorkSkillCatalogItem = z
   .object({
+    display: LocalizedEntityDisplay.optional(),
     skillId: Id,
     name: z.string().min(1).max(255),
     stableId: WorkSkillStableId,
@@ -168,6 +171,7 @@ export type WorkSkillCatalogDetail = z.infer<typeof WorkSkillCatalogDetail>;
 
 export const ListWorkSkillCatalog = z
   .object({
+    locale: Locale.optional(),
     domain: WorkSkillDomain.optional(),
     channel: WorkSkillChannel.optional(),
     q: z.string().trim().max(200).optional(),
@@ -235,7 +239,7 @@ export const operations = {
   },
   getWorkSkillCatalogEntry: {
     method: "GET", path: "/skills/catalog/:skillId",
-    in: z.object({ skillId: Id, versionId: Id.optional() }).strict(), // versionId：A2 按版本读旧 manifest
+    in: z.object({ skillId: Id, versionId: Id.optional(), locale: Locale.optional() }).strict(), // versionId：A2 按版本读旧 manifest
     out: WorkSkillCatalogDetail,
     err: ["UNAUTHENTICATED", "WORK_SKILL_NOT_FOUND"] as const,
   },
