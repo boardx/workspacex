@@ -1,3 +1,4 @@
+import {TeamQuote,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS} from "@repo/contracts/billing-team";
 /** UI-only fixtures for #6086. Not an API contract or a production price catalog. */
 export type PricingRegion = "cn" | "us" | "devapp";
 export type PricingCycle = "month" | "year";
@@ -17,3 +18,25 @@ export function previewMoney(region: PricingRegion, value: number) {
   return `${previewPrices(region).symbol}${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 export const numberLabel = (value: number) => value.toLocaleString("en-US");
+
+/** Owned mock quote only; production must read a server quote, never compute money here. */
+export function previewSeatQuote(region:PricingRegion,cycle:PricingCycle,seats:number,provider:"wechat"|"stripe"){
+ const year=cycle==="year",p=previewPrices(region);
+ const createdAt=year?"2027-05-02T22:00:00Z":"2026-11-16T10:00:00Z";
+ const creditPeriodStart=year?"2027-05-01T10:00:00Z":"2026-11-01T10:00:00Z";
+ const creditPeriodEnd=year?"2027-06-01T10:00:00Z":"2026-12-01T10:00:00Z";
+ const fraction=(Date.parse(creditPeriodEnd)-Date.parse(createdAt))/(Date.parse(creditPeriodEnd)-Date.parse(creditPeriodStart));
+ const parsed=TeamQuote.parse({
+  orgId:"preview-organization",generation:"pricing-preview-only",quoteRef:`preview-${region}-${cycle}-${seats}-${provider}`,
+  catalogVersion:"preview-only-v1",sku:`team-${region==="us"?"us":"cn"}-${cycle}-v1`,provider,
+  currency:region==="us"?"USD":"CNY",amountMinor:Math.ceil(p.seat[cycle]*100*seats*0.5),
+  createdAt,expiresAt:new Date(Date.parse(createdAt)+300000).toISOString(),purpose:"add_seats",planVersion:1,
+  term:{purchaseAnchor:"2026-11-01T10:00:00Z",paidPeriodStart:"2026-11-01T10:00:00Z",
+   paidPeriodEnd:year?"2027-11-01T10:00:00Z":"2026-12-01T10:00:00Z",billingCycle:cycle,
+   purchasedSeats:TEAM_INCLUDED_SEATS,monthlyCredits:TEAM_MONTHLY_CREDITS},additionalSeats:seats,
+  monthlyCreditsAfter:TEAM_MONTHLY_CREDITS+seats*TEAM_SEAT_MONTHLY_CREDITS,
+  estimatedFirstCredits:Math.floor(TEAM_SEAT_MONTHLY_CREDITS*seats*fraction*100)/100,creditPeriodStart,creditPeriodEnd,
+ });
+ if(parsed.purpose!=="add_seats")throw Error("preview_seat_quote_required");
+ return parsed;
+}

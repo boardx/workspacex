@@ -28,7 +28,7 @@ Issue #6099。这是后续阶段的设计交付，`covers` 未认领运行时 fe
 
 ## ③ API
 
-`api.md` 是本次拟议形状及约束，尚未完成正式第③件。已开始在`packages/contracts/src/billing-team.ts`物化独立核心输入／期限schema，并让已采用原型消费手动额度schema；完整catalog、quote结果、组织权益／历史／操作收据及未决已付窗口口径仍未完成。依据仓库[契约设计执行书](../../../../.harness/instructions/contract-design.md)，正式人工签核前必须在`packages/contracts`物化可执行schema、验证原型消费及契约反例，并完成正式一致性复核。本次草案材料PR不请求正式签核，不允许因此开始运行时实现；待个人前置顺序集成时继续完善这一件，避免重复索要未完备材料的确认。
+`api.md` 是本次拟议形状及约束，尚未完成正式第③件。已开始在`packages/contracts/src/billing-team.ts`物化独立核心输入／期限schema，并让已采用原型消费手动额度schema；四purpose严格quote结果及原型消费已补齐；完整catalog、组织权益／历史／恢复／操作收据及未决已付窗口口径仍未完成。依据仓库[契约设计执行书](../../../../.harness/instructions/contract-design.md)，正式人工签核前必须在`packages/contracts`物化可执行schema、验证原型消费及契约反例，并完成正式一致性复核。本次草案材料PR不请求正式签核，不允许因此开始运行时实现；待个人前置顺序集成时继续完善这一件，避免重复索要未完备材料的确认。
 
 可执行设计须复用现有身份guards、`platform-organizations.ts`的Plan／版本／审计和组织钱包；不另建第二个Enterprise布尔值或权限体系。`platform-organizations.ts`为关联可执行契约，不虚构同名已签核契约束。
 
