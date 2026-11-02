@@ -7,3 +7,5 @@
 最终代码c9d3ff96d正常pre-push 25/25静态任务通过（23缓存，26.932s）；独立复核原问题已解决。S4有测试/浏览器/静态证据，S5仍进行中：等待PR CI及合入。临时服务关闭、无Docker栈。
 
 修复CI测试登记：i18n-entry接入已有organization-create浏览器配置。spec↔CI覆盖扫描通过，注册配置真实执行1 passed；首次本地启动超时如实记录。当前工作区未保留Next自动添加的tsconfig include；30494服务已释放。修正后的PR head需重新验CI。
+
+32项CI成功后定位原生BLOCKED来自未解决的可访问性review：个人菜单语言select改成菜单radio items；键盘ArrowDown/Enter回归先红后绿，23项测试通过。此产品修复更新head，旧CI不当最终绿。随后回复/resolve原线程并跑最终CI；自动合并请求由合并协调会话维护。
