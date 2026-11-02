@@ -95,6 +95,8 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
 
   async prepareEmailInvitations(cmd: PrepareEmailInvitationsCmd): Promise<PrepareEmailInvitationsResult> {
     return this.db.withTenant(cmd.orgId, async (s) => {
+      // Match acceptance: epoch/org before project serialization and invitation rows/FK writes.
+      await lockOrganizationCapacity(s, cmd.orgId);
       await this.lockProject(s, cmd.projectId);
       await this.expireStale(s, cmd.orgId, cmd.projectId, cmd.now);
       const context = await this.mailContext(s, cmd.orgId, cmd.projectId, cmd.invitedBy);
@@ -154,6 +156,8 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
 
   async issueLink(cmd: IssueLinkCmd): Promise<IssueLinkResult> {
     return this.db.withTenant(cmd.orgId, async (s) => {
+      // Match acceptance: epoch/org before project serialization and invitation rows/FK writes.
+      await lockOrganizationCapacity(s, cmd.orgId);
       await this.lockProject(s, cmd.projectId);
       await this.expireStale(s, cmd.orgId, cmd.projectId, cmd.now);
       if ((await this.usedToday(s, cmd.orgId, cmd.projectId, cmd.now)) + 1 > cmd.dailyCap) {
