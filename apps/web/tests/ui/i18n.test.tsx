@@ -44,3 +44,21 @@ it("switches login heading and brand without a navigation", () => {
  expect(screen.getByRole("heading", {name: "Sign in to WorkspaceX"})).toBeInTheDocument();
  expect(screen.getByRole("heading", { name: /Do great work/ })).toBeInTheDocument();
 });
+
+import { PersonalMenu } from "@/components/shell/personal-menu";
+import { waitFor } from "@testing-library/react";
+it("lets keyboard users reach and choose the account menu language", async () => {
+ render(<I18nProvider initialLocale="zh-CN"><PersonalMenu avatarInitial="A" /></I18nProvider>);
+ fireEvent.keyDown(screen.getByTestId("rail-profile-menu"), { key: "Enter" });
+ const chinese = await screen.findByRole("menuitemradio", { name: "简体中文" });
+ const english = screen.getByRole("menuitemradio", { name: "English" });
+ const billing = screen.getByTestId("personal-menu-billing");
+ billing.focus();
+ fireEvent.keyDown(billing, { key: "ArrowDown" });
+ await waitFor(() => expect(chinese).toHaveFocus());
+ fireEvent.keyDown(chinese, { key: "ArrowDown" });
+ await waitFor(() => expect(english).toHaveFocus());
+ fireEvent.keyDown(english, { key: "Enter" });
+ await waitFor(() => expect(document.documentElement.lang).toBe("en"));
+ expect(document.cookie).toContain(`${LOCALE_COOKIE}=en`);
+});

@@ -15,3 +15,5 @@
 移动入口补漏：补充mobile-tab-me英文断言后先见红，为稳定key `me`接入已有ui.me资源；10项语言测试通过（mobile-tests.log）。此补丁更新PR head，旧SHA的CI不代表补丁后状态。
 
 CI纠正：verify-control-plane发现i18n-entry未进入任何CI配置（run41510103520/job125500218805）。已接入现有playwright.organization-create.config.ts testMatch，复用无条件CI命令和同一个公共入口devserver，无新增豁免。完整lint-spec-gate-coverage扫描通过，明确i18n-entry由该配置覆盖（spec-gate.log）；该注册配置真实运行1 passed（registered-browser.log）。首次本地冷启动120s超时、未执行断言，第二次相同配置缓存热后2.0m通过；没有放宽config.webServer时限。新增spec自身预算90s覆盖冷入口编译与完整语言往返检查。
+
+原生review修正：discussion_r4446721932指出个人Radix菜单中原生select不在roving focus集合。改为MenuRadioGroup/MenuRadioItem，语言名称保持自称，沿用同一locale持久化。新增真实Radix组件键盘回归：从账单链接ArrowDown到中文，再ArrowDown到英文，Enter切换，html lang和cookie同步；旧实现找不到menuitemradio先红，修复后23项相关测试通过（keyboard-tests.log）。检查了全部reviewThreads，目前仅此一条待回复/resolve；最终head继续正常静态门与CI，不用旧head全绿代替。
