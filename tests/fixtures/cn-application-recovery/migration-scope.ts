@@ -35,6 +35,9 @@ export const reviewedSuffix = [
   "20261102031000_org_commercial_capacity.sql",
   "20261102040000_personal_payment_recovery.sql",
   "20261102050000_product_configuration.sql",
+  "20261102070000_team_purchase_core.sql",
+  "20261102071000_payment_claim_ownership.sql",
+  "20261102072000_team_product_seed.sql",
 ];
 export function migrationScope(names:string[]) {
  assert.deepEqual(names,[...new Set(names)].sort(),'SORTED_UNIQUE_MIGRATIONS_REQUIRED');
