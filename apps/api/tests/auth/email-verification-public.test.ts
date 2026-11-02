@@ -114,8 +114,8 @@ describe("password recovery resend", () => {
  });
  it("does not disclose absent accounts or accept incorrect passwords", async () => {
   const reg = await register("password-rejected");
-  const wrong = await post("/auth/email-verifications/resend", { email: reg.email, password: "incorrect" });
-  const missing = await post("/auth/email-verifications/resend", { email: "absent@i411verify.test", password: "incorrect" });
+  const wrong = await post("/auth/email-verifications/resend", { email: reg.email, password: `${PASSWORD}-wrong` });
+  const missing = await post("/auth/email-verifications/resend", { email: "absent@i411verify.test", password: `${PASSWORD}-wrong` });
   expect(wrong.status).toBe(401); expect(missing.status).toBe(401);
   expect(missing.body.reasonCode).toBe(wrong.body.reasonCode);
   expect(missing.body.error).toBe(wrong.body.error);
