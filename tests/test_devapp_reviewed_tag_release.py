@@ -7,7 +7,7 @@ def module():
  s=importlib.util.spec_from_file_location('devapp_release',P);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
 class LedgerSafety(unittest.TestCase):
  def test_original_439_preserved_and_only_exact_eight_added(self):
-  m=module();base={str(i):'a'*64 for i in range(439)}
+  m=module();base={str(i):'a'*64 for i in range(m.BASELINE_LEDGER_COUNT)}
   self.assertEqual(m.ledger_state(base,base),'BASELINE');self.assertEqual(m.ledger_state(base,{**base,**m.MIGRATIONS}),'COMPLETE')
   first=dict(list(m.MIGRATIONS.items())[:3]);self.assertEqual(m.ledger_state(base,{**base,**first}),'PARTIAL')
   for wrong in ({**base,'historical':'b'*64},{**base,'0':'b'*64},{**base,**m.MIGRATIONS,next(iter(m.MIGRATIONS)):'0'*64}):
@@ -44,10 +44,10 @@ class ExactRunnerContract(unittest.TestCase):
   source=P.read_text();self.assertIn('force:false,dir',source);self.assertIn("fs.mkdtempSync('/tmp/exact-eight-')",source);self.assertNotIn('force:true',source)
 
 class FullWriterStateMachine(unittest.TestCase):
- def exercise(self,failure=None,resume=False,initial_state=None,diagnostic=False):
+ def exercise(self,failure=None,resume=False,initial_state=None,diagnostic=False,active=None,active_database=None):
   import tempfile,json,types,contextlib
   from unittest.mock import patch
-  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);attempt=root/'attempt';attempt.mkdir();pending=root/'pending.json';pending.write_bytes(b'originalpending');events=[];state={'schema':initial_state or ('COMPLETE' if resume else 'BASELINE'),'images':{'api':'old'},'running':True};baseline={str(i):'a'*64 for i in range(439)}
+  m=active.base if active else module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);attempt=root/'attempt';attempt.mkdir();pending=root/'pending.json';pending.write_bytes(b'originalpending');events=[];state={'schema':initial_state or ('COMPLETE' if resume else 'BASELINE'),'images':{'api':'old'},'running':True};baseline={str(i):'a'*64 for i in range(439)}
   def save(path,value):
    with open(path,'x') as f:json.dump(value,f)
    Path(path).chmod(0o600)
@@ -63,7 +63,7 @@ class FullWriterStateMachine(unittest.TestCase):
     return b''
   class DB:
    def __init__(self,ctx):pass
-   def read(self):return {'state':state['schema'],'ledger':{**baseline,**(m.MIGRATIONS if state['schema']=='COMPLETE' else dict(list(m.MIGRATIONS.items())[:2]) if state['schema']=='PARTIAL' else {})},'epoch':{'exists':False} if state['schema']=='BASELINE' else {'exists':True,'rows':[{'generation':None,'activated_at':None}]}}
+   def read(self):return {'state':state['schema'],'ledger':{**baseline,**(m.MIGRATIONS if state['schema']=='COMPLETE' else dict(list(m.MIGRATIONS.items())[:2]) if state['schema']=='PARTIAL' else {})},'epoch':{'exists':True,'rows':[{'generation':'billing-credits-2026-11-v1','activated_at':'2026-11-02T13:00:00+00:00'}]} if active else ({'exists':False} if state['schema']=='BASELINE' else {'exists':True,'rows':[{'generation':None,'activated_at':None}]})}
    def reconcile(self):events.append('reconcile');return self.read()
    def quiet_jobs(self):
     events.append('quiet-jobs')
@@ -77,12 +77,15 @@ class FullWriterStateMachine(unittest.TestCase):
     self.stopped();events.append('native-eight')
     if resume:raise AssertionError('NATIVE RUNNER FORBIDDEN')
     if failure=='partial':state['schema']='PARTIAL';raise TimeoutError()
-    state['schema']='COMPLETE';return {'status':'NATIVE_BATCH_COMPLETE'}
+    state['schema']='COMPLETE'
+    if active:
+     path=attempt/'financial-migration-proof.json';save(path,{'before':{},'after':{}});ctx['additionalMigrationProof']={'financialInvariant':m.ref(path)}
+    return {'status':'NATIVE_BATCH_COMPLETE'}
   core=types.SimpleNamespace(save=save,private_backup_files=lambda *a:None);engine=types.SimpleNamespace();act=types.SimpleNamespace(runtime_rows=lambda d,p,services,images:rows(images),live_config_cas=lambda *a:None)
   cfg={'stateDirectory':str(root),'project':'workspacex-image','services':{'api':'api'},'composeFiles':[],'envFile':{},'verificationFiles':[],'verificationCommand':['/fixed/probe']};p={'historicalAdmission':{},'closurePins':{},'baseline':{'api':{'containerId':'oldcid','imageId':'old'}},'baselineLedger':baseline,'runtimeSeconds':10,'rollbackSeconds':60};identities=('environment','tag','sourceRevision','planSha256','manifestSha256');ctx={'p':p,'cfg':cfg,'attempt':attempt,'d':D(),'mods':{'schema-restore-rehearsal':core,'schema-tag-prepare':types.SimpleNamespace(),'minimal-docker-release':engine,'schema-release-handoff':types.SimpleNamespace(IDENTITY=identities)},'command':['compose'],'manifest':{'images':{'api':{'imageId':'new'}}},'requestRef':{},'policyRef':{},'request':{k:k for k in identities},'receipt':attempt/'result.json'}
   def business(ctx,phase):
    events.append('business-'+phase)
-   if resume:
+   if m.owned_business(ctx):
     save(attempt/(phase+'-once.json'),{'source':m.SOURCE,'tag':m.TAG});save(attempt/(phase+'-outcome.json'),{'phase':phase,'source':m.SOURCE,'tag':m.TAG,'command':cfg['verificationCommand'],'processGroupOwned':True,'ownedProcessGroupGone':not (failure=='cleanup' and phase=='candidate'),'status':'SUCCEEDED','exitCode':0})
     if failure=='cleanup' and phase=='candidate':raise ValueError('OWNED_PROCESS_GROUP_NOT_REAPED')
    if failure in ('recovery-business','recovery-stop') and phase in ('candidate','recovery'):raise ValueError('BUSINESS_FAILED')
@@ -91,6 +94,8 @@ class FullWriterStateMachine(unittest.TestCase):
   def health(ctx,cmd,images,*args):assert state['running'];events.append('health-'+images['api']);return {'healthy':True}
   if resume:
    p.update(expectedSchemaState='COMPLETE',resumeOriginal={'explicit':'root-capability'});(root/('devapp-'+m.TAG+'-once.json')).write_bytes(b'original spent once preserved')
+  if active:
+   p.update(activeEpochThree=True);active_database.side_effect=DB
   if diagnostic:
    p.update(resumePrevious={},activationNonce="b"*32,diagnosticBrowser=True);(root/("devapp-"+m.TAG+"-resume-23ecfeea853840acb7638e629c8f50d5.json")).write_bytes(b"previous spent once preserved")
   with contextlib.ExitStack() as stack:
