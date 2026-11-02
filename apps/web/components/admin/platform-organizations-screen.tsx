@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import {EnterpriseManagementPanel} from "./enterprise-management-panel";
 import { AiUsagePanel } from "./ai-usage-panel";
 import { AdminScreen } from "./admin-screen";
 import {AiPolicyPanel} from "./ai-policy-panel";
@@ -89,7 +90,7 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
       {!detail ? <p>{error ? "详情未能加载，请重新选择组织。" : "正在加载详情…"}</p> : <>
         <p>{detail.organization.name} · {detail.organization.memberCount} 位成员</p>
         <p className="text-13 text-muted-foreground">套餐：{planLabel(detail.organization.plan.plan)} · 版本 {detail.organization.plan.version}</p>
-        <p className="my-3 text-13 text-muted-foreground">用量限制尚未启用。企业套餐豁免本产品 Token 配额；普通套餐额度与周期待配置。所有套餐仍记录用量并保留安全和供应商限制。</p>
+        <p className="my-3 text-13 text-muted-foreground">套餐额度以实际计费记录为准，所有套餐均记录用量并保留安全和供应商限制。</p>
         <label className="block" htmlFor="organization-plan">套餐</label>
         <select id="organization-plan" className="my-2 rounded border bg-background p-2" value={plan} disabled={busy} onChange={e => setPlan(e.target.value === "enterprise" ? "enterprise" : "ordinary")}>
           <option value="ordinary">普通</option><option value="enterprise">企业</option>
@@ -97,6 +98,7 @@ export function PlatformOrganizationsScreen({ state }: { state: UiState }) {
         <label className="block" htmlFor="plan-change-reason">变更理由（写入审计记录）</label>
         <Input id="plan-change-reason" value={reason} maxLength={500} disabled={busy} onChange={e => setReason(e.target.value)} />
         <Button className="my-3" disabled={busy || !reason.trim()} onClick={() => void save()}>{busy ? "保存中…" : "保存套餐"}</Button>
+        <EnterpriseManagementPanel key={`enterprise-${detail.organization.orgId}`} orgId={detail.organization.orgId} version={detail.organization.plan.version} enterprise={detail.organization.plan.plan==="enterprise"&&detail.organization.plan.enforcement==="active"} onApplied={()=>setRefresh(n=>n+1)}/>
         <AiPolicyPanel key={`policy-${detail.organization.orgId}`} orgId={detail.organization.orgId}/>
         <AiUsagePanel key={detail.organization.orgId} orgId={detail.organization.orgId} platform/>
         <h3 className="font-semibold">最近变更</h3>

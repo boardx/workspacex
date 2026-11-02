@@ -21,7 +21,7 @@ describe("organization management API-bound screen",()=>{
   fireEvent.change(screen.getByLabelText("变更理由（写入审计记录）"),{target:{value:"Approved enterprise agreement"}});
   fireEvent.click(save);
   await waitFor(()=>expect(mocks.save).toHaveBeenCalledWith("empty-saas",{plan:"enterprise",expectedVersion:0,reason:"Approved enterprise agreement"}));
-  expect(await screen.findByText(/用量限制尚未启用/)).toBeInTheDocument();
+  expect(await screen.findByText(/套餐额度以实际计费记录为准/)).toBeInTheDocument();
  });
  it("search changes the server query and pagination sends the cursor",async()=>{
   mocks.list.mockResolvedValue({organizations:[org],nextCursor:"empty-saas"});render(<PlatformOrganizationsScreen state="default"/>);
