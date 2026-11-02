@@ -20,14 +20,14 @@ function parseCursor(value:unknown):Cursor {
   if(!Number.isFinite(time.getTime()) || time.toISOString()!==`${row.timestamp.slice(0,23)}Z`) throw new BillingWalletCursorError();
   return {ownerType:ownerType.data,ownerId:row.ownerId,type:type.data,timestamp:row.timestamp,txnId:row.txnId};
 }
-type WalletRow = {wallet_id:string;owner_type:string;owner_id:string;balance:string;held_hundredths:string;total_purchased:number;total_granted:number;updated_at:Date};
+type WalletRow = {wallet_id:string;owner_type:string;owner_id:string;balance:string;held_hundredths:string;total_purchased:number;total_granted:string;updated_at:Date};
 type TransactionRow = {txn_id:string;type:string;direction:number;credits:number;balance_after:number;source_type:string;source_id:string;operator_id:string|null;reason:string|null;created_at:Date;cursor_timestamp:string};
 export class PgBillingWalletRepository implements BillingWalletRepository {
   constructor(private readonly db: DatabasePort) {}
   async wallet(owner: BillingOwner) {
     return this.db.withTenant(owner.orgId, async s => {
       if(owner.ownerType === "user") await grantDuePersonalTerms(s,owner.ownerId);
-      const r=await s.query<WalletRow>(`SELECT wallet_id,owner_type,owner_id,balance::text,held_hundredths::text,total_purchased,total_granted,updated_at
+      const r=await s.query<WalletRow>(`SELECT wallet_id,owner_type,owner_id,balance::text,held_hundredths::text,total_purchased,total_granted::text,updated_at
         FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[owner.ownerType,owner.ownerId]);
       const row=r.rows[0];
       let subscription={hundredths:0n,welcomeHundredths:0n,expiresAt:null as string|null};

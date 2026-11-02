@@ -54,7 +54,7 @@ describe("F05 terminal timestamps and durable paid-funds recovery", () => {
     expect(outcome).toMatchObject({ status: initial === "CLOSED" ? "CLOSED" : "FAILED", closedAt, lastErrorCode: "invalid_amount", paidAt: null, notifyAt: null });
     expect(outcome).not.toHaveProperty("lastErrorMessage");
     const snapshot = () => asOwner(async c => ({
-      wallet: (await c.query("SELECT balance::float8 AS balance,total_purchased,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [user])).rows,
+      wallet: (await c.query("SELECT balance::float8 AS balance,total_purchased,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [user])).rows,
       ledger: (await c.query("SELECT type,credits FROM credit_transactions WHERE source_id=$1", [order.orderNo])).rows,
       receipts: (await c.query("SELECT state,recovery_source_id,previous_closed_at,processed_at,attempts FROM billing_payment_receipts WHERE provider_event_id=$1", [notice.eventId])).rows,
       events: (await c.query("SELECT provider,signature_verified,result FROM billing_webhook_events WHERE provider_event_id=$1", [notice.eventId])).rows,
