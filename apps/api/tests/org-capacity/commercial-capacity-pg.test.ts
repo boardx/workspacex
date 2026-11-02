@@ -34,8 +34,8 @@ it("distinct invitation paths compete for the final seat with atomic rollback",a
  const links = new PgOrgInviteLinkRepository(db);
  await links.create({linkId:"capacity-6107-link",orgId:toOrgId(ORG),actorId:admin,orgRole:"consultant",expiry:"7d",maxUses:null,status:"active",tokenHash:"capacity-6107-link-hash",expiresAt:new Date(Date.now()+3600000)});
  const outcomes=await Promise.all([
- ...tokens.map((token,n)=>repo.activate({token,now:new Date(),newAccount:{userId:`capacity-6107-new-${RUN}-${n}`,displayName:"joiner",passwordHash:"not-real-password"},existingUserId:null,untrustedClaims:{orgId:null,orgRole:null,teamId:null}})),
- links.activate({tokenHash:"capacity-6107-link-hash",now:new Date(),email:`capacity-6107-shared-${RUN}@example.test`,newAccount:{userId:`capacity-6107-new-${RUN}-shared`,displayName:"shared",passwordHash:"not-real-password"}})
+ ...tokens.map((token,n)=>repo.activate({token,now:new Date(),newAccount:{userId:`capacity-6107-new-${RUN}-${n}`,displayName:"joiner",passwordHash:`$2b$12$${"a".repeat(53)}`},existingUserId:null,untrustedClaims:{orgId:null,orgRole:null,teamId:null}})),
+ links.activate({tokenHash:"capacity-6107-link-hash",now:new Date(),email:`capacity-6107-shared-${RUN}@example.test`,newAccount:{userId:`capacity-6107-new-${RUN}-shared`,displayName:"shared",passwordHash:`$2b$12$${"a".repeat(53)}`}})
  ]);
  expect(outcomes.filter(o=>o.ok)).toHaveLength(1);
  const members=await asApp(ORG,c=>c.query("SELECT count(*)::int AS n FROM org_memberships WHERE org_id=$1",[ORG]));
@@ -57,7 +57,7 @@ it("full commercial capacity rejects project invitation activation before creden
  const project=new PgProjectInvitationRepository(db);
  const now=new Date();
  await project.issueLink({orgId:toOrgId(ORG),projectId,invitedBy:admin,now,dailyCap:100,invitationId:"capacity-6107-project-invite",tokenHash:"capacity-6107-project-token",expiresAt:new Date(Date.now()+3600000)});
- const result=await project.activateNew({tokenHash:"capacity-6107-project-token",now,userId:projectUser,displayName:"project joiner",passwordHash:"not-real-password",linkEmail:`capacity-6107-project-${RUN}@example.test`,verification:{challengeId:"capacity-6107-challenge",tokenDigest:"capacity-6107-verification",expiresAt:new Date(Date.now()+3600000),outboxId}});
+ const result=await project.activate({tokenHash:"capacity-6107-project-token",now,userId:projectUser,displayName:"project joiner",passwordHash:`$2b$12$${"a".repeat(53)}`,linkEmail:`capacity-6107-project-${RUN}@example.test`,verification:{challengeId:"capacity-6107-challenge",tokenDigest:"capacity-6107-verification",expiresAt:new Date(Date.now()+3600000),outboxId}});
  expect(result).toEqual({ok:false,reason:"quota"});
  const residue=await asOwner(c=>c.query("SELECT (SELECT count(*) FROM credentials WHERE user_id=$1)::int AS accounts,(SELECT count(*) FROM mail_outbox WHERE id=$2)::int AS mails,(SELECT count(*) FROM credit_wallets WHERE owner_id=$1)::int AS wallets",[projectUser,outboxId]));
  expect(residue.rows[0]).toEqual({accounts:0,mails:0,wallets:0});
