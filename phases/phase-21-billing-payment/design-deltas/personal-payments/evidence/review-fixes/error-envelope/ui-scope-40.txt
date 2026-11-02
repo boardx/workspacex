@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/payment-url.test.ts (8 tests) 4ms
+ ✓ tests/ui/personal-checkout-state.test.ts (5 tests) 10ms
+ ✓ tests/ui/personal-pricing-checkout.test.tsx (27 tests) 976ms
+
+ Test Files  3 passed (3)
+      Tests  40 passed (40)
+   Start at  08:08:13
+   Duration  4.00s (transform 1.13s, setup 544ms, collect 1.72s, tests 990ms, environment 797ms, prepare 336ms)
+

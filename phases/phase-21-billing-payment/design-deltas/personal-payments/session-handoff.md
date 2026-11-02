@@ -1,5 +1,7 @@
 # 个人支付在建交接
 
+PR6103 的自动审查 P2（discussion_r4437849632）已真实复现并修复：个人 checkout 的 AllExceptionsFilter 返回 `code`，共享 ApiError.reasonCode 只解析 `reasonCode`。此前22项组件测试使用了错误的模拟信封，不能证明真实拒绝后的重新选择。现在仅在该组件读取 ApiError.raw 的对象 code，按 createPersonalCheckout 声明的四项创建前拒绝清除原意图；未知/畸形响应、reasonCode-only、idempotency_conflict 和通用故障保留原键。未改变全站 ApiError。新测试先6失败/21通过，再27通过；checkout/state/URL三文件40通过。真实 Nest/PrincipalGuard/AllExceptionsFilter/隔离PG六项通过，逐一覆盖四项真实 code 信封、无 reasonCode、无误创建记录及无额外商户调用。隔离wrapper自动清理0秒。证据见 evidence/review-fixes/error-envelope/。受影响API/web串行类型及lint全部通过，错误文案静态门通过，执行计划check通过。新提交仍待精确SHA独立审查、新CI及正常合入，不沿用旧SHA的ACCEPT宣称新提交已批准。
+
 唯一worktree `/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui`，当前worker/cn-us-personal-payments。不新建第二个worktree，不切共享checkout。所有命令显式workdir，后续用PATH=/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin:$PATH。共享stash不回放，不动其他发布/邮件会话资源。
 
 actual base c04c332a1563f8168964e9497a59dcb51ad4017c为P4 PR6102真实merge（2026-11-01T23:34:47Z，6092关闭23:34:49Z，合入前72checks无异常）。P3 PR6100已merge98de。P5旧父b4ddf725f79b2607a186ff82782ed10b520272a8已剥离，22提交重放source fb5f2270237b0b5ddf696abb2f621358e0081d69独立全scope ACCEPT，待本次docs最终SHA复核。旧远端仍80e287ca9716c1e07859b62d6034e22d4457a230；仅精确lease强推自有分支，正常hook，不admin bypass。

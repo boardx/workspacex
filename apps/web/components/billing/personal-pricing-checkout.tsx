@@ -13,6 +13,9 @@ import { pricingMoney } from "./personal-pricing-format";
 type Order=ReturnType<typeof billingCredits.BillingOrder.parse>;
 type Props={kind:"plans"|"credits";userId:string;sessionToken:string;catalog:PricingCatalog;entitlement:PricingSubscriptionInfo;onClose:()=>void;onPaid:()=>void;navigate?:(url:string)=>void};
 const POLL_LIMIT=12,POLL_INTERVAL_MS=5000;
+const CHECKOUT_RESELECTION_CODES=new Set<string>([
+ "catalog_changed","product_unavailable","payment_provider_not_configured","already_subscribed",
+] satisfies readonly (typeof pricing.createPersonalCheckout.err[number])[]);
 /** A key change unmounts every request/timer before another authenticated scope can display a payment. */
 export function PersonalPricingCheckout(props:Props){return <ScopedCheckout key={JSON.stringify([props.userId,props.sessionToken])} {...props}/>;}
 function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,onPaid,navigate=(url:string)=>window.location.assign(url)}:Props){
@@ -80,7 +83,9 @@ function ScopedCheckout({kind,userId,sessionToken,catalog,entitlement,onClose,on
    const bound=bindPersonalCheckout(localStorage,userId,pending.request.idempotencyKey,response);autoStripe.current=bound.result?.url!=null;setContext(bound);
   }catch(error){
    if(!mounted.current)return;
-   const noIntent=error instanceof ApiError&&typeof error.reasonCode==="string"&&["catalog_changed","product_unavailable","payment_provider_not_configured","already_subscribed"].includes(error.reasonCode);
+   const payload=error instanceof ApiError?error.raw:null;
+   const code=payload!==null&&typeof payload==="object"&&!Array.isArray(payload)&&"code" in payload?payload.code:null;
+   const noIntent=typeof code==="string"&&CHECKOUT_RESELECTION_CODES.has(code);
    if(noIntent){try{clearPersonalCheckout(localStorage,userId,pending.request.idempotencyKey);setContext(null);setMessage("套餐或订阅状态已更新，请刷新账户后重新选择。");}catch{setFatal("无法确认原付款记录，请联系支持，勿重复付款。");}}
    else setMessage("暂时无法确认付款结果，请继续原付款或稍后刷新，勿重复购买。");
   }finally{clearTimeout(timer);requests.current.delete(controller);busy.current=false;if(mounted.current)setCreating(false);}

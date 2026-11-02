@@ -1,5 +1,7 @@
 # 个人支付进展（当前事实）
 
+PR6103 的自动审查 P2（discussion_r4437849632）已真实复现并修复：个人 checkout 的 AllExceptionsFilter 返回 `code`，共享 ApiError.reasonCode 只解析 `reasonCode`。此前22项组件测试使用了错误的模拟信封，不能证明真实拒绝后的重新选择。现在仅在该组件读取 ApiError.raw 的对象 code，按 createPersonalCheckout 声明的四项创建前拒绝清除原意图；未知/畸形响应、reasonCode-only、idempotency_conflict 和通用故障保留原键。未改变全站 ApiError。新测试先6失败/21通过，再27通过；checkout/state/URL三文件40通过。真实 Nest/PrincipalGuard/AllExceptionsFilter/隔离PG六项通过，逐一覆盖四项真实 code 信封、无 reasonCode、无误创建记录及无额外商户调用。隔离wrapper自动清理0秒。证据见 evidence/review-fixes/error-envelope/。受影响API/web串行类型及lint全部通过，错误文案静态门通过，执行计划check通过。新提交仍待精确SHA独立审查、新CI及正常合入，不沿用旧SHA的ACCEPT宣称新提交已批准。
+
 Issue6093，worker/cn-us-personal-payments。前置新用户PR6102已在2026-11-01T23:34:47Z真实正常merge develop c04c332a1563f8168964e9497a59dcb51ad4017c，6092由PR关闭，合入前72checks无异常。P5从原父b4dd剥离22提交，source fb5f2270237b0b5ddf696abb2f621358e0081d69已获独立只读全scope ACCEPT，未发现新具体源码缺陷。当前只补最终文档/证据，待最终精确SHA复核、正常push及单PR/CI，不假passing。
 
 重基原251个P5路径与远端检查点80e287ca9716c1e07859b62d6034e22d4457a230逐字相同。唯一冲突为恢复迁移清单；机械验证actual base完整前缀加四项P5 SQL恰等于旧80文件后解决，未知/缺失/重复拒绝保留。range-diff仅该commit因前置三项已进base而上下文不同，其余21项全=。没有夹入P3/P4实现或Team草案。actual-base-*保存原始核对输出。

@@ -73,6 +73,24 @@ it("requires the real PrincipalGuard and rejects browser-owned money or account 
   for (const extra of [{ amountMinor: 1 }, { userId: "victim" }, { market: "cn" }]) expect((await post({ ...request, ...extra })).status).toBe(400);
   expect(calls).toBe(0);
 });
+it("uses the declared code envelope for precreation rejections without reserving an intent", async () => {
+  const rejectedKeys: string[] = [];
+  const reject = async (code: string, status: number, fields: Record<string, unknown> = {}) => {
+    const idempotencyKey = `rejected-${randomUUID()}`; rejectedKeys.push(idempotencyKey);
+    const response = await post({ ...request, ...fields, idempotencyKey });
+    expect(response.status).toBe(status);
+    const body = await response.json();
+    expect(body).toMatchObject({ code, error: expect.any(String), traceId: expect.any(String) });
+    expect(body).not.toHaveProperty("reasonCode");
+  };
+  await reject("catalog_changed", 409, { catalogVersion: "outdated-catalog" });
+  await reject("product_unavailable", 409, { sku: "unavailable-sku" });
+  salesEnabled = false;
+  try { await reject("payment_provider_not_configured", 503); } finally { salesEnabled = true; }
+  expect(calls).toBe(0);
+  const count = await asOwner(async c => (await c.query("SELECT count(*)::int AS count FROM billing_personal_purchases WHERE user_id=$1 AND idempotency_key=ANY($2::text[])", [userId, rejectedKeys])).rows[0].count);
+  expect(count).toBe(0);
+});
 it("returns one durable result across actual HTTP retries and safely exposes a declared conflict", async () => {
   const first = await post(request); expect(first.status).toBe(201); expect(first.headers.get("cache-control")).toBe("no-store");
   const result = PersonalCheckoutResult.parse(await first.json());
@@ -80,7 +98,14 @@ it("returns one durable result across actual HTTP retries and safely exposes a d
   expect(await (await post(request)).json()).toEqual(result); expect(calls).toBe(1);
   const conflict = await post({ ...request, sku: "pro-us-month-v1" });
   expect(conflict.status).toBe(409); expect(await conflict.json()).toMatchObject({ code: "idempotency_conflict" });
-  expect(calls).toBe(1);
+  const duplicateKey = `duplicate-${randomUUID()}`;
+  const duplicate = await post({ ...request, idempotencyKey: duplicateKey });
+  expect(duplicate.status).toBe(409);
+  const body = await duplicate.json();
+  expect(body).toMatchObject({ code: "already_subscribed", error: expect.any(String), traceId: expect.any(String) });
+  expect(body).not.toHaveProperty("reasonCode");
+  const count = await asOwner(async c => (await c.query("SELECT count(*)::int AS count FROM billing_personal_purchases WHERE user_id=$1 AND idempotency_key=$2", [userId, duplicateKey])).rows[0].count);
+  expect(count).toBe(0); expect(calls).toBe(1);
 });
 it("authenticates the entitlement read and rejects attempts to choose another account", async () => {
   const path = `${base}/billing/subscription/entitlement`, headers = { authorization: "Bearer checkout-fixture" };
