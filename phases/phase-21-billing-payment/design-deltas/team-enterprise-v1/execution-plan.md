@@ -26,6 +26,7 @@ flowchart LR
  class B1 blocked
  %% blocked B1: 已通过request_user_input_async询问已付年费剩余窗口处置，等待用户答；不默认停止/退款/折抵
  class S4 doing
+ %% evidence S4: catalog/core/quote/entitlement schemas; contracts1336/prototype20/browser5/typeslint9; remaining responses and operations pending
  class S5 todo
  class S6 todo
  class S7 todo

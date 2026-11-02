@@ -1,5 +1,11 @@
 # Team设计在建交接
 
+组织目录增量：TeamCatalog 物化目标组织目录，基础5席/100,000月额度、增员单价/每席15,000月额度及同schema永久充值。个人GET /billing/catalog保持既有严格形状，新组织GET /billing/organizations/:orgId/catalog仍是待接线路由。共享PricingCatalogBase/validatePricingCatalog保证两类目录同源约束，不复制价格；没有新后端或operations导出。
+
+原型Team价格和quote的org/version/SKU/currency从严格模拟目录消费。先目录13红/1既有个人正例绿，新增mock4红，最终全contracts134文件1336通过、核心目录相关95通过、原型5文件20通过。直接US增员及CN->US组件切换曾真实2红2绿，修为随当前市场同步选支持渠道；真实browser仍5用例，新增US Team增员并实跑通过、清理0秒，截图目视复核。最终API/web串行types/lint9通过。证据在evidence/catalog-contract/。
+
+完整历史/支付恢复/平台摘要/operations及未决已付未来窗口仍待补齐，signoff pending不改。数据库小数累计和所有成员入口容量前置尚未实现，销售保持关闭。本增量待新精确SHA独立审查和push；个人P5 source f826已获门禁READY并正常进队列，实际candidate 1f63fb1144a3b4df865fa88d62161303140ad164仍AWAITING_CHECKS，尚未合入。
+
 组织权益材料：TeamEntitlement 区分未开通/有效/到期/Enterprise，许可不代替成员、AI策略与余额准入。原已付期限/容量、当前月授予和同组织共享钱包分开，保留永久余额及负债，未知事实不填0。Enterprise可无旧付费期；有旧事实时保留，不由读模型决定未来已付窗口处置。原型已消费严格模拟权益取得人数、已购容量、余额及月余量，布局不改，无真实HTTP。
 
 先缺schema19红，再时区等价1红/20绿，新增小数累计与余额分量2红/21绿。共享CreditWallet.totalGranted改为非负两位精度以支持首期小数，不另建Team钱包契约；现数据库total_granted仍integer，已在domain/coverage明确迁移及所有授予写入适配为销售前置，材料不执行SQL、不假装PG支持已完成。最终全contracts133文件1320通过，原型四文件14通过；原型消费权益后的实际browser5通过，清理0秒，之后仅小数/余额负例约束改动，未虚报再次browser运行。完整历史/恢复/目录/平台摘要/operations仍待完成。

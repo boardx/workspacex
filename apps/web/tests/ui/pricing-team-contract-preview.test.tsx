@@ -18,3 +18,19 @@ it("uses the same monthly seat grant in the adopted add-on quote preview",()=>{
  expect(screen.getByTestId("pricing-total")).toHaveTextContent("¥1,490");
  expect(screen.getByTestId("pricing-purchase-dialog")).toHaveTextContent("首期新增额度按剩余月度周期折算");
 });
+it("opens a US seat quote with Stripe on the first render",()=>{
+ render(<PricingPurchaseDialog kind="seats" region="us" cycle="month" team onCycleChange={vi.fn()} onClose={vi.fn()} onPurchased={vi.fn()}/>);
+ expect(screen.getByTestId("pricing-total")).toHaveTextContent("$12.5");
+ expect(screen.getByTestId("pricing-provider-stripe")).toHaveAttribute("aria-pressed","true");
+});
+it("switches an open seat quote from CNY to USD without constructing a WeChat USD quote",()=>{
+ const props={kind:"seats" as const,cycle:"month" as const,team:true,onCycleChange:vi.fn(),onClose:vi.fn(),onPurchased:vi.fn()};
+ const view=render(<PricingPurchaseDialog {...props} region="cn"/>);
+ expect(screen.getByTestId("pricing-total")).toHaveTextContent("¥74.5");
+ view.rerender(<PricingPurchaseDialog {...props} region="us"/>);
+ expect(screen.getByTestId("pricing-total")).toHaveTextContent("$12.5");
+ expect(screen.getByTestId("pricing-provider-stripe")).toHaveAttribute("aria-pressed","true");
+ view.rerender(<PricingPurchaseDialog {...props} region="cn"/>);
+ expect(screen.getByTestId("pricing-provider-wechat")).toHaveAttribute("aria-pressed","true");
+ expect(screen.getByTestId("pricing-renewal-note")).toHaveTextContent("到期后手动续费");
+});

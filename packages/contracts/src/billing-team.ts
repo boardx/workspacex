@@ -6,7 +6,7 @@
  */
 import {z} from "zod";
 import {BillingProvider,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
-import {BillingCycle,PricingCurrency,PricingProduct,RenewalMode} from "./billing-pricing";
+import {BillingCycle,PricingCurrency,PricingProduct,PricingCatalogBase,validatePricingCatalog,RenewalMode} from "./billing-pricing";
 import {SubscriptionStatus} from "./billing-subscription";
 import {operations as PlatformOrganizations,PlanState} from "./platform-organizations";
 
@@ -163,3 +163,19 @@ export const TeamEntitlement=z.object({
 });
 export type TeamMonthlyCreditGrant=z.infer<typeof TeamMonthlyCreditGrant>;
 export type TeamEntitlement=z.infer<typeof TeamEntitlement>;
+
+/** Organization-scoped catalog; permanent packs reuse the personal catalog product schema. */
+export const TeamProduct=z.discriminatedUnion("kind",[
+ PricingProduct.options[0].omit({monthlyCredits:true}).extend({
+  includedSeats:z.literal(TEAM_INCLUDED_SEATS),monthlyCredits:z.literal(TEAM_MONTHLY_CREDITS),
+  additionalSeatAmountMinor:PricingProduct.options[0].shape.amountMinor,
+  additionalSeatMonthlyCredits:z.literal(TEAM_SEAT_MONTHLY_CREDITS),
+ }),
+ PricingProduct.options[1],
+]);
+export const TeamCatalog=PricingCatalogBase.omit({products:true}).extend({
+ orgId:Identifier,products:z.array(TeamProduct).max(20),
+}).superRefine(validatePricingCatalog).superRefine((value,ctx)=>{
+ if(value.market==="us"&&value.enabledProviders.includes("wechat"))ctx.addIssue({code:"custom",path:["enabledProviders"],message:"USD catalog cannot enable WeChat"});
+});
+export type TeamCatalog=z.infer<typeof TeamCatalog>;

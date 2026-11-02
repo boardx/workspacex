@@ -72,6 +72,14 @@ test("Team separates seats used and purchased, prorates and explains expiry", as
   await expect(page.getByTestId("pricing-purchase-dialog")).toContainText("2026/12/01");
   await capture(page, "team-add-seats");
   await page.keyboard.press("Escape");
+  await select(page, "pricing-region", "美国 · USD");
+  await page.getByTestId("pricing-add-seats").click();
+  await expect(page.getByTestId("pricing-total")).toHaveText("$25");
+  await expect(page.getByTestId("pricing-provider-stripe")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("pricing-provider-wechat")).toHaveCount(0);
+  await capture(page, "team-us-add-seats");
+  await page.keyboard.press("Escape");
+  await select(page, "pricing-region", "中国 · CNY");
   await page.getByTestId("pricing-toggle-expired").click();
   await expect(page.getByTestId("pricing-add-seats")).toBeDisabled();
   await expect(page.getByTestId("pricing-subscription")).toContainText("登录与资料查看不受影响");

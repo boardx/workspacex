@@ -4,7 +4,7 @@
 
 ## 复用的接口与权限
 
-- 扩展既有 `GET /billing/catalog` 的服务端目录，以区分个人商品、组织基础订阅及组织增员。市场来自部署，不接受浏览器地区来选择生产渠道；金额、币种、基础容量、月度额度、增购数量边界和目录版本均为目录事实。
+- 组织商品目录使用新 GET `/billing/organizations/:orgId/catalog`，由真实目标组织管理员读取，并绑定该组织。个人 `GET /billing/catalog` 保持已确认的严格个人响应。两者复用相同服务端目录版本、部署市场和永久充值SKU/价格事实；组织结果提供基础Team订阅及对应增员单价/月额度，未完成容量及小数账务前置时服务端保持销售关闭。市场不由浏览器任选生产渠道。
 - 组织钱包／流水复用现有接口与 `BillingWalletService` 的组织管理员／平台运营访问判据。保留 `BillingOwnerType="team"`，其 `ownerId` 为真实 organization ID，不是 `teams.id`；不引入 `org` 第三种钱包 ownerType。
 - 身份由既有 PrincipalGuard 提供。组织购买、管理和恢复须实际目标组织 admin；平台运营可按既有权限读取组织财务，但不因此获得新的代客购买能力。平台升级／加额度只走既有 PlatformOperatorGuard。个人 Pro 不因用户属于某组织而变成组织账单。
 - 敏感 GET 和 mutation 响应为 private/no-store；未登录 401、无管理权 403，跨组织购买引用不泄露存在性。平台入口排除 personal-local 和平台容器。
@@ -71,3 +71,11 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations仍待物化，Enterprise未决已付窗口不由此schema裁决。
 
 付款事实补充：teamPayment 复用现有 SubscriptionStatus 闭集；微信 subscriptionStatus 必须为null、manual且无到期取消标志，Stripe须有真实非none状态且为automatic。Enterprise停止未来扣款既可由真实cancelAtPeriodEnd安排证明，也可由canceled/incomplete_expired终止状态证明；不要求将已取消订阅的真实false标志改为true，不丢弃旧term。未知状态或仍会续费的Stripe不得据此宣称Enterprise生效。
+
+### 可执行组织目录材料增量
+
+TeamCatalog 对应新 GET `/billing/organizations/:orgId/catalog`，响应为组织、目录版本、市场、启用渠道和严格商品数组。Team subscription 提供付款周期、基础5席/100,000月credit、增员单价及每席15,000月credit；永久充值产品直接复用个人PricingProduct的同一schema。微信不进入USD目录，禁售时启用渠道为空；Enterprise不产生自助商品种类。组织管理员guard/服务端目录及禁售判断尚待实现，schema不构成权限证明。
+
+PricingCatalogBase 和 validatePricingCatalog 是个人/组织共用的结构及市场币种/唯一性约束单源。既有个人PricingCatalog的输入/输出和20,000个人月额度保持原形状，由同一组现有反例继续验证；不把Team商品混进已签个人数组。原型Team价格、增员单价及quote的org/version/SKU/currency从严格模拟组织目录读取，仍只投影原有UI-only价目fixture，生产价格依旧只能来自服务端。
+
+直接以美国市场打开增员，以及组件在打开状态切换地区的反例已补。受限市场同步选择其支持渠道，devapp仍允许用户在已启用的微信/Stripe间选择；不能用前一市场的微信状态构造USD报价。现有真实browser增加US Team增员链路，仍断言零计费HTTP。
