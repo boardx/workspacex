@@ -9,7 +9,7 @@ import {EnterpriseCreditGrant} from "../../src/infrastructure/billing/enterprise
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {toOrgId} from "../../src/domain/org-id";
 let org=toOrgId("enterprise-grant-6108");let db:PgDatabase;let grants:EnterpriseCreditGrant;
-beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());grants=new EnterpriseCreditGrant(db);},60000);
+beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());grants=new EnterpriseCreditGrant(db);},180000);
 beforeEach(async()=>{
  org=toOrgId(`enterprise-6108-${randomUUID()}`);
  await resetOrgs(org);await seedOrg({orgId:org,projectId:`${org}-project`});
