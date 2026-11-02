@@ -12,15 +12,29 @@ import {ensureDatabase,migrateOnce,seedOrg,resetOrgs,addOrgMember,addCredential,
 const RUN=randomUUID();
 const ORG="org-capacity-6107", admin="capacity-6107-admin";
 let db:PgDatabase,repo:PgOrgInviteRepository;
+let originalEpoch:{generation:string|null;activated_at:Date|null}|undefined;
 beforeAll(async()=>{
  ensureDatabase();await migrateOnce(); await resetOrgs(ORG);
  await seedOrg({orgId:ORG,projectId:ORG+"-p",seatQuota:0});
  for(let n=0;n<4;n++)await addOrgMember(ORG,n===0?admin:`capacity-6107-member-${n}`,n===0?"admin":"consultant",null);
+ originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:Date|null}>("SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);
  await asOwner(c=>c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=now() WHERE singleton=true",[BILLING_ACCOUNTING_GENERATION]));
  await asApp(ORG,c=>c.query("INSERT INTO org_commercial_licenses(org_id,generation,purchased_seats) VALUES($1,$2,5)",[ORG,BILLING_ACCOUNTING_GENERATION]));
  db=new PgDatabase(appConfig());repo=new PgOrgInviteRepository(db);
 },180000);
-afterAll(async()=>{await resetOrgs(ORG);await db?.close();},60000);
+afterAll(async()=>{
+ await resetOrgs(ORG);await db?.close();
+ await asOwner(async c=>{
+  const users=(await c.query<{user_id:string}>("SELECT user_id FROM credentials WHERE user_id LIKE $1",[`%${RUN}%`])).rows.map(row=>row.user_id);
+  await c.query("DELETE FROM mail_outbox WHERE recipient LIKE $1",[`%${RUN}%`]);
+  await c.query("DELETE FROM email_verification_challenges WHERE user_id=ANY($1::text[])",[users]);
+  await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[]))",[users]);
+  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[]))",[users]);
+  await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1::text[])",[users]);
+  await c.query("DELETE FROM credentials WHERE user_id=ANY($1::text[])",[users]);
+  if(originalEpoch)await c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton=true",[originalEpoch.generation,originalEpoch.activated_at]);
+ });
+},60000);
 it("pending invitations do not occupy commercial seats even with legacy quota zero",async()=>{
  const created=await repo.create({orgId:toOrgId(ORG),inviteId:"capacity-6107-unreserved",email:"capacity-6107-unreserved@example.test",orgRole:"consultant",teamId:null,actorId:admin,status:"pending",token:"capacity-6107-unreserved",tokenExpiresAt:new Date(Date.now()+3600000)});
  expect(created.ok).toBe(true);
