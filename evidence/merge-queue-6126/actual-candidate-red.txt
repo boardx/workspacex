@@ -1,0 +1,19 @@
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	﻿2026-11-02T11:55:36.6098637Z ##[group]Run pnpm harness merge-gate --merge-group
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6099012Z ^[[36;1mpnpm harness merge-gate --merge-group^[[0m
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6126036Z shell: /usr/bin/bash -e {0}
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6126263Z env:
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6126519Z   CI_SCOPE_BASE_SHA: c88c46f6ddaaced84354c5f89e9cd9d474c9ae18
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6126874Z   PNPM_HOME: /home/runner/setup-pnpm/node_modules/.bin
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6129380Z   GH_TOKEN: ***
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6129631Z   MERGE_GROUP_BASE_SHA: c88c46f6ddaaced84354c5f89e9cd9d474c9ae18
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6129971Z   MERGE_GROUP_HEAD_SHA: d0b8d0ec86df8140a04e2972f5489c5ed8f98fc7
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.6130232Z ##[endgroup]
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.9235124Z 
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.9236125Z > agentic-harness-template@ harness /home/runner/work/workspacex/workspacex
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.9236807Z > tsx .harness/scripts/cli.ts "merge-gate" "--merge-group"
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:36.9237092Z 
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:37.4523064Z 候选组含 PR：#6107 #6123
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:38.1742823Z ✗ gh 命令失败（1）：gh pr view 6107 --json number,author,body,headRefOid,labels,reviews
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:38.1743276Z 
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:38.1893627Z  ELIFECYCLE  Command failed with exit code 1.
+merge-gate	机械合并门禁（合并队列候选组：组里每个 PR 逐个判）	2026-11-02T11:55:38.2231807Z ##[error]Process completed with exit code 1.

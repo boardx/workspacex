@@ -1,0 +1,9 @@
+# Merge-group PR discovery (issue 6126)
+
+Actual failing candidate: d0b8d0ec86df8140a04e2972f5489c5ed8f98fc7 over c88c46f6ddaaced84354c5f89e9cd9d474c9ae18, workflow run41440457365. GitHub run metadata confirms ref gh-readonly-queue/develop/pr-6123-c88c46f6ddaaced84354c5f89e9cd9d474c9ae18. Its two parents are base c88 and PR6123 head106fb. The old full-history subject regex misidentified source issue6107 as a PR, then gh pr view6107 failed. Raw actual-candidate-red.txt; frozen first-parent facts in .harness/scripts/fixtures/merge-queue/candidate-d0b8d0e.json.
+
+Fix: read only the synthetic first-parent chain, including full commit/parent hashes and subject; require a complete two-parent chain from exact head to exact base, canonical GitHub merge subjects, distinct PR ids, and ref/head/base agreement. Every candidate PR is enumerated. Unknown/missing/interrupted/single-parent chains fail closed. Source histories under second parents are never used as candidate PR evidence. Existing gh failures, gate evaluation and policy are unchanged.
+
+Pure tests first red:12 failed/51 passed. Same tests green:63 passed across3 files, 1.07s. Includes real Git commit-tree fixtures for one and two synthetic candidate merges over issue-number source subjects, a frozen actual candidate, and unknown/incomplete/duplicate/ref mismatch counterexamples. The production reader also ran read-only against actual local Git candidate d0b and returned [6123]. Command: pnpm exec vitest run --config .harness/vitest.config.ts --dir .harness merge-queue.test.ts merge-group-discovery.test.ts merge-gate-advisory.test.ts . No PostgreSQL, browser, Next or business tests run.
+
+Independent review and normal hook/PR CI are the next gates; pure tests do not prove a new queue candidate green. Capacity638 remains on its own branch with an identical tree to reviewed106fb; no capacity source or history is changed by this independent fix.

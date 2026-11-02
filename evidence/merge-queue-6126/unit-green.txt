@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107
+
+ ✓ .harness/scripts/lib/merge-queue.test.ts (47 tests) 17ms
+ ✓ .harness/scripts/merge-group-discovery.test.ts (12 tests) 338ms
+   ✓ reads actual single/multi synthetic Git history without walking source issue subjects 334ms
+ ✓ .harness/scripts/merge-gate-advisory.test.ts (4 tests) 2ms
+
+ Test Files  3 passed (3)
+      Tests  63 passed (63)
+   Start at  20:20:59
+   Duration  1.07s (transform 103ms, setup 0ms, collect 183ms, tests 357ms, environment 0ms, prepare 139ms)
+

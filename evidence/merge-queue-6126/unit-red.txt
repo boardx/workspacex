@@ -1,0 +1,163 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107
+
+ ❯ .harness/scripts/lib/merge-queue.test.ts (47 tests | 1 failed) 23ms
+   × ⑥ 候选组里有哪些 PR（merge-gate 要在候选组上继续出结论） > 队列 ref 与候选组 commit 标题两个来源都要——一个组可以批量含多个 PR，ref 只写得下最后一个 6ms
+     → expected [ 3238 ] to deeply equal [ 3230, 3238 ]
+ ❯ .harness/scripts/merge-group-discovery.test.ts (12 tests | 11 failed) 155ms
+   × enumerates every synthetic merge in a multi-PR first-parent chain 6ms
+     → expected [ 102 ] to deeply equal [ 101, 102 ]
+   × fails closed for missing history even though the ref names a PR 1ms
+     → expected [ 102 ] to deeply equal []
+   × fails closed for incomplete chain even though the ref names a PR 1ms
+     → expected [ 102 ] to deeply equal []
+   × fails closed for head mismatch even though the ref names a PR 0ms
+     → expected [ 102 ] to deeply equal []
+   × fails closed for unknown subject even though the ref names a PR 1ms
+     → expected [ 102 ] to deeply equal []
+   × fails closed for single parent even though the ref names a PR 0ms
+     → expected [ 102 ] to deeply equal []
+   × fails closed for unknown intermediate even though the ref names a PR 1ms
+     → expected [ 101, 102 ] to deeply equal []
+   × fails closed for duplicate PR even though the ref names a PR 1ms
+     → expected [ 102 ] to deeply equal []
+   × fails closed for ref PR differs from head even though the ref names a PR 1ms
+     → expected [ 102 ] to deeply equal []
+   × fails closed on a mismatched base in the queue ref 0ms
+     → expected [ 102 ] to deeply equal []
+   × reads actual single/multi synthetic Git history without walking source issue subjects 141ms
+     → readMergeGroupPrNumbers is not a function
+ ✓ .harness/scripts/merge-gate-advisory.test.ts (4 tests) 2ms
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > enumerates every synthetic merge in a multi-PR first-parent chain
+AssertionError: expected [ 102 ] to deeply equal [ 101, 102 ]
+
+- Expected
++ Received
+
+  Array [
+-   101,
+    102,
+  ]
+
+ ❯ .harness/scripts/merge-group-discovery.test.ts:17:99
+     15| });
+     16| it("enumerates every synthetic merge in a multi-PR first-parent chain"…
+     17|  expect(parseMergeGroupPrNumbers(ref(102),[line(head,prior,102),line(p…
+       |                                                                                                   ^
+     18| });
+     19| it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for missing history even though the ref names a PR
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for incomplete chain even though the ref names a PR
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for head mismatch even though the ref names a PR
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for unknown subject even though the ref names a PR
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for single parent even though the ref names a PR
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for duplicate PR even though the ref names a PR
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for ref PR differs from head even though the ref names a PR
+AssertionError: expected [ 102 ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   102,
++ ]
+
+ ❯ .harness/scripts/merge-group-discovery.test.ts:27:61
+     25|  ["ref PR differs from head",[line(head,base,101)]],
+     26| ] as const)("fails closed for %s even though the ref names a PR",(_nam…
+     27|  expect(parseMergeGroupPrNumbers(ref(102),lines,base,head)).toEqual([]…
+       |                                                             ^
+     28| });
+     29| it("fails closed on a mismatched base in the queue ref",()=>{expect(pa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed for unknown intermediate even though the ref names a PR
+AssertionError: expected [ 101, 102 ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   101,
++   102,
++ ]
+
+ ❯ .harness/scripts/merge-group-discovery.test.ts:27:61
+     25|  ["ref PR differs from head",[line(head,base,101)]],
+     26| ] as const)("fails closed for %s even though the ref names a PR",(_nam…
+     27|  expect(parseMergeGroupPrNumbers(ref(102),lines,base,head)).toEqual([]…
+       |                                                             ^
+     28| });
+     29| it("fails closed on a mismatched base in the queue ref",()=>{expect(pa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > fails closed on a mismatched base in the queue ref
+AssertionError: expected [ 102 ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   102,
++ ]
+
+ ❯ .harness/scripts/merge-group-discovery.test.ts:29:143
+     27|  expect(parseMergeGroupPrNumbers(ref(102),lines,base,head)).toEqual([]…
+     28| });
+     29| it("fails closed on a mismatched base in the queue ref",()=>{expect(pa…
+       |                                                                                                                                               ^
+     30| const dirs:string[]=[];afterEach(()=>{for(const dir of dirs.splice(0))…
+     31| it("reads actual single/multi synthetic Git history without walking so…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  .harness/scripts/merge-group-discovery.test.ts > reads actual single/multi synthetic Git history without walking source issue subjects
+TypeError: readMergeGroupPrNumbers is not a function
+ ❯ .harness/scripts/merge-group-discovery.test.ts:38:9
+     36|  const b=commit("base"),s1=commit("fix(source): issue only (#6107)",[b…
+     37|  const one=commit("Merge pull request #6123 from boardx/one",[b,s1]);
+     38|  expect(readMergeGroupPrNumbers(ref(6123,b),b,one,cwd)).toEqual([6123]…
+       |         ^
+     39|  const s2=commit("fix(other): source issue (#9999)",[b]);
+     40|  const two=commit("Merge pull request #6124 from boardx/two",[one,s2]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+
+ FAIL  .harness/scripts/lib/merge-queue.test.ts > ⑥ 候选组里有哪些 PR（merge-gate 要在候选组上继续出结论） > 队列 ref 与候选组 commit 标题两个来源都要——一个组可以批量含多个 PR，ref 只写得下最后一个
+AssertionError: expected [ 3238 ] to deeply equal [ 3230, 3238 ]
+
+- Expected
++ Received
+
+  Array [
+-   3230,
+    3238,
+  ]
+
+ ❯ .harness/scripts/lib/merge-queue.test.ts:257:7
+    255|         `${PR_HEAD}\t${GROUP_BASE} ${"e".repeat(40)}\tMerge pull reque…
+    256|       ], GROUP_BASE, CANDIDATE),
+    257|     ).toEqual([3230, 3238]);
+       |       ^
+    258|   });
+    259| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/12]⎯
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  12 failed | 51 passed (63)
+   Start at  20:20:19
+   Duration  909ms (transform 105ms, setup 0ms, collect 189ms, tests 181ms, environment 0ms, prepare 138ms)
+
