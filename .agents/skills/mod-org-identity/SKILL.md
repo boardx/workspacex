@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-03：契约 mock 再生成的字节同步不能证明样例有效；新增 schema 类型时需以真实响应 safeParse 校验生成样例，判别联合缺生成支持会默默产出 null（issue #6145）。
 - 2026-11-03：strict 事件响应新增展示元数据需显式版本协商并保留旧摘要回退；query 校验复用 ZodBodyPipe，裸 schema.parse 的 ZodError 不会自动成为400。白名单投影与真实新旧HTTP证据见 issue #6145 / evidence/i18n-activity-6145。
 - 2026-11-02：验证邮件重发不能只依赖24小时注册cookie；过期/换浏览器恢复须先复用登录密码校验与锁定规则，再将可信userId传入事务重发，保持challenge→credential锁顺序、限频与旧链接原子失效；API存活不证明发信配置完整（issue #6085）。
 

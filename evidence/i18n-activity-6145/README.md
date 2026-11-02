@@ -9,3 +9,7 @@ The change is stacked on profile PR #6144 at ad4b551075fd4b1934a4196e7b5a7381897
 - Independent read-only security/compatibility review found no actionable findings at719ced52cbdd58be8e602fd7129c84f13b1f3c6d. Reviewer did not rerun tests.
 
 Logs retain command output with trailing whitespace normalized. The pure API unit runner is committed as apps/api/vitest.identity-display-unit.config.ts; the regular API suite also includes the test file. No human signoff/feature-list passing status was modified.
+
+## CI correction
+
+Initial gates-fast failed because identity.mock.ts had not been regenerated with the new contract. Regeneration also exposed unsupported ZodDiscriminatedUnion sampling (display:null); a new generated-sample→real-schema assertion failed before the generator fix. The generator now deterministically selects the first union option. Contract suite is9/9 and the original CI lint-contract-source command exits0. The generated artifact is committed from gen:mock, not manually edited. API/controller/UI product code is unchanged by this correction; final latest-head CI must still run.

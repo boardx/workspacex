@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as identity from "../src/identity";
+import { listOwnActivityMock } from "../../../apps/web/lib/generated/identity.mock";
 const operation = identity.operations.listOwnActivity;
 const legacyEvent = { eventId: "event-1", kind: "profile-renamed", occurredAt: "2026-11-03T00:00:00Z", summary: '显示名改为"原文 Alice"' };
 const response = (display?: unknown) => ({ events: [{ ...legacyEvent, ...(display === undefined ? {} : { display }) }], nextCursor: null });
@@ -26,4 +27,8 @@ describe("activity structured presentation negotiation", () => {
   it("rejects unsupported presentation versions", () => {
     expect(operation.in.safeParse({ cursor: null, limit: 20, displayFormat: "structured-v2" }).success).toBe(false);
   });
+});
+
+it("generates an activity mock that satisfies the strict presentation contract", () => {
+  expect(identity.operations.listOwnActivity.out.safeParse(listOwnActivityMock).success).toBe(true);
 });
