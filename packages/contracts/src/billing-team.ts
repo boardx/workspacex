@@ -1,7 +1,8 @@
 /**
  * Proposed Team / Enterprise contract design material, issue #6099.
  * Authority: phases/phase-21-billing-payment/design-deltas/team-enterprise-v1/.
- * Human signoff remains pending. These schemas do not register a runtime route,
+ * Human signoff is recorded only in design-signoff.md under that authority.
+ * These schemas do not register a runtime route,
  * grant permission or activate billing; prepaid treatment follows the recorded human decision.
  */
 import {z} from "zod";
