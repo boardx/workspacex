@@ -1,8 +1,8 @@
 /**
- * Proposed Team / Enterprise contract design material, issue #6099.
+ * Team / Enterprise contracts, signed design #6099 and Team runtime #6110.
  * Authority: phases/phase-21-billing-payment/design-deltas/team-enterprise-v1/.
- * Human signoff remains pending. These schemas do not register a runtime route,
- * grant permission or activate billing; prepaid treatment follows the recorded human decision.
+ * Operation metadata below corresponds to implemented routes; schemas alone do not
+ * grant permission or activate sales. Prepaid treatment follows the recorded human decision.
  */
 import {z} from "zod";
 import {BillingProvider,BillingOrderStatus,BillingErrorCode,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
@@ -11,6 +11,7 @@ import {SubscriptionStatus} from "./billing-subscription";
 import {creditMonthBoundary,creditMonthWindowAt,paidCreditMonthCount} from "./billing-credit-calendar";
 import {PlanState,PlanWrite,OrganizationPlanErrorCode} from "./organization-plan";
 
+export const TEAM_QUOTE_TTL_MS=300000;
 export const TEAM_INCLUDED_SEATS=5;
 export const TEAM_MONTHLY_CREDITS=100000;
 export const TEAM_SEAT_MONTHLY_CREDITS=15000;
@@ -109,7 +110,7 @@ export const TeamQuote=z.discriminatedUnion("purpose",[
 ]).superRefine((value,ctx)=>{
  if(!paymentCurrencySupported(value.provider,value.currency))ctx.addIssue({code:"custom",path:["currency"],message:"WeChat quotes require CNY"});
  const created=Date.parse(value.createdAt),expires=Date.parse(value.expiresAt);
- if(expires<=created||expires-created>300000)ctx.addIssue({code:"custom",path:["expiresAt"],message:"quote lifetime must be positive and at most five minutes"});
+ if(expires<=created||expires-created>TEAM_QUOTE_TTL_MS)ctx.addIssue({code:"custom",path:["expiresAt"],message:"quote lifetime must be positive and at most five minutes"});
  if(value.purpose==="initial"||value.purpose==="renewal"){
   const expected=teamMonthlyCredits(value.seats);
   if(!Number.isSafeInteger(expected)||value.monthlyCredits!==expected)ctx.addIssue({code:"custom",path:["monthlyCredits"],message:"quote monthly quota must match purchased capacity"});
@@ -283,6 +284,11 @@ export const TeamBillingErrorCode=z.enum([
  "capacity_insufficient","quote_expired","paid_term_expired","commercial_change_pending","payment_review_required",
  "unsupported_plan_transition","dependency_unavailable","enterprise_required","credit_balance_unrepresentable","not_subscribed",
 ]);
+/** Only a failed checkout POST with no known purchaseRef: locked reserve found no original key,
+ * and rejected before persisting an intent or calling a provider. Never clears a known purchase. */
+export const TEAM_CHECKOUT_UNRESERVED_ERRORS=[
+ "quote_expired","capacity_insufficient","PLAN_VERSION_CONFLICT","unsupported_plan_transition","commercial_change_pending","already_subscribed",
+] as const satisfies readonly z.infer<typeof TeamBillingErrorCode>[];
 export const TeamBillingRejection=z.object({error:z.string().min(1).max(200),traceId:Identifier,code:TeamBillingErrorCode}).strict();
 export const EnterpriseUpgradeReceipt=z.object({
  auditRef:Identifier,actorId:Identifier,appliedAt:Timestamp,plan:PlanState,
@@ -305,3 +311,12 @@ export const EnterpriseUpgradeOperation=z.discriminatedUnion("status",[
  }
 });
 export type EnterpriseUpgradeOperation=z.infer<typeof EnterpriseUpgradeOperation>;
+
+/** Registered only with the implemented authenticated Team account routes. */
+export const operations={
+ getTeamCatalog:{method:"GET",path:"/billing/organizations/:orgId/catalog",in:z.object({orgId:Identifier}).strict(),out:TeamCatalog,err:["forbidden","owner_not_found","dependency_unavailable"] as const},
+ getTeamEntitlement:{method:"GET",path:"/billing/organizations/:orgId/entitlement",in:z.object({orgId:Identifier}).strict(),out:TeamEntitlement,err:["forbidden","owner_not_found","dependency_unavailable"] as const},
+ createTeamQuote:{method:"POST",path:"/billing/organizations/:orgId/quotes",in:TeamQuoteRequest,out:TeamQuote,err:TeamBillingErrorCode.options},
+ createTeamCheckout:{method:"POST",path:"/billing/organizations/:orgId/checkout",in:TeamCheckoutRequest,out:TeamPurchaseOutcome,err:TeamBillingErrorCode.options},
+ getTeamPurchase:{method:"GET",path:"/billing/organizations/:orgId/purchases/:purchaseRef",in:z.object({orgId:Identifier,purchaseRef:Identifier}).strict(),out:TeamPurchaseOutcome,err:["forbidden","owner_not_found","dependency_unavailable","order_not_found"] as const},
+} as const;
