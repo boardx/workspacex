@@ -1,0 +1,3 @@
+Outcome source299复审发现有效P2：仅约束appliedAt位于返回窗口，迟到处理可换成下一月窗口来恢复已过期的首期。准备将现有personal-credit-calendar纯函数逐字移动为contracts内共享日历，原API import路径只做re-export，保留函数/类型/行为；新增按原UTC锚点定位实际付款月窗的函数，Team schema直接消费，不复制月末/闰年算法。
+
+这扩展草案范围至现有纯calendar文件的单源提取及回归验证，不新增后端路由、SQL或销售能力。将验证原API calendar/Stripe receipt与隔离PG路径、contracts、UI、types及单源依赖门；未验证前不称旧个人行为已保留或P2已闭环。signoff继续pending，已付年费未来窗口的Enterprise政策仍待用户答，不能默认停止或折抵。

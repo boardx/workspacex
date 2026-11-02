@@ -165,3 +165,10 @@ export * as billingConsumption from "./billing-consumption";
 
 /** #6088 draft pricing delta; runtime adoption requires the delta signoff. */
 export * as billingPricing from "./billing-pricing";
+
+/** #6099 proposed Team design; no runtime operations are registered. */
+export * as billingTeam from "./billing-team";
+
+export * as billingCreditCalendar from "./billing-credit-calendar";
+
+export * as organizationPlan from "./organization-plan";

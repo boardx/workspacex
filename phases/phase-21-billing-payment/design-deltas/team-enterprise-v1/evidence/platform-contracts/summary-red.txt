@@ -1,0 +1,158 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-platform-design.test.ts (8 tests | 2 failed) 26ms
+   × keeps legacy metadata reads unchanged while accepting a coherent current billing summary 20ms
+     → [
+  {
+    "received": "active",
+    "code": "invalid_literal",
+    "expected": "pending",
+    "path": [
+      "plan",
+      "enforcement"
+    ],
+    "message": "Invalid literal value, expected \"pending\""
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingGeneration"
+    ],
+    "path": [
+      "plan"
+    ],
+    "message": "Unrecognized key(s) in object: 'billingGeneration'"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingSummary"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'billingSummary'"
+  }
+]
+   × shows an old Enterprise designation without restoring old billing rights 1ms
+     → [
+  {
+    "received": "active",
+    "code": "invalid_literal",
+    "expected": "pending",
+    "path": [
+      "plan",
+      "enforcement"
+    ],
+    "message": "Invalid literal value, expected \"pending\""
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingGeneration"
+    ],
+    "path": [
+      "plan"
+    ],
+    "message": "Unrecognized key(s) in object: 'billingGeneration'"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingSummary"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'billingSummary'"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-platform-design.test.ts > keeps legacy metadata reads unchanged while accepting a coherent current billing summary
+ZodError: [
+  {
+    "received": "active",
+    "code": "invalid_literal",
+    "expected": "pending",
+    "path": [
+      "plan",
+      "enforcement"
+    ],
+    "message": "Invalid literal value, expected \"pending\""
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingGeneration"
+    ],
+    "path": [
+      "plan"
+    ],
+    "message": "Unrecognized key(s) in object: 'billingGeneration'"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingSummary"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'billingSummary'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodObject.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-team-platform-design.test.ts:10:83
+      8| it("keeps legacy metadata reads unchanged while accepting a coherent c…
+      9|  const legacy={orgId:row.orgId,name:row.name,kind:row.kind,memberCount…
+     10|  expect(C.OrganizationRow.parse(legacy)).toEqual(legacy);expect(C.Orga…
+       |                                                                                   ^
+     11| });
+     12| it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing-team-platform-design.test.ts > shows an old Enterprise designation without restoring old billing rights
+ZodError: [
+  {
+    "received": "active",
+    "code": "invalid_literal",
+    "expected": "pending",
+    "path": [
+      "plan",
+      "enforcement"
+    ],
+    "message": "Invalid literal value, expected \"pending\""
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingGeneration"
+    ],
+    "path": [
+      "plan"
+    ],
+    "message": "Unrecognized key(s) in object: 'billingGeneration'"
+  },
+  {
+    "code": "unrecognized_keys",
+    "keys": [
+      "billingSummary"
+    ],
+    "path": [],
+    "message": "Unrecognized key(s) in object: 'billingSummary'"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodObject.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-team-platform-design.test.ts:20:27
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 6 passed (8)
+   Start at  10:17:06
+   Duration  2.92s (transform 471ms, setup 0ms, collect 666ms, tests 26ms, environment 0ms, prepare 380ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-platform-design.test.ts

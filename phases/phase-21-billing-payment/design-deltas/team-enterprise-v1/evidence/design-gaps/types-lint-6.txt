@@ -1,0 +1,46 @@
+• turbo 2.10.5
+
+   • Packages in scope: @repo/contracts, web
+   • Running typecheck, lint in 2 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/contracts:lint: cache hit, replaying logs 38dd16efef05705a
+@repo/dev-mode-accounts:build: cache hit, replaying logs 3b7d52581f44e6ad
+@repo/contracts:typecheck: cache miss, executing 125408dd82d1d617
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+web:typecheck: cache miss, executing 501ebfb71c04fbad
+web:lint: cache miss, executing 1ef8ea8f02f670d2
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint: 
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+web:lint: ✔ No ESLint warnings or errors
+web:lint: ✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+
+ Tasks:    6 successful, 6 total
+Cached:    3 cached, 6 total
+  Time:    9m11.966s 
+

@@ -19,15 +19,18 @@ export const PricingProduct = z.discriminatedUnion("kind", [
   ProductBase.extend({ kind: z.literal("subscription"), cycle: BillingCycle, monthlyCredits: z.literal(MONTHLY_SUBSCRIPTION_CREDITS) }),
   ProductBase.extend({ kind: z.literal("credit_topup"), credits: z.union([z.literal(10000), z.literal(50000), z.literal(200000)]) }),
 ]);
-export const PricingCatalog = z.object({
+export const PricingCatalogBase = z.object({
   version: Identifier, market: PricingMarket,
   enabledProviders: z.array(BillingProvider).max(2), products: z.array(PricingProduct).max(20),
-}).strict().superRefine((value, ctx) => {
+}).strict();
+/** One shared catalog invariant for personal and organization product sets. */
+export function validatePricingCatalog(value:{market:z.infer<typeof PricingMarket>;products:readonly z.infer<typeof ProductBase>[];enabledProviders:readonly z.infer<typeof BillingProvider>[]},ctx:z.RefinementCtx){
   const expected = value.market === "cn" ? "CNY" : "USD";
   if (value.products.some(product => product.currency !== expected)) ctx.addIssue({ code: "custom", message: "market and currency must agree" });
   if (new Set(value.products.map(product => product.sku)).size !== value.products.length) ctx.addIssue({ code: "custom", message: "duplicate product SKU" });
   if (new Set(value.enabledProviders).size !== value.enabledProviders.length) ctx.addIssue({ code: "custom", message: "duplicate payment provider" });
-});
+}
+export const PricingCatalog = PricingCatalogBase.superRefine(validatePricingCatalog);
 
 /** Caller selects a server-owned SKU; price, credit amounts and owner come from trusted state. */
 export const PersonalCheckoutRequest = z.object({

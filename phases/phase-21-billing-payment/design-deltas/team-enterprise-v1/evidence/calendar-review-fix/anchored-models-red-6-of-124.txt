@@ -1,0 +1,131 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ✓ tests/billing-team-catalog-design.test.ts (14 tests) 12ms
+ ✓ tests/billing-team-history-design.test.ts (15 tests) 13ms
+ ❯ tests/billing-team-design.test.ts (31 tests | 1 failed) 26ms
+   × rejects paid periods that have a plausible duration but drift from the original UTC anchor 8ms
+     → expected true to be false // Object.is equality
+ ❯ tests/billing-team-quote-design.test.ts (20 tests | 1 failed) 26ms
+   × binds a seat quote's current monthly window to the original purchase anchor 10ms
+     → expected true to be false // Object.is equality
+ ❯ tests/billing-team-purchase-design.test.ts (18 tests | 3 failed) 28ms
+   × cannot replace an expired actual payment month with the later processing month 9ms
+     → expected true to be false // Object.is equality
+   × rejects shifted monthly boundaries even if they contain actual payment and application 1ms
+     → expected true to be false // Object.is equality
+   × restores the original day 31 after February instead of retaining the clamped day 28 1ms
+     → expected true to be false // Object.is equality
+ ❯ tests/billing-team-entitlement-design.test.ts (26 tests | 1 failed) 31ms
+   × does not shift a monthly grant away from the original purchase anchor 10ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-design.test.ts > rejects paid periods that have a plausible duration but drift from the original UTC anchor
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-design.test.ts:78:62
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > does not shift a monthly grant away from the original purchase anchor
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-entitlement-design.test.ts:86:138
+     84| it("does not shift a monthly grant away from the original purchase anc…
+     85|  const creditGrant={...grant,grant:{...grant.grant,periodStart:"2026-1…
+     86|  expect(TeamEntitlement.safeParse({...active,creditGrant,wallet:{...wa…
+       |                                                                                                                                          ^
+     87| });
+     88| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > cannot replace an expired actual payment month with the later processing month
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-purchase-design.test.ts:57:54
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/6]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > rejects shifted monthly boundaries even if they contain actual payment and application
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-purchase-design.test.ts:62:189
+     60| it("rejects shifted monthly boundaries even if they contain actual pay…
+     61|  const original=annualAddon();
+     62|  expect(TeamPurchaseOutcome.safeParse({...original,fulfillment:{...ori…
+       |                                                                                                                                                                                             ^
+     63| });
+     64| it("restores the original day 31 after February instead of retaining t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/6]⎯
+
+ FAIL  tests/billing-team-purchase-design.test.ts > restores the original day 31 after February instead of retaining the clamped day 28
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-purchase-design.test.ts:69:181
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/6]⎯
+
+ FAIL  tests/billing-team-quote-design.test.ts > binds a seat quote's current monthly window to the original purchase anchor
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-quote-design.test.ts:56:130
+     54| });
+     55| it("binds a seat quote's current monthly window to the original purcha…
+     56|  expect(TeamQuote.safeParse({...addon,creditPeriodStart:"2026-11-02T10…
+       |                                                                                                                                  ^
+     57| });
+     58| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/6]⎯
+
+ Test Files  4 failed | 2 passed (6)
+      Tests  6 failed | 118 passed (124)
+   Start at  09:17:37
+   Duration  673ms (transform 441ms, setup 0ms, collect 1.26s, tests 136ms, environment 1ms, prepare 803ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-purchase-design.test.ts tests/billing-team-history-design.test.ts tests/billing-team-catalog-design.test.ts tests/billing-team-entitlement-design.test.ts tests/billing-team-quote-design.test.ts tests/billing-team-design.test.ts

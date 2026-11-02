@@ -1,0 +1,29 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ✓ tests/billing-team-operations-design.test.ts (11 tests) 40ms
+ ❯ tests/billing-team-platform-design.test.ts (0 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-platform-design.test.ts [ tests/billing-team-platform-design.test.ts ]
+ReferenceError: Plan is not defined
+ ❯ src/platform-organizations.ts:39:59
+     37|   getOrganization: { method: "GET", path: "/platform/organizations/:or…
+     38|     out: z.object({ organization: OrganizationRow, changes: z.array(z.…
+     39|       version: z.number().int().positive(), previousPlan: Plan.nullabl…
+       |                                                           ^
+     40|       actorId: z.string(), changedAt: z.string(), reason: z.string(),
+     41|     }).strict()) }).strict(), err: ErrorCode.options },
+ ❯ tests/billing-team-platform-design.test.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  11 passed (11)
+   Start at  10:24:40
+   Duration  2.72s (transform 1.06s, setup 0ms, collect 787ms, tests 40ms, environment 1ms, prepare 944ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-operations-design.test.ts tests/billing-team-platform-design.test.ts
