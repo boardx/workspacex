@@ -41,6 +41,7 @@ import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-e
 import { ARTIFACT_INDEX_WRITER_PATH, checkArtifactIndexWriter } from "./lib/artifact-index-writer-boundary.mjs";
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
+import { ENTERPRISE_FINANCIAL_PATHS, checkEnterpriseFinancialBoundary } from "./lib/enterprise-financial-boundary.mjs";
 import { COMMERCIAL_CAPACITY_PATH, checkCommercialCapacity } from "./lib/commercial-capacity-boundary.mjs";
 import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
 import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotificationDedupIndex, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
@@ -691,6 +692,16 @@ for (const root of ROOTS) {
     if (rel === SCHEDULE_NOTIFICATIONS_PATH) {
       const errors = checkScheduleNotifications(body);
       if (!existsSync(join(API, "scripts/tests/schedule-notifications-boundary.test.mjs"))) errors.push("schedule notification authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (ENTERPRISE_FINANCIAL_PATHS.has(rel)) {
+      // #6108: closed internal mutation/receipt metadata, never tenant-content access.
+      const consumers = walk(join(API, "src")).map(file => ({ path: relative(API, file).split(sep).join("/"), source: readFileSync(file, "utf8") }));
+      const errors = checkEnterpriseFinancialBoundary(rel, body, consumers);
+      for (const evidence of ["scripts/tests/enterprise-financial-boundary.test.mjs", "tests/billing/enterprise-grant.pg.test.ts", "tests/billing/enterprise-management.http.test.ts"]) {
+        if (!existsSync(join(API, evidence))) errors.push(`Enterprise boundary evidence missing: ${evidence}`);
+      }
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }

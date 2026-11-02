@@ -1,5 +1,7 @@
+import type { Locale } from "@repo/contracts/locale";
+
 /** 首页卡片用的「多久以前」。纯函数（`now` 可注入以便单测）；解析不了的时间返回 null，由调用方省略而不是显示 NaN。 */
-export function formatRelativeTime(iso: string | null | undefined, now: number = Date.now(), locale: "zh-CN" | "en" = "zh-CN"): string | null {
+export function formatRelativeTime(iso: string | null | undefined, now: number = Date.now(), locale: Locale = "zh-CN"): string | null {
   if (!iso) return null;
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return null;

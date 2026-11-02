@@ -1,0 +1,26 @@
+[stack-admission] load1=4.22 cores=10 perCore=0.42 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzcwee3-451aeebb-d6d432e4abf8 db=wsx_d6d432e4abf8da6b8486 compose=wsx-d6d432e4abf8da6b8486 pg=20884 redis=21884 api=24884 web=25884 sandbox=26884 model=27884 deep-agent=28884 asr=29884 vision=30884 loopback-sandbox=31884 mail=19884
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+[db-isolation] db=wsx_d6d432e4abf8da6b8486 capacity=100 current=6 required=32
+stdout | tests/billing/enterprise-grant.pg.test.ts
+[enterprise-fixture-retention] immutable financial rows retained only for these owned IDs until isolated DB destruction ["enterprise-6108-db7fd92b-6b48-49e8-b662-5ec100e704cb","enterprise-6108-ec0a8407-1452-4e5b-871d-6b0a21be2880"]
+
+ ✓ tests/billing/enterprise-grant.pg.test.ts (10 tests | 8 skipped) 20030ms
+   ✓ current ordinary no-license catalog reads preserve actual wallet and strict summary 2570ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed | 8 skipped (10)
+   Start at  22:30:46
+   Duration  24.40s (transform 1.74s, setup 8ms, collect 176ms, tests 20.03s, environment 0ms, prepare 66ms)
+
+[db-isolation] db=wsx_d6d432e4abf8da6b8486 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.enterprise-retention-pg.config.ts --testNamePattern current ordinary
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：25s
+  清理：1s
+  总计：26s

@@ -1,7 +1,8 @@
 /**
  * Proposed Team / Enterprise contract design material, issue #6099.
  * Authority: phases/phase-21-billing-payment/design-deltas/team-enterprise-v1/.
- * Human signoff remains pending. These schemas do not register a runtime route,
+ * Human signoff is recorded only in design-signoff.md under that authority.
+ * These schemas do not register a runtime route,
  * grant permission or activate billing; prepaid treatment follows the recorded human decision.
  */
 import {z} from "zod";
@@ -305,3 +306,12 @@ export const EnterpriseUpgradeOperation=z.discriminatedUnion("status",[
  }
 });
 export type EnterpriseUpgradeOperation=z.infer<typeof EnterpriseUpgradeOperation>;
+
+/** Implemented Enterprise routes only; remaining Team operations stay in the signed proposal. */
+const OrgPath=EnterpriseCreditGrantResult.pick({orgId:true});
+const SaleErrors=TeamBillingErrorCode.options;
+export const operations={
+ createEnterpriseUpgrade:{method:"POST",path:"/platform/organizations/:orgId/billing/enterprise-upgrades",in:EnterpriseUpgradeRequest,out:EnterpriseUpgradeOperation,err:SaleErrors},
+ getEnterpriseUpgradeOperation:{method:"GET",path:"/platform/organizations/:orgId/billing/operations/:operationRef",in:OrgPath.extend({operationRef:Identifier}),out:EnterpriseUpgradeOperation,err:[...OrganizationPlanErrorCode.options,"dependency_unavailable",BillingErrorCode.enum.order_not_found] as const},
+ grantEnterpriseCredits:{method:"POST",path:"/platform/organizations/:orgId/billing/credit-grants",in:EnterpriseCreditGrantRequest,out:EnterpriseCreditGrantResult,err:SaleErrors},
+} as const;

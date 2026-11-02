@@ -1,0 +1,30 @@
+[stack-admission] load1=20.82 cores=10 perCore=2.08 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyrlsgs-170943cf-2eeaea6bbe39 db=wsx_2eeaea6bbe399c5483b7 compose=wsx-2eeaea6bbe399c5483b7 pg=20371 redis=21371 api=24371 web=25371 sandbox=26371 model=27371 deep-agent=28371 asr=29371 vision=30371 loopback-sandbox=31371 mail=19371
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+ ❯ tests/billing/enterprise-grant.pg.test.ts (7 tests | 7 skipped) 77585ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/enterprise-grant.pg.test.ts [ tests/billing/enterprise-grant.pg.test.ts ]
+Error: Hook timed out in 60000ms.
+If this is a long-running hook, pass a timeout value as the last argument or configure it globally with "hookTimeout".
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 skipped (7)
+   Start at  12:34:41
+   Duration  81.75s (transform 1.89s, setup 0ms, collect 3.20s, tests 77.59s, environment 0ms, prepare 194ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.enterprise-management-pg.config.ts
+[timing] pnpm --filter @repo/api exec vitest run --config vitest.enterprise-management-pg.config.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m25s
+  清理：10s
+  总计：1m35s
