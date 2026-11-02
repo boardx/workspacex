@@ -26,7 +26,8 @@ export class PgTeamAccountRepository{
    await lockOrganizationCapacity(s,orgId);await requireActivePricingEpoch(s);const now=new Date();
    await grantDueTeamTerms(s,orgId,now);
    const plan=(await s.query<{plan:string;version:number;billing_generation:string|null}>("SELECT plan,version,billing_generation FROM organization_plans WHERE org_id=$1",[orgId])).rows[0];
-   if(plan?.billing_generation&&plan.billing_generation!==generation)throw Error("dependency_unavailable");
+   const currentEnterprise=plan?.plan==="enterprise"&&plan.billing_generation===generation;
+   if(plan?.billing_generation&&plan.billing_generation!==generation||plan?.plan==="enterprise"&&!currentEnterprise)throw Error("dependency_unavailable");
    const license=(await s.query<{purchased_seats:string|null;pending_purchase_ref:string|null}>("SELECT purchased_seats::text,pending_purchase_ref FROM org_commercial_licenses WHERE org_id=$1 AND generation=$2",[orgId,generation])).rows[0];
    const count=(await s.query<{n:string}>("SELECT count(*)::text AS n FROM org_memberships WHERE org_id=$1",[orgId])).rows[0];
    if(!count)throw Error("dependency_unavailable");
@@ -39,7 +40,7 @@ export class PgTeamAccountRepository{
    const transactionalDb:DatabasePort={withTenant:async(_org,fn)=>fn(s),withoutTenant:async()=>{throw Error("global access unavailable");},close:async()=>{}};
    const {wallet}=await new PgBillingWalletRepository(transactionalDb).wallet({ownerType:"team",ownerId:orgId,orgId});
    const review=(await s.query("SELECT 1 FROM billing_team_purchases WHERE org_id=$1 AND generation=$2 AND payment_review_required LIMIT 1",[orgId,generation])).rows.length>0;
-   return TeamEntitlement.parse({orgId,generation,planVersion:plan?.version??0,asOf:now.toISOString(),licenseStatus:plan?.plan==="enterprise"?"enterprise":term?Date.parse(term.paidPeriodEnd)<=now.getTime()?"expired":"active":"none",memberCount:Number(count.n),teamPayment:payment,creditGrant,wallet,checkoutPending:!!license?.pending_purchase_ref,paymentReviewRequired:review});
+   return TeamEntitlement.parse({orgId,generation,planVersion:plan?.version??0,asOf:now.toISOString(),licenseStatus:currentEnterprise?"enterprise":term?Date.parse(term.paidPeriodEnd)<=now.getTime()?"expired":"active":"none",memberCount:Number(count.n),teamPayment:payment,creditGrant,wallet,checkoutPending:!!license?.pending_purchase_ref,paymentReviewRequired:review});
   });
  }
 }

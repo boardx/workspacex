@@ -14,3 +14,19 @@ it("reads actual USD deployment configuration and keeps unsupported Team sale cl
 it("never invents a CN market when deployment market is unavailable",async()=>{
  const f=repository(null);await expect(f.repo.catalog({userId:"admin",orgId:"org-a"} as never,"org-a")).rejects.toThrow("dependency_unavailable");expect(f.requested).toEqual([]);
 });
+function entitlementRepository(planGeneration:string|null){
+ const queries:string[]=[];
+ const db={withTenant:async(_org:string,fn:Function)=>fn({query:async(sql:string)=>{
+  queries.push(sql);
+  return {rows:sql.includes("FROM organizations WHERE")?[{id:"org-a"}]:sql.includes("billing_pricing_epoch")?[{generation,active:true}]:sql.includes("FROM organization_plans")?[{plan:"enterprise",version:3,billing_generation:planGeneration}]:sql.includes("count(*)")?[{n:"1"}]:[]};
+ }})};
+ return {repo:new PgTeamAccountRepository(db as never,{authorize:async()=>"org-a"} as never),queries};
+}
+it.each([null,"retired-generation"])("does not revive old Enterprise metadata as current entitlement (%s)",async prior=>{
+ const f=entitlementRepository(prior);
+ await expect(f.repo.entitlement({userId:"admin",orgId:"org-a"} as never,"org-a")).rejects.toThrow("dependency_unavailable");
+});
+it("reads current-generation Enterprise entitlement from the actual repository",async()=>{
+ const f=entitlementRepository(generation);
+ expect(await f.repo.entitlement({userId:"admin",orgId:"org-a"} as never,"org-a")).toMatchObject({generation,licenseStatus:"enterprise",planVersion:3,teamPayment:null,wallet:{balance:0}});
+});
