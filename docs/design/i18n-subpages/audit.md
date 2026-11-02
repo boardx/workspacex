@@ -1,6 +1,22 @@
 # 国际化二期：子页面盘点与验收方案
 
-状态：只读审计完成；实施未开始。2026-11-03。
+状态：审计完成，按独立 issue/PR 分批实施中。2026-11-03。以下基线/门禁段是开工快照；当前合并状态以各 PR 的实时状态为准。
+
+## 实施账本与覆盖边界
+
+| 批次 | 当前切片与证据 | 路由/组件边界 |
+|---|---|---|
+| B1 | [#6141 / PR #6144](https://github.com/boardx/workspacex/pull/6144)，`evidence/i18n-profile-6141/` | `/profile` 与共用 StateShell；有真实个人资料/密码浏览器，不代表所有 state/preview 页已验 |
+| B1 | [#6145 / PR #6147](https://github.com/boardx/workspacex/pull/6147)，`evidence/i18n-activity-6145/` | 自己的活动展示，显式 structured-v1 协商；未知/历史摘要保留原文 |
+| B1 | [#6146 / PR #6154](https://github.com/boardx/workspacex/pull/6154)，`evidence/i18n-notifications-6146/` | 共享通知类别/控件；服务端动态标题/正文仍源文，不冒充全量翻译 |
+| B1 | [#6155 / PR #6157](https://github.com/boardx/workspacex/pull/6157)，`evidence/i18n-account-entry-6155/` | register/verify-email/reset-password + 共享动画；真实公共页与组件 payload，有效邮件/真实注册不在该公共浏览器旅程 |
+| B1 | [#6158 / PR #6159](https://github.com/boardx/workspacex/pull/6159)，`evidence/i18n-invite-entry-6158/` | `/auth/activate` 单人/共享/缺令牌；真实公共页面，未实际提交邀请；会话保护有回归 |
+| B2 | [#6160 / PR #6164](https://github.com/boardx/workspacex/pull/6164)，`evidence/i18n-project-list-6160/` | `/projects` 与创建弹窗/通用创建表单；真实创建/标签/归档/consultant 403 已验。完整创建契约既有 P3 缺口独立 #6163；工作台和工作坊向导另切片 |
+| 共用壳 | [#6165 / PR #6166](https://github.com/boardx/workspacex/pull/6166)，`evidence/i18n-mobile-header-6165/`（独立 PR） | TopBar 语言切换器窄屏裁切修复；320/375/768/1280 双语几何与操作验收 |
+
+当前所有 `preview/*`、实验入口、mock 驱动的 join/group/consent 等未列明真实验收的路径，仍记作**未覆盖**。
+137 是原始入口盘点基线，不能用少数共用组件已翻译换算“137 页已完成”。后续 B2→B10 继续逐 issue/PR 与真实用例落盘；
+任何表中 PR 链接只标实现位置，不把“已提交”当“已合并/CI 绿”。
 
 ## 基线与门禁
 
