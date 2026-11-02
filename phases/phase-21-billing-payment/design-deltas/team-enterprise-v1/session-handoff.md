@@ -15,3 +15,5 @@ P5 错误信封已修复并推送 f82673afaa7573d4a72a2402a4cbd6a21c60b365，独
 当前browser wrapper已清理0s，无本任务Next/Chrome/compose驻留；只做本树，不动共享checkout/stash或其他发布/邮件资源。Node固定22.23.2；不执行生产reset/epoch或部署。
 
 本报价增量 contracts/web 串行类型及 lint 6/6 通过。首批4c6材料的“quote结果待补”现已补齐，其余响应与 operation 继续在 S4 完善。
+
+报价复审095671339的微信USD P2已补公共约束与反例：先4红15绿，再核心49及原型11绿。等待最终SHA复审；新运行时未启用，原browser5未因只增加负例约束重复执行。

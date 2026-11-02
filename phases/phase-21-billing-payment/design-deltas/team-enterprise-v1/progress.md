@@ -17,3 +17,5 @@ Issue6099，worker/cn-us-team-billing-design，当前base actual develop c04c332
 个人支付PR6103 source e419 CI已全完成，但GitHub自动审查指出P2：后端错误在code，前端只读ApiError.reasonCode导致目录拒绝后保留失效意图。当前未入队/未合入，须先保存本设计检查点，回P5修真实envelope回归、按新SHA独立复审与正常CI到绿，不直接resolve绕过。本次定价正常develop集成授权持续，生产未操作。
 
 本报价增量受影响 contracts/web 串行类型及 lint 6/6 通过。前文首批检查点“quote结果待补”的范围现已由本增量补齐；其余完整响应及 operation 缺口仍保留。
+
+独立增量复审095671339指出P2：微信报价缺少CNY交叉约束。补四purpose反例先4失败/15通过，公共refinement修复后核心49通过，保留Stripe CNY/USD四purpose正例；原型11再通过。错误已修，待最终精确SHA复核。原browser5在仅缺这项负例约束时运行，正向原型数据未变化，不重复声称本轮重新浏览器运行。
