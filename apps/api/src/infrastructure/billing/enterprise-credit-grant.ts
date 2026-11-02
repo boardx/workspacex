@@ -25,11 +25,12 @@ export class EnterpriseCreditGrant {
         return EnterpriseCreditGrantResult.parse(prior.receipt);
       }
       await s.query("INSERT INTO credit_wallets(owner_type,owner_id) VALUES('team',$1) ON CONFLICT(owner_type,owner_id) DO NOTHING", [orgId]);
-      const wallet = (await s.query<{wallet_id:string;balance:string}>("SELECT wallet_id,balance::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1 FOR UPDATE", [orgId])).rows[0];
+      const wallet = (await s.query<{wallet_id:string;balance:string;total_granted:string}>("SELECT wallet_id,balance::text,total_granted::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1 FOR UPDATE", [orgId])).rows[0];
       if (!wallet) throw new EnterpriseError("dependency_unavailable");
       const decimal = creditDecimal(creditHundredths(wallet.balance) + BigInt(input.credits)*100n);
       const balance = Number(decimal);
-      if (!CreditBalance.safeParse(balance).success) throw new EnterpriseError("credit_balance_unrepresentable");
+      const totalGranted=Number(creditDecimal(creditHundredths(wallet.total_granted)+BigInt(input.credits)*100n));
+      if (!CreditBalance.safeParse(balance).success || !CreditBalance.safeParse(totalGranted).success) throw new EnterpriseError("credit_balance_unrepresentable");
       const grantRef=randomUUID(), ledgerRef=randomUUID(), auditRef=randomUUID();
       const createdAt=(await s.query<{at:Date}>("SELECT now() AS at")).rows[0]!.at.toISOString();
       const receipt=EnterpriseCreditGrantResult.parse({orgId,grantRef,ledgerRef,auditRef,credits:input.credits,balance,createdAt});

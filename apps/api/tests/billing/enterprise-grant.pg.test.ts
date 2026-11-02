@@ -1,3 +1,5 @@
+import {readFileSync} from "node:fs";
+import type {DatabasePort,TenantSession} from "../../src/application/ports/database.port";
 // @global-scope-fixture table:billing_pricing_epoch: isolated disposable PG only; proves active-epoch gating, never a production activation.
 // @global-scope-fixture table:credit_wallets: isolated per-test random team owner; asserts actual rollback and exact grant totals.
 import {randomUUID} from "node:crypto";
@@ -9,7 +11,7 @@ import {EnterpriseCreditGrant} from "../../src/infrastructure/billing/enterprise
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {toOrgId} from "../../src/domain/org-id";
 let org=toOrgId("enterprise-grant-6108");let db:PgDatabase;let grants:EnterpriseCreditGrant;
-beforeAll(async()=>{ensureDatabase();await migrateOnce();db=new PgDatabase(appConfig());grants=new EnterpriseCreditGrant(db);},180000);
+beforeAll(async()=>{ensureDatabase();await migrateOnce();await asOwner(c=>c.query(readFileSync(new URL("../../provisioning/platform-org-catalog.sql",import.meta.url),"utf8")));db=new PgDatabase(appConfig());grants=new EnterpriseCreditGrant(db);},180000);
 beforeEach(async()=>{
  org=toOrgId(`enterprise-6108-${randomUUID()}`);
  await resetOrgs(org);await seedOrg({orgId:org,projectId:`${org}-project`});
@@ -52,11 +54,19 @@ it("overflow leaves actual wallet unchanged and creates no grant receipt",async(
  await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('team',$1,2147483647)",[org]));
  await expect(grants.grant(org,"operator",{credits:1,reason:"overflow denial",idempotencyKey:"overflow-attempt-001"})).rejects.toMatchObject({code:"credit_balance_unrepresentable"});
  await asOwner(async c=>{expect(Number((await c.query("SELECT balance::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0].balance)).toBe(2147483647);expect((await c.query("SELECT count(*)::int AS n FROM enterprise_credit_grants WHERE org_id=$1",[org])).rows[0].n).toBe(0);});
+ await asOwner(c=>c.query("UPDATE credit_wallets SET balance=0,total_granted=2147483647 WHERE owner_type='team' AND owner_id=$1",[org]));
+ await expect(grants.grant(org,"operator",{credits:1,reason:"cumulative overflow denial",idempotencyKey:"overflow-total-0001"})).rejects.toMatchObject({code:"credit_balance_unrepresentable"});
 });
 it("platform detail hydrates active Enterprise from the same real wallet",async()=>{
  const {PgPlatformOrganizationRepository}=await import("../../src/infrastructure/system/pg-platform-organization-repository");const {platformOrganizations:C}=await import("@repo/contracts");
  await grants.grant(org,"operator",{credits:61,reason:"read model allowance",idempotencyKey:"summary-attempt-001"});
- const repository=new PgPlatformOrganizationRepository(db,null);
+ const catalog:DatabasePort={withTenant:async()=>{throw Error("no catalog tenant queries");},close:async()=>{},withoutTenant:async fn=>asOwner(async c=>{
+  await c.query("BEGIN");await c.query("SET LOCAL ROLE app_platform_org_catalog_ro");
+  const session:TenantSession={query:async<R>(sql:string,params?:readonly unknown[])=>({rows:(await c.query(sql,params?[...params]:undefined)).rows as R[]})};
+  try{const result=await fn(session);await c.query("COMMIT");return result;}catch(error){await c.query("ROLLBACK");throw error;}
+ })};
+ const repository=new PgPlatformOrganizationRepository(db,catalog);
  const result=await repository.detail(org,"operator");expect(C.operations.getOrganization.out.safeParse(result).success).toBe(true);
+ const page=await repository.list({search:String(org),limit:25},"operator");expect(C.operations.listOrganizations.out.safeParse(page).success).toBe(true);expect(page.organizations[0]?.billingSummary?.wallet.balance).toBe(61);
  expect(result.organization.billingSummary).toMatchObject({licenseStatus:"enterprise",teamPayment:null,planVersion:1,generation,wallet:{balance:61,permanentBalance:61,subscriptionCredits:0,totalGranted:61}});
 });

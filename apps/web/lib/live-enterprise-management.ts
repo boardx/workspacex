@@ -1,6 +1,6 @@
-import {EnterpriseCreditGrantRequest,EnterpriseCreditGrantResult,EnterpriseUpgradeRequest,EnterpriseUpgradeOperation} from "@repo/contracts/billing-team";
+import {operations as C,type EnterpriseCreditGrantRequest,type EnterpriseUpgradeRequest} from "@repo/contracts/billing-team";
 import {apiRequest} from "./api-client";
-const base=(orgId:string)=>`/platform/organizations/${encodeURIComponent(orgId)}/billing`;
-export const grantEnterpriseCredits=(orgId:string,input:EnterpriseCreditGrantRequest)=>apiRequest<unknown>(`${base(orgId)}/credit-grants`,{method:"POST",body:EnterpriseCreditGrantRequest.parse(input)}).then(value=>EnterpriseCreditGrantResult.parse(value));
-export const upgradeEnterprise=(orgId:string,input:EnterpriseUpgradeRequest)=>apiRequest<unknown>(`${base(orgId)}/enterprise-upgrades`,{method:"POST",body:EnterpriseUpgradeRequest.parse(input)}).then(value=>EnterpriseUpgradeOperation.parse(value));
-export const enterpriseOperation=(orgId:string,ref:string)=>apiRequest<unknown>(`${base(orgId)}/operations/${encodeURIComponent(ref)}`).then(value=>EnterpriseUpgradeOperation.parse(value));
+const path=(template:string,orgId:string)=>template.replace(":orgId",encodeURIComponent(orgId));
+export const grantEnterpriseCredits=(orgId:string,input:EnterpriseCreditGrantRequest)=>apiRequest<unknown>(path(C.grantEnterpriseCredits.path,orgId),{method:C.grantEnterpriseCredits.method,body:C.grantEnterpriseCredits.in.parse(input)}).then(value=>C.grantEnterpriseCredits.out.parse(value));
+export const upgradeEnterprise=(orgId:string,input:EnterpriseUpgradeRequest)=>apiRequest<unknown>(path(C.createEnterpriseUpgrade.path,orgId),{method:C.createEnterpriseUpgrade.method,body:C.createEnterpriseUpgrade.in.parse(input)}).then(value=>C.createEnterpriseUpgrade.out.parse(value));
+export const enterpriseOperation=(orgId:string,ref:string)=>apiRequest<unknown>(path(C.getEnterpriseUpgradeOperation.path,orgId).replace(":operationRef",encodeURIComponent(ref))).then(value=>C.getEnterpriseUpgradeOperation.out.parse(value));
