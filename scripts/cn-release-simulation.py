@@ -400,7 +400,8 @@ def main():
     state_before=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))
     dirty=state_before['dirty'];initial_state=state_before
     if args.rounds==10 and dirty:raise ValueError('TEN_ROUNDS_REQUIRE_CLEAN_FIXED_COMMIT')
-    names=[n for n in SUITES if args.suite!='remaining' or n!='release']if args.suite in ('all','remaining')else[args.suite]
+    names=list(SUITES)if args.suite=='all'else[args.suite]
+    if args.suite=='remaining':names=[n for n in SUITES if n!='release']
     if args.rounds==10 and args.suite!='all':raise ValueError('TEN_ROUNDS_REQUIRE_ALL_SUITES')
     started=datetime.datetime.now(datetime.timezone.utc).isoformat();rounds=[]
     for index in range(args.rounds):
@@ -414,13 +415,13 @@ def main():
         state_after=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))
         changed=state_after['dirty']
         fixed=head==commit and not dirty and not changed
-        value=dict(roundId=round_id,startedAt=round_started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),durationSeconds=round(time.monotonic()-round_start,3),commit=commit,seed=seed,sourceStateBefore=state_before,sourceStateAfter=state_after,sourceUnchanged=fixed,suites=rows,status='passed'if fixed and all(x['status']=='passed'for x in rows)else'failed',externalServiceMode='fixtures',integrationGaps=GAPS)
+        value=dict(roundId=round_id,startedAt=round_started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),durationSeconds=round(time.monotonic()-round_start,3),commit=commit,seed=seed,sourceStateBefore=state_before,sourceStateAfter=state_after,sourceUnchanged=fixed,suites=rows,status='passed'if fixed and all(x['status']=='passed'for x in rows)else'failed',externalServiceMode='fixtures',integrationGaps=list(GAPS))
         value['mode']=args.mode
         value['continuation']=round_continuation(args.mode,value,names,folder,os.environ.get('GITHUB_RUN_ID'))
         write_json(folder/'round.json',value);rounds.append(value);state_before=state_after
         print(json.dumps({'event':'round-finished','roundId':round_id,'mode':args.mode,'status':value['status'],'continueAllowed':value['continuation']['allowed'],'reason':value['continuation']['reason'],'completedSuites':len(rows)},sort_keys=True),flush=True)
         if not value['continuation']['allowed']:break
-    summary=dict(kind='cn-release-isolated-simulation-v1',suiteSelection=args.suite,mode=args.mode,commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=GAPS)
+    summary=dict(kind='cn-release-isolated-simulation-v1',suiteSelection=args.suite,mode=args.mode,commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=list(GAPS))
     quantify(summary,output)
     if args.mode=='development':
         summary['completeRegressionAccepted']=False;summary['isolatedAcceptance']=False

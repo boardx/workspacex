@@ -145,6 +145,7 @@ class SplitAggregate(unittest.TestCase):
         self.assertEqual(len(seen),len(m.sim.SUITES)-1)
         summary=json.loads((output/'summary.json').read_text())
         self.assertEqual(summary['suiteSelection'],'remaining')
+        self.assertEqual(summary['rounds'],[json.loads((output/'round-01/round.json').read_text())])
         self.assertFalse(summary['completeRegressionAccepted'])
 
     def test_plan_only_splits_one_acceptance_all(self):
