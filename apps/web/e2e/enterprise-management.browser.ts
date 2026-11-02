@@ -1,6 +1,6 @@
 /** Real browser/Kernel/PG/Redis, plus one test-runtime post-commit transport fault. */
 import {expect,test} from "@playwright/test";
-import {mkdirSync} from "node:fs";
+import {mkdirSync,writeFileSync} from "node:fs";
 import {resolve} from "node:path";
 import {pathToFileURL} from "node:url";
 import {tsImport} from "tsx/esm/api";
@@ -48,4 +48,5 @@ test("actual Enterprise management recovers a committed grant after lost respons
  await expect(panel.getByRole("status")).toContainText(receipt.auditRef);await expect(page.getByTestId("enterprise-credit-balance")).toContainText("42 credit");
  expect(await actualWallet()).toEqual(committed);
  await page.screenshot({path:"test-results/enterprise-management-6108/enterprise-grant-recovered.png",fullPage:true});
+ writeFileSync("test-results/enterprise-management-6108/browser-success.json",JSON.stringify({isolationId:process.env.WORKSPACEX_ISOLATION_ID,passed:true}));
 });

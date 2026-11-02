@@ -11,9 +11,10 @@ import {ensureRedis,seedCredential} from "../support/auth";
 const scope=randomUUID().slice(0,8),source=`enterprise-http-source-${scope}`,target=`enterprise-http-target-${scope}`;
 const operator=`operator-${scope}`,admin=`admin-${scope}`,password="Enterprise-Acceptance-6108!";
 const email=(user:string)=>`${user}@enterprise-http.test`;
+let originalEpoch:{generation:string|null;activated_at:Date|null}|undefined;
 let app:NestExpressApplication,base:string,operatorToken:string,adminToken:string;
 beforeAll(async()=>{
- ensureDatabase();ensureRedis();await migrateOnce();
+ ensureDatabase();ensureRedis();await migrateOnce();originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:Date|null}>("SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);
  vi.stubEnv("NODE_ENV","test");vi.stubEnv("KERNEL_QUIET","1");vi.stubEnv("MAIL_OUTBOX_WORKER_ENABLED","0");vi.stubEnv("MODEL_CREDENTIAL_KEY","enterprise-http-isolated-test-key-6108");vi.stubEnv("PLATFORM_SUPERUSER_EMAILS",email(operator));
  for(const orgId of [source,target])await seedOrg({orgId,projectId:`${orgId}-project`});
  for(const userId of [operator,admin]){await seedCredential({userId,email:email(userId),password,emailVerified:true});await addOrgMember(source,userId,"admin",null);}
@@ -23,7 +24,7 @@ beforeAll(async()=>{
  async function login(user:string){const response=await fetch(`${base}${auth.operations.login.path}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({email:email(user),password})});const body=await response.json();expect(response.status,JSON.stringify(body)).toBe(200);return auth.operations.login.out.parse(body).sessionToken;}
  operatorToken=await login(operator);adminToken=await login(admin);
 },180000);
-afterAll(async()=>{await app?.close();vi.unstubAllEnvs();});
+afterAll(async()=>{await app?.close();if(originalEpoch)await asOwner(c=>c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=$2 WHERE singleton=true",[originalEpoch!.generation,originalEpoch!.activated_at]));console.info("[enterprise-http-fixture-retention] owned fixture users/organizations until disposable DB destruction",JSON.stringify({users:[operator,admin],organizations:[source,target]}));vi.unstubAllEnvs();});
 function route(template:string,org=target){return template.replace(":orgId",org);}
 async function post(path:string,token:string,input:unknown){const response=await fetch(`${base}${path}`,{method:"POST",headers:{authorization:`Bearer ${token}`,"content-type":"application/json"},body:JSON.stringify(input)});return {status:response.status,cache:response.headers.get("cache-control"),body:await response.json()};}
 it("real authenticated org admin is denied both same-org and cross-org Enterprise writes",async()=>{
