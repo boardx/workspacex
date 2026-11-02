@@ -1,0 +1,2 @@
+已知缺口（declared-only，界面照它说话但没有机械保证）3 条：collaboration, outbound-notifications, export-to-organization
+✅ lint-edition-capabilities：矩阵每一行的落地方式都对得上。

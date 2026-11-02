@@ -8,21 +8,32 @@
  *   ③ 原样跑 ⇒ 绿，且把已知缺口逐条打印出来。
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, expect, it } from "vitest";
+import { afterAll, afterEach, expect, it } from "vitest";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
-const GATE = join(ROOT, ".harness/scripts/lint-edition-capabilities.mjs");
-const CONTRACT = join(ROOT, "packages/contracts/src/deployment.ts");
-const original = readFileSync(CONTRACT, "utf8");
+// Negative fixtures must never rewrite a contract imported by parallel packages/workerd.
+const fixtureRoot = mkdtempSync(join(tmpdir(), "edition-capability-test-"));
+const GATE = join(fixtureRoot, ".harness/scripts/lint-edition-capabilities.mjs");
+const CONTRACT = join(fixtureRoot, "packages/contracts/src/deployment.ts");
+const original = readFileSync(join(ROOT, "packages/contracts/src/deployment.ts"), "utf8");
+mkdirSync(dirname(GATE), { recursive: true });
+mkdirSync(dirname(CONTRACT), { recursive: true });
+copyFileSync(join(ROOT, ".harness/scripts/lint-edition-capabilities.mjs"), GATE);
+writeFileSync(CONTRACT, original);
+// Preserve the real implementation search surface without copying or mutating it.
+symlinkSync(join(ROOT, "apps"), join(fixtureRoot, "apps"), "dir");
+symlinkSync(join(ROOT, "packages/local-runtime"), join(fixtureRoot, "packages/local-runtime"), "dir");
+afterAll(() => rmSync(fixtureRoot, { recursive: true, force: true }));
 
 afterEach(() => writeFileSync(CONTRACT, original));
 
 function run(): { code: number; out: string } {
   try {
-    return { code: 0, out: execFileSync("node", [GATE], { cwd: ROOT, encoding: "utf8", stdio: "pipe" }) };
+    return { code: 0, out: execFileSync("node", [GATE], { cwd: fixtureRoot, encoding: "utf8", stdio: "pipe" }) };
   } catch (e) {
     const err = e as { status?: number; stdout?: string; stderr?: string };
     return { code: err.status ?? 1, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
@@ -68,4 +79,10 @@ it("rejects a non-gated row that carries a ref nobody checks", () => {
   const r = run();
   expect(r.code).toBe(1);
   expect(r.out).toContain("不该带 enforcementRef");
+});
+
+it("does not rewrite the shared runtime contract while a negative fixture is being checked", () => {
+  writeFileSync(CONTRACT, original.replace('enforcementRef: "image-generation"', 'enforcementRef: "no-such-symbol-anywhere-in-this-repo"'));
+  expect(readFileSync(join(ROOT, "packages/contracts/src/deployment.ts"), "utf8")).toBe(original);
+  expect(run().code).toBe(1);
 });
