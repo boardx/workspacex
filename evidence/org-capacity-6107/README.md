@@ -5,9 +5,9 @@ Design dependency: `8e07cd7d82c6491f3d8a91431f0f8ca805ec4257`, merged locally ex
 
 ## Current evidence
 
-- `init.log`: isolated worktree bootstrap exited 0.
+- `init.txt`: isolated worktree bootstrap exited 0.
 - Pure capacity tests: 6 passed, including purchased 5 / pending 7 remaining 5 and mechanical migration-floor comparison against `TEAM_INCLUDED_SEATS`.
-- `pg-fixture-failure.log`: first real-PG attempt waited 265 seconds for normal resource admission, migrated the real schema and failed on an invalid fixture role. It did **not** exercise the capacity assertions and is **not** a capacity counterexample. Fixture correction is committed in baseline above. Owned compose stack was automatically removed.
+- `pg-fixture-failure.txt`: first real-PG attempt waited 265 seconds for normal resource admission, migrated the real schema and failed on an invalid fixture role. It did **not** exercise the capacity assertions and is **not** a capacity counterexample. Fixture correction is committed in baseline above. Owned compose stack was automatically removed.
 - API typecheck was deliberately terminated during machine contention; no passing claim.
 - `harness tick` failed because `COORD_GATEWAY_URL` is not configured; task authority is the parent's explicit #6107 delegation.
 
