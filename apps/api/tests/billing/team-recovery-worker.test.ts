@@ -10,5 +10,10 @@ it("coalesces overlapping sweeps and drains its owned work on shutdown",async()=
 it("reports sweep failure and releases the guard for retry",async()=>{
  const error=vi.fn(),sweep=vi.fn().mockRejectedValueOnce(Error("secret-database-detail")).mockResolvedValue({processed:0,failed:0});
  const worker=new TeamPaymentRecoveryWorker({sweep},{info(){},error});await worker.runOnce();await worker.runOnce();
- expect(sweep).toHaveBeenCalledTimes(2);expect(JSON.stringify(error.mock.calls)).not.toContain("secret-database-detail");await worker.onModuleDestroy();
+ expect(sweep).toHaveBeenCalledTimes(2);expect(error).toHaveBeenCalledWith("billing_team_recovery_failed",{traceId:expect.stringMatching(/^team-payment-recovery:/),err:{stage:"bounded_sweep"}});expect(JSON.stringify(error.mock.calls)).not.toContain("secret-database-detail");await worker.onModuleDestroy();
+});
+
+it("logs completed sweep counts under its own trace",async()=>{
+ const info=vi.fn(),worker=new TeamPaymentRecoveryWorker({sweep:async()=>({processed:2,failed:1})},{info,error(){}});
+ await worker.runOnce();expect(info).toHaveBeenCalledWith("billing_team_recovery",{traceId:expect.stringMatching(/^team-payment-recovery:/),processed:2,failed:1});await worker.onModuleDestroy();
 });

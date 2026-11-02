@@ -102,15 +102,16 @@ it("only no-reference checkout refusals are classified unreserved and never call
   expect(await asOwner(async c=>(await c.query("SELECT count(*)::int AS n FROM billing_team_purchases WHERE org_id=$1 AND idempotency_key=$2",[org,key])).rows[0].n)).toBe(0);
   expect(merchant.createCheckout).not.toHaveBeenCalled();verifiedUnreserved.push(code);
  }
+ const originalQuoteRef=requests[0];if(!originalQuoteRef)throw Error("fixture initial quote missing");
  const expiredForNew=new PgTeamCheckoutRepository(db,access as never,()=>true,()=>new Date(Date.now()+3600000));
- await reject(expiredForNew,requests[0],"quote_expired");
- await reject(repo,requests[0],"PLAN_VERSION_CONFLICT");
+ await reject(expiredForNew,originalQuoteRef,"quote_expired");
+ await reject(repo,originalQuoteRef,"PLAN_VERSION_CONFLICT");
  await asOwner(c=>c.query("UPDATE organization_plans SET plan='enterprise',version=2 WHERE org_id=$1",[org]));
- try{await reject(repo,requests[0],"unsupported_plan_transition");}
+ try{await reject(repo,originalQuoteRef,"unsupported_plan_transition");}
  finally{await asOwner(c=>c.query("UPDATE organization_plans SET plan='ordinary',version=1 WHERE org_id=$1",[org]));}
  const qref=`q-${randomUUID()}`;
  await asOwner(async c=>{
-  const old=(await c.query("SELECT quote FROM billing_team_quotes WHERE quote_ref=$1",[requests[0]])).rows[0].quote;
+  const old=(await c.query("SELECT quote FROM billing_team_quotes WHERE quote_ref=$1",[originalQuoteRef])).rows[0].quote;
   const now=new Date(),renewal={...old,quoteRef:qref,purpose:"renewal",planVersion:1,createdAt:now.toISOString(),expiresAt:new Date(now.getTime()+300000).toISOString()};
   await c.query("INSERT INTO billing_team_quotes(quote_ref,org_id,generation,quote,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6)",[qref,org,generation,renewal,now,renewal.expiresAt]);
   await c.query("UPDATE org_commercial_licenses SET pending_seats=5,pending_purchase_ref='another-owned-operation' WHERE org_id=$1",[org]);
@@ -119,7 +120,7 @@ it("only no-reference checkout refusals are classified unreserved and never call
  finally{await asOwner(c=>c.query("UPDATE org_commercial_licenses SET pending_seats=NULL,pending_purchase_ref=NULL WHERE org_id=$1",[org]));}
  await reject(repo,qref,"already_subscribed");
  expect(new Set(verifiedUnreserved)).toEqual(new Set(TEAM_CHECKOUT_UNRESERVED_ERRORS));
- const replay=await service(expired).checkout(principal,org,{quoteRef:requests[0],idempotencyKey:originalKey});
+ const replay=await service(expired).checkout(principal,org,{quoteRef:originalQuoteRef,idempotencyKey:originalKey});
  expect(replay).toMatchObject({purchaseRef:originalRef,status:"SUCCESS"});expect(merchant.createCheckout).not.toHaveBeenCalled();
  expect(await asOwner(async c=>(await c.query("SELECT count(*)::int AS n FROM billing_team_receipts WHERE org_id=$1",[org])).rows[0].n)).toBe(1);
  expect(await asOwner(async c=>(await c.query("SELECT count(*)::int AS n FROM credit_transactions t JOIN credit_wallets w USING(wallet_id) WHERE w.owner_type='team' AND w.owner_id=$1 AND t.type='subscription_grant'",[org])).rows[0].n)).toBe(1);

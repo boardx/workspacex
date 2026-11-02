@@ -22,7 +22,7 @@
   "src/infrastructure/billing/team-wechat-crediting-store.ts": "acc08a0d340f571a7c82124e71b8afa0e7631d3beb387dba30013c0b9c8236e4",
   "src/infrastructure/billing/team-wechat-payment-client.ts": "057bb1d529eebec96d7f0bd71f33592c4ba56099c1c9d55599f73c2ee5e3be42",
   "src/infrastructure/billing/team-wechat-checkout-client.ts": "5fd478cd562acbb818f11845bb5a181300c228696affefcc178a76bd79da91de",
-  "src/infrastructure/billing/team-payment-recovery-worker.ts": "30cd17d401bac8044d262c2a5f7177f46967eb82a2133ba81c189230d7f7d640",
+  "src/infrastructure/billing/team-payment-recovery-worker.ts": "08f3aff9dfd6d94916cc11cbcd07d5e36bd5541e6a44937c03098e8bd3982e3a",
   "src/interface/controllers/team-billing.controller.ts": "2cf23ba6ceb1239eb94dea161297b8f573128e7fa3dd50eec47a3f24ba389095",
   "src/interface/controllers/team-billing-http-exception.ts": "3fddc7ee8653cdfe3da6f204921ff7a94ce4d405969b14620f9f2bfa7db31e56"
 }

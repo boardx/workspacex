@@ -1,3 +1,4 @@
+import {randomUUID} from "node:crypto";
 import type {OnModuleInit,OnModuleDestroy} from "@nestjs/common";
 import type {LoggerPort} from "../../application/ports/logger.port";
 export interface TeamRecoverySweep{sweep():Promise<{processed:number;failed:number}>}
@@ -11,6 +12,6 @@ export class TeamPaymentRecoveryWorker implements OnModuleInit,OnModuleDestroy{
   if(this.stopped)return Promise.resolve();if(this.running)return this.running;
   const task=this.sweep();this.running=task;void task.then(()=>{if(this.running===task)this.running=undefined;});return task;
  }
- private async sweep(){try{const r=await this.store.sweep();if(r.processed||r.failed)this.logger.info("billing_team_recovery",r);}catch{this.logger.error("billing_team_recovery_failed",{stage:"bounded_sweep"});}}
+ private async sweep(){const traceId=`team-payment-recovery:${randomUUID()}`;try{const r=await this.store.sweep();if(r.processed||r.failed)this.logger.info("billing_team_recovery",{traceId,...r});}catch{this.logger.error("billing_team_recovery_failed",{traceId,err:{stage:"bounded_sweep"}});}}
  async onModuleDestroy(){this.stopped=true;if(this.timer)clearTimeout(this.timer);this.timer=undefined;await this.running;}
 }
