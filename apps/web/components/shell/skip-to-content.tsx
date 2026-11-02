@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 /**
  * 「跳到主要内容」——键盘用户的第一条快捷路。
@@ -29,6 +30,7 @@ import * as React from "react";
 export const MAIN_CONTENT_ID = "wsx-main-content";
 
 export function SkipToContent(): React.ReactElement {
+  const { t } = useI18n();
   return (
     <a
       href={`#${MAIN_CONTENT_ID}`}
@@ -52,7 +54,6 @@ export function SkipToContent(): React.ReactElement {
         + "focus:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       }
     >
-      跳到主要内容
-    </a>
+      {t("ui.skipToMainContent")}</a>
   );
 }

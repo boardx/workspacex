@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { Moon, Sun } from "lucide-react";
 import { applyTheme, readCurrentTheme, type ThemeMode } from "@/lib/theme";
@@ -16,6 +17,7 @@ type ThemeToggleProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { testId
 export const ThemeToggle = React.forwardRef<HTMLButtonElement, ThemeToggleProps>(function ThemeToggle({
   testId, className, role = "menuitem", onClick, ...buttonProps
 }, ref) {
+  const { t } = useI18n();
   // 初始 null：避免 SSR（服务端不知道 localStorage）与阻塞脚本已经设好的 DOM 状态不一致导致的
   // hydration 告警——首帧渲染一个中性态，挂载后立刻用真实 DOM class 同步。
   const [mode, setMode] = React.useState<ThemeMode | null>(null);
@@ -56,7 +58,7 @@ export const ThemeToggle = React.forwardRef<HTMLButtonElement, ThemeToggleProps>
       {current === "dark"
         ? <Sun aria-hidden className="h-3.5 w-3.5" />
         : <Moon aria-hidden className="h-3.5 w-3.5" />}
-      {current === "dark" ? "切换到浅色模式" : "切换到深色模式"}
+      {current === "dark" ? t("ui.switchToLightMode") : t("ui.switchToDarkMode")}
     </button>
   );
 });

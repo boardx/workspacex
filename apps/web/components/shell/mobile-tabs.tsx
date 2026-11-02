@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { navigationLabel } from "@/lib/i18n/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessagesSquare, FolderKanban, ListTodo, User } from "lucide-react";
@@ -19,11 +21,12 @@ const TABS = [
 ];
 
 export function MobileTabs() {
+  const { t: translate } = useI18n();
   const pathname = usePathname();
   return (
     <nav
       data-testid="shell-mobile-tabs"
-      aria-label="主导航（移动端）"
+      aria-label={translate("ui.mainNavigationMobile")}
       className="flex h-14 shrink-0 items-stretch border-t border-border bg-card md:hidden"
     >
       {TABS.map((t) => {
@@ -42,7 +45,7 @@ export function MobileTabs() {
             )}
           >
             <Icon aria-hidden className="h-5 w-5" />
-            <span className="text-10">{t.label}</span>
+            <span className="text-10">{navigationLabel(t.key, t.label, translate)}</span>
           </Link>
         );
       })}
