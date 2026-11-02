@@ -42,3 +42,11 @@ Browser acceptance now includes a deterministic test-only transport fault after 
 - Session transitions: financial requests pass the captured bearer instead of silently selecting another account's current global token; directory state uses the existing authenticated session scope to unmount old financial read data.
 
 These source changes have not run while the coordinator's one normal push group owns heavy resources. Planned next selections: owned backend 19, UI recovery 11 plus pure client 7, then a separate browser slot. No standalone typecheck has been started.
+
+## Verified batches and retained-history review
+
+On the preceding schema/source: `backend-19.txt` exited 0 (Enterprise PG 7 + precision PG 8 + authenticated HTTP 2 + source checks 2), and `ui-client-final.txt` exited 0 (UI 11 + client correlation 7). The owned stack was removed; a precise compose-label `docker ps -a` check returned no containers. Raw logs were scanned for bearer/DSN/password/sessionToken fields with no matches.
+
+Independent review then rejected adapting financial audit retention to fixture deletion. The unpublished 032000 migration now removes the two organization FKs, matching wallet/ledger historical retention; the permanent audit UPDATE/DELETE rejection and app_rw privileges remain unchanged. Live service writes/reads still lock and verify the organization. Runtime source search found no organization-delete API. A new eighth PG case proves owner tenant teardown retains grant/ledger/operation history, direct audit mutations remain rejected before/after teardown, deleted-org service operations return not-found, and another org is unchanged. It also declares exact owned fixture IDs retained until the disposable database is destroyed.
+
+This retention delta has not run. `vitest.enterprise-retention-pg.config.ts` selects the eight cases with the actual default `db-file-cleanup` hook and isolation global setup for a sequential warm-stack follow-up. No trigger disabling/replica mode, CASCADE exception or cold rerun of the verified 19 is used. Database-backed dedicated configs now require the existing isolation global setup, so a bare shared-DB invocation fails before fixture mutation.

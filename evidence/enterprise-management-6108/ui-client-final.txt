@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web
+
+ ✓ tests/ui/enterprise-management-panel.test.tsx (7 tests) 2339ms
+   ✓ retains grant request identity and amount after uncertain network failure 1238ms
+ ✓ tests/ui/platform-organizations-screen.test.tsx (4 tests) 6609ms
+   ✓ organization management API-bound screen > shows zero-member unconfigured organizations and saves versioned plan with mandatory audit reason 4298ms
+   ✓ organization management API-bound screen > keeps the confirmed grant receipt visible during and after same-organization refresh 2071ms
+ ✓ tests/live-enterprise-management.test.ts (7 tests) 35ms
+
+ Test Files  3 passed (3)
+      Tests  18 passed (18)
+   Start at  13:51:57
+   Duration  65.67s (transform 18.67s, setup 3.59s, collect 34.78s, tests 8.98s, environment 12.28s, prepare 1.47s)
+

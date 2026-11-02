@@ -4,20 +4,21 @@ import type {DatabasePort,TenantSession} from "../../src/application/ports/datab
 // @global-scope-fixture table:credit_wallets: isolated per-test random team owner; asserts actual rollback and exact grant totals.
 import {randomUUID} from "node:crypto";
 import {afterAll,beforeAll,beforeEach,expect,it} from "vitest";
-import {asOwner,ensureDatabase,migrateOnce,resetOrgs,seedOrg} from "../support/db";
+import {asApp,asOwner,ensureDatabase,migrateOnce,resetOrgs,seedOrg} from "../support/db";
 import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {EnterpriseCreditGrant} from "../../src/infrastructure/billing/enterprise-credit-grant";
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {toOrgId} from "../../src/domain/org-id";
+const ownedIds:string[]=[];
 let org=toOrgId("enterprise-grant-6108");let db:PgDatabase;let grants:EnterpriseCreditGrant;
 beforeAll(async()=>{ensureDatabase();await migrateOnce();await asOwner(c=>c.query(readFileSync(new URL("../../provisioning/platform-org-catalog.sql",import.meta.url),"utf8")));db=new PgDatabase(appConfig());grants=new EnterpriseCreditGrant(db);},180000);
 beforeEach(async()=>{
  org=toOrgId(`enterprise-6108-${randomUUID()}`);
- await resetOrgs(org);await seedOrg({orgId:org,projectId:`${org}-project`});
+ await resetOrgs(org);await seedOrg({orgId:org,projectId:`${org}-project`});ownedIds.push(org);
  await asOwner(async c=>{await c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=now() WHERE singleton=true",[generation]);await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'operator',$2)",[org,generation]);});
 });
-afterAll(async()=>{await db?.close();});
+afterAll(async()=>{await db?.close();console.info("[enterprise-fixture-retention] immutable financial rows retained only for these owned IDs until isolated DB destruction",JSON.stringify(ownedIds));});
 it("actual wallet, ledger and immutable grant audit commit once",async()=>{
  await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance,total_granted) VALUES('team',$1,0.09,0.09)",[org]));
  const input={credits:23,reason:"approved allowance",idempotencyKey:"pg-attempt-00000001"};const first=await grants.grant(org,"operator",input);expect(await grants.grant(org,"operator",input)).toEqual(first);
@@ -72,4 +73,20 @@ it("platform detail hydrates active Enterprise from the same real wallet",async(
  const result=await repository.detail(org,"operator");expect(C.operations.getOrganization.out.safeParse(result).success).toBe(true);
  const page=await repository.list({search:String(org),limit:25},"operator");expect(C.operations.listOrganizations.out.safeParse(page).success).toBe(true);expect(page.organizations[0]?.billingSummary?.wallet.balance).toBe(61);
  expect(result.organization.billingSummary).toMatchObject({licenseStatus:"enterprise",teamPayment:null,planVersion:1,generation,wallet:{balance:61,permanentBalance:61,subscriptionCredits:0,totalGranted:61}});
+});
+
+it("owner tenant teardown preserves immutable financial history and cannot restore deleted organization rights",async()=>{
+ const {PgEnterpriseUpgradeStore}=await import("../../src/infrastructure/billing/enterprise-upgrade-store");const {EnterpriseUpgrade}=await import("../../src/application/billing/enterprise-upgrade");const {EnterpriseNoPaidTeamAdapter}=await import("../../src/infrastructure/billing/enterprise-no-paid-team");
+ const service=new EnterpriseUpgrade(new PgEnterpriseUpgradeStore(db),new EnterpriseNoPaidTeamAdapter(db));const operation=await service.upgrade(org,"operator",{expectedPlanVersion:1,idempotencyKey:"retention-upgrade-001"});expect(operation.status).toBe("succeeded");
+ const receipt=await grants.grant(org,"operator",{credits:5,reason:"retained financial history",idempotencyKey:"retention-grant-0001"});
+ const other=toOrgId(`${org}-other`);await seedOrg({orgId:other,projectId:`${other}-project`});ownedIds.push(other);await asOwner(c=>c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by,billing_generation) VALUES($1,'enterprise',1,'operator',$2)",[other,generation]));await grants.grant(other,"operator",{credits:9,reason:"other organization",idempotencyKey:"other-grant-0000001"});
+ async function snapshot(owner:string){return asOwner(async c=>({orgs:(await c.query("SELECT count(*)::int AS n FROM organizations WHERE id=$1",[owner])).rows[0].n,wallets:(await c.query("SELECT balance::text,total_granted::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[owner])).rows,audits:(await c.query("SELECT id,audit_ref,receipt FROM enterprise_credit_grants WHERE org_id=$1 ORDER BY id",[owner])).rows,ledgers:(await c.query("SELECT txn_id,credits::text,balance_after::text FROM credit_transactions WHERE wallet_id IN(SELECT wallet_id FROM credit_wallets WHERE owner_type='team' AND owner_id=$1) ORDER BY txn_id",[owner])).rows,operations:(await c.query("SELECT operation_ref,result FROM enterprise_upgrade_operations WHERE org_id=$1 ORDER BY operation_ref",[owner])).rows}));}
+ const before=await snapshot(org),otherBefore=await snapshot(other);
+ async function immutable(){
+  for(const sql of ["UPDATE enterprise_credit_grants SET reason='forged' WHERE id=$1","DELETE FROM enterprise_credit_grants WHERE id=$1"])await expect(asOwner(c=>c.query(sql,[receipt.grantRef]))).rejects.toMatchObject({code:"P0001"});
+  for(const sql of ["UPDATE enterprise_credit_grants SET reason='forged' WHERE id=$1","DELETE FROM enterprise_credit_grants WHERE id=$1"])await expect(asApp(org,c=>c.query(sql,[receipt.grantRef]))).rejects.toMatchObject({code:"42501"});
+ }
+ await immutable();await resetOrgs(org);await immutable();
+ expect(await snapshot(org)).toEqual({...before,orgs:0});expect(await snapshot(other)).toEqual(otherBefore);
+ await expect(grants.grant(org,"operator",{credits:1,reason:"deleted organization",idempotencyKey:"deleted-grant-0001"})).rejects.toMatchObject({code:"ORGANIZATION_NOT_FOUND"});await expect(service.operation(org,operation.operationRef)).rejects.toMatchObject({code:"ORGANIZATION_NOT_FOUND"});await expect(service.upgrade(org,"operator",{expectedPlanVersion:1,idempotencyKey:"retention-upgrade-001"})).rejects.toMatchObject({code:"ORGANIZATION_NOT_FOUND"});
 });

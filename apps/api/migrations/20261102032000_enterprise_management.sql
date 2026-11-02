@@ -1,6 +1,8 @@
 -- Enterprise generation is stored only in organization_plans (capacity migration).
+-- Financial history intentionally outlives an organization, like wallet/ledger records.
+-- Live writers establish existence under the epoch -> organization row lock.
 CREATE TABLE enterprise_credit_grants (
- id text PRIMARY KEY, org_id text NOT NULL REFERENCES organizations(id), generation text NOT NULL,
+ id text PRIMARY KEY, org_id text NOT NULL, generation text NOT NULL,
  idempotency_key text NOT NULL, actor_id text NOT NULL,
  credits integer NOT NULL CHECK(credits BETWEEN 1 AND 1000000),
  reason text NOT NULL CHECK(length(btrim(reason)) BETWEEN 1 AND 500),
@@ -17,7 +19,7 @@ CREATE TRIGGER enterprise_credit_grants_append_only BEFORE UPDATE OR DELETE ON e
  FOR EACH ROW EXECUTE FUNCTION platform_org_access_append_only();
 SELECT kernel_apply_org_freeze_policies();
 CREATE TABLE enterprise_upgrade_operations (
- org_id text NOT NULL REFERENCES organizations(id), operation_ref text NOT NULL,
+ org_id text NOT NULL, operation_ref text NOT NULL,
  actor_id text NOT NULL, idempotency_key text NOT NULL, expected_version integer NOT NULL,
  generation text NOT NULL, result jsonb NOT NULL,
  PRIMARY KEY(org_id,operation_ref), UNIQUE(org_id,idempotency_key)
