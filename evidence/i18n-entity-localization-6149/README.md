@@ -29,7 +29,8 @@ of the original source and version/file snapshot (bytes, paths and digests).
 - `avatar-tests.txt`: two final avatar/locale tests passed after that follow-up.
 - `synced-ui-tests.txt`: all 83 focused UI/client regressions passed after parent sync
   at `cae29cfd7`, with one worker.
-- `synced-api-tests.txt`: all 41 API tests passed on that integrated head, including
+- [`synced-api-tests.txt`](../i18n-localization-storage-6143/synced-api-tests.txt):
+  all 41 API tests passed on that integrated head, including
   11 real PostgreSQL and four real HTTP cases. The shared isolation wrapper released
   its own stack in under one second. Expected 403/404/409/422 branches are logged.
 
