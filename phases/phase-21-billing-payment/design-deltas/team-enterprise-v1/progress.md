@@ -17,3 +17,11 @@ fd检查点：共享个人日历逐字移动/旧API路径同函数转发，修�
 PR6101此前由外部操作转ready入队，已按明确指示正常dequeue、恢复Draft，核对后精确lease推fd；公开说明issuecomment-6567452969。当前不得重新排队未完成设计。后续保存新检查点、精确SHA独立一致性复核，最终验证后一次性请求整束人工签核。
 
 真实Team销售前硬前置：所有组织成员入口容量锁/并发；total_granted及所有授予/读取路径小数精度迁移；真实支付、保留已付9窗worker和AI准入等验证。当前这些仍是coverage.md的验收计划，不称为已通过。
+
+## 最终设计检查点
+
+0dca410445ac68f15bd06a3ec8339048e93283eb已独立设计一致性ACCEPT，三项P2闭环、五图独立目视；最终Team/平台UI34、browser7零财务HTTP/cleanup1s、平台实际权限/PG14/cleanup4s、proposal19及类型lint6全通过。前次类型TS2307通过复用同一object schema修复；旧中间态11任务结果不覆盖提案目录依赖，以最终6任务为准。原失败保留。证据design-gaps。
+
+全部三件材料和增量UI已齐，待一次整束人类签核；S4 tested/S5 done/S6 todo。没有把设计审查改写成人签，也没有Team运行时假passing。下一步签核后按implementation-slices逐项实施，先容量/PG精度等硬前置，再开放Team。
+
+2026-11-02T03:10:53Z PR6101旧fd再次由usersyj转ready，03:11:01及03:12:54入队。已正常dequeue、restoreDraft，再次dequeue后动态确认Draft=true/queue=null/autoMerge=null；disable-auto因未启用明确拒绝，不存在残留自动合并请求。时间线无法区分共用同账号的真实操作者；merge_group工作流在入队之后触发，不能倒因为果称其为入队者。已通知上级并在PR/issue明确整束pending禁止入队，不改全局队列规则、不打断其他PR。
