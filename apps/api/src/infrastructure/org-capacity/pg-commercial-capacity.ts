@@ -4,8 +4,11 @@ import { BILLING_ACCOUNTING_GENERATION, BILLING_PRICING_EPOCH_LOCK } from "../..
 import { requireActivePricingEpoch } from "../billing/personal-pricing-epoch";
 
 /** Every license writer and member admission uses epoch -> org -> plan/license -> wallet. */
-export async function lockOrganizationCapacity(s: TenantSession, orgId: string): Promise<void> {
+export async function lockCapacityEpoch(s: TenantSession): Promise<void> {
   await s.query("SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))", [BILLING_PRICING_EPOCH_LOCK]);
+}
+export async function lockOrganizationCapacity(s: TenantSession, orgId: string): Promise<void> {
+  await lockCapacityEpoch(s);
   const org = await s.query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE", [orgId]);
   if (!org.rows.length) throw new Error("Organization capacity unavailable");
 }

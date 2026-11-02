@@ -1,3 +1,4 @@
+import { lockCapacityEpoch, lockOrganizationCapacity, commercialSeatAvailable, readCommercialCapacity } from "../org-capacity/pg-commercial-capacity";
 /**
  * `OrgInviteRepository` on PostgreSQL —— **I-1 与 I-2 真正住在这个文件里**。
  *
@@ -105,6 +106,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
   async create(input: CreateOrgInviteInput): Promise<CreateOrgInviteResult> {
     try {
       return await this.db.withTenant(input.orgId, async (s) => {
+        await lockOrganizationCapacity(s, input.orgId);
         // (1) 已经是成员的人不能被邀请（`INVITE_ALREADY_MEMBER`，引导去登录）。
         //
         // ⚠ 这一步与 (2) 的顺序不能反。反过来的话，一个已是成员的邮箱会先撞上
@@ -158,24 +160,29 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
         // ⚠ 座位数是**数出来的**，不是存出来的：count(org_memberships) + count(未失效
         //   org_invites)。没有第二本账本要跟这两张表保持同步——那正是本仓五次
         //   「同一事实两处声明」漂移的形状，这里刻意不重蹈。
-        const quota = await s.query<{ seat_quota: string }>(
-          `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
-          [input.orgId],
-        );
-        const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
-        const usedMembers = await s.query<{ n: string }>(
-          `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
-          [input.orgId],
-        );
-        const usedInvites = await s.query<{ n: string }>(
-          `SELECT count(*)::text AS n FROM org_invites
-            WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
-          [input.orgId],
-        );
-        const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
-        // I-9 逐字：「组织未分配额度为 0 时一律失败，且不产生任何 OrgInvite 行」——
-        // 这条判断必须发生在下面的 INSERT **之前**，本函数到这里为止还没有写过任何行。
-        if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+        const commercial = await readCommercialCapacity(s, input.orgId);
+        if (commercial.kind === "invalid") throw new Rollback("quota-exhausted");
+        // Commercial invitations reserve nothing; admission checks actual memberships.
+        if (commercial.kind === "legacy") {
+          const quota = await s.query<{ seat_quota: string }>(
+            `SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`,
+            [input.orgId],
+          );
+          const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
+          const usedMembers = await s.query<{ n: string }>(
+            `SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`,
+            [input.orgId],
+          );
+          const usedInvites = await s.query<{ n: string }>(
+            `SELECT count(*)::text AS n FROM org_invites
+              WHERE org_id = $1 AND status IN ('pending', 'awaiting-review', 'send-failed')`,
+            [input.orgId],
+          );
+          const usedSeats = Number(usedMembers.rows[0]?.n ?? 0) + Number(usedInvites.rows[0]?.n ?? 0);
+          // I-9 逐字：「组织未分配额度为 0 时一律失败，且不产生任何 OrgInvite 行」——
+          // 这条判断必须发生在下面的 INSERT **之前**，本函数到这里为止还没有写过任何行。
+          if (usedSeats >= seatQuota) throw new Rollback("quota-exhausted");
+        }
 
         // (2) 邀请行。并发第二路在这里撞 `org_invites_live_uniq`（I-5）。
         //
@@ -269,7 +276,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
       const grant = await this.db.withoutTenant((s) => this.activateAll(s, input));
       return { ok: true, grant };
     } catch (e) {
-      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member")) {
+      if (e instanceof Rollback && (e.reason === "not-found" || e.reason === "already-member" || e.reason === "quota-exhausted")) {
         return { ok: false, reason: e.reason };
       }
       throw e;
@@ -277,6 +284,7 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
   }
 
   private async activateAll(s: TenantSession, input: ActivateOrgInviteInput) {
+    await lockCapacityEpoch(s);
     // (1) 核销令牌 —— 条件 UPDATE，一条语句同时判「存在 / 未核销 / 未过期」。
     //
     // 三种失效在同一个 WHERE 里，所以它们**由构造**产生同一个零行结果（V10），
@@ -316,6 +324,13 @@ export class PgOrgInviteRepository implements OrgInviteRepository {
     // ⚠ `invite.email` 到此为止：它只在下面 (4) 里当 INSERT 的参数用，
     //   不进返回值。ALLOWLIST 里那条例外的前提就是这一点（见文件头）。
     const actual = { orgId: invite.org_id, orgRole: invite.org_role, teamId: invite.team_id };
+
+    await lockOrganizationCapacity(s, orgId);
+    if (input.existingUserId !== null) {
+      const existing = await s.query("SELECT 1 FROM org_memberships WHERE org_id=$1 AND user_id=$2", [orgId,input.existingUserId]);
+      if (existing.rows.length) throw new Rollback("already-member");
+    }
+    if (await commercialSeatAvailable(s, orgId) === false) throw new Rollback("quota-exhausted");
 
     // (4) 账号。新账号在这条路径上**直接是已验证的**——O-28 ⑤：点击一次性激活链接
     //     即足以证明邮箱所有权，不再二次发信。

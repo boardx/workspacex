@@ -1,6 +1,6 @@
 # Organization commercial capacity — #6107
 
-Baseline: `fc12ccb98` (canonical schema/helper and corrected real-PG tests; no member entry integration).
+Baseline: `2c3b48730` (canonical schema/helper and corrected real-PG tests; no member entry integration).
 Design dependency: `8e07cd7d82c6491f3d8a91431f0f8ca805ec4257`, merged locally explicitly; business PR targets develop after dependency integration.
 
 ## Current evidence
@@ -31,4 +31,11 @@ All org roles (`admin`, `lead`, `consultant`, `compliance`) count through `count
 
 ## Remaining work
 
-Correct-fixture PG baseline red → apply member-entry patch → identical test green → expand cross-entry/role/rollback regressions and HTTP evidence → independent exact-SHA security/feature review → separate PR and normal CI. Nothing in this evidence marks the feature passing or enables Team sales.
+PG baseline red and identical test green completed (3/3); expand role/permission/last-admin/dual-review regressions and HTTP evidence → independent exact-SHA security/feature review → separate PR and normal CI. Nothing in this evidence marks the feature passing or enables Team sales.
+
+## Real business red / green
+
+- Baseline `2c3b48730` + the committed PG test: 3 genuine assertion failures (`pg-business-red.txt`): invitation incorrectly blocked at legacy quota zero; all 3 concurrent joins accepted instead of 1; full organization accepted project activation instead of quota rejection. Earlier fixture failures are excluded from this claim.
+- Applied `member-entry.patch` only in this worker tree, then an independent Vitest process on the same owned isolated PG: 3/3 passed (`pg-green.txt`), 5.23s. Same test assertions and fixture version.
+- Wrapper stack `wsx-be57b584690acd41508a` exited 0 and removed its owned compose resources. 266 seconds normal resource admission; no fallback or bypass. Cold migration repeated only once for this wrapper, then corrected fixture replays and green reused that isolated database.
+- Test account identities use random run suffixes so sequential independent processes cannot reuse credentials or welcome wallets.

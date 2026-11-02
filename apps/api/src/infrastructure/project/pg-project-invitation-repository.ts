@@ -1,3 +1,4 @@
+import { lockOrganizationCapacity, commercialSeatAvailable } from "../org-capacity/pg-commercial-capacity";
 /**
  * `ProjectInvitationRepository` 的 PostgreSQL 实现（#4787 通用项目邀请）。
  *
@@ -420,6 +421,8 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
         const email = isEmailKind ? row.email : cmd.linkEmail;
         if (email === null) throw new Rollback("email-required");
 
+        await this.assertSeatAvailable(s, orgId);
+
         try {
           await s.query(
             `INSERT INTO credentials (user_id, email, display_name, password_hash, email_verified_at)
@@ -431,7 +434,6 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
           throw e;
         }
 
-        await this.assertSeatAvailable(s, orgId);
         await this.insertOrgMembership(s, cmd.userId, orgId);
         await this.insertCollaborator(s, cmd.userId, row);
 
@@ -482,6 +484,7 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
     if (hit === undefined) return null;
     // ⚠ `org_id_hint` 到此为止：它决定去哪个租户里找，不决定答案是什么。
     await s.query("SELECT set_config('app.current_org', $1, true)", [hit.org_id_hint]);
+    if (lock) await lockOrganizationCapacity(s, hit.org_id_hint);
 
     const res = await s.query<InvitationRow & { project_name: string; inviter_name: string }>(
       `SELECT i.id, i.org_id, i.project_id, i.kind, i.email, i.status, i.expires_at, i.accepted_by,
@@ -545,6 +548,10 @@ export class PgProjectInvitationRepository implements ProjectInvitationRepositor
    * 已是成员的人不占新座位，调用方只在要新增组织成员时才调。
    */
   private async assertSeatAvailable(s: TenantSession, orgId: OrgId): Promise<void> {
+    await lockOrganizationCapacity(s, orgId);
+    const available = await commercialSeatAvailable(s, orgId);
+    if (available === false) throw new Rollback("quota");
+    if (available === true) return;
     const quota = await s.query<{ seat_quota: string }>(`SELECT seat_quota FROM organizations WHERE id = $1 FOR UPDATE`, [orgId]);
     const seatQuota = Number(quota.rows[0]?.seat_quota ?? 0);
     const members = await s.query<{ n: string }>(`SELECT count(*)::text AS n FROM org_memberships WHERE org_id = $1`, [orgId]);
