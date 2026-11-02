@@ -37,7 +37,7 @@ flowchart TD
   class S3 done
   class S4 tested
   %% evidence S4: 72项测试、真实浏览器与正常pre-push25项静态门通过，evidence/i18n-foundation-6134/
-  class S5 todo
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
