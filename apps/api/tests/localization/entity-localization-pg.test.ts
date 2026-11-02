@@ -1,12 +1,17 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ensureDatabase, migrateOnce, seedOrg, resetOrgs, asApp, asOwner } from "../support/db";
+import { wave2Runtime } from "@repo/contracts";
 import { SUPPORTED_LOCALES } from "@repo/contracts/locale";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgEntityLocalizationRepository } from "../../src/infrastructure/localization/pg-entity-localization-repository";
 import { decideCapabilityVisibility } from "../../src/domain/identity/capability-listing";
 import type { LocalizationVisibilityFacts } from "../../src/application/localization/entity-localization";
+import { insertAgentVersionFromDraft } from "../../src/infrastructure/agent/agent-version-insert";
+import { PgSkillStarterImportRepository } from "../../src/infrastructure/skill/pg-skill-starter-import-repository";
+import { verifySkillStarterPack } from "../../src/domain/skill/starter-pack";
+import { toOrgId } from "../../src/domain/org-id";
 
 let db: PgDatabase;
 let repository: PgEntityLocalizationRepository;
@@ -35,6 +40,37 @@ beforeEach(async () => {
     VALUES ($1,$2,'test-localization','探索','enabled','translator',now(),now())`, [entityId, org]));
 });
 describe("durable display translations under tenant RLS", () => {
+  it("preserves a published null avatar when the draft acquires unpublished alt text", async () => {
+    const agentId = `loc-avatar-${randomUUID()}`, versionId = `loc-avatar-version-${randomUUID()}`;
+    await asApp(org, async c => {
+      await c.query(`INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at,instructions)
+        VALUES($1,$2,'avatar-null','Published agent','enabled','translator',now(),now(),'original instructions')`, [agentId, org]);
+      await insertAgentVersionFromDraft(c, { orgId: org, agentId, versionId, semanticLabel: "1.0.0", instructions: "original instructions",
+        instructionDigest: createHash("sha256").update("original instructions").digest("hex"), skillVersionIds: [],
+        modelProvider: "configured", modelId: "configured-model", toolPolicy: [], creatorId: "translator", at: new Date().toISOString() });
+      await c.query("UPDATE agents SET published_version_id=$3,avatar=$4::jsonb WHERE org_id=$1 AND id=$2",
+        [org, agentId, versionId, JSON.stringify({ kind: "illustration", key: "person-1", alt: "Unpublished private draft avatar" })]);
+    });
+    const target = { ...request(), kind: "agent" as const, entityId: agentId };
+    expect((await repository.get(target))?.source.fields.avatarAlt).toBeNull();
+    const display = (await repository.displays(org, "agent", [agentId], "en")).get(agentId);
+    expect(display?.fields.avatarAlt.value).toBeNull();
+    expect(JSON.stringify(display)).not.toContain("Unpublished private draft avatar");
+  });
+  it("retains valid original descriptions beyond the translation authoring budget", async () => {
+    const summary = "s".repeat(5000), bytes = Buffer.from("# Original source instructions\n");
+    const sha = (value: string | Buffer) => createHash("sha256").update(value).digest("hex");
+    const unsigned = wave2Runtime.UnsignedSkillStarterPack.parse({ schemaVersion: 1, packId: "long-source-description", packVersion: "1.0.0", skills: [{
+      stableName: "long-source-description", name: "Original description", semanticVersion: "1.0.0", manifest: { description: summary },
+      files: [{ path: "SKILL.md", mediaType: "text/markdown", contentBase64: bytes.toString("base64"), digest: sha(bytes) }],
+    }] });
+    const pack = verifySkillStarterPack({ ...unsigned, packDigest: sha(JSON.stringify(unsigned)) }, unsigned);
+    const imported = await new PgSkillStarterImportRepository(db).persistVerified({ orgId: toOrgId(org), actorId: "translator", idempotencyKey: randomUUID(), payloadDigest: sha(pack.packDigest), pack });
+    if (imported.kind !== "created") throw Error("source import failed");
+    const id = imported.result.skillIds[0]!;
+    expect((await repository.get({ ...request(), entityId: id }))?.source.fields.summary).toBe(summary);
+    expect((await repository.displays(org, "skill", [id, entityId], "en")).get(id)?.fields.summary.value).toBe(summary);
+  });
   it("persists a reviewed translation and projects it without rewriting original content", async () => {
     expect((await repository.put(await initialWrite())).kind).toBe("ok");
     expect((await repository.displays(org, "skill", [entityId], "en")).get(entityId)?.fields.name.value).toBe("Discovery");

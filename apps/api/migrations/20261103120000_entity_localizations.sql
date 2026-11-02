@@ -89,10 +89,12 @@ FROM (
   UNION ALL
   SELECT 'agent'::text,a.id,a.org_id,a.name,a.source_locale,a.updated_at,v.id,
          NULL::text,cl.duty,a.role_label,
-         CASE WHEN jsonb_typeof(COALESCE(v.avatar,a.avatar)->'alt')='string' THEN COALESCE(v.avatar,a.avatar)->>'alt' ELSE NULL END,
+         CASE WHEN jsonb_typeof(visible_avatar.value->'alt')='string' THEN visible_avatar.value->>'alt' ELSE NULL END,
          COALESCE(cl.scope,a.visibility,'org-wide'),cl.owner_team_id
     FROM agents a
     LEFT JOIN agent_versions v ON v.id=a.published_version_id AND v.org_id=a.org_id AND v.agent_id=a.id
+    -- A published NULL avatar is intentional; never disclose a newer draft fallback.
+    LEFT JOIN LATERAL (SELECT CASE WHEN a.published_version_id IS NULL THEN a.avatar ELSE v.avatar END AS value) visible_avatar ON true
     LEFT JOIN capability_listings cl ON cl.id=a.id AND cl.org_id=a.org_id AND cl.kind='agent'
 ) s;
 GRANT SELECT ON entity_localization_sources TO app_rw;

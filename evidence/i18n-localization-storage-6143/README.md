@@ -40,3 +40,15 @@ remains. `legacy-upgrade-tests.txt` records both real PostgreSQL upgrades passin
 under the normal isolation wrapper (owned stack cleaned in zero seconds);
 `recovery-scope-tests.txt` records both scope tests passing after a failing reproduction.
 These receipts do not claim the separate full simulation suite has passed.
+
+PR review follow-up: `published-avatar-red.txt` isolates the real published-null
+avatar counterexample (one failing test; the other 12 deliberately filtered out).
+The view now chooses published avatar data whenever a published version is selected,
+including NULL; a newer draft cannot leak through COALESCE.
+`published-avatar-summary-green.txt` records all 13 PostgreSQL cases passing after
+the fix, including the original 11 and a 5,000-character source-description read
+through both administration and batched display. Original descriptions remain
+verbatim under the unbounded source contract from `36c66f057`; translated copy
+retains its separate authoring budget. Initial long-description fixture attempts
+were corrected to hash schema-canonical unsigned package ordering before verification;
+only the focused avatar counterexample and final full pass are claimed here.
