@@ -2,8 +2,10 @@ import { z } from "zod";
 import { Locale } from "./locale";
 
 const Revision = z.string().trim().min(1).max(255);
-const Text = z.string().max(4000).nullable();
-const TranslationText = Text.transform((value) => value === null || value.trim() === "" ? null : value);
+// Existing originals may exceed the authoring budget; retain them verbatim on reads.
+const Text = z.string().nullable();
+const TranslationText = Text.refine(value => value === null || value.length <= 4000, "translation exceeds 4000 characters")
+  .transform((value) => value === null || value.trim() === "" ? null : value);
 export const EntityKind = z.enum(["skill", "agent"]);
 export const LocalizationStatus = z.enum(["draft", "reviewed"]);
 

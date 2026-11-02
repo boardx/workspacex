@@ -13,6 +13,12 @@ const translation = {
   fields: { name: "Product discovery", summary: null },
 };
 describe("source-safe entity display localization", () => {
+  it("preserves long valid legacy originals while bounding new translation writes", () => {
+    const duty = "原文".repeat(3000);
+    const original = { ...source, fields: { ...source.fields, duty } };
+    expect(resolveEntityDisplay(original, "en").fields.duty.value).toBe(duty);
+    expect(EntityLocalizationWrite.safeParse({ sourceRevision: "v1", expectedTranslationRevision: null, status: "draft", fields: { duty } }).success).toBe(false);
+  });
   it("localizes only explicit fields and preserves the source object", () => {
     const before = structuredClone(source);
     const display = resolveEntityDisplay(source, "en", translation);
