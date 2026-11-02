@@ -1,0 +1,44 @@
+# Agent / Skill display translation acceptance — #6149
+
+The browser receipt covers UI commit `0fc68abea58601b4c260c4d6120a5545fc9314ef`.
+The subsequent parent synchronization keeps the reviewed UI behavior and incorporates
+the shared Locale type and compatibility expansion for long original read text.
+
+Command (exit 0):
+
+```sh
+CIRCLE_NODE_TOTAL=2 pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.entity-localization.config.ts
+```
+
+Next production build, type validation and all 130 static pages succeeded. One
+browser test passed in 9.5 seconds; total lane time was 6m9s including build/setup.
+`CIRCLE_NODE_TOTAL=2` uses the installed Next 14 worker-count input to generate
+pages with one worker; it does not change build mode, assertions or timeout.
+
+The test uses actual login, Next proxy, Nest controllers and PostgreSQL. It imports
+the repository's unchanged v1 `work-research@1.0.1` pack, authors an English name
+and summary through the admin editor, and finds that translation in the member
+catalog. It verifies language switching, absence of the member admin entry, HTTP
+403 for member administration, clearing back to the original, and exact equality
+of the original source and version/file snapshot (bytes, paths and digests).
+
+- `admin-translation.png`: readonly originals alongside editable English copy.
+- `member-translation.png`: member search and detail show the translated content.
+- `browser.log`: complete successful lane receipt; expected member 403 is exercised.
+- `ui-tests.log`: 43 focused tests passed before the avatar review follow-up.
+- `avatar-tests.log`: two final avatar/locale tests passed after that follow-up.
+
+Independent review of `28d926f38..75a7cc012` found one missing avatarAlt consumer.
+It was reproduced with a failing accessible-label assertion and fixed in directory,
+detail and visible delegation-target avatars. Re-review of `75a7cc012..0fc68abea`
+found no remaining actionable issue. Reviewer performed read-only inspection;
+execution receipts above were produced by the implementer.
+
+The original config-merging attempt selected inherited projects and was interrupted
+with exit 130; it is not a passing receipt. The corrected config's `--list` collects
+exactly one test. Both isolated runs released their own Compose stacks and locks;
+the successful wrapper reports teardown in one second.
+
+This slice provides display translation authoring and consumption. Built-in authored
+bilingual package metadata and portable import/export remain tracked in #6156.
+Untranslated surrounding static UI belongs to the parallel application-copy work.
