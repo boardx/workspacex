@@ -9,7 +9,14 @@
     "components/**/*.tsx",
     "lib/**/*.ts",
     "lib/**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    ".next-chat-read-e2e/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "__fixtures__", "e2e", "tests", "scripts"]
+  "exclude": [
+    "node_modules",
+    "__fixtures__",
+    "e2e",
+    "tests",
+    "scripts"
+  ]
 }

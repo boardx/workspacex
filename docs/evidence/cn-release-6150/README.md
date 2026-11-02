@@ -15,7 +15,7 @@ entrypoint, sudo permission, approved-success receipt, or automatic SQL policy.
 
 The old installed schema writer/verifier are fixed to that prior tag and an
 expired capability. Reusing the new artifact was routed to this obsolete adapter.
-No new production migration or image switch has been executed in this work.
+No new production migration or image switch has been accepted in this work.
 
 `reconcile-prewrite.py` targets only that failed intent. It holds the canonical
 lock and verifies wrapper/closure pins, fixed-tag refusal, no writer reservation
@@ -53,13 +53,27 @@ all five image builds and the immutable manifest succeeded. Downloaded manifest
 readback bound tag41521008088-1 to sourcefe961032e and all five registry digests.
 Deployment was intentionally skipped (build_only); production acceptance is outstanding.
 
-Browser tool subsequently reported the Mac locked. The reconciliation script was
-**not staged or executed**. No production write, maintenance hold, new capability
-installation, migration, candidate activation or final browser acceptance occurred.
-The user has a pending unlock request. Keep #6150/#6079 open until actual acceptance.
+After the user unlocked the Mac, the exact pre-writer failure was reconciled on
+CN with `databaseWrites=false`. The pending intent was archived only after full
+ledger/runtime/closure checks and fsynced evidence. The independently reviewed
+23-file closure was installed in a separate root-private directory; the original
+configuration was retained before binding the new writer/verifier. Read-only input
+preparation succeeded for438 baseline entries and11 exact additions. No production
+activation has been accepted yet.
 
-Operational proposal regression: four offline tests passed, covering exact SQL
+The first actual dispatch41528359067 was rejected by the production-cn environment
+branch rule before any runner/step was assigned. This is not a server migration
+failure. Dispatch41528982696 uses the allowed develop workflow and the same immutable
+tag; its actual production outcome remains outstanding.
+
+Operational proposal regression: five offline tests passed, covering exact SQL
 byte/extra-file rejection, actual JavaScript driver source/tag binding, and COMPLETE
 state refusal before reservation/hold/stop/replay; original-proof archive tampering
 and semantic failed-restore rejection. Bundle manifest SHA-256:
-`eb4d1f5c19c23208f605a7742a65bf27e13a9b91f5cde9ed81989a9337adf6b2`.
+`c4b65c012f5db61042ece8b18f500985512765ec0f296ceb91071b9aea47e3e1`.
+
+The compiler expands only the CLOSURE assignment; an AST regression preserves
+both one-argument old-probe paths. Independent review reproduced all five tests.
+The simulation ran1256 cases without failure but detected Next.js adding its
+existing chat-read fixture dist types to the release config. The release include
+now declares that build output explicitly so builds do not mutate tracked source.

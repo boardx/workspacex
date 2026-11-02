@@ -21,6 +21,12 @@ class FixedProposal(unittest.TestCase):
         cls.manifest=json.loads((cls.out/'bundle.json').read_text())
     @classmethod
     def tearDownClass(cls):cls.tmp.cleanup()
+    def test_closure_expansion_does_not_change_old_probe_path(self):
+        import ast
+        tree=ast.parse((self.out/'cn-reviewed-tag-prepare.py').read_text())
+        paths=[node for node in ast.walk(tree) if isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id=='str' and node.args and isinstance(node.args[0],ast.BinOp) and isinstance(node.args[0].right,ast.Constant) and node.args[0].right.value=='cn-tag-old-application-probe.py']
+        self.assertEqual(len(paths),2)
+        self.assertTrue(all(len(node.args)==1 for node in paths))
     def test_sql_bytes_from_frozen_artifact_are_required_and_tampering_refused(self):
         m=load(self.out/'schema-restore-rehearsal.py','core6150')
         files={n:subprocess.check_output(['git','show',self.manifest['source']+':apps/api/migrations/'+n],cwd=ROOT) for n in self.manifest['migrations']}

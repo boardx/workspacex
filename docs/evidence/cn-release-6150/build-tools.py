@@ -26,7 +26,7 @@ def build(output):
  # this is qualified separately below, not asserted by an operator boolean.
  extra_closure=(*extra,'cn-reviewed-backup-6150.py')
  for name in ('cn-reviewed-tag-prepare.py','cn-reviewed-tag-release.py'):
-  files[name]=files[name].replace("'cn-tag-old-application-probe.py')","'cn-tag-old-application-probe.py',"+','.join(repr(x) for x in extra_closure)+")")
+  files[name],n=re.subn(r"^CLOSURE=(.+)$",lambda match:"CLOSURE="+repr(tuple(ast.literal_eval(match[1]))+extra_closure),files[name],count=1,flags=re.M);assert n==1
  # prepare CLOSURE ends in old probe but its list is longer; require all extras.
  for name in ('cn-reviewed-tag-prepare.py','cn-reviewed-tag-release.py'):
   tree=ast.parse(files[name]);actual=next(ast.literal_eval(n.value) for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='CLOSURE' for t in n.targets))
