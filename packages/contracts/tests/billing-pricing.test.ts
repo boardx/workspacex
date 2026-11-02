@@ -14,8 +14,11 @@ describe("personal pricing contract design", () => {
     expect(PricingCatalog.safeParse({ ...catalog, market: "us" }).success).toBe(false);
     expect(PricingCatalog.safeParse({ ...catalog, products: [...catalog.products, catalog.products[0]] }).success).toBe(false);
   });
-  it("requires integer minor units and the confirmed Pro monthly entitlement", () => {
-    for (const patch of [{ amountMinor: 199.5 }, { amountMinor: -1 }, { monthlyCredits: 240000 }]) {
+  it("accepts configured monthly quantities while requiring bounded positive integers", () => {
+    for (const monthlyCredits of [23500, 240000]) {
+      expect(PricingCatalog.safeParse({ ...catalog, products: [{ ...catalog.products[0], monthlyCredits }] }).success).toBe(true);
+    }
+    for (const patch of [{ amountMinor: 199.5 }, { amountMinor: -1 }, { monthlyCredits: 0 }, { monthlyCredits: -1 }, { monthlyCredits: 1.5 }, { monthlyCredits: 2147483648 }]) {
       expect(PricingCatalog.safeParse({ ...catalog, products: [{ ...catalog.products[0], ...patch }] }).success).toBe(false);
     }
   });
@@ -34,6 +37,9 @@ describe("personal pricing contract design", () => {
       creditGrant: { status: "granted", grant: { credits: 20000, remainingCredits: 15000, periodStart: "2026-11-01T10:00:00Z", periodEnd: "2026-12-01T10:00:00Z" } },
     };
     expect(PricingSubscriptionInfo.safeParse(value).success).toBe(true);
+    const configuredGrant = { ...value.creditGrant.grant, credits: 23500, remainingCredits: 23456.78 };
+    expect(PricingSubscriptionInfo.safeParse({ ...value, creditGrant: { status: "granted", grant: configuredGrant } }).success).toBe(true);
+    expect(PricingSubscriptionInfo.safeParse({ ...value, creditGrant: { status: "granted", grant: { ...configuredGrant, remainingCredits: 23500.01 } } }).success).toBe(false);
     expect(PricingSubscriptionInfo.safeParse({ ...value, paymentProvider: "wechat" }).success).toBe(false);
     expect(PricingSubscriptionInfo.safeParse({ ...value, paymentProvider: "wechat", renewalMode: "manual", cancelAtPeriodEnd: true }).success).toBe(true);
     expect(PricingSubscriptionInfo.safeParse({ ...value, purchaseMode: "manual_monthly" }).success).toBe(false);
