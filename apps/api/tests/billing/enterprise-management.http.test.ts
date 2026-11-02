@@ -11,10 +11,10 @@ import {ensureRedis,seedCredential} from "../support/auth";
 const scope=randomUUID().slice(0,8),source=`enterprise-http-source-${scope}`,target=`enterprise-http-target-${scope}`;
 const operator=`operator-${scope}`,admin=`admin-${scope}`,password="Enterprise-Acceptance-6108!";
 const email=(user:string)=>`${user}@enterprise-http.test`;
-let originalEpoch:{generation:string|null;activated_at:Date|null}|undefined;
+let originalEpoch:{generation:string|null;activated_at:string|null}|undefined;
 let app:NestExpressApplication,base:string,operatorToken:string,adminToken:string;
 beforeAll(async()=>{
- ensureDatabase();ensureRedis();await migrateOnce();originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:Date|null}>("SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);
+ ensureDatabase();ensureRedis();await migrateOnce();originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:string|null}>("SELECT generation,activated_at::text AS activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);
  vi.stubEnv("NODE_ENV","test");vi.stubEnv("KERNEL_QUIET","1");vi.stubEnv("MAIL_OUTBOX_WORKER_ENABLED","0");vi.stubEnv("MODEL_CREDENTIAL_KEY","enterprise-http-isolated-test-key-6108");vi.stubEnv("PLATFORM_SUPERUSER_EMAILS",email(operator));
  for(const orgId of [source,target])await seedOrg({orgId,projectId:`${orgId}-project`});
  for(const userId of [operator,admin]){await seedCredential({userId,email:email(userId),password,emailVerified:true});await addOrgMember(source,userId,"admin",null);}

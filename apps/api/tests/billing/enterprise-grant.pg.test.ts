@@ -10,9 +10,9 @@ import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {EnterpriseCreditGrant} from "../../src/infrastructure/billing/enterprise-credit-grant";
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
 import {toOrgId} from "../../src/domain/org-id";
-const ownedIds:string[]=[];let originalEpoch:{generation:string|null;activated_at:Date|null}|undefined;
+const ownedIds:string[]=[];let originalEpoch:{generation:string|null;activated_at:string|null}|undefined;
 let org=toOrgId("enterprise-grant-6108");let db:PgDatabase;let grants:EnterpriseCreditGrant;
-beforeAll(async()=>{ensureDatabase();await migrateOnce();originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:Date|null}>("SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);await asOwner(c=>c.query(readFileSync(new URL("../../provisioning/platform-org-catalog.sql",import.meta.url),"utf8")));db=new PgDatabase(appConfig());grants=new EnterpriseCreditGrant(db);},180000);
+beforeAll(async()=>{ensureDatabase();await migrateOnce();originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:string|null}>("SELECT generation,activated_at::text AS activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);await asOwner(c=>c.query(readFileSync(new URL("../../provisioning/platform-org-catalog.sql",import.meta.url),"utf8")));db=new PgDatabase(appConfig());grants=new EnterpriseCreditGrant(db);},180000);
 beforeEach(async()=>{
  org=toOrgId(`enterprise-6108-${randomUUID()}`);
  await resetOrgs(org);await seedOrg({orgId:org,projectId:`${org}-project`});ownedIds.push(org);
