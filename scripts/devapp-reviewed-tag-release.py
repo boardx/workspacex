@@ -78,7 +78,7 @@ def bind(request_path,receipt_path,mode):
  need('expectedSchemaState' not in policy or 'resumeOriginal' in policy and type(policy['expectedSchemaState']) is str and policy['expectedSchemaState']=='COMPLETE','RESUME_CAPABILITY_REQUIRED')
  need(policy.get('kind')=='devapp-exact-eight-release-v1' and policy.get('source')==SOURCE and policy.get('tag')==TAG and policy.get('restoreNotPerformed') is True,'FIXED_CAPABILITY')
  need(type(policy.get('expiresAt')) is int and time.time()<policy['expiresAt']<=time.time()+3600,'POLICY_EXPIRED')
- pins=policy.get('closurePins');need(type(pins) is dict and set(pins)==set(CLOSURE),'EXACT_CLOSURE')
+ pins=policy.get('closurePins');need(type(pins) is dict and set(pins)==set(CLOSURE)|({'devapp-diagnostic-browser-probe.py'} if policy.get('diagnosticBrowser') is True else set()),'EXACT_CLOSURE')
  for name,checksum in pins.items():need(file_sha(trusted(HERE/name))==checksum,'CLOSURE_DRIFT')
  mods={n:load(n,pins) for n in ('minimal-docker-release','schema-restore-rehearsal','schema-tag-prepare','schema-release-handoff','us-tag-migration-adapter')}
  request=read(request_path);need(request.get('kind')=='schema-release-request-v1' and request.get('environment')=='devapp' and request.get('tag')==TAG and request.get('sourceRevision')==SOURCE and time.time()<request['expiresAt'],'REQUEST_IDENTITY')
@@ -200,7 +200,7 @@ def writer(ctx):
  core=ctx['mods']['schema-restore-rehearsal'];prep=ctx['mods']['schema-tag-prepare'];engine=ctx['mods']['minimal-docker-release'];act=load('tag-migrated-activation',ctx['p']['closurePins']);d=ctx['d'];p=ctx['p'];cfg=ctx['cfg'];attempt=ctx['attempt'];database=Database(ctx)
  need('expectedSchemaState' not in p or 'resumeOriginal' in p and type(p['expectedSchemaState']) is str and p['expectedSchemaState']=='COMPLETE','RESUME_CAPABILITY_REQUIRED')
  resume=validate_resume(ctx) if 'resumeOriginal' in p else None
- barrier=Path(cfg['stateDirectory'])/(('devapp-'+TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json') if resume else ('devapp-'+TAG+'-once.json'));need(not barrier.exists() and not barrier.is_symlink(),'CAPABILITY_ALREADY_SPENT')
+ barrier=Path(cfg['stateDirectory'])/(('devapp-'+TAG+'-activation-'+p['activationNonce']+'-once.json') if resume and 'resumePrevious' in p else ('devapp-'+TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json') if resume else ('devapp-'+TAG+'-once.json'));need(not barrier.exists() and not barrier.is_symlink(),'CAPABILITY_ALREADY_SPENT')
  old={s:p['baseline'][s]['imageId'] for s in cfg['services']};images={s:ctx['manifest']['images'][r]['imageId'] for s,r in cfg['services'].items()};rows=act.runtime_rows(d,cfg['project'],cfg['services'],old);need(all(x['Id']==p['baseline'][x['Config']['Labels']['com.docker.compose.service']]['containerId'] for x in rows),'BASELINE_CID')
  original=d.json(ctx['command']+['config','--format','json']);act.live_config_cas(engine,d,original,cfg['project'],rows,attempt)
  overlay=attempt/'candidate-images.json';rollback=attempt/'baseline-images.json';core.save(overlay,{'services':{s:{'image':v} for s,v in images.items()}});core.save(rollback,{'services':{s:{'image':v} for s,v in old.items()}})
@@ -241,12 +241,13 @@ def writer(ctx):
   except BaseException:failure['recovery']='OPERATOR_REQUIRED'
   failure['trafficControl']='stopped-five-applications';core.save(attempt/'failure.json',failure);raise
 
-def verify_business_proof(ctx,value,phase):
+def verify_business_proof(ctx,value,phase,now=None):
+ now=time.time() if now is None else now
  path=pinned(value);need(path.parent==ctx['attempt'] and path.name==phase+'-business.json','BUSINESS_ATTEMPT')
- v=read(path);need(v.get('command')==ctx['cfg']['verificationCommand'] and type(v.get('exitCode')) is int and v['exitCode']==0 and v.get('source')==SOURCE and v.get('tag')==TAG and type(v.get('createdAt')) in (int,float) and 0<=time.time()-v['createdAt']<600,'VERIFIER_BUSINESS')
+ v=read(path);need(v.get('command')==ctx['cfg']['verificationCommand'] and type(v.get('exitCode')) is int and v['exitCode']==0 and v.get('source')==SOURCE and v.get('tag')==TAG and type(v.get('createdAt')) in (int,float) and 0<=now-v['createdAt']<600,'VERIFIER_BUSINESS')
  if 'resumeOriginal' in ctx['p']:
   need(type(v.get('outcome')) is dict,'BUSINESS_OUTCOME_REQUIRED');outcome=pinned(v['outcome']);need(outcome.parent==ctx['attempt'] and outcome.name==phase+'-outcome.json','BUSINESS_OUTCOME_ATTEMPT');proof=read(outcome)
-  need(proof.get('phase')==phase and proof.get('source')==SOURCE and proof.get('tag')==TAG and proof.get('command')==ctx['cfg']['verificationCommand'] and proof.get('status')=='SUCCEEDED' and type(proof.get('exitCode')) is int and proof['exitCode']==0 and proof.get('processGroupOwned') is True and proof.get('ownedProcessGroupGone') is True and type(proof.get('createdAt')) in (int,float) and 0<=time.time()-proof['createdAt']<600,'BUSINESS_OUTCOME_NOT_TERMINAL')
+  need(proof.get('phase')==phase and proof.get('source')==SOURCE and proof.get('tag')==TAG and proof.get('command')==ctx['cfg']['verificationCommand'] and proof.get('status')=='SUCCEEDED' and type(proof.get('exitCode')) is int and proof['exitCode']==0 and proof.get('processGroupOwned') is True and proof.get('ownedProcessGroupGone') is True and type(proof.get('createdAt')) in (int,float) and 0<=now-proof['createdAt']<600,'BUSINESS_OUTCOME_NOT_TERMINAL')
 
 def verifier(ctx):
  handoff=ctx['mods']['schema-release-handoff'];result=read(ctx['receipt']);handoff.verify_receipt(ctx['request'],result);need(result.get('restoreNotPerformed') is True,'RESTORE_SCOPE')
@@ -339,7 +340,9 @@ def validate_resume(ctx):
  for phase in ('baseline-forward','recovery'):
   value=read(old/(phase+'-business.json'));need(value.get('source')==SOURCE and value.get('tag')==TAG and value.get('command')==original_command and type(value.get('exitCode')) is int and value['exitCode']==0,'RESUME_ORIGINAL_BUSINESS')
  backup_files(pinned({'path':str(old/'backup/database.pgdump.enc'),'sha256':files['backup/database.pgdump.enc']}),pinned({'path':str(old/'backup/backup.key'),'sha256':files['backup/backup.key']}))
- return {'attempt':str(old),'files':files,'once':spec['once'],'pendingArchive':spec['pendingArchive'],'scope':'explicit-complete-only-new-activation-attempt','originalFilesModified':False}
+ proof={'attempt':str(old),'files':files,'once':spec['once'],'pendingArchive':spec['pendingArchive'],'scope':'explicit-complete-only-new-activation-attempt','originalFilesModified':False}
+ if 'resumePrevious' in p:proof['previous']=validate_previous_resume(ctx)
+ return proof
 
 BROWSER_DIAG_PHASES={'start','launch','login','authenticated','chat','agent','file','artifact','sandbox','complete','done','startup','ready','navigation','conversation','task','result','logout','cleanup','login_fields','login_submit','authenticated_redirect','authenticated_notifications','application-pages','billing-contract'}
 BROWSER_DIAG_CODES={'TIMEOUT','BROWSER_TIMEOUT','NAVIGATION_TIMEOUT','LOGIN_FAILED','AUTH_FAILED','CHAT_FAILED','AGENT_FAILED','FILE_FAILED','ARTIFACT_FAILED','SANDBOX_FAILED','ASSERTION_FAILED','MODEL_CALL_FAILED','BROWSER_SMOKE_FAILED','BROWSER_SMOKE_PASSED','PASSED','FAILED'}
@@ -405,3 +408,20 @@ def resume_business_cleanup(ctx):
    if not (proof.get('phase')==phase and proof.get('source')==SOURCE and proof.get('tag')==TAG and proof.get('command')==ctx['cfg']['verificationCommand'] and proof.get('processGroupOwned') is True and proof.get('ownedProcessGroupGone') is True):return False
   except Exception:return False
  return True
+
+PREVIOUS_RESUME='attempt-8a00689f16f441dc814144c59ea60897'
+def validate_previous_resume(ctx):
+ p=ctx['p'];spec=p.get('resumePrevious');need(p.get('diagnosticBrowser') is True and type(p.get('activationNonce')) is str and re.fullmatch('[a-f0-9]{32}',p['activationNonce']) and type(spec) is dict and set(spec)=={'attempt','files','once'},'DIAGNOSTIC_RESUME_CAPABILITY')
+ old=Path(spec['attempt']);need(old==Path(ctx['cfg']['stateDirectory'])/PREVIOUS_RESUME and old!=ctx['attempt'] and old.is_dir() and not old.is_symlink() and old.stat().st_uid==os.geteuid() and not old.stat().st_mode&0o077,'PREVIOUS_RESUME_ATTEMPT')
+ files=spec['files'];need(type(files) is dict and 0<len(files)<=256,'PREVIOUS_RESUME_HISTORY_BOUND');actual={str(path.relative_to(old)) for path in old.rglob('*') if path.is_file() or path.is_symlink()};need(actual==set(files) and not any(name.startswith('migration-event-') for name in files) and 'candidate-business.json' not in files,'PREVIOUS_RESUME_FILESET')
+ for name,checksum in files.items():
+  relative=Path(name);need(not relative.is_absolute() and '..' not in relative.parts and file_sha(trusted(old/relative))==checksum,'PREVIOUS_RESUME_HISTORY_DRIFT')
+ required={'schema-request.json','schema-config.json','failure.json','candidate-once.json','candidate-outcome.json','baseline-forward-business.json','baseline-forward-outcome.json','recovery-business.json','recovery-outcome.json','backup/source.json','backup/database.pgdump.enc','backup/backup.key'};need(required<=set(files),'PREVIOUS_RESUME_HISTORY_INCOMPLETE')
+ oncepath=pinned(spec['once']);need(oncepath==Path(ctx['cfg']['stateDirectory'])/('devapp-'+TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json'),'PREVIOUS_RESUME_ONCE_PATH');once=read(oncepath);need(once.get('source')==SOURCE and once.get('tag')==TAG and once.get('request')=={'path':str(old/'schema-request.json'),'sha256':files['schema-request.json']},'PREVIOUS_RESUME_ONCE_BINDING')
+ request=read(old/'schema-request.json');need(request.get('environment')=='devapp' and request.get('sourceRevision')==SOURCE and request.get('tag')==TAG and request.get('config')=={'path':str(old/'schema-config.json'),'sha256':files['schema-config.json']},'PREVIOUS_RESUME_REQUEST')
+ previous_cfg=read(old/'schema-config.json');failure=read(old/'failure.json');need(failure.get('status')=='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA' and failure.get('schemaState')=='COMPLETE' and failure.get('sqlRollbackAttempted') is False,'PREVIOUS_RESUME_NOT_RECOVERED')
+ pseudo={'attempt':old,'cfg':previous_cfg,'p':{'resumeOriginal':{}}}
+ for phase in ('baseline-forward','recovery'):verify_business_proof(pseudo,{'path':str(old/(phase+'-business.json')),'sha256':files[phase+'-business.json']},phase,now=(old/(phase+'-business.json')).stat().st_mtime)
+ candidate=read(old/'candidate-outcome.json');need(candidate.get('phase')=='candidate' and candidate.get('source')==SOURCE and candidate.get('tag')==TAG and candidate.get('command')==previous_cfg['verificationCommand'] and candidate.get('status')=='RETURN_NONZERO' and type(candidate.get('exitCode')) is int and candidate['exitCode']==1 and candidate.get('processGroupOwned') is True and candidate.get('ownedProcessGroupGone') is True,'PREVIOUS_CANDIDATE_NOT_TERMINAL_NONZERO')
+ source=read(old/'backup/source.json');need(source.get('state')=='COMPLETE' and source.get('ledger')=={**p['baselineLedger'],**MIGRATIONS},'PREVIOUS_RESUME_LEDGER');check_epoch(source.get('epoch'),required=True);backup_files(pinned({'path':str(old/'backup/database.pgdump.enc'),'sha256':files['backup/database.pgdump.enc']}),pinned({'path':str(old/'backup/backup.key'),'sha256':files['backup/backup.key']}))
+ return {'attempt':str(old),'files':files,'once':spec['once'],'activationNonce':p['activationNonce'],'originalFilesModified':False}

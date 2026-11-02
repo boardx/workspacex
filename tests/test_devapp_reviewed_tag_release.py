@@ -44,7 +44,7 @@ class ExactRunnerContract(unittest.TestCase):
   source=P.read_text();self.assertIn('force:false,dir',source);self.assertIn("fs.mkdtempSync('/tmp/exact-eight-')",source);self.assertNotIn('force:true',source)
 
 class FullWriterStateMachine(unittest.TestCase):
- def exercise(self,failure=None,resume=False,initial_state=None):
+ def exercise(self,failure=None,resume=False,initial_state=None,diagnostic=False):
   import tempfile,json,types,contextlib
   from unittest.mock import patch
   m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);attempt=root/'attempt';attempt.mkdir();pending=root/'pending.json';pending.write_bytes(b'originalpending');events=[];state={'schema':initial_state or ('COMPLETE' if resume else 'BASELINE'),'images':{'api':'old'},'running':True};baseline={str(i):'a'*64 for i in range(439)}
@@ -88,6 +88,8 @@ class FullWriterStateMachine(unittest.TestCase):
   def health(ctx,cmd,images,*args):assert state['running'];events.append('health-'+images['api']);return {'healthy':True}
   if resume:
    p.update(expectedSchemaState='COMPLETE',resumeOriginal={'explicit':'root-capability'});(root/('devapp-'+m.TAG+'-once.json')).write_bytes(b'original spent once preserved')
+  if diagnostic:
+   p.update(resumePrevious={},activationNonce="b"*32,diagnosticBrowser=True);(root/("devapp-"+m.TAG+"-resume-23ecfeea853840acb7638e629c8f50d5.json")).write_bytes(b"previous spent once preserved")
   with contextlib.ExitStack() as stack:
    if resume:stack.enter_context(patch.object(m,'validate_resume',return_value={'original':'verified'}))
    stack.enter_context(patch.object(m,'Database',DB));stack.enter_context(patch.object(m,'load',return_value=act));stack.enter_context(patch.object(m,'health',side_effect=health));stack.enter_context(patch.object(m,'business',side_effect=business));stack.enter_context(patch.object(m,'pinned',return_value=attempt));stack.enter_context(patch.object(m.signal,'setitimer'))
@@ -319,3 +321,37 @@ class VerifierRequiresGroupOutcome(unittest.TestCase):
   def mutate(p,b,save):
    outcome=save('candidate-outcome.json',{**b,'phase':'candidate','status':'SUCCEEDED','exitCode':0,'processGroupOwned':True,'ownedProcessGroupGone':False});p['candidate-acceptance']['business']=save('candidate-business.json',{**b,'outcome':outcome})
   with self.assertRaisesRegex(ValueError,'BUSINESS_OUTCOME_NOT_TERMINAL'):self.exercise(mutate,resume=True)
+
+class DiagnosticResumeHistory(ResumeOriginalHistory):
+ def previous(self):
+  import time
+  m,ctx,original,once,save=self.fixture();old=original.parent/m.PREVIOUS_RESUME;old.mkdir(mode=0o700);(old/'backup').mkdir(mode=0o700);command=['/original/probe'];stamp=time.time()-3600
+  save(old/'schema-config.json',{'verificationCommand':command});save(old/'schema-request.json',{'environment':'devapp','sourceRevision':m.SOURCE,'tag':m.TAG,'config':m.ref(old/'schema-config.json')});save(old/'failure.json',{'status':'OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA','schemaState':'COMPLETE','sqlRollbackAttempted':False});save(old/'candidate-once.json',{'source':m.SOURCE,'tag':m.TAG})
+  for phase in ('baseline-forward','recovery','candidate'):
+   outcome={'phase':phase,'source':m.SOURCE,'tag':m.TAG,'command':command,'status':'RETURN_NONZERO' if phase=='candidate' else 'SUCCEEDED','exitCode':1 if phase=='candidate' else 0,'processGroupOwned':True,'ownedProcessGroupGone':True,'createdAt':stamp};save(old/(phase+'-outcome.json'),outcome)
+   if phase!='candidate':
+    path=old/(phase+'-business.json');save(path,{'source':m.SOURCE,'tag':m.TAG,'command':command,'exitCode':0,'createdAt':stamp,'outcome':m.ref(old/(phase+'-outcome.json'))});__import__('os').utime(path,(stamp+1,stamp+1))
+  save(old/'backup/source.json',{'state':'COMPLETE','ledger':{**ctx['p']['baselineLedger'],**m.MIGRATIONS},'epoch':{'exists':True,'rows':[{'generation':None,'activated_at':None}]}})
+  for name in ('database.pgdump.enc','backup.key'):
+   path=old/'backup'/name;path.write_bytes(b'e'*1100 if name.endswith('enc') else b'a'*64);path.chmod(0o600)
+  prioronce=old.parent/('devapp-'+m.TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json');save(prioronce,{'source':m.SOURCE,'tag':m.TAG,'request':m.ref(old/'schema-request.json')});ctx['p'].update(diagnosticBrowser=True,activationNonce='a'*32,resumePrevious={'attempt':str(old),'files':{},'once':m.ref(prioronce)})
+  def refresh():ctx['p']['resumePrevious']['files']={str(p.relative_to(old)):m.file_sha(p) for p in old.rglob('*') if p.is_file()}
+  refresh();return m,ctx,old,save,refresh
+ def test_previous_successful_recovery_is_historical_not_renewed(self):
+  m,ctx,old,save,refresh=self.previous();before=(old/'recovery-business.json').stat().st_mtime;self.assertEqual(m.validate_resume(ctx)['previous']['activationNonce'],'a'*32);self.assertEqual(before,(old/'recovery-business.json').stat().st_mtime)
+ def test_wrong_terminal_candidate_or_nonce_or_extra_sql_rejects(self):
+  for mode in ('timeout','group','nonce','native','recovery'):
+   with self.subTest(mode=mode):
+    m,ctx,old,save,refresh=self.previous()
+    if mode=='nonce':ctx['p']['activationNonce']='bad'
+    elif mode=='native':save(old/'migration-event-1.json',{})
+    else:
+     import json
+     path=old/('recovery-outcome.json' if mode=='recovery' else 'candidate-outcome.json');value=json.loads(path.read_bytes());value.update({'ownedProcessGroupGone':False} if mode=='group' else {'status':'TIMEOUT'});save(path,value)
+    refresh()
+    with self.assertRaises(ValueError):m.validate_resume(ctx)
+
+class DiagnosticActivationFlow(unittest.TestCase):
+ exercise=FullWriterStateMachine.exercise
+ def test_explicit_nonce_spends_new_once_without_reusing_two_originals(self):
+  m,ctx,state,events,pending,error=self.exercise(resume=True,diagnostic=True);self.assertIsNone(error);self.assertNotIn('native-eight',events);root=pending.parent;self.assertTrue((root/('devapp-'+m.TAG+'-activation-'+'b'*32+'-once.json')).exists());self.assertEqual((root/('devapp-'+m.TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json')).read_bytes(),b'previous spent once preserved');self.assertEqual((root/('devapp-'+m.TAG+'-once.json')).read_bytes(),b'original spent once preserved')
