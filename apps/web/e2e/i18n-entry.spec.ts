@@ -20,3 +20,57 @@ test("root redirects to localized login and preserves language and form values",
   await page.getByTestId("language-switcher").selectOption("zh-CN");
   await expect(page.getByRole("heading", { name: "登录 WorkspaceX" })).toBeVisible();
 });
+
+
+test("account entry pages translate live and preserve pending values", async ({ page }) => {
+  await page.goto("/auth/register");
+  await page.getByTestId("language-switcher").selectOption("en");
+  await expect(page.getByRole("heading", { name: "Create organization", exact: true })).toBeVisible();
+  const inputs = {
+    "registration-org-name": "原文 Org",
+    "registration-display-name": "原文 Alice",
+    "registration-email": "entry-locale@example.test",
+    "registration-password": "typed-value-kept",
+  };
+  for (const [id, value] of Object.entries(inputs)) await page.getByTestId(id).fill(value);
+  await page.getByTestId("language-switcher").selectOption("zh-CN");
+  await expect(page.getByRole("heading", { name: "创建组织", exact: true })).toBeVisible();
+  for (const [id, value] of Object.entries(inputs)) await expect(page.getByTestId(id)).toHaveValue(value);
+  await page.getByTestId("language-switcher").selectOption("en");
+  for (const width of [375, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(page.getByRole("heading", { name: "Create organization", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await page.screenshot({ path: test.info().outputPath(`registration-en-${width}.png`) });
+  }
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "Create organization", exact: true })).toBeVisible();
+  await page.goto("/auth/reset-password?token=entry-test-token");
+  await expect(page.getByRole("heading", { name: "Reset password", exact: true })).toBeVisible();
+  await page.getByTestId("reset-password-pwd").fill("typed-value-kept");
+  await page.getByTestId("reset-password-confirm").fill("different-entry");
+  await expect(page.getByText("Passwords do not match.", { exact: true })).toBeVisible();
+  await page.getByTestId("language-switcher").selectOption("zh-CN");
+  await expect(page.getByRole("heading", { name: "重置密码", exact: true })).toBeVisible();
+  await expect(page.getByTestId("reset-password-pwd")).toHaveValue("typed-value-kept");
+  await expect(page.getByText("两次输入的密码不一致。", { exact: true })).toBeVisible();
+  await page.getByTestId("language-switcher").selectOption("en");
+  const animation = page.getByTestId("auth-metamorphosis");
+  await expect(animation.getByText("Cocoon", { exact: true })).toBeVisible();
+  await expect(animation.getByText("Collaborate with your AI team", { exact: true })).toBeVisible();
+  expect(await animation.innerText()).not.toMatch(/[\u3400-\u9fff]/);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  for (const stage of ["Cocoon", "Emerge", "Take flight"]) {
+    const label = animation.getByText(stage, { exact: true });
+    await expect(label).toBeVisible();
+    expect(await label.evaluate((node) => getComputedStyle(node.parentElement!).animationName)).toBe("none");
+  }
+  expect(await animation.locator("ol").evaluate((list) => list.scrollWidth <= list.clientWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath("reset-password-en.png") });
+  await page.goto("/auth/verify-email");
+  await expect(page.getByRole("heading", { name: "Verification link unavailable", exact: true })).toBeVisible();
+  await page.getByTestId("language-switcher").selectOption("zh-CN");
+  await expect(page.getByRole("heading", { name: "验证链接不可用", exact: true })).toBeVisible();
+  await page.getByTestId("language-switcher").selectOption("en");
+  await page.screenshot({ path: test.info().outputPath("email-verification-invalid-en.png") });
+});
