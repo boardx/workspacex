@@ -21,7 +21,7 @@ afterAll(async()=>{await db?.close();});
 it("actual wallet, ledger and immutable grant audit commit once",async()=>{
  await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance,total_granted) VALUES('team',$1,0.09,0.09)",[org]));
  const input={credits:23,reason:"approved allowance",idempotencyKey:"pg-attempt-00000001"};const first=await grants.grant(org,"operator",input);expect(await grants.grant(org,"operator",input)).toEqual(first);
- await asOwner(async c=>{const result=await c.query("SELECT balance::text,total_granted::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org]);expect(Number(result.rows[0].balance)).toBe(23.09);expect(Number(result.rows[0].total_granted)).toBe(23.09);const ledger=await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_id=$1",[first.grantRef]);expect(ledger.rows[0].n).toBe(1);expect((await c.query("SELECT balance_after::text FROM credit_transactions WHERE source_id=$1",[first.grantRef])).rows[0].balance_after).toBe("23.09");});
+ await asOwner(async c=>{const result=await c.query("SELECT balance::text,total_granted::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org]);expect(Number(result.rows[0].balance)).toBe(23.09);expect(Number(result.rows[0].total_granted)).toBe(23.09);const ledger=await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_id=$1",[first.grantRef]);expect(ledger.rows[0].n).toBe(1);const actualLedger=(await c.query("SELECT txn_id,balance_after::text FROM credit_transactions WHERE source_id=$1",[first.grantRef])).rows[0];expect(actualLedger.balance_after).toBe("23.09");expect(actualLedger.txn_id).toBe(first.ledgerRef);const audit=(await c.query("SELECT actor_id,audit_ref,generation,receipt FROM enterprise_credit_grants WHERE id=$1",[first.grantRef])).rows[0];expect(audit).toMatchObject({actor_id:"operator",audit_ref:first.auditRef,generation,receipt:first});});
  await expect(grants.grant(org,"different-operator",input)).rejects.toMatchObject({code:"idempotency_conflict"});
 });
 it("legacy Enterprise metadata cannot restore current generation rights",async()=>{
@@ -36,6 +36,7 @@ it("actual no-paid-Team upgrade preserves one Plan version and the same receipt"
  const service=new EnterpriseUpgrade(new PgEnterpriseUpgradeStore(db),new EnterpriseNoPaidTeamAdapter(db));
  const request={expectedPlanVersion:1,idempotencyKey:"upgrade-attempt-001"};const result=await service.upgrade(org,"operator",request);
  expect(result.status).toBe("succeeded");expect(await service.upgrade(org,"operator",request)).toEqual(result);
+ if(result.status==="succeeded")await asOwner(async c=>{const audit=(await c.query("SELECT org_id,actor_id,version,plan FROM organization_plan_changes WHERE id=$1",[result.receipt.auditRef])).rows[0];expect(audit).toEqual({org_id:org,actor_id:"operator",version:2,plan:"enterprise"});});
  await asOwner(async c=>{const row=(await c.query("SELECT plan,version,billing_generation FROM organization_plans WHERE org_id=$1",[org])).rows[0];expect(row).toMatchObject({plan:"enterprise",version:2,billing_generation:generation});expect((await c.query("SELECT count(*)::int AS n FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0].n).toBe(0);});
 });
 it("actual paid license remains unchanged while upgrade is processing",async()=>{

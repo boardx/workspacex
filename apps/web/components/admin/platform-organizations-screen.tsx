@@ -39,8 +39,9 @@ function OrganizationsBody({ state }: { state: UiState }) {
   const [query, setQuery] = React.useState("");
   const [cursor, setCursor] = React.useState<string | undefined>();
   const [data, setData] = React.useState<OrganizationList | null>(null);
-  const [detail, setDetail] = React.useState<OrganizationDetail | null>(null);
+  const [loadedDetail, setDetail] = React.useState<OrganizationDetail | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const detail=loadedDetail?.organization.orgId===selectedId?loadedDetail:null;
   const [plan, setPlan] = React.useState<PlanInput["plan"]>("ordinary");
   const [reason, setReason] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
