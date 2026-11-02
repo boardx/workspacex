@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
 import type { NavSegment } from "@/lib/navigation";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
 export function RailMoreMenu({
   segments, pathname,
 }: { segments: ReadonlyArray<NavSegment>; pathname: string }) {
+  const { t } = useI18n();
   const groups = segments
     .map((seg) => ({ label: seg.label, items: seg.items.filter((i) => i.overflow === true) }))
     .filter((g) => g.items.length > 0);
@@ -34,7 +36,7 @@ export function RailMoreMenu({
         <button
           type="button"
           data-testid="rail-more"
-          aria-label="更多"
+          aria-label={t("ui.more")}
           aria-current={anyActive ? "page" : undefined}
           className={cn(
             "mt-1.5 flex w-14 shrink-0 flex-col items-center gap-1 rounded-md py-1.5 transition-all duration-base",
@@ -46,14 +48,14 @@ export function RailMoreMenu({
           )}
         >
           <MoreHorizontal aria-hidden className="h-[18px] w-[18px]" />
-          <span className="text-10 [@media(max-height:640px)]:hidden">更多</span>
+          <span className="text-10 [@media(max-height:640px)]:hidden">{t("ui.more")}</span>
         </button>
       </MenuTrigger>
       <MenuContent
         side="right"
         align="end"
         sideOffset={8}
-        aria-label="更多入口"
+        aria-label={t("ui.moreDestinations")}
         data-testid="rail-more-menu"
         className="max-h-[calc(100vh-2rem)] w-52 overflow-y-auto"
       >
