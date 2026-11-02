@@ -9,6 +9,7 @@ import {BILLING_ACCOUNTING_GENERATION} from "../../src/domain/billing/billing-ge
 import {toOrgId} from "../../src/domain/org-id";
 const prefix=`grant-precision-${randomUUID().slice(0,10)}`,users:string[]=[],db=new PgDatabase(appConfig());
 // @global-scope-fixture table:credit_wallets: exact recorded fixture owner IDs are removed afterAll.
+// @global-scope-fixture table:credit_transactions: afterAll removes only ledger rows for this file's exact recorded wallet owner IDs.
 // @global-scope-fixture table:credentials: only the exact credential created by this file is removed.
 // Own isolated epoch fixture; restore inactive marker afterAll.
 beforeAll(async()=>{ensureDatabase();await migrateOnce();await asOwner(c=>c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton=true",[BILLING_ACCOUNTING_GENERATION]));},180000);

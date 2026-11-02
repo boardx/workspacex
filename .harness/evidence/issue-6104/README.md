@@ -7,3 +7,5 @@ Coverage: exact decimal user/team counters; concurrent hundredth grants; existin
 Historical welcome migration is unchanged. The shared trigger generator preserves its old default output and generates the decimal successor in migration 20261102030500. No live environment reset or epoch activation occurred.
 
 Full package checks and independent review remain separate gates; these logs do not claim their completion.
+
+Normal pre-push initially stopped at the global fixture declaration lint. The test already deletes ledger rows by its exact recorded wallet owners; only the required credit_transactions ownership declaration was missing. The standalone existing lint reproduced red and then passed after one declaration was added. No lint rule, SQL assertion, cleanup behavior or production code was changed.
