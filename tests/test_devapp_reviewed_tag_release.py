@@ -183,3 +183,26 @@ class IndependentVerifierSemantics(unittest.TestCase):
  def test_candidate_business_tag_and_current_epoch_must_match(self):
   for mutate in (lambda p,b,s:p['candidate-acceptance'].update(business=s('candidate-business.json',{**b,'tag':'foreign'})),lambda p,b,s:p['migration-ledger'].update(epoch={'exists':False})):
    with self.assertRaises(ValueError):self.exercise(mutate)
+
+class DevappHostDatabaseBinding(unittest.TestCase):
+ def fixture(self):
+  m=module();mapping={'5432/tcp':[{'HostIp':'127.0.0.1','HostPort':'55433'}]};api={'Config':{'Env':['PGHOST=127.0.0.1','PGPORT=55433','PGDATABASE=workspacex','APP_DB_USER=app_rw']},'HostConfig':{'NetworkMode':'host'},'NetworkSettings':{'Networks':{'host':{}}}};pg={'Id':'9d94859e93f065341b1acdb882f0c1ce57380d6c5040e76ac3e14c4dc9e2128b','Image':'sha256:ac24ce4f1fbd05eac05b966e3b7a4e189709c8bdff0bf822a4bcb73337449367','State':{'Running':True},'Config':{'Env':['POSTGRES_USER=postgres']},'HostConfig':{'NetworkMode':'workspacex_default','PortBindings':mapping},'NetworkSettings':{'Networks':{'workspacex_default':{'IPAddress':'172.19.0.5'}},'Ports':mapping}}
+  return m,api,pg
+ def test_actual_host_loopback_binding_is_proven(self):
+  m,api,pg=self.fixture();m.source_binding(api,pg)
+ def test_foreign_endpoint_source_or_mapping_rejects(self):
+  import copy
+  for kind in ('host','port','database','user','api-network','pg-id','pg-image','pg-network','configured-map','actual-map','extra-map','owner'):
+   with self.subTest(kind=kind):
+    m,api,pg=self.fixture();api=copy.deepcopy(api);pg=copy.deepcopy(pg)
+    if kind in ('host','port','database','user'):
+     key,value={'host':('PGHOST','remote'),'port':('PGPORT','5432'),'database':('PGDATABASE','foreign'),'user':('APP_DB_USER','postgres')}[kind];api['Config']['Env']=[line if not line.startswith(key+'=') else key+'='+value for line in api['Config']['Env']]
+    elif kind=='api-network':api['HostConfig']['NetworkMode']='bridge'
+    elif kind=='pg-id':pg['Id']='a'*64
+    elif kind=='pg-image':pg['Image']='sha256:'+'a'*64
+    elif kind=='pg-network':pg['HostConfig']['NetworkMode']='host'
+    elif kind=='configured-map':pg['HostConfig']['PortBindings']={}
+    elif kind=='actual-map':pg['NetworkSettings']['Ports']={}
+    elif kind=='extra-map':pg['NetworkSettings']['Ports']={**pg['NetworkSettings']['Ports'],'5433/tcp':[{'HostIp':'0.0.0.0','HostPort':'55433'}]}
+    else:pg['Config']['Env']=['POSTGRES_USER=foreign']
+    with self.assertRaisesRegex(ValueError,'DEVAPP_SOURCE_BINDING'):m.source_binding(api,pg)

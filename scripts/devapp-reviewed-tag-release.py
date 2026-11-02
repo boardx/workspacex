@@ -100,11 +100,23 @@ def bind(request_path,receipt_path,mode):
  for r in cfg['composeFiles']:command+=['--file',r['path']]
  return dict(p=policy,request=request,cfg=cfg,manifest=manifest,attempt=attempt,receipt=Path(receipt_path),fd=fd,mods=mods,d=d,command=command,requestRef=ref(request_path),policyRef=ref(POLICY))
 
+def source_binding(api,postgres):
+ """One observed DevApp loopback mapping; not a generic host-network waiver."""
+ def env(row):
+  values={}
+  for line in row.get('Config',{}).get('Env',[]):
+   need(type(line) is str and '=' in line,'DEVAPP_SOURCE_BINDING');key,value=line.split('=',1);need(key not in values,'DEVAPP_SOURCE_BINDING');values[key]=value
+  return values
+ a=env(api);p=env(postgres);mapping={'5432/tcp':[{'HostIp':'127.0.0.1','HostPort':'55433'}]}
+ need(postgres.get('Id')=='9d94859e93f065341b1acdb882f0c1ce57380d6c5040e76ac3e14c4dc9e2128b' and postgres.get('Image')=='sha256:ac24ce4f1fbd05eac05b966e3b7a4e189709c8bdff0bf822a4bcb73337449367' and postgres.get('State',{}).get('Running') is True,'DEVAPP_SOURCE_BINDING')
+ need(api.get('HostConfig',{}).get('NetworkMode')=='host' and set(api.get('NetworkSettings',{}).get('Networks',{}))=={'host'} and all(a.get(k)==v for k,v in {'PGHOST':'127.0.0.1','PGPORT':'55433','PGDATABASE':'workspacex','APP_DB_USER':'app_rw'}.items()),'DEVAPP_SOURCE_BINDING')
+ need(postgres.get('HostConfig',{}).get('NetworkMode')=='workspacex_default' and set(postgres.get('NetworkSettings',{}).get('Networks',{}))=={'workspacex_default'} and postgres.get('HostConfig',{}).get('PortBindings')==mapping and postgres.get('NetworkSettings',{}).get('Ports')==mapping and p.get('POSTGRES_USER','postgres')=='postgres','DEVAPP_SOURCE_BINDING')
+
 class Database:
  def __init__(self,ctx):
   self.ctx=ctx;self.d=ctx['d'];self.p=ctx['p'];self.prep=ctx['mods']['schema-tag-prepare'];self.pg=self.prep.inspect_one(self.d,self.p['postgres']['containerId'])
   need(self.pg['Id']=='9d94859e93f065341b1acdb882f0c1ce57380d6c5040e76ac3e14c4dc9e2128b' and self.pg['Image']=='sha256:ac24ce4f1fbd05eac05b966e3b7a4e189709c8bdff0bf822a4bcb73337449367' and self.pg['Image']==self.p['postgres']['imageId'] and self.pg['State']['Running'] is True and self.pg['Config']['Labels'].get('com.docker.compose.service')=='postgres','POSTGRES_BINDING')
-  api=self.prep.live_service(self.d,ctx['cfg']['project'],'api');self.prep.source_binding(api,self.pg)
+  api=self.prep.live_service(self.d,ctx['cfg']['project'],'api');source_binding(api,self.pg)
   self.prefix=['/usr/bin/docker','exec','--user','postgres',self.pg['Id'],'/usr/bin/env','-i','PATH=/usr/local/bin:/usr/bin:/bin','PGOPTIONS=-c statement_timeout=30000 -c default_transaction_read_only=on']
  def query(self,sql):
   return self.d.run(self.prefix[1:]+['psql','--host=/var/run/postgresql','--port=5432','-X','-w','-qAt','--username=postgres','--dbname=workspacex','-v','ON_ERROR_STOP=1','-c',sql],limit=8*1024*1024,timeout=remaining(self.ctx,40)).decode().strip()
