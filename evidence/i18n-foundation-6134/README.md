@@ -13,3 +13,5 @@
 独立复核修正：完整HomeConfigError闭集与HTTP兜底已改走统一资源，保持中文原语义，并补英文FILE_TOO_LARGE行为断言。计数支持按Intl.PluralRules选择`key.<category>`资源，缺相应变体使用基础模板；英文artifact已覆盖1/2的单复数，中文保持原句式。先见2条预期失败，再实现后6文件72项全绿（review-tests.log）。
 
 移动入口补漏：补充mobile-tab-me英文断言后先见红，为稳定key `me`接入已有ui.me资源；10项语言测试通过（mobile-tests.log）。此补丁更新PR head，旧SHA的CI不代表补丁后状态。
+
+CI纠正：verify-control-plane发现i18n-entry未进入任何CI配置（run41510103520/job125500218805）。已接入现有playwright.organization-create.config.ts testMatch，复用无条件CI命令和同一个公共入口devserver，无新增豁免。完整lint-spec-gate-coverage扫描通过，明确i18n-entry由该配置覆盖（spec-gate.log）；该注册配置真实运行1 passed（registered-browser.log）。首次本地冷启动120s超时、未执行断言，第二次相同配置缓存热后2.0m通过；没有放宽config.webServer时限。新增spec自身预算90s覆盖冷入口编译与完整语言往返检查。

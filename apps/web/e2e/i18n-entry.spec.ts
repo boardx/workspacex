@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+test.setTimeout(90_000);
 // Runs against the real entry route; no authentication or content API is mocked.
 test("root redirects to localized login and preserves language and form values", async ({ page }) => {
   await page.goto("/");
