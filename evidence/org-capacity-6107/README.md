@@ -39,3 +39,11 @@ PG baseline red and identical test green completed (3/3); expand role/permission
 - Applied `member-entry.patch` only in this worker tree, then an independent Vitest process on the same owned isolated PG: 3/3 passed (`pg-green.txt`), 5.23s. Same test assertions and fixture version.
 - Wrapper stack `wsx-be57b584690acd41508a` exited 0 and removed its owned compose resources. 266 seconds normal resource admission; no fallback or bypass. Cold migration repeated only once for this wrapper, then corrected fixture replays and green reused that isolated database.
 - Test account identities use random run suffixes so sequential independent processes cannot reuse credentials or welcome wallets.
+
+## Pending independent-review follow-up
+
+Review P2 confirmed: the single-invite path reads pending before waiting on the organization lock, allowing revocation to commit while it waits. `1dcae6e1f` includes a deterministic real-PG barrier counterexample and remains the source baseline for its red run. `revocation-fix.patch` is the prepared implementation: epoch → organization lock → authoritative invitation `FOR UPDATE`, with a conditional pending → used update. It is deliberately not applied before the controlled baseline run; no fix claim is made yet.
+
+The same commit adds the approved pending-intent close boundary: tenant RLS plus a restrictive DELETE policy prevents deleting paid rows, and `closePendingCommercialIntent` clears paid-row pending fields or deletes only the expected pure-pending row. Its paid/cross-tenant/wrong-reference counterexamples are committed but not yet executed.
+
+Next owned wrapper: baseline `vitest run tests/org-capacity/commercial-capacity-pg.test.ts -t 'revocation committed'` → inspect business failure → apply the committed patch → run the full capacity PG file and dedicated real HTTP file, then existing last-admin and dual-review regression files serially. Do not concurrently run broad compilation or a second stack. Current source tests include seven PG cases and two HTTP cases; only the original three PG cases have passing runtime evidence so far.
