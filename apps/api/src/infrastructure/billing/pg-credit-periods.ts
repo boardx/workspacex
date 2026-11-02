@@ -1,4 +1,4 @@
-import {CreditPeriodKind} from "@repo/contracts/billing-credits";
+import {CreditBalance,CreditPeriodKind,ConfiguredCreditQuantity} from "@repo/contracts/billing-credits";
 import {MONTHLY_SUBSCRIPTION_CREDITS} from "@repo/contracts/billing-subscription";
 import type {TenantSession} from "../../application/ports/database.port";
 import {creditDecimal, creditHundredths} from "../../application/billing/credit-consumption";
@@ -6,9 +6,10 @@ import {CREDIT_PERIOD_GRANT_SQL as SQL} from "./credit-period-sql";
 
 type Period = {source_kind: string; period_id: string; wallet_id: string; subscription_ref: string; invoice_ref: string; plan_ref: string;
   period_start: Date; period_end: Date; granted_hundredths: string; remaining_hundredths: string};
-type PaidPeriod = {userId: string; subscriptionRef: string; invoiceRef: string; periodStart: Date; periodEnd: Date; planRef: string};
-const monthlyHundredths = BigInt(MONTHLY_SUBSCRIPTION_CREDITS) * 100n;
-const creditLimit = 214748364700n;
+type PaidPeriod = {userId: string; subscriptionRef: string; invoiceRef: string; periodStart: Date; periodEnd: Date; planRef: string; credits?:number};
+const maximumCredit=CreditBalance.maxValue;
+if(maximumCredit===null)throw Error("credit_balance_bound_missing");
+const creditLimit = BigInt(maximumCredit)*100n;
 
 /** Caller holds the wallet lock. Expiration and financial audit commit together. */
 export async function normalizeCreditPeriods(s: TenantSession, walletId: string, at: Date): Promise<void> {
@@ -28,6 +29,8 @@ export async function normalizeCreditPeriods(s: TenantSession, walletId: string,
 
 /** Caller has authenticated a paid monthly invoice; this function never trusts browser state. */
 export async function grantPaidSubscriptionPeriod(s: TenantSession, input: PaidPeriod, at: Date = new Date()): Promise<"granted" | "duplicate"> {
+  const credits=ConfiguredCreditQuantity.parse(input.credits??MONTHLY_SUBSCRIPTION_CREDITS);
+  const monthlyHundredths=BigInt(credits)*100n;
   const duration = input.periodEnd.getTime() - input.periodStart.getTime();
   if (!Number.isFinite(at.getTime()) || !Number.isFinite(duration) || duration < 27 * 86_400_000 || duration > 32 * 86_400_000 ||
     !input.userId || !input.subscriptionRef || !input.invoiceRef || !input.planRef) throw new Error("credit_period_invalid");
@@ -43,11 +46,11 @@ export async function grantPaidSubscriptionPeriod(s: TenantSession, input: PaidP
       row.plan_ref !== input.planRef || row.period_start.getTime() !== input.periodStart.getTime() || row.period_end.getTime() !== input.periodEnd.getTime() || BigInt(row.granted_hundredths) !== monthlyHundredths)) throw new Error("credit_period_replay_mismatch");
     return "duplicate";
   }
-  const current = (await s.query<{balance: string; total_granted: number}>(SQL.periodWalletState, [wallet.wallet_id])).rows[0]!;
+  const current = (await s.query<{balance: string; total_granted: string}>(SQL.periodWalletState, [wallet.wallet_id])).rows[0]!;
   const balance = creditHundredths(current.balance) + monthlyHundredths;
-  if (balance > creditLimit || current.total_granted + MONTHLY_SUBSCRIPTION_CREDITS > 2147483647) throw new Error("credit_balance_unrepresentable");
+  if (balance > creditLimit || creditHundredths(current.total_granted) + monthlyHundredths > creditLimit) throw new Error("credit_balance_unrepresentable");
   const row = (await s.query<{period_id: string}>(SQL.periodInsert, [wallet.wallet_id, input.subscriptionRef, input.invoiceRef, input.planRef, input.periodStart, input.periodEnd, monthlyHundredths.toString()])).rows[0]!;
-  await s.query(SQL.periodGrantWallet, [wallet.wallet_id, creditDecimal(balance), MONTHLY_SUBSCRIPTION_CREDITS]);
+  await s.query(SQL.periodGrantWallet, [wallet.wallet_id, creditDecimal(balance), credits]);
   await s.query(SQL.periodGrantLedger, [wallet.wallet_id, creditDecimal(monthlyHundredths), creditDecimal(balance), row.period_id]);
   await normalizeCreditPeriods(s, wallet.wallet_id, at);
   return "granted";

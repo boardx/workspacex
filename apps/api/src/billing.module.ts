@@ -19,6 +19,7 @@ import { PgPersonalEntitlementRepository } from "./infrastructure/billing/pg-per
 import {PgPersonalCreditScheduleStore} from "./infrastructure/billing/pg-personal-credit-schedule-store";
 import {StripeCreditCheckout} from "./infrastructure/billing/stripe-credit-checkout";
 import {MonthlyCheckoutRouter} from "./infrastructure/billing/monthly-checkout-router";
+import {PgBillingCatalogRepository} from "./infrastructure/billing/pg-billing-catalog-repository";
 import { BillingCatalogService } from "./application/billing/billing-catalog-service";
 import { BillingCatalogController } from "./interface/controllers/billing-catalog.controller";
 import {WechatMonthlyPassClient} from "./infrastructure/billing/wechat-monthly-pass-client";
@@ -84,7 +85,7 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
       new PersonalCheckoutService(new PgPersonalCheckoutRepository(db), config,
         new PersonalCheckoutRouter(new PersonalStripeCheckoutClient(config), new PersonalWechatPaymentClient(config, logger))),
       inject: [DATABASE_PORT, DeploymentBillingConfig, LOGGER_PORT] },
-    { provide: BillingCatalogService, useFactory: (config: DeploymentBillingConfig) => new BillingCatalogService(config), inject: [DeploymentBillingConfig] },
+    { provide: BillingCatalogService, useFactory: (db:DatabasePort,config: DeploymentBillingConfig) => new BillingCatalogService(config,new PgBillingCatalogRepository(db)), inject: [DATABASE_PORT,DeploymentBillingConfig] },
     {provide:CreditUsageReplayWorker,useFactory:(db:DatabasePort,logger:LoggerPort)=>new CreditUsageReplayWorker(db,logger),inject:[DATABASE_PORT,LOGGER_PORT]},
     {provide:NativeCreditTariffService,useFactory:(db:DatabasePort,credentials:CredentialRepository,platformAdmins:PlatformAdminRepository)=>new NativeCreditTariffService(new PgNativeCreditTariffRepository(db),userId=>isRequestorPlatformOperator({credentials,platformAdmins},userId)),inject:[DATABASE_PORT,CREDENTIAL_REPOSITORY,PLATFORM_ADMIN_REPOSITORY]},
     {provide:APP_INTERCEPTOR,useClass:CreditExecutionContextInterceptor},

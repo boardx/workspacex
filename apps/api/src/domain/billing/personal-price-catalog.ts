@@ -1,6 +1,6 @@
 import { MONTHLY_SUBSCRIPTION_CREDITS } from "@repo/contracts/billing-subscription";
 
-/** Server price source for new personal purchases; amounts are integer minor units. */
+/** Approved v1 historical/default seed only. Live storefront pricing reads credit_packages. */
 export const PERSONAL_PRICE_CATALOG_VERSION = "pricing-2026-11-v1";
 export const PERSONAL_PRICE_CATALOG = {
   cn: [

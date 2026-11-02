@@ -1,3 +1,4 @@
+import {PRODUCT_CONFIGURATION_SQL} from "./product-catalog-configuration";
 import {PERSONAL_CREDIT_TERM_SQL} from "./personal-credit-term-sql";
 import {STRIPE_CREDIT_SQL} from "./stripe-credit-sql";
 import {MONTHLY_PASS_SQL} from "./monthly-pass-sql";
@@ -12,6 +13,7 @@ export const BILLING_GLOBAL_SQL = Object.freeze({
   ...PERSONAL_PAYMENT_SQL,
   ...PERSONAL_PAYMENT_RECOVERY_SQL,
   ...PERSONAL_CREDIT_TERM_SQL,
+  ...Object.fromEntries(Object.entries(PRODUCT_CONFIGURATION_SQL).map(([key,value])=>[`configuredCatalog${key}`,value])),
   ...MONTHLY_PASS_SQL,
   stripeEventLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",
   stripeUserLock: "SELECT pg_advisory_xact_lock(hashtextextended($1,0))",

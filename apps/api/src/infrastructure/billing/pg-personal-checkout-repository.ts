@@ -3,7 +3,7 @@ import { BillingProvider, OrderNo } from "@repo/contracts/billing-credits";
 import { PricingProduct, type PersonalCheckoutRequest } from "@repo/contracts/billing-pricing";
 import { assertPrincipal, type Principal } from "../../domain/principal";
 import { BILLING_ACCOUNTING_GENERATION } from "../../domain/billing/billing-generation";
-import { PERSONAL_PRICE_CATALOG_VERSION } from "../../domain/billing/personal-price-catalog";
+import {readProductConfiguration,personalConfiguredProducts} from "./product-catalog-configuration";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { PersonalCheckoutBinding, PersonalCheckoutRepository, PersonalPurchase, StoredPersonalPurchase } from "../../application/billing/personal-checkout-ports";
 import { PersonalCheckoutError, assertSamePersonalPurchase } from "../../application/billing/personal-checkout-error";
@@ -48,15 +48,21 @@ export class PgPersonalCheckoutRepository implements PersonalCheckoutRepository 
       return row ? view(row) : null;
     });
   }
-  async reserve(principal: Principal, request: PersonalCheckoutRequest, product: PersonalPurchase["product"]) {
+  async reserve(principal: Principal, request: PersonalCheckoutRequest, market: "cn" | "us") {
     assertPrincipal(principal);
     return this.db.withTenant(principal.orgId, async session => {
       await requireActivePricingEpoch(session);
       await session.query(SQL.personalPurchaseUserLock, [`billing-subscription:${principal.userId}`]);
       const existing = (await session.query<Row>(SQL.personalPurchaseByKey, [principal.userId, request.idempotencyKey])).rows[0];
       if (existing) { const purchase = view(existing); assertSamePersonalPurchase(purchase, request); return purchase; }
-      if (request.catalogVersion !== PERSONAL_PRICE_CATALOG_VERSION) throw new PersonalCheckoutError("catalog_changed");
-      const quote = PricingProduct.parse(product);
+      let configured;
+      try{configured=await readProductConfiguration(session,market,true);}catch{throw new PersonalCheckoutError("dependency_unavailable");}
+      if(request.catalogVersion!==configured.version)throw new PersonalCheckoutError("catalog_changed");
+      let products;
+      try{products=personalConfiguredProducts(configured.rows);}catch{throw new PersonalCheckoutError("dependency_unavailable");}
+      const product=products.find(item=>item.sku===request.sku);
+      if(!product)throw new PersonalCheckoutError("product_unavailable");
+      const quote=PricingProduct.parse(product);
       if (quote.sku !== request.sku || (request.provider === "wechat" && quote.currency !== "CNY")) throw new PersonalCheckoutError("product_unavailable");
       if (quote.kind === "subscription" && ((await session.query(SQL.personalPurchaseActiveTerm, [principal.userId])).rows.length ||
         (await session.query(SQL.personalPurchaseRenewingStripe, [principal.userId])).rows.length ||
