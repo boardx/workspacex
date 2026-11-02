@@ -1,15 +1,18 @@
 # Organization commercial capacity — #6107
 
-Baseline: `2c3b48730` (canonical schema/helper and corrected real-PG tests; no member entry integration).
-Design dependency: `8e07cd7d82c6491f3d8a91431f0f8ca805ec4257`, merged locally explicitly; business PR targets develop after dependency integration.
+Actual capacity facts come from `org_commercial_licenses`, with Enterprise identity solely from `organization_plans.plan` / `billing_generation`. All real member entrances serialize against the same canonical epoch / organization lock. Pending invitations do not reserve commercial seats; pending expansion never grants unpaid seats. Paid capacity survives term expiry and member removal. Legacy quota behavior remains intact.
 
-## Current evidence
+## Verified runtime evidence
 
-- `init.txt`: isolated worktree bootstrap exited 0.
-- Pure capacity tests: 6 passed, including purchased 5 / pending 7 remaining 5 and mechanical migration-floor comparison against `TEAM_INCLUDED_SEATS`.
-- `pg-fixture-failure.txt`: first real-PG attempt waited 265 seconds for normal resource admission, migrated the real schema and failed on an invalid fixture role. It did **not** exercise the capacity assertions and is **not** a capacity counterexample. Fixture correction is committed in baseline above. Owned compose stack was automatically removed.
-- API typecheck was deliberately terminated during machine contention; no passing claim.
-- `harness tick` failed because `COORD_GATEWAY_URL` is not configured; task authority is the parent's explicit #6107 delegation.
+- Bootstrap quick `init.sh` exited 0 (`init.txt`). Pure contract/floor tests: 6 passed.
+- Original baseline `2c3b48730`: three real business assertion failures (`pg-business-red.txt`), then identical assertions passed (`pg-green.txt`). Earlier invalid-fixture output is retained as `pg-fixture-failure.txt` and is not counted as business evidence.
+- Independent review P2 baseline **`65bb2a42e91c65205c354aa024e12acf568f7160`**: controlled organization lock → activation waits → revocation commits → old activation nevertheless grants membership. `p2-red.txt` records this genuine assertion failure. Test file SHA-256: `4b58d81ca24f893001ae9db69577bd84eb77a19547af161cef257209f32ac961`.
+- Applied the exact `revocation-fix.patch` statically ACCEPTed at artifact SHA `f7121e1360d136285be987b45e28877a93c7d5a4`, with no assertion/fixture changes during the window. Full capacity PG: **8/8 passed** (`pg-final.txt`, 17.70s).
+- Real full Kernel HTTP: **2/2 passed** (`http-final.txt`, 145.43s). All four org roles count; forged org/role query claims do not bypass capacity; capacity failure leaves token unconsumed / account absent; invalid token remains `INVITE_NOT_FOUND`.
+- Existing regressions: **23/23 passed** (`permissions-final.txt`, 75.34s): dual review 10, organization role / last-admin / concurrent mutual downgrade 8, legacy quota 5.
+- One owned wrapper and one cold migration. Normal resource admission 150s; commands 6m44s; cleanup 5s; wrapper exit 0. Exact compose `wsx-c81f89481a3d3d89d37e` confirmed absent afterwards. No fallback, second stack, broad compilation, or browser run.
+
+The original stale-invite P2 is now fixed in source: epoch shared lock → unlocked token lookup → organization lock → authoritative pending invitation `FOR UPDATE` → conditional token consumption → capacity / credential → conditional pending-to-used update. Invite-before-token matches resend and avoids the inverse lock order. Every later failure rolls back the original transaction, including token / credential / gift / outbox changes.
 
 ## Membership entrance inventory
 
@@ -27,23 +30,10 @@ All org roles (`admin`, `lead`, `consultant`, `compliance`) count through `count
 
 ## Canonical boundary
 
-`org_commercial_licenses` stores generation and purchased / pending seats, with pending purchase reference paired. Plan/Enterprise identity remains exclusively in `organization_plans.plan` and its `billing_generation`. Current generation and epoch activation reuse the existing billing authority. License and admission mutations lock epoch shared → organization row → plan/license → wallet. With paid seats, pending additions do not increase usable capacity. Legacy organizations retain their prior quota policy. Commercial invitations do not reserve seats.
+Purchased and pending seat counts are opaque-generation commercial facts; actual members are counted from `org_memberships`, never cached. Pending fields are paired. An unpaid expansion cannot increase purchased capacity; initial pending capacity constrains admission. Unknown generation or incomplete facts fail closed. The existing billing generation and active-epoch authority are reused.
 
-## Remaining work
+`closePendingCommercialIntent` requires a matching expected purchase reference and epoch → organization lock. Paid rows retain purchased facts and only clear pending fields. Pure pending rows may be removed: tenant RLS is ANDed with a restrictive DELETE policy requiring `purchased_seats IS NULL`. Runtime tests cover paid DELETE refusal, cross-org refusal, wrong reference, and restoration of legacy behavior. No purchase, ledger or audit history is changed by the business helper.
 
-PG baseline red and identical test green completed (3/3); expand role/permission/last-admin/dual-review regressions and HTTP evidence → independent exact-SHA security/feature review → separate PR and normal CI. Nothing in this evidence marks the feature passing or enables Team sales.
+## Remaining delivery boundary
 
-## Real business red / green
-
-- Baseline `2c3b48730` + the committed PG test: 3 genuine assertion failures (`pg-business-red.txt`): invitation incorrectly blocked at legacy quota zero; all 3 concurrent joins accepted instead of 1; full organization accepted project activation instead of quota rejection. Earlier fixture failures are excluded from this claim.
-- Applied `member-entry.patch` only in this worker tree, then an independent Vitest process on the same owned isolated PG: 3/3 passed (`pg-green.txt`), 5.23s. Same test assertions and fixture version.
-- Wrapper stack `wsx-be57b584690acd41508a` exited 0 and removed its owned compose resources. 266 seconds normal resource admission; no fallback or bypass. Cold migration repeated only once for this wrapper, then corrected fixture replays and green reused that isolated database.
-- Test account identities use random run suffixes so sequential independent processes cannot reuse credentials or welcome wallets.
-
-## Pending independent-review follow-up
-
-Review P2 confirmed: the single-invite path reads pending before waiting on the organization lock, allowing revocation to commit while it waits. `1dcae6e1f` includes a deterministic real-PG barrier counterexample and remains the source baseline for its red run. `revocation-fix.patch` is the prepared implementation: unlocked token-index lookup → epoch/organization lock → authoritative invitation `FOR UPDATE` → conditional token consumption, with a conditional pending → used update. The invite-before-token order matches resend and avoids an inverse invite/token lock cycle. It is deliberately not applied before the controlled baseline run; no fix claim is made yet.
-
-The same commit adds the approved pending-intent close boundary: tenant RLS plus a restrictive DELETE policy prevents deleting paid rows, and `closePendingCommercialIntent` clears paid-row pending fields or deletes only the expected pure-pending row. Its paid/cross-tenant/wrong-reference counterexamples are committed but not yet executed.
-
-Next owned wrapper: baseline `vitest run tests/org-capacity/commercial-capacity-pg.test.ts -t 'revocation committed'` → inspect business failure → apply the committed patch → run the full capacity PG file and dedicated real HTTP file, then existing last-admin and dual-review regression files serially. Do not concurrently run broad compilation or a second stack. Current source tests include eight PG cases and two HTTP cases; only the original three PG cases have passing runtime evidence so far.
+Final exact-SHA independent security/feature review, normal static checks / CI, actual browser user-flow evidence, and an independently scoped Closes #6107 PR targeting normally integrated develop remain. The signed design dependency is explicitly merged locally; do not include its entire diff in the final business PR. No passing state or Team sales activation has been written. Full API typecheck was previously terminated for resource contention, not claimed passing; coordinator owns the next static window.

@@ -1,29 +1,21 @@
-# #6107 capacity worker handoff
+# #6107 capacity handoff — verified implementation, final delivery pending
 
 ## Verified
 
-Worker tree `/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107`, branch `worker/team-capacity-6107`; reuse it, never create another tree. Node 22.23.2 requires `PATH=/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin:$PATH`. Bootstrap quick init exited 0; pure capacity tests six passed. Original three real PG business counterexamples red at `2c3b48730`, same assertions green after member-entry patch (5.23s). Logs are committed beside this file. This does not verify later additions or P2 fix.
+Reuse `/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107`, branch `worker/team-capacity-6107`; do not create another tree. Node PATH: `/Users/shenyangjun/.nvm/versions/node/v22.23.2/bin:$PATH`.
 
-## Changes and state
+Baseline65bb2a42e P2 controlled revocation race genuinely failed; exact statically ACCEPTed `revocation-fix.patch` then applied. Same committed test assertions: PG8/8, real Kernel HTTP2/2, existing permission/last-admin/dual-review/legacy quota23/23 all passed. Raw logs committed beside this file; README gives exact baseline, file hash, commands and counts. Bootstrap quick init0 and pure six tests previously passed. No broad typecheck passing claim.
 
-Current source baseline before this documentation commit: `b0542a6a212f76723626215584041c1e098d9e11`; clean committed tree. Main source implementation `5619e25e0`; approved pending-intent restrictive DELETE policy/helper added in `1dcae6e1f`. API/member entrance ownership remains this worker; wallets, finance SQL generators, BillingModule, billing-team.ts belong to root; Plan/Enterprise implementation belongs to sibling.
+## Current changes
 
-Known P2 is intentionally still present in source to run its real red counterexample. Prepared exact patch is `revocation-fix.patch`, statically ACCEPTed at artifact SHA `f7121e1360d136285be987b45e28877a93c7d5a4`. It orders epoch shared → unlocked token lookup → organization → pending invite FOR UPDATE → conditional token consumption → capacity/credential → conditional used update. This matches resend's invite → token order; do not merely add an invite lock after consuming token.
+P2 source fix is now APPLIED: canonical epoch shared → unlocked token lookup → organization → authoritative pending invitation FOR UPDATE → conditional token consumption → capacity/credential → conditional used update. Resend remains invite→token, so no inverse invite/token lock. Commercial capacity covers all three real membership writers, with new/existing project acceptance tested separately. Canonical schema/helper and restrictive pending-only deletion remain under this worker; no wallet/BillingModule/billing-team.ts or Enterprise implementation edits.
 
-PG file now has eight cases: invitation non-reservation, cross-connection last seat, new-account project rollback, unpaid expansion, initial pending/unknown generation, controlled revoke race, paid/cross-tenant/wrong-reference pending deletion, logged-in project rejection. Dedicated HTTP file has two real Kernel cases including four org roles and forged query claims. New tests restore epoch snapshot and clean their own UUID-scoped credentials/gifts/outbox. None of these later cases/HTTP has been executed yet.
+## Remaining / resources
 
-## Unverified / external dependency
+Latest owned wrapper exited0 and removed exact compose `wsx-c81f89481a3d3d89d37e`; docker ps independently confirmed no remaining containers. Root and Enterprise were notified that heavy resource window is released. Do not start new broad tests without a fresh root window. No production deployment/reset/epoch action was taken.
 
-No PR or remote branch push yet. origin/develop last read was `b3e9977de`; signed design dependency `8e07cd7d82c6491f3d8a91431f0f8ca805ec4257` was explicitly merged locally and still needs normal integration into develop before independent business PR scope. Fetch main/develop before continuing; inspect live ancestry rather than trusting this snapshot.
+Pending final exact-SHA independent security/feature review, normal static checks / CI, browser user-flow evidence and separate PR Closes #6107 targeting develop. No PR has been created yet because design dependency must first integrate normally into develop so the final PR does not contain the signed design bundle. Fetch origin main/develop and inspect live ancestry; previous origin pointer is not live authority. Do not change passing state or enable Team sales.
 
-Full API typecheck was deliberately terminated during resource contention, not passing. Root owns static scheduling; pre-push triggers broad turbo typecheck/lint relative to main. Do not bypass CI or merge. No passing state was written; Team sales remain gated.
+## Next action
 
-Latest parent scheduling signal: Enterprise admission stopped at 414s/perCore14+, no stack; parent prioritized another owner's static hook and requires an explicit new resource release before resuming. Order when released is Enterprise final schema/HTTP, then this worker P2 red/green/HTTP/permission regressions. Read fresh messages; this paragraph is not a live resource signal. This worker has no queue, test process, or owned compose stack left. Last owned stack `wsx-be57b584690acd41508a` was removed.
-
-## Next concrete actions
-
-1. Wait for root's explicit fresh PG window; do not start an admission queue before it. Reuse this tree. Fetch origin main/develop; avoid changing sources while the red process runs.
-2. In ONE `with-test-isolation.ts` wrapper run `pnpm --filter api exec vitest run tests/org-capacity/commercial-capacity-pg.test.ts -t 'revocation committed'`. Inspect that the failure is the actual stale-invite grant, not a fixture/import failure. Record exact HEAD and output.
-3. Still in that owned wrapper, apply `git apply evidence/org-capacity-6107/revocation-fix.patch`; independently run full `tests/org-capacity/commercial-capacity-pg.test.ts`, then `tests/org-capacity/commercial-capacity-http.test.ts`. Keep assertions identical; diagnose any failures rather than blind reruns.
-4. Run existing scoped regressions serially after cold migration is already complete: `tests/auth/admin-invite-dual-review.test.ts`, `tests/org-admin/set-org-member-role-real.test.ts`, `tests/auth/quota-exhausted-hard-block.test.ts`. Root may coordinate another precise selection. Release wrapper immediately after results, confirm owned containers gone, notify root/Enterprise.
-5. Commit applied fix + exact logs, update #6107 and this evidence boundary. Ask root to arrange final exact-SHA security/feature review and actual browser evidence. Only create independent Closes #6107 PR targeting develop after design dependency is integrated; normal CI must be green. Worker never merges or deploys.
+Send resulting source/evidence commit SHA to root and independent reviewer for exact-SHA review. Root schedules browser/static/push window; pre-push normally runs broad turbo typecheck/lint, so do not start it concurrently with another heavy job. After signed design integrates, update/rebase this same worker tree onto normal develop, confirm business-only diff, push and create independent develop PR. Resolve review/CI to green; worker never merges/deploys. Further tests are justified only by changed code, failures or specific unresolved concerns, not routine repetition of the already-green lane.
