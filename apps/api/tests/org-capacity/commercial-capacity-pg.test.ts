@@ -1,3 +1,4 @@
+import {PgProjectInvitationRepository} from "../../src/infrastructure/project/pg-project-invitation-repository";
 import {beforeAll,afterAll,it,expect} from "vitest";
 import {PgOrgInviteRepository} from "../../src/infrastructure/auth/pg-org-invite-repository";
 import {PgOrgInviteLinkRepository} from "../../src/infrastructure/auth/pg-org-invite-link-repository";
@@ -41,4 +42,19 @@ it("distinct invitation paths compete for the final seat with atomic rollback",a
  expect(remaining.rows[0].n).toBe(outcomes[2].ok ? 2 : 1);
  const accounts=await asOwner(c=>c.query("SELECT count(*)::int AS n FROM credentials WHERE user_id LIKE 'capacity-6107-new-%'"));
  expect(accounts.rows[0].n).toBe(1);
+});
+
+it("full commercial capacity rejects project invitation activation before credentials, gift and outbox",async()=>{
+ const projectId=ORG+"-general";
+ await asApp(ORG,async c=>{
+  await c.query("INSERT INTO projects(id,org_id,name,kind) VALUES($1,$2,'Capacity project','general')",[projectId,ORG]);
+  await c.query("INSERT INTO general_projects(id,org_id) VALUES($1,$2)",[projectId,ORG]);
+ });
+ const project=new PgProjectInvitationRepository(db);
+ const now=new Date();
+ await project.issueLink({orgId:toOrgId(ORG),projectId,invitedBy:admin,now,dailyCap:100,invitationId:"capacity-6107-project-invite",tokenHash:"capacity-6107-project-token",expiresAt:new Date(Date.now()+3600000)});
+ const result=await project.activateNew({tokenHash:"capacity-6107-project-token",now,userId:"capacity-6107-project-user",displayName:"project joiner",passwordHash:"not-real-password",linkEmail:"capacity-6107-project@example.test",verification:{challengeId:"capacity-6107-challenge",tokenDigest:"capacity-6107-verification",expiresAt:new Date(Date.now()+3600000),outboxId:"capacity-6107-outbox"}});
+ expect(result).toEqual({ok:false,reason:"quota"});
+ const residue=await asOwner(c=>c.query("SELECT (SELECT count(*) FROM credentials WHERE user_id='capacity-6107-project-user')::int AS accounts,(SELECT count(*) FROM mail_outbox WHERE id='capacity-6107-outbox')::int AS mails,(SELECT count(*) FROM credit_wallets WHERE owner_id='capacity-6107-project-user')::int AS wallets"));
+ expect(residue.rows[0]).toEqual({accounts:0,mails:0,wallets:0});
 });
