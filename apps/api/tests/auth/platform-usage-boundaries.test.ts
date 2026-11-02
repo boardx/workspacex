@@ -14,6 +14,7 @@ import {PlatformOrganizationController} from "../../src/interface/controllers/pl
 import {PlatformOperatorGuard} from "../../src/interface/guards/platform-operator.guard";
 import {PgPlatformOrganizationRepository} from "../../src/infrastructure/system/pg-platform-organization-repository";
 import {toOrgId} from "../../src/domain/org-id";
+import {BILLING_PRICING_EPOCH_LOCK} from "../../src/domain/billing/billing-generation";
 const source=(relative:string)=>readFileSync(new URL(relative,import.meta.url),"utf8");
 describe("#5261 metadata exemption enforced premises",()=>{
  it("usage never reads content/credentials, stays tenant-bound and discloses a strict metadata schema",()=>{
@@ -69,13 +70,22 @@ describe("#5261 metadata exemption enforced premises",()=>{
   expect(query).toHaveBeenCalledTimes(1);expect(query.mock.calls[0]?.[0]).toContain("NOT r.rolsuper");
  });
  it("all target read/write paths reject excluded organization kinds",async()=>{
-  const query=vi.fn(async(sql:string)=>({rows: sql.includes("kind='organization'")?[]:[{id:"local",name:"local",kind:"personal-local"}]}));
+  const query=vi.fn(async(sql:string,_params?:readonly unknown[])=>({rows: sql.includes("kind='organization'")?[]:[{id:"local",name:"local",kind:"personal-local"}]}));
   const db={withTenant:async(_org:unknown,fn:(s:unknown)=>unknown)=>fn({query})};
   const repo=new PgPlatformOrganizationRepository(db as never,null);
   await expect(repo.detail(toOrgId("local"),"operator")).rejects.toMatchObject({reasonCode:"ORGANIZATION_NOT_FOUND"});
   await expect(repo.auditUsageAccess(toOrgId("local"),"operator")).rejects.toMatchObject({reasonCode:"ORGANIZATION_NOT_FOUND"});
   await expect(repo.setPlan(toOrgId("local"),{plan:"enterprise",expectedVersion:0,reason:"test"},"operator")).rejects.toMatchObject({reasonCode:"ORGANIZATION_NOT_FOUND"});
-  expect(query).toHaveBeenCalledTimes(3);
+  const epochSql="SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))";
+  expect(query.mock.calls.map(([sql])=>sql===epochSql?"epoch":"organization")).toEqual(["epoch","organization","organization","epoch","organization"]);
+  const locks=query.mock.calls.filter(([sql])=>sql===epochSql);
+  expect(locks).toHaveLength(2);for(const [,params] of locks)expect(params).toEqual([BILLING_PRICING_EPOCH_LOCK]);
+  const metadata=query.mock.calls.filter(([sql])=>sql!==epochSql);
+  expect(metadata).toHaveLength(3);
+  for(const [sql,params] of metadata){
+   expect(sql).toMatch(/^SELECT id(?:, name, kind)? FROM organizations WHERE id=\$1 AND kind='organization'(?: FOR UPDATE)?$/);
+   expect(params).toEqual(["local"]);
+  }
  });
 
 });

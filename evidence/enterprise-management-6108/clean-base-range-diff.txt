@@ -1,0 +1,38 @@
+ 1:  01d7dad41 =  1:  6151aadbc feat(billing): add recoverable Enterprise operations and atomic manual grants (#6108)
+ 2:  d9b4ef1a0 =  2:  48aaf6be4 fix(billing): hydrate Enterprise from actual wallet and preserve typed failures (#6108)
+ 3:  1e94077ea =  3:  b70898c89 test(billing): preserve cold PG setup failure and allow migration time (#6108)
+ 4:  5b6c67a66 =  4:  6cc059ca3 feat(billing): wire Enterprise endpoints from the shared contract Refs #6108
+ 5:  41ff6f22a =  5:  3638ecee9 fix(billing): consume canonical Enterprise routes and bound grant totals (#6108)
+ 6:  fdaae663f =  6:  fb843f982 fix(billing): retain database time and guard active commercial controls (#6108)
+ 7:  e2659581e =  7:  0b9fa9b10 fix(billing): recover editable grant form after definitive overflow (#6108)
+ 8:  a0b3b6bab =  8:  4ccc36c10 test(billing): prepare real Enterprise HTTP and browser acceptance (#6108)
+ 9:  2afb8dc22 =  9:  7a91a829e feat(billing): connect signed Enterprise confirmation and actual wallet balance (#6108)
+10:  3374283a1 <  -:  --------- test(billing): assert exact cumulative grant storage and existing issuers Refs #6104
+11:  896edf396 <  -:  --------- fix(billing): preserve fractional cumulative grants Refs #6104
+12:  9ba2d9c54 <  -:  --------- fix(billing): include precision migration in recovery scope Refs #6104
+13:  aae65b3dd <  -:  --------- test(billing): gate precision migration against contract sources Refs #6104
+14:  606323c91 ! 10:  fb0af6c1f feat(billing): retain uncertain Enterprise requests within authenticated session (#6108)
+    @@ evidence/enterprise-management-6108/pg-admission-interrupted.txt (new)
+     
+      ## tests/fixtures/cn-application-recovery/migration-scope.ts ##
+     @@ tests/fixtures/cn-application-recovery/migration-scope.ts: export const reviewedSuffix = [
+    -   "20261102020000_personal_payment_receipts.sql",
+        "20261102030000_personal_stripe_bindings.sql",
+        "20261102030500_credit_grant_precision.sql",
+    -+  "20261102031000_org_commercial_capacity.sql",
+    +   "20261102031000_org_commercial_capacity.sql",
+     +  "20261102032000_enterprise_management.sql",
+        "20261102040000_personal_payment_recovery.sql",
+      ];
+15:  d7141af9d = 11:  88fa8daa6 fix(billing): bind Enterprise receipts and protect financial responses (#6108)
+16:  e6591fba3 = 12:  fb755f602 test(billing): verify actual receipt references and selected organization scope (#6108)
+17:  248bc2031 = 13:  75a54f221 docs(contracts): keep Team signoff authority in its signed record (#6108)
+18:  3d66fc368 = 14:  2966f3f23 fix(billing): retain immutable Enterprise financial history after tenant teardown (#6108)
+19:  c6a24cbe3 <  -:  --------- fix(test): declare precision ledger fixture cleanup Refs #6104
+20:  0b61c36db = 15:  4b0df552a test(billing): sequence retained-history checks and real recovery in one warm stack (#6108)
+21:  22921b5a6 <  -:  --------- fix(test): use supported array cleanup overload Refs #6104
+22:  7f21a5147 = 16:  0da12396a test(billing): prevent stale browser markers and preserve epoch precision (#6108)
+23:  079b13734 = 17:  b900f60c1 test(billing): focus remaining acceptance on new retention and recovery cases (#6108)
+24:  caa35ef19 = 18:  09233b7d8 test(billing): record real Enterprise retention and interrupted-response recovery evidence (#6108)
+25:  ec8dd3fb6 = 19:  aafb5acc2 fix(billing): make Enterprise migration replay preserve existing financial history (#6108)
+26:  da81bf09e = 20:  93e5f4d5b docs(billing): distinguish migration replay follow-up from verified runtime (#6108)

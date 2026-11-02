@@ -16,6 +16,7 @@ export interface EmailVerificationRepository {
   requestResend(input: {
     email: string;
     proofChallengeId: string | null;
+    authenticatedUserId?: string;
     challengeId: string;
     tokenDigest: string;
     outboxId: string;

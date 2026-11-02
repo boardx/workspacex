@@ -453,9 +453,9 @@ export const operations = {
 
   resendEmailVerification: {
     method: "POST", path: "/auth/email-verifications/resend",
-    in: z.object({ email: z.string().email() }).strict(),
+    in: z.object({ email: z.string().email(), password: z.string().min(1).max(1024).optional() }).strict(),
     out: z.object({ verificationDelivery: z.literal("queued") }).strict(),
-    err: [] as const,
+    err: ["INVALID_CREDENTIAL", "ACCOUNT_LOCKED"] as const,
   },
 
   /* ── F22 段 ──────────────────────────────────────────────────────────

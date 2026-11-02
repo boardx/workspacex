@@ -1,6 +1,7 @@
 /**
  * Team / Enterprise contracts, signed design #6099 and Team runtime #6110.
  * Authority: phases/phase-21-billing-payment/design-deltas/team-enterprise-v1/.
+ * Human signoff is recorded only in design-signoff.md under that authority.
  * Operation metadata below corresponds to implemented routes; schemas alone do not
  * grant permission or activate sales. Prepaid treatment follows the recorded human decision.
  */
@@ -312,11 +313,16 @@ export const EnterpriseUpgradeOperation=z.discriminatedUnion("status",[
 });
 export type EnterpriseUpgradeOperation=z.infer<typeof EnterpriseUpgradeOperation>;
 
-/** Registered only with the implemented authenticated Team account routes. */
+/** Registered only with the implemented authenticated Team and Enterprise routes. */
+const OrgPath=EnterpriseCreditGrantResult.pick({orgId:true});
+const SaleErrors=TeamBillingErrorCode.options;
 export const operations={
  getTeamCatalog:{method:"GET",path:"/billing/organizations/:orgId/catalog",in:z.object({orgId:Identifier}).strict(),out:TeamCatalog,err:["forbidden","owner_not_found","dependency_unavailable"] as const},
  getTeamEntitlement:{method:"GET",path:"/billing/organizations/:orgId/entitlement",in:z.object({orgId:Identifier}).strict(),out:TeamEntitlement,err:["forbidden","owner_not_found","dependency_unavailable"] as const},
  createTeamQuote:{method:"POST",path:"/billing/organizations/:orgId/quotes",in:TeamQuoteRequest,out:TeamQuote,err:TeamBillingErrorCode.options},
  createTeamCheckout:{method:"POST",path:"/billing/organizations/:orgId/checkout",in:TeamCheckoutRequest,out:TeamPurchaseOutcome,err:TeamBillingErrorCode.options},
  getTeamPurchase:{method:"GET",path:"/billing/organizations/:orgId/purchases/:purchaseRef",in:z.object({orgId:Identifier,purchaseRef:Identifier}).strict(),out:TeamPurchaseOutcome,err:["forbidden","owner_not_found","dependency_unavailable","order_not_found"] as const},
+ createEnterpriseUpgrade:{method:"POST",path:"/platform/organizations/:orgId/billing/enterprise-upgrades",in:EnterpriseUpgradeRequest,out:EnterpriseUpgradeOperation,err:SaleErrors},
+ getEnterpriseUpgradeOperation:{method:"GET",path:"/platform/organizations/:orgId/billing/operations/:operationRef",in:OrgPath.extend({operationRef:Identifier}),out:EnterpriseUpgradeOperation,err:[...OrganizationPlanErrorCode.options,"dependency_unavailable",BillingErrorCode.enum.order_not_found] as const},
+ grantEnterpriseCredits:{method:"POST",path:"/platform/organizations/:orgId/billing/credit-grants",in:EnterpriseCreditGrantRequest,out:EnterpriseCreditGrantResult,err:SaleErrors},
 } as const;

@@ -1,0 +1,11 @@
+Excerpt from actual CI run41457591807 job125318372544; full failed-job log retained locally.
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.8970626Z  ^[[31m❯^[[39m tests/arch-gate.test.ts ^[[2m(^[[22m^[[2m7 tests^[[22m^[[2m | ^[[22m^[[31m1 failed^[[39m^[[2m)^[[22m^[[90m 205^[[2mms^[[22m^[[39m
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.8971314Z ^[[31m   ^[[31m×^[[31m lint-arch-deps^[[2m > ^[[22mthe composition root is allowlisted, and the allowlist is short^[[90m 24^[[2mms^[[22m^[[31m^[[39m
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.8972272Z ^[[31m     → every entry here is a file the layering rules do not protect: expected 4 to be less than or equal to 3^[[39m
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.9158918Z ^[[31m^[[1m^[[7m FAIL ^[[27m^[[22m^[[39m tests/arch-gate.test.ts^[[2m > ^[[22mlint-arch-deps^[[2m > ^[[22mthe composition root is allowlisted, and the allowlist is short
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.9174903Z ^[[31m^[[1mAssertionError^[[22m: every entry here is a file the layering rules do not protect: expected 4 to be less than or equal to 3^[[39m
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.9175953Z ^[[36m ^[[2m❯^[[22m tests/arch-gate.test.ts:^[[2m68:92^[[22m^[[39m
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.9306192Z ^[[2m Test Files ^[[22m ^[[1m^[[31m1 failed^[[39m^[[22m^[[2m | ^[[22m^[[1m^[[32m149 passed^[[39m^[[22m^[[2m | ^[[22m^[[33m1 skipped^[[39m^[[90m (210)^[[39m
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.9311627Z ^[[2m      Tests ^[[22m ^[[1m^[[31m1 failed^[[39m^[[22m^[[2m | ^[[22m^[[1m^[[32m1775 passed^[[39m^[[22m^[[2m | ^[[22m^[[33m7 skipped^[[39m^[[90m (1785)^[[39m
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	2026-11-02T14:06:18.9383321Z ##[error]AssertionError: every entry here is a file the layering rules do not protect: expected 4 to be less than or equal to 3
+gates-test (2)	单元与集成测试（含 RLS、两层交集、契约响应校验）—— shard 2/8	 ❯ tests/arch-gate.test.ts:68:92
