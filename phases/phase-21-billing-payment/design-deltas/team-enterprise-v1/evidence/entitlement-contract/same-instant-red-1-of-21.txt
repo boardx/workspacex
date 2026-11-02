@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-entitlement-design.test.ts (21 tests | 1 failed) 15ms
+   × compares expiry instants rather than ISO formatting 5ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > compares expiry instants rather than ISO formatting
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing-team-entitlement-design.test.ts:54:126
+     52| });
+     53| it("compares expiry instants rather than ISO formatting",()=>{
+     54|  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,subscri…
+       |                                                                                                                              ^
+     55| });
+     56| it("represents a manually managed Enterprise without a fabricated paid…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 20 passed (21)
+   Start at  08:22:27
+   Duration  388ms (transform 93ms, setup 0ms, collect 117ms, tests 15ms, environment 0ms, prepare 56ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-entitlement-design.test.ts

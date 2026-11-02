@@ -61,3 +61,11 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 `billing-team.ts` 的 `TeamQuote` 已将 initial / renewal / add_seats / credit_topup 四种响应分别封闭。所有结果绑定组织、代际、目录/商品、渠道、整数金额及正向不超过五分钟的有效期；许可购买包含真实待购容量和月额度，年付不扩大为全年一次额度。增员另保存原已付期限、正增量、增员后月额度及独立的当前月度额度窗口，报价不得超过原到期日；第一期明确是预计值，允许最后极短窗口向下折算为0。永久充值结果不接受席位、期限或许可版本，Stripe充值也是一次性购买。该schema不执行支付、折算入账或权限判断。
 
 原型增员弹窗消费 `previewSeatQuote` 的严格模拟结果取得金额与共同到期日；数据位于原有UI-only fixture模块，明确不是生产报价计算入口。模拟付款仍无HTTP。实际runtime必须读取服务端报价，到账后按权威付款时刻重新计算首期额度。其他响应和完整operation闭集仍待完成，不将本增量标为第③件全部完成。
+
+### 可执行组织权益材料增量
+
+`TeamEntitlement` 明确 licenseStatus 为 none/active/expired/enterprise，并绑定读取时刻、组织、当前代际和既有 Plan 版本。实际人数与 teamPayment.term.purchasedSeats 分开；许可状态不代替 membership、AI模型策略或额度准入。Enterprise不受已记录旧Team期限的许可约束，旧付款和已发额度仍可作为事实返回，不承诺尚未决定的未来发放政策；没有旧付款时保持null，不虚构5席或期限。
+
+包含的 TeamMonthlyCreditGrant 只描述当前或最近一次实际月度授予，none/pending不构造grant；已发的额度窗口不得越过已付期，余额不能大于实际发放，过期剩余为0。钱包直接复用共享CreditWallet，要求真实永久余额、订阅余额和到期事实；wallet必须是该组织的team owner，余额分量与当前授予一致，保留已确认消费产生的负余额。依赖失败返回不可用，不将未知值填0。相同到期时刻允许不同合法ISO时区表示。
+
+本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations仍待物化，Enterprise未决已付窗口不由此schema裁决。

@@ -5,9 +5,9 @@
  * grant permission, activate billing or decide remaining prepaid credit treatment.
  */
 import {z} from "zod";
-import {BillingProvider,CreditBalance,CreditLedgerAmount} from "./billing-credits";
+import {BillingProvider,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
 import {BillingCycle,PricingCurrency,PricingProduct,RenewalMode} from "./billing-pricing";
-import {operations as PlatformOrganizations} from "./platform-organizations";
+import {operations as PlatformOrganizations,PlanState} from "./platform-organizations";
 
 export const TEAM_INCLUDED_SEATS=5;
 export const TEAM_MONTHLY_CREDITS=100000;
@@ -109,3 +109,55 @@ export const TeamQuote=z.discriminatedUnion("purpose",[
  }
 });
 export type TeamQuote=z.infer<typeof TeamQuote>;
+
+/** Included Team credits only; permanent/manual credits stay in the existing wallet. */
+export const TeamMonthlyCreditGrant=z.object({
+ status:z.enum(["none","pending","granted","expired"]),
+ grant:z.object({credits:CreditLedgerAmount,remainingCredits:CreditBalance.refine(value=>value>=0),
+  periodStart:Timestamp,periodEnd:Timestamp}).strict().nullable(),
+}).strict().superRefine((value,ctx)=>{
+ const hasGrant=value.status==="granted"||value.status==="expired";
+ if(hasGrant!==(value.grant!==null))ctx.addIssue({code:"custom",message:"monthly grant state and facts must agree"});
+ if(value.grant){
+  const days=(Date.parse(value.grant.periodEnd)-Date.parse(value.grant.periodStart))/86400000;
+  if(days<28||days>31)ctx.addIssue({code:"custom",message:"included credit grant uses one monthly window"});
+  if(value.grant.remainingCredits>value.grant.credits||value.status==="expired"&&value.grant.remainingCredits!==0)ctx.addIssue({code:"custom",message:"invalid remaining monthly credits"});
+ }
+});
+const TeamPayment=z.object({
+ term:TeamPaidTerm,provider:BillingProvider,renewalMode:RenewalMode,cancelAtPeriodEnd:z.boolean(),
+}).strict().superRefine((value,ctx)=>{
+ if(value.provider==="wechat"&&(value.renewalMode!=="manual"||value.cancelAtPeriodEnd)||value.provider==="stripe"&&value.renewalMode!=="automatic")ctx.addIssue({code:"custom",message:"Team renewal facts must agree with the provider"});
+});
+/** Licensing read model, never a replacement for membership, AI policy or credit admission. */
+export const TeamEntitlement=z.object({
+ orgId:Identifier,generation:Identifier,planVersion:PlanState.shape.version,asOf:Timestamp,
+ licenseStatus:z.enum(["none","active","expired","enterprise"]),memberCount:Count,
+ teamPayment:TeamPayment.nullable(),creditGrant:TeamMonthlyCreditGrant,
+ wallet:CreditWallet.required({permanentBalance:true,subscriptionCredits:true,subscriptionExpiresAt:true}),
+ checkoutPending:z.boolean(),paymentReviewRequired:z.boolean(),
+}).strict().superRefine((value,ctx)=>{
+ const {teamPayment:payment,creditGrant,wallet}=value,now=Date.parse(value.asOf),grant=creditGrant.grant;
+ if(wallet.ownerType!=="team"||wallet.ownerId!==value.orgId)ctx.addIssue({code:"custom",path:["wallet"],message:"wallet must belong to this organization"});
+ if(value.licenseStatus==="none"&&(payment!==null||creditGrant.status!=="none"))ctx.addIssue({code:"custom",message:"unconfigured organization has no paid Team facts"});
+ if(value.licenseStatus==="active"||value.licenseStatus==="expired"){
+  if(!payment)ctx.addIssue({code:"custom",path:["teamPayment"],message:"paid Team facts are required"});
+  else{
+   const start=Date.parse(payment.term.paidPeriodStart),end=Date.parse(payment.term.paidPeriodEnd);
+   if(value.licenseStatus==="active"&&(now<start||now>=end)||value.licenseStatus==="expired"&&now<end)ctx.addIssue({code:"custom",path:["licenseStatus"],message:"Team licensing status must agree with its paid term"});
+  }
+ }
+ if(value.licenseStatus==="enterprise"&&payment?.provider==="stripe"&&!payment.cancelAtPeriodEnd)ctx.addIssue({code:"custom",path:["teamPayment"],message:"Enterprise activation must first stop future owned Team renewal"});
+ if(grant){
+  const start=Date.parse(grant.periodStart),end=Date.parse(grant.periodEnd);
+  if(!payment||start<Date.parse(payment.term.paidPeriodStart)||end>Date.parse(payment.term.paidPeriodEnd)||grant.credits>payment.term.monthlyCredits)ctx.addIssue({code:"custom",path:["creditGrant"],message:"included monthly credits must remain within their paid Team facts"});
+  if(creditGrant.status==="granted"&&(now<start||now>=end)||creditGrant.status==="expired"&&now<end)ctx.addIssue({code:"custom",path:["creditGrant"],message:"grant status must agree with the read time"});
+ }
+ if(Math.round(wallet.balance*100)!==Math.round((wallet.permanentBalance+wallet.subscriptionCredits)*100))ctx.addIssue({code:"custom",path:["wallet","balance"],message:"wallet components must preserve the signed total"});
+ const remaining=creditGrant.status==="granted"&&grant?grant.remainingCredits:0;
+ if(wallet.subscriptionCredits!==remaining)ctx.addIssue({code:"custom",path:["wallet","subscriptionCredits"],message:"wallet and current monthly remaining credits must agree"});
+ const walletExpiry=wallet.subscriptionExpiresAt===null?null:Date.parse(wallet.subscriptionExpiresAt),grantExpiry=grant?Date.parse(grant.periodEnd):null;
+ if(remaining>0&&walletExpiry!==grantExpiry||remaining===0&&walletExpiry!==null&&walletExpiry!==grantExpiry)ctx.addIssue({code:"custom",path:["wallet","subscriptionExpiresAt"],message:"wallet monthly expiry must match the actual grant"});
+});
+export type TeamMonthlyCreditGrant=z.infer<typeof TeamMonthlyCreditGrant>;
+export type TeamEntitlement=z.infer<typeof TeamEntitlement>;
