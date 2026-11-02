@@ -1,60 +1,31 @@
 # Enterprise management #6108
 
-Baseline: b3e9977de08b056a564058ca0419d85d421fdd4a (develop).
+Initial develop baseline: `b3e9977de08b056a564058ca0419d85d421fdd4a`.
 
-Implementation in progress. No passing claim. Dependencies: signed billing-team contracts,
-capacity migration organization_plans.billing_generation. Root accounting generation and epoch helpers were verified at baseline; approved design and capacity commits are explicit local dependencies.
+Scope: platform operators can upgrade organizations with no canonical Team license row and manually grant current-generation Enterprise credits. Full paid-Team renewal cancellation and retained paid terms belong to #6116. Any Team license row, including malformed or unknown-generation rows, fails closed until that adapter exists. No production activation, merchant settlement, deployment or merge claim.
 
-Grant write lock order: active epoch shared lock, organization row, Plan row, wallet.
-Grant receipt is itself an immutable tenant audit record, with actor, reason and generation.
-Atomic transaction includes wallet update, ledger and immutable audit/idempotency receipt.
+## Actual verification
 
-Pending verification: HTTP/PG authorization, overflow/audit rollback, version conflict,
-recovery and browser evidence. Paid Team provider adapter not yet available; upgrades
-must stay dependency_unavailable until verified paid-term and real cancellation facts exist.
+- `init.txt`: initial `./init.sh` passed.
+- `backend-19.txt`: exit 0; Enterprise real PG 7, precision real PG 8, authenticated real HTTP 2, generator source checks 2. HTTP uses actual bcrypt login, Redis bearer sessions and full Kernel composition; ordinary admins are denied same-org and cross-org financial writes. It verifies exact-once credit, Plan version conflicts, strict response schemas and private/no-store success and denial headers.
+- `ui-client-final.txt`: exit 0; UI 11 and client response-correlation counterexamples 7. Unknown failures preserve the original key/parameters; reload never automatically submits. Wrong organization/credit/version/actor/reference responses remain unknown.
+- `browser-final.txt` and `retention-pg.txt`: final no-FK schema; new retained-history PG case 1 passed (7 existing cases intentionally skipped by name selection), followed by real browser 1 passed. No previous 19/18 cases rerun. Full remaining regression belongs to required CI.
 
-Verified: init.sh passed; eight upgrade/absence unit cases and eight UI component cases passed (logs alongside). These do not substitute for PG/HTTP/browser evidence.
+Final owned wrapper admitted normally without waiting, ran 3m8s and cleaned in 1s (total 3m9s), exit 0. Compose `wsx-35c23b19c1d24cbfe0e8` had no containers after cleanup; owned API and Next PIDs were gone. The wrapper destroyed its disposable database and retained-history rows. Next's generated tsconfig change was restored.
 
-First isolated PG attempt: cold migration exceeded the 60s setup hook; all seven cases skipped. No business pass/fail claim. Wrapper cleaned the stack. Preserved `pg-initial-setup-timeout.txt`; setup allowance raised to 180s based on observed migration duration, awaiting rerun slot.
+## Financial history and recovery evidence
 
-UI error recovery: a definitive overflow originally trapped the request with disabled inputs. Targeted red preserved in `ui-overflow-red.txt`; amount is now editable only after the server definitively rejected that transaction. Unknown network failures still retain the original key and parameters. Latest targeted UI run: 6/6.
+The unpublished 032000 migration retains financial history without organization FKs, matching existing wallet/ledger retention. Permanent audit UPDATE/DELETE rejection and app_rw privileges stay intact. The targeted PG case verifies owner tenant teardown leaves wallet/ledger/grant/operation unchanged, direct audit mutation fails both before and after deletion, service access to the deleted organization returns not-found, and another organization is unchanged. The actual default seeded-organization cleanup hook ran. No replica mode, disabled trigger or CASCADE exception was used.
 
-Confirmed receipt refresh regression: parent detail refresh used to unmount the financial panel and erase a successful grant receipt. Targeted red retained; same-organization refresh now preserves the panel. Latest UI selection is 7/7.
+The real browser used a disposable API/PG/Redis/Next runtime. A test-only transport fault closed the first successful grant response **after the actual transaction committed**. Actual DB facts were balance 42, total granted 42, one ledger entry and one audit. Reload restored the original parameters without posting; explicit retry sent the same key and parameters and returned the original receipt. Wallet/ledger/audit facts stayed identical. The two screenshots were visually inspected:
 
-Prepared (not yet run): two real HTTP cases using bcrypt login, Redis bearer sessions and full Kernel composition; one real browser journey using an isolated API/Next runtime and dedicated catalog credential. These lanes contain no route interception and do not assert merchant settlement.
+- `enterprise-response-lost.png`: original request retained with explicit retry and unknown outcome.
+- `enterprise-grant-recovered.png`: balance 42 and actual audit reference after recovery.
 
-Signed UI confirmation is wired using the existing Dialog component: a new upgrade/grant request is sent only after confirming the organization and grant facts. Existing uncertain requests retry the original identity. Actual summary wallet balance is displayed without a fabricated default. Targeted confirmation red retained; current UI selection 8/8.
+The expected proxy socket-hang-up log is the intentional post-commit fault, not a failed assertion. Raw final logs were scanned for bearer/DSN/password/sessionToken fields with no matches. Test fixture identities/passwords are restricted to disposable wrapper-owned acceptance runtime. Optional SQL inventory smoke was removed and was not run.
 
-## Current unverified additions
+## Earlier calibration, not passing evidence
 
-Full paid-Team renewal/retention remains **issue #6116**, outside this deliverable's usable no-Team lane. Any canonical Team license row remains fail-closed.
+`pg-initial-setup-timeout.txt` is a cold-migration setup timeout with all cases skipped. The setup budget was corrected using observed migration duration. `pg-admission-interrupted.txt` is an interrupted resource queue before stack/test startup. Preserved UI red logs demonstrate the overflow-editability, receipt-refresh and confirmation regressions. These logs are not claimed as current successful verification.
 
-Added authenticated-session recovery: canonical original request is held in sessionStorage under actor + target organization + bearer SHA256 fingerprint. Raw tokens are not stored. Mount/reload restores parameters only; it never posts automatically. Explicit retry uses the original request; identity/organization changes unmount the old panel. New recovery/error cases expand UI selection to 11; these additions have **not yet run**. Last executed UI output is the preceding 8-case selection.
-
-Current owned backend selection is 19 targeted cases: Enterprise PG 7, precision PG 8, real HTTP 2, two generator-source checks. Admission was interrupted at the coordinator's instruction before any stack/Vitest startup; `pg-admission-interrupted.txt` is queue output, not verification. Wait for an explicit resource release; do not allow admission timeout to force-start under load. No full typecheck/browser is running.
-
-Browser acceptance now includes a deterministic test-only transport fault after the real grant commit: the runtime closes the first successful response, then the real browser reloads and explicitly retries the same key. Actual wallet/ledger/audit must remain unchanged by replay. This is a real backend plus a fault-injection runtime, not a merchant-payment or production-deployment claim. Browser run is still pending.
-
-## Independent review follow-up (pending execution)
-
-- Response correlation: a schema-valid grant must still match requested organization/credits; upgrades also match requested version and known authenticated actor; operation reads match organization/reference. Mismatches remain unknown and retain the original request. Detail reads bind the returned organization before it can become a financial target. Seven pure client counterexamples are prepared.
-- Cache policy: the three financial operations and the existing directory reads now carrying real wallet data use `private, no-store`; the existing filter applies it before guard failures too. Only the three new routes convert their reviewed permission code to the Team billing envelope; legacy directory error semantics remain unchanged. Real HTTP assertions cover success and 403.
-- Session transitions: financial requests pass the captured bearer instead of silently selecting another account's current global token; directory state uses the existing authenticated session scope to unmount old financial read data.
-
-These source changes have not run while the coordinator's one normal push group owns heavy resources. Planned next selections: owned backend 19, UI recovery 11 plus pure client 7, then a separate browser slot. No standalone typecheck has been started.
-
-## Verified batches and retained-history review
-
-On the preceding schema/source: `backend-19.txt` exited 0 (Enterprise PG 7 + precision PG 8 + authenticated HTTP 2 + source checks 2), and `ui-client-final.txt` exited 0 (UI 11 + client correlation 7). The owned stack was removed; a precise compose-label `docker ps -a` check returned no containers. Raw logs were scanned for bearer/DSN/password/sessionToken fields with no matches.
-
-Independent review then rejected adapting financial audit retention to fixture deletion. The unpublished 032000 migration now removes the two organization FKs, matching wallet/ledger historical retention; the permanent audit UPDATE/DELETE rejection and app_rw privileges remain unchanged. Live service writes/reads still lock and verify the organization. Runtime source search found no organization-delete API. A new eighth PG case proves owner tenant teardown retains grant/ledger/operation history, direct audit mutations remain rejected before/after teardown, deleted-org service operations return not-found, and another org is unchanged. It also declares exact owned fixture IDs retained until the disposable database is destroyed.
-
-This retention delta has not run. `vitest.enterprise-retention-pg.config.ts` selects the eight cases with the actual default `db-file-cleanup` hook and isolation global setup for a sequential warm-stack follow-up. No trigger disabling/replica mode, CASCADE exception or cold rerun of the verified 19 is used. Database-backed dedicated configs now require the existing isolation global setup, so a bare shared-DB invocation fails before fixture mutation.
-
-## Warm browser sequence prepared (not executed)
-
-The dedicated Playwright runtime will migrate one owned stack. Its global setup then runs the retention PG 8 and authenticated HTTP 2 with the real default seeded-organization cleanup hook, sequentially, before the browser journey. Both fixture files preserve and restore their entry epoch marker, so the default suite cannot leak activation and the browser's pre-seeded active marker is preserved. Runtime financial history remains declared by exact owned IDs until database destruction.
-
-The browser journey uses the real UI and backend with a single test-runtime response loss after COMMIT, then reloads and explicitly retries the original request. An optional coordinator-supplied `ENTERPRISE_INVENTORY_SQL_SMOKE` draft is read only in global teardown after a fresh success marker for this isolation ID. It runs via trusted asOwner with default transaction read-only and row_security off, recording an isolated syntax-smoke result; it is never a remote inventory or a data-cleanup claim. No stack is created for that optional draft.
-
-Latest acceleration scope: remaining local validation is the one new retained-history PG case (with default cleanup) followed by the real committed-response-loss browser case in one owned stack. Previously green PG/HTTP cases are not rerun; full regression belongs to required CI. Optional inventory SQL smoke removed and not run.
+Independent static reviews accepted the response-correlation/cache changes, permanent history retention, and warm orchestration including fresh success markers and exact text epoch restoration. Final source integration, required type/lint/CI, PR and independent exact-SHA review remain outstanding; this feature is not marked passing.

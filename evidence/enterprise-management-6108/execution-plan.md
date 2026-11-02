@@ -35,8 +35,9 @@ flowchart TD
   class S1 done
   class S2 done
   class S3 done
-  class S4 doing
-  class S5 todo
+  %% evidence S4: evidence/enterprise-management-6108/backend-19.txt; ui-client-final.txt; browser-final.txt; retention-pg.txt
+  class S4 tested
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
