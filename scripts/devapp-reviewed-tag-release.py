@@ -239,7 +239,14 @@ def writer(ctx):
    if resume and not resume_business_cleanup(ctx):failure.update(recovery='OPERATOR_REQUIRED',businessRecoverySkipped=True,oldImagesRestored=True,readonlyHealthVerified=True)
    else:business(ctx,'recovery');failure.update(status='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA',schemaState=observed['state'])
   except BaseException:failure['recovery']='OPERATOR_REQUIRED'
-  failure['trafficControl']='stopped-five-applications';core.save(attempt/'failure.json',failure);raise
+  if failure['status']=='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA':failure['trafficControl']='verified-old-application-running'
+  else:
+   # An unverified recovery must not leave applications accepting public writes.
+   failure['trafficControl']='UNKNOWN';failure['applicationsStoppedVerified']=False
+   try:
+    d.run(old_command+['stop','--timeout','30',*cfg['services']],timeout=90);database.stopped();failure.update(trafficControl='stopped-five-applications',applicationsStoppedVerified=True)
+   except BaseException:failure['stopOutcome']='UNKNOWN_OPERATOR_REQUIRED'
+  core.save(attempt/'failure.json',failure);raise
 
 def verify_business_proof(ctx,value,phase,now=None):
  now=time.time() if now is None else now

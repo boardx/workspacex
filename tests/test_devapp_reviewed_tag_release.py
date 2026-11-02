@@ -55,7 +55,9 @@ class FullWriterStateMachine(unittest.TestCase):
   class D:
    def json(self,args):return {'services':{'api':{'image':'new' if 'candidate-images.json' in ' '.join(args) else 'old'}}}
    def run(self,args,**kw):
-    if 'stop' in args:state['running']=False;events.append('stop')
+    if 'stop' in args:
+     if failure=='recovery-stop' and 'business-recovery' in events:raise ValueError('STOP_FAILED')
+     state['running']=False;events.append('stop')
     if 'start' in args:state['running']=True;events.append('start-old')
     if 'up' in args:state['running']=True;state['images']={'api':'new' if 'candidate-images.json' in ' '.join(args) else 'old'};events.append('up-'+state['images']['api'])
     return b''
@@ -83,6 +85,7 @@ class FullWriterStateMachine(unittest.TestCase):
    if resume:
     save(attempt/(phase+'-once.json'),{'source':m.SOURCE,'tag':m.TAG});save(attempt/(phase+'-outcome.json'),{'phase':phase,'source':m.SOURCE,'tag':m.TAG,'command':cfg['verificationCommand'],'processGroupOwned':True,'ownedProcessGroupGone':not (failure=='cleanup' and phase=='candidate'),'status':'SUCCEEDED','exitCode':0})
     if failure=='cleanup' and phase=='candidate':raise ValueError('OWNED_PROCESS_GROUP_NOT_REAPED')
+   if failure in ('recovery-business','recovery-stop') and phase in ('candidate','recovery'):raise ValueError('BUSINESS_FAILED')
    if failure=='business' and phase=='candidate':raise ValueError('BUSINESS_FAILED')
    out=attempt/(phase+'-proof.json');save(out,{'actualFakeBusiness':True});return m.ref(out)
   def health(ctx,cmd,images,*args):assert state['running'];events.append('health-'+images['api']);return {'healthy':True}
@@ -91,7 +94,8 @@ class FullWriterStateMachine(unittest.TestCase):
   if diagnostic:
    p.update(resumePrevious={},activationNonce="b"*32,diagnosticBrowser=True);(root/("devapp-"+m.TAG+"-resume-23ecfeea853840acb7638e629c8f50d5.json")).write_bytes(b"previous spent once preserved")
   with contextlib.ExitStack() as stack:
-   if resume:stack.enter_context(patch.object(m,'validate_resume',return_value={'original':'verified'}))
+   if resume:
+    stack.enter_context(patch.object(m,'validate_resume',return_value={'original':'verified'}));stack.enter_context(patch.object(m,'resume_business_cleanup',return_value=failure!='cleanup'))
    stack.enter_context(patch.object(m,'Database',DB));stack.enter_context(patch.object(m,'load',return_value=act));stack.enter_context(patch.object(m,'health',side_effect=health));stack.enter_context(patch.object(m,'business',side_effect=business));stack.enter_context(patch.object(m,'pinned',return_value=attempt));stack.enter_context(patch.object(m.signal,'setitimer'))
    try:m.writer(ctx);error=None
    except ValueError as e:error=e
@@ -355,3 +359,18 @@ class DiagnosticActivationFlow(unittest.TestCase):
  exercise=FullWriterStateMachine.exercise
  def test_explicit_nonce_spends_new_once_without_reusing_two_originals(self):
   m,ctx,state,events,pending,error=self.exercise(resume=True,diagnostic=True);self.assertIsNone(error);self.assertNotIn('native-eight',events);root=pending.parent;self.assertTrue((root/('devapp-'+m.TAG+'-activation-'+'b'*32+'-once.json')).exists());self.assertEqual((root/('devapp-'+m.TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json')).read_bytes(),b'previous spent once preserved');self.assertEqual((root/('devapp-'+m.TAG+'-once.json')).read_bytes(),b'original spent once preserved')
+
+class FailedRecoveryStopsApplications(unittest.TestCase):
+ exercise=FullWriterStateMachine.exercise
+ def test_failed_recovery_business_stops_and_proves_stopped(self):
+  import json
+  m,ctx,state,events,pending,error=self.exercise('recovery-business',resume=True);self.assertIsNotNone(error);self.assertFalse(state['running']);proof=json.loads((ctx['attempt']/'failure.json').read_bytes());self.assertEqual(proof['status'],'RECONCILIATION_REQUIRED');self.assertEqual(proof['trafficControl'],'stopped-five-applications');self.assertTrue(proof['applicationsStoppedVerified']);self.assertTrue(pending.exists());self.assertEqual(events[-1],'stop')
+ def test_stop_failure_records_unknown_never_claims_maintenance(self):
+  import json
+  m,ctx,state,events,pending,error=self.exercise('recovery-stop',resume=True);proof=json.loads((ctx['attempt']/'failure.json').read_bytes());self.assertEqual(proof['trafficControl'],'UNKNOWN');self.assertFalse(proof['applicationsStoppedVerified']);self.assertEqual(proof['stopOutcome'],'UNKNOWN_OPERATOR_REQUIRED');self.assertTrue(pending.exists())
+ def test_group_uncertain_health_only_recovery_also_stops_before_exit(self):
+  import json
+  m,ctx,state,events,pending,error=self.exercise('cleanup',resume=True);proof=json.loads((ctx['attempt']/'failure.json').read_bytes());self.assertFalse(state['running']);self.assertTrue(proof['applicationsStoppedVerified']);self.assertNotIn('business-recovery',events)
+ def test_verified_successful_recovery_describes_actual_running_state(self):
+  import json
+  m,ctx,state,events,pending,error=self.exercise('business',resume=True);proof=json.loads((ctx['attempt']/'failure.json').read_bytes());self.assertTrue(state['running']);self.assertEqual(proof['trafficControl'],'verified-old-application-running')
