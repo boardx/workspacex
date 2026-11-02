@@ -41,7 +41,7 @@ async function fixture(label: string, index = 1, market: "cn" | "us" = "cn") {
   const purchase = await checkout.reserve(principal, { sku: product.sku, provider, catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `settle-${randomUUID()}` }, product);
   const receipt = { purchaseRef: purchase.purchaseRef, provider, paymentRef: `${provider === "wechat" ? "wx" : "pi"}_${randomUUID().replaceAll("-", "")}`,
     amountMinor: product.amountMinor, currency: product.currency, paidAt: new Date() };
-  const wallet = () => asApp(org, async c => (await c.query("SELECT balance::text,total_granted,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [userId])).rows[0]);
+  const wallet = () => asApp(org, async c => (await c.query("SELECT balance::text,total_granted::float8 AS total_granted,total_purchased FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [userId])).rows[0]);
   return { userId, principal, purchase, receipt, wallet };
 }
 it("credits one monthly batch from one annual WeChat payment under concurrent callbacks", async () => {

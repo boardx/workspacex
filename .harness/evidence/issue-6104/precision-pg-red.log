@@ -1,0 +1,130 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_318c114ad4d69af15913 capacity=100 current=6 required=32
+ ❯ tests/billing/credit-grant-precision-pg.test.ts (8 tests | 7 failed) 40329ms
+   × stores and exposes hundredth cumulative grants for user wallets 121ms
+     → expected { balance: '100000.25', …(1) } to deeply equal { balance: '100000.25', …(1) }
+   × stores and exposes hundredth cumulative grants for team wallets 198ms
+     → expected { balance: '100000.25', …(1) } to deeply equal { balance: '100000.25', …(1) }
+   × atomically accumulates independent hundredth increments without losing cents 157ms
+     → expected { balance: '100000.27', …(1) } to deeply equal { balance: '100000.27', …(1) }
+   × keeps the fractional counter through real monthly grant and duplicate delivery 183ms
+     → expected { balance: '20000.25', …(1) } to deeply equal { balance: '20000.25', …(1) }
+   × preserves existing hundredths when the actual new-account gift trigger runs 126ms
+     → expected { balance: '1000.25', …(1) } to deeply equal { balance: '1000.25', …(1) }
+   × enforces the nonnegative original counter bound for -0.01 1ms
+     → malformed orgId
+   × enforces the nonnegative original counter bound for 2147483647.01 0ms
+     → malformed orgId
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/credit-grant-precision-pg.test.ts > stores and exposes hundredth cumulative grants for user wallets
+ FAIL  tests/billing/credit-grant-precision-pg.test.ts > stores and exposes hundredth cumulative grants for team wallets
+AssertionError: expected { balance: '100000.25', …(1) } to deeply equal { balance: '100000.25', …(1) }
+
+- Expected
++ Received
+
+  Object {
+    "balance": "100000.25",
+-   "total_granted": "100000.25",
++   "total_granted": "100000",
+  }
+
+ ❯ tests/billing/credit-grant-precision-pg.test.ts:41:24
+     39| it.each(["user","team"] as const)("stores and exposes hundredth cumula…
+     40|  const f=await fixture(`read-${ownerType}`,"100000.25","100000.25",own…
+     41|  expect(await f.raw()).toEqual({balance:"100000.25",total_granted:"100…
+       |                        ^
+     42|  expect((await f.wallet()).wallet).toMatchObject({balance:100000.25,to…
+     43| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/billing/credit-grant-precision-pg.test.ts > atomically accumulates independent hundredth increments without losing cents
+AssertionError: expected { balance: '100000.27', …(1) } to deeply equal { balance: '100000.27', …(1) }
+
+- Expected
++ Received
+
+  Object {
+    "balance": "100000.27",
+-   "total_granted": "100000.27",
++   "total_granted": "100000",
+  }
+
+ ❯ tests/billing/credit-grant-precision-pg.test.ts:51:24
+     49|  });
+     50|  await Promise.all([add(`${f.userId}-a`),add(`${f.userId}-b`)]);
+     51|  expect(await f.raw()).toEqual({balance:"100000.27",total_granted:"100…
+       |                        ^
+     52|  const ledger=await asApp(f.org,async c=>(await c.query("SELECT sum(cr…
+     53|  expect(ledger).toEqual({credits:"0.02",n:2});
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/billing/credit-grant-precision-pg.test.ts > keeps the fractional counter through real monthly grant and duplicate delivery
+AssertionError: expected { balance: '20000.25', …(1) } to deeply equal { balance: '20000.25', …(1) }
+
+- Expected
++ Received
+
+  Object {
+    "balance": "20000.25",
+-   "total_granted": "20000.25",
++   "total_granted": "20000",
+  }
+
+ ❯ tests/billing/credit-grant-precision-pg.test.ts:58:24
+     56|  const f=await fixture("monthly","0.25");
+     57|  expect(await f.grant()).toBe("granted");expect(await f.grant()).toBe(…
+     58|  expect(await f.raw()).toEqual({balance:"20000.25",total_granted:"2000…
+       |                        ^
+     59|  expect((await f.wallet()).wallet.totalGranted).toBe(20000.25);
+     60| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/billing/credit-grant-precision-pg.test.ts > preserves existing hundredths when the actual new-account gift trigger runs
+AssertionError: expected { balance: '1000.25', …(1) } to deeply equal { balance: '1000.25', …(1) }
+
+- Expected
++ Received
+
+  Object {
+    "balance": "1000.25",
+-   "total_granted": "1000.25",
++   "total_granted": "1000",
+  }
+
+ ❯ tests/billing/credit-grant-precision-pg.test.ts:71:24
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/billing/credit-grant-precision-pg.test.ts > enforces the nonnegative original counter bound for -0.01
+ FAIL  tests/billing/credit-grant-precision-pg.test.ts > enforces the nonnegative original counter bound for 2147483647.01
+Error: malformed orgId
+ ❯ Module.toOrgId src/domain/org-id.ts:22:11
+     20|   if (!isOrgId(v)) {
+     21|     // Deliberately does not embed `v`: it may come from a request bod…
+     22|     throw new Error("malformed orgId");
+       |           ^
+     23|   }
+     24|   return v;
+ ❯ fixture tests/billing/credit-grant-precision-pg.test.ts:26:41
+ ❯ tests/billing/credit-grant-precision-pg.test.ts:77:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 1 passed (8)
+   Start at  12:50:15
+   Duration  49.02s (transform 718ms, setup 15ms, collect 288ms, tests 40.33s, environment 0ms, prepare 125ms)
+
+[db-isolation] db=wsx_318c114ad4d69af15913 peak_connections=4
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/credit-grant-precision-pg.test.ts --no-file-parallelism

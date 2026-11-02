@@ -31,6 +31,7 @@ export const reviewedSuffix = [
   "20261102010000_personal_checkout_intents.sql",
   "20261102020000_personal_payment_receipts.sql",
   "20261102030000_personal_stripe_bindings.sql",
+  "20261102030500_credit_grant_precision.sql",
   "20261102031000_org_commercial_capacity.sql",
   "20261102040000_personal_payment_recovery.sql",
 ];

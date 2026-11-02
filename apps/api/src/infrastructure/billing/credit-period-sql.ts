@@ -9,7 +9,7 @@ export const CREDIT_PERIOD_GRANT_SQL = Object.freeze({
   periodLockUserWallet: "SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1 FOR UPDATE",
   periodFindIdentity: `SELECT *,granted_hundredths::text,remaining_hundredths::text FROM credit_subscription_periods
     WHERE invoice_ref=$1 OR (wallet_id=$2 AND subscription_ref=$3 AND period_start=$4 AND period_end=$5)`,
-  periodWalletState: "SELECT balance::text,total_granted FROM credit_wallets WHERE wallet_id=$1",
+  periodWalletState: "SELECT balance::text,total_granted::text FROM credit_wallets WHERE wallet_id=$1",
   periodInsert: `INSERT INTO credit_subscription_periods(wallet_id,subscription_ref,invoice_ref,plan_ref,period_start,period_end,granted_hundredths,remaining_hundredths)
     VALUES($1,$2,$3,$4,$5,$6,$7,$7) RETURNING period_id`,
   periodGrantWallet: "UPDATE credit_wallets SET balance=$2,total_granted=total_granted+$3,updated_at=now() WHERE wallet_id=$1",
