@@ -1,7 +1,7 @@
 /**
- * #6088 confirmed personal billing contracts; runtime wiring follows separately.
- * Legacy billing data is reset at cutover, with no legacy entitlement migration.
- * Immutable snapshots below protect purchases created by the new system.
+ * Signed personal pricing API contracts. Design authority:
+ * phases/phase-21-billing-payment/design-deltas/personal-pricing-v1/.
+ * Runtime activation and accounting cutover follow that bundle; this file does not activate billing.
  */
 import { z } from "zod";
 import { BillingProvider } from "./billing-credits";
@@ -35,10 +35,11 @@ export const PersonalCheckoutRequest = z.object({
   idempotencyKey: z.string().min(16).max(128),
 }).strict();
 export const PersonalCheckoutResult = z.object({
-  purchaseRef: Identifier, url: z.string().url(), expiresAt: Timestamp,
+  purchaseRef: Identifier, url: z.string().url().nullable(), expiresAt: Timestamp.nullable(),
   provider: BillingProvider, renewalMode: RenewalMode,
 }).strict().superRefine((value, ctx) => {
   if (value.provider === "wechat" && value.renewalMode !== "manual") ctx.addIssue({ code: "custom", message: "WeChat purchases renew manually" });
+  if((value.url===null)!==(value.expiresAt===null))ctx.addIssue({code:"custom",message:"checkout address and expiry must both be known or both be null"});
 });
 
 export const WELCOME_CREDIT_PROGRAM = "welcome-credit-v1";

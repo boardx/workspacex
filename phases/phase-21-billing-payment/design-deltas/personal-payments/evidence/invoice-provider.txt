@@ -1,0 +1,31 @@
+
+> @repo/api@0.0.0 test:billing-provider /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+> vitest run --config vitest.billing-provider.config.ts
+
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/personal-stripe-receipt.test.ts (27 tests) 84ms
+ ✓ tests/billing/provider-switches.test.ts (16 tests) 259ms
+ ✓ tests/billing/personal-wechat-payment.test.ts (18 tests) 319ms
+ ✓ tests/billing/wechat-monthly-client.test.ts (9 tests) 343ms
+ ✓ tests/billing/personal-payment-reconciler.test.ts (12 tests) 103ms
+ ✓ tests/billing/personal-stripe-checkout.test.ts (14 tests) 162ms
+ ✓ tests/billing/pricing-catalog.test.ts (6 tests) 1716ms
+   ✓ server-owned personal pricing catalog > returns 503 for an unconfigured deployment instead of inventing a market 1500ms
+ ✓ tests/billing/personal-checkout-service.test.ts (8 tests) 271ms
+ ✓ tests/billing/pricing-topup-market.test.ts (7 tests) 66ms
+ ✓ tests/billing/stripe-credit-client.test.ts (8 tests) 156ms
+ ✓ tests/billing/personal-stripe-invoice-list.test.ts (13 tests) 181ms
+ ✓ tests/billing/personal-credit-calendar.test.ts (6 tests) 19ms
+ ✓ tests/billing/personal-credit-period-worker.test.ts (3 tests) 142ms
+ ✓ tests/billing/monthly-checkout-client.test.ts (4 tests) 186ms
+ ✓ tests/billing/global-error-boundary.test.ts (6 tests) 112ms
+ ✓ tests/billing/pricing-package-source.test.ts (1 test) 10ms
+ ✓ tests/billing/welcome-schema-source.test.ts (1 test) 17ms
+
+ Test Files  17 passed (17)
+      Tests  159 passed (159)
+   Start at  02:37:59
+   Duration  55.36s (transform 10.91s, setup 0ms, collect 28.16s, tests 4.15s, environment 15ms, prepare 9.34s)
+

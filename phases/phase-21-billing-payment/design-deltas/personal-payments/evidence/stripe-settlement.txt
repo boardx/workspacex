@@ -1,0 +1,35 @@
+[stack-admission] load1=44.91 cores=10 perCore=4.49 running=0/2
+[stack-admission] 排队中：机器每核负载 4.49（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 0s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 4.24（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 5s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.97（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 10s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.67（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 15s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.46（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 20s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.23（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 25s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 3.08（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 30s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.85（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 35s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.67（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 40s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.81（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 45s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.71（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 50s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排队中：机器每核负载 2.56（上限 2.5）—— 现在起栈只会让所有人一起变慢。已等 55s，5s 后重试。（这不是卡死，也不是你的代码有问题）
+[stack-admission] 排到了，等了 60s
+[test-isolation] id=run-mvy54ffy-3306853a-830cadcd95e1 db=wsx_830cadcd95e1811d1524 compose=wsx-830cadcd95e1811d1524 pg=20221 redis=21221 api=24221 web=25221 sandbox=26221 model=27221 deep-agent=28221 asr=29221 vision=30221 loopback-sandbox=31221 mail=19221
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_830cadcd95e1811d1524 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (19 tests) 53187ms
+ ✓ tests/billing/personal-payment-settlement-pg.test.ts (10 tests) 1200ms
+
+ Test Files  2 passed (2)
+      Tests  29 passed (29)
+   Start at  02:06:20
+   Duration  91.19s (transform 1.57s, setup 98ms, collect 4.54s, tests 54.39s, environment 1ms, prepare 527ms)
+
+[db-isolation] db=wsx_830cadcd95e1811d1524 peak_connections=5
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts tests/billing/personal-payment-settlement-pg.test.ts tests/billing/personal-wechat-callback-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：1m0s
+  命令执行：1m34s
+  清理：1s
+  总计：2m35s

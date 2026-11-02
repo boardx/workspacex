@@ -1,0 +1,17 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/billing-cashier.test.tsx (51 tests) 2602ms
+ ✓ tests/ui/personal-pricing-checkout.test.tsx (8 tests) 626ms
+ ✓ tests/ui/billing-subscription-live.test.tsx (17 tests) 1557ms
+   ✓ preserves legacy active management without offering a new sale 467ms
+ ✓ tests/ui/personal-pricing-account.test.tsx (4 tests) 228ms
+ ✓ tests/ui/personal-pricing-overview.test.tsx (5 tests) 332ms
+ ✓ tests/ui/personal-pricing-products.test.tsx (4 tests) 248ms
+ ✓ tests/ui/personal-checkout-state.test.ts (4 tests) 9ms
+
+ Test Files  7 passed (7)
+      Tests  93 passed (93)
+   Start at  04:21:02
+   Duration  19.71s (transform 1.50s, setup 1.40s, collect 5.02s, tests 5.60s, environment 5.52s, prepare 511ms)

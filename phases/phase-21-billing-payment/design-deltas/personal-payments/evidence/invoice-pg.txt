@@ -1,0 +1,33 @@
+[stack-admission] load1=11.86 cores=10 perCore=1.19 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy6agj9-269304b8-af5a2f1318c9 db=wsx_af5a2f1318c9eadfafac compose=wsx-af5a2f1318c9eadfafac pg=20091 redis=21091 api=24091 web=25091 sandbox=26091 model=27091 deep-agent=28091 asr=29091 vision=30091 loopback-sandbox=31091 mail=19091
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_af5a2f1318c9eadfafac capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (25 tests) 84388ms
+   ✓ persists one annual Stripe invoice and binding while granting only the first month 514ms
+   ✓ preserves the stored Jan31 anchor through a clamped February renewal 378ms
+   ✓ updates a verified cancellation snapshot on an invoice replay without regranting 341ms
+   ✓ does not bind another user's purchase to an existing Stripe customer 438ms
+   ✓ credits an authoritative invoice once across different Stripe event ids 316ms
+   ✓ recovers every paid month in a page without duplicating the latest or restoring expired credits 713ms
+   ✓ finishes an admitted invoice but keeps the original page cursor when shutdown interrupts a page 826ms
+   ✓ does not skip a page after a later invoice fails monetary verification 659ms
+   ✓ advances to the next invoice page only after the entire current page is confirmed 474ms
+   ✓ reads fresh cancellation state instead of trusting the subscription event payload 327ms
+   ✓ handles signed raw HTTP Stripe callbacks with real HMAC and one financial grant 664ms
+
+ Test Files  1 passed (1)
+      Tests  25 passed (25)
+   Start at  02:38:02
+   Duration  111.02s (transform 2.96s, setup 48ms, collect 5.76s, tests 84.39s, environment 0ms, prepare 432ms)
+
+[db-isolation] db=wsx_af5a2f1318c9eadfafac peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m55s
+  清理：2s
+  总计：1m58s

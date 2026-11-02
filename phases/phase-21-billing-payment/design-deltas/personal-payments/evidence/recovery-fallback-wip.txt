@@ -1,0 +1,23 @@
+[stack-admission] load1=4.65 cores=10 perCore=0.46 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy6t31r-24667585-4208a42f2f74 db=wsx_4208a42f2f74f60d4565 compose=wsx-4208a42f2f74f60d4565 pg=20575 redis=21575 api=24575 web=25575 sandbox=26575 model=27575 deep-agent=28575 asr=29575 vision=30575 loopback-sandbox=31575 mail=19575
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_4208a42f2f74f60d4565 capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (26 tests | 25 skipped) 38196ms
+   ✓ recovers through the verified financial binding if the original checkout response never finished binding 339ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 25 skipped (26)
+   Start at  02:52:28
+   Duration  55.54s (transform 1.09s, setup 61ms, collect 2.06s, tests 38.20s, environment 0ms, prepare 219ms)
+
+[db-isolation] db=wsx_4208a42f2f74f60d4565 peak_connections=3
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t recovers through the verified financial binding
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：57s
+  清理：1s
+  总计：58s

@@ -1,14 +1,14 @@
 import { createCipheriv, randomBytes, randomUUID, sign, type KeyObject } from "node:crypto";
 import { registerBillingRawBodyParser } from "../../src/interface/middleware/billing-raw-body-parser";
 import type { Request, Response } from "express";
-import { orderFixture } from "./order-fixture";
+import { orderFixture, type BillingFixtureOptions } from "./order-fixture";
 import { asOwner } from "../support/db";
 
 export interface ReceiptWorker {
   runOnce(): Promise<void>;
   onModuleDestroy(): Promise<void>;
 }
-export async function notifyFixture(background = false, options: { platformVerification?: boolean } = {}) {
+export async function notifyFixture(background = false, options: BillingFixtureOptions = {}) {
   const network = { dropAck: false };
   const base = await orderFixture(app => {
     const server = app.getHttpAdapter().getInstance();

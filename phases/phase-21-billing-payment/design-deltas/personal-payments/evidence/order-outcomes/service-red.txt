@@ -1,0 +1,57 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ❯ tests/billing/personal-checkout-service.test.ts (12 tests | 3 failed) 30ms
+   × recovers a 'fulfilled' purchase without original payment binding or another provider call 6ms
+     → dependency_unavailable
+   × recovers a 'closed' purchase without original payment binding or another provider call 1ms
+     → dependency_unavailable
+   × recovers a 'manual review' purchase without original payment binding or another provider call 7ms
+     → expected { …(5) } to deeply equal { …(5) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-checkout-service.test.ts > recovers a 'fulfilled' purchase without original payment binding or another provider call
+ FAIL  tests/billing/personal-checkout-service.test.ts > recovers a 'closed' purchase without original payment binding or another provider call
+Error: dependency_unavailable
+ ❯ PersonalCheckoutService.resume src/application/billing/personal-checkout-service.ts:30:113
+     28|     // Stripe idempotency expires after at least 24h. Unresolved old i…
+     29|     const maxAge = PERSONAL_CHECKOUT_RETRY_WINDOW_MS[purchase.provider…
+     30|     if (Date.now() - purchase.createdAt.getTime() >= maxAge || purchas…
+       |                                                                                                                 ^
+     31|     let checkout;
+     32|     try { checkout = await this.provider.create(purchase); }
+ ❯ PersonalCheckoutService.checkout src/application/billing/personal-checkout-service.ts:15:80
+ ❯ tests/billing/personal-checkout-service.test.ts:74:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/billing/personal-checkout-service.test.ts > recovers a 'manual review' purchase without original payment binding or another provider call
+AssertionError: expected { …(5) } to deeply equal { …(5) }
+
+- Expected
++ Received
+
+  Object {
+-   "expiresAt": null,
++   "expiresAt": "2026-11-02T21:13:20.810Z",
+    "provider": "stripe",
+    "purchaseRef": "bm20261102010000ABC123",
+    "renewalMode": "automatic",
+-   "url": null,
++   "url": "https://checkout.stripe.com/c/pay/fixture",
+  }
+
+ ❯ tests/billing/personal-checkout-service.test.ts:74:54
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 9 passed (12)
+   Start at  05:13:20
+   Duration  616ms (transform 124ms, setup 0ms, collect 169ms, tests 30ms, environment 0ms, prepare 77ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-provider.config.ts tests/billing/personal-checkout-service.test.ts

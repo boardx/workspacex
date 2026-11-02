@@ -1,0 +1,22 @@
+[stack-admission] load1=1.91 cores=10 perCore=0.19 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyi2nrs-ecb131d9-a91886b39b1e db=wsx_a91886b39b1e7573862b compose=wsx-a91886b39b1e7573862b pg=20302 redis=21302 api=24302 web=25302 sandbox=26302 model=27302 deep-agent=28302 asr=29302 vision=30302 loopback-sandbox=31302 mail=19302
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_a91886b39b1e7573862b capacity=100 current=6 required=32
+ ✓ tests/billing/personal-checkout-http.test.ts (6 tests) 15028ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  08:07:51
+   Duration  20.66s (transform 1.07s, setup 7ms, collect 1.54s, tests 15.03s, environment 0ms, prepare 43ms)
+
+[db-isolation] db=wsx_a91886b39b1e7573862b peak_connections=2
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-checkout-http.test.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：22s
+  清理：0s
+  总计：23s

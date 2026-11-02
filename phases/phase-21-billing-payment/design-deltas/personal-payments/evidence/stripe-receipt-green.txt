@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+ ✓ tests/billing/personal-stripe-receipt.test.ts (24 tests) 16ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  00:35:37
+   Duration  526ms (transform 117ms, setup 0ms, collect 164ms, tests 16ms, environment 0ms, prepare 105ms)
+

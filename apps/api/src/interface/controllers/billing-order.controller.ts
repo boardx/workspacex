@@ -1,6 +1,6 @@
 import { BillingHttpException } from "./billing-http-exception";
 import { traceIdOf } from "../middleware/trace";
-import { Controller, Get, Post, Body, Param, Query, Inject, Req } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, Inject, Req, Header } from "@nestjs/common";
 import type { z } from "zod";
 import { operations } from "@repo/contracts/billing-credits";
 import type { Principal } from "../../domain/principal";
@@ -33,6 +33,7 @@ export class BillingOrderController {
   cancel(@Req() req: unknown, @CurrentPrincipal() principal: Principal, @Param(new ZodBodyPipe(operations.cancelPaymentOrder.in)) input: z.infer<typeof operations.cancelPaymentOrder.in>) {
     return this.mapped(() => this.service.cancel(principal, input, traceIdOf(req)));
   }
+  @Header("Cache-Control", "no-store")
   @Get(operations.getPaymentOrder.path)
   get(@CurrentPrincipal() principal: Principal, @Param(new ZodBodyPipe(operations.getPaymentOrder.in)) input: z.infer<typeof operations.getPaymentOrder.in>) {
     return this.mapped(() => this.service.get(principal, input));

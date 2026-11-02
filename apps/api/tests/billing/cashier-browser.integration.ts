@@ -106,6 +106,7 @@ async function createFromUi(page: Page, aged = false): Promise<Order> {
     const created = await response; expect(created.status()).toBe(201);
     order = billing.operations.createPaymentOrder.out.parse(await created.json()).order;
   } finally { if (aged) vi.useRealTimers(); }
+  if(order.expiredAt===null)throw Error("pending_order_expiry_required");
   expect(Date.now()).toBeGreaterThanOrEqual(before);
   if (aged) { expect(Date.parse(order.createdAt)).toBe(before - 16 * 60000); expect(Date.parse(order.expiredAt)).toBeLessThan(before); }
   else { expect(Date.parse(order.createdAt)).toBeGreaterThanOrEqual(before); expect(Date.parse(order.expiredAt)).toBeGreaterThan(realNow()); }

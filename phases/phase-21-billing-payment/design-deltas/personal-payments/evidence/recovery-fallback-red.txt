@@ -1,0 +1,48 @@
+[stack-admission] load1=5.23 cores=10 perCore=0.52 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy6q8s1-fdce3f62-6bf0def73da1 db=wsx_6bf0def73da150fd009a compose=wsx-6bf0def73da150fd009a pg=20831 redis=21831 api=24831 web=25831 sandbox=26831 model=27831 deep-agent=28831 asr=29831 vision=30831 loopback-sandbox=31831 mail=19831
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_6bf0def73da150fd009a capacity=100 current=6 required=32
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts (26 tests | 1 failed | 25 skipped) 45088ms
+   × recovers through the verified financial binding if the original checkout response never finished binding 266ms
+     → expected false to be true // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-stripe-settlement-pg.test.ts > recovers through the verified financial binding if the original checkout response never finished binding
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ tests/billing/personal-stripe-settlement-pg.test.ts:205:100
+    203|   const f = await fixture("financial-session-fallback"), handler = cal…
+    204|   await asOwner(c => c.query("UPDATE billing_personal_purchases SET se…
+    205|   expect(await handler.store.reconcileSubscription(f.snapshots.subscri…
+       |                                                                                                    ^
+    206|   expect(await f.wallet()).toMatchObject({ balance: "20000.00", total_…
+    207| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 25 skipped (26)
+   Start at  02:50:16
+   Duration  60.84s (transform 1.47s, setup 35ms, collect 3.80s, tests 45.09s, environment 0ms, prepare 361ms)
+
+[db-isolation] db=wsx_6bf0def73da150fd009a peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t recovers through the verified financial binding
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts -t recovers through the verified financial binding
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m3s
+  清理：1s
+  总计：1m4s

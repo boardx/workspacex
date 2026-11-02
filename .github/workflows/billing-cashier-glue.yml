@@ -52,4 +52,6 @@ jobs:
           path: |
             phases/phase-21-billing-payment/sprints/sprint-06/evidence/actual-glue/
             apps/api/test-results/billing-stripe/
+            apps/api/tests/test-results/personal-stripe-pricing/
+            phases/phase-21-billing-payment/design-deltas/personal-payments/evidence/real-browser/
           if-no-files-found: warn

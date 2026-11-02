@@ -1,0 +1,67 @@
+[stack-admission] load1=2.01 cores=10 perCore=0.20 running=1/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvy9iyn3-5739e347-4d03c22a4f4a db=wsx_4d03c22a4f4aea23180a compose=wsx-4d03c22a4f4aea23180a pg=20946 redis=21946 api=24946 web=25946 sandbox=26946 model=27946 deep-agent=28946 asr=29946 vision=30946 loopback-sandbox=31946 mail=19946
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_4d03c22a4f4aea23180a capacity=100 current=6 required=32
+ ✓ tests/billing/personal-stripe-settlement-pg.test.ts (31 tests) 14905ms
+{"level":"info","msg":"billing_callback_pending","traceId":"364b4f87-4166-484c-8a4b-dbad9356b83a","stage":"credit","providerEventId":"f05-27fee44f-b446-4ff0-942b-80371286c618","orderNo":"bg20261101200857zD3atH"}
+{"level":"error","msg":"billing_callback_failed","traceId":"321221c5-0110-40d8-b590-5d3f909a7ffc","detail":{"stage":"accept","code":"23505","providerEventId":"f05-50a5f0af-c9f0-4fff-b5b0-59a48b3fe26d","orderNo":"bg20261101200858aCWvfn"}}
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-c1ad1e43-02e1-4106-9237-78febd3b0fbf","orderNo":"bg20261101200858BebV0r"}
+{"level":"info","msg":"database_connection_error","traceId":"database","code":"unknown"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-45614a36-e15a-4788-9dc0-a92f8321d89b","detail":{"providerEventId":"f05-45614a36-e15a-4788-9dc0-a92f8321d89b","code":"57P01"}}
+{"level":"info","msg":"billing_callback_pending","traceId":"48c09274-b348-48f2-b636-eebb7cb63e90","stage":"credit","providerEventId":"f05-45614a36-e15a-4788-9dc0-a92f8321d89b","orderNo":"bg20261101200858Zq7FfR"}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-dff0e345-a0f6-4a94-b5d8-9836b78eaa8c","detail":{"providerEventId":"f05-dff0e345-a0f6-4a94-b5d8-9836b78eaa8c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-2e29861b-b16d-4a08-8040-dee42e31f6cd","detail":{"providerEventId":"f05-2e29861b-b16d-4a08-8040-dee42e31f6cd","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b869eb49-56e2-4647-8f8e-d476c7a79654","detail":{"providerEventId":"f05-b869eb49-56e2-4647-8f8e-d476c7a79654","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-8f89fc88-5e12-4232-81b5-c1e4202b20b3","detail":{"providerEventId":"f05-8f89fc88-5e12-4232-81b5-c1e4202b20b3","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-87e8b60f-cc99-4398-a150-51836cdc8af1","detail":{"providerEventId":"f05-87e8b60f-cc99-4398-a150-51836cdc8af1","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-f3c452c2-a336-4d92-8b41-cb56ae90e59c","detail":{"providerEventId":"f05-f3c452c2-a336-4d92-8b41-cb56ae90e59c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-d01c3fd9-37f6-4bdf-bacc-f8046ca6cac7","detail":{"providerEventId":"f05-d01c3fd9-37f6-4bdf-bacc-f8046ca6cac7","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b7daa4bf-44d4-445a-8c19-5241d64077bf","detail":{"providerEventId":"f05-b7daa4bf-44d4-445a-8c19-5241d64077bf","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-9c711ca6-2b6d-40a5-ab10-b8ad89b2c6ec","detail":{"providerEventId":"f05-9c711ca6-2b6d-40a5-ab10-b8ad89b2c6ec","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b72cd63e-6df0-4534-8a4e-49f1a17b8f6c","detail":{"providerEventId":"f05-b72cd63e-6df0-4534-8a4e-49f1a17b8f6c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-dff0e345-a0f6-4a94-b5d8-9836b78eaa8c","detail":{"providerEventId":"f05-dff0e345-a0f6-4a94-b5d8-9836b78eaa8c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-2e29861b-b16d-4a08-8040-dee42e31f6cd","detail":{"providerEventId":"f05-2e29861b-b16d-4a08-8040-dee42e31f6cd","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b869eb49-56e2-4647-8f8e-d476c7a79654","detail":{"providerEventId":"f05-b869eb49-56e2-4647-8f8e-d476c7a79654","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-8f89fc88-5e12-4232-81b5-c1e4202b20b3","detail":{"providerEventId":"f05-8f89fc88-5e12-4232-81b5-c1e4202b20b3","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-87e8b60f-cc99-4398-a150-51836cdc8af1","detail":{"providerEventId":"f05-87e8b60f-cc99-4398-a150-51836cdc8af1","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-f3c452c2-a336-4d92-8b41-cb56ae90e59c","detail":{"providerEventId":"f05-f3c452c2-a336-4d92-8b41-cb56ae90e59c","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-d01c3fd9-37f6-4bdf-bacc-f8046ca6cac7","detail":{"providerEventId":"f05-d01c3fd9-37f6-4bdf-bacc-f8046ca6cac7","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b7daa4bf-44d4-445a-8c19-5241d64077bf","detail":{"providerEventId":"f05-b7daa4bf-44d4-445a-8c19-5241d64077bf","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-9c711ca6-2b6d-40a5-ab10-b8ad89b2c6ec","detail":{"providerEventId":"f05-9c711ca6-2b6d-40a5-ab10-b8ad89b2c6ec","code":"event_conflict"}}
+{"level":"error","msg":"billing_receipt_recovery_required","traceId":"f05-b72cd63e-6df0-4534-8a4e-49f1a17b8f6c","detail":{"providerEventId":"f05-b72cd63e-6df0-4534-8a4e-49f1a17b8f6c","code":"event_conflict"}}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-23896d1b-063c-4b0b-9fc4-2a4db368bd16","orderNo":"bg20261101200907J8tqS3","reason":"wallet_limit"}
+ ✓ tests/billing/wechat-notify-crediting.test.ts (14 tests) 12377ms
+   ✓ F05 durable idempotent PostgreSQL crediting > credits once under duplicate and distinct concurrent provider events for one order 336ms
+   ✓ F05 durable idempotent PostgreSQL crediting > recovers a connection crash before commit from a durable receipt after a new app/pool starts 6437ms
+   ✓ F05 durable idempotent PostgreSQL crediting > does not let ten conflicting receipts starve a later valid crash-recovery receipt 1317ms
+   ✓ F05 durable idempotent PostgreSQL crediting > records an explicit permanent wallet limit for manual recovery without partial credit 373ms
+   ✓ credits new CN package credit-cn-50000-v1 exactly once 316ms
+{"level":"info","msg":"billing_late_paid_order","traceId":"f05-ee0d1f77-3f9d-4a32-9646-f3544cbeae81","orderNo":"bg20261101200911FsaT6l"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-9a69dd10-bb9b-4e60-9bfa-7fa050616bfd","orderNo":"bg20261101200912IPBsHH","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-9d451eae-32c9-4158-b789-c400453288ef","orderNo":"bg20261101200912tQJ4UF","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-31e9a4ec-3940-491f-9b8b-4ff7f48704b3","orderNo":"bg20261101200912WiQA2C","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-e6e6a072-18c2-4e13-bc9f-39a3d23fba1d","orderNo":"bg202611012009123m1YEH","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-4e774af6-b1b5-4485-a6d6-a962b483deeb","orderNo":"bg20261101200913FauLW4","reason":"wallet_limit"}
+{"level":"info","msg":"billing_payment_manual_recovery","traceId":"f05-260ce833-f0bd-4fc3-b670-765380c05101","orderNo":"bg20261101200913h0Ot37","reason":"wallet_limit"}
+ ✓ tests/billing/wechat-notify-outcomes.test.ts (8 tests) 3975ms
+   ✓ F05 terminal timestamps and durable paid-funds recovery > keeps acceptance timestamps null for CLOSED until successful crediting 302ms
+   ✓ F05 terminal timestamps and durable paid-funds recovery > durably records PENDING paid funds exceeding balance capacity without partial credit 321ms
+   ✓ F05 terminal timestamps and durable paid-funds recovery > durably records CLOSED paid funds exceeding balance capacity without partial credit 367ms
+   ✓ F05 terminal timestamps and durable paid-funds recovery > durably records CLOSED paid funds exceeding purchased capacity without partial credit 325ms
+
+ Test Files  3 passed (3)
+      Tests  53 passed (53)
+   Start at  04:08:34
+   Duration  39.40s (transform 1.58s, setup 22ms, collect 4.25s, tests 31.26s, environment 1ms, prepare 189ms)
+
+[db-isolation] db=wsx_4d03c22a4f4aea23180a peak_connections=7
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-stripe-settlement-pg.test.ts tests/billing/wechat-notify-crediting.test.ts tests/billing/wechat-notify-outcomes.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：40s
+  清理：1s
+  总计：41s

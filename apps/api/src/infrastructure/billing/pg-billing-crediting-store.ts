@@ -1,3 +1,5 @@
+import { pricingEpochMode } from "./personal-pricing-epoch";
+import { requireLegacyOrderEpoch } from "./legacy-billing-epoch";
 import { ConsoleLogger } from "../logging/console-logger";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
@@ -11,10 +13,12 @@ function result(state: string): CreditingResult { return { completed: state !== 
 export class PgBillingCreditingStore implements BillingCreditingStore {
   private readonly logger = new ConsoleLogger();
   constructor(private readonly db: DatabasePort) {}
-  private transaction<T>(fn: (s: TenantSession) => Promise<T>): Promise<T> {
+  private transaction<T>(fn: (s: TenantSession) => Promise<T>, purpose: "financial" | "audit" = "financial"): Promise<T> {
     return this.db.withoutTenant(async session => {
       await session.query("SET LOCAL statement_timeout = '2000ms'");
       await session.query("SET LOCAL lock_timeout = '750ms'");
+      if (purpose === "financial") await requireLegacyOrderEpoch(session);
+      else await pricingEpochMode(session); // Security audit is valid in either known epoch; it never writes a wallet.
       return fn({ query: (sql, params) => { assertBillingGlobalStatement(sql); return session.query(sql, params); } });
     });
   }
@@ -104,6 +108,6 @@ export class PgBillingCreditingStore implements BillingCreditingStore {
     return this.transaction(async s => (await s.query<{provider_event_id: string}>(BILLING_GLOBAL_SQL.dueReceipts)).rows.map(r => r.provider_event_id));
   }
   async auditRejection(signatureVerified: boolean, orderNo: string | null): Promise<void> {
-    await this.transaction(s => s.query(BILLING_GLOBAL_SQL.rejectEvent, [`security:wechat:${randomUUID()}`,orderNo,signatureVerified]));
+    await this.transaction(s => s.query(BILLING_GLOBAL_SQL.rejectEvent, [`security:wechat:${randomUUID()}`,orderNo,signatureVerified]), "audit");
   }
 }

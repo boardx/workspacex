@@ -53,7 +53,8 @@
     ".next-billing-entry-5714/types/**/*.ts",
     ".next-billing-cashier/types/**/*.ts",
     ".next-billing-cashier-glue/types/**/*.ts",
-    ".next-billing-stripe-glue/types/**/*.ts"
+    ".next-billing-stripe-glue/types/**/*.ts",
+    ".next-personal-pricing-glue/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

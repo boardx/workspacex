@@ -4,6 +4,8 @@ import { SubscriptionHttpException } from "../controllers/subscription-http-exce
 import { SubscriptionErrorCode } from "@repo/contracts/billing-subscription";
 import { BillingErrorCode } from "@repo/contracts/billing-credits";
 import { BillingHttpException } from "../controllers/billing-http-exception";
+import { PersonalCheckoutHttpException } from "../controllers/personal-checkout-http-exception";
+import { operations as personalPricingOperations } from "@repo/contracts/billing-pricing";
 /**
  * Error boundary -- one of the three mandatory runtime gates in `architecture.md`.
  *
@@ -711,6 +713,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         traceId,
         ...(exception instanceof BillingHttpException && BillingErrorCode.safeParse(exception.billingCode).success ? { code: exception.billingCode } : {}),
         ...(exception instanceof SubscriptionHttpException && SubscriptionErrorCode.safeParse(exception.subscriptionCode).success ? { code: exception.subscriptionCode } : {}),
+        ...(exception instanceof PersonalCheckoutHttpException && personalPricingOperations.createPersonalCheckout.err.includes(exception.checkoutCode) ? { code: exception.checkoutCode } : {}),
         ...permissionReasonOf(exception),
         ...surveyErrorOf(exception),
         ...researchConflictDetailOf(exception),

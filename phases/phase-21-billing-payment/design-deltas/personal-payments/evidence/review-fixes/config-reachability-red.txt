@@ -1,0 +1,10 @@
+
+> agentic-harness-template@ lint:vitest-config-reachability /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui
+> pnpm exec tsx .harness/scripts/lint-vitest-config-reachability.mjs
+
+✗ [vitest-config-reachability] 1 个 config 没有自动化入口（issue #3164）：
+   · apps/api/vitest.personal-pricing-browser.config.ts
+   只能靠人手敲 `vitest --config …` 的车道 = 这条车道悄悄坏掉时没有任何东西会变红。
+   修法：在 apps/api/package.json 里给它一个具名 script（哪怕只能手动触发），
+   或让某条 workflow 跑它；确认不再需要的，删掉 config 本身。
+ ELIFECYCLE  Command failed with exit code 1.

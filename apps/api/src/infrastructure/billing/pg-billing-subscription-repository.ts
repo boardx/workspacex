@@ -1,3 +1,4 @@
+import { requireLegacySubscriptionEpoch } from "./legacy-billing-epoch";
 import type { LoggerPort } from "../../application/ports/logger.port";
 import { createHash, randomBytes } from "node:crypto";
 import { readSubscriptionHistory } from "./subscription-history-query";
@@ -51,6 +52,7 @@ export class PgBillingSubscriptionRepository implements SubscriptionRepository {
   async createIntent(principal: Principal, traceId = "no-trace"): Promise<string> {
     assertPrincipal(principal);
     const result = await this.infrastructure("create_intent", traceId, () => this.db.withTenant(principal.orgId, async session => {
+      await requireLegacySubscriptionEpoch(session);
       // F09 must acquire this same user-level lock before replacing the current binding.
       await session.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [`billing-subscription:${principal.userId}`]);
       const current = await readLegacySubscription(session, principal.userId);

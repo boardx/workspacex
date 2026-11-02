@@ -1,3 +1,4 @@
+import { requireLegacyOrderEpoch } from "./legacy-billing-epoch";
 import type { OrgId } from "../../domain/org-id";
 import type { DatabasePort } from "../../application/ports/database.port";
 import { BillingOrderError, type BillingOrderOwner, type BillingOrderRepository, type OrderDraft, type OrderView, type PackageView } from "../../application/billing/billing-order-service";
@@ -18,6 +19,7 @@ function orderView(row: OrderRow): OrderView {
 }
 export class PgBillingOrderRepository implements BillingOrderRepository {
   constructor(private readonly db: DatabasePort) {}
+  assertLegacySales(orgId: OrgId) { return this.db.withTenant(orgId, requireLegacyOrderEpoch); }
   async packages(owner: BillingOwner) {
     return this.db.withTenant(owner.orgId, async s => (await s.query<PackageRow>("SELECT * FROM credit_packages WHERE enabled=true AND owner_type IN ($1,'both') ORDER BY sort_order,package_id", [owner.ownerType])).rows.map(packageView));
   }
@@ -34,6 +36,7 @@ export class PgBillingOrderRepository implements BillingOrderRepository {
   }
   async insert(owner: BillingOwner, order: OrderDraft, qrCodeUrl: string) {
     return this.db.withTenant(owner.orgId, async s => {
+      await requireLegacyOrderEpoch(s);
       const result = await s.query<OrderRow>(`INSERT INTO billing_orders(order_no,owner_type,owner_id,created_by,package_id,amount_fen,base_credits,bonus_credits,currency,provider,status,qr_code_url,created_at,expired_at)
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'wechat','PENDING',$10,$11,$12) RETURNING *`,
       [order.orderNo,owner.ownerType,owner.ownerId,order.createdBy,order.packageId,order.amountFen,order.baseCredits,order.bonusCredits,order.currency,qrCodeUrl,order.createdAt,order.expiredAt]);
