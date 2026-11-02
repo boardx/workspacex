@@ -5,6 +5,7 @@ const Revision = z.string().trim().min(1).max(255);
 const Text = z.string().max(4000).nullable();
 const TranslationText = Text.transform((value) => value === null || value.trim() === "" ? null : value);
 export const EntityKind = z.enum(["skill", "agent"]);
+export type EntityKind = z.infer<typeof EntityKind>;
 export const LocalizationStatus = z.enum(["draft", "reviewed"]);
 
 const SourceFields = z.object({
@@ -21,7 +22,7 @@ function displayShape<T extends z.ZodTypeAny>(schema: T): Record<keyof typeof So
 export const LocalizationFields = z.object(displayShape(TranslationText.optional())).strict();
 export const EntityDisplaySource = z.object({
   orgId: z.string().min(1), entityId: z.string().min(1), kind: EntityKind,
-  revision: Revision, locale: Locale.nullable(), fields: SourceFields,
+  revision: Revision, versionId: z.string().nullable().default(null), locale: Locale.nullable(), fields: SourceFields,
 }).strict();
 export const EntityLocalization = z.object({
   orgId: z.string().min(1), entityId: z.string().min(1), kind: EntityKind,
@@ -34,6 +35,28 @@ export const EntityLocalizationWrite = z.object({
   status: LocalizationStatus,
   fields: LocalizationFields,
 }).strict();
+export type EntityLocalizationWrite = z.infer<typeof EntityLocalizationWrite>;
+export const EntityLocalizationClear = EntityLocalizationWrite.pick({ sourceRevision: true })
+  .extend({ expectedTranslationRevision: z.number().int().positive() }).strict();
+export type EntityLocalizationClear = z.infer<typeof EntityLocalizationClear>;
+export const EntitySourceLocaleWrite = z.object({ expectedSourceRevision: Revision, locale: Locale.nullable() }).strict();
+export type EntitySourceLocaleWrite = z.infer<typeof EntitySourceLocaleWrite>;
+export const EntityLocalizationAdminView = z.object({ source: EntityDisplaySource, translation: EntityLocalization.nullable() }).strict();
+export type EntityLocalizationAdminView = z.infer<typeof EntityLocalizationAdminView>;
+export const EntityLocalizationError = z.enum([
+  "ROLE_INSUFFICIENT", "ENTITY_NOT_FOUND", "SOURCE_CHANGED", "TRANSLATION_CHANGED", "VALIDATION_FAILED",
+]);
+
+function adminOperations(kind: EntityKind) {
+  const base = `/admin/${kind}s/:entityId/localizations/:locale`;
+  return {
+    get: { method: "GET", path: base, out: EntityLocalizationAdminView },
+    put: { method: "PUT", path: base, in: EntityLocalizationWrite, out: EntityLocalizationAdminView },
+    clear: { method: "DELETE", path: base, in: EntityLocalizationClear, out: EntityLocalizationAdminView },
+    sourceLocale: { method: "PUT", path: `/admin/${kind}s/:entityId/localization-source`, in: EntitySourceLocaleWrite, out: EntityDisplaySource },
+  } as const;
+}
+export const operations = { skill: adminOperations("skill"), agent: adminOperations("agent") } as const;
 
 export const ResolvedDisplayField = z.object({
   value: Text, resolvedLocale: Locale.nullable(), fallback: z.boolean(),
@@ -41,6 +64,7 @@ export const ResolvedDisplayField = z.object({
 const ResolvedFields = z.object(displayShape(ResolvedDisplayField)).strict();
 export const LocalizedEntityDisplay = z.object({
   sourceRevision: Revision, sourceLocale: Locale.nullable(), requestedLocale: Locale,
+  versionId: z.string().nullable().default(null),
   fields: ResolvedFields,
 }).strict();
 export type LocalizedEntityDisplay = z.infer<typeof LocalizedEntityDisplay>;
@@ -68,5 +92,5 @@ export function resolveEntityDisplay(
       fallback: !translated && requestedLocale !== source.locale,
     };
   }
-  return { sourceRevision: source.revision, sourceLocale: source.locale, requestedLocale, fields };
+  return { sourceRevision: source.revision, versionId: source.versionId, sourceLocale: source.locale, requestedLocale, fields };
 }
