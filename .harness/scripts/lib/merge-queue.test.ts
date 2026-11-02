@@ -250,12 +250,15 @@ describe("⑤ 接进 pr-green：证据不成立时判 unknown，绝不判 ok", (
 describe("⑥ 候选组里有哪些 PR（merge-gate 要在候选组上继续出结论）", () => {
   it("队列 ref 与候选组 commit 标题两个来源都要——一个组可以批量含多个 PR，ref 只写得下最后一个", () => {
     expect(
-      parseMergeGroupPrNumbers(`refs/heads/gh-readonly-queue/main/pr-3238-${GROUP_BASE}`, ["feat: x (#3230)", "fix: y (#3238)"]),
+      parseMergeGroupPrNumbers(`refs/heads/gh-readonly-queue/main/pr-3238-${GROUP_BASE}`, [
+        `${CANDIDATE}\t${PR_HEAD} ${"d".repeat(40)}\tMerge pull request #3238 from boardx/later`,
+        `${PR_HEAD}\t${GROUP_BASE} ${"e".repeat(40)}\tMerge pull request #3230 from boardx/earlier`,
+      ], GROUP_BASE, CANDIDATE),
     ).toEqual([3230, 3238]);
   });
 
   it("反证：两个来源都解析不出 ⇒ 空数组，调用方必须据此失败，不得当成「这个组没有要检查的 PR」", () => {
-    expect(parseMergeGroupPrNumbers("refs/heads/main", ["no pr reference here"])).toEqual([]);
+    expect(parseMergeGroupPrNumbers("refs/heads/main", ["no pr reference here"], GROUP_BASE, CANDIDATE)).toEqual([]);
   });
 });
 

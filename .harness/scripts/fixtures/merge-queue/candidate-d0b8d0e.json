@@ -1,0 +1,14 @@
+{
+  "run": "https://github.com/boardx/workspacex/actions/runs/41440457365",
+  "ref": "refs/heads/gh-readonly-queue/develop/pr-6123-c88c46f6ddaaced84354c5f89e9cd9d474c9ae18",
+  "baseSha": "c88c46f6ddaaced84354c5f89e9cd9d474c9ae18",
+  "headSha": "d0b8d0ec86df8140a04e2972f5489c5ed8f98fc7",
+  "firstParentLines": [
+    "d0b8d0ec86df8140a04e2972f5489c5ed8f98fc7\tc88c46f6ddaaced84354c5f89e9cd9d474c9ae18 106fb72595678f09891f4f1c07737fc4b8d4903e\tMerge pull request #6123 from boardx/worker/team-capacity-6107"
+  ],
+  "sourceIssueSubject": "fix(org): lock organization before project invitation replacement (#6107)",
+  "observedWrongCandidates": [
+    6107,
+    6123
+  ]
+}
