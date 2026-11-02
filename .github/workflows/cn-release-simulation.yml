@@ -10,7 +10,7 @@ on:
       lane:
         description: Targeted repairs run in four independent VMs; all preserves full regression
         type: choice
-        options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']
+        options: ['all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']
         default: 'all'
       mode:
         description: Development retains known clean business failures; never final acceptance
@@ -107,7 +107,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: ${{ fromJSON(inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || inputs.lane == 'linux-boundary-reap' && '["linux-boundary-reap"]' || '["all"]') }}
+        suite: ${{ fromJSON(inputs.lane == 'release' && '["release"]' || inputs.lane == 'targeted' && '["release","linux-api-outer-recovery","linux-application-recovery-complete","linux-six-business"]' || inputs.lane == 'linux-application-recovery-complete' && '["linux-application-recovery-complete"]' || inputs.lane == 'linux-six-business' && '["linux-six-business"]' || inputs.lane == 'linux-boundary-reap' && '["linux-boundary-reap"]' || '["all"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 300
     steps:
@@ -116,7 +116,7 @@ jobs:
           LANE: ${{ inputs.lane || 'all' }}
           ROUNDS: ${{ inputs.rounds || '1' }}
         run: |
-          case "$LANE" in all|targeted|linux-application-recovery-complete|linux-six-business|linux-boundary-reap) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
+          case "$LANE" in all|release|targeted|linux-application-recovery-complete|linux-six-business|linux-boundary-reap) ;; *) echo CI_FIXED_LANE_REQUIRED >&2; exit 1 ;; esac
           if [ "$LANE" != all ] && [ "$ROUNDS" = 10 ]; then
             echo 'CI_TEN_ALL_REQUIRED' >&2
             exit 1
@@ -180,6 +180,19 @@ jobs:
           echo "CN_ARCHIVE_TEST_RUNTIME=$RUNNER_TEMP/cn-fixture" >> "$GITHUB_ENV"
           python3 -m venv "$RUNNER_TEMP/cn-test-sdk"
           "$RUNNER_TEMP/cn-test-sdk/bin/pip" install --disable-pip-version-check oss2==2.19.1 alibabacloud-credentials==0.3.6 aliyun-python-sdk-core==2.16.0 aliyun-python-sdk-sts==3.1.2
+      - name: Bound Linux terminal delegation diagnostics before release-only measurement
+        if: matrix.suite == 'release'
+        timeout-minutes: 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -m 700 "$RUNNER_TEMP/cn-terminal-home"
+          set +e
+          timeout --signal=TERM --kill-after=2s 25s sudo -n env -i PATH="$PATH" HOME="$RUNNER_TEMP/cn-terminal-home" LANG=C.UTF-8 PYTHONDONTWRITEBYTECODE=1 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0 "$RUNNER_TEMP/cn-test-sdk/bin/python" -I -B -c 'import faulthandler,sys,unittest;sys.path.insert(0,"tests");faulthandler.dump_traceback_later(15);suite=unittest.defaultTestLoader.loadTestsFromName("test_cn_release_terminal_delegation.TerminalTests");result=unittest.TextTestRunner(verbosity=2).run(suite);sys.exit(not result.wasSuccessful())' > "$RUNNER_TEMP/cn-terminal-diagnostic.log" 2>&1
+          status=$?
+          set -e
+          cat "$RUNNER_TEMP/cn-terminal-diagnostic.log"
+          exit "$status"
       - name: Run production-code fixture suites with bounded logs
         env:
           ROUNDS: ${{ inputs.rounds || '1' }}
@@ -207,6 +220,8 @@ jobs:
             ${{ runner.temp }}/cn-simulation-artifacts/fullstack-install.log
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.log
+            ${{ runner.temp }}/cn-simulation-artifacts/round-*/*.jsonl
+            ${{ runner.temp }}/cn-terminal-diagnostic.log
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/owner.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-intent.json
             ${{ runner.temp }}/cn-simulation-artifacts/round-*/api-container-owner/api-create-receipt.json

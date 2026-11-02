@@ -48,9 +48,16 @@ def child(suite,result):
             else:yield item
     cases={test.id():dict(caseId=test.id(),status='notrun',durationSeconds=None,layer='isolated-fixture') for test in flatten(tests)}
     write_json(result.with_suffix('.inventory.json'),list(cases.values()))
+    progress=result.with_suffix('.progress.jsonl').open('x',encoding='utf-8')
+    progress_start=time.monotonic()
+    def record_progress(test,event,**fields):
+        # Metadata only. Flush each boundary so an outer SIGKILL retains the
+        # last in-flight case; this diagnostic never substitutes for a verdict.
+        progress.write(json.dumps(dict(caseId=test.id(),event=event,elapsedSeconds=round(time.monotonic()-progress_start,6),**fields),sort_keys=True)+'\n')
+        progress.flush();os.fsync(progress.fileno())
     class Result(unittest.TextTestResult):
         def startTest(self,test):
-            super().startTest(test);self.started=time.monotonic()
+            super().startTest(test);self.started=time.monotonic();record_progress(test,'started')
         def mark(self,test,status):
             key=test.id() if test.id()in cases or not hasattr(test,'test_case') else test.test_case.id()
             if key not in cases:cases[key]=dict(caseId=key,status='notrun',durationSeconds=None,layer='isolated-fixture')
@@ -65,8 +72,10 @@ def child(suite,result):
             super().addSubTest(test,subtest,err)
             if err is not None:self.mark(test,'fail')
         def stopTest(self,test):
-            cases[test.id()]['durationSeconds']=round(time.monotonic()-self.started,6);super().stopTest(test)
-    outcome=unittest.TextTestRunner(verbosity=2,resultclass=Result).run(tests)
+            row=cases[test.id()];row['durationSeconds']=round(time.monotonic()-self.started,6)
+            record_progress(test,'finished',status=row['status'],durationSeconds=row['durationSeconds']);super().stopTest(test)
+    try:outcome=unittest.TextTestRunner(verbosity=2,resultclass=Result).run(tests)
+    finally:progress.close()
     value=dict(tests=outcome.testsRun,failures=len(outcome.failures),errors=len(outcome.errors),skipped=len(outcome.skipped),expectedFailures=len(outcome.expectedFailures),unexpectedSuccesses=len(outcome.unexpectedSuccesses))
     write_json(result,value);write_json(result.with_suffix('.cases.json'),list(cases.values()))
     return 0 if outcome.wasSuccessful() and outcome.testsRun>0 and not outcome.skipped and not outcome.expectedFailures else 1
@@ -283,7 +292,7 @@ def render_reports(output):
         f.write('Isolated release regression: '+value['status']+'\nCommit: '+value['commit']+'\nCompleted rounds: '+str(value['completedRounds'])+'/'+str(value['requestedRounds'])+'\nCase counts: '+json.dumps(value['caseCounts'],sort_keys=True)+'\nMatrix coverage by round: '+json.dumps([{'roundId':c['roundId'],'cases':[c['caseNumerator'],c['caseDenominator']],'requirements':[c['requirementNumerator'],c['requirementDenominator']]}for c in value['matrixCoverage']],sort_keys=True)+'\nProduction accepted: false\nFull acceptance gates: '+json.dumps(value['acceptanceGates'],sort_keys=True)+'\nDuration sample summary (fixture time only): '+json.dumps(value['durationDistribution'],sort_keys=True)+'\nNull metrics are unmeasured. CSV is derived from summary.json.\n'+'\n'.join(value['integrationGaps'])+'\n')
 
 EXPORT_TOP_FILES=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json','simulation-outer-cleanup.json','six-recovery.json')
-EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json','.tests.outcome.json')
+EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json','.tests.outcome.json','.tests.progress.jsonl')
 EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json')
 EXPORT_NESTED_FILES={'api-container-owner':EXPORT_REGISTRY_FILES,'six-business':('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','playwright-report.json','session-cleanup.json','result.json','application.log'),'six-infra-owner':('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')}
 EXPORT_NESTED_FILES['six-business']+=tuple('next-worker-%02d-%s.json'%(n,phase)for n in range(1,17)for phase in ('started','exit','error'))+('next-worker-overflow.json',)

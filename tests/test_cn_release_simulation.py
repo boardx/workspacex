@@ -70,11 +70,11 @@ class SimulationTests(unittest.TestCase):
  def test_workflow_no_production_auth_and_always_evidence(self):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
   for forbidden in ('id-token:','environment:','secrets.','production-cn','workflow_run:'):self.assertNotIn(forbidden,text)
-  self.assertEqual(text.count('sudo -n env -i'),2);self.assertIn('scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA"',text)
+  self.assertEqual(text.count('sudo -n env -i'),3);self.assertIn('scripts/cn-release-simulation-ci.py --sha "$GITHUB_SHA"',text)
   self.assertIn('if: always()',text);self.assertIn('persist-credentials: false',text)
  def test_targeted_heavy_contracts_have_independent_matrix_jobs(self):
   text=(ROOT/'.github/workflows/cn-release-simulation.yml').read_text()
-  self.assertIn("options: ['all', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']",text)
+  self.assertIn("options: ['all', 'release', 'targeted', 'linux-application-recovery-complete', 'linux-six-business', 'linux-boundary-reap']",text)
   self.assertIn('fail-fast: false',text)
   self.assertIn('if [ \"$LANE\" != all ] && [ \"$ROUNDS\" = 10 ]; then',text)
   self.assertIn('*) echo CI_FIXED_LANE_REQUIRED >&2; exit 1',text)
