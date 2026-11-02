@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import Link from "next/link";
 import { CreateOrganizationDialog } from "./create-organization-dialog";
@@ -130,6 +131,7 @@ export function OrgMenu({
   /** 移动端顶栏实例传 "-mobile"，避免与 ≥md 的 rail 实例撞 data-testid */
   testIdSuffix?: string;
 }) {
+  const { t, locale } = useI18n();
   const session = useOptionalSession();
   const [creating, setCreating] = React.useState(false);
 
@@ -166,8 +168,8 @@ export function OrgMenu({
         <button
           type="button"
           data-testid={`org-switcher${testIdSuffix}`}
-          aria-label={`组织菜单，当前：${orgName || "组织"}`}
-          title={orgName || "组织菜单"}
+          aria-label={t("org.menuCurrent", { name: orgName || t("ui.organization") })}
+          title={orgName || t("ui.organizationMenu")}
           disabled={switching}
           className={cn(
             "flex h-8 w-8 items-center justify-center overflow-hidden rounded-md transition-all duration-200",
@@ -188,7 +190,7 @@ export function OrgMenu({
         side={placement === "right" ? "right" : "bottom"}
         align={placement === "right" ? "start" : "start"}
         sideOffset={8}
-        aria-label="组织菜单"
+        aria-label={t("ui.organizationMenu")}
         data-testid={`org-menu${testIdSuffix}`}
         // max-h + 滚动：组织数量多（10+）时菜单不溢出视口——复核读代码起疑的预防项，
         // 固定宽 w-52 不变，超高时列表内部滚动。
@@ -204,7 +206,7 @@ export function OrgMenu({
           判据用的是「列表长度」而不是「是不是本地版」：云端用户只属于一个组织时
           症状一模一样，按版次硬编码会漏掉他们。
         */}
-        <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">当前所在</MenuLabel>
+        <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">{t("ui.currentOrganization")}</MenuLabel>
         <div data-testid={`org-menu-current${testIdSuffix}`} className="px-2 pb-1.5">
           <div className="flex items-center gap-1.5">
             {local && <HardDrive aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />}
@@ -214,7 +216,7 @@ export function OrgMenu({
           </div>
           {local && (
             <p data-testid={`org-menu-local-note${testIdSuffix}`} className="mt-0.5 text-11 leading-snug text-muted-foreground">
-              本机工作区 · {LOCAL_ORG_GUARANTEES[0].statement}
+              {locale === "en" ? t("org.local") : <>本机工作区 · {LOCAL_ORG_GUARANTEES[0].statement}</>}
             </p>
           )}
         </div>
@@ -222,7 +224,7 @@ export function OrgMenu({
         {organizations.length > 1 && (
           <>
             <MenuSeparator />
-            <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">切换组织</MenuLabel>
+            <MenuLabel className="pb-1 pt-1.5 text-10 uppercase tracking-wide">{t("ui.switchOrganization")}</MenuLabel>
             <MenuRadioGroup
               value={identity.org.id}
               onValueChange={(id) => {
@@ -246,8 +248,7 @@ export function OrgMenu({
         {session?.status === "authenticated" && <>
           <MenuSeparator />
           <MenuItem data-testid={`create-organization-entry${testIdSuffix}`} onSelect={() => setCreating(true)}>
-            <Plus aria-hidden className="mr-2 h-3.5 w-3.5" />新建组织
-          </MenuItem>
+            <Plus aria-hidden className="mr-2 h-3.5 w-3.5" />{t("org.create")}</MenuItem>
         </>}
         {isOrgAdmin && <MenuSeparator />}
 
@@ -265,12 +266,11 @@ export function OrgMenu({
             <Link
               href="/org-admin"
               data-testid={`org-admin-entry${testIdSuffix}`}
-              aria-label="组织管理"
+              aria-label={t("ui.organizationSettings")}
               className="gap-2"
             >
               <Settings aria-hidden className="h-3.5 w-3.5" />
-              组织管理
-            </Link>
+              {t("ui.organizationSettings")}</Link>
           </MenuItem>
         )}
       </MenuContent>

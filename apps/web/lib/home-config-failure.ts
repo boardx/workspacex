@@ -5,28 +5,28 @@
  * `lib/chat-workbench/artifact-failure.ts` 的既有写法：契约闭集穷举，漏一个编译不过；
  * HTTP 兜底复用 `lib/http-failure-text.ts`。
  */
+import type { Locale } from "./i18n/locale";
+import { translate, type MessageKey } from "./i18n/messages";
 import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import type { homeConfig } from "@repo/contracts";
 import type { z } from "zod";
 
 type HomeConfigErrorCode = z.infer<typeof homeConfig.HomeConfigError>;
-
-const ERROR_TEXT: Record<HomeConfigErrorCode, string> = {
-  NO_ORG_MEMBERSHIP: "你不是这个组织的成员，看不到它的首页配置",
-  FORBIDDEN: "首页配置仅组织管理员可编辑",
-  BANNER_ARTIFACT_NOT_OWNED: "这张横幅图片已经失效，请重新上传",
-  BANNER_COLOR_REQUIRED: "选了「自定义」配色，请先填一个 #RRGGBB 格式的颜色",
-  FILE_TOO_LARGE: "图片超过 5MB，换一张小一点的",
-  UNSUPPORTED_CONTENT_TYPE: "只支持 PNG / JPEG / WebP 图片",
+const ERROR_MESSAGE: Record<HomeConfigErrorCode, MessageKey> = {
+  NO_ORG_MEMBERSHIP: "home.error.NO_ORG_MEMBERSHIP",
+  FORBIDDEN: "home.error.FORBIDDEN",
+  BANNER_ARTIFACT_NOT_OWNED: "home.error.BANNER_ARTIFACT_NOT_OWNED",
+  BANNER_COLOR_REQUIRED: "home.error.BANNER_COLOR_REQUIRED",
+  FILE_TOO_LARGE: "home.error.FILE_TOO_LARGE",
+  UNSUPPORTED_CONTENT_TYPE: "home.error.UNSUPPORTED_CONTENT_TYPE",
 };
 
-export function describeHomeConfigFailure(err: unknown): string {
+export function describeHomeConfigFailure(err: unknown, locale: Locale = "zh-CN"): string {
   if (err instanceof ApiError) {
     const code = err.reasonCode;
-    if (code !== null && code in ERROR_TEXT) return ERROR_TEXT[code as HomeConfigErrorCode];
-    return httpFailureText(err.status);
+    if (code !== null && Object.hasOwn(ERROR_MESSAGE, code)) return translate(locale, ERROR_MESSAGE[code as HomeConfigErrorCode]);
+    return httpFailureText(err.status, locale);
   }
-  if (err instanceof TypeError) return "连不上服务器，检查一下网络再试";
-  return "首页配置没能加载，稍后再试一次";
+  return translate(locale, err instanceof TypeError ? "common.error.network" : "home.configFailed");
 }
