@@ -1,0 +1,69 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-entitlement-design.test.ts (23 tests | 2 failed) 20ms
+   × preserves fractional first-seat grants in the shared wallet total 5ms
+     → [
+  {
+    "code": "invalid_type",
+    "expected": "integer",
+    "received": "float",
+    "message": "Expected integer, received float",
+    "path": [
+      "wallet",
+      "totalGranted"
+    ]
+  }
+]
+   × does not erase confirmed credit debt or accept mismatched wallet components 3ms
+     → expected true to be false // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > preserves fractional first-seat grants in the shared wallet total
+ZodError: [
+  {
+    "code": "invalid_type",
+    "expected": "integer",
+    "received": "float",
+    "message": "Expected integer, received float",
+    "path": [
+      "wallet",
+      "totalGranted"
+    ]
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ tests/billing-team-entitlement-design.test.ts:63:25
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing-team-entitlement-design.test.ts > does not erase confirmed credit debt or accept mismatched wallet components
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ tests/billing-team-entitlement-design.test.ts:68:90
+     66| it("does not erase confirmed credit debt or accept mismatched wallet c…
+     67|  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,balance…
+     68|  expect(TeamEntitlement.safeParse({...active,wallet:{...wallet,balance…
+       |                                                                                          ^
+     69| });
+     70| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 21 passed (23)
+   Start at  08:24:30
+   Duration  603ms (transform 123ms, setup 0ms, collect 150ms, tests 20ms, environment 0ms, prepare 139ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-entitlement-design.test.ts

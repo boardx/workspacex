@@ -1,5 +1,9 @@
 # Team / Enterprise 设计进展
 
+组织权益材料：TeamEntitlement 区分未开通/有效/到期/Enterprise，许可不代替成员、AI策略与余额准入。原已付期限/容量、当前月授予和同组织共享钱包分开，保留永久余额及负债，未知事实不填0。Enterprise可无旧付费期；有旧事实时保留，不由读模型决定未来已付窗口处置。原型已消费严格模拟权益取得人数、已购容量、余额及月余量，布局不改，无真实HTTP。
+
+先缺schema19红，再时区等价1红/20绿，新增小数累计与余额分量2红/21绿。共享CreditWallet.totalGranted改为非负两位精度以支持首期小数，不另建Team钱包契约；现数据库total_granted仍integer，已在domain/coverage明确迁移及所有授予写入适配为销售前置，材料不执行SQL、不假装PG支持已完成。最终全contracts133文件1320通过，原型四文件14通过；原型消费权益后的实际browser5通过，清理0秒，之后仅小数/余额负例约束改动，未虚报再次browser运行。完整历史/恢复/目录/平台摘要/operations仍待完成。
+
 报价材料增量：TeamQuote 封闭四 purpose 结果，绑定组织/代际/目录/整数金额及有效期。增员保留原付费期限，另列当前月额度窗口与首期预计 credit。到期前极短窗口向下舍入可为0。先缺失 schema 12红，再零估计1红/12绿；最终核心两文件43通过。原型消费严格模拟报价的金额及共同到期日，保留原布局/价格/50%演示，无真实 HTTP；新增 fixture 先3红，合并原组件三文件11绿，真实 browser5绿，清理0秒，截图已目视核对。证据在 evidence/quote-contract/。完整 catalog、权益/历史/恢复/平台摘要/operation 等仍待完成，签核保持 pending。
 
 P5 错误信封已修复并推送 f82673afaa7573d4a72a2402a4cbd6a21c60b365，独立增量 ACCEPT、原审查线程已回应并解决。新 CI 仍运行，继续跟进正常合入。Team 首批4c6已发布 Draft6101，独立检查点 ACCEPT；本报价增量待新 SHA 复审与 push。
@@ -19,3 +23,5 @@ Issue6099，worker/cn-us-team-billing-design，当前base actual develop c04c332
 本报价增量受影响 contracts/web 串行类型及 lint 6/6 通过。前文首批检查点“quote结果待补”的范围现已由本增量补齐；其余完整响应及 operation 缺口仍保留。
 
 独立增量复审095671339指出P2：微信报价缺少CNY交叉约束。补四purpose反例先4失败/15通过，公共refinement修复后核心49通过，保留Stripe CNY/USD四purpose正例；原型11再通过。错误已修，待最终精确SHA复核。原browser5在仅缺这项负例约束时运行，正向原型数据未变化，不重复声称本轮重新浏览器运行。
+
+共享累计字段和余额约束最终修改后，API/web受影响依赖的串行类型/lint9/9再通过（4cached），execution-plan check通过。待精确SHA独立复审与正常push，不把旧报价ACCEPT扩张为本增量批准。

@@ -1,0 +1,14 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ✓ tests/ui/pricing-team-quote-preview.test.ts (3 tests) 7ms
+ ✓ tests/ui/pricing-team-entitlement-preview.test.ts (3 tests) 10ms
+ ✓ tests/ui/pricing-team-contract-preview.test.tsx (2 tests) 184ms
+ ✓ tests/ui/pricing-enterprise-contract.test.tsx (6 tests) 354ms
+
+ Test Files  4 passed (4)
+      Tests  14 passed (14)
+   Start at  08:25:03
+   Duration  1.56s (transform 228ms, setup 466ms, collect 632ms, tests 554ms, environment 1.15s, prepare 274ms)
+

@@ -12,3 +12,5 @@ Issue6099 / Draft6101。沿用已采用UI，新增核心schema与原型消费的
 输入严格约束取packages/contracts/src/billing-team.ts，原因复用既有platform Plan输入约束，整数上限不在UI另持一份。真实平台权限、事务幂等及付款仍待正式签核后的runtime实现。已付Team剩余窗口在Enterprise升级后的处置正在等用户答，不默认停止。
 
 Quote response increment: `team-quote-add-seats.png`. Strict mock quote consumed by the existing seat dialog; browser 5 passed, no billing HTTP, screenshot visually reviewed. Design material only.
+
+权益消费增量：`team-entitlement.png`，组织账户从严格模拟权益读取已用4/已购5、64,000月度余量及8,600永久余额；实际browser5通过，无真实计费HTTP。截图已目视复核，沿用原布局。
