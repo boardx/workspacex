@@ -10,7 +10,7 @@ export const EntityKind = z.enum(["skill", "agent"]);
 export const LocalizationStatus = z.enum(["draft", "reviewed"]);
 
 const SourceFields = z.object({
-  name: z.string().max(4000),
+  name: z.string(),
   summary: Text.default(null),
   duty: Text.default(null),
   roleLabel: Text.default(null),

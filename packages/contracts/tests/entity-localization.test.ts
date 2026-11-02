@@ -13,6 +13,11 @@ const translation = {
   fields: { name: "Product discovery", summary: null },
 };
 describe("source-safe entity display localization", () => {
+  it("preserves long legacy names without accepting over-budget translated names", () => {
+    const name = "原名".repeat(3000);
+    expect(resolveEntityDisplay({ ...source, fields: { ...source.fields, name } }, "en").fields.name.value).toBe(name);
+    expect(EntityLocalizationWrite.safeParse({ sourceRevision: "v1", expectedTranslationRevision: null, status: "draft", fields: { name } }).success).toBe(false);
+  });
   it("preserves long valid legacy originals while bounding new translation writes", () => {
     const duty = "原文".repeat(3000);
     const original = { ...source, fields: { ...source.fields, duty } };
