@@ -9,6 +9,7 @@
     "test:credit-runtime": "vitest run --config vitest.credit-runtime.config.ts",
     "test:discovery-unit": "vitest run --config vitest.discovery-unit.config.ts",
     "test:chat-share-unit": "vitest run --config vitest.chat-share-unit.config.ts",
+    "test:email-recovery-unit": "vitest run --config vitest.email-recovery-unit.config.ts",
     "test:report-files-unit": "vitest run --config vitest.report-files-unit.config.ts",
     "test:report-files-native-live": "vitest run --config vitest.report-files-native-live.config.ts",
     "test:platform-content-release": "vitest run --config vitest.platform-content-release.config.ts",
