@@ -63,7 +63,7 @@ async function fixture(label: string, year = true, anchor = new Date(Math.floor(
   const snapshots = personalStripePaymentFixture(purchase, anchor);
   const at = new Date(anchor.getTime() + 1000), store = new PgPersonalPaymentRepository(db, () => at);
   const settle = (value = snapshots, current = store) => current.settleStripe(purchase.purchaseRef, value.subscription.id, value.invoice.id, async locked => value.proof(locked));
-  const wallet = () => asApp(org, async c => (await c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [userId])).rows[0]);
+  const wallet = () => asApp(org, async c => (await c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_type='user' AND owner_id=$1", [userId])).rows[0]);
   return { userId, purchase, snapshots, settle, wallet, anchor };
 }
 it("persists one annual Stripe invoice and binding while granting only the first month", async () => {

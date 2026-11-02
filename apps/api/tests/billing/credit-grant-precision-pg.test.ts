@@ -74,7 +74,7 @@ it("preserves existing hundredths when the actual new-account gift trigger runs"
  expect(gifts).toEqual({n:1});
 });
 it.each(["-0.01","2147483647.01"])("enforces the nonnegative original counter bound for %s",async total=>{
- const f=await fixture(`bounds-${total}`,"0","0");
+ const f=await fixture(total.startsWith("-")?"bounds-negative":"bounds-overflow","0","0");
  await expect(asApp(f.org,c=>c.query("UPDATE credit_wallets SET total_granted=$2::numeric WHERE wallet_id=$1",[f.walletId,total]))).rejects.toMatchObject({code:"23514"});
  expect(await f.raw()).toEqual({balance:"0.00",total_granted:"0.00"});
 });

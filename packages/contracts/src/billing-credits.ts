@@ -146,7 +146,7 @@ export const CreditWallet = z
     reservedCredits: z.number().finite().nonnegative().multipleOf(0.01).optional(),
     availableBalance: z.number().finite().multipleOf(0.01).optional(),
     totalPurchased: z.number().int().nonnegative(),
-    totalGranted: z.number().int().nonnegative(),
+    totalGranted: CreditBalance.refine(value => value >= 0),
     updatedAt: IsoDateTime,
   })
   .strict();

@@ -158,7 +158,7 @@ describe("F08 real subscription HTTP/PG", () => {
     const order=await pendingOrder();markPaid(order);
     expect(await (await request("")).json()).toMatchObject({status:"active",purchaseMode:"manual_monthly",creditGrant:{status:"granted",grant:{credits:20000,remainingCredits:20000}}});
     expect((await monthlyEvent(order)).status).toBe(200);expect((await monthlyEvent(order,"evt_f08monthly_sibling")).status).toBe(200);
-    expect((await asOwner(c=>c.query("SELECT balance::text,total_granted FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
+    expect((await asOwner(c=>c.query("SELECT balance::text,total_granted::float8 AS total_granted FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00",total_granted:20000}]);
     expect((await request("/upgrade-link")).status).toBe(409);
   });
   it("accepts a signed paid checkout before the browser returns",async()=>{
