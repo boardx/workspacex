@@ -27,7 +27,8 @@ it("clamps only the seat add-on quote to the original paid expiry",()=>{
 it("keeps permanent top-up independent of paid term and subscription renewal",()=>{
  const topup={...base,purpose:"credit_topup",credits:10000,provider:"stripe",currency:"USD",renewalMode:"manual"};
  expect(TeamQuote.parse(topup)).toEqual(topup);
- for(const patch of [{credits:1},{renewalMode:"automatic"},{seats:5},{term},{planVersion:0},{estimatedFirstCredits:1}])expect(TeamQuote.safeParse({...topup,...patch}).success).toBe(false);
+ expect(TeamQuote.safeParse({...topup,credits:12345}).success).toBe(true);
+ for(const patch of [{credits:0},{credits:-1},{credits:1.5},{credits:2147483648},{renewalMode:"automatic"},{seats:5},{term},{planVersion:0},{estimatedFirstCredits:1}])expect(TeamQuote.safeParse({...topup,...patch}).success).toBe(false);
 });
 it.each([0,-1,0.5,Infinity,Number.MAX_SAFE_INTEGER+1])("rejects unsafe quote money %s",amountMinor=>{
  expect(TeamQuote.safeParse({...initial,amountMinor}).success).toBe(false);

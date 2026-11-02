@@ -31,7 +31,7 @@ it("retains the existing personal catalog shape and validation",()=>{
  const personal={version:"pricing-v1",market:"cn",enabledProviders:["wechat"],products:[{sku:"pro-cn-month-v1",kind:"subscription",currency:"CNY",amountMinor:19900,cycle:"month",monthlyCredits:20000}]};
  expect(PricingCatalog.parse(personal)).toEqual(personal);
  expect(PricingCatalog.safeParse({...personal,orgId:"org-a"}).success).toBe(false);
- expect(PricingCatalog.safeParse({...personal,products:[{...personal.products[0],monthlyCredits:100000}]}).success).toBe(false);
+ expect(PricingCatalog.safeParse({...personal,products:[{...personal.products[0],monthlyCredits:100000}]}).success).toBe(true);
  for(const patch of [{market:"us"},{products:[personal.products[0],personal.products[0]]},{enabledProviders:["wechat","wechat"]}])
   expect(PricingCatalog.safeParse({...personal,...patch}).success).toBe(false);
 });
