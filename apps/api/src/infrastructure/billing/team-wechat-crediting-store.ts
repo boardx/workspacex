@@ -11,12 +11,12 @@ import {TeamWechatPaymentClient} from "./team-wechat-payment-client";
 export class TeamWechatCreditingStore implements BillingCreditingStore{
  constructor(private readonly db:DatabasePort,private readonly client:TeamWechatPaymentClient,private readonly payments:PgTeamPaymentRepository,private readonly previous:BillingCreditingStore){}
  async accept(notice:VerifiedPaymentReceipt){
-  if(!notice.signatureVerified)throw new PaymentNoticeError("signature_invalid",false,notice.orderNo);
   const orgId=await this.db.withoutTenant(async raw=>{
    assertBillingGlobalStatement(GLOBAL.teamPurchaseOrg);
    return (await raw.query<{org_id:string|null}>(GLOBAL.teamPurchaseOrg,[notice.orderNo])).rows[0]?.org_id;
   });
   if(!orgId)return this.previous.accept(notice);
+  if(!notice.signatureVerified)throw new PaymentNoticeError("signature_invalid",false,notice.orderNo);
   const p=await this.db.withTenant(toOrgId(orgId),async s=>{
    await requireActivePricingEpoch(s);const row=(await s.query<TeamPurchaseRow>("SELECT * FROM billing_team_purchases WHERE org_id=$1 AND purchase_ref=$2",[orgId,notice.orderNo])).rows[0];
    if(!row)throw Error("order_not_found");return teamPurchaseView(row);

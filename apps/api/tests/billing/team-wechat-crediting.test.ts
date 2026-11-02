@@ -15,8 +15,12 @@ function fixture(found=true){
  const notice:VerifiedPaymentReceipt={providerEventId:"wx-event",orderNo:row.purchase_ref,appId:"wx-team",mchId:"merchant",amountFen:46610,currency:"CNY",transactionId:"actual",tradeState:"SUCCESS",paidAt:paidAt.toISOString(),receiptHash:"signed-hash",signatureVerified:true};
  return {store,notice,client,payments,previous,global,paidAt};
 }
-it("never routes an unverified notice or grants from a client success claim",async()=>{
- const f=fixture();await expect(f.store.accept({...f.notice,signatureVerified:false})).rejects.toThrow("signature_invalid");expect(f.global).not.toHaveBeenCalled();expect(f.payments.settle).not.toHaveBeenCalled();
+it("rejects an unsigned Team notice before merchant read or settlement",async()=>{
+ const f=fixture();await expect(f.store.accept({...f.notice,signatureVerified:false})).rejects.toThrow("signature_invalid");expect(f.client.read).not.toHaveBeenCalled();expect(f.previous.accept).not.toHaveBeenCalled();expect(f.payments.settle).not.toHaveBeenCalled();
+});
+it("delegates a non-Team unsigned notice to the unchanged legacy verification policy",async()=>{
+ const f=fixture(false),notice={...f.notice,signatureVerified:false};
+ expect(await f.store.accept(notice)).toEqual({completed:true,manual:false});expect(f.previous.accept).toHaveBeenCalledTimes(1);expect(f.previous.accept).toHaveBeenCalledWith(notice);expect(f.client.read).not.toHaveBeenCalled();expect(f.payments.settle).not.toHaveBeenCalled();
 });
 it("keeps personal/legacy routing when no immutable Team purchase exists",async()=>{
  const f=fixture(false);await f.store.accept(f.notice);expect(f.previous.accept).toHaveBeenCalledWith(f.notice);expect(f.client.read).not.toHaveBeenCalled();expect(f.payments.settle).not.toHaveBeenCalled();
