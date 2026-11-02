@@ -8,7 +8,7 @@ import {PgDatabase} from "../../src/infrastructure/db/pg-database";
 import {appConfig} from "../../src/infrastructure/db/pg-config";
 import {toOrgId} from "../../src/domain/org-id";
 import {BILLING_ACCOUNTING_GENERATION} from "../../src/domain/billing/billing-generation";
-import {ensureDatabase,migrateOnce,seedOrg,resetOrgs,addOrgMember,asOwner,asApp} from "../support/db";
+import {ensureDatabase,migrateOnce,seedOrg,resetOrgs,addOrgMember,addCredential,asOwner,asApp} from "../support/db";
 const RUN=randomUUID();
 const ORG="org-capacity-6107", admin="capacity-6107-admin";
 let db:PgDatabase,repo:PgOrgInviteRepository;
@@ -116,4 +116,21 @@ it("only the matching pure pending intent can be deleted, while paid capacity re
  expect((await asApp(ORG,c=>c.query("SELECT org_id FROM org_commercial_licenses WHERE org_id=$1",[ORG]))).rows).toHaveLength(1);
  expect(await db.withTenant(toOrgId(ORG),s=>closePendingCommercialIntent(s,ORG,"initial-pending"))).toBe(true);
  expect(await db.withTenant(toOrgId(ORG),s=>readCommercialCapacity(s,ORG))).toEqual({kind:"legacy"});
+});
+
+it("a logged-in project invite cannot add an existing account beyond commercial capacity",async()=>{
+ await asApp(ORG,c=>c.query("INSERT INTO org_commercial_licenses(org_id,generation,purchased_seats) VALUES($1,$2,5) ON CONFLICT(org_id) DO UPDATE SET generation=$2,purchased_seats=5,pending_seats=NULL,pending_purchase_ref=NULL",[ORG,BILLING_ACCOUNTING_GENERATION]));
+ const projectId=`existing-project-${RUN}`, userId=`existing-user-${RUN}`, tokenHash=`existing-token-${RUN}`;
+ await addCredential(userId,`existing-${RUN}@example.test`,"Existing account");
+ await asApp(ORG,async c=>{
+  await c.query("INSERT INTO projects(id,org_id,name,kind) VALUES($1,$2,'Existing account project','general')",[projectId,ORG]);
+  await c.query("INSERT INTO general_projects(id,org_id) VALUES($1,$2)",[projectId,ORG]);
+ });
+ const project=new PgProjectInvitationRepository(db);
+ await project.issueLink({orgId:toOrgId(ORG),projectId,invitedBy:admin,now:new Date(),dailyCap:100,invitationId:`existing-invite-${RUN}`,tokenHash,expiresAt:new Date(Date.now()+3600000)});
+ expect(await project.acceptLoggedIn({tokenHash,now:new Date(),userId})).toEqual({ok:false,reason:"quota"});
+ const member=await asApp(ORG,c=>c.query("SELECT user_id FROM org_memberships WHERE org_id=$1 AND user_id=$2",[ORG,userId]));
+ expect(member.rows).toHaveLength(0);
+ const invite=await asApp(ORG,c=>c.query("SELECT status FROM project_invitations WHERE token_hash=$1",[tokenHash]));
+ expect(invite.rows[0].status).toBe("pending");
 });
