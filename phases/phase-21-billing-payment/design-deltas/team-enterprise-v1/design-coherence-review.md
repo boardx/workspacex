@@ -12,3 +12,7 @@
 现有execution-plan/ui-material/third-artifact静态命令主要扫描既有计划/契约束；其退出0不表示本草案有运行时证据。当前新增API、Team财务/成员门禁及Enterprise操作均未实现，测试矩阵全部为计划验证。
 
 修订草案独立复审：1944d13dfadcf03e3c0d51c729fc077f5a644bd3，reviewer /root/pricing_ui_review，结论可作为Draft PR发布，无新增P1/P2；原两项P2闭环。仅静态复核，未运行测试。P3残留“个人恢复独立待签”已改为单独人工确认、实现待顺序集成；不改变Team pending或未完成第③件的边界。
+
+平台检查点671c7e4340dae05ff2321c6c4cd58f51ef57713e独立只读复核：可保存Draft，尚不足以一次整束签核，三项P2为七人初购容量/总价、平台处理中/人工核对恢复UI、Enterprise账户有/无旧计划。Plan单源/平台摘要/升级成功收据无其他具体阻塞，审查未重跑测试或目视截图。
+
+后续修订：初购消费严格initial quote确认7席/130,000月credit/总价；平台原型消费processing/needs_review收据，保留Team与原operationRef，原操作查询后才按成功收据更新；Enterprise账户消费严格权益，区分无旧计划/保留已付计划，无新增购买/收费席位。UI定向5、完整34、browser7及真实平台授权/PG14通过；五张新图已由主线程目视。最终类型收尾及精确SHA复审仍待记录，不自行写正式ACCEPT或人类confirmed。

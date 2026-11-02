@@ -44,3 +44,12 @@ export function previewPlatformCreditGrant(before:PlatformPreviewRow,credits:num
  return parseRow({...before,billingSummary:{...facts,asOf:createdAt,wallet:{...wallet,balance:wallet.balance+credits,
   permanentBalance:wallet.permanentBalance+credits,totalGranted:wallet.totalGranted+credits,updatedAt:createdAt}}});
 }
+
+export function previewEnterpriseUpgradePending(before:PlatformPreviewRow,key:string,status:"processing"|"needs_review"){
+ const input=EnterpriseUpgradeRequest.parse({expectedPlanVersion:before.plan.version,idempotencyKey:key});
+ return EnterpriseUpgradeOperation.parse({orgId:before.orgId,generation:before.billingSummary.generation,
+  operationRef:`preview-operation:${key}`,expectedPlanVersion:input.expectedPlanVersion,
+  createdAt:before.billingSummary.asOf,asOf:before.billingSummary.asOf,status,receipt:null,
+  code:status==="processing"?"dependency_unavailable":"payment_review_required",
+  nextAction:status==="processing"?"retry_original":"contact_platform"});
+}

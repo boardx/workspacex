@@ -23,7 +23,7 @@
 | GET `/billing/organizations/:orgId/history` | 绑定组织及代际的 cursor、limit | 实际已付期限／增员订单历史，一笔真实付款一条，不把逐月 quota 伪装为十二笔付款 |
 | POST `/billing/organizations/:orgId/subscription/manage` | 空严格对象 | 本组织已验证 Stripe customer 的可信门户 URL；无 Stripe 绑定明确不可用 |
 
-`purpose`与严格body的首批定义在`billing-team.ts`，许可初购/续购提交总席位、增员提交正增量、充值不提交席位；最终共享付款结果及operation仍待物化。付款绑定／终态恢复衔接[已单独人工确认的个人恢复修订](https://github.com/boardx/workspacex/blob/52e2f95bc447cc4471ccaabedb824ec56b6298ed/phases/phase-21-billing-payment/design-deltas/personal-order-outcomes-v1/design-signoff.md)，该实现仍待顺序集成；本束不扩展已有个人接口的授权范围。待支付必须有真实绑定；无绑定终态不能伪造 URL／期限，也不能被当作新购买。
+`purpose`与严格body的首批定义在`billing-team.ts`，许可初购/续购提交总席位、增员提交正增量、充值不提交席位；付款结果与升级operation已物化，操作提案见operations.proposal.ts。付款绑定／终态恢复衔接[已单独人工确认的个人恢复修订](https://github.com/boardx/workspacex/blob/52e2f95bc447cc4471ccaabedb824ec56b6298ed/phases/phase-21-billing-payment/design-deltas/personal-order-outcomes-v1/design-signoff.md)，该个人实现已随PR6103正常合入develop；本束不扩展已有个人接口的授权范围。待支付必须有真实绑定；无绑定终态不能伪造 URL／期限，也不能被当作新购买。
 
 权益按实际状态区分未开通、Team和Enterprise：Team返回真实固定容量／已付期限，Enterprise明确人工管理、无Team容量上限／默认到期日／自动月度额度，未开通不伪装成已购基础容量。已发余额与历史来源保留，缺失事实不可当成0。Enterprise不开放新的组织自助购买／增员，但此前合法创建的购买仍可读取／恢复／到账。
 
@@ -53,7 +53,7 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 
 ## 错误与交易测试
 
-复用既有身份错误、billing 支付／账务错误及全局异常映射。拟新增的业务原因包括：组织容量不足、报价到期／版本变化、已有未解决商业变更、已付期限过期、付款事实待核对和不支持的套餐转换；签核实现时进入唯一闭集和 HTTP 映射，而非散落字符串。对外区分可刷新重报、保持原操作恢复和联系平台核对。
+复用既有身份错误、billing 支付／账务错误及全局异常映射。TeamBillingErrorCode已封闭组织容量不足、报价到期／版本变化、已有未解决商业变更、已付期限过期、付款事实待核对和不支持的套餐转换等原因；HTTP控制器映射仍待签核后实现。对外区分可刷新重报、保持原操作恢复和联系平台核对。
 
 测试须走真实 PrincipalGuard／目标组织 membership、平台 guard、HTTP 严格输入、真实 PG 事务和独立签名上游 fixture；mock 个人 session 或平台名单不能被称为生产权限证明。具体用例对应 `coverage.md`。
 
@@ -69,7 +69,7 @@ Enterprise 升级依 `domain.md` 的可恢复流程先处理原 Team 支付及�
 
 包含的 TeamMonthlyCreditGrant 只描述当前或最近一次实际月度授予，none/pending不构造grant；已发的额度窗口不得越过已付期，余额不能大于实际发放，过期剩余为0。钱包直接复用共享CreditWallet，要求真实永久余额、订阅余额和到期事实；wallet必须是该组织的team owner，余额分量与当前授予一致，保留已确认消费产生的负余额。依赖失败返回不可用，不将未知值填0。相同到期时刻允许不同合法ISO时区表示。
 
-本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及operations现已物化，已付窗口按本束domain中的人类确认口径执行。
+本增量让已采用Team原型消费严格模拟权益取得实际人数、已购容量、充值余额和月度剩余；不连真实API。完整目录、历史、支付恢复、平台摘要及操作提案现已物化，已付窗口按本束domain中的人类确认口径执行。
 
 付款事实补充：teamPayment 复用现有 SubscriptionStatus 闭集；微信 subscriptionStatus 必须为null、manual且无到期取消标志，Stripe须有真实非none状态且为automatic。Enterprise停止未来扣款既可由真实cancelAtPeriodEnd安排证明，也可由canceled/incomplete_expired终止状态证明；不要求将已取消订阅的真实false标志改为true，不丢弃旧term。未知状态或仍会续费的Stripe不得据此宣称Enterprise生效。
 
@@ -110,3 +110,5 @@ Enterprise 升级响应为 EnterpriseUpgradeOperation：processing 保留原 ope
 升级成功收据用于随后刷新既有组织目录，响应不再重复一份完整 billingSummary；前端不得在 processing/needs_review 状态先改目录的 Enterprise 标志。原型平台列表消费同一 OrganizationRow，模拟升级消费请求与成功操作收据后投影，当前余额和旧授予批次保持原样；手动额度仍消费实际 grant/ledger/audit 收据后更新模拟钱包。模拟过程没有 HTTP 或财务写入。
 
 错误体沿用既有 `{error,traceId,code}`，不引入 reasonCode 方言。TeamBillingErrorCode 是封闭枚举，覆盖已有支付错误、组织 Plan 版本错误和本束容量、报价到期、已付期限到期、待处理商业变化、付款核对、升级冲突、依赖失败、Enterprise 专属、额度精度溢出、未订阅等错误。通用未登录及未知5xx仍遵循现有全局 envelope，不被伪装成已判定的业务拒绝。未来控制器必须验证 HTTP status/envelope 与 guards，当前仅有契约及反例，未声明真实后端已完成。
+
+原型一致性补齐：七人组织初购消费initial严格quote，明确7席、130,000月额度及包含两额外席位的总价。平台升级processing保留Team及原operationRef，可查询原操作；needs_review保留原套餐并展示联系平台和原编号，无成功前加额度入口。Enterprise组织账户区分无旧计划与保留已付计划，前者无虚构期限/默认月额度，后者显示原截止及每月计划，均无新增自助充值/收费席位按钮。以上仍为受控模拟，真实响应刷新/恢复/guard待实施。

@@ -22,3 +22,13 @@ Issue6099 / Draft6101。沿用已采用UI，记录核心schema与原型消费的
 - [人类确认：升级保留原已付发放计划](enterprise-prepaid-retained.png)
 
 用户已确认升级后的已付计划处理，规范见同束domain及human-decisions；旧待答标记已解除。最新browser5实际覆盖保留计划文案且零计费HTTP，自动清理0秒；升级图已目视复核。业务确认不等于整束签核或真实九月worker已实现。
+
+独立一致性复核补齐的界面（真实browser7，零计费/平台HTTP，自动清理1秒；五图已目视核对）：
+
+- [七人团队首次购买：7席、130,000月credit及含额外席位总价](team-initial-seven.png)
+- [Enterprise账户：无旧计划，人工管理](enterprise-account-manual.png)
+- [Enterprise账户：保留原已付Team发放计划](enterprise-account-prepaid.png)
+- [升级处理中：保留Team并查询原操作](enterprise-upgrade-processing.png)
+- [升级需核对：保留原套餐，联系平台及原编号](enterprise-upgrade-needs-review.png)
+
+入口仍为/preview/pricing；团队账户示例下拉切换四种事实，管理员区可选三种升级结果。金额与状态来自严格模拟quote/权益/操作，不代表真实财务或权限路径实现。材料在design-deltas/team-enterprise-v1，仍待当前精确SHA独立复核及整束签核。

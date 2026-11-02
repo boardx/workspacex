@@ -135,3 +135,40 @@ test("all seven review states are reachable and failures recover", async ({ page
   await expect(page.getByTestId("pricing-subscription")).toContainText("新用户一次性赠送");
   await capture(page, "free");
 });
+
+test("initial capacity and Enterprise account variants are reviewable",async({page})=>{
+ await page.getByTestId("pricing-view-team").click();
+ await select(page,"pricing-team-scenario","七人团队首次购买");
+ await page.getByTestId("pricing-toggle-cycle").click();
+ await page.getByTestId("pricing-initial-team-purchase").click();
+ await expect(page.getByTestId("pricing-initial-capacity")).toContainText("本次购买 7 席");
+ await expect(page.getByTestId("pricing-total")).toHaveText("¥12,970");
+ await capture(page,"team-initial-seven");await page.keyboard.press("Escape");
+ await select(page,"pricing-team-scenario","Enterprise · 无旧计划");
+ await expect(page.getByTestId("pricing-enterprise-account")).toContainText("没有待发放");
+ await expect(page.getByTestId("pricing-buy-credits")).toHaveCount(0);
+ await capture(page,"enterprise-account-manual");
+ await select(page,"pricing-team-scenario","Enterprise · 保留已付计划");
+ await expect(page.getByTestId("pricing-enterprise-prepaid")).toContainText("2027/11/01");
+ await expect(page.getByTestId("pricing-enterprise-prepaid")).toContainText("100,000");
+ await capture(page,"enterprise-account-prepaid");
+});
+test("Enterprise upgrade recovers the original operation without optimistic activation",async({page})=>{
+ await page.getByTestId("pricing-view-admin").click();
+ await page.getByTestId("pricing-upgrade-outcome-processing").click();
+ await page.getByTestId("pricing-upgrade-studio").click();await page.getByTestId("pricing-admin-confirm").click();
+ await expect(page.getByTestId("pricing-admin-plan-studio")).toHaveText("Team");
+ const reference=await page.getByTestId("pricing-upgrade-operation-studio").getAttribute("data-operation-ref");
+ await capture(page,"enterprise-upgrade-processing");
+ await page.getByTestId("pricing-upgrade-retry-studio").click();
+ await expect(page.getByTestId("pricing-upgrade-operation-studio")).toHaveAttribute("data-operation-ref",reference!);
+ await page.getByTestId("pricing-upgrade-outcome-succeeded").click();
+ await page.getByTestId("pricing-upgrade-retry-studio").click();
+ await expect(page.getByTestId("pricing-admin-plan-studio")).toHaveText("Enterprise");
+ await expect(page.getByTestId("pricing-admin-row-studio")).toContainText("64,000");
+ await page.getByTestId("pricing-upgrade-outcome-needs_review").click();
+ await page.getByTestId("pricing-upgrade-product").click();await page.getByTestId("pricing-admin-confirm").click();
+ await expect(page.getByTestId("pricing-admin-plan-product")).toHaveText("Team");
+ await expect(page.getByTestId("pricing-upgrade-operation-product")).toContainText("联系平台");
+ await capture(page,"enterprise-upgrade-needs-review");
+});

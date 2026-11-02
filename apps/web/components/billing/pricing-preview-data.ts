@@ -109,3 +109,17 @@ export function previewTeamSeatPurchase(quote:Extract<TeamQuote,{purpose:"add_se
    firstCreditsApplied:quote.estimatedFirstCredits,firstCreditPeriod:{periodStart:quote.creditPeriodStart,periodEnd:quote.creditPeriodEnd}},
  });
 }
+
+/** Controlled initial-purchase quote; production prices and capacity come from the server. */
+export function previewTeamInitialQuote(region:PricingRegion,cycle:PricingCycle,seats:number,provider:"wechat"|"stripe"){
+ const catalog=previewTeamCatalog(region),product=previewTeamSubscription(region,cycle),createdAt="2026-11-01T10:00:00Z";
+ if(!catalog.enabledProviders.includes(provider))throw Error("preview_payment_channel_unavailable");
+ const quote=TeamQuote.parse({orgId:catalog.orgId,generation:"pricing-preview-only",quoteRef:`preview-initial-${region}-${cycle}-${seats}-${provider}`,
+  catalogVersion:catalog.version,sku:product.sku,provider,currency:product.currency,
+  amountMinor:product.amountMinor+(seats-TEAM_INCLUDED_SEATS)*product.additionalSeatAmountMinor,
+  createdAt,expiresAt:"2026-11-01T10:05:00Z",purpose:"initial",seats,
+  monthlyCredits:TEAM_MONTHLY_CREDITS+(seats-TEAM_INCLUDED_SEATS)*TEAM_SEAT_MONTHLY_CREDITS,
+  billingCycle:cycle,renewalMode:provider==="stripe"?"automatic":"manual",planVersion:1});
+ if(quote.purpose!=="initial")throw Error("preview_initial_quote_required");
+ return quote;
+}
