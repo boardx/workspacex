@@ -56,7 +56,7 @@ export class PgPersonalCheckoutRepository implements PersonalCheckoutRepository 
       const existing = (await session.query<Row>(SQL.personalPurchaseByKey, [principal.userId, request.idempotencyKey])).rows[0];
       if (existing) { const purchase = view(existing); assertSamePersonalPurchase(purchase, request); return purchase; }
       let configured;
-      try{configured=await readProductConfiguration(session,market,true);}catch{throw new PersonalCheckoutError("dependency_unavailable");}
+      try{configured=await readProductConfiguration(session,market);}catch{throw new PersonalCheckoutError("dependency_unavailable");}
       if(request.catalogVersion!==configured.version)throw new PersonalCheckoutError("catalog_changed");
       let products;
       try{products=personalConfiguredProducts(configured.rows);}catch{throw new PersonalCheckoutError("dependency_unavailable");}

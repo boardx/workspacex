@@ -1,0 +1,22 @@
+[stack-admission] load1=4.25 cores=10 perCore=0.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyyn7bd-e24aa867-b26739838e71 db=wsx_b26739838e71efe669b6 compose=wsx-b26739838e71efe669b6 pg=20379 redis=21379 api=24379 web=25379 sandbox=26379 model=27379 deep-agent=28379 asr=29379 vision=30379 loopback-sandbox=31379 mail=19379
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[db-isolation] db=wsx_b26739838e71efe669b6 capacity=100 current=6 required=32
+ ✓ tests/billing/product-configuration.integration.ts (1 test) 13431ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  15:51:42
+   Duration  17.51s (transform 370ms, setup 8ms, collect 179ms, tests 13.43s, environment 0ms, prepare 55ms)
+
+[db-isolation] db=wsx_b26739838e71efe669b6 peak_connections=2
+[timing] pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：18s
+  清理：0s
+  总计：19s

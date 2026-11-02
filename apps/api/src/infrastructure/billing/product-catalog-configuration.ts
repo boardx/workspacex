@@ -4,10 +4,11 @@ import type {TenantSession} from "../../application/ports/database.port";
 export type ProductConfigurationRow={package_id:string;region:string;currency:string;amount_fen:number;total_credits:number;owner_type:"user"|"team"|"both";product_kind:"credit_topup"|"subscription";billing_cycle:"month"|"year"|null;included_seats:number|null;extra_seat_amount_fen:number|null;extra_seat_monthly_credits:number|null;sort_order:number};
 const columns="package_id,region,currency,amount_fen,total_credits,owner_type,product_kind,billing_cycle,included_seats,extra_seat_amount_fen,extra_seat_monthly_credits,sort_order";
 const select=`SELECT ${columns} FROM credit_packages WHERE enabled=true AND region=$1 AND product_kind IN ('credit_topup','subscription') ORDER BY package_id`;
-export const PRODUCT_CONFIGURATION_SQL=Object.freeze({read:select,lock:`${select} FOR SHARE`});
-/** One read locks the same configuration whose fingerprint and order snapshot are persisted. */
-export async function readProductConfiguration(s:TenantSession,market:PricingCatalog["market"],lock=false){
- const rows=(await s.query<ProductConfigurationRow>(lock?PRODUCT_CONFIGURATION_SQL.lock:PRODUCT_CONFIGURATION_SQL.read,[market])).rows;
+export const PRODUCT_CONFIGURATION_SQL=Object.freeze({read:select});
+/** One MVCC statement supplies both fingerprint and immutable order facts.
+ * Checkout linearizes at this read; the application retains SELECT-only catalog access. */
+export async function readProductConfiguration(s:TenantSession,market:PricingCatalog["market"]){
+ const rows=(await s.query<ProductConfigurationRow>(PRODUCT_CONFIGURATION_SQL.read,[market])).rows;
  if(!rows.length)throw Error("billing_catalog_unavailable");
  if(rows.some(row=>row.region!==market||row.currency!==(market==="cn"?"CNY":"USD")))throw Error("billing_catalog_invalid");
  const facts=rows.map(({sort_order:_,...row})=>row);

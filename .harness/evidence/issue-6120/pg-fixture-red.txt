@@ -1,0 +1,44 @@
+[stack-admission] load1=5.16 cores=10 perCore=0.52 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyykpyc-1b4e945b-2d3ddcbc381c db=wsx_2d3ddcbc381c504d9524 compose=wsx-2d3ddcbc381c504d9524 pg=20924 redis=21924 api=24924 web=25924 sandbox=26924 model=27924 deep-agent=28924 asr=29924 vision=30924 loopback-sandbox=31924 mail=19924
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+
+[heavy-e2e-lock] 排到了，等了 0s
+[db-isolation] db=wsx_2d3ddcbc381c504d9524 capacity=100 current=6 required=32
+ ❯ tests/billing/product-configuration.integration.ts (1 test | 1 failed) 13698ms
+   × prices new orders from configuration while paid annual grants retain their purchased quantity 18ms
+     → new row for relation "credit_packages" violates check constraint "credit_packages_check"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/product-configuration.integration.ts > prices new orders from configuration while paid annual grants retain their purchased quantity
+error: new row for relation "credit_packages" violates check constraint "credit_packages_check"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Module.asOwner tests/support/db.ts:250:12
+    248|   await c.connect();
+    249|   try {
+    250|     return await fn(c);
+       |            ^
+    251|   } finally {
+    252|     await c.end();
+ ❯ tests/billing/product-configuration.integration.ts:42:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  15:49:47
+   Duration  17.72s (transform 369ms, setup 7ms, collect 179ms, tests 13.70s, environment 0ms, prepare 57ms)
+
+[db-isolation] db=wsx_2d3ddcbc381c504d9524 peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+[timing] pnpm --filter api exec vitest run --config vitest.billing-cashier.config.ts tests/billing/product-configuration.integration.ts --bail=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：19s
+  清理：1s
+  总计：19s

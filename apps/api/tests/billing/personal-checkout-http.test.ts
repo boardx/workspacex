@@ -24,18 +24,19 @@ import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { ensureDatabase, migrateOnce, seedOrg, asOwner } from "../support/db";
 import { toOrgId } from "../../src/domain/org-id";
 import { BILLING_ACCOUNTING_GENERATION } from "../../src/domain/billing/billing-generation";
-import { PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import { PgBillingCatalogRepository } from "../../src/infrastructure/billing/pg-billing-catalog-repository";
 
 const prefix = `checkout-http-${randomUUID().slice(0, 8)}`, org = toOrgId(prefix), userId = `${prefix}-user`;
 const recoveryUserId=`${prefix}-recovery`,ownedUsers=[userId,recoveryUserId];
 const db = new PgDatabase(appConfig()); let app: INestApplication, base: string, calls = 0;
 let salesEnabled=true,loseCreationResponse=false;
-const request = { sku: "pro-us-year-v1", provider: "stripe", catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `http-${randomUUID()}` };
+const request = { sku: "pro-us-year-v1", provider: "stripe", catalogVersion: "awaiting-configured-catalog", idempotencyKey: `http-${randomUUID()}` };
 // Intent/financial fixture ownership: exact ownedUsers are deleted after the isolated HTTP server closes.
 // Epoch fixture ownership: this isolated database is restored to inactive in afterAll.
 beforeAll(async () => {
   ensureDatabase(); await migrateOnce(); await seedOrg({ orgId: org, kind: "personal-local", ownerUserId: userId, projectId: `${prefix}-project` });
   await asOwner(c => c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=clock_timestamp() WHERE singleton=true", [BILLING_ACCOUNTING_GENERATION]));
+  request.catalogVersion = (await new PgBillingCatalogRepository(db).read({userId,orgId:org}, "us")).version;
   const service = new PersonalCheckoutService(new PgPersonalCheckoutRepository(db), {
     getPricingMarket: () => "us", getPublicConfig: () => ({ enabledProviders: salesEnabled?["stripe"]:[] }),
   }, { enabled: () => true, create: async purchase => {

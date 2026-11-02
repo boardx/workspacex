@@ -11,9 +11,10 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { ensureDatabase, migrateOnce, seedOrg, asOwner, asApp } from "../support/db";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { PgBillingCatalogRepository } from "../../src/infrastructure/billing/pg-billing-catalog-repository";
 import { PgPersonalCheckoutRepository } from "../../src/infrastructure/billing/pg-personal-checkout-repository";
 import { PgPersonalPaymentRepository } from "../../src/infrastructure/billing/pg-personal-payment-repository";
-import { PERSONAL_PRICE_CATALOG, PERSONAL_PRICE_CATALOG_VERSION } from "../../src/domain/billing/personal-price-catalog";
+import { PERSONAL_PRICE_CATALOG } from "../../src/domain/billing/personal-price-catalog";
 import { BILLING_ACCOUNTING_GENERATION } from "../../src/domain/billing/billing-generation";
 import { creditMonthBoundary } from "../../src/domain/billing/personal-credit-calendar";
 import { toOrgId } from "../../src/domain/org-id";
@@ -55,7 +56,7 @@ afterAll(async () => {
 });
 async function fixture(label: string, year = true, anchor = new Date(Math.floor(Date.now() / 1000) * 1000), withBinding = true) {
   const userId = `${prefix}-${label}`; users.push(userId); const principal = { userId, orgId: org }, product = PERSONAL_PRICE_CATALOG.us[year ? 1 : 0];
-  let purchase = await checkout.reserve(principal, { sku: product.sku, provider: "stripe", catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `stripe-${randomUUID()}` }, product);
+  let purchase = await checkout.reserve(principal, { sku: product.sku, provider: "stripe", catalogVersion: (await new PgBillingCatalogRepository(db).read(principal, "us")).version, idempotencyKey: `stripe-${randomUUID()}` }, "us");
   // Test-only virtual clock: app_rw cannot alter this immutable creation column.
   await asOwner(c => c.query("UPDATE billing_personal_purchases SET created_at=$2 WHERE purchase_ref=$1", [purchase.purchaseRef, anchor]));
   const result = { sessionRef: `cs_${purchase.purchaseRef}`, url: "https://checkout.stripe.com/c/pay/fixture", expiresAt: new Date(anchor.getTime() + 86400000) };
@@ -202,7 +203,7 @@ it("ignores old-generation metadata after activation without legacy crediting", 
 it("blocks a second Pro checkout while the original Stripe subscription can still renew", async () => {
   const f = await fixture("still-renewing", false, new Date("2020-01-31T12:00:00Z")); await f.settle();
   await expect(checkout.reserve({ userId: f.userId, orgId: org }, { sku: f.purchase.product.sku, provider: "stripe",
-    catalogVersion: PERSONAL_PRICE_CATALOG_VERSION, idempotencyKey: `renewing-${randomUUID()}` }, f.purchase.product)).rejects.toThrow("already_subscribed");
+    catalogVersion: (await new PgBillingCatalogRepository(db).read({userId:f.userId,orgId:org}, "us")).version, idempotencyKey: `renewing-${randomUUID()}` }, "us")).rejects.toThrow("already_subscribed");
 });
 it("keeps a webhook-established Checkout identity when the creation response arrives later", async () => {
   const f = await fixture("late-creation"); await f.settle();
@@ -260,8 +261,8 @@ it("handles signed raw HTTP Stripe callbacks with real HMAC and one financial gr
 async function packCallback() {
   const userId = `${prefix}-pack-${randomUUID().slice(0, 6)}`, principal = { userId, orgId: org }; users.push(userId);
   const product = PERSONAL_PRICE_CATALOG.us[2]!;
-  const purchase = await checkout.reserve(principal, { sku: product.sku, provider: "stripe", catalogVersion: PERSONAL_PRICE_CATALOG_VERSION,
-    idempotencyKey: `pack-${randomUUID()}` }, product);
+  const purchase = await checkout.reserve(principal, { sku: product.sku, provider: "stripe", catalogVersion: (await new PgBillingCatalogRepository(db).read(principal, "us")).version,
+    idempotencyKey: `pack-${randomUUID()}` }, "us");
   const sessionRef = `cs_${purchase.purchaseRef}`;
   await checkout.bind(principal, purchase.purchaseRef, { sessionRef, url: "https://checkout.stripe.com/c/pay/pack", expiresAt: new Date(Date.now() + 86400000) });
   const session = { object: "checkout.session", id: sessionRef, livemode: false, mode: "payment", status: "complete", payment_status: "paid",

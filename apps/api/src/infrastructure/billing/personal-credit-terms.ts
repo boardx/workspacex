@@ -45,7 +45,7 @@ async function trustedProduct(s:TenantSession,input:VerifiedPersonalPayment):Pro
  // Existing trusted internal receipt callers have no browser entry point. Freeze configuration once;
  // public checkout settlement always takes the durable purchase branch above.
  if(input.currency!=="CNY"&&input.currency!=="USD")throw Error("personal_term_invalid");
- const configured=await readProductConfiguration(s,input.currency==="CNY"?"cn":"us",true);
+ const configured=await readProductConfiguration(s,input.currency==="CNY"?"cn":"us");
  return {catalog_version:configured.version,product:personalConfiguredProducts(configured.rows).find(p=>p.sku===input.sku)};
 }
 /** Caller provides a transaction. This boundary verifies immutable money/term snapshots, never a browser return. */
