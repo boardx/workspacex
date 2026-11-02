@@ -28,7 +28,7 @@ flowchart LR
  class S4 tested
  %% evidence S4: calendar/core132, contracts1386, UI65, API/PG94; platform proposal complete; three independent UI review gaps fixed and under final verification
  class S5 done
- class S6 todo
+ class S6 done
  class S7 todo
  class S8 todo
 ```

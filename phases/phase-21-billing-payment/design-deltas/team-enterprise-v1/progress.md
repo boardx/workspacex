@@ -25,3 +25,5 @@ PR6101此前由外部操作转ready入队，已按明确指示正常dequeue、�
 全部三件材料和增量UI已齐，待一次整束人类签核；S4 tested/S5 done/S6 todo。没有把设计审查改写成人签，也没有Team运行时假passing。下一步签核后按implementation-slices逐项实施，先容量/PG精度等硬前置，再开放Team。
 
 2026-11-02T03:10:53Z PR6101旧fd再次由usersyj转ready，03:11:01及03:12:54入队。已正常dequeue、restoreDraft，再次dequeue后动态确认Draft=true/queue=null/autoMerge=null；disable-auto因未启用明确拒绝，不存在残留自动合并请求。时间线无法区分共用同账号的真实操作者；merge_group工作流在入队之后触发，不能倒因为果称其为入队者。已通知上级并在PR/issue明确整束pending禁止入队，不改全局队列规则、不打断其他PR。
+
+用户现已明确确认整束设计并授权回填、分阶段实现；唯一design-signoff.md已据直接授权记录confirmed（S6 done），covers仍空、不虚构runtime feature通过。此前“等待人签”的历史段落已由本条实际答复取代。正常PR检查/独立审查门禁继续；下一步先整理销售前置的独立可验证切片，禁止大PR先收费后补容量/精度。
