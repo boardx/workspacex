@@ -1,3 +1,4 @@
+import {prepareTeamCreditAdmission} from "./team-credit-admission";
 import {isLocalOrg} from "../../domain/identity/local-org";
 import type {DatabasePort,TenantSession} from "../../application/ports/database.port";
 import type {OrgId} from "../../domain/org-id";
@@ -12,7 +13,7 @@ type Request={request_id:string;user_id:string;wallet_id:string;model_provider:s
 const limit=214748364700n;
 /** Called inside the SAME transaction as durable starts and terminal usage receipts. */
 export class PgCreditConsumption {
- constructor(private readonly db:DatabasePort){}
+ constructor(private readonly db:DatabasePort,private readonly clock:()=>Date=()=>new Date()){}
  /** Resolve wallet identity from the same audited membership metadata as admission. */
  async resolvePayer(orgId:OrgId,userId:string):Promise<Payer>{return this.db.withTenant(orgId,s=>this.payer(s,orgId,userId));}
  private async payer(s:TenantSession,orgId:OrgId,userId:string):Promise<Payer>{
@@ -22,15 +23,20 @@ export class PgCreditConsumption {
  }
  private error(p:Payer,message:string,code:"credit_required"|"credit_accounting_unavailable"="credit_accounting_unavailable"){return new CreditConsumptionError(code,p.ownerType,p.ownerId,message);}
  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promise<void>{
-  const p=await this.payer(s,orgId,input.userId);
+  const p=await this.payer(s,orgId,input.userId),at=this.clock();
+  let teamLicense:"allowed"|"subscription_required"|"unavailable"="allowed";
+  if(p.ownerType==="team"){
+   try{teamLicense=await prepareTeamCreditAdmission(s,orgId,at);}catch{throw this.error(p,"team_license_accounting_unavailable");}
+  }
   if(p.ownerType === "user") await grantDuePersonalTerms(s,p.ownerId);
   await s.query(`INSERT INTO credit_wallets(owner_type,owner_id) VALUES($1,$2) ON CONFLICT(owner_type,owner_id) DO NOTHING`,[p.ownerType,p.ownerId]);
   const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[p.ownerType,p.ownerId])).rows[0]!;
-  await normalizeCreditPeriods(s,wallet.wallet_id,new Date());
+  await normalizeCreditPeriods(s,wallet.wallet_id,at);
   wallet.balance=(await s.query<{balance:string}>("SELECT balance::text FROM credit_wallets WHERE wallet_id=$1",[wallet.wallet_id])).rows[0]!.balance;
   const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null};
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];
   if(old){const prior=old.start_facts as Record<string,unknown>;const {maximumTokenBound,nativeMaximumBound,tokenBoundRequired,...identity}=prior;const boundInput=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};if(facts(identity)!==facts(immutable)||old.wallet_id!==wallet.wallet_id||(boundInput.maximumTokens!==undefined&&maximumTokenBound!==boundInput.maximumTokens)||(boundInput.nativeMaximum!==undefined&&facts(nativeMaximumBound)!==facts(boundInput.nativeMaximum))||(boundInput.tokenBoundRequired!==undefined&&tokenBoundRequired!==boundInput.tokenBoundRequired))throw this.error(p,"credit_start_replay_mismatch");return;}
+  if(p.ownerType==="team"&&teamLicense!=="allowed")throw this.error(p,teamLicense==="subscription_required"?"team_subscription_required":"team_license_accounting_unavailable",teamLicense==="subscription_required"?"credit_required":"credit_accounting_unavailable");
   if(p.ownerType==="user"&&creditHundredths(wallet.balance)<0n)throw this.error(p,"insufficient_credit","credit_required");
   const admission=(await s.query<{maximum_tokens:string;billing_kind:string;native_unit:string|null;max_native_quantity:string|null}>("SELECT maximum_tokens::text,billing_kind,native_unit,max_native_quantity::text FROM ai_request_reservations WHERE id=$1 AND org_id=$2 AND user_id=$3",[input.requestId,orgId,input.userId])).rows[0];
   const extended=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};

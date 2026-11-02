@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import {TEAM_FINANCIAL_BOUNDARIES,checkTeamFinancialBoundary,checkTeamFinancialConsumers} from "./lib/team-financial-boundary.mjs";
 import { SKILL_FILE_EDIT_PATH, checkSkillFileEditBoundary } from "./lib/skill-file-edit-boundary.mjs";
 import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp-credential-boundary.mjs';
 /**
@@ -634,6 +635,7 @@ const ROOTS = process.argv.slice(2).length ? process.argv.slice(2) : [join(API, 
 
 let fail = 0;
 let scanned = 0;
+let teamConsumersChecked=false;
 
 // `FROM x` / `JOIN x` / `INTO x` / `UPDATE x` / `DELETE FROM x`. Deliberately SQL-keyword
 // anchored: a bare identifier match would fire on the word `projects` in prose. This
@@ -651,6 +653,13 @@ for (const root of ROOTS) {
     scanned++;
     const rel = relative(API, file);
     const body = readFileSync(file, "utf8");
+    if(TEAM_FINANCIAL_BOUNDARIES.has(rel)){
+      const errors=checkTeamFinancialBoundary(rel,body,p=>readFileSync(join(API,p),"utf8"));
+      for(const evidence of ["scripts/tests/team-financial-boundary.test.mjs","tests/billing/team-checkout-http.test.ts","tests/billing/team-settlement-edge-pg.test.ts","tests/billing/team-ai-admission-pg.test.ts"]){if(!existsSync(join(API,evidence)))errors.push(`Team financial counterexamples missing: ${evidence}`);}
+      if(!teamConsumersChecked){teamConsumersChecked=true;errors.push(...checkTeamFinancialConsumers(walk(join(API,"src")).map(p=>({path:relative(API,p).split(sep).join("/"),source:readFileSync(p,"utf8")}))));}
+      for(const error of errors){console.error(`✗ ${rel}: ${error}`);fail++;}
+      continue;
+    }
     if (SUBTASK_BOUNDARIES.has(rel)) {
       for (const evidence of ["scripts/tests/subtask-permission-boundary.test.mjs", "tests/agent-runtime/subtask-run-store-real-db.test.ts"]) {
         if (!existsSync(join(API, evidence))) { console.error(`✗ ${rel}: required boundary evidence missing: ${evidence}`); fail++; }
