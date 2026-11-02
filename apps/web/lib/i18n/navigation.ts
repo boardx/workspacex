@@ -1,5 +1,6 @@
 import type { MessageKey } from "./messages";
 const keys: Record<string, MessageKey | undefined> = {
+  me: "ui.me",
   "home": "navigation.home",
   "chat": "navigation.chat",
   "projects": "navigation.projects",

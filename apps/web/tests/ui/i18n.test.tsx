@@ -36,6 +36,7 @@ it("translates home actions, mobile navigation and accessible agent labels while
  expect(screen.getByTestId("home-quick-action-research")).toHaveTextContent("Deep research");
  expect(screen.getByRole("link", {name: "Chat with 研究伙伴"})).toHaveTextContent("组织原文");
  expect(screen.getByTestId("mobile-tab-chat")).toHaveTextContent("Chats");
+ expect(screen.getByTestId("mobile-tab-me")).toHaveTextContent("Me");
 });
 it("switches login heading and brand without a navigation", () => {
  render(<I18nProvider initialLocale="zh-CN"><AuthShell title={<I18nText message="ui.signInToWorkspacex" />} /></I18nProvider>);

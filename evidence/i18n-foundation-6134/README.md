@@ -11,3 +11,5 @@
 - local版能力差异/出网契约及通知弹层的领域文案仍需二期按稳定id接入资源，不能将一期称为全站全量英文化。
 
 独立复核修正：完整HomeConfigError闭集与HTTP兜底已改走统一资源，保持中文原语义，并补英文FILE_TOO_LARGE行为断言。计数支持按Intl.PluralRules选择`key.<category>`资源，缺相应变体使用基础模板；英文artifact已覆盖1/2的单复数，中文保持原句式。先见2条预期失败，再实现后6文件72项全绿（review-tests.log）。
+
+移动入口补漏：补充mobile-tab-me英文断言后先见红，为稳定key `me`接入已有ui.me资源；10项语言测试通过（mobile-tests.log）。此补丁更新PR head，旧SHA的CI不代表补丁后状态。
