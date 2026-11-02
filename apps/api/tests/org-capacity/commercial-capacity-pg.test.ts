@@ -42,8 +42,8 @@ it("pending invitations do not occupy commercial seats even with legacy quota ze
 it("distinct invitation paths compete for the final seat with atomic rollback",async()=>{
  await asApp(ORG,c=>c.query("UPDATE organizations SET seat_quota=1000 WHERE id=$1",[ORG]));
  const tokens=["capacity-6107-token-a","capacity-6107-token-b"];
- for(let n=0;n<2;n++){
-  const created=await repo.create({orgId:toOrgId(ORG),inviteId:`capacity-6107-invite-${n}`,email:`capacity-6107-${RUN}-${n}@example.test`,orgRole:"consultant",teamId:null,actorId:admin,status:"pending",token:tokens[n],tokenExpiresAt:new Date(Date.now()+3600000)});
+ for(const [n,token] of tokens.entries()){
+  const created=await repo.create({orgId:toOrgId(ORG),inviteId:`capacity-6107-invite-${n}`,email:`capacity-6107-${RUN}-${n}@example.test`,orgRole:"consultant",teamId:null,actorId:admin,status:"pending",token,tokenExpiresAt:new Date(Date.now()+3600000)});
   expect(created.ok).toBe(true);
  }
  const links = new PgOrgInviteLinkRepository(db);
@@ -56,7 +56,7 @@ it("distinct invitation paths compete for the final seat with atomic rollback",a
  const members=await asApp(ORG,c=>c.query("SELECT count(*)::int AS n FROM org_memberships WHERE org_id=$1",[ORG]));
  expect(members.rows[0].n).toBe(5);
  const remaining=await asOwner(c=>c.query("SELECT count(*)::int AS n FROM org_invite_tokens WHERE token=ANY($1) AND consumed_at IS NULL",[tokens]));
- expect(remaining.rows[0].n).toBe(outcomes[2].ok ? 2 : 1);
+ expect(remaining.rows[0].n).toBe(outcomes[2]!.ok ? 2 : 1);
  const accounts=await asOwner(c=>c.query("SELECT count(*)::int AS n FROM credentials WHERE user_id LIKE $1",[`capacity-6107-new-${RUN}-%`]));
  expect(accounts.rows[0].n).toBe(1);
 });

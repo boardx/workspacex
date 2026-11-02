@@ -16,7 +16,7 @@ beforeAll(async()=>{
  vi.stubEnv("NODE_ENV","test");vi.stubEnv("MAIL_OUTBOX_WORKER_ENABLED","0");vi.stubEnv("KERNEL_QUIET","1");
  await seedOrg({orgId:org,projectId:`${org}-p`,seatQuota:0});
  const roles=["admin","lead","consultant","compliance","consultant"];
- for(let n=0;n<roles.length;n++)await addOrgMember(org,`${org}-member-${n}`,roles[n],null);
+ for(const [n,role] of roles.entries())await addOrgMember(org,`${org}-member-${n}`,role,null);
  originalEpoch=await asOwner(async c=>(await c.query<{generation:string|null;activated_at:Date|null}>("SELECT generation,activated_at FROM billing_pricing_epoch WHERE singleton=true")).rows[0]);
  await asOwner(c=>c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=now() WHERE singleton=true",[BILLING_ACCOUNTING_GENERATION]));
  await asApp(org,c=>c.query("INSERT INTO org_commercial_licenses(org_id,generation,purchased_seats) VALUES($1,$2,5)",[org,BILLING_ACCOUNTING_GENERATION]));
