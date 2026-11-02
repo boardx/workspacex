@@ -45,6 +45,7 @@ export class PgEmailVerificationRepository implements EmailVerificationRepositor
   async requestResend(input: {
     email: string;
     proofChallengeId: string | null;
+    authenticatedUserId?: string;
     challengeId: string;
     tokenDigest: string;
     outboxId: string;
@@ -63,11 +64,20 @@ export class PgEmailVerificationRepository implements EmailVerificationRepositor
           FOR UPDATE`,
         [input.proofChallengeId, input.now],
       );
+      // Password recovery has no old proof row. Lock its challenges before the
+      // credential, matching confirmDigest's challenge -> credential lock order.
+      if (input.authenticatedUserId) {
+        await s.query(
+          `SELECT id FROM email_verification_challenges
+            WHERE user_id = $1 ORDER BY id FOR UPDATE`,
+          [input.authenticatedUserId],
+        );
+      }
       const candidate = await s.query<{ user_id: string }>(
         `SELECT user_id FROM credentials
           WHERE user_id = $1 AND email = lower($2) AND email_verified_at IS NULL
           FOR UPDATE`,
-        [proof.rows[0]?.user_id ?? null, input.email],
+        [input.authenticatedUserId ?? proof.rows[0]?.user_id ?? null, input.email],
       );
       const userId = candidate.rows[0]?.user_id;
       const rateSubject = userId ?? `missing:${input.email}`;

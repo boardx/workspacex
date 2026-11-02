@@ -4,7 +4,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 
-const { login, push } = vi.hoisted(() => ({ login: vi.fn(), push: vi.fn() }));
+const { login, push, apiRequest } = vi.hoisted(() => ({ login: vi.fn(), push: vi.fn(), apiRequest: vi.fn() }));
+vi.mock("@/lib/api-client", async (original) => ({ ...await original<typeof import("@/lib/api-client")>(), apiRequest }));
 
 vi.mock("@/lib/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/auth")>();
@@ -18,6 +19,7 @@ import { SessionProvider } from "@/components/session/session-provider";
 beforeEach(() => {
   window.localStorage.clear();
   login.mockReset();
+  apiRequest.mockReset();
   push.mockReset();
 });
 
@@ -88,4 +90,17 @@ it("keeps SSR login controls disabled until hydration, then submits the entered 
   await waitFor(() => expect(screen.getByTestId("login-error")).toBeInTheDocument());
   mounted.unmount();
   container.remove();
+});
+
+it("lets an unverified user retry resend after a delivery-request failure", async () => {
+ await submitWith(new ApiError(401, "EMAIL_NOT_VERIFIED", {}));
+ apiRequest.mockRejectedValueOnce(new Error("offline"));
+ fireEvent.click(screen.getByRole("button", { name: "重新发送验证邮件" }));
+ await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("发送失败"));
+ expect(screen.getByRole("button", { name: "重新发送验证邮件" })).toBeEnabled();
+ apiRequest.mockResolvedValueOnce({ verificationDelivery: "queued" });
+ fireEvent.click(screen.getByRole("button", { name: "重新发送验证邮件" }));
+ await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("已提交"));
+ expect(apiRequest).toHaveBeenLastCalledWith("/auth/email-verifications/resend", expect.objectContaining({ body: { email: "lead@example.com", password: "wrong-password" }, sessionToken: null }));
+ expect(screen.getByTestId("login-verification-resend")).toBeDisabled();
 });

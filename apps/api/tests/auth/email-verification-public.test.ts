@@ -100,6 +100,28 @@ afterAll(async () => {
   await db.close();
 });
 
+describe("password recovery resend", () => {
+ it("reissues after expiry without a cookie, serializes concurrent resends and rejects the old link", async () => {
+  const reg = await register("password-recovery");
+  await asOwner(c => c.query(`UPDATE email_verification_challenges SET created_at=now()-interval '2 days', expires_at=now()-interval '1 day' WHERE user_id=$1`, [reg.userId]));
+  await asOwner(c => c.query(`UPDATE mail_outbox SET status='failed', failure_category='provider_http_403' WHERE id=$1`, [reg.row.outbox_id]));
+  const results = await Promise.all(Array.from({ length: 2 }, () => postRaw("/auth/email-verifications/resend", { email: reg.email, password: PASSWORD })));
+  expect(results.map(x => x.response.status)).toEqual([201,201]);
+  const rows = await asOwner(async c => (await c.query<{ id: string }>(`SELECT id FROM email_verification_challenges WHERE user_id=$1 AND superseded_at IS NULL`, [reg.userId])).rows);
+  expect(rows).toHaveLength(1); expect(rows[0]!.id).not.toBe(reg.row.id);
+  expect((await post("/auth/email-verifications/confirm", { token: reg.raw })).status).toBe(400);
+  expect((await post("/auth/email-verifications/confirm", { token: tokens.tokenForChallenge(rows[0]!.id) })).status).toBe(201);
+ });
+ it("does not disclose absent accounts or accept incorrect passwords", async () => {
+  const reg = await register("password-rejected");
+  const wrong = await post("/auth/email-verifications/resend", { email: reg.email, password: `${PASSWORD}-wrong` });
+  const missing = await post("/auth/email-verifications/resend", { email: "absent@i411verify.test", password: `${PASSWORD}-wrong` });
+  expect(wrong.status).toBe(401); expect(missing.status).toBe(401);
+  expect(missing.body.reasonCode).toBe(wrong.body.reasonCode);
+  expect(missing.body.error).toBe(wrong.body.error);
+ });
+});
+
 describe("signed public email-verification contract", () => {
   it("keeps a consumed challenge non-login-capable after session-store failure", async () => {
     const registration = await register("auto-session-store-failed");
@@ -359,7 +381,7 @@ describe("signed public email-verification contract", () => {
     expect(targetCount).toBe(1);
   });
 
-  it("allows five actual resends per 24h, not four because registration was counted", async () => {
+  it.each([false, true])("allows five actual resends per 24h (password recovery=%s)", async (passwordRecovery) => {
     const registration = await register("daily-limit");
     let cookie = registration.pendingCookie;
     for (let attempt = 1; attempt <= 6; attempt += 1) {
@@ -369,7 +391,7 @@ describe("signed public email-verification contract", () => {
         [registration.userId],
       ));
       const { response } = await postRaw(
-        "/auth/email-verifications/resend", { email: registration.email }, cookie,
+        "/auth/email-verifications/resend", { email: registration.email, ...(passwordRecovery ? { password: PASSWORD } : {}) }, passwordRecovery ? undefined : cookie,
       );
       const rotated = response.headers.get("set-cookie")?.split(";", 1)[0];
       if (rotated) cookie = rotated;
