@@ -35,7 +35,8 @@ flowchart TD
   class S1 done
   class S2 done
   class S3 done
-  class S4 doing
+  class S4 tested
+  %% evidence S4: 72项测试、真实浏览器与正常pre-push25项静态门通过，evidence/i18n-foundation-6134/
   class S5 todo
 ```
 
