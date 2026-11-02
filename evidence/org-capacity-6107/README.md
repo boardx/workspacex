@@ -42,7 +42,7 @@ PG baseline red and identical test green completed (3/3); expand role/permission
 
 ## Pending independent-review follow-up
 
-Review P2 confirmed: the single-invite path reads pending before waiting on the organization lock, allowing revocation to commit while it waits. `1dcae6e1f` includes a deterministic real-PG barrier counterexample and remains the source baseline for its red run. `revocation-fix.patch` is the prepared implementation: epoch → organization lock → authoritative invitation `FOR UPDATE`, with a conditional pending → used update. It is deliberately not applied before the controlled baseline run; no fix claim is made yet.
+Review P2 confirmed: the single-invite path reads pending before waiting on the organization lock, allowing revocation to commit while it waits. `1dcae6e1f` includes a deterministic real-PG barrier counterexample and remains the source baseline for its red run. `revocation-fix.patch` is the prepared implementation: unlocked token-index lookup → epoch/organization lock → authoritative invitation `FOR UPDATE` → conditional token consumption, with a conditional pending → used update. The invite-before-token order matches resend and avoids an inverse invite/token lock cycle. It is deliberately not applied before the controlled baseline run; no fix claim is made yet.
 
 The same commit adds the approved pending-intent close boundary: tenant RLS plus a restrictive DELETE policy prevents deleting paid rows, and `closePendingCommercialIntent` clears paid-row pending fields or deletes only the expected pure-pending row. Its paid/cross-tenant/wrong-reference counterexamples are committed but not yet executed.
 
