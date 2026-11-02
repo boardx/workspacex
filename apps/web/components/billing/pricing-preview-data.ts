@@ -1,4 +1,4 @@
-import {TeamCatalog,TeamEntitlement,TeamQuote,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS} from "@repo/contracts/billing-team";
+import {TeamSubscriptionHistory,TeamCatalog,TeamEntitlement,TeamQuote,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS} from "@repo/contracts/billing-team";
 /** UI-only fixtures for #6086. Not an API contract or a production price catalog. */
 export type PricingRegion = "cn" | "us" | "devapp";
 export type PricingCycle = "month" | "year";
@@ -85,4 +85,15 @@ function findPreviewTeamSubscription(catalog:TeamCatalog,cycle:PricingCycle){
 }
 export function previewTeamSubscription(region:PricingRegion,cycle:PricingCycle){
  return findPreviewTeamSubscription(previewTeamCatalog(region),cycle);
+}
+
+/** One fixture payment row, not one row per scheduled monthly credit grant. */
+export function previewTeamSubscriptionHistory(region:PricingRegion,cycle:PricingCycle,expired:boolean){
+ const facts=previewTeamEntitlement(region,cycle,expired),term=facts.teamPayment.term,product=previewTeamSubscription(region,cycle);
+ const ref=`preview-team-${region}-${cycle}-${expired?"expired":"active"}`;
+ return TeamSubscriptionHistory.parse({orgId:facts.orgId,generation:facts.generation,asOf:facts.asOf,
+  items:[{purchaseRef:ref,receiptRef:`receipt-${ref}`,purpose:term.purchaseAnchor===term.paidPeriodStart?"initial":"renewal",
+   sku:product.sku,provider:facts.teamPayment.provider,currency:product.currency,amountMinor:product.amountMinor,
+   paidAt:term.paidPeriodStart,paidTerm:term,additionalSeats:null}],nextCursor:null,
+ });
 }

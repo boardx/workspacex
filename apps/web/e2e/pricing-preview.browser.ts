@@ -88,6 +88,14 @@ test("Team separates seats used and purchased, prorates and explains expiry", as
   await page.getByTestId("pricing-subscription-history").click();
   await expect(page.getByTestId("pricing-history-dialog")).toContainText("订阅已到期");
   await expect(page.getByTestId("pricing-history-dialog")).not.toContainText("本期有效");
+  await expect(page.getByTestId("pricing-team-history-item")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await page.getByTestId("pricing-toggle-cycle").click();
+  await page.getByTestId("pricing-subscription-history").click();
+  await expect(page.getByTestId("pricing-team-history-item")).toHaveCount(1);
+  await expect(page.getByTestId("pricing-history-dialog")).toContainText("Team 年度订阅");
+  await expect(page.getByTestId("pricing-history-dialog")).toContainText("¥9,990");
+  await capture(page, "team-annual-history");
 });
 
 test("Enterprise upgrade confirmation, grant validation and visible result", async ({ page }) => {

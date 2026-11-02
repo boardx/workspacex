@@ -18,6 +18,9 @@ const Identifier=z.string().min(1).max(128);
 const IdempotencyKey=z.string().min(16).max(128);
 const Timestamp=z.string().datetime({offset:true});
 const Count=z.number().int().nonnegative().safe();
+export const TeamPurchasePurpose=z.enum(["initial","renewal","add_seats","credit_topup"]);
+const Purpose=TeamPurchasePurpose.enum;
+const paymentCurrencySupported=(provider:z.infer<typeof BillingProvider>,currency:z.infer<typeof PricingCurrency>)=>provider!=="wechat"||currency==="CNY";
 const teamMonthlyCredits=(seats:number)=>TEAM_MONTHLY_CREDITS+(seats-TEAM_INCLUDED_SEATS)*TEAM_SEAT_MONTHLY_CREDITS;
 // Reuse the existing Plan write's version and reason constraints; no second range.
 const ExpectedPlanVersion=PlatformOrganizations.setPlan.in.shape.expectedVersion;
@@ -40,10 +43,10 @@ export const EnterpriseUpgradeRequest=z.object({
 const QuoteBase=z.object({sku:Identifier,catalogVersion:Identifier,provider:BillingProvider}).strict();
 const LicenseQuote=QuoteBase.extend({expectedPlanVersion:ExpectedPlanVersion});
 export const TeamQuoteRequest=z.discriminatedUnion("purpose",[
- LicenseQuote.extend({purpose:z.literal("initial"),seats:Count.min(TEAM_INCLUDED_SEATS)}),
- LicenseQuote.extend({purpose:z.literal("renewal"),seats:Count.min(TEAM_INCLUDED_SEATS)}),
- LicenseQuote.extend({purpose:z.literal("add_seats"),additionalSeats:Count.positive()}),
- QuoteBase.extend({purpose:z.literal("credit_topup")}),
+ LicenseQuote.extend({purpose:z.literal(Purpose.initial),seats:Count.min(TEAM_INCLUDED_SEATS)}),
+ LicenseQuote.extend({purpose:z.literal(Purpose.renewal),seats:Count.min(TEAM_INCLUDED_SEATS)}),
+ LicenseQuote.extend({purpose:z.literal(Purpose.add_seats),additionalSeats:Count.positive()}),
+ QuoteBase.extend({purpose:z.literal(Purpose.credit_topup)}),
 ]);
 export const TeamCheckoutRequest=z.object({quoteRef:Identifier,idempotencyKey:IdempotencyKey}).strict();
 
@@ -79,18 +82,18 @@ const LicenseQuoteSnapshot=QuoteSnapshot.extend({
  billingCycle:BillingCycle,renewalMode:RenewalMode,planVersion:ExpectedPlanVersion,
 });
 export const TeamQuote=z.discriminatedUnion("purpose",[
- LicenseQuoteSnapshot.extend({purpose:z.literal("initial")}),
- LicenseQuoteSnapshot.extend({purpose:z.literal("renewal")}),
+ LicenseQuoteSnapshot.extend({purpose:z.literal(Purpose.initial)}),
+ LicenseQuoteSnapshot.extend({purpose:z.literal(Purpose.renewal)}),
  QuoteSnapshot.extend({
-  purpose:z.literal("add_seats"),term:TeamPaidTerm,additionalSeats:Count.positive(),
+  purpose:z.literal(Purpose.add_seats),term:TeamPaidTerm,additionalSeats:Count.positive(),
   monthlyCreditsAfter:CreditLedgerAmount,estimatedFirstCredits:CreditBalance.refine(value=>value>=0,"credit estimate must be nonnegative"),
   creditPeriodStart:Timestamp,creditPeriodEnd:Timestamp,planVersion:ExpectedPlanVersion,
  }),
  QuoteSnapshot.extend({
-  purpose:z.literal("credit_topup"),credits:PricingProduct.options[1].shape.credits,renewalMode:z.literal("manual"),
+  purpose:z.literal(Purpose.credit_topup),credits:PricingProduct.options[1].shape.credits,renewalMode:z.literal("manual"),
  }),
 ]).superRefine((value,ctx)=>{
- if(value.provider==="wechat"&&value.currency!=="CNY")ctx.addIssue({code:"custom",path:["currency"],message:"WeChat quotes require CNY"});
+ if(!paymentCurrencySupported(value.provider,value.currency))ctx.addIssue({code:"custom",path:["currency"],message:"WeChat quotes require CNY"});
  const created=Date.parse(value.createdAt),expires=Date.parse(value.expiresAt);
  if(expires<=created||expires-created>300000)ctx.addIssue({code:"custom",path:["expiresAt"],message:"quote lifetime must be positive and at most five minutes"});
  if(value.purpose==="initial"||value.purpose==="renewal"){
@@ -179,3 +182,26 @@ export const TeamCatalog=PricingCatalogBase.omit({products:true}).extend({
  if(value.market==="us"&&value.enabledProviders.includes("wechat"))ctx.addIssue({code:"custom",path:["enabledProviders"],message:"USD catalog cannot enable WeChat"});
 });
 export type TeamCatalog=z.infer<typeof TeamCatalog>;
+
+const TEAM_HISTORY_PAGE_MAX=50;
+const HistoryCursor=z.string().min(1).max(2048);
+export const TeamHistoryQuery=z.object({
+ cursor:HistoryCursor.optional(),limit:z.coerce.number().int().min(1).max(TEAM_HISTORY_PAGE_MAX).default(10),
+}).strict();
+/** Paid licensing history only: permanent purchases stay in the existing wallet/order history. */
+export const TeamSubscriptionHistoryItem=z.object({
+ purchaseRef:Identifier,receiptRef:Identifier,purpose:TeamPurchasePurpose.exclude(["credit_topup"]),
+ sku:Identifier,provider:BillingProvider,currency:PricingCurrency,amountMinor:PricingProduct.options[0].shape.amountMinor,
+ paidAt:Timestamp,paidTerm:TeamPaidTerm,additionalSeats:Count.positive().nullable(),
+}).strict().superRefine((value,ctx)=>{
+ if(!paymentCurrencySupported(value.provider,value.currency))ctx.addIssue({code:"custom",path:["currency"],message:"WeChat history requires CNY"});
+ if(value.purpose==="add_seats"){
+  if(value.additionalSeats===null||value.paidTerm.purchasedSeats-value.additionalSeats<TEAM_INCLUDED_SEATS)ctx.addIssue({code:"custom",path:["additionalSeats"],message:"history must retain original purchased capacity"});
+ }else if(value.additionalSeats!==null)ctx.addIssue({code:"custom",path:["additionalSeats"],message:"only an add-on records an increment"});
+});
+export const TeamSubscriptionHistory=z.object({
+ orgId:Identifier,generation:Identifier,asOf:Timestamp,items:z.array(TeamSubscriptionHistoryItem).max(TEAM_HISTORY_PAGE_MAX),nextCursor:HistoryCursor.nullable(),
+}).strict().superRefine((value,ctx)=>{
+ if(new Set(value.items.map(item=>item.purchaseRef)).size!==value.items.length||new Set(value.items.map(item=>item.receiptRef)).size!==value.items.length)ctx.addIssue({code:"custom",path:["items"],message:"one actual payment must appear only once"});
+});
+export type TeamSubscriptionHistory=z.infer<typeof TeamSubscriptionHistory>;
