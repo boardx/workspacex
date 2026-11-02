@@ -1,0 +1,44 @@
+{
+  "run": 41406522612,
+  "job": 125149829631,
+  "artifact": 13124566045,
+  "head": "f8dab9354033b0a3e20f4232d77e39829b3bf8a5",
+  "requests": [
+    {
+      "attempt": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1",
+      "method": "GET",
+      "url": "http://127.0.0.1:25314/__fullstack_api/identity/me?orgId=local-survey-r1-6118-fb422b7c-bfcc-4df6-92d9-d560eec177e6",
+      "status": 200
+    },
+    {
+      "attempt": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1",
+      "method": "GET",
+      "url": "http://127.0.0.1:25314/__fullstack_api/identity/me?orgId=local-survey-r1-6118-fb422b7c-bfcc-4df6-92d9-d560eec177e6/identity/me",
+      "status": 500
+    },
+    {
+      "attempt": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded-retry1",
+      "method": "GET",
+      "url": "http://127.0.0.1:25314/__fullstack_api/identity/me?orgId=local-survey-r1-6118-fb422b7c-bfcc-4df6-92d9-d560eec177e6",
+      "status": -1
+    },
+    {
+      "attempt": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded",
+      "method": "GET",
+      "url": "http://127.0.0.1:25314/__fullstack_api/identity/me?orgId=local-survey-r1-6118-10b09dd5-c04f-4840-9fe7-b3b0f176a56c",
+      "status": 200
+    },
+    {
+      "attempt": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded",
+      "method": "GET",
+      "url": "http://127.0.0.1:25314/__fullstack_api/identity/me?orgId=local-survey-r1-6118-10b09dd5-c04f-4840-9fe7-b3b0f176a56c",
+      "status": 200
+    },
+    {
+      "attempt": "survey-complete-flow-R1-问卷体验：空列表单一主入口与创建键盘校验-seeded",
+      "method": "GET",
+      "url": "http://127.0.0.1:25314/__fullstack_api/identity/me?orgId=local-survey-r1-6118-10b09dd5-c04f-4840-9fe7-b3b0f176a56c/identity/me",
+      "status": 500
+    }
+  ]
+}

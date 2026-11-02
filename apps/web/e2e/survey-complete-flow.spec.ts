@@ -2,7 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { FULLSTACK_E2E } from "./fullstack-smoke-fixture";
-import { createOwnedSurvey, createSurveyOrganization, ownedSurveyApi, surveyAccountFixture, switchSurveyOrganization } from "./support/survey-owned-organization";
+import { createOwnedSurvey, createSurveyOrganization, ownedSurveyApi, ownedSurveyIdentity, surveyAccountFixture, switchSurveyOrganization } from "./support/survey-owned-organization";
 
 const TEMPLATE_TITLE = "会议反馈调查";
 
@@ -240,7 +240,7 @@ test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({pa
  // Read a fresh authenticated response after login navigation; Chromium may release
  // response bodies from the old document during that navigation.
  const identityUrl=(await identityResponse).url(),api=ownedSurveyApi(page,identityUrl);
- const authenticated=await api('/identity/me') as {org:{id:string};orgRole:string};
+ const authenticated=await ownedSurveyIdentity(page,identityUrl,account.orgId) as {org:{id:string};orgRole:string};
  expect(authenticated.org.id).toBe(account.orgId);expect(authenticated.orgRole).toBe('admin');
  // Never delete the shared org's surveys: another worker may be publishing them.
  // Keep a foreign sentinel, and exercise the real delete UI on our own survey only.
@@ -248,7 +248,7 @@ test('R1 问卷体验：空列表单一主入口与创建键盘校验',async({pa
  const foreignBefore=await api(`/surveys/${foreign.id}`);
  const ownedOrg=await createSurveyOrganization(page,identityUrl);
  expect(ownedOrg).not.toBe(authenticated.org.id);
- const ownedIdentity=await api('/identity/me');
+ const ownedIdentity=await ownedSurveyIdentity(page,identityUrl,ownedOrg);
  expect(ownedIdentity.org.id).toBe(ownedOrg);expect(ownedIdentity.orgRole).toBe('admin');
  const owned=await createOwnedSurvey(page,identityUrl,'R1 owned deletion fixture');
  const loaded=page.waitForResponse(response=>/\/surveys$/.test(response.url())&&response.request().method()==='GET');

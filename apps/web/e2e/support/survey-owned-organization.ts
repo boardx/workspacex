@@ -23,8 +23,9 @@ export function surveyAccountFixture() {
 /** Real API fixtures, restricted to the standard disposable fullstack stack. */
 export function ownedSurveyApi(page: Page, identityUrl: string) {
   expect(process.env.WORKSPACEX_ISOLATION_ID).toBeTruthy();
-  expect(new URL(identityUrl).hostname).toBe("127.0.0.1");
-  const base = identityUrl.replace(/\/identity\/me$/, "");
+  const observed = new URL(identityUrl);
+  expect(observed.hostname).toBe("127.0.0.1");
+  const base = `${observed.origin}${observed.pathname.replace(/\/identity\/me$/, "")}`;
   return async (path: string, data?: unknown) => {
     const token = await page.evaluate(() => localStorage.getItem("wsx.sessionToken"));
     expect(token).toBeTruthy();
@@ -38,6 +39,10 @@ export function ownedSurveyApi(page: Page, identityUrl: string) {
   };
 }
 
+export function ownedSurveyIdentity(page: Page, identityUrl: string, orgId: string) {
+  return ownedSurveyApi(page, identityUrl)(`/identity/me?orgId=${encodeURIComponent(orgId)}`);
+}
+
 export async function createOwnedSurvey(page: Page, identityUrl: string, title: string) {
   return SurveyRuntimeSchema.parse(await ownedSurveyApi(page, identityUrl)("/surveys", {
     draft: { title, questions: [], template: createDefaultSurveyReportTemplate(title, []) },
@@ -47,7 +52,8 @@ export async function createOwnedSurvey(page: Page, identityUrl: string, title: 
 export async function switchSurveyOrganization(page: Page, identityUrl: string, orgId: string) {
   await page.getByTestId("org-switcher").click();
   await page.getByTestId(`org-switcher-option-${orgId}`).click();
-  await expect.poll(async () => (await ownedSurveyApi(page, identityUrl)("/identity/me")).org.id).toBe(orgId);
+  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("wsx.session") ?? "null")?.currentOrgId)).toBe(orgId);
+  await expect.poll(async () => (await ownedSurveyIdentity(page, identityUrl, orgId)).org.id).toBe(orgId);
 }
 
 export async function createSurveyOrganization(page: Page, identityUrl: string) {

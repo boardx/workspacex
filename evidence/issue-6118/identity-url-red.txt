@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/survey-r1-isolation-6118/apps/web
+
+ ❯ tests/survey-owned-organization.test.ts (1 test | 1 failed) 23ms
+   × keeps identity query scope out of the API base and reads the requested organization 22ms
+     → expected last "spy" call to have been called with [ …(2) ]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/survey-owned-organization.test.ts > keeps identity query scope out of the API base and reads the requested organization
+AssertionError: expected last "spy" call to have been called with [ …(2) ]
+
+- Expected
++ Received
+
+  Array [
+-   "http://127.0.0.1:3000/__fullstack_api/identity/me?orgId=org-new",
++   "http://127.0.0.1:3000/__fullstack_api/identity/me?orgId=local-original/identity/me?orgId=org-new",
+    Any<Object>,
+  ]
+
+ ❯ tests/survey-owned-organization.test.ts:14:17
+     12| 
+     13|   await api("/identity/me?orgId=org-new");
+     14|   expect(fetch).toHaveBeenLastCalledWith("http://127.0.0.1:3000/__full…
+       |                 ^
+     15|   await api("/surveys");
+     16|   expect(fetch).toHaveBeenLastCalledWith("http://127.0.0.1:3000/__full…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  16:14:27
+   Duration  706ms (transform 108ms, setup 132ms, collect 350ms, tests 23ms, environment 0ms, prepare 45ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/survey-r1-isolation-6118/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/survey-owned-organization.test.ts --maxWorkers=1 --minWorkers=1
