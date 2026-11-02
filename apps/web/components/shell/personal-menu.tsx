@@ -1,11 +1,11 @@
 "use client";
 import { useI18n } from "@/lib/i18n/provider";
-import { LanguageSwitcher } from "./language-switcher";
+import { isLocale } from "@/lib/i18n/locale";
 import * as React from "react";
 import Link from "next/link";
 import { BarChart3, BrainCircuit, LogOut, User } from "lucide-react";
 import { ThemeToggle } from "./theme-toggle";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
+import { Menu, MenuContent, MenuItem, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { cn } from "@/lib/utils";
 import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
 
@@ -30,7 +30,7 @@ import { PERSONAL_BILLING_ENTRY } from "@/lib/navigation";
 export function PersonalMenu({
   avatarInitial, onLogout,
 }: { avatarInitial: string; onLogout?: () => void }) {
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const [open, setOpen] = React.useState(false);
   return (
     <Menu open={open} onOpenChange={setOpen}>
@@ -71,7 +71,11 @@ export function PersonalMenu({
             {t("ui.creditsAndSubscription")}
           </Link>
         </MenuItem>
-        <div className="px-2 py-1"><LanguageSwitcher /></div>
+        <MenuLabel>{t("common.language")}</MenuLabel>
+        <MenuRadioGroup value={locale} onValueChange={(next) => { if (isLocale(next)) setLocale(next); }}>
+          <MenuRadioItem value="zh-CN" lang="zh-CN">简体中文</MenuRadioItem>
+          <MenuRadioItem value="en" lang="en">English</MenuRadioItem>
+        </MenuRadioGroup>
         <MenuSeparator />
         <MenuItem asChild onSelect={(e) => e.preventDefault()}>
           <ThemeToggle testId="personal-menu-theme" className="rounded-md" />
