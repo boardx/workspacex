@@ -14,7 +14,7 @@ COPY --chown=node:node apps/deep-agent-service/langgraph.json ./apps/api/config/
 COPY --chown=node:node deploy/aliyun/images/api.tsconfig.json ./apps/api/tsconfig.release.json
 FROM sources AS build
 RUN --mount=type=cache,id=workspacex-cloud-pnpm,target=/root/.local/share/pnpm/store npm_config_registry="$NPM_REGISTRY" pnpm install --frozen-lockfile --filter @repo/api...
-RUN --network=none pnpm --filter @repo/contracts typecheck \
+RUN --network=none pnpm --filter @repo/contracts exec tsc -p tsconfig.release.json \
  && pnpm --filter @repo/api exec tsc -p tsconfig.release.json \
  && printf typechecked > /api-typecheck.ok
 # Only production dependencies enter the distributed runtime layers.
