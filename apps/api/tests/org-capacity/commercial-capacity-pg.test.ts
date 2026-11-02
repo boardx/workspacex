@@ -1,3 +1,4 @@
+import {closePendingCommercialIntent,readCommercialCapacity} from "../../src/infrastructure/org-capacity/pg-commercial-capacity";
 import {randomUUID} from "node:crypto";
 import {PgProjectInvitationRepository} from "../../src/infrastructure/project/pg-project-invitation-repository";
 import {beforeAll,afterAll,it,expect} from "vitest";
@@ -77,4 +78,42 @@ it("an initial pending intent constrains actual admission and unknown generation
  expect(await links.activate({...input,email:`capacity-unknown-${RUN}@example.test`,newAccount:{...input.newAccount,userId:`capacity-unknown-${RUN}`}})).toEqual({ok:false,reason:"quota-exhausted"});
  const count=await asOwner(c=>c.query("SELECT count(*)::int AS n FROM credentials WHERE user_id=$1",[`capacity-unknown-${RUN}`]));
  expect(count.rows[0].n).toBe(0);
+});
+
+it("revocation committed while activation waits for the organization lock prevents every grant side effect",async()=>{
+ await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET generation=$2,purchased_seats=10,pending_seats=NULL,pending_purchase_ref=NULL WHERE org_id=$1",[ORG,BILLING_ACCOUNTING_GENERATION]));
+ const inviteId=`revocation-${RUN}`, revokeToken=`revocation-token-${RUN}`, userId=`revocation-user-${RUN}`, mail=`revocation-${RUN}@example.test`;
+ expect((await repo.create({orgId:toOrgId(ORG),inviteId,actorId:admin,email:mail,orgRole:"consultant",teamId:null,status:"pending",token:revokeToken,tokenExpiresAt:new Date(Date.now()+3600000)})).ok).toBe(true);
+ let ready!:()=>void, release!:()=>void, started!:()=>void;
+ const readyPromise=new Promise<void>(resolve=>{ready=resolve;});
+ const releasePromise=new Promise<void>(resolve=>{release=resolve;});
+ const startedPromise=new Promise<void>(resolve=>{started=resolve;});
+ const holder=db.withTenant(toOrgId(ORG),async s=>{await s.query("SELECT id FROM organizations WHERE id=$1 FOR UPDATE",[ORG]);ready();await releasePromise;});
+ await readyPromise;
+ const observe=(s:import("../../src/application/ports/database.port").TenantSession):import("../../src/application/ports/database.port").TenantSession=>({query:async<R>(sql:string,params?:readonly unknown[])=>{if(sql.includes("SELECT id FROM organizations")&&sql.includes("FOR UPDATE"))started();return s.query<R>(sql,params);}});
+ const observingDb:import("../../src/application/ports/database.port").DatabasePort={withTenant:(org,fn)=>db.withTenant(org,s=>fn(observe(s))),withoutTenant:fn=>db.withoutTenant(s=>fn(observe(s))),close:async()=>{}};
+ const activation=new PgOrgInviteRepository(observingDb).activate({token:revokeToken,now:new Date(),newAccount:{userId,displayName:"Revocation race",passwordHash:`$2b$12$${"a".repeat(53)}`},existingUserId:null,untrustedClaims:{orgId:null,orgRole:null,teamId:null}});
+ try{
+  await startedPromise;
+  expect(await repo.revokeOrgInvite({orgId:toOrgId(ORG),inviteId,actorId:admin,now:new Date()})).toEqual({ok:true,status:"revoked"});
+ }finally{release();await holder;}
+ expect(await activation).toEqual({ok:false,reason:"not-found"});
+ const state=await asOwner(async c=>(await c.query("SELECT (SELECT count(*) FROM credentials WHERE user_id=$1)::int AS accounts,(SELECT count(*) FROM credit_wallets WHERE owner_id=$1)::int AS wallets,(SELECT count(*) FROM mail_outbox WHERE recipient=$2)::int AS mails,(SELECT count(*) FROM org_invite_tokens WHERE token=$3 AND consumed_at IS NULL)::int AS reusable",[userId,mail,revokeToken])).rows[0]);
+ expect(state).toEqual({accounts:0,wallets:0,mails:0,reusable:1});
+ const invite=await asApp(ORG,c=>c.query("SELECT status FROM org_invites WHERE id=$1",[inviteId]));
+ expect(invite.rows[0].status).toBe("revoked");
+});
+
+it("only the matching pure pending intent can be deleted, while paid capacity remains protected by restrictive RLS",async()=>{
+ await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET generation=$2,purchased_seats=10,pending_seats=12,pending_purchase_ref='paid-addition' WHERE org_id=$1",[ORG,BILLING_ACCOUNTING_GENERATION]));
+ expect(await db.withTenant(toOrgId(ORG),s=>closePendingCommercialIntent(s,ORG,"paid-addition"))).toBe(true);
+ const paid=await asApp(ORG,c=>c.query("SELECT purchased_seats::text,pending_purchase_ref FROM org_commercial_licenses WHERE org_id=$1",[ORG]));
+ expect(paid.rows[0]).toEqual({purchased_seats:"10",pending_purchase_ref:null});
+ expect((await asApp(ORG,c=>c.query("DELETE FROM org_commercial_licenses WHERE org_id=$1 RETURNING org_id",[ORG]))).rows).toHaveLength(0);
+ await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET purchased_seats=NULL,pending_seats=12,pending_purchase_ref='initial-pending' WHERE org_id=$1",[ORG]));
+ expect((await asApp("capacity-other-org",c=>c.query("DELETE FROM org_commercial_licenses WHERE org_id=$1 RETURNING org_id",[ORG]))).rows).toHaveLength(0);
+ expect(await db.withTenant(toOrgId(ORG),s=>closePendingCommercialIntent(s,ORG,"wrong-reference"))).toBe(false);
+ expect((await asApp(ORG,c=>c.query("SELECT org_id FROM org_commercial_licenses WHERE org_id=$1",[ORG]))).rows).toHaveLength(1);
+ expect(await db.withTenant(toOrgId(ORG),s=>closePendingCommercialIntent(s,ORG,"initial-pending"))).toBe(true);
+ expect(await db.withTenant(toOrgId(ORG),s=>readCommercialCapacity(s,ORG))).toEqual({kind:"legacy"});
 });

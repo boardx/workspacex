@@ -36,3 +36,13 @@ export async function commercialSeatAvailable(s: TenantSession, orgId: string): 
   const members = (await s.query<{n:string}>("SELECT count(*)::text AS n FROM org_memberships WHERE org_id=$1",[orgId])).rows[0];
   return members !== undefined && BigInt(members.n) < capacity.seats;
 }
+
+/** Call only after external payment authority has definitively closed this expected intent. */
+export async function closePendingCommercialIntent(s: TenantSession, orgId: string, expectedPurchaseRef: string): Promise<boolean> {
+  await lockOrganizationCapacity(s, orgId);
+  await requireActivePricingEpoch(s);
+  const paid = await s.query("UPDATE org_commercial_licenses SET pending_seats=NULL,pending_purchase_ref=NULL,updated_at=now() WHERE org_id=$1 AND generation=$2 AND pending_purchase_ref=$3 AND purchased_seats IS NOT NULL RETURNING org_id", [orgId,BILLING_ACCOUNTING_GENERATION,expectedPurchaseRef]);
+  if (paid.rows.length) return true;
+  const pending = await s.query("DELETE FROM org_commercial_licenses WHERE org_id=$1 AND generation=$2 AND pending_purchase_ref=$3 AND purchased_seats IS NULL RETURNING org_id",[orgId,BILLING_ACCOUNTING_GENERATION,expectedPurchaseRef]);
+  return pending.rows.length > 0;
+}
