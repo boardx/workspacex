@@ -27,6 +27,11 @@ of the original source and version/file snapshot (bytes, paths and digests).
 - `browser.txt`: complete successful lane receipt; expected member 403 is exercised.
 - `ui-tests.txt`: 43 focused tests passed before the avatar review follow-up.
 - `avatar-tests.txt`: two final avatar/locale tests passed after that follow-up.
+- `synced-ui-tests.txt`: all 83 focused UI/client regressions passed after parent sync
+  at `cae29cfd7`, with one worker.
+- `synced-api-tests.txt`: all 41 API tests passed on that integrated head, including
+  11 real PostgreSQL and four real HTTP cases. The shared isolation wrapper released
+  its own stack in under one second. Expected 403/404/409/422 branches are logged.
 
 Independent review of `28d926f38..75a7cc012` found one missing avatarAlt consumer.
 It was reproduced with a failing accessible-label assertion and fixed in directory,
