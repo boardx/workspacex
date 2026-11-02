@@ -1,0 +1,26 @@
+[stack-admission] load1=3.04 cores=10 perCore=0.30 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvyj5jjs-88c44a00-de68e8afd6d9 db=wsx_de68e8afd6d9aee9f22b compose=wsx-de68e8afd6d9aee9f22b pg=20263 redis=21263 api=24263 web=25263 sandbox=26263 model=27263 deep-agent=28263 asr=29263 vision=30263 loopback-sandbox=31263 mail=19263
+[WebServer] (node:40696) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:40721) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 5 tests using 1 worker
+
+(node:41105) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [prototype-audit] › e2e/pricing-preview.browser.ts:26:5 › responsive account and purchase UI has no horizontal overflow (3.9s)
+  ✓  2 [prototype-audit] › e2e/pricing-preview.browser.ts:39:5 › regional monthly and annual prices, renewal and channel visibility (1.7s)
+  ✓  3 [prototype-audit] › e2e/pricing-preview.browser.ts:64:5 › Team separates seats used and purchased, prorates and explains expiry (1.9s)
+  ✓  4 [prototype-audit] › e2e/pricing-preview.browser.ts:93:5 › Enterprise upgrade confirmation, grant validation and visible result (1.5s)
+  ✓  5 [prototype-audit] › e2e/pricing-preview.browser.ts:114:5 › all seven review states are reachable and failures recover (2.0s)
+
+  5 passed (35.5s)
+[timing] pnpm --filter web exec playwright test -c playwright.prototype-audit.config.ts pricing-preview.browser.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：38s
+  清理：0s
+  总计：38s

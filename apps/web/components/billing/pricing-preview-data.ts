@@ -1,4 +1,4 @@
-import {TeamEntitlement,TeamQuote,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS} from "@repo/contracts/billing-team";
+import {TeamCatalog,TeamEntitlement,TeamQuote,TEAM_INCLUDED_SEATS,TEAM_MONTHLY_CREDITS,TEAM_SEAT_MONTHLY_CREDITS} from "@repo/contracts/billing-team";
 /** UI-only fixtures for #6086. Not an API contract or a production price catalog. */
 export type PricingRegion = "cn" | "us" | "devapp";
 export type PricingCycle = "month" | "year";
@@ -21,15 +21,16 @@ export const numberLabel = (value: number) => value.toLocaleString("en-US");
 
 /** Owned mock quote only; production must read a server quote, never compute money here. */
 export function previewSeatQuote(region:PricingRegion,cycle:PricingCycle,seats:number,provider:"wechat"|"stripe"){
- const year=cycle==="year",p=previewPrices(region);
+ const year=cycle==="year",catalog=previewTeamCatalog(region),product=findPreviewTeamSubscription(catalog,cycle);
+ if(!catalog.enabledProviders.includes(provider))throw Error("preview_payment_channel_unavailable");
  const createdAt=year?"2027-05-02T22:00:00Z":"2026-11-16T10:00:00Z";
  const creditPeriodStart=year?"2027-05-01T10:00:00Z":"2026-11-01T10:00:00Z";
  const creditPeriodEnd=year?"2027-06-01T10:00:00Z":"2026-12-01T10:00:00Z";
  const fraction=(Date.parse(creditPeriodEnd)-Date.parse(createdAt))/(Date.parse(creditPeriodEnd)-Date.parse(creditPeriodStart));
  const parsed=TeamQuote.parse({
-  orgId:"preview-organization",generation:"pricing-preview-only",quoteRef:`preview-${region}-${cycle}-${seats}-${provider}`,
-  catalogVersion:"preview-only-v1",sku:`team-${region==="us"?"us":"cn"}-${cycle}-v1`,provider,
-  currency:region==="us"?"USD":"CNY",amountMinor:Math.ceil(p.seat[cycle]*100*seats*0.5),
+  orgId:catalog.orgId,generation:"pricing-preview-only",quoteRef:`preview-${region}-${cycle}-${seats}-${provider}`,
+  catalogVersion:catalog.version,sku:product.sku,provider,
+  currency:product.currency,amountMinor:Math.ceil(product.additionalSeatAmountMinor*seats*0.5),
   createdAt,expiresAt:new Date(Date.parse(createdAt)+300000).toISOString(),purpose:"add_seats",planVersion:1,
   term:{purchaseAnchor:"2026-11-01T10:00:00Z",paidPeriodStart:"2026-11-01T10:00:00Z",
    paidPeriodEnd:year?"2027-11-01T10:00:00Z":"2026-12-01T10:00:00Z",billingCycle:cycle,
@@ -63,4 +64,25 @@ export function previewTeamEntitlement(region:PricingRegion,cycle:PricingCycle,e
  const payment=parsed.teamPayment,grant=parsed.creditGrant.grant;
  if(!payment||!grant)throw Error("preview_paid_team_facts_required");
  return {...parsed,teamPayment:payment,creditGrant:{...parsed.creditGrant,grant}};
+}
+
+/** Preview-only projection of the same price fixture; no second production price list. */
+export function previewTeamCatalog(region:PricingRegion){
+ const p=previewPrices(region),market=region==="us"?"us":"cn",currency=market==="us"?"USD":"CNY";
+ return TeamCatalog.parse({orgId:"preview-organization",version:"preview-only-v1",market,
+  enabledProviders:region==="devapp"?["wechat","stripe"]:region==="us"?["stripe"]:["wechat"],
+  products:[...(["month","year"] as const).map(cycle=>({
+   sku:`team-${market}-${cycle}-v1`,kind:"subscription",currency,cycle,amountMinor:p.team[cycle]*100,
+   includedSeats:TEAM_INCLUDED_SEATS,monthlyCredits:TEAM_MONTHLY_CREDITS,
+   additionalSeatAmountMinor:p.seat[cycle]*100,additionalSeatMonthlyCredits:TEAM_SEAT_MONTHLY_CREDITS,
+  })),...PACK_CREDITS.map((credits,index)=>({sku:`credit-${market}-${credits}-v1`,kind:"credit_topup",currency,credits,amountMinor:p.packs[index]!*100}))],
+ });
+}
+function findPreviewTeamSubscription(catalog:TeamCatalog,cycle:PricingCycle){
+ const product=catalog.products.find(product=>product.kind==="subscription"&&product.cycle===cycle);
+ if(!product||product.kind!=="subscription")throw Error("preview_team_product_required");
+ return product;
+}
+export function previewTeamSubscription(region:PricingRegion,cycle:PricingCycle){
+ return findPreviewTeamSubscription(previewTeamCatalog(region),cycle);
 }

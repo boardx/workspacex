@@ -1,0 +1,104 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+
+ ❯ tests/billing-team-catalog-design.test.ts (14 tests | 13 failed) 11ms
+   × keeps base capacity, monthly pool and additional seat pricing on one subscription product 4ms
+     → Cannot read properties of undefined (reading 'parse')
+   × shares permanent top-up product semantics with the adopted personal catalog 2ms
+     → Cannot read properties of undefined (reading 'parse')
+   × rejects incompatible or injected product facts {"includedSeats":4} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"monthlyCredits":1200000} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"additionalSeatMonthlyCredits":20000} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"amountMinor":0} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"additionalSeatAmountMinor":0} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"additionalSeatAmountMinor":0.5} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"kind":"enterprise"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"contractId":"contract-1"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × rejects incompatible or injected product facts {"ownerId":"org-b"} 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × enforces market currency, unique SKUs/providers and organization scope 0ms
+     → Cannot read properties of undefined (reading 'safeParse')
+   × supports USD Stripe and dev CNY Stripe while rejecting WeChat USD 0ms
+     → Cannot read properties of undefined (reading 'parse')
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing-team-catalog-design.test.ts > keeps base capacity, monthly pool and additional seat pricing on one subscription product
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-catalog-design.test.ts:7:21
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  tests/billing-team-catalog-design.test.ts > shares permanent top-up product semantics with the adopted personal catalog
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-catalog-design.test.ts:12:73
+     10| it("shares permanent top-up product semantics with the adopted persona…
+     11|  const personal={version:catalog.version,market:catalog.market,enabled…
+     12|  expect(PricingCatalog.parse(personal).products[0]).toEqual(TeamCatalo…
+       |                                                                         ^
+     13| });
+     14| it.each([
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"includedSeats":4}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"monthlyCredits":1200000}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"additionalSeatMonthlyCredits":20000}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"amountMinor":0}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"additionalSeatAmountMinor":0}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"additionalSeatAmountMinor":0.5}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"kind":"enterprise"}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"contractId":"contract-1"}
+ FAIL  tests/billing-team-catalog-design.test.ts > rejects incompatible or injected product facts {"ownerId":"org-b"}
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-catalog-design.test.ts:19:21
+     17|  {kind:"enterprise"},{contractId:"contract-1"},{ownerId:"org-b"},
+     18| ])("rejects incompatible or injected product facts %j",patch=>{
+     19|  expect(TeamCatalog.safeParse({...catalog,products:[{...month,...patch…
+       |                     ^
+     20| });
+     21| it("enforces market currency, unique SKUs/providers and organization s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  tests/billing-team-catalog-design.test.ts > enforces market currency, unique SKUs/providers and organization scope
+TypeError: Cannot read properties of undefined (reading 'safeParse')
+ ❯ tests/billing-team-catalog-design.test.ts:23:22
+     21| it("enforces market currency, unique SKUs/providers and organization s…
+     22|  for(const patch of [{orgId:""},{market:"us"},{products:[month,month]}…
+     23|   expect(TeamCatalog.safeParse({...catalog,...patch}).success).toBe(fa…
+       |                      ^
+     24| });
+     25| it("supports USD Stripe and dev CNY Stripe while rejecting WeChat USD"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  tests/billing-team-catalog-design.test.ts > supports USD Stripe and dev CNY Stripe while rejecting WeChat USD
+TypeError: Cannot read properties of undefined (reading 'parse')
+ ❯ tests/billing-team-catalog-design.test.ts:27:21
+     25| it("supports USD Stripe and dev CNY Stripe while rejecting WeChat USD"…
+     26|  const usd={...catalog,market:"us",enabledProviders:["stripe"],product…
+     27|  expect(TeamCatalog.parse(usd)).toEqual(usd);
+       |                     ^
+     28|  expect(TeamCatalog.safeParse({...usd,enabledProviders:["wechat"]}).su…
+     29| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ Test Files  1 failed (1)
+      Tests  13 failed | 1 passed (14)
+   Start at  08:36:44
+   Duration  404ms (transform 93ms, setup 0ms, collect 114ms, tests 11ms, environment 0ms, prepare 75ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing-team-catalog-design.test.ts
