@@ -1,0 +1,165 @@
+==> [harness] pre-push: 受影响模块 typecheck/lint（turbo --affected；跳过用 git push --no-verify）
+• turbo 2.10.5
+
+   • Packages in scope: //, @repo/api, @repo/contracts, @repo/desktop, @repo/dev-mode-accounts, @repo/local-runtime, @repo/ops-console, @repo/ops-telemetry, @repo/whiteboard-core, web
+   • Running typecheck, lint in 10 packages
+   • Remote caching disabled
+
+@repo/contracts:lint: cache miss, executing f22b0de6aa2dbf0f
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/local-asr-gateway:build: cache hit, replaying logs 16ba7203425c02c8
+@repo/local-asr-gateway:build: 
+@repo/local-asr-gateway:build: > @repo/local-asr-gateway@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-asr-gateway:build: > tsc --noEmit
+@repo/local-asr-gateway:build: 
+@repo/local-runtime:lint: cache hit, replaying logs a3fae86317fe286f
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: > @repo/local-runtime@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:lint: > echo 'lint: ok'
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: lint: ok
+@repo/local-runtime:build: cache hit, replaying logs 8b08d8ccc3d8d356
+@repo/local-runtime:build: 
+@repo/local-runtime:build: > @repo/local-runtime@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:build: > tsc --noEmit
+@repo/local-runtime:build: 
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/skill-sandbox:build: cache hit, replaying logs 8a067388e7ddfa47
+@repo/skill-sandbox:build: 
+@repo/skill-sandbox:build: > @repo/skill-sandbox@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:build: > tsc --noEmit
+@repo/skill-sandbox:build: 
+@repo/cloud-deploy:build: cache hit, replaying logs d2a92667c208ed74
+@repo/cloud-deploy:build: 
+@repo/cloud-deploy:build: > @repo/cloud-deploy@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/packages/cloud-deploy
+@repo/cloud-deploy:build: > tsc --noEmit
+@repo/cloud-deploy:build: 
+@repo/local-runtime:typecheck: cache hit, replaying logs 5e3b2da95ef18839
+@repo/local-runtime:typecheck: 
+@repo/local-runtime:typecheck: > @repo/local-runtime@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:typecheck: > tsc --noEmit
+@repo/local-runtime:typecheck: 
+@repo/coord-access:build: cache hit, replaying logs 7e1022316f22738f
+@repo/coord-access:build: 
+@repo/coord-access:build: > @repo/coord-access@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-access
+@repo/coord-access:build: > tsc --noEmit
+@repo/coord-access:build: 
+@repo/contracts:typecheck: cache miss, executing 58f2378cb71bc1dc
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/desktop:lint: cache hit, replaying logs b439f0a31d948bb6
+@repo/desktop:lint: 
+@repo/desktop:lint: > @repo/desktop@0.3.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:lint: > echo 'lint: ok'
+@repo/desktop:lint: 
+@repo/desktop:lint: lint: ok
+@repo/desktop:typecheck: cache hit, replaying logs 6f76422c24ccb071
+@repo/desktop:typecheck: 
+@repo/desktop:typecheck: > @repo/desktop@0.3.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:typecheck: > tsc --noEmit
+@repo/desktop:typecheck: 
+@repo/dev-mode-accounts:lint: cache miss, executing 983aca29a0709b7c
+@repo/dev-mode-accounts:lint: 
+@repo/dev-mode-accounts:lint: > @repo/dev-mode-accounts@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/packages/dev-mode-accounts
+@repo/dev-mode-accounts:lint: > echo 'lint: ok'
+@repo/dev-mode-accounts:lint: 
+@repo/dev-mode-accounts:lint: lint: ok
+@repo/ops-console:lint: cache miss, executing 168a3219823c2872
+@repo/ops-console:lint: 
+@repo/ops-console:lint: > @repo/ops-console@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/ops-console
+@repo/ops-console:lint: > echo 'lint: ok'
+@repo/ops-console:lint: 
+@repo/ops-console:lint: lint: ok
+@repo/dev-mode-accounts:typecheck: cache miss, executing 414941b0a27f2860
+@repo/dev-mode-accounts:typecheck: 
+@repo/dev-mode-accounts:typecheck: > @repo/dev-mode-accounts@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/packages/dev-mode-accounts
+@repo/dev-mode-accounts:typecheck: > tsc --noEmit
+@repo/dev-mode-accounts:typecheck: 
+@repo/ops-telemetry:lint: cache miss, executing eb2f7456b7c1dcab
+@repo/ops-telemetry:lint: 
+@repo/ops-telemetry:lint: > @repo/ops-telemetry@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/ops-telemetry
+@repo/ops-telemetry:lint: > echo 'lint: ok'
+@repo/ops-telemetry:lint: 
+@repo/ops-telemetry:lint: lint: ok
+@repo/whiteboard-core:lint: cache miss, executing 26da6e7ed420c006
+@repo/whiteboard-core:lint: 
+@repo/whiteboard-core:lint: > @repo/whiteboard-core@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/packages/whiteboard-core
+@repo/whiteboard-core:lint: > tsc --noEmit
+@repo/whiteboard-core:lint: 
+@repo/ops-telemetry:typecheck: cache miss, executing 8c02877a07ca5164
+@repo/ops-telemetry:typecheck: 
+@repo/ops-telemetry:typecheck: > @repo/ops-telemetry@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/ops-telemetry
+@repo/ops-telemetry:typecheck: > tsc --noEmit
+@repo/ops-telemetry:typecheck: 
+@repo/ops-console:typecheck: cache miss, executing c60d7aa6ce17b225
+@repo/ops-console:typecheck: 
+@repo/ops-console:typecheck: > @repo/ops-console@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/ops-console
+@repo/ops-console:typecheck: > tsc --noEmit
+@repo/ops-console:typecheck: 
+@repo/dev-mode-accounts:build: cache miss, executing 13d0f7a685da11c2
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/whiteboard-core:typecheck: cache miss, executing be30be3cc168cbbd
+@repo/whiteboard-core:typecheck: 
+@repo/whiteboard-core:typecheck: > @repo/whiteboard-core@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/packages/whiteboard-core
+@repo/whiteboard-core:typecheck: > tsc --noEmit
+@repo/whiteboard-core:typecheck: 
+@repo/api:typecheck: cache miss, executing b46f36602d799128
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+@repo/api:lint: cache miss, executing 9f9e4dc729a9fbb6
+@repo/api:lint: 
+@repo/api:lint: > @repo/api@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+@repo/api:lint: > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-global-scope-test-fixtures.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check && node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && tsx scripts/lint-work-skill-manifests.ts && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+@repo/api:lint: 
+@repo/api:lint: ✅ lint-error-leak: 199 files in the interface layer, no error detail reaches a response
+@repo/api:lint: scanned=199
+@repo/api:lint: ✗ src/infrastructure/org-capacity/pg-commercial-capacity.ts:12  reads tenant table `organizations` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/org-capacity/pg-commercial-capacity.ts:19  reads tenant table `organization_plans` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/org-capacity/pg-commercial-capacity.ts:21  reads tenant table `org_commercial_licenses` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/org-capacity/pg-commercial-capacity.ts:36  reads tenant table `org_memberships` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/org-capacity/pg-commercial-capacity.ts:44  reads tenant table `org_commercial_licenses` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: ✗ src/infrastructure/org-capacity/pg-commercial-capacity.ts:46  reads tenant table `org_commercial_licenses` outside the guarded read path
+@repo/api:lint:     It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+@repo/api:lint:     Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+@repo/api:lint: 
+@repo/api:lint: ❌ 6 unguarded tenant read(s). See UC-0.3 R7 / coherence X-1.
+@repo/api:lint: scanned=2203 tenant-tables=325 allowlisted=162
+@repo/api:lint:  ELIFECYCLE  Command failed with exit code 1.
+web:typecheck: cache miss, executing 42a69dd8aee96f04
+web:lint: cache miss, executing 59516357f0069c65
+@repo/api#lint:  ERROR  command (/Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api) /Users/shenyangjun/Library/pnpm/.tools/pnpm/9.15.0/bin/pnpm run lint exited (1)
+
+ Tasks:    22 successful, 25 total
+Cached:    10 cached, 25 total
+  Time:    1m30.982s 
+Failed:    @repo/api#lint
+
+ WARNING  no output files found for task @repo/dev-mode-accounts#build. Please check your `outputs` key in `turbo.json`
+ ERROR  run failed: command  exited (1)
+✗ [harness] 受影响模块 typecheck/lint 失败，push 中止。修复后再推，或 git push --no-verify 临时跳过。
+error: failed to push some refs to 'https://github.com/boardx/workspacex.git'

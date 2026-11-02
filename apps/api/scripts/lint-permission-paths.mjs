@@ -33,7 +33,7 @@ import { MCP_CREDENTIAL_BOUNDARIES, checkMcpCredentialBoundary } from './lib/mcp
 import { workbenchBoundaries, verifyWorkbenchBoundaries } from "./workbench-permission-boundaries.mjs";
 import { whiteboardPermissionBoundaries, verifyWhiteboardPermissionBoundaries } from "./whiteboard-permission-boundaries.mjs";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
-import { join, relative, dirname } from "node:path";
+import { join, relative, dirname, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WORKBENCH_REPOSITORIES, checkWorkbenchRepository } from "./lib/workbench-repository-boundary.mjs";
 import { MEMORY_PROOF_PATH, checkMemoryProof } from "./lib/memory-proof-boundary.mjs";
@@ -41,6 +41,7 @@ import { MCP_EXECUTION_BOUNDARIES, checkMcpExecutionBoundary } from "./lib/mcp-e
 import { ARTIFACT_INDEX_WRITER_PATH, checkArtifactIndexWriter } from "./lib/artifact-index-writer-boundary.mjs";
 import { STANDARD_TOOL_RUN_PATH, checkStandardToolRun } from "./lib/standard-tool-run-boundary.mjs";
 import { STANDARD_SCHEDULE_PATH, checkStandardSchedule } from "./lib/standard-schedule-boundary.mjs";
+import { COMMERCIAL_CAPACITY_PATH, checkCommercialCapacity } from "./lib/commercial-capacity-boundary.mjs";
 import { SCHEDULE_NOTIFICATIONS_PATH, checkScheduleNotifications } from "./lib/schedule-notifications-boundary.mjs";
 import { NOTIFICATION_CENTER_PATH, NOTIFICATION_MIGRATION_PATH, NOTIFYING_RUN_EVENT_BUS_PATH, checkNotificationCenter, checkNotificationDedupIndex, checkNotifyingRunEventBus } from "./lib/notification-center-boundary.mjs";
 import { WORKBENCH_BOUNDARIES, checkWorkbenchPermissionBoundary } from "./lib/workbench-permission-boundary.mjs";
@@ -690,6 +691,16 @@ for (const root of ROOTS) {
     if (rel === SCHEDULE_NOTIFICATIONS_PATH) {
       const errors = checkScheduleNotifications(body);
       if (!existsSync(join(API, "scripts/tests/schedule-notifications-boundary.test.mjs"))) errors.push("schedule notification authorization counterexamples missing");
+      for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
+      continue;
+    }
+    if (rel === COMMERCIAL_CAPACITY_PATH) {
+      // #6107: internal admission decision, not ACL content. Raw rows/additional SQL stay red.
+      const consumers = walk(join(API, "src")).map(file => ({ path: relative(API, file).split(sep).join("/"), source: readFileSync(file, "utf8") }));
+      const errors = checkCommercialCapacity(body, consumers);
+      for (const evidence of ["scripts/tests/commercial-capacity-boundary.test.mjs", "tests/org-capacity/commercial-capacity-pg.test.ts", "tests/org-capacity/commercial-capacity-http.test.ts"]) {
+        if (!existsSync(join(API, evidence))) errors.push(`capacity boundary evidence missing: ${evidence}`);
+      }
       for (const error of errors) { console.error(`✗ ${rel}: ${error}`); fail++; }
       continue;
     }
