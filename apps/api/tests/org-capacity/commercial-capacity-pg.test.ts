@@ -62,3 +62,19 @@ it("full commercial capacity rejects project invitation activation before creden
  const residue=await asOwner(c=>c.query("SELECT (SELECT count(*) FROM credentials WHERE user_id=$1)::int AS accounts,(SELECT count(*) FROM mail_outbox WHERE id=$2)::int AS mails,(SELECT count(*) FROM credit_wallets WHERE owner_id=$1)::int AS wallets",[projectUser,outboxId]));
  expect(residue.rows[0]).toEqual({accounts:0,mails:0,wallets:0});
 });
+
+it("an unpaid expansion does not release purchased-capacity seats",async()=>{
+ await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET pending_seats=7,pending_purchase_ref='capacity-pending-upgrade' WHERE org_id=$1",[ORG]));
+ const result=await new PgOrgInviteLinkRepository(db).activate({tokenHash:"capacity-6107-link-hash",now:new Date(),email:`capacity-unpaid-${RUN}@example.test`,newAccount:{userId:`capacity-unpaid-${RUN}`,displayName:"Unpaid expansion",passwordHash:`$2b$12$${"a".repeat(53)}`}});
+ expect(result).toEqual({ok:false,reason:"quota-exhausted"});
+});
+it("an initial pending intent constrains actual admission and unknown generations fail closed",async()=>{
+ await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET purchased_seats=NULL WHERE org_id=$1",[ORG]));
+ const links=new PgOrgInviteLinkRepository(db);
+ const input={tokenHash:"capacity-6107-link-hash",now:new Date(),email:`capacity-initial-${RUN}@example.test`,newAccount:{userId:`capacity-initial-${RUN}`,displayName:"Pending initial",passwordHash:`$2b$12$${"a".repeat(53)}`}};
+ expect((await links.activate(input)).ok).toBe(true);
+ await asApp(ORG,c=>c.query("UPDATE org_commercial_licenses SET generation='unsupported-generation' WHERE org_id=$1",[ORG]));
+ expect(await links.activate({...input,email:`capacity-unknown-${RUN}@example.test`,newAccount:{...input.newAccount,userId:`capacity-unknown-${RUN}`}})).toEqual({ok:false,reason:"quota-exhausted"});
+ const count=await asOwner(c=>c.query("SELECT count(*)::int AS n FROM credentials WHERE user_id=$1",[`capacity-unknown-${RUN}`]));
+ expect(count.rows[0].n).toBe(0);
+});
