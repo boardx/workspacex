@@ -44,10 +44,10 @@ class ExactRunnerContract(unittest.TestCase):
   source=P.read_text();self.assertIn('force:false,dir',source);self.assertIn("fs.mkdtempSync('/tmp/exact-eight-')",source);self.assertNotIn('force:true',source)
 
 class FullWriterStateMachine(unittest.TestCase):
- def exercise(self,failure=None):
+ def exercise(self,failure=None,resume=False,initial_state=None):
   import tempfile,json,types,contextlib
   from unittest.mock import patch
-  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);attempt=root/'attempt';attempt.mkdir();pending=root/'pending.json';pending.write_bytes(b'originalpending');events=[];state={'schema':'BASELINE','images':{'api':'old'},'running':True};baseline={str(i):'a'*64 for i in range(439)}
+  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);attempt=root/'attempt';attempt.mkdir();pending=root/'pending.json';pending.write_bytes(b'originalpending');events=[];state={'schema':initial_state or ('COMPLETE' if resume else 'BASELINE'),'images':{'api':'old'},'running':True};baseline={str(i):'a'*64 for i in range(439)}
   def save(path,value):
    with open(path,'x') as f:json.dump(value,f)
    Path(path).chmod(0o600)
@@ -63,6 +63,9 @@ class FullWriterStateMachine(unittest.TestCase):
    def __init__(self,ctx):pass
    def read(self):return {'state':state['schema'],'ledger':{**baseline,**(m.MIGRATIONS if state['schema']=='COMPLETE' else dict(list(m.MIGRATIONS.items())[:2]) if state['schema']=='PARTIAL' else {})},'epoch':{'exists':False} if state['schema']=='BASELINE' else {'exists':True,'rows':[{'generation':None,'activated_at':None}]}}
    def reconcile(self):events.append('reconcile');return self.read()
+   def quiet_jobs(self):
+    events.append('quiet-jobs')
+    if failure=='active-jobs':raise ValueError('RESUME_ACTIVE_ASYNC_JOBS')
    def stopped(self):assert not state['running']
    def drain_sessions(self):events.append('drain-sessions')
    def drain(self):self.stopped();events.append('drain-unknown')
@@ -70,6 +73,7 @@ class FullWriterStateMachine(unittest.TestCase):
     self.stopped();events.append('backup');archive=out/'database.pgdump.enc';key=out/'backup.key';archive.write_bytes(b'e'*1100);key.write_bytes(b'a'*64);archive.chmod(0o600);key.chmod(0o600);return archive,key
    def apply(self):
     self.stopped();events.append('native-eight')
+    if resume:raise AssertionError('NATIVE RUNNER FORBIDDEN')
     if failure=='partial':state['schema']='PARTIAL';raise TimeoutError()
     state['schema']='COMPLETE';return {'status':'NATIVE_BATCH_COMPLETE'}
   core=types.SimpleNamespace(save=save,private_backup_files=lambda *a:None);engine=types.SimpleNamespace();act=types.SimpleNamespace(runtime_rows=lambda d,p,services,images:rows(images),live_config_cas=lambda *a:None)
@@ -79,7 +83,10 @@ class FullWriterStateMachine(unittest.TestCase):
    if failure=='business' and phase=='candidate':raise ValueError('BUSINESS_FAILED')
    out=attempt/(phase+'-proof.json');save(out,{'actualFakeBusiness':True});return m.ref(out)
   def health(ctx,cmd,images,*args):assert state['running'];events.append('health-'+images['api']);return {'healthy':True}
+  if resume:
+   p.update(expectedSchemaState='COMPLETE',resumeOriginal={'explicit':'root-capability'});(root/('devapp-'+m.TAG+'-once.json')).write_bytes(b'original spent once preserved')
   with contextlib.ExitStack() as stack:
+   if resume:stack.enter_context(patch.object(m,'validate_resume',return_value={'original':'verified'}))
    stack.enter_context(patch.object(m,'Database',DB));stack.enter_context(patch.object(m,'load',return_value=act));stack.enter_context(patch.object(m,'health',side_effect=health));stack.enter_context(patch.object(m,'business',side_effect=business));stack.enter_context(patch.object(m,'pinned',return_value=attempt));stack.enter_context(patch.object(m.signal,'setitimer'))
    try:m.writer(ctx);error=None
    except ValueError as e:error=e
@@ -134,7 +141,7 @@ class NativeHelperBoundary(unittest.TestCase):
  def exercise(self,lost_ack=False):
   import tempfile,json,types,subprocess
   from unittest.mock import patch
-  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);out=Path(tmp.name);token='b'*32;pgid='c'*64;image='sha256:'+'d'*64;db=object.__new__(m.Database);db.p={'candidateImages':{'api':{'imageId':image}}};db.pg={'Id':pgid};db.ctx={'attempt':out};db.stopped=Mock();db.read=Mock(return_value={'state':'BASELINE'});files={n:subprocess.check_output(['git','show',m.SOURCE+':apps/api/migrations/'+n],cwd=P.parents[1]) for n in m.MIGRATIONS};db.prep=Mock();db.prep.exact_sql.return_value=files;db.prep.env_map.return_value={'POSTGRES_USER':'postgres','POSTGRES_PASSWORD':'fixture-password'};db.d=Mock();scans=[0]
+  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);out=Path(tmp.name);token='b'*32;pgid='c'*64;image='sha256:'+'d'*64;db=object.__new__(m.Database);db.p={'candidateImages':{'api':{'imageId':image}}};db.pg={'Id':pgid};db.ctx={'attempt':out,'p':{}};db.stopped=Mock();db.read=Mock(return_value={'state':'BASELINE'});files={n:subprocess.check_output(['git','show',m.SOURCE+':apps/api/migrations/'+n],cwd=P.parents[1]) for n in m.MIGRATIONS};db.prep=Mock();db.prep.exact_sql.return_value=files;db.prep.env_map.return_value={'POSTGRES_USER':'postgres','POSTGRES_PASSWORD':'fixture-password'};db.d=Mock();scans=[0]
   def command(args,**kw):
    if args[0]=='ps':
     scans[0]+=1;return b'ownedcid\n' if lost_ack and scans[0]==1 else b''
@@ -158,7 +165,7 @@ class InventoryScope(unittest.TestCase):
    with self.assertRaisesRegex(ValueError,'EXACT_EIGHT_IMAGE_CHANGES'):m.exact_plan({'changes':[value]})
 
 class IndependentVerifierSemantics(unittest.TestCase):
- def exercise(self,mutate=None):
+ def exercise(self,mutate=None,resume=False,history_error=False):
   import tempfile,json,types,contextlib,time
   from unittest.mock import patch
   m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);out=Path(tmp.name);baseline={str(i):'a'*64 for i in range(439)};complete={**baseline,**m.MIGRATIONS};epoch={'exists':True,'rows':[{'generation':None,'activated_at':None}]};current={'state':'COMPLETE','ledger':complete,'epoch':epoch}
@@ -167,12 +174,14 @@ class IndependentVerifierSemantics(unittest.TestCase):
   command=['/fixed/business'];biz={'source':m.SOURCE,'tag':m.TAG,'command':command,'exitCode':0,'createdAt':time.time()}
   baseline_business=save('baseline-forward-business.json',biz);candidate_business=save('candidate-business.json',biz)
   archive=out/'archive';archive.write_bytes(b'e'*1100);archive.chmod(0o600);key=out/'key';key.write_bytes(b'a'*64);key.chmod(0o600)
-  proof={'backup-restore':{'restoreNotPerformed':True,'archive':m.ref(archive),'key':m.ref(key),'source':save('source.json',{'ledger':baseline,'epoch':{'exists':False}})},'baseline-compatibility':{'oldImages':{'api':'old'},'actualForwardSchemaHealth':True,'resetPerformed':False,'business':baseline_business},'migration-ledger':{'baselineLedger':baseline,'completeLedger':complete,'epoch':epoch,'force':False,'resetPerformed':False},'candidate-acceptance':{'images':{'api':'new'},'business':candidate_business}}
+  proof={'backup-restore':{'restoreNotPerformed':True,'archive':m.ref(archive),'key':m.ref(key),'source':save('source.json',{'ledger':baseline,'epoch':{'exists':False}})},'baseline-compatibility':{'oldImages':{'api':'old'},'actualForwardSchemaHealth':True,'resetPerformed':False,'business':baseline_business},'migration-ledger':{'baselineLedger':baseline,'completeLedger':complete,'epoch':epoch,'force':False,'resetPerformed':False,'migrationExecuted':False,'sqlReplayed':False},'candidate-acceptance':{'images':{'api':'new'},'business':candidate_business}}
   if mutate:mutate(proof,biz,save)
-  refs={name:save(name+'.json',{**value,'sourceRevision':m.SOURCE,'tag':m.TAG,'createdAt':time.time()}) for name,value in proof.items()};receipt=save('result.json',{'restoreNotPerformed':True,'proofs':refs})
+  refs={name:save(name+'.json',{**value,'sourceRevision':m.SOURCE,'tag':m.TAG,'createdAt':time.time()}) for name,value in proof.items()};receipt=save('result.json',{'restoreNotPerformed':True,'proofs':refs,**({'activationOnly':True,'originalResumeEvidence':{'original':'verified'}} if resume else {})})
   ctx={'receipt':Path(receipt['path']),'attempt':out,'request':{},'mods':{'schema-release-handoff':types.SimpleNamespace(verify_receipt=lambda *a:None),'schema-restore-rehearsal':types.SimpleNamespace(),'minimal-docker-release':types.SimpleNamespace()},'p':{'baselineLedger':baseline,'baseline':{'api':{'imageId':'old'}},'closurePins':{}},'cfg':{'services':{'api':'api'},'verificationCommand':command,'project':'p'},'manifest':{'images':{'api':{'imageId':'new'}}},'command':[],'d':types.SimpleNamespace(json=lambda *a:{})}
   act=types.SimpleNamespace(runtime_rows=lambda *a:[],live_config_cas=lambda *a:None)
+  if resume:ctx['p'].update(resumeOriginal={},expectedSchemaState='COMPLETE')
   with contextlib.ExitStack() as stack:
+   if resume:stack.enter_context(patch.object(m,'validate_resume',side_effect=ValueError('ORIGINAL_HISTORY_DRIFT') if history_error else None,return_value={'original':'verified'}))
    stack.enter_context(patch.object(m,'trusted',side_effect=lambda path,*a:Path(path)));stack.enter_context(patch.object(m,'Database',return_value=types.SimpleNamespace(read=lambda:current)));stack.enter_context(patch.object(m,'health',return_value={}));stack.enter_context(patch.object(m,'load',return_value=act))
    m.verifier(ctx)
  def test_all_original_semantics_pass(self):self.exercise()
@@ -206,3 +215,88 @@ class DevappHostDatabaseBinding(unittest.TestCase):
     elif kind=='extra-map':pg['NetworkSettings']['Ports']={**pg['NetworkSettings']['Ports'],'5433/tcp':[{'HostIp':'0.0.0.0','HostPort':'55433'}]}
     else:pg['Config']['Env']=['POSTGRES_USER=foreign']
     with self.assertRaisesRegex(ValueError,'DEVAPP_SOURCE_BINDING'):m.source_binding(api,pg)
+
+class ActivationOnlyFlow(unittest.TestCase):
+ exercise=FullWriterStateMachine.exercise
+ def test_new_resume_once_preserves_old_once_and_cannot_apply_native(self):
+  import json
+  m,ctx,state,events,pending,error=self.exercise(resume=True);self.assertIsNone(error);self.assertNotIn('native-eight',events);self.assertEqual(state['schema'],'COMPLETE');self.assertEqual((pending.parent/('devapp-'+m.TAG+'-once.json')).read_bytes(),b'original spent once preserved');self.assertTrue((pending.parent/('devapp-'+m.TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json')).exists());self.assertFalse(json.loads((ctx['attempt']/'migration-ledger.json').read_bytes())['migrationExecuted'])
+ def test_resume_baseline_never_spends_new_once_or_stops_apps(self):
+  m,ctx,state,events,pending,error=self.exercise(resume=True,initial_state='BASELINE');self.assertRegex(str(error),'RESUME_COMPLETE_SCHEMA_REQUIRED');self.assertNotIn('stop',events);self.assertNotIn('native-eight',events);self.assertFalse((pending.parent/('devapp-'+m.TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json')).exists())
+ def test_native_method_itself_is_forbidden_in_resume(self):
+  m=module();db=object.__new__(m.Database);db.ctx={'p':{'resumeOriginal':{}}};db.stopped=Mock()
+  with self.assertRaisesRegex(ValueError,'NATIVE_APPLY_FORBIDDEN_IN_RESUME'):db.apply()
+  db.stopped.assert_not_called()
+
+class ResumeOriginalHistory(unittest.TestCase):
+ def fixture(self):
+  import tempfile,json,types
+  from unittest.mock import patch
+  m=module();tmp=tempfile.TemporaryDirectory();self.addCleanup(tmp.cleanup);root=Path(tmp.name);old=root/m.ORIGINAL_RESUME;old.mkdir(mode=0o700);(old/'backup').mkdir(mode=0o700);new=root/'new';new.mkdir();base={str(i):'a'*64 for i in range(439)};command=['/fixed/probe']
+  def save(path,value):path.write_text(json.dumps(value));path.chmod(0o600)
+  save(old/'schema-config.json',{'verificationCommand':command});save(old/'schema-request.json',{'environment':'devapp','sourceRevision':m.SOURCE,'tag':m.TAG,'config':m.ref(old/'schema-config.json')});save(old/'failure.json',{'status':'OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA','schemaState':'COMPLETE','sqlRollbackAttempted':False,'automaticRetryAllowed':False});save(old/'candidate-once.json',{'attempted':True});save(old/'migration-event-3.json',{'status':'POST_BATCH_RECONCILE','result':{'state':'COMPLETE','ledger':{**base,**m.MIGRATIONS},'epoch':{'exists':True,'rows':[{'generation':None,'activated_at':None}]}}})
+  for phase in ('baseline-forward','recovery'):save(old/(phase+'-business.json'),{'source':m.SOURCE,'tag':m.TAG,'command':command,'exitCode':0})
+  save(old/'migration-event-1.json',{'status':'NATIVE_BATCH_INTENT','source':m.SOURCE,'tag':m.TAG});save(old/'migration-event-2.json',{'status':'NATIVE_BATCH_RETURN','result':{'status':'NATIVE_BATCH_COMPLETE','applied':list(m.MIGRATIONS),'skipped':[]}});save(old/'backup/source.json',{'state':'BASELINE','ledger':base,'epoch':{'exists':False}});archive=old/'backup/database.pgdump.enc';archive.write_bytes(b'e'*1100);archive.chmod(0o600);key=old/'backup/backup.key';key.write_bytes(b'a'*64);key.chmod(0o600)
+  once=root/('devapp-'+m.TAG+'-once.json');save(once,{'source':m.SOURCE,'tag':m.TAG,'request':m.ref(old/'schema-request.json')});files={str(path.relative_to(old)):m.file_sha(path) for path in old.rglob('*') if path.is_file()};pending_archive=root/'pending-original.json';save(pending_archive,{'tag':m.TAG,'attempt':str(old),'requestSha256':files['schema-request.json'],'automaticRetry':False})
+  ctx={'p':{'expectedSchemaState':'COMPLETE','baselineLedger':base,'resumeOriginal':{'attempt':str(old),'files':files,'once':m.ref(once),'pendingArchive':m.ref(pending_archive)}},'cfg':{'stateDirectory':str(root),'verificationCommand':command},'attempt':new};patcher=patch.object(m,'trusted',side_effect=lambda path,*a:Path(path));patcher.start();self.addCleanup(patcher.stop);return m,ctx,old,once,save
+ def test_original_committed_history_and_spent_once_are_read_only(self):
+  m,ctx,old,once,save=self.fixture();original=m.file_sha(once);proof=m.validate_resume(ctx);self.assertFalse(proof['originalFilesModified']);self.assertEqual(m.file_sha(once),original)
+ def test_original_tamper_or_extra_files_or_wrong_once_reject(self):
+  for mode in ('tamper','extra','once'):
+   with self.subTest(mode=mode):
+    m,ctx,old,once,save=self.fixture()
+    if mode=='tamper':save(old/'failure.json',{})
+    elif mode=='extra':save(old/'extra.json',{})
+    else:save(once,{'source':'foreign'})
+    with self.assertRaises(ValueError):m.validate_resume(ctx)
+
+class SafeBusinessOutcome(unittest.TestCase):
+ def test_nonzero_and_timeout_keep_safe_phase_outcome_without_raw_output(self):
+  import tempfile,json,types,subprocess
+  from unittest.mock import patch
+  m=module()
+  for timeout in (False,True):
+   with self.subTest(timeout=timeout),tempfile.TemporaryDirectory() as tmp:
+    path=Path(tmp);child=Mock();child.returncode=1;child.poll.return_value=None;child.communicate.side_effect=[subprocess.TimeoutExpired('probe',1),(b'',b'')] if timeout else [(b'REDACTED_PRIVATE_OUTPUT',b'')]
+    def save(p,v):p.write_text(json.dumps(v));p.chmod(0o600)
+    ctx={'attempt':path,'fd':3,'mods':{'schema-restore-rehearsal':types.SimpleNamespace(save=save)}}
+    with patch.object(m.subprocess,'Popen',return_value=child):
+     with self.assertRaises(Exception):m.run(ctx,['fixed'],1,phase='candidate')
+    raw=(path/'candidate-outcome.json').read_text();self.assertNotIn('REDACTED_PRIVATE_OUTPUT',raw);self.assertEqual(json.loads(raw)['status'],'TIMEOUT' if timeout else 'RETURN_NONZERO')
+
+class OwnedBusinessProcessGroup(unittest.TestCase):
+ def test_timeout_reaps_only_its_owned_parent_and_child_and_keeps_safe_diag(self):
+  import tempfile,types,sys,os,subprocess,json,time
+  m=module()
+  with tempfile.TemporaryDirectory() as tmp:
+   root=Path(tmp);pidfile=root/'child.pid';fd=os.open(root/'lock',os.O_RDWR|os.O_CREAT,0o600)
+   def save(path,value):path.write_text(json.dumps(value));path.chmod(0o600)
+   ctx={'attempt':root,'fd':fd,'p':{'resumeOriginal':{}},'mods':{'schema-restore-rehearsal':types.SimpleNamespace(save=save)}}
+   script="import subprocess,sys,time; p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)']);print('BROWSER_DIAG '+ '{\"phase\":\"startup\",\"code\":\"TIMEOUT\",\"secret\":\"private-value\"}',file=sys.stderr,flush=True);open("+repr(str(pidfile))+",'w').write(str(p.pid));time.sleep(60)"
+   try:
+    from unittest.mock import patch
+    clock=time.monotonic;started=clock();ready=[None]
+    def relative_ready_clock():
+     if clock()-started>30:raise AssertionError('fixture child failed to become ready')
+     if not pidfile.exists():return 0
+     if ready[0] is None:ready[0]=clock()
+     return clock()-ready[0]
+    with patch.object(m.time,'monotonic',side_effect=relative_ready_clock):
+     with self.assertRaises(subprocess.TimeoutExpired):m.run_resume_business(ctx,[sys.executable,'-c',script],.25,'candidate')
+    child=int(pidfile.read_text());r=subprocess.run(['ps','-p',str(child),'-o','stat='],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=5);self.assertTrue(r.returncode!=0 or r.stdout.strip().startswith(b'Z'),r.stdout)
+    raw=(root/'candidate-outcome.json').read_text();v=json.loads(raw);self.assertEqual(v['status'],'TIMEOUT');self.assertTrue(v['processGroupOwned']);self.assertEqual(v['browserDiagnostics'],[{'phase':'startup','code':'TIMEOUT'}]);self.assertNotIn('private-value',raw)
+   finally:os.close(fd)
+ def test_unrecognized_diagnostic_keys_and_values_never_escape(self):
+  m=module();self.assertEqual(m.browser_diagnostics(b'BROWSER_DIAG {"phase":"attacker-secret","code":"unknown-secret","url":"private"}\n'),[])
+
+class ResumeAsyncSafety(unittest.TestCase):
+ exercise=FullWriterStateMachine.exercise
+ def test_actual_text_diagnostics_only_allow_known_tokens(self):
+  m=module();value=m.browser_diagnostics(b'BROWSER_DIAG phase=billing-contract errorType=TimeoutError netCode=ERR_TIMED_OUT\nBROWSER_DIAG phase=secret errorType=Error netCode=ERR_PRIVATE\n');self.assertEqual(value,[{'phase':'billing-contract','errorType':'TimeoutError','netCode':'ERR_TIMED_OUT'}])
+
+class ResumeIndependentVerifier(unittest.TestCase):
+ exercise=IndependentVerifierSemantics.exercise
+ def test_verifier_rechecks_original_history_and_no_native_migration(self):
+  self.exercise(resume=True)
+  with self.assertRaisesRegex(ValueError,'ORIGINAL_HISTORY_DRIFT'):self.exercise(resume=True,history_error=True)
+  with self.assertRaisesRegex(ValueError,'VERIFIER_ACTIVATION_ONLY'):self.exercise(lambda p,b,s:p['migration-ledger'].update(migrationExecuted=True),resume=True)

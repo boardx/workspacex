@@ -35,8 +35,10 @@ def check_epoch(value,required=False):
 def reviewed_sql(files):
  need(type(files) is dict and set(files)==set(MIGRATIONS) and all(type(v) is bytes and hashlib.sha256(v).hexdigest()==MIGRATIONS[k] for k,v in files.items()),'EXACT_EIGHT_SQL_REQUIRED')
  return [(k,files[k].decode('utf8')) for k in sorted(files)]
-def apply_once(adapter,record):
- before=adapter.read();need(before['state'] in ('BASELINE','COMPLETE'),'PARTIAL_BATCH_RECONCILIATION_REQUIRED')
+def apply_once(adapter,record,expected_complete=False):
+ before=adapter.read()
+ if expected_complete:need(before['state']=='COMPLETE','RESUME_COMPLETE_SCHEMA_REQUIRED')
+ need(before['state'] in ('BASELINE','COMPLETE'),'PARTIAL_BATCH_RECONCILIATION_REQUIRED')
  if before['state']=='COMPLETE':return {'status':'COMPLETE','migrationExecuted':False,'sqlReplayed':False}
  record({'status':'NATIVE_BATCH_INTENT','source':SOURCE,'tag':TAG,'automaticRetryAllowed':False})
  unknown=False
@@ -73,6 +75,7 @@ def load(name,pins):
 
 def bind(request_path,receipt_path,mode):
  need(os.geteuid()==0,'ROOT_REQUIRED');policy=read(POLICY)
+ need('expectedSchemaState' not in policy or 'resumeOriginal' in policy and type(policy['expectedSchemaState']) is str and policy['expectedSchemaState']=='COMPLETE','RESUME_CAPABILITY_REQUIRED')
  need(policy.get('kind')=='devapp-exact-eight-release-v1' and policy.get('source')==SOURCE and policy.get('tag')==TAG and policy.get('restoreNotPerformed') is True,'FIXED_CAPABILITY')
  need(type(policy.get('expiresAt')) is int and time.time()<policy['expiresAt']<=time.time()+3600,'POLICY_EXPIRED')
  pins=policy.get('closurePins');need(type(pins) is dict and set(pins)==set(CLOSURE),'EXACT_CLOSURE')
@@ -89,7 +92,7 @@ def bind(request_path,receipt_path,mode):
  base=policy['baselineLedger'];admission=read(pinned(policy['historicalAdmission']));need(base==admission.get('expectedLedger'),'HISTORICAL_LEDGER_BINDING');ledger_state(base,base)
  need(policy.get('trafficControl')=='stopped-five-applications','EXPLICIT_SHORT_STOP_REQUIRED')
  need(set(cfg['services'])=={'api','web','agent','sandbox','sandbox-sessions'} and set(policy['baseline'])==set(cfg['services']),'FIVE_APPLICATIONS_REQUIRED')
- need(type(policy.get('runtimeSeconds')) is int and 10<=policy['runtimeSeconds']<=120 and type(policy.get('rollbackSeconds')) is int and 60<=policy['rollbackSeconds']<=180,'BOUNDED_BUDGETS')
+ need(type(policy.get('runtimeSeconds')) is int and 10<=policy['runtimeSeconds']<=120 and type(policy.get('rollbackSeconds')) is int and 60<=policy['rollbackSeconds']<=(240 if 'resumeOriginal' in policy else 180),'BOUNDED_BUDGETS')
  fd=int(os.environ.get('WSX_RELEASE_LOCK_FD','-1'));mods['us-tag-migration-adapter'].inherited_lock(fd,LOCK);s=os.fstat(fd);need(request['canonicalLock']=={'path':LOCK,'device':s.st_dev,'inode':s.st_ino},'LOCK_BINDING')
  pending=read(Path(cfg['stateDirectory'])/'pending.json');need(pending.get('attempt')==str(attempt) and pending.get('requestSha256')==file_sha(request_path),'PENDING_BINDING')
  for r in (*cfg['composeFiles'],cfg['envFile'],*cfg.get('verificationFiles',[])):pinned(r,False)
@@ -127,6 +130,7 @@ class Database:
   if value['epochExists']:epoch={'exists':True,'rows':json.loads(self.query("BEGIN READ ONLY; SELECT COALESCE(json_agg(json_build_object('generation',generation,'activated_at',activated_at)),'[]'::json) FROM public.billing_pricing_epoch; ROLLBACK;"))}
   state=ledger_state(self.p['baselineLedger'],value['ledger']);check_epoch(epoch,required=state=='COMPLETE');return {'state':state,'ledger':value['ledger'],'epoch':epoch}
  def reconcile(self):return self.read()
+
  def stopped(self):
   for service,item in self.p['baseline'].items():
    row=self.prep.inspect_one(self.d,item['containerId']);labels=row.get('Config',{}).get('Labels',{});need(row['Id']==item['containerId'] and row['Image']==item['imageId'] and labels.get('com.docker.compose.project')==self.ctx['cfg']['project'] and labels.get('com.docker.compose.service')==service and row['State']['Running'] is False and not row['State'].get('Restarting'),'WRITERS_NOT_STOPPED')
@@ -138,6 +142,7 @@ class Database:
  def dump(self,path):
   self.stopped();return encrypted_source_dump(self,path)
  def apply(self):
+  need('resumeOriginal' not in self.ctx['p'],'NATIVE_APPLY_FORBIDDEN_IN_RESUME')
   self.stopped();need(self.read()['state']=='BASELINE','BASELINE_BEFORE_NATIVE_RUNNER')
   files=self.prep.exact_sql(self.d,self.p['candidateImages']['api']['imageId'],MIGRATIONS,type('Reviewed',(),{'reviewed_sql':staticmethod(reviewed_sql)})());reviewed_sql(files)
   sourceenv=self.prep.env_map(self.pg);need(sourceenv.get('POSTGRES_USER','postgres')=='postgres' and bool(sourceenv.get('POSTGRES_PASSWORD')),'SOURCE_OWNER_CREDENTIAL_REQUIRED')
@@ -162,20 +167,26 @@ def remaining(ctx,limit):
  if deadline is None:return limit
  value=deadline-time.monotonic();need(value>0,'OPERATION_DEADLINE');return min(limit,value)
 
-def run(ctx,args,timeout=120):
+def run(ctx,args,timeout=120,phase=None):
+ if phase and 'resumeOriginal' in ctx.get('p',{}):return run_resume_business(ctx,args,timeout,phase)
  child=subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,pass_fds=(ctx['fd'],),env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8','WSX_RELEASE_LOCK_FD':str(ctx['fd'])})
- try:out,_=child.communicate(timeout=remaining(ctx,timeout))
- except BaseException:
+ outcome={'phase':phase,'createdAt':time.time()};out=None
+ try:
+  out,_=child.communicate(timeout=remaining(ctx,timeout));outcome.update(exitCode=child.returncode,outputBytes=len(out),status='RETURN_NONZERO' if child.returncode else 'OUTPUT_BOUND' if len(out)>65536 else 'SUCCEEDED')
+ except BaseException as error:
+  outcome['status']='TIMEOUT' if isinstance(error,subprocess.TimeoutExpired) else 'INTERRUPTED'
   if child.poll() is None:
    child.terminate()
    try:child.communicate(timeout=15)
    except subprocess.TimeoutExpired:child.kill();child.communicate(timeout=5)
   raise
- need(child.returncode==0 and len(out)<=65536,'HOST_COMMAND_FAILED');return out
+ finally:
+  if phase:ctx['mods']['schema-restore-rehearsal'].save(ctx['attempt']/(phase+'-outcome.json'),outcome)
+ need(child.returncode==0 and out is not None and len(out)<=65536,'BUSINESS_'+phase.upper().replace('-','_')+'_'+outcome['status'] if phase else 'HOST_COMMAND_FAILED');return out
 
 def business(ctx,phase):
  core=ctx['mods']['schema-restore-rehearsal'];core.save(ctx['attempt']/(phase+'-once.json'),{'source':SOURCE,'tag':TAG,'automaticRetryAllowed':False})
- command=ctx['cfg']['verificationCommand'];raw=run(ctx,command,ctx['p']['runtimeSeconds']);path=ctx['attempt']/(phase+'-business.json');core.save(path,{'source':SOURCE,'tag':TAG,'createdAt':time.time(),'command':command,'exitCode':0,'stdoutHex':raw.hex(),'scope':'actual-configured-business-probe'});return ref(path)
+ command=ctx['cfg']['verificationCommand'];raw=run(ctx,command,ctx['p'].get('businessSeconds',ctx['p']['runtimeSeconds']),phase=phase);path=ctx['attempt']/(phase+'-business.json');core.save(path,{'source':SOURCE,'tag':TAG,'createdAt':time.time(),'command':command,'exitCode':0,'stdoutHex':raw.hex(),'scope':'actual-configured-business-probe'});return ref(path)
 def health(ctx,command,images,held=False):
  engine=ctx['mods']['minimal-docker-release'];original=engine.health
  def loopback(config,timeout):
@@ -187,7 +198,9 @@ def health(ctx,command,images,held=False):
 
 def writer(ctx):
  core=ctx['mods']['schema-restore-rehearsal'];prep=ctx['mods']['schema-tag-prepare'];engine=ctx['mods']['minimal-docker-release'];act=load('tag-migrated-activation',ctx['p']['closurePins']);d=ctx['d'];p=ctx['p'];cfg=ctx['cfg'];attempt=ctx['attempt'];database=Database(ctx)
- barrier=Path(cfg['stateDirectory'])/('devapp-'+TAG+'-once.json');need(not barrier.exists() and not barrier.is_symlink(),'CAPABILITY_ALREADY_SPENT')
+ need('expectedSchemaState' not in p or 'resumeOriginal' in p and type(p['expectedSchemaState']) is str and p['expectedSchemaState']=='COMPLETE','RESUME_CAPABILITY_REQUIRED')
+ resume=validate_resume(ctx) if 'resumeOriginal' in p else None
+ barrier=Path(cfg['stateDirectory'])/(('devapp-'+TAG+'-resume-23ecfeea853840acb7638e629c8f50d5.json') if resume else ('devapp-'+TAG+'-once.json'));need(not barrier.exists() and not barrier.is_symlink(),'CAPABILITY_ALREADY_SPENT')
  old={s:p['baseline'][s]['imageId'] for s in cfg['services']};images={s:ctx['manifest']['images'][r]['imageId'] for s,r in cfg['services'].items()};rows=act.runtime_rows(d,cfg['project'],cfg['services'],old);need(all(x['Id']==p['baseline'][x['Config']['Labels']['com.docker.compose.service']]['containerId'] for x in rows),'BASELINE_CID')
  original=d.json(ctx['command']+['config','--format','json']);act.live_config_cas(engine,d,original,cfg['project'],rows,attempt)
  overlay=attempt/'candidate-images.json';rollback=attempt/'baseline-images.json';core.save(overlay,{'services':{s:{'image':v} for s,v in images.items()}});core.save(rollback,{'services':{s:{'image':v} for s,v in old.items()}})
@@ -195,27 +208,31 @@ def writer(ctx):
  for s,v in images.items():expected['services'][s]['image']=v
  need(d.json(command+['config','--format','json'])==expected,'NON_IMAGE_CONFIG_CHANGE')
  before=database.read();need(before['state'] in ('BASELINE','COMPLETE'),'PARTIAL_BATCH_RECONCILIATION_REQUIRED')
+ if resume:need(before['state']=='COMPLETE','RESUME_COMPLETE_SCHEMA_REQUIRED')
  core.save(barrier,{'source':SOURCE,'tag':TAG,'request':ctx['requestRef'],'policy':ctx['policyRef'],'automaticRetryAllowed':False,'createdAt':time.time()});mutated=False;events=[]
  def record(v):events.append(v);core.save(attempt/('migration-event-'+str(len(events))+'.json'),v)
  try:
   d.run(old_command+['stop','--timeout','30',*cfg['services']],timeout=90);database.stopped();need(database.read()==before,'STOPPED_DATABASE_DRIFT')
   backup=attempt/'backup';backup.mkdir(mode=0o700);archive,key=database.dump(backup);backup_files(archive,key);need(database.read()==before,'BACKUP_DATABASE_DRIFT');core.save(backup/'source.json',before)
-  transaction=apply_once(database,record);need(database.read()['state']=='COMPLETE','POST_BATCH_COMPLETE_REQUIRED')
+  transaction=apply_once(database,record,expected_complete=bool(resume));need(database.read()['state']=='COMPLETE','POST_BATCH_COMPLETE_REQUIRED')
   # Original application must run on the resulting forward schema before switch.
   d.run(old_command+['start',*cfg['services']],timeout=p['runtimeSeconds']);health(ctx,old_command,old);baseline_business=business(ctx,'baseline-forward')
   for r in (*cfg['composeFiles'],cfg['envFile'],*cfg.get('verificationFiles',[])):pinned(r,False)
   need(d.json(command+['config','--format','json'])==expected,'FINAL_CONFIG_DRIFT');act.live_config_cas(engine,d,original,cfg['project'],act.runtime_rows(d,cfg['project'],cfg['services'],old),attempt);need(database.read()['state']=='COMPLETE','PRE_UP_LEDGER_DRIFT')
+  if resume:need(validate_resume(ctx)==resume,'RESUME_ORIGINAL_HISTORY_DRIFT')
   mutated=True;d.run(command+['up','--detach','--no-deps','--pull','never','--no-build',*cfg['services']],timeout=p['runtimeSeconds']);candidate_health=health(ctx,command,images)
   public_business=business(ctx,'candidate');health(ctx,command,images);after=database.read();need(after['state']=='COMPLETE','FINAL_LEDGER_DRIFT');check_epoch(after['epoch'])
+  if resume:need(validate_resume(ctx)==resume,'RESUME_ORIGINAL_HISTORY_DRIFT')
   contents={'backup-restore':{'archive':ref(archive),'key':ref(key),'source':ref(backup/'source.json'),'restoreNotPerformed':True},'baseline-compatibility':{'oldImages':old,'actualForwardSchemaHealth':True,'business':baseline_business,'resetPerformed':False},'migration-ledger':{**transaction,'baselineLedger':p['baselineLedger'],'completeLedger':after['ledger'],'epoch':after['epoch'],'force':False,'resetPerformed':False},'candidate-acceptance':{'images':images,'health':candidate_health,'business':public_business,'epochActivated':False}}
   proofs={}
   for name,v in contents.items():path=attempt/(name+'.json');core.save(path,{**v,'sourceRevision':SOURCE,'tag':TAG,'createdAt':time.time()});proofs[name]=ref(path)
-  result={k:ctx['request'][k] for k in ctx['mods']['schema-release-handoff'].IDENTITY};result.update(kind='schema-release-result-v1',status='SUCCEEDED',proofs=proofs,restoreNotPerformed=True,postSuccessAdmissionAdoptionRequired=True,historicalAdmission=p['historicalAdmission']);core.save(ctx['receipt'],result)
- except BaseException:
-  signal.setitimer(signal.ITIMER_REAL,p['rollbackSeconds']);ctx['operationDeadline']=time.monotonic()+p['rollbackSeconds'];failure={'status':'RECONCILIATION_REQUIRED','automaticRetryAllowed':False,'sqlRollbackAttempted':False,'restoreNotPerformed':True}
+  result={k:ctx['request'][k] for k in ctx['mods']['schema-release-handoff'].IDENTITY};result.update(kind='schema-release-result-v1',status='SUCCEEDED',proofs=proofs,restoreNotPerformed=True,postSuccessAdmissionAdoptionRequired=True,historicalAdmission=p['historicalAdmission'],activationOnly=bool(resume),originalResumeEvidence=resume);core.save(ctx['receipt'],result)
+ except BaseException as error:
+  signal.setitimer(signal.ITIMER_REAL,p['rollbackSeconds']);ctx['operationDeadline']=time.monotonic()+p['rollbackSeconds'];failure={'failureCode':str(error) if re.fullmatch('[A-Z0-9_]+',str(error)) else 'UNEXPECTED_PROCESS_FAILURE','status':'RECONCILIATION_REQUIRED','automaticRetryAllowed':False,'sqlRollbackAttempted':False,'restoreNotPerformed':True}
   try:
    d.run(command+['stop','--timeout','30',*cfg['services']],timeout=90)
-   database.drain_sessions();observed=database.reconcile();need(observed['state'] in ('BASELINE','COMPLETE'),'UNKNOWN_SCHEMA_STATE')
+   database.drain_sessions()
+   observed=database.reconcile();need(observed['state'] in ('BASELINE','COMPLETE'),'UNKNOWN_SCHEMA_STATE')
    for r in (*cfg['composeFiles'],cfg['envFile']):pinned(r,False)
    need(d.json(old_command+['config','--format','json'])==original,'ROLLBACK_CONFIG_DRIFT');d.run(old_command+['up','--detach','--no-deps','--pull','never','--no-build',*cfg['services']],timeout=p['runtimeSeconds']);health(ctx,old_command,old)
    # Release traffic only after actual old configured business probe succeeds.
@@ -232,6 +249,8 @@ def verifier(ctx):
  proofs={}
  for name,r in result['proofs'].items():
   path=pinned(r);need(path.parent==ctx['attempt'],'PROOF_ATTEMPT');v=read(path);need(v['sourceRevision']==SOURCE and v['tag']==TAG and 0<=time.time()-v['createdAt']<600,'PROOF_IDENTITY');proofs[name]=v
+ resume=validate_resume(ctx) if 'resumeOriginal' in ctx['p'] else None
+ if resume:need(result.get('activationOnly') is True and result.get('originalResumeEvidence')==resume and proofs['migration-ledger'].get('migrationExecuted') is False and proofs['migration-ledger'].get('sqlReplayed') is False and not list(ctx['attempt'].glob('migration-event-*.json')),'VERIFIER_ACTIVATION_ONLY')
  baseline=proofs['baseline-compatibility'];need(baseline.get('oldImages')=={s:ctx['p']['baseline'][s]['imageId'] for s in ctx['cfg']['services']} and baseline.get('actualForwardSchemaHealth') is True and baseline.get('resetPerformed') is False and type(baseline.get('business')) is dict,'VERIFIER_BASELINE_COMPATIBILITY');verify_business_proof(ctx,baseline['business'],'baseline-forward')
  core=ctx['mods']['schema-restore-rehearsal'];b=proofs['backup-restore'];need(b.get('restoreNotPerformed') is True,'RESTORE_NOT_PERFORMED_REQUIRED');backup_files(pinned(b['archive']),pinned(b['key']));source=read(pinned(b['source']));ledger_state(ctx['p']['baselineLedger'],source['ledger']);check_epoch(source['epoch'])
  database=Database(ctx);current=database.read();need(current['state']=='COMPLETE','VERIFIER_LEDGER');proof=proofs['migration-ledger'];need(proof['baselineLedger']==ctx['p']['baselineLedger'] and proof['completeLedger']==current['ledger'] and proof.get('force') is False and proof.get('resetPerformed') is False and proof.get('epoch')==current['epoch'],'VERIFIER_HISTORY')
@@ -286,9 +305,90 @@ def release_budget(policy,request,mode,cfg,now=None):
  for name,lo,hi in [('writerSeconds',60,400),('verifierSeconds',10,120),('outerVerificationSeconds',10,120)]:need(type(policy.get(name)) is int and lo<=policy[name]<=hi,'RELEASE_BUDGET_FIELD')
  need(policy['outerVerificationSeconds']>=cfg.get('readinessTimeoutSeconds',120),'OUTER_BUDGET')
  remaining=policy['verifierSeconds']+policy['outerVerificationSeconds']+15
+ if 'resumeOriginal' in policy:need(type(policy.get('businessSeconds')) is int and 105<=policy['businessSeconds']<=150 and policy['rollbackSeconds']>=policy['businessSeconds']+policy['runtimeSeconds']+10,'RESUME_BUSINESS_BUDGET')
  if mode=='writer':remaining+=policy['writerSeconds']+policy['rollbackSeconds']
  need(mode in ('writer','verifier') and remaining<=request['expiresAt']-now<=600,'RELEASE_TOTAL_BUDGET')
 
 def exact_plan(plan):
  changes=plan.get('changes',[])
  need(len(changes)==1 and changes[0].get('role')=='api' and changes[0].get('removed')==[] and changes[0].get('changed')==[] and set(changes[0].get('added',[]))==set(MIGRATIONS),'EXACT_EIGHT_IMAGE_CHANGES')
+
+ORIGINAL_RESUME='attempt-23ecfeea853840acb7638e629c8f50d5'
+def validate_resume(ctx):
+ p=ctx['p'];spec=p.get('resumeOriginal');need(p.get('expectedSchemaState')=='COMPLETE' and type(spec) is dict and set(spec)=={'attempt','files','once','pendingArchive'},'RESUME_CAPABILITY_REQUIRED')
+ old=Path(spec['attempt']);need(old==Path(ctx['cfg']['stateDirectory'])/ORIGINAL_RESUME and old!=ctx['attempt'] and old.is_dir() and not old.is_symlink() and old.stat().st_uid==os.geteuid() and not old.stat().st_mode&0o077,'RESUME_ORIGINAL_ATTEMPT')
+ files=spec['files'];need(type(files) is dict and 0<len(files)<=256,'RESUME_HISTORY_BOUND')
+ actual={str(path.relative_to(old)) for path in old.rglob('*') if path.is_file() or path.is_symlink()};need(actual==set(files),'RESUME_HISTORY_FILESET')
+ for name,checksum in files.items():
+  relative=Path(name);need(not relative.is_absolute() and '..' not in relative.parts,'RESUME_HISTORY_PATH');need(file_sha(trusted(old/relative))==checksum,'RESUME_HISTORY_DRIFT')
+ required={'schema-request.json','schema-config.json','failure.json','candidate-once.json','baseline-forward-business.json','recovery-business.json','migration-event-1.json','migration-event-2.json','migration-event-3.json','backup/source.json','backup/database.pgdump.enc','backup/backup.key'};need(required<=set(files),'RESUME_HISTORY_INCOMPLETE')
+ archive=pinned(spec['pendingArchive']);need(archive.parent==Path(ctx['cfg']['stateDirectory']) and archive.name.startswith('pending-') and archive.name!='pending.json','RESUME_PENDING_ARCHIVE_PATH');pending=read(archive);need(pending.get('tag')==TAG and pending.get('attempt')==str(old) and pending.get('requestSha256')==files['schema-request.json'] and pending.get('automaticRetry') is False,'RESUME_PENDING_ARCHIVE_BINDING')
+ original_once=pinned(spec['once']);need(original_once==Path(ctx['cfg']['stateDirectory'])/('devapp-'+TAG+'-once.json'),'RESUME_ONCE_PATH')
+ once=read(original_once);need(once.get('source')==SOURCE and once.get('tag')==TAG and once.get('request')=={'path':str(old/'schema-request.json'),'sha256':files['schema-request.json']},'RESUME_SPENT_ONCE_BINDING')
+ request=read(old/'schema-request.json');need(request.get('environment')=='devapp' and request.get('sourceRevision')==SOURCE and request.get('tag')==TAG,'RESUME_ORIGINAL_REQUEST')
+ failure=read(old/'failure.json');need(failure.get('status')=='OLD_APPLICATION_RESTORED_ON_OBSERVED_SCHEMA' and failure.get('schemaState')=='COMPLETE' and failure.get('sqlRollbackAttempted') is False and failure.get('automaticRetryAllowed') is False,'RESUME_ORIGINAL_RECOVERY')
+ intent=read(old/'migration-event-1.json');need(intent.get('status')=='NATIVE_BATCH_INTENT' and intent.get('source')==SOURCE and intent.get('tag')==TAG,'RESUME_ORIGINAL_INTENT')
+ ack=read(old/'migration-event-2.json');native=ack.get('result',{});need(ack.get('status')=='NATIVE_BATCH_RETURN' and native.get('status')=='NATIVE_BATCH_COMPLETE' and set(native.get('applied',[]))==set(MIGRATIONS) and native.get('skipped')==[],'RESUME_ORIGINAL_ACK')
+ source=read(old/'backup/source.json');need(source.get('state')=='BASELINE' and source.get('ledger')==p['baselineLedger'],'RESUME_ORIGINAL_BACKUP');check_epoch(source.get('epoch'))
+ terminal=read(old/'migration-event-3.json');result=terminal.get('result',{});need(terminal.get('status')=='POST_BATCH_RECONCILE' and result.get('state')=='COMPLETE' and result.get('ledger')=={**p['baselineLedger'],**MIGRATIONS},'RESUME_ORIGINAL_LEDGER');check_epoch(result.get('epoch'),required=True)
+ original_config=request.get('config');need(original_config=={'path':str(old/'schema-config.json'),'sha256':files['schema-config.json']},'RESUME_ORIGINAL_CONFIG');original_command=read(pinned(original_config)).get('verificationCommand')
+ for phase in ('baseline-forward','recovery'):
+  value=read(old/(phase+'-business.json'));need(value.get('source')==SOURCE and value.get('tag')==TAG and value.get('command')==original_command and type(value.get('exitCode')) is int and value['exitCode']==0,'RESUME_ORIGINAL_BUSINESS')
+ backup_files(pinned({'path':str(old/'backup/database.pgdump.enc'),'sha256':files['backup/database.pgdump.enc']}),pinned({'path':str(old/'backup/backup.key'),'sha256':files['backup/backup.key']}))
+ return {'attempt':str(old),'files':files,'once':spec['once'],'pendingArchive':spec['pendingArchive'],'scope':'explicit-complete-only-new-activation-attempt','originalFilesModified':False}
+
+BROWSER_DIAG_PHASES={'start','launch','login','authenticated','chat','agent','file','artifact','sandbox','complete','done','startup','ready','navigation','conversation','task','result','logout','cleanup','login_fields','login_submit','authenticated_redirect','authenticated_notifications','application-pages','billing-contract'}
+BROWSER_DIAG_CODES={'TIMEOUT','BROWSER_TIMEOUT','NAVIGATION_TIMEOUT','LOGIN_FAILED','AUTH_FAILED','CHAT_FAILED','AGENT_FAILED','FILE_FAILED','ARTIFACT_FAILED','SANDBOX_FAILED','ASSERTION_FAILED','MODEL_CALL_FAILED','BROWSER_SMOKE_FAILED','BROWSER_SMOKE_PASSED','PASSED','FAILED'}
+def browser_diagnostics(raw):
+ result=[]
+ for line in raw.decode('utf8','replace').splitlines():
+  if not line.startswith('BROWSER_DIAG'):continue
+  match=re.fullmatch(r'BROWSER_DIAG phase=([A-Za-z_-]+) errorType=(TimeoutError|Error) netCode=([A-Z_]+|none)',line)
+  if match:
+   phase,error_type,net_code=match.groups()
+   if phase in BROWSER_DIAG_PHASES:
+    safe={'phase':phase,'errorType':error_type}
+    if net_code in {'none','ERR_TIMED_OUT','ERR_CONNECTION_REFUSED','ERR_CONNECTION_RESET','ERR_CONNECTION_CLOSED','ERR_ABORTED','ERR_CERT_DATE_INVALID','ERR_CERT_AUTHORITY_INVALID','ERR_CERT_COMMON_NAME_INVALID','ERR_NAME_NOT_RESOLVED','ERR_NETWORK_CHANGED','ERR_EMPTY_RESPONSE','ERR_SSL_PROTOCOL_ERROR'}:safe['netCode']=net_code
+    result.append(safe)
+   continue
+  try:value=json.loads(line[len('BROWSER_DIAG'):].lstrip(' :=\t'))
+  except (ValueError,TypeError):continue
+  if type(value) is dict:
+   safe={k:v for k,v in value.items() if (k=='phase' and v in BROWSER_DIAG_PHASES) or (k=='code' and v in BROWSER_DIAG_CODES)}
+   if safe:result.append(safe)
+ return result[-32:]
+def run_resume_business(ctx,args,timeout,phase):
+ import tempfile
+ outcome={'phase':phase,'createdAt':time.time(),'processGroupOwned':True};child=None
+ with tempfile.TemporaryFile() as stdout,tempfile.TemporaryFile() as stderr:
+  try:
+   child=subprocess.Popen(args,stdout=stdout,stderr=stderr,pass_fds=(ctx['fd'],),start_new_session=True,env={'PATH':'/usr/bin:/bin:/usr/local/bin','LANG':'C.UTF-8','WSX_RELEASE_LOCK_FD':str(ctx['fd'])})
+   deadline=time.monotonic()+remaining(ctx,timeout)
+   while child.poll() is None:
+    need(max(os.fstat(stdout.fileno()).st_size,os.fstat(stderr.fileno()).st_size)<=65536,'OUTPUT_BOUND')
+    if time.monotonic()>=deadline:raise subprocess.TimeoutExpired('fixed-business-probe',timeout)
+    time.sleep(.025)
+   stdout.seek(0);raw=stdout.read(65537);need(len(raw)<=65536,'OUTPUT_BOUND');outcome.update(exitCode=child.returncode,outputBytes=len(raw),status='SUCCEEDED' if child.returncode==0 else 'RETURN_NONZERO')
+  except BaseException as error:
+   outcome['status']='TIMEOUT' if isinstance(error,subprocess.TimeoutExpired) else 'OUTPUT_BOUND' if isinstance(error,ValueError) and str(error)=='OUTPUT_BOUND' else 'INTERRUPTED'
+   raise
+  finally:
+   if child is not None:
+    # The group was created for this invocation only; never target unrelated Node.
+    try:os.killpg(child.pid,signal.SIGTERM)
+    except ProcessLookupError:pass
+    try:child.wait(timeout=5)
+    except subprocess.TimeoutExpired:pass
+    try:os.killpg(child.pid,signal.SIGKILL)
+    except ProcessLookupError:pass
+    child.wait(timeout=5)
+    deadline=time.monotonic()+5;gone=False
+    while time.monotonic()<deadline:
+     try:os.killpg(child.pid,0)
+     except ProcessLookupError:gone=True;break
+     time.sleep(.025)
+    outcome['ownedProcessGroupGone']=gone
+    if not gone:outcome['initialStatus']=outcome['status'];outcome['status']='GROUP_CLEANUP_FAILED'
+   stderr.seek(0);outcome['browserDiagnostics']=browser_diagnostics(stderr.read(65536));ctx['mods']['schema-restore-rehearsal'].save(ctx['attempt']/(phase+'-outcome.json'),outcome)
+   need(outcome.get('ownedProcessGroupGone') is True,'OWNED_PROCESS_GROUP_NOT_REAPED')
+  need(outcome['status']=='SUCCEEDED','BUSINESS_'+phase.upper().replace('-','_')+'_'+outcome['status']);return raw
