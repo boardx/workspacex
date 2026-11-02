@@ -34,6 +34,8 @@ Purchased and pending seat counts are opaque-generation commercial facts; actual
 
 `closePendingCommercialIntent` requires a matching expected purchase reference and epoch → organization lock. Paid rows retain purchased facts and only clear pending fields. Pure pending rows may be removed: tenant RLS is ANDed with a restrictive DELETE policy requiring `purchased_seats IS NULL`. Runtime tests cover paid DELETE refusal, cross-org refusal, wrong reference, and restoration of legacy behavior. No purchase, ledger or audit history is changed by the business helper.
 
-## Remaining delivery boundary
+## Clean develop replay and delivery boundary
 
-Final exact-SHA independent security/feature review, normal static checks / CI, actual browser user-flow evidence, and an independently scoped Closes #6107 PR targeting normally integrated develop remain. The signed design dependency is explicitly merged locally; do not include its entire diff in the final business PR. No passing state or Team sales activation has been written. Full API typecheck was previously terminated for resource contention, not claimed passing; coordinator owns the next static window.
+Signed design PR #6101 is now normally merged into develop `6ed5e6833`. This branch replays only its 25 #6107 commits onto that base: `develop-replay-range-diff.txt` shows all 25 patch-equivalent (`=`), and excludes all 18 old design commits. Every capacity source/test/schema/contract/recovery file is byte-identical to reviewed old HEAD `98fceafbc`; no #6111/#6120 or financial migration is included. Old source is preserved locally at `archive/team-capacity-6107-reviewed-98f`; #6111 remains on its separate branch. Root explicitly accepted the unchanged-source replay and requires no duplicate PG/HTTP/Next run.
+
+Normal serial pre-push/static checks, separate Closes #6107 PR and CI remain pending at this record. No passing state, merge, sales activation or deployment is claimed. Runtime evidence above comes from the unchanged reviewed source. Full API typecheck was previously terminated for resource contention; this replay will use the normal hook rather than treating targeted tests as static proof.

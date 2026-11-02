@@ -1,0 +1,43 @@
+ 1:  9813bb467 <  -:  --------- docs(billing): draft Team and Enterprise contract materials; Refs #6099
+ 2:  244965aab <  -:  --------- docs(billing): refine Team design boundaries and review prerequisites; Refs #6099
+ 3:  07574fc56 <  -:  --------- docs(billing): record Team draft review and correct personal signoff reference; Refs #6099
+ 4:  308bf4a4c <  -:  --------- feat(contracts): prepare strict Team design inputs and prototype consumption; Refs #6099
+ 5:  6df6d6bc3 <  -:  --------- design(billing): validate immutable Team quotes in prototype Refs #6099
+ 6:  ffea2108f <  -:  --------- fix(billing): constrain WeChat Team quote currency Refs #6099
+ 7:  cef1bd167 <  -:  --------- design(billing): compose Team entitlement and fractional wallet facts Refs #6099
+ 8:  57ab66b7f <  -:  --------- fix(billing): retain canceled Stripe Team payment facts Refs #6099
+ 9:  e14bd374c <  -:  --------- design(billing): share catalog rules and scope Team products Refs #6099
+10:  9eccfe078 <  -:  --------- design(billing): model paid Team history without duplicate grants Refs #6099
+11:  891bfee6b <  -:  --------- fix(billing): reject future confirmed Team history payments Refs #6099
+12:  299fc7a27 <  -:  --------- design(billing): checkpoint recoverable Team purchase outcomes Refs #6099
+13:  fd462440a <  -:  --------- fix(billing): anchor prepaid Team grants and record Enterprise decision Refs #6099
+14:  671c7e434 <  -:  --------- design(billing): define platform upgrade outcomes and preview projections Refs #6099
+15:  0dca41044 <  -:  --------- design(billing): cover initial capacity and Enterprise recovery views Refs #6099
+16:  9c3ed5298 <  -:  --------- docs(billing): record final Team design coherence and verification Refs #6099
+17:  2b984131a <  -:  --------- docs(billing): record explicit human Team bundle signoff Refs #6099
+18:  8e07cd7d8 <  -:  --------- docs(billing): remove superseded pending signoff handoff Refs #6099
+19:  09c5c61ec =  1:  518659a29 feat(org-capacity): establish canonical commercial seat facts and lock interface (#6107)
+20:  0cd334c9a =  2:  dea4e2b1a fix(org-capacity): bind seat floor to signed Team contract (#6107)
+21:  6f1b9dc20 =  3:  76a9e2ed7 test(org-capacity): add real PG cross-entry last-seat counterexamples (#6107)
+22:  fc12ccb98 =  4:  96c88f420 test(org-capacity): use canonical organization role in PG fixtures (#6107)
+23:  898803e45 =  5:  5c9fe50fe docs(org-capacity): record entrance inventory and verification boundaries (#6107)
+24:  09867cfb4 =  6:  d5aeb4920 docs(org-capacity): include actual bootstrap and failed-fixture output (#6107)
+25:  269e1843f =  7:  2abec8b94 test(org-capacity): cover full-seat project activation rollback (#6107)
+26:  0d915ef2c =  8:  708d719c7 test(org-capacity): isolate sequential PG replays and cold migration setup (#6107)
+27:  af6aacb00 =  9:  efbef9ec2 test(org-capacity): honor credential hash and project activation ports (#6107)
+28:  2c3b48730 = 10:  b14bd2650 test(org-capacity): provide valid verification digest in project fixture (#6107)
+29:  5619e25e0 = 11:  f29ce4351 feat(org-capacity): atomically constrain all member admission paths (#6107)
+30:  70947cac0 = 12:  71075d982 test(org-capacity): add real HTTP rejection and authorization evidence lane (#6107)
+31:  cbb14bac2 = 13:  c499b457c test(org-capacity): cover pending purchase and unsupported generation admission (#6107)
+32:  007bc1838 = 14:  77b1a53db test(org-capacity): ensure generation rejection is independent of a full seat count (#6107)
+33:  4d94d472e = 15:  df6fb8775 docs(org-identity): capture admission lock order and credential side effect boundary (#6107)
+34:  1dcae6e1f = 16:  88bc4c1d2 feat(org-capacity): safely close pending intents and add revocation race contract (#6107)
+35:  0edd1ebaf = 17:  1764f5b75 docs(org-capacity): retain reproducible review follow-up patch and verification boundary (#6107)
+36:  fd7d9b0e6 = 18:  cf1212911 test(org-capacity): cover logged-in project acceptance at full capacity (#6107)
+37:  ef465510c = 19:  06d6fd3a5 docs(org-capacity): reflect logged-in acceptance coverage in pending validation (#6107)
+38:  01d796779 = 20:  c3a2817a9 test(org-capacity): restore global epoch and clean owned credential gifts between files (#6107)
+39:  f7121e136 = 21:  851f1bf0c docs(org-capacity): align prepared revocation fix with resend token lock order (#6107)
+40:  b0542a6a2 = 22:  b125cda99 test(org-capacity): make bounded fixture indexing explicit for strict types (#6107)
+41:  65bb2a42e = 23:  f3910766a docs(org-capacity): preserve resource-gated continuation and exact verification steps (#6107)
+42:  0ae99042f = 24:  d99489f08 fix(org-capacity): serialize revocation and token consumption with verified admission (#6107)
+43:  98fceafbc = 25:  e499aeae0 fix(recovery): review commercial capacity migration in exact suffix (#6107)

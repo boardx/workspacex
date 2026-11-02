@@ -19,3 +19,8 @@ Pending final exact-SHA independent security/feature review, normal static check
 ## Next action
 
 Send resulting source/evidence commit SHA to root and independent reviewer for exact-SHA review. Root schedules browser/static/push window; pre-push normally runs broad turbo typecheck/lint, so do not start it concurrently with another heavy job. After signed design integrates, update/rebase this same worker tree onto normal develop, confirm business-only diff, push and create independent develop PR. Resolve review/CI to green; worker never merges/deploys. Further tests are justified only by changed code, failures or specific unresolved concerns, not routine repetition of the already-green lane.
+
+
+## Integration update
+
+Design normally merged at develop6ed5e6833. Clean replay HEAD before this documentation update is e499aeae07ae110710f6e5d9eae9de6ac10bec20: own25 patch-equivalent commits only, all old18 design commits excluded, per-path source diff against reviewed98f empty. Root accepts unchanged-source carryover; current window authorizes exactly one normal serial hook/push and independent develop PR, no repeated PG/HTTP/Next. See develop-replay-range-diff.txt. Do not follow the obsolete dependency wait above; use fresh CI/PR status after push.
