@@ -1,5 +1,9 @@
+import { profileEn } from "../namespaces/profile";
+import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...profileEn,
+  ...stateEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",

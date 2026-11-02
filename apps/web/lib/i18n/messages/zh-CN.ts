@@ -1,4 +1,8 @@
+import { profileZhCN } from "../namespaces/profile";
+import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
+  ...profileZhCN,
+  ...stateZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
