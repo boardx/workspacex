@@ -60,3 +60,11 @@ the browser-tested editor behavior and authoring budget.
 This slice provides display translation authoring and consumption. Built-in authored
 bilingual package metadata and portable import/export remain tracked in #6156.
 Untranslated surrounding static UI belongs to the parallel application-copy work.
+
+CI integration repair: the directory now calls `useOptionalSession`, so whole-module
+SessionProvider test mocks must preserve that export. ChatRead supplies both hooks
+from the same stable session fixture; the other affected Chat/Copilot tests retain
+the actual exports and override their existing session hook. No product fallback or
+permission assertion changed. `session-mock-regressions.txt` records all 184 tests
+in the 22 affected files passing with one worker. The initial ChatRead reproduction
+failed 36 tests; a broader sample also failed before the mock repair.
