@@ -24,3 +24,13 @@ Confirmed receipt refresh regression: parent detail refresh used to unmount the 
 Prepared (not yet run): two real HTTP cases using bcrypt login, Redis bearer sessions and full Kernel composition; one real browser journey using an isolated API/Next runtime and dedicated catalog credential. These lanes contain no route interception and do not assert merchant settlement.
 
 Signed UI confirmation is wired using the existing Dialog component: a new upgrade/grant request is sent only after confirming the organization and grant facts. Existing uncertain requests retry the original identity. Actual summary wallet balance is displayed without a fabricated default. Targeted confirmation red retained; current UI selection 8/8.
+
+## Current unverified additions
+
+Full paid-Team renewal/retention remains **issue #6116**, outside this deliverable's usable no-Team lane. Any canonical Team license row remains fail-closed.
+
+Added authenticated-session recovery: canonical original request is held in sessionStorage under actor + target organization + bearer SHA256 fingerprint. Raw tokens are not stored. Mount/reload restores parameters only; it never posts automatically. Explicit retry uses the original request; identity/organization changes unmount the old panel. New recovery/error cases expand UI selection to 11; these additions have **not yet run**. Last executed UI output is the preceding 8-case selection.
+
+Current owned backend selection is 19 targeted cases: Enterprise PG 7, precision PG 8, real HTTP 2, two generator-source checks. Admission was interrupted at the coordinator's instruction before any stack/Vitest startup; `pg-admission-interrupted.txt` is queue output, not verification. Wait for an explicit resource release; do not allow admission timeout to force-start under load. No full typecheck/browser is running.
+
+Browser acceptance now includes a deterministic test-only transport fault after the real grant commit: the runtime closes the first successful response, then the real browser reloads and explicitly retries the same key. Actual wallet/ledger/audit must remain unchanged by replay. This is a real backend plus a fault-injection runtime, not a merchant-payment or production-deployment claim. Browser run is still pending.

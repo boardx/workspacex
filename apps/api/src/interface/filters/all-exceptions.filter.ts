@@ -1,5 +1,5 @@
 import {EnterpriseHttpException} from "../controllers/enterprise-http-exception";
-import {TeamBillingErrorCode} from "@repo/contracts/billing-team";
+import {operations as enterpriseOperations,TeamBillingErrorCode} from "@repo/contracts/billing-team";
 import {CreditConsumptionError} from "../../application/billing/credit-consumption";
 import {CreditRequiredBody} from "@repo/contracts/billing-consumption";
 import { SubscriptionHttpException } from "../controllers/subscription-http-exception";
@@ -710,6 +710,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
       this.logger.error("http exception", { traceId, err: exception, status });
+      const permission=permissionReasonOf(exception);
+      const routePath=http.getRequest<{route?:{path?:unknown}}>().route?.path;
+      const enterpriseRoute=Object.values(enterpriseOperations).some(operation=>operation.path===routePath);
+      const permissionCode=enterpriseRoute?TeamBillingErrorCode.safeParse(permission.reasonCode):null;
       res.status(status).json({
         error: CODE_BY_STATUS[status] ?? "internal_error",
         traceId,
@@ -717,7 +721,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ...(exception instanceof BillingHttpException && BillingErrorCode.safeParse(exception.billingCode).success ? { code: exception.billingCode } : {}),
         ...(exception instanceof SubscriptionHttpException && SubscriptionErrorCode.safeParse(exception.subscriptionCode).success ? { code: exception.subscriptionCode } : {}),
         ...(exception instanceof PersonalCheckoutHttpException && personalPricingOperations.createPersonalCheckout.err.includes(exception.checkoutCode) ? { code: exception.checkoutCode } : {}),
-        ...permissionReasonOf(exception),
+        ...(permissionCode?.success?{code:permissionCode.data}:permission),
         ...surveyErrorOf(exception),
         ...researchConflictDetailOf(exception),
         ...artifactErrorOf(exception),

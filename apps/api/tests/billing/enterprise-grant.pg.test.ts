@@ -19,8 +19,9 @@ beforeEach(async()=>{
 });
 afterAll(async()=>{await db?.close();});
 it("actual wallet, ledger and immutable grant audit commit once",async()=>{
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance,total_granted) VALUES('team',$1,0.09,0.09)",[org]));
  const input={credits:23,reason:"approved allowance",idempotencyKey:"pg-attempt-00000001"};const first=await grants.grant(org,"operator",input);expect(await grants.grant(org,"operator",input)).toEqual(first);
- await asOwner(async c=>{const result=await c.query("SELECT balance::text,total_granted::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org]);expect(Number(result.rows[0].balance)).toBe(23);expect(Number(result.rows[0].total_granted)).toBe(23);const ledger=await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_id=$1",[first.grantRef]);expect(ledger.rows[0].n).toBe(1);});
+ await asOwner(async c=>{const result=await c.query("SELECT balance::text,total_granted::text FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org]);expect(Number(result.rows[0].balance)).toBe(23.09);expect(Number(result.rows[0].total_granted)).toBe(23.09);const ledger=await c.query("SELECT count(*)::int AS n FROM credit_transactions WHERE source_id=$1",[first.grantRef]);expect(ledger.rows[0].n).toBe(1);expect((await c.query("SELECT balance_after::text FROM credit_transactions WHERE source_id=$1",[first.grantRef])).rows[0].balance_after).toBe("23.09");});
  await expect(grants.grant(org,"different-operator",input)).rejects.toMatchObject({code:"idempotency_conflict"});
 });
 it("legacy Enterprise metadata cannot restore current generation rights",async()=>{
@@ -35,12 +36,13 @@ it("actual no-paid-Team upgrade preserves one Plan version and the same receipt"
  const service=new EnterpriseUpgrade(new PgEnterpriseUpgradeStore(db),new EnterpriseNoPaidTeamAdapter(db));
  const request={expectedPlanVersion:1,idempotencyKey:"upgrade-attempt-001"};const result=await service.upgrade(org,"operator",request);
  expect(result.status).toBe("succeeded");expect(await service.upgrade(org,"operator",request)).toEqual(result);
- await asOwner(async c=>{const row=(await c.query("SELECT plan,version,billing_generation FROM organization_plans WHERE org_id=$1",[org])).rows[0];expect(row).toMatchObject({plan:"enterprise",version:2,billing_generation:generation});});
+ await asOwner(async c=>{const row=(await c.query("SELECT plan,version,billing_generation FROM organization_plans WHERE org_id=$1",[org])).rows[0];expect(row).toMatchObject({plan:"enterprise",version:2,billing_generation:generation});expect((await c.query("SELECT count(*)::int AS n FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org])).rows[0].n).toBe(0);});
 });
 it("actual paid license remains unchanged while upgrade is processing",async()=>{
  const {PgEnterpriseUpgradeStore}=await import("../../src/infrastructure/billing/enterprise-upgrade-store");const {EnterpriseUpgrade}=await import("../../src/application/billing/enterprise-upgrade");const {EnterpriseNoPaidTeamAdapter}=await import("../../src/infrastructure/billing/enterprise-no-paid-team");
  await asOwner(async c=>{await c.query("UPDATE organization_plans SET plan='ordinary',billing_generation=$2 WHERE org_id=$1",[org,generation]);await c.query("INSERT INTO org_commercial_licenses(org_id,generation,purchased_seats) VALUES($1,$2,7)",[org,generation]);});
  const service=new EnterpriseUpgrade(new PgEnterpriseUpgradeStore(db),new EnterpriseNoPaidTeamAdapter(db));const result=await service.upgrade(org,"operator",{expectedPlanVersion:1,idempotencyKey:"paid-upgrade-00001"});
+ await expect(grants.grant(org,"operator",{credits:1,reason:"Team must purchase credits",idempotencyKey:"team-grant-denial-001"})).rejects.toMatchObject({code:"enterprise_required"});
  expect(result).toMatchObject({status:"processing",code:"dependency_unavailable"});await asOwner(async c=>{expect((await c.query("SELECT plan,version FROM organization_plans WHERE org_id=$1",[org])).rows[0]).toEqual({plan:"ordinary",version:1});});
 });
 it("audit CHECK failure rolls back actual wallet and ledger",async()=>{

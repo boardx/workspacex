@@ -1,3 +1,5 @@
+import type {Request,Response,NextFunction} from "express";
+import {operations as enterpriseOperations} from "@repo/contracts/billing-team";
 // @global-scope-fixture table:credentials: disposable acceptance users scoped by wrapper id.
 // @global-scope-fixture table:billing_pricing_epoch: active epoch fixture in disposable wsx_ database only.
 import {readFileSync} from "node:fs";
@@ -20,4 +22,16 @@ await asOwner(async c=>{
  await c.query("GRANT app_platform_org_catalog_ro TO enterprise_catalog_6108");
 });
 Object.assign(process.env,{NODE_ENV:"test",KERNEL_QUIET:"1",MAIL_OUTBOX_WORKER_ENABLED:"0",MODEL_CREDENTIAL_KEY:"enterprise-acceptance-isolated-key-6108",PLATFORM_SUPERUSER_EMAILS:fixture.operatorEmail,PLATFORM_ORG_CATALOG_DB_USER:fixture.catalogUser,PLATFORM_ORG_CATALOG_DB_PASSWORD:fixture.catalogPassword});
-const {startApi}=await import("../src/main");await startApi({port,listenHost:"127.0.0.1",loadLocalEnv:false});
+const {createApp}=await import("../src/main");const app=await createApp();
+// One deterministic transport fault AFTER the real grant transaction commits.
+// This test-only runtime never mocks a financial service or intercepts the browser API.
+let responseLost=false;
+app.use((req:Request,res:Response,next:NextFunction)=>{
+ const send=res.json.bind(res);
+ res.json=(body?:unknown)=>{
+  if(!responseLost&&req.method==="POST"&&req.path===enterpriseOperations.grantEnterpriseCredits.path.replace(":orgId",fixture.target)&&res.statusCode===201&&enterpriseOperations.grantEnterpriseCredits.out.safeParse(body).success){responseLost=true;res.destroy();return res;}
+  return send(body);
+ };
+ next();
+});
+app.enableShutdownHooks(["SIGTERM","SIGINT"]);await app.listen(port,"127.0.0.1");
