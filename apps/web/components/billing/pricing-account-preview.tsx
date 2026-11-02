@@ -1,4 +1,5 @@
 "use client";
+import { TEAM_INCLUDED_SEATS, TEAM_MONTHLY_CREDITS } from "@repo/contracts/billing-team";
 import { ArrowUpRight, Clock3, CreditCard, Users, Wallet } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ export function PricingAccountPreview({ team, free, expired, region, cycle, onPu
   onPurchase: (kind: PurchaseKind) => void; onHistory: (kind: "usage" | "subscription" | "management") => void;
 }) {
   const remaining = expired ? 0 : team ? 64000 : free ? 1000 : 14600;
-  const total = team ? 100000 : free ? 1000 : 20000;
+  const total = team ? TEAM_MONTHLY_CREDITS : free ? 1000 : 20000;
   return <div className="grid items-start gap-5 md:grid-cols-2">
     <section data-testid="pricing-wallet" className="rounded-card border border-border bg-card p-6">
       <div className="flex items-center gap-2 text-14 font-medium"><Wallet className="h-4 w-4" aria-hidden="true" />{team ? "团队充值额度" : "充值额度"}</div>
@@ -26,7 +27,7 @@ export function PricingAccountPreview({ team, free, expired, region, cycle, onPu
       <div className="mt-3 flex items-center gap-3"><Progress value={remaining} max={total} label="订阅额度剩余" className="flex-1" /><span className="text-12 text-muted-foreground tabular-nums">{Math.round(remaining / total * 100)}%</span></div>
       <p className="mt-4 flex items-center gap-2 text-12 text-muted-foreground"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{free ? "赠送额度于 2026/12/01 到期（到账后 30 天）" : expired ? "订阅已于 2026/10/31 到期" : "本期额度于 2026/12/01 到期"}</p>
       {!free && !expired && <p className="mt-2 text-12 text-muted-foreground">订阅有效至 {cycle === "year" ? "2027/11/01" : "2026/12/01"}</p>}
-      {team && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-control bg-muted p-3"><span className="flex items-center gap-2 text-13"><Users className="h-4 w-4" aria-hidden="true" />已用 4 / 已购 5 席</span><Button data-testid="pricing-add-seats" size="sm" variant="outline" disabled={expired} onClick={() => onPurchase("seats")}>增加席位</Button><p className="w-full text-12 text-muted-foreground">按已购席位收费，成员减少不自动减费。</p></div>}
+      {team && <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-control bg-muted p-3"><span className="flex items-center gap-2 text-13"><Users className="h-4 w-4" aria-hidden="true" />已用 4 / 已购 {TEAM_INCLUDED_SEATS} 席</span><Button data-testid="pricing-add-seats" size="sm" variant="outline" disabled={expired} onClick={() => onPurchase("seats")}>增加席位</Button><p className="w-full text-12 text-muted-foreground">按已购席位收费，成员减少不自动减费。</p></div>}
       <p className="mt-5 text-12 leading-relaxed text-muted-foreground">{expired ? "团队已停止新 AI 请求。登录与资料查看不受影响。" : free ? "用完后可购买充值额度，或升级 Pro 获得每月额度。" : `${region === "us" ? "Stripe 自动续费" : "微信一次性购买，到期手动续费"}；${cycle === "year" ? "年付仍按购买日逐月发放。" : "按购买日每月发放。"}当期未用额度到期清零。`}</p>
       <div className="mt-4 flex flex-wrap gap-2"><Button data-testid="pricing-open-plans" variant={free || expired ? "primary" : "outline"} onClick={() => onPurchase("plans")}>{expired ? "续费团队" : free ? "升级套餐" : "查看套餐"}</Button>{region === "us" && !free && <Button data-testid="pricing-manage-subscription" variant="ghost" onClick={() => onHistory("management")}>管理自动续费</Button>}</div>
       <div className="mt-6 border-t border-border pt-4"><div className="flex items-center justify-between"><h3 className="text-13 font-medium">订阅历史</h3><Button data-testid="pricing-subscription-history" size="sm" variant="ghost" onClick={() => onHistory("subscription")}>查看全部</Button></div>{free ? <p className="mt-3 text-12 text-muted-foreground">还没有订阅记录。</p> : <div data-testid="pricing-latest-subscription" className="mt-3 flex flex-wrap items-start justify-between gap-2 text-12"><div><p>{team ? "Team" : "Pro"} {cycle === "year" ? "年度" : "月度"}订阅</p><p className="mt-1 text-muted-foreground">{expired ? `${cycle === "year" ? "2025/10/31" : "2026/09/30"} — 2026/10/31` : `2026/11/01 — ${cycle === "year" ? "2027/11/01" : "2026/12/01"}`}</p></div><span>{previewMoney(region, previewPrices(region)[team ? "team" : "pro"][cycle])}</span></div>}</div>

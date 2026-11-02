@@ -1,0 +1,418 @@
+• turbo 2.10.5
+
+   • Packages in scope: @repo/api, @repo/cloud-deploy, @repo/contracts, @repo/coord-access, @repo/coord-brain, @repo/coord-directory, @repo/coord-gateway, @repo/coord-projection, @repo/coord-protocol, @repo/coord-repohub, @repo/desktop, @repo/dev-mode-accounts, @repo/devportal, @repo/fabric-markdown, @repo/local-asr-gateway, @repo/local-runtime, @repo/ops-console, @repo/ops-telemetry, @repo/skill-sandbox, @repo/whiteboard-core, web
+   • Running typecheck, lint in 21 packages
+   • Remote caching disabled, using shared worktree cache
+
+@repo/local-asr-gateway:typecheck: cache hit, replaying logs c719316dca3ceb21
+@repo/local-asr-gateway:typecheck: 
+@repo/local-asr-gateway:typecheck: > @repo/local-asr-gateway@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-asr-gateway:typecheck: > tsc --noEmit
+@repo/local-asr-gateway:typecheck: 
+@repo/local-asr-gateway:lint: cache hit, replaying logs 955e6f95439a6e41
+@repo/local-asr-gateway:lint: 
+@repo/local-asr-gateway:lint: > @repo/local-asr-gateway@0.1.0 lint /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-asr-gateway:lint: > echo 'lint: ok'
+@repo/local-asr-gateway:lint: 
+@repo/local-asr-gateway:lint: lint: ok
+@repo/coord-access:build: cache hit, replaying logs 7e1022316f22738f
+@repo/coord-access:build: 
+@repo/coord-access:build: > @repo/coord-access@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-access
+@repo/coord-access:build: > tsc --noEmit
+@repo/coord-access:build: 
+@repo/fabric-markdown:typecheck: cache hit, replaying logs 44181841bf3d8fbf
+@repo/fabric-markdown:typecheck: 
+@repo/fabric-markdown:typecheck: > @repo/fabric-markdown@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/4986/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:typecheck: > tsc --noEmit
+@repo/fabric-markdown:typecheck: 
+@repo/fabric-markdown:lint: cache hit, replaying logs e2ce23ab3f5186a8
+@repo/fabric-markdown:lint: 
+@repo/fabric-markdown:lint: > @repo/fabric-markdown@0.1.0 lint /Users/shenyangjun/.codex/worktrees/4986/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:lint: > echo '(fabric-markdown: 上游源码，风格不改写；契约由 apps/api 的 canvas 契约测试门控)'
+@repo/fabric-markdown:lint: 
+@repo/fabric-markdown:lint: (fabric-markdown: 上游源码，风格不改写；契约由 apps/api 的 canvas 契约测试门控)
+@repo/coord-protocol:build: cache hit, replaying logs 55749db2a1d1a730
+@repo/coord-protocol:build: 
+@repo/coord-protocol:build: > @repo/coord-protocol@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-protocol
+@repo/coord-protocol:build: > tsc --noEmit
+@repo/coord-protocol:build: 
+@repo/local-runtime:typecheck: cache hit, replaying logs da6532762e425827
+@repo/local-runtime:typecheck: 
+@repo/local-runtime:typecheck: > @repo/local-runtime@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:typecheck: > tsc --noEmit
+@repo/local-runtime:typecheck: 
+@repo/local-runtime:lint: cache hit, replaying logs 04ce174f7f072cad
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: > @repo/local-runtime@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:lint: > echo 'lint: ok'
+@repo/local-runtime:lint: 
+@repo/local-runtime:lint: lint: ok
+@repo/coord-projection:typecheck: cache hit, replaying logs e40629503ddab698
+@repo/coord-projection:typecheck: 
+@repo/coord-projection:typecheck: > @repo/coord-projection@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-p21/packages/coord-projection
+@repo/coord-projection:typecheck: > tsc --noEmit
+@repo/coord-projection:typecheck: 
+@repo/coord-projection:lint: cache hit, replaying logs 0316eb394813cad3
+@repo/coord-projection:lint: 
+@repo/coord-projection:lint: > @repo/coord-projection@0.1.0 lint /Users/shenyangjun/boardx/workspacex-p21/packages/coord-projection
+@repo/coord-projection:lint: > echo 'lint: ok'
+@repo/coord-projection:lint: 
+@repo/coord-projection:lint: lint: ok
+@repo/local-runtime:build: cache hit, replaying logs 2240c0995dde9eca
+@repo/local-runtime:build: 
+@repo/local-runtime:build: > @repo/local-runtime@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/local-runtime
+@repo/local-runtime:build: > tsc --noEmit
+@repo/local-runtime:build: 
+@repo/coord-brain:typecheck: cache hit, replaying logs 704221f32f220911
+@repo/coord-brain:typecheck: 
+@repo/coord-brain:typecheck: > @repo/coord-brain@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-brain
+@repo/coord-brain:typecheck: > tsc --noEmit
+@repo/coord-brain:typecheck: 
+@repo/coord-brain:lint: cache hit, replaying logs fcf3b4f5439572f3
+@repo/coord-brain:lint: 
+@repo/coord-brain:lint: > @repo/coord-brain@0.1.0 lint /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-brain
+@repo/coord-brain:lint: > echo 'lint: ok'
+@repo/coord-brain:lint: 
+@repo/coord-brain:lint: lint: ok
+@repo/contracts:typecheck: cache miss, executing d386d4a390bb819f
+@repo/contracts:typecheck: 
+@repo/contracts:typecheck: > @repo/contracts@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+@repo/contracts:typecheck: > tsc --noEmit
+@repo/contracts:typecheck: 
+@repo/contracts:lint: cache miss, executing 75703e69ed401864
+@repo/contracts:lint: 
+@repo/contracts:lint: > @repo/contracts@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/contracts
+@repo/contracts:lint: > echo '(contracts: 由 lint-contract-source 门控)'
+@repo/contracts:lint: 
+@repo/contracts:lint: (contracts: 由 lint-contract-source 门控)
+@repo/cloud-deploy:build: cache hit, replaying logs d2a92667c208ed74
+@repo/cloud-deploy:build: 
+@repo/cloud-deploy:build: > @repo/cloud-deploy@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/packages/cloud-deploy
+@repo/cloud-deploy:build: > tsc --noEmit
+@repo/cloud-deploy:build: 
+@repo/local-asr-gateway:build: cache hit, replaying logs 16ba7203425c02c8
+@repo/local-asr-gateway:build: 
+@repo/local-asr-gateway:build: > @repo/local-asr-gateway@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/apps/local-asr-gateway
+@repo/local-asr-gateway:build: > tsc --noEmit
+@repo/local-asr-gateway:build: 
+@repo/fabric-markdown:build: cache hit, replaying logs 731da9d16c66361e
+@repo/fabric-markdown:build: 
+@repo/fabric-markdown:build: > @repo/fabric-markdown@0.1.0 build /Users/shenyangjun/.codex/worktrees/6712/workspacex/packages/fabric-markdown
+@repo/fabric-markdown:build: > tsc -p tsconfig.build.json
+@repo/fabric-markdown:build: 
+@repo/skill-sandbox:build: cache hit, replaying logs 8a067388e7ddfa47
+@repo/skill-sandbox:build: 
+@repo/skill-sandbox:build: > @repo/skill-sandbox@0.1.0 build /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:build: > tsc --noEmit
+@repo/skill-sandbox:build: 
+@repo/coord-protocol:typecheck: cache hit, replaying logs 956173cbc99dd0fa
+@repo/coord-protocol:typecheck: 
+@repo/coord-protocol:typecheck: > @repo/coord-protocol@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-protocol
+@repo/coord-protocol:typecheck: > tsc --noEmit
+@repo/coord-protocol:typecheck: 
+@repo/coord-protocol:lint: cache hit, replaying logs d6640917329a4d58
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: > @repo/coord-protocol@0.1.0 lint /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-protocol
+@repo/coord-protocol:lint: > echo 'lint: ok'
+@repo/coord-protocol:lint: 
+@repo/coord-protocol:lint: lint: ok
+@repo/cloud-deploy:typecheck: cache hit, replaying logs 38020f619585d220
+@repo/cloud-deploy:typecheck: 
+@repo/cloud-deploy:typecheck: > @repo/cloud-deploy@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/72a6/workspacex/packages/cloud-deploy
+@repo/cloud-deploy:typecheck: > tsc --noEmit
+@repo/cloud-deploy:typecheck: 
+@repo/cloud-deploy:lint: cache hit, replaying logs ff98356ccd5f810b
+@repo/cloud-deploy:lint: 
+@repo/cloud-deploy:lint: > @repo/cloud-deploy@0.1.0 lint /Users/shenyangjun/.codex/worktrees/72a6/workspacex/packages/cloud-deploy
+@repo/cloud-deploy:lint: > tsc --noEmit && node --import tsx src/schema-cli.ts --check
+@repo/cloud-deploy:lint: 
+@repo/coord-projection:build: cache hit, replaying logs 38865b0cc50bbd0b
+@repo/coord-projection:build: 
+@repo/coord-projection:build: > @repo/coord-projection@0.1.0 build /Users/shenyangjun/boardx/workspacex-p21/packages/coord-projection
+@repo/coord-projection:build: > tsc --noEmit
+@repo/coord-projection:build: 
+@repo/coord-brain:build: cache hit, replaying logs 641db31827135dd8
+@repo/coord-brain:build: 
+@repo/coord-brain:build: > @repo/coord-brain@0.1.0 build /Users/shenyangjun/.codex/worktrees/deep-research-trust-console/workspacex/packages/coord-brain
+@repo/coord-brain:build: > tsc --noEmit
+@repo/coord-brain:build: 
+@repo/skill-sandbox:typecheck: cache hit, replaying logs fa9f760c0b063c51
+@repo/skill-sandbox:typecheck: 
+@repo/skill-sandbox:typecheck: > @repo/skill-sandbox@0.1.0 typecheck /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:typecheck: > tsc --noEmit
+@repo/skill-sandbox:typecheck: 
+@repo/skill-sandbox:lint: cache hit, replaying logs 6ff94f2868ae69bf
+@repo/skill-sandbox:lint: 
+@repo/skill-sandbox:lint: > @repo/skill-sandbox@0.1.0 lint /Users/shenyangjun/.codex/worktrees/72a6/workspacex/apps/skill-sandbox
+@repo/skill-sandbox:lint: > echo 'lint: ok'
+@repo/skill-sandbox:lint: 
+@repo/skill-sandbox:lint: lint: ok
+@repo/coord-access:typecheck: cache hit, replaying logs 9f6b055341cbfb90
+@repo/coord-access:typecheck: 
+@repo/coord-access:typecheck: > @repo/coord-access@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-p21/packages/coord-access
+@repo/coord-access:typecheck: > tsc --noEmit
+@repo/coord-access:typecheck: 
+@repo/coord-access:lint: cache hit, replaying logs 680f4b71a5d88835
+@repo/coord-access:lint: 
+@repo/coord-access:lint: > @repo/coord-access@0.1.0 lint /Users/shenyangjun/boardx/workspacex-p21/packages/coord-access
+@repo/coord-access:lint: > echo 'lint: ok'
+@repo/coord-access:lint: 
+@repo/coord-access:lint: lint: ok
+@repo/devportal:typecheck: cache hit, replaying logs 9645abdb17e8ab86
+@repo/devportal:typecheck: 
+@repo/devportal:typecheck: > @repo/devportal@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-p21/apps/devportal
+@repo/devportal:typecheck: > tsc --noEmit
+@repo/devportal:typecheck: 
+@repo/devportal:lint: cache hit, replaying logs b43c7e67227d1b7b
+@repo/devportal:lint: 
+@repo/devportal:lint: > @repo/devportal@0.1.0 lint /Users/shenyangjun/boardx/workspacex-p21/apps/devportal
+@repo/devportal:lint: > node scripts/check-token-contrast.mjs
+@repo/devportal:lint: 
+@repo/devportal:lint: ✓ token 对比度：全部色面/文字对过线（中性 ≥4.5:1，状态色 ≥3:1，明暗两套）
+@repo/coord-directory:typecheck: cache hit, replaying logs 9d2105d1e92b6b27
+@repo/coord-directory:typecheck: 
+@repo/coord-directory:typecheck: > @repo/coord-directory@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-p21/packages/coord-directory
+@repo/coord-directory:typecheck: > tsc --noEmit
+@repo/coord-directory:typecheck: 
+@repo/coord-directory:lint: cache hit, replaying logs 6044479cf8e70497
+@repo/coord-directory:lint: 
+@repo/coord-directory:lint: > @repo/coord-directory@0.1.0 lint /Users/shenyangjun/boardx/workspacex-p21/packages/coord-directory
+@repo/coord-directory:lint: > echo 'lint: ok'
+@repo/coord-directory:lint: 
+@repo/coord-directory:lint: lint: ok
+@repo/coord-repohub:typecheck: cache hit, replaying logs 56e249431d5e5d1e
+@repo/coord-repohub:typecheck: 
+@repo/coord-repohub:typecheck: > @repo/coord-repohub@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-p21/packages/coord-repohub
+@repo/coord-repohub:typecheck: > tsc --noEmit
+@repo/coord-repohub:typecheck: 
+@repo/coord-repohub:lint: cache hit, replaying logs 86af9cf530987a76
+@repo/coord-repohub:lint: 
+@repo/coord-repohub:lint: > @repo/coord-repohub@0.1.0 lint /Users/shenyangjun/boardx/workspacex-p21/packages/coord-repohub
+@repo/coord-repohub:lint: > echo 'lint: ok'
+@repo/coord-repohub:lint: 
+@repo/coord-repohub:lint: lint: ok
+@repo/coord-repohub:build: cache hit, replaying logs 98ca5e02fd3ddca1
+@repo/coord-repohub:build: 
+@repo/coord-repohub:build: > @repo/coord-repohub@0.1.0 build /Users/shenyangjun/boardx/workspacex-p21/packages/coord-repohub
+@repo/coord-repohub:build: > tsc --noEmit
+@repo/coord-repohub:build: 
+@repo/coord-directory:build: cache hit, replaying logs ba3e3791e51f6ace
+@repo/coord-directory:build: 
+@repo/coord-directory:build: > @repo/coord-directory@0.1.0 build /Users/shenyangjun/boardx/workspacex-p21/packages/coord-directory
+@repo/coord-directory:build: > tsc --noEmit
+@repo/coord-directory:build: 
+@repo/whiteboard-core:typecheck: cache miss, executing 7b38026baf67b530
+@repo/whiteboard-core:typecheck: 
+@repo/whiteboard-core:typecheck: > @repo/whiteboard-core@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/whiteboard-core
+@repo/whiteboard-core:typecheck: > tsc --noEmit
+@repo/whiteboard-core:typecheck: 
+@repo/ops-console:lint: cache miss, executing 7b9bb098ec4a3706
+@repo/ops-console:lint: 
+@repo/ops-console:lint: > @repo/ops-console@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-console
+@repo/ops-console:lint: > echo 'lint: ok'
+@repo/ops-console:lint: 
+@repo/ops-console:lint: lint: ok
+@repo/ops-telemetry:typecheck: cache miss, executing bd50d2084863377a
+@repo/ops-telemetry:typecheck: 
+@repo/ops-telemetry:typecheck: > @repo/ops-telemetry@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-telemetry
+@repo/ops-telemetry:typecheck: > tsc --noEmit
+@repo/ops-telemetry:typecheck: 
+@repo/ops-telemetry:lint: cache miss, executing 4e6f52e6a860e2a8
+@repo/ops-telemetry:lint: 
+@repo/ops-telemetry:lint: > @repo/ops-telemetry@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-telemetry
+@repo/ops-telemetry:lint: > echo 'lint: ok'
+@repo/ops-telemetry:lint: 
+@repo/ops-telemetry:lint: lint: ok
+@repo/dev-mode-accounts:build: cache miss, executing 081af23885e6e15e
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:build: > @repo/dev-mode-accounts@0.1.0 build /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/dev-mode-accounts
+@repo/dev-mode-accounts:build: > tsc --noEmit
+@repo/dev-mode-accounts:build: 
+@repo/dev-mode-accounts:typecheck: cache miss, executing 6502353c5b70df9c
+@repo/dev-mode-accounts:typecheck: 
+@repo/dev-mode-accounts:typecheck: > @repo/dev-mode-accounts@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/dev-mode-accounts
+@repo/dev-mode-accounts:typecheck: > tsc --noEmit
+@repo/dev-mode-accounts:typecheck: 
+@repo/dev-mode-accounts:lint: cache miss, executing ce9e82ad6bdcafde
+@repo/dev-mode-accounts:lint: 
+@repo/dev-mode-accounts:lint: > @repo/dev-mode-accounts@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/dev-mode-accounts
+@repo/dev-mode-accounts:lint: > echo 'lint: ok'
+@repo/dev-mode-accounts:lint: 
+@repo/dev-mode-accounts:lint: lint: ok
+@repo/whiteboard-core:lint: cache miss, executing 80fd2aa89c60bba0
+@repo/whiteboard-core:lint: 
+@repo/whiteboard-core:lint: > @repo/whiteboard-core@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/packages/whiteboard-core
+@repo/whiteboard-core:lint: > tsc --noEmit
+@repo/whiteboard-core:lint: 
+@repo/ops-console:typecheck: cache miss, executing 4b2ec3f9d1389a16
+@repo/ops-console:typecheck: 
+@repo/ops-console:typecheck: > @repo/ops-console@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/ops-console
+@repo/ops-console:typecheck: > tsc --noEmit
+@repo/ops-console:typecheck: 
+@repo/desktop:lint: cache hit, replaying logs ef7ea23b26c216d1
+@repo/desktop:lint: 
+@repo/desktop:lint: > @repo/desktop@0.3.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:lint: > echo 'lint: ok'
+@repo/desktop:lint: 
+@repo/desktop:lint: lint: ok
+@repo/desktop:typecheck: cache hit, replaying logs c52a4e63a8ebe161
+@repo/desktop:typecheck: 
+@repo/desktop:typecheck: > @repo/desktop@0.3.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/desktop
+@repo/desktop:typecheck: > tsc --noEmit
+@repo/desktop:typecheck: 
+@repo/coord-gateway:typecheck: cache hit, replaying logs 98501f75792ae95e
+@repo/coord-gateway:typecheck: 
+@repo/coord-gateway:typecheck: > @repo/coord-gateway@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-p21/apps/coord-gateway
+@repo/coord-gateway:typecheck: > tsc --noEmit
+@repo/coord-gateway:typecheck: 
+@repo/coord-gateway:lint: cache hit, replaying logs b8e51fedfbde4a79
+@repo/coord-gateway:lint: 
+@repo/coord-gateway:lint: > @repo/coord-gateway@0.1.0 lint /Users/shenyangjun/boardx/workspacex-p21/apps/coord-gateway
+@repo/coord-gateway:lint: > echo 'lint: ok'
+@repo/coord-gateway:lint: 
+@repo/coord-gateway:lint: lint: ok
+web:lint: cache miss, executing 17155bc5002d37cc
+web:lint: 
+web:lint: > web@0.1.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:lint: > next lint --max-warnings 0 && node scripts/gen-light-scope.mjs --check && ./scripts/lint-design.sh
+web:lint: 
+web:lint: ✔ No ESLint warnings or errors
+web:lint: ✅ gen-light-scope: .wx-light 与 :root 一致（53 个 token）
+web:lint: 
+web:lint: ✅ lint-design：全部通过（扫描 app components lib）
+web:typecheck: cache miss, executing c0d30b0e2c05179e
+web:typecheck: 
+web:typecheck: > web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+web:typecheck: > tsc --noEmit
+web:typecheck: 
+@repo/api:typecheck: cache miss, executing 736da403eedc8c71
+@repo/api:typecheck: 
+@repo/api:typecheck: > @repo/api@0.0.0 typecheck /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+@repo/api:typecheck: > tsc --noEmit
+@repo/api:typecheck: 
+@repo/api:lint: cache miss, executing 68f455462f5e91dc
+@repo/api:lint: 
+@repo/api:lint: > @repo/api@0.0.0 lint /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/api
+@repo/api:lint: > node scripts/lint-error-leak.mjs && node scripts/lint-permission-paths.mjs && node scripts/lint-no-builtin-capabilities.mjs && node scripts/lint-global-scope-test-fixtures.mjs && node scripts/lint-design-facet-single-source.mjs && tsx scripts/gen-design-facet-catalog.ts --check && tsx scripts/gen-agenda-tier-catalog.ts --check && node scripts/lint-skill-context-api-only.mjs && node scripts/lint-naming-single-source.mjs && tsx scripts/lint-work-skill-manifests.ts && node ../../.harness/scripts/lint-arch-deps.mjs apps/api/src
+@repo/api:lint: 
+@repo/api:lint: ✅ lint-error-leak: 196 files in the interface layer, no error detail reaches a response
+@repo/api:lint: scanned=196
+@repo/api:lint: ✅ lint-permission-paths: every tenant-table read goes through the guarded read path
+@repo/api:lint: scanned=2171 tenant-tables=324 allowlisted=162
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:31  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:32  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:33  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin-limits.ts:114  list-shaped constant `USAGE_MATRIX_MODELS` with 5 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:164  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:165  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:166  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/admin.ts:167  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:229  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:270  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:271  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:272  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:273  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:274  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:275  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:288  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:343  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:344  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:389  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:391  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:393  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:395  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:400  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:402  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:404  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:406  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:411  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:413  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:415  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:417  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:422  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:424  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:426  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:428  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:433  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:435  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:437  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:439  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:444  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:446  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:448  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:450  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/agent-runtime.ts:472  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/asset-governance.ts:385  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:268  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:268  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:269  list-shaped constant `templates` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:269  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:270  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:270  list-shaped constant `skills` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:271  list-shaped constant `templates` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/canvas.ts:271  list-shaped constant `skills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat-diagram-fabric.ts:39  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat-viz.ts:48  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:56  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:57  built-in capability entry `Atlas`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:58  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:59  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:60  built-in capability entry `Warden`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:61  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:372  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:413  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:422  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:450  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:484  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:485  list-shaped constant `models` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:530  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:733  list-shaped constant `skills` with 6 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:738  list-shaped constant `skills` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:744  list-shaped constant `skills` with 5 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:749  list-shaped constant `skills` with 4 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/chat.ts:785  list-shaped constant `presetSkills` with 3 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/interview-studio.ts:426  built-in capability entry `Echo`
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:278  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:279  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:279  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:282  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:285  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:289  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/live-collab-orchestration.ts:289  list-shaped constant `skills` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:351  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:417  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:418  built-in capability entry `Ava`
+@repo/api:lint: · [debt] apps/web/lib/mock/rec.ts:419  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/research-studio.ts:90  list-shaped constant `RS_SOURCE_DEFAULT` with 2 entries
+@repo/api:lint: · [debt] apps/web/lib/mock/skill.ts:695  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:161  built-in capability entry `Ledger`
+@repo/api:lint: · [debt] apps/web/lib/mock/tasks.ts:171  built-in capability entry `Scout`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:343  built-in capability entry `Scout`
+@repo/api:lint: ✅ lint-no-builtin-capabilities: no built-in capability list in product code
+@repo/api:lint: scanned=3732 violations=0 debt=89 migrations=442
+@repo/api:lint: ✓ global-scope test fixtures：58 个文件全部已声明
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:95  second design-facet definition table spread over multiple lines (13 distinct keys)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:523  hardcoded completeness denominator in `usedCount: 12, satisfaction: { mean: 4.6, sampleSize: 9 }, d`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:529  hardcoded completeness denominator in `usedCount: 3, satisfaction: { mean: 4.3, sampleSize: 3 }, do`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:541  hardcoded completeness denominator in `usedCount: 4, satisfaction: { mean: 4.4, sampleSize: 5 }, do`
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:560  second design-facet slot list (3 keys: flow-agenda, project-materials, outputs…)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:562  second design-facet slot list (2 keys: grouping-rule, skill-binding…)
+@repo/api:lint: · [debt] apps/web/lib/mock/tpl.ts:564  second design-facet slot list (3 keys: topic-and-background, survey, report-template…)
+@repo/api:lint: · [debt] apps/web/components/tpl/designer-panels.tsx:710  second design-facet definition table spread over multiple lines (11 distinct keys)
+@repo/api:lint: ✅ lint-design-facet-single-source: the definition table has one source
+@repo/api:lint: scanned=5500 violations=0 debt=8 keys=13 groups=5
+@repo/api:lint: ✅ design-facet catalog is in sync with the definition table
+@repo/api:lint: ✅ agenda tier catalog is in sync with the definition table
+@repo/api:lint: ✅ lint-skill-context-api-only: 78 个文件，skill 取数只经 Context API（I-25）
+@repo/api:lint: scanned=78 violations=0
+@repo/api:lint: ✅ lint-naming-single-source: 0 处败选名（stepId / step_id / agenda_stage / stage.<action>）
+@repo/api:lint: scanned-roots=4
+@repo/api:lint: lint-work-skill-manifests: 89/89 个 Work Skill manifest 通过
+@repo/api:lint: ✅ lint-arch-deps: 2168 files, all dependencies point inward
+@repo/api:lint: scanned=2168
+
+ Tasks:    54 successful, 54 total
+Cached:    39 cached, 54 total
+  Time:    2m51.998s 
+
+ WARNING  no output files found for task @repo/dev-mode-accounts#build. Please check your `outputs` key in `turbo.json`

@@ -1,0 +1,932 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web
+
+ ❯ tests/ui/pricing-enterprise-contract.test.tsx (6 tests | 1 failed) 1293ms
+   × rejects the overlong reason through the shared contract without modifying the preview balance 1168ms
+     → Unable to find an element by: [data-testid="err-pricing-grant"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-testid[39m=[32m"pricing-admin"[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-20 font-semibold"[39m
+        [36m>[39m
+          [0mTeam 管理[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m查看团队套餐，管理 Enterprise 与额外额度。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-control bg-success p-3 text-13 text-success-foreground"[39m
+        [33mdata-testid[39m=[32m"pricing-admin-saved"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m已在预览中为远见研究团队添加 1 credit。[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"overflow-x-auto rounded-card border border-border bg-card"[39m
+      [36m>[39m
+        [36m<table[39m
+          [33mclass[39m=[32m"w-full text-left text-13"[39m
+        [36m>[39m
+          [36m<caption[39m
+            [33mclass[39m=[32m"sr-only"[39m
+          [36m>[39m
+            [0m平台团队套餐与额度[0m
+          [36m</caption>[39m
+          [36m<thead[39m
+            [33mclass[39m=[32m"border-b border-border text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [36m<tr>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m团队[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m套餐[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m可用额度[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m管理[0m
+              [36m</th>[39m
+            [36m</tr>[39m
+          [36m</thead>[39m
+          [36m<tbody>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-studio"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m山海设计工作室[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m4[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-studio"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m64,000[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-studio"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-research"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m远见研究团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m12[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-research"[39m
+                [36m>[39m
+                  [0mEnterprise[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m238,501[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-grant-research"[39m
+                  [36m>[39m
+                    [0m添加额度[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-product"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m星河产品团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m5[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-product"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m18,500[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-product"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+          [36m</tbody>[39m
+        [36m</table>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m仅平台管理员可操作。此处为模拟团队，修改不会保存到真实账户。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-testid[39m=[32m"pricing-admin"[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-20 font-semibold"[39m
+        [36m>[39m
+          [0mTeam 管理[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m查看团队套餐，管理 Enterprise 与额外额度。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-control bg-success p-3 text-13 text-success-foreground"[39m
+        [33mdata-testid[39m=[32m"pricing-admin-saved"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m已在预览中为远见研究团队添加 1 credit。[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"overflow-x-auto rounded-card border border-border bg-card"[39m
+      [36m>[39m
+        [36m<table[39m
+          [33mclass[39m=[32m"w-full text-left text-13"[39m
+        [36m>[39m
+          [36m<caption[39m
+            [33mclass[39m=[32m"sr-only"[39m
+          [36m>[39m
+            [0m平台团队套餐与额度[0m
+          [36m</caption>[39m
+          [36m<thead[39m
+            [33mclass[39m=[32m"border-b border-border text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [36m<tr>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m团队[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m套餐[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m可用额度[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m管理[0m
+              [36m</th>[39m
+            [36m</tr>[39m
+          [36m</thead>[39m
+          [36m<tbody>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-studio"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m山海设计工作室[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m4[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-studio"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m64,000[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-studio"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-research"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m远见研究团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m12[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-research"[39m
+                [36m>[39m
+                  [0mEnterprise[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m238,501[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-grant-research"[39m
+                  [36m>[39m
+                    [0m添加额度[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-product"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m星河产品团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m5[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-product"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m18,500[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-product"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+          [36m</tbody>[39m
+        [36m</table>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m仅平台管理员可操作。此处为模拟团队，修改不会保存到真实账户。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/pricing-enterprise-contract.test.tsx > rejects the overlong reason through the shared contract without modifying the preview balance
+TestingLibraryElementError: Unable to find an element by: [data-testid="err-pricing-grant"]
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-testid[39m=[32m"pricing-admin"[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-20 font-semibold"[39m
+        [36m>[39m
+          [0mTeam 管理[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m查看团队套餐，管理 Enterprise 与额外额度。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-control bg-success p-3 text-13 text-success-foreground"[39m
+        [33mdata-testid[39m=[32m"pricing-admin-saved"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m已在预览中为远见研究团队添加 1 credit。[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"overflow-x-auto rounded-card border border-border bg-card"[39m
+      [36m>[39m
+        [36m<table[39m
+          [33mclass[39m=[32m"w-full text-left text-13"[39m
+        [36m>[39m
+          [36m<caption[39m
+            [33mclass[39m=[32m"sr-only"[39m
+          [36m>[39m
+            [0m平台团队套餐与额度[0m
+          [36m</caption>[39m
+          [36m<thead[39m
+            [33mclass[39m=[32m"border-b border-border text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [36m<tr>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m团队[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m套餐[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m可用额度[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m管理[0m
+              [36m</th>[39m
+            [36m</tr>[39m
+          [36m</thead>[39m
+          [36m<tbody>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-studio"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m山海设计工作室[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m4[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-studio"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m64,000[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-studio"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-research"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m远见研究团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m12[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-research"[39m
+                [36m>[39m
+                  [0mEnterprise[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m238,501[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-grant-research"[39m
+                  [36m>[39m
+                    [0m添加额度[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-product"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m星河产品团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m5[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-product"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m18,500[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-product"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+          [36m</tbody>[39m
+        [36m</table>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m仅平台管理员可操作。此处为模拟团队，修改不会保存到真实账户。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m""[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33mclass[39m=[32m"space-y-5"[39m
+      [33mdata-testid[39m=[32m"pricing-admin"[39m
+    [36m>[39m
+      [36m<div>[39m
+        [36m<h2[39m
+          [33mclass[39m=[32m"text-20 font-semibold"[39m
+        [36m>[39m
+          [0mTeam 管理[0m
+        [36m</h2>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"mt-1 text-13 text-muted-foreground"[39m
+        [36m>[39m
+          [0m查看团队套餐，管理 Enterprise 与额外额度。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"rounded-control bg-success p-3 text-13 text-success-foreground"[39m
+        [33mdata-testid[39m=[32m"pricing-admin-saved"[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m已在预览中为远见研究团队添加 1 credit。[0m
+      [36m</p>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"overflow-x-auto rounded-card border border-border bg-card"[39m
+      [36m>[39m
+        [36m<table[39m
+          [33mclass[39m=[32m"w-full text-left text-13"[39m
+        [36m>[39m
+          [36m<caption[39m
+            [33mclass[39m=[32m"sr-only"[39m
+          [36m>[39m
+            [0m平台团队套餐与额度[0m
+          [36m</caption>[39m
+          [36m<thead[39m
+            [33mclass[39m=[32m"border-b border-border text-12 text-muted-foreground"[39m
+          [36m>[39m
+            [36m<tr>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m团队[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m套餐[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m可用额度[0m
+              [36m</th>[39m
+              [36m<th[39m
+                [33mclass[39m=[32m"p-4 font-medium"[39m
+              [36m>[39m
+                [0m管理[0m
+              [36m</th>[39m
+            [36m</tr>[39m
+          [36m</thead>[39m
+          [36m<tbody>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-studio"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m山海设计工作室[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m4[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-studio"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m64,000[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-studio"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-research"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m远见研究团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m12[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-accent text-accent-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-research"[39m
+                [36m>[39m
+                  [0mEnterprise[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m238,501[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-grant-research"[39m
+                  [36m>[39m
+                    [0m添加额度[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+            [36m<tr[39m
+              [33mclass[39m=[32m"border-b border-border last:border-0"[39m
+              [33mdata-testid[39m=[32m"pricing-admin-row-product"[39m
+            [36m>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"min-w-32 font-medium"[39m
+                [36m>[39m
+                  [0m星河产品团队[0m
+                [36m</div>[39m
+                [36m<p[39m
+                  [33mclass[39m=[32m"mt-1 text-12 text-muted-foreground"[39m
+                [36m>[39m
+                  [0m5[0m
+                  [0m 位成员[0m
+                [36m</p>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+                  [33mdata-testid[39m=[32m"pricing-admin-plan-product"[39m
+                [36m>[39m
+                  [0mTeam[0m
+                [36m</span>[39m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4 tabular-nums"[39m
+              [36m>[39m
+                [0m18,500[0m
+              [36m</td>[39m
+              [36m<td[39m
+                [33mclass[39m=[32m"p-4"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"flex flex-wrap gap-2"[39m
+                [36m>[39m
+                  [36m<button[39m
+                    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"[39m
+                    [33mdata-testid[39m=[32m"pricing-upgrade-product"[39m
+                  [36m>[39m
+                    [0m升级 Enterprise[0m
+                  [36m</button>[39m
+                [36m</div>[39m
+              [36m</td>[39m
+            [36m</tr>[39m
+          [36m</tbody>[39m
+        [36m</table>[39m
+      [36m</div>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+      [36m>[39m
+        [0m仅平台管理员可操作。此处为模拟团队，修改不会保存到真实账户。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/pricing-enterprise-contract.test.tsx:16:22
+     14| it("rejects the overlong reason through the shared contract without mo…
+     15|  open("1","x".repeat(501));
+     16|  expect(await screen.findByTestId("err-pricing-grant")).toBeVisible();
+       |                      ^
+     17|  expect(screen.getByTestId("pricing-admin-row-research")).toHaveTextCo…
+     18|  expect(screen.queryByTestId("pricing-admin-saved")).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 passed (6)
+   Start at  07:46:48
+   Duration  2.47s (transform 84ms, setup 156ms, collect 219ms, tests 1.29s, environment 507ms, prepare 63ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/pricing-enterprise-contract.test.tsx

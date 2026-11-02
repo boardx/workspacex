@@ -1,13 +1,11 @@
-# Team / Enterprise 设计在建交接
+# Team设计在建交接
 
-唯一worktree /Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui，当前worker/cn-us-team-billing-design。最新base develop685fcd33（fetch后观察），原476草案重放e21d7d66d，当前仅文档修订待commit/独立复审。不要新建第二个worktree/切共享checkout，不动其他会话6097代码。
+唯一树/Users/shenyangjun/boardx/workspacex/.worktrees/cn-us-pricing-ui，当前worker/cn-us-team-billing-design。actual basec04，重基source84c4（旧Draft0968/旧父685），远端目前仍096892902ec1e987872e1a35756e928c34164ca2；后续仅自有分支精确lease，当前本地检查点待独立静态复核及新browser config门禁，仍Draft6101、不合入、不人签。
 
-design-coherence-review.md记录首次审查缺陷及修订；重点复核quote用途有效期、Team可售前T06、首次付款期间容量并发、T11永久充值与许可分离、Enterprise专属整数手动授予/原因及固定升级原因（符合已采用UI）。先前“所有列表行可手动加额度”观察错误；真实组件team.enterprise才有按钮，最新材料已纠正。后续回P5重基时也须修其52e2旧交接里的该句，避免静态痕迹被当产品裁决。
+首批可执行核心schema/3个原型消费组件已完成，contracts1278（新30）、原型8、browser5、serial类型lint54绿，红例证据和4图已保存，见progress/README。没有runtime operations/API/SQL/支付/持久化；完整正式第③件仍有明确缺口，不把材料层测试当真实权限/事务通过。现有pricing-preview.browser进入原有CI prototype-audit profile，不新增无人跑的车道；取证默认test-results，旧签核截图不覆盖。新增UI图片索引ui-preview/team-contract-v1/README.md。
 
-所有新执行口径仍待人确认，唯一签核状态在design-signoff.md为pending。个人恢复修订已经单独获人采纳，不覆盖Team；不要重复索要个人修复或本次正常develop集成授权。当前设计不写API代码/SQL，不跑未存在的验证、不假passing。
+已付窗口P2：问题已发等待用户，不能默认停止/退款/折抵。B1 blocked仅限制相关升级影响/worker定稿与正式复核，其余独立输入材料可继续。design-signoff pending/covers[]不改，个人确认不覆盖本束。平台手动额度是Enterprise-only、整数1..1m+原因；沿用原升级确认，无新原因表单。
 
-CI跟进：年付PR6100 head5310、base最初d886，develop后来实际前进685；源分支已按classifyChecks判定READY，独立ACCEPT后正常入队；最新队列候选98de549bbe77c459362ed42fc9455c5589dd1f1e为AWAITING_CHECKS，尚未实际merge。继续读实时状态，不凭此记录断言已合；禁止admin bypass。P3实际merge后P4从旧b766剥离；P4实际merge后P5从旧b4dd剥离。远端P4=63bd、P5=52e2，P5还需准确追加自己的SQL到恢复fixture reviewedSuffix及最终整feature检查/PR。
+下一优先回P5修PR6103 auto review P2：原server响应code、client读reasonCode，组件用例曾用错误reasonCode掩盖。需要真实HTTP envelope断言+客户端回归，修正后新SHA独立review、回应/解决该已修线程，并跟进正常CI/queue。P5远端e4190cddde7db9d260fc3a470012b2a074b4b7e4，actual basec04；已完成此前Stripe fragment P1及nilbinding/QR P2，本次新P2不能忽略。P5本地full是主动中止exit1、不是PASS，剩余完整API在其标准CI/queue验证，不缩范围。
 
-本工作树当前无自有Next/Chromium/Docker栈；P5测试栈均已清理。用户只授权本次定价正常集成develop，没有生产部署/reset/epoch激活。共享stash和其他会话资源不动。
-
-正式API第③件尚未完成：api.md只是草案。先在同一draft PR补齐packages/contracts schema、原型消费和反例，再正式复核及一次人工签核；当前不请求材料未完备的确认。
+当前browser wrapper已清理0s，无本任务Next/Chrome/compose驻留；只做本树，不动共享checkout/stash或其他发布/邮件资源。Node固定22.23.2；不执行生产reset/epoch或部署。

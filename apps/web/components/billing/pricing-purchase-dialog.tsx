@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { TEAM_INCLUDED_SEATS, TEAM_MONTHLY_CREDITS, TEAM_SEAT_MONTHLY_CREDITS } from "@repo/contracts/billing-team";
 import { Check, CreditCard, Users, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -37,8 +38,8 @@ export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCyc
           {(team ? ["team"] as const : ["pro", "team"] as const).map(key => <Button key={key} data-testid={`pricing-plan-${key}`} variant="outline" aria-pressed={plan === key} onClick={() => setPlan(key)} className={cn("h-auto min-w-0 flex-col items-start gap-3 whitespace-normal p-5 text-left", plan === key && "border-primary ring-1 ring-primary")}>
             <span className="flex w-full items-center justify-between text-16 font-semibold">{key === "pro" ? "Pro" : "Team"}{plan === key && <Check className="h-4 w-4" aria-hidden="true" />}</span>
             <span><strong className="text-30 font-semibold tabular-nums">{previewMoney(region, p[key][cycle])}</strong><span className="text-12 text-muted-foreground"> / {cycle === "month" ? "月" : "年"}</span></span>
-            <span className="text-13">{key === "pro" ? "1 个核心成员" : "5 个核心席位"}</span>
-            <span className="text-13">每月 {key === "pro" ? "20,000" : "100,000 共享"} credit</span>
+            <span className="text-13">{key === "pro" ? "1 个核心成员" : `${TEAM_INCLUDED_SEATS} 个核心席位`}</span>
+            <span className="text-13">每月 {key === "pro" ? "20,000" : `${numberLabel(TEAM_MONTHLY_CREDITS)} 共享`} credit</span>
             <span className="text-12 text-muted-foreground">{key === "pro" ? "适合个人持续使用 AI" : "含团队管理，可付费增加席位"}</span>
           </Button>)}
         </div>}
@@ -51,7 +52,7 @@ export function PricingPurchaseDialog({ kind, region, cycle, team = false, onCyc
             <Button data-testid="pricing-seat-minus" variant="outline" aria-label="减少本次增购席位" disabled={seats <= 1} onClick={() => setSeats(v => v - 1)}>−</Button>
             <span data-testid="pricing-seat-count" className="tabular-nums">{seats}</span><Button data-testid="pricing-seat-plus" variant="outline" aria-label="增加本次增购席位" disabled={seats >= 100} onClick={() => setSeats(v => v + 1)}>＋</Button>
           </div></div>
-          <dl className="space-y-3 text-13"><div className="flex justify-between"><dt className="text-muted-foreground">标准单价</dt><dd>{previewMoney(region, p.seat[cycle])}/席/{cycle === "month" ? "月" : "年"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">本次演示剩余有效期</dt><dd>50%</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">与团队订阅同时到期</dt><dd>{cycle === "year" ? "2027/11/01" : "2026/12/01"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">后续完整月新增共享额度</dt><dd>{numberLabel(15000 * seats)} credit/月</dd></div></dl>
+          <dl className="space-y-3 text-13"><div className="flex justify-between"><dt className="text-muted-foreground">标准单价</dt><dd>{previewMoney(region, p.seat[cycle])}/席/{cycle === "month" ? "月" : "年"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">本次演示剩余有效期</dt><dd>50%</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">与团队订阅同时到期</dt><dd>{cycle === "year" ? "2027/11/01" : "2026/12/01"}</dd></div><div className="flex justify-between"><dt className="text-muted-foreground">后续完整月新增共享额度</dt><dd>{numberLabel(TEAM_SEAT_MONTHLY_CREDITS * seats)} credit/月</dd></div></dl>
           <p className="text-12 text-muted-foreground">按剩余有效期补差价。首期新增额度按剩余月度周期折算；此处仅演示报价。</p>
         </div>}
         <div className="space-y-2 border-t border-border pt-4">
