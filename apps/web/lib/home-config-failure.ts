@@ -5,6 +5,7 @@
  * `lib/chat-workbench/artifact-failure.ts` 的既有写法：契约闭集穷举，漏一个编译不过；
  * HTTP 兜底复用 `lib/http-failure-text.ts`。
  */
+import type { Locale } from "./i18n/locale";
 import { ApiError } from "@/lib/api-client";
 import { httpFailureText } from "@/lib/http-failure-text";
 import type { homeConfig } from "@repo/contracts";
@@ -21,7 +22,13 @@ const ERROR_TEXT: Record<HomeConfigErrorCode, string> = {
   UNSUPPORTED_CONTENT_TYPE: "只支持 PNG / JPEG / WebP 图片",
 };
 
-export function describeHomeConfigFailure(err: unknown): string {
+export function describeHomeConfigFailure(err: unknown, locale: Locale = "zh-CN"): string {
+  if (locale === "en") {
+    if (err instanceof ApiError && err.reasonCode === "NO_ORG_MEMBERSHIP") return "You are not a member of this organization and cannot view its home configuration.";
+    if (err instanceof ApiError && err.reasonCode === "FORBIDDEN") return "Only organization administrators can edit the home configuration.";
+    if (err instanceof TypeError) return "Could not connect to the server. Check your connection and try again.";
+    return "Could not load the home configuration. Please try again later.";
+  }
   if (err instanceof ApiError) {
     const code = err.reasonCode;
     if (code !== null && code in ERROR_TEXT) return ERROR_TEXT[code as HomeConfigErrorCode];

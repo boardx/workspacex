@@ -66,3 +66,13 @@
 - `pnpm harness tick` 失败：COORD_GATEWAY_URL 未配置。缓存凭据文件存在，但没有获配本任务注册身份，不自封身份或读取输出凭据。需提供本任务已注册 worker id 和网关接线方式。
 - 未找到本次国际化已确认的契约束，尚未写产品代码、创建 feature 或宣称 passing。
 - 独立 worktree `/Users/shenyangjun/boardx/workspacex-i18n-foundation`，分支 `worker/i18n-foundation`；共享 checkout 保持原分支。原生创建工具未识别源仓库后使用 git worktree fallback，仅创建一次成功 worktree。后续复用此目录。
+
+## 2026-11-03 授权后实现增量
+
+主会话转达人类明确“按计划直接开发”，按直接交办流程实现，不创建/伪造 feature passing 或人类 signoff。本分支已接入locale cookie、SSR Provider、语言入口、登录品牌/表单系统文案、首页静态标题/状态/卡片/时间、桌面与移动导航及个人/组织菜单。实际差异以PR为准。
+
+落地接口遵循上文路径；为兼容既有独立组件与测试，未装Provider的孤立组件使用默认中文上下文（正式app总有Provider）。这是一处相对提案的实现调整，二期测试多语言行为时必须包真实I18nProvider，不得把默认中文当英文通过。
+
+二期资源接入：独立namespace导出 `profileZhCN/profileEn` 等，在 messages/zh-CN.ts 与 messages/en.ts 导入并展开。MessageKey自动来自合并后的中文字典，英文Record保持完整；`t(key, params?)`使用一次文本插值，不渲染HTML。服务端用server.ts的readLocale，纯读取用messages.ts的translate；不要从RSC调用useI18n。
+
+剩余领域文案：本地版能力/出网事实、通知弹层、通用StateShell等由二期按其稳定ID/状态逐项接入。HomeConfig动态展示原文与Agent/Skill执行内容继续保持分离。完整已登录首页真实数据E2E未在本地验收，不冒称已完成全站英文化。
