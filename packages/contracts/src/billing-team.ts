@@ -7,6 +7,7 @@
 import {z} from "zod";
 import {BillingProvider,CreditBalance,CreditLedgerAmount,CreditWallet} from "./billing-credits";
 import {BillingCycle,PricingCurrency,PricingProduct,RenewalMode} from "./billing-pricing";
+import {SubscriptionStatus} from "./billing-subscription";
 import {operations as PlatformOrganizations,PlanState} from "./platform-organizations";
 
 export const TEAM_INCLUDED_SEATS=5;
@@ -125,9 +126,9 @@ export const TeamMonthlyCreditGrant=z.object({
  }
 });
 const TeamPayment=z.object({
- term:TeamPaidTerm,provider:BillingProvider,renewalMode:RenewalMode,cancelAtPeriodEnd:z.boolean(),
+ term:TeamPaidTerm,provider:BillingProvider,renewalMode:RenewalMode,cancelAtPeriodEnd:z.boolean(),subscriptionStatus:SubscriptionStatus.nullable(),
 }).strict().superRefine((value,ctx)=>{
- if(value.provider==="wechat"&&(value.renewalMode!=="manual"||value.cancelAtPeriodEnd)||value.provider==="stripe"&&value.renewalMode!=="automatic")ctx.addIssue({code:"custom",message:"Team renewal facts must agree with the provider"});
+ if(value.provider==="wechat"&&(value.renewalMode!=="manual"||value.cancelAtPeriodEnd||value.subscriptionStatus!==null)||value.provider==="stripe"&&(value.renewalMode!=="automatic"||value.subscriptionStatus===null||value.subscriptionStatus==="none"))ctx.addIssue({code:"custom",message:"Team renewal facts must agree with the provider"});
 });
 /** Licensing read model, never a replacement for membership, AI policy or credit admission. */
 export const TeamEntitlement=z.object({
@@ -147,7 +148,8 @@ export const TeamEntitlement=z.object({
    if(value.licenseStatus==="active"&&(now<start||now>=end)||value.licenseStatus==="expired"&&now<end)ctx.addIssue({code:"custom",path:["licenseStatus"],message:"Team licensing status must agree with its paid term"});
   }
  }
- if(value.licenseStatus==="enterprise"&&payment?.provider==="stripe"&&!payment.cancelAtPeriodEnd)ctx.addIssue({code:"custom",path:["teamPayment"],message:"Enterprise activation must first stop future owned Team renewal"});
+ const subscriptionEnded=payment?.subscriptionStatus==="canceled"||payment?.subscriptionStatus==="incomplete_expired";
+ if(value.licenseStatus==="enterprise"&&payment?.provider==="stripe"&&!payment.cancelAtPeriodEnd&&!subscriptionEnded)ctx.addIssue({code:"custom",path:["teamPayment"],message:"Enterprise activation must first stop future owned Team renewal"});
  if(grant){
   const start=Date.parse(grant.periodStart),end=Date.parse(grant.periodEnd);
   if(!payment||start<Date.parse(payment.term.paidPeriodStart)||end>Date.parse(payment.term.paidPeriodEnd)||grant.credits>payment.term.monthlyCredits)ctx.addIssue({code:"custom",path:["creditGrant"],message:"included monthly credits must remain within their paid Team facts"});

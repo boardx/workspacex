@@ -25,3 +25,7 @@ Issue6099，worker/cn-us-team-billing-design，当前base actual develop c04c332
 独立增量复审095671339指出P2：微信报价缺少CNY交叉约束。补四purpose反例先4失败/15通过，公共refinement修复后核心49通过，保留Stripe CNY/USD四purpose正例；原型11再通过。错误已修，待最终精确SHA复核。原browser5在仅缺这项负例约束时运行，正向原型数据未变化，不重复声称本轮重新浏览器运行。
 
 共享累计字段和余额约束最终修改后，API/web受影响依赖的串行类型/lint9/9再通过（4cached），execution-plan check通过。待精确SHA独立复审与正常push，不把旧报价ACCEPT扩张为本增量批准。
+
+独立复审5809b682发现真实P2：cancelAtPeriodEnd=true只覆盖安排取消，已实际取消的Stripe可能false，不能因此丢旧付款事实。读模型现复用SubscriptionStatus闭集，Enterprise接受真实canceled/incomplete_expired或安排到期取消，拒绝未知/none及仍续费；微信status为null。更新可信响应fixture和反例后先8红17绿，再核心74绿、原型14绿、全contracts133文件1322绿。此为付款状态技术修正，不决定未答的已付未来窗口政策。最终新SHA独立复审仍待执行。
+
+取消状态最终修正后的API/web串行typecheck/lint9/9通过（4cached）。浏览器5证据属于仅新增状态/负例约束前的相同界面，未宣称本轮再次运行；后续新SHA正常hook、CI及独立静态复审继续。

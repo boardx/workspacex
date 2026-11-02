@@ -23,3 +23,5 @@ P5 错误信封已修复并推送 f82673afaa7573d4a72a2402a4cbd6a21c60b365，独
 报价复审095671339的微信USD P2已补公共约束与反例：先4红15绿，再核心49及原型11绿。等待最终SHA复审；新运行时未启用，原browser5未因只增加负例约束重复执行。
 
 本权益增量最终contracts共享字段修改后serial API/web types/lint9绿、计划check绿，等待最终SHA独立审查与push。销售前必须先落实真实PG小数累计及所有授予路径适配，不因1320个契约测试通过就开启Team。
+
+5809权益复审P2已修：新增真实subscriptionStatus，已取消Stripe可保留false的cancelAtPeriodEnd及原paid term；未知和仍续费反例保留。核心74/原型14/全contracts1322新绿，raw证据已保存；等待最终新SHA复核，不沿用5809为ACCEPT。
