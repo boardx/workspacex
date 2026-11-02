@@ -36,7 +36,7 @@ Purchased and pending seat counts are opaque-generation commercial facts; actual
 
 ## Clean develop replay and delivery boundary
 
-Signed design PR #6101 is now normally merged into develop `6ed5e6833`. This branch replays only its 25 #6107 commits onto that base: `develop-replay-range-diff.txt` shows all 25 patch-equivalent (`=`), and excludes all 18 old design commits. Every capacity source/test/schema/contract/recovery file is byte-identical to reviewed old HEAD `98fceafbc`; no #6111/#6120 or financial migration is included. Old source is preserved locally at `archive/team-capacity-6107-reviewed-98f`; #6111 remains on its separate branch. Root explicitly accepted the unchanged-source replay and requires no duplicate PG/HTTP/Next run.
+Signed design PR #6101 is now normally merged into develop `6ed5e6833`. This branch replays only its 25 #6107 commits onto that base: `develop-replay-range-diff.txt` shows all 25 patch-equivalent (`=`), and excludes all 18 old design commits. At that replay, every capacity source/test/schema/contract/recovery file was byte-identical to reviewed old HEAD `98fceafbc` (later approved migration replay guards are recorded below); no #6111/#6120 or financial migration is included. Old source is preserved locally at `archive/team-capacity-6107-reviewed-98f`; #6111 remains on its separate branch. Root explicitly accepted the unchanged-source replay and requires no duplicate PG/HTTP/Next run.
 
 Normal serial pre-push/static checks, separate Closes #6107 PR and CI remain pending at this record. No passing state, merge, sales activation or deployment is claimed. Runtime evidence above comes from the unchanged reviewed source. Full API typecheck was previously terminated for resource contention; this replay will use the normal hook rather than treating targeted tests as static proof.
 
@@ -45,3 +45,14 @@ Normal serial pre-push/static checks, separate Closes #6107 PR and CI remain pen
 First normal serial pre-push stopped at `lint-permission-paths` (22/25 successful, push did not occur): the new internal capacity decision helper was treated as raw tenant-content disclosure. No runtime source, query or permission decision changed to address this. A single-file AST boundary now checks its exact seven scoped SQL statements, bound org/epoch parameters, five internal exports, closed projection/boolean returns, dependencies/calls, and forbids interface/application imports or infrastructure re-export. It requires the pure mutation tests and existing real PG/HTTP evidence files; the general tenant read rule is unchanged and no blanket allowlist/dummy guard was added.
 
 `admission-boundary-pure.txt`: 12 pure cases passed, including counterexamples for raw rows, unscoped/wrong-tenant SQL, extra tenant content, logging/disclosure calls, extra exports, direct external imports and re-export. `permission-boundary-lint.txt`: actual full permission-path scan passed (2203 files/325 tenant tables). These are static gates only, not an additional runtime claim. Normal hook retry remains required after independent review.
+
+
+## Live CI migration-replay fix
+
+PR #6123 targets develop. The normal serial hook/push passed 25/25 at0f69, and again25/25 after normally merging actual precision base e676 into head1a583. The only merge resolution retains actual migration order305→031→040; no future050 was added. Runtime admission functions, tests and narrow boundary checker remain byte-identical to reviewed0f69.
+
+Actual CI gates-runtime run41411995743/job125166902382 found a real migration defect: the empty application passed, then force replay hit an existing org_commercial_licenses relation (`ci-migration-replay-red.txt`). Independent ACCEPTed source fix e99c94d90 adds only table IF NOT EXISTS and DROP POLICY IF EXISTS before each unchanged policy definition. Fields, checks, FORCE RLS, grants and paid restrictive policy semantics do not change; the existing migration transaction keeps replacement atomic.
+
+`migration-replay-green.txt` records the one authorized owned `migrate:check`: 448 migrations applied from empty, all448 force-replayed, identical schema and populated-data digests, fixture survival/append-only/version-record checks passed; wrapper exit0, normal admission0s, command40s, cleanup1s. Exact compose wsx-adc08fa06f4a78425d7c was independently confirmed absent. This is the targeted replay test justified by the real CI defect, not a repeat of PG8/HTTP/Next. Recovery suffix after actual precision merge also passes its two pure checks (`recovery-scope-after-precision.txt`).
+
+Next normal hook/push and fresh CI are still required; previous local green never replaces CI, and the PR is not claimed complete or merge-ready.
