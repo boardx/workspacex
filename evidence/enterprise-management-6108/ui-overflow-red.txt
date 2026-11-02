@@ -1,0 +1,252 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web
+
+ ❯ tests/ui/enterprise-management-panel.test.tsx (3 tests | 1 failed) 1602ms
+   ✓ retains grant request identity and amount after uncertain network failure 488ms
+   × definitive overflow leaves amount editable instead of trapping an impossible retry 1058ms
+     → Unable to find an element with the text: /额度余额或累计发放已达上限/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。已付 Team 额度按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加额度[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmax[39m=[32m"1000000"[39m
+          [33mmin[39m=[32m"1"[39m
+          [33mstep[39m=[32m"1"[39m
+          [33mtype[39m=[32m"number"[39m
+          [33mvalue[39m=[32m"42"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加原因[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmaxlength[39m=[32m"500"[39m
+          [33mvalue[39m=[32m"approved"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m重试原请求[0m
+      [36m</button>[39m
+      [36m<p[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作未确认完成。请重试原请求，避免重复添加额度。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。已付 Team 额度按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加额度[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmax[39m=[32m"1000000"[39m
+          [33mmin[39m=[32m"1"[39m
+          [33mstep[39m=[32m"1"[39m
+          [33mtype[39m=[32m"number"[39m
+          [33mvalue[39m=[32m"42"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加原因[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmaxlength[39m=[32m"500"[39m
+          [33mvalue[39m=[32m"approved"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m重试原请求[0m
+      [36m</button>[39m
+      [36m<p[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作未确认完成。请重试原请求，避免重复添加额度。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/enterprise-management-panel.test.tsx > definitive overflow leaves amount editable instead of trapping an impossible retry
+TestingLibraryElementError: Unable to find an element with the text: /额度余额或累计发放已达上限/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。已付 Team 额度按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加额度[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmax[39m=[32m"1000000"[39m
+          [33mmin[39m=[32m"1"[39m
+          [33mstep[39m=[32m"1"[39m
+          [33mtype[39m=[32m"number"[39m
+          [33mvalue[39m=[32m"42"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加原因[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmaxlength[39m=[32m"500"[39m
+          [33mvalue[39m=[32m"approved"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m重试原请求[0m
+      [36m</button>[39m
+      [36m<p[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作未确认完成。请重试原请求，避免重复添加额度。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<section[39m
+      [33maria-label[39m=[32m"Enterprise 管理"[39m
+      [33mclass[39m=[32m"my-4 space-y-3 rounded-lg border p-4"[39m
+    [36m>[39m
+      [36m<h3[39m
+        [33mclass[39m=[32m"font-semibold"[39m
+      [36m>[39m
+        [0mEnterprise[0m
+      [36m</h3>[39m
+      [36m<p[39m
+        [33mclass[39m=[32m"text-13 text-muted-foreground"[39m
+      [36m>[39m
+        [0mEnterprise 无 Team 收费席位上限。额度由平台人员手动添加，不产生默认月额度。已付 Team 额度按原购买日继续发放至原到期日。[0m
+      [36m</p>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加额度[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmax[39m=[32m"1000000"[39m
+          [33mmin[39m=[32m"1"[39m
+          [33mstep[39m=[32m"1"[39m
+          [33mtype[39m=[32m"number"[39m
+          [33mvalue[39m=[32m"42"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<label[39m
+        [33mclass[39m=[32m"block"[39m
+      [36m>[39m
+        [0m添加原因[0m
+        [36m<input[39m
+          [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+          [33mdisabled[39m=[32m""[39m
+          [33mmaxlength[39m=[32m"500"[39m
+          [33mvalue[39m=[32m"approved"[39m
+        [36m/>[39m
+      [36m</label>[39m
+      [36m<button[39m
+        [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-secondary text-secondary-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"[39m
+      [36m>[39m
+        [0m重试原请求[0m
+      [36m</button>[39m
+      [36m<p[39m
+        [33mrole[39m=[32m"status"[39m
+      [36m>[39m
+        [0m操作未确认完成。请重试原请求，避免重复添加额度。[0m
+      [36m</p>[39m
+    [36m</section>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/enterprise-management-panel.test.tsx:28:22
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+   Start at  12:44:18
+   Duration  4.04s (transform 219ms, setup 246ms, collect 313ms, tests 1.60s, environment 1.16s, prepare 106ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/enterprise-management-panel.test.tsx

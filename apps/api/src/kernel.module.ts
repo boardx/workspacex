@@ -34,6 +34,7 @@ import {PgAiAdmissionRepository} from "./infrastructure/auth/pg-ai-admission-rep
 import { AiUsageController } from "./interface/controllers/ai-usage.controller";
 import { AI_USAGE_REPOSITORY } from "./application/auth/ai-usage-ports";
 import { PgAiUsageRepository } from "./infrastructure/auth/pg-ai-usage-repository";
+import {enterpriseManagementControllers,enterpriseManagementProviders} from "./enterprise-management.wiring";
 import { PlatformOrganizationController } from "./interface/controllers/platform-organization.controller";
 import { PLATFORM_ORGANIZATION_REPOSITORY } from "./application/system/platform-organization-ports";
 import { PgPlatformOrganizationRepository } from "./infrastructure/system/pg-platform-organization-repository";
@@ -1295,6 +1296,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     PlatformAccessController,
     PlatformMemberController,
     PlatformOrganizationController,
+    ...enterpriseManagementControllers,
     OrgCoreModelController,
     PlatformModelTestController,
     AiUsageController,
@@ -1371,6 +1373,7 @@ const WHITEBOARD_OPERATION_AUDIT_REPOSITORY = Symbol('WhiteboardOperationAuditRe
     ModelController,
   ],
   providers: [
+    ...enterpriseManagementProviders,
     ...reportFileProviders,
     {provide: INTERVIEW_CUSTOM_EXPERT_LIBRARY, useFactory:(db:DatabasePort)=>new PgCustomExpertLibrary(db),inject:[DATABASE_PORT]},
     { provide: EXPERT_AVATAR_PREFERENCE_REPOSITORY, useFactory: (db: DatabasePort) => new PgExpertAvatarPreferenceRepository(db), inject: [DATABASE_PORT] },

@@ -1,0 +1,60 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web
+
+ ❯ tests/ui/enterprise-management-panel.test.tsx (4 tests | 1 failed) 6231ms
+   ✓ retains grant request identity and amount after uncertain network failure 5759ms
+   × confirms the organization, quantity and reason before issuing a new financial request 188ms
+     → expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array [
+      "org",
+      Object {
+        "credits": 10,
+        "idempotencyKey": "68dc0f54-ed81-47e6-b6a3-77d83030b135",
+        "reason": "approved reason",
+      },
+    ]
+
+
+Number of calls: 1
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/enterprise-management-panel.test.tsx > confirms the organization, quantity and reason before issuing a new financial request
+AssertionError: expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array [
+      "org",
+      Object {
+        "credits": 10,
+        "idempotencyKey": "68dc0f54-ed81-47e6-b6a3-77d83030b135",
+        "reason": "approved reason",
+      },
+    ]
+
+
+Number of calls: 1
+
+ ❯ tests/ui/enterprise-management-panel.test.tsx:33:26
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 3 passed (4)
+   Start at  12:56:01
+   Duration  36.05s (transform 4.45s, setup 11.53s, collect 7.09s, tests 6.23s, environment 7.27s, prepare 262ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/enterprise-management-panel.test.tsx
