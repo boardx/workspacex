@@ -269,6 +269,7 @@ export const TeamPurchaseOutcome=z.object({
  if(credits>0&&window===null)ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"included first credits require their real monthly window"});
  if(window!==null){
   const start=Date.parse(window.periodStart),end=Date.parse(window.periodEnd),days=(end-start)/86400000;
+  if((value.quote.purpose==="initial"||value.quote.purpose==="renewal")&&!anchoredWindowMatches(term.purchaseAnchor,Date.parse(term.paidPeriodStart),window.periodStart,window.periodEnd))ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"first license credits belong to the first anchored month of the paid term"});
   if(value.quote.purpose==="add_seats"&&!anchoredWindowMatches(term.purchaseAnchor,paid,window.periodStart,window.periodEnd))ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"first seat credits belong to the actual payment month, not the processing month"});
   if(days<28||days>31||start<Date.parse(term.paidPeriodStart)||end>Date.parse(term.paidPeriodEnd)||credits>0&&(applied<start||applied>=end))ctx.addIssue({code:"custom",path:["fulfillment","firstCreditPeriod"],message:"first included credits cannot mint outside a paid current monthly window"});
  }

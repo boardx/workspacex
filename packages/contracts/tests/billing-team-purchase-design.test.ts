@@ -68,3 +68,22 @@ it("restores the original day 31 after February instead of retaining the clamped
  expect(TeamPurchaseOutcome.safeParse(feb).success).toBe(true);
  expect(TeamPurchaseOutcome.safeParse({...feb,fulfillment:{...feb.fulfillment,firstCreditPeriod:{...feb.fulfillment.firstCreditPeriod,periodEnd:"2026-03-28T10:00:00Z"}}}).success).toBe(false);
 });
+it.each(["initial","renewal"])("binds %s annual first credits to the first anchored month",purpose=>{
+ const original={...paid,quote:{...quote,purpose}};
+ expect(TeamPurchaseOutcome.safeParse(original).success).toBe(true);
+ // Both windows satisfy duration and paid-term containment, but neither is the first anchored month.
+ const shifted={...original,fulfillment:{...receipt,firstCreditPeriod:{periodStart:"2026-11-16T10:01:15Z",periodEnd:"2026-12-16T10:01:15Z"}}};
+ expect(TeamPurchaseOutcome.safeParse(shifted).success).toBe(false);
+ const late={...original,asOf:"2026-12-18T10:00:00Z",fulfillment:{...receipt,appliedAt:"2026-12-18T09:00:00Z",firstCreditPeriod:{periodStart:"2026-12-17T10:01:00Z",periodEnd:"2027-01-17T10:01:00Z"}}};
+ expect(TeamPurchaseOutcome.safeParse(late).success).toBe(false);
+ // Even an accurately anchored later month cannot replace this purchase's expired first grant.
+ expect(TeamPurchaseOutcome.safeParse({...late,fulfillment:{...late.fulfillment,firstCreditPeriod:{periodStart:period.periodEnd,periodEnd:"2027-01-16T10:01:00Z"}}}).success).toBe(false);
+ const expired={...late,fulfillment:{...late.fulfillment,firstCreditPeriod:period,firstCreditsApplied:0,ledgerRef:null}};
+ expect(TeamPurchaseOutcome.safeParse(expired).success).toBe(true);
+ expect(TeamPurchaseOutcome.safeParse({...expired,fulfillment:{...expired.fulfillment,ledgerRef:"invented-ledger"}}).success).toBe(false);
+});
+it.each(["month","year"])("accepts anchored renewal first month with month-end and equivalent offsets for %s",billingCycle=>{
+ const start="2026-02-28T10:00:00Z",end="2026-03-31T10:00:00Z";
+ const renewal={...paid,createdAt:"2026-02-28T09:00:01Z",paidAt:start,asOf:"2026-02-28T10:02:00Z",quote:{...quote,purpose:"renewal",billingCycle,createdAt:"2026-02-28T09:00:00Z",expiresAt:"2026-02-28T09:05:00Z"},fulfillment:{...receipt,appliedAt:"2026-02-28T10:01:00Z",paidTerm:{...term,purchaseAnchor:"2026-01-31T10:00:00Z",paidPeriodStart:start,paidPeriodEnd:billingCycle==="month"?end:"2027-02-28T10:00:00Z",billingCycle},firstCreditPeriod:{periodStart:"2026-02-28T18:00:00+08:00",periodEnd:"2026-03-31T18:00:00+08:00"}}};
+ expect(TeamPurchaseOutcome.safeParse(renewal).success).toBe(true);
+});
