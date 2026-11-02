@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/enterprise-management-6108/apps/api
+
+ ✓ tests/arch-gate.test.ts (7 tests | 6 skipped) 46ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed | 6 skipped (7)
+   Start at  22:19:02
+   Duration  268ms (transform 30ms, setup 0ms, collect 26ms, tests 46ms, environment 0ms, prepare 51ms)
+

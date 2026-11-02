@@ -62,14 +62,9 @@ it("overflow leaves actual wallet unchanged and creates no grant receipt",async(
  await expect(grants.grant(org,"operator",{credits:1,reason:"cumulative overflow denial",idempotencyKey:"overflow-total-0001"})).rejects.toMatchObject({code:"credit_balance_unrepresentable"});
 });
 it("platform detail hydrates active Enterprise from the same real wallet",async()=>{
- const {PgPlatformOrganizationRepository}=await import("../../src/infrastructure/system/pg-platform-organization-repository");const {platformOrganizations:C}=await import("@repo/contracts");
+ const {platformOrganizations:C}=await import("@repo/contracts");
  await grants.grant(org,"operator",{credits:61,reason:"read model allowance",idempotencyKey:"summary-attempt-001"});
- const catalog:DatabasePort={withTenant:async()=>{throw Error("no catalog tenant queries");},close:async()=>{},withoutTenant:async fn=>asOwner(async c=>{
-  await c.query("BEGIN");await c.query("SET LOCAL ROLE app_platform_org_catalog_ro");
-  const session:TenantSession={query:async<R>(sql:string,params?:readonly unknown[])=>({rows:(await c.query(sql,params?[...params]:undefined)).rows as R[]})};
-  try{const result=await fn(session);await c.query("COMMIT");return result;}catch(error){await c.query("ROLLBACK");throw error;}
- })};
- const repository=new PgPlatformOrganizationRepository(db,catalog);
+ const repository=await platformSummaryRepository();
  const result=await repository.detail(org,"operator");expect(C.operations.getOrganization.out.safeParse(result).success).toBe(true);
  const page=await repository.list({search:String(org),limit:25},"operator");expect(C.operations.listOrganizations.out.safeParse(page).success).toBe(true);expect(page.organizations[0]?.billingSummary?.wallet.balance).toBe(61);
  expect(result.organization.billingSummary).toMatchObject({licenseStatus:"enterprise",teamPayment:null,planVersion:1,generation,wallet:{balance:61,permanentBalance:61,subscriptionCredits:0,totalGranted:61}});
@@ -89,4 +84,28 @@ it("owner tenant teardown preserves immutable financial history and cannot resto
  await immutable();await resetOrgs(org);await immutable();
  expect(await snapshot(org)).toEqual({...before,orgs:0});expect(await snapshot(other)).toEqual(otherBefore);
  await expect(grants.grant(org,"operator",{credits:1,reason:"deleted organization",idempotencyKey:"deleted-grant-0001"})).rejects.toMatchObject({code:"ORGANIZATION_NOT_FOUND"});await expect(service.operation(org,operation.operationRef)).rejects.toMatchObject({code:"ORGANIZATION_NOT_FOUND"});await expect(service.upgrade(org,"operator",{expectedPlanVersion:1,idempotencyKey:"retention-upgrade-001"})).rejects.toMatchObject({code:"ORGANIZATION_NOT_FOUND"});
+});
+
+async function platformSummaryRepository(){
+ const {PgPlatformOrganizationRepository}=await import("../../src/infrastructure/system/pg-platform-organization-repository");
+ const catalog:DatabasePort={withTenant:async()=>{throw Error("no catalog tenant queries");},close:async()=>{},withoutTenant:async fn=>asOwner(async c=>{
+  await c.query("BEGIN");await c.query("SET LOCAL ROLE app_platform_org_catalog_ro");
+  const session:TenantSession={query:async<R>(sql:string,params?:readonly unknown[])=>({rows:(await c.query(sql,params?[...params]:undefined)).rows as R[]})};
+  try{const result=await fn(session);await c.query("COMMIT");return result;}catch(error){await c.query("ROLLBACK");throw error;}
+ })};
+ return new PgPlatformOrganizationRepository(db,catalog);
+}
+
+it("current ordinary no-license catalog reads preserve actual wallet and strict summary",async()=>{
+ const {platformOrganizations:C}=await import("@repo/contracts");
+ await asOwner(async c=>{await c.query("UPDATE organization_plans SET plan='ordinary' WHERE org_id=$1",[org]);await c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance,total_purchased,total_granted) VALUES('team',$1,12.34,8,4.34)",[org]);});
+ const repo=await platformSummaryRepository();const detail=C.operations.getOrganization.out.parse(await repo.detail(org,"operator"));
+ expect(detail.organization.plan).toMatchObject({plan:"ordinary",enforcement:"active",billingGeneration:generation});
+ expect(detail.organization.billingSummary).toMatchObject({orgId:org,generation,planVersion:1,memberCount:detail.organization.memberCount,licenseStatus:"none",teamPayment:null,creditGrant:{status:"none",grant:null},wallet:{balance:12.34,permanentBalance:12.34,totalPurchased:8,totalGranted:4.34}});
+ const page=C.operations.listOrganizations.out.parse(await repo.list({search:String(org),limit:25},"operator"));expect(page.organizations[0]).toMatchObject({orgId:org,memberCount:detail.organization.memberCount,plan:detail.organization.plan,billingSummary:{licenseStatus:"none",wallet:detail.organization.billingSummary!.wallet}});
+});
+it("current ordinary paid-license catalog reads fail typed until the paid adapter exists",async()=>{
+ await asOwner(async c=>{await c.query("UPDATE organization_plans SET plan='ordinary' WHERE org_id=$1",[org]);await c.query("INSERT INTO org_commercial_licenses(org_id,generation,purchased_seats) VALUES($1,$2,7)",[org,generation]);});
+ const repo=await platformSummaryRepository();await expect(repo.detail(org,"operator")).rejects.toMatchObject({reasonCode:"PLATFORM_CATALOG_UNAVAILABLE"});
+ await expect(repo.list({search:String(org),limit:25},"operator")).rejects.toMatchObject({reasonCode:"PLATFORM_CATALOG_UNAVAILABLE"});
 });

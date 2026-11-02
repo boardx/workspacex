@@ -18,8 +18,8 @@ await asOwner(async c=>{
  await c.query("UPDATE billing_pricing_epoch SET generation=$1,activated_at=now() WHERE singleton=true",[generation]);
  await c.query("INSERT INTO organization_plans(org_id,plan,version,updated_by) VALUES($1,'ordinary',1,$2)",[fixture.target,fixture.operator]);
  await c.query(readFileSync(new URL("../provisioning/platform-org-catalog.sql",import.meta.url),"utf8"));
- await c.query("CREATE ROLE enterprise_catalog_6108 LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD 'Enterprise-Catalog-Fixture-6108!'");
- await c.query("GRANT app_platform_org_catalog_ro TO enterprise_catalog_6108");
+ await c.query(`CREATE ROLE "${fixture.catalogUser.replaceAll('"','""')}" LOGIN NOSUPERUSER NOBYPASSRLS PASSWORD '${fixture.catalogPassword.replaceAll("'","''")}'`);
+ await c.query(`GRANT app_platform_org_catalog_ro TO "${fixture.catalogUser.replaceAll('"','""')}"`);
 });
 Object.assign(process.env,{NODE_ENV:"test",KERNEL_QUIET:"1",MAIL_OUTBOX_WORKER_ENABLED:"0",MODEL_CREDENTIAL_KEY:"enterprise-acceptance-isolated-key-6108",PLATFORM_SUPERUSER_EMAILS:fixture.operatorEmail,PLATFORM_ORG_CATALOG_DB_USER:fixture.catalogUser,PLATFORM_ORG_CATALOG_DB_PASSWORD:fixture.catalogPassword});
 const {createApp}=await import("../src/main");const app=await createApp();

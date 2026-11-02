@@ -132,8 +132,8 @@ export class PgPlatformOrganizationRepository implements PlatformOrganizationRep
     const plan = (await s.query<PlanRow>("SELECT plan, version, updated_at, updated_by, billing_generation FROM organization_plans WHERE org_id=$1", [orgId])).rows[0];
     const memberCount=Number(count?.count??0);
     let billingSummary;
-    if(plan?.plan==="enterprise"&&plan.billing_generation===BILLING_ACCOUNTING_GENERATION){
-      try{billingSummary=await enterpriseSummary(s,orgId,plan.version,memberCount);}
+    if(plan?.billing_generation===BILLING_ACCOUNTING_GENERATION){
+      try{billingSummary=await enterpriseSummary(s,orgId,plan.version,memberCount,plan.plan);}
       catch{throw new PlatformOrganizationError("PLATFORM_CATALOG_UNAVAILABLE");}
     }
     return OrganizationRow.parse({ orgId: row.id, name: row.name, kind: row.kind, memberCount, plan: state(plan),...(billingSummary?{billingSummary}:{}) });
