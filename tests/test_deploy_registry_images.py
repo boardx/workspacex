@@ -38,6 +38,26 @@ def host_fixture():
         yield m,root,state,images,resolve,run
 
 class Policy(unittest.TestCase):
+    def test_devapp_schema_diff_never_reaches_image_only_engine(self):
+        for installed in (False,True):
+            with self.subTest(installed=installed),host_fixture() as (m,root,state,images,resolve,run):
+                config=json.loads((root/'devapp.json').read_text())
+                if installed:
+                    config['schemaRelease']={'fixed':'adapter'}
+                    (root/'devapp.json').write_text(json.dumps(config))
+                plan={'route':'schema-preparation','complete':True,'changes':[], 'planSha256':'a'*64}
+                with patch.object(m,'schema_preflight',return_value=plan) as preflight,patch.object(m,'schema_release',return_value={'status':'REVIEWED_ROUTE'}) as reviewed:
+                    result=m.deploy('devapp','41388409479-1',root)
+                run.assert_not_called()
+                if installed:
+                    self.assertEqual(result['status'],'REVIEWED_ROUTE')
+                    reviewed.assert_called_once()
+                    self.assertEqual(preflight.call_count,2)
+                else:
+                    self.assertEqual(result['code'],'SCHEMA_CHANGE_REQUIRES_SEPARATE_RELEASE')
+                    self.assertFalse(result['applyAttempted'])
+                    reviewed.assert_not_called()
+                    self.assertFalse((state/'pending.json').exists())
     def test_missing_policy_never_pulls_or_deploys(self):
         m=module()
         with patch.object(m.registry,'resolve') as pull:

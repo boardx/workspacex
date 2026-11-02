@@ -275,11 +275,12 @@ def deploy_config(environment,tag,config,docker,docker_config):
         source=sources[0]
         attempt=state/('attempt-'+uuid.uuid4().hex);attempt.mkdir(mode=0o700)
         schema_plan=None
-        if environment in ('cn','us'):
+        if environment in ('devapp','cn','us'):
             baseline={**config,'composeFiles':compose_files}
             for roles in (('api',),('api','agent')):
                 if 'agent' in roles:
-                    images['agent']=registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,'agent')
+                    if 'agent' not in images:
+                        images['agent']=registry.resolve([docker,'--config',str(docker_config)],config['registryPrefix'],tag,'agent')
                     registry.need(images['agent'].get('sourceRevision')==source,'IMAGE_SOURCE_MISMATCH')
                 schema_plan=schema_preflight(environment,tag,source,baseline,images,attempt,docker,roles)
                 atomic(attempt/'schema-plan.json',schema_plan)
