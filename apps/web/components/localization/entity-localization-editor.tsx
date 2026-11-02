@@ -1,6 +1,7 @@
 "use client";
 import * as React from "react";
 import type { EntityKind, EntityLocalizationAdminView, LocalizedEntityDisplay } from "@repo/contracts/entity-localization";
+import { ENTITY_LOCALIZATION_TEXT_LIMIT } from "@repo/contracts/entity-localization";
 import { SUPPORTED_LOCALES, type Locale } from "@repo/contracts/locale";
 import { useI18n } from "@/lib/i18n/provider";
 import { isLocale } from "@/lib/i18n/locale";
@@ -17,7 +18,11 @@ type Field = keyof LocalizedEntityDisplay["fields"];
 type Values = Partial<Record<Field, string>>;
 type Failure = "denied" | "missing" | "conflict" | "loadFailed" | "saveFailed";
 type Notice = "saved" | "cleared" | "sourceSaved";
-const FIELDS: Record<EntityKind, readonly Field[]> = { skill: ["name", "summary", "duty"], agent: ["name", "roleLabel", "duty", "avatarAlt"] };
+const SKILL_DISPLAY_FIELDS: readonly Field[] = ["name", "summary", "duty"];
+const AGENT_DISPLAY_FIELDS: readonly Field[] = ["name", "roleLabel", "duty", "avatarAlt"];
+function editableFields(kind: EntityKind): readonly Field[] {
+  return kind === "skill" ? SKILL_DISPLAY_FIELDS : AGENT_DISPLAY_FIELDS;
+}
 interface Draft { sourceRevision: string; values: Values; published: boolean }
 type State = { key: string; view: EntityLocalizationAdminView | null; loading: boolean; failure: Failure | null };
 function failureOf(error: unknown, fallback: Failure): Failure {
@@ -29,7 +34,7 @@ function failureOf(error: unknown, fallback: Failure): Failure {
   return fallback;
 }
 function valuesOf(view: EntityLocalizationAdminView, kind: EntityKind): Values {
-  return Object.fromEntries(FIELDS[kind].map(field => [field, view.translation?.fields[field] ?? ""]));
+  return Object.fromEntries(editableFields(kind).map(field => [field, view.translation?.fields[field] ?? ""]));
 }
 function languageLabel(language: Locale, locale: Locale) {
   return new Intl.DisplayNames([locale], { type: "language" }).of(language) ?? language;
@@ -137,9 +142,9 @@ export function EntityLocalizationEditor({ kind, entityId, onSaved }: { kind: En
         <p className="text-11 text-muted-foreground">{dirty ? copy.finishEdit : copy.sourceHint}</p>
         <div className="space-y-1"><p className="text-12 font-medium">{copy.targetLanguage}</p><Select aria-label={copy.targetLanguage} options={options} value={targetLocale} disabled={busy} onValueChange={value => { if (isLocale(value)) { chosenTarget.current = true; setTargetLocale(value); } }} /></div>
         {sameSource && <p className="text-12 text-muted-foreground">{copy.sameSource}</p>}
-        {FIELDS[kind].map(field => <div key={field} className="grid gap-2 sm:grid-cols-2">
+        {editableFields(kind).map(field => <div key={field} className="grid gap-2 sm:grid-cols-2">
           <div className="space-y-1"><label htmlFor={`${inputId}-${field}-source`} className="text-12 font-medium">{copy.fields[field]} {copy.original}</label><Textarea id={`${inputId}-${field}-source`} readOnly value={view.source.fields[field] ?? ""} placeholder={copy.notProvided} rows={field === "name" || field === "roleLabel" ? 2 : 3} className="bg-muted" /></div>
-          <div className="space-y-1"><label htmlFor={`${inputId}-${field}-translation`} className="text-12 font-medium">{copy.fields[field]} {copy.translation}</label><Textarea id={`${inputId}-${field}-translation`} data-testid={`entity-localization-${field}`} value={values[field] ?? ""} disabled={busy || sameSource} maxLength={4000} rows={field === "name" || field === "roleLabel" ? 2 : 3} placeholder={copy.blank} onChange={event => remember({ ...values, [field]: event.target.value })} /></div>
+          <div className="space-y-1"><label htmlFor={`${inputId}-${field}-translation`} className="text-12 font-medium">{copy.fields[field]} {copy.translation}</label><Textarea id={`${inputId}-${field}-translation`} data-testid={`entity-localization-${field}`} value={values[field] ?? ""} disabled={busy || sameSource} maxLength={ENTITY_LOCALIZATION_TEXT_LIMIT} rows={field === "name" || field === "roleLabel" ? 2 : 3} placeholder={copy.blank} onChange={event => remember({ ...values, [field]: event.target.value })} /></div>
         </div>)}
         <Checkbox checked={published} disabled={busy || sameSource} label={copy.publish} onChange={event => remember(values, event.target.checked)} />
         <div className="flex flex-wrap gap-2"><Button type="button" size="sm" disabled={busy || sameSource || !dirty} onClick={() => void mutate("save")}>{busy ? copy.saving : copy.save}</Button><Button type="button" size="sm" variant="secondary" disabled={busy || !hasTranslation} onClick={() => void mutate("clear")}>{copy.clear}</Button></div>

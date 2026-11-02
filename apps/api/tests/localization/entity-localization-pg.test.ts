@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ensureDatabase, migrateOnce, seedOrg, resetOrgs, asApp, asOwner } from "../support/db";
 import { SUPPORTED_LOCALES } from "@repo/contracts/locale";
+import { ENTITY_LOCALIZATION_TEXT_LIMIT } from "@repo/contracts/entity-localization";
 import { PgDatabase } from "../../src/infrastructure/db/pg-database";
 import { appConfig } from "../../src/infrastructure/db/pg-config";
 import { PgEntityLocalizationRepository } from "../../src/infrastructure/localization/pg-entity-localization-repository";
@@ -35,6 +36,20 @@ beforeEach(async () => {
     VALUES ($1,$2,'test-localization','探索','enabled','translator',now(),now())`, [entityId, org]));
 });
 describe("durable display translations under tenant RLS", () => {
+  it.each(["skill", "agent"] as const)("keeps %s database text constraints aligned with the shared authoring budget", async kind => {
+    const id = kind === "skill" ? entityId : `loc-budget-agent-${randomUUID()}`;
+    if (kind === "agent") await asApp(org, c => c.query(`INSERT INTO agents(id,org_id,stable_name,name,status,creator_id,created_at,updated_at,instructions)
+      VALUES ($1,$2,'localization-budget','Source','enabled','translator',now(),now(),'original')`, [id, org]));
+    const table = kind === "skill" ? "skill_localizations" : "agent_localizations";
+    const foreignKey = kind === "skill" ? "skill_id" : "agent_id";
+    const atLimit = "x".repeat(ENTITY_LOCALIZATION_TEXT_LIMIT);
+    await asApp(org, c => c.query(`INSERT INTO ${table}(org_id,${foreignKey},locale,source_revision,translation_revision,status,updated_by,name,summary,duty,role_label,avatar_alt)
+      VALUES ($1,$2,'en','contract-budget',1,'draft','translator',$3,$3,$3,$3,$3)`, [org, id, atLimit]));
+    for (const column of ["name", "summary", "duty", "role_label", "avatar_alt"]) {
+      await expect(asApp(org, c => c.query(`UPDATE ${table} SET ${column}=$3 WHERE org_id=$1 AND ${foreignKey}=$2`,
+        [org, id, `${atLimit}x`]))).rejects.toMatchObject({ code: "23514" });
+    }
+  });
   it("persists a reviewed translation and projects it without rewriting original content", async () => {
     expect((await repository.put(await initialWrite())).kind).toBe("ok");
     expect((await repository.displays(org, "skill", [entityId], "en")).get(entityId)?.fields.name.value).toBe("Discovery");

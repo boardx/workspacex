@@ -45,6 +45,18 @@ with exit 130; it is not a passing receipt. The corrected config's `--list` coll
 exactly one test. Both isolated runs released their own Compose stacks and locks;
 the successful wrapper reports teardown in one second.
 
+The first UI push was refused by the unchanged built-in-capability scanner, which
+interpreted the `skill`/`agent` keys of the editable DTO-field map as capability lists.
+The field constants now explicitly say `SKILL_DISPLAY_FIELDS` and
+`AGENT_DISPLAY_FIELDS`, selected by the same entity-kind rule. No content catalog,
+lint exception or organization configuration was introduced. That scanner now passes.
+The editor also imports the shared `ENTITY_LOCALIZATION_TEXT_LIMIT` instead of
+repeating its value. `budget-pg-tests.txt` records 13 passing PostgreSQL tests,
+including exact-boundary acceptance and above-boundary rejection for all five
+columns in both tables. The nine editor/client tests and 14 contract tests remain
+green (`editor-final-tests.txt`, `contracts-final-tests.txt`). These changes preserve
+the browser-tested editor behavior and authoring budget.
+
 This slice provides display translation authoring and consumption. Built-in authored
 bilingual package metadata and portable import/export remain tracked in #6156.
 Untranslated surrounding static UI belongs to the parallel application-copy work.
