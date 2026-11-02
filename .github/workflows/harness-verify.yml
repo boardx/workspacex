@@ -159,6 +159,7 @@ jobs:
           node --test tests/tag-reviewed-migration-driver.test.mjs
           python3 -I -B -m unittest discover -s tests -p test_deploy_registry_images.py
           python3 -I -B -m unittest discover -s tests -p test_registry_images.py
+          python3 -I -B -m unittest discover -s tests -p test_cn_release_6150.py
 
       # 不指定 version：pnpm/action-setup 从 package.json 的 packageManager 字段
       # (pnpm@9.0.0) 读取。两处都写会触发 ERR_PNPM_BAD_PM_VERSION。
