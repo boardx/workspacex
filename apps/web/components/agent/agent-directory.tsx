@@ -2,6 +2,8 @@
 
 import { ResourceCard, ResourceCardTags } from "@/components/ui/resource-card";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@repo/contracts/locale";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -139,7 +141,7 @@ function sortByCategory(cards: readonly AgentDirectoryCard[]): readonly AgentDir
 
 export interface AgentDirectoryProps {
   /** 测试/宿主可注入；默认使用真实 `listAgentDirectory`。 */
-  fetchDirectory?: (filters: { roleCategory?: AgentRoleCategory; q?: string }) => Promise<readonly AgentDirectoryCard[]>;
+  fetchDirectory?: (filters: { roleCategory?: AgentRoleCategory; q?: string; locale?: Locale }) => Promise<readonly AgentDirectoryCard[]>;
   onStartChat?: (agentId: string, prefill?: string) => void;
   /** Authenticated, organization-scoped host owns the actual offer and imports. */
   officialRoles?: React.ReactNode;
@@ -154,6 +156,7 @@ type LoadState =
   | { readonly kind: "ready"; readonly cards: readonly AgentDirectoryCard[] };
 
 export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartChat, officialRoles, canManageOfficial = false, directoryRefreshKey = 0 }: AgentDirectoryProps) {
+  const { locale } = useI18n();
   const [tab, setTab] = React.useState<"organization" | "official">("organization");
   const [category, setCategory] = React.useState<AgentRoleCategory | "all">("all");
   const [query, setQuery] = React.useState("");
@@ -163,7 +166,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
   const load = React.useCallback((filters: { roleCategory?: AgentRoleCategory; q?: string }) => {
     const id = ++requestId.current;
     setState({ kind: "loading" });
-    fetchDirectory(filters).then(
+    fetchDirectory({ ...filters, locale }).then(
       (cards) => { if (requestId.current === id) setState({ kind: "ready", cards }); },
       (error: unknown) => {
         if (requestId.current !== id) return;
@@ -172,7 +175,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
         setState({ kind: "error", message: error instanceof ApiError ? httpFailureText(error.status) : "网络连接出了问题，稍后再试一次" });
       },
     );
-  }, [fetchDirectory]);
+  }, [fetchDirectory, locale]);
 
   React.useEffect(() => {
     if (tab !== "organization") return;
