@@ -1,5 +1,5 @@
-// @global-scope-fixture table:credentials: uniquely scoped users in a disposable wrapper-owned database.
-// @global-scope-fixture table:billing_pricing_epoch: isolated acceptance fixture only, never production activation.
+// Credential fixture ownership: uniquely scoped users in a disposable wrapper-owned database.
+// Epoch fixture ownership: isolated acceptance fixture only, never production activation.
 import {randomUUID} from "node:crypto";
 import {afterAll,beforeAll,expect,it,vi} from "vitest";
 import type {NestExpressApplication} from "@nestjs/platform-express";

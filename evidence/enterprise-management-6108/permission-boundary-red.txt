@@ -1,0 +1,45 @@
+✗ src/infrastructure/billing/enterprise-credit-grant.ts:18  reads tenant table `organizations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-credit-grant.ts:20  reads tenant table `organization_plans` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-no-paid-team.ts:8  reads tenant table `org_commercial_licenses` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-no-paid-team.ts:16  reads tenant table `organizations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:14  reads tenant table `organizations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:17  reads tenant table `enterprise_upgrade_operations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:24  reads tenant table `enterprise_upgrade_operations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:29  reads tenant table `enterprise_upgrade_operations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:34  reads tenant table `organization_plans` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:38  reads tenant table `enterprise_upgrade_operations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:48  reads tenant table `enterprise_upgrade_operations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:55  reads tenant table `organization_plans` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:59  reads tenant table `organization_plans` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+✗ src/infrastructure/billing/enterprise-upgrade-store.ts:64  reads tenant table `enterprise_upgrade_operations` outside the guarded read path
+    It is in infrastructure/ but does not import application/security/permission-filter: it returns raw rows, so whatever calls it has nothing forcing a permission decision.
+    Why: UC-0.3 R7 -- a scope on an Artifact must reach its segments, embeddings, graph nodes, cache entries and Context Pack items. An unguarded read is how "you cannot see the original but the summary launders it out" happens.
+
+❌ 14 unguarded tenant read(s). See UC-0.3 R7 / coherence X-1.
+scanned=2213 tenant-tables=326 allowlisted=162

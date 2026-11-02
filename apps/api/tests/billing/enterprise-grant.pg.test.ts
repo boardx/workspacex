@@ -1,6 +1,6 @@
 import {readFileSync} from "node:fs";
 import type {DatabasePort,TenantSession} from "../../src/application/ports/database.port";
-// @global-scope-fixture table:billing_pricing_epoch: isolated disposable PG only; proves active-epoch gating, never a production activation.
+// Epoch fixture ownership: isolated disposable PG only; proves active-epoch gating, never a production activation.
 // @global-scope-fixture table:credit_wallets: isolated per-test random team owner; asserts actual rollback and exact grant totals.
 import {randomUUID} from "node:crypto";
 import {afterAll,beforeAll,beforeEach,expect,it} from "vitest";
