@@ -1,0 +1,9 @@
+# Administration member quotas localization #6212 — in progress
+
+Single feature spans the real `/admin/members` three-tab route. Explicit stacked baseline is profile6203@bfb608070b6ebb77156e63fde2d7f6b7c97101a6, including current developc49, and excludes other unpublished feature slices. Main owns develop integration and CI queues. No passing, merge or CI-green claim.
+
+Task1 product source a6239758d and minimal safe-error fix117558254. New14 validRED6.22s→14GREEN; independent review requested two P2 changes (duplicated canonical HTTP fallback, inherited unknown invitation error leak). New2private-error counters actualRED3.04s. Fixed canonical fallback and render-time locale plumbing, known invite/error/permission/state semantics preserved. Covering5files47/47PASS9.05s (new16+old31), scoped13fileESLint0. Both independent scoped findings ADDRESSED/CLEAN. Reports/logs beside this file; type, PG and actual browser remain pending.
+
+Task2 live rules/prototype policy:9 meaningful UI RED before implementation, current fresh bounded worker implementing. Task3 shared AI report/ledger/format:6format+7UI meaningful RED before implementation, not started. Default Chinese behavior, raw authored data, canonical IDs/request values, numeric/null/zero distinctions, precision/currencies and Shanghai query boundaries are binding.
+
+Root browser/fixture draft is committed6bf262a7d and unexecuted. Four historical private-tenant receipt records support real read assertions, not external model or financial settlement claims. Planned actual mutations, permission checks and12screens are in browser-plan.md. No force clicks, retries/timeouts or production API changes.
