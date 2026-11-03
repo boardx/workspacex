@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 /**
  * phase-18 F10 —— 「记忆」编辑动作失败时给人看的话。
  *
@@ -10,34 +12,31 @@ import { KG_PROMOTE_MAX_BATCH, type KgPromotionRejectCode } from "@repo/contract
 import type { KnowledgeGraphErrorCode } from "@/lib/knowledge-graph-api";
 import { knowledgeGraphErrorCode } from "@/lib/knowledge-graph-api";
 
-const HUMAN_ACTION_FAILURE_ZH: Record<KnowledgeGraphErrorCode, string> = {
-  KG_THREAD_NOT_FOUND: "这条对话不存在或已被删除。",
-  KG_NOT_VISIBLE: "你没有这条对话的访问权限。",
-  KG_NOT_OWNER: "只有对话的创建者可以修改这里的记忆。",
-  KG_SCOPE_NOT_PROJECT: "只有项目里的对话才能记到项目大脑。",
-  KG_REVISION_CHANGED: "内容已变化，已为你刷新到最新，请再操作一次。",
-  KG_CLAIM_NOT_FOUND: "这一条已经不在了，已为你刷新列表。",
-  KG_OBJECT_NOT_FOUND: "相关的人和事已经不在了，已为你刷新列表。",
-  KG_CONTESTED_NEEDS_RESOLUTION: "有矛盾的记忆要先选保留哪条，才能确认。",
-  KG_ACTOR_NOT_HUMAN: "这个操作只能由你本人在界面上完成。",
-  KG_SCOPE_NOT_PERSONAL: "只有个人对话里的记忆可以这样做。",
-  KG_SCOPE_NOT_ENABLED: "这个范围的记忆暂未开放。",
-  KG_EVIDENCE_REVOKED: "这一条的来源已被删除，没法再这样做。",
-  KG_PROMOTE_BATCH_TOO_LARGE: "一次选得太多了，请分几次操作。",
-  KG_REINDEX_ALREADY_RUNNING: "正在整理中，请稍后再试。",
-  KG_CARD_NOT_FOUND: "这张卡片已经不在了。",
-  KG_CARD_STALE: "这张卡片已过期，请刷新后再试。",
-  KG_PROMPT_NOT_FOUND: "这条提醒已经不在了。",
-  // issue #4178：`setKnowledgeExtractionSetting` 专属码，人的编辑动作（applyHumanAction 等）从不
-  // 返回它——这里只是让 Record<KgErrorCode, string> 保持穷举（漏配一个编译就不过）。
-  KG_NOT_ORG_ADMIN: "只有组织管理员可以修改这项设置。",
-  // S8（#4365）：记忆整合的两个码，人的编辑动作从不返回它们——同上，只为穷举。
-  KG_CONSOLIDATION_RUN_NOT_FOUND: "这次整理已经撤销过了（或已不存在）。",
-  KG_CONSOLIDATION_DISABLED: "记忆整合开关关着，先打开再整合。",
-  // S10（#4367）「分享到项目…」专属码（同上：保持 Record<KgErrorCode, string> 穷举）。
-  KG_PROJECT_NOT_FOUND: "你不在这个项目里（或项目已不存在），没法分享到这里。",
-  KG_PROJECT_READ_ONLY: "你在这个项目里只能查看（或项目已归档），没法分享进去。",
+const HUMAN_ACTION_FAILURE_KEYS: Record<KnowledgeGraphErrorCode, MessageKey> = {
+  KG_THREAD_NOT_FOUND: "aboutMemory.humanError.KG_THREAD_NOT_FOUND",
+  KG_NOT_VISIBLE: "aboutMemory.humanError.KG_NOT_VISIBLE",
+  KG_NOT_OWNER: "aboutMemory.humanError.KG_NOT_OWNER",
+  KG_SCOPE_NOT_PROJECT: "aboutMemory.humanError.KG_SCOPE_NOT_PROJECT",
+  KG_REVISION_CHANGED: "aboutMemory.humanError.KG_REVISION_CHANGED",
+  KG_CLAIM_NOT_FOUND: "aboutMemory.humanError.KG_CLAIM_NOT_FOUND",
+  KG_OBJECT_NOT_FOUND: "aboutMemory.humanError.KG_OBJECT_NOT_FOUND",
+  KG_CONTESTED_NEEDS_RESOLUTION: "aboutMemory.humanError.KG_CONTESTED_NEEDS_RESOLUTION",
+  KG_ACTOR_NOT_HUMAN: "aboutMemory.humanError.KG_ACTOR_NOT_HUMAN",
+  KG_SCOPE_NOT_PERSONAL: "aboutMemory.humanError.KG_SCOPE_NOT_PERSONAL",
+  KG_SCOPE_NOT_ENABLED: "aboutMemory.humanError.KG_SCOPE_NOT_ENABLED",
+  KG_EVIDENCE_REVOKED: "aboutMemory.humanError.KG_EVIDENCE_REVOKED",
+  KG_PROMOTE_BATCH_TOO_LARGE: "aboutMemory.humanError.KG_PROMOTE_BATCH_TOO_LARGE",
+  KG_REINDEX_ALREADY_RUNNING: "aboutMemory.humanError.KG_REINDEX_ALREADY_RUNNING",
+  KG_CARD_NOT_FOUND: "aboutMemory.humanError.KG_CARD_NOT_FOUND",
+  KG_CARD_STALE: "aboutMemory.humanError.KG_CARD_STALE",
+  KG_PROMPT_NOT_FOUND: "aboutMemory.humanError.KG_PROMPT_NOT_FOUND",
+  KG_NOT_ORG_ADMIN: "aboutMemory.humanError.KG_NOT_ORG_ADMIN",
+  KG_CONSOLIDATION_RUN_NOT_FOUND: "aboutMemory.humanError.KG_CONSOLIDATION_RUN_NOT_FOUND",
+  KG_CONSOLIDATION_DISABLED: "aboutMemory.humanError.KG_CONSOLIDATION_DISABLED",
+  KG_PROJECT_NOT_FOUND: "aboutMemory.humanError.KG_PROJECT_NOT_FOUND",
+  KG_PROJECT_READ_ONLY: "aboutMemory.humanError.KG_PROJECT_READ_ONLY",
 };
+const HUMAN_ACTION_FAILURE_ZH = defaultFailureText(HUMAN_ACTION_FAILURE_KEYS);
 
 /** 失败后应当重读面板的码：服务端状态已与界面不一致。 */
 export const KG_RELOAD_ON_FAILURE: ReadonlySet<KnowledgeGraphErrorCode> = new Set([
@@ -102,21 +101,26 @@ export function describeMemoryCardFailure(e: unknown): string {
  * issue #4302 —— 大脑页（/brain）「忘掉这条」「撤销取代」失败时的人话。这两个动作复用对话里的既有动作，
  * 多数码沿用编辑动作那一句；这几句按大脑页的处境改说法（这里没有「提醒」，修改发生在出自的那个对话上）。
  */
-const BRAIN_ACTION_FAILURE_ZH: Partial<Record<KnowledgeGraphErrorCode, string>> = {
-  KG_CLAIM_NOT_FOUND: "这一条已经变了（可能在对话里被改过或忘掉了），已为你刷新列表。",
-  KG_PROMPT_NOT_FOUND: "这次改口已经撤销过了，已为你刷新列表。",
-  KG_THREAD_NOT_FOUND: "出自的那个对话已经不在了，没法在这里修改。",
-  KG_NOT_OWNER: "只有你自己的对话里记下的，才能在这里修改。",
+const BRAIN_ACTION_FAILURE_KEYS: Partial<Record<KnowledgeGraphErrorCode, MessageKey>> = {
+  KG_CLAIM_NOT_FOUND: "aboutMemory.brainError.KG_CLAIM_NOT_FOUND",
+  KG_PROMPT_NOT_FOUND: "aboutMemory.brainError.KG_PROMPT_NOT_FOUND",
+  KG_THREAD_NOT_FOUND: "aboutMemory.brainError.KG_THREAD_NOT_FOUND",
+  KG_NOT_OWNER: "aboutMemory.brainError.KG_NOT_OWNER",
 };
 
 /**
  * issue #4302 review：「忘掉这条」的每一步都成功了，重读后那条长期记忆却仍然活着——还有界面看不到的来源在撑着它
  * （例如刚在别的对话里又记下了一次）。不报成功，如实说。
  */
-export const BRAIN_FORGET_STILL_LIVE_ZH = "这条长期记忆还有别的来源，没有忘掉。";
+export const BRAIN_FORGET_STILL_LIVE_ZH = translate("zh-CN", "aboutMemory.stillLive");
 
-export function describeBrainActionFailure(e: unknown): string {
+export function describeBrainActionFailure(e: unknown, locale: Locale = "zh-CN"): string {
   const code = knowledgeGraphErrorCode(e);
-  if (code === null) return "没能完成，请稍后重试。";
-  return BRAIN_ACTION_FAILURE_ZH[code] ?? HUMAN_ACTION_FAILURE_ZH[code];
+  return translate(locale, code === null ? "aboutMemory.error.generic" : BRAIN_ACTION_FAILURE_KEYS[code] ?? HUMAN_ACTION_FAILURE_KEYS[code]);
+}
+
+function defaultFailureText<K extends string>(keys: Record<K, MessageKey>): Record<K, string> {
+  const text = {} as Record<K, string>;
+  for (const code of Object.keys(keys) as K[]) text[code] = translate("zh-CN", keys[code]);
+  return text;
 }

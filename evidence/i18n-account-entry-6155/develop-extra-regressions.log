@@ -1,0 +1,11 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/email-verification-public.test.tsx (8 tests) 430ms
+ ✓ tests/ui/registration-field-errors.test.tsx (5 tests) 249ms
+
+ Test Files  2 passed (2)
+      Tests  13 passed (13)
+   Start at  09:42:44
+   Duration  4.15s (transform 881ms, setup 194ms, collect 1.75s, tests 679ms, environment 1.00s, prepare 92ms)
