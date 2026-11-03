@@ -597,8 +597,8 @@ await seedEntityLocalizationFixture();
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);
 
 await seedWorkflowRunsI18n({
-  orgId: required("FULLSTACK_E2E_WORKFLOW_RUNS_ORG"), projectId: required("FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT"),
-  userId: required("FULLSTACK_E2E_WORKFLOW_RUNS_USER"), email: required("FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL"),
-  password: required("FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD"), instanceId: required("FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE"),
+  orgId: required("FULLSTACK_E2E_WORKFLOW_RUNS_ORG_ID"), projectId: required("FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT_ID"),
+  userId: required("FULLSTACK_E2E_WORKFLOW_RUNS_USER_ID"), email: required("FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL"),
+  password: required("FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD"), instanceId: required("FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE_ID"),
   workflowKey: required("FULLSTACK_E2E_WORKFLOW_RUNS_KEY"), goal: required("FULLSTACK_E2E_WORKFLOW_RUNS_GOAL"),
 });
