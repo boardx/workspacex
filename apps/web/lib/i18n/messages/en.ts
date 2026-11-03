@@ -1,3 +1,4 @@
+import { chatShareEn } from "../namespaces/chat-share";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
@@ -8,6 +9,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...projectListEn,
   ...profileEn,
   ...stateEn,
+  ...chatShareEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",
