@@ -36,9 +36,10 @@ flowchart TD
   class S2 tested
   %% evidence S2: /tmp/i18n-chat-share-red.log 4 fail; /tmp/i18n-chat-share-green.log 17 pass
   class S3 tested
-  %% evidence S3: /tmp/i18n-chat-share-green.log:17 pass; source59df0eb57 exactreview no findings; ESLint/wiring/spec gate pass
-  class S4 doing
-  class S5 todo
+  %% evidence S3: 35/35 selected cases, targeted ESLint, exact sourceccd7a80d0 review no findings
+  class S4 tested
+  %% evidence S4: evidence/i18n-chat-share-6176/browser.log: real publish/read/reload/revoke1/1,5m53s,375&1440 inspected,4stacks0
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
