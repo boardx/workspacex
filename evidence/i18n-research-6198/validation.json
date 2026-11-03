@@ -172,5 +172,29 @@
     "file": "apps/web/lib/asr-draft-error-text.ts",
     "method": "TypeScript transpileModule ES2022/ESNext output equality",
     "observed": "byte-for-byte identical"
+  },
+  "ci-testid-gate-red": {
+    "sourceCommit": "69f3738848cfcdc65a947d4dd99b8cd533744b7a",
+    "conclusion": "FAILURE",
+    "runId": 41705322705,
+    "jobId": 126158979272,
+    "rawLogLocalPath": "/tmp/6205-control-plane-second-failed.log",
+    "rawLogSha256": "14cba0ea8fcabb9c46935dce7aa84642ac994f6d3b50a95097c2d4bfbe132cb5",
+    "error": "Static testid declaration gate cannot resolve anchorId/idPrefix for previous-report article; two spec references failed"
+  },
+  "testid-gate-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-testid-gate-green.log",
+    "rawLogSha256": "5734fa85328364621d1f5fcd6e6bee1645c98f93ab495ef605d03361e7aa5a74"
+  },
+  "testid-spec-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-testid-spec-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "testid-playwright-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-testid-playwright-list.log",
+    "rawLogSha256": "e73b4762392e7edf3a916b869739b27df3e5387c235c423777eefda6e1b235b6"
   }
 }

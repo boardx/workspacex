@@ -144,11 +144,13 @@ test("research locale preserves the real intake, plan, saved report and history 
   const history = page.getByTestId("research-report-history");
   await expect(history.locator("summary")).toHaveText("Previous report · Historical content, read only");
   await history.locator("summary").click();
-  await expect(page.getByTestId("previous-research-report-document")).toContainText(body.report!.title);
+  const previousReport = history.getByRole("article");
+  await expect(previousReport).toHaveCount(1);
+  await expect(previousReport).toContainText(body.report!.title);
   await language("zh-CN");
   await expect(history.locator("summary")).toHaveText("上一轮报告 · 历史内容，仅供查看");
   await language("en");
-  await expect(page.getByTestId("previous-research-report-document")).toContainText(body.report!.title);
+  await expect(previousReport).toContainText(body.report!.title);
   expect(commands).toBe(terminalCommands + 1);
   await screenshot("report-history-en");
   await page.getByTestId("research-flow-back").click();
