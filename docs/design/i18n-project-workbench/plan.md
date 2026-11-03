@@ -37,8 +37,9 @@ flowchart TD
   %% evidence S2: /tmp/i18n-project-workbench-red.log:3 newfail18oldpass; canonical helpers inspected
   class S3 tested
   %% evidence S3: /tmp/i18n-project-workbench-unit.log:34/34; web tsc0; targeted ESLint0; UI wiring0
-  class S4 doing
-  class S5 todo
+  class S4 tested
+  %% evidence S4: resume-browser.log actual3/3 retries0 at0bf8;375/1280screens inspected/fullrow>=80%;cleanup2s/all11ports0;current34units/type/lint0
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
