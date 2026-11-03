@@ -12,21 +12,21 @@
   ],
   "visualOnlyWidth": 820,
   "viewed": [
-    "home-config-content-375.png",
-    "home-config-layout-375.png",
-    "home-config-theme-375.png",
-    "home-config-banner-375.png"
-  ],
-  "pendingVisualQa": [
     "home-config-banner-1280.png",
+    "home-config-banner-375.png",
     "home-config-content-1280.png",
+    "home-config-content-375.png",
     "home-config-layout-1280.png",
+    "home-config-layout-375.png",
     "home-config-member-denied.png",
     "home-config-member-home.png",
     "home-config-preview-1280.png",
     "home-config-preview-375.png",
     "home-config-preview-820.png",
-    "home-config-theme-1280.png"
+    "home-config-theme-1280.png",
+    "home-config-theme-375.png"
   ],
-  "delivery": "pending independent profile-race maintenance, parent actualmerge, remaining QA/staticgates and pure-delta publication"
+  "pendingVisualQa": [],
+  "delivery": "pending related staticgates, parent actualmerge and pure-delta publication; independent timing maintenance paused by main in favor of actual6147candidate1d05",
+  "visualConclusion": "All13 inspected: controls readable, no horizontal overflow observed, selected tab has no inactive-panel bleed; raw authored content/selection notes retained.820 qualitative only."
 }
