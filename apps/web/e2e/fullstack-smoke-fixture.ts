@@ -3,6 +3,11 @@ const scope = (process.env.WORKSPACEX_ISOLATION_ID ?? "fullstack-e2e")
   .slice(-24);
 
 export const FULLSTACK_E2E = {
+  /** #6167: dedicated live-task identity, independent of other seeded journeys. */
+  tasksEmail: `fullstack-tasks-${scope}@example.test`,
+  tasksPassword: "Fullstack-E2E-tasks-6167!",
+  tasksUserId: `user-fullstack-tasks-${scope}`,
+
   email: `fullstack-${scope}@example.test`,
   password: "Fullstack-E2E-only-387!",
   orgId: `org-fullstack-${scope}`,

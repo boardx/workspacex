@@ -1,10 +1,12 @@
-import { codeFenceZhCN } from "../namespaces/code-fence";
-import { chatShareZhCN } from "../namespaces/chat-share";
+import { zhTasks } from "./tasks";
+import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
+  ...zhTasks,
+  ...zhFailures,
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,
@@ -243,3 +245,6 @@ export const zhCN = {
   "common.http.failure": "这次请求没成功，稍后再试一次",
   "home.artifacts.one": "{count} 个产出物"
 } as const;
+
+import { codeFenceZhCN } from "../namespaces/code-fence";
+import { chatShareZhCN } from "../namespaces/chat-share";

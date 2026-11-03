@@ -30,12 +30,17 @@ if (existsSync(monacoVsSrc) && !existsSync(monacoVsDest)) {
 }
 
 /** @type {import('next').NextConfig} */
-export default {
+const nextConfig = {
   reactStrictMode: true,
   // Serve original images without the optional sharp/libvips optimizer.
   images: { unoptimized: true },
   // Only release images use a traced runtime; dev/e2e keep their current output.
-  ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? { output: "standalone" } : {}),
+  ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? {
+    output: "standalone",
+    // E2E fixtures reference server workspaces absent from the Web builder.
+    // Development/CI still typecheck the full tsconfig.json, including tests.
+    typescript: { tsconfigPath: "tsconfig.release.json" },
+  } : {}),
   /**
    * ⚠ 2026-08-18 实测（真栈 + 真实百炼 `qwen3.8-max` 跑 pptx skill 试跑）：
    * Next 的 rewrite 代理**默认 30s 就掐断连接**（`proxyTimeout` 未配时的内建默认），
@@ -320,6 +325,10 @@ export default {
        *   `/admin/skills/starter-pack-imports`）。⛔ 哪天有了，必须同时补裸路径那一条——
        *   `:path*` 匹配不到没有后缀的那一条，这个坑本文件上面已经栽过三次。
        */
+      // Display metadata has an independent administrator read/write surface.
+      // Keep both exact paths; never proxy the frontend /admin/:module pages.
+      { source: `${prefix}/admin/entity-display-updates`, destination: `${apiOrigin}/admin/entity-display-updates` },
+      { source: `${prefix}/admin/entity-display-updates/:path*`, destination: `${apiOrigin}/admin/entity-display-updates/:path*` },
       { source: `${prefix}/admin/skills/:path*`, destination: `${apiOrigin}/admin/skills/:path*` },
       { source: `${prefix}/admin/agents/:path*`, destination: `${apiOrigin}/admin/agents/:path*` },
       // #552：双重门禁的三条路径（`/skill-versions/:versionId/security-scan|submit|review`）。
@@ -666,3 +675,5 @@ export default {
     return { beforeFiles: [...chatV2BranchRewrites, ...projectsApiRewrites], afterFiles };
   },
 };
+
+export default nextConfig;

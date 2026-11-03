@@ -1,3 +1,4 @@
+import type { AuthorizedLocalizationRequest } from "../localization/entity-localization";
 import type { z } from "zod";
 import type { wave2Runtime } from "@repo/contracts";
 import type { OrgId } from "../../domain/org-id";
@@ -9,11 +10,11 @@ export const AGENT_STARTER_PACK_SOURCE = Symbol("AgentStarterPackSource");
 
 export type ExistingAgentImportOutcome =
   | { readonly kind: "missing" }
-  | { readonly kind: "replayed"; readonly result: AgentStarterImportResult }
+  | { readonly kind: "replayed"; readonly result: AgentStarterImportResult; readonly metadataOnly?: boolean }
   | { readonly kind: "idempotency-conflict" }
   | { readonly kind: "previous-failure"; readonly failureCode: string };
 export type PersistVerifiedAgentImportOutcome =
-  | { readonly kind: "created"; readonly result: AgentStarterImportResult }
+  | { readonly kind: "created"; readonly result: AgentStarterImportResult; readonly metadataOnly?: boolean }
   | Exclude<ExistingAgentImportOutcome, { readonly kind: "missing" }>
   | { readonly kind: "name-conflict" }
   | { readonly kind: "skill-missing" }
@@ -21,7 +22,7 @@ export type PersistVerifiedAgentImportOutcome =
 
 export interface AgentStarterImportRepository {
   findExisting(input: { readonly orgId: OrgId; readonly idempotencyKey: string; readonly payloadDigest: string }): Promise<ExistingAgentImportOutcome>;
-  persistVerified(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly pack: AgentStarterPack }): Promise<PersistVerifiedAgentImportOutcome>;
+  persistVerified(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly pack: AgentStarterPack; readonly localizationAuthorize?: AuthorizedLocalizationRequest["authorize"] }): Promise<PersistVerifiedAgentImportOutcome>;
   recordFailure(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly packId: string; readonly packVersion: string; readonly packDigest: string | null; readonly failureCode: string }): Promise<Exclude<ExistingAgentImportOutcome, { readonly kind: "missing" }>>;
 }
 export const AGENT_STARTER_IMPORT_REPOSITORY = Symbol("AgentStarterImportRepository");
@@ -43,7 +44,7 @@ export interface WorkflowDefinitionStore {
 export const WORKFLOW_DEFINITION_STORE = Symbol("WorkflowDefinitionStore");
 
 export type PersistVerifiedOfficialAgentRolePackOutcome =
-  | { readonly kind: "created"; readonly result: AgentStarterImportResult }
+  | { readonly kind: "created"; readonly result: AgentStarterImportResult; readonly metadataOnly?: boolean }
   | Exclude<ExistingAgentImportOutcome, { readonly kind: "missing" }>
   | { readonly kind: "name-conflict" }
   | { readonly kind: "skill-unresolved"; readonly missingIds: readonly string[] };
@@ -56,7 +57,7 @@ export type PersistVerifiedOfficialAgentRolePackOutcome =
  */
 export interface OfficialAgentRolePackImportRepository {
   findExisting(input: { readonly orgId: OrgId; readonly idempotencyKey: string; readonly payloadDigest: string }): Promise<ExistingAgentImportOutcome>;
-  persistVerified(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly pack: OfficialAgentStarterPack }): Promise<PersistVerifiedOfficialAgentRolePackOutcome>;
+  persistVerified(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly pack: OfficialAgentStarterPack; readonly localizationAuthorize?: AuthorizedLocalizationRequest["authorize"] }): Promise<PersistVerifiedOfficialAgentRolePackOutcome>;
   recordFailure(input: { readonly orgId: OrgId; readonly actorId: string; readonly idempotencyKey: string; readonly payloadDigest: string; readonly packId: string; readonly packVersion: string; readonly packDigest: string | null; readonly failureCode: string }): Promise<Exclude<ExistingAgentImportOutcome, { readonly kind: "missing" }>>;
   /** 本组织已存在的官方 Agent 的 stableName（任何状态；用于「待启用」要约排除已导入的角色）。 */
   importedOfficialStableNames(orgId: OrgId): Promise<readonly string[]>;

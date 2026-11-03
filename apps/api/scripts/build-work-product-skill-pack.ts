@@ -206,7 +206,7 @@ export function buildWorkProductPack(options: BuildOptions | string = {}): WorkP
   const outRoot = opts.outRoot ?? DEFAULT_OUT_ROOT;
   const directories = listSkillDirectories(root);
   const issues: BuildIssue[] = [];
-  const skills: SkillStarterPack["skills"] = [];
+  const skills: Extract<SkillStarterPack, { schemaVersion: 1 }>["skills"] = [];
   const seen = new Map<string, string>();
 
   for (const directory of directories) {

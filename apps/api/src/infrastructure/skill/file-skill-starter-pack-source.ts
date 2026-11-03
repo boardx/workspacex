@@ -1,3 +1,5 @@
+import { AUTHORED_DISPLAY_METADATA, DISPLAY_METADATA_VERSION, localizeShippedSkillPack } from "../../domain/localization/authored-display-metadata";
+import { verifySkillStarterPack } from "../../domain/skill/starter-pack";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +33,13 @@ export class FileSkillStarterPackSource implements SkillStarterPackSource {
 
   async load(packId: string, packVersion: string): Promise<unknown | null> {
     if (!this.root) return null;
+    const base = AUTHORED_DISPLAY_METADATA.packages[packId as keyof typeof AUTHORED_DISPLAY_METADATA.packages];
+    if (packVersion === DISPLAY_METADATA_VERSION && base) {
+      const raw = await this.load(packId,base.baseVersion);
+      if (raw === null) return null;
+      try { return localizeShippedSkillPack(verifySkillStarterPack(raw,{ packId,packVersion: base.baseVersion })); }
+      catch { return {}; } // A configured base that drifted is invalid, never a new execution release.
+    }
     try {
       const text = await readFile(join(this.root, packId, `${packVersion}.json`), "utf8");
       return JSON.parse(text) as unknown;

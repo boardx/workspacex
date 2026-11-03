@@ -8,7 +8,9 @@ import { ChildCancellationStatus } from "./run-control";
  */
 import { z } from "zod";
 import { RestorableInterrupt } from "./agent-interrupts";
-import { AuthoredSkillBinding, AgentRoleImportError, AgentRolePackEntryExtension, StarterPackToolPolicy } from "./agent-role";
+import { AuthoredSkillBinding, AgentRoleImportError, AgentRolePackEntryExtension, AgentRoleFields, StarterPackToolPolicy } from "./agent-role";
+import { PackLocalization } from "./pack-localization";
+import { TrustedSkillPackage } from "./standard-capabilities";
 
 const Sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const PackCoordinate = z.string().min(1).max(128).regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/);
@@ -29,6 +31,11 @@ export const SkillStarterPackEntry = z.object({
   files: z.array(SkillStarterPackFile).min(1),
 }).strict();
 
+/** Exact legacy execution-hash representation; retain source manifest/file order. */
+export const SkillExecutionRepresentation = SkillStarterPackEntry.pick({ manifest: true }).extend({
+  files: z.array(SkillStarterPackFile.omit({ contentBase64: true })),
+}).strict();
+
 export const UnsignedSkillStarterPack = z.object({
   schemaVersion: z.literal(1),
   packId: PackCoordinate,
@@ -36,9 +43,26 @@ export const UnsignedSkillStarterPack = z.object({
   skills: z.array(SkillStarterPackEntry).min(1),
 }).strict();
 
-export const SkillStarterPack = UnsignedSkillStarterPack.extend({
+const SkillStarterPackV1 = UnsignedSkillStarterPack.extend({
   packDigest: Sha256,
 }).strict();
+
+// Separate schemas preserve v1 strictness and canonical field ordering/digests.
+export const SkillStarterPackV2Entry = SkillStarterPackEntry.extend({
+  name: z.string().min(1),
+  duty: z.string().nullable().optional(),
+  localization: PackLocalization,
+}).strict().superRefine((entry, ctx) => {
+  const checked = TrustedSkillPackage.safeParse({ skillId: "portable", versionId: "portable", files: entry.files });
+  if (!checked.success) for (const issue of checked.error.issues) ctx.addIssue(issue);
+});
+export const UnsignedSkillStarterPackV2 = UnsignedSkillStarterPack.extend({
+  schemaVersion: z.literal(2), skills: z.array(SkillStarterPackV2Entry).min(1),
+}).strict();
+export const SkillStarterPackV2 = UnsignedSkillStarterPackV2.extend({ packDigest: Sha256 }).strict();
+export const SkillStarterPack = z.discriminatedUnion("schemaVersion", [
+  SkillStarterPackV1, SkillStarterPackV2,
+]);
 
 export const SkillStarterImportError = z.enum([
   "SKILL_STARTER_PACK_NOT_FOUND",
@@ -245,9 +269,23 @@ export const UnsignedAgentStarterPack = z.object({
   agents: z.array(AgentStarterPackEntry).min(1),
 }).strict();
 
-export const AgentStarterPack = UnsignedAgentStarterPack.extend({
+const AgentStarterPackV1 = UnsignedAgentStarterPack.extend({
   packDigest: Sha256,
 }).strict();
+export const AgentStarterPackV2Entry = AgentStarterPackEntry.extend({
+  name: z.string().min(1),
+  roleLabel: z.string().min(1).optional(),
+  duty: z.string().nullable().optional(),
+  role: AgentRoleFields.omit({ catalogSource: true }).optional(),
+  localization: PackLocalization,
+}).strict();
+export const UnsignedAgentStarterPackV2 = UnsignedAgentStarterPack.extend({
+  schemaVersion: z.literal(2), agents: z.array(AgentStarterPackV2Entry).min(1),
+}).strict();
+export const AgentStarterPackV2 = UnsignedAgentStarterPackV2.extend({ packDigest: Sha256 }).strict();
+export const AgentStarterPack = z.discriminatedUnion("schemaVersion", [
+  AgentStarterPackV1, AgentStarterPackV2,
+]);
 
 /**
  * AG03 · 官方角色包条目 = 基础 starter-pack 条目 + 角色扩展（`./agent-role` 的
@@ -267,9 +305,19 @@ export const UnsignedOfficialAgentStarterPack = UnsignedAgentStarterPack.extend(
   agents: z.array(OfficialAgentStarterPackEntry).min(1),
 }).strict();
 
-export const OfficialAgentStarterPack = UnsignedOfficialAgentStarterPack.extend({
+const OfficialAgentStarterPackV1 = UnsignedOfficialAgentStarterPack.extend({
   packDigest: Sha256,
 }).strict();
+export const OfficialAgentStarterPackV2Entry = OfficialAgentStarterPackEntry.extend({
+  name: z.string().min(1), duty: z.string().nullable().optional(), localization: PackLocalization,
+}).strict();
+export const UnsignedOfficialAgentStarterPackV2 = UnsignedOfficialAgentStarterPack.extend({
+  schemaVersion: z.literal(2), agents: z.array(OfficialAgentStarterPackV2Entry).min(1),
+}).strict();
+export const OfficialAgentStarterPackV2 = UnsignedOfficialAgentStarterPackV2.extend({ packDigest: Sha256 }).strict();
+export const OfficialAgentStarterPack = z.discriminatedUnion("schemaVersion", [
+  OfficialAgentStarterPackV1, OfficialAgentStarterPackV2,
+]);
 
 export const AgentStarterImportError = z.enum([
   "AGENT_STARTER_PACK_NOT_FOUND",

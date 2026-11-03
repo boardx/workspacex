@@ -1,3 +1,5 @@
+import authoredTitles from "../../../skills/localizations/work-stack-v2.json";
+import { applyDisplayUpdate, getDisplayUpdateOffer } from "./authored-display-update";
 /**
  * AG04（契约束 `agent-role` UC-4）—— 成员 Agent 目录的前端薄封装。
  *
@@ -89,6 +91,14 @@ export async function enableOfficialRolePack(
   const scopedRequest = scope ? { sessionToken: scope.sessionToken, signal: scope.signal } : {};
   const expectedOrg = scope ? { expectedOrgId: scope.orgId } : {};
   checkScope();
+  let metadataVersion: string | undefined;
+  if (scope) {
+    try {
+      metadataVersion = (await getDisplayUpdateOffer(scope.sessionToken,scope.signal)).metadataVersion;
+    } catch (error) { checkScope(); throw error; }
+    checkScope();
+  }
+  const rolePackVersion = metadataVersion ?? offer.packVersion;
   const packs = offer.requiredSkillPacks ?? [];
   const total = packs.length + 1;
   const skillOp = wave2Runtime.operations.importSkillStarterPack;
@@ -113,9 +123,13 @@ export async function enableOfficialRolePack(
   checkScope();
   await apiRequest<unknown>(op.path, {
     method: "POST", ...scopedRequest,
-    body: { ...expectedOrg, packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: `picker-enable-${offer.packId}@${offer.packVersion}` },
+    body: { ...expectedOrg, packId: offer.packId, packVersion: rolePackVersion, idempotencyKey: `picker-enable-${offer.packId}@${rolePackVersion}` },
   });
   checkScope();
+  if (metadataVersion && scope) {
+    await applyDisplayUpdate(metadataVersion,crypto.randomUUID(),scope);
+    checkScope();
+  }
 }
 
 export type AgentDirectoryProfile = z.infer<typeof agentRole.AgentDirectoryProfile>;
@@ -134,41 +148,36 @@ export async function getAgentDirectoryProfile(agentId: string, locale?: Locale)
  * 独占一个 `dh-NN-*` 头像）查。官方角色包的名字是英文角色头衔（签名包内容，改它会改摘要），
  * 成员界面不直接露英文（uiux-r1 cross-cutting）。查不到的 key 原样用后端给的名字。
  */
-const OFFICIAL_ROLE_ZH: Readonly<Record<string, { readonly name: string; readonly duty: string }>> = {
-  "dh-02-research-knowledge-analyst": {
-    name: "研究与知识分析师",
-    duty: "做结构化调研，每个结论都对应一条可追溯的来源，并把发现沉淀进组织知识库；不在证据之外加主观判断。",
-  },
-  "dh-03-product-manager": {
-    name: "产品经理",
-    duty: "把调研信号变成有优先级的问题陈述和需求文档，让路线图可以追溯到证据，交付可直接进迭代的范围。",
-  },
-  "dh-05-sales-representative": {
-    name: "销售代表",
-    duty: "筛选线索，推进从首次会面到签约的整条销售管道，每次阶段变化都以客户管理系统里的记录为准。",
-  },
-  "dh-11-design-thinking-expert": {
-    name: "设计思维专家",
-    duty: "主持从洞察到机会、再到实验验证的循环，在做决定前保留多个方向，并把取舍理由记在选中的方案旁边。",
-  },
+const LEGACY_OFFICIAL_DUTIES: Readonly<Record<string,string>> = {
+  "dh-02-research-knowledge-analyst": "做结构化调研，每个结论都对应一条可追溯的来源，并把发现沉淀进组织知识库；不在证据之外加主观判断。",
+  "dh-03-product-manager": "把调研信号变成有优先级的问题陈述和需求文档，让路线图可以追溯到证据，交付可直接进迭代的范围。",
+  "dh-05-sales-representative": "筛选线索，推进从首次会面到签约的整条销售管道，每次阶段变化都以客户管理系统里的记录为准。",
+  "dh-11-design-thinking-expert": "主持从洞察到机会、再到实验验证的循环，在做决定前保留多个方向，并把取舍理由记在选中的方案旁边。"
 };
+function legacyOfficialCopy(avatarKey: string | null | undefined) {
+  if (!avatarKey || !Object.prototype.hasOwnProperty.call(LEGACY_OFFICIAL_DUTIES,avatarKey)) return undefined;
+  const number = /^dh-(\d{2})-/.exec(avatarKey)?.[1];
+  const id = number ? `D${number.padStart(3,"0")}` : "";
+  const name = authoredTitles.agents[id as keyof typeof authoredTitles.agents]?.["zh-CN"].name;
+  return name ? { name,duty: LEGACY_OFFICIAL_DUTIES[avatarKey]! } : undefined;
+}
 
 type NamedAgent = Pick<AgentDirectoryCard, "name" | "catalogSource" | "avatar" | "display">;
 
 /** 成员界面上的数字人称呼（官方角色本地化，其余原样）。 */
 export function agentDisplayName(agent: NamedAgent): string {
-  const zh = agent.catalogSource === "official" && agent.avatar ? OFFICIAL_ROLE_ZH[agent.avatar.key] : undefined;
+  const zh = agent.catalogSource === "official" && agent.avatar ? legacyOfficialCopy(agent.avatar.key) : undefined;
   return localizedText(agent.display, "name", zh?.name ?? agent.name);
 }
 
 /** 按头像 key 取中文称呼（聊天消息身份行只有头像 key 与名字时用）。 */
 export function agentDisplayNameByAvatar(avatarKey: string | null | undefined, fallback: string, display?: LocalizedEntityDisplay): string {
-  return localizedText(display, "name", (avatarKey ? OFFICIAL_ROLE_ZH[avatarKey]?.name : undefined) ?? fallback);
+  return localizedText(display, "name", (avatarKey ? legacyOfficialCopy(avatarKey)?.name : undefined) ?? fallback);
 }
 
 /** 官方角色的中文一句话职责；非官方或未登记返回 null。 */
 export function officialRoleDuty(agent: NamedAgent): string | null {
-  const fallback = agent.catalogSource === "official" && agent.avatar ? OFFICIAL_ROLE_ZH[agent.avatar.key]?.duty ?? null : null;
+  const fallback = agent.catalogSource === "official" && agent.avatar ? legacyOfficialCopy(agent.avatar.key)?.duty ?? null : null;
   return localizedText(agent.display, "duty", fallback);
 }
 
@@ -206,4 +215,11 @@ export async function upgradeOfficialRoleSelections(
     body: { packVersion: offer.packVersion, expectedOrgId: scope.orgId, selections, idempotencyKey } });
   op.out.parse(result);
   if (scope.signal.aborted || !scope.isCurrent()) throw new Error("official_role_upgrade_scope_changed");
+}
+
+/** Pending built-in roles have no tenant localization row yet. Only recognized
+ * authored originals receive their release title; custom text stays verbatim. */
+export function authoredPendingRoleName(roleRef: string, locale: Locale, original: string): string {
+  const titles = authoredTitles.agents[roleRef as keyof typeof authoredTitles.agents];
+  return titles && Object.values(titles).some(copy => copy.name === original) ? titles[locale].name : original;
 }
