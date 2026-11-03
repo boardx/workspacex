@@ -164,3 +164,5 @@ chat 只负责把执行状态（含工具调用）渲染出来、把用户输入
 运行终态和步骤账本独立更新。PlanPanelReadOnly须接收failed/cancelled派生的executionStopped，将残留in_progress显示为已停止；不改真实账本、不伪造completed，也不影响运行中和成功完成步骤。
 
 - 2026-10-02：真实 qwen3.8-omni-flash-realtime 使用 Maia 可生成音频；共享配置只复用 Chat URL/key，测试上游通过 composition 函数参数显式注入。握手和实际音频夹具输出分别留证，均不能替代真人麦克风十轮与 P95 验收（issue #5124）。
+
+- 2026-11-03（#6190）：能力选择卡列表会在目录/官方角色 offer 返回后插入行；指针 click 完成不证明指定 agent 已选中。E2E 用真实 option 的键盘激活，并复核 exact id 的 aria-selected、非自动匹配、发送 header 与落库 run 的 agent/provider；不得删除 `[loopback]`/skill 哨兵掩盖回落到默认 agent。
