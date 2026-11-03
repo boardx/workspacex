@@ -1,3 +1,4 @@
+import { projectWorkbenchEn } from "../namespaces/project-workbench";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
@@ -8,6 +9,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...projectListEn,
   ...profileEn,
   ...stateEn,
+  ...projectWorkbenchEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { project as C } from "@repo/contracts";
+import { parseCreatedProject } from "./project-create-contract";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
 test.setTimeout(120_000);
 const name = `I18N_${F.orgId.slice(-24)}_原文 {Project}`;
@@ -43,18 +44,7 @@ test("project list locale preserves real creation, tags and archive/restore stat
   ]);
   expect(createdResponse.status()).toBe(201);
   const createdBody: unknown = await createdResponse.json();
-  const fullCreateContract = C.operations.createProject.out.safeParse(createdBody);
-  // KNOWN_CONTRACT_GAPS.P3 / #6163: latest-develop real HTTP baseline fails the full
-  // provenance contract. This local compatibility check does not repair or replace it.
-  const knownP3CreateProjectRuntimeOutput = C.operations.createProject.out.omit({ provenanceEventId: true }).strict();
-  if (!fullCreateContract.success) {
-    expect(fullCreateContract.error.issues.map(({ code, path }) => ({ code, path }))).toEqual([
-      { code: "invalid_type", path: ["provenanceEventId"] },
-    ]);
-    test.info().annotations.push({ type: "known-P3-compatibility", description: "#6163: full createProject contract still fails; only existing id/kind/status validated here" });
-    console.log("KNOWN_P3_FULL_CREATE_CONTRACT_STILL_FAILS=#6163");
-  }
-  const created = fullCreateContract.success ? fullCreateContract.data : knownP3CreateProjectRuntimeOutput.parse(createdBody);
+  const created = parseCreatedProject(createdBody);
   expect(createdResponse.request().postDataJSON()).toEqual({ orgId: F.orgId, name, kind: "general", blueprintVersionId: null });
   await page.waitForURL(/\/projects\/[^/?]+/);
   expect((await openList(page)).find((item) => item.id === created.id)?.name).toBe(name);

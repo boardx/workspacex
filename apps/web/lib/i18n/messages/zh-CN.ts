@@ -1,3 +1,4 @@
+import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
@@ -7,6 +8,7 @@ export const zhCN = {
   ...projectListZhCN,
   ...profileZhCN,
   ...stateZhCN,
+  ...projectWorkbenchZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
