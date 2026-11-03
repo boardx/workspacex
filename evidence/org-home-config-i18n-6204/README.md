@@ -21,3 +21,6 @@ flowchart LR
  classDef active fill:#fef08a
  classDef pending fill:#e5e7eb
 ```
+
+
+Delivery update: main coordinator explicitly authorized a stacked PR before #6203 merges. Its base is `worker/i18n-org-profile-6202`, isolating the home delta. Normal push, PR identity and later retarget/integration checks are recorded in the issue; this does not claim parent merge or develop-target CI. Final application/test source remains 95bf3f272e04eac0131a7acdeaa5a03a5726dd83.
