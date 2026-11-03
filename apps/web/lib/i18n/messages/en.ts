@@ -1,8 +1,5 @@
-import { chatPickerEn } from "../namespaces/chat-picker";
-import { chatComposerEn } from "../namespaces/chat-composer";
-import { chatErrorsEn } from "../namespaces/chat-errors";
-import { chatEntryEn } from "../namespaces/chat-entry";
 import { brainViewsEn } from "../namespaces/brain-views";
+import { chatEn } from "../namespaces/chat";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
@@ -20,6 +17,7 @@ import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
   ...brainViewsEn,
+  ...chatEn,
   ...enTasks,
   ...enFailures,
   ...controlsEn,
@@ -267,10 +265,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.artifacts.one": "{count} artifact",
   ...accountEntryEn,
   ...invitationEntryEn,
-  ...chatEntryEn,
-  ...chatErrorsEn,
-  ...chatComposerEn,
-  ...chatPickerEn,
 };
 
 import { codeFenceEn } from "../namespaces/code-fence";

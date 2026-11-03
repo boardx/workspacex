@@ -1,8 +1,5 @@
-import { chatPickerZhCN } from "../namespaces/chat-picker";
-import { chatComposerZhCN } from "../namespaces/chat-composer";
-import { chatErrorsZhCN } from "../namespaces/chat-errors";
-import { chatEntryZhCN } from "../namespaces/chat-entry";
 import { brainViewsZhCN } from "../namespaces/brain-views";
+import { chatZhCN } from "../namespaces/chat";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
@@ -19,6 +16,7 @@ import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...brainViewsZhCN,
+  ...chatZhCN,
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,
@@ -266,10 +264,6 @@ export const zhCN = {
   "home.artifacts.one": "{count} 个产出物",
   ...accountEntryZhCN,
   ...invitationEntryZhCN,
-  ...chatEntryZhCN,
-  ...chatErrorsZhCN,
-  ...chatComposerZhCN,
-  ...chatPickerZhCN,
 } as const;
 
 import { codeFenceZhCN } from "../namespaces/code-fence";
