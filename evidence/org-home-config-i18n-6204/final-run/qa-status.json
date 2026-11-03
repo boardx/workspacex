@@ -1,0 +1,32 @@
+{
+  "source": "95bf3f272e04eac0131a7acdeaa5a03a5726dd83",
+  "passed": 1,
+  "caseSeconds": 13.8,
+  "totalSeconds": 242,
+  "cleanupSeconds": 1,
+  "scope": "wsx-593b53c25ee5c9ae6788",
+  "remainingContainers": 0,
+  "quantitativeGeometry": [
+    375,
+    1280
+  ],
+  "visualOnlyWidth": 820,
+  "viewed": [
+    "home-config-content-375.png",
+    "home-config-layout-375.png",
+    "home-config-theme-375.png",
+    "home-config-banner-375.png"
+  ],
+  "pendingVisualQa": [
+    "home-config-banner-1280.png",
+    "home-config-content-1280.png",
+    "home-config-layout-1280.png",
+    "home-config-member-denied.png",
+    "home-config-member-home.png",
+    "home-config-preview-1280.png",
+    "home-config-preview-375.png",
+    "home-config-preview-820.png",
+    "home-config-theme-1280.png"
+  ],
+  "delivery": "pending independent profile-race maintenance, parent actualmerge, remaining QA/staticgates and pure-delta publication"
+}
