@@ -1,0 +1,13 @@
+Selected failure lines from the first mandatory push (blocked, no bypass):
+web:typecheck: tests/ui/project-list-i18n.test.tsx(21,58): error TS2769: No overload matches this call.
+web:typecheck:     Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+web:typecheck:     Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+web:typecheck: tests/ui/project-list-i18n.test.tsx(28,52): error TS2769: No overload matches this call.
+web:typecheck:     Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+web:typecheck:     Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+web:typecheck: tests/ui/project-list-i18n.test.tsx(70,54): error TS2769: No overload matches this call.
+web:typecheck:     Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+web:typecheck:     Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+ Tasks:    24 successful, 25 total
+  Time:    37.672s
+Failed:    web#typecheck

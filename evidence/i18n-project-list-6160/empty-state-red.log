@@ -1,0 +1,240 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+stderr | tests/ui/local-first-run-empty-states.test.tsx > 项目页空状态 > 有项目但被搜索筛光时，说的是另一句话，并给「清除筛选条件」
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at Proxy.projectKindLabel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/live-projects.ts:85:10)
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:339:19)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at Proxy.projectKindLabel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/live-projects.ts:85:10)
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:339:19)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at Proxy.projectKindLabel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/live-projects.ts:85:10)
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:339:19)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at Proxy.projectKindLabel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/live-projects.ts:85:10)
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:339:19)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <ProjectRealCard> component:
+
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:461:3)
+    at ul
+    at div
+    at ProjectsScreen (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:44:47)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+The above error occurred in the <ProjectRealCard> component:
+
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:461:3)
+    at ul
+    at div
+    at ProjectsScreen (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:44:47)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+stderr | tests/ui/local-first-run-empty-states.test.tsx > 项目页空状态 > 点「清除筛选条件」真的把列表放回来
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at Proxy.projectKindLabel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/live-projects.ts:85:10)
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:339:19)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+TypeError: Cannot read properties of undefined (reading 'replace')
+    at Module.translate (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages.ts:14:18)
+    at Proxy.projectKindLabel (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/live-projects.ts:85:10)
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:339:19)
+    at renderWithHooks (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18)
+    at mountIndeterminateComponent (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13)
+    at beginWork (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16)
+    at HTMLUnknownElement.callCallback (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:4164:14)
+    at HTMLUnknownElement.callTheUserObjectsOperation (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/generated/idl/EventListener.js:26:30)
+    at innerInvokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:360:16)
+    at invokeEventListeners (/Users/shenyangjun/boardx/workspacex-i18n-subpages/node_modules/.pnpm/jsdom@30.0.1_canvas@3.2.3/node_modules/jsdom/lib/jsdom/living/events/EventTarget-impl.js:296:3)
+The above error occurred in the <ProjectRealCard> component:
+
+    at ProjectRealCard (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:461:3)
+    at ul
+    at div
+    at ProjectsScreen (/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/components/projects/projects-screen.tsx:44:47)
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+
+ ❯ tests/ui/local-first-run-empty-states.test.tsx (3 tests | 2 failed) 2104ms
+   × 项目页空状态 > 有项目但被搜索筛光时，说的是另一句话，并给「清除筛选条件」 1014ms
+     → Unable to find an element by: [data-testid="projects-list"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+   × 项目页空状态 > 点「清除筛选条件」真的把列表放回来 1009ms
+     → Unable to find an element by: [data-testid="projects-list"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/local-first-run-empty-states.test.tsx > 项目页空状态 > 有项目但被搜索筛光时，说的是另一句话，并给「清除筛选条件」
+TestingLibraryElementError: Unable to find an element by: [data-testid="projects-list"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/local-first-run-empty-states.test.tsx:49:18
+     47|     listProjects.mockResolvedValue([proj("阿尔法"), proj("贝塔")]);
+     48|     render(<ProjectsScreen />);
+     49|     await screen.findByTestId("projects-list");
+       |                  ^
+     50|     fireEvent.change(screen.getByTestId("projects-search"), { target: …
+     51|     const box = await screen.findByTestId("projects-list-empty");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/local-first-run-empty-states.test.tsx > 项目页空状态 > 点「清除筛选条件」真的把列表放回来
+TestingLibraryElementError: Unable to find an element by: [data-testid="projects-list"]
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/local-first-run-empty-states.test.tsx:60:18
+     58|     listProjects.mockResolvedValue([proj("阿尔法")]);
+     59|     render(<ProjectsScreen />);
+     60|     await screen.findByTestId("projects-list");
+       |                  ^
+     61|     fireEvent.change(screen.getByTestId("projects-search"), { target: …
+     62|     fireEvent.click(await screen.findByTestId("projects-empty-clear-fi…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 2 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'replace')
+ ❯ Module.translate lib/i18n/messages.ts:14:18
+     12|   const message = dictionary[resolved] || zhCN[resolved];
+     13|   // Replace once; replacement text is never parsed as a second templa…
+     14|   return message.replace(/\{(\w+)\}/g, (token, name: string) => params…
+       |                  ^
+     15| }
+     16|
+ ❯ Proxy.projectKindLabel lib/live-projects.ts:85:10
+ ❯ ProjectRealCard components/projects/projects-screen.tsx:339:19
+ ❯ renderWithHooks ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+ ❯ renderRootSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26473:7
+
+This error originated in "tests/ui/local-first-run-empty-states.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "有项目但被搜索筛光时，说的是另一句话，并给「清除筛选条件」". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+⎯⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯⎯
+TypeError: Cannot read properties of undefined (reading 'replace')
+ ❯ Module.translate lib/i18n/messages.ts:14:18
+     12|   const message = dictionary[resolved] || zhCN[resolved];
+     13|   // Replace once; replacement text is never parsed as a second templa…
+     14|   return message.replace(/\{(\w+)\}/g, (token, name: string) => params…
+       |                  ^
+     15| }
+     16|
+ ❯ Proxy.projectKindLabel lib/live-projects.ts:85:10
+ ❯ ProjectRealCard components/projects/projects-screen.tsx:339:19
+ ❯ renderWithHooks ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26505:5
+ ❯ renderRootSync ../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/cjs/react-dom.development.js:26473:7
+
+This error originated in "tests/ui/local-first-run-empty-states.test.tsx" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "点「清除筛选条件」真的把列表放回来". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+     Errors  2 errors
+   Start at  06:53:02
+   Duration  5.53s (transform 1.13s, setup 184ms, collect 1.89s, tests 2.10s, environment 868ms, prepare 60ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/local-first-run-empty-states.test.tsx --maxWorkers=1 --minWorkers=1

@@ -1,0 +1,13 @@
+[stack-admission] load1=2.42 cores=10 perCore=0.24 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvztivid-e5fd9d0a-dde112714fe7 db=wsx_dde112714fe7c45939b4 compose=wsx-dde112714fe7c45939b4 pg=20057 redis=21057 api=24057 web=25057 sandbox=26057 model=27057 deep-agent=28057 asr=29057 vision=30057 loopback-sandbox=31057 mail=19057
+Listing tests:
+  [p3-baseline] › p3-baseline.spec.ts:4:5 › latest develop real create HTTP 201 fails the full provenance contract (expected baseline red)
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.p3-baseline.config.ts --workers=1 --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：2s

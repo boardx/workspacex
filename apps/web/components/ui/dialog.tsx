@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -42,7 +43,9 @@ export const DialogContent = React.forwardRef<
     /** 隐藏内置关闭按钮，调用方自己在 children 里放（极少数场景，如复用旧 footer 结构）。 */
     hideClose?: boolean;
   }
->(({ className, children, closeTestId = "dialog-close", hideClose, ...props }, ref) => (
+>(({ className, children, closeTestId = "dialog-close", hideClose, ...props }, ref) => {
+  const { t } = useI18n();
+  return (
   <DialogPrimitive.Portal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -58,7 +61,7 @@ export const DialogContent = React.forwardRef<
       {children}
       {!hideClose && (
         <DialogPrimitive.Close
-          aria-label="关闭"
+          aria-label={t("common.close")}
           data-testid={closeTestId}
           className={cn(
             "absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base",
@@ -71,7 +74,8 @@ export const DialogContent = React.forwardRef<
       )}
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>
-));
+  );
+});
 DialogContent.displayName = "DialogContent";
 
 export function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

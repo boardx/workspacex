@@ -1,9 +1,13 @@
 import { workflowRunsEn } from "../namespaces/workflow-runs";
+import { controlsEn } from "../namespaces/controls";
+import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
 export const en: Record<keyof typeof zhCN, string> = {
   ...workflowRunsEn,
+  ...controlsEn,
+  ...projectListEn,
   ...profileEn,
   ...stateEn,
   "common.language": "Language",

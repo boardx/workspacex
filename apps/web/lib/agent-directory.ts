@@ -9,6 +9,9 @@
 import { agentRole, wave2Runtime } from "@repo/contracts";
 import type { z } from "zod";
 import { ApiError, apiRequest } from "./api-client";
+import type { Locale } from "@repo/contracts/locale";
+import type { LocalizedEntityDisplay } from "@repo/contracts/entity-localization";
+import { localizedText, translatedText } from "./entity-localization";
 
 export type AgentDirectoryCard = z.infer<typeof agentRole.AgentDirectoryCard>;
 export type AgentRoleCategory = z.infer<typeof agentRole.AgentRoleCategory>;
@@ -28,19 +31,19 @@ export const ROLE_CATEGORY_LABEL: Record<AgentRoleCategory, string> = {
 };
 
 export async function listAgentDirectory(
-  filters: { readonly roleCategory?: AgentRoleCategory; readonly q?: string } = {},
+  filters: { readonly roleCategory?: AgentRoleCategory; readonly q?: string; readonly locale?: Locale } = {},
 ): Promise<readonly AgentDirectoryCard[]> {
   const out = await apiRequest<unknown>(agentRole.operations.listAgentDirectory.path, {
     method: "GET",
-    query: { roleCategory: filters.roleCategory, q: filters.q },
+    query: { roleCategory: filters.roleCategory, q: filters.q, ...(filters.locale !== undefined ? { locale: filters.locale } : {}) },
   });
   return agentRole.operations.listAgentDirectory.out.parse(out).items;
 }
 
-export async function getAgentDirectoryCard(agentId: string): Promise<AgentDirectoryCard> {
+export async function getAgentDirectoryCard(agentId: string, locale?: Locale): Promise<AgentDirectoryCard> {
   const out = await apiRequest<unknown>(
     agentRole.operations.getAgentDirectoryCard.path.replace(":agentId", encodeURIComponent(agentId)),
-    { method: "GET" },
+    { method: "GET", ...(locale !== undefined ? { query: { locale } } : {}) },
   );
   return agentRole.operations.getAgentDirectoryCard.out.parse(out);
 }
@@ -118,10 +121,10 @@ export async function enableOfficialRolePack(
 export type AgentDirectoryProfile = z.infer<typeof agentRole.AgentDirectoryProfile>;
 
 /** AG04 follow-up：成员详情页补充信息（职责 / 技能引用 / 可转交对象）。 */
-export async function getAgentDirectoryProfile(agentId: string): Promise<AgentDirectoryProfile> {
+export async function getAgentDirectoryProfile(agentId: string, locale?: Locale): Promise<AgentDirectoryProfile> {
   const out = await apiRequest<unknown>(
     agentRole.operations.getAgentDirectoryProfile.path.replace(":agentId", encodeURIComponent(agentId)),
-    { method: "GET" },
+    { method: "GET", ...(locale !== undefined ? { query: { locale } } : {}) },
   );
   return agentRole.operations.getAgentDirectoryProfile.out.parse(out);
 }
@@ -150,22 +153,23 @@ const OFFICIAL_ROLE_ZH: Readonly<Record<string, { readonly name: string; readonl
   },
 };
 
-type NamedAgent = Pick<AgentDirectoryCard, "name" | "catalogSource" | "avatar">;
+type NamedAgent = Pick<AgentDirectoryCard, "name" | "catalogSource" | "avatar" | "display">;
 
 /** 成员界面上的数字人称呼（官方角色本地化，其余原样）。 */
 export function agentDisplayName(agent: NamedAgent): string {
   const zh = agent.catalogSource === "official" && agent.avatar ? OFFICIAL_ROLE_ZH[agent.avatar.key] : undefined;
-  return zh?.name ?? agent.name;
+  return localizedText(agent.display, "name", zh?.name ?? agent.name);
 }
 
 /** 按头像 key 取中文称呼（聊天消息身份行只有头像 key 与名字时用）。 */
-export function agentDisplayNameByAvatar(avatarKey: string | null | undefined, fallback: string): string {
-  return (avatarKey ? OFFICIAL_ROLE_ZH[avatarKey]?.name : undefined) ?? fallback;
+export function agentDisplayNameByAvatar(avatarKey: string | null | undefined, fallback: string, display?: LocalizedEntityDisplay): string {
+  return localizedText(display, "name", (avatarKey ? OFFICIAL_ROLE_ZH[avatarKey]?.name : undefined) ?? fallback);
 }
 
 /** 官方角色的中文一句话职责；非官方或未登记返回 null。 */
 export function officialRoleDuty(agent: NamedAgent): string | null {
-  return agent.catalogSource === "official" && agent.avatar ? OFFICIAL_ROLE_ZH[agent.avatar.key]?.duty ?? null : null;
+  const fallback = agent.catalogSource === "official" && agent.avatar ? OFFICIAL_ROLE_ZH[agent.avatar.key]?.duty ?? null : null;
+  return localizedText(agent.display, "duty", fallback);
 }
 
 /**
@@ -173,10 +177,11 @@ export function officialRoleDuty(agent: NamedAgent): string | null {
  */
 export function agentSubtitle(card: AgentDirectoryCard, duty: string | null = null): string | null {
   const display = agentDisplayName(card);
-  const label = card.roleLabel.trim();
+  const translated = translatedText(card.display, "roleLabel");
+  const label = (translated ?? card.roleLabel).trim();
   const redundant = label.length === 0 || label === display || label === card.name.trim();
-  if (!redundant && !/^[\x20-\x7e]+$/.test(label)) return label;
-  const d = duty ?? officialRoleDuty(card);
+  if (!redundant && (translated !== null || !/^[\x20-\x7e]+$/.test(label))) return label;
+  const d = localizedText(card.display, "duty", duty ?? officialRoleDuty(card));
   if (d) return d;
   return card.roleCategory ? `${ROLE_CATEGORY_LABEL[card.roleCategory]}类数字人` : null;
 }

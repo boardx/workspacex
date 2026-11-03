@@ -318,6 +318,7 @@ export const AgentDirectoryProfile = z.object({
   pendingSkillBindings: z.array(PendingSkillBinding).max(64),
   /** 委派策略允许转交、且当前在目录中可见的角色。 */
   delegationTargets: z.array(z.object({
+    display: LocalizedEntityDisplay.optional(),
     agentId: Id,
     name: z.string(),
     initials: z.string(),
