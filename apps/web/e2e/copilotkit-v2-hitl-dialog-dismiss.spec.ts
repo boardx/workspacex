@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { CHAT_READ_E2E } from "./chat-read-fixture";
+import { createThreadViaApi } from "./support/authoritative-thread";
+import { sendAndProveNextTurn } from "./support/hitl-next-turn";
 
 /**
  * 审批是一次**持久**裁决：Escape 永远不会静默批准或拒绝。
@@ -35,7 +37,8 @@ test("模态审批：Escape不裁决且审批不丢；重复拒绝只提交一�
   await page.getByTestId("login-submit").click();
   await page.waitForURL(/\/home$/);
   await expect.poll(async () => (await page.request.get("/api/copilotkit/info")).status(), { timeout: 60_000 }).toBe(200);
-  await page.goto("/chat");
+  const threadId = await createThreadViaApi(page);
+  await page.goto(`/chat/${encodeURIComponent(threadId)}`);
   const decisions: string[] = [];
   page.on("request", (request) => {
     if (request.method() === "POST" && /\/permission-requests\/[^/]+\/decision$/.test(new URL(request.url()).pathname)) decisions.push(request.url());
@@ -71,9 +74,55 @@ test("模态审批：Escape不裁决且审批不丢；重复拒绝只提交一�
   await expect(permissionDialog).toHaveCount(0);
   await expect(page.locator(OVERLAY_SELECTOR)).toHaveCount(0);
 
-  const nextRun = page.waitForRequest((request) => request.method() === "POST" && new URL(request.url()).pathname.endsWith("/agent/default/run"));
-  await page.getByTestId("copilotkit-v2-input").fill("你好，这是一条简单的问候消息");
+  // Busy replies legitimately use the server-owned queue. Both real paths must
+  // prove the same uniquely persisted human, succeeded run and linked reply.
+  await sendAndProveNextTurn(page, threadId, "你好，这是一条简单的问候消息");
+});
+
+test("审批未决时真实排到下一轮：拒绝后同一队列条目执行完成且只持久化一次", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("login-email").fill(CHAT_READ_E2E.email);
+  await page.getByTestId("login-password").fill(CHAT_READ_E2E.password);
+  await page.getByTestId("login-submit").click();
+  await page.waitForURL(/\/home$/);
+  await expect.poll(async () => (await page.request.get("/api/copilotkit/info")).status(), { timeout: 60_000 }).toBe(200);
+  const threadId = await createThreadViaApi(page);
+  await page.goto(`/chat/${encodeURIComponent(threadId)}`);
+  const decisions: string[] = [];
+  page.on("request", request => {
+    if (request.method() === "POST" && /\/permission-requests\/[^/]+\/decision$/.test(new URL(request.url()).pathname)) decisions.push(request.url());
+  });
+  await page.getByTestId("copilotkit-v2-input").fill(CHAT_READ_E2E.deepAgentApprovalTrigger);
   await page.getByTestId("copilotkit-v2-send").click();
-  await nextRun;
-  await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("你好，这是一条简单的问候消息");
+  const approval = page.getByTestId("restored-run-approval");
+  const dialog = page.getByTestId("chat-tool-permission-dialog");
+  await expect(approval).toBeVisible({ timeout: 60_000 });
+  await expect(dialog).toBeVisible();
+  await expect(page.locator(OVERLAY_SELECTOR)).not.toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(approval).toBeVisible();
+  expect(decisions).toHaveLength(0);
+
+  await sendAndProveNextTurn(page, threadId, "你好，这是第二条真实问候消息", {
+    action: "queue",
+    afterQueueAccepted: async receipt => {
+      // The real server must hold this exact item until the blocking approval is decided.
+      expect(receipt.status).toBe("pending");
+      expect(receipt.runId).toBeNull();
+      expect(decisions).toHaveLength(0);
+      await approval.getByRole("button", { name: "打开工具审批", exact: true }).click();
+      await expect(dialog).toBeVisible();
+      const decided = page.waitForResponse(response => response.request().method() === "POST" && /\/permission-requests\/[^/]+\/decision$/.test(new URL(response.url()).pathname));
+      await dialog.getByTestId("perm-deny").evaluate((button: HTMLButtonElement) => { button.click(); button.click(); });
+      const response = await decided;
+      expect(response.status()).toBe(200);
+      expect(response.request().postDataJSON()).toEqual({ decision: "deny" });
+      await expect(approval).toHaveCount(0);
+      await expect(page.getByTestId("copilotkit-v2-messages")).toContainText("已按你的选择跳过这次技能调用");
+      expect(decisions).toHaveLength(1);
+      await expect(dialog).toHaveCount(0);
+      await expect(page.locator(OVERLAY_SELECTOR)).toHaveCount(0);
+    },
+  });
 });
