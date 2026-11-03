@@ -1,0 +1,15 @@
+Selected failure/summary lines from the pre-implementation real-component run (exit 1).
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/invitation-entry-i18n.test.tsx > single: preserves original credentials, claims and stored invalid-link failure across locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Activate organization invitation"
+ FAIL  tests/ui/invitation-entry-i18n.test.tsx > single: translates preserved-account completion without replacing the session or repeating activation
+TestingLibraryElementError: Unable to find an element with the text: /Your current signed-in account has been preserved/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/invitation-entry-i18n.test.tsx > shared: preserves original credentials, claims and stored invalid-link failure across locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Join organization"
+ FAIL  tests/ui/invitation-entry-i18n.test.tsx > shared: translates preserved-account completion without replacing the session or repeating activation
+TestingLibraryElementError: Unable to find an element with the text: /Your current signed-in account has been preserved/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/invitation-entry-i18n.test.tsx > preserves existing-account invitation mode and original session token while translating its unavailable result
+TestingLibraryElementError: Unable to find an element with the text: /The service is temporarily unavailable/. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Duration  11.21s (transform 2.32s, setup 767ms, collect 3.79s, tests 4.05s, environment 1.75s, prepare 151ms)
