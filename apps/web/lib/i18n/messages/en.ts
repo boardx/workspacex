@@ -3,6 +3,7 @@ import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
+import { notificationsEn } from "../namespaces/notifications";
 export const en: Record<keyof typeof zhCN, string> = {
   ...controlsEn,
   ...projectListEn,
@@ -238,5 +239,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",
   "common.http.failure": "The request failed. Please try again later.",
-  "home.artifacts.one": "{count} artifact"
+  "home.artifacts.one": "{count} artifact",
+  ...notificationsEn,
 };
