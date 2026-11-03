@@ -1,0 +1,19 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/skill-catalog-live.test.tsx (15 tests) 821ms
+ ✓ tests/ui/work-skill-catalog.test.tsx (15 tests) 1251ms
+ ✓ tests/ui/agent-directory.test.tsx (21 tests) 601ms
+ ✓ tests/ui/agent-detail.test.tsx (10 tests) 342ms
+ ✓ tests/ui/agent-role-admin-section.test.tsx (8 tests) 426ms
+ ✓ tests/ui/entity-localization-editor.test.tsx (5 tests) 348ms
+ ✓ tests/ui/entity-localization-directory-cache.test.tsx (3 tests) 135ms
+ ✓ tests/ui/entity-localization-directory.test.tsx (2 tests) 223ms
+ ✓ tests/lib/entity-localization.test.ts (4 tests) 8ms
+
+ Test Files  9 passed (9)
+      Tests  83 passed (83)
+   Start at  05:36:53
+   Duration  18.78s (transform 1.91s, setup 1.12s, collect 5.83s, tests 4.15s, environment 5.49s, prepare 585ms)
+

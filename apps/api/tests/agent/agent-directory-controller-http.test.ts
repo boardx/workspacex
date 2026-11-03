@@ -3,7 +3,9 @@
  * 无任何测试覆盖）：`GET /agents/directory` 的 query 解析与 401 映射，
  * `GET /agents/directory/:agentId` 的 401/404 映射与契约出参解析。
  */
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { resolveEntityDisplay } from "@repo/contracts/entity-localization";
+import type { EntityLocalizationRepository } from "../../src/application/localization/entity-localization";
 import { NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { agentDefaults, agentRole as R } from "@repo/contracts";
 import { AgentDirectoryController } from "../../src/interface/controllers/agent-directory.controller";
@@ -108,6 +110,25 @@ describe("AG04 AgentDirectoryController HTTP mapping", () => {
 });
 
 describe("AG04 follow-up getProfile HTTP mapping", () => {
+  it("localizes only authorized delegation targets and preserves their source identity", async () => {
+    const current = { ...row(), delegationTargetRefs: ["target-role", "hidden-role"] };
+    const target = { ...row(), agentId: "target", roleRef: "target-role", name: "目标专家" };
+    const unrelated = { ...row(), agentId: "unrelated", roleRef: "other-role" };
+    const identities = { findOrgMembership: async () => ({ orgRole: "member" }) } as unknown as IdentityRepository;
+    const repository: AgentDirectoryRepository = { findVisible: async () => current, listVisible: async () => [current, target, unrelated] };
+    const source = { orgId: "org-1", entityId: "target", kind: "agent", revision: "v1", locale: "zh-CN", fields: { name: target.name } };
+    const display = resolveEntityDisplay(source, "en", { orgId: "org-1", entityId: "target", kind: "agent", sourceRevision: "v1", locale: "en", revision: 1, status: "reviewed", fields: { name: "Target expert" } });
+    const displays = vi.fn(async () => new Map([["target", display]]));
+    const controller = new AgentDirectoryController(identities, repository, { resolveName: async () => null } as unknown as WorkflowDefinitionStore,
+      undefined, { displays } as unknown as EntityLocalizationRepository);
+    const localized = await controller.getProfile(MEMBER, "agent-1", "en");
+    expect(localized.delegationTargets).toMatchObject([{ agentId: "target", name: target.name, display: { fields: { name: { value: "Target expert" } } } }]);
+    expect(displays.mock.calls.map(call => (call as unknown[])[2])).toEqual([["target"], ["agent-1"]]);
+    displays.mockClear();
+    const legacy = await controller.getProfile(MEMBER, "agent-1");
+    expect(legacy.delegationTargets[0]).not.toHaveProperty("display");
+    expect(displays).not.toHaveBeenCalled();
+  });
   it("可见 → 200 契约形状；未认证 → 401；不存在 → 404", async () => {
     const out = await setup().getProfile(MEMBER, "agent-1");
     expect(R.operations.getAgentDirectoryProfile.out.parse(out).agentId).toBe("agent-1");

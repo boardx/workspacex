@@ -2,9 +2,10 @@ import { z } from "zod";
 import { Locale } from "./locale";
 
 const Revision = z.string().trim().min(1).max(255);
+export const ENTITY_LOCALIZATION_TEXT_LIMIT = 4000;
 // Existing originals may exceed the authoring budget; retain them verbatim on reads.
 const Text = z.string().nullable();
-const TranslationText = Text.refine(value => value === null || value.length <= 4000, "translation exceeds 4000 characters")
+const TranslationText = Text.refine(value => value === null || value.length <= ENTITY_LOCALIZATION_TEXT_LIMIT, "translation exceeds character limit")
   .transform((value) => value === null || value.trim() === "" ? null : value);
 export const EntityKind = z.enum(["skill", "agent"]);
 export type EntityKind = z.infer<typeof EntityKind>;

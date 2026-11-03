@@ -103,7 +103,9 @@ export class AgentDirectoryController {
         { orgId: principal.orgId, actorId: principal.userId, agentId },
         { identities: this.identities, repository: this.repository },
       );
-      const localized = (await localizeAuthorizedItems([profile], { orgId: principal.orgId, kind: "agent", locale,
+      const delegationTargets = await localizeAuthorizedItems(profile.delegationTargets, { orgId: principal.orgId, kind: "agent", locale,
+        idOf: row => row.agentId, repository: this.localizations });
+      const localized = (await localizeAuthorizedItems([{ ...profile, delegationTargets }], { orgId: principal.orgId, kind: "agent", locale,
         idOf: row => row.agentId, repository: this.localizations }))[0];
       return R.operations.getAgentDirectoryProfile.out.parse(localized);
     } catch (error) {

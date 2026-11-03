@@ -19,6 +19,7 @@
  * 组织策展元数据，官方 Agent 上管理员同样可编辑（服务端 `OFFICIAL_ORG_CURATED_ROLE_FIELDS`）。
  */
 import * as React from "react";
+import { EntityLocalizationPanel } from "@/components/localization/entity-localization-editor";
 import { agentRole } from "@repo/contracts";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -225,6 +226,7 @@ export function AgentRoleAdminSection({ agentId }: { agentId: string }) {
       </div>
 
       {saveError && <p data-testid="agent-role-admin-save-error" className="text-12 text-destructive">保存失败：{saveError}</p>}
+      <EntityLocalizationPanel key={agentId} kind="agent" entityId={agentId} />
     </section>
   );
 }
