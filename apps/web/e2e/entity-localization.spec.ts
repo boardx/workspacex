@@ -500,6 +500,7 @@ test("workflow grant management persists canonical permissions and audit across 
   } finally { await localePage.close(); }
   expect([reads, writes]).toEqual(beforeDialogLocale);
   await capture("dialog");
+  const beforeGrantEventIds = new Set(catalog.audit.map(event => event.eventId));
   const changed = page.waitForResponse(response => response.request().method() === "PUT" && new URL(response.url()).pathname === itemPath);
   await page.getByTestId("workflow-grant-confirm").click();
   const granted = await changed;
@@ -513,12 +514,14 @@ test("workflow grant management persists canonical permissions and audit across 
   await page.getByTestId("language-switcher").first().selectOption("en");
   const persisted = await read();
   expect(persisted.grants.find(grant => grant.capabilityCategory === "artifact.write")).toMatchObject({ configured: true, sideEffectCap: "write" });
-  const grantEvent = persisted.audit.find(event => event.capabilityCategory === "artifact.write" && event.action === "granted" && event.fromCap === "read" && event.toCap === "write");
+  const grantEvent = persisted.audit.find(event => !beforeGrantEventIds.has(event.eventId) && event.capabilityCategory === "artifact.write" && event.action === "granted" && event.fromCap === "read" && event.toCap === "write" && event.actorId === ENTITY_LOCALIZATION_E2E.adminUserId);
   expect(grantEvent).toMatchObject({ actorId: ENTITY_LOCALIZATION_E2E.adminUserId });
   expect(Number.isFinite(Date.parse(grantEvent!.at))).toBe(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Workflow permissions", exact: true })).toBeVisible();
+  await page.getByTestId("workflow-grants-tab-capability").click();
   await expect(artifact.getByTestId("workflow-grant-current")).toContainText("Write");
+  expect((await read()).audit).toContainEqual(grantEvent);
   const audit = page.getByTestId("workflow-grants-audit");
   await expect(audit).toContainText("Granted");
   await expect(audit.getByTestId("workflow-grants-audit-actor").filter({ hasText: "Localization admin (me)" }).first()).toHaveText("Localization admin (me)");
@@ -531,6 +534,7 @@ test("workflow grant management persists canonical permissions and audit across 
   await capture("audit");
   await artifact.getByTestId("workflow-grant-edit").click();
   await page.getByTestId("workflow-grant-level-read").check();
+  const beforeRevokeEventIds = new Set(persisted.audit.map(event => event.eventId));
   const revoked = page.waitForResponse(response => response.request().method() === "DELETE" && new URL(response.url()).pathname === itemPath);
   await page.getByTestId("workflow-grant-confirm").click();
   const revokeResponse = await revoked;
@@ -538,9 +542,13 @@ test("workflow grant management persists canonical permissions and audit across 
   expect(WG.operations.revokeWorkflowCapabilityGrant.out.parse(await revokeResponse.json())).toMatchObject({ capabilityCategory: "artifact.write", configured: false, sideEffectCap: "read" });
   await expect(page.getByTestId("workflow-grants-notice")).toContainText("Revoked");
   const restored = await read();
-  expect(restored.audit.some(event => event.capabilityCategory === "artifact.write" && event.action === "revoked" && event.fromCap === "write" && event.toCap === "read" && event.actorId === ENTITY_LOCALIZATION_E2E.adminUserId)).toBe(true);
+  const revokeEvent = restored.audit.find(event => !beforeRevokeEventIds.has(event.eventId) && event.capabilityCategory === "artifact.write" && event.action === "revoked" && event.fromCap === "write" && event.toCap === "read" && event.actorId === ENTITY_LOCALIZATION_E2E.adminUserId);
+  expect(revokeEvent).toMatchObject({ actorId: ENTITY_LOCALIZATION_E2E.adminUserId });
+  expect(Number.isFinite(Date.parse(revokeEvent!.at))).toBe(true);
   await page.reload();
+  await page.getByTestId("workflow-grants-tab-capability").click();
   await expect(artifact.getByTestId("workflow-grant-current")).toContainText("Read-only");
+  expect((await read()).audit).toContainEqual(revokeEvent);
   const memberContext = await browser.newContext({ viewport: { width: 375, height: 812 } });
   try {
     const member = await memberContext.newPage();
