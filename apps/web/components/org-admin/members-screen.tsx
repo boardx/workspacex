@@ -42,7 +42,7 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
   const [quotaExhausted, setQuotaExhausted] = React.useState(false);
   const [revoking, setRevoking] = React.useState<OrgMemberRow | null>(null);
   const [removing, setRemoving] = React.useState<OrgMemberRow | null>(null);
-  const [toast, setToast] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<((t: ReturnType<typeof useI18n>["t"]) => string) | null>(null);
 
   // 只有管理员进后台「成员与配额」（R5）；其余组织角色不进后台。
   // ⚠ 2026-08-11 复核（PROTOTYPE-FIDELITY-AUDIT-2.md 问题 1）：这里曾经以「预览视角是否
@@ -71,7 +71,7 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
             <Button size="sm" variant="primary" onClick={() => setInviteOpen(true)} data-testid="members-invite-open" disabled={!canAdmin}>
               <UserPlus aria-hidden className="h-3.5 w-3.5" /> {t("orgMembersPreview.invite")}
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setToast(t("orgMembersPreview.exported"))} data-testid="members-export">{t("orgMembersPreview.export")}</Button>
+            <Button size="sm" variant="outline" onClick={() => setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.exported"))} data-testid="members-export">{t("orgMembersPreview.export")}</Button>
             <label className="ml-auto flex items-center gap-1.5 text-10 text-muted-foreground">
               <input type="checkbox" checked={quotaExhausted} onChange={(e) => setQuotaExhausted(e.currentTarget.checked)} data-testid="members-quota-toggle" className="h-3.5 w-3.5 rounded-sm border border-input" />
               {t("orgMembersPreview.demo")}
@@ -100,8 +100,8 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
                   <Badge tone="danger">{t("role.admin")}</Badge>
                   <span className="text-11 text-muted-foreground">{t("orgMembersPreview.requested", { name: a.requestedBy, at: a.at })}</span>
                   <div className="ml-auto flex gap-1.5">
-                    <Button size="xs" variant="primary" onClick={() => setToast(t("orgMembersPreview.approved"))} data-testid="members-approve">{t("orgMembersPreview.approve")}</Button>
-                    <Button size="xs" variant="ghost" className="text-destructive" onClick={() => setToast(t("orgMembersPreview.rejected"))} data-testid="members-approval-reject">{t("orgMembersPreview.reject")}</Button>
+                    <Button size="xs" variant="primary" onClick={() => setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.approved"))} data-testid="members-approve">{t("orgMembersPreview.approve")}</Button>
+                    <Button size="xs" variant="ghost" className="text-destructive" onClick={() => setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.rejected"))} data-testid="members-approval-reject">{t("orgMembersPreview.reject")}</Button>
                   </div>
                 </li>
               ))}
@@ -127,7 +127,7 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
                 <div className="ml-auto flex gap-1.5">
                   {(m.status === "pending" || m.status === "send-failed" || m.status === "expired") && (
                     <>
-                      <Button size="xs" variant="outline" disabled={!canAdmin} onClick={() => setToast(t("orgMembersPreview.resent", { name: m.name, seconds: AUTH_POLICY.resendCooldownSeconds, max: AUTH_POLICY.resendDailyMax }))} data-testid="members-resend">
+                      <Button size="xs" variant="outline" disabled={!canAdmin} onClick={() => setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.resent", { name: m.name, seconds: AUTH_POLICY.resendCooldownSeconds, max: AUTH_POLICY.resendDailyMax }))} data-testid="members-resend">
                         <RefreshCw aria-hidden className="h-3 w-3" /> {t("orgMembersPreview.resend")}
                       </Button>
                       <Button size="xs" variant="ghost" disabled={!canAdmin} className="text-destructive" onClick={() => setRevoking(m)} data-testid="members-revoke">
@@ -153,7 +153,7 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
         <InviteMemberDialog
           quotaExhausted={quotaExhausted}
           onClose={() => setInviteOpen(false)}
-          onToast={(m) => { setToast(m); setInviteOpen(false); }}
+          onToast={(m) => { setToast(() => m); setInviteOpen(false); }}
         />
       )}
 
@@ -171,7 +171,7 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
             </div>
           }
           onCancel={() => setRevoking(null)}
-          onConfirm={() => { setToast(t("orgMembersPreview.revokedToast", { name: revoking.name })); setRevoking(null); }}
+          onConfirm={() => { const name = revoking.name; setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.revokedToast", { name })); setRevoking(null); }}
         />
       )}
 
@@ -194,11 +194,11 @@ export function MembersScreen({ state, orgRole }: { state: UiState; orgRole: Org
             </div>
           }
           onCancel={() => setRemoving(null)}
-          onConfirm={() => { setToast(t("orgMembersPreview.removedToast", { name: removing.name })); setRemoving(null); }}
+          onConfirm={() => { const name = removing.name; setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.removedToast", { name })); setRemoving(null); }}
         />
       )}
 
-      <Toast message={toast} testid="members-toast" onDismiss={() => setToast(null)} />
+      <Toast message={toast?.(t) ?? null} testid="members-toast" onDismiss={() => setToast(null)} />
     </OrgAdminFrame>
   );
 }
@@ -210,7 +210,7 @@ function InviteMemberDialog({
 }: {
   quotaExhausted: boolean;
   onClose: () => void;
-  onToast: (m: string) => void;
+  onToast: (m: (t: ReturnType<typeof useI18n>["t"]) => string) => void;
 }) {
   const { t } = useI18n();
   const [role, setRole] = React.useState<OrgRole>("consultant");
@@ -231,7 +231,7 @@ function InviteMemberDialog({
             disabled={quotaExhausted}
             onClick={() =>
               onToast(
-                isAdmin
+                (t) => isAdmin
                   ? t("orgMembersPreview.approvalToast")
                   : t("orgMembersPreview.invitedToast", { role: t(`role.${role}`) }),
               )
@@ -273,7 +273,7 @@ function InviteMemberDialog({
             <Ban aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
             <div className="flex flex-col gap-1.5 text-11">
               <p>{t("orgMembersPreview.quotaWarning")}</p>
-              <Button size="xs" variant="outline" className="self-start" onClick={() => onToast(t("orgMembersPreview.adjusted"))} data-testid="members-invite-quota-adjust">{t("orgMembersPreview.adjust")}</Button>
+              <Button size="xs" variant="outline" className="self-start" onClick={() => onToast((t) => t("orgMembersPreview.adjusted"))} data-testid="members-invite-quota-adjust">{t("orgMembersPreview.adjust")}</Button>
             </div>
           </div>
         )}

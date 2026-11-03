@@ -36,7 +36,7 @@ flowchart TD
   class S2 done
   class S3 done
   class S4 tested
-  %% evidence S4: web tsc0; selected35 and followup16 tests0; real production browser1/1,10.2s,6m50 total,cleanup1s; evidence README boundaries
+  %% evidence S4: latest selected39 tests + targetedESLint0; realbrowser1/1 before preview-only followups; final prepush/typecheck remains required
   class S5 doing
 ```
 

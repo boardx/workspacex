@@ -8,6 +8,25 @@ import { RosterScreen } from "@/components/org-admin/roster-screen";
 afterEach(cleanup);
 function Switch() { const { setLocale } = useI18n(); return <button onClick={() => setLocale("zh-CN")}>Switch language</button>; }
 describe("organization member previews localization", () => {
+  for (const [action, expectedEnglish, expectedChinese] of [
+    ["members-export", "Member and quota CSV exported", "已导出成员与配额 CSV"],
+    ["members-resend", "Resent to 陈默", "已重发给 陈默"],
+    ["roster-copy", "Copied join link for group 1", "已复制第 1 组加入链接"],
+    ["roster-qr", "QR code generated", "二维码已生成"],
+  ] as const) {
+    it(`updates visible ${action} feedback when locale changes`, () => {
+      const members = action.startsWith("members");
+      render(<I18nProvider initialLocale="en"><Switch />{members ? <MembersScreen state="default" orgRole="admin" /> : <RosterScreen state="default" previewRole="facilitator" />}</I18nProvider>);
+      fireEvent.click(screen.getAllByTestId(action)[0]!);
+      const toast = screen.getByTestId(members ? "members-toast" : "roster-toast");
+      const english = toast.textContent;
+      expect(english).toContain(expectedEnglish);
+      fireEvent.click(screen.getByText("Switch language"));
+      expect(toast.textContent).toContain(expectedChinese);
+      if (action === "members-resend") expect(toast.textContent).toContain("陈默");
+      if (action === "roster-copy") expect(toast.textContent).toContain("1");
+    });
+  }
   it("keeps locale keys aligned", () => {
     expect(Object.keys(orgMembersPreviewEn).sort()).toEqual(Object.keys(orgMembersPreviewZhCN).sort());
   });

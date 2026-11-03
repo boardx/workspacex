@@ -22,7 +22,7 @@ import {
  */
 export function RosterScreen({ state, previewRole }: { state: UiState; previewRole: ProjectRole }) {
   const { t } = useI18n();
-  const [toast, setToast] = React.useState<string | null>(null);
+  const [toast, setToast] = React.useState<((t: ReturnType<typeof useI18n>["t"]) => string) | null>(null);
 
   // 观察者：到场信息至多脱敏聚合，链接/二维码不可见（R5）
   const observer = previewRole === "observer";
@@ -47,7 +47,7 @@ export function RosterScreen({ state, previewRole }: { state: UiState; previewRo
           <Users aria-hidden className="h-4 w-4 text-muted-foreground" />
           <span className="text-13 font-medium">{t("orgMembersPreview.roster.count", { present: ROSTER_PRESENT, total: ROSTER_TOTAL })}</span>
           <span className="text-11 text-muted-foreground">{t("orgMembersPreview.roster.joinHint")}</span>
-          <Button size="xs" variant="outline" className="ml-auto" onClick={() => setToast(t("orgMembersPreview.roster.previewToast"))} data-testid="roster-see-join-page"><ExternalLink aria-hidden className="h-3 w-3" /> {t("orgMembersPreview.roster.preview")}</Button>
+          <Button size="xs" variant="outline" className="ml-auto" onClick={() => setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.roster.previewToast"))} data-testid="roster-see-join-page"><ExternalLink aria-hidden className="h-3 w-3" /> {t("orgMembersPreview.roster.preview")}</Button>
         </div>
 
         {observer && (
@@ -65,8 +65,8 @@ export function RosterScreen({ state, previewRole }: { state: UiState; previewRo
                 <Badge tone={g.present === g.total ? "primary" : "warning"} data-testid="roster-count">{g.present}/{g.total}</Badge>
                 {!observer && (
                   <div className="ml-auto flex gap-1.5">
-                    <Button size="xs" variant="outline" onClick={() => setToast(t("orgMembersPreview.roster.copied", { group: g.groupNo }))} data-testid="roster-copy"><Copy aria-hidden className="h-3 w-3" /> {t("orgMembersPreview.roster.copy")}</Button>
-                    <Button size="xs" variant="outline" onClick={() => setToast(t("orgMembersPreview.roster.qrToast"))} data-testid="roster-qr"><QrCode aria-hidden className="h-3 w-3" /> {t("orgMembersPreview.roster.qr")}</Button>
+                    <Button size="xs" variant="outline" onClick={() => setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.roster.copied", { group: g.groupNo }))} data-testid="roster-copy"><Copy aria-hidden className="h-3 w-3" /> {t("orgMembersPreview.roster.copy")}</Button>
+                    <Button size="xs" variant="outline" onClick={() => setToast(() => (t: ReturnType<typeof useI18n>["t"]) => t("orgMembersPreview.roster.qrToast"))} data-testid="roster-qr"><QrCode aria-hidden className="h-3 w-3" /> {t("orgMembersPreview.roster.qr")}</Button>
                   </div>
                 )}
               </div>
@@ -85,7 +85,7 @@ export function RosterScreen({ state, previewRole }: { state: UiState; previewRo
         </ul>
       </div>
 
-      <Toast message={toast} testid="roster-toast" onDismiss={() => setToast(null)} />
+      <Toast message={toast?.(t) ?? null} testid="roster-toast" onDismiss={() => setToast(null)} />
     </OrgAdminFrame>
   );
 }
