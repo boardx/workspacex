@@ -25,6 +25,11 @@ def valid_plan():
 class BuildOnlyTests(unittest.TestCase):
     def setUp(self):
         m.DEADLINE=None; m.MEASUREMENT=None
+        # These tests execute synthetic builds, not host capacity acceptance.
+        disk=patch.object(m.shutil,'disk_usage',return_value=type('FixtureDisk',(),{'free':4*m.MAX_ARCHIVE+m.MARGIN})())
+        inodes=patch.object(m.os,'statvfs',return_value=type('FixtureInodes',(),{'f_favail':4096})())
+        disk.start();self.addCleanup(disk.stop)
+        inodes.start();self.addCleanup(inodes.stop)
 
     def fake(self, calls, failure=None):
         source_heads=0
@@ -129,6 +134,10 @@ class BuildOnlyTests(unittest.TestCase):
             calls=[]
             with self.assertRaisesRegex(ValueError,'BUILD_ONLY_CAPACITY'):self.run_build('unused',calls)
             self.assertFalse(any(cmd[0]=='docker' for cmd in calls))
+        with patch.object(m.os,'statvfs',return_value=type('LowInodes',(),{'f_favail':4095})()):
+            calls=[]
+            with self.assertRaisesRegex(ValueError,'BUILD_ONLY_INODE_CAPACITY'):self.run_build('unused',calls)
+            self.assertFalse(any(cmd[0]=='docker' for cmd in calls))
         with tempfile.TemporaryDirectory() as tmp:
             path=Path(tmp)/'data';path.write_bytes(b'abc')
             with patch.object(m,'MAX_ARCHIVE',2):
@@ -154,5 +163,20 @@ class BuildOnlyTests(unittest.TestCase):
         self.assertIn('ref: ${{ needs.plan.outputs.source_sha }}',workflow)
         self.assertNotIn('ee7e682805c27a38e9fd601c4aca66f11763ba91',workflow)
         for forbidden in ['secrets.','vars.','environment:','self-hosted','contents: write','pull_request_target','docker push','sudo ']:self.assertNotIn(forbidden,workflow)
+
+
+
+class FixtureIsolationTests(unittest.TestCase):
+    def test_positive_fake_does_not_require_host_capacity(self):
+        with patch.object(m.shutil,'disk_usage',return_value=type('LowDisk',(),{'free':1})()), \
+             patch.object(m.os,'statvfs',return_value=type('LowInodes',(),{'f_favail':1})()):
+            result=unittest.TestResult()
+            BuildOnlyTests('test_five_measurements_are_not_release_receipts').run(result)
+            self.assertEqual(m.shutil.disk_usage(Path.cwd()).free,1)
+            self.assertEqual(m.os.statvfs(Path.cwd()).f_favail,1)
+        self.assertEqual(result.testsRun,1)
+        self.assertEqual(result.errors,[])
+        self.assertEqual(result.failures,[])
+
 
 if __name__=='__main__':unittest.main()

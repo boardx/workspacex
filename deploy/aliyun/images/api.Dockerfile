@@ -7,6 +7,7 @@ RUN corepack enable && npm_config_registry="$NPM_REGISTRY" corepack prepare pnpm
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json ./
 COPY --chown=node:node patches ./patches
 COPY --chown=node:node packages ./packages
+COPY --chown=node:node skills/localizations ./skills/localizations
 COPY --chown=node:node apps/api ./apps/api
 COPY --chown=node:node apps/local-asr-gateway ./apps/local-asr-gateway
 COPY --chown=node:node apps/skill-sandbox ./apps/skill-sandbox
@@ -41,6 +42,7 @@ RUN set -eu; for entry in \
   scripts/cloud-business-probe.ts; \
   do test -r "$entry"; done; \
   test -r ../../packages/contracts/package.json; \
+  test -r ../../skills/localizations/work-stack-v2.json; \
   test -n "$(find migrations -maxdepth 1 -type f -print -quit)"; \
   node --import tsx --input-type=module -e "await import('zod')"
 EXPOSE 3200

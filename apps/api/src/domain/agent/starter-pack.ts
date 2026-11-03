@@ -62,8 +62,9 @@ export function verifyAgentStarterPack(raw: unknown, expected: {
   return pack;
 }
 
-export function agentImportPayloadDigest(input: { readonly packId: string; readonly packVersion: string }): string {
-  return sha256(JSON.stringify({ packId: input.packId, packVersion: input.packVersion }));
+export function agentImportPayloadDigest(input: { readonly packId: string; readonly packVersion: string; readonly expectedPackDigest?: string }): string {
+  return sha256(JSON.stringify({ packId: input.packId, packVersion: input.packVersion,
+    ...(input.expectedPackDigest === undefined ? {} : { packDigest: input.expectedPackDigest }) }));
 }
 
 /**

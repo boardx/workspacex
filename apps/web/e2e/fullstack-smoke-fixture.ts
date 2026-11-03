@@ -12,6 +12,10 @@ export const FULLSTACK_E2E = {
   workflowRunsInstanceId: `wi-localized-${scope}`,
   workflowRunsKey: `localized-list-${scope}`,
   workflowRunsGoal: "原文目标 {goal}",
+  /** #6167: dedicated live-task identity, independent of other seeded journeys. */
+  tasksEmail: `fullstack-tasks-${scope}@example.test`,
+  tasksPassword: "Fullstack-E2E-tasks-6167!",
+  tasksUserId: `user-fullstack-tasks-${scope}`,
 
   email: `fullstack-${scope}@example.test`,
   password: "Fullstack-E2E-only-387!",

@@ -1,3 +1,5 @@
+import { enTasks } from "./tasks";
+import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
@@ -5,6 +7,8 @@ import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
 import type { zhCN } from "./zh-CN";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...enTasks,
+  ...enFailures,
   ...controlsEn,
   ...projectListEn,
   ...profileEn,
