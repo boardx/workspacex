@@ -1,0 +1,15 @@
+Exact registered spec, retries=0; FAIL is preserved. Safety-selected original log excerpts; raw trace remains private in /tmp or ignored test-results.
+[test-isolation] id=run-mw0q2pi0-b186c585-7e3553610659 db=wsx_7e355361065959cbdb2f compose=wsx-7e355361065959cbdb2f pg=20969 redis=21969 api=24969 web=25969 sandbox=26969 model=27969 deep-agent=28969 asr=29969 vision=30969 loopback-sandbox=31969 mail=19969
+Running 1 test using 1 worker
+  ✘  1 [seeded-github-import] › e2e/skill-agent-import-usecase-audit.spec.ts:87:5 › ① skill 从 GitHub 目录 URL 导入：落进目录，内容确实来自 GitHub (13.3s)
+    Error: SKILL_IMPORT_HTTP status=422 reasonCode=IMPORT_FETCH_TIMEOUT
+    Expected: < 300
+    Received:   422
+  1 failed
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps e2e/skill-agent-import-usecase-audit.spec.ts --grep ① skill 从 GitHub 目录 URL 导入 --max-failures=1 --workers=1 --retries=0
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5m12s
+  清理：1s
+  总计：5m13s

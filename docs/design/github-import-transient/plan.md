@@ -34,8 +34,9 @@ flowchart TD
   class G doing
   class S1 done
   class S2 done
-  class S3 doing
-  class S4 todo
+  class S3 done
+  class S4 blocked
+  %% blocked S4: 49units/type/lint green; public browser IMPORT_FETCH_TIMEOUT, baseline paired same timeout; main authorizes draft, standard CI acceptance required
   class S5 todo
 ```
 
