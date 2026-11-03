@@ -1,0 +1,22 @@
+Actual command exit1 because unimplementedTask3 expectedRED; lint9files actualexit0.
+ ✓ tests/ui/admin-limit-policy-i18n.test.tsx (9 tests) 614ms
+ ✓ tests/ui/admin-limit-policy-live.test.tsx (8 tests) 307ms
+ ✓ tests/ui/admin-members-usage-limits-tabs.test.tsx (5 tests) 251ms
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > distinguishes English missing token data from real zero and preserves arbitrary integer precision
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > localizes unknown, native-only and mixed totals without changing coverage semantics
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > translates native unit/source presentation while preserving exact quantities and Chinese defaults
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > preserves six decimal cost precision and currency instead of interpreting locale as market
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > preserves already rounded credit hundredths including actual zero and huge integers
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > localizes display dates while keeping Beijing calendar, midnight query boundaries and 24h time
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates overview and cost caveats while retaining chart metric/grain and separate currencies without reads
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > preserves custom dates and only sends inclusive Shanghai boundaries when explicitly applied
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > retains a rejected custom range and retranslates its validation without a query
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > retains a raw member grouping filter and snapshot when language changes in the drilled ledger
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates ledger/account/financial states while preserving open details and raw organization/model names
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > retains forced self scope and the exact microsecond snapshot/cursor across paging and language changes
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates unknown/native statuses without replacing missing consumption with zero
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > retranslates a safe read error without retrying and reloads only on the explicit action
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates usage windows/matrix/event outcomes while preserving canonical windows, deleted-rule history and raw data
+ Test Files  2 failed | 3 passed (5)
+      Tests  15 failed | 22 passed (37)
+   Duration  16.74s (transform 2.67s, setup 776ms, collect 5.85s, tests 4.71s, environment 3.47s, prepare 463ms)
