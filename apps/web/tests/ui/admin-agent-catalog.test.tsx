@@ -13,13 +13,14 @@ import * as React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { agentRole, agentRuntime, identity, wave2Runtime } from "@repo/contracts";
+import { operations as displayOperations } from "@repo/contracts/portable-package";
 import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 
 const sessionState = vi.hoisted(() => ({ currentOrgId: "org-catalog", orgRole: "admin" }));
 
 vi.mock("@/components/session/session-provider", () => ({
   useSession: () => ({
-    session: { currentOrgId: sessionState.currentOrgId },
+    session: { currentOrgId: sessionState.currentOrgId,sessionToken: "tok-catalog" },
     identity: {
       org: { id: sessionState.currentOrgId, name: "真实组织" },
       orgRole: sessionState.orgRole,
@@ -224,6 +225,8 @@ describe("Agent 目录：单个卡片网格 + 搜索 / 标签 + 侧边面板", (
         packId: "official-digitalhuman-roles", packVersion: "1.5.0", canEnable: true, requiredSkillPacks: [],
         pending: enabled ? [] : [{ roleRef: "D003", name: "产品经理", roleLabel: "产品经理", avatar: null, roleCategory: "product", tags: [], workflowAllowlist: ["W029"] }],
       });
+      if (url.pathname === displayOperations.displayUpdateOffer.path) return jsonResponse({ metadataVersion: "2.0.0",available: false,installedCount: 0 });
+      if (url.pathname === displayOperations.applyDisplayUpdate.path && init?.method === "POST") return jsonResponse({ metadataVersion: "2.0.0",updatedEntities: 0,skippedEntities: 0,replayed: false,appliedAt: "2026-11-03T00:00:00.000Z" });
       if (url.pathname === wave2Runtime.operations.importAgentStarterPack.path && init?.method === "POST") {
         enabled = true;
         return jsonResponse({});

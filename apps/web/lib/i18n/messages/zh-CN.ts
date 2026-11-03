@@ -1,3 +1,5 @@
+import { zhTasks } from "./tasks";
+import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
@@ -6,6 +8,8 @@ import { orgMembersZhCN } from "../namespaces/org-members";
 import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
 import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
 export const zhCN = {
+  ...zhTasks,
+  ...zhFailures,
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,

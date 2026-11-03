@@ -1,3 +1,5 @@
+import { enTasks } from "./tasks";
+import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
@@ -7,6 +9,8 @@ import { orgMembersEn } from "../namespaces/org-members";
 import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...enTasks,
+  ...enFailures,
   ...controlsEn,
   ...projectListEn,
   ...profileEn,
