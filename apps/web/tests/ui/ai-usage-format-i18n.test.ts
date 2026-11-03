@@ -15,7 +15,8 @@ it("localizes unknown, native-only and mixed totals without changing coverage se
 });
 it("translates native unit/source presentation while preserving exact quantities and Chinese defaults", () => {
   expect(nativeQuantity({ quantity: "2000", unit: "millisecond", source: "estimated" }, "en")).toBe("2,000 milliseconds (estimated)");
-  expect(nativeQuantity({ quantity: "2", unit: "image", source: "unknown" }, "en")).toBe("2 images (not reported)");
+  const missing = nativeQuantity({ quantity: null, unit: "image", source: "unknown" }, "en");
+  expect(missing).toContain("(not reported)"); expect(missing).not.toMatch(/\b0\b/);
   expect(nativeQuantity({ quantity: "2000", unit: "millisecond", source: "estimated" })).toBe("2,000 毫秒（估算）");
 });
 it("preserves six decimal cost precision and currency instead of interpreting locale as market", () => {

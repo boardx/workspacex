@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { ENTITY_LOCALIZATION_E2E } from "./entity-localization-fixture";
-import { agentRole } from "@repo/contracts";
+import { agentRole, aiUsage, orgAdmin } from "@repo/contracts";
 import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
 import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
 
@@ -17,6 +17,117 @@ async function authorization(page: Page) {
   expect(token).toBeTruthy();
   return { Authorization: `Bearer ${token}` };
 }
+
+test("administration quotas retain drafts and canonical writes while usage preserves real receipt distinctions across locales", async ({ page, browser }, testInfo) => {
+  test.setTimeout(120_000);
+  await login(page, true);
+  const headers = await authorization(page), orgId = ENTITY_LOCALIZATION_E2E.orgId, userId = ENTITY_LOCALIZATION_E2E.memberUserId;
+  const base = `/__fullstack_api/organizations/${encodeURIComponent(orgId)}`;
+  const quotaPath = `${base}/token-quotas`, budgetPath = `${base}/token-budget`, memberPath = `${quotaPath}/${encodeURIComponent(userId)}`, rulesPath = `${base}/limit-rules`;
+  const initialResponse = await page.request.get(quotaPath, { headers }); expect(initialResponse.status()).toBe(200);
+  const initial = orgAdmin.operations.getTokenQuotas.out.parse(await initialResponse.json());
+  expect(initial.orgBudget).toBeNull(); expect(initial.unallocated).toBeNull();
+  expect(initial.members.find(member => member.userId === userId)?.monthlyLimit).toBeNull();
+  const helper = await page.context().newPage(); await helper.goto("/home");
+  const locale = async (value: "en" | "zh-CN") => {
+    await helper.getByTestId("language-switcher").first().selectOption(value);
+    await expect(page.locator("html")).toHaveAttribute("lang", value);
+  };
+  const capture = async (name: string, mobile = false) => {
+    await page.setViewportSize({ width: mobile ? 375 : 1280, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`member-quotas-${name}-${mobile ? 375 : 1280}.png`), fullPage: true });
+  };
+  const responseFor = (method: string, path: string) => page.waitForResponse(response => response.request().method() === method && new URL(response.url()).pathname === path);
+  let reads = 0, writes = 0;
+  page.on("request", request => {
+    if (!new URL(request.url()).pathname.startsWith(base)) return;
+    if (request.method() === "GET") reads++; else writes++;
+  });
+  try {
+    await page.goto("/admin/members"); await locale("en");
+    await expect(page.getByTestId("admin-quota-live")).toBeVisible();
+    await expect(page.getByTestId("admin-quota-card-unallocated")).toContainText("—");
+    await expect(page.getByTestId(`admin-member-card-${userId}`)).toContainText("No quota allocated");
+    await expect(page.getByRole("heading", { name: "What administrators cannot see" })).toBeVisible();
+    await capture("initial-en"); await capture("initial-en", true);
+    await page.getByTestId("admin-quota-budget-open").click(); await page.getByTestId("admin-quota-budget-input").fill("500000");
+    const beforeBudgetLocale = [reads, writes]; await locale("zh-CN"); await locale("en");
+    await expect(page.getByTestId("admin-quota-budget-input")).toHaveValue("500000"); expect([reads, writes]).toEqual(beforeBudgetLocale);
+    const budgetSaved = responseFor("PATCH", budgetPath); await page.getByTestId("admin-quota-budget-save").click();
+    const budget = await budgetSaved; expect(budget.status()).toBe(200); expect(budget.request().postDataJSON()).toEqual({ orgId, monthlyBudget: 500000 });
+    orgAdmin.operations.setOrgTokenBudget.out.parse(await budget.json()); await expect(page.getByTestId("admin-quota-budget-modal")).toHaveCount(0);
+    await page.getByTestId(`admin-member-quota-${userId}`).click(); await page.getByTestId("admin-member-quota-input").fill("12500.9");
+    const beforeMemberLocale = [reads, writes]; await locale("zh-CN"); await locale("en");
+    await expect(page.getByTestId("admin-member-quota-input")).toHaveValue("12500.9"); expect([reads, writes]).toEqual(beforeMemberLocale);
+    await expect(page.getByTestId("admin-member-quota-save")).toBeInViewport({ ratio: 1 });
+    await expect(page.getByTestId("admin-member-quota-cancel")).toBeInViewport({ ratio: 1 }); await capture("quota-draft-en", true);
+    const memberSaved = responseFor("PATCH", memberPath); await page.getByTestId("admin-member-quota-save").click();
+    const memberQuota = await memberSaved; expect(memberQuota.status()).toBe(200); expect(memberQuota.request().postDataJSON()).toEqual({ orgId, userId, monthlyLimit: 12500 });
+    orgAdmin.operations.setMemberTokenQuota.out.parse(await memberQuota.json()); await expect(page.getByTestId("admin-member-quota-modal")).toHaveCount(0);
+    await page.getByTestId(`admin-member-quota-${userId}`).click(); await page.getByTestId("admin-member-quota-input").fill("500001");
+    const quotaRejected = responseFor("PATCH", memberPath); await page.getByTestId("admin-member-quota-save").click();
+    const over = await quotaRejected; expect(over.status()).toBe(409); expect(await over.json()).toMatchObject({ reasonCode: "QUOTA_OVERALLOCATED", remainingTokens: 500000 });
+    await expect(page.getByTestId("admin-member-quota-error")).toContainText("500,000"); await locale("zh-CN");
+    await expect(page.getByTestId("admin-member-quota-error")).toContainText("超出组织剩余额度"); await locale("en");
+    await expect(page.getByTestId("admin-member-quota-input")).toHaveValue("500001"); await capture("quota-error-en", true);
+    await page.getByTestId("admin-member-quota-cancel").click();
+    await page.getByTestId("admin-quota-budget-open").click(); await page.getByTestId("admin-quota-budget-input").fill("1");
+    const budgetRejected = responseFor("PATCH", budgetPath); await page.getByTestId("admin-quota-budget-save").click();
+    expect((await budgetRejected).status()).toBe(409); await expect(page.getByTestId("admin-quota-budget-error")).toContainText("12,500");
+    await page.getByTestId("admin-quota-budget-modal-close").click();
+    await page.reload(); await expect(page.getByTestId(`admin-member-card-${userId}`)).toContainText("12,500");
+    await page.getByTestId("admin-members-tab-policy").click(); await expect(page.getByTestId("admin-limit-rules-live")).toBeVisible();
+    await expect(page.getByTestId("admin-no-backend-notice")).toContainText("static demonstration");
+    await page.getByTestId("admin-limit-rule-new").click();
+    await page.getByTestId("admin-limit-scope-ref").fill(userId); await page.getByTestId("admin-limit-threshold").fill("20000.9");
+    await page.getByTestId("admin-limit-action").selectOption("degrade");
+    const ruleRejected = responseFor("POST", rulesPath); await page.getByTestId("admin-limit-rule-create-save").click();
+    expect((await ruleRejected).status()).toBe(400); await expect(page.getByTestId("admin-limit-rule-error")).toContainText("Choose a target model");
+    await page.getByTestId("admin-limit-degrade-to").fill("model-target-raw{model}");
+    const beforeRuleLocale = [reads, writes]; await locale("zh-CN"); await locale("en"); expect([reads, writes]).toEqual(beforeRuleLocale);
+    await expect(page.getByTestId("admin-limit-scope-ref")).toHaveValue(userId); await expect(page.getByTestId("admin-limit-threshold")).toHaveValue("20000.9");
+    await expect(page.getByTestId("admin-limit-rule-create-save")).toBeInViewport({ ratio: 1 }); await capture("rule-draft-en", true);
+    const ruleSaved = responseFor("POST", rulesPath); await page.getByTestId("admin-limit-rule-create-save").click();
+    const ruleResponse = await ruleSaved; expect(ruleResponse.status()).toBe(201);
+    expect(ruleResponse.request().postDataJSON()).toEqual({ orgId, scopeKind: "member", scopeRef: userId, modelId: null, windowKind: "day", thresholdTokens: 20000, action: "degrade", degradeToModelId: "model-target-raw{model}" });
+    const { ruleId } = orgAdmin.operations.createLimitRule.out.parse(await ruleResponse.json());
+    await expect(page.getByTestId(`admin-limit-rule-${ruleId}`)).toContainText("model-target-raw{model}");
+    await capture("policy-en"); await capture("policy-en", true);
+    await page.getByTestId(`admin-limit-rule-edit-${ruleId}`).click(); await page.getByTestId("admin-limit-edit-threshold").fill("22500.9");
+    const ruleEdited = responseFor("PATCH", `${rulesPath}/${ruleId}`); await page.getByTestId("admin-limit-rule-edit-save").click();
+    const editResponse = await ruleEdited; expect(editResponse.status()).toBe(200); expect(editResponse.request().postDataJSON()).toEqual({ orgId, ruleId, thresholdTokens: 22500 });
+    await page.reload(); await page.getByTestId("admin-members-tab-policy").click(); await expect(page.getByTestId(`admin-limit-rule-${ruleId}`)).toContainText("22,500");
+    await page.getByTestId("admin-members-tab-usage").click(); await expect(page.getByRole("region", { name: "Usage trend" })).toBeVisible();
+    await expect(page.getByText("CNY 1.234567", { exact: true }).first()).toBeVisible(); await expect(page.getByText("USD 0.000001", { exact: true }).first()).toBeVisible();
+    await expect(page.getByTestId("admin-usage-matrix")).toContainText("计量模型原文 {model}");
+    const beforeUsageLocale = [reads, writes]; await locale("zh-CN"); await locale("en"); expect([reads, writes]).toEqual(beforeUsageLocale);
+    await capture("usage-overview-en"); await capture("usage-overview-en", true);
+    await page.getByRole("tab", { name: "Call details", exact: true }).click();
+    await expect(page.getByTestId("usage-ledger")).toContainText("2,000 milliseconds (estimated)"); await expect(page.getByTestId("usage-ledger")).toContainText("Not reported");
+    await expect(page.getByTestId("usage-ledger")).toContainText("1.234567 CNY"); await capture("usage-ledger-en"); await capture("usage-ledger-en", true);
+    const deleted = responseFor("POST", `${rulesPath}/${ruleId}/delete`);
+    await page.getByTestId("admin-members-tab-policy").click(); await page.getByTestId(`admin-limit-rule-delete-${ruleId}`).click(); expect((await deleted).status()).toBe(201);
+    await expect(page.getByTestId(`admin-limit-rule-${ruleId}`)).toHaveCount(0);
+    const persistedResponse = await page.request.get(quotaPath, { headers }); expect(persistedResponse.status()).toBe(200);
+    const persisted = orgAdmin.operations.getTokenQuotas.out.parse(await persistedResponse.json()); expect(persisted.orgBudget).toBe(500000); expect(persisted.members.find(member => member.userId === userId)?.monthlyLimit).toBe(12500);
+    const memberContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+    try {
+      const member = await memberContext.newPage(); await login(member, false); const memberHeaders = await authorization(member);
+      for (const path of [quotaPath, rulesPath, `${base}/usage?window=week`]) expect((await member.request.get(path, { headers: memberHeaders })).status()).toBe(403);
+      expect((await member.request.patch(memberPath, { headers: memberHeaders, data: { orgId, userId, monthlyLimit: 1 } })).status()).toBe(403);
+      expect((await member.request.patch(budgetPath, { headers: memberHeaders, data: { orgId, monthlyBudget: 1 } })).status()).toBe(403);
+      expect((await member.request.post(rulesPath, { headers: memberHeaders, data: { orgId, scopeKind: "member", scopeRef: userId, modelId: null, windowKind: "day", thresholdTokens: 1, action: "warn", degradeToModelId: null } })).status()).toBe(403);
+      await member.goto("/admin/members"); await member.getByTestId("language-switcher").first().selectOption("en"); await expect(member.getByTestId("admin-quota-load-failed")).toContainText("Could not load quota data");
+      await member.setViewportSize({ width: 375, height: 900 }); await member.screenshot({ path: testInfo.outputPath("member-quotas-denied-en-375.png"), fullPage: true });
+    } finally { await memberContext.close(); }
+    const afterDenied = await page.request.get(quotaPath, { headers }); expect(orgAdmin.operations.getTokenQuotas.out.parse(await afterDenied.json())).toEqual(persisted);
+    // Real summary parse ensures receipts reached the backend contract, not only DOM text.
+    const dates = new URLSearchParams({ start: new Date(Date.now() - 6 * 86400000).toISOString(), end: new Date(Date.now() + 86400000).toISOString(), timezone: "Asia/Shanghai", limit: "25" });
+    const reportResponse = await page.request.get(`${base}/ai-usage?${dates}`, { headers }); expect(reportResponse.status()).toBe(200);
+    const report = aiUsage.Summary.parse(await reportResponse.json()); expect(report.current.unknownCalls).toBe(1); expect(report.current.nativeCalls).toBe(1); expect(report.costs?.map(cost => cost.currency).sort()).toEqual(["CNY", "USD"]);
+  } finally { await helper.close(); }
+});
 
 test("organization profile preserves authored data and enforces real grant and memory permissions across locales", async ({ page, browser }, testInfo) => {
   // Multi-account writes/reload budget, matching the existing invitation journey below.
