@@ -1,0 +1,23 @@
+[stack-admission] load1=6.67 cores=10 perCore=0.67 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzcg467-92db74e7-62c3df0e4157 db=wsx_62c3df0e415759881d22 compose=wsx-62c3df0e415759881d22 pg=20790 redis=21790 api=24790 web=25790 sandbox=26790 model=27790 deep-agent=28790 asr=29790 vision=30790 loopback-sandbox=31790 mail=19790
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_62c3df0e415759881d22 capacity=100 current=6 required=32
+ ✓ tests/billing/team-checkout-intents-pg.test.ts (5 tests) 16509ms
+ ✓ tests/billing/credit-periods-pg.test.ts (1 test) 782ms
+
+ Test Files  2 passed (2)
+      Tests  6 passed (6)
+   Start at  22:18:06
+   Duration  22.33s (transform 328ms, setup 13ms, collect 321ms, tests 17.29s, environment 0ms, prepare 122ms)
+
+[db-isolation] db=wsx_62c3df0e415759881d22 peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/billing/team-checkout-intents-pg.test.ts tests/billing/credit-periods-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：23s
+  清理：1s
+  总计：24s

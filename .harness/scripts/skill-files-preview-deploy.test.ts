@@ -19,8 +19,8 @@ describe("retired Skill source-preview deployment",()=>{
    expect(admitted(ref,'workflow_dispatch',true)).toBe(true);
   }
  });
- it("only admits develop automatic release and main/develop manual release",()=>{
-  expect(admitted('refs/heads/develop','push')).toBe(true);
+ it("rejects automatic releases and admits main/develop manual releases",()=>{
+  expect(admitted('refs/heads/develop','push')).toBe(false);
   for(const ref of ['refs/heads/main','refs/heads/main-cn','refs/tags/v1'])expect(admitted(ref,'push')).toBe(false);
   for(const ref of ['refs/heads/main','refs/heads/develop'])expect(admitted(ref)).toBe(true);
   expect(admitted('refs/heads/develop','merge_group')).toBe(false);

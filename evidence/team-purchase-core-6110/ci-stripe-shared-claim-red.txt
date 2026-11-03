@@ -1,0 +1,47 @@
+PR6130 head4cacfef5abb316125d171910c671264818ce52f4
+CI original job: https://github.com/boardx/workspacex/actions/runs/41482827867/job/125405577560
+Unmodified failure excerpt; terminal ANSI escapes removed.
+
+2026-11-02T16:39:22.0339169Z  ❯ tests/billing/stripe-webhook.test.ts (30 tests | 1 failed) 19967ms
+2026-11-02T16:39:22.0341534Z    × accepts a historical nonoverlapping invoice without blocking the current pass 48ms
+2026-11-02T16:39:22.0342810Z      → payment_claim_owner_conflict
+2026-11-02T16:39:22.0595666Z 
+2026-11-02T16:39:22.0605667Z ⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+2026-11-02T16:39:22.0606571Z 
+2026-11-02T16:39:22.0609118Z  FAIL  tests/billing/stripe-webhook.test.ts > accepts a historical nonoverlapping invoice without blocking the current pass
+2026-11-02T16:39:22.0629270Z error: payment_claim_owner_conflict
+2026-11-02T16:39:22.0631270Z  ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+2026-11-02T16:39:22.0633382Z  ❯ Object.query src/infrastructure/db/pg-database.ts:62:21
+2026-11-02T16:39:22.0824015Z      60|         async query<R = Record<string, unknown>>(sql: string, params: …
+2026-11-02T16:39:22.0826014Z      61|           assertConnected();
+2026-11-02T16:39:22.0827608Z      62|           const r = await client.query(sql, params as unknown[]);
+2026-11-02T16:39:22.0828989Z        |                     ^
+2026-11-02T16:39:22.0829946Z      63|           assertConnected();
+2026-11-02T16:39:22.0831741Z      64|           return { rows: r.rows as R[] } satisfies QueryResult<R>;
+2026-11-02T16:39:22.0834003Z  ❯ Module.grantPaidSubscriptionPeriod src/infrastructure/billing/pg-credit-periods.ts:52:16
+2026-11-02T16:39:22.0836184Z  ❯ src/infrastructure/billing/pg-monthly-pass-repository.ts:53:4
+2026-11-02T16:39:22.0837705Z  ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+2026-11-02T16:39:22.0839576Z  ❯ PgMonthlyPassRepository.settle src/infrastructure/billing/pg-monthly-pass-repository.ts:38:18
+2026-11-02T16:39:22.0841255Z  ❯ tests/billing/stripe-webhook.test.ts:283:88
+2026-11-02T16:39:22.0841822Z 
+2026-11-02T16:39:22.0842365Z ⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+2026-11-02T16:39:22.0843283Z 
+2026-11-02T16:39:22.0844214Z  Test Files  1 failed | 1 passed (212)
+2026-11-02T16:39:22.0846163Z       Tests  1 failed | 50 passed (51)
+2026-11-02T16:39:22.0847218Z    Start at  16:38:56
+2026-11-02T16:39:22.0848626Z    Duration  25.79s (transform 2.76s, setup 16ms, collect 4.44s, tests 20.05s, environment 0ms, prepare 137ms)
+2026-11-02T16:39:22.0849454Z 
+2026-11-02T16:39:22.0872581Z 
+2026-11-02T16:39:22.0921625Z ##[error]error: payment_claim_owner_conflict
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Object.query src/infrastructure/db/pg-database.ts:62:21
+ ❯ Module.grantPaidSubscriptionPeriod src/infrastructure/billing/pg-credit-periods.ts:52:16
+ ❯ src/infrastructure/billing/pg-monthly-pass-repository.ts:53:4
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ PgMonthlyPassRepository.settle src/infrastructure/billing/pg-monthly-pass-repository.ts:38:18
+ ❯ tests/billing/stripe-webhook.test.ts:283:88
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { length: 337, severity: 'ERROR', code: 'P0001', detail: undefined, hint: undefined, position: undefined, internalPosition: undefined, internalQuery: undefined, where: 'PL/pgSQL function billing_register_paid_claim(text,text,text,text,text) line 7 at RAISE\nSQL statement "SELECT billing_register_paid_claim(provider_name,ref,typ,own,purchase)"\nPL/pgSQL function billing_claim_legacy_paid_owner() line 17 at PERFORM', schema: undefined, table: undefined, column: undefined, dataType: undefined, constraint: undefined, file: 'pl_exec.c', line: '3897', routine: 'exec_stmt_raise' }
+
+2026-11-02T16:39:22.0947474Z [db-isolation] db=wsx_ci_41482827867_test_5 peak_connections=7

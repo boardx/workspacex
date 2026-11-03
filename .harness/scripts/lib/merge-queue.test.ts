@@ -304,10 +304,12 @@ describe("#3238 workflow 接线：候选组必须真的跑，部署必须真的�
     }
   });
 
-  it("候选组不得触发部署，Devapp 自动部署仅来自 develop push", () => {
+  it("候选组和 push 不触发发布，所有镜像发布由手动入口启动", () => {
     expect(jobBody(workflow("backend-gates.yml"), "deploy")).toBe("");
     const plan = jobBody(workflow("image-release.yml"), "plan");
-    expect(plan).toContain("github.event_name == 'push' && github.ref == 'refs/heads/develop'");
+    expect(plan).toContain("github.event_name == 'workflow_dispatch'");
+    expect(plan).not.toContain("github.event_name == 'push'");
+    expect(workflow("image-release.yml")).not.toMatch(/^  push:/m);
     expect(plan).not.toContain("github.event_name == 'merge_group'");
     expect(plan).not.toContain("startsWith(github.ref, 'refs/tags/v')");
   });

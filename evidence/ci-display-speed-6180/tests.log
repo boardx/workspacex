@@ -1,0 +1,57 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex
+
+ ✓ .harness/scripts/ci-targeted-ui.test.ts (6 tests) 27986ms
+   ✓ permits local display changes but rejects new runtime edges and public API changes 330ms
+   ✓ uses real source history and suite hashes; unknown, missing, renamed and nonregular inputs fall back 27247ms
+   ✓ keeps disabled/full preflight dependency-free and never publishes an invalid source identity 339ms
+configuration diagnostic outside JSON
+
+Running 1 test using 1 worker
+
+
+
+configuration diagnostic outside JSON
+
+[1/1] [selected] › .targeted-browser-hp6BMd/a.spec.ts:1:50 › actual a
+  1 passed (1.7s)
+(node:85467) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+configuration diagnostic outside JSON
+
+Running 1 test using 1 worker
+
+
+
+configuration diagnostic outside JSON
+
+[1/1] [selected] › .targeted-browser-hp6BMd/a.spec.ts:1:50 › actual a
+  1 passed (1.5s)
+(node:85493) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+configuration diagnostic outside JSON
+
+Running 2 tests using 1 worker
+
+
+
+configuration diagnostic outside JSON
+
+[1/2] [selected] › .targeted-browser-hp6BMd/a.spec.ts:1:50 › actual pass
+[2/2] [selected] › .targeted-browser-hp6BMd/a.spec.ts:1:93 › declared but not executed
+  1 skipped
+  1 passed (881ms)
+(node:85513) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+ ✓ .harness/scripts/ci-targeted-evidence.test.ts (4 tests) 21102ms
+   ✓ executes a real selected browser fixture and rejects missing, replayed and changed suite evidence 21081ms
+ ✓ .harness/scripts/ci-queue-ready.test.ts (6 tests) 114ms
+ ✓ .harness/scripts/ci-targeted-runner.test.ts (3 tests) 5471ms
+   ✓ executes selected Vitest files rather than relying on a declared plan 5463ms
+
+ Test Files  4 passed (4)
+      Tests  19 passed (19)
+   Start at  13:03:16
+   Duration  56.95s (transform 275ms, setup 0ms, collect 449ms, tests 54.67s, environment 1ms, prepare 536ms)
+

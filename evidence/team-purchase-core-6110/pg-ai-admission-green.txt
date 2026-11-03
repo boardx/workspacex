@@ -1,0 +1,22 @@
+[stack-admission] load1=6.07 cores=10 perCore=0.61 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzdhhcg-e042e6b4-f89dba26cfcd db=wsx_f89dba26cfcda25196fe compose=wsx-f89dba26cfcda25196fe pg=20374 redis=21374 api=24374 web=25374 sandbox=26374 model=27374 deep-agent=28374 asr=29374 vision=30374 loopback-sandbox=31374 mail=19374
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_f89dba26cfcda25196fe capacity=100 current=6 required=32
+ ✓ tests/billing/team-ai-admission-pg.test.ts (3 tests) 20342ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  22:47:10
+   Duration  26.64s (transform 1.29s, setup 10ms, collect 1.64s, tests 20.34s, environment 0ms, prepare 56ms)
+
+[db-isolation] db=wsx_f89dba26cfcda25196fe peak_connections=3
+[timing] pnpm --filter api exec vitest run tests/billing/team-ai-admission-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：27s
+  清理：1s
+  总计：28s

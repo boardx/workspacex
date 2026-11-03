@@ -1,0 +1,2 @@
+pnpm --filter web exec tsc --noEmit
+Exit0. No output.

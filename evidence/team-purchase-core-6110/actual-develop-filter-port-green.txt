@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ↓ tests/logging/all-exceptions-filter-error-log.test.ts (6 tests | 6 skipped)
+ ↓ tests/billing/enterprise-upgrade.test.ts (7 tests | 7 skipped)
+ ↓ tests/logging/all-exceptions-filter-headers-sent.test.ts (2 tests | 2 skipped)
+ ✓ tests/billing/team-enterprise-integration.test.ts (2 tests) 10ms
+ ↓ tests/billing/team-error-boundary.test.ts (2 tests | 2 skipped)
+
+ Test Files  1 passed | 4 skipped (5)
+      Tests  2 passed | 17 skipped (19)
+   Start at  04:13:33
+   Duration  6.27s (transform 1.22s, setup 0ms, collect 4.42s, tests 10ms, environment 1ms, prepare 555ms)

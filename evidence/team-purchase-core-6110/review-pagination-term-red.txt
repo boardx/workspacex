@@ -1,0 +1,82 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ❯ tests/billing/team-catalog-market.test.ts (6 tests | 1 failed) 13ms
+   × shows no grant for an expired renewed term rather than joining the previous term's period 5ms
+     → [
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "included monthly credits must remain within their paid Team facts"
+  },
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "monthly grant must preserve the original purchase anchor"
+  }
+]
+ ❯ tests/billing/team-recovery-sweep.test.ts (3 tests | 1 failed) 12ms
+   × resumes after a bounded page budget and wraps so permanently due owners cannot starve later cash 8ms
+     → expected { processed: 100, failed: +0 } to deeply equal { processed: 1, failed: +0 }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-recovery-sweep.test.ts > resumes after a bounded page budget and wraps so permanently due owners cannot starve later cash
+AssertionError: expected { processed: 100, failed: +0 } to deeply equal { processed: 1, failed: +0 }
+
+- Expected
++ Received
+
+  Object {
+    "failed": 0,
+-   "processed": 1,
++   "processed": 100,
+  }
+
+ ❯ tests/billing/team-recovery-sweep.test.ts:23:30
+     21|  const reconcile=vi.fn().mockResolvedValue(undefined),sweep=new PgTeam…
+     22|  expect(await sweep.sweep()).toEqual({processed:100,failed:0});expect(…
+     23|  expect(await sweep.sweep()).toEqual({processed:1,failed:0});expect(re…
+       |                              ^
+     24|  expect(await sweep.sweep()).toEqual({processed:100,failed:0});
+     25|  expect(await sweep.sweep()).toEqual({processed:1,failed:0});expect(re…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/team-catalog-market.test.ts > shows no grant for an expired renewed term rather than joining the previous term's period
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "included monthly credits must remain within their paid Team facts"
+  },
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "monthly grant must preserve the original purchase anchor"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ src/infrastructure/billing/pg-team-account-repository.ts:43:27
+
+ ❯ tests/billing/team-catalog-market.test.ts:38:9
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 7 passed (9)
+   Start at  00:39:16
+   Duration  622ms (transform 160ms, setup 0ms, collect 242ms, tests 26ms, environment 0ms, prepare 93ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.team-core-unit.config.ts tests/billing/team-recovery-sweep.test.ts tests/billing/team-catalog-market.test.ts

@@ -9,3 +9,11 @@ Next: normal push, exact final documentation-head review, automatic PR to develo
 ## Integration into current develop — 2026-11-03
 
 Conflict repair explicitly transferred to the CI worker. Integrated actual developbbc63c39 from original remote4bb122bc. Only two dictionary-import conflicts; all10 own source/test blobs unchanged. Base454 key/value pairs per language and38 sharing/code-control entries preserved dynamically; final492 keys each.35 selected tests passed in31.50s. Evidence: merge-bbc-* under evidence/i18n-chat-share-6176. Prior browser/review claims refer to the original source; normal static push and exact merge-head review remain pending. No new worktree or local services.
+
+## Second conflict integration — b8532643 (2026-11-03)
+
+The ce108 merge source was normally pushed with 25/25 static gates and reviewed independently; its later native candidate failure was an independent Chat selection prerequisite, now tracked by #6190/PR6192. Source green never substituted for native acceptance.
+
+Merged actual develop b8532643f2b6faafc66862d678dd8385c28417a7 into ce108e293260d07a124d40909e4500c289799833. Only en.ts/zh-CN.ts dictionary spread conflicts: preserve chatShare/codeFence plus incoming workflowRuns. All10 own nonaggregator business/test blobs remain byte-identical. Dynamic evaluation preserves952 baseline key/value pairs plus38 own entries per language, exactly990 final keys in both languages. Focused35 tests passed11.14s; standard init fast path exit0. Evidence merge-b853-* retains command outputs, source parity and resolution scope. No new browser pass claimed; original product browser evidence remains scoped to its historical source.
+
+At this integration commit, independent exact-head review/normal push/fresh source and native CI are next; use the PR's current receipts for live queue state. Main is sole queue operator. #6193 remains separately paused with tests-only stash66bb358d4a941ae294699ff5d232355b300db0f7; #6182 remains paused.

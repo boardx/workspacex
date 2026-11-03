@@ -1,0 +1,68 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/lib/workflow-fixture-env.test.ts (2 tests | 2 failed) 752ms
+   × exports every actual workflow seed requirement for the real-model startup path 7ms
+     → expected [ …(4) ] to deeply equal []
+   × gives Playwright and the shared exporter the same values for workflow seed requirements 23ms
+     → expected [ …(4) ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/lib/workflow-fixture-env.test.ts > exports every actual workflow seed requirement for the real-model startup path
+AssertionError: expected [ …(4) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "FULLSTACK_E2E_WORKFLOW_RUNS_ORG",
++   "FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT",
++   "FULLSTACK_E2E_WORKFLOW_RUNS_USER",
++   "FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE",
++ ]
+
+ ❯ tests/lib/workflow-fixture-env.test.ts:16:66
+     14| it("exports every actual workflow seed requirement for the real-model …
+     15|  expect(required.length).toBeGreaterThan(0);
+     16|  expect(required.filter(name=>typeof exported[name]!=="string")).toEqu…
+       |                                                                  ^
+     17| });
+     18| it("gives Playwright and the shared exporter the same values for workf…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/lib/workflow-fixture-env.test.ts > gives Playwright and the shared exporter the same values for workflow seed requirements
+AssertionError: expected [ …(4) ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   "FULLSTACK_E2E_WORKFLOW_RUNS_ORG",
++   "FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT",
++   "FULLSTACK_E2E_WORKFLOW_RUNS_USER",
++   "FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE",
++ ]
+
+ ❯ tests/lib/workflow-fixture-env.test.ts:28:103
+     26|  }
+     27|  visit(source);
+     28|  expect(required.filter(name=>typeof configured[name]!=="string"||conf…
+       |                                                                                                       ^
+     29| });
+     30|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  10:21:09
+   Duration  1.63s (transform 60ms, setup 196ms, collect 484ms, tests 752ms, environment 0ms, prepare 50ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/lib/workflow-fixture-env.test.ts --maxWorkers=1 --minWorkers=1

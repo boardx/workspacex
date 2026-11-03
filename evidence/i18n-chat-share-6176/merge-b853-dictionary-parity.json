@@ -1,0 +1,19 @@
+{
+  "base": "b8532643f2b6faafc66862d678dd8385c28417a7",
+  "results": [
+    {
+      "locale": "en",
+      "baselineKeys": 952,
+      "ownKeys": 38,
+      "finalKeys": 990,
+      "allValuesPreserved": true
+    },
+    {
+      "locale": "zh-CN",
+      "baselineKeys": 952,
+      "ownKeys": 38,
+      "finalKeys": 990,
+      "allValuesPreserved": true
+    }
+  ]
+}
