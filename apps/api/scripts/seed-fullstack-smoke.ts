@@ -1,3 +1,4 @@
+import { seedAboutMeI18n } from "./fixtures/seed-about-me-i18n";
 import { seedEntityLocalizationFixture } from "./fixtures/seed-entity-localization";
 import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
 /** Controlled PG fixture for #387's login -> projects -> overview -> Files browser gate. */
@@ -594,3 +595,6 @@ await seedChatPublicShare(orgId,userId);
 await seedEntityLocalizationFixture();
 
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);
+
+// This private UI fixture is optional for other startup lanes (e2e-up uses the shared exporter).
+if (process.env.FULLSTACK_ABOUT_ME_FIXTURE) await seedAboutMeI18n(JSON.parse(process.env.FULLSTACK_ABOUT_ME_FIXTURE));
