@@ -1,0 +1,59 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/e2e-hitl-next-turn.test.ts (38 tests | 2 failed) 61ms
+   × takes the canonical execution identity from a finished real SDK stream 8ms
+     → SDK must target this thread
++ actual - expected
+
++ 'sdk-session-thread'
+- 'current-thread'
+
+   × does not confuse an SDK thread id with the forwarded canonical Chat identity 6ms
+     → expected [Function] to throw an error
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > takes the canonical execution identity from a finished real SDK stream
+AssertionError: SDK must target this thread
++ actual - expected
+
++ 'sdk-session-thread'
+- 'current-thread'
+
+
+Expected: "current-thread"
+Received: "sdk-session-thread"
+
+ ❯ Module.acceptedSdkTurn e2e/support/hitl-next-turn.ts:33:10
+     31|   assert.equal(status, 200, "SDK run must return 200");
+     32|   const input = request as { threadId: string; messages: Array<{ id: s…
+     33|   assert.equal(input.threadId, threadId, "SDK must target this thread"…
+       |          ^
+     34|   const human = [...input.messages].reverse().find(message => message.…
+     35|   assert.equal(human?.content, text, "SDK must send this exact text");
+ ❯ tests/e2e-hitl-next-turn.test.ts:88:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > does not confuse an SDK thread id with the forwarded canonical Chat identity
+AssertionError: expected [Function] to throw an error
+ ❯ tests/e2e-hitl-next-turn.test.ts:100:140
+     98|
+     99| it("does not confuse an SDK thread id with the forwarded canonical Cha…
+    100|   expect(() => acceptedSdkTurn(200, sdkStream, { ...sdkRequest, thread…
+       |                                                                                                                                            ^
+    101| });
+    102|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 36 passed (38)
+   Start at  18:19:05
+   Duration  3.04s (transform 478ms, setup 526ms, collect 1.16s, tests 61ms, environment 0ms, prepare 154ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/e2e-hitl-next-turn.test.ts --minWorkers=1 --maxWorkers=1

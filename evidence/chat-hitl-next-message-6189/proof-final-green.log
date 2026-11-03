@@ -1,0 +1,11 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/e2e-hitl-next-turn.test.ts (38 tests) 36ms
+ ✓ tests/e2e-chat-run-settled.test.ts (4 tests) 247ms
+
+ Test Files  2 passed (2)
+      Tests  42 passed (42)
+   Start at  18:36:41
+   Duration  2.71s (transform 342ms, setup 407ms, collect 1.11s, tests 282ms, environment 0ms, prepare 154ms)

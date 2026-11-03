@@ -1,0 +1,289 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/e2e-hitl-next-turn.test.ts (31 tests | 28 failed) 138ms
+   × next-turn route admission > observes the supported durable queue instead of requiring a second SDK POST 20ms
+     → expected null to be 'queue' // Object.is equality
+   × next-turn route admission > does not admit POST http://web/unrelated/agent/default/run 28ms
+     → expected 'sdk' to be null
+   × queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 500 15ms
+     → expected [Function] to throw an error
+   × queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 200 3ms
+     → expected [Function] to throw an error
+   × queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201 6ms
+     → expected [Function] to throw an error
+   × queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201 2ms
+     → expected [Function] to throw an error
+   × queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201 1ms
+     → expected [Function] to throw an error
+   × queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201 1ms
+     → expected [Function] to throw an error
+   × queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > proves the dispatched queue item, exact succeeded run and uniquely persisted human/reply 14ms
+     → expected { runId: 'current-run' } to deeply equal { runId: 'current-run', …(2) }
+   × current-message canonical completion > proves direct SDK delivery using its actual client message identity 4ms
+     → expected { runId: 'current-run' } to deeply equal { runId: 'current-run', …(2) }
+   × current-message canonical completion > never accepts queue status pending even when an old run succeeded 2ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > never accepts queue status failed even when an old run succeeded 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > never accepts queue status cancelled even when an old run succeeded 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a different dispatched item or execution 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > does not call canonical run status running completed 3ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > does not call canonical run status failed completed 2ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > does not call canonical run status cancelled completed 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a wrong canonical runId 4ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a wrong canonical threadId 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a wrong canonical inputMessageId 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a wrong canonical resultMessageId 0ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a duplicate persisted user message 2ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a human row with wrong clientMessageId 2ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects a human row with wrong agentRunId 2ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects an unrelated completed reply with wrong replyToMessageId 8ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects an unrelated completed reply with wrong agentRunId 1ms
+     → expected [Function] to throw an error
+   × current-message canonical completion > rejects an unrelated completed reply with wrong text 1ms
+     → expected [Function] to throw an error
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 28 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > next-turn route admission > observes the supported durable queue instead of requiring a second SDK POST
+AssertionError: expected null to be 'queue' // Object.is equality
+
+- Expected:
+"queue"
+
++ Received:
+null
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:23:111
+     21| describe("next-turn route admission", () => {
+     22|   it("observes the supported durable queue instead of requiring a seco…
+     23|     expect(nextTurnRoute("POST", "http://api/chat/threads/current-thre…
+       |                                                                                                               ^
+     24|     expect(nextTurnRoute("POST", "http://web/api/copilotkit/agent/defa…
+     25|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > next-turn route admission > does not admit POST http://web/unrelated/agent/default/run
+AssertionError: expected 'sdk' to be null
+
+- Expected:
+null
+
++ Received:
+"sdk"
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:30:100
+     28|     ["POST", "http://api/chat/threads/other-thread/queued-messages"],
+     29|     ["POST", "http://web/unrelated/agent/default/run"],
+     30|   ])("does not admit %s %s", (method, url) => expect(nextTurnRoute(met…
+       |                                                                                                    ^
+     31| });
+     32|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 500
+ FAIL  tests/e2e-hitl-next-turn.test.ts > queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 200
+ FAIL  tests/e2e-hitl-next-turn.test.ts > queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201
+ FAIL  tests/e2e-hitl-next-turn.test.ts > queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201
+ FAIL  tests/e2e-hitl-next-turn.test.ts > queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201
+ FAIL  tests/e2e-hitl-next-turn.test.ts > queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201
+ FAIL  tests/e2e-hitl-next-turn.test.ts > queue acceptance is not completion > rejects an unsuccessful or mismatched queue receipt 201
+AssertionError: expected [Function] to throw an error
+ ❯ tests/e2e-hitl-next-turn.test.ts:43:69
+     41|     [201, { ...queued, clientRequestId: sdkMessageId }], [201, { ...qu…
+     42|   ])("rejects an unsuccessful or mismatched queue receipt %s", (status…
+     43|     expect(() => acceptedQueuedTurn(status, body, text, requestId)).to…
+       |                                                                     ^
+     44|   });
+     45| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > proves the dispatched queue item, exact succeeded run and uniquely persisted human/reply
+AssertionError: expected { runId: 'current-run' } to deeply equal { runId: 'current-run', …(2) }
+
+- Expected
++ Received
+
+  Object {
+-   "humanMessageId": "persisted-human",
+-   "resultMessageId": "persisted-result",
+    "runId": "current-run",
+  }
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:49:58
+     47| describe("current-message canonical completion", () => {
+     48|   it("proves the dispatched queue item, exact succeeded run and unique…
+     49|     expect(proveCompletedNextTurn(expected, snapshot())).toEqual({ run…
+       |                                                          ^
+     50|   });
+     51|   it("proves direct SDK delivery using its actual client message ident…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > proves direct SDK delivery using its actual client message identity
+AssertionError: expected { runId: 'current-run' } to deeply equal { runId: 'current-run', …(2) }
+
+- Expected
++ Received
+
+  Object {
+-   "humanMessageId": "persisted-human",
+-   "resultMessageId": "persisted-result",
+    "runId": "current-run",
+  }
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:53:108
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > never accepts queue status pending even when an old run succeeded
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > never accepts queue status failed even when an old run succeeded
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > never accepts queue status cancelled even when an old run succeeded
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:57:58
+     55|   it.each(["pending", "failed", "cancelled"])("never accepts queue sta…
+     56|     const data = snapshot(); data.queueItem.status = status;
+     57|     expect(() => proveCompletedNextTurn(expected, data)).toThrow(/queu…
+       |                                                          ^
+     58|   });
+     59|   it("rejects a different dispatched item or execution", () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a different dispatched item or execution
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:61:58
+     59|   it("rejects a different dispatched item or execution", () => {
+     60|     const data = snapshot(); data.queueItem.runId = "old-run";
+     61|     expect(() => proveCompletedNextTurn(expected, data)).toThrow(/queu…
+       |                                                          ^
+     62|   });
+     63|   it.each(["running", "failed", "cancelled"])("does not call canonical…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > does not call canonical run status running completed
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > does not call canonical run status failed completed
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > does not call canonical run status cancelled completed
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:65:58
+     63|   it.each(["running", "failed", "cancelled"])("does not call canonical…
+     64|     const data = snapshot(); data.run.status = status;
+     65|     expect(() => proveCompletedNextTurn(expected, data)).toThrow(/succ…
+       |                                                          ^
+     66|   });
+     67|   it.each(["runId", "threadId", "inputMessageId", "resultMessageId"] a…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a wrong canonical runId
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a wrong canonical threadId
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a wrong canonical inputMessageId
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a wrong canonical resultMessageId
+AssertionError: expected [Function] to throw an error
+ ❯ tests/e2e-hitl-next-turn.test.ts:69:58
+     67|   it.each(["runId", "threadId", "inputMessageId", "resultMessageId"] a…
+     68|     const data = snapshot(); data.run[field] = "unrelated";
+     69|     expect(() => proveCompletedNextTurn(expected, data)).toThrow();
+       |                                                          ^
+     70|   });
+     71|   it("rejects a duplicate persisted user message", () => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a duplicate persisted user message
+AssertionError: expected [Function] to throw an error
+
+- Expected:
+null
+
++ Received:
+undefined
+
+ ❯ tests/e2e-hitl-next-turn.test.ts:73:58
+     71|   it("rejects a duplicate persisted user message", () => {
+     72|     const data = snapshot(); data.messages.messages.push({ ...data.mes…
+     73|     expect(() => proveCompletedNextTurn(expected, data)).toThrow(/exac…
+       |                                                          ^
+     74|   });
+     75|   it.each(["clientMessageId", "agentRunId"] as const)("rejects a human…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a human row with wrong clientMessageId
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects a human row with wrong agentRunId
+AssertionError: expected [Function] to throw an error
+ ❯ tests/e2e-hitl-next-turn.test.ts:77:58
+     75|   it.each(["clientMessageId", "agentRunId"] as const)("rejects a human…
+     76|     const data = snapshot(); data.messages.messages[0]![field] = sdkMe…
+     77|     expect(() => proveCompletedNextTurn(expected, data)).toThrow();
+       |                                                          ^
+     78|   });
+     79|   it.each(["replyToMessageId", "agentRunId", "text"] as const)("reject…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/28]⎯
+
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects an unrelated completed reply with wrong replyToMessageId
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects an unrelated completed reply with wrong agentRunId
+ FAIL  tests/e2e-hitl-next-turn.test.ts > current-message canonical completion > rejects an unrelated completed reply with wrong text
+AssertionError: expected [Function] to throw an error
+ ❯ tests/e2e-hitl-next-turn.test.ts:81:58
+     79|   it.each(["replyToMessageId", "agentRunId", "text"] as const)("reject…
+     80|     const data = snapshot(); data.messages.messages[1]![field] = "diff…
+     81|     expect(() => proveCompletedNextTurn(expected, data)).toThrow();
+       |                                                          ^
+     82|   });
+     83| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/28]⎯
+
+ Test Files  1 failed (1)
+      Tests  28 failed | 3 passed (31)
+   Start at  18:03:03
+   Duration  27.60s (transform 2.98s, setup 13.88s, collect 1.39s, tests 138ms, environment 1ms, prepare 1.75s)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/e2e-hitl-next-turn.test.ts --maxWorkers=1 --minWorkers=1
