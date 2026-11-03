@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-04：首页配置采用保留挂载状态的标签页时，原生 `hidden` 与无条件 Tailwind `flex` 会发生样式覆盖；应按当前页切换 `flex` / `hidden` 并真实断言非活动面板不可见。只跑完成主链的浏览器绿灯不能替代逐屏截图检查（issue #6204；`evidence/org-home-config-i18n-6204/visibility-red/`）。
 - 2026-11-03：成员/邀请的真实路由在 `org-admin-screen.tsx`，同名 `members-screen.tsx`/`roster-screen.tsx` 是预览；国际化不能只改预览。角色标签复用共享 `role.*` 字典，错误/反馈保留原始载荷并在渲染时翻译，locale 不进入读取 effect 依赖，避免语言切换重发请求（issue #6179）。
 - 2026-11-02：验证邮件重发不能只依赖24小时注册cookie；过期/换浏览器恢复须先复用登录密码校验与锁定规则，再将可信userId传入事务重发，保持challenge→credential锁顺序、限频与旧链接原子失效；API存活不证明发信配置完整（issue #6085）。
 
