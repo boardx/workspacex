@@ -4,6 +4,7 @@ import { controlsZhCN } from "../namespaces/controls";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
+import { notificationsZhCN } from "../namespaces/notifications";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
 import { orgMembersZhCN } from "../namespaces/org-members";
 import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
@@ -17,6 +18,7 @@ export const zhCN = {
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,
+  ...notificationsZhCN,
   ...aboutMemoryZhCN,
   ...orgMembersZhCN,
   ...orgMembersPreviewZhCN,

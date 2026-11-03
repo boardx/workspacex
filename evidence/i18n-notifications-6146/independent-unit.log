@@ -1,0 +1,16 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/rail-notifications-placement.test.tsx (5 tests) 391ms
+ ✓ tests/ui/task-notifications-popover.test.tsx (6 tests) 275ms
+ ✓ tests/ui/notification-click-destination.test.tsx (3 tests) 215ms
+ ✓ tests/ui/task-notifications-i18n.test.tsx (3 tests) 349ms
+ ✓ tests/ui/schedule-notifications.test.tsx (3 tests) 245ms
+ ✓ tests/ui/task-notifications.test.tsx (2 tests) 218ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 52ms
+
+ Test Files  7 passed (7)
+      Tests  27 passed (27)
+   Start at  13:20:45
+   Duration  18.65s (transform 2.23s, setup 1.44s, collect 4.92s, tests 1.74s, environment 7.98s, prepare 711ms)
