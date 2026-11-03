@@ -16,7 +16,7 @@ Raw log SHA-256: a0b606a08e4d73ee20517563e43c1e303b7fcbf2063d017e7bd380706a28ff3
     attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
 
   1 failed
-    [seeded] › e2e/i18n-research-entry.spec.ts:8:5 › research locale preserves the real intake, plan, saved report and history management journey 
+    [seeded] › e2e/i18n-research-entry.spec.ts:8:5 › research locale preserves the real intake, plan, saved report and history management journey
   1 error was not a part of any test, see above for details
 undefined
 /Users/shenyangjun/boardx/workspacex/apps/web:

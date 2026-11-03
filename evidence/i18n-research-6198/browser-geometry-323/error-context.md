@@ -137,9 +137,9 @@ Call log:
   2   | import { randomUUID } from "node:crypto";
   3   | import { research as C } from "@repo/contracts";
   4   | import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
-  5   | 
+  5   |
   6   | const pathOf = (url: string) => new URL(url).pathname.replace(/^\/__fullstack_api/, "");
-  7   | 
+  7   |
   8   | test("research locale preserves the real intake, plan, saved report and history management journey", async ({ page, context }) => {
   9   |   test.setTimeout(180_000);
   10  |   const errors: string[] = [];
