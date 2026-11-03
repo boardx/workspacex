@@ -14,7 +14,8 @@ vi.mock("@/components/admin/admin-nav", () => ({ AdminNav: () => null }));
 import { WorkflowGrantsScreen } from "@/components/org-admin/workflow-grants-screen";
 function LocaleToggle() { const { locale, setLocale } = useI18n(); return <button onClick={() => setLocale(locale === "en" ? "zh-CN" : "en")}>Toggle language</button>; }
 function Page() { return <I18nProvider initialLocale="en"><LocaleToggle /><WorkflowGrantsScreen /></I18nProvider>; }
-const toggle = () => fireEvent.click(screen.getByRole("button", { name: "Toggle language" }));
+// Provider test control remains callable while Radix correctly hides the underlying app.
+const toggle = () => fireEvent.click(screen.getByText("Toggle language"));
 function data(write = false): WorkflowCapabilityGrantsOut {
   return {
     workflows: [
