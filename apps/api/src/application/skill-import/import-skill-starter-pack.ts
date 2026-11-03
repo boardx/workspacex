@@ -1,3 +1,4 @@
+import { localizationAuthorizer } from "../localization/entity-localization";
 import type { IdentityRepository } from "../identity/ports";
 import type { WorkGateStatus } from "@repo/contracts/work-eval";
 import type { WorkSkillManifest } from "@repo/contracts/work-skill-meta";
@@ -62,6 +63,7 @@ export interface ImportSkillStarterPackInput {
   readonly packId: string;
   readonly packVersion: string;
   readonly idempotencyKey: string;
+  readonly expectedPackDigest?: string;
 }
 
 export interface ImportSkillStarterPackOutcome {
@@ -89,6 +91,14 @@ export async function importSkillStarterPack(
     throw new SkillStarterImportAdminRequiredError();
   }
 
+  let directPack: SkillStarterPack | undefined;
+  if (input.expectedPackDigest !== undefined) {
+    const raw = await deps.packs.load(input.packId, input.packVersion);
+    if (raw === null) throw new SkillStarterPackNotFoundError();
+    try { directPack = verifySkillStarterPack(raw, input); }
+    catch (error) { if (error instanceof InvalidSkillStarterPackError) throw new SkillStarterPackInvalidError(); throw error; }
+    if (directPack.packDigest !== input.expectedPackDigest) throw new SkillStarterPackInvalidError();
+  }
   const payloadDigest = importPayloadDigest(input);
   const existing = await deps.imports.findExisting({
     orgId: input.orgId,
@@ -96,8 +106,8 @@ export async function importSkillStarterPack(
     payloadDigest,
   });
   if (existing.kind === "replayed") {
-    const retiredSkillIds = await retireSuperseded(deps, input, existing.result);
-    await followUp(deps, input);
+    const retiredSkillIds = existing.metadataOnly ? [] : await retireSuperseded(deps, input, existing.result);
+    if (!existing.metadataOnly) await followUp(deps, input);
     return { created: false, result: existing.result, retiredSkillIds };
   }
   if (existing.kind === "idempotency-conflict") {
@@ -106,7 +116,7 @@ export async function importSkillStarterPack(
   // `previous-failure`：失败不是终局（服务端配置/状态可能已修好），往下重新判定；
   // 仓储在同一条 provenance 行上接管这次重试（见 pg 仓储 `isRetryableFailure`）。
 
-  const raw = await deps.packs.load(input.packId, input.packVersion);
+  const raw = directPack ?? await deps.packs.load(input.packId, input.packVersion);
   if (raw === null) {
     const recorded = await deps.imports.recordFailure({
       orgId: input.orgId,
@@ -153,12 +163,13 @@ export async function importSkillStarterPack(
     idempotencyKey: input.idempotencyKey,
     payloadDigest,
     pack,
+    ...(pack.schemaVersion === 2 ? { localizationAuthorize: localizationAuthorizer(membership, input.actorId) } : {}),
     workManifests: work.manifests,
     gateStatuses: judgeGates(deps.gateJudge, pack, work.manifests),
   });
   if (outcome.kind === "created" || outcome.kind === "replayed") {
-    const retiredSkillIds = await retireSuperseded(deps, input, outcome.result, pack);
-    await followUp(deps, input);
+    const retiredSkillIds = outcome.metadataOnly ? [] : await retireSuperseded(deps, input, outcome.result, pack);
+    if (!outcome.metadataOnly) await followUp(deps, input);
     return { created: outcome.kind === "created", result: outcome.result, retiredSkillIds };
   }
   if (outcome.kind === "name-conflict") throw new SkillStarterPackConflictError();

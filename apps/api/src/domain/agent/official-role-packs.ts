@@ -357,7 +357,7 @@ export function officialRoleEscalationPolicies(): Readonly<Record<string, z.infe
 /** 供 `FileAgentStarterPackSource` 加载路径测试与真实种子共用的已签名官方角色包。 */
 export function buildOfficialAgentRolePack(
   seeds: readonly RoleEntrySeed[] = ROLE_SEEDS,
-): OfficialAgentStarterPack {
+): Extract<OfficialAgentStarterPack, { schemaVersion: 1 }> {
   const unsignedRaw: UnsignedOfficialPack = {
     schemaVersion: 1,
     packId: OFFICIAL_AGENT_ROLE_PACK_ID,
@@ -366,7 +366,9 @@ export function buildOfficialAgentRolePack(
   };
   const unsigned = wave2Runtime.UnsignedOfficialAgentStarterPack.parse(unsignedRaw);
   const packDigest = sha256(JSON.stringify(unsigned));
-  return wave2Runtime.OfficialAgentStarterPack.parse({ ...unsigned, packDigest });
+  const pack = wave2Runtime.OfficialAgentStarterPack.parse({ ...unsigned, packDigest });
+  if (pack.schemaVersion !== 1) throw new Error("legacy_official_pack_schema_changed");
+  return pack;
 }
 
 /**
@@ -380,6 +382,10 @@ export function officialRoleWorkflowAllowlists(): Readonly<Record<string, readon
 /** 官方角色 stableName → 肖像 key（同一份 ROLE_SEEDS；供回填迁移的核对测试使用，不另立副本）。 */
 export function officialRoleAvatarKeys(): Readonly<Record<string, string>> {
   return Object.fromEntries(ROLE_SEEDS.map((s) => [s.stableName, s.avatarKey]));
+}
+/** Stable entity identity for the independent authored display release. */
+export function officialRoleDisplayIdentities(): Readonly<Record<string, string>> {
+  return Object.fromEntries(ROLE_SEEDS.map(seed => [seed.stableName, seed.roleRef]));
 }
 
 /** 一键启用须先导入的 Skill 起步包（全部官方角色所需的并集，去重、保持声明顺序；同一份 ROLE_SEEDS）。 */

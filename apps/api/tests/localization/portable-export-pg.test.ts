@@ -1,0 +1,62 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { ensureDatabase, migrateOnce, seedOrg, asApp } from "../support/db";
+import { PgDatabase } from "../../src/infrastructure/db/pg-database";
+import { appConfig } from "../../src/infrastructure/db/pg-config";
+import { PgSkillStarterImportRepository } from "../../src/infrastructure/skill/pg-skill-starter-import-repository";
+import { PgAgentStarterImportRepository } from "../../src/infrastructure/agent/pg-agent-starter-import-repository";
+import { PgPortableExportRepository } from "../../src/infrastructure/localization/pg-portable-export-repository";
+import { PgEntityLocalizationRepository } from "../../src/infrastructure/localization/pg-entity-localization-repository";
+import { verifySkillStarterPack } from "../../src/domain/skill/starter-pack";
+import { verifyAgentStarterPack } from "../../src/domain/agent/starter-pack";
+import { decideCapabilityVisibility } from "../../src/domain/identity/capability-listing";
+import { toOrgId } from "../../src/domain/org-id";
+import type { LocalizationVisibilityFacts } from "../../src/application/localization/entity-localization";
+import { skillV2, agentV2, sha, sourceFile } from "./portable-pack-fixture";
+let db: PgDatabase, orgId: ReturnType<typeof toOrgId>, otherId: ReturnType<typeof toOrgId>;
+const authorize = (facts: LocalizationVisibilityFacts) => decideCapabilityVisibility({ decisionId: "portable-export", orgRole: "admin", requesterTeamId: null, ...facts });
+beforeAll(async () => { ensureDatabase(); await migrateOnce(); db = new PgDatabase(appConfig()); });
+afterAll(async () => { await db?.close(); });
+beforeEach(async () => {
+  orgId = toOrgId(`export-${randomUUID()}`); otherId = toOrgId(`destination-${randomUUID()}`);
+  await seedOrg({ orgId, projectId: `${orgId}-project` }); await seedOrg({ orgId: otherId, projectId: `${otherId}-project` });
+});
+const input = (pack: { packDigest: string }, destination = orgId) => ({ orgId: destination, actorId: "author", idempotencyKey: randomUUID(), payloadDigest: sha(pack.packDigest), localizationAuthorize: authorize, pack });
+describe("portable package export and round trip", () => {
+  it("exports reviewed current Skill copy and unchanged files, then imports them into another tenant", async () => {
+    const imported = await new PgSkillStarterImportRepository(db).persistVerified(input(skillV2()) as never);
+    if (imported.kind !== "created") throw Error("import failed");
+    const entityId = imported.result.skillIds[0]!;
+    const before = await asApp(orgId, c => c.query("SELECT content_digest FROM skill_versions WHERE id=$1", [imported.result.versionIds[0]]));
+    const raw = await new PgPortableExportRepository(db).get({ orgId, kind: "skill", entityId, authorize });
+    const pack = verifySkillStarterPack(raw, raw!);
+    expect(pack.schemaVersion).toBe(2);
+    expect(pack.skills[0]!.name).toBe("Original skill");
+    expect(Buffer.from(pack.skills[0]!.files[0]!.contentBase64, "base64").toString()).toBe(sourceFile);
+    const copied = await new PgSkillStarterImportRepository(db).persistVerified(input(pack, otherId) as never);
+    if (copied.kind !== "created") throw Error("round trip failed");
+    expect((await new PgEntityLocalizationRepository(db).get({ orgId: otherId, actorId: "author", kind: "skill", entityId: copied.result.skillIds[0]!, locale: "en", authorize }))?.translation?.fields.name).toBe("Translated name");
+    const after = await asApp(orgId, c => c.query("SELECT content_digest FROM skill_versions WHERE id=$1", [imported.result.versionIds[0]]));
+    expect(after.rows).toEqual(before.rows);
+  });
+  it("retains frozen Agent roles and instruction bytes across tenant round trips", async () => {
+    const pack = agentV2();
+    const imported = await new PgAgentStarterImportRepository(db).persistVerified(input(pack) as never);
+    if (imported.kind !== "created") throw Error("import failed");
+    const raw = await new PgPortableExportRepository(db).get({ orgId, kind: "agent", entityId: imported.result.agentIds[0]!, authorize });
+    const exported = verifyAgentStarterPack(raw, raw!);
+    expect(exported.agents[0]!.instructions).toBe(pack.agents[0]!.instructions);
+    expect(exported.agents[0]!.instructionDigest).toBe(pack.agents[0]!.instructionDigest);
+    expect(exported.agents[0]!.name).toBe("Original agent");
+    const copied = await new PgAgentStarterImportRepository(db).persistVerified(input(exported, otherId) as never);
+    if (copied.kind !== "created") throw Error("round trip failed");
+    expect((await new PgEntityLocalizationRepository(db).get({ orgId: otherId, actorId: "author", kind: "agent", entityId: copied.result.agentIds[0]!, locale: "en", authorize }))?.translation?.fields.name).toBe("Translated name");
+  });
+  it("does not disclose a foreign entity or a denied capability", async () => {
+    const imported = await new PgSkillStarterImportRepository(db).persistVerified(input(skillV2()) as never);
+    if (imported.kind !== "created") throw Error("import failed");
+    const repo = new PgPortableExportRepository(db), entityId = imported.result.skillIds[0]!;
+    expect(await repo.get({ orgId: otherId, kind: "skill", entityId, authorize })).toBeNull();
+    expect(await repo.get({ orgId, kind: "skill", entityId, authorize: facts => decideCapabilityVisibility({ decisionId: "denied", orgRole: null, requesterTeamId: null, ...facts }) })).toBeNull();
+  });
+});

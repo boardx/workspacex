@@ -1,0 +1,33 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ❯ tests/entity-localization-rewrite.test.ts (2 tests | 2 failed) 17ms
+   × routes display update reads and writes without intercepting admin pages: prefixed=false 11ms
+     → .toMatch() expects to receive a string, but got undefined
+   × routes display update reads and writes without intercepting admin pages: prefixed=true 6ms
+     → .toMatch() expects to receive a string, but got undefined
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/entity-localization-rewrite.test.ts > routes display update reads and writes without intercepting admin pages: prefixed=false
+ FAIL  tests/entity-localization-rewrite.test.ts > routes display update reads and writes without intercepting admin pages: prefixed=true
+TypeError: .toMatch() expects to receive a string, but got undefined
+ ❯ tests/entity-localization-rewrite.test.ts:17:32
+     15|   for (const path of ["/admin/entity-display-updates","/admin/entity-d…
+     16|     const match = afterFiles.find((rule: { source: string }) => getPat…
+     17|     expect(match?.destination).toMatch(/^http:\/\/127\.0\.0\.1:3207\/a…
+       |                                ^
+     18|   }
+     19|   for (const path of ["/admin","/admin/agent","/admin/skill"]) expect(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  08:48:51
+   Duration  438ms (transform 55ms, setup 188ms, collect 46ms, tests 17ms, environment 0ms, prepare 50ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/entity-localization-rewrite.test.ts --maxWorkers=1 --minWorkers=1

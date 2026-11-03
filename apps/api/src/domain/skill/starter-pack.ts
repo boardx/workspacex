@@ -91,8 +91,10 @@ export function verifySkillStarterPack(raw: unknown, expected: {
 export function importPayloadDigest(input: {
   readonly packId: string;
   readonly packVersion: string;
+  readonly expectedPackDigest?: string;
 }): string {
-  return sha256(JSON.stringify({ packId: input.packId, packVersion: input.packVersion }));
+  return sha256(JSON.stringify({ packId: input.packId, packVersion: input.packVersion,
+    ...(input.expectedPackDigest === undefined ? {} : { packDigest: input.expectedPackDigest }) }));
 }
 
 export function skillContentDigest(skill: SkillStarterPack["skills"][number]): string {
