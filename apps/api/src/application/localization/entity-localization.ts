@@ -6,7 +6,7 @@ import {
 } from "@repo/contracts/entity-localization";
 import type { z } from "zod";
 import type { Locale } from "@repo/contracts/locale";
-import type { IdentityRepository } from "../identity/ports";
+import type { IdentityRepository, OrgMembershipRow } from "../identity/ports";
 import { toOrgId } from "../../domain/org-id";
 import { decideCapabilityVisibility, canMutateCapabilities } from "../../domain/identity/capability-listing";
 import type { PermissionDecision } from "../../domain/identity/permission-decision";
@@ -36,11 +36,14 @@ export class EntityLocalizationError extends Error {
     super(code); this.name = "EntityLocalizationError";
   }
 }
-async function admin(input: { orgId: string; actorId: string }, deps: Deps) {
+export async function authorizeLocalizationAdmin(input: { orgId: string; actorId: string }, deps: Pick<Deps, "identities">) {
   const membership = await deps.identities.findOrgMembership(input.actorId, toOrgId(input.orgId));
   if (!membership || !canMutateCapabilities(membership.orgRole)) throw new EntityLocalizationError("ROLE_INSUFFICIENT");
+  return localizationAuthorizer(membership, input.actorId);
+}
+export function localizationAuthorizer(membership: OrgMembershipRow, actorId: string) {
   return (facts: LocalizationVisibilityFacts) => decideCapabilityVisibility({
-    decisionId: `localization:${input.actorId}`, orgRole: membership.orgRole,
+    decisionId: `localization:${actorId}`, orgRole: membership.orgRole,
     requesterTeamId: membership.teamId, ...facts,
   });
 }
@@ -50,25 +53,25 @@ function unwrap<T>(outcome: LocalizationOutcome<T>): T {
   throw new EntityLocalizationError(code[outcome.kind]);
 }
 export async function getLocalizationAdmin(input: LocalizationRequest, deps: Deps) {
-  const authorize = await admin(input, deps);
+  const authorize = await authorizeLocalizationAdmin(input, deps);
   const view = await deps.repository.get({ ...input, authorize });
   if (!view) throw new EntityLocalizationError("ENTITY_NOT_FOUND");
   return view;
 }
 export async function putLocalization(input: LocalizationRequest & { body: unknown }, deps: Deps) {
-  const authorize = await admin(input, deps);
+  const authorize = await authorizeLocalizationAdmin(input, deps);
   const parsed = EntityLocalizationWrite.safeParse(input.body);
   if (!parsed.success) throw new EntityLocalizationError("VALIDATION_FAILED");
   return unwrap(await deps.repository.put({ ...input, authorize, body: parsed.data }));
 }
 export async function clearLocalization(input: LocalizationRequest & { body: unknown }, deps: Deps) {
-  const authorize = await admin(input, deps);
+  const authorize = await authorizeLocalizationAdmin(input, deps);
   const parsed = EntityLocalizationClear.safeParse(input.body);
   if (!parsed.success) throw new EntityLocalizationError("VALIDATION_FAILED");
   return unwrap(await deps.repository.clear({ ...input, authorize, body: parsed.data }));
 }
 export async function setLocalizationSourceLocale(input: Omit<LocalizationRequest, "locale"> & { body: unknown }, deps: Deps) {
-  const authorize = await admin(input, deps);
+  const authorize = await authorizeLocalizationAdmin(input, deps);
   const parsed = EntitySourceLocaleWrite.safeParse(input.body);
   if (!parsed.success) throw new EntityLocalizationError("VALIDATION_FAILED");
   return unwrap(await deps.repository.setSourceLocale({ ...input, authorize, body: parsed.data }));

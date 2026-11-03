@@ -203,7 +203,7 @@ export function AgentDirectory({ fetchDirectory = listAgentDirectory, onStartCha
             </div>
             {officialRoles && canManageOfficial && tab === "organization" ? (
               <Button type="button" variant="outline" onClick={() => setTab("official")} data-testid="agent-directory-enable-official">
-                <UserRoundPlus aria-hidden className="h-4 w-4" />启用官方数字人
+                <UserRoundPlus aria-hidden className="h-4 w-4" />{locale === "en" ? "Manage official colleagues" : "管理官方数字人"}
               </Button>
             ) : null}
           </div>
