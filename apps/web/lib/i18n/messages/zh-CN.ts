@@ -3,6 +3,7 @@ import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
+import { aboutMemoryZhCN } from "../namespaces/about-memory";
 import { stateZhCN } from "../namespaces/state";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 export const zhCN = {
@@ -11,6 +12,7 @@ export const zhCN = {
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,
+  ...aboutMemoryZhCN,
   ...stateZhCN,
   ...workflowRunsZhCN,
   "common.language": "语言",

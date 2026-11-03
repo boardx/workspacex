@@ -1,4 +1,5 @@
 import { seedWorkflowRunsI18n } from "./fixtures/seed-workflow-runs-i18n";
+import { seedAboutMeI18n } from "./fixtures/seed-about-me-i18n";
 import { seedEntityLocalizationFixture } from "./fixtures/seed-entity-localization";
 import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
 /** Controlled PG fixture for #387's login -> projects -> overview -> Files browser gate. */
@@ -611,3 +612,5 @@ await seedWorkflowRunsI18n({
   password: required("FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD"), instanceId: required("FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE_ID"),
   workflowKey: required("FULLSTACK_E2E_WORKFLOW_RUNS_KEY"), goal: required("FULLSTACK_E2E_WORKFLOW_RUNS_GOAL"),
 });
+// This private UI fixture is optional for other startup lanes (e2e-up uses the shared exporter).
+if (process.env.FULLSTACK_ABOUT_ME_FIXTURE) await seedAboutMeI18n(JSON.parse(process.env.FULLSTACK_ABOUT_ME_FIXTURE));

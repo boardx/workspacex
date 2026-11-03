@@ -1,3 +1,4 @@
+import { ABOUT_ME_E2E } from "./e2e/about-me-fixture";
 import { ENTITY_LOCALIZATION_E2E } from "./e2e/entity-localization-fixture";
 import path from "node:path";
 import {partitionSmokeProjects} from "./smoke-project-partition";
@@ -91,6 +92,7 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  */
 const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
+  FULLSTACK_ABOUT_ME_FIXTURE: JSON.stringify(ABOUT_ME_E2E),
   FULLSTACK_ENTITY_LOCALIZATION_ORG_ID: ENTITY_LOCALIZATION_E2E.orgId,
   FULLSTACK_ENTITY_LOCALIZATION_PROJECT_ID: ENTITY_LOCALIZATION_E2E.projectId,
   FULLSTACK_ENTITY_LOCALIZATION_ADMIN_USER_ID: ENTITY_LOCALIZATION_E2E.adminUserId,
@@ -329,6 +331,7 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        "i18n-about-me.spec.ts",
         // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
         "chat-public-share.spec.ts",
         "guided-research-runtime.spec.ts",
