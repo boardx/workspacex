@@ -42,11 +42,12 @@ def reconcile(environment,migration_env,migration_user):
   adapter.c=cfg
   previous={'tag':current['tag'],'images':images,'compose':str(snapshot),'composeSha256':engine.sha_file(snapshot)}
   adapter.verify(previous);adapter.verify_config(previous)
-  ledger=adapter.plan({'apiImage':target},work);host.need(ledger.get('status')=='COMPLETE','TARGET_DATABASE_NOT_COMPLETE')
+  ledger=adapter.plan({'apiImage':target},work);host.need(ledger.get('status') in ('COMPLETE','PENDING'),'TARGET_DATABASE_UNCERTAIN')
   adapter.verify(previous);adapter.verify_config(previous)
   for path,pin in before.items():host.need(engine.sha_file(consumer.trusted(path,private=True))==pin,'LEGACY_STATE_CHANGED')
-  proof={'status':'LEGACY_COMPLETE_RECONCILED','environment':environment,'tag':request['tag'],'sourceRevision':request['sourceRevision'],
-   'stateHashes':before,'runtimeImages':images,'databaseStatus':ledger['status'],'databaseWrites':False,'runtimeChanged':False}
+  proof={'status':'LEGACY_LEDGER_RECONCILED','environment':environment,'tag':request['tag'],'sourceRevision':request['sourceRevision'],
+   'stateHashes':before,'runtimeImages':images,'databaseStatus':ledger['status'],'pendingMigrations':ledger.get('pending',[]),
+   'historicalDrift':ledger.get('historicalDrift',[]),'databaseWrites':False,'runtimeChanged':False}
   core.atomic(work/'result.json',proof)
   archive=root/('pending-reconciled-unified-'+uuid.uuid4().hex+'.json');os.rename(pending_file,archive)
   fd=os.open(root,os.O_RDONLY)

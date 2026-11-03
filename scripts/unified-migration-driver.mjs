@@ -25,10 +25,13 @@ export async function executeMigrations({client:c,files,mode,expectedDatabase,ex
   const present=(await c.query("SELECT to_regclass('public._kernel_migrations') IS NOT NULL AS present")).rows[0].present;
   const ledger=present?(await c.query('SELECT name,checksum FROM public._kernel_migrations ORDER BY name')).rows:[];
   stage='ledger';
-  for(const row of ledger)need(Object.hasOwn(files,row.name)&&hash(files[row.name])===row.checksum,'APPLIED_MIGRATION_CHANGED');
+  // Match the application's migrator: committed names are never replayed, even
+  // when a later branch edits/removes old files. Preserve their original ledger
+  // checksums and report drift; new changes must ship as new migration names.
+  const historicalDrift=ledger.filter(row=>!Object.hasOwn(files,row.name)||hash(files[row.name])!==row.checksum).map(row=>row.name);
   const done=new Set(ledger.map(r=>r.name));need(done.size===ledger.length,'DUPLICATE_MIGRATION_RECORD');
   const pending=names.filter(n=>!done.has(n));
-  if(mode==='plan'||!pending.length)return {status:pending.length?'PENDING':'COMPLETE',pending,applied,skipped:done.size};
+  if(mode==='plan'||!pending.length)return {status:pending.length?'PENDING':'COMPLETE',pending,applied,skipped:done.size,historicalDrift};
   for(const name of pending) {
    failedMigration=name;stage='migration';
    await c.query('BEGIN');transaction=true;
@@ -37,7 +40,7 @@ export async function executeMigrations({client:c,files,mode,expectedDatabase,ex
    await c.query('INSERT INTO public._kernel_migrations(name,checksum) VALUES($1,$2)',[name,hash(files[name])]);
    stage='commit';commitSent=true;await c.query('COMMIT');transaction=false;commitSent=false;applied.push(name);
   }
-  return {status:'COMPLETE',pending:[],applied,skipped:done.size};
+  return {status:'COMPLETE',pending:[],applied,skipped:done.size,historicalDrift};
  } catch(error) {
   let rollbackAcknowledged=false;
   if(transaction&&!commitSent)try{await c.query('ROLLBACK');rollbackAcknowledged=true;}catch{}

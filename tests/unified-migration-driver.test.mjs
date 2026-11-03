@@ -29,10 +29,10 @@ test('all committed SQL is skipped on retry',async()=>{
  assert.equal((await run(c,files)).applied.length,2);assert.equal((await run(c,files)).status,'COMPLETE');
  assert.equal(c.calls.filter(q=>q==='ONE').length,1);
 });
-test('edited historical SQL and missing files reject before SQL execution',async()=>{
+test('edited or removed historical SQL is reported and never replayed or rewritten',async()=>{
  for(const files of [{'001.sql':'CHANGED'},{'002.sql':'TWO'}]){
  const c=client({ledger:{'001.sql':hash('ONE')}});const r=await run(c,files);
- assert.equal(r.code,'APPLIED_MIGRATION_CHANGED');assert(!c.calls.includes('BEGIN'));
+ assert.equal(r.status,'COMPLETE');assert.deepEqual(r.historicalDrift,['001.sql']);assert.equal(c.rows['001.sql'],hash('ONE'));assert(!c.calls.includes('CHANGED'));
  }
 });
 test('wrong DB or runtime identity cannot apply',async()=>{

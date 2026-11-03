@@ -27,7 +27,7 @@ test('real PostgreSQL: per-file commits, retries, checksum rejection and lost CO
   let r=await run(files);assert.equal(r.status,'FAILED');assert.deepEqual(r.applied,['001.sql']);assert.equal(r.sqlState,'42P01');
   files['002.sql']='INSERT INTO release_probe VALUES(1);';r=await run(files);assert.equal(r.status,'COMPLETE');assert.deepEqual(r.applied,['002.sql']);
   r=await run(files);assert.equal(r.status,'COMPLETE');assert.deepEqual(r.applied,[]);
-  assert.equal((await run({...files,'001.sql':'SELECT 1;'})).code,'APPLIED_MIGRATION_CHANGED');
+  const drift=await run({...files,'001.sql':'SELECT 1;'});assert.equal(drift.status,'COMPLETE');assert.deepEqual(drift.historicalDrift,['001.sql']);assert.deepEqual(drift.applied,[]);
   files['003.sql']='INSERT INTO release_probe VALUES(2);';files['004.sql']='INSERT INTO release_probe VALUES(3);';
   r=await run(files,'apply',true);assert.equal(r.status,'RECONCILE_REQUIRED');assert.equal(r.failedMigration,'003.sql');
   assert.deepEqual((await run(files,'plan')).pending,['004.sql']);assert.deepEqual((await run(files)).applied,['004.sql']);
