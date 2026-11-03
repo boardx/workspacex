@@ -1,0 +1,13 @@
+# Runtime checkout deadline repair — #6209
+
+Actual failure: native candidate `1d05f47893d551a7bd11ecaf5bdcf96e6bed8ce6`, job126174296929, fetch command fetched every branch and tag for14m12.757s. Checkout began20:08:08; dependencies installed in18.4s; the15-minute job deadline canceled before RLS/runtime/migration assertions ran. See `native-log-excerpt.txt` and its raw-log SHA256. This is not evidence that a product assertion failed.
+
+Audited call chains:
+- `verify-rls.sh` → shared `lib.sh`, current `migrate-cli.ts` → `migrator.ts`/`pg-config.ts`, current `rls-assert.ts` and SQL queries.
+- `verify-runtime-gates.sh` → same lib/migration, `runtime-gate-assert.ts` → imported `createApp` and current `src/main.ts` child spawned with tsx.
+- `pnpm --filter api run migrate:check` → `verify-migrations.sh` → same lib, `migrate-check.ts` → current migration files/schema/data digests.
+- The helper sets local paths/PG variables, starts PG and resets its isolated database. Migration discovery uses `readdirSync` on the current SQL directory. No git history/log/diff/merge-base/tag operation exists in these commands or their implementation. Remaining text matches in API source are comments, not executable history dependencies.
+
+The proposed workflow delta only sets `gates-runtime` checkout depth1 and explicit fetch-tagsfalse. No `ref` or repository override changes event-selected SHA; required dependencies,15-minute limit, all commands, environment and cleanup remain unchanged. Other checkout jobs retain their existing history policy.
+
+Root's existing-workflow regression actually failed with expecteddepth1/received0 before the change (1 failed,13 unselected,619ms). GREEN/related gates, independent reviews and normal push are recorded after actual execution. Local configuration checks cannot establish native CI runtime completion or timings; main owns queue and fresh candidate acceptance.
