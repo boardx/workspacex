@@ -9,8 +9,8 @@ const read=(path:string)=>readFileSync(new URL(path,import.meta.url),'utf8');
 const policy=JSON.parse(read('../api-test-shards.json'));
 const workflow=parse(read('../../.github/workflows/backend-gates.yml'));
 describe('API isolated shard coverage',()=>{
- it('checks out only the event-selected current source for runtime gates',()=>{
-  const runtime=workflow.jobs['gates-runtime'];
+ it.each(['gates-runtime','gates-test'])('checks out only the event-selected current source for %s',(job)=>{
+  const runtime=workflow.jobs[job];
   const checkout=runtime.steps.find((step:any)=>step.uses?.startsWith('actions/checkout@'));
   expect(checkout.with['fetch-depth']).toBe(1);
   expect(checkout.with['fetch-tags']).toBe(false);
