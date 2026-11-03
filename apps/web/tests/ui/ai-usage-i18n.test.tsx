@@ -21,7 +21,7 @@ const summary: UsageSummary = { asOf: "2026-10-03T00:00:00Z", start: "2026-10-01
 };
 const call = { id: "receipt-raw", userId: "member-raw", runId: null, projectId: null, threadId: null, agentId: null, modelProvider: "provider-raw", modelId: "model-raw", occurredAt: "2026-10-02T00:00:00.000001Z", startedAt: null, endedAt: null, executionAttemptId: null, totalTokens: "8", inputTokens: "5", outputTokens: "3", totalSource: "reported", outcome: "succeeded", callPurpose: null, costMicros: "1234567", currency: "CNY", priceVersion: null, cacheInputTokens: null, reasoningOutputTokens: null, subtaskId: null, nativeUsage: null, creditStatus: "pending", creditHundredths: "12345", payer: { ownerType: "team", ownerId: "org-usage-raw" }, organizationName: "组织原文 {org}" } as UsageCalls["calls"][number];
 const report = { window: "week", totalTokens: 12345, callCount: 2, failedCallCount: 1, activeMemberCount: 1, models: ["model-raw"], rows: [{ userId: "member-raw", displayName: "成员原文 {name}", perModel: [12345], total: 12345 }], distribution: [{ modelId: "model-raw", tokens: 12345, share: 1 }] };
-beforeEach(() => { for (const value of Object.values(api)) value.mockReset(); api.readAiUsage.mockResolvedValue(summary); api.readAiUsageCalls.mockResolvedValue({ asOf: summary.asOf, coverage: "partial", calls: [call], nextCursor: { occurredAt: call.occurredAt, id: call.id } }); api.getUsageReport.mockResolvedValue(report); api.listLimitEvents.mockResolvedValue({ events: [{ eventId: "event-raw", ruleId: "", actionTaken: "degrade", subjectRef: "作用对象原文 {ref}", observedTokens: 12345, thresholdTokens: 10000, occurredAt: "2026-10-02T03:04:05Z" }] }); });
+beforeEach(() => { for (const value of Object.values(api)) value.mockReset(); api.readAiUsage.mockResolvedValue(summary); api.readAiUsageCalls.mockResolvedValue({ asOf: summary.asOf, coverage: "partial", calls: [call], nextCursor: { occurredAt: call.occurredAt, id: call.id } }); api.getUsageReport.mockImplementation((_org: string, window: string) => Promise.resolve({ ...report, window })); api.listLimitEvents.mockResolvedValue({ events: [{ eventId: "event-raw", ruleId: "", actionTaken: "degrade", subjectRef: "作用对象原文 {ref}", observedTokens: 12345, thresholdTokens: 10000, occurredAt: "2026-10-02T03:04:05Z" }] }); });
 afterEach(() => cleanup());
 const tab = (name: string) => { const item = screen.getByRole("tab", { name }); fireEvent.mouseDown(item, { button: 0, ctrlKey: false }); fireEvent.click(item); };
 it("translates overview and cost caveats while retaining chart metric/grain and separate currencies without reads", async () => {
@@ -40,6 +40,23 @@ it("preserves custom dates and only sends inclusive Shanghai boundaries when exp
   language(); language(); expect(screen.getByLabelText("Start date")).toHaveValue("2026-10-01"); expect(api.readAiUsage).toHaveBeenCalledTimes(1);
   fireEvent.click(screen.getByRole("button", { name: "Apply dates" }));
   await waitFor(() => expect(api.readAiUsage).toHaveBeenLastCalledWith("org-usage-raw", false, expect.objectContaining({ start: "2026-09-30T16:00:00.000Z", end: "2026-10-02T16:00:00.000Z", timezone: "Asia/Shanghai", limit: 25 })));
+});
+it("retains a rejected custom range and retranslates its validation without a query", async () => {
+  render(<AiUsagePanel orgId="org-usage-raw" />, { wrapper: Locale }); await screen.findByTestId("usage-total-tokens");
+  fireEvent.click(screen.getByRole("button", { name: "Custom dates" }));
+  fireEvent.change(screen.getByLabelText("Start date"), { target: { value: "2026-10-03" } }); fireEvent.change(screen.getByLabelText("End date"), { target: { value: "2026-10-01" } });
+  fireEvent.click(screen.getByRole("button", { name: "Apply dates" })); const error = screen.getByRole("alert");
+  expect(error).toHaveTextContent("Choose valid dates"); language(); expect(error).toHaveTextContent("结束日期不能早于开始日期"); language();
+  expect(screen.getByLabelText("Start date")).toHaveValue("2026-10-03"); expect(screen.getByLabelText("End date")).toHaveValue("2026-10-01"); expect(api.readAiUsage).toHaveBeenCalledTimes(1);
+});
+it("retains a raw member grouping filter and snapshot when language changes in the drilled ledger", async () => {
+  render(<AiUsagePanel orgId="org-usage-raw" />, { wrapper: Locale }); await screen.findByRole("heading", { name: "Member ranking" });
+  fireEvent.click(screen.getByRole("button", { name: "成员原文 {name} · 8", exact: true }));
+  await waitFor(() => expect(api.readAiUsage).toHaveBeenLastCalledWith("org-usage-raw", false, expect.objectContaining({ userId: "member-raw", asOf: summary.asOf })));
+  await waitFor(() => expect(api.readAiUsageCalls).toHaveBeenLastCalledWith("org-usage-raw", false, expect.objectContaining({ userId: "member-raw", asOf: summary.asOf })));
+  const count = [api.readAiUsage.mock.calls.length, api.readAiUsageCalls.mock.calls.length]; language(); language();
+  expect([api.readAiUsage.mock.calls.length, api.readAiUsageCalls.mock.calls.length]).toEqual(count); expect(screen.getByRole("tab", { name: "Call details" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.getByTestId("usage-ledger")).toHaveTextContent("成员原文 {name}");
 });
 it("translates ledger/account/financial states while preserving open details and raw organization/model names", async () => {
   render(<AiUsagePanel orgId="org-usage-raw" />, { wrapper: Locale }); await screen.findByTestId("usage-total-tokens"); tab("Call details");
