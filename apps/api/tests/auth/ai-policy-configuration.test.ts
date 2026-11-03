@@ -1,5 +1,6 @@
 import {describe,it,expect,vi} from "vitest";
 import {PgAiAdmissionRepository} from "../../src/infrastructure/auth/pg-ai-admission-repository";
+import {BILLING_PRICING_EPOCH_LOCK} from "../../src/domain/billing/billing-generation";
 import {Configuration,SetInput} from "@repo/contracts/ai-policy";
 import {aiPolicyCandidates,validateAiPolicyModels} from "../../src/application/system/ai-policy-models";
 import {PgPlatformOrganizationRepository} from "../../src/infrastructure/system/pg-platform-organization-repository";
@@ -76,8 +77,12 @@ describe("immutable per-user policy materialization",()=>{
  };
  it("uses authenticated membership and audited operator attribution before creating a window",async()=>{
   const {repo,query}=fixture();expect(await repo.resolveBudgetPolicy(org,"member")).toMatchObject({decision:"configured",priceVersion:"fixture-v1"});
-  expect(query.mock.calls[0]?.[0]).toContain("pg_advisory_xact_lock(hashtext($1))");
-  expect(query.mock.calls[2]?.[0]).toContain("FOR UPDATE");
+  expect(query.mock.calls[0]).toEqual(["SELECT pg_advisory_xact_lock_shared(hashtextextended($1,0))",[BILLING_PRICING_EPOCH_LOCK]]);
+  expect(query.mock.calls[1]).toEqual(["SELECT pg_advisory_xact_lock(hashtext($1))",[org]]);
+  expect(query.mock.calls[2]).toEqual(["SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(org)])]]);
+  expect(query.mock.calls[3]?.[0]).toContain("FROM organizations");
+  expect(query.mock.calls[3]?.[0]).toContain("FOR UPDATE");
+  expect(query.mock.calls[3]?.[1]).toEqual([org]);
   const insert=query.mock.calls.find(([sql])=>sql.includes("INSERT INTO ai_budget_windows"));
   expect(insert).toBeDefined();
   expect((insert as unknown as [string,unknown[]])[1]).toEqual([org,"member",config.window.start,config.window.end,config.window.timezone,"100","10000","CNY","fixture-v1","actual-operator"]);

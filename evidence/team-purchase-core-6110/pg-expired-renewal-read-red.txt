@@ -1,0 +1,70 @@
+[stack-admission] load1=3.79 cores=10 perCore=0.38 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzhmn9u-2d0d551d-b25957dca166 db=wsx_b25957dca166fbc776ef compose=wsx-b25957dca166fbc776ef pg=20644 redis=21644 api=24644 web=25644 sandbox=26644 model=27644 deep-agent=28644 asr=29644 vision=30644 loopback-sandbox=31644 mail=19644
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_b25957dca166fbc776ef capacity=100 current=6 required=32
+ ❯ tests/billing/team-settlement-edge-pg.test.ts (6 tests | 1 failed | 5 skipped) 14407ms
+   × displays a recovered expired renewal without borrowing the previous paid term's monthly grant 136ms
+     → [
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "included monthly credits must remain within their paid Team facts"
+  },
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "monthly grant must preserve the original purchase anchor"
+  }
+]
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-settlement-edge-pg.test.ts > displays a recovered expired renewal without borrowing the previous paid term's monthly grant
+ZodError: [
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "included monthly credits must remain within their paid Team facts"
+  },
+  {
+    "code": "custom",
+    "path": [
+      "creditGrant"
+    ],
+    "message": "monthly grant must preserve the original purchase anchor"
+  }
+]
+ ❯ Object.get error [as error] ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:39:31
+ ❯ ZodEffects.parse ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/types.js:114:22
+ ❯ src/infrastructure/billing/pg-team-account-repository.ts:43:27
+
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/billing/team-settlement-edge-pg.test.ts:104:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 5 skipped (6)
+   Start at  00:43:09
+   Duration  19.23s (transform 524ms, setup 12ms, collect 364ms, tests 14.41s, environment 0ms, prepare 89ms)
+
+[db-isolation] db=wsx_b25957dca166fbc776ef peak_connections=2
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/team-settlement-edge-pg.test.ts -t displays a recovered expired renewal --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter api exec vitest run tests/billing/team-settlement-edge-pg.test.ts -t displays a recovered expired renewal --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：20s
+  清理：1s
+  总计：21s

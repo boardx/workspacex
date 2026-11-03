@@ -26,6 +26,8 @@ function qr(value: unknown): value is string {
   try { const url = new URL(value); return url.protocol === "weixin:" && url.hostname === "wxpay" && url.pathname === "/bizpayurl" && !!url.searchParams.get("pr") && !url.username && !url.password && !url.hash; }
   catch { return false; }
 }
+/** Explicit merchant wire facts, without legacy wallet or actor fields. */
+export type NativeCheckout = Readonly<Pick<OrderDraft, "orderNo" | "amountFen" | "currency" | "expiredAt"> & { description: string; attachment?: string }>;
 /** Fixed merchant endpoint; never exposes credentials or accepts a browser-selected upstream. */
 export class WechatNativeClient implements WechatNativePort {
   constructor(private readonly deployment: DeploymentBillingConfig, private readonly logger: LoggerPort) {}
@@ -55,6 +57,10 @@ export class WechatNativeClient implements WechatNativePort {
     } finally { clearTimeout(timer); }
   }
   async createNativeOrder(order: OrderDraft, traceId = "no-trace", options?: Readonly<{ description?: string; attachment?: string }>): Promise<string> {
+    return this.createNativeCheckout({ orderNo: order.orderNo, amountFen: order.amountFen, currency: order.currency, expiredAt: order.expiredAt,
+      description: options?.description ?? `WorkspaceX ${order.baseCredits + order.bonusCredits} credits`, attachment: options?.attachment }, traceId);
+  }
+  async createNativeCheckout(order: NativeCheckout, traceId = "no-trace"): Promise<string> {
     const config = this.deployment.getWechat();
     if (!config) throw new BillingOrderError("payment_provider_not_configured");
     let stage = "request";
@@ -62,8 +68,8 @@ export class WechatNativeClient implements WechatNativePort {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const body = JSON.stringify({ appid: config.appId, mchid: config.mchId, description: options?.description ?? `WorkspaceX ${order.baseCredits + order.bonusCredits} credits`, out_trade_no: order.orderNo,
-        ...(options?.attachment ? { attach: options.attachment } : {}),
+      const body = JSON.stringify({ appid: config.appId, mchid: config.mchId, description: order.description, out_trade_no: order.orderNo,
+        ...(order.attachment ? { attach: order.attachment } : {}),
         time_expire: order.expiredAt, notify_url: config.notifyUrl, amount: { total: order.amountFen, currency: order.currency } });
       const timestamp = String(Math.floor(Date.now() / 1000)), nonce = randomBytes(16).toString("hex");
       const signature = sign("RSA-SHA256", Buffer.from(`POST\n${path}\n${timestamp}\n${nonce}\n${body}\n`), config.privateKey).toString("base64");

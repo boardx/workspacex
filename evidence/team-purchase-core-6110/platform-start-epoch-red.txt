@@ -1,0 +1,36 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ❯ tests/model/pg-platform-model-test-repository.test.ts (21 tests | 2 failed) 30ms
+   × platform start receipt persistence > persists optional formal platform provenance undefined without fake run identities 6ms
+     → team_license_accounting_unavailable
+   × platform start receipt persistence > persists optional formal platform provenance 0c479acf-6523-4d3c-84b8-1986a40255aa without fake run identities 0ms
+     → team_license_accounting_unavailable
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/model/pg-platform-model-test-repository.test.ts > platform start receipt persistence > persists optional formal platform provenance undefined without fake run identities
+ FAIL  tests/model/pg-platform-model-test-repository.test.ts > platform start receipt persistence > persists optional formal platform provenance 0c479acf-6523-4d3c-84b8-1986a40255aa without fake run identities
+CreditConsumptionError: team_license_accounting_unavailable
+ ❯ PgCreditConsumption.error src/infrastructure/billing/pg-credit-consumption.ts:25:134
+     23|   return isLocalOrg(row.kind)?{ownerType:"user",ownerId:userId}:{owner…
+     24|  }
+     25|  private error(p:Payer,message:string,code:"credit_required"|"credit_a…
+       |                                                                                                                                      ^
+     26|  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promi…
+     27|   const p=await this.payer(s,orgId,input.userId),at=this.clock();
+ ❯ PgCreditConsumption.reserveInSession src/infrastructure/billing/pg-credit-consumption.ts:30:83
+ ❯ src/infrastructure/auth/pg-token-usage-repository.ts:30:7
+ ❯ PgTokenUsageRepository.startRequest src/infrastructure/auth/pg-token-usage-repository.ts:29:5
+ ❯ tests/model/pg-platform-model-test-repository.test.ts:130:3
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 19 passed (21)
+   Start at  02:18:35
+   Duration  1.97s (transform 1.10s, setup 0ms, collect 1.73s, tests 30ms, environment 0ms, prepare 54ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config /tmp/team-6110-platform-provenance-unit.config.mts

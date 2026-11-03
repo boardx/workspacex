@@ -1,0 +1,12 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+ ✓ tests/billing/personal-wechat-payment.test.ts (18 tests) 81ms
+ ✓ tests/billing/team-wechat-checkout.test.ts (20 tests) 38ms
+ ✓ tests/billing/native-read-deadline.test.ts (2 tests) 21ms
+
+ Test Files  3 passed (3)
+      Tests  40 passed (40)
+   Start at  16:59:50
+   Duration  1.76s (transform 221ms, setup 0ms, collect 711ms, tests 141ms, environment 1ms, prepare 244ms)
+
