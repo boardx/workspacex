@@ -1,0 +1,17 @@
+{
+  "scope": "wsx-2e9db9d56316e29a1575",
+  "checks": {
+    "containers": {
+      "exit": 0,
+      "items": []
+    },
+    "volumes": {
+      "exit": 0,
+      "items": []
+    },
+    "listeners": {
+      "exit": 1,
+      "output": ""
+    }
+  }
+}
