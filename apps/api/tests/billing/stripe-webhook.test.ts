@@ -264,7 +264,10 @@ it("retains legacy management and defers an overlapping legacy invoice after a m
  const {PgMonthlyPassRepository}=await import("../../src/infrastructure/billing/pg-monthly-pass-repository");
  const db=new PgDatabase(appConfig()),repo=new PgMonthlyPassRepository(db),p={userId:user,orgId:toOrgId("f09-stripe-org")};
  try{
-  const order=await repo.reserve(p);await repo.bind(p,order.orderId,"cs_test_overlap");await repo.settle(order.orderId,{id:"cs_test_overlap",object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:"pi_test_overlap"});
+  const order=await repo.reserve(p),suffix=order.orderId.replaceAll("-","");
+  // Independent cash fixtures must retain distinct provider IDs even after their paid rows are cleaned.
+  const sessionRef=`cs_test_overlap_${suffix}`,paymentRef=`pi_test_overlap_${suffix}`;
+  await repo.bind(p,order.orderId,sessionRef);await repo.settle(order.orderId,{id:sessionRef,object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:paymentRef});
   monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
   expect((await post("invoice.paid",{id:"in_f09monthly"},"evt_f09overlap")).status).toBe(500);
   expect((await asOwner(c=>c.query("SELECT balance::text FROM credit_wallets WHERE owner_id=$1",[user]))).rows).toEqual([{balance:"20000.00"}]);
@@ -280,7 +283,10 @@ it("accepts a historical nonoverlapping invoice without blocking the current pas
  const {PgMonthlyPassRepository}=await import("../../src/infrastructure/billing/pg-monthly-pass-repository");
  const db=new PgDatabase(appConfig()),repo=new PgMonthlyPassRepository(db),p={userId:user,orgId:toOrgId("f09-stripe-org")};
  try{
-  const order=await repo.reserve(p);await repo.bind(p,order.orderId,"cs_test_overlap");await repo.settle(order.orderId,{id:"cs_test_overlap",object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:"pi_test_overlap"});
+  const order=await repo.reserve(p),suffix=order.orderId.replaceAll("-","");
+  // Independent cash fixtures must retain distinct provider IDs even after their paid rows are cleaned.
+  const sessionRef=`cs_test_overlap_${suffix}`,paymentRef=`pi_test_overlap_${suffix}`;
+  await repo.bind(p,order.orderId,sessionRef);await repo.settle(order.orderId,{id:sessionRef,object:"checkout.session",mode:"payment",status:"complete",payment_status:"paid",livemode:false,amount_total:18000,currency:"cny",client_reference_id:order.orderId,metadata:{product:"monthly_pass_v1",order_ref:order.orderId},payment_intent:paymentRef});
   monthlyFixture();expect((await checkout(await intent())).status).toBe(200);
   const invoice=snapshots["/v1/invoices/in_f09monthly"] as any;
   const end=Math.floor(Date.now()/1000)-86400;invoice.lines.data[0].period={start:end-30*86400,end};

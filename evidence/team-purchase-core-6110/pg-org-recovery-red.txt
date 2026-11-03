@@ -1,0 +1,66 @@
+[stack-admission] load1=9.84 cores=10 perCore=0.98 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzfw1xk-9f3a592e-23987edcb899 db=wsx_23987edcb8994435cda4 compose=wsx-23987edcb8994435cda4 pg=20508 redis=21508 api=24508 web=25508 sandbox=26508 model=27508 deep-agent=28508 asr=29508 vision=30508 loopback-sandbox=31508 mail=19508
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_23987edcb8994435cda4 capacity=100 current=6 required=32
+ ❯ tests/billing/team-settlement-edge-pg.test.ts (5 tests | 2 failed) 67227ms
+   ✓ retains late cash and Plan-version races as real reconciliation receipts without financial side effects 1192ms
+   ✓ does not revive an expired first window; the original-anchor current month still grants once after Enterprise 626ms
+   ✓ cannot settle another organization's purchase or write an orphan claim 448ms
+   × retains trusted cash and its original owner after organization disable or deletion without granting rights 309ms
+     → new row violates row-level security policy "billing_team_receipts_org_frozen_ins" for table "billing_team_receipts"
+   × refuses a fresh checkout after disable while recovering an existing frozen intent 224ms
+     → expected [Function] to throw error including 'forbidden' but got 'commercial_change_pending'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-settlement-edge-pg.test.ts > retains trusted cash and its original owner after organization disable or deletion without granting rights
+error: new row violates row-level security policy "billing_team_receipts_org_frozen_ins" for table "billing_team_receipts"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Object.query src/infrastructure/db/pg-database.ts:62:21
+     60|         async query<R = Record<string, unknown>>(sql: string, params: …
+     61|           assertConnected();
+     62|           const r = await client.query(sql, params as unknown[]);
+       |                     ^
+     63|           assertConnected();
+     64|           return { rows: r.rows as R[] } satisfies QueryResult<R>;
+ ❯ src/infrastructure/billing/pg-team-payment-repository.ts:25:3
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ tests/billing/team-settlement-edge-pg.test.ts:74:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/billing/team-settlement-edge-pg.test.ts > refuses a fresh checkout after disable while recovering an existing frozen intent
+AssertionError: expected [Function] to throw error including 'forbidden' but got 'commercial_change_pending'
+
+Expected: "forbidden"
+Received: "commercial_change_pending"
+
+ ❯ tests/billing/team-settlement-edge-pg.test.ts:88:2
+     86|  await asOwner(c=>c.query("UPDATE organizations SET status='disabled',…
+     87|  const repo=new PgTeamCheckoutRepository(db,{authorize:async()=>f.org}…
+     88|  await expect(repo.reserve({userId:f.user,orgId:f.org},f.org,{quoteRef…
+       |  ^
+     89|  expect((await repo.find(f.org,`absent`))).toBeNull();
+     90| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 3 passed (5)
+   Start at  23:54:30
+   Duration  81.11s (transform 1.10s, setup 28ms, collect 782ms, tests 67.23s, environment 1ms, prepare 218ms)
+
+[db-isolation] db=wsx_23987edcb8994435cda4 peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/team-settlement-edge-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter api exec vitest run tests/billing/team-settlement-edge-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m24s
+  清理：2s
+  总计：1m25s

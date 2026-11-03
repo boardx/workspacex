@@ -1,0 +1,10 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/lib/workflow-fixture-env.test.ts (2 tests) 855ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  10:22:33
+   Duration  2.08s (transform 73ms, setup 172ms, collect 543ms, tests 855ms, environment 0ms, prepare 50ms)

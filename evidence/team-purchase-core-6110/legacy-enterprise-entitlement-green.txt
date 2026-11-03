@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ✓ tests/billing/team-catalog-market.test.ts (5 tests) 30ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  00:04:14
+   Duration  1.44s (transform 503ms, setup 0ms, collect 725ms, tests 30ms, environment 0ms, prepare 217ms)
+

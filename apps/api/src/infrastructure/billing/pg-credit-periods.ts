@@ -6,7 +6,7 @@ import {CREDIT_PERIOD_GRANT_SQL as SQL} from "./credit-period-sql";
 
 type Period = {source_kind: string; period_id: string; wallet_id: string; subscription_ref: string; invoice_ref: string; plan_ref: string;
   period_start: Date; period_end: Date; granted_hundredths: string; remaining_hundredths: string};
-type PaidPeriod = {userId: string; subscriptionRef: string; invoiceRef: string; periodStart: Date; periodEnd: Date; planRef: string; credits?:number};
+type PaidPeriod = {ownerType?: "user" | "team"; userId: string; subscriptionRef: string; invoiceRef: string; periodStart: Date; periodEnd: Date; planRef: string; credits?:number};
 const maximumCredit=CreditBalance.maxValue;
 if(maximumCredit===null)throw Error("credit_balance_bound_missing");
 const creditLimit = BigInt(maximumCredit)*100n;
@@ -36,8 +36,8 @@ export async function grantPaidSubscriptionPeriod(s: TenantSession, input: PaidP
     !input.userId || !input.subscriptionRef || !input.invoiceRef || !input.planRef) throw new Error("credit_period_invalid");
   // Advance events may be retried at the actual period start; never grant future credits early.
   if (input.periodStart > at) throw new Error("credit_period_not_started");
-  await s.query(SQL.periodEnsureUserWallet, [input.userId]);
-  const wallet = (await s.query<{wallet_id: string}>(SQL.periodLockUserWallet, [input.userId])).rows[0]!;
+  await s.query(input.ownerType === "team" ? SQL.periodEnsureTeamWallet : SQL.periodEnsureUserWallet, [input.userId]);
+  const wallet = (await s.query<{wallet_id: string}>(input.ownerType === "team" ? SQL.periodLockTeamWallet : SQL.periodLockUserWallet, [input.userId])).rows[0]!;
   await normalizeCreditPeriods(s, wallet.wallet_id, at);
   const existing = (await s.query<Period>(SQL.periodFindIdentity,
     [input.invoiceRef, wallet.wallet_id, input.subscriptionRef, input.periodStart, input.periodEnd])).rows;

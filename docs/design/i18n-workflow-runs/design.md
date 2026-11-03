@@ -1,0 +1,7 @@
+# My runs localization — #6169
+
+Direct independent develop slice for navigation and /workflows/runs. Translate typed status/error/copy labels at render time; store the normalized raw error code rather than translated text. Locale must not become a list/member fetch dependency. Raw goals, directory names, query enums, IDs and permission branches remain exact. Keep existing zero-padded local timestamps because they contain no language-specific text.
+
+Use the established dictionary/provider rather than rendered-text replacement. Built-in workflow names resolve from the existing structured key/ID allowlist; unknown names/fallback titles stay original. Do not extend regex processing of user titles or change the legacy run-title parser. Shared copy maps keep their default Chinese projections for unmigrated consumers; optional locale helpers serve this route. Member-label formatting localizes only self/fallback text and preserves raw directory values/fetch behavior.
+
+WorkflowPage accepts ReactNode headings for server-created I18nText, preserving existing string callers. Navigation becomes a client locale consumer; links/query context remain unchanged. Approval/drawer/start/detail/output/board UI is explicitly not complete in this slice. Read-only browser fixtures seed preexisting instances and their input events, use a dedicated member, then prove canonical API data, ownership visibility/reload, locale/no-refetch and geometry; they do not prove workflow execution or model quality.

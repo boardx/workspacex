@@ -1,12 +1,17 @@
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
+import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { projectListZhCN } from "../namespaces/project-list";
 import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
+import { orgMembersZhCN } from "../namespaces/org-members";
+import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
+import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
 import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
+import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...zhTasks,
   ...zhFailures,
@@ -15,7 +20,11 @@ export const zhCN = {
   ...activityZhCN,
   ...profileZhCN,
   ...aboutMemoryZhCN,
+  ...orgMembersZhCN,
+  ...orgMembersPreviewZhCN,
+  ...orgSharedInvitesZhCN,
   ...stateZhCN,
+  ...workflowRunsZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
@@ -248,4 +257,5 @@ export const zhCN = {
   "common.http.failure": "这次请求没成功，稍后再试一次",
   "home.artifacts.one": "{count} 个产出物",
   ...accountEntryZhCN,
+  ...invitationEntryZhCN,
 } as const;

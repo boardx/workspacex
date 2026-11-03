@@ -1,0 +1,46 @@
+[stack-admission] load1=19.86 cores=10 perCore=1.99 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzik23e-553d3cd8-cb312ca0fe58 db=wsx_cb312ca0fe586817055e compose=wsx-cb312ca0fe586817055e pg=20536 redis=21536 api=24536 web=25536 sandbox=26536 model=27536 deep-agent=28536 asr=29536 vision=30536 loopback-sandbox=31536 mail=19536
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_cb312ca0fe586817055e capacity=100 current=6 required=32
+ ❯ tests/billing/team-metering-lock-order-pg.test.ts (1 test | 1 failed) 59989ms
+   × finishes a real Team usage receipt while another model request waits, without an org/wallet deadlock 224ms
+     → new row for relation "model_request_starts" violates check constraint "model_request_starts_non_run_identity"
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-metering-lock-order-pg.test.ts > finishes a real Team usage receipt while another model request waits, without an org/wallet deadlock
+error: new row for relation "model_request_starts" violates check constraint "model_request_starts_non_run_identity"
+ ❯ ../../node_modules/.pnpm/pg@8.22.0/node_modules/pg/lib/client.js:652:17
+ ❯ Object.query src/infrastructure/db/pg-database.ts:62:21
+     60|         async query<R = Record<string, unknown>>(sql: string, params: …
+     61|           assertConnected();
+     62|           const r = await client.query(sql, params as unknown[]);
+       |                     ^
+     63|           assertConnected();
+     64|           return { rows: r.rows as R[] } satisfies QueryResult<R>;
+ ❯ src/infrastructure/auth/pg-token-usage-repository.ts:31:7
+ ❯ PgDatabase.inTx src/infrastructure/db/pg-database.ts:74:19
+ ❯ PgTokenUsageRepository.startRequest src/infrastructure/auth/pg-token-usage-repository.ts:29:5
+ ❯ tests/billing/team-metering-lock-order-pg.test.ts:27:2
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  01:09:10
+   Duration  78.51s (transform 3.67s, setup 43ms, collect 5.34s, tests 59.99s, environment 0ms, prepare 232ms)
+
+[db-isolation] db=wsx_cb312ca0fe586817055e peak_connections=3
+undefined
+/Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/team-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter api exec vitest run tests/billing/team-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1m21s
+  清理：2s
+  总计：1m23s

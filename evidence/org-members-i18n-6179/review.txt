@@ -1,0 +1,6 @@
+Independent read-only review records:
+Preview subtask: review_localization_api no actionable findings, tests not rerun.
+Real root/shared delta: review_localization_api no actionable findings, tests not rerun.
+Final exactsource4a1b1c384a20467eea39475de440d18279557b31 (gpt-6-astra): oneP2 stale preview toast across locale change; no other actionable API/permission/callback/token findings.
+Fix sourcefd06765e857302bc2b636b11f11a7dbf7a8a836d: P2 closed, no residual actionable findings; correct lazy state/React setters/original parameter capture; no dynamic rerun.
+Latest merged source77e6df101bb47459dd08d503ef59f11fcbdf3199: reviewer mechanically confirms entire upstream spec prefix plus unchanged B8 suffix and all B8 production/namespace/unit blobs; no lost imports/spreads; scope approved. No dynamic rerun or prediction of final prepush/CI.

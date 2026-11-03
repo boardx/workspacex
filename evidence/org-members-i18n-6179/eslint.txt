@@ -1,0 +1,2 @@
+pnpm --filter web exec eslint components/org-admin/{org-admin-screen,shared-invite-links,members-screen,roster-screen}.tsx tests/ui/org-members-i18n.test.tsx e2e/entity-localization.spec.ts
+Exit 0. No output.
