@@ -1,3 +1,4 @@
+import { codeFenceEn } from "../namespaces/code-fence";
 import { chatShareEn } from "../namespaces/chat-share";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
@@ -10,6 +11,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...profileEn,
   ...stateEn,
   ...chatShareEn,
+  ...codeFenceEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",

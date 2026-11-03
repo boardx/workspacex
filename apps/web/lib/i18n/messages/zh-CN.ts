@@ -1,3 +1,4 @@
+import { codeFenceZhCN } from "../namespaces/code-fence";
 import { chatShareZhCN } from "../namespaces/chat-share";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
@@ -9,6 +10,7 @@ export const zhCN = {
   ...profileZhCN,
   ...stateZhCN,
   ...chatShareZhCN,
+  ...codeFenceZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",

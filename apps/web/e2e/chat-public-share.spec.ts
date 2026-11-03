@@ -106,6 +106,9 @@ test('real owner publishes, anonymous friends read on phone/desktop, then owner 
     await expect(image).toBeVisible();
     await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth > 0)).toBe(true);
     await expect(reader.locator('[data-testid="shared-chat-message"] pre').first()).toBeVisible();
+    await expect(reader.getByTestId('chat-code-fence-copy').first()).toHaveText('Copy');
+    await expect(reader.getByTestId('chat-code-fence-toggle').first()).toHaveText('Hide code');
+    await expect(reader.getByTestId('chat-code-fence').first()).toContainText('2 lines');
     expect(await reader.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect(await reader.evaluate(() => localStorage.getItem('wsx.sessionToken'))).toBeNull();
     expect(bearerLeaks).toEqual([]);
