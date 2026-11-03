@@ -110,7 +110,7 @@ class Producer(unittest.TestCase):
 
     def test_us_branch_routes_only_to_us(self):
         import os, subprocess, sys
-        for branch, target, ok in [('main-us','auto',True),('main-us','us',True),('main-us','cn',True),('main','us',False),('develop','us',True)]:
+        for branch, target, ok in [('main-us','auto',True),('main-us','us',True),('main-us','cn',True),('main','us',True),('develop','us',True)]:
             with self.subTest(branch=branch,target=target), tempfile.TemporaryDirectory() as tmp:
                 output=Path(tmp)/'output'
                 env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_NAME':branch,
@@ -126,7 +126,7 @@ class Producer(unittest.TestCase):
                     self.assertEqual(values['group'],'workspacex-'+expected+'-production-deploy')
                     self.assertEqual(values['build'],'false')
 
-    def test_us_requires_existing_develop_tag_even_in_diagnostic_mode(self):
+    def test_us_can_build_selected_branch_without_existing_tag(self):
         import os, subprocess, sys
         for branch, target in [('main-us','us'),('develop','us'),('diagnostic','us')]:
             for build_only in ['false','true']:
@@ -134,9 +134,9 @@ class Producer(unittest.TestCase):
                     output=Path(tmp)/'output'
                     env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_NAME':branch,'TARGET_ENVIRONMENT':target,'BUILD_ONLY':build_only,'EXISTING_TAG':'','GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'1','GITHUB_OUTPUT':str(output)}
                     result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
-                    self.assertNotEqual(result.returncode,0)
-                    if branch!='diagnostic' or build_only=='true': self.assertIn('PRODUCTION_REQUIRES_EXISTING_DEVELOP_TAG',result.stderr)
-                    self.assertFalse(output.exists())
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    values=dict(line.split('=',1) for line in output.read_text().splitlines())
+                    self.assertEqual(values['build'],'true');self.assertEqual(values['tag'],'123-1')
 
     def test_cn_manual_branch_build_freezes_source_and_creates_unique_tag(self):
         import os, subprocess, sys
@@ -180,17 +180,15 @@ class Producer(unittest.TestCase):
                     result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
                     self.assertNotEqual(result.returncode,0); self.assertFalse(output.exists())
 
-    def test_diagnostic_new_build_requires_develop_dispatch_branch(self):
+    def test_manual_new_build_accepts_selected_branch(self):
         import os, subprocess, sys
         for branch in ['feature/diagnostic','main','main-us']:
             with self.subTest(branch=branch), tempfile.TemporaryDirectory() as tmp:
                 output=Path(tmp)/'output'
                 env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_NAME':branch,'TARGET_ENVIRONMENT':'devapp','BUILD_ONLY':'true','EXISTING_TAG':'','GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'1','GITHUB_OUTPUT':str(output)}
                 result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
-                self.assertNotEqual(result.returncode,0)
-                if branch.startswith('feature/'): self.assertIn('IMAGE_BUILD_REQUIRES_DEVELOP',result.stderr)
-                else: self.assertIn('BRANCH_ENVIRONMENT_MISMATCH',result.stderr)
-                self.assertFalse(output.exists())
+                self.assertEqual(result.returncode,0,result.stderr)
+                self.assertIn('build=true',output.read_text())
 
     def test_develop_can_still_build_and_diagnose_source_override(self):
         import os, subprocess, sys

@@ -3,6 +3,10 @@ const scope = (process.env.WORKSPACEX_ISOLATION_ID ?? "fullstack-e2e")
   .slice(-24);
 
 export const FULLSTACK_E2E = {
+  // Dedicated read-only brain identity avoids concurrent device-session collisions.
+  brainEmail: `brain-${scope}@example.test`,
+  brainPassword: "Fullstack-E2E-brain-6171!",
+  brainUserId: `user-brain-${scope}`,
   /** #6169: private org/actor and read-only persisted workflow rows. */
   workflowRunsOrgId: `org-workflow-runs-${scope}`,
   workflowRunsProjectId: `project-workflow-runs-${scope}`,

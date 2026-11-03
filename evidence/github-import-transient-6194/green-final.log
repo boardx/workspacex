@@ -1,0 +1,13 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages
+
+ ✓ apps/api/tests/skill/import-fetch-wiring.test.ts (9 tests) 244ms
+ ✓ apps/api/tests/skill/import-fetch-transient.test.ts (24 tests) 26ms
+ ✓ apps/api/tests/skill/import-fetch-github-quota.test.ts (11 tests) 14ms
+ ✓ apps/api/tests/skill/import-fetch-diagnostics.test.ts (5 tests) 12ms
+
+ Test Files  4 passed (4)
+      Tests  49 passed (49)
+   Start at  21:25:18
+   Duration  1.14s (transform 97ms, setup 0ms, collect 180ms, tests 297ms, environment 1ms, prepare 193ms)
+

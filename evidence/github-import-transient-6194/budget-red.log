@@ -1,0 +1,35 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages
+
+ ❯ apps/api/tests/skill/import-fetch-transient.test.ts (24 tests | 1 failed) 33ms
+   × shares the three-attempt cap with existing quota recovery 8ms
+     → expected Error: unexpected extra network attempt to match object { code: 'IMPORT_FETCH_FAILED' }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/tests/skill/import-fetch-transient.test.ts > shares the three-attempt cap with existing quota recovery
+AssertionError: expected Error: unexpected extra network attempt to match object { code: 'IMPORT_FETCH_FAILED' }
+
+- Expected
++ Received
+
+- Object {
+-   "code": "IMPORT_FETCH_FAILED",
+- }
++ [Error: unexpected extra network attempt]
+
+ ❯ apps/api/tests/skill/import-fetch-transient.test.ts:124:3
+    122| it("shares the three-attempt cap with existing quota recovery", async …
+    123|   const seen = server([{ status: 403, headers: { "x-ratelimit-remainin…
+    124|   await expect(finish(fetchImportSource(api, policy))).rejects.toMatch…
+       |   ^
+    125|   expect(seen).toHaveLength(3);
+    126| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 23 passed (24)
+   Start at  21:25:00
+   Duration  299ms (transform 70ms, setup 0ms, collect 75ms, tests 33ms, environment 0ms, prepare 52ms)
+

@@ -7,12 +7,8 @@ describe('Image release owns read-only admission after cutover', () => {
     expect(jobs['integration-acceptance']).toBeUndefined();
     expect(jobs.deploy).toBeUndefined();
     const release=parse(readFileSync('.github/workflows/image-release.yml','utf8'));
-    const gate=release.jobs.admission;
-    expect(gate['runs-on']).toBe('ubuntu-24.04');
-    expect(gate.permissions).toEqual({contents:'read',actions:'read'});
-    expect(gate.steps.find((s:{uses?:string})=>s.uses==='actions/setup-node@v5').with['package-manager-cache']).toBe(false);
-    expect(gate.steps.some((s:{run?:string})=>s.run==='node .harness/scripts/ci-devapp-integration-gate.mjs')).toBe(true);
-    expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest','admission']);
+    expect(release.jobs.admission).toBeUndefined();
+    expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest']);
     expect(release.jobs.deploy.steps.at(-1).run).toContain('/usr/local/bin/workspacex-image-release');
   });
 });

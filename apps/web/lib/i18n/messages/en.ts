@@ -1,3 +1,4 @@
+import { brainViewsEn } from "../namespaces/brain-views";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
@@ -15,6 +16,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...brainViewsEn,
   ...enTasks,
   ...enFailures,
   ...controlsEn,
@@ -27,6 +29,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...orgMembersPreviewEn,
   ...orgSharedInvitesEn,
   ...stateEn,
+  ...chatShareEn,
+  ...codeFenceEn,
   ...workflowRunsEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
@@ -262,3 +266,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...accountEntryEn,
   ...invitationEntryEn,
 };
+
+import { codeFenceEn } from "../namespaces/code-fence";
+import { chatShareEn } from "../namespaces/chat-share";

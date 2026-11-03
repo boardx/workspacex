@@ -1,0 +1,39 @@
+RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/local-runtime
+
+ ❯ test/roundtrip-db-lifecycle.test.ts (3 tests | 2 failed) 5683ms
+   × releases only its own listener after connect fails 2252ms
+     → expected true to be false // Object.is equality
+   × releases only its own listener after end fails 1737ms
+     → expected true to be false // Object.is equality
+   ✓ releases only its own listener after callback fails 1694ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  test/roundtrip-db-lifecycle.test.ts > releases only its own listener after connect fails
+ FAIL  test/roundtrip-db-lifecycle.test.ts > releases only its own listener after end fails
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ test/roundtrip-db-lifecycle.test.ts:37:41
+     35|     owned = await start.mock.results[0]!.value as pglite.PgliteHandle;
+     36|     expect(owned.port).not.toBe(foreignPort);
+     37|     expect(await portInUse(owned.port)).toBe(false);
+       |                                         ^
+     38|     expect(foreign.listening).toBe(true);
+     39|     expect(await portInUse(foreignPort)).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  22:36:48
+   Duration  6.03s (transform 85ms, setup 0ms, collect 138ms, tests 5.68s, environment 0ms, prepare 50ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/local-runtime:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run test/roundtrip-db-lifecycle.test.ts
