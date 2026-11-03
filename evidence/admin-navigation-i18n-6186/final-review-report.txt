@@ -1,0 +1,22 @@
+# Independent whole-branch final review — AdminNav #6186
+
+Reviewed source HEAD `8c225e3110c6043a014f2ab73ac5531866d7420b` against base `44aeac6e10b688471fe03536fc8490a353824976`, including all seven changed source/test files and the committed evidence. Scope is shared AdminNav localization only.
+
+## Finding
+
+- **[P2] Assert the member label separately from its count** — `apps/web/e2e/entity-localization.spec.ts:274`. `members` locates the complete `admin-nav-org-members` link. `AdminNav` renders both the translated label and count as children of this link (`admin-nav.tsx:204–240`); `org-members` has no live count source and therefore renders `Members—`. Playwright's exact string `toHaveText("Members")` includes descendant text and will time out on the intended UI. Consequently this new registered browser case cannot reach its reload, platform denial, count and viewport checks. Assert the label child exactly (or an appropriately scoped text assertion) and assert the unavailable count independently, without removing the product count.
+
+No additional actionable P1/P2 product-source findings identified.
+
+## Source checks
+
+- Reviewed metadata default substitutions, the namespace's mapped item keys, its type-only metadata dependency, and both aggregate imports/spreads. No runtime cycle or dropped sibling message resources found.
+- Canonical routes, 22 item keys/labels, UC references, four source group strings, two scopes and defaults remain unchanged in the source diff. Independently compared the saved before/after snapshots: byte-identical, SHA256 `a70771df4fd6c24c46b17277e8710d48a3b99b0efad89f5efc4d3d14db07a215`.
+- Scope filtering, stable React keys, current markers, test IDs, permissions and live count query semantics remain unchanged. Locale affects presentation only; unavailable em dash remains distinct from numeric zero.
+- Secondary navigation labels reuse the existing navigation helper; currently filtered secondary entries and existing prototype notes are not evidence of newly localized visible flows.
+
+## Validation boundaries
+
+This was a source/evidence review, with no product/test edits, branch changes, heavy workflows or test execution. The committed unit log reports 61 passing tests across eight files; lint/spec-gate success is reported in supplied evidence, not independently rerun here. Production browser acceptance, screenshots, full web typecheck, init and pre-push remain pending. The browser finding above is established by source inspection, not claimed as an executed browser failure. Platform 403 coverage establishes denial and sidebar scope only, not privileged platform-write acceptance. The 375px assertion preserves the existing hidden-sidebar behavior and does not establish a new mobile menu.
+
+Disposition: fix the P2 browser assertion and complete the pending validation before representing the slice as delivery-complete.

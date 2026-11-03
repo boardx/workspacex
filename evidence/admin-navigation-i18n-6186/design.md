@@ -1,0 +1,9 @@
+# Shared admin navigation — #6186
+
+Keep canonical ADMIN_NAV metadata values,22item keys/URLs/UCrefs,4source group values,2scope values/titles/intro/rootHref,AI_CAPABILITY_GROUP sentinel and query keys byte-for-byte equivalent. Controlled Chinese labels move into one typed admin-navigation namespace; metadata derives legacy defaults from that source. Existing navigation.admin and navigation.platform-admin titles move by reference into this namespace without duplicate literals.
+
+AdminNav consumes current locale for scope title/intro, groups, all actual menu labels and count accessible names/descriptions. Stable React keys remain source keys/group strings; locale switching must preserve DOM links/current/scope and must not refetch or write. A missing count remains em dash, never zero. Preserve authority and filtering of ADMIN_SECOND_LEVEL; reuse existing navigationLabel where appropriate rather than inventing duplicate route labels. Never translate protocol keys, URLs, permissions, count values or user-authored copy.
+
+Use type-only namespace reference to AdminModuleKey to mechanically require all22item translations without a runtime import cycle. Group-key lookup derives from namespace group prefix and source values, not a parallel label table. Scope defaults reuse shared navigation title keys. Three recently added sibling namespaces occupy their anchors; aggregate imports/spreads append one namespace without overwriting existing entries.
+
+Fresh saved tests fail2/2 on old Chinese accessible navigation names. Verify canonical metadata snapshot unchanged after implementation, original scope/asset/count tests, resource parity, no-refetch behavior and actual routes in registered entity-localization browser spec. No new config/partition/workflow/budget or permissions changes. Real platform denied state may demonstrate sidebar scope but must not be claimed as privileged platform-write acceptance.
