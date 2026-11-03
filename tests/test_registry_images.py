@@ -110,7 +110,7 @@ class Producer(unittest.TestCase):
 
     def test_us_branch_routes_only_to_us(self):
         import os, subprocess, sys
-        for branch, target, ok in [('main-us','auto',True),('main-us','us',True),('main-us','cn',False),('main','us',False),('develop','us',True)]:
+        for branch, target, ok in [('main-us','auto',True),('main-us','us',True),('main-us','cn',True),('main','us',False),('develop','us',True)]:
             with self.subTest(branch=branch,target=target), tempfile.TemporaryDirectory() as tmp:
                 output=Path(tmp)/'output'
                 env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_NAME':branch,
@@ -119,15 +119,16 @@ class Producer(unittest.TestCase):
                 self.assertEqual(result.returncode==0,ok,result.stderr)
                 if ok:
                     values=dict(line.split('=',1) for line in output.read_text().splitlines())
-                    self.assertEqual(values['target'],'us')
-                    self.assertEqual(values['environment'],'production-us')
-                    self.assertEqual(json.loads(values['runner']),['self-hosted','linux','x64','workspacex-us-production'])
-                    self.assertEqual(values['group'],'workspacex-us-production-deploy')
+                    expected='cn' if target=='cn' else 'us'
+                    self.assertEqual(values['target'],expected)
+                    self.assertEqual(values['environment'],'production-'+expected)
+                    self.assertEqual(json.loads(values['runner']),['self-hosted','linux','x64','workspacex-'+expected+'-production'])
+                    self.assertEqual(values['group'],'workspacex-'+expected+'-production-deploy')
                     self.assertEqual(values['build'],'false')
 
-    def test_production_requires_existing_develop_tag_even_in_diagnostic_mode(self):
+    def test_us_requires_existing_develop_tag_even_in_diagnostic_mode(self):
         import os, subprocess, sys
-        for branch, target in [('main','cn'),('main-us','us'),('develop','cn'),('develop','us'),('diagnostic','cn'),('diagnostic','us')]:
+        for branch, target in [('main-us','us'),('develop','us'),('diagnostic','us')]:
             for build_only in ['false','true']:
                 with self.subTest(branch=branch,build_only=build_only), tempfile.TemporaryDirectory() as tmp:
                     output=Path(tmp)/'output'
@@ -136,6 +137,48 @@ class Producer(unittest.TestCase):
                     self.assertNotEqual(result.returncode,0)
                     if branch!='diagnostic' or build_only=='true': self.assertIn('PRODUCTION_REQUIRES_EXISTING_DEVELOP_TAG',result.stderr)
                     self.assertFalse(output.exists())
+
+    def test_cn_manual_branch_build_freezes_source_and_creates_unique_tag(self):
+        import os, subprocess, sys
+        for branch, target in [('develop','cn'),('main','auto'),('main','cn'),('release/cn-candidate','cn'),('main-us','cn')]:
+            for build_only in ['false','true']:
+                with self.subTest(branch=branch,build_only=build_only), tempfile.TemporaryDirectory() as tmp:
+                    output=Path(tmp)/'output'
+                    env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_TYPE':'branch','GITHUB_REF_NAME':branch,
+                         'TARGET_ENVIRONMENT':target,'BUILD_ONLY':build_only,'EXISTING_TAG':'','GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'2','GITHUB_OUTPUT':str(output)}
+                    result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
+                    self.assertEqual(result.returncode,0,result.stderr)
+                    values=dict(line.split('=',1) for line in output.read_text().splitlines())
+                    self.assertEqual(values['source'],'b'*40)
+                    self.assertEqual(values['tag'],'123-2')
+                    self.assertEqual(values['build'],'true')
+                    self.assertEqual(values['target'],'cn')
+                    self.assertEqual(values['fullset'],'true')
+                    self.assertEqual(values['environment'],'production-cn')
+                    self.assertEqual(json.loads(values['runner']),['self-hosted','linux','x64','workspacex-cn-production'])
+
+    def test_cn_manual_branch_reuses_tag_without_resolving_bases(self):
+        import os, subprocess, sys
+        with tempfile.TemporaryDirectory() as tmp:
+            output=Path(tmp)/'output'
+            env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_TYPE':'branch','GITHUB_REF_NAME':'release/cn-candidate',
+                 'TARGET_ENVIRONMENT':'cn','BUILD_ONLY':'false','EXISTING_TAG':'41502993193-1','GITHUB_OUTPUT':str(output)}
+            result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40,'--resolve-bases'],env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stderr)
+            values=dict(line.split('=',1) for line in output.read_text().splitlines())
+            self.assertEqual(values['tag'],'41502993193-1'); self.assertEqual(values['build'],'false')
+            self.assertNotIn('node_image',values)
+
+    def test_cn_non_branch_ref_cannot_start_a_production_build(self):
+        import os, subprocess, sys
+        for branch in ['v1','develop','main']:
+            for build_only in ['true','false']:
+                with self.subTest(branch=branch,build_only=build_only), tempfile.TemporaryDirectory() as tmp:
+                    output=Path(tmp)/'output'
+                    env={**os.environ,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF_TYPE':'tag','GITHUB_REF_NAME':branch,
+                         'TARGET_ENVIRONMENT':'cn','BUILD_ONLY':build_only,'EXISTING_TAG':'','GITHUB_RUN_ID':'123','GITHUB_RUN_ATTEMPT':'2','GITHUB_OUTPUT':str(output)}
+                    result=subprocess.run([sys.executable,'-B',str(ROOT/'scripts/registry-images.py'),'plan','--source','b'*40],env=env,capture_output=True,text=True)
+                    self.assertNotEqual(result.returncode,0); self.assertFalse(output.exists())
 
     def test_diagnostic_new_build_requires_develop_dispatch_branch(self):
         import os, subprocess, sys

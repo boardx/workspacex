@@ -1,15 +1,18 @@
-import { projectWorkbenchEn } from "../namespaces/project-workbench";
+import { enTasks } from "./tasks";
+import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
+import { projectWorkbenchEn } from "../namespaces/project-workbench";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...enTasks,
+  ...enFailures,
   ...controlsEn,
   ...projectListEn,
   ...profileEn,
   ...stateEn,
-  ...projectWorkbenchEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",
@@ -240,5 +243,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",
   "common.http.failure": "The request failed. Please try again later.",
-  "home.artifacts.one": "{count} artifact"
+  "home.artifacts.one": "{count} artifact",
+  ...projectWorkbenchEn,
 };

@@ -1,3 +1,4 @@
+import { localizationAuthorizer } from "../localization/entity-localization";
 /**
  * AG03 / UC-3 —— 官方角色包导入。控制流镜像 `import-agent-starter-pack.ts`
  * （findExisting → packs.load → verify → [workflow 引用解析] → persistVerified），保持管理员
@@ -88,7 +89,7 @@ export async function importOfficialAgentRolePack(
 
   // E2 后半（挂载 skillVersions 是否可解析）在同一事务内由 persistVerified 判定，
   // 与「事务里查一遍已存在的行、事务里写新行」共用同一把锁，避免 TOCTOU。
-  const outcome = await deps.imports.persistVerified({ orgId: input.orgId, actorId: input.actorId, idempotencyKey: input.idempotencyKey, payloadDigest, pack });
+  const outcome = await deps.imports.persistVerified({ orgId: input.orgId, actorId: input.actorId, idempotencyKey: input.idempotencyKey, payloadDigest, pack, ...(pack.schemaVersion === 2 ? { localizationAuthorize: localizationAuthorizer(membership, input.actorId) } : {}) });
   if (outcome.kind === "created") return { created: true, result: outcome.result };
   if (outcome.kind === "replayed") return { created: false, result: outcome.result };
   if (outcome.kind === "idempotency-conflict") throw new OfficialAgentRolePackIdempotencyConflictError();

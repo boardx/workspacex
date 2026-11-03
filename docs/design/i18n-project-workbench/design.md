@@ -1,6 +1,6 @@
 # Project workbench navigation and access — #6178
 
-Independent actual develop dec5223e5; source scope header, kind-specific tabs, contextual subnavigation, workshop role explanation, shared organization-disabled badge, and access/dependency states. Tab body modules, creation wizard and development preview toolbar remain separate.
+Started independently on actual develop dec5223e5; synchronized actual bbc63c39a970b246ea2e1e6a399b828d36a6b793 before final validation; source scope header, kind-specific tabs, contextual subnavigation, workshop role explanation, shared organization-disabled badge, and access/dependency states. Tab body modules, creation wizard and development preview toolbar remain separate.
 
 Keep lib/project-workbench.ts and lib/identity.ts byte-identical: canonical navigation structure, alias resolution, role permissions and Chinese configuration remain the authority. A separate display helper maps those structures to typed English keys, returning the original Chinese configuration references by default. Chinese resources reference canonical labels/scope notes rather than copy them. Kind/status reuse existing projects namespace. Unknown copy keys fail explicitly; no raw user text is used as a key.
 

@@ -8,7 +8,7 @@ import { apiRequest } from "./api-client";
 
 type DisplayField = keyof LocalizedEntityDisplay["fields"];
 export const ENTITY_LOCALIZATION_UPDATED = "workspacex:entity-localization-updated";
-function notifyUpdated(kind: EntityKind, entityId: string) {
+export function notifyUpdated(kind: EntityKind, entityId: string) {
   if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(ENTITY_LOCALIZATION_UPDATED, { detail: { kind, entityId } }));
 }
 export function translatedText(display: LocalizedEntityDisplay | undefined, field: DisplayField): string | null {
