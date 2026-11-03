@@ -1,0 +1,11 @@
+CLEAN
+
+Reviewed exact whole-branch range c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc..267252216b24575b7228fff401ade2d2d6e80da8; HEAD matched the reviewed tip. Inspected the actual Git diff, expanded-final-review.diff, updated specification, Task 2 brief/report/review and evidence README, comparison implementation and shard logs. The prior runtime review remains applicable; its source change is unchanged.
+
+The final workflow delta is confined to fetch-depth: 1 and fetch-tags: false for gates-runtime and gates-test. This matches the explicitly expanded authorization. Default event ref/SHA and repository selection, checkout version, api-test-plan and every other job, shard matrix/count/needs/fail-fast, 20/15-minute budgets, required checks, commands, environment and cleanup remain unchanged. Parameterizing the regression preserves its assertions for runtime and adds the shard job. Other additions are scoped specifications, reports and evidence.
+
+The updated audit addresses default suite discovery/exclusions, subprocess callees and database setup/cleanup. Targeted inspection confirms the default Vitest test pattern, native-live exclusion, and that the identified executable Git command resolves only HEAD. No inspected evidence indicates an ancestry/tag requirement for the changed jobs. The native shard excerpt supports the reported lengthy full-history fetch and approximately five minutes of tests before cancellation; it does not establish that reducing checkout time alone guarantees native completion.
+
+Recorded evidence includes actual new RED (shard failure, runtime pass), three selected checks PASS with 12 explicitly unselected, full queue wiring 7/7 PASS, and normalized entire-YAML equality permitting exactly the two checkout changes. The comparison checks each complete checkout input mapping and restores both original mappings before deep equality against the exact base. Earlier single-job logs/reviews are explicitly scoped to the earlier revision and are not presented as final expanded validation.
+
+No actionable P1/P2 findings. No tests, type checks, builds, PostgreSQL, browser, GitHub or other external actions were run during this review. Native runtime/shard completion and recovered timing remain pending acceptance; this report does not claim them.
