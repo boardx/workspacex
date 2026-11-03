@@ -112,8 +112,20 @@ export class PgWorkSkillCatalogRepository implements WorkSkillCatalogRepository 
         const qi = params.length;
         params.push(`%${escapeLike(q)}%`);
         const li = params.length;
+        let translated = "";
+        if (query.locale !== undefined) {
+          params.push(query.locale);
+          translated = `OR EXISTS (
+            SELECT 1 FROM skill_localizations l
+            JOIN entity_localization_sources src ON src.kind='skill' AND src.id=l.skill_id AND src.org_id=l.org_id
+            WHERE l.org_id=e.org_id AND l.skill_id=e.skill_id AND l.locale=$${params.length}
+              AND l.status='reviewed' AND l.source_revision=src.source_revision
+              AND src.source_locale IS DISTINCT FROM l.locale
+              AND (l.name ILIKE $${li} OR l.summary ILIKE $${li} OR l.duty ILIKE $${li})
+          )`;
+        }
         where.push(`(to_tsvector('simple', e.search_document) @@ plainto_tsquery('simple', $${qi})
-                     OR e.search_document ILIKE $${li} OR e.stable_id ILIKE $${li})`);
+                     OR e.search_document ILIKE $${li} OR e.stable_id ILIKE $${li} ${translated})`);
         order = `(upper(e.stable_id) = upper($${qi})) DESC,
                  ts_rank(to_tsvector('simple', e.search_document), plainto_tsquery('simple', $${qi})) DESC,
                  ${order}`;

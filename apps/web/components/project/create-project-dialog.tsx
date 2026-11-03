@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import { Presentation } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,17 +19,18 @@ export function CreateProjectDialog({ open, onOpenChange, onCloseAutoFocus }: {
   /** 弹窗是受控打开的（没有 DialogTrigger），Radix 不知道该把焦点还给谁——由调用方接管。 */
   onCloseAutoFocus?: (event: Event) => void;
 }) {
+  const { t } = useI18n();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="project-new" data-mode="general" onCloseAutoFocus={onCloseAutoFocus}>
-        <DialogTitle data-testid="project-new-title">新建项目</DialogTitle>
+        <DialogTitle data-testid="project-new-title">{t("projects.new")}</DialogTitle>
         <DialogDescription>
-          项目是团队的工作空间：对话、白板、访谈、问卷、研究都收在一起。起个名字就能开始，内容进项目后再加。
+          {t("projects.createDescription")}
         </DialogDescription>
         <CreateProjectForm
           cancel={
             <Button type="button" size="sm" variant="ghost" className="transition-colors" data-testid="project-new-cancel" onClick={() => onOpenChange(false)}>
-              取消
+              {t("common.cancel")}
             </Button>
           }
         />
@@ -38,7 +40,7 @@ export function CreateProjectDialog({ open, onOpenChange, onCloseAutoFocus }: {
           className="flex items-center gap-2 self-start rounded-md px-1 py-1 text-12 text-muted-foreground transition-colors duration-base hover:text-background-foreground"
         >
           <Presentation aria-hidden className="h-3.5 w-3.5" />
-          要办一场工作坊？<span className="text-primary">用工作坊模板创建</span>
+          {t("projects.workshopPrompt").split("{action}").map((part, index) => <React.Fragment key={index}>{part}{index === 0 ? <span className="text-primary">{t("projects.workshopTemplate")}</span> : null}</React.Fragment>)}
         </Link>
       </DialogContent>
     </Dialog>

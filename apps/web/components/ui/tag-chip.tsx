@@ -1,3 +1,5 @@
+"use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +29,7 @@ export function TagChip({
   testId?: string;
   className?: string;
 }) {
+  const { t } = useI18n();
   const base = cn(
     "inline-flex max-w-full items-center gap-1 break-all rounded-full px-2 py-0.5 text-10",
     selected ? "bg-inverse font-medium text-inverse-foreground" : "bg-muted text-muted-foreground",
@@ -49,7 +52,7 @@ export function TagChip({
           type="button"
           onClick={onRemove}
           disabled={disabled}
-          aria-label={`移除标签 ${children}`}
+          aria-label={t("tags.remove", { tag: children })}
           data-testid={removeTestId}
           className="rounded-full text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:bg-disabled disabled:text-disabled-foreground"
         >
@@ -84,7 +87,7 @@ export function TagChip({
           type="button"
           onClick={onRemove}
           disabled={disabled}
-          aria-label={`移除标签 ${children}`}
+          aria-label={t("tags.remove", { tag: children })}
           data-testid={removeTestId}
           className="rounded-full text-muted-foreground transition-colors duration-fast hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed"
         >

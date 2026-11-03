@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/entity-localization-editor.test.tsx (5 tests) 265ms
+ ✓ tests/lib/entity-localization.test.ts (4 tests) 7ms
+
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Start at  05:49:03
+   Duration  2.42s (transform 151ms, setup 248ms, collect 355ms, tests 273ms, environment 833ms, prepare 99ms)
+

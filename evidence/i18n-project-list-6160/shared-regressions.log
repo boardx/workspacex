@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/new-project-wizard.test.tsx (11 tests) 313ms
+ ✓ tests/ui/overlay-primitives-dialog-dropdown.test.tsx (13 tests) 237ms
+ ✓ tests/ui/tag-input-ime.test.tsx (6 tests) 142ms
+ ✓ tests/ui/cards-tags-single-source.test.ts (21 tests) 12ms
+
+ Test Files  4 passed (4)
+      Tests  51 passed (51)
+   Start at  05:46:21
+   Duration  4.92s (transform 918ms, setup 380ms, collect 1.55s, tests 704ms, environment 1.49s, prepare 171ms)

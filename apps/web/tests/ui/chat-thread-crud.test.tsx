@@ -41,7 +41,8 @@ const {
 }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
-vi.mock("@/components/session/session-provider", () => ({
+vi.mock("@/components/session/session-provider", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/session/session-provider")>()),
   useSession: () => ({ status: "authenticated", session: sessionState, identity: null, error: null }),
 }));
 vi.mock("@/components/shell/app-shell", () => ({

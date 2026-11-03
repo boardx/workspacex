@@ -10,6 +10,9 @@ import { agentRole as R } from "@repo/contracts";
 import type { Principal } from "../../domain/principal";
 import { assertPrincipal } from "../../domain/principal";
 import { CurrentPrincipal } from "../current-principal.decorator";
+import { parseDisplayLocale } from "../parse-display-locale";
+import { ENTITY_LOCALIZATION_REPOSITORY, type EntityLocalizationRepository } from "../../application/localization/entity-localization";
+import { localizeAuthorizedItems, matchesDisplayQuery } from "../../application/localization/localize-authorized-items";
 import { IDENTITY_REPOSITORY, type IdentityRepository } from "../../application/identity/ports";
 import { WORKFLOW_DEFINITION_STORE, type WorkflowDefinitionStore } from "../../application/agent-import/ports";
 import {
@@ -19,6 +22,7 @@ import {
   getAgentDirectoryProfile,
   LAUNCHABLE_WORKFLOWS,
   listAgentDirectory,
+  matchesAgentDirectoryQuery,
   type AgentDirectoryRepository,
   type LaunchableWorkflowsPort,
 } from "../../application/agent/list-agent-directory";
@@ -32,6 +36,7 @@ export class AgentDirectoryController {
     @Inject(AGENT_DIRECTORY_REPOSITORY) private readonly repository: AgentDirectoryRepository,
     @Inject(WORKFLOW_DEFINITION_STORE) private readonly workflows: WorkflowDefinitionStore,
     @Optional() @Inject(LAUNCHABLE_WORKFLOWS) private readonly launchable?: LaunchableWorkflowsPort,
+    @Optional() @Inject(ENTITY_LOCALIZATION_REPOSITORY) private readonly localizations?: EntityLocalizationRepository,
   ) {}
 
   @Get(R.operations.listAgentDirectory.path)
@@ -39,22 +44,28 @@ export class AgentDirectoryController {
     @CurrentPrincipal() principal: Principal,
     @Query("roleCategory") roleCategoryRaw: string | undefined,
     @Query("q") qRaw: string | undefined,
+    @Query("locale") localeRaw?: string,
   ) {
     assertPrincipal(principal);
     const parsed = R.operations.listAgentDirectory.in.parse({
       roleCategory: roleCategoryRaw === undefined || roleCategoryRaw === "" ? undefined : roleCategoryRaw,
       q: qRaw === undefined || qRaw === "" ? undefined : qRaw,
+      locale: parseDisplayLocale(localeRaw),
     });
     try {
       const items = await listAgentDirectory(
         {
           orgId: principal.orgId, actorId: principal.userId,
           roleCategory: (parsed.roleCategory ?? null) as RoleCategory | null,
-          q: parsed.q ?? null,
+          q: parsed.locale === undefined ? parsed.q ?? null : null,
         },
         { identities: this.identities, repository: this.repository, workflows: this.workflows, launchable: this.launchable },
       );
-      return R.operations.listAgentDirectory.out.parse({ items });
+      const localized = await localizeAuthorizedItems(items, { orgId: principal.orgId, kind: "agent", locale: parsed.locale,
+        idOf: row => row.agentId, versionOf: row => row.versionId, repository: this.localizations });
+      const filtered = parsed.locale !== undefined && parsed.q
+        ? localized.filter(row => matchesAgentDirectoryQuery(row, parsed.q ?? null) || matchesDisplayQuery(row.display, parsed.q ?? "")) : localized;
+      return R.operations.listAgentDirectory.out.parse({ items: filtered });
     } catch (error) {
       if (error instanceof AgentDirectoryError && error.code === "UNAUTHENTICATED") throw new UnauthorizedException({ reasonCode: error.code });
       throw error;
@@ -62,14 +73,17 @@ export class AgentDirectoryController {
   }
 
   @Get(R.operations.getAgentDirectoryCard.path)
-  async getOne(@CurrentPrincipal() principal: Principal, @Param("agentId") agentId: string) {
+  async getOne(@CurrentPrincipal() principal: Principal, @Param("agentId") agentId: string, @Query("locale") localeRaw?: string) {
     assertPrincipal(principal);
+    const locale = parseDisplayLocale(localeRaw);
     try {
       const card = await getAgentDirectoryCard(
         { orgId: principal.orgId, actorId: principal.userId, agentId },
         { identities: this.identities, repository: this.repository, workflows: this.workflows, launchable: this.launchable },
       );
-      return R.operations.getAgentDirectoryCard.out.parse(card);
+      const localized = (await localizeAuthorizedItems([card], { orgId: principal.orgId, kind: "agent", locale,
+        idOf: row => row.agentId, versionOf: row => row.versionId, repository: this.localizations }))[0];
+      return R.operations.getAgentDirectoryCard.out.parse(localized);
     } catch (error) {
       if (error instanceof AgentDirectoryError) {
         if (error.code === "UNAUTHENTICATED") throw new UnauthorizedException({ reasonCode: error.code });
@@ -81,14 +95,19 @@ export class AgentDirectoryController {
 
   /** AG04 follow-up：成员详情页补充（职责 / 技能引用 / 可转交对象）。判定与 404 语义同 `getOne`。 */
   @Get(R.operations.getAgentDirectoryProfile.path)
-  async getProfile(@CurrentPrincipal() principal: Principal, @Param("agentId") agentId: string) {
+  async getProfile(@CurrentPrincipal() principal: Principal, @Param("agentId") agentId: string, @Query("locale") localeRaw?: string) {
     assertPrincipal(principal);
+    const locale = parseDisplayLocale(localeRaw);
     try {
       const profile = await getAgentDirectoryProfile(
         { orgId: principal.orgId, actorId: principal.userId, agentId },
         { identities: this.identities, repository: this.repository },
       );
-      return R.operations.getAgentDirectoryProfile.out.parse(profile);
+      const delegationTargets = await localizeAuthorizedItems(profile.delegationTargets, { orgId: principal.orgId, kind: "agent", locale,
+        idOf: row => row.agentId, repository: this.localizations });
+      const localized = (await localizeAuthorizedItems([{ ...profile, delegationTargets }], { orgId: principal.orgId, kind: "agent", locale,
+        idOf: row => row.agentId, repository: this.localizations }))[0];
+      return R.operations.getAgentDirectoryProfile.out.parse(localized);
     } catch (error) {
       if (error instanceof AgentDirectoryError) {
         if (error.code === "UNAUTHENTICATED") throw new UnauthorizedException({ reasonCode: error.code });

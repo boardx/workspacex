@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { localizeNavigation } from "@/lib/i18n/navigation";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navSegmentsForViewer } from "@/lib/navigation";
@@ -45,6 +47,7 @@ export function IconRail({
   avatarInitial: string;
   onLogout?: () => void;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   // 一级入口按当前登录者过滤（「组织后台」只对组织管理员、「平台后台」只对平台运维，
   // 2026-09-20 人类要求）。
@@ -52,16 +55,16 @@ export function IconRail({
   // ⚠ 过滤是展示层的事，不是权限：服务端的 guard 一条都没有因此变松。
   const session = useOptionalSession();
   const access = usePlatformAccess(session?.session?.userId ?? null);
-  const segments = navSegmentsForViewer({
+  const segments = localizeNavigation(navSegmentsForViewer({
     orgName: identity.org.name,
     orgRole: identity.orgRole,
     platformOperator: access?.platformOperator,
-  });
+  }), t);
   return (
     <TooltipProvider delayDuration={300}>
     <nav
       data-testid="shell-rail"
-      aria-label="主导航"
+      aria-label={t("ui.mainNavigation")}
       /* ⚠ 这里绝不能是 `overflow-hidden`（#3246）：底部通知弹层向右展开在 nav 盒子
          外面，`overflow-hidden` 会把它整个裁掉。栏内的滚动由中段 `rail-scroll` 自己
          的 `overflow-y-auto` 承担，nav 本身从来不需要滚（`icon-rail-short-viewport`
