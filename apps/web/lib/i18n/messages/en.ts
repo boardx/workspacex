@@ -1,3 +1,4 @@
+import { orgProfileEn } from "../namespaces/org-profile";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
 import { enTasks } from "./tasks";
@@ -16,6 +17,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...orgProfileEn,
   ...brainViewsEn,
   ...enTasks,
   ...enFailures,

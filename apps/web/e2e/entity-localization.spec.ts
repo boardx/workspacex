@@ -18,6 +18,129 @@ async function authorization(page: Page) {
   return { Authorization: `Bearer ${token}` };
 }
 
+test("organization profile preserves authored data and enforces real grant and memory permissions across locales", async ({ page, browser }, testInfo) => {
+  // Multi-account writes/reload budget, matching the existing invitation journey below.
+  test.setTimeout(120_000);
+  await login(page, true);
+  const headers = await authorization(page);
+  const profilePath = `/__fullstack_api/organizations/${encodeURIComponent(ENTITY_LOCALIZATION_E2E.orgId)}`;
+  const grantsPath = "/__fullstack_api/tool-permission-grants";
+  const settingPath = "/__fullstack_api/knowledge-graph/extraction-setting";
+  type Grant = { grantId: string; toolName: string; grantedByUserId: string | null; grantedAt: string };
+  type Setting = { deploymentCapable: boolean; orgEnabled: boolean };
+  const grantsResponse = await page.request.get(grantsPath, { headers });
+  expect(grantsResponse.status()).toBe(200);
+  // A pre-existing private-tenant grant is a prerequisite, not proof of approval creation.
+  const grant = (await grantsResponse.json() as Grant[]).find(row => row.toolName === "历史工具原文 {tool}");
+  expect(grant).toBeDefined();
+  const settingResponse = await page.request.get(settingPath, { headers });
+  expect(settingResponse.status()).toBe(200);
+  const setting = await settingResponse.json() as Setting;
+  let profileReads = 0, grantReads = 0, settingReads = 0;
+  page.on("request", request => {
+    const path = new URL(request.url()).pathname;
+    if (request.method() === "PATCH" && path === profilePath && Object.keys(request.postDataJSON() as object).length === 1) profileReads++;
+    if (request.method() === "GET" && path === grantsPath) grantReads++;
+    if (request.method() === "GET" && path === settingPath) settingReads++;
+  });
+  await page.goto("/org-admin/profile");
+  const name = `组织原名 {name} ${randomUUID().slice(0, 8)}`;
+  const description = "组织简介原文 {description}\nSecond line stays authored.";
+  await page.getByTestId("org-admin-name-input").fill(name);
+  await page.getByTestId("org-admin-description-input").fill(description);
+  const row = page.getByTestId("standing-tool-grant-row").filter({ hasText: grant!.toolName });
+  await expect(row).toContainText(grant!.grantedByUserId!);
+  await expect(page.getByRole("switch")).toBeVisible();
+  const reads = [profileReads, grantReads, settingReads];
+  expect(reads.every(count => count > 0)).toBe(true);
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  await expect(page.getByRole("heading", { name: "Organization profile", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Organization name", { exact: true })).toHaveValue(name);
+  await expect(page.getByLabel("Organization description", { exact: true })).toHaveValue(description);
+  await expect(row).toContainText(`Approved by ${grant!.grantedByUserId}`);
+  expect([profileReads, grantReads, settingReads]).toEqual(reads);
+  const saved = page.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === profilePath);
+  await page.getByTestId("org-admin-profile-save").click();
+  const saveResponse = await saved;
+  expect(saveResponse.status()).toBe(200);
+  expect(saveResponse.request().postDataJSON()).toEqual({ orgId: ENTITY_LOCALIZATION_E2E.orgId, name, description });
+  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(page.getByRole("status").filter({ hasText: /^已保存$/ })).toBeVisible();
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  // Real server byte validation; switching language retranslates the retained error.
+  const rejected = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === `${profilePath}/avatar`);
+  await page.getByTestId("org-admin-avatar-file-input").setInputFiles({ name: "invalid.png", mimeType: "image/png", buffer: Buffer.from("not image bytes") });
+  expect((await rejected).ok()).toBe(false);
+  await expect(page.getByTestId("org-admin-avatar-error")).toContainText("file content does not match");
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(page.getByTestId("org-admin-avatar-error")).toContainText("文件内容与声明的图片格式不符");
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 16; canvas.height = 16;
+    canvas.getContext("2d")!.fillRect(0, 0, 16, 16);
+    return canvas.toDataURL("image/png").split(",")[1]!;
+  });
+  const avatarSaved = page.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === profilePath);
+  await page.getByTestId("org-admin-avatar-file-input").setInputFiles({ name: "组织头像 {file}.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") });
+  expect((await avatarSaved).status()).toBe(200);
+  await expect(page.getByTestId("org-admin-avatar-image")).toHaveAccessibleName(`${name} avatar`);
+  await expect(page.getByTestId("org-admin-avatar-image")).toHaveJSProperty("naturalWidth", 16);
+  await page.reload();
+  await expect(page.getByLabel("Organization name", { exact: true })).toHaveValue(name);
+  await expect(page.getByLabel("Organization description", { exact: true })).toHaveValue(description);
+  await expect(page.getByTestId("org-admin-avatar-image")).toHaveJSProperty("naturalWidth", 16);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath("org-profile-admin-en-1280.png"), fullPage: true });
+
+  const memberContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  try {
+    const member = await memberContext.newPage(); await login(member, false);
+    const memberHeaders = await authorization(member);
+    const deniedProfile = member.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === profilePath);
+    const deniedGrants = member.waitForResponse(response => response.request().method() === "GET" && new URL(response.url()).pathname === grantsPath);
+    await member.goto("/org-admin/profile");
+    expect((await deniedProfile).status()).toBe(403); expect((await deniedGrants).status()).toBe(403);
+    await member.getByTestId("language-switcher").first().selectOption("en");
+    await expect(member.getByTestId("org-admin-profile-form")).toHaveCount(0);
+    await expect(member.getByText("Only organization administrators can edit the organization profile. You are not an administrator in this organization.", { exact: true })).toBeVisible();
+    await expect(member.getByText("Only organization administrators can view and revoke standing tool grants.", { exact: true })).toBeVisible();
+    await expect(member.getByRole("switch")).toBeDisabled();
+    expect((await member.request.get(settingPath, { headers: memberHeaders })).status()).toBe(200);
+    expect((await member.request.put(settingPath, { headers: memberHeaders, data: { enabled: !setting.orgEnabled } })).status()).toBe(403);
+    expect((await member.request.delete(`${grantsPath}/${grant!.grantId}`, { headers: memberHeaders })).status()).toBe(403);
+    await member.screenshot({ path: testInfo.outputPath("org-profile-member-denied-en.png"), fullPage: true });
+    await member.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(member.getByText("只有组织管理员可以查看和撤销长期工具授权。", { exact: true })).toBeVisible();
+  } finally { await memberContext.close(); }
+
+  const toggle = page.getByRole("switch", { name: "Enable memory extraction for this organization", exact: true });
+  if (setting.deploymentCapable) {
+    const changed = page.waitForResponse(response => response.request().method() === "PUT" && new URL(response.url()).pathname === settingPath);
+    await toggle.click();
+    const changedResponse = await changed; expect(changedResponse.status()).toBe(200);
+    expect(changedResponse.request().postDataJSON()).toEqual({ enabled: !setting.orgEnabled });
+    await page.reload();
+    await expect(toggle).toHaveAttribute("aria-checked", String(!setting.orgEnabled));
+  } else {
+    await expect(toggle).toBeDisabled();
+    await expect(page.getByTestId("knowledge-extraction-not-capable")).toContainText("Not active:");
+    expect(await (await page.request.get(settingPath, { headers })).json()).toEqual(setting);
+  }
+  await testInfo.attach("actual-memory-deployment-capability", { body: JSON.stringify(setting), contentType: "application/json" });
+  await expect(row).toBeVisible(); // The member's forbidden DELETE preserved the actual row.
+  const revoked = page.waitForResponse(response => response.request().method() === "DELETE" && new URL(response.url()).pathname === `${grantsPath}/${grant!.grantId}`);
+  await row.getByTestId("standing-tool-grant-revoke").click();
+  const revokedResponse = await revoked; expect(revokedResponse.status()).toBe(200);
+  expect(await revokedResponse.json()).toEqual({ grantId: grant!.grantId });
+  await expect(page.getByTestId("standing-tool-grants-empty")).toHaveText("This organization currently has no standing tool grants.");
+  expect(await (await page.request.get(grantsPath, { headers })).json()).toEqual([]);
+  await page.reload();
+  await expect(page.getByTestId("standing-tool-grants-empty")).toBeVisible();
+  await page.setViewportSize({ width: 820, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath("org-profile-empty-en-820.png"), fullPage: true });
+});
+
 test("admin authors display copy; members switch language; clearing keeps original execution bytes", async ({ page, browser }, testInfo) => {
   const translatedName = `Exploration translation acceptance ${randomUUID()}`;
   await login(page, true);

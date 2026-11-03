@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { BcryptPasswordHasher } from "../../src/infrastructure/auth/bcrypt-password-hasher";
 import { seedOrg, resetOrgs, addOrgMember, asOwner, asApp } from "../../tests/support/db";
-/** Only identity prerequisites are seeded. Packages, translations and publication
- * are created by the real browser/API flow, never pre-filled as expected outcomes. */
+/** Scoped identity and pre-existing profile authorization prerequisites.
+ * Packages, translations and publication are created by real browser/API flows,
+ * never pre-filled as expected outcomes. The profile grant is an existing row to
+ * revoke, not evidence that HITL approval creation was exercised. */
 export async function seedEntityLocalizationFixture(env: NodeJS.ProcessEnv = process.env) {
   if (env.FULLSTACK_E2E_FIXTURE !== "1") throw new Error("FULLSTACK_E2E_FIXTURE=1 is required");
   if (!env.FULLSTACK_ENTITY_LOCALIZATION_ORG_ID) return;
@@ -22,4 +25,10 @@ export async function seedEntityLocalizationFixture(env: NodeJS.ProcessEnv = pro
     await asOwner(c => c.query("INSERT INTO credentials(user_id,email,display_name,password_hash,email_verified_at) VALUES($1,$2,$3,$4,now())",
       [account.id,account.email,`Localization ${account.role}`,hash]));
   }
+  // Private tenant prerequisite only; the browser must remove this through the
+  // actual admin DELETE path. No tool execution or translated outcome is seeded.
+  await asApp(orgId, c => c.query(
+    "INSERT INTO tool_permission_grants (id,org_id,scope,run_id,tool_name,granted_by_user_id,granted_at) VALUES($1,$2,'forever',NULL,$3,$4,now())",
+    [randomUUID(), orgId, "历史工具原文 {tool}", accounts[0]!.id],
+  ));
 }
