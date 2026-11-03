@@ -8,4 +8,6 @@ Raw failing logs: /tmp/6177-61f-chat1.log. Downloaded diagnostics: /tmp/6177-61f
 
 Validation so far: standard init fast path exit0, exact same-argv/env discovery 3 cases/1 file/1 worker, actual 3/3 browser pass (3.6m; total3m43s), web typecheck exit0. Wrong first command's 134-case attempt was interrupted, does not count, and its owned process trees/compose/listeners were removed. Correct run cleanup1s, no owned containers/listeners remain.
 
-Next: independent exact-commit review, normal push and auto-create separate PR to develop with Closes #6190; follow fresh CI. Main alone handles native queue. Heavy window still held for normal pre-push only; release explicitly after push. No active PG/Next stack.
+Independent review of 0b31bead8 against b7be8e0 accepted by main. First normal push passed 27/27,25cached,15.981s,exit0. This final follow-up only records evidence/docs and does not alter tested/reviewed helper/spec code.
+
+Next: auto-create separate PR to develop with Closes #6190; follow fresh exact-head CI and native candidate. Main alone handles native queue. Release the heavy window explicitly after the final ordinary evidence push. No active PG/Next stack. #6177 must use its current native candidate, not an old candidate green result.

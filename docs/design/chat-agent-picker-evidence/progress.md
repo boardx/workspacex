@@ -10,4 +10,4 @@ Validation: ./init.sh exit 0 using the standard fast path (not --full). The corr
 
 One earlier invocation accidentally passed an extra -- through nested pnpm scripts, causing 134 tests/5 workers to be selected. It was interrupted and is not acceptance evidence. Its verified owned processes and compose stack were explicitly removed before the corrected invocation. Both logs and the exact scope-checking runner are preserved.
 
-Web tsc --noEmit exit 0. Independent exact-commit review, normal pre-push and fresh source/native CI remain pending. No claim that #6177 or this fix has merged.
+Web tsc --noEmit exit 0. Main independently reviewed exact 0b31bead8ae0b1c5149418394045f6678eb075e5 against b7be8e0 and found no new blocker. Normal pre-push passed 27/27 (25 cached; 15.981s), push exit0; normal-push.log preserved. This follow-up changes only evidence/docs; implementation remains byte-identical to reviewed/tested code. Fresh source/native CI and merge remain pending. No claim that #6177 or this fix has merged.
