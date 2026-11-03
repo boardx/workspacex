@@ -1,3 +1,4 @@
+import { aiUsageEn } from "../namespaces/ai-usage";
 import { adminLimitPolicyEn } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasEn } from "../namespaces/admin-member-quotas";
 import { adminCommonEn } from "../namespaces/admin-common";
@@ -20,6 +21,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...aiUsageEn,
   ...adminLimitPolicyEn,
   ...adminMemberQuotasEn,
   ...adminCommonEn,

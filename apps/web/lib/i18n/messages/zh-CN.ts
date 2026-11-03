@@ -1,3 +1,4 @@
+import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
 import { adminCommonZhCN } from "../namespaces/admin-common";
@@ -19,6 +20,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...aiUsageZhCN,
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,
   ...adminCommonZhCN,

@@ -88,3 +88,12 @@ it("translates usage windows/matrix/event outcomes while preserving canonical wi
   fireEvent.click(screen.getByTestId("admin-usage-window-5h")); await waitFor(() => expect(api.getUsageReport).toHaveBeenLastCalledWith("org-usage-raw", "5h")); language(); language();
   expect(screen.getByTestId("admin-usage-window-5h")).toHaveAttribute("aria-pressed", "true"); expect(screen.getByTestId("admin-usage-window-5h")).toHaveTextContent("Last 5 hours"); expect(api.getUsageReport).toHaveBeenCalledTimes(2); expect(api.listLimitEvents).toHaveBeenCalledTimes(1);
 });
+it("does not claim failed calls have zero tokens when the actual report includes reported failed usage", async () => {
+  api.getUsageReport.mockResolvedValue({ ...report, totalTokens: 23, callCount: 1, failedCallCount: 1, rows: [{ ...report.rows[0], perModel: [23], total: 23 }], distribution: [{ ...report.distribution[0], tokens: 23 }] });
+  api.readAiUsage.mockResolvedValue({ ...summary, current: { ...totals, inputTokens: "20", totalTokens: "23", failedCalls: 1 }, costs: [], dailyCosts: [], unpricedCalls: 1 });
+  api.readAiUsageCalls.mockResolvedValue({ asOf: summary.asOf, coverage: "partial", calls: [{ ...call, inputTokens: "20", totalTokens: "23", outcome: "failed", costMicros: null, currency: null }], nextCursor: null });
+  render(<UsageMonitorTab />, { wrapper: Locale }); const failed = await screen.findByTestId("admin-usage-stat-failed");
+  expect(failed).toHaveTextContent("Failed calls can include reported token usage"); expect(screen.getByTestId("admin-usage-stat-total")).toHaveTextContent("23");
+  language(); expect(failed).toHaveTextContent("失败调用也可能包含已上报"); expect(failed).not.toHaveTextContent("失败不计");
+  expect(screen.getByTestId("admin-usage-stat-total")).toHaveTextContent("23"); expect(api.getUsageReport).toHaveBeenCalledTimes(1);
+});
