@@ -351,6 +351,7 @@ export const AgentRoleAdminView = z.object({
  * ⚠ 草案，未签核（additive 只读端点，待 agent-role 契约束补签）。
  */
 export const OfficialRolePackOffer = z.object({
+  /** Display metadata evolves independently; execution upgrade coordinates stay unchanged. */
   packId: z.string(),
   packVersion: z.string(),
   /** 调用者是否组织管理员（= 能否一键启用）。 */

@@ -7,6 +7,11 @@ export const FULLSTACK_E2E = {
   brainEmail: `brain-${scope}@example.test`,
   brainPassword: "Fullstack-E2E-brain-6171!",
   brainUserId: `user-brain-${scope}`,
+  /** #6167: dedicated live-task identity, independent of other seeded journeys. */
+  tasksEmail: `fullstack-tasks-${scope}@example.test`,
+  tasksPassword: "Fullstack-E2E-tasks-6167!",
+  tasksUserId: `user-fullstack-tasks-${scope}`,
+
   email: `fullstack-${scope}@example.test`,
   password: "Fullstack-E2E-only-387!",
   orgId: `org-fullstack-${scope}`,

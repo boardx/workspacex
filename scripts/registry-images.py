@@ -178,11 +178,16 @@ def main():
     elif args.operation=='plan':
         event=os.environ['GITHUB_EVENT_NAME'];branch=os.environ['GITHUB_REF_NAME']
         build_only=os.environ.get('BUILD_ONLY')=='true'
-        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop','main-us') or build_only),'RELEASE_EVENT_NOT_ALLOWED')
-        expected={'develop':'devapp','main':'cn','main-us':'us'}.get(branch)
         requested=os.environ.get('TARGET_ENVIRONMENT') or 'auto'
+        cn_branch=event=='workflow_dispatch' and requested=='cn' and os.environ.get('GITHUB_REF_TYPE','branch')=='branch'
+        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop','main-us') or build_only or cn_branch),'RELEASE_EVENT_NOT_ALLOWED')
+        expected={'develop':'devapp','main':'cn','main-us':'us'}.get(branch)
         if event=='push':
             target=expected
+        elif cn_branch:
+            # Manual CN builds freeze the selected branch's github.sha; a supplied
+            # tag still reuses the original artifact without constructing new images.
+            target='cn'
         elif branch=='develop':
             # Explicit promotion reuses the develop-built immutable tag; auto remains DevApp.
             target=expected if requested=='auto' else requested
@@ -193,9 +198,10 @@ def main():
             # Non-release branches are diagnostic builds only, never host deployments.
             target=requested
         need(target in ('devapp','cn','us'),'INVALID_ENVIRONMENT')
+        need(target!='cn' or event!='workflow_dispatch' or os.environ.get('GITHUB_REF_TYPE','branch')=='branch','CN_RELEASE_REQUIRES_BRANCH')
         existing=os.environ.get('EXISTING_TAG','') if event=='workflow_dispatch' else ''
-        need(target not in ('cn','us') or bool(existing),'PRODUCTION_REQUIRES_EXISTING_DEVELOP_TAG')
-        need(bool(existing) or branch=='develop','IMAGE_BUILD_REQUIRES_DEVELOP')
+        need(target!='us' or bool(existing),'PRODUCTION_REQUIRES_EXISTING_DEVELOP_TAG')
+        need(bool(existing) or branch=='develop' or target=='cn' and event=='workflow_dispatch' and os.environ.get('GITHUB_REF_TYPE','branch')=='branch','IMAGE_BUILD_REQUIRES_DEVELOP')
         tag=existing or release_tag(args.source,os.environ['GITHUB_RUN_ID'],os.environ['GITHUB_RUN_ATTEMPT'])
         need(TAG.fullmatch(tag),'INVALID_RELEASE_TAG')
         selected=os.environ.get('BUILD_SERVICE') or 'all'
