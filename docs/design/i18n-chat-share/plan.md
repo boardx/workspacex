@@ -35,8 +35,9 @@ flowchart TD
   class S1 done
   class S2 tested
   %% evidence S2: /tmp/i18n-chat-share-red.log 4 fail; /tmp/i18n-chat-share-green.log 17 pass
-  class S3 todo
-  class S4 todo
+  class S3 tested
+  %% evidence S3: /tmp/i18n-chat-share-green.log:17 pass; source59df0eb57 exactreview no findings; ESLint/wiring/spec gate pass
+  class S4 doing
   class S5 todo
 ```
 

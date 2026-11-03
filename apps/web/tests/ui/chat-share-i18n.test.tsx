@@ -34,3 +34,9 @@ it("retains preview and generated URL across locale while publishing exactly onc
 it("retranslates an owner failure without replaying publication",async()=>{
  api.createChatShare.mockRejectedValue(new ApiError(404,null,{error:"missing"}));owner();await screen.findByText(snapshot.title);fireEvent.click(screen.getByTestId("chat-share-create"));expect(await screen.findByRole("alert")).toHaveTextContent("conversation creator");locale("zh-CN");expect(screen.getByRole("alert")).toHaveTextContent("只有对话创建者");locale("en");expect(api.createChatShare).toHaveBeenCalledTimes(1);
 });
+
+it.each(["server", "invalid", "network"])("masks %s anonymous failures and keeps retry explicit",async(kind)=>{
+ const fetcher=vi.fn(async()=>{if(kind==="network")throw new Error("private diagnostics sentinel");return new Response(kind==="invalid"?"{}":"private diagnostics sentinel",{status:kind==="server"?500:200});});vi.stubGlobal("fetch",fetcher);
+ render(<I18nProvider initialLocale="en"><PublicChatShareScreen token={"t".repeat(43)}/></I18nProvider>);
+ const alert=await screen.findByRole("alert");expect(alert).not.toHaveTextContent("private diagnostics sentinel");expect(alert).toHaveTextContent(kind==="server"?"Cannot read this shared conversation":"Could not load the conversation");locale("zh-CN");locale("en");expect(fetcher).toHaveBeenCalledTimes(1);
+});

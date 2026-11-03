@@ -49,10 +49,10 @@ test('real owner publishes, anonymous friends read on phone/desktop, then owner 
     expect(login.body!==null&&typeof login.body==='object'&&'userId' in login.body&&login.body.userId===F.userId,'CHAT_SHARE_OWNER_ACTOR').toBe(true);
   }
   expect(typeof login.token==='string'&&login.token.length>0,'CHAT_SHARE_REAL_SESSION').toBe(true);
-  await page.goto('/chat/' + (process.env.CHAT_SHARE_E2E_THREAD??chatPublicShareThreadId(F.userId)));
-  await page.getByTestId('language-switcher').selectOption('en');
   const localeTab = await page.context().newPage();
   await localeTab.goto('/profile');
+  await localeTab.getByTestId('language-switcher').selectOption('en');
+  await page.goto('/chat/' + (process.env.CHAT_SHARE_E2E_THREAD??chatPublicShareThreadId(F.userId)));
   let sharePosts = 0;
   page.on('request', r => { if (r.method() === 'POST' && /\/shares(?:\?|$)/.test(r.url())) sharePosts++; });
   await page.getByTestId('chat-share-open').click();
@@ -74,6 +74,7 @@ test('real owner publishes, anonymous friends read on phone/desktop, then owner 
   expect(await page.getByTestId('chat-share-url').evaluate((node, previous) => node === previous, linkHandle)).toBe(true);
   await expect(page.getByTestId('chat-share-url')).toHaveValue(link);
   expect(sharePosts).toBe(1);
+  await page.bringToFront();
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   await page.getByTestId('chat-share-copy').click();
   await expect(page.getByTestId('chat-share-copy')).toHaveText('Copied');
