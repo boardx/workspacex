@@ -13,3 +13,7 @@ Merged actual develop dec5223e5 after GitHub DIRTY: only two dictionary aggregat
 ## Current developbbc conflict repair (explicit ownership transfer)
 
 User prioritized unmerged PR conflicts; main coordinator transferred#6173 exclusively to this session. Originala3ce0065 merged actualdevelopbbc63c39 in sourceaaa2063c3. Four conflicts resolved by retaining both Brain/Tasks actors, unioning credential cleanup IDs/emails, preserving both dictionaries. All seven own UI/namespace/unit/browser/probe blobs remain unchanged. Independent source review noP1/P2. Fresh54 regressions23.21s, wiring/specgate/targetESLint0. Actual sameDBseed1=0/seed2=0,48s total includingcleanup1s; ownedcontainers0. No new Next/browser claim; source remains navigation/session/shared only. Normalpush, GitHub actualmergeable and latestCI pending.
+
+## Actual develop6bf follow-up conflict repair
+
+After AboutMe merged, GitHub confirmed a new conflict. Merged actualdevelop6bf62a5b; only seed tail and seeded testMatch conflicted. Retained Brain actor plus AboutMe optional fixture, and both real specs. Seven own Brain blobs unchanged; independent read-only review noP1/P2. Fresh58 tests/7files43.30s; wiring/specgate/ESLint/init0. Actual sameDBseed1/2 both0, AboutMe fixture logged in both rounds, total1m39s/cleanup2s, ownedcontainers0. Evidence6bf-conflict-*.txt. Prior green head7b1703 is historical; new head requires fresh CI. No Next/browser rerun or new product feature.

@@ -1,0 +1,23 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/brain/brain-screen.test.tsx (22 tests) 2976ms
+   ✓ 大脑页：真实数据 > 取的是两个真实接口；长期记忆按类型分组，计数来自数据，没有任何示例数字 478ms
+ ✓ tests/brain/share-to-project.test.tsx (6 tests) 842ms
+   ✓ S10「分享到项目…」对话框 > 先看范围再确认：选中项目列出谁会看到；确认后 POST share（只带 projectId），并重读目标 525ms
+ ✓ tests/brain/about-me.test.tsx (8 tests) 1565ms
+   ✓ /brain「关于我」 > 挂到目标：PUT goal（选目标 / 选「不挂到目标」） 914ms
+ ✓ tests/brain/brain-time-dimension.test.tsx (5 tests) 1683ms
+   ✓ 大脑页：时间维度（issue #4363） > 链式取代历史：清华下面从新到旧——「取代了：985」（可撤销）、「更早是：211」（不可撤销） 793ms
+   ✓ 大脑页：时间维度（issue #4363） > 待办显示状态与截止；点「做完了」⇒ POST todo-status，重读后按钮与标签都是「做完了」，截止不再显示 541ms
+ ✓ tests/brain/brain-navigation-i18n.test.tsx (8 tests) 987ms
+   ✓ localizes live shell/tabs without re-reading or resetting the selected tab 667ms
+ ✓ tests/brain/about-me-i18n.test.tsx (4 tests) 918ms
+   ✓ translates panel/groups/origins while retaining original values and one preference read 592ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 79ms
+
+ Test Files  7 passed (7)
+      Tests  58 passed (58)
+   Start at  15:38:39
+   Duration  43.30s (transform 4.39s, setup 3.20s, collect 13.07s, tests 9.05s, environment 12.98s, prepare 1.25s)

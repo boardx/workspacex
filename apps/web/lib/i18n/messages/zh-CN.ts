@@ -4,6 +4,7 @@ import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
+import { aboutMemoryZhCN } from "../namespaces/about-memory";
 import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
   ...brainViewsZhCN,
@@ -12,6 +13,7 @@ export const zhCN = {
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,
+  ...aboutMemoryZhCN,
   ...stateZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",

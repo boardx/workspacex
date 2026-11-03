@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { History, Lock, MessageSquare, Search } from "lucide-react";
 import { KG_TODO_STATUS_LABEL_ZH, KgTodoStatus as KgTodoStatusEnum, type KgClaimKind, type KgTodoStatus } from "@repo/contracts/chat-knowledge-graph";
@@ -287,23 +289,23 @@ function TodoStatusControl({ claimId, status, disabled, onSet }: {
 }
 
 /** 「来自你 {M/D} 的对话」（与对话里召回 chip 同一个文案函数）；来源都没有时间时只说「来自对话」。 */
-function originLabel(origins: readonly PersonalClaimOrigin[]): string {
+function originLabel(origins: readonly PersonalClaimOrigin[], locale: Locale): string {
   const saidAt = earliestSaidAt(origins);
-  return saidAt === null ? "来自对话" : personalOriginLabel({ scope: "personal", saidAt }) ?? "来自对话";
+  return saidAt === null ? translate(locale, "aboutMemory.origin.fromConversation") : personalOriginLabel({ scope: "personal", saidAt }, locale) ?? translate(locale, "aboutMemory.origin.fromConversation");
 }
 
 /** issue #4360：「关于我」同样用它显示「来自你 {M/D} 的对话」与跳回原话的链接（同一份实现）。 */
-export function OriginLinks({ origins }: { origins: readonly PersonalClaimOrigin[] }) {
+export function OriginLinks({ origins, locale = "zh-CN" }: { origins: readonly PersonalClaimOrigin[]; locale?: Locale }) {
   if (origins.length === 0) {
     return (
       <p className="text-11 text-muted-foreground" data-testid="brain-origin-gone">
-        出自的那句话已经不在了（对话或原话被删除，或那一条在对话里被忘掉了）。
+        {translate(locale, "aboutMemory.origin.gone")}
       </p>
     );
   }
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground">
-      <span data-testid="brain-origin-time">{originLabel(origins)}</span>
+      <span data-testid="brain-origin-time">{originLabel(origins, locale)}</span>
       {origins.map((o) => (
         <Link
           key={`${o.threadId}:${o.sourceClaimId}`}
@@ -312,10 +314,10 @@ export function OriginLinks({ origins }: { origins: readonly PersonalClaimOrigin
           data-testid="brain-origin-link"
         >
           <MessageSquare aria-hidden className="h-3 w-3" />
-          {o.threadTitle.trim() === "" ? "未命名对话" : o.threadTitle}
+          {o.threadTitle.trim() === "" ? translate(locale, "aboutMemory.origin.untitled") : o.threadTitle}
         </Link>
       ))}
-      <Badge tone="outline">点开看原话</Badge>
+      <Badge tone="outline">{translate(locale, "aboutMemory.origin.view")}</Badge>
     </div>
   );
 }
