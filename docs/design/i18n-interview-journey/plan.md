@@ -12,8 +12,8 @@ flowchart LR
  class A done
  class B tested
  class C tested
- class D active
- class E pending
+ class D tested
+ class E active
 ```
 
 ## Behavior and scope
@@ -35,3 +35,5 @@ Pending: exact isolated discovery and a fresh production browser at df1 with act
 Heavy windows serialize with phase2/phase3. No browser/completion/merge claim is made before actual evidence.
 
 Current-route correction after third actual browser RED: generate-stream uses the professional published-skill protocol and stores source document/version references, not per-answer locators. Main verified and approved the test contract correction. Test-only strict professional fixture + actual service analysis/storage unit coverage43/43 and affected types/static gates pass. Fourth fresh browser and this test-only increment review remain pending. Per-answer grounding is confined to the separate canonical fixture/source-guard lanes and is not claimed for this browser.
+
+Final runtime02bc3e0d: fourth fresh production browser1/1PASS(case9.7s,total4m4,cleanup1),22images375/1280individually viewed, own containers and11ports dynamically0. All independent static increments clean. Remaining delivery is normal push/PR/current CI+reviews and main-controlled integration. Recording then survey remain separate journeys.
