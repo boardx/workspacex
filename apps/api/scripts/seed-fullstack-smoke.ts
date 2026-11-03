@@ -18,6 +18,8 @@ const required = (name: string): string => {
   return value;
 };
 
+const brainUserId = required("FULLSTACK_E2E_BRAIN_USER_ID");
+const brainEmail = required("FULLSTACK_E2E_BRAIN_EMAIL");
 const email = required("FULLSTACK_E2E_EMAIL");
 const password = required("FULLSTACK_E2E_PASSWORD");
 const orgId = required("FULLSTACK_E2E_ORG_ID");
@@ -79,8 +81,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, brainUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, brainEmail],
     ],
   );
 });
@@ -595,8 +597,6 @@ process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} projec
 
 // #6171: separate consultant identity, no personal memories or project grants.
 // Credentials are global; only the fixture owner inserts this isolated actor.
-const brainUserId = required("FULLSTACK_E2E_BRAIN_USER_ID");
-const brainEmail = required("FULLSTACK_E2E_BRAIN_EMAIL");
 const brainPasswordHash = await hasher.hash(required("FULLSTACK_E2E_BRAIN_PASSWORD"));
 await addOrgMember(orgId, brainUserId, "consultant", null);
 await asOwner((client) => client.query(
