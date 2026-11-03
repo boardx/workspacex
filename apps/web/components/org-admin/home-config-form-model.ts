@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 import type { ThemeColors } from "@/lib/home-theme";
 import { homeConfig } from "@repo/contracts";
 import { isValidBannerColor, QUICK_ACTION_ORDER } from "@/lib/home-config-catalog";
@@ -57,17 +59,18 @@ export function isFormDirty(baseline: HomeConfigFormState, form: HomeConfigFormS
 }
 
 /** 表单 → 提交体前的校验。返回「字段 → 人话」；空对象 = 通过。 */
-export function validateForm(form: HomeConfigFormState): Record<string, string> {
+export function validateForm(form: HomeConfigFormState, locale: Locale = "zh-CN"): Record<string, string> {
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
   const v: Record<string, string> = {};
-  if (Object.values(form.themeColors).some((color) => !isValidBannerColor(color))) v.themeColors = "主题颜色请使用 #RRGGBB 格式";
-  if (form.title.trim().length === 0) v.title = "标题不能为空";
-  else if (form.title.length > 24) v.title = "标题不能超过 24 字";
-  if (form.tagline.length > 80) v.tagline = "一句话简介不能超过 80 字";
-  if (form.bannerHeadline.trim().length === 0) v.bannerHeadline = "横幅主标题不能为空";
-  else if (form.bannerHeadline.length > 60) v.bannerHeadline = "横幅主标题不能超过 60 字";
-  if (form.bannerTagline.length > 120) v.bannerTagline = "横幅副标题不能超过 120 字";
+  if (Object.values(form.themeColors).some((color) => !isValidBannerColor(color))) v.themeColors = t("homeConfig.themeInvalid");
+  if (form.title.trim().length === 0) v.title = t("homeConfig.titleRequired");
+  else if (form.title.length > 24) v.title = t("homeConfig.titleLimit");
+  if (form.tagline.length > 80) v.tagline = t("homeConfig.taglineLimit");
+  if (form.bannerHeadline.trim().length === 0) v.bannerHeadline = t("homeConfig.headlineRequired");
+  else if (form.bannerHeadline.length > 60) v.bannerHeadline = t("homeConfig.headlineLimit");
+  if (form.bannerTagline.length > 120) v.bannerTagline = t("homeConfig.subtitleLimit");
   if (form.bannerPreset === "custom" && !isValidBannerColor(form.bannerColorInput)) {
-    v.bannerColor = "自定义颜色请填 #RRGGBB 格式，例如 #2F6FED";
+    v.bannerColor = t("homeConfig.customColorInvalid");
   }
   return v;
 }
