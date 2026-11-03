@@ -99,9 +99,9 @@ export function GuidedResearchSixStepShell({
               const active = step.id === currentScreen;
               const executing = step.id === runningScreen;
               const completed = !executing && unlocked && (researchCompleted || (completedScreens ? completedScreens.includes(step.id) : index < furthestIndex));
-              const stepContent = <><ResearchWorkspaceStepIndicator number={index + 1} active={active} completed={completed} running={executing} animateRunning={false} /><span className="truncate">{t(step.id === "import" ? "research.stage.brief" : step.id === "plan" ? "research.stage.plan" : "research.stage.report")}</span></>;
+              const stepContent = <><ResearchWorkspaceStepIndicator number={index + 1} active={active} completed={completed} running={executing} animateRunning={false} /><span className="min-w-0 whitespace-normal break-words">{t(step.id === "import" ? "research.stage.brief" : step.id === "plan" ? "research.stage.plan" : "research.stage.report")}</span></>;
               return <li key={step.id} className={workspace.step}>
-                {!unlocked ? <span data-testid={`research-step-${step.id}`} aria-current={active ? "step" : undefined} aria-disabled="true" className="inline-flex min-h-6 items-center gap-2 p-1 text-sm text-muted-foreground">{stepContent}</span> :
+                {!unlocked ? <span data-testid={`research-step-${step.id}`} aria-current={active ? "step" : undefined} aria-disabled="true" className="inline-flex min-h-6 min-w-0 max-w-full items-center gap-2 p-1 text-sm text-muted-foreground">{stepContent}</span> :
                 <Button
                   asChild={Boolean(sessionId && unlocked)}
                   variant="ghost"

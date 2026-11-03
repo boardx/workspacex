@@ -33,6 +33,15 @@ test("research locale preserves the real intake, plan, saved report and history 
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      for (const text of ["Confirm research details", "Research plan", "Generate report"]) {
+        const label = page.getByTestId("research-flow-progress").getByText(text, { exact: true });
+        expect(await label.evaluate(element => {
+          const cell = element.closest("li")!.getBoundingClientRect();
+          const bounds = element.getBoundingClientRect();
+          return element.scrollWidth <= element.clientWidth && bounds.left >= cell.left - 1 && bounds.right <= cell.right + 1;
+        })).toBe(true);
+      }
       await page.screenshot({ path: test.info().outputPath(`${name}-${width}.png`), fullPage: true });
     }
   };

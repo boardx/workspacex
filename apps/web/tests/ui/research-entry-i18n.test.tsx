@@ -105,7 +105,9 @@ describe("research entry locale is presentation-only", () => {
     const onChange = vi.fn();
     show(<TagField value={[rawTag]} onChange={onChange} draft={rawTag} onDraftChange={vi.fn()} testIdPrefix="raw-tags" maxTags={5} maxTagLength={20} />);
     const input = screen.getByRole("textbox", { name: "Add tag" });
-    fireEvent.compositionStart(input); fireEvent.keyDown(input, { key: "Enter" });
+    fireEvent.compositionStart(input); changeLanguage("zh-CN"); changeLanguage("en");
+    expect(screen.getByRole("textbox", { name: "Add tag" })).toBe(input);
+    fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).not.toHaveBeenCalled();
     fireEvent.compositionEnd(input); fireEvent.keyDown(input, { key: "Enter" });
     expect(screen.getByTestId("raw-tags-hint")).toHaveTextContent("This tag already exists");
@@ -157,10 +159,11 @@ describe("research entry locale is presentation-only", () => {
     const append = vi.fn();
     show(<InterviewVoiceInput sessionToken="fixture-session" onAppend={append} />);
     fireEvent.click(screen.getByRole("button", { name: "Voice input" }));
-    await screen.findByRole("button", { name: "Stop and append text" });
+    const stopControl = await screen.findByRole("button", { name: "Stop and append text" });
     act(() => voiceHandlers.onFinal("中文逐字稿原文 {count}"));
     changeLanguage("zh-CN"); expect(screen.getByRole("button", { name: "停止并追加文字" })).toBeVisible();
     changeLanguage("en"); expect(api.voice).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Stop and append text" })).toBe(stopControl);
     fireEvent.click(screen.getByRole("button", { name: "Stop and append text" }));
     act(() => voiceHandlers.onFinished());
     await waitFor(() => expect(append).toHaveBeenCalledTimes(1));
@@ -179,4 +182,14 @@ describe("research entry locale is presentation-only", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keep confirmed transcript" }));
     expect(append).toHaveBeenCalledWith("保留的原始转录");
   });
+});
+
+it("translates completed step accessibility text while keeping the step controls mounted", () => {
+  show(<GuidedResearchSixStepShell current="report" completed available={["import", "plan", "report"]} researchName={rawTitle} onNavigate={vi.fn()} main={<span>原始报告</span>} />);
+  const progress = screen.getByTestId("research-flow-progress");
+  expect(progress).not.toHaveTextContent("已完成");
+  const plan = within(progress).getByRole("button", { name: /Completed.*Research plan/ });
+  changeLanguage("zh-CN"); expect(progress).toHaveTextContent("已完成");
+  changeLanguage("en"); expect(within(progress).getByRole("button", { name: /Completed.*Research plan/ })).toBe(plan);
+  expect(screen.getByRole("heading", { name: rawTitle })).toBeVisible();
 });

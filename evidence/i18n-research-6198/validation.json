@@ -68,5 +68,38 @@
     "exitCode": 2,
     "rawLogSha256": "c1ec6333f918102a215d738cf3a457f7954f9d831cfa03d54c037bbd08f98850",
     "rawLogLocalPath": "/tmp/6198-web-typecheck.log"
+  },
+  "stepper-red": {
+    "exitCode": 1,
+    "rawLogSha256": "8bfdbcbf732c4dca0840a6e1a1963a7b77cd4338e11588ca21120fc50811f0d5",
+    "rawLogLocalPath": "/tmp/6198-stepper-red.log"
+  },
+  "stepper-focused-green": {
+    "exitCode": 0,
+    "rawLogSha256": "c384622368dedc000dc86d1f1e09e2d33ae8202629766091229a7ce65c13c0eb",
+    "rawLogLocalPath": "/tmp/6198-stepper-focused-green.log"
+  },
+  "stepper-typecheck": {
+    "exitCode": 0,
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "rawLogLocalPath": "/tmp/6198-stepper-typecheck.log"
+  },
+  "stepper-eslint": {
+    "exitCode": 0,
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawLogLocalPath": "/tmp/6198-stepper-eslint.log"
+  },
+  "browser-first": {
+    "exitCode": 0,
+    "rawLogSha256": "f5af8dd65311339a18c180eb8d6b637fa41d0494378638c6c4aff37f88afb194",
+    "rawLogLocalPath": "/tmp/6198-browser-first.log",
+    "sourceCommit": "e8ece66846e6edc82546bc3ec0f01f0140b5eddd",
+    "testCount": 1,
+    "passedCount": 1,
+    "caseSeconds": 59.7,
+    "wrapperSeconds": 299,
+    "cleanupSeconds": 1,
+    "composeScope": "wsx-ec04e55844377d871f94",
+    "ownContainersObservedAfterCleanup": 0
   }
 }

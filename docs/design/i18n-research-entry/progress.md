@@ -25,3 +25,11 @@ Route correction: ResearchTopicInformation focus/autosave is currently used by a
 ## Final pre-browser checks
 
 Final web typecheck and scoped ESLint exited0. The final affected regression ran10 files/112 tests, all passed in18.89s. Actual Vitest registration passed69 configs/12 live specs. Isolated Playwright discovery selected exactly1test/1file in2s,cleanup0s; standard init quick passed again. Original logs are indexed in evidence/i18n-research-6198/validation.json with committed normalized receipts. Browser execution is the next unverified gate. A fresh fetch of main/develop showed no new develop commits above this branch base.
+
+## First browser and visual follow-up
+
+Source e8ece66846e6edc82546bc3ec0f01f0140b5eddd completed the actual standard production-browser case:1/1 pass,59.7s; fresh build/wrapper4m59s,cleanup1s,own-scope containers0. All10 screenshots were viewed. Phase3 independently reviewed the exact source diff and found no actionableP1/P2 within that diff.
+
+Visual QA nevertheless caught mobile step-label truncation at375px. Inspecting the actual indicator found its screen-reader completion text still hardcoded Chinese. A tenth entry unit counterexample (English completion/DOM identity) and real browser label-geometry checks are now written. They are not yet executed; no product follow-up has been applied. Phase3 currently owns its continuous validation window; request entry RED immediately after explicit release, then fix and rerun fresh browser on a new reviewed SHA. Preserve first-run evidence under browser-first/ as a finding, not final visual acceptance. The source/protocol/body contents remain unchanged by this planned fix.
+
+Follow-up actual RED:entry10 executed9pass/1fail in3.78s. The original navigation contained Chinese completion text in English. After the bounded/wrapping label and ui.completed fix, the affected10-file suite passed113/113 in18.82s; webtype/scopedESLint exited0. Tag IME and voice stop control DOM-identity checks also passed. A new source commit and identical isolated fresh-browser run remain the next gate.
