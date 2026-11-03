@@ -1,0 +1,13 @@
+# B8 progress
+
+Base: origin/develop97c19b3c4, fetched together with main before development. Reuses the session's sole worktree; source branch worker/i18n-org-members-b8. Public issue#6179 records decisions and verification. Developbbc63c39a970b246ea2e1e6a399b828d36a6b793 was subsequently merged in77e6df101bb47459dd08d503ef59f11fcbdf3199; only the additive E2E conflict required resolution, retaining all3cases byte-for-byte. Postmerge39tests and latest-source independent review pass. No feature-list or signoff status is changed.
+
+Real member/invite UI, shared links and previews are implemented. The preview/root/shared implementations received independent read-only review with no actionable findings; reviewers did not rerun tests. Typecheck, selected39 unit tests and the real production-browser case passed. Actual375/1280 screenshots were inspected. Preview organization-role copies were centralized on existing shared keys. Final exact review found one stale-toast P2, fixed through4 new red cases; final39 tests pass. Final pre-push/typecheck/CI remain the completion gates.
+
+Main coordinator owns merges after latest-head classifier/ruleset and native queue checks. The portable-metadata PR#6172 merged into develop05:27:24Z atbbc63c39a970b246ea2e1e6a399b828d36a6b793 after candidate product195tests passed; postmerge build/deployment is separate. The next independently assigned task is shared AdminNav localization; it must have a separate issue/PR and must not be bundled here.
+
+## Actual develope473 conflict repair
+
+User screenshot reported queue candidate conflicts; inertmerge-tree confirmed en/zh aggregator conflicts against actualdevelop e4732894d6c478a5d41589ccee21ca3b3d19a917. Retained B8 three namespaces and upstream accountEntry/aboutMemory. B8 imports/spreads now follow controls, away from parallel activity/projectList and notifications/profile anchors; no values changed or duplicated. All13own product/namespace/unit/browser blobs unchanged frombb299. Independent review noP1/P2. Fresh46tests/10files61.08s plus final-anchor resources5/5(duplicate subset), ESLint/init0. No seed/browser rerun for dictionary-only merge; old source40CI checks do not establish latest source or queue candidate. New normalpush and exactcandidate checks pending.
+
+Final pre-push placement supersedes controls anchor above: B8 three namespaces now follow aboutMemory, avoiding6170 workflow/controls,6147 activity/projectList,6154 notifications/profile. Final independent review clean, finalresource5subset+ESLint0. Actualbaseadvancedb7be8e0e6; inert merge-tree clean, so no needless refresh. Window explicitly released by phase2; queueEntry null verified before normal push.

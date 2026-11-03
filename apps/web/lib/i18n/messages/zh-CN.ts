@@ -5,6 +5,9 @@ import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
+import { orgMembersZhCN } from "../namespaces/org-members";
+import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
+import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
 import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
@@ -15,6 +18,9 @@ export const zhCN = {
   ...projectListZhCN,
   ...profileZhCN,
   ...aboutMemoryZhCN,
+  ...orgMembersZhCN,
+  ...orgMembersPreviewZhCN,
+  ...orgSharedInvitesZhCN,
   ...stateZhCN,
   ...workflowRunsZhCN,
   "common.language": "语言",

@@ -1,0 +1,9 @@
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/org-members-i18n.test.tsx > organization member and invitation localization > switches member roles without changing names or refetching membership
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/org-members-i18n.test.tsx > organization member and invitation localization > submits original email and role keys from an English invitation form
+TestingLibraryElementError: Unable to find a label with the text of: Invitee email
+ FAIL  tests/ui/org-members-i18n.test.tsx > organization member and invitation localization > keeps one-time URL original, translates copy fallback, and dismisses it
+Error: expect(element).toHaveTextContent()
+ Test Files  1 failed (1)
+      Tests  3 failed (3)

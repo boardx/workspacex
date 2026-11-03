@@ -4,6 +4,9 @@ import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
 import { aboutMemoryEn } from "../namespaces/about-memory";
+import { orgMembersEn } from "../namespaces/org-members";
+import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
+import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
 import type { zhCN } from "./zh-CN";
@@ -16,6 +19,9 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...projectListEn,
   ...profileEn,
   ...aboutMemoryEn,
+  ...orgMembersEn,
+  ...orgMembersPreviewEn,
+  ...orgSharedInvitesEn,
   ...stateEn,
   ...workflowRunsEn,
   "common.language": "Language",
