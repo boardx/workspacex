@@ -507,8 +507,8 @@ export function MembersTab({ orgId, isAdmin }: { orgId: string; isAdmin: boolean
  *  邀请状态的文案单源，别在第二处再抄一份。 */
 const INVITE_STATUS_KEYS = { pending: "orgMembers.pendingAcceptance", "awaiting-review": "orgMembers.awaitingReview", revoked: "orgMembers.revoked", used: "orgMembers.used", "send-failed": "orgMembers.sendFailed" } as const;
 export const INVITE_STATUS_LABEL: Record<string, string> = Object.fromEntries(Object.entries(INVITE_STATUS_KEYS).map(([status, key]) => [status, orgMembersZhCN[key]]));
-function inviteStatusLabel(status: string, t: Translator) {
-  const key = INVITE_STATUS_KEYS[status as keyof typeof INVITE_STATUS_KEYS];
+export function inviteStatusLabel(status: string, t: Translator) {
+  const key = Object.prototype.hasOwnProperty.call(INVITE_STATUS_KEYS, status) ? INVITE_STATUS_KEYS[status as keyof typeof INVITE_STATUS_KEYS] : undefined;
   return key ? t(key) : status;
 }
 

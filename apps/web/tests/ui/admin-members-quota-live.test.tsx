@@ -118,13 +118,15 @@ describe("F160 成员配额 tab —— 只投影真实响应", () => {
     expect(screen.queryByRole("progressbar")).toBeNull();
   });
 
-  it("【反证】读取失败回显 reasonCode，不回落到示例数字", async () => {
+  it("【反证】读取失败给出可读说明，不泄漏 reasonCode 或回落到示例数字", async () => {
     fetchMock.mockResolvedValue(jsonResponse({ reasonCode: "FORBIDDEN" }, 403));
 
     render(<MemberQuotaTab />);
 
     await waitFor(() => expect(screen.getByTestId("admin-quota-load-failed")).toBeTruthy());
-    expect(screen.getByText(/FORBIDDEN/)).toBeTruthy();
+    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("配额数据读取失败");
+    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("刷新页面重新登录");
+    expect(screen.getByTestId("admin-quota-load-failed")).not.toHaveTextContent("FORBIDDEN");
     expect(screen.queryByTestId("admin-quota-live")).toBeNull();
   });
 

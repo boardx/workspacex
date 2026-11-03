@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { LayoutGrid, LayoutList } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -30,11 +31,12 @@ export function ViewModeToggle({
   onChange: (mode: EntityViewMode) => void;
   className?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={`inline-flex items-center gap-0.5 rounded-md border border-border p-0.5${className ? ` ${className}` : ""}`}
       role="group"
-      aria-label="切换卡片视图或列表视图"
+      aria-label={t("adminCommon.viewSwitch")}
       data-testid={`admin-${module}-view-toggle`}
     >
       <Button
@@ -45,7 +47,7 @@ export function ViewModeToggle({
         data-testid={`admin-${module}-view-toggle-card`}
       >
         <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
-        卡片
+        {t("adminCommon.cards")}
       </Button>
       <Button
         size="xs"
@@ -55,7 +57,7 @@ export function ViewModeToggle({
         data-testid={`admin-${module}-view-toggle-list`}
       >
         <LayoutList aria-hidden className="h-3.5 w-3.5" />
-        列表
+        {t("adminCommon.list")}
       </Button>
     </div>
   );
