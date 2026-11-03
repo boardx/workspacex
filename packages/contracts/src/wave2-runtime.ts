@@ -31,6 +31,11 @@ export const SkillStarterPackEntry = z.object({
   files: z.array(SkillStarterPackFile).min(1),
 }).strict();
 
+/** Exact legacy execution-hash representation; retain source manifest/file order. */
+export const SkillExecutionRepresentation = SkillStarterPackEntry.pick({ manifest: true }).extend({
+  files: z.array(SkillStarterPackFile.omit({ contentBase64: true })),
+}).strict();
+
 export const UnsignedSkillStarterPack = z.object({
   schemaVersion: z.literal(1),
   packId: PackCoordinate,

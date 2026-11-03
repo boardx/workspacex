@@ -67,9 +67,17 @@ describe("real portable-package HTTP surface", () => {
     expect(imported.status,await imported.clone().text()).toBe(201);
     const originals = await import("../../src/domain/agent/official-role-packs");
     await asOwner(async c => {
-      const rows = (await c.query("SELECT a.stable_name,a.name,a.source_locale,v.instructions,v.instruction_digest FROM agents a JOIN agent_versions v ON v.org_id=a.org_id AND v.id=a.published_version_id WHERE a.org_id=$1",[freshOrg])).rows;
+      const rows = (await c.query("SELECT a.stable_name,a.name,a.source_locale,v.instructions,v.instruction_digest,v.skill_version_ids,v.pending_skill_bindings FROM agents a JOIN agent_versions v ON v.org_id=a.org_id AND v.id=a.published_version_id WHERE a.org_id=$1",[freshOrg])).rows;
       expect(rows).toHaveLength(7);
-      for (const entry of originals.buildOfficialAgentRolePack().agents) expect(rows.find(row => row.stable_name === entry.stableName)).toMatchObject({ name: entry.name,source_locale: "zh-CN",instructions: entry.instructions,instruction_digest: entry.instructionDigest });
+      const skills = (await c.query("SELECT id,manifest->'work'->>'stableId' AS stable_id FROM skill_versions WHERE org_id=$1",[freshOrg])).rows;
+      const byVersion = new Map(skills.map(row => [row.id,row.stable_id]));
+      for (const entry of originals.buildOfficialAgentRolePack().agents) {
+        const row = rows.find(row => row.stable_name === entry.stableName)!;
+        expect(row).toMatchObject({ name: entry.name,source_locale: "zh-CN",instructions: entry.instructions,instruction_digest: entry.instructionDigest });
+        const actual = [...row.skill_version_ids.map((id: string) => byVersion.get(id)),...row.pending_skill_bindings.map((binding: { stableId: string }) => binding.stableId)];
+        expect(new Set(actual).size).toBe(actual.length);
+        expect(actual.sort()).toEqual(entry.authoredSkillBindings!.map(binding => binding.stableId).sort());
+      }
     });
     const catalog = await fetch(`${base}/skills/catalog?locale=en&q=Enterprise%20Search&limit=1`,{ headers: freshHeaders });
     expect(catalog.status).toBe(200);

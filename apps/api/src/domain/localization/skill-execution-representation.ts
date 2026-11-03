@@ -1,9 +1,6 @@
-import { z } from "zod";
 import { wave2Runtime } from "@repo/contracts";
 import { sha256, skillContentDigest, type SkillStarterPack } from "../skill/starter-pack";
 type Definition = Pick<SkillStarterPack["skills"][number], "manifest" | "files">;
-const Representation = z.object({ manifest: z.record(z.unknown()),
-  files: z.array(wave2Runtime.SkillStarterPackFile.omit({ contentBase64: true })) }).strict();
 
 /** Recover syntax only from a proven hash preimage. Never invent an ordering or
  * change a legacy execution coordinate just to make an export succeed. */
@@ -13,7 +10,7 @@ export function restoreSkillExecution(input: Definition & { representation: stri
     if (sha256(input.representation) !== input.contentDigest) return null;
     let raw: unknown;
     try { raw = JSON.parse(input.representation); } catch { return null; }
-    const parsed = Representation.safeParse(raw);
+    const parsed = wave2Runtime.SkillExecutionRepresentation.safeParse(raw);
     if (!parsed.success || parsed.data.files.length !== input.files.length) return null;
     const byPath = new Map(input.files.map(file => [file.path,file]));
     const files: Definition["files"] = [];
