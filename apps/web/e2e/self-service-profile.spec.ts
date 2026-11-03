@@ -32,6 +32,7 @@
  */
 import { operations as identityOperations } from "@repo/contracts/identity";
 import { NotificationListOutput } from "@repo/contracts/notifications";
+import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
 import { expect, test, type Page } from "@playwright/test";
 import { expectedPostLoginLanding, judgeLogoutLanding } from "./logout-landing";
 import { SELF_SERVICE_PROFILE_E2E } from "./self-service-profile-fixture";
@@ -67,13 +68,31 @@ test.describe.serial("用户个人资料自助服务", () => {
     page.on("pageerror", (error) => failures.push(`page error: ${error.message}`));
 
     /* ── 1. 改姓名，刷新页面后仍在（不能只测保存后的即时状态） ────────────── */
+    // The landing shell starts this real authenticated request. Consume its body
+    // before leaving that document; a concurrent goto can invalidate Chromium's body handle.
+    const notificationsPending = page.waitForResponse((response) => {
+      const headers = response.request().headers();
+      const referer = headers.referer;
+      return new URL(response.url()).pathname === "/notifications"
+        && response.request().method() === "GET"
+        && headers.authorization?.startsWith("Bearer ") === true
+        && typeof referer === "string" && new URL(referer).pathname === "/home";
+    });
     await loginAs(page, SELF_SERVICE_PROFILE_E2E.adminEmail, SELF_SERVICE_PROFILE_E2E.adminPassword);
-    const [notificationsResponse] = await Promise.all([
-      page.waitForResponse((response) => new URL(response.url()).pathname === "/notifications" && response.request().method() === "GET"),
-      page.goto("/profile"),
-    ]);
+    const notificationsResponse = await notificationsPending;
+    const currentSession = await page.evaluate((tokenKey) => {
+      const metadata = JSON.parse(localStorage.getItem("wsx.session") ?? "null");
+      return { userId: metadata?.userId, orgId: metadata?.currentOrgId, token: localStorage.getItem(tokenKey) };
+    }, SESSION_TOKEN_STORAGE_KEY);
+    expect(currentSession.userId).toBe(SELF_SERVICE_PROFILE_E2E.adminUserId);
+    expect(currentSession.orgId).toBe(SELF_SERVICE_PROFILE_E2E.orgId);
+    // Compare as a boolean so a failed assertion cannot print a real bearer.
+    expect(Boolean(currentSession.token), "current fixture session is authenticated").toBe(true);
+    expect(notificationsResponse.request().headers().authorization === `Bearer ${currentSession.token}`,
+      "notification request belongs to the current fixture session").toBe(true);
     expect(notificationsResponse.ok()).toBe(true);
     expect(NotificationListOutput.parse(await notificationsResponse.json()).unreadCount).toBe(0);
+    await page.goto("/profile");
     await expect(page.getByTestId("profile-screen")).toBeVisible();
 
     const newDisplayName = "SSP E2E Admin 改名后";
