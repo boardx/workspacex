@@ -15,15 +15,15 @@ Error: Transform failed with 1 error:
 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages/zh-CN.ts:269:59: ERROR: Unexpected "..."
   Plugin: vite:esbuild
   File: /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/lib/i18n/messages/zh-CN.ts:269:59
-  
+
   Unexpected "..."
-  267|  
+  267|
   268|  import { codeFenceZhCN } from "../namespaces/code-fence";
   269|  import { chatShareZhCN } from "../namespaces/chat-share";  ...chatEntryZhCN,
      |                                                             ^
-  270|  
-  271|  
-  
+  270|
+  271|
+
  ❯ failureErrorWithLog ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:1472:15
  ❯ ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:755:50
  ❯ responseCallbacks.<computed> ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:622:9

@@ -42,4 +42,3 @@ export const TASK_WORKBENCH_TEMPLATES: readonly TaskTemplate[] = [
     badgeTone: "ai-tint",
   },
 ];
-

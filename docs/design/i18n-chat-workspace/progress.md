@@ -7,3 +7,5 @@ Evidence: entry-red.log; title-continuity-red.log; shell-red.log; failure-copy-r
 Task2 has one actual canonical SDK composer missing-English RED(6.42s), not yet implemented. No new Chat browser/API/DB evidence, full Chat CI or actual merge. Remaining composer/capability/message/tool/run/inspector/knowledge overlays must be completed before PR acceptance.
 
 Other own PRs:6147 exact2533 sourcecanonicalREADY handed to main for a fresh candidate.6199 exact9096 fullstack pending; backend-required checkout timed out at its unchanged5minute budget, root owns one precise attempt2 revalidation. No source refresh or duplicate rerun.
+
+Committed logs normalize trailing whitespace only; original pre-normalization bytes retained under /tmp/chat6200-raw-*.log. Initial staging diffcheck caught whitespace; it is corrected before this step is finalized.

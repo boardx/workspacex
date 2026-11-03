@@ -34,7 +34,7 @@
 - [x] WriteproviderEN andlocalecontinuity semantictests(defaultzh/rawcustomlabel/Englishdefault/chips/briefing/noautoaction/templateID/prefill).
 - [x] RunoneworkerRED beforeprodedit andpreserveoutput.
 - [x] Implementonlytypeddisplaychanges; unknownrawcontent not translated.
-- [ ] Runnewandadjacentshell/template tests; commitworkinggroup.
+- [x] Runnewandadjacentshell/template tests; commitworkinggroup.
 
 ### Task 2: Controller/view boundary and composer/capabilityoverlays
 

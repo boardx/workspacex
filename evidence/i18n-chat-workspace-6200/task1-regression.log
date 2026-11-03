@@ -19,4 +19,3 @@
       Tests  61 passed (61)
    Start at  01:16:00
    Duration  15.34s (transform 2.03s, setup 745ms, collect 5.85s, tests 3.89s, environment 3.51s, prepare 364ms)
-
