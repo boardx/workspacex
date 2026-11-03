@@ -100,6 +100,9 @@ const fixtureEnv = {
   FULLSTACK_E2E_ARTIFACT_ID: FULLSTACK_E2E.artifactId,
   FULLSTACK_E2E_BOARD_ARTIFACT_ID: FULLSTACK_E2E.boardArtifactId,
   FULLSTACK_E2E_SENTINEL_FILE: FULLSTACK_E2E.sentinelFile,
+  FULLSTACK_E2E_BRAIN_EMAIL: FULLSTACK_E2E.brainEmail,
+  FULLSTACK_E2E_BRAIN_PASSWORD: FULLSTACK_E2E.brainPassword,
+  FULLSTACK_E2E_BRAIN_USER_ID: FULLSTACK_E2E.brainUserId,
   FULLSTACK_E2E_ADMIN_EMAIL: FULLSTACK_E2E.adminEmail,
   FULLSTACK_E2E_ADMIN_PASSWORD: FULLSTACK_E2E.adminPassword,
   FULLSTACK_E2E_ADMIN_USER_ID: FULLSTACK_E2E.adminUserId,
@@ -308,6 +311,7 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        "i18n-brain-navigation.spec.ts",
         // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
         "chat-public-share.spec.ts",
         "guided-research-runtime.spec.ts",

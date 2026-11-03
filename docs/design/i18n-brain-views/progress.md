@@ -1,0 +1,5 @@
+# Brain view slice — #6171
+
+Independent base develop0a0bfe875; three view components plus typed namespace, two dictionary aggregators, dedicated test actor/config/browser. No hook/API/permission/mutation change. Red7/7, then53/53 regression cases; one additional raw-organization-statement/no-refetch case gives54 distinct cases, newest file8/8. Targeted ESLint, UI wiring and unconditional CI coverage pass. Production browser1/1 (2.6s case,3m47s total including cleanup1s); actual consultant personal/session empty reads and organization memory; canonical scope/reload and no-refetch verified. Screenshots375/1280 inspected; tabs/button geometry passes. Owned stack zero containers.
+
+Partial /brain only: personal memory/About me/consolidation/mutation dialogs remain untranslated. Nonempty conversation titles/counts and organization statement are HTTP-boundary component fixtures, not model/extraction evidence. Baseline TopBar picker cropping belongs to#6166. Review, normal push and final CI pending at this source commit.

@@ -1,6 +1,8 @@
+import { brainViewsZhCN } from "../namespaces/brain-views";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
+  ...brainViewsZhCN,
   ...profileZhCN,
   ...stateZhCN,
   "common.language": "语言",

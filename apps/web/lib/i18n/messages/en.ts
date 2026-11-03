@@ -1,7 +1,9 @@
+import { brainViewsEn } from "../namespaces/brain-views";
 import { profileEn } from "../namespaces/profile";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...brainViewsEn,
   ...profileEn,
   ...stateEn,
   "common.language": "Language",
