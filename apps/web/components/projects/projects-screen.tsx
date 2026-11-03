@@ -1,5 +1,8 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import Link from "next/link";
 import { Search, Plus, MoreHorizontal, AlertTriangle, Check, Link2, LayoutGrid, List as ListIcon, X, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,8 +19,8 @@ import { cn } from "@/lib/utils";
 import { useSession } from "@/components/session/session-provider";
 import { CreateProjectDialog } from "@/components/project/create-project-dialog";
 import {
-  PROJECT_KIND_LABEL,
-  PROJECT_STATUS_LABEL,
+  projectKindLabel,
+  projectStatusLabel,
   PROJECT_TAGS_MAX,
   PROJECT_TAG_MAX_LENGTH,
   archiveProject,
@@ -49,6 +52,7 @@ type ViewMode = "card" | "list";
  * 项目页内重复维护第二套登录状态。
  */
 export function ProjectsScreen() {
+  const { t, locale } = useI18n();
   const { session } = useSession();
   if (!session) throw new Error("ProjectsScreen requires an authenticated session");
   const orgId = session.currentOrgId;
@@ -119,9 +123,9 @@ export function ProjectsScreen() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8 sm:px-8 lg:px-12 lg:py-10" data-testid="projects-screen">
       <header className="flex flex-col gap-1.5">
-        <h1 className="text-30 font-semibold leading-tight tracking-tight">项目</h1>
+        <h1 className="text-30 font-semibold leading-tight tracking-tight">{t("ui.projects")}</h1>
         <p className="text-13 text-muted-foreground">
-          将对话、白板、研究与产出收在同一处团队工作空间。
+          {t("projects.description")}
         </p>
       </header>
 
@@ -134,9 +138,9 @@ export function ProjectsScreen() {
             onClick={() => refresh(orgId)}
             disabled={listBusy}
           >
-            {listBusy ? "加载中…" : "刷新"}
+            {listBusy ? t("ui.loading") : t("common.refresh")}
           </Button>
-          <div className="flex items-center rounded-md border border-border p-0.5" role="group" aria-label="视图切换">
+          <div className="flex items-center rounded-md border border-border p-0.5" role="group" aria-label={t("projects.viewSwitch")}>
             <Button
               size="icon"
               variant={viewMode === "card" ? "primary" : "ghost"}
@@ -146,7 +150,7 @@ export function ProjectsScreen() {
               className="h-7 w-7"
             >
               <LayoutGrid aria-hidden className="h-3.5 w-3.5" />
-              <span className="sr-only">卡片视图</span>
+              <span className="sr-only">{t("projects.cardView")}</span>
             </Button>
             <Button
               size="icon"
@@ -157,7 +161,7 @@ export function ProjectsScreen() {
               className="h-7 w-7"
             >
               <ListIcon aria-hidden className="h-3.5 w-3.5" />
-              <span className="sr-only">列表视图</span>
+              <span className="sr-only">{t("projects.listView")}</span>
             </Button>
           </div>
         </div>
@@ -167,22 +171,22 @@ export function ProjectsScreen() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={searchPlaceholder("项目")}
-              aria-label="搜索项目"
+              placeholder={searchPlaceholder(t("ui.projects"), locale)}
+              aria-label={t("projects.search")}
               data-testid="projects-search"
               className="h-9 w-full pl-7 sm:w-56"
             />
           </div>
           <Button variant="primary" size="sm" data-testid="projects-new" onClick={openCreate}>
             <Plus aria-hidden className="h-3.5 w-3.5" />
-            新建项目
+            {t("projects.new")}
           </Button>
         </div>
       </div>
 
       {allTags.length > 0 ? (
         <div data-testid="projects-tag-filters">
-          <TagFilterBar tags={tagOptions} selected={activeTags} onChange={setActiveTags} prefix="projects" business="项目" />
+          <TagFilterBar tags={tagOptions} selected={activeTags} onChange={setActiveTags} prefix="projects" business={t("ui.projects")} />
         </div>
       ) : null}
 
@@ -190,7 +194,7 @@ export function ProjectsScreen() {
         <div data-testid="projects-list-error">
           <StateShell
             state="dep-failed"
-            depFailure={{ what: "项目列表暂时读不出来，请稍后重试。", retry: () => void refresh(orgId) }}
+            depFailure={{ what: t("projects.listUnavailable"), retry: () => void refresh(orgId) }}
           >{null}</StateShell>
         </div>
       ) : null}
@@ -200,7 +204,7 @@ export function ProjectsScreen() {
           data-testid="projects-list-empty-state"
           className="rounded-lg border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
         >
-          {listBusy ? "加载中…" : "当前组织还没有项目。"}
+          {listBusy ? t("ui.loading") : t("projects.noOrganizationProjects")}
         </div>
       ) : visible.length === 0 ? (
         /*
@@ -217,9 +221,9 @@ export function ProjectsScreen() {
         >
           {filtering ? (
             <>
-              <p className="text-13 text-card-foreground">没有符合当前筛选条件的项目。</p>
+              <p className="text-13 text-card-foreground">{t("projects.noMatches")}</p>
               <p className="mt-1 text-12 text-muted-foreground">
-                你一共有 {projects.length} 个项目，当前条件把它们都筛掉了。
+                {t("projects.filteredCount", { count: projects.length })}
               </p>
               <Button
                 size="sm"
@@ -228,20 +232,20 @@ export function ProjectsScreen() {
                 data-testid="projects-empty-clear-filters"
                 onClick={() => { setQuery(""); setActiveTags([]); }}
               >
-                清除筛选条件
+                {t("projects.clearFilters")}
               </Button>
             </>
           ) : (
             <>
-              <p className="text-13 text-card-foreground">这里还没有项目。</p>
+              <p className="text-13 text-card-foreground">{t("projects.emptyTitle")}</p>
               <p className="mt-1 text-12 leading-relaxed text-muted-foreground">
-                一个项目是一处团队工作空间：对话、白板、访谈、问卷、研究、设计都收在一起，AI 在项目大脑里帮你推演结论。
+                {t("projects.emptyDescription")}
                 <br />
-                也可以先不建项目，直接去「对话」里交一件事给 AI。
+                {t("projects.chatAlternative")}
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2">
-                <Button variant="primary" onClick={openCreate} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />新建项目</Button>
-                <Button variant="outline" asChild><Link href="/chat">先去对话</Link></Button>
+                <Button variant="primary" onClick={openCreate} data-testid="projects-empty-create"><Plus aria-hidden className="size-4" />{t("projects.new")}</Button>
+                <Button variant="outline" asChild><Link href="/chat">{t("projects.goToChat")}</Link></Button>
               </div>
             </>
           )}
@@ -286,13 +290,14 @@ export function ProjectsScreen() {
 function ProjectRealCard({
   project, orgId, layout, onChanged,
 }: { project: ProjectListItem; orgId: string; layout: "card" | "list"; onChanged: () => void }) {
+  const { t, locale } = useI18n();
   const enterHref = `/projects/${project.id}?org=${encodeURIComponent(orgId)}`;
   const archived = project.status === "archived";
 
   const [open, setOpen] = React.useState(false);
   const [confirming, setConfirming] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
 
   const close = () => { setOpen(false); setConfirming(false); };
 
@@ -317,7 +322,7 @@ function ProjectRealCard({
       close();
       onChanged();                  // 刷新列表：readOnlyReason/status 由后端说了算
     } catch (e) {
-      setError(describeArchiveError(e));
+      setError({ cause: e });
     } finally {
       setBusy(false);
     }
@@ -331,15 +336,15 @@ function ProjectRealCard({
         layout={layout === "list" ? "list" : "grid"}
         title={project.name}
         titleTestId={`projects-card-${project.id}-name`}
-        subtitle={PROJECT_KIND_LABEL[project.kind]}
+        subtitle={projectKindLabel(project.kind, locale)}
         badges={
           <>
         <Badge tone={project.status === "active" ? "primary" : "outline"} data-testid={`projects-card-${project.id}-status`}>
-          {PROJECT_STATUS_LABEL[project.status]}
+          {projectStatusLabel(project.status, locale)}
         </Badge>
         {project.readOnlyReason !== null ? (
           <Badge tone="outline" data-testid={`projects-card-${project.id}-readonly`}>
-            只读 · {project.readOnlyReason === "archived" ? "已归档" : "组织已停用"}
+            {t("projects.readOnly", { reason: project.readOnlyReason === "archived" ? projectStatusLabel("archived", locale) : t("projects.organizationDisabled") })}
           </Badge>
         ) : null}
           </>
@@ -357,7 +362,7 @@ function ProjectRealCard({
             <Button
               variant="ghost"
               size="icon"
-              aria-label="更多操作"
+              aria-label={t("projects.more")}
               data-testid={`projects-card-${project.id}-more`}
             >
               <MoreHorizontal aria-hidden className="h-4 w-4" />
@@ -367,27 +372,27 @@ function ProjectRealCard({
             {confirming ? (
               <div className="flex flex-col gap-2 p-2" data-testid={`projects-archive-confirm-${project.id}`}>
                 <p className="text-12 font-medium">
-                  {archived ? "确认恢复这个项目？" : "确认归档这个项目？"}
+                  {archived ? t("projects.confirmRestoreQuestion") : t("projects.confirmArchiveQuestion")}
                 </p>
                 <div className="rounded-md border border-warning/30 bg-warning/5 p-2">
                   {archived ? (
-                    <p className="text-11 text-muted-foreground">恢复后项目重新可写，内容与引用关系不变。</p>
+                    <p className="text-11 text-muted-foreground">{t("projects.restoreEffect")}</p>
                   ) : (
                     <>
-                      <p className="text-11 font-medium text-warning-foreground">归档会影响：</p>
+                      <p className="text-11 font-medium text-warning-foreground">{t("projects.archiveEffects")}</p>
                       {/* 这几条都来自 F124（已 passing）真实验证过的归档语义，不是文案想象 */}
                       <ul className="mt-1 flex list-disc flex-col gap-0.5 pl-4 text-11 text-muted-foreground">
-                        <li>项目转为只读：写入被拒绝，读仍然可用</li>
-                        <li>不删除任何内容，误归档可一键恢复</li>
-                        <li>已定版的快照仍可被下游引用</li>
-                        <li>默认不再被上下文召回，需要时可显式请求</li>
+                        <li>{t("projects.archiveReadOnly")}</li>
+                        <li>{t("projects.archiveKeepContent")}</li>
+                        <li>{t("projects.archiveKeepSnapshots")}</li>
+                        <li>{t("projects.archiveContext")}</li>
                       </ul>
                     </>
                   )}
                 </div>
                 {error !== null ? (
                   <p className="text-11 text-destructive" data-testid={`projects-archive-error-${project.id}`}>
-                    {error}
+                    {describeProjectMutationError(error.cause, locale)}
                   </p>
                 ) : null}
                 <div className="flex justify-end gap-1.5">
@@ -398,7 +403,7 @@ function ProjectRealCard({
                     onClick={close}
                     disabled={busy}
                   >
-                    取消
+                    {t("common.cancel")}
                   </Button>
                   <Button
                     variant={archived ? "primary" : "destructive"}
@@ -407,7 +412,7 @@ function ProjectRealCard({
                     onClick={() => void submit()}
                     disabled={busy}
                   >
-                    {busy ? "提交中…" : archived ? "确认恢复" : "确认归档"}
+                    {busy ? t("ui.submitting") : archived ? t("projects.confirmRestore") : t("projects.confirmArchive")}
                   </Button>
                 </div>
               </div>
@@ -418,7 +423,7 @@ function ProjectRealCard({
                   onSelect={(event) => { event.preventDefault(); void copyLink(); }}
                 >
                   {copied ? <Check aria-hidden className="h-3.5 w-3.5" /> : <Link2 aria-hidden className="h-3.5 w-3.5" />}
-                  {copied ? "已复制项目链接" : "复制项目链接"}
+                  {copied ? t("projects.linkCopied") : t("projects.copyLink")}
                 </MenuItem>
                 <MenuSeparator />
                 {/* onSelect preventDefault：点「归档/恢复」要切到本组件的 confirming
@@ -429,7 +434,7 @@ function ProjectRealCard({
                   className={cn(archived ? "text-card-foreground" : "text-destructive data-[highlighted]:text-destructive")}
                 >
                   <AlertTriangle aria-hidden className="h-3.5 w-3.5" />
-                  {archived ? "恢复项目" : "归档项目"}
+                  {archived ? t("projects.restore") : t("projects.archive")}
                 </MenuItem>
               </>
             )}
@@ -439,7 +444,7 @@ function ProjectRealCard({
         tags={<TagsEditor project={project} onChanged={onChanged} />}
         actions={
           <Button asChild variant="primary" size="sm">
-            <Link href={enterHref} data-testid={`projects-card-${project.id}-enter`}>进入项目</Link>
+            <Link href={enterHref} data-testid={`projects-card-${project.id}-enter`}>{t("projects.enter")}</Link>
           </Button>
         }
       />
@@ -453,8 +458,9 @@ function ProjectRealCard({
  * 成功后靠 `onChanged`（父级 `refresh`）刷新，不在本地直接改 `project.tags`。
  */
 function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChanged: () => void }) {
+  const { locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<{ cause: unknown } | null>(null);
 
   // 整体替换语义：每次操作都把当前完整标签集合发给 `updateProjectTags`，不是本地乐观拼接后假装成功——
   // 提交中禁用，失败就地显示，成功后靠 `onChanged`（父级 `refresh`）刷新。
@@ -465,7 +471,7 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
       await updateProjectTags(project.id, nextTags);
       onChanged();
     } catch (e) {
-      setError(describeTagsError(e));
+      setError({ cause: e });
     } finally {
       setBusy(false);
     }
@@ -476,7 +482,7 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
       tags={project.tags}
       onChange={(next) => void submitTags(next)}
       busy={busy}
-      error={error}
+      error={error === null ? null : describeProjectMutationError(error.cause, locale)}
       compact
       maxTags={PROJECT_TAGS_MAX}
       maxTagLength={PROJECT_TAG_MAX_LENGTH}
@@ -493,14 +499,8 @@ function TagsEditor({ project, onChanged }: { project: ProjectListItem; onChange
  *   我们**只说「操作失败」，绝不替它编一个原因**——编一个未证实的原因比不说更糟
  *   （coord-main 2026-08-12 裁决 (a)）。补码后这里才能显示具体原因。
  */
-function describeArchiveError(e: unknown): string {
-  if (e instanceof ApiError) return e.reasonCode ?? `操作失败（HTTP ${e.status}）`;
+function describeProjectMutationError(e: unknown, locale: Locale): string {
+  if (e instanceof ApiError) return e.reasonCode ?? translate(locale, "projects.operationFailed", { status: e.status });
   if (e instanceof Error) return e.message;
-  return "未知错误";
-}
-
-function describeTagsError(e: unknown): string {
-  if (e instanceof ApiError) return e.reasonCode ?? `操作失败（HTTP ${e.status}）`;
-  if (e instanceof Error) return e.message;
-  return "未知错误";
+  return translate(locale, "projects.unknownError");
 }
