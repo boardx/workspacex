@@ -36,8 +36,9 @@ flowchart TD
   class S2 tested
   %% evidence S2: evidence/i18n-activity-6145/notification-lifecycle-red.log and notification-lifecycle-trace-summary.json; exact real candidate failure
   class S3 done
-  class S4 doing
-  class S5 todo
+  class S4 tested
+  %% evidence S4: notification-lifecycle-browser.log 1/1 23.2s total1m8 cleanup1s; type3/3 57.301s; eslint0; canonical70configs12live; all11listeners0 and containers0
+  class S5 doing
 ```
 
 ## 进度日志（append-only，每次改颜色追加一行）
@@ -54,3 +55,9 @@ Candidate930331a3a44b382bee6b66f301d8f962851716e3 / run41682815784 / attempt1 / 
 Arm the landing request before this test's real login; require GET, /home referer, Bearer. Assert fixture userId/orgId and boolean equality to the current authenticated bearer without printing credentials. Read actual status/NotificationListOutput/unread0 completely before navigating. Preserve all remaining profile/locale/popup/activity structured+legacy/password/logout assertions exactly.
 
 Command: `pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.self-service-profile.config.ts e2e/self-service-profile.spec.ts --workers=1 --retries=0 --max-failures=1`. This standard lane uses Next dev and real API/Postgres; no next-start production claim. Original240s webServer and30s expect budgets are unchanged. Fresh isolated resources must be dynamically cleaned before releasing the window.
+
+## Verified local result (source eff37872)
+
+Original registered self-service profile file:1/1 PASS, case23.2seconds, command1m7/cleanup1s/total1m8, retries0. It executed notifications authenticatedfixture/schema/unread0, pending-name locale continuity, popupgeometry/Escape, profile save/reload,375/768/1280 nooverflow, activity structured+legacy+invalidformat400+EN/zh raw-name preservation, password change/newsuccess/oldfailure/logout. The standard config is Next dev, not next-start. Four screenshots inspected: supplied Chinese display-name suffix remains original content; controls and activity prefix English; no horizontal overflow.
+
+Fresh webtype3/3,2cached,57.301s; targetspecESLint0; actual reachability70configs/12live. Own scopewsx-5b0c2bfdd7c7ee4ebf30 containers0 and all11allocatedlisteners0. Readonly independent exacteff37872 review found noC/I, no tests run byreviewer/private rawtrace not independently inspected. Normalpush and new source/candidate CI still pending.
