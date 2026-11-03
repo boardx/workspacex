@@ -5,7 +5,7 @@ export const ABOUT_ME_E2E = {
   projectId: `about-${F.projectId}`,
   userId: `about-${F.userId}`,
   email: `about-${F.email}`,
-  password: "Fullstack-E2E-about-me-6174!",
+  password: F.password,
   threadId: `about-thread-${F.userId}`,
   sourceGoalId: `source-about-goal-${F.userId}`,
   sourceTodoId: `source-about-todo-${F.userId}`,
