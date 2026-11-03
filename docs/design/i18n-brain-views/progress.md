@@ -1,0 +1,23 @@
+# Brain view slice — #6171
+
+Independent base develop0a0bfe875; three view components plus typed namespace, two dictionary aggregators, dedicated test actor/config/browser. No hook/API/permission/mutation change. Red7/7, then53/53 regression cases; one additional raw-organization-statement/no-refetch case gives54 distinct cases, newest file8/8. Targeted ESLint, UI wiring and unconditional CI coverage pass. Production browser1/1 (2.6s case,3m47s total including cleanup1s); actual consultant personal/session empty reads and organization memory; canonical scope/reload and no-refetch verified. Screenshots375/1280 inspected; tabs/button geometry passes. Owned stack zero containers.
+
+Partial /brain only: personal memory/About me/consolidation/mutation dialogs remain untranslated. Nonempty conversation titles/counts and organization statement are HTTP-boundary component fixtures, not model/extraction evidence. Baseline TopBar picker cropping belongs to#6166. Review, normal push and final CI pending at this source commit.
+
+Independent review found P2 reset omission: brain fixture credentials survived resetOrgs. Real same-DB seed replay reproduced seed1=0/seed2=1 with exact brain credentials_pkey. Added this actor to the existing global credential cleanup arrays; same-DB seed1/2 both0,28s total including cleanup1s. First probe launched from workspace root hit compose cwd setup failure, excluded from product-red evidence; corrected launch uses pnpm --filter web exec. Actual red and green stack labels dynamically verified zero containers. No product UI changed after the previously passing browser. Replay probe is reproducible at apps/web/scripts/verify-brain-seed-replay.ts.
+
+## Actual develop conflict repair
+
+Merged actual develop dec5223e5 after GitHub DIRTY: only two dictionary aggregator conflicts, retaining current develop plus brainViews. Entity fixture calls and Brain actor cleanup/fields/hash/config/spec preserved by merge. Candidate7c676d9da exact review no findings. Eight own view/namespace/test/browser/probe/fixture blobs match63fa4e2f9. Fresh54 regressions, UI wiring and unconditional CI coverage pass. Actual combined fullstack seed replay twice against one DB passes,32s total including cleanup1s; new entity fixture and Brain cleanup coexist. Dynamic stack count zero. Original production browser remains historical; no local Next repeat for this aggregation-only repair. New head must pass CI seeded browser before readiness.
+
+## Current developbbc conflict repair (explicit ownership transfer)
+
+User prioritized unmerged PR conflicts; main coordinator transferred#6173 exclusively to this session. Originala3ce0065 merged actualdevelopbbc63c39 in sourceaaa2063c3. Four conflicts resolved by retaining both Brain/Tasks actors, unioning credential cleanup IDs/emails, preserving both dictionaries. All seven own UI/namespace/unit/browser/probe blobs remain unchanged. Independent source review noP1/P2. Fresh54 regressions23.21s, wiring/specgate/targetESLint0. Actual sameDBseed1=0/seed2=0,48s total includingcleanup1s; ownedcontainers0. No new Next/browser claim; source remains navigation/session/shared only. Normalpush, GitHub actualmergeable and latestCI pending.
+
+## Actual develop6bf follow-up conflict repair
+
+After AboutMe merged, GitHub confirmed a new conflict. Merged actualdevelop6bf62a5b; only seed tail and seeded testMatch conflicted. Retained Brain actor plus AboutMe optional fixture, and both real specs. Seven own Brain blobs unchanged; independent read-only review noP1/P2. Fresh58 tests/7files43.30s; wiring/specgate/ESLint/init0. Actual sameDBseed1/2 both0, AboutMe fixture logged in both rounds, total1m39s/cleanup2s, ownedcontainers0. Evidence6bf-conflict-*.txt. Prior green head7b1703 is historical; new head requires fresh CI. No Next/browser rerun or new product feature.
+
+## Actual developb853 conflict repair
+
+Confirmed new DIRTY/CONFLICTING against b8532643f2b6faafc66862d678dd8385c28417a7. Three conflictfiles seed/fixture/config union Brain and WorkflowRuns, preserving AboutMe/Tasks and both dictionary/spec sets. Seven own Brain files and experience docs unchanged; independent exact staged-source review noP1/P2. Fresh63tests/8files16.56s, wiring/specgate/ESLint/init0. ActualsameDBseed1/2 both0 with WorkflowRuns+AboutMe each round,55s total/cleanup1s, ownedwsx-64a5b817403a94165d42 containers0. Evidenceb853-*.txt. QueueEntry null verified before normalpush; latestremotehead/CI/candidate still require live verification. Heavywindow from phase1 must return after push; new features remainpaused. No Next/browser rerun, old262b40green historical.

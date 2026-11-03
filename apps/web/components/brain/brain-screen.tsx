@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { useSession } from "@/components/session/session-provider";
 import { StateShell } from "@/components/state/state-shell";
 import { Button } from "@/components/ui/button";
@@ -34,19 +35,20 @@ export function BrainScreen() {
 
 /** 与取数分开，方便对每一种状态单独渲染（组件测试直接喂状态）。 */
 export function BrainView({ state, reload, refresh }: { state: BrainData; reload: () => void; refresh: () => Promise<PersonalKnowledge> }) {
+  const { t } = useI18n();
   const [tab, setTab] = React.useState("personal");
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 p-5" data-testid="brain-screen">
       <header className="flex flex-wrap items-end justify-between gap-2">
         <div className="flex flex-col gap-1">
-          <h1 className="text-20 font-semibold tracking-tight">大脑</h1>
+          <h1 className="text-20 font-semibold tracking-tight">{t("brain.heading")}</h1>
           <p className="text-12 text-muted-foreground">
-            你在对话里让我记下的东西都在这里。长期记忆只有你自己看得到。
+            {t("brain.description")}
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={reload} disabled={state.status === "loading"} data-testid="brain-refresh">
-          {state.status === "loading" ? "加载中…" : "刷新"}
+          {state.status === "loading" ? t("brain.loading") : t("brain.refresh")}
         </Button>
       </header>
 
@@ -54,7 +56,7 @@ export function BrainView({ state, reload, refresh }: { state: BrainData; reload
       {state.status === "failed" ? (
         <StateShell
           state="dep-failed"
-          depFailure={{ what: "暂时读不到你的记忆，请稍后再试。", retry: reload }}
+          depFailure={{ what: t("brain.failed"), retry: reload }}
         >
           {null}
         </StateShell>
@@ -62,7 +64,7 @@ export function BrainView({ state, reload, refresh }: { state: BrainData; reload
       {state.status === "denied" ? (
         <StateShell
           state="denied"
-          denial={{ layer: "organization", reason: "你已不在当前组织里，看不到这里的记忆。可以切换到别的组织再看。" }}
+          denial={{ layer: "organization", reason: t("brain.denied") }}
         >
           {null}
         </StateShell>
@@ -72,18 +74,18 @@ export function BrainView({ state, reload, refresh }: { state: BrainData; reload
         <Tabs value={tab} onValueChange={setTab} className="flex flex-col gap-4">
           <TabsList data-testid="brain-tabs">
             <TabsTrigger value="personal" data-testid="brain-tab-personal">
-              我的长期记忆
+              {t("brain.personal")}
               <span className="tabular-nums text-10 text-muted-foreground" data-testid="brain-tab-personal-count">
                 {state.personal.claims.length}
               </span>
             </TabsTrigger>
             <TabsTrigger value="sessions" data-testid="brain-tab-sessions">
-              对话里的记忆
+              {t("brain.sessions")}
               <span className="tabular-nums text-10 text-muted-foreground" data-testid="brain-tab-sessions-count">
                 {sessionTotals(state.overview.threads).threads}
               </span>
             </TabsTrigger>
-            <TabsTrigger value="shared" data-testid="brain-tab-shared">项目与组织</TabsTrigger>
+            <TabsTrigger value="shared" data-testid="brain-tab-shared">{t("brain.shared")}</TabsTrigger>
           </TabsList>
           <TabsContent value="personal" className="flex flex-col gap-4">
             {/* issue #4360：个人空间顶部的「关于我」——目标 / 偏好 / 约束与身份 / 在做的事 */}

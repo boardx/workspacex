@@ -21,6 +21,8 @@ const required = (name: string): string => {
   return value;
 };
 
+const brainUserId = required("FULLSTACK_E2E_BRAIN_USER_ID");
+const brainEmail = required("FULLSTACK_E2E_BRAIN_EMAIL");
 const tasksEmail = required("FULLSTACK_E2E_TASKS_EMAIL");
 const tasksPassword = required("FULLSTACK_E2E_TASKS_PASSWORD");
 const tasksUserId = required("FULLSTACK_E2E_TASKS_USER_ID");
@@ -86,8 +88,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, tasksUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, tasksEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, brainUserId, tasksUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, brainEmail, tasksEmail],
     ],
   );
 });
@@ -606,6 +608,14 @@ await seedEntityLocalizationFixture();
 
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);
 
+// #6171: separate consultant identity, no personal memories or project grants.
+// Credentials are global; only the fixture owner inserts this isolated actor.
+const brainPasswordHash = await hasher.hash(required("FULLSTACK_E2E_BRAIN_PASSWORD"));
+await addOrgMember(orgId, brainUserId, "consultant", null);
+await asOwner((client) => client.query(
+  "INSERT INTO credentials(user_id,email,display_name,password_hash,email_verified_at) VALUES($1,$2,$3,$4,now())",
+  [brainUserId, brainEmail, "Brain read-only fixture", brainPasswordHash],
+));
 await seedWorkflowRunsI18n({
   orgId: required("FULLSTACK_E2E_WORKFLOW_RUNS_ORG_ID"), projectId: required("FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT_ID"),
   userId: required("FULLSTACK_E2E_WORKFLOW_RUNS_USER_ID"), email: required("FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL"),

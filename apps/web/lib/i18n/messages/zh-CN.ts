@@ -1,3 +1,4 @@
+import { brainViewsZhCN } from "../namespaces/brain-views";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
@@ -13,6 +14,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...brainViewsZhCN,
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,

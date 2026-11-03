@@ -1,0 +1,17 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/brain/brain-screen.test.tsx (22 tests) 986ms
+ ✓ tests/brain/share-to-project.test.tsx (6 tests) 334ms
+ ✓ tests/brain/about-me.test.tsx (8 tests) 447ms
+ ✓ tests/brain/brain-time-dimension.test.tsx (5 tests) 318ms
+ ✓ tests/brain/brain-navigation-i18n.test.tsx (8 tests) 329ms
+ ✓ tests/ui/workflow-runs-i18n.test.tsx (5 tests) 273ms
+ ✓ tests/brain/about-me-i18n.test.tsx (4 tests) 331ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 54ms
+
+ Test Files  8 passed (8)
+      Tests  63 passed (63)
+   Start at  20:17:17
+   Duration  16.56s (transform 1.79s, setup 1.17s, collect 5.35s, tests 3.07s, environment 5.32s, prepare 488ms)
