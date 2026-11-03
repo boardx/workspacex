@@ -1,0 +1,28 @@
+[stack-admission] load1=2.56 cores=10 perCore=0.26 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw17q4bp-659fb695-22f939c1e073 db=wsx_22f939c1e073b4759dc2 compose=wsx-22f939c1e073b4759dc2 pg=20593 redis=21593 api=24593 web=25593 sandbox=26593 model=27593 deep-agent=28593 asr=29593 vision=30593 loopback-sandbox=31593 mail=19593
+[WebServer] (node:37245) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:37246) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:37252) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:37253) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[intermediate output omitted; full log SHA-256 in validation.json]
+    Error: expect(received).toBe(expected) // Object.is equality
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [seeded] › e2e/i18n-interview-journey.spec.ts:8:5 › interview locale preserves the real private-profile, canonical six-step and history journey 
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：5m0s
+  清理：1s
+  总计：5m1s

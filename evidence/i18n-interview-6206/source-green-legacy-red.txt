@@ -1,0 +1,50 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-journey-i18n.test.tsx (7 tests) 350ms
+ ✓ tests/ui/interview-secondary-i18n.test.tsx (7 tests) 247ms
+ ✓ tests/ui/interview-controller-i18n.test.tsx (5 tests) 245ms
+ ❯ tests/ui/interview-legacy-i18n.test.tsx (5 tests | 5 failed) 357ms
+   × localizes the actual setup fallback and unsaved guard without discarding its edited brief 238ms
+     → Unable to find an accessible element with the role "heading" and name "Define research brief"
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × localizes the actual setup fallback and unsaved guard without discarding its edited brief 238ms
+   × keeps an expert picker selection and query through locale changes and confirms raw IDs 85ms
+   × retains a readiness rationale and unchanged decision enum while labels retranslate 10ms
+   × localizes review controls while preserving notes and the existing approval block 18ms
+  Name "目标 × 专家证据覆盖":
+          目标 × 专家证据覆盖
+   × retranslates unavailable quality UI without automatically running its retry 5ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-legacy-i18n.test.tsx > localizes the actual setup fallback and unsaved guard without discarding its edited brief
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Define research brief"
+ FAIL  tests/ui/interview-legacy-i18n.test.tsx > keeps an expert picker selection and query through locale changes and confirms raw IDs
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Add interview experts"
+ FAIL  tests/ui/interview-legacy-i18n.test.tsx > retains a readiness rationale and unchanged decision enum while labels retranslate
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Reason for accepting warnings (10–300 characters)"
+ FAIL  tests/ui/interview-legacy-i18n.test.tsx > localizes review controls while preserving notes and the existing approval block
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Review notes"
+  Name "目标 × 专家证据覆盖":
+          目标 × 专家证据覆盖
+ FAIL  tests/ui/interview-legacy-i18n.test.tsx > retranslates unavailable quality UI without automatically running its retry
+TestingLibraryElementError: Unable to find an element with the text: Quality checks are unavailable; status is unknown. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ Test Files  1 failed | 6 passed (7)
+      Tests  5 failed | 35 passed (40)
+   Duration  13.29s (transform 1.63s, setup 653ms, collect 5.18s, tests 2.42s, environment 3.57s, prepare 291ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx tests/ui/interview-legacy-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/interview-legacy-i18n.test.tsx:39:117
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed | 6 passed (7)
+      Tests  5 failed | 35 passed (40)
+   Start at  04:28:10
+   Duration  13.29s (transform 1.63s, setup 653ms, collect 5.18s, tests 2.42s, environment 3.57s, prepare 291ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx tests/ui/interview-secondary-i18n.test.tsx tests/ui/interview-legacy-i18n.test.tsx --maxWorkers=1 --minWorkers=1

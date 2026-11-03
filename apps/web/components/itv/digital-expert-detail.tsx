@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 import Link from "next/link";
@@ -8,6 +9,7 @@ import { findMockDigitalExpert } from "@/lib/mock/digital-expert-personas";
 import { ExpertAvatarEditor } from "./expert-avatar";
 
 export function DigitalExpertDetail({ expertId }: { expertId: string }) {
+ const { t } = useI18n();
   const mock = findMockDigitalExpert(expertId);
   const [published, setPublished] = React.useState<{ id: string; expert: DigitalExpertCatalogRow | null } | null>(null);
   React.useEffect(() => {
@@ -24,7 +26,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
   if (!expert) {
     return (
       <main className="min-w-0 flex-1 bg-background text-sm text-muted-foreground">
-        <div className="mx-auto w-full max-w-5xl px-6 py-8 lg:px-10 lg:py-10"><Link href="/itv?tab=experts" className="inline-flex items-center gap-2"><ArrowLeft className="size-4" aria-hidden />返回专家列表</Link><p className="mt-6">{published?.id === expertId ? "该专家不可用或无访问权限。" : "正在加载专家…"}</p></div>
+        <div className="mx-auto w-full max-w-5xl px-6 py-8 lg:px-10 lg:py-10"><Link href="/itv?tab=experts" className="inline-flex items-center gap-2"><ArrowLeft className="size-4" aria-hidden />{t("itv.experts.back")}</Link><p className="mt-6">{published?.id === expertId ? t("itv.experts.unavailable") : t("itv.experts.loading")}</p></div>
       </main>
     );
   }
@@ -36,7 +38,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
           href="/itv?tab=experts"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-background-foreground"
         >
-          <ArrowLeft className="size-4" aria-hidden /> 返回专家列表
+          <ArrowLeft className="size-4" aria-hidden /> {t("itv.experts.back")}
         </Link>
 
         <article className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-sm lg:p-8">
@@ -46,7 +48,7 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl font-semibold">{expert.displayName}</h1>
-                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">{mock ? "模拟画像" : "组织已发布专家"}</span>
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary">{mock ? t("itv.experts.simulated") : t("itv.experts.published")}</span>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">{expert.role}</p>
                 <p className="mt-1 text-xs text-muted-foreground">{expert.location}</p>
@@ -57,23 +59,23 @@ export function DigitalExpertDetail({ expertId }: { expertId: string }) {
               href={`/itv/quick/new?expertId=${encodeURIComponent(expert.expertId)}`}
               className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm"
             >
-              <MessageSquare className="size-4" aria-hidden /> 快捷访谈
+              <MessageSquare className="size-4" aria-hidden /> {t("itv.experts.quick")}
             </Link>
           </div>
 
           <div className="mt-8 grid gap-5 lg:grid-cols-2">
             <section className="rounded-xl border border-border p-5">
-              <h2 className="text-sm font-semibold">专家背景</h2>
+              <h2 className="text-sm font-semibold">{t("itv.experts.background")}</h2>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">{expert.bio}</p>
             </section>
             <section className="rounded-xl border border-border p-5">
-              <h2 className="text-sm font-semibold">典型建议</h2>
+              <h2 className="text-sm font-semibold">{t("itv.experts.advice")}</h2>
               <p className="mt-3 text-sm leading-7 text-muted-foreground">{expert.typicalAdvice}</p>
             </section>
           </div>
 
           <div className="mt-5 rounded-xl bg-muted/60 p-4 text-xs leading-6 text-muted-foreground">
-            <span className="font-medium text-background-foreground">使用边界：</span>{expert.materialBoundary}
+            <span className="font-medium text-background-foreground">{t("itv.experts.useBoundary")}</span>{expert.materialBoundary}
           </div>
         </article>
       </div>
