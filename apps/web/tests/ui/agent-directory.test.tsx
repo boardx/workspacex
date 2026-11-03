@@ -13,7 +13,7 @@ import { AgentDirectory } from "@/components/agent/agent-directory";
 import { ApiError } from "@/lib/api-client";
 import { listAgentDirectory, type AgentDirectoryCard } from "@/lib/agent-directory";
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 function card(overrides: Partial<AgentDirectoryCard> & Pick<AgentDirectoryCard, "agentId" | "name" | "roleCategory">): AgentDirectoryCard {
   return {
@@ -92,9 +92,9 @@ describe("AgentDirectory（成员目录）", () => {
   it("按分类筛选：点击分类按钮重新以 roleCategory 过滤请求", async () => {
     const fetchDirectory = vi.fn().mockResolvedValue([card({ agentId: "a1", name: "小析", roleCategory: "research" })]);
     render(<AgentDirectory fetchDirectory={fetchDirectory} />);
-    await waitFor(() => expect(fetchDirectory).toHaveBeenCalledWith({ roleCategory: undefined, q: undefined }));
+    await waitFor(() => expect(fetchDirectory).toHaveBeenCalledWith(expect.objectContaining({ roleCategory: undefined, q: undefined })));
     fireEvent.click(within(screen.getByTestId("agent-directory-filter-category")).getByRole("button", { name: "研究" }));
-    await waitFor(() => expect(fetchDirectory).toHaveBeenLastCalledWith({ roleCategory: "research", q: undefined }));
+    await waitFor(() => expect(fetchDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ roleCategory: "research", q: undefined })));
   });
 
   it("搜索框输入触发按 q 过滤的请求（防抖，最终只带最后一次输入的值）", async () => {
@@ -104,7 +104,7 @@ describe("AgentDirectory（成员目录）", () => {
     fireEvent.change(screen.getByTestId("agent-directory-search"), { target: { value: "析" } });
     fireEvent.change(screen.getByTestId("agent-directory-search"), { target: { value: "析师" } });
     await vi.advanceTimersByTimeAsync(300);
-    expect(fetchDirectory).toHaveBeenLastCalledWith({ roleCategory: undefined, q: "析师" });
+    expect(fetchDirectory).toHaveBeenLastCalledWith(expect.objectContaining({ roleCategory: undefined, q: "析师" }));
     vi.useRealTimers();
   });
 

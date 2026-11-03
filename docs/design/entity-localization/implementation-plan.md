@@ -1,8 +1,13 @@
 # Skill / Agent 本地化实施设计（国际化三期）
 
-状态：准备交付，非产品实现、非人类签核。追踪：[#6135](https://github.com/boardx/workspacex/issues/6135)。
-用户于 2026-11-03 授权按计划直接开发；依赖顺序仍为一期基础/首页 → 二期子页面 → 三期数据。
-本文件是实施建议；正式 API 形状以实施时 `packages/contracts/src/entity-localization.ts` 为唯一权威。
+状态：原始实施建议及后续跟踪，非人类签核。追踪：[#6135](https://github.com/boardx/workspacex/issues/6135)。
+用户于 2026-11-03 的最新授权为三期并行实施，不等待前序合并才开发；下文的依赖顺序仅用于集成和合并。
+自动合并由已授权 coordinator 按最新 head 检查、分类器和分支保护执行，worker 不因此自行取得合并角色。
+实现与证据分别见共享契约 [#6142](https://github.com/boardx/workspacex/pull/6142)、
+存储/API [#6151](https://github.com/boardx/workspacex/pull/6151)、管理/展示 [#6149](https://github.com/boardx/workspacex/issues/6149)；
+官方双语包元数据与便携导入/导出继续跟踪 [#6156](https://github.com/boardx/workspacex/issues/6156)。
+合并/发布状态读这些对象的实时信号，不从本设计文档推断。
+以下保留原始设计依据；字段与行为以 `packages/contracts/src/entity-localization.ts`、实际迁移和实现为权威。
 
 ## 范围与事实依据
 
@@ -22,8 +27,8 @@
 
 ## 一、兼容迁移设计
 
-实施时新增时间戳迁移文件 `apps/api/migrations/<UTC timestamp>_entity_localizations.sql`。
-本准备 PR 不放可执行迁移，不在数据库提前建表。
+实际迁移位于 `apps/api/migrations/20261103120000_entity_localizations.sql`（#6151）。
+下文是设计建议，原型字段名不构成另一份运行时契约；生产执行情况以发布和数据库证据为准。
 
 ### 存储
 
