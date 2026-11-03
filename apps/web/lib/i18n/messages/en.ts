@@ -6,6 +6,7 @@ import { profileEn } from "../namespaces/profile";
 import { aboutMemoryEn } from "../namespaces/about-memory";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
+import { accountEntryEn } from "../namespaces/account-entry";
 export const en: Record<keyof typeof zhCN, string> = {
   ...enTasks,
   ...enFailures,
@@ -244,5 +245,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",
   "common.http.failure": "The request failed. Please try again later.",
-  "home.artifacts.one": "{count} artifact"
+  "home.artifacts.one": "{count} artifact",
+  ...accountEntryEn,
 };

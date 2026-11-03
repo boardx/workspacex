@@ -1,0 +1,4 @@
+Listing tests:
+  i18n-entry.spec.ts:4:5 › root redirects to localized login and preserves language and form values
+  i18n-entry.spec.ts:25:5 › account entry pages translate live and preserve pending values
+Total: 2 tests in 1 file
