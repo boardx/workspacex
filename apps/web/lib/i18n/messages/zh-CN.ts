@@ -1,3 +1,4 @@
+import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgProfileZhCN } from "../namespaces/org-profile";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
@@ -16,6 +17,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...workflowGrantsZhCN,
   ...orgProfileZhCN,
   ...brainViewsZhCN,
   ...zhTasks,
