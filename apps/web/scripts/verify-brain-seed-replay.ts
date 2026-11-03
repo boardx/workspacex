@@ -10,7 +10,7 @@ assert(api?.env, "official fullstack API setup required");
 const commands = api.command.split(" && ");
 assert(commands.length === 3 && commands[2]!.includes("start-fullstack-smoke-api.ts"));
 for (const [index, command] of [commands.slice(0, 2).join(" && "), commands[1]!].entries()) {
-  const result = spawnSync("/bin/sh", ["-c", command], { cwd: process.cwd(), env: api.env, stdio: "inherit" });
+  const result = spawnSync("/bin/sh", ["-c", command], { cwd: process.cwd(), env: { ...process.env, ...api.env }, stdio: "inherit" });
   process.stdout.write(`[brain-seed-replay] seed${index + 1} exit=${result.status}\n`);
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
