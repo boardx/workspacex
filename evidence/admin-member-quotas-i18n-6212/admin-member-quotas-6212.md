@@ -23,7 +23,7 @@ Root consolidates tests/type/lint/static gates, freezes source and runs fresh au
 
 ```mermaid
 flowchart LR
- A[Task1 semantic tests and scope]:::tested --> B[Chrome quota invite boundary]:::tested --> C[Live rules and prototypes]:::tested --> D[Usage and precision-preserving presentation]:::doing --> E[Real API browser and review]:::todo --> F[PR and develop integration]:::todo
+ A[Task1 semantic tests and scope]:::tested --> B[Chrome quota invite boundary]:::tested --> C[Live rules and prototypes]:::tested --> D[Usage and precision-preserving presentation]:::tested --> E[Real API browser and review]:::doing --> F[PR and develop integration]:::todo
  classDef todo fill:#e5e7eb,stroke:#6b7280,color:#111827
  classDef doing fill:#fde68a,stroke:#d97706,color:#111827
  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
