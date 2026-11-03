@@ -271,7 +271,8 @@ test("shared admin sidebars retain routes, scope and live counts across locale c
   const readsBeforeLocale = countReads;
   await page.getByTestId("language-switcher").first().selectOption("en");
   await expect(nav).toHaveAccessibleName("Organization admin modules");
-  await expect(members).toHaveText("Members");
+  await expect(members).toHaveText(/^Members\s*—$/);
+  await expect(page.getByTestId("admin-nav-org-members-count")).toHaveAccessibleName("Members count unavailable");
   await expect(members).toHaveAttribute("href", "/org-admin/members");
   await expect(members).toHaveAttribute("aria-current", "page");
   expect(countReads).toBe(readsBeforeLocale);
