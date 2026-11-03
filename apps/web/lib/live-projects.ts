@@ -1,3 +1,5 @@
+import { translate } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 /**
  * F122 —— 真实 API 的类型化薄封装，供 `/project/live` 页面使用。
  *
@@ -79,14 +81,21 @@ export async function getProjectOverview(projectId: string): Promise<ProjectOver
   );
 }
 
+export function projectKindLabel(kind: z.infer<typeof project.ProjectKind>, locale: Locale = "zh-CN"): string {
+  return translate(locale, `projects.kind.${kind}`);
+}
+export function projectStatusLabel(status: z.infer<typeof project.ProjectStatus>, locale: Locale = "zh-CN"): string {
+  return translate(locale, `projects.status.${status}`);
+}
+/** Legacy consumers keep Chinese until migrated; translated copy has one dictionary source. */
 export const PROJECT_KIND_LABEL: Record<z.infer<typeof project.ProjectKind>, string> = {
-  general: "项目",
-  workshop: "工作坊",
+  general: projectKindLabel("general"),
+  workshop: projectKindLabel("workshop"),
 };
 
 export const PROJECT_STATUS_LABEL: Record<z.infer<typeof project.ProjectStatus>, string> = {
-  active: "进行中",
-  archived: "已归档",
+  active: projectStatusLabel("active"),
+  archived: projectStatusLabel("archived"),
 };
 
 export interface CreateProjectInput {
