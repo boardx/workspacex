@@ -52,12 +52,14 @@ test("interview locale preserves the real private-profile, canonical six-step an
   };
   await page.goto("/itv?tab=experts");
   await page.getByTestId("itv-add-library-expert").click();
-  const profile = page.getByRole("dialog", { name: "Add expert profile", exact: true });
+  const profile = page.getByRole("dialog");
+  await expect(profile).toHaveCount(1);
+  await expect(profile.getByRole("heading", { name: "Add expert profile", exact: true })).toBeVisible();
   for (const [name, value] of Object.entries({ Name: rawExpert, "Professional role": "原专业角色", "Professional domains": "研究", "Research focus": "原始任务与反例", "Perspective style": "原始观点风格", Capabilities: "仅用于模拟研究的私有画像", "Limitations and material boundary": "原始材料边界，仅模拟" })) {
     await profile.getByRole("textbox", { name, exact: true }).fill(value);
   }
   await profile.getByRole("textbox", { name: "Occupation", exact: true }).fill("原始职业");
-  await language("zh-CN"); await expect(profile.getByRole("textbox", { name: "名称", exact: true })).toHaveValue(rawExpert);
+  await language("zh-CN"); await expect(profile.getByRole("heading", { name: "添加专家画像", exact: true })).toBeVisible(); await expect(profile.getByRole("textbox", { name: "名称", exact: true })).toHaveValue(rawExpert);
   await language("en"); await expect(profile.getByRole("textbox", { name: "Name", exact: true })).toHaveValue(rawExpert);
   await capture("private-profile-en");
   await profile.getByRole("button", { name: "Save expert", exact: true }).click();

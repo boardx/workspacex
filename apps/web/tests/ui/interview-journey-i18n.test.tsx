@@ -72,3 +72,12 @@ it("localizes controlled text-import validation errors while preserving the requ
   expect(await screen.findByRole("alert")).toHaveTextContent("Only UTF-8 TXT / Markdown files are supported");swap("zh-CN");swap("en");
   expect(screen.getByRole("textbox",{name:"Research requirements Markdown"})).toHaveValue(raw);expect(importFile).toHaveBeenCalledTimes(1);
 });
+
+it.each(["constructor", "toString", "__proto__"])("preserves an unknown imported error named %s without treating it as a translation", async detail => {
+  const importFile=vi.fn(async()=>{throw Error(detail);});
+  show(<InterviewIntakeStep markdown={raw} onChange={vi.fn()} onConfirm={async()=>{}} pending={false} onImportFile={importFile}/>);
+  fireEvent.change(screen.getByLabelText("Import research file"),{target:{files:[new File(["data"],"source.md")]}});
+  expect(await screen.findByRole("alert")).toHaveTextContent(detail);
+  swap("zh-CN");swap("en");expect(screen.getByRole("alert")).toHaveTextContent(detail);
+  expect(screen.getByRole("textbox",{name:"Research requirements Markdown"})).toHaveValue(raw);expect(importFile).toHaveBeenCalledTimes(1);
+});

@@ -23,6 +23,6 @@ const categoryKeys: Readonly<Record<string, MessageKey>> = {
 
 /** Display labels only: callers keep the canonical category as the filter value. */
 export function interviewCategoryText(category: string, locale: Locale): string {
-  const key = categoryKeys[category];
+  const key = Object.hasOwn(categoryKeys, category) ? categoryKeys[category] : undefined;
   return key ? translate(locale, key) : category;
 }

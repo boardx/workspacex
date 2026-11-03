@@ -22,7 +22,7 @@ const reasonKeys: Readonly<Record<string, MessageKey>> = {
 
 /** Translate controlled public reasons; unknown diagnostics and authored goal text remain intact. */
 export function interviewQualityText(issue: { readonly code: string; readonly message: string }, locale: Locale): string {
-  const key = reasonKeys[issue.code];
+  const key = Object.hasOwn(reasonKeys, issue.code) ? reasonKeys[issue.code] : undefined;
   if (!key || locale === "zh-CN") return issue.message;
   const needsGoal = ["EXPERT_GOAL_UNCOVERED", "EXPERT_GOAL_SINGLE_PERSPECTIVE", "GOAL_NOT_COVERED"].includes(issue.code);
   const goal = /^学习目标“([\s\S]*)”/.exec(issue.message)?.[1];

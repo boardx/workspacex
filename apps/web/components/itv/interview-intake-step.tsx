@@ -71,7 +71,7 @@ export function InterviewIntakeStep({ markdown, onChange, onConfirm, pending, on
           <span className="text-xs text-muted-foreground">{t("itv.characters", { count: markdown.length })}</span>
         </div>
       </div>
-      {error && <p role="alert" className="mt-4 text-sm leading-6 text-destructive">{t("itv.intake.failure", { detail: intakeErrorKeys[error.detail] ? t(intakeErrorKeys[error.detail]!) : error.detail === "EMPTY_IMPORTED_TEXT" ? t("itv.intake.empty") : error.detail || t("itv.operationFailed") })}</p>}
+      {error && <p role="alert" className="mt-4 text-sm leading-6 text-destructive">{t("itv.intake.failure", { detail: Object.hasOwn(intakeErrorKeys, error.detail) ? t(intakeErrorKeys[error.detail]!) : error.detail === "EMPTY_IMPORTED_TEXT" ? t("itv.intake.empty") : error.detail || t("itv.operationFailed") })}</p>}
     </section>
     <InterviewStepActions><ActionButton variant="primary" loading={busy} icon={<ArrowRight className="size-4" aria-hidden />} disabled={busy || !markdown.trim()} onClick={() => void perform(onConfirm)}>{busy ? t("itv.processing") : t("itv.intake.next")}</ActionButton></InterviewStepActions>
   </div>;

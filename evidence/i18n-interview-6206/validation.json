@@ -205,5 +205,45 @@
     "exitCode": 0,
     "rawLogLocalPath": "/tmp/6206-final-init.log",
     "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d"
+  },
+  "browser-list-argv-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-list-argv-red.log",
+    "rawLogSha256": "e1421188dc39df0fa21c2cf16c080013fd46dc3bbc845e4acfb0748c4051752b"
+  },
+  "browser-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-list.log",
+    "rawLogSha256": "5b21325f8062146225e85a0e37e573f011cbbdcf9384bcb192c8423b9f05c749"
+  },
+  "browser-first": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-first.log",
+    "rawLogSha256": "6343c9b7952f05ff4983e1deb4debbc8a7227d33b828e3c72d9b498ede1f7b56"
+  },
+  "post-parity-wiring": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-post-parity-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8"
+  },
+  "prototype-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-prototype-red.log",
+    "rawLogSha256": "672e7c098fafa9145585dc01fc6f14bb47bc13fc705b9491aa6be9eccd2fd030"
+  },
+  "prototype-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-prototype-green.log",
+    "rawLogSha256": "cb07c05c00a0a09eac54700c83ddae921d66e01e0965b3b69d439b3243e3597f"
+  },
+  "prototype-type": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-prototype-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "prototype-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-prototype-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   }
 }
