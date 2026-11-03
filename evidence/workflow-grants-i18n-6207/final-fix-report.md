@@ -22,3 +22,7 @@ Pending root's serialized verification: targeted eslint/type/list checks and the
 ## Concerns
 
 No new source-level concerns found. Runtime correctness remains subject to root's covering checks and scoped rereview.
+
+Root covering static checks at f443de1bf62193e5085435762639507875e58eac: webtype0, exact E2E ESLint0, testid0, isolated exactlist1test/1file exit0. Real browser stillpending; one scoped rereview waits actual covering evidence.
+
+Rootcoveringactualbrowser source89a22/docsHEADc053 byteequalclean:1/1PASS10.2s,total4m1/cleanup1. Allnewaudit/reload/mobilefullaction/memberdenialassertionsexecuted. scopewsx-57d5c526c41d17fee319 docker0andownedportsnoLISTENafteractualexit. Command:pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config=playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps entity-localization.spec.ts --grep="workflow grant management persists canonical permissions" --max-failures=1. Evidence:evidence/workflow-grants-i18n-6207/final-run/browser.txt;15screensrootQApending.

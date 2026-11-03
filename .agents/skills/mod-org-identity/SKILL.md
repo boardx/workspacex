@@ -50,6 +50,7 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-04：组织工作流授权的长文案会同时造成纵向按钮不可达和撤销页横向裁剪；保留共享弹窗边界，在页面所属容器提供滚动、footer 允许换行，并用真实 wheel + Confirm/Cancel 完整入屏断言验收。控制值、API 与权限不随显示修复变化（issue #6207；`evidence/workflow-grants-i18n-6207/browser-first/`、`browser-second/`、`final-run/`）。
 - 2026-11-03：成员/邀请的真实路由在 `org-admin-screen.tsx`，同名 `members-screen.tsx`/`roster-screen.tsx` 是预览；国际化不能只改预览。角色标签复用共享 `role.*` 字典，错误/反馈保留原始载荷并在渲染时翻译，locale 不进入读取 effect 依赖，避免语言切换重发请求（issue #6179）。
 - 2026-11-02：验证邮件重发不能只依赖24小时注册cookie；过期/换浏览器恢复须先复用登录密码校验与锁定规则，再将可信userId传入事务重发，保持challenge→credential锁顺序、限频与旧链接原子失效；API存活不证明发信配置完整（issue #6085）。
 

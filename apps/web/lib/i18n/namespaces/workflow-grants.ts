@@ -198,7 +198,7 @@ export const workflowGrantsEn: Record<keyof typeof workflowGrantsZhCN, string> =
   "workflowGrants.requires": "· Requires {level}",
   "workflowGrants.blockedSr": "(Insufficient permission; will pause)",
   "workflowGrants.readySr": "(Can run)",
-  "workflowGrants.shortfall": "The current level, {level}, is insufficient. The {count} workflows highlighted above will pause at the relevant steps.",
+  "workflowGrants.shortfall": "The current level, {level}, is insufficient. Workflows highlighted above will pause at the relevant steps (total: {count}).",
   "workflowGrants.audit": "Change history",
   "workflowGrants.auditEmpty": "No workflow permission changes yet. All permissions are currently read-only by default.",
   "workflowGrants.time": "Time",
