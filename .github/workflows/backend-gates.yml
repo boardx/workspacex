@@ -192,7 +192,9 @@ jobs:
       WORKSPACEX_DB: wsx_ci_${{ github.run_id }}_test_${{ matrix.shard }}
     steps:
       - uses: actions/checkout@v5
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 1
+          fetch-tags: false
       - name: Setup pnpm
         uses: pnpm/action-setup@v4.4.0
       - name: Setup Node
