@@ -1,0 +1,21 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 83ms
+ ✓ tests/ui/task-notifications.test.tsx (2 tests) 621ms
+   ✓ global notification center > shows nothing from a previous session token 398ms
+ ✓ tests/ui/schedule-notifications.test.tsx (3 tests) 697ms
+   ✓ server backed schedule notices on existing task surface > shows fixed failure facts and only removes them after durable read acknowledgment 649ms
+ ✓ tests/ui/task-notifications-i18n.test.tsx (3 tests) 807ms
+   ✓ translates category labels and aria counts while preserving original titles without repeating requests 626ms
+ ✓ tests/ui/task-notifications-popover.test.tsx (6 tests) 788ms
+   ✓ #3223 通知收成图标 + 角标，正文只在弹层里 > 未读 > 0 时侧边栏不平铺任何通知正文，点开图标才出列表 488ms
+ ✓ tests/ui/notification-click-destination.test.tsx (3 tests) 526ms
+   ✓ #3311 点一条通知，用户必须知道自己被带到哪儿了 > ② 没有对话可去：不许伪装成可点条目——点正文不读掉它，标已读得是用户显式点的按钮 307ms
+ ✓ tests/ui/rail-notifications-placement.test.tsx (5 tests) 363ms
+
+ Test Files  7 passed (7)
+      Tests  27 passed (27)
+   Start at  04:18:20
+   Duration  10.63s (transform 3.92s, setup 6.17s, collect 11.45s, tests 3.88s, environment 13.07s, prepare 2.90s)

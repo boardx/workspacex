@@ -1,3 +1,5 @@
+import { seedWorkflowRunsI18n } from "./fixtures/seed-workflow-runs-i18n";
+import { seedAboutMeI18n } from "./fixtures/seed-about-me-i18n";
 import { seedEntityLocalizationFixture } from "./fixtures/seed-entity-localization";
 import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
 /** Controlled PG fixture for #387's login -> projects -> overview -> Files browser gate. */
@@ -19,6 +21,8 @@ const required = (name: string): string => {
   return value;
 };
 
+const brainUserId = required("FULLSTACK_E2E_BRAIN_USER_ID");
+const brainEmail = required("FULLSTACK_E2E_BRAIN_EMAIL");
 const tasksEmail = required("FULLSTACK_E2E_TASKS_EMAIL");
 const tasksPassword = required("FULLSTACK_E2E_TASKS_PASSWORD");
 const tasksUserId = required("FULLSTACK_E2E_TASKS_USER_ID");
@@ -84,8 +88,8 @@ await asOwner(async (client) => {
   await client.query(
     "DELETE FROM credentials WHERE user_id = ANY($1::text[]) OR email = ANY($2::text[])",
     [
-      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, tasksUserId],
-      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, tasksEmail],
+      [userId, adminUserId, memberUserId, securityReviewerUserId, leadUserId, feedbackAdminUserId, brainUserId, tasksUserId],
+      [email, adminEmail, memberEmail, securityReviewerEmail, leadEmail, feedbackAdminEmail, brainEmail, tasksEmail],
     ],
   );
 });
@@ -603,3 +607,20 @@ await seedChatPublicShare(orgId,userId);
 await seedEntityLocalizationFixture();
 
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);
+
+// #6171: separate consultant identity, no personal memories or project grants.
+// Credentials are global; only the fixture owner inserts this isolated actor.
+const brainPasswordHash = await hasher.hash(required("FULLSTACK_E2E_BRAIN_PASSWORD"));
+await addOrgMember(orgId, brainUserId, "consultant", null);
+await asOwner((client) => client.query(
+  "INSERT INTO credentials(user_id,email,display_name,password_hash,email_verified_at) VALUES($1,$2,$3,$4,now())",
+  [brainUserId, brainEmail, "Brain read-only fixture", brainPasswordHash],
+));
+await seedWorkflowRunsI18n({
+  orgId: required("FULLSTACK_E2E_WORKFLOW_RUNS_ORG_ID"), projectId: required("FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT_ID"),
+  userId: required("FULLSTACK_E2E_WORKFLOW_RUNS_USER_ID"), email: required("FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL"),
+  password: required("FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD"), instanceId: required("FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE_ID"),
+  workflowKey: required("FULLSTACK_E2E_WORKFLOW_RUNS_KEY"), goal: required("FULLSTACK_E2E_WORKFLOW_RUNS_GOAL"),
+});
+// This private UI fixture is optional for other startup lanes (e2e-up uses the shared exporter).
+if (process.env.FULLSTACK_ABOUT_ME_FIXTURE) await seedAboutMeI18n(JSON.parse(process.env.FULLSTACK_ABOUT_ME_FIXTURE));

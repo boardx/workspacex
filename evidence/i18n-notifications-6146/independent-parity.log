@@ -1,0 +1,10 @@
+old=900794cec08093fa3e7952ca7e2faf0fe7d8f4cf
+actual_base=97c19b3c423534966114c4ba869abd58efe24748
+apps/web/components/chat/workbench/task-notifications.tsx byte-identical sha256=eedcdd67c4eca034ae0d4f02f3de4272d117c5d2b9f8d89fcdcf96b02a6abe38
+apps/web/lib/i18n/namespaces/notifications.ts byte-identical sha256=d83bcf8aeaa717851479ae5e6a995c1cc720e2ae00875d1520b98385b5ec2c12
+apps/web/tests/ui/task-notifications-i18n.test.tsx byte-identical sha256=a5f8da2446de59c3b734631cbd176c49afe229b79884474eefb64f7f742c39bd
+Notification-only real browser assertion block: byte-identical; activity protocol code absent
+apps/api: no diff against actual base
+packages/contracts: no diff against actual base
+apps/web/components/profile/profile-screen.tsx: no diff against actual base
+apps/web/lib/live-identity.ts: no diff against actual base

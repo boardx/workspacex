@@ -1,0 +1,13 @@
+# Current conflict handoff — #6173
+
+Main coordinator explicitly transferred this PR from phase2 to root for conflict repair. Originalhead a3ce0065cb1ef065f19fbdad9c1543b8b763b38e; localbranch worker/6173-conflict-resolution tracks remote worker/i18n-brain-session-shared in the same sole worktree. Sourceaaa2063c3 merges actualdevelopbbc63c39. Both actor/namespace branches retained, seven own UI/test/probe blobs unchanged. Fresh54unit + sameDBseed2x0/48s/cleanup1s + wiring/specgate/ESLint0; independent read-only review nofindings. Evidence bbc-conflict-*.txt. Original production browser remains historical; current-head CI must run its registered case.
+
+Normalpush must be HEAD:worker/i18n-brain-session-shared without force or hook bypass, then verify GitHub MERGEABLE and latesthead CI. Author stays responsible; main coordinator alone merges. No feature/signoff status changes. Scope excludes Personal/AboutMe and own B8/Nav. B8#6184 stays on worker/i18n-org-members-b8,MERGEABLE whileCIruns; do not refresh needlessly. Nav issue6186 is paused per user; red-only local WIP292b8c619f13a658fdf14f59ae4d4e0aa6cfc222 on worker/i18n-admin-navigation, not published. Do not create another worktree or apply stash by index.
+
+Shared heavy window was explicitly lent by phase2 for seed2x+normalpush. Release immediately on push success/failure so phase2 can push6170; do not start unrelated work in it. Prior scope#6172 already mergeddevelopbbc; no production deployment claim.
+
+Latest follow-up: merges actualdevelop6bf62a5b after confirmed AboutMe conflict. Two union-only conflict resolutions retain Brain actor/AboutMe seed and both specs; source unchanged in seven Brain files. Fresh58 tests, wiring/specgate/ESLint/init0, real sameDBseed2x0 (1m39s includingcleanup2s), owncontainers0; independent review noP1/P2. Evidence6bf-conflict-*.txt. Normal push must complete and new remote head CI be checked; prior7b green invalid for latest head. No new feature resumed.
+
+## Actual developb853 conflict repair
+
+Confirmed new DIRTY/CONFLICTING against b8532643f2b6faafc66862d678dd8385c28417a7. Three conflictfiles seed/fixture/config union Brain and WorkflowRuns, preserving AboutMe/Tasks and both dictionary/spec sets. Seven own Brain files and experience docs unchanged; independent exact staged-source review noP1/P2. Fresh63tests/8files16.56s, wiring/specgate/ESLint/init0. ActualsameDBseed1/2 both0 with WorkflowRuns+AboutMe each round,55s total/cleanup1s, ownedwsx-64a5b817403a94165d42 containers0. Evidenceb853-*.txt. QueueEntry null verified before normalpush; latestremotehead/CI/candidate still require live verification. Heavywindow from phase1 must return after push; new features remainpaused. No Next/browser rerun, old262b40green historical.

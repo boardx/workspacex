@@ -1,0 +1,10 @@
+[test-isolation] id=run-mw07xy99-59da07c0-7f02865fa98f db=wsx_7f02865fa98fb421768c compose=wsx-7f02865fa98fb421768c pg=20174 redis=21174 api=24174 web=25174 sandbox=26174 model=27174 deep-agent=28174 asr=29174 vision=30174 loopback-sandbox=31174 mail=19174
+  ✓  1 [seeded-github-import] › e2e/entity-localization.spec.ts:102:5 › organization members and invitations retain source data across locales (10.2s)
+  1 passed (6.8m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps --workers=1 --grep organization members and invitations retain source data across locales
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：6m49s
+  清理：1s
+  总计：6m50s

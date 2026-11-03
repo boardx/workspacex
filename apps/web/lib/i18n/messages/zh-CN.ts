@@ -1,17 +1,36 @@
+import { brainViewsZhCN } from "../namespaces/brain-views";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
+import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
+import { notificationsZhCN } from "../namespaces/notifications";
+import { aboutMemoryZhCN } from "../namespaces/about-memory";
+import { orgMembersZhCN } from "../namespaces/org-members";
+import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
+import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
 import { stateZhCN } from "../namespaces/state";
-import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
+import { accountEntryZhCN } from "../namespaces/account-entry";
+import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...brainViewsZhCN,
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,
+  ...notificationsZhCN,
+  ...aboutMemoryZhCN,
+  ...orgMembersZhCN,
+  ...orgMembersPreviewZhCN,
+  ...orgSharedInvitesZhCN,
   ...stateZhCN,
+  ...chatShareZhCN,
+  ...codeFenceZhCN,
+  ...workflowRunsZhCN,
+  ...projectWorkbenchZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
@@ -243,5 +262,9 @@ export const zhCN = {
   "common.http.server": "服务器出错了，稍后再试一次",
   "common.http.failure": "这次请求没成功，稍后再试一次",
   "home.artifacts.one": "{count} 个产出物",
-  ...projectWorkbenchZhCN,
+  ...accountEntryZhCN,
+  ...invitationEntryZhCN,
 } as const;
+
+import { codeFenceZhCN } from "../namespaces/code-fence";
+import { chatShareZhCN } from "../namespaces/chat-share";

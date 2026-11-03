@@ -1,0 +1,20 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api
+
+ ✓ tests/billing/personal-wechat-payment.test.ts (18 tests) 89ms
+ ❯ tests/billing/team-wechat-checkout.test.ts (0 test)
+ ✓ tests/billing/native-read-deadline.test.ts (2 tests) 23ms
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/team-wechat-checkout.test.ts [ tests/billing/team-wechat-checkout.test.ts ]
+Error: Failed to load url ../../src/infrastructure/billing/team-wechat-checkout-client (resolved id: ../../src/infrastructure/billing/team-wechat-checkout-client) in /Users/shenyangjun/boardx/workspacex/.worktrees/team-capacity-6107/apps/api/tests/billing/team-wechat-checkout.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../node_modules/.pnpm/vite@5.4.21_@types+node@22.20.1_terser@5.50.0/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed | 2 passed (3)
+      Tests  20 passed (20)
+   Start at  16:59:04
+   Duration  1.68s (transform 257ms, setup 0ms, collect 480ms, tests 112ms, environment 1ms, prepare 311ms)
+

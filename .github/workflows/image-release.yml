@@ -19,12 +19,10 @@ on:
       source_revision:
         type: string
         default: ''
-  push:
-    branches: [develop]
   workflow_dispatch:
     inputs:
       environment:
-        description: "Target environment (CN: reuse a tag or build the selected branch; auto uses branch default)"
+        description: "Target environment (all environments reuse a tag or build the selected branch)"
         required: true
         default: auto
         type: choice
@@ -36,12 +34,12 @@ on:
         type: choice
         options: [all, api, web, agent, sandbox, postgres]
       build_only:
-        description: Build without deployment (develop or a selected CN branch)
+        description: Build selected branch without deployment
         required: false
         default: false
         type: boolean
       tag:
-        description: Existing immutable image tag (empty builds selected branch for CN; US requires a tag)
+        description: Existing immutable image tag (empty builds the selected branch)
         required: false
         type: string
       source_revision:
@@ -54,13 +52,9 @@ permissions:
 
 jobs:
   plan:
-    # develop auto-deploys DevApp; main/CN and main-us/US require manual dispatch.
+    # All image builds and deployments require an explicit manual dispatch.
     # Legacy source deployment is retired in backend-gates in this same commit.
-    if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
-      (github.event_name == 'workflow_dispatch' &&
-       (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main-us' || inputs.build_only ||
-        (inputs.environment == 'cn' && github.ref_type == 'branch')))
+    if: github.event_name == 'workflow_dispatch' && github.ref_type == 'branch'
     runs-on: ubuntu-24.04
     outputs:
       source: ${{ steps.plan.outputs.source }}
@@ -183,31 +177,11 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
-  admission:
-    needs: plan
-    if: needs.plan.outputs.target == 'devapp' && !inputs.build_only
-    runs-on: ubuntu-24.04
-    permissions: {contents: read, actions: read}
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v5
-        with: {persist-credentials: false}
-      - uses: actions/setup-node@v5
-        with:
-          node-version-file: .nvmrc
-          package-manager-cache: false
-      - name: Require exact-source verification before Devapp activation
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CI_RELEASE_TAG: ${{ inputs.tag }}
-        run: node .harness/scripts/ci-devapp-integration-gate.mjs
-
   deploy:
-    needs: [plan, build, manifest, admission]
+    needs: [plan, build, manifest]
     if: >-
       always() && !cancelled() && !inputs.build_only && needs.plan.result == 'success' &&
-      ((needs.plan.outputs.target == 'devapp' && needs.admission.result == 'success') ||
-       (github.event_name == 'workflow_dispatch' && needs.plan.outputs.target != 'devapp')) &&
+      github.event_name == 'workflow_dispatch' &&
       ((needs.plan.outputs.build == 'true' && needs.build.result == 'success' && needs.manifest.result == 'success') ||
        (needs.plan.outputs.build == 'false' && needs.build.result == 'skipped' && needs.manifest.result == 'skipped'))
     runs-on: ${{ fromJSON(needs.plan.outputs.runner) }}
@@ -218,15 +192,6 @@ jobs:
       cancel-in-progress: false
     steps:
       # No checkout or sudo execution of checkout code on production.
-      - name: Reject an automatic release superseded while its images built
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXPECTED_SOURCE: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)
-          test "$actual" = "$EXPECTED_SOURCE" || { echo 'Automatic release superseded by a newer push'; exit 1; }
       - name: Show requested immutable image tag
         env:
           TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}

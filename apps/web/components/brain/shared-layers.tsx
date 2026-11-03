@@ -1,4 +1,7 @@
+"use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { Building2, Users } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -6,18 +9,18 @@ import { fetchOrgKnowledge, knowledgeGraphErrorCode, type OrgKnowledge } from "@
 import { Badge } from "@/components/ui/badge";
 import { isScopeOpen } from "@/lib/brain-view";
 
-const LAYERS = [
+const LAYERS: readonly { scope: "project" | "org"; label: MessageKey; what: MessageKey; icon: typeof Users }[] = [
   {
     scope: "project" as const,
-    label: "项目记忆",
+    label: "brain.layer.project.label",
     icon: Users,
-    what: "一个项目里大家共同确认过的决定和事实，项目成员都能用上。",
+    what: "brain.layer.project.what",
   },
   {
     scope: "org" as const,
-    label: "组织记忆",
+    label: "brain.layer.org.label",
     icon: Building2,
-    what: "整个组织沉淀下来、带有效期的经验和规则，全员可见。",
+    what: "brain.layer.org.what",
   },
 ];
 
@@ -26,6 +29,7 @@ const LAYERS = [
  * 没开放的如实写「尚未开放」，不摆示例数字、不演示台账；开放的只说怎么用，真实内容各自在项目大脑 / 组织大脑接口里。
  */
 export function SharedLayers() {
+  const { t } = useI18n();
   const [org, setOrg] = React.useState<OrgKnowledge | null>(null);
   const [status, setStatus] = React.useState<"idle" | "loading" | "ready" | "failed" | "denied">("idle");
   async function openOrg() {
@@ -41,22 +45,22 @@ export function SharedLayers() {
           <div key={l.scope} className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4" data-testid={`brain-layer-${l.scope}`}>
             <div className="flex items-center gap-2">
               <l.icon aria-hidden className="h-4 w-4 text-muted-foreground" />
-              <span className="text-13 font-medium">{l.label}</span>
+              <span className="text-13 font-medium">{t(l.label)}</span>
               <Badge tone="outline" className="ml-auto" data-testid={`brain-layer-${l.scope}-status`}>
-                {open ? "已开放" : "尚未开放"}
+                {open ? t("brain.layer.open") : t("brain.layer.closed")}
               </Badge>
             </div>
-            <p className="text-12 text-muted-foreground">{l.what}</p>
-            {open && l.scope === "project" ? <Link href="/projects" className="text-12 text-primary underline">查看项目记忆</Link> : null}
+            <p className="text-12 text-muted-foreground">{t(l.what)}</p>
+            {open && l.scope === "project" ? <Link href="/projects" className="text-12 text-primary underline">{t("brain.layer.project.view")}</Link> : null}
             {open && l.scope === "org" ? (
               <>
-                <Button size="sm" variant="outline" disabled={status === "loading"} onClick={() => void openOrg()}>查看组织记忆</Button>
-                {status === "loading" ? <p role="status" className="text-12">正在读取组织记忆…</p> : null}
-                {status === "failed" ? <p role="alert" className="text-12">暂时读不到组织记忆，请点击上方按钮重试。</p> : null}
-                {status === "denied" ? <p role="alert" className="text-12">你没有权限查看当前组织的记忆。</p> : null}
+                <Button size="sm" variant="outline" disabled={status === "loading"} onClick={() => void openOrg()}>{t("brain.layer.org.view")}</Button>
+                {status === "loading" ? <p role="status" className="text-12">{t("brain.layer.org.loading")}</p> : null}
+                {status === "failed" ? <p role="alert" className="text-12">{t("brain.layer.org.failed")}</p> : null}
+                {status === "denied" ? <p role="alert" className="text-12">{t("brain.layer.org.denied")}</p> : null}
                 {status === "ready" && org ? (
                   <div data-testid="brain-org-content" className="flex flex-col gap-2 text-12">
-                    {org.claims.length === 0 ? <p>当前组织还没有记忆。可由负责人或管理员从项目大脑记到组织记忆。</p> : null}
+                    {org.claims.length === 0 ? <p>{t("brain.layer.org.empty")}</p> : null}
                     {org.claims.map((c) => <p key={c.id}>{c.statement}</p>)}
                   </div>
                 ) : null}
@@ -64,15 +68,15 @@ export function SharedLayers() {
             ) : null}
             {!open ? (
               <p className="text-11 text-muted-foreground">
-                现在还不能用。开放以后，你可以把长期记忆里的内容分享到这里。
+                {t("brain.layer.closedHint")}
               </p>
             ) : l.scope === "project" ? (
               <p className="text-11 text-muted-foreground" data-testid="brain-layer-project-hint">
-                在项目对话的知识面板里点「记到项目大脑」，记下的内容就进入该项目的记忆；项目里的对话会自动想起它。
+                {t("brain.layer.project.hint")}
               </p>
             ) : (
               <p className="text-11 text-muted-foreground" data-testid="brain-layer-org-hint">
-                组织负责人或管理员在项目大脑里点「记到组织记忆」，那一条就进入整个组织的记忆，组织里的每个成员都看得到。
+                {t("brain.layer.org.hint")}
               </p>
             )}
           </div>

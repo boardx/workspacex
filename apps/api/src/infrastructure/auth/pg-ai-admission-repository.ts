@@ -1,3 +1,4 @@
+import {lockCapacityEpoch} from "../org-capacity/pg-commercial-capacity";
 import type {LimitAction,LimitScopeKind} from "../../application/auth/token-quota-ports";
 import {PgLimitRuleRepository} from "./pg-limit-rule-repository";
 import {pickFirstTriggeredExact} from "../../domain/auth/limit-rule-evaluation";
@@ -17,6 +18,7 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
  async resolveBudgetPolicy(orgId:OrgId,userId:string,tokenBilling:"token"|"not-applicable"="token"):ReturnType<AiBudgetPolicyPort["resolveBudgetPolicy"]>{
   if(!userId)throw new Error("INVALID_AI_SUBJECT");
   return this.db.withTenant(orgId,async s=>{
+   await lockCapacityEpoch(s);
    // Match old quota writers before any organization row/FK locks; this does not
    // read or activate legacy values. The reverse order deadlocks first-time inserts.
    await s.query("SELECT pg_advisory_xact_lock(hashtext($1))",[orgId]);
@@ -60,9 +62,10 @@ export class PgAiAdmissionRepository implements AiAdmissionPort,AiBudgetPolicyPo
   if(logical&&(!input.logicalCallId||input.logicalCallId.length>500||!Number.isSafeInteger(input.logicalAttempt)||!Number.isSafeInteger(input.maximumAttempts)
    ||input.logicalAttempt!<0||input.maximumAttempts!<1||input.maximumAttempts!>5||input.logicalAttempt!>=input.maximumAttempts!))throw new Error("INVALID_AI_ATTEMPT_SLOT");
   return this.db.withTenant(orgId, async s => {
+   await lockCapacityEpoch(s);
    // Plan lock serializes entitlement changes with admission, including first-ever plan assignment.
    await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))",[JSON.stringify(["ai-limit-rules",String(orgId)])]);
-   const org=await s.query("SELECT id FROM organizations WHERE id=$1 AND kind='organization' FOR SHARE",[orgId]);
+   const org=await s.query("SELECT id FROM organizations WHERE id=$1 AND kind='organization' FOR UPDATE",[orgId]);
    if(!org.rows[0]) return {decision:"PLAN_UNCONFIGURED" as const,replay:false};
    // All admission/settlement/configuration writers must use this same canonical budget lock.
    await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))", [JSON.stringify([String(orgId),input.userId,new Date(input.windowStart).toISOString(),new Date(input.windowEnd).toISOString()])]);

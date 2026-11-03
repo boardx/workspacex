@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ✓ tests/auth/ai-policy-configuration.test.ts (11 tests) 61ms
+
+ Test Files  1 passed (1)
+      Tests  11 passed (11)
+   Start at  01:55:18
+   Duration  7.37s (transform 3.59s, setup 0ms, collect 6.65s, tests 61ms, environment 0ms, prepare 175ms)
+

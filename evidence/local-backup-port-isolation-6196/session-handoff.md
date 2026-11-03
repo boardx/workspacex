@@ -1,0 +1,3 @@
+# #6196 handoff
+
+Issue6196 fixes a required gate for6195candidate787e833b/run41650727829/job125968103154. Baseline fixed55492 bind rejection is known; CIoccupantownerunknown. Minimalport0wrapperactualendpoint+roundtriptesthelpernestedfinally, alloldactualdump/rowassertionspreserved. EvidenceREADME/plan/review/red-greenlogs here. Fullpackage43/255/typecheck/initgreen, noDocker/Next/browser. Neednormalpush/PRdevelop thenlatestheadCI andrealnativecandidate. Neverkillunknownlisteners orsilentlyretryoldcandidate. i18nnewworkpaused; old6173/6184sourcecommitsunrelatedtoscope. Sameworktreecurrentbranchworker/local-backup-port-isolation, nosecondworktree. Returnheavywindowtopeersafterpush;mainownsqueue.

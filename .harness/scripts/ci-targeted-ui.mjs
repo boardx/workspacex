@@ -64,6 +64,31 @@ export function inspectUiBoundary(before,after,allowedImports=policy.imports){
  const a=structure(before,allowedImports),b=structure(after,allowedImports);
  return !!a?.safe&&!!b?.safe&&JSON.stringify(presentationTree(before))===JSON.stringify(presentationTree(after))&&a.imports.length===Object.keys(allowedImports).length&&JSON.stringify(a.imports)===JSON.stringify(b.imports)&&JSON.stringify(a.api)===JSON.stringify(b.api)&&[...b.tags].every(x=>a.tags.has(x))&&[...b.attrs].every(x=>a.attrs.has(x))&&[...b.names].every(x=>a.names.has(x));
 }
+// No module evaluation: only existing object string values may vary.
+export function inspectMessageBoundary(before,after,allowedKeys){
+ ts??=require('typescript');
+ const comments=text=>{const scanner=ts.createScanner(ts.ScriptTarget.Latest,false,ts.LanguageVariant.Standard,text),out=[];for(let k=scanner.scan();k!==ts.SyntaxKind.EndOfFileToken;k=scanner.scan())if([ts.SyntaxKind.SingleLineCommentTrivia,ts.SyntaxKind.MultiLineCommentTrivia].includes(k))out.push(scanner.getTokenText());return out;};
+ if(JSON.stringify(comments(before))!==JSON.stringify(comments(after)))return false;
+ let safe=true;const values=[];
+ const tree=text=>{
+  const source=ts.createSourceFile('messages.ts',text,ts.ScriptTarget.Latest,true,ts.ScriptKind.TS);
+  if(source.parseDiagnostics.length)safe=false;
+  if(source.statements.some(n=>!ts.isImportDeclaration(n)&&!ts.isVariableStatement(n)))safe=false;
+  function fingerprint(n){
+   if(ts.isCallExpression(n)||ts.isNewExpression(n)||ts.isTaggedTemplateExpression(n)||ts.isComputedPropertyName(n))safe=false;
+   if(ts.isStringLiteral(n)&&ts.isPropertyAssignment(n.parent)&&n.parent.initializer===n&&ts.isObjectLiteralExpression(n.parent.parent)){
+    values.push({key:n.parent.name.text,value:n.text});return [n.kind,'message',n.text.match(/\{\w+\}/g)?.sort()??[]];
+   }
+   const children=n.getChildren(source);return children.length?[n.kind,children.map(fingerprint)]:[n.kind,n.getText(source)];
+  }
+  return fingerprint(source);
+ };
+ const a=tree(before),old=values.splice(0),b=tree(after);
+ if(!old.length||old.length!==values.length)return false;
+ for(let i=0;i<old.length;i++)if(old[i].value!==values[i].value&&((allowedKeys&&!allowedKeys.includes(old[i].key))||/[<>\u0000-\u001f]|(?:https?:|javascript:|data:|^\/|\/\/)/i.test(values[i].value)))safe=false;
+ return safe&&JSON.stringify(a)===JSON.stringify(b);
+}
+const companion=path=>/^docs\/(?:design|superpowers\/(?:plans|specs))\/[a-zA-Z0-9_./-]+\.md$/.test(path)||/^evidence\/[a-zA-Z0-9_./-]+\.(?:md|log|png)$/.test(path);
 function checkPolicy(p){
  if(!p.imports||typeof p.imports!=='object'||Object.values(p.imports).some(x=>typeof x!=='string')||p.schemaVersion!==1||typeof p.enabled!=='boolean'||typeof p.sourceFile!=='string'||!p.sourceFile.startsWith('apps/web/components/')||!p.sourceFile.endsWith('.tsx'))throw Error('UNKNOWN_POLICY');
  const paths=[p.sourceFile,...(p.unitTests??[]),...(p.browserTests??[])];
@@ -80,16 +105,27 @@ export function planTargeted({baseSha,headSha,enabled=policy.enabled,policyInput
   for(const sha of [baseSha,headSha])git(['cat-file','-e',`${sha}^{commit}`]);
   git(['merge-base','--is-ancestor',baseSha,headSha]);
   const paths=git(['diff','--no-renames','--name-status','-z',baseSha,headSha]).split('\0').filter(Boolean);
-  if(JSON.stringify(paths)!==JSON.stringify(['M',policyInput.sourceFile]))return full('outside-reviewed-input-boundary');
+  if(paths.length%2)return full('outside-reviewed-input-boundary');
+  const entries=[];for(let i=0;i<paths.length;i+=2)entries.push({status:paths[i],path:paths[i+1]});
+  const registered=policyInput.messageFiles??[];
+  if(!Array.isArray(registered)||registered.some(x=>x.file!=='apps/web/lib/i18n/messages/en.ts'||x.browserConfig!=='playwright.organization-create.config.ts'||!Array.isArray(x.messageKeys)||!x.messageKeys.length||x.messageKeys.some(k=>typeof k!=='string')||!Array.isArray(x.unitTests)||!x.unitTests.length||!Array.isArray(x.browserTests)||!x.browserTests.length||x.unitTests.some(f=>!/^tests\/.+\.test\.tsx?$/.test(f)||f.split('/').includes('..'))||x.browserTests.some(f=>!/^e2e\/.+\.spec\.ts$/.test(f)||f.split('/').includes('..'))))return full('unknown-message-policy');
+  const sources=entries.filter(x=>x.path===policyInput.sourceFile||registered.some(r=>r.file===x.path));
+  if(sources.length!==1||sources[0].status!=='M'||entries.some(x=>x!==sources[0]&&(!['M','A'].includes(x.status)||!companion(x.path)||x.path.split('/').includes('..'))))return full('outside-reviewed-input-boundary');
+  if(entries.length>17)return full('too-many-companion-files');
+  const selected=registered.find(x=>x.file===sources[0].path);
+  const sourceFile=sources[0].path;
   const read=(sha,path)=>{
    const tree=git(['ls-tree','-z',sha,'--',path]);
    if(!tree.startsWith('100644 blob ')||!tree.endsWith(`\t${path}\0`))throw Error('NON_REGULAR_INPUT');
    return git(['show',`${sha}:${path}`]);
   };
-  if(preflight){read(baseSha,policyInput.sourceFile);read(headSha,policyInput.sourceFile);return finish('candidate-ui','requires-runtime-boundary-inspection',[]);}
-  if(!inspectUiBoundary(read(baseSha,policyInput.sourceFile),read(headSha,policyInput.sourceFile),policyInput.imports))return full('runtime-or-public-boundary-changed');
+  for(const entry of entries){read(headSha,entry.path);if(entry.status==='M')read(baseSha,entry.path);}
+  if(preflight){read(baseSha,sourceFile);read(headSha,sourceFile);return finish('candidate-ui','requires-runtime-boundary-inspection',[]);}
+  if(!(selected?inspectMessageBoundary(read(baseSha,sourceFile),read(headSha,sourceFile),selected.messageKeys):inspectUiBoundary(read(baseSha,sourceFile),read(headSha,sourceFile),policyInput.imports)))return full('runtime-or-public-boundary-changed');
   const suite=(id,files)=>({id,files:files.map(file=>({file,sha256:hash(read(headSha,`apps/web/${file}`))}))});
-  return finish('targeted-ui','reviewed-local-ui-change',[suite('web-unit',policyInput.unitTests),suite('chat-ui',policyInput.browserTests)]);
+  const plan=finish('targeted-ui','reviewed-local-ui-change',[suite('web-unit',selected?.unitTests??policyInput.unitTests),suite('chat-ui',selected?.browserTests??policyInput.browserTests)]);
+  if(selected){const {planDigest,...body}=plan;body.browserConfig={file:selected.browserConfig,sha256:hash(read(headSha,`apps/web/${selected.browserConfig}`))};return {...body,planDigest:hash(JSON.stringify(body))};}
+  return plan;
  }catch{return full('unavailable-or-unrecognized-input');}
 }
 export function verifyTargetedPlan(plan,options){

@@ -1,3 +1,17 @@
+import {TeamPaymentRecoveryWorker} from "./infrastructure/billing/team-payment-recovery-worker";
+import {PgTeamRecoverySweep} from "./infrastructure/billing/pg-team-recovery-sweep";
+import {TeamBillingController} from "./interface/controllers/team-billing.controller";
+import {TeamAccountService} from "./application/billing/team-account-service";
+import {TeamBillingAccess} from "./application/billing/team-billing-access";
+import {TeamCheckoutService} from "./application/billing/team-checkout-service";
+import {PgTeamCheckoutRepository} from "./infrastructure/billing/pg-team-checkout-repository";
+import {PgTeamQuoteRepository} from "./infrastructure/billing/pg-team-quote-repository";
+import {PgTeamAccountRepository} from "./infrastructure/billing/pg-team-account-repository";
+import {PgTeamPaymentRepository} from "./infrastructure/billing/pg-team-payment-repository";
+import {TeamPaymentReconciler} from "./infrastructure/billing/team-payment-reconciler";
+import {TeamWechatPaymentClient} from "./infrastructure/billing/team-wechat-payment-client";
+import {TeamWechatCheckoutClient} from "./infrastructure/billing/team-wechat-checkout-client";
+import {TeamWechatCreditingStore} from "./infrastructure/billing/team-wechat-crediting-store";
 import {PersonalCreditPeriodWorker} from "./infrastructure/billing/personal-credit-period-worker";
 import { PersonalCheckoutController } from "./interface/controllers/personal-checkout.controller";
 import { PersonalCheckoutService } from "./application/billing/personal-checkout-service";
@@ -78,8 +92,16 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
 
 @Module({
   imports: [IdentityPersistenceModule],
-  controllers: [PersonalEntitlementController, PersonalCheckoutController, BillingCatalogController, NativeCreditTariffController, ConsumptionSettingsController, BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
+  controllers: [TeamBillingController, PersonalEntitlementController, PersonalCheckoutController, BillingCatalogController, NativeCreditTariffController, ConsumptionSettingsController, BillingStripeWebhookController, BillingSubscriptionController, BillingConfigController, BillingWalletController, BillingOrderController, BillingWechatNotifyController],
   providers: [
+    {provide:TeamPaymentRecoveryWorker,useFactory:(db:DatabasePort,config:DeploymentBillingConfig,logger:LoggerPort)=>new TeamPaymentRecoveryWorker(new PgTeamRecoverySweep(db,new TeamPaymentReconciler(db,new TeamWechatPaymentClient(config,logger),new PgTeamPaymentRepository(db))),logger),inject:[DATABASE_PORT,DeploymentBillingConfig,LOGGER_PORT]},
+    {provide:TeamAccountService,useFactory:(db:DatabasePort,identity:IdentityRepository,config:DeploymentBillingConfig,logger:LoggerPort)=>{
+      const access=new TeamBillingAccess(identity),provider=new TeamWechatCheckoutClient(config,logger);
+      // Closed until the complete lane is validated; existing receipts/recovery remain available.
+      const salesEnabled=()=>false;
+      const purchases=new PgTeamCheckoutRepository(db,access,salesEnabled);
+      return new TeamAccountService(new PgTeamAccountRepository(db,access,salesEnabled,()=>config.getPricingMarket()),new PgTeamQuoteRepository(db,access,salesEnabled,undefined,()=>config.getPricingMarket()),purchases,new TeamCheckoutService(purchases,provider),new TeamPaymentReconciler(db,new TeamWechatPaymentClient(config,logger),new PgTeamPaymentRepository(db)));
+    },inject:[DATABASE_PORT,IDENTITY_REPOSITORY,DeploymentBillingConfig,LOGGER_PORT]},
     { provide: PersonalEntitlementService, useFactory: (db: DatabasePort) => new PersonalEntitlementService(new PgPersonalEntitlementRepository(db)), inject: [DATABASE_PORT] },
     { provide: PersonalCheckoutService, useFactory: (db: DatabasePort, config: DeploymentBillingConfig, logger: LoggerPort) =>
       new PersonalCheckoutService(new PgPersonalCheckoutRepository(db), config,
@@ -113,7 +135,7 @@ import { PgBillingOrderExpiryStore } from "./infrastructure/billing/pg-billing-o
       const client=new WechatMonthlyPassClient(config,db,logger);
       const monthly=new MonthlyPassService(new PgMonthlyPassRepository(db),new MonthlyCheckoutRouter(new StripeMonthlyPassClient(config),client));
       const legacy = new MonthlyWechatCreditingStore(db,new PgBillingCreditingStore(db),monthly,client);
-      return new PersonalWechatCreditingStore(db, new PersonalWechatPaymentClient(config, logger), new PgPersonalPaymentRepository(db), legacy);
+      return new TeamWechatCreditingStore(db,new TeamWechatPaymentClient(config,logger),new PgTeamPaymentRepository(db),new PersonalWechatCreditingStore(db, new PersonalWechatPaymentClient(config, logger), new PgPersonalPaymentRepository(db), legacy));
     }, inject:[DATABASE_PORT,DeploymentBillingConfig,LOGGER_PORT] },
     { provide: BillingWechatNotifyService, useFactory: (config: DeploymentBillingConfig, store: BillingCreditingStore) =>
       new BillingWechatNotifyService(new DeploymentWechatNoticeVerifier(config), store, new ConsoleLogger()), inject: [DeploymentBillingConfig, BILLING_CREDITING_STORE] },

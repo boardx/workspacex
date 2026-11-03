@@ -1,3 +1,4 @@
+import { ABOUT_ME_E2E } from "./e2e/about-me-fixture";
 import { ENTITY_LOCALIZATION_E2E } from "./e2e/entity-localization-fixture";
 import path from "node:path";
 import {partitionSmokeProjects} from "./smoke-project-partition";
@@ -91,6 +92,7 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  */
 const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
+  FULLSTACK_ABOUT_ME_FIXTURE: JSON.stringify(ABOUT_ME_E2E),
   FULLSTACK_ENTITY_LOCALIZATION_ORG_ID: ENTITY_LOCALIZATION_E2E.orgId,
   FULLSTACK_ENTITY_LOCALIZATION_PROJECT_ID: ENTITY_LOCALIZATION_E2E.projectId,
   FULLSTACK_ENTITY_LOCALIZATION_ADMIN_USER_ID: ENTITY_LOCALIZATION_E2E.adminUserId,
@@ -113,6 +115,17 @@ const fixtureEnv = {
   FULLSTACK_E2E_ARTIFACT_ID: FULLSTACK_E2E.artifactId,
   FULLSTACK_E2E_BOARD_ARTIFACT_ID: FULLSTACK_E2E.boardArtifactId,
   FULLSTACK_E2E_SENTINEL_FILE: FULLSTACK_E2E.sentinelFile,
+  FULLSTACK_E2E_BRAIN_EMAIL: FULLSTACK_E2E.brainEmail,
+  FULLSTACK_E2E_BRAIN_PASSWORD: FULLSTACK_E2E.brainPassword,
+  FULLSTACK_E2E_BRAIN_USER_ID: FULLSTACK_E2E.brainUserId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_ORG_ID: FULLSTACK_E2E.workflowRunsOrgId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT_ID: FULLSTACK_E2E.workflowRunsProjectId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_USER_ID: FULLSTACK_E2E.workflowRunsUserId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL: FULLSTACK_E2E.workflowRunsEmail,
+  FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD: FULLSTACK_E2E.workflowRunsPassword,
+  FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE_ID: FULLSTACK_E2E.workflowRunsInstanceId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_KEY: FULLSTACK_E2E.workflowRunsKey,
+  FULLSTACK_E2E_WORKFLOW_RUNS_GOAL: FULLSTACK_E2E.workflowRunsGoal,
   FULLSTACK_E2E_ADMIN_EMAIL: FULLSTACK_E2E.adminEmail,
   FULLSTACK_E2E_ADMIN_PASSWORD: FULLSTACK_E2E.adminPassword,
   FULLSTACK_E2E_ADMIN_USER_ID: FULLSTACK_E2E.adminUserId,
@@ -321,6 +334,8 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        "i18n-brain-navigation.spec.ts",
+        "i18n-about-me.spec.ts",
         // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
         "chat-public-share.spec.ts",
         "guided-research-runtime.spec.ts",
@@ -359,6 +374,7 @@ export default defineConfig({
         // ⚠ PJ-01 / #976 同理排在 `seeded`：它要用种子里的 `lead`（新建项目唯一有权的角色）
         //   与 consultant（反证：非 lead 必须被服务端拒绝）两个账号。
         "project-create-smoke.spec.ts",
+        "i18n-workflow-runs.spec.ts",
         "i18n-live-tasks.spec.ts",
         "i18n-project-list.spec.ts",
         "i18n-project-workbench.spec.ts",

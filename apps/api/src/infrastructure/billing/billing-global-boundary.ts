@@ -8,6 +8,8 @@ import {PERSONAL_PAYMENT_SQL} from "./personal-payment-sql";
 import {PERSONAL_PAYMENT_RECOVERY_SQL} from "./personal-payment-recovery-sql";
 /** Single-source global billing statements for verified receipts, Stripe subscription synchronization and order expiry. No caller-supplied SQL is admitted. */
 export const BILLING_GLOBAL_SQL = Object.freeze({
+  teamDueOrgs: "SELECT org_id FROM billing_team_due_orgs($1,$2,$3)",
+  teamPurchaseOrg: "SELECT billing_team_purchase_org($1) AS org_id",
   ...CREDIT_PERIOD_GRANT_SQL,
   ...PERSONAL_CHECKOUT_SQL,
   ...PERSONAL_PAYMENT_SQL,

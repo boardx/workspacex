@@ -133,14 +133,17 @@ function quotaWait(status: number, headers: Record<string, string>): number | nu
   return null;
 }
 
-function once(url: URL, seams: ImportFetchSeams, token?: string): Promise<{
+function once(url: URL, seams: ImportFetchSeams, token: string | undefined, signal: AbortSignal): Promise<{
   readonly status: number;
   readonly diagnostics: Record<string, string>;
   readonly location: string | null;
   readonly mediaType: string;
   readonly body: Buffer;
 }> {
+  signal.throwIfAborted();
   return new Promise((resolve, reject) => {
+    let removeAbort = () => {};
+    const fail = (error: unknown) => { removeAbort(); reject(error); };
     const request = https.request(
       url,
       {
@@ -169,28 +172,33 @@ function once(url: URL, seams: ImportFetchSeams, token?: string): Promise<{
           total += chunk.length;
           if (total > MAX_BYTES) {
             response.destroy();
-            reject(new ImportSourceRefusedError("IMPORT_PAYLOAD_TOO_LARGE"));
+            fail(new ImportSourceRefusedError("IMPORT_PAYLOAD_TOO_LARGE"));
             return;
           }
           chunks.push(chunk);
         });
-        response.on("end", () =>
+        response.on("end", () => {
+          removeAbort();
           resolve({
             status: response.statusCode ?? 0,
             diagnostics: githubDiagnosticHeaders(response.headers),
             location: response.headers.location ?? null,
             mediaType: (response.headers["content-type"] ?? "application/octet-stream").split(";")[0]!.trim(),
             body: Buffer.concat(chunks),
-          }),
-        );
-        response.on("error", reject);
+          });
+        });
+        response.on("error", fail);
       },
     );
     request.on("timeout", () => {
       request.destroy();
-      reject(new ImportSourceRefusedError("IMPORT_FETCH_TIMEOUT"));
+      fail(new ImportSourceRefusedError("IMPORT_FETCH_TIMEOUT"));
     });
-    request.on("error", reject);
+    request.on("error", fail);
+    const abort = () => { fail(signal.reason); request.destroy(); };
+    signal.addEventListener("abort", abort, { once: true });
+    removeAbort = () => signal.removeEventListener("abort", abort);
+    if (signal.aborted) { abort(); return; }
     request.end();
   });
 }
@@ -200,41 +208,92 @@ function once(url: URL, seams: ImportFetchSeams, token?: string): Promise<{
  *   ① `assertImportUrlAllowed`（字面量）—— 每一跳都走；
  *   ② `assertResolvedAddressAllowed`（解析后）—— 由 `guardedLookup` 在 socket 前调用。
  */
+/** A single read-only fetch shares the existing ten-second budget across all hops. */
+export interface ImportFetchOptions { readonly signal?: AbortSignal }
+
+function trustedGithubRead(url: URL): boolean {
+  return url.protocol === "https:" && !url.port
+    && (url.hostname === "api.github.com" || url.hostname === "raw.githubusercontent.com");
+}
+
+function retryAfterMs(value: string | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (/^\d+$/.test(value)) return Number(value) * 1000;
+  const date = Date.parse(value);
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : undefined;
+}
+
+function waitForRetry(ms: number, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted();
+  return new Promise((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); signal.removeEventListener("abort", abort); reject(signal.reason); };
+    const timer = setTimeout(() => { signal.removeEventListener("abort", abort); resolve(); }, ms);
+    signal.addEventListener("abort", abort, { once: true });
+    if (signal.aborted) abort();
+  });
+}
+
 export async function fetchImportSource(
   rawUrl: string,
   policy: ImportUrlPolicy,
   seams: ImportFetchSeams = PRODUCTION_SEAMS,
+  options: ImportFetchOptions = {},
 ): Promise<FetchedImportSource> {
   let target = assertImportUrlAllowed(rawUrl, policy);
-
-  // Capture only for a direct API request. A redirect never carries this credential,
-  // including redirects back to the API or from an arbitrary import host.
+  const controller = new AbortController();
+  const cancel = () => controller.abort(new DOMException("Import cancelled", "AbortError"));
+  options.signal?.addEventListener("abort", cancel, { once: true });
+  if (options.signal?.aborted) cancel();
+  const deadline = Date.now() + TIMEOUT_MS;
+  const timer = setTimeout(() => controller.abort(new ImportSourceRefusedError("IMPORT_FETCH_TIMEOUT")), TIMEOUT_MS);
+  // Capture only for a direct API request; retries never restore redirect credentials.
   const token = trustedGithubApi(target) ? process.env[GITHUB_IMPORT_TOKEN_ENV]?.trim() : undefined;
-  let retried = false;
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
-    let result = await once(target, seams, hop === 0 ? token : undefined);
-    const wait = trustedGithubApi(target) ? quotaWait(result.status, result.diagnostics) : undefined;
-    if (wait !== undefined && wait !== null && wait <= MAX_QUOTA_WAIT_MS && !retried) {
-      retried = true;
-      await new Promise((resolve) => setTimeout(resolve, wait));
-      result = await once(target, seams, hop === 0 ? token : undefined);
-    }
-    if (result.status >= 300 && result.status < 400 && result.location !== null) {
-      // 重定向目标要按**当前 URL** 解析相对地址，然后重新过第一道门。
-      target = assertImportUrlAllowed(new URL(result.location, target).toString(), policy);
-      continue;
-    }
-    if (result.status !== 200) {
-      if (trustedGithubApi(target)) {
-        console.warn("[skill-import] upstream-http-failure", {
+  let retries = 0;
+  let quotaRetried = false;
+  try {
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+      let result;
+      for (;;) {
+        controller.signal.throwIfAborted();
+        try {
+          result = await once(target, seams, hop === 0 ? token : undefined, controller.signal);
+        } catch (error) {
+          controller.signal.throwIfAborted();
+          if (!trustedGithubRead(target) || !(error instanceof Error) || !("code" in error)
+            || error.code !== "ECONNRESET" || retries >= 2) throw error;
+          const wait = 200 * 2 ** retries;
+          if (Date.now() + wait >= deadline) throw new ImportSourceRefusedError("IMPORT_FETCH_TIMEOUT");
+          retries += 1;
+          await waitForRetry(wait, controller.signal);
+          continue;
+        }
+        const quota = trustedGithubApi(target) ? quotaWait(result.status, result.diagnostics) : undefined;
+        const transient = trustedGithubRead(target) && [502, 503, 504].includes(result.status) && retries < 2;
+        const wait = transient ? retryAfterMs(result.diagnostics["retry-after"]) ?? 200 * 2 ** retries
+          : quota !== undefined && quota !== null && !quotaRetried && retries < 2 ? quota : undefined;
+        if (wait === undefined || wait > MAX_QUOTA_WAIT_MS) break;
+        if (Date.now() + wait >= deadline) throw new ImportSourceRefusedError("IMPORT_FETCH_TIMEOUT");
+        retries += 1;
+        if (!transient) quotaRetried = true;
+        await waitForRetry(wait, controller.signal);
+      }
+      if (result.status >= 300 && result.status < 400 && result.location !== null) {
+        target = assertImportUrlAllowed(new URL(result.location, target).toString(), policy);
+        continue;
+      }
+      if (result.status !== 200) {
+        if (trustedGithubApi(target)) console.warn("[skill-import] upstream-http-failure", {
           host: "api.github.com", status: result.status, headers: result.diagnostics,
         });
+        const quota = trustedGithubApi(target) ? quotaWait(result.status, result.diagnostics) : undefined;
+        if (quota !== undefined) throw new GithubImportRateLimitError(quota);
+        throw new ImportSourceRefusedError("IMPORT_FETCH_FAILED");
       }
-      const remainingWait = trustedGithubApi(target) ? quotaWait(result.status, result.diagnostics) : undefined;
-      if (remainingWait !== undefined) throw new GithubImportRateLimitError(remainingWait);
-      throw new ImportSourceRefusedError("IMPORT_FETCH_FAILED");
+      return { url: target.toString(), mediaType: result.mediaType, body: result.body };
     }
-    return { url: target.toString(), mediaType: result.mediaType, body: result.body };
+    throw new ImportSourceRefusedError("IMPORT_TOO_MANY_REDIRECTS");
+  } finally {
+    clearTimeout(timer);
+    options.signal?.removeEventListener("abort", cancel);
   }
-  throw new ImportSourceRefusedError("IMPORT_TOO_MANY_REDIRECTS");
 }

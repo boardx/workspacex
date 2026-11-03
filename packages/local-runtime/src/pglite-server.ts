@@ -25,6 +25,7 @@ import { assertPortFree } from "./processes";
 
 export interface PgliteServerOptions {
   readonly dataDir: string;
+  /** Zero lets the OS bind an available loopback port atomically. */
   readonly port: number;
   readonly username: string;
   readonly maxConnections?: number;
@@ -55,7 +56,7 @@ export interface PgliteHandle {
 }
 
 export async function startPgliteServer(opts: PgliteServerOptions): Promise<PgliteHandle> {
-  await assertPostgresPortFree(opts.port);
+  if (opts.port !== 0) await assertPostgresPortFree(opts.port);
   const db = await openPglite(opts.dataDir, () => PGlite.create({
     dataDir: opts.dataDir,
     extensions: { vector },
@@ -78,7 +79,7 @@ export async function startPgliteServer(opts: PgliteServerOptions): Promise<Pgli
   await server.start();
   let stopped = false;
   return {
-    port: opts.port,
+    port: Number(server.getServerConn().split(":").at(-1)),
     username: opts.username,
     async dumpDatabase() {
       const blob = await db.dumpDataDir("gzip");

@@ -1,0 +1,7 @@
+73c2a851ed4061f93bfa203492849e01108ee80d apps/web/components/brain/brain-screen.tsx
+ead3038291a7836d6e9b00fe26a3b78cfec1c45b apps/web/components/brain/session-memory.tsx
+8049c125ee8d58aa4ae81888e1dc372bf0306514 apps/web/components/brain/shared-layers.tsx
+0a367f6afc17651e59b1f6d1706e5b8e05d3e89f apps/web/lib/i18n/namespaces/brain-views.ts
+ab24e6da07d1b489899773f3e52993c71981687f apps/web/tests/brain/brain-navigation-i18n.test.tsx
+727055fa30e1aaaf80c93e7a44ef9e10f0eebde4 apps/web/e2e/i18n-brain-navigation.spec.ts
+0383097b2cedcf8ecdb5e9b06978250dd48a8ecb apps/web/scripts/verify-brain-seed-replay.ts

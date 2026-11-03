@@ -1,3 +1,5 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 /**
  * phase-18 F13 —— 回答下「这次用到了哪些记忆、为什么」的展示用词与纯投影（uc-18-2 R8 / E1、uc-18-4 R3-6）。
  *
@@ -62,12 +64,12 @@ export function truncateStatement(text: string, max: number = CITATION_CHIP_MAX_
  * 个人空间条目的出处标签（uc-18-4 R3-6）：「来自你 {M/D} 的对话」，日期按本地时区。
  * 不是个人空间的条目返回 null；个人空间但没有时间（或时间读不出来）时说「来自你的长期记忆」。
  */
-export function personalOriginLabel(memory: Pick<KgRecalledMemory, "scope" | "saidAt">): string | null {
+export function personalOriginLabel(memory: Pick<KgRecalledMemory, "scope" | "saidAt">, locale: Locale = "zh-CN"): string | null {
   if (memory.scope !== "personal") return null;
-  if (memory.saidAt === null) return "来自你的长期记忆";
+  if (memory.saidAt === null) return translate(locale, "aboutMemory.origin.personal");
   const d = new Date(memory.saidAt);
-  if (Number.isNaN(d.getTime())) return "来自你的长期记忆";
-  return `来自你 ${String(d.getMonth() + 1)}/${String(d.getDate())} 的对话`;
+  if (Number.isNaN(d.getTime())) return translate(locale, "aboutMemory.origin.personal");
+  return translate(locale, "aboutMemory.origin.dated", { date: `${String(d.getMonth() + 1)}/${String(d.getDate())}` });
 }
 
 /**

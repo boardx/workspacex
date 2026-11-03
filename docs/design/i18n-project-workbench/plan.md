@@ -16,7 +16,7 @@
 
 ```mermaid
 flowchart TD
-  G([目标：一句话目标])
+  G([目标：项目工作台双语导航与访问态])
   S1[1. 理解目标并确认完成判据]
   S2[2. 勘探现状 / 定位要改的地方]
   S3[3. 实现最小改动]
@@ -45,3 +45,7 @@ flowchart TD
 | 时间 | 节点 | 状态变化 | 依据（命令 / 证据 / 堵塞原因） |
 |---|---|---|---|
 | 2026-11-03 | G, S1 | todo → doing | 接到目标，开始理解 |
+
+## 2026-11-04 resumed execution
+
+User resumed remaining i18n; main assigned this saved issue first, then complete B2/B3 flows. Merge actualdevelop44aeac6e10b688471fe03536fc8490a353824976, preserving9owned source/helper/spec/test blobs frombccc15f8a. Both aggregators reconstructed from currentbase plus own namespace afterworkflowRuns. Final responsive-source browser remains required; initial3/3 is historical and the cancelled geometry round is not a pass.

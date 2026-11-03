@@ -1,0 +1,13 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/invitation-session.test.tsx (13 tests) 609ms
+ ✓ tests/ui/invitation-entry-i18n.test.tsx (5 tests) 471ms
+ ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 655ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 48ms
+
+ Test Files  4 passed (4)
+      Tests  27 passed (27)
+   Start at  05:29:19
+   Duration  9.39s (transform 1.09s, setup 1.20s, collect 3.61s, tests 1.78s, environment 1.70s, prepare 354ms)

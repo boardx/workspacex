@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ✓ tests/billing/team-recovery-sweep.test.ts (3 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  00:39:50
+   Duration  383ms (transform 133ms, setup 0ms, collect 178ms, tests 5ms, environment 0ms, prepare 52ms)
+

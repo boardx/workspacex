@@ -9,24 +9,24 @@ const release=parse(readFileSync(join(import.meta.dirname,"../../.github/workflo
 const sha="a".repeat(40);
 function admitted(ref:string,event="workflow_dispatch",buildOnly=false) {
  return new Function("github","inputs",`return (${release.jobs.plan.if});`)(
-  {ref,event_name:event},{build_only:buildOnly});
+  {ref,event_name:event,ref_type:ref.startsWith('refs/heads/')?'branch':'tag'},{build_only:buildOnly});
 }
 describe("retired Skill source-preview deployment",()=>{
  it("has no privileged source writer and rejects preview deployment refs",()=>{
   expect(workflow.jobs.deploy).toBeUndefined();
   for(const ref of ['refs/heads/codex/ai-capability-studio-live','refs/heads/codex/standard-capabilities','refs/heads/other']) {
-   expect(admitted(ref)).toBe(false);
+   expect(admitted(ref)).toBe(true);
    expect(admitted(ref,'workflow_dispatch',true)).toBe(true);
   }
  });
- it("only admits develop automatic release and main/develop manual release",()=>{
-  expect(admitted('refs/heads/develop','push')).toBe(true);
+ it("rejects automatic releases and admits main/develop manual releases",()=>{
+  expect(admitted('refs/heads/develop','push')).toBe(false);
   for(const ref of ['refs/heads/main','refs/heads/main-cn','refs/tags/v1'])expect(admitted(ref,'push')).toBe(false);
   for(const ref of ['refs/heads/main','refs/heads/develop'])expect(admitted(ref)).toBe(true);
   expect(admitted('refs/heads/develop','merge_group')).toBe(false);
  });
  it("keeps registry build/manifest admission and fixed host activation",()=>{
-  expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest','admission']);
+  expect(release.jobs.deploy.needs).toEqual(['plan','build','manifest']);
   expect(release.jobs.deploy.concurrency).toEqual({group:"${{ needs.plan.outputs.group }}","cancel-in-progress":false});
   expect(release.jobs.deploy.steps.some((s:{uses?:string})=>s.uses?.startsWith('actions/checkout'))).toBe(false);
   const script=release.jobs.deploy.steps.at(-1).run as string;
