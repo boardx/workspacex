@@ -8,7 +8,7 @@ The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troub
    × CK-P8 current getThread fixture > never fetches an unrelated agents response even if dispatched to the handler 3ms
      → expected "spy" to not be called at all, but actually been called 1 times
 
-Received: 
+Received:
 
   1st spy call:
 
@@ -44,7 +44,7 @@ AssertionError: expected true to be false // Object.is equality
  FAIL  tests/e2e-archived-thread-response.test.ts > CK-P8 current getThread fixture > never fetches an unrelated agents response even if dispatched to the handler
 AssertionError: expected "spy" to not be called at all, but actually been called 1 times
 
-Received: 
+Received:
 
   1st spy call:
 
