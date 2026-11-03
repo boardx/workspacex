@@ -1,0 +1,19 @@
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+> tsc --noEmit
+
+components/org-admin/org-admin-screen.tsx(1221,32): error TS7006: Parameter 'currentT' implicitly has an 'any' type.
+components/org-admin/org-admin-screen.tsx(1257,32): error TS7006: Parameter 'currentT' implicitly has an 'any' type.
+components/org-admin/org-admin-screen.tsx(1282,72): error TS7006: Parameter 'currentT' implicitly has an 'any' type.
+components/org-admin/org-admin-screen.tsx(1283,87): error TS7006: Parameter 'currentT' implicitly has an 'any' type.
+components/org-admin/org-admin-screen.tsx(1284,36): error TS7006: Parameter 'currentT' implicitly has an 'any' type.
+components/org-admin/org-admin-screen.tsx(1288,31): error TS7006: Parameter 'currentT' implicitly has an 'any' type.
+components/org-admin/org-admin-screen.tsx(1290,31): error TS7006: Parameter 'currentT' implicitly has an 'any' type.
+tests/ui/org-profile-i18n.test.tsx(47,70): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+  Overload 2 of 2, '(role: ByRoleMatcher, options?: ByRoleOptions | undefined): HTMLElement', gave the following error.
+    Object literal may only specify known properties, and 'exact' does not exist in type 'ByRoleOptions'.
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  web@0.1.0 typecheck: `tsc --noEmit`
+Exit status 2
