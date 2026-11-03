@@ -1,3 +1,4 @@
+import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
@@ -210,7 +211,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   "navigation.workflows": "Workflows",
   "navigation.agent-directory": "Agents",
   "navigation.work-skill-catalog": "Skills",
-  "navigation.admin": "Organization admin",
   "navigation.templates": "Templates",
   "navigation.skills": "Skills and marketplace",
   "navigation.agent-runtime": "Agent runtime",
@@ -222,7 +222,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   "navigation.chat-knowledge-graph": "Chat Knowledge Graph",
   "navigation.canvas": "Canvas",
   "navigation.billing-preview": "Billing Preview",
-  "navigation.platform-admin": "Platform admin",
   "navigation.files": "Files",
   "navigation.group.work": "Work",
   "navigation.group.studio": "STUDIO",
@@ -263,6 +262,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.artifacts.one": "{count} artifact",
   ...accountEntryEn,
   ...invitationEntryEn,
+  ...adminNavigationEn,
 };
 
 import { codeFenceEn } from "../namespaces/code-fence";

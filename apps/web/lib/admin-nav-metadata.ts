@@ -1,3 +1,5 @@
+import { adminNavigationZhCN } from "./i18n/namespaces/admin-navigation";
+
 /** Static product navigation metadata; no fixtures, counts, credentials or tenant data. */
 export type AdminModuleKey =
   // ⚠ B3.6（2026-09-04）：`feedback` 已从这个联合类型移除——旧的「反馈与迭代」后台
@@ -55,7 +57,7 @@ export type AdminModuleKey =
  * `asset-kind-nav.ts` 的双向门控要按组名从 `ADMIN_NAV` 里取出资产项集合；
  * 组名写两遍就是「同一事实两处」，改一处会让门控静默地检查一个空组（平凡为真）。
  */
-export const AI_CAPABILITY_GROUP = "AI 能力";
+export const AI_CAPABILITY_GROUP = adminNavigationZhCN["adminNavigation.group.ai"];
 
 /**
  * 后台的**两个面**（2026-09-02 人类直接裁决：「把目前的后台切割为两部分，两个菜单入口，
@@ -70,8 +72,8 @@ export const AI_CAPABILITY_GROUP = "AI 能力";
 export type AdminScope = "org" | "platform";
 
 export const ADMIN_SCOPE_META: Record<AdminScope, { title: string; intro: string; rootHref: string }> = {
-  org: { title: "组织后台", intro: "当前组织的总览、成员配额与本地组织", rootHref: "/admin" },
-  platform: { title: "平台后台", intro: "全平台的 AI 能力、账号与运营管理面", rootHref: "/platform-admin" },
+  org: { title: adminNavigationZhCN["navigation.admin"], intro: adminNavigationZhCN["adminNavigation.scope.org.intro"], rootHref: "/admin" },
+  platform: { title: adminNavigationZhCN["navigation.platform-admin"], intro: adminNavigationZhCN["adminNavigation.scope.platform.intro"], rootHref: "/platform-admin" },
 };
 
 export interface AdminModuleMeta {
@@ -128,29 +130,29 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // ⚠ 2026-08-30（路由复盘）：href 从历史 `/canvas?screen=template-admin` 改成路径段
       // `/canvas/template-admin`——见 `lib/canvas-screens.ts` 头注；旧 query 形态仍可用
       // （`app/canvas/page.tsx` 兼容重定向），但这里不该再手写它。
-      { key: "agent", label: "Agent 目录", href: "/platform-admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
-      { key: "skill", label: "Skill 目录", href: "/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
-      { key: "model", label: "模型", href: "/platform-admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
-      { key: "mcp", label: "MCP", href: "/platform-admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
-      { key: "canvasadmin", label: "画布模板", href: "/canvas/template-admin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
-      { key: "blueprint", label: "项目模板", href: "/tpl/list", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
+      { key: "agent", label: adminNavigationZhCN["adminNavigation.item.agent"], href: "/platform-admin/agent", ucRefs: ["04-agent/uc-4-1", "04-agent/uc-4-4"] },
+      { key: "skill", label: adminNavigationZhCN["adminNavigation.item.skill"], href: "/skill", ucRefs: ["03-skill/uc-3-1", "03-skill/uc-3-4"] },
+      { key: "model", label: adminNavigationZhCN["adminNavigation.item.model"], href: "/platform-admin/model", ucRefs: ["20-model/uc-20-1", "20-model/uc-20-2"] },
+      { key: "mcp", label: adminNavigationZhCN["adminNavigation.item.mcp"], href: "/platform-admin/mcp", ucRefs: ["21-mcp/uc-21-1", "21-mcp/uc-21-2"] },
+      { key: "canvasadmin", label: adminNavigationZhCN["adminNavigation.item.canvasadmin"], href: "/canvas/template-admin", ucRefs: ["23-asset/uc-23-8", "07-canvas/uc-7-1"] },
+      { key: "blueprint", label: adminNavigationZhCN["adminNavigation.item.blueprint"], href: "/tpl/list", ucRefs: ["23-asset/uc-23-8", "02-tpl/uc-2-1"] },
     ],
   },
   {
-    group: "组织",
+    group: adminNavigationZhCN["adminNavigation.group.org"],
     scope: "org",
     items: [
-      { key: "overview", label: "总览", href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
+      { key: "overview", label: adminNavigationZhCN["adminNavigation.item.overview"], href: "/admin", ucRefs: ["17-gov/uc-17-1", "17-gov/uc-17-7"] },
       // 见上方 `AdminModuleKey.org-members`/`org-invites`/`org-profile` 长注：原「组织管理」
       // 单一入口（团队/成员/邀请/组织资料四个标签页）已拆平为三个与 `overview` 同层级的项，
       // 紧跟在总览后面——没有"团队"这一项（issue #2615 裁决②：团队是项目里的概念）。
-      { key: "org-members", label: "成员", href: "/org-admin/members", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
-      { key: "org-invites", label: "邀请", href: "/org-admin/invites", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
-      { key: "org-profile", label: "组织资料", href: "/org-admin/profile", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
-      { key: "home-config", label: "首页配置", href: "/org-admin/home-config", ucRefs: ["01-auth/uc-1-4"] },
-      { key: "workflow-grants", label: "工作流权限", href: "/org-admin/workflow-grants", ucRefs: ["01-auth/uc-1-4"] },
-      { key: "members", label: "成员配额", href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
-      { key: "local", label: "我的本地", href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
+      { key: "org-members", label: adminNavigationZhCN["adminNavigation.item.org-members"], href: "/org-admin/members", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
+      { key: "org-invites", label: adminNavigationZhCN["adminNavigation.item.org-invites"], href: "/org-admin/invites", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
+      { key: "org-profile", label: adminNavigationZhCN["adminNavigation.item.org-profile"], href: "/org-admin/profile", ucRefs: ["01-auth/uc-1-4", "17-gov/uc-17-1"] },
+      { key: "home-config", label: adminNavigationZhCN["adminNavigation.item.home-config"], href: "/org-admin/home-config", ucRefs: ["01-auth/uc-1-4"] },
+      { key: "workflow-grants", label: adminNavigationZhCN["adminNavigation.item.workflow-grants"], href: "/org-admin/workflow-grants", ucRefs: ["01-auth/uc-1-4"] },
+      { key: "members", label: adminNavigationZhCN["adminNavigation.item.members"], href: "/admin/members", ucRefs: ["17-gov/uc-17-5", "17-gov/uc-17-7"] },
+      { key: "local", label: adminNavigationZhCN["adminNavigation.item.local"], href: "/admin/local", ucRefs: ["00-core/uc-0-5"] },
     ],
   },
   {
@@ -169,7 +171,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     //
     // 2026-09-02 后台切成两面（见 `AdminScope`）：本组与「平台」组一起归入**平台后台**
     // （`/platform-admin/*`），左栏「组织后台」不再画它们；旧路由 `/admin/feedback` 重定向。
-    group: "运营",
+    group: adminNavigationZhCN["adminNavigation.group.operations"],
     scope: "platform",
     items: [
       // B3.6（2026-09-04，旧屏退役）：本项此前指向 `/platform-admin/feedback`（旧的
@@ -181,25 +183,25 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       // 2026-09-03（人类反馈：「测试邮件的功能不要放在系统异常下面，放到平台后台的一个
       // 新的菜单叫运营状态」）：从「反馈与迭代 → 系统异常」tab 挪出来，单独一个入口——
       // 它不是"反馈"（没有提交人、没有分诊），是运维自查这个部署本身是否健康的工具。
-      { key: "ops-status", label: "运营状态", href: "/platform-admin/ops-status", ucRefs: ["17-gov/uc-17-6"] },
+      { key: "ops-status", label: adminNavigationZhCN["adminNavigation.item.ops-status"], href: "/platform-admin/ops-status", ucRefs: ["17-gov/uc-17-6"] },
       // D9：本实例向我们上报哪几类运行信号——四项独立同意 + 看见传了什么。
-      { key: "telemetry", label: "上报设置", href: "/platform-admin/telemetry", ucRefs: ["17-gov/uc-17-6"] },
+      { key: "telemetry", label: adminNavigationZhCN["adminNavigation.item.telemetry"], href: "/platform-admin/telemetry", ucRefs: ["17-gov/uc-17-6"] },
       // UC-17.8：一条研发流水线的三个面。收件箱是三类来源（反馈/系统异常/设计方案）的统一投影。
-      { key: "feedback-drafts", label: "反馈草稿", href: "/platform-admin/feedback-drafts", ucRefs: ["17-gov/uc-17-8"] },
-      { key: "inbox", label: "运营收件箱", href: "/platform-admin/inbox", ucRefs: ["17-gov/uc-17-8"] },
-      { key: "design-workbench", label: "PM 设计工作台", href: "/platform-admin/design-workbench", ucRefs: ["17-gov/uc-17-8"] },
+      { key: "feedback-drafts", label: adminNavigationZhCN["adminNavigation.item.feedback-drafts"], href: "/platform-admin/feedback-drafts", ucRefs: ["17-gov/uc-17-8"] },
+      { key: "inbox", label: adminNavigationZhCN["adminNavigation.item.inbox"], href: "/platform-admin/inbox", ucRefs: ["17-gov/uc-17-8"] },
+      { key: "design-workbench", label: adminNavigationZhCN["adminNavigation.item.design-workbench"], href: "/platform-admin/design-workbench", ucRefs: ["17-gov/uc-17-8"] },
     ],
   },
   {
-    group: "平台",
+    group: adminNavigationZhCN["adminNavigation.group.platform"],
     scope: "platform",
     items: [
       // 仅平台超管可见内容；非超管点进去看到的是「仅平台运维可见」的说明，不是隐藏入口——
       // 「存在但你看不到」和「不存在」是两件事（UC-0.3 R8），同反馈屏系统异常区的处置。
       // 2026-09-02：路由从 `/admin/platform` 迁到 `/platform-admin/members`（旧路由重定向）。
-      { key: "model-tests", label: "模型能力测试", href: "/platform-admin/model-tests", ucRefs: [] },
-      { key: "organizations", label: "组织与套餐", href: "/platform-admin/organizations", ucRefs: [] },
-      { key: "platform", label: "平台成员", href: "/platform-admin/members", ucRefs: ["17-gov/uc-17-5"] },
+      { key: "model-tests", label: adminNavigationZhCN["adminNavigation.item.model-tests"], href: "/platform-admin/model-tests", ucRefs: [] },
+      { key: "organizations", label: adminNavigationZhCN["adminNavigation.item.organizations"], href: "/platform-admin/organizations", ucRefs: [] },
+      { key: "platform", label: adminNavigationZhCN["adminNavigation.item.platform"], href: "/platform-admin/members", ucRefs: ["17-gov/uc-17-5"] },
     ],
   },
 ];

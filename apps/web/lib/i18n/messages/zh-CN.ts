@@ -1,3 +1,4 @@
+import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
@@ -209,7 +210,6 @@ export const zhCN = {
   "navigation.workflows": "工作流",
   "navigation.agent-directory": "Agent 目录",
   "navigation.work-skill-catalog": "Skill 库",
-  "navigation.admin": "组织后台",
   "navigation.templates": "蓝本",
   "navigation.skills": "Skill 库与市场",
   "navigation.agent-runtime": "智能体运行时",
@@ -221,7 +221,6 @@ export const zhCN = {
   "navigation.chat-knowledge-graph": "知识图谱预览",
   "navigation.canvas": "画布",
   "navigation.billing-preview": "计费预览",
-  "navigation.platform-admin": "平台后台",
   "navigation.files": "文件",
   "navigation.group.work": "编排",
   "navigation.group.studio": "STUDIO",
@@ -262,6 +261,7 @@ export const zhCN = {
   "home.artifacts.one": "{count} 个产出物",
   ...accountEntryZhCN,
   ...invitationEntryZhCN,
+  ...adminNavigationZhCN,
 } as const;
 
 import { codeFenceZhCN } from "../namespaces/code-fence";
