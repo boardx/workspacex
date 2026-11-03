@@ -1,0 +1,106 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/chat-failure-i18n.test.ts (5 tests | 5 failed) 9ms
+   × localizes the semantic NO_WRITE_ROLE reason without rewriting its wire value 6ms
+     → expected '当前身份没有会话写权限（NO_WRITE_ROLE）。' to be 'The current identity cannot write to …' // Object.is equality
+   × localizes the semantic VERSION_CHANGED reason without rewriting its wire value 1ms
+     → expected '这条会话已被其他人修改（VERSION_CHANGED），请刷新后重试。' to be 'This conversation was modified by som…' // Object.is equality
+   × localizes the semantic TITLE_INVALID reason without rewriting its wire value 1ms
+     → expected '标题不合法（TITLE_INVALID）。' to be 'The title is invalid (TITLE_INVALID).' // Object.is equality
+   × localizes the semantic THREAD_ARCHIVED_READONLY reason without rewriting its wire value 1ms
+     → expected '会话已归档，只读（THREAD_ARCHIVED_READONLY）。' to be 'This conversation is archived and rea…' // Object.is equality
+   × preserves unrecognized error content verbatim and localizes only application fallback 1ms
+     → expected 'UNKNOWN_REASON（HTTP 503）' to be 'UNKNOWN_REASON (HTTP 503)' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/chat-failure-i18n.test.ts > localizes the semantic NO_WRITE_ROLE reason without rewriting its wire value
+AssertionError: expected '当前身份没有会话写权限（NO_WRITE_ROLE）。' to be 'The current identity cannot write to …' // Object.is equality
+
+Expected: "The current identity cannot write to this conversation (NO_WRITE_ROLE)."
+Received: "当前身份没有会话写权限（NO_WRITE_ROLE）。"
+
+ ❯ tests/chat-failure-i18n.test.ts:12:48
+     10| ])("localizes the semantic %s reason without rewriting its wire value"…
+     11|   const failure = new ApiError(403, reason, "raw 服务端消息");
+     12|   expect(describeMutateFailure(failure, "en")).toBe(english);
+       |                                                ^
+     13|   expect(failure.reasonCode).toBe(reason);
+     14|   expect(describeMutateFailure(failure)).toContain(reason);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/chat-failure-i18n.test.ts > localizes the semantic VERSION_CHANGED reason without rewriting its wire value
+AssertionError: expected '这条会话已被其他人修改（VERSION_CHANGED），请刷新后重试。' to be 'This conversation was modified by som…' // Object.is equality
+
+Expected: "This conversation was modified by someone else (VERSION_CHANGED). Refresh and try again."
+Received: "这条会话已被其他人修改（VERSION_CHANGED），请刷新后重试。"
+
+ ❯ tests/chat-failure-i18n.test.ts:12:48
+     10| ])("localizes the semantic %s reason without rewriting its wire value"…
+     11|   const failure = new ApiError(403, reason, "raw 服务端消息");
+     12|   expect(describeMutateFailure(failure, "en")).toBe(english);
+       |                                                ^
+     13|   expect(failure.reasonCode).toBe(reason);
+     14|   expect(describeMutateFailure(failure)).toContain(reason);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/chat-failure-i18n.test.ts > localizes the semantic TITLE_INVALID reason without rewriting its wire value
+AssertionError: expected '标题不合法（TITLE_INVALID）。' to be 'The title is invalid (TITLE_INVALID).' // Object.is equality
+
+Expected: "The title is invalid (TITLE_INVALID)."
+Received: "标题不合法（TITLE_INVALID）。"
+
+ ❯ tests/chat-failure-i18n.test.ts:12:48
+     10| ])("localizes the semantic %s reason without rewriting its wire value"…
+     11|   const failure = new ApiError(403, reason, "raw 服务端消息");
+     12|   expect(describeMutateFailure(failure, "en")).toBe(english);
+       |                                                ^
+     13|   expect(failure.reasonCode).toBe(reason);
+     14|   expect(describeMutateFailure(failure)).toContain(reason);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/chat-failure-i18n.test.ts > localizes the semantic THREAD_ARCHIVED_READONLY reason without rewriting its wire value
+AssertionError: expected '会话已归档，只读（THREAD_ARCHIVED_READONLY）。' to be 'This conversation is archived and rea…' // Object.is equality
+
+Expected: "This conversation is archived and read-only (THREAD_ARCHIVED_READONLY)."
+Received: "会话已归档，只读（THREAD_ARCHIVED_READONLY）。"
+
+ ❯ tests/chat-failure-i18n.test.ts:12:48
+     10| ])("localizes the semantic %s reason without rewriting its wire value"…
+     11|   const failure = new ApiError(403, reason, "raw 服务端消息");
+     12|   expect(describeMutateFailure(failure, "en")).toBe(english);
+       |                                                ^
+     13|   expect(failure.reasonCode).toBe(reason);
+     14|   expect(describeMutateFailure(failure)).toContain(reason);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/chat-failure-i18n.test.ts > preserves unrecognized error content verbatim and localizes only application fallback
+AssertionError: expected 'UNKNOWN_REASON（HTTP 503）' to be 'UNKNOWN_REASON (HTTP 503)' // Object.is equality
+
+Expected: "UNKNOWN_REASON (HTTP 503)"
+Received: "UNKNOWN_REASON（HTTP 503）"
+
+ ❯ tests/chat-failure-i18n.test.ts:18:83
+     16| it("preserves unrecognized error content verbatim and localizes only a…
+     17|   expect(describeMutateFailure(new Error("原始 upstream message 🌍"), "…
+     18|   expect(describeMutateFailure(new ApiError(503, "UNKNOWN_REASON", "ra…
+       |                                                                                   ^
+     19|   expect(describeMutateFailure(null, "en")).toBe("The operation failed…
+     20| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  01:14:41
+   Duration  542ms (transform 52ms, setup 116ms, collect 37ms, tests 9ms, environment 0ms, prepare 66ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/chat-failure-i18n.test.ts --maxWorkers=1 --minWorkers=1

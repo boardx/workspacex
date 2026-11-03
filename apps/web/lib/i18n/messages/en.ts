@@ -1,3 +1,5 @@
+import { chatErrorsEn } from "../namespaces/chat-errors";
+import { chatEntryEn } from "../namespaces/chat-entry";
 import { brainViewsEn } from "../namespaces/brain-views";
 import { enTasks } from "./tasks";
 import { enFailures } from "./failures";
@@ -263,6 +265,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.artifacts.one": "{count} artifact",
   ...accountEntryEn,
   ...invitationEntryEn,
+  ...chatEntryEn,
+  ...chatErrorsEn,
 };
 
 import { codeFenceEn } from "../namespaces/code-fence";

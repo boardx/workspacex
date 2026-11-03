@@ -1,0 +1,544 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-shell.test.tsx (1 test | 1 failed) 1060ms
+   × shows canonical English shell chrome and retains search value/node without refetching on locale change 1059ms
+     → Unable to find role="searchbox" and name "Search conversations"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border px-3 py-2 md:hidden"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-mobile-list-toggle"[39m
+        [36m>[39m
+          [0m对话列表[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-full shrink-0 flex-col gap-2 border-r border-border py-2 md:flex md:w-64 hidden"[39m
+        [33mdata-testid[39m=[32m"copilotkit-v2-thread-sidebar"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative flex items-center justify-center px-3 pt-3"[39m
+          [33mdata-testid[39m=[32m"chat-sidebar-brand-header"[39m
+        [36m>[39m
+          [36m<img[39m
+            [33malt[39m=[32m"WorkspaceX"[39m
+            [33mclass[39m=[32m"h-8 w-auto"[39m
+            [33msrc[39m=[32m"/workspacex-logo.png"[39m
+          [36m/>[39m
+          [36m<kbd[39m
+            [33mclass[39m=[32m"absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+            [33mtitle[39m=[32m"⌘K / Ctrl+K Search conversations"[39m
+          [36m>[39m
+            [0m⌘K[0m
+          [36m</kbd>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5 px-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+            [33mdata-testid[39m=[32m"chat-thread-create"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m新建对话[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m不挂靠任何项目，仅自己可见[0m
+          [36m</p>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"搜索对话"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-thread-search"[39m
+            [33mplaceholder[39m=[32m"搜索对话标题"[39m
+            [33mtype[39m=[32m"search"[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col gap-1 overflow-y-auto px-2"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-thread-list"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0m今天[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"group relative"[39m
+            [33mdata-testid[39m=[32m"chat-thread-selection-actions"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "[39m
+              [33mdata-selected[39m=[32m"false"[39m
+              [33mdata-testid[39m=[32m"chat-thread-t-00"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 truncate text-12 font-medium"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-thread-title"[39m
+              [36m>[39m
+                [0mt-00[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mdata-status[39m=[32m"done"[39m
+                  [33mdata-testid[39m=[32m"chat-task-workbench-thread-status"[39m
+                [36m>[39m
+                  [0mCompleted[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0m · [0m
+                  [0m08:00[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Pin “t-00”"[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"absolute right-7 top-1 rounded-md p-1.5 text-transparent transition-colors duration-fast focus-visible:outline-none focus-visible:...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border px-3 py-2 md:hidden"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-mobile-list-toggle"[39m
+        [36m>[39m
+          [0m对话列表[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-full shrink-0 flex-col gap-2 border-r border-border py-2 md:flex md:w-64 hidden"[39m
+        [33mdata-testid[39m=[32m"copilotkit-v2-thread-sidebar"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative flex items-center justify-center px-3 pt-3"[39m
+          [33mdata-testid[39m=[32m"chat-sidebar-brand-header"[39m
+        [36m>[39m
+          [36m<img[39m
+            [33malt[39m=[32m"WorkspaceX"[39m
+            [33mclass[39m=[32m"h-8 w-auto"[39m
+            [33msrc[39m=[32m"/workspacex-logo.png"[39m
+          [36m/>[39m
+          [36m<kbd[39m
+            [33mclass[39m=[32m"absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+            [33mtitle[39m=[32m"⌘K / Ctrl+K Search conversations"[39m
+          [36m>[39m
+            [0m⌘K[0m
+          [36m</kbd>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5 px-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+            [33mdata-testid[39m=[32m"chat-thread-create"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m新建对话[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m不挂靠任何项目，仅自己可见[0m
+          [36m</p>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"搜索对话"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-thread-search"[39m
+            [33mplaceholder[39m=[32m"搜索对话标题"[39m
+            [33mtype[39m=[32m"search"[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col gap-1 overflow-y-auto px-2"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-thread-list"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0m今天[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"group relative"[39m
+            [33mdata-testid[39m=[32m"chat-thread-selection-actions"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "[39m
+              [33mdata-selected[39m=[32m"false"[39m
+              [33mdata-testid[39m=[32m"chat-thread-t-00"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 truncate text-12 font-medium"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-thread-title"[39m
+              [36m>[39m
+                [0mt-00[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mdata-status[39m=[32m"done"[39m
+                  [33mdata-testid[39m=[32m"chat-task-workbench-thread-status"[39m
+                [36m>[39m
+                  [0mCompleted[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0m · [0m
+                  [0m08:00[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Pin “t-00”"[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"absolute right-7 top-1 rounded-md p-1.5 text-transparent transition-colors duration-fast focus-visible:outline-none focus-visible:...
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-shell.test.tsx > shows canonical English shell chrome and retains search value/node without refetching on locale change
+TestingLibraryElementError: Unable to find role="searchbox" and name "Search conversations"
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border px-3 py-2 md:hidden"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-mobile-list-toggle"[39m
+        [36m>[39m
+          [0m对话列表[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-full shrink-0 flex-col gap-2 border-r border-border py-2 md:flex md:w-64 hidden"[39m
+        [33mdata-testid[39m=[32m"copilotkit-v2-thread-sidebar"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative flex items-center justify-center px-3 pt-3"[39m
+          [33mdata-testid[39m=[32m"chat-sidebar-brand-header"[39m
+        [36m>[39m
+          [36m<img[39m
+            [33malt[39m=[32m"WorkspaceX"[39m
+            [33mclass[39m=[32m"h-8 w-auto"[39m
+            [33msrc[39m=[32m"/workspacex-logo.png"[39m
+          [36m/>[39m
+          [36m<kbd[39m
+            [33mclass[39m=[32m"absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+            [33mtitle[39m=[32m"⌘K / Ctrl+K Search conversations"[39m
+          [36m>[39m
+            [0m⌘K[0m
+          [36m</kbd>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5 px-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+            [33mdata-testid[39m=[32m"chat-thread-create"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m新建对话[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m不挂靠任何项目，仅自己可见[0m
+          [36m</p>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"搜索对话"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-thread-search"[39m
+            [33mplaceholder[39m=[32m"搜索对话标题"[39m
+            [33mtype[39m=[32m"search"[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col gap-1 overflow-y-auto px-2"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-thread-list"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0m今天[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"group relative"[39m
+            [33mdata-testid[39m=[32m"chat-thread-selection-actions"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "[39m
+              [33mdata-selected[39m=[32m"false"[39m
+              [33mdata-testid[39m=[32m"chat-thread-t-00"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 truncate text-12 font-medium"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-thread-title"[39m
+              [36m>[39m
+                [0mt-00[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mdata-status[39m=[32m"done"[39m
+                  [33mdata-testid[39m=[32m"chat-task-workbench-thread-status"[39m
+                [36m>[39m
+                  [0mCompleted[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0m · [0m
+                  [0m08:00[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Pin “t-00”"[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"absolute right-7 top-1 rounded-md p-1.5 text-transparent transition-colors duration-fast focus-visible:outline-none focus-visible:...
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full min-h-0 w-full min-w-0 flex-col md:flex-row"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex items-center gap-2 border-b border-border px-3 py-2 md:hidden"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-expanded[39m=[32m"false"[39m
+          [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-6 px-2 text-11"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-mobile-list-toggle"[39m
+        [36m>[39m
+          [0m对话列表[0m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<aside[39m
+        [33mclass[39m=[32m"w-full shrink-0 flex-col gap-2 border-r border-border py-2 md:flex md:w-64 hidden"[39m
+        [33mdata-testid[39m=[32m"copilotkit-v2-thread-sidebar"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"relative flex items-center justify-center px-3 pt-3"[39m
+          [33mdata-testid[39m=[32m"chat-sidebar-brand-header"[39m
+        [36m>[39m
+          [36m<img[39m
+            [33malt[39m=[32m"WorkspaceX"[39m
+            [33mclass[39m=[32m"h-8 w-auto"[39m
+            [33msrc[39m=[32m"/workspacex-logo.png"[39m
+          [36m/>[39m
+          [36m<kbd[39m
+            [33mclass[39m=[32m"absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+            [33mtitle[39m=[32m"⌘K / Ctrl+K Search conversations"[39m
+          [36m>[39m
+            [0m⌘K[0m
+          [36m</kbd>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1.5 px-3"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+            [33mdata-testid[39m=[32m"chat-thread-create"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M5 12h14"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 5v14"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m新建对话[0m
+          [36m</button>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-10 text-muted-foreground"[39m
+          [36m>[39m
+            [0m不挂靠任何项目，仅自己可见[0m
+          [36m</p>[39m
+          [36m<input[39m
+            [33maria-label[39m=[32m"搜索对话"[39m
+            [33mclass[39m=[32m"flex h-9 min-w-0 w-full rounded-control border border-input bg-card px-3 text-13 text-card-foreground placeholder:text-muted-foreground transition-colors duration-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:bg-disabled disabled:text-disabled-foreground disabled:cursor-not-allowed"[39m
+            [33mdata-testid[39m=[32m"chat-task-workbench-thread-search"[39m
+            [33mplaceholder[39m=[32m"搜索对话标题"[39m
+            [33mtype[39m=[32m"search"[39m
+            [33mvalue[39m=[32m""[39m
+          [36m/>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col gap-1 overflow-y-auto px-2"[39m
+          [33mdata-testid[39m=[32m"copilotkit-v2-thread-list"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"px-1 pb-0.5 pt-2 text-10 font-medium text-muted-foreground"[39m
+          [36m>[39m
+            [0m今天[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"group relative"[39m
+            [33mdata-testid[39m=[32m"chat-thread-selection-actions"[39m
+          [36m>[39m
+            [36m<button[39m
+              [33mclass[39m=[32m"flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 pr-14 text-left transition-colors duration-base hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring "[39m
+              [33mdata-selected[39m=[32m"false"[39m
+              [33mdata-testid[39m=[32m"chat-thread-t-00"[39m
+              [33mtype[39m=[32m"button"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"min-w-0 flex-1 truncate text-12 font-medium"[39m
+                [33mdata-testid[39m=[32m"chat-task-workbench-thread-title"[39m
+              [36m>[39m
+                [0mt-00[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"sr-only"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mdata-status[39m=[32m"done"[39m
+                  [33mdata-testid[39m=[32m"chat-task-workbench-thread-status"[39m
+                [36m>[39m
+                  [0mCompleted[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0m · [0m
+                  [0m08:00[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</button>[39m
+            [36m<button[39m
+              [33maria-label[39m=[32m"Pin “t-00”"[39m
+              [33maria-pressed[39m=[32m"false"[39m
+              [33mclass[39m=[32m"absolute right-7 top-1 rounded-md p-1.5 text-transparent transition-colors duration-fast focus-visible:outline-none focus-visible:...
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/i18n-chat-shell.test.tsx:109:31
+    107| it("shows canonical English shell chrome and retains search value/node…
+    108|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><CopilotKi…
+    109|   const search = await screen.findByRole("searchbox", { name: "Search …
+       |                               ^
+    110|   expect(screen.getByTestId("copilotkit-v2-thread-topbar-title").textC…
+    111|   expect(screen.getByTestId("copilotkit-v2-thread-topbar-visibility").…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  01:12:43
+   Duration  3.71s (transform 1.03s, setup 101ms, collect 1.67s, tests 1.06s, environment 512ms, prepare 43ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-shell.test.tsx --maxWorkers=1 --minWorkers=1

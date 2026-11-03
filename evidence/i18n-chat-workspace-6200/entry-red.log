@@ -1,0 +1,940 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-entry.test.tsx (5 tests | 5 failed) 176ms
+   × renders the English welcome and live context without changing supplied content 38ms
+     → Unable to find an element with the text: What would you like to accomplish today?. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+        [36m>[39m
+          [0m今天，想完成什么？[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+        [36m>[39m
+          [0m描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<aside>[39m
+        [0m用户简报：保留原文[0m
+      [36m</aside>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m研[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m调研市场并产出带来源的报告[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-reading"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-warning-tint text-warning-tint-foreground"[39m
+          [36m>[39m
+            [0m读[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m阅读材料整理决策建议[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-planning"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m拆[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m需求拆成计划并生成项目产物[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-analysis"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-ai-tint text-ai-tint-foreground"[39m
+          [36m>[39m
+            [0m析[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m分析数据发现异常并制图[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-center gap-1.5"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-project"[39m
+        [36m>[39m
+          [0m项目：[0m
+          [0m本项目对话[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-materials"[39m
+        [36m>[39m
+          [0m材料 [0m
+          [0m3[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-skills"[39m
+        [36m>[39m
+          [0m技能 [0m
+          [0m2[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-memory"[39m
+        [36m>[39m
+          [0m记忆范围：仅本对话[0m
+        [36m</span>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × prefills the authored English goal exactly once only on explicit template selection 106ms
+     → Unable to find an accessible element with the role "button" and name "Research a market and create a sourced report"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "调研市场并产出带来源的报告":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "阅读材料整理决策建议":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-reading"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "需求拆成计划并生成项目产物":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-planning"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "分析数据发现异常并制图":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-analysis"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+        [36m>[39m
+          [0m今天，想完成什么？[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+        [36m>[39m
+          [0m描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m研[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m调研市场并产出带来源的报告[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-reading"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-warning-tint text-warning-tint-foreground"[39m
+          [36m>[39m
+            [0m读[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m阅读材料整理决策建议[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-planning"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m拆[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m需求拆成计划并生成项目产物[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-analysis"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-ai-tint text-ai-tint-foreground"[39m
+          [36m>[39m
+            [0m析[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m分析数据发现异常并制图[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-center gap-1.5"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-project"[39m
+        [36m>[39m
+          [0m项目：[0m
+          [0m个人对话[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-materials"[39m
+        [36m>[39m
+          [0m材料 [0m
+          [0m0[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-skills"[39m
+        [36m>[39m
+          [0m技能 [0m
+          [0m0[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-memory"[39m
+        [36m>[39m
+          [0m记忆范围：仅本对话[0m
+        [36m</span>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × updates labels in place without selecting a template or replacing raw briefing nodes 6ms
+     → expected '研调研市场并产出带来源的报告' to contain 'Research a market'
+   × localizes shared sidebar defaults and shortcut help while preserving explicit caller labels 21ms
+     → Unable to find an accessible element with the role "heading" and name "Conversations"
+
+Here are the accessible roles:
+
+  img:
+
+  Name "WorkspaceX":
+  [36m<img[39m
+    [33malt[39m=[32m"WorkspaceX"[39m
+    [33mclass[39m=[32m"h-8 w-auto"[39m
+    [33msrc[39m=[32m"/workspacex-logo.png"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "对话":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "新建对话":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+    [33mdata-testid[39m=[32m"chat-thread-create"[39m
+  [36m/>[39m
+
+  Name "用户指定名称":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+    [33mdata-testid[39m=[32m"chat-thread-create"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative flex items-center justify-center px-3 pt-3"[39m
+      [33mdata-testid[39m=[32m"chat-sidebar-brand-header"[39m
+    [36m>[39m
+      [36m<img[39m
+        [33malt[39m=[32m"WorkspaceX"[39m
+        [33mclass[39m=[32m"h-8 w-auto"[39m
+        [33msrc[39m=[32m"/workspacex-logo.png"[39m
+      [36m/>[39m
+      [36m<kbd[39m
+        [33mclass[39m=[32m"absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+        [33mtitle[39m=[32m"⌘K / Ctrl+K 搜索对话"[39m
+      [36m>[39m
+        [0m⌘K[0m
+      [36m</kbd>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-center justify-between gap-2 px-3 pt-3"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-14 font-semibold"[39m
+      [36m>[39m
+        [0m对话[0m
+      [36m</h2>[39m
+      [36m<kbd[39m
+        [33mclass[39m=[32m"rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+      [36m>[39m
+        [0m⌘K[0m
+      [36m</kbd>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+      [33mdata-testid[39m=[32m"chat-thread-create"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M5 12h14"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 5v14"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m新建对话[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+      [33mdata-testid[39m=[32m"chat-thread-create"[39m
+      [33mdisabled[39m=[32m""[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M5 12h14"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 5v14"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m用户指定名称[0m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × localizes accessible facts without altering status enums, actual counts or malformed timestamps 4ms
+     → expected '等待你确认' to be 'Waiting for your confirmation' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-entry.test.tsx > renders the English welcome and live context without changing supplied content
+TestingLibraryElementError: Unable to find an element with the text: What would you like to accomplish today?. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+        [36m>[39m
+          [0m今天，想完成什么？[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+        [36m>[39m
+          [0m描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<aside>[39m
+        [0m用户简报：保留原文[0m
+      [36m</aside>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m研[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m调研市场并产出带来源的报告[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-reading"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-warning-tint text-warning-tint-foreground"[39m
+          [36m>[39m
+            [0m读[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m阅读材料整理决策建议[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-planning"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m拆[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m需求拆成计划并生成项目产物[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-analysis"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-ai-tint text-ai-tint-foreground"[39m
+          [36m>[39m
+            [0m析[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m分析数据发现异常并制图[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-center gap-1.5"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-project"[39m
+        [36m>[39m
+          [0m项目：[0m
+          [0m本项目对话[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-materials"[39m
+        [36m>[39m
+          [0m材料 [0m
+          [0m3[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-skills"[39m
+        [36m>[39m
+          [0m技能 [0m
+          [0m2[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-memory"[39m
+        [36m>[39m
+          [0m记忆范围：仅本对话[0m
+        [36m</span>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-entry.test.tsx:22:17
+     20| it("renders the English welcome and live context without changing supp…
+     21|   render(<I18nProvider initialLocale="en"><TaskWorkbenchEmptyState onU…
+     22|   expect(screen.getByText("What would you like to accomplish today?"))…
+       |                 ^
+     23|   expect(screen.getByTestId("chat-task-workbench-context-chip-material…
+     24|   expect(screen.getByTestId("chat-task-workbench-context-chip-skills")…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/ui/i18n-chat-entry.test.tsx > prefills the authored English goal exactly once only on explicit template selection
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Research a market and create a sourced report"
+
+Here are the accessible roles:
+
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "调研市场并产出带来源的报告":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "阅读材料整理决策建议":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-reading"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "需求拆成计划并生成项目产物":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-planning"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "分析数据发现异常并制图":
+  [36m<button[39m
+    [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"chat-task-workbench-template-analysis"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex min-h-full flex-col items-center justify-center gap-4 px-4 py-4 text-center sm:px-6"[39m
+      [33mdata-testid[39m=[32m"copilotkit-v2-empty"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col items-center gap-2"[39m
+        [33mdata-testid[39m=[32m"chat-task-workbench-goal-headline"[39m
+      [36m>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-xl text-24 sm:text-30 font-semibold tracking-tight text-card-foreground"[39m
+        [36m>[39m
+          [0m今天，想完成什么？[0m
+        [36m</p>[39m
+        [36m<p[39m
+          [33mclass[39m=[32m"max-w-lg text-14 leading-relaxed text-muted-foreground"[39m
+        [36m>[39m
+          [0m描述目标，Agent 会先提出计划，得到确认后再执行。也可以拖入文件作为这轮对话的附件，或点麦克风语音输入。[0m
+        [36m</p>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"grid w-full max-w-xl grid-cols-2 gap-x-3"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-research"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m研[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m调研市场并产出带来源的报告[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-reading"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-warning-tint text-warning-tint-foreground"[39m
+          [36m>[39m
+            [0m读[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m阅读材料整理决策建议[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-planning"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-accent text-accent-foreground"[39m
+          [36m>[39m
+            [0m拆[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m需求拆成计划并生成项目产物[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33mclass[39m=[32m"flex items-center gap-2 border-b border-border-subtle bg-card px-2 py-2 text-left text-13 leading-relaxed text-card-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-template-analysis"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<span[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-12 font-semibold bg-ai-tint text-ai-tint-foreground"[39m
+          [36m>[39m
+            [0m析[0m
+          [36m</span>[39m
+          [36m<span>[39m
+            [0m分析数据发现异常并制图[0m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-wrap items-center justify-center gap-1.5"[39m
+      [36m>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-project"[39m
+        [36m>[39m
+          [0m项目：[0m
+          [0m个人对话[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-materials"[39m
+        [36m>[39m
+          [0m材料 [0m
+          [0m0[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-source[39m=[32m"live"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-skills"[39m
+        [36m>[39m
+          [0m技能 [0m
+          [0m0[0m
+        [36m</span>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"rounded-pill border border-border-subtle bg-card px-2.5 py-1 text-10 text-muted-foreground"[39m
+          [33mdata-testid[39m=[32m"chat-task-workbench-context-chip-memory"[39m
+        [36m>[39m
+          [0m记忆范围：仅本对话[0m
+        [36m</span>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-entry.test.tsx:34:27
+     32|   render(<I18nProvider initialLocale="en"><TaskWorkbenchEmptyState onU…
+     33|   expect(select).not.toHaveBeenCalled();
+     34|   const research = screen.getByRole("button", { name: "Research a mark…
+       |                           ^
+     35|   expect(research.getAttribute("data-testid")).toBe("chat-task-workben…
+     36|   fireEvent.click(research);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/ui/i18n-chat-entry.test.tsx > updates labels in place without selecting a template or replacing raw briefing nodes
+AssertionError: expected '研调研市场并产出带来源的报告' to contain 'Research a market'
+
+Expected: "Research a market"
+Received: "研调研市场并产出带来源的报告"
+
+ ❯ tests/ui/i18n-chat-entry.test.tsx:44:32
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/ui/i18n-chat-entry.test.tsx > localizes shared sidebar defaults and shortcut help while preserving explicit caller labels
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Conversations"
+
+Here are the accessible roles:
+
+  img:
+
+  Name "WorkspaceX":
+  [36m<img[39m
+    [33malt[39m=[32m"WorkspaceX"[39m
+    [33mclass[39m=[32m"h-8 w-auto"[39m
+    [33msrc[39m=[32m"/workspacex-logo.png"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "对话":
+  [36m<h2[39m
+    [33mclass[39m=[32m"text-14 font-semibold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "新建对话":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+    [33mdata-testid[39m=[32m"chat-thread-create"[39m
+  [36m/>[39m
+
+  Name "用户指定名称":
+  [36m<button[39m
+    [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+    [33mdata-testid[39m=[32m"chat-thread-create"[39m
+    [33mdisabled[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"relative flex items-center justify-center px-3 pt-3"[39m
+      [33mdata-testid[39m=[32m"chat-sidebar-brand-header"[39m
+    [36m>[39m
+      [36m<img[39m
+        [33malt[39m=[32m"WorkspaceX"[39m
+        [33mclass[39m=[32m"h-8 w-auto"[39m
+        [33msrc[39m=[32m"/workspacex-logo.png"[39m
+      [36m/>[39m
+      [36m<kbd[39m
+        [33mclass[39m=[32m"absolute right-3 top-3 rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+        [33mtitle[39m=[32m"⌘K / Ctrl+K 搜索对话"[39m
+      [36m>[39m
+        [0m⌘K[0m
+      [36m</kbd>[39m
+    [36m</div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex items-center justify-between gap-2 px-3 pt-3"[39m
+    [36m>[39m
+      [36m<h2[39m
+        [33mclass[39m=[32m"text-14 font-semibold"[39m
+      [36m>[39m
+        [0m对话[0m
+      [36m</h2>[39m
+      [36m<kbd[39m
+        [33mclass[39m=[32m"rounded-sm border border-border px-1 py-0.5 text-9 text-muted-foreground"[39m
+      [36m>[39m
+        [0m⌘K[0m
+      [36m</kbd>[39m
+    [36m</div>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+      [33mdata-testid[39m=[32m"chat-thread-create"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M5 12h14"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 5v14"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m新建对话[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33mclass[39m=[32m"inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12 w-full"[39m
+      [33mdata-testid[39m=[32m"chat-thread-create"[39m
+      [33mdisabled[39m=[32m""[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-plus h-3.5 w-3.5"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M5 12h14"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M12 5v14"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [0m用户指定名称[0m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-entry.test.tsx:56:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/ui/i18n-chat-entry.test.tsx > localizes accessible facts without altering status enums, actual counts or malformed timestamps
+AssertionError: expected '等待你确认' to be 'Waiting for your confirmation' // Object.is equality
+
+Expected: "Waiting for your confirmation"
+Received: "等待你确认"
+
+ ❯ tests/ui/i18n-chat-entry.test.tsx:67:30
+     65|   const status = screen.getByTestId("chat-task-workbench-thread-status…
+     66|   expect(status.getAttribute("data-status")).toBe("awaiting-approval");
+     67|   expect(status.textContent).toBe("Waiting for your confirmation");
+       |                              ^
+     68|   expect(screen.getByTestId("chat-task-workbench-thread-artifact-count…
+     69|   expect(screen.getByText(/invalid raw timestamp/)).toBeTruthy();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  01:10:02
+   Duration  3.13s (transform 946ms, setup 178ms, collect 1.52s, tests 176ms, environment 1.04s, prepare 55ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-entry.test.tsx --maxWorkers=1 --minWorkers=1

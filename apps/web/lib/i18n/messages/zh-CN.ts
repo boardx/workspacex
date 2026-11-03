@@ -1,3 +1,5 @@
+import { chatErrorsZhCN } from "../namespaces/chat-errors";
+import { chatEntryZhCN } from "../namespaces/chat-entry";
 import { brainViewsZhCN } from "../namespaces/brain-views";
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
@@ -262,6 +264,8 @@ export const zhCN = {
   "home.artifacts.one": "{count} 个产出物",
   ...accountEntryZhCN,
   ...invitationEntryZhCN,
+  ...chatEntryZhCN,
+  ...chatErrorsZhCN,
 } as const;
 
 import { codeFenceZhCN } from "../namespaces/code-fence";
