@@ -1,0 +1,20 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/admin-scope-split.test.tsx (14 tests) 5344ms
+   ✓ §1 一级导航：治理段有两个入口 > IconRail 同时画出 rail-admin 与 rail-platform-admin，且 href 不同 5051ms
+ ✓ tests/ui/admin-nav-asset-kinds-bijective.test.tsx (17 tests) 328ms
+ ✓ tests/ui/admin-nav-count-unavailable.test.tsx (11 tests) 365ms
+ ✓ tests/ui/admin-nav-live-counts.test.tsx (7 tests) 477ms
+ ✓ tests/ui/admin-nav-i18n.test.tsx (3 tests) 665ms
+   ✓ shared admin navigation localization > switches the organization sidebar in place while retaining canonical routes and scope 386ms
+ ✓ tests/ui/org-admin-screen-admin-nav.test.tsx (1 test) 484ms
+   ✓ /org-admin/members 接上组织后台左栏（AdminNav） > 左栏、组织 scope、「成员」高亮项都真实渲染 481ms
+ ✓ tests/ui/tpl-list-admin-nav.test.tsx (3 tests) 182ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 143ms
+
+ Test Files  8 passed (8)
+      Tests  61 passed (61)
+   Start at  00:36:13
+   Duration  39.70s (transform 4.39s, setup 3.41s, collect 11.98s, tests 7.99s, environment 11.90s, prepare 1.05s)

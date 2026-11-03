@@ -101,5 +101,25 @@
     "cleanupSeconds": 1,
     "composeScope": "wsx-ec04e55844377d871f94",
     "ownContainersObservedAfterCleanup": 0
+  },
+  "browser-geometry-323": {
+    "exitCode": 1,
+    "rawLogSha256": "a0b606a08e4d73ee20517563e43c1e303b7fcbf2063d017e7bd380706a28ff3d",
+    "rawLogLocalPath": "/tmp/6198-browser-final.log"
+  },
+  "integrated-typecheck": {
+    "exitCode": 0,
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "rawLogLocalPath": "/tmp/6198-integrated-typecheck.log"
+  },
+  "integrated-eslint": {
+    "exitCode": 0,
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawLogLocalPath": "/tmp/6198-integrated-eslint.log"
+  },
+  "catalog-continuity": {
+    "exitCode": 0,
+    "rawLogSha256": "b1e92fb4b519609491b0eab7febcb878de5920cb9343309673df920f2ae86530",
+    "rawLogLocalPath": "/tmp/6198-catalog-continuity.log"
   }
 }
