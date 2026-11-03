@@ -141,5 +141,36 @@
     "composeScope": "wsx-024610af26badaf58bb6",
     "ownContainersObservedAfterCleanup": 0,
     "screenshotsVisuallyInspected": 10
+  },
+  "ci-control-plane-red": {
+    "sourceCommit": "5a3825bfbb6f51a932f1c5bb6933221c66d63565",
+    "conclusion": "FAILURE",
+    "runId": 41701321461,
+    "jobId": 126145047582,
+    "rawLogLocalPath": "/tmp/6205-control-plane-failed.log",
+    "rawLogSha256": "5f67677decf76a86def0c09d00b12efb11213fa73b3bb1158d3e645c3f654ed7",
+    "error": "lint-ui-wiring: pure ASR text table imported a live-adapter type; 18 shell routes acquired static data-plane dependencies"
+  },
+  "ci-fix-wiring": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-ci-fix-wiring.log",
+    "rawLogSha256": "f99296c7a1d11104c8b0d9526949f989ec0a90db97b8007bb9f03a1366df540e"
+  },
+  "ci-fix-typecheck": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-ci-fix-typecheck.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "ci-fix-voice-tests": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6198-ci-fix-voice-tests.log",
+    "rawLogSha256": "5a94443c0fe627e391cd1796c6ed5b19ffd63779e8df917b76b418e280ba9d13"
+  },
+  "ci-fix-runtime-emit": {
+    "exitCode": 0,
+    "comparisonBase": "5a3825bfbb6f51a932f1c5bb6933221c66d63565",
+    "file": "apps/web/lib/asr-draft-error-text.ts",
+    "method": "TypeScript transpileModule ES2022/ESNext output equality",
+    "observed": "byte-for-byte identical"
   }
 }

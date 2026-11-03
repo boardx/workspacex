@@ -1,6 +1,7 @@
-import type { AsrDraftErrorReason } from "./live-asr-draft";
+import type { chat } from "@repo/contracts";
+import type { z } from "zod";
 
-export const ASR_DRAFT_ERROR_TEXT: Record<AsrDraftErrorReason, string> = {
+export const ASR_DRAFT_ERROR_TEXT: Record<z.infer<typeof chat.ChatAsrDraftErrorReason>, string> = {
   CREDIT_REQUIRED: "可用额度不足，请确认计费账户并充值后继续语音输入。",
   CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，请稍后重试或联系管理员。",
   ASR_PROVIDER_UNAVAILABLE: "语音识别服务暂时不可用，请稍后重试。",

@@ -43,3 +43,11 @@ Current develop c49fee15b has been merged into the working tree. Only two dictio
 ## Final route-aware browser acceptance
 
 Source74c46f0e0: exact discovery1/1; fresh production browser1/1PASS, case display1.0m,total4m56s,cleanup1s,own scope0. All10 final375/1280 screenshots inspected. Route-aware nav0/list versus nav1/workflow preserves all geometry assertions. Evidence/docs commit then normalpush/PR remain; no completion or merge claimed.
+
+## Source CI dependency correction
+
+PR6205 source5a3825bfb failed verify-control-plane at lint-ui-wiring: the pure ASR text table imported its error-reason type from live-asr-draft, which made all dictionary consumers statically reach live audio adapters. The scanner deliberately follows type imports;18 shell routes failed. Dependent browser jobs were cancelled and are not passing evidence. The correction imports the same authoritative contract schema type directly; no route/scanner manifest or runtime text changes. Verification and normalpush await the active peer browser window release.
+
+Interview continuation6206 is saved safely in stash66ae835c595f9130523af939d1f019a5d5aced7d from worker/i18n-interview-journey-6206. It contains first6GREEN, next10actualRED and their implementation plus4 unexecuted overlay tests and6 unexecuted test-model fixture counterexamples/stub. Restore after6198 CI repair; never lose or accidentally include those files in6198.
+
+CI fix local verification completed: exact lint-ui-wiring exit0 (137routes,18shell unchanged), webtype0, entry/voice21/21 in5.33s, and compiler runtime emit identical to5a. Only pure ASR table type references change; normalpush/freshsourceCI next.
