@@ -1,8 +1,12 @@
+import { zhTasks } from "./tasks";
+import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
+  ...zhTasks,
+  ...zhFailures,
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,
