@@ -6,6 +6,7 @@ import { profileEn } from "../namespaces/profile";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
+import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
   ...enTasks,
   ...enFailures,
@@ -245,4 +246,5 @@ export const en: Record<keyof typeof zhCN, string> = {
   "common.http.failure": "The request failed. Please try again later.",
   "home.artifacts.one": "{count} artifact",
   ...accountEntryEn,
+  ...invitationEntryEn,
 };

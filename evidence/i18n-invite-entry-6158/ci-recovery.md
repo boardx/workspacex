@@ -1,0 +1,5 @@
+# CI recovery and latest-develop integration
+
+At unchanged head fd6debca22d0155b27c918692d0065055e84ddd3, run 41529854272 attempt 5 completed SUCCESS. Board, directory and fullstack smoke jobs all succeeded after the bounded cancelled-only recovery. Control-plane signal timing race was separately tracked in #6162; its single authorized failed-job retry succeeded. No check rules or invitation assertions were weakened. Successful jobs were not rerun as part of the cancelled smoke recovery; final job metadata is retained.
+
+Canonical pr-queue still reported MERGE_BLOCKED solely because GitHub marked the branch DIRTY after develop advanced. Latest develop was then merged automatically without manual conflicts. The integration adds canonical Locale/entity-localization foundation files only; invitation components and session hook have no diff versus fd6debca22d0155b27c918692d0065055e84ddd3. The four-file invitation regression suite and ui-wiring gate pass again. New-head CI and actual GitHub branch gates remain required before coordinator merge; previous-head success is not a claim that the new head is green.

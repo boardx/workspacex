@@ -5,6 +5,7 @@ import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
+import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
   ...zhTasks,
   ...zhFailures,
@@ -244,4 +245,5 @@ export const zhCN = {
   "common.http.failure": "这次请求没成功，稍后再试一次",
   "home.artifacts.one": "{count} 个产出物",
   ...accountEntryZhCN,
+  ...invitationEntryZhCN,
 } as const;

@@ -1,5 +1,6 @@
 "use client";
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useSession } from "@/components/session/session-provider";
 import { SessionReplacementSupersededError } from "@/lib/session-storage-lock";
 import { getStoredSessionToken } from "@/lib/api-client";
@@ -38,8 +39,8 @@ export function useInvitationSession() {
   };
 }
 
-export const INVITATION_COMPLETION_MESSAGES: Record<InvitationCompletion, string> = {
-  ready: "已加入组织，正在进入工作台。",
-  "session-preserved": "已加入组织。当前登录账号已保留；如需使用新账号，请退出当前账号后登录。",
-  "session-failed": "自动登录未完成，账号可能已创建。请尝试使用注册时的邮箱和密码登录；若仍无法登录，请联系管理员。",
+export const INVITATION_COMPLETION_KEYS: Record<InvitationCompletion, MessageKey> = {
+  ready: "invitation.ready",
+  "session-preserved": "invitation.sessionPreserved",
+  "session-failed": "invitation.sessionFailed",
 };
