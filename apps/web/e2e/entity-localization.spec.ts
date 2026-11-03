@@ -485,6 +485,8 @@ test("organization home configuration preserves drafts, real previews and recomm
   });
   await page.goto("/org-admin/home-config");
   await expect(page.getByRole("heading", { name: "Home configuration", exact: true })).toBeVisible();
+  await expect(page.getByTestId("home-config-agents")).toBeHidden();
+  await expect(page.getByTestId("home-config-quick-actions")).toBeHidden();
   const title = "品牌原文 {name} " + randomUUID().slice(0, 6);
   const headline = "横幅原文 {count}";
   const tagline = "副标题原文 {description}\nSecond line stays authored.";
@@ -570,8 +572,12 @@ test("organization home configuration preserves drafts, real previews and recomm
       await page.screenshot({ path: testInfo.outputPath("home-config-" + label + "-" + width + ".png"), fullPage: true });
     }
   };
+  await expect(page.getByTestId("home-config-theme")).toBeHidden();
+  await expect(page.getByTestId("home-config-quick-actions")).toBeHidden();
   await capture("content", "content", "home-config-agents");
   await page.getByTestId("home-config-tab-layout").click();
+  await expect(page.getByTestId("home-config-theme")).toBeHidden();
+  await expect(page.getByTestId("home-config-agents")).toBeHidden();
   await page.getByTestId("home-config-quick-action-chat").uncheck();
   await capture("layout", "layout", "home-config-quick-actions");
   await page.getByTestId("home-config-tab-edit").click();

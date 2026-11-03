@@ -12,4 +12,6 @@ Verification: semantic RED before implementation, actual component tests for liv
 
 English controls must remain readable at narrow widths; allow bounded wrapping/min-width adjustments inside the owned components where longer translations require them, preserving control order, roles and identities. Real screenshots/geometry should cover 375/820/1280 and actual route/visible-tab boundaries. Do not assert a control exists on a route or tab that intentionally does not render it.
 
+Screenshot QA also requires inactive tab panels to be visually hidden. The existing unconditional flex utility overrides the hidden attribute; scope includes the minimal conditional display-class correction, retaining mounted children and all form/picker/request state. Preserve intended tab selection semantics rather than preserving this observed rendering defect.
+
 Same sole worktree. Local branch starts at profile PR6203 source bfb608070 to reuse canonical save keys; fetch main/develop first. Do not publish a develop PR with inherited profile changes: integrate fresh develop after actual6203 merge and prove zero inherited profile delta. No additional worktree, no changes to the shared original checkout or feature/signoff status.
