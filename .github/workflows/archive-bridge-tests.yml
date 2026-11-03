@@ -142,6 +142,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+          # Fixed release qualification reads original SQL/tool blobs by SHA.
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: '22.20.0'

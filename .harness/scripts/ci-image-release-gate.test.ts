@@ -29,3 +29,16 @@ it('never uses current branch verification to admit an existing Devapp tag of un
 it('keeps installed standalone candidate policy generated from the admission contract',()=>{
  expect(()=>execFileSync(process.execPath,['.harness/scripts/gen-devapp-ci-policy.mjs','--check'])).not.toThrow();
 });
+
+it('allows explicit manual CN branch releases while retaining frozen source and installed deployment',()=>{
+ const w=parse(readFileSync('.github/workflows/image-release.yml','utf8'));
+ expect(w.jobs.plan.if).toContain("inputs.environment == 'cn' && github.ref_type == 'branch'");
+ expect(w.jobs.build.steps.filter((s:any)=>s.uses==='actions/checkout@v5').at(-1).with.ref).toBe('${{ needs.plan.outputs.source }}');
+ expect(w.jobs.deploy.if).toContain("needs.manifest.result == 'success'");
+ expect(w.jobs.deploy.if).toContain("needs.plan.outputs.build == 'false'");
+ expect(w.jobs.deploy.steps.some((s:any)=>s.uses?.startsWith('actions/checkout'))).toBe(false);
+});
+
+it('retains strict application-only release typechecking without bundling API E2E fixtures',()=>{
+ execFileSync('python3',['-B','-m','unittest','discover','-s','tests','-p','test_web_builder_imports.py'],{timeout:60_000});
+});

@@ -30,12 +30,17 @@ if (existsSync(monacoVsSrc) && !existsSync(monacoVsDest)) {
 }
 
 /** @type {import('next').NextConfig} */
-export default {
+const nextConfig = {
   reactStrictMode: true,
   // Serve original images without the optional sharp/libvips optimizer.
   images: { unoptimized: true },
   // Only release images use a traced runtime; dev/e2e keep their current output.
-  ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? { output: "standalone" } : {}),
+  ...(process.env.WORKSPACEX_RELEASE_BUILD === "1" ? {
+    output: "standalone",
+    // E2E fixtures reference server workspaces absent from the Web builder.
+    // Development/CI still typecheck the full tsconfig.json, including tests.
+    typescript: { tsconfigPath: "tsconfig.release.json" },
+  } : {}),
   /**
    * ⚠ 2026-08-18 实测（真栈 + 真实百炼 `qwen3.8-max` 跑 pptx skill 试跑）：
    * Next 的 rewrite 代理**默认 30s 就掐断连接**（`proxyTimeout` 未配时的内建默认），
@@ -666,3 +671,5 @@ export default {
     return { beforeFiles: [...chatV2BranchRewrites, ...projectsApiRewrites], afterFiles };
   },
 };
+
+export default nextConfig;
