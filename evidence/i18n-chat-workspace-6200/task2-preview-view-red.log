@@ -1,0 +1,83 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-attachment-view.test.tsx (4 tests | 4 failed) 39ms
+   × localizes the pending byte view without changing the raw attachment identity 26ms
+     → expected '正在加载…' to be 'Loading…' // Object.is equality
+   × retranslates a failed preview without exposing upstream errors 4ms
+     → expected '加载失败，请重试或直接下载。' to be 'Could not load the preview. Try again…' // Object.is equality
+   × localizes unsupported-format fallback without changing the loaded blob 4ms
+     → expected '该文件类型不支持预览，请下载查看。' to be 'Preview is unavailable for this file …' // Object.is equality
+   × keeps a pending text read and raw braced content intact across locale changes 3ms
+     → expected '正在读取内容…' to be 'Reading content…' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-attachment-view.test.tsx > localizes the pending byte view without changing the raw attachment identity
+AssertionError: expected '正在加载…' to be 'Loading…' // Object.is equality
+
+Expected: "Loading…"
+Received: "正在加载…"
+
+ ❯ tests/ui/i18n-chat-attachment-view.test.tsx:20:31
+     18|   render(localized(<ChatAttachmentView threadId="raw-thread" attachmen…
+     19|   const pending = screen.getByTestId("chat-attachment-preview-loading"…
+     20|   expect(pending.textContent).toBe("Loading…");
+       |                               ^
+     21|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     22|   expect(screen.getByTestId("chat-attachment-preview-loading")).toBe(p…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/i18n-chat-attachment-view.test.tsx > retranslates a failed preview without exposing upstream errors
+AssertionError: expected '加载失败，请重试或直接下载。' to be 'Could not load the preview. Try again…' // Object.is equality
+
+Expected: "Could not load the preview. Try again or download the file."
+Received: "加载失败，请重试或直接下载。"
+
+ ❯ tests/ui/i18n-chat-attachment-view.test.tsx:29:30
+     27|   render(localized(<ChatAttachmentView threadId="raw-thread" attachmen…
+     28|   const failed = screen.getByTestId("chat-attachment-preview-failed");
+     29|   expect(failed.textContent).toBe("Could not load the preview. Try aga…
+       |                              ^
+     30|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     31|   expect(screen.getByTestId("chat-attachment-preview-failed")).toBe(fa…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/i18n-chat-attachment-view.test.tsx > localizes unsupported-format fallback without changing the loaded blob
+AssertionError: expected '该文件类型不支持预览，请下载查看。' to be 'Preview is unavailable for this file …' // Object.is equality
+
+Expected: "Preview is unavailable for this file type. Download it to view."
+Received: "该文件类型不支持预览，请下载查看。"
+
+ ❯ tests/ui/i18n-chat-attachment-view.test.tsx:38:89
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/i18n-chat-attachment-view.test.tsx > keeps a pending text read and raw braced content intact across locale changes
+AssertionError: expected '正在读取内容…' to be 'Reading content…' // Object.is equality
+
+Expected: "Reading content…"
+Received: "正在读取内容…"
+
+ ❯ tests/ui/i18n-chat-attachment-view.test.tsx:51:31
+     49|   render(localized(<TextAttachmentPreview src="blob:raw-text" />));
+     50|   const pending = screen.getByTestId("chat-attachment-preview-text-loa…
+     51|   expect(pending.textContent).toBe("Reading content…");
+       |                               ^
+     52|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     53|   expect(screen.getByTestId("chat-attachment-preview-text-loading")).t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  03:21:32
+   Duration  2.35s (transform 901ms, setup 101ms, collect 1.35s, tests 39ms, environment 509ms, prepare 45ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-attachment-view.test.tsx

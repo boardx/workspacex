@@ -1,0 +1,323 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-realtime-entry.test.tsx (2 tests | 2 failed) 137ms
+   × localizes the closed call entry while keeping the custom agent identity and connection untouched 122ms
+     → Unable to find an accessible element with the role "button" and name "Live conversation with 用户数字人 🌍"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "与用户数字人 🌍实时对话":
+  [36m<button[39m
+    [33maria-label[39m=[32m"与用户数字人 🌍实时对话"[39m
+    [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"与用户数字人 🌍实时对话"[39m
+      [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-audio-lines h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M2 10v3"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M6 6v11"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10 3v18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 8v7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 5v13"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M22 10v3"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"whitespace-nowrap"[39m
+      [36m>[39m
+        [0m实时对话[0m
+      [36m</span>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × uses an authored localized general assistant label without creating a thread 15ms
+     → Unable to find an accessible element with the role "button" and name "Live conversation with General assistant"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "与通用助手实时对话":
+  [36m<button[39m
+    [33maria-label[39m=[32m"与通用助手实时对话"[39m
+    [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"与通用助手实时对话"[39m
+      [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-audio-lines h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M2 10v3"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M6 6v11"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10 3v18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 8v7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 5v13"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M22 10v3"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"whitespace-nowrap"[39m
+      [36m>[39m
+        [0m实时对话[0m
+      [36m</span>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-realtime-entry.test.tsx > localizes the closed call entry while keeping the custom agent identity and connection untouched
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Live conversation with 用户数字人 🌍"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  [36m<button />[39m
+
+  Name "与用户数字人 🌍实时对话":
+  [36m<button[39m
+    [33maria-label[39m=[32m"与用户数字人 🌍实时对话"[39m
+    [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mswitch language[0m
+    [36m</button>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"与用户数字人 🌍实时对话"[39m
+      [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-audio-lines h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M2 10v3"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M6 6v11"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10 3v18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 8v7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 5v13"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M22 10v3"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"whitespace-nowrap"[39m
+      [36m>[39m
+        [0m实时对话[0m
+      [36m</span>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-realtime-entry.test.tsx:14:24
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/i18n-chat-realtime-entry.test.tsx > uses an authored localized general assistant label without creating a thread
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Live conversation with General assistant"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "与通用助手实时对话":
+  [36m<button[39m
+    [33maria-label[39m=[32m"与通用助手实时对话"[39m
+    [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+    [33mdata-state[39m=[32m"closed"[39m
+    [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button[39m
+      [33maria-label[39m=[32m"与通用助手实时对话"[39m
+      [33mclass[39m=[32m"inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-3 text-13 text-card-foreground transition-colors duration-base hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground"[39m
+      [33mdata-state[39m=[32m"closed"[39m
+      [33mdata-testid[39m=[32m"chat-composer-realtime-voice"[39m
+      [33mtype[39m=[32m"button"[39m
+    [36m>[39m
+      [36m<svg[39m
+        [33maria-hidden[39m=[32m"true"[39m
+        [33mclass[39m=[32m"lucide lucide-audio-lines h-4 w-4"[39m
+        [33mfill[39m=[32m"none"[39m
+        [33mheight[39m=[32m"24"[39m
+        [33mstroke[39m=[32m"currentColor"[39m
+        [33mstroke-linecap[39m=[32m"round"[39m
+        [33mstroke-linejoin[39m=[32m"round"[39m
+        [33mstroke-width[39m=[32m"2"[39m
+        [33mviewBox[39m=[32m"0 0 24 24"[39m
+        [33mwidth[39m=[32m"24"[39m
+        [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+      [36m>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M2 10v3"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M6 6v11"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M10 3v18"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M14 8v7"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M18 5v13"[39m
+        [36m/>[39m
+        [36m<path[39m
+          [33md[39m=[32m"M22 10v3"[39m
+        [36m/>[39m
+      [36m</svg>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"whitespace-nowrap"[39m
+      [36m>[39m
+        [0m实时对话[0m
+      [36m</span>[39m
+    [36m</button>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-realtime-entry.test.tsx:24:17
+     22|   const resolve = vi.fn(async () => "thread-raw");
+     23|   render(<I18nProvider initialLocale="en"><ChatRealtimeVoiceEntry disa…
+     24|   expect(screen.getByRole("button", { name: "Live conversation with Ge…
+       |                 ^
+     25|   expect(resolve).not.toHaveBeenCalled();
+     26| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  03:40:16
+   Duration  2.60s (transform 956ms, setup 103ms, collect 1.50s, tests 137ms, environment 510ms, prepare 43ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-realtime-entry.test.tsx
