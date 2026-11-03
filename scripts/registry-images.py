@@ -180,11 +180,9 @@ def main():
         build_only=os.environ.get('BUILD_ONLY')=='true'
         requested=os.environ.get('TARGET_ENVIRONMENT') or 'auto'
         cn_branch=event=='workflow_dispatch' and requested=='cn' and os.environ.get('GITHUB_REF_TYPE','branch')=='branch'
-        need(event=='push' and branch=='develop' or event=='workflow_dispatch' and (branch in ('main','develop','main-us') or build_only or cn_branch),'RELEASE_EVENT_NOT_ALLOWED')
+        need(event=='workflow_dispatch' and (branch in ('main','develop','main-us') or build_only or cn_branch),'RELEASE_EVENT_NOT_ALLOWED')
         expected={'develop':'devapp','main':'cn','main-us':'us'}.get(branch)
-        if event=='push':
-            target=expected
-        elif cn_branch:
+        if cn_branch:
             # Manual CN builds freeze the selected branch's github.sha; a supplied
             # tag still reuses the original artifact without constructing new images.
             target='cn'

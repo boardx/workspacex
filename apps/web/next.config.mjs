@@ -325,6 +325,10 @@ const nextConfig = {
        *   `/admin/skills/starter-pack-imports`）。⛔ 哪天有了，必须同时补裸路径那一条——
        *   `:path*` 匹配不到没有后缀的那一条，这个坑本文件上面已经栽过三次。
        */
+      // Display metadata has an independent administrator read/write surface.
+      // Keep both exact paths; never proxy the frontend /admin/:module pages.
+      { source: `${prefix}/admin/entity-display-updates`, destination: `${apiOrigin}/admin/entity-display-updates` },
+      { source: `${prefix}/admin/entity-display-updates/:path*`, destination: `${apiOrigin}/admin/entity-display-updates/:path*` },
       { source: `${prefix}/admin/skills/:path*`, destination: `${apiOrigin}/admin/skills/:path*` },
       { source: `${prefix}/admin/agents/:path*`, destination: `${apiOrigin}/admin/agents/:path*` },
       // #552：双重门禁的三条路径（`/skill-versions/:versionId/security-scan|submit|review`）。

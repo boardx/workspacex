@@ -1,0 +1,10 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/topbar-admin-hint-hidden.test.tsx (9 tests) 159ms
+
+ Test Files  1 passed (1)
+      Tests  9 passed (9)
+   Start at  06:56:57
+   Duration  3.12s (transform 1.05s, setup 168ms, collect 1.66s, tests 159ms, environment 703ms, prepare 46ms)

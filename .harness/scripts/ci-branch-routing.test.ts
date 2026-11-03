@@ -46,7 +46,8 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     expect(gateway.jobs.validate.env).toBeUndefined();
     for (const event of ['push', 'pull_request']) expect(admit(gateway.jobs.validate.if,event,'develop')).toBe(true);
     expect(admit(gateway.jobs.validate.if,'push','main')).toBe(false);
-    expect(admit(gateway.jobs.deploy.if,'push','main')).toBe(true);
+    expect(admit(gateway.jobs.deploy.if,'push','main')).toBe(false);
+    expect(admit(gateway.jobs.deploy.if,'workflow_dispatch','main')).toBe(true);
     for (const branch of ['develop','main-us']) expect(admit(gateway.jobs.deploy.if,'push',branch)).toBe(false);
     expect(gateway.concurrency.group).toContain("github.ref == 'refs/heads/main'");
     expect(gateway.concurrency.group).toContain('coord-validation-');
@@ -56,7 +57,9 @@ describe('develop integration routing preserves trusted deployment boundaries', 
       ['deploy-devportal', ['Typecheck / lint / test','E2E (repeatable local gateway fixture)']],
     ] as const) {
       const w=workflow(name);
-      expect(w.on.push.branches).toEqual(['main']);
+      expect(w.on.push).toBeUndefined();
+      expect(w.on.workflow_dispatch).toBeDefined();
+      expect(w.jobs.deploy.if).toContain("github.event_name == 'workflow_dispatch'");
       expect(w.jobs.deploy.if).toContain("github.ref == 'refs/heads/main'");
       for (const stepName of steps) expect(w.jobs.validate.steps.find((s: any)=>s.name===stepName).if).toBe("github.event_name == 'pull_request'");
     }
@@ -70,12 +73,13 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     expect(() => changedPaths({ ...input, git: () => { throw new Error('missing object'); } })).toThrow('missing object');
   });
 
-  it('only develop can automatically enter the Devapp writer', () => {
+  it('only explicit manual dispatch can enter the release planner', () => {
     const release = workflow('image-release');
     expect(workflow('backend-gates').jobs.deploy).toBeUndefined();
     const admitted = (event: string, branch: string) => new Function('github', 'inputs', `return (${release.jobs.plan.if});`)(
       {event_name:event,ref:`refs/heads/${branch}`},{build_only:false});
-    expect(admitted('push','develop')).toBe(true);
+    expect(admitted('push','develop')).toBe(false);
+    expect(admitted('workflow_dispatch','develop')).toBe(true);
     for(const branch of ['main','main-cn','main-us','feature/untrusted']) expect(admitted('push',branch)).toBe(false);
     for(const event of ['pull_request','merge_group']) expect(admitted(event,'develop')).toBe(false);
     expect(release.jobs.deploy.concurrency['cancel-in-progress']).toBe(false);

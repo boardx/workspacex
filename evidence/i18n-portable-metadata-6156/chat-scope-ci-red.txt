@@ -1,0 +1,17 @@
+Remote head ba7d773cd4c1ffaf2263d97763091089fd72cf5b; workflow41560115054 job125668469769. Selected failure and totals; unrelated logs/DOM omitted.
+2026-11-03T01:38:36.5289520Z
+2026-11-03T01:38:36.5290298Z  FAIL  tests/ui/chat-official-role-import-scope.test.tsx > chat hook sends frozen organization/token on the actual helper sequence and refreshes after verified completion
+2026-11-03T01:38:36.5290603Z AssertionError: expected "spy" to be called 1 times, but got 0 times
+2026-11-03T01:38:36.5290617Z
+2026-11-03T01:38:36.5290758Z Ignored nodes: comments, script, style
+2026-11-03T01:38:36.5290870Z <html>
+2026-11-03T01:38:36.5290982Z   <head />
+2026-11-03T01:38:36.5291092Z   <body>
+2026-11-03T01:38:36.5298564Z
+2026-11-03T01:38:36.5299026Z  Test Files  1 failed | 342 passed | 2 skipped (988)
+2026-11-03T01:38:36.5299471Z       Tests  1 failed | 4662 passed | 5 skipped (4687)
+2026-11-03T01:38:36.5299627Z    Start at  01:32:17
+2026-11-03T01:38:36.5300111Z    Duration  378.39s (transform 30.22s, setup 45.56s, collect 316.02s, tests 395.53s, environment 277.85s, prepare 30.18s)
+2026-11-03T01:38:36.5300127Z
+2026-11-03T01:38:36.5300132Z
+2026-11-03T01:38:36.5308160Z ##[error]AssertionError: expected "spy" to be called 1 times, but got 0 times

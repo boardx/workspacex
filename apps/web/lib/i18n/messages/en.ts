@@ -1,13 +1,21 @@
+import { enTasks } from "./tasks";
+import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
+import { activityEn } from "../namespaces/activity";
 import { profileEn } from "../namespaces/profile";
+import { aboutMemoryEn } from "../namespaces/about-memory";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
-import { activityEn } from "../namespaces/activity";
+import { accountEntryEn } from "../namespaces/account-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...enTasks,
+  ...enFailures,
   ...controlsEn,
   ...projectListEn,
+  ...activityEn,
   ...profileEn,
+  ...aboutMemoryEn,
   ...stateEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
@@ -240,5 +248,5 @@ export const en: Record<keyof typeof zhCN, string> = {
   "common.http.server": "The server encountered an error. Please try again later.",
   "common.http.failure": "The request failed. Please try again later.",
   "home.artifacts.one": "{count} artifact",
-  ...activityEn,
+  ...accountEntryEn,
 };

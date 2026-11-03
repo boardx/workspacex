@@ -9,6 +9,14 @@ SUITES={'release':['test_cn_release_*.py'],'hongkong':['test_cn_hk*.py'],'candid
 HEAVY_SUITES=frozenset(('linux-postgres','linux-postgres-lifecycle','linux-api-startup','linux-docker-cleanup','linux-api-outer-recovery','linux-postclear-recovery','linux-application-recovery','linux-application-recovery-complete','linux-six-business','linux-six-cleanup'))
 DOCKER_SUITE_REGISTRIES={'linux-api-startup':'api-container-owner','linux-application-recovery':'application-recovery-owner','linux-application-recovery-complete':'application-recovery-complete-owner'}
 HEAVY_SLOT=threading.Semaphore(1)
+def workflow_plan(lane,rounds,mode):
+    lanes={'all':['all'],'release':['release'],'targeted':['release','linux-api-outer-recovery','linux-application-recovery-complete','linux-six-business'],
+           **{n:[n] for n in ('linux-application-recovery-complete','linux-six-business','linux-boundary-reap')}}
+    if lane not in lanes or type(rounds)is not int or rounds not in (1,10) or mode not in ('acceptance','development'):raise ValueError('CI_FIXED_LANE_REQUIRED')
+    if rounds==10 and lane!='all':raise ValueError('CI_TEN_ALL_REQUIRED')
+    split=lane=='all' and rounds==1 and mode=='acceptance'
+    return dict(suites=['release','remaining'] if split else lanes[lane],split=split)
+
 def scheduled_execute(name,*args,**kwargs):
     def observed_execute():
         # Runner termination can prevent artifact upload. Keep bounded metadata
@@ -48,9 +56,16 @@ def child(suite,result):
             else:yield item
     cases={test.id():dict(caseId=test.id(),status='notrun',durationSeconds=None,layer='isolated-fixture') for test in flatten(tests)}
     write_json(result.with_suffix('.inventory.json'),list(cases.values()))
+    progress=result.with_suffix('.progress.jsonl').open('x',encoding='utf-8')
+    progress_start=time.monotonic()
+    def record_progress(test,event,**fields):
+        # Metadata only. Flush each boundary so an outer SIGKILL retains the
+        # last in-flight case; this diagnostic never substitutes for a verdict.
+        progress.write(json.dumps(dict(caseId=test.id(),event=event,elapsedSeconds=round(time.monotonic()-progress_start,6),**fields),sort_keys=True)+'\n')
+        progress.flush();os.fsync(progress.fileno())
     class Result(unittest.TextTestResult):
         def startTest(self,test):
-            super().startTest(test);self.started=time.monotonic()
+            super().startTest(test);self.started=time.monotonic();record_progress(test,'started')
         def mark(self,test,status):
             key=test.id() if test.id()in cases or not hasattr(test,'test_case') else test.test_case.id()
             if key not in cases:cases[key]=dict(caseId=key,status='notrun',durationSeconds=None,layer='isolated-fixture')
@@ -65,8 +80,10 @@ def child(suite,result):
             super().addSubTest(test,subtest,err)
             if err is not None:self.mark(test,'fail')
         def stopTest(self,test):
-            cases[test.id()]['durationSeconds']=round(time.monotonic()-self.started,6);super().stopTest(test)
-    outcome=unittest.TextTestRunner(verbosity=2,resultclass=Result).run(tests)
+            row=cases[test.id()];row['durationSeconds']=round(time.monotonic()-self.started,6)
+            record_progress(test,'finished',status=row['status'],durationSeconds=row['durationSeconds']);super().stopTest(test)
+    try:outcome=unittest.TextTestRunner(verbosity=2,resultclass=Result).run(tests)
+    finally:progress.close()
     value=dict(tests=outcome.testsRun,failures=len(outcome.failures),errors=len(outcome.errors),skipped=len(outcome.skipped),expectedFailures=len(outcome.expectedFailures),unexpectedSuccesses=len(outcome.unexpectedSuccesses))
     write_json(result,value);write_json(result.with_suffix('.cases.json'),list(cases.values()))
     return 0 if outcome.wasSuccessful() and outcome.testsRun>0 and not outcome.skipped and not outcome.expectedFailures else 1
@@ -283,7 +300,7 @@ def render_reports(output):
         f.write('Isolated release regression: '+value['status']+'\nCommit: '+value['commit']+'\nCompleted rounds: '+str(value['completedRounds'])+'/'+str(value['requestedRounds'])+'\nCase counts: '+json.dumps(value['caseCounts'],sort_keys=True)+'\nMatrix coverage by round: '+json.dumps([{'roundId':c['roundId'],'cases':[c['caseNumerator'],c['caseDenominator']],'requirements':[c['requirementNumerator'],c['requirementDenominator']]}for c in value['matrixCoverage']],sort_keys=True)+'\nProduction accepted: false\nFull acceptance gates: '+json.dumps(value['acceptanceGates'],sort_keys=True)+'\nDuration sample summary (fixture time only): '+json.dumps(value['durationDistribution'],sort_keys=True)+'\nNull metrics are unmeasured. CSV is derived from summary.json.\n'+'\n'.join(value['integrationGaps'])+'\n')
 
 EXPORT_TOP_FILES=('summary.json','metrics.csv','cases.csv','report.txt','fullstack-setup.json','fullstack-install.log','fullstack-outer-cleanup.json','simulation-outer-cleanup.json','six-recovery.json')
-EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json','.tests.outcome.json')
+EXPORT_SUITE_SUFFIXES=('.log','.tests.json','.tests.inventory.json','.tests.cases.json','.tests.outcome.json','.tests.progress.jsonl')
 EXPORT_REGISTRY_FILES=('owner.json','api-create-intent.json','api-create-receipt.json','cleanup.json','recovery-cleanup.json')
 EXPORT_NESTED_FILES={'api-container-owner':EXPORT_REGISTRY_FILES,'six-business':('session-intent.json','port-reservation.json','session-ready.json','next-launch-intent.json','next-launch-started.json','next-launch-exit.json','playwright-report.json','session-cleanup.json','result.json','application.log'),'six-infra-owner':('owner.json','postgres-create-intent.json','postgres-create-receipt.json','postgres-start-intent.json','redis-create-intent.json','redis-create-receipt.json','redis-start-intent.json','database-create-intent.json','infra-receipt.json','cleanup.json','recovery-cleanup.json')}
 EXPORT_NESTED_FILES['six-business']+=tuple('next-worker-%02d-%s.json'%(n,phase)for n in range(1,17)for phase in ('started','exit','error'))+('next-worker-overflow.json',)
@@ -368,7 +385,7 @@ def status_snapshot(raw):
     return {'dirty':bool(raw),'entries':entries,'entryCount':len(raw.splitlines()),'truncated':len(raw.splitlines())>64,'rawSha256':hashlib.sha256(data).hexdigest()}
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--export-parent',type=Path);p.add_argument('--child',choices=SUITES);p.add_argument('--result',type=Path);p.add_argument('--output',type=Path);p.add_argument('--suite',choices=['all',*SUITES],default='all');p.add_argument('--workers',type=int,choices=range(1,4),default=3);p.add_argument('--timeout-seconds',type=int,default=480);p.add_argument('--rounds',type=int,choices=(1,10),default=1);p.add_argument('--seed',type=int,default=0);p.add_argument('--mode',choices=('acceptance','development'),default='acceptance');args=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--export-parent',type=Path);p.add_argument('--child',choices=SUITES);p.add_argument('--result',type=Path);p.add_argument('--output',type=Path);p.add_argument('--suite',choices=['all','remaining',*SUITES],default='all');p.add_argument('--workers',type=int,choices=range(1,4),default=3);p.add_argument('--timeout-seconds',type=int,default=480);p.add_argument('--rounds',type=int,choices=(1,10),default=1);p.add_argument('--seed',type=int,default=0);p.add_argument('--mode',choices=('acceptance','development'),default='acceptance');args=p.parse_args()
     if args.export_parent is not None:
         print(json.dumps(export_reports(args.export_parent),sort_keys=True));return 0
     if args.child:
@@ -384,6 +401,7 @@ def main():
     dirty=state_before['dirty'];initial_state=state_before
     if args.rounds==10 and dirty:raise ValueError('TEN_ROUNDS_REQUIRE_CLEAN_FIXED_COMMIT')
     names=list(SUITES)if args.suite=='all'else[args.suite]
+    if args.suite=='remaining':names=[n for n in SUITES if n!='release']
     if args.rounds==10 and args.suite!='all':raise ValueError('TEN_ROUNDS_REQUIRE_ALL_SUITES')
     started=datetime.datetime.now(datetime.timezone.utc).isoformat();rounds=[]
     for index in range(args.rounds):
@@ -397,13 +415,13 @@ def main():
         state_after=status_snapshot(subprocess.check_output(['git','-c','safe.directory='+str(ROOT),'-C',str(ROOT),'status','--porcelain','--untracked-files=all'],text=True))
         changed=state_after['dirty']
         fixed=head==commit and not dirty and not changed
-        value=dict(roundId=round_id,startedAt=round_started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),durationSeconds=round(time.monotonic()-round_start,3),commit=commit,seed=seed,sourceStateBefore=state_before,sourceStateAfter=state_after,sourceUnchanged=fixed,suites=rows,status='passed'if fixed and all(x['status']=='passed'for x in rows)else'failed',externalServiceMode='fixtures',integrationGaps=GAPS)
+        value=dict(roundId=round_id,startedAt=round_started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),durationSeconds=round(time.monotonic()-round_start,3),commit=commit,seed=seed,sourceStateBefore=state_before,sourceStateAfter=state_after,sourceUnchanged=fixed,suites=rows,status='passed'if fixed and all(x['status']=='passed'for x in rows)else'failed',externalServiceMode='fixtures',integrationGaps=list(GAPS))
         value['mode']=args.mode
         value['continuation']=round_continuation(args.mode,value,names,folder,os.environ.get('GITHUB_RUN_ID'))
         write_json(folder/'round.json',value);rounds.append(value);state_before=state_after
         print(json.dumps({'event':'round-finished','roundId':round_id,'mode':args.mode,'status':value['status'],'continueAllowed':value['continuation']['allowed'],'reason':value['continuation']['reason'],'completedSuites':len(rows)},sort_keys=True),flush=True)
         if not value['continuation']['allowed']:break
-    summary=dict(kind='cn-release-isolated-simulation-v1',mode=args.mode,commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=GAPS)
+    summary=dict(kind='cn-release-isolated-simulation-v1',suiteSelection=args.suite,mode=args.mode,commit=commit,trackedChanges=dirty,initialSourceState=initial_state,githubRunId=os.environ.get('GITHUB_RUN_ID'),githubRunAttempt=os.environ.get('GITHUB_RUN_ATTEMPT'),startedAt=started,finishedAt=datetime.datetime.now(datetime.timezone.utc).isoformat(),requestedRounds=args.rounds,completedRounds=len(rounds),baseSeed=args.seed,rounds=rounds,status='passed'if len(rounds)==args.rounds and all(x['status']=='passed'for x in rounds)else'failed',productionAccepted=False,externalServiceMode='fixtures',integrationGaps=list(GAPS))
     quantify(summary,output)
     if args.mode=='development':
         summary['completeRegressionAccepted']=False;summary['isolatedAcceptance']=False

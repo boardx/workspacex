@@ -1,3 +1,5 @@
+import { starterAgentDisplayDefaults } from "../../domain/localization/portable-pack";
+import { persistPortableImport } from "../localization/pg-portable-import";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type { OfficialAgentRolePackImportRepository, AgentStarterImportResult, ExistingAgentImportOutcome, PersistVerifiedOfficialAgentRolePackOutcome } from "../../application/agent-import/ports";
@@ -12,14 +14,14 @@ import { insertAgentVersionFromDraft } from "./agent-version-insert";
  * 失败码是 `UNRESOLVED_SKILL_REF`（UC-3 E2），不是 `AGENT_STARTER_SKILL_VERSION_MISSING/MISMATCH`
  * （UC-2 的码，两条导入路径共享同一个校验动作、不共享失败码，因为调用方要能分辨是哪条使用例）。
  */
-interface ImportRow { id: string; status: "pending" | "succeeded" | "failed"; payload_digest: string; result_json: AgentStarterImportResult | null; failure_code: string | null; }
+interface ImportRow { id: string; status: "pending" | "succeeded" | "failed"; payload_digest: string; result_json: AgentStarterImportResult | null; failure_code: string | null; metadata_only: boolean; }
 async function findImport(s: TenantSession, orgId: string, key: string): Promise<ImportRow | null> {
-  const result = await s.query<ImportRow>("SELECT id,status,payload_digest,result_json,failure_code FROM agent_starter_pack_imports WHERE org_id=$1 AND idempotency_key=$2", [orgId, key]);
+  const result = await s.query<ImportRow>("SELECT id,status,payload_digest,result_json,failure_code,metadata_only FROM agent_starter_pack_imports WHERE org_id=$1 AND idempotency_key=$2", [orgId, key]);
   return result.rows[0] ?? null;
 }
 function existing(row: ImportRow, digest: string): Exclude<ExistingAgentImportOutcome, { kind: "missing" }> {
   if (row.payload_digest !== digest) return { kind: "idempotency-conflict" };
-  if (row.status === "succeeded" && row.result_json) return { kind: "replayed", result: row.result_json };
+  if (row.status === "succeeded" && row.result_json) return { kind: "replayed", result: row.result_json, ...(row.metadata_only ? { metadataOnly: true } : {}) };
   return { kind: "previous-failure", failureCode: row.failure_code ?? "AGENT_STARTER_PACK_INVALID" };
 }
 
@@ -43,7 +45,11 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
   }
 
   persistVerified(input: Parameters<OfficialAgentRolePackImportRepository["persistVerified"]>[0]) {
-    return this.db.withTenant(input.orgId, async (s): Promise<PersistVerifiedOfficialAgentRolePackOutcome> => {
+    if (input.pack.schemaVersion === 2) return persistPortableImport(this.db, { ...input, kind: "official-agent", pack: input.pack }, (s, createdIds) => this.persistInSession(input, s, createdIds));
+    return this.db.withTenant(input.orgId, s => this.persistInSession(input, s));
+  }
+
+  private async persistInSession(input: Parameters<OfficialAgentRolePackImportRepository["persistVerified"]>[0], s: TenantSession, createdIds?: Set<string>): Promise<PersistVerifiedOfficialAgentRolePackOutcome> {
       await s.query("SELECT pg_advisory_xact_lock(hashtextextended($1, 418))", [input.orgId]);
       const prior = await findImport(s, input.orgId, input.idempotencyKey);
       const retrying = prior !== null && isRetryableFailure(prior, input.payloadDigest);
@@ -104,16 +110,16 @@ export class PgOfficialAgentRolePackImportRepository implements OfficialAgentRol
             [...agent.role.tags],
           ],
         );
+        createdIds?.add(agentId);
         await insertAgentVersionFromDraft(s, { versionId, orgId: input.orgId, agentId, semanticLabel: agent.semanticVersion, instructionDigest: agent.instructionDigest, instructions: agent.instructions, skillVersionIds: resolvedSkills.get(agent.stableName)!.pins, pendingSkillBindings: resolvedSkills.get(agent.stableName)!.pending, modelProvider: agent.modelProvider, modelId: agent.modelId, toolPolicy: agent.toolPolicy, creatorId: input.actorId, at: importedAt });
         await s.query("UPDATE agents SET published_version_id=$3,updated_at=$4 WHERE id=$1 AND org_id=$2", [agentId, input.orgId, versionId, importedAt]);
         // toolPolicy 中的分类不产生任何授权（ADR-120 #2，I-6）：这里只写目录行，不触碰任何
         // 授权/凭证表——与普通 starter-pack 导入完全同一条纪律。
-        await s.query("INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty,role_label,role_label_needs_confirmation) VALUES ($1,$2,'agent',$3,'org-wide',NULL,true,NULL,$4,$5,$6,false)", [agentId, input.orgId, agent.name, agent.roleRef, agent.roleLabel, agent.roleLabel]);
+        await s.query("INSERT INTO capability_listings (id,org_id,kind,name,scope,owner_team_id,enabled,endpoint,abbr,duty,role_label,role_label_needs_confirmation) VALUES ($1,$2,'agent',$3,'org-wide',NULL,true,NULL,$4,$5,$6,false)", [agentId, input.orgId, agent.name, agent.roleRef, starterAgentDisplayDefaults(agent).duty, agent.roleLabel]);
       }
       const result: AgentStarterImportResult = { importId, packId: input.pack.packId, packVersion: input.pack.packVersion, packDigest: input.pack.packDigest, status: "succeeded", agentIds, versionIds, importedAt };
       await s.query("UPDATE agent_starter_pack_imports SET status='succeeded',result_json=$3::jsonb,failure_code=NULL WHERE id=$1 AND org_id=$2", [importId, input.orgId, JSON.stringify(result)]);
       return { kind: "created", result };
-    });
   }
 
   importedOfficialStableNames(orgId: Parameters<OfficialAgentRolePackImportRepository["importedOfficialStableNames"]>[0]) {

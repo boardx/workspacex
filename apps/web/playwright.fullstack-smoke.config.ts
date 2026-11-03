@@ -1,3 +1,4 @@
+import { ABOUT_ME_E2E } from "./e2e/about-me-fixture";
 import { ENTITY_LOCALIZATION_E2E } from "./e2e/entity-localization-fixture";
 import path from "node:path";
 import {partitionSmokeProjects} from "./smoke-project-partition";
@@ -91,6 +92,7 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  */
 const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
+  FULLSTACK_ABOUT_ME_FIXTURE: JSON.stringify(ABOUT_ME_E2E),
   FULLSTACK_ENTITY_LOCALIZATION_ORG_ID: ENTITY_LOCALIZATION_E2E.orgId,
   FULLSTACK_ENTITY_LOCALIZATION_PROJECT_ID: ENTITY_LOCALIZATION_E2E.projectId,
   FULLSTACK_ENTITY_LOCALIZATION_ADMIN_USER_ID: ENTITY_LOCALIZATION_E2E.adminUserId,
@@ -101,6 +103,9 @@ const fixtureEnv = {
   FULLSTACK_ENTITY_LOCALIZATION_MEMBER_PASSWORD: ENTITY_LOCALIZATION_E2E.memberPassword,
 
   FULLSTACK_E2E_FIXTURE: "1",
+  FULLSTACK_E2E_TASKS_EMAIL: FULLSTACK_E2E.tasksEmail,
+  FULLSTACK_E2E_TASKS_PASSWORD: FULLSTACK_E2E.tasksPassword,
+  FULLSTACK_E2E_TASKS_USER_ID: FULLSTACK_E2E.tasksUserId,
   FULLSTACK_E2E_EMAIL: FULLSTACK_E2E.email,
   FULLSTACK_E2E_PASSWORD: FULLSTACK_E2E.password,
   FULLSTACK_E2E_ORG_ID: FULLSTACK_E2E.orgId,
@@ -318,6 +323,7 @@ export default defineConfig({
       name: "seeded",
       testMatch: [
         "fullstack-smoke.spec.ts",
+        "i18n-about-me.spec.ts",
         // Anonymous sharing layout/error regressions; real persistence uses its isolated API lane.
         "chat-public-share.spec.ts",
         "guided-research-runtime.spec.ts",
@@ -356,6 +362,7 @@ export default defineConfig({
         // ⚠ PJ-01 / #976 同理排在 `seeded`：它要用种子里的 `lead`（新建项目唯一有权的角色）
         //   与 consultant（反证：非 lead 必须被服务端拒绝）两个账号。
         "project-create-smoke.spec.ts",
+        "i18n-live-tasks.spec.ts",
         "i18n-project-list.spec.ts",
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）
         //   与该工作坊的 facilitator（`FULLSTACK_E2E.email`，agendaSegment.create 只属这个角色）。
