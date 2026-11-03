@@ -74,6 +74,7 @@ test("interview locale preserves the real private-profile, canonical six-step an
   await expect(customCard).toContainText(rawExpert);
   await customCard.getByRole("button", { name: `View profile ${rawExpert}`, exact: true }).click();
   await expect(page.getByRole("dialog", { name: rawExpert, exact: true })).toContainText("原始职业");
+  await capture("private-profile-detail-en");
   await page.keyboard.press("Escape");
   await expect(customCard.getByRole("button", { name: `View profile ${rawExpert}`, exact: true })).toBeFocused();
   await page.goto("/itv/new");
@@ -96,6 +97,7 @@ test("interview locale preserves the real private-profile, canonical six-step an
   await capture("interview-intake-en", true);
   await page.getByRole("button", { name: "Next: confirm analysis", exact: true }).click();
   await expect(page).toHaveURL(/\/analysis$/);
+  await capture("interview-analysis-en", true);
   expect((await readSource()).documents.find(document => document.step === "intake")?.markdown).toBe(rawGoal);
   await page.getByRole("button", { name: "Select experts", exact: true }).click();
   await expect(page).toHaveURL(/\/experts$/);
@@ -139,6 +141,7 @@ test("interview locale preserves the real private-profile, canonical six-step an
   await capture("interview-metadata-en"); await page.getByTestId("itv-edit-submit").click();
   await expect(page.getByTestId("itv-edit-dialog")).not.toBeVisible(); await page.reload();
   await expect(page.getByTestId(`itv-history-card-${id}`)).toContainText("原始标签");
+  await capture("interview-history-en");
   await page.getByTestId(`itv-history-actions-${id}`).click(); await page.getByTestId(`itv-history-delete-${id}`).click();
   await expect(page.getByRole("dialog")).toContainText("interview");
   await page.getByRole("button", { name: "Cancel", exact: true }).click(); await expect(page.getByTestId(`itv-history-card-${id}`)).toBeVisible();
