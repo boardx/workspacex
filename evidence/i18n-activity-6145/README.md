@@ -1,6 +1,6 @@
 # Structured activity evidence — #6145
 
-The change is stacked on profile PR #6144 at ad4b551075fd4b1934a4196e7b5a7381897803b9. Metadata is explicitly requested by structured-v1; legacy responses retain summary-only strict shape. Display params are whitelisted; no raw detail or credentials are exposed. Frontend metadata parsing falls back to summary without regex rewriting.
+Originally tested on profile PR #6144 at ad4b551075fd4b1934a4196e7b5a7381897803b9. The branch now incorporates actual develop97c19b3c423534966114c4ba869abd58efe24748; see docs/design/i18n-activity/develop-sync.md for the independent current delta and fresh44-case evidence. Metadata is explicitly requested by structured-v1; legacy responses retain summary-only strict shape. Display params are whitelisted; no raw detail or credentials are exposed. Frontend metadata parsing falls back to summary without regex rewriting.
 
 - Contract and UI acceptance tests first failed for the missing opt-in request/metadata display. Final scoped suites: 8 contract tests, 11 API/controller tests, 24 UI/resource tests.
 - Unsupported versions initially threw raw ZodError; query-validation-red.log records the failing controller assertion. Reusing existing ZodBodyPipe makes it ContractValidationError/400. Global exception handling is unchanged.

@@ -74,6 +74,9 @@ beforeAll(() => {
   // 同理：`20260930123000_dh_official_names_zh.sql` 读写 `agents.role_label` / `capability_listings.role_label`，
   // 这两列由上面被摘掉的 i1705 加；它在 i619 之前的中间态上会 `column a.role_label does not exist`（真实部署不会出现）。
   unlinkSync(join(legacyDir, "20260930123000_dh_official_names_zh.sql"));
+  // The localization source view needs i619 duty and i1705 role_label. Apply it
+  // in step ③ with those prerequisites, not in the deliberately pre-column fixture.
+  unlinkSync(join(legacyDir, "20261103120000_entity_localizations.sql"));
 }, 120_000);
 
 afterAll(() => {
@@ -103,6 +106,8 @@ it("已经有 agent listing 的库能升级：i619 回填既有行而不是被�
   //    `check constraint "capability_listings_agent_needs_abbr_duty" ... is violated by some row`。
   const result = await migrate(cfg());
   expect(result.applied).toContain("20260807000000_i619_agent_roster_capability_convergence.sql");
+  expect(result.applied).toContain("20261103120000_entity_localizations.sql");
+  expect(psql(DB, "SELECT to_regclass('entity_localization_sources') IS NOT NULL").trim()).toBe("t");
 
   // 回填要给出**非空**值，不是把约束放宽。
   const [abbr, duty] = psql(DB, "SELECT abbr || '|' || duty FROM capability_listings WHERE id='agent-legacy'")

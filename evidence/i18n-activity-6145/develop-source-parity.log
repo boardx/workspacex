@@ -1,0 +1,14 @@
+old=e0f2af43ea449a950fd463d5095297ae469b0185
+actual_base=97c19b3c423534966114c4ba869abd58efe24748
+Owned source/test/config blobs unchanged=11
+apps/api/src/application/identity/list-own-activity.ts byte-identical sha256=cf393e2d20501d7c94bdce24d0625e71814532dd39ad85c0e2775c2030dd42af
+apps/api/src/interface/controllers/identity.controller.ts byte-identical sha256=13163d880c87fbfa32f12cfb63e31baf1927807f840f1a3ec19d69c045f2ba57
+apps/api/tests/identity/activity-display.test.ts byte-identical sha256=349bf11e74909f663412eeb0f21e884d15e488c433187676ab0b43c31ef36ae5
+apps/api/vitest.identity-display-unit.config.ts byte-identical sha256=0109f070ab5d647596bec40829ed578b9443ca746230c8638d702efc18891e2f
+apps/web/components/profile/profile-screen.tsx byte-identical sha256=25c2aadd519a9e30a9c2b2b6d72199344c460164ed340798313855bdfcb80978
+apps/web/e2e/self-service-profile.spec.ts byte-identical sha256=ecb6d927d4a9e077a19730acd4570b6da9f89bab139662908fb9d090fe6974ed
+apps/web/lib/generated/identity.mock.ts byte-identical sha256=bcf61f34cefadfa24f39b010af7245ec7fc5648b942ecc71c48bcd095964ea37
+apps/web/lib/i18n/activity.ts byte-identical sha256=124749548b3aef3964ea09ccfabf305d5cddc1cab6d88fcbb1fb9e9487185a8f
+apps/web/lib/i18n/namespaces/activity.ts byte-identical sha256=90d0b25a938c7a8c62236db901b663cee4ddf9d78263c9288356701288578bad
+apps/web/lib/live-identity.ts byte-identical sha256=ea4f99ad6d9e45bfb9b379e8c7ad7ea323a8a48633faad3b006a851af48d74a4
+apps/web/tests/ui/profile-i18n.test.tsx byte-identical sha256=d3a0d969b6fcb6de822923b84cd9ef01f822eec98cf8c3c076ac43bc3a6db0b5

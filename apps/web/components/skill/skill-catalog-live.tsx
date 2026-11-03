@@ -3,6 +3,8 @@
 import { ResourceCardTags } from "@/components/ui/resource-card";
 import { dedupeTags } from "@/lib/tag-utils";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { localizedText } from "@/lib/entity-localization";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Building2, Plus } from "lucide-react";
 import { useSession } from "@/components/session/session-provider";
@@ -158,6 +160,7 @@ type DetailState =
 const VISIBILITY_LABEL = { "org-wide": "组织可见", "team-only": "仅本团队" } as const;
 
 function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
+  const { locale } = useI18n();
   /**
    * 「编辑源码」目的地——人类反馈（2026-08-17）：点击「编辑」应该打开一个新的界面，
    * 不是在当前列表页里内联展开。直接指向独立页面（`/admin/skill/[id]`，`CapabilityEditPage`）。
@@ -194,7 +197,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     const request = ++generation.current;
     setState({ orgId, status: "loading" });
     try {
-      const rows = await listSkills(orgId);
+      const rows = await listSkills(orgId, locale);
       // 换组织后到达的旧响应不得覆盖新组织的真实请求（同 `capability-catalog-screen.tsx`）。
       if (request !== generation.current || currentOrgId.current !== orgId) return false;
       setState({ orgId, status: "ready", rows });
@@ -206,7 +209,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       setState({ orgId, status: "error", message: describeError(error) });
       return false;
     }
-  }, [orgId]);
+  }, [orgId, locale]);
 
   React.useEffect(() => {
     // 换组织 = 上一组织的提示与面板全部作废：它们说的是另一个组织发生过的事。
@@ -267,7 +270,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     ...(row.tags ?? []).map((t) => ({ key: `tag-${tagSlug(t)}`, label: t })),
   ], []);
   const searchTextOf = React.useCallback(
-    (row: SkillListItem): string => [row.name, row.skillId, row.duty, ...(row.tags ?? [])].join(" "),
+    (row: SkillListItem): string => [row.name, localizedText(row.display, "name", row.name), row.skillId, row.duty, localizedText(row.display, "duty", row.duty), ...(row.tags ?? [])].join(" "),
     [],
   );
 
@@ -283,7 +286,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     }
     let cancelled = false;
     setDetailState({ skillId: selectedKey, status: "loading" });
-    getSkillDetail(selectedKey)
+    getSkillDetail(selectedKey, locale)
       .then((detail) => {
         if (!cancelled) setDetailState({ skillId: selectedKey, status: "ready", detail });
       })
@@ -293,7 +296,7 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedKey, selectedNeedsDetail]);
+  }, [selectedKey, selectedNeedsDetail, locale]);
 
   function onStatusChanged(skillId: string, status: SkillListItem["status"]) {
     /**
@@ -394,10 +397,10 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       searchTextOf={searchTextOf}
       tagsOf={tagsOf}
       renderCard={(row) => ({
-        title: row.name,
+        title: localizedText(row.display, "name", row.name),
         subtitle: `${row.source} · ${VISIBILITY_LABEL[row.visibility]}`,
         badges: <Badge tone={row.status === "已启用" ? "primary" : "neutral"}>{row.status}</Badge>,
-        description: row.duty,
+        description: localizedText(row.display, "duty", row.duty),
         // G5：`tags` 为空数组时什么都不渲染——「没打标签」不是需要向使用者解释的异常状态。
         tags: (row.tags ?? []).length > 0 ? <ResourceCardTags tags={dedupeTags(row.tags ?? [])} testId="skill-catalog-tags" /> : undefined,
         meta: (
@@ -442,12 +445,12 @@ function Catalog({ orgId, orgName }: { orgId: string; orgName: string }) {
       onSelect={setSelectedKey}
       detailTestId="skill-detail-panel"
       detailWidth="lg"
-      detailTitle={(row) => row.name}
+      detailTitle={(row) => localizedText(row.display, "name", row.name)}
       detailSubtitle={(row) => `${row.source} · ${row.status} · ${row.skillId}`}
       renderDetail={(row) => (
         <div className="flex flex-col gap-3">
           <div className="flex flex-col divide-y divide-border-subtle">
-            <KV k="职责" v={row.duty} />
+            <KV k="职责" v={localizedText(row.display, "duty", row.duty)} />
             <KV k="可见范围" v={VISIBILITY_LABEL[row.visibility]} />
             <KV k="当前版本" v={row.currentVersionId ?? "还没有生效版本"} />
             <KV k="满意度" v={row.satisfaction === null ? "样本不足" : `${Math.round(row.satisfaction * 100)}%`} />

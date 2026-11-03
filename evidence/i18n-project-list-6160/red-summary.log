@@ -1,0 +1,11 @@
+Selected failure/summary lines from initial real-component acceptance (exit 1):
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/project-list-i18n.test.tsx > translates real cards and view/filter controls while preserving original name, tags and pending search without refetch
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Projects"
+ FAIL  tests/ui/project-list-i18n.test.tsx > retranslates a duplicate tag notice without committing or changing the original draft
+ FAIL  tests/ui/project-list-i18n.test.tsx > keeps archive wire ID and retranslates an existing HTTP fallback without replaying mutation
+ FAIL  tests/ui/project-list-i18n.test.tsx > preserves create draft/payload and retranslates stored role denial with no resubmission
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Close"
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Duration  5.72s (transform 1.69s, setup 292ms, collect 2.81s, tests 793ms, environment 1.14s, prepare 90ms)

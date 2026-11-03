@@ -1,0 +1,5 @@
+# Actual develop synchronization — #6145 / PR6147
+
+Merged actual develop `97c19b3c423534966114c4ba869abd58efe24748` into the activity branch to remove the stale integration base. Only two dictionary aggregator conflicts; retain controls/projectList/profile/state and append activity import/spread at the end. Net PR delta is activity-only; no dependency on unmerged profile/foundation source. All 11 owned source/test/config blobs remain byte-identical to old heade0f2af43ea449a950fd463d5095297ae469b0185.
+
+Fresh validation:9 contracts(0.949s),11 API/controller(4.65s),24 profile/resource(9.48s),44 unique cases. Initial append missed a trailing comma, causing0-test web collection failure(4.2s); fixed before actual24green. No local production rerun for unchanged feature blobs; original real profile/API evidence remains historical. New final-head CI including self-service journey required. Normal pre-push/exact review pending serial window. Conflict cost in evidence/develop-conflict-cost.json; no scanner or check weakening.

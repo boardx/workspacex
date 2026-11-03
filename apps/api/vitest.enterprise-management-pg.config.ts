@@ -1,0 +1,2 @@
+import {defineConfig} from "vitest/config";
+export default defineConfig({test:{globalSetup:["tests/support/db-global-setup.ts"],include:["tests/billing/enterprise-grant.pg.test.ts","tests/billing/credit-grant-precision-pg.test.ts","tests/billing/enterprise-management.http.test.ts","tests/billing/credit-grant-precision-schema-source.test.ts","tests/billing/welcome-schema-source.test.ts"],maxWorkers:1,minWorkers:1,testTimeout:30000,hookTimeout:180000}});

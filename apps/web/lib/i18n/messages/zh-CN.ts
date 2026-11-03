@@ -1,8 +1,11 @@
-import { activityZhCN } from "../namespaces/activity";
+import { controlsZhCN } from "../namespaces/controls";
+import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
+import { activityZhCN } from "../namespaces/activity";
 export const zhCN = {
-  ...activityZhCN,
+  ...controlsZhCN,
+  ...projectListZhCN,
   ...profileZhCN,
   ...stateZhCN,
   "common.language": "语言",
@@ -235,5 +238,6 @@ export const zhCN = {
   "common.http.rateLimit": "操作太频繁了，等一下再试",
   "common.http.server": "服务器出错了，稍后再试一次",
   "common.http.failure": "这次请求没成功，稍后再试一次",
-  "home.artifacts.one": "{count} 个产出物"
+  "home.artifacts.one": "{count} 个产出物",
+  ...activityZhCN,
 } as const;
