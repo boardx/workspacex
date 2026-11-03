@@ -1,3 +1,4 @@
+import { guard, discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import { wave2Runtime } from "@repo/contracts";
 import type { PersistVerifiedImportOutcome, SkillStarterImportResult } from "../../application/skill-import/ports";
 import type { PersistVerifiedAgentImportOutcome, PersistVerifiedOfficialAgentRolePackOutcome, AgentStarterImportResult } from "../../application/agent-import/ports";
@@ -104,7 +105,10 @@ async function applyMetadata(s: TenantSession, input: Input, ids: readonly strin
     const entityId = ids[index];
     requireMatch(entityId);
     const candidate = (await localizationSources(s, input.orgId, kind, [entityId]))[0];
-    requireMatch(candidate && input.localizationAuthorize(candidate.facts).allowed);
+    requireMatch(candidate);
+    const disclosed = discloseDecided(guard({ kind: "capability",id: candidate.source.entityId },candidate),input.localizationAuthorize(candidate.facts));
+    requireMatch(isDisclosed(disclosed));
+    const authorized = disclosed.payload;
     if (createdIds) {
       // A creator may reuse another local pack's identical Skill. Initialize source
       // locale only for newly created rows; prove the current borrowed definition
@@ -116,9 +120,9 @@ async function applyMetadata(s: TenantSession, input: Input, ids: readonly strin
         requireMatch(kind === "skill" && "files" in entry);
         const published = (await s.query<{ content_digest: string }>(
           "SELECT content_digest FROM skill_versions WHERE org_id=$1 AND skill_id=$2 AND id=$3 AND published",
-          [input.orgId, entityId, candidate.source.versionId])).rows[0];
-        requireMatch(published?.content_digest === skillContentDigest(entry) && candidate.source.fields.name === entry.name
-          && candidate.source.fields.duty === ("duty" in entry ? entry.duty ?? null : null));
+          [input.orgId, entityId, authorized.source.versionId])).rows[0];
+        requireMatch(published?.content_digest === skillContentDigest(entry) && authorized.source.fields.name === entry.name
+          && authorized.source.fields.duty === ("duty" in entry ? entry.duty ?? null : null));
       }
     }
     const source = (await localizationSources(s, input.orgId, kind, [entityId]))[0]!.source;

@@ -1,3 +1,4 @@
+import { guard, discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import { createHash } from "node:crypto";
 import { wave2Runtime } from "@repo/contracts";
 import { LocalizationFields } from "@repo/contracts/entity-localization";
@@ -27,8 +28,10 @@ export class PgPortableExportRepository implements PortableExportRepository {
   get(input: Parameters<PortableExportRepository["get"]>[0]) {
     return this.db.withTenant(input.orgId, async s => {
       const candidate = (await localizationSources(s, input.orgId, input.kind, [input.entityId]))[0];
-      if (!candidate || !input.authorize(candidate.facts).allowed || !candidate.source.versionId) return null;
-      const source = candidate.source;
+      if (!candidate || !candidate.source.versionId) return null;
+      const disclosed = discloseDecided(guard({ kind: "capability",id: candidate.source.entityId },candidate.source),input.authorize(candidate.facts));
+      if (!isDisclosed(disclosed)) return null;
+      const source = disclosed.payload;
       const localization = await translations(s, source);
       if (input.kind === "skill") {
         const row = (await s.query<{ stable_name: string; semantic_label: string; manifest: Record<string, unknown> }>(

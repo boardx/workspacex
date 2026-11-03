@@ -1,3 +1,4 @@
+import { guard, discloseDecided, isDisclosed } from "../../application/security/permission-filter";
 import { createHash } from "node:crypto";
 import { DisplayUpdateResult } from "@repo/contracts/portable-package";
 import type { EntityKind } from "@repo/contracts/entity-localization";
@@ -29,11 +30,11 @@ async function targets(s: TenantSession, input: Scope, lock: boolean): Promise<T
   const result: Target[] = [];
   for (const row of selected.rows) {
     let candidate = (await localizationSources(s,input.orgId,row.kind,[row.id]))[0];
-    if (!candidate || !candidate.source.versionId || !input.authorize(candidate.facts).allowed) continue;
+    if (!candidate || !candidate.source.versionId || !isDisclosed(discloseDecided(guard({ kind: "capability",id: candidate.source.entityId },candidate),input.authorize(candidate.facts)))) continue;
     if (lock) {
       await s.query(`SELECT id FROM ${LOCALIZATION_TABLES[row.kind].parent} WHERE org_id=$1 AND id=$2 FOR UPDATE`,[input.orgId,row.id]);
       candidate = (await localizationSources(s,input.orgId,row.kind,[row.id]))[0];
-      if (!candidate || !candidate.source.versionId || !input.authorize(candidate.facts).allowed) continue;
+      if (!candidate || !candidate.source.versionId || !isDisclosed(discloseDecided(guard({ kind: "capability",id: candidate.source.entityId },candidate),input.authorize(candidate.facts)))) continue;
     }
     // Revalidate the identity against the captured immutable version, rather than
     // trusting a listing projection or a pre-lock source snapshot.
