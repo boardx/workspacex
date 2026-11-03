@@ -84,3 +84,23 @@ and identifies the spec as covered; no exemption was added.
 The published-null-avatar backend review fix `bca308178` is merged here. The test
 merge retains both authoring-budget cases and both review regressions;
 `published-avatar-budget-tests.txt` records all 15 PostgreSQL cases passing.
+
+The newly CI-reachable spec exposed its small-catalog assumption in the combined
+product suite: artifact13189476678 at head `cb5632e52` contains107 catalog entries,
+a Load-more control and no first-page S157. The actual error context is retained
+in `ci-catalog-pagination-failure.txt`.
+The follow-up uses a private tenant/admin/member fixture and prepares the current
+official dependency set from the real offer (83 Work identities; S157 lies beyond
+the first50). It asserts a multi-page starting state, searches the captured original
+name before editing and while switching back to Chinese, and checks the exact title
+so a stable-ID badge cannot create a false language-fallback pass. Per-attempt copy
+is unique, permitting a retry after a partially completed run.
+`pagination-browser.txt` records the full production build/typecheck/130-page
+generation and the one-worker acceptance pass (case13.1s, total4m8s, cleanup1s).
+`pagination-admin.png` and `pagination-member.png` were visually inspected: editor
+uses English labels, translated names/summary are visible to both roles, and members
+have no authoring control. Surrounding untranslated catalog/admin copy remains in
+the parallel static-UI scope. All source/file equality and permission assertions
+remain; the case timeout and retries are unchanged. An initial expanded fixture
+used obsolete sales1.0.0 and correctly hit409; that failed preparation is not a
+passing receipt. Reading current coordinates from the real offer corrected it.

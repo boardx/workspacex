@@ -327,7 +327,7 @@ function CatalogScreen() {
                   onClick={() => openSkill(item.skillId)}
                   className="flex w-full flex-wrap items-center gap-2 rounded-control border border-border px-3 py-2 text-left text-12 transition-colors duration-fast hover:bg-muted"
                 >
-                  <span className="font-medium">{localizedText(item.display, "name", item.name)}</span>
+                  <span className="font-medium" data-testid="work-catalog-row-title">{localizedText(item.display, "name", item.name)}</span>
                   <span className="text-muted-foreground">{item.stableId}</span>
                   <Badge tone="outline">{item.domain}</Badge>
                   <Badge tone={CHANNEL_TONE[item.channel]} data-testid="work-catalog-channel-badge">
