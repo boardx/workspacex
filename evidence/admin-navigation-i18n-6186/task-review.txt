@@ -1,0 +1,26 @@
+# Task review — shared AdminNav #6186
+
+Result: no actionable P1/P2 findings.
+
+Reviewed staged source tree `ce218989c1ec8c9d2d1044e48c7e8546e3517cf0` against HEAD and the design/task brief. The index matches that tree for the seven source/test files. Source review only; no heavy workflows or tests rerun and no product files edited.
+
+## Spec and quality checks
+
+- Independently compared `/tmp/admin-nav-6186-fresh-before.json` and `/tmp/admin-nav-6186-fresh-after.json`: identical (cmp exit 0). Canonical 22 items, four group values, two scope defaults, routes and UC references remain unchanged.
+- Scope titles use the existing `navigation.admin` / `navigation.platform-admin` keys, whose literals now have one namespace source. Metadata imports that namespace; its reverse dependency on `AdminModuleKey` is type-only, so it introduces no runtime import cycle.
+- All item translations are required by a mapped type. Group lookup derives from namespace group keys and Chinese source values, without a second label table.
+- React group/item keys, current-route markers, scope filtering, secondary navigation authority, query keys and query arguments remain unchanged. Count rendering preserves unavailable em dash versus numeric zero. No API payload, permission or authored-data changes found.
+- Tests retain source/DOM identity and route assertions and add a live-query no-refetch assertion. The browser case is appended to the already registered entity spec; its actual platform 403 is treated as a denial/nav check, not privileged-write acceptance.
+- Both message aggregates retain sibling resources and reference the new namespace once.
+
+## Reviewed blobs
+
+- `apps/web/components/admin/admin-nav.tsx`: `15eb824371ec2b49e9fc115ded94907a90c72974`
+- `apps/web/lib/admin-nav-metadata.ts`: `a00717c05fad2cc61cea2bb680efe6c80bffc714`
+- `apps/web/lib/i18n/namespaces/admin-navigation.ts`: `58a6f708ea8c514755948d916a890adeb2cc9827`
+- `apps/web/lib/i18n/messages/en.ts`: `62238a067aa4f211d9ac85c5b488672d8efda837`
+- `apps/web/lib/i18n/messages/zh-CN.ts`: `abd278363227ec6b53a0f3d524ef5b7e0532e563`
+- `apps/web/tests/ui/admin-nav-i18n.test.tsx`: `b3ba79802b24c7450fbd062fb3035654d43a9078`
+- `apps/web/e2e/entity-localization.spec.ts`: `d6ae9a51287590e60c818d92547409d6eb0934c1`
+
+Limitations: reported 61 regressions, lint and spec gate results were not independently rerun. New production browser acceptance remains pending; this review does not establish a browser pass.

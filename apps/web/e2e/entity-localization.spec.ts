@@ -247,3 +247,62 @@ test("organization members and invitations retain source data across locales", a
     await inviteeContext.close();
   }
 });
+
+test("shared admin sidebars retain routes, scope and live counts across locale changes", async ({ page }, testInfo) => {
+  await login(page, true);
+  let countReads = 0;
+  page.on("request", request => {
+    const url = new URL(request.url());
+    if (request.method() === "GET" && (url.pathname.endsWith("/capabilities") || url.pathname.endsWith("/feedback/drafts/count"))) countReads += 1;
+  });
+  const countReady = page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname.endsWith("/capabilities") && url.searchParams.get("kind") === "skill" && response.status() === 200;
+  });
+  await page.goto("/org-admin/members");
+  await countReady;
+  await expect(page.getByTestId("org-admin-member-list")).toBeVisible();
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  const nav = page.getByTestId("admin-nav");
+  const members = page.getByTestId("admin-nav-org-members");
+  await expect(nav).toHaveAttribute("data-admin-scope", "org");
+  await expect(nav).toHaveAccessibleName("组织后台模块");
+  await expect(members).toHaveAttribute("aria-current", "page");
+  const readsBeforeLocale = countReads;
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  await expect(nav).toHaveAccessibleName("Organization admin modules");
+  await expect(members).toHaveText("Members");
+  await expect(members).toHaveAttribute("href", "/org-admin/members");
+  await expect(members).toHaveAttribute("aria-current", "page");
+  expect(countReads).toBe(readsBeforeLocale);
+  await expect(page.getByTestId("admin-nav-agent")).toHaveCount(0);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath("admin-nav-org-en-1280.png"), fullPage: true });
+  await page.reload();
+  await expect(page.getByTestId("admin-nav")).toHaveAccessibleName("Organization admin modules");
+
+  // This private organization admin is not a platform operator; preserve the real403.
+  const denied = page.waitForResponse(response => new URL(response.url()).pathname.endsWith("/platform/members"));
+  await page.goto("/platform-admin/members");
+  expect((await denied).status()).toBe(403);
+  await expect(page.getByTestId("admin-platform-members-forbidden")).toBeVisible();
+  await expect(page.getByTestId("admin-nav")).toHaveAccessibleName("Platform admin modules");
+  await expect(page.getByTestId("admin-nav")).toHaveAttribute("data-admin-scope", "platform");
+  await expect(page.getByTestId("admin-nav-org-members")).toHaveCount(0);
+  await expect(page.getByTestId("admin-nav-agent-count")).toHaveText(/^\d+$/);
+  const agentCount = await page.getByTestId("admin-nav-agent-count").textContent();
+  await expect(page.getByTestId("admin-nav-mcp-count")).toHaveText("—");
+  await expect(page.getByTestId("admin-nav-mcp-count")).toHaveAccessibleName("MCP count unavailable");
+  await page.setViewportSize({ width: 820, height: 900 });
+  await expect(page.getByTestId("admin-nav")).toBeVisible();
+  await expect(page.getByTestId("admin-nav-agent")).toHaveAttribute("href", "/platform-admin/agent");
+  await page.screenshot({ path: testInfo.outputPath("admin-nav-platform-en-820.png"), fullPage: true });
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(page.getByTestId("admin-nav")).toHaveAccessibleName("平台后台模块");
+  await expect(page.getByTestId("admin-nav-agent-count")).toHaveText(agentCount ?? "");
+  await expect(page.getByTestId("admin-nav-mcp-count")).toHaveAccessibleName("MCP 计数暂不可用");
+  // Existing AppShell hides its left sidebar below768px; this slice keeps that policy.
+  await page.setViewportSize({ width: 375, height: 812 });
+  await expect(page.getByTestId("shell-left-panel")).toBeHidden();
+  await expect(page.getByTestId("admin-platform-members-forbidden")).toBeVisible();
+});
