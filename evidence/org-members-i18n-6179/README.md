@@ -11,6 +11,8 @@ Known errors and feedback resolve at render time. Changing language preserves fo
 - `unit-green.txt`: selected 9 files / 39 tests pass, including legacy role/reviewer/scope/navigation tests and raw input/payload assertions. This final run covers the preview shared-role-key consolidation and visible-feedback locale fix.
 - `typecheck.txt`: standard web `tsc --noEmit` exits0 after correcting strict callback/test fixture types, before the preview-only followups. Normal pre-push must check the final source again.
 - `preview-feedback-red.txt` and `preview-feedback-green.txt`: four stale-preview-toast counterexamples before the fix, then15 preview/scope tests pass; these overlap the final39.
+- `post-merge-unit-green.txt`:39tests pass after integrating developbbc63c39; all3 registered entity-localization cases were retained.
+- `review.txt`: independent exact-source review, the single P2 fix/re-review and latest merge-source confirmation; no reviewer dynamic rerun.
 - `dictionary-green.txt`: strict namespace/resource parity and selected locale tests, overlapping the main test set rather than additive.
 - `browser.txt`: a fresh production build with real isolated API/PostgreSQL passes the registered browser case,10.2s; total6m50 including cleanup1s. It covers invitation issuance, the invitee activating in another browser context and surviving reload, original display name, admin role change and reload persistence, non-admin403, shared-link create/revoke and one-time URL preservation across language switches. No request interception replaces these operations.
 - `org-members-en-mobile.png` and `org-invites-en-desktop.png`: actual375/1280 screenshots, visually inspected. No one-time invitation token remains visible in the delivered screenshots.
