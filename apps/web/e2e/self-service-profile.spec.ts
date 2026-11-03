@@ -31,6 +31,7 @@
  * `self-service-profile-fixture.ts` 与 `scripts/seed-self-service-profile-e2e.ts`。
  */
 import { operations as identityOperations } from "@repo/contracts/identity";
+import { NotificationListOutput } from "@repo/contracts/notifications";
 import { expect, test, type Page } from "@playwright/test";
 import { expectedPostLoginLanding, judgeLogoutLanding } from "./logout-landing";
 import { SELF_SERVICE_PROFILE_E2E } from "./self-service-profile-fixture";
@@ -67,7 +68,12 @@ test.describe.serial("用户个人资料自助服务", () => {
 
     /* ── 1. 改姓名，刷新页面后仍在（不能只测保存后的即时状态） ────────────── */
     await loginAs(page, SELF_SERVICE_PROFILE_E2E.adminEmail, SELF_SERVICE_PROFILE_E2E.adminPassword);
-    await page.goto("/profile");
+    const [notificationsResponse] = await Promise.all([
+      page.waitForResponse((response) => new URL(response.url()).pathname === "/notifications" && response.request().method() === "GET"),
+      page.goto("/profile"),
+    ]);
+    expect(notificationsResponse.ok()).toBe(true);
+    expect(NotificationListOutput.parse(await notificationsResponse.json()).unreadCount).toBe(0);
     await expect(page.getByTestId("profile-screen")).toBeVisible();
 
     const newDisplayName = "SSP E2E Admin 改名后";
@@ -77,6 +83,24 @@ test.describe.serial("用户个人资料自助服务", () => {
     await expect(page.getByRole("heading", { name: "Profile", exact: true })).toBeVisible();
     await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(newDisplayName);
     await expect(page.getByRole("button", { name: "Change avatar" })).toBeVisible();
+    const bell = page.getByTestId("task-notifications-trigger");
+    await expect(bell).toHaveAccessibleName("Notifications, 0 unread");
+    await bell.click();
+    const notificationDialog = page.getByRole("dialog", { name: "Notifications", exact: true });
+    await expect(notificationDialog).toBeVisible();
+    await expect(notificationDialog.getByText("No unread notifications", { exact: true })).toBeVisible();
+    const triggerBox = await bell.boundingBox();
+    const popupBox = await notificationDialog.boundingBox();
+    expect(triggerBox).not.toBeNull();
+    expect(popupBox).not.toBeNull();
+    expect(popupBox!.x).toBeGreaterThan(triggerBox!.x + triggerBox!.width);
+    expect(popupBox!.x + popupBox!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(popupBox!.y).toBeGreaterThanOrEqual(0);
+    await page.screenshot({ path: test.info().outputPath("notifications-en.png") });
+    await notificationDialog.press("Escape");
+    await expect(notificationDialog).not.toBeVisible();
+    await expect(bell).toBeFocused();
+    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(newDisplayName);
     await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByTestId("profile-display-name-input")).toHaveValue(newDisplayName);
 
