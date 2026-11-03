@@ -219,6 +219,7 @@ it("keeps the real preview inert and authored draft visible across locale change
   const form = toFormState(config); form.title = "预览原文 {title}";
   render(<HomePreviewPane form={form} orgId={config.orgId} displayName="成员原名" dirty invalid={false} saving={false} status={null} onBack={vi.fn()} onSave={vi.fn()} />, { wrapper: Locale });
   expect(screen.getByRole("button", { name: "Back to editing" })).toBeVisible();
+  expect(screen.getByTestId("home-config-preview")).toHaveTextContent("Preview includes unsaved changes. Personal data comes from your account");
   expect(screen.getByTestId("home-config-preview-frame")).toHaveAttribute("inert");
   expect(screen.getByTestId("home-config-preview-frame")).toHaveAttribute("aria-label", "Home page preview");
   expect(screen.getByTestId("home-config-preview")).toHaveTextContent("预览原文 {title}");

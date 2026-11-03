@@ -24,3 +24,5 @@ flowchart LR
 
 
 Delivery update: main coordinator explicitly authorized a stacked PR before #6203 merges. Its base is `worker/i18n-org-profile-6202`, isolating the home delta. Normal push, PR identity and later retarget/integration checks are recorded in the issue; this does not claim parent merge or develop-target CI. Final application/test source remains 95bf3f272e04eac0131a7acdeaa5a03a5726dd83.
+
+Post-browser copy polish requested by main: one explicit JSX space separates preview status and personal-data sentences. A new semantic assertion actually failed on `changes.Personal`; after the one-character rendering fix all 17 UI cases and scoped ESLint passed. Full browser screenshots remain evidence for 95bf source; this later spacing-only delta was not rerun through the full browser. The earlier deferred spacing finding is addressed.

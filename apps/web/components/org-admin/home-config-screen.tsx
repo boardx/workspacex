@@ -199,7 +199,7 @@ export function HomePreviewPane({
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel px-3 py-2 text-11 text-muted-foreground">
         <span className="min-w-0 flex-1">
           {dirty ? t("homeConfig.previewDirty") : t("homeConfig.previewSaved")}
-          {t("homeConfig.previewPersonal")}
+          {" "}{t("homeConfig.previewPersonal")}
           {invalid ? <span className="ml-1 text-destructive" data-testid="home-config-preview-invalid">{t("homeConfig.previewInvalid")}</span> : null}
         </span>
         <Button type="button" size="sm" variant="outline" onClick={onBack} data-testid="home-config-preview-back">{t("homeConfig.back")}</Button>

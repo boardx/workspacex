@@ -1,0 +1,40 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ❯ tests/ui/org-home-config-i18n.test.tsx (17 tests | 1 failed | 16 skipped) 126ms
+   × keeps the real preview inert and authored draft visible across locale changes 126ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Preview includes unsaved changes. Personal data comes from your account
+Received:
+  Preview includes unsaved changes.Personal data comes from your account; links in the preview are disabled.Back to editingSaveHello, 成员原名预览原文 {title}横幅原文 {count}横幅副标题原文ChatStart a new conversationContinue your workNo recent work yet. Get started with an action above.Current tasksView allMy tasksYou have no tasks to handleActive projectsNo active projects yet
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/org-home-config-i18n.test.tsx > keeps the real preview inert and authored draft visible across locale changes
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Preview includes unsaved changes. Personal data comes from your account
+Received:
+  Preview includes unsaved changes.Personal data comes from your account; links in the preview are disabled.Back to editingSaveHello, 成员原名预览原文 {title}横幅原文 {count}横幅副标题原文ChatStart a new conversationContinue your workNo recent work yet. Get started with an action above.Current tasksView allMy tasksYou have no tasks to handleActive projectsNo active projects yet
+ ❯ tests/ui/org-home-config-i18n.test.tsx:222:53
+    220|   render(<HomePreviewPane form={form} orgId={config.orgId} displayName…
+    221|   expect(screen.getByRole("button", { name: "Back to editing" })).toBe…
+    222|   expect(screen.getByTestId("home-config-preview")).toHaveTextContent(…
+       |                                                     ^
+    223|   expect(screen.getByTestId("home-config-preview-frame")).toHaveAttrib…
+    224|   expect(screen.getByTestId("home-config-preview-frame")).toHaveAttrib…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 16 skipped (17)
+   Start at  04:24:41
+   Duration  3.13s (transform 1.13s, setup 174ms, collect 1.78s, tests 126ms, environment 776ms, prepare 69ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/org-home-config-i18n.test.tsx -t keeps the real preview inert
