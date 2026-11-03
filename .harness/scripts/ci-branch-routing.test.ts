@@ -77,7 +77,7 @@ describe('develop integration routing preserves trusted deployment boundaries', 
     const release = workflow('image-release');
     expect(workflow('backend-gates').jobs.deploy).toBeUndefined();
     const admitted = (event: string, branch: string) => new Function('github', 'inputs', `return (${release.jobs.plan.if});`)(
-      {event_name:event,ref:`refs/heads/${branch}`},{build_only:false});
+      {event_name:event,ref:`refs/heads/${branch}`,ref_type:'branch'},{build_only:false});
     expect(admitted('push','develop')).toBe(false);
     expect(admitted('workflow_dispatch','develop')).toBe(true);
     for(const branch of ['main','main-cn','main-us','feature/untrusted']) expect(admitted('push',branch)).toBe(false);
