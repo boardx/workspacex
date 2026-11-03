@@ -93,7 +93,7 @@ class Host:
  def verify(self,version):
   consumer.trusted(version['compose'],private=True)
   engine.trusted_file(version['compose'],version['composeSha256'])
-  engine.verify_runtime(self.d,self.compose(version),self.c['services'],version['images'],{**self.c,'verificationCommand':None})
+  engine.verify_runtime(self.d,self.compose(version)[1:],self.c['services'],version['images'],{**self.c,'verificationCommand':None})
  def verify_config(self,version):
   command=self.compose(version)[1:]
   rendered=self.d.json(command+['config','--format','json'])

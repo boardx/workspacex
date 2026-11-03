@@ -32,3 +32,10 @@ class HostTests(unittest.TestCase):
    with patch.object(host,'migration_command',return_value=['driver']),patch.object(host,'run',side_effect=TimeoutError()),patch.object(m.process,'cleanup_container') as cleanup:
     with self.assertRaises(TimeoutError):host.plan({'apiImage':'sha256:abc'},Path(d))
    self.assertRegex(cleanup.call_args.args[1],r'^wsx-unified-[a-f0-9]{32}$')
+ def test_runtime_verifier_receives_docker_arguments_without_duplicate_executable(self):
+  with tempfile.TemporaryDirectory() as d:
+   path=Path(d)/'compose.json';path.write_text('{}');path.chmod(0o600)
+   host=m.Host({'project':'app','services':{'api':'api'},'health':{}},d,d)
+   version={'compose':str(path),'composeSha256':m.engine.sha_file(path),'images':{'api':'sha256:abc'}}
+   with patch.object(m.consumer,'trusted'),patch.object(m.engine,'verify_runtime') as verify:host.verify(version)
+   self.assertEqual(verify.call_args.args[1][0],'compose')
