@@ -5,8 +5,14 @@ import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
 import { aboutMemoryEn } from "../namespaces/about-memory";
+import { orgMembersEn } from "../namespaces/org-members";
+import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
+import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 import { stateEn } from "../namespaces/state";
+import { workflowRunsEn } from "../namespaces/workflow-runs";
 import type { zhCN } from "./zh-CN";
+import { accountEntryEn } from "../namespaces/account-entry";
+import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
   ...brainViewsEn,
   ...enTasks,
@@ -15,7 +21,11 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...projectListEn,
   ...profileEn,
   ...aboutMemoryEn,
+  ...orgMembersEn,
+  ...orgMembersPreviewEn,
+  ...orgSharedInvitesEn,
   ...stateEn,
+  ...workflowRunsEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",
@@ -246,5 +256,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",
   "common.http.failure": "The request failed. Please try again later.",
-  "home.artifacts.one": "{count} artifact"
+  "home.artifacts.one": "{count} artifact",
+  ...accountEntryEn,
+  ...invitationEntryEn,
 };

@@ -14,6 +14,7 @@ it('binds actual selected unit reports to source, run, attempt and plan',()=>{
 import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
 import {resolve,relative} from 'node:path';
 import {invoke} from './ci-chat-shards.mjs';
+import {runBrowser} from './ci-targeted-runner.mjs';
 import {browserEvidence,verifyBrowserEvidence,verifyEvidence} from './ci-targeted-evidence.mjs';
 it('executes a real selected browser fixture and rejects missing, replayed and changed suite evidence',()=>{
  const cwd=resolve('apps/web'),dir=mkdtempSync(resolve(cwd,'.targeted-browser-'));
@@ -25,6 +26,9 @@ it('executes a real selected browser fixture and rejects missing, replayed and c
   const p={...plan,suites:[...plan.suites,{id:'chat-ui',files:[{file,sha256:'e'.repeat(64)}]}]};
   const discovery=invoke(null,1,true,options).report,run=invoke(null,1,false,options);
   expect(run.report.stats.expected).toBe(1);
+  const bound={...p,browserConfig:{file:relative(cwd,resolve(dir,'playwright.config.ts')),sha256:'f'.repeat(64)}};
+  const boundEvidence=runBrowser(bound,resolve(dir,'bound-output'),cwd,context,{config:'missing-override.config.ts'});
+  expect(boundEvidence.report.stats.expected).toBe(1);
   const browser=browserEvidence(p,discovery,run.report,cwd,context,run.status);
   const unit=unitEvidence(p,report,'/web',context,unitDiscovery);
   expect(verifyEvidence(p,[unit,browser],context)).toBe(true);

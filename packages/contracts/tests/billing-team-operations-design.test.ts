@@ -1,5 +1,5 @@
 import {expect,it} from "vitest";
-import {EnterpriseUpgradeOperation,TeamBillingRejection} from "../src/billing-team";
+import {EnterpriseUpgradeOperation,TeamBillingRejection,operations as implementedOperations} from "../src/billing-team";
 import {operations} from "../../../phases/phase-21-billing-payment/design-deltas/team-enterprise-v1/operations.proposal";
 const time="2026-11-16T10:00:00Z",generation="pricing-v1";
 const term={purchaseAnchor:"2026-11-01T10:00:00Z",paidPeriodStart:"2026-11-01T10:00:00Z",paidPeriodEnd:"2027-11-01T10:00:00Z",billingCycle:"year",purchasedSeats:7,monthlyCredits:130000};
@@ -36,4 +36,9 @@ it("exports each organization/platform operation once without caller-owned route
  for(const operation of [operations.createTeamQuote,operations.createTeamCheckout,operations.createEnterpriseUpgrade,operations.grantEnterpriseCredits]){
   expect(operation.in.safeParse({orgId:"org-b",actorId:"forged",generation:"old"}).success).toBe(false);
  }
+});
+it("retains all eight implemented Team and Enterprise operations in the proposal by reference",()=>{
+ expect(Object.keys(implementedOperations).sort()).toEqual(["getTeamCatalog","getTeamEntitlement","createTeamQuote","createTeamCheckout","getTeamPurchase","createEnterpriseUpgrade","getEnterpriseUpgradeOperation","grantEnterpriseCredits"].sort());
+ for(const [name,operation] of Object.entries(implementedOperations))expect(operations[name as keyof typeof implementedOperations]).toBe(operation);
+ expect(Object.keys(operations)).toHaveLength(Object.keys(implementedOperations).length+2);
 });

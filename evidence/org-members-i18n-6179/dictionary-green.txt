@@ -1,0 +1,16 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/org-members-i18n.test.tsx (5 tests) 459ms
+ ✓ tests/ui/org-shared-invites-i18n.test.tsx (2 tests) 497ms
+   ✓ switches shared invite labels and one-time reveal without refetching or changing original values 350ms
+ ✓ tests/ui/org-members-preview-i18n.test.tsx (4 tests) 821ms
+   ✓ organization member previews localization > preserves organization role restrictions and member data in English 332ms
+   ✓ organization member previews localization > translates invitation roles and switches the open dialog without losing state 448ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 142ms
+
+ Test Files  4 passed (4)
+      Tests  16 passed (16)
+   Start at  12:47:02
+   Duration  23.87s (transform 3.95s, setup 2.05s, collect 9.15s, tests 1.92s, environment 7.53s, prepare 811ms)

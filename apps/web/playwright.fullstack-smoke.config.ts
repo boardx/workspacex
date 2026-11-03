@@ -118,6 +118,14 @@ const fixtureEnv = {
   FULLSTACK_E2E_BRAIN_EMAIL: FULLSTACK_E2E.brainEmail,
   FULLSTACK_E2E_BRAIN_PASSWORD: FULLSTACK_E2E.brainPassword,
   FULLSTACK_E2E_BRAIN_USER_ID: FULLSTACK_E2E.brainUserId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_ORG_ID: FULLSTACK_E2E.workflowRunsOrgId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT_ID: FULLSTACK_E2E.workflowRunsProjectId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_USER_ID: FULLSTACK_E2E.workflowRunsUserId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL: FULLSTACK_E2E.workflowRunsEmail,
+  FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD: FULLSTACK_E2E.workflowRunsPassword,
+  FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE_ID: FULLSTACK_E2E.workflowRunsInstanceId,
+  FULLSTACK_E2E_WORKFLOW_RUNS_KEY: FULLSTACK_E2E.workflowRunsKey,
+  FULLSTACK_E2E_WORKFLOW_RUNS_GOAL: FULLSTACK_E2E.workflowRunsGoal,
   FULLSTACK_E2E_ADMIN_EMAIL: FULLSTACK_E2E.adminEmail,
   FULLSTACK_E2E_ADMIN_PASSWORD: FULLSTACK_E2E.adminPassword,
   FULLSTACK_E2E_ADMIN_USER_ID: FULLSTACK_E2E.adminUserId,
@@ -366,6 +374,7 @@ export default defineConfig({
         // ⚠ PJ-01 / #976 同理排在 `seeded`：它要用种子里的 `lead`（新建项目唯一有权的角色）
         //   与 consultant（反证：非 lead 必须被服务端拒绝）两个账号。
         "project-create-smoke.spec.ts",
+        "i18n-workflow-runs.spec.ts",
         "i18n-live-tasks.spec.ts",
         "i18n-project-list.spec.ts",
         // ⚠ #853 同理排在 `seeded`：它要用种子里的 sentinel 工作坊（`FULLSTACK_E2E.projectId`）

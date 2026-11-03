@@ -1,6 +1,5 @@
 # deploy-coord-gateway.yml — coord-platform 网关 CD（ADR-017 / p29-F03）。
-# 唯一部署入口 = main 合并后自动部署（沿用 deploy-coord-service 的
-# "消灭手动部署 last-write-wins" 原则，andon #272/#290 根因）。
+# 发布仅允许在 main 上手动触发；PR 保留验证，发布继续排队执行。
 #
 # secrets（一次性人工设置，之后 CD 不管）：
 #   wrangler secret put GITHUB_WEBHOOK_SECRET --name workspacex-coord-gateway
@@ -10,13 +9,9 @@
 name: deploy-coord-gateway
 
 on:
-  push:
-    branches: [develop, main]
-    paths: &coord-paths
-      # 覆盖 apps/coord-gateway/package.json 的全部 @repo/coord-* 依赖——只改依赖包
-      # 不改 gateway 本体的 PR 合并后必须照样自动部署，否则修复会静默不生效
-      # （#787 事故：coord-directory 的 schema 迁移修复合并后一度没有自动部署，
-      # 生产端 500 在人工 workflow_dispatch 之前一直没解除）。
+  pull_request:
+    branches: [develop]
+    paths:
       - "apps/coord-gateway/**"
       - "packages/coord-brain/**"
       - "packages/coord-directory/**"
@@ -24,9 +19,6 @@ on:
       - "packages/coord-protocol/**"
       - "packages/coord-repohub/**"
       - "pnpm-lock.yaml"
-  pull_request:
-    branches: [develop]
-    paths: *coord-paths
   workflow_dispatch: {}
 
 concurrency:
@@ -69,7 +61,7 @@ jobs:
           pnpm --filter @repo/coord-gateway test
 
   deploy:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

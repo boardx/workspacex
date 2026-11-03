@@ -1,0 +1,2055 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/workflow-runs-i18n.test.tsx (5 tests | 4 failed) 1259ms
+   × updates the actual route heading/nav/list while preserving raw values, links and reads 210ms
+     → Unable to find an accessible element with the role "heading" and name "My runs"
+
+Here are the accessible roles:
+
+  combobox:
+
+  Name "Language":
+  [36m<select[39m
+    [33maria-label[39m=[32m"Language"[39m
+    [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"language-switcher"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "简体中文":
+  [36m<option[39m
+    [33mlang[39m=[32m"zh-CN"[39m
+    [33mvalue[39m=[32m"zh-CN"[39m
+  [36m/>[39m
+
+  Name "English":
+  [36m<option[39m
+    [33mlang[39m=[32m"en"[39m
+    [33mvalue[39m=[32m"en"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "工作流":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"工作流"[39m
+    [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+    [33mdata-testid[39m=[32m"workflow-nav"[39m
+  [36m/>[39m
+
+  Name "工作流":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"工作流"[39m
+    [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "返回项目":
+  [36m<a[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+    [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "我的运行":
+  [36m<a[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+    [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "待我审批":
+  [36m<a[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+    [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "运行看板":
+  [36m<a[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+    [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "返回项目":
+  [36m<a[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+    [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "我的运行":
+  [36m<a[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+    [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "待我审批":
+  [36m<a[39m
+    [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+    [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "运行看板":
+  [36m<a[39m
+    [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+    [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "问题定义到 PRD权限阻断2026-09-30 13:29目标：原文 {goal}发起人：原文 {name}（我）":
+  [36m<a[39m
+    [33mclass[39m=[32m"flex flex-col gap-1 px-4 py-3"[39m
+    [33mhref[39m=[32m"/workflows/runs/wi-original"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex flex-col gap-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "我的运行":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+    [33mdata-testid[39m=[32m"workflow-page-title"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col gap-2"[39m
+    [33mdata-testid[39m=[32m"workflow-run-list"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40"[39m
+    [33mdata-status[39m=[32m"blocked_permission"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  time:
+
+  Name "":
+  [36m<time[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+    [33mdatetime[39m=[32m"2026-09-30T05:29:00.000Z"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"px-4 pb-3 text-12 text-warning"[39m
+    [33mdata-testid[39m=[32m"workflow-run-blocked-hint"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<nav[39m
+      [33maria-label[39m=[32m"工作流"[39m
+      [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+      [33mdata-testid[39m=[32m"workflow-nav"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+        [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+        [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m12 19-7-7 7-7"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M19 12H5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m返回项目[0m
+      [36m</a>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"px-1 text-13 font-semibold"[39m
+      [36m>[39m
+        [0m工作流[0m
+      [36m</span>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-current[39m=[32m"page"[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+          [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-circle-play h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"12"[39m
+              [33mcy[39m=[32m"12"[39m
+              [33mr[39m=[32m"10"[39m
+            [36m/>[39m
+            [36m<polygon[39m
+              [33mpoints[39m=[32m"10 8 16 12 10 16 10 8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+          [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-check-big h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.5"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 11 3 3L22 4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+          [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-kanban h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M8 7v7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 7v9"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</span>[39m
+        [36m</a>[39m
+      [36m</div>[39m
+    [36m</nav>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"workflow-page"[39m
+    [36m>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"工作流"[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+        [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+          [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m12 19-7-7 7-7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M19 12H5"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m返回项目[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 overflow-x-auto"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-current[39m=[32m"page"[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+            [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+            [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+            [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [33mdata-testid[39m=[32m"workflow-page-title"[39m
+        [36m>[39m
+          [0m我的运行[0m
+        [36m</h1>[39m
+      [36m</header>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col gap-2"[39m
+        [33mdata-testid[39m=[32m"workflow-run-list"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40"[39m
+          [33mdata-status[39m=[32m"blocked_permission"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 px-4 py-3"[39m
+            [33mhref[39m=[32m"/workflows/runs/wi-original"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex items-center gap-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"flex-1 truncate text-13 font-medium"[39m
+              [36m>[39m
+                [0m问题定义到 PRD[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"rounded-full px-2 py-0.5 text-11 bg-warning/15 text-warning"[39m
+                [33mdata-testid[39m=[32m"workflow-run-status"[39m
+              [36m>[39m
+                [0m权限阻断[0m
+              [36m</span>[39m
+              [36m<time[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdatetime[39m=[32m"2026-09-30T05:29:00.000Z"[39m
+              [36m>[39m
+                [0m2026-09-30 13:29[0m
+              [36m</time>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"truncate text-12"[39m
+              [33mdata-testid[39m=[32m"workflow-run-goal"[39m
+            [36m>[39m
+              [0m目标：[0m
+              [0m原文 {goal}[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-run-initiator"[39m
+            [36m>[39m
+              [0m发起人：[0m
+              [0m原文 {name}（我）[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"px-4 pb-3 text-12 text-warning"[39m
+            [33mdata-testid[39m=[32m"workflow-run-blocked-hint"[39m
+          [36m>[39m
+            [0m缺少工作流权限，运行已暂停。[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"ml-1"[39m
+              [33mdata-testid[39m=[32m"workflow-run-blocked-contact-admin"[39m
+            [36m>[39m
+              [0m请联系管理员开通[0m
+            [36m</span>[39m
+          [36m</p>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × retranslates an existing contract failure without replaying the read or showing private details 1015ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  permission to run
+Received:
+  你没有运行该 Workflow 的权限
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"工作流"[39m
+        [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+        [33mdata-testid[39m=[32m"workflow-nav"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+          [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m12 19-7-7 7-7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M19 12H5"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m返回项目[0m
+        [36m</a>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"px-1 text-13 font-semibold"[39m
+        [36m>[39m
+          [0m工作流[0m
+        [36m</span>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-current[39m=[32m"page"[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+            [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+            [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-circle-play h-4 w-4 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"12"[39m
+                [33mcy[39m=[32m"12"[39m
+                [33mr[39m=[32m"10"[39m
+              [36m/>[39m
+              [36m<polygon[39m
+                [33mpoints[39m=[32m"10 8 16 12 10 16 10 8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1 truncate"[39m
+            [36m>[39m
+              [0m我的运行[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+            [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-square-check-big h-4 w-4 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.5"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m9 11 3 3L22 4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1 truncate"[39m
+            [36m>[39m
+              [0m待我审批[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+            [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-square-kanban h-4 w-4 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M8 7v7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 7v4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 7v9"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1 truncate"[39m
+            [36m>[39m
+              [0m运行看板[0m
+            [36m</span>[39m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"[39m
+        [33mdata-testid[39m=[32m"workflow-page"[39m
+      [36m>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"工作流"[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+          [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+            [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回项目[0m
+          [36m</a>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-1 overflow-x-auto"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"page"[39m
+              [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+              [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+            [36m>[39m
+              [0m我的运行[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+              [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+            [36m>[39m
+              [0m待我审批[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+              [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+            [36m>[39m
+              [0m运行看板[0m
+            [36m</a>[39m
+          [36m</div>[39m
+        [36m</nav>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [33mdata-testid[39m=[32m"workflow-page-title"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</h1>[39m
+        [36m</header>[39m
+        [36m<p[39m
+          [33mdata-testid[39m=[32m"workflow-run-list-error"[39m
+          [33mrole[39m=[32m"alert"[39m
+        [36m>[39m
+          [0m你没有运行该 Workflow 的权限[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+   × updates loading and empty calls to action without a second request 13ms
+     → Unable to find an element with the text: Loading…. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<nav[39m
+      [33maria-label[39m=[32m"工作流"[39m
+      [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+      [33mdata-testid[39m=[32m"workflow-nav"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+        [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+        [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m12 19-7-7 7-7"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M19 12H5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m返回项目[0m
+      [36m</a>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"px-1 text-13 font-semibold"[39m
+      [36m>[39m
+        [0m工作流[0m
+      [36m</span>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-current[39m=[32m"page"[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+          [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-circle-play h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"12"[39m
+              [33mcy[39m=[32m"12"[39m
+              [33mr[39m=[32m"10"[39m
+            [36m/>[39m
+            [36m<polygon[39m
+              [33mpoints[39m=[32m"10 8 16 12 10 16 10 8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+          [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-check-big h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.5"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 11 3 3L22 4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+          [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-kanban h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M8 7v7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 7v9"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</span>[39m
+        [36m</a>[39m
+      [36m</div>[39m
+    [36m</nav>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"workflow-page"[39m
+    [36m>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"工作流"[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+        [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+          [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m12 19-7-7 7-7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M19 12H5"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m返回项目[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 overflow-x-auto"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-current[39m=[32m"page"[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+            [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+            [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+            [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [33mdata-testid[39m=[32m"workflow-page-title"[39m
+        [36m>[39m
+          [0m我的运行[0m
+        [36m</h1>[39m
+      [36m</header>[39m
+      [36m<p>[39m
+        [0m加载中…[0m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × uses structured built-in keys and preserves unknown names and raw member text 3ms
+     → expected '问题定义到 PRD' to be 'Problem to PRD' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/workflow-runs-i18n.test.tsx > updates the actual route heading/nav/list while preserving raw values, links and reads
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "My runs"
+
+Here are the accessible roles:
+
+  combobox:
+
+  Name "Language":
+  [36m<select[39m
+    [33maria-label[39m=[32m"Language"[39m
+    [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+    [33mdata-testid[39m=[32m"language-switcher"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  option:
+
+  Name "简体中文":
+  [36m<option[39m
+    [33mlang[39m=[32m"zh-CN"[39m
+    [33mvalue[39m=[32m"zh-CN"[39m
+  [36m/>[39m
+
+  Name "English":
+  [36m<option[39m
+    [33mlang[39m=[32m"en"[39m
+    [33mvalue[39m=[32m"en"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  navigation:
+
+  Name "工作流":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"工作流"[39m
+    [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+    [33mdata-testid[39m=[32m"workflow-nav"[39m
+  [36m/>[39m
+
+  Name "工作流":
+  [36m<nav[39m
+    [33maria-label[39m=[32m"工作流"[39m
+    [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "返回项目":
+  [36m<a[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+    [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "我的运行":
+  [36m<a[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+    [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "待我审批":
+  [36m<a[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+    [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "运行看板":
+  [36m<a[39m
+    [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+    [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "返回项目":
+  [36m<a[39m
+    [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+    [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "我的运行":
+  [36m<a[39m
+    [33maria-current[39m=[32m"page"[39m
+    [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+    [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "待我审批":
+  [36m<a[39m
+    [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+    [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "运行看板":
+  [36m<a[39m
+    [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+    [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+  [36m/>[39m
+
+  Name "问题定义到 PRD权限阻断2026-09-30 13:29目标：原文 {goal}发起人：原文 {name}（我）":
+  [36m<a[39m
+    [33mclass[39m=[32m"flex flex-col gap-1 px-4 py-3"[39m
+    [33mhref[39m=[32m"/workflows/runs/wi-original"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  [36m<header[39m
+    [33mclass[39m=[32m"flex flex-col gap-1"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  heading:
+
+  Name "我的运行":
+  [36m<h1[39m
+    [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+    [33mdata-testid[39m=[32m"workflow-page-title"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  [36m<ul[39m
+    [33mclass[39m=[32m"flex flex-col gap-2"[39m
+    [33mdata-testid[39m=[32m"workflow-run-list"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  listitem:
+
+  Name "":
+  [36m<li[39m
+    [33mclass[39m=[32m"rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40"[39m
+    [33mdata-status[39m=[32m"blocked_permission"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  time:
+
+  Name "":
+  [36m<time[39m
+    [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+    [33mdatetime[39m=[32m"2026-09-30T05:29:00.000Z"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"px-4 pb-3 text-12 text-warning"[39m
+    [33mdata-testid[39m=[32m"workflow-run-blocked-hint"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<nav[39m
+      [33maria-label[39m=[32m"工作流"[39m
+      [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+      [33mdata-testid[39m=[32m"workflow-nav"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+        [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+        [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m12 19-7-7 7-7"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M19 12H5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m返回项目[0m
+      [36m</a>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"px-1 text-13 font-semibold"[39m
+      [36m>[39m
+        [0m工作流[0m
+      [36m</span>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-current[39m=[32m"page"[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+          [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-circle-play h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"12"[39m
+              [33mcy[39m=[32m"12"[39m
+              [33mr[39m=[32m"10"[39m
+            [36m/>[39m
+            [36m<polygon[39m
+              [33mpoints[39m=[32m"10 8 16 12 10 16 10 8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+          [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-check-big h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.5"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 11 3 3L22 4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+          [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-kanban h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M8 7v7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 7v9"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</span>[39m
+        [36m</a>[39m
+      [36m</div>[39m
+    [36m</nav>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"workflow-page"[39m
+    [36m>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"工作流"[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+        [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+          [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m12 19-7-7 7-7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M19 12H5"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m返回项目[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 overflow-x-auto"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-current[39m=[32m"page"[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+            [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+            [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+            [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [33mdata-testid[39m=[32m"workflow-page-title"[39m
+        [36m>[39m
+          [0m我的运行[0m
+        [36m</h1>[39m
+      [36m</header>[39m
+      [36m<ul[39m
+        [33mclass[39m=[32m"flex flex-col gap-2"[39m
+        [33mdata-testid[39m=[32m"workflow-run-list"[39m
+      [36m>[39m
+        [36m<li[39m
+          [33mclass[39m=[32m"rounded-lg border border-border bg-card shadow-sm transition-colors hover:bg-muted/40"[39m
+          [33mdata-status[39m=[32m"blocked_permission"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"flex flex-col gap-1 px-4 py-3"[39m
+            [33mhref[39m=[32m"/workflows/runs/wi-original"[39m
+          [36m>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex items-center gap-3"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"flex-1 truncate text-13 font-medium"[39m
+              [36m>[39m
+                [0m问题定义到 PRD[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"rounded-full px-2 py-0.5 text-11 bg-warning/15 text-warning"[39m
+                [33mdata-testid[39m=[32m"workflow-run-status"[39m
+              [36m>[39m
+                [0m权限阻断[0m
+              [36m</span>[39m
+              [36m<time[39m
+                [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+                [33mdatetime[39m=[32m"2026-09-30T05:29:00.000Z"[39m
+              [36m>[39m
+                [0m2026-09-30 13:29[0m
+              [36m</time>[39m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"truncate text-12"[39m
+              [33mdata-testid[39m=[32m"workflow-run-goal"[39m
+            [36m>[39m
+              [0m目标：[0m
+              [0m原文 {goal}[0m
+            [36m</span>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"text-12 text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-run-initiator"[39m
+            [36m>[39m
+              [0m发起人：[0m
+              [0m原文 {name}（我）[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"px-4 pb-3 text-12 text-warning"[39m
+            [33mdata-testid[39m=[32m"workflow-run-blocked-hint"[39m
+          [36m>[39m
+            [0m缺少工作流权限，运行已暂停。[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"ml-1"[39m
+              [33mdata-testid[39m=[32m"workflow-run-blocked-contact-admin"[39m
+            [36m>[39m
+              [0m请联系管理员开通[0m
+            [36m</span>[39m
+          [36m</p>[39m
+        [36m</li>[39m
+      [36m</ul>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/workflow-runs-i18n.test.tsx:28:17
+     26| it("updates the actual route heading/nav/list while preserving raw val…
+     27|   show(); await screen.findByTestId("workflow-run-list");
+     28|   expect(screen.getByRole("heading", { name: "My runs" })).toBeTruthy(…
+       |                 ^
+     29|   expect(screen.getByTestId("workflow-nav")).toHaveTextContent("Workfl…
+     30|   expect(screen.getByTestId("workflow-run-status")).toHaveTextContent(…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/workflow-runs-i18n.test.tsx > retranslates an existing contract failure without replaying the read or showing private details
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  permission to run
+Received:
+  你没有运行该 Workflow 的权限
+
+Ignored nodes: comments, script, style
+[36m<html[39m
+  [33mlang[39m=[32m"en"[39m
+[36m>[39m
+  [36m<head />[39m
+  [36m<body>[39m
+    [36m<div>[39m
+      [36m<select[39m
+        [33maria-label[39m=[32m"Language"[39m
+        [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+        [33mdata-testid[39m=[32m"language-switcher"[39m
+      [36m>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"zh-CN"[39m
+          [33mvalue[39m=[32m"zh-CN"[39m
+        [36m>[39m
+          [0m简体中文[0m
+        [36m</option>[39m
+        [36m<option[39m
+          [33mlang[39m=[32m"en"[39m
+          [33mvalue[39m=[32m"en"[39m
+        [36m>[39m
+          [0mEnglish[0m
+        [36m</option>[39m
+      [36m</select>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"工作流"[39m
+        [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+        [33mdata-testid[39m=[32m"workflow-nav"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+          [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m12 19-7-7 7-7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M19 12H5"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m返回项目[0m
+        [36m</a>[39m
+        [36m<span[39m
+          [33mclass[39m=[32m"px-1 text-13 font-semibold"[39m
+        [36m>[39m
+          [0m工作流[0m
+        [36m</span>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-current[39m=[32m"page"[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+            [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+            [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-circle-play h-4 w-4 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<circle[39m
+                [33mcx[39m=[32m"12"[39m
+                [33mcy[39m=[32m"12"[39m
+                [33mr[39m=[32m"10"[39m
+              [36m/>[39m
+              [36m<polygon[39m
+                [33mpoints[39m=[32m"10 8 16 12 10 16 10 8"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1 truncate"[39m
+            [36m>[39m
+              [0m我的运行[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+            [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-square-check-big h-4 w-4 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.5"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m9 11 3 3L22 4"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1 truncate"[39m
+            [36m>[39m
+              [0m待我审批[0m
+            [36m</span>[39m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+            [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-square-kanban h-4 w-4 shrink-0"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<rect[39m
+                [33mheight[39m=[32m"18"[39m
+                [33mrx[39m=[32m"2"[39m
+                [33mwidth[39m=[32m"18"[39m
+                [33mx[39m=[32m"3"[39m
+                [33my[39m=[32m"3"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M8 7v7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M12 7v4"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M16 7v9"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [36m<span[39m
+              [33mclass[39m=[32m"flex-1 truncate"[39m
+            [36m>[39m
+              [0m运行看板[0m
+            [36m</span>[39m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"[39m
+        [33mdata-testid[39m=[32m"workflow-page"[39m
+      [36m>[39m
+        [36m<nav[39m
+          [33maria-label[39m=[32m"工作流"[39m
+          [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+          [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+            [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [36m<svg[39m
+              [33maria-hidden[39m=[32m"true"[39m
+              [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+              [33mfill[39m=[32m"none"[39m
+              [33mheight[39m=[32m"24"[39m
+              [33mstroke[39m=[32m"currentColor"[39m
+              [33mstroke-linecap[39m=[32m"round"[39m
+              [33mstroke-linejoin[39m=[32m"round"[39m
+              [33mstroke-width[39m=[32m"2"[39m
+              [33mviewBox[39m=[32m"0 0 24 24"[39m
+              [33mwidth[39m=[32m"24"[39m
+              [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33md[39m=[32m"m12 19-7-7 7-7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33md[39m=[32m"M19 12H5"[39m
+              [36m/>[39m
+            [36m</svg>[39m
+            [0m返回项目[0m
+          [36m</a>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex gap-1 overflow-x-auto"[39m
+          [36m>[39m
+            [36m<a[39m
+              [33maria-current[39m=[32m"page"[39m
+              [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+              [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+            [36m>[39m
+              [0m我的运行[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+              [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+            [36m>[39m
+              [0m待我审批[0m
+            [36m</a>[39m
+            [36m<a[39m
+              [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+              [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+              [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+            [36m>[39m
+              [0m运行看板[0m
+            [36m</a>[39m
+          [36m</div>[39m
+        [36m</nav>[39m
+        [36m<header[39m
+          [33mclass[39m=[32m"flex flex-col gap-1"[39m
+        [36m>[39m
+          [36m<h1[39m
+            [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+            [33mdata-testid[39m=[32m"workflow-page-title"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</h1>[39m
+        [36m</header>[39m
+        [36m<p[39m
+          [33mdata-testid[39m=[32m"workflow-run-list-error"[39m
+          [33mrole[39m=[32m"alert"[39m
+        [36m>[39m
+          [0m你没有运行该 Workflow 的权限[0m
+        [36m</p>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</body>[39m
+[36m</html>[39m
+ ❯ tests/ui/workflow-runs-i18n.test.tsx:57:85
+     55| it("retranslates an existing contract failure without replaying the re…
+     56|   api.list.mockRejectedValue(new ApiError(403, "workflow_not_allowed",…
+     57|   show(); await waitFor(() => expect(screen.getByTestId("workflow-run-…
+       |                                                                                     ^
+     58|   locale("zh-CN"); expect(screen.getByTestId("workflow-run-list-error"…
+     59|   locale("en"); expect(screen.getByTestId("workflow-run-list-error")).…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/workflow-runs-i18n.test.tsx > updates loading and empty calls to action without a second request
+TestingLibraryElementError: Unable to find an element with the text: Loading…. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<select[39m
+      [33maria-label[39m=[32m"Language"[39m
+      [33mclass[39m=[32m"max-w-full rounded-control border border-border bg-card px-2 py-1 text-12 text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"[39m
+      [33mdata-testid[39m=[32m"language-switcher"[39m
+    [36m>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"zh-CN"[39m
+        [33mvalue[39m=[32m"zh-CN"[39m
+      [36m>[39m
+        [0m简体中文[0m
+      [36m</option>[39m
+      [36m<option[39m
+        [33mlang[39m=[32m"en"[39m
+        [33mvalue[39m=[32m"en"[39m
+      [36m>[39m
+        [0mEnglish[0m
+      [36m</option>[39m
+    [36m</select>[39m
+    [36m<nav[39m
+      [33maria-label[39m=[32m"工作流"[39m
+      [33mclass[39m=[32m"flex flex-col gap-4 p-3"[39m
+      [33mdata-testid[39m=[32m"workflow-nav"[39m
+    [36m>[39m
+      [36m<a[39m
+        [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+        [33mdata-testid[39m=[32m"workflow-nav-back-to-project"[39m
+        [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-hidden[39m=[32m"true"[39m
+          [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+          [33mfill[39m=[32m"none"[39m
+          [33mheight[39m=[32m"24"[39m
+          [33mstroke[39m=[32m"currentColor"[39m
+          [33mstroke-linecap[39m=[32m"round"[39m
+          [33mstroke-linejoin[39m=[32m"round"[39m
+          [33mstroke-width[39m=[32m"2"[39m
+          [33mviewBox[39m=[32m"0 0 24 24"[39m
+          [33mwidth[39m=[32m"24"[39m
+          [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+        [36m>[39m
+          [36m<path[39m
+            [33md[39m=[32m"m12 19-7-7 7-7"[39m
+          [36m/>[39m
+          [36m<path[39m
+            [33md[39m=[32m"M19 12H5"[39m
+          [36m/>[39m
+        [36m</svg>[39m
+        [0m返回项目[0m
+      [36m</a>[39m
+      [36m<span[39m
+        [33mclass[39m=[32m"px-1 text-13 font-semibold"[39m
+      [36m>[39m
+        [0m工作流[0m
+      [36m</span>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33maria-current[39m=[32m"page"[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base bg-card font-medium text-background-foreground shadow-sm"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-runs"[39m
+          [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-circle-play h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<circle[39m
+              [33mcx[39m=[32m"12"[39m
+              [33mcy[39m=[32m"12"[39m
+              [33mr[39m=[32m"10"[39m
+            [36m/>[39m
+            [36m<polygon[39m
+              [33mpoints[39m=[32m"10 8 16 12 10 16 10 8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-approvals"[39m
+          [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-check-big h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M21 10.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h12.5"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m9 11 3 3L22 4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</span>[39m
+        [36m</a>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"flex items-center gap-2 rounded-md px-2 py-1.5 text-12 transition-colors duration-base text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-nav-board"[39m
+          [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-square-kanban h-4 w-4 shrink-0"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<rect[39m
+              [33mheight[39m=[32m"18"[39m
+              [33mrx[39m=[32m"2"[39m
+              [33mwidth[39m=[32m"18"[39m
+              [33mx[39m=[32m"3"[39m
+              [33my[39m=[32m"3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M8 7v7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 7v4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M16 7v9"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex-1 truncate"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</span>[39m
+        [36m</a>[39m
+      [36m</div>[39m
+    [36m</nav>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"mx-auto flex w-full max-w-5xl flex-col gap-4 p-4 sm:p-6"[39m
+      [33mdata-testid[39m=[32m"workflow-page"[39m
+    [36m>[39m
+      [36m<nav[39m
+        [33maria-label[39m=[32m"工作流"[39m
+        [33mclass[39m=[32m"flex flex-col gap-2 md:hidden"[39m
+        [33mdata-testid[39m=[32m"workflow-mobile-nav"[39m
+      [36m>[39m
+        [36m<a[39m
+          [33mclass[39m=[32m"inline-flex items-center gap-1.5 self-start rounded-md px-2 py-1 text-12 text-muted-foreground transition-colors duration-base hover:bg-muted hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"workflow-mobile-back-to-project"[39m
+          [33mhref[39m=[32m"/projects/%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-arrow-left h-3.5 w-3.5"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m12 19-7-7 7-7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M19 12H5"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [0m返回项目[0m
+        [36m</a>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex gap-1 overflow-x-auto"[39m
+        [36m>[39m
+          [36m<a[39m
+            [33maria-current[39m=[32m"page"[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-primary bg-primary text-primary-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-runs"[39m
+            [33mhref[39m=[32m"/workflows/runs?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m我的运行[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-approvals"[39m
+            [33mhref[39m=[32m"/workflows/approvals?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m待我审批[0m
+          [36m</a>[39m
+          [36m<a[39m
+            [33mclass[39m=[32m"shrink-0 rounded-full border px-3 py-1 text-12 transition-colors duration-base border-border text-muted-foreground hover:bg-muted hover:text-background-foreground"[39m
+            [33mdata-testid[39m=[32m"workflow-mobile-nav-board"[39m
+            [33mhref[39m=[32m"/workflows/board?projectId=%E9%A1%B9%E7%9B%AE%20%7Bid%7D"[39m
+          [36m>[39m
+            [0m运行看板[0m
+          [36m</a>[39m
+        [36m</div>[39m
+      [36m</nav>[39m
+      [36m<header[39m
+        [33mclass[39m=[32m"flex flex-col gap-1"[39m
+      [36m>[39m
+        [36m<h1[39m
+          [33mclass[39m=[32m"text-20 font-semibold tracking-tight"[39m
+          [33mdata-testid[39m=[32m"workflow-page-title"[39m
+        [36m>[39m
+          [0m我的运行[0m
+        [36m</h1>[39m
+      [36m</header>[39m
+      [36m<p>[39m
+        [0m加载中…[0m
+      [36m</p>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/workflow-runs-i18n.test.tsx:65:25
+     63|   let finish!: (value: ReturnType<typeof W.workflowRuntime.listMyInsta…
+     64|   api.list.mockReturnValue(new Promise((resolve) => { finish = resolve…
+     65|   show(); expect(screen.getByText("Loading…")).toBeTruthy();
+       |                         ^
+     66|   locale("zh-CN"); expect(screen.getByText("加载中…")).toBeTruthy();
+     67|   await act(async () => { finish({ items: [], nextCursor: null }); });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/workflow-runs-i18n.test.tsx > uses structured built-in keys and preserves unknown names and raw member text
+AssertionError: expected '问题定义到 PRD' to be 'Problem to PRD' // Object.is equality
+
+Expected: "Problem to PRD"
+Received: "问题定义到 PRD"
+
+ ❯ tests/ui/workflow-runs-i18n.test.tsx:75:56
+     73| });
+     74| it("uses structured built-in keys and preserves unknown names and raw …
+     75|   expect(workflowDisplayName("W029", undefined, "en")).toBe("Problem t…
+       |                                                        ^
+     76|   expect(workflowDisplayName("W029")).toBe("问题定义到 PRD");
+     77|   expect(workflowDisplayName("custom-key", "原文 {title}", "en")).toBe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 1 passed (5)
+   Start at  08:37:45
+   Duration  4.41s (transform 970ms, setup 202ms, collect 1.63s, tests 1.26s, environment 1.11s, prepare 51ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/workflow-runs-i18n.test.tsx --maxWorkers=1 --minWorkers=1

@@ -1,0 +1,12 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/web
+
+ ✓ tests/ui/org-admin-role-scope.test.tsx (7 tests) 866ms
+   ✓ org-admin 组织级屏不再挂项目角色视角切换器 > ② invites / roster / roles / grant 四个项目级屏仍然渲染项目角色「视角」行 323ms
+ ✓ tests/ui/org-members-preview-i18n.test.tsx (8 tests) 540ms
+
+ Test Files  2 passed (2)
+      Tests  15 passed (15)
+   Start at  13:19:23
+   Duration  8.30s (transform 2.10s, setup 338ms, collect 3.56s, tests 1.41s, environment 1.93s, prepare 181ms)

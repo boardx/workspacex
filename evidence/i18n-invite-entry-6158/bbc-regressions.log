@@ -1,0 +1,33 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/invitation-session.test.tsx (13 tests) 4661ms
+   ✓ single invitation session > starts the returned bearer session before entering projects 879ms
+   ✓ single invitation session > does not replace an already signed-in account 453ms
+   ✓ single invitation session > does not replace another tab's login while activation was pending 381ms
+   ✓ single invitation session > completed activation with failed hydration offers login, never activation retry 338ms
+   ✓ single invitation session > known issuance failure offers password-login recovery without resubmission 379ms
+   ✓ shared invitation session > does not replace an already signed-in account 382ms
+   ✓ shared invitation session > known issuance failure offers password-login recovery without resubmission 376ms
+ ✓ tests/ui/invite-activation-tamper-claims.test.tsx (5 tests) 3693ms
+   ✓ 激活链接被改写 ⇒ 声明值必须原样送到服务端（否则审计表收不到任何一行） > 反证 A：`?t=&org=&role=&team=` 三个声明值逐字出现在激活请求的查询串上 1995ms
+   ✓ 激活链接被改写 ⇒ 声明值必须原样送到服务端（否则审计表收不到任何一行） > 声明值只进查询串，**不进请求体**——契约 `activateOrgMember.in` 是 `.strict()` 的，塞进去会被 400 475ms
+   ✓ 没被改写的链接 ⇒ 查询串上一个声明值都不许有 > `?t=` 单参数：org / role / team 三个键都不出现（「没说」不能被写成空字符串） 793ms
+ ✓ tests/ui/invitation-entry-i18n.test.tsx (5 tests) 10852ms
+   ✓ single: preserves original credentials, claims and stored invalid-link failure across locale changes 3756ms
+   ✓ single: translates preserved-account completion without replacing the session or repeating activation 1034ms
+   ✓ shared: preserves original credentials, claims and stored invalid-link failure across locale changes 1853ms
+   ✓ shared: translates preserved-account completion without replacing the session or repeating activation 3486ms
+   ✓ preserves existing-account invitation mode and original session token while translating its unavailable result 716ms
+ ✓ tests/ui/i18n.test.tsx (6 tests) 2987ms
+   ✓ application language > switches immediately, preserves content as text and persists for refresh 564ms
+   ✓ lets keyboard users reach and choose the account menu language 1805ms
+ ✓ tests/ui/invite-activation-unavailable.test.tsx (4 tests) 1138ms
+   ✓ 后端不可用（部署重启窗口）⇒ 结构化错误态 + 重试按钮 > 后端 5xx ⇒ activate-error-unavailable：说明临时不可用 + 登录恢复提示 + 重试按钮 437ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 94ms
+
+ Test Files  6 passed (6)
+      Tests  38 passed (38)
+   Start at  14:07:01
+   Duration  118.47s (transform 10.87s, setup 7.88s, collect 39.55s, tests 23.43s, environment 38.20s, prepare 2.50s)

@@ -17,5 +17,26 @@
   "imports": {
     "react": "* as React",
     "@/lib/utils": "{cn}"
-  }
+  },
+  "messageFiles": [
+    {
+      "file": "apps/web/lib/i18n/messages/en.ts",
+      "unitTests": [
+        "tests/lib/i18n-resources.test.ts",
+        "tests/ui/i18n.test.tsx"
+      ],
+      "browserTests": [
+        "e2e/i18n-entry.spec.ts"
+      ],
+      "browserConfig": "playwright.organization-create.config.ts",
+      "messageKeys": [
+        "common.language",
+        "ui.signInToWorkspacex",
+        "ui.enterYourStrategicWorkspace",
+        "ui.teamworkAndKnowledgeTogetherInOneWorkspace",
+        "ui.doGreatWork",
+        "ui.togetherWithAi"
+      ]
+    }
+  ]
 }

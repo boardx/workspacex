@@ -1,3 +1,4 @@
+import {TeamBillingHttpException} from "../controllers/team-billing-http-exception";
 import {EnterpriseHttpException,ENTERPRISE_CACHE_CONTROL} from "../controllers/enterprise-http-exception";
 import {operations as enterpriseOperations,TeamBillingErrorCode} from "@repo/contracts/billing-team";
 import {CreditConsumptionError} from "../../application/billing/credit-consumption";
@@ -722,6 +723,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ...(exception instanceof EnterpriseHttpException && TeamBillingErrorCode.safeParse(exception.enterpriseCode).success ? { code: exception.enterpriseCode } : {}),
         ...(exception instanceof BillingHttpException && BillingErrorCode.safeParse(exception.billingCode).success ? { code: exception.billingCode } : {}),
         ...(exception instanceof SubscriptionHttpException && SubscriptionErrorCode.safeParse(exception.subscriptionCode).success ? { code: exception.subscriptionCode } : {}),
+        ...(exception instanceof TeamBillingHttpException && TeamBillingErrorCode.safeParse(exception.billingTeamCode).success ? {code:exception.billingTeamCode} : {}),
         ...(exception instanceof PersonalCheckoutHttpException && personalPricingOperations.createPersonalCheckout.err.includes(exception.checkoutCode) ? { code: exception.checkoutCode } : {}),
         ...(permissionCode?.success?{code:permissionCode.data}:permission),
         ...surveyErrorOf(exception),

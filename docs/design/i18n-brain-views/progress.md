@@ -17,3 +17,7 @@ User prioritized unmerged PR conflicts; main coordinator transferred#6173 exclus
 ## Actual develop6bf follow-up conflict repair
 
 After AboutMe merged, GitHub confirmed a new conflict. Merged actualdevelop6bf62a5b; only seed tail and seeded testMatch conflicted. Retained Brain actor plus AboutMe optional fixture, and both real specs. Seven own Brain blobs unchanged; independent read-only review noP1/P2. Fresh58 tests/7files43.30s; wiring/specgate/ESLint/init0. Actual sameDBseed1/2 both0, AboutMe fixture logged in both rounds, total1m39s/cleanup2s, ownedcontainers0. Evidence6bf-conflict-*.txt. Prior green head7b1703 is historical; new head requires fresh CI. No Next/browser rerun or new product feature.
+
+## Actual developb853 conflict repair
+
+Confirmed new DIRTY/CONFLICTING against b8532643f2b6faafc66862d678dd8385c28417a7. Three conflictfiles seed/fixture/config union Brain and WorkflowRuns, preserving AboutMe/Tasks and both dictionary/spec sets. Seven own Brain files and experience docs unchanged; independent exact staged-source review noP1/P2. Fresh63tests/8files16.56s, wiring/specgate/ESLint/init0. ActualsameDBseed1/2 both0 with WorkflowRuns+AboutMe each round,55s total/cleanup1s, ownedwsx-64a5b817403a94165d42 containers0. Evidenceb853-*.txt. QueueEntry null verified before normalpush; latestremotehead/CI/candidate still require live verification. Heavywindow from phase1 must return after push; new features remainpaused. No Next/browser rerun, old262b40green historical.

@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/packages/contracts
+
+ ✓ tests/billing-team-platform-design.test.ts (8 tests) 15ms
+ ✓ tests/billing-team-operations-design.test.ts (12 tests) 18ms
+ ✓ tests/billing-team-purchase-design.test.ts (22 tests) 26ms
+
+ Test Files  3 passed (3)
+      Tests  42 passed (42)
+   Start at  03:56:52
+   Duration  1.10s (transform 420ms, setup 0ms, collect 891ms, tests 60ms, environment 1ms, prepare 517ms)

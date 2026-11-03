@@ -1,0 +1,52 @@
+[WebServer] (node:72897) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:72903) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 3 tests using 1 worker
+
+(node:73017) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:73017) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 e2e/i18n-entry.spec.ts:4:5 › root redirects to localized login and preserves language and form values (1.9s)
+  ✓  2 e2e/i18n-entry.spec.ts:25:5 › account entry pages translate live and preserve pending values (5.3s)
+  ✘  3 e2e/i18n-entry.spec.ts:78:5 › invitation entry translates both token modes without losing pending inputs (2.1s)
+Testing stopped early after 1 maximum allowed failures.
+
+
+  1) e2e/i18n-entry.spec.ts:78:5 › invitation entry translates both token modes without losing pending inputs
+
+    Error: expect(received).not.toMatch(expected)
+
+    Expected pattern: not /[\u3400-\u9fff]/
+    Received string:      "简体中文
+    English
+    Activate organization invitation
+    I am a new user
+    I already have an account
+    Name
+    Set password
+    Create account and join organization
+    Organization and role claims in the link follow the server invitation record. Tampering has no effect and is audited.
+
+    © WorkspaceX"
+
+      101 |       await page.setViewportSize({ width, height: 900 });
+      102 |       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    > 103 |       expect(await page.getByTestId("auth-shell").innerText()).not.toMatch(/[\u3400-\u9fff]/);
+          |                                                                    ^
+      104 |       await page.screenshot({ path: test.info().outputPath(`invite-${kind}-en-${width}.png`) });
+      105 |     }
+      106 |   }
+        at /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web/e2e/i18n-entry.spec.ts:103:68
+
+    Error Context: test-results/i18n-entry-invitation-entr-1a31b-thout-losing-pending-inputs/error-context.md
+
+  1 failed
+    e2e/i18n-entry.spec.ts:78:5 › invitation entry translates both token modes without losing pending inputs
+  2 passed (21.4s)
+  1 error was not a part of any test, see above for details
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.organization-create.config.ts e2e/i18n-entry.spec.ts --workers=1 --max-failures=1

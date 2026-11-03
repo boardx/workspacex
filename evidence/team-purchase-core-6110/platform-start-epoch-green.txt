@@ -1,0 +1,10 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+ ✓ tests/model/pg-platform-model-test-repository.test.ts (21 tests) 72ms
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  02:18:55
+   Duration  5.81s (transform 3.28s, setup 0ms, collect 5.19s, tests 72ms, environment 0ms, prepare 162ms)
+

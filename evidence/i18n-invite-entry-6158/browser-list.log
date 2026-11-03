@@ -1,0 +1,5 @@
+Listing tests:
+  i18n-entry.spec.ts:4:5 › root redirects to localized login and preserves language and form values
+  i18n-entry.spec.ts:25:5 › account entry pages translate live and preserve pending values
+  i18n-entry.spec.ts:78:5 › invitation entry translates both token modes without losing pending inputs
+Total: 3 tests in 1 file

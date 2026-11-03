@@ -1,0 +1,31 @@
+[stack-admission] load1=11.31 cores=10 perCore=1.13 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mvzfye1n-c3fd845c-adcd45a1a021 db=wsx_adcd45a1a0215a4ee836 compose=wsx-adcd45a1a0215a4ee836 pg=20073 redis=21073 api=24073 web=25073 sandbox=26073 model=27073 deep-agent=28073 asr=29073 vision=30073 loopback-sandbox=31073 mail=19073
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/.worktrees/team-receipt-anchor-6099/apps/api
+
+[db-isolation] db=wsx_adcd45a1a0215a4ee836 capacity=100 current=6 required=32
+ ✓ tests/billing/team-checkout-intents-pg.test.ts (7 tests) 94266ms
+   ✓ concurrent original key creates one frozen intent and pending capacity 683ms
+   ✓ rejects a legacy paid-period reuse and replays both new migrations over paid facts 1146ms
+   ✓ only no-reference checkout refusals are classified unreserved and never call a merchant or create financial facts 730ms
+ ✓ tests/billing/team-settlement-edge-pg.test.ts (5 tests) 7834ms
+   ✓ retains late cash and Plan-version races as real reconciliation receipts without financial side effects 1237ms
+   ✓ does not revive an expired first window; the original-anchor current month still grants once after Enterprise 500ms
+   ✓ cannot settle another organization's purchase or write an orphan claim 407ms
+   ✓ retains trusted cash and its original owner after organization disable or deletion without granting rights 948ms
+   ✓ refuses a fresh checkout after disable while recovering an existing frozen intent 399ms
+
+ Test Files  2 passed (2)
+      Tests  12 passed (12)
+   Start at  23:56:19
+   Duration  121.28s (transform 1.49s, setup 60ms, collect 4.97s, tests 102.10s, environment 1ms, prepare 773ms)
+
+[db-isolation] db=wsx_adcd45a1a0215a4ee836 peak_connections=4
+[timing] pnpm --filter api exec vitest run tests/billing/team-settlement-edge-pg.test.ts tests/billing/team-checkout-intents-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2m4s
+  清理：2s
+  总计：2m6s

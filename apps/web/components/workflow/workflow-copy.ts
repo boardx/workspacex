@@ -1,95 +1,112 @@
+import type { Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 /**
  * WF08 —— 运行面板文案。key 集合与契约枚举同一件事：新增枚举值时 TS 报「缺 key」。
  */
 import type { WorkflowSseEnvelope, WorkflowErrorCode, WorkflowInstanceStatus, WorkflowReasonCode, WorkflowStageView } from "@/lib/workflow-runtime-api";
 
-export const INSTANCE_STATUS_TEXT: Record<WorkflowInstanceStatus, string> = {
-  running: "运行中",
-  awaiting_gate_decision: "等待审批",
-  blocked_permission: "权限阻断",
-  cancelling: "取消中",
-  succeeded: "已完成",
-  failed: "失败",
-  cancelled: "已取消",
-  rejected: "被拒",
-  needs_attention: "需人工处理",
+const INSTANCE_STATUS_KEYS: Record<WorkflowInstanceStatus, MessageKey> = {
+  running: "workflows.status.running",
+  awaiting_gate_decision: "workflows.status.awaiting_gate_decision",
+  blocked_permission: "workflows.status.blocked_permission",
+  cancelling: "workflows.status.cancelling",
+  succeeded: "workflows.status.succeeded",
+  failed: "workflows.status.failed",
+  cancelled: "workflows.status.cancelled",
+  rejected: "workflows.status.rejected",
+  needs_attention: "workflows.status.needs_attention",
 };
+export const INSTANCE_STATUS_TEXT = defaultText(INSTANCE_STATUS_KEYS);
 
-export const STAGE_STATUS_TEXT: Record<WorkflowStageView["status"], string> = {
-  pending: "未开始",
-  running: "运行中",
-  awaiting_gate_decision: "等待审批",
-  blocked_permission: "权限阻断",
-  succeeded: "已完成",
-  failed: "失败",
-  skipped: "已跳过",
-  rejected: "被拒",
+const STAGE_STATUS_KEYS: Record<WorkflowStageView["status"], MessageKey> = {
+  pending: "workflows.status.pending",
+  running: "workflows.status.running",
+  awaiting_gate_decision: "workflows.status.awaiting_gate_decision",
+  blocked_permission: "workflows.status.blocked_permission",
+  succeeded: "workflows.status.succeeded",
+  failed: "workflows.status.failed",
+  skipped: "workflows.status.skipped",
+  rejected: "workflows.status.rejected",
 };
+export const STAGE_STATUS_TEXT = defaultText(STAGE_STATUS_KEYS);
 
-export const REASON_TEXT: Record<WorkflowReasonCode, string> = {
-  initiator_not_member: "发起人已不在组织内",
-  agent_permission_revoked: "Agent 工具策略不再允许该操作",
-  tool_authorization_revoked: "工具授权已被撤销",
-  capability_exceeds_side_effect_cap: "该能力超出了副作用上限",
-  effect_unreconciled: "有一个副作用无法确认是否已执行，需人工核对",
-  checkpoint_missing: "运行检查点丢失，需人工处理",
-  stage_attempts_exhausted: "该阶段重试次数已用尽",
-  workflow_lease_lost: "运行租约已失效",
-  cancel_requested: "已请求取消",
-  gate_denied: "审批被拒绝",
+const REASON_KEYS: Record<WorkflowReasonCode, MessageKey> = {
+  initiator_not_member: "workflows.reason.initiator_not_member",
+  agent_permission_revoked: "workflows.reason.agent_permission_revoked",
+  tool_authorization_revoked: "workflows.reason.tool_authorization_revoked",
+  capability_exceeds_side_effect_cap: "workflows.reason.capability_exceeds_side_effect_cap",
+  effect_unreconciled: "workflows.reason.effect_unreconciled",
+  checkpoint_missing: "workflows.reason.checkpoint_missing",
+  stage_attempts_exhausted: "workflows.reason.stage_attempts_exhausted",
+  workflow_lease_lost: "workflows.reason.workflow_lease_lost",
+  cancel_requested: "workflows.reason.cancel_requested",
+  gate_denied: "workflows.reason.gate_denied",
 };
+export const REASON_TEXT = defaultText(REASON_KEYS);
 
-export const ERROR_TEXT: Record<WorkflowErrorCode, string> = {
-  workflow_not_found: "运行不存在或你无权查看",
-  workflow_version_not_published: "该 Workflow 版本未发布或已下线",
-  workflow_not_allowed: "你没有运行该 Workflow 的权限",
-  skill_version_unresolved: "所需 Skill 版本无法解析",
-  trigger_input_invalid: "输入不符合要求",
-  definition_invalid: "Workflow 定义无效",
-  state_version_conflict: "状态已被他人更新，已刷新为最新",
-  instance_terminal: "运行已结束，无法再操作",
-  gate_already_decided: "该审批已被他人决定",
-  gate_not_open: "当前没有待决的审批",
-  not_designated_approver: "你不是指定审批人",
-  self_approval_forbidden: "不允许发起人自行审批",
-  deny_reason_required: "拒绝时必须填写理由",
-  idempotency_key_reused: "重复提交，请刷新后重试",
-  webhook_signature_invalid: "签名无效",
-  lease_conflict: "运行正被其他进程处理，请稍后再试",
-  stage_not_retryable: "该阶段当前不可重试",
+const ERROR_KEYS: Record<WorkflowErrorCode, MessageKey> = {
+  workflow_not_found: "workflows.error.workflow_not_found",
+  workflow_version_not_published: "workflows.error.workflow_version_not_published",
+  workflow_not_allowed: "workflows.error.workflow_not_allowed",
+  skill_version_unresolved: "workflows.error.skill_version_unresolved",
+  trigger_input_invalid: "workflows.error.trigger_input_invalid",
+  definition_invalid: "workflows.error.definition_invalid",
+  state_version_conflict: "workflows.error.state_version_conflict",
+  instance_terminal: "workflows.error.instance_terminal",
+  gate_already_decided: "workflows.error.gate_already_decided",
+  gate_not_open: "workflows.error.gate_not_open",
+  not_designated_approver: "workflows.error.not_designated_approver",
+  self_approval_forbidden: "workflows.error.self_approval_forbidden",
+  deny_reason_required: "workflows.error.deny_reason_required",
+  idempotency_key_reused: "workflows.error.idempotency_key_reused",
+  webhook_signature_invalid: "workflows.error.webhook_signature_invalid",
+  lease_conflict: "workflows.error.lease_conflict",
+  stage_not_retryable: "workflows.error.stage_not_retryable",
 };
+export const ERROR_TEXT = defaultText(ERROR_KEYS);
 
-export function describeWorkflowError(code: WorkflowErrorCode | null): string {
-  return code === null ? "操作失败，请稍后重试" : ERROR_TEXT[code];
+export function describeWorkflowError(code: WorkflowErrorCode | null, locale: Locale = "zh-CN"): string {
+  return translate(locale, code !== null && Object.hasOwn(ERROR_KEYS, code) ? ERROR_KEYS[code] : "workflows.error.generic");
 }
 
 /** E9：阶段失败分类（运行时写进 stage_failed 事件 data.failureKind）→ 用户可读说明。未知分类不展示。 */
-export const STAGE_FAILURE_KIND_TEXT: Record<string, string> = {
-  provider_not_configured: "模型服务尚未配置，请联系管理员配置后重新发起",
-  model_call_failed: "调用模型服务失败",
-  skill_output_invalid: "模型返回的内容格式不符合要求，请稍后重新发起",
-  unknown: "阶段执行出错",
+const STAGE_FAILURE_KIND_KEYS: Record<string, MessageKey> = {
+  provider_not_configured: "workflows.stageFailure.provider_not_configured",
+  model_call_failed: "workflows.stageFailure.model_call_failed",
+  skill_output_invalid: "workflows.stageFailure.skill_output_invalid",
+  unknown: "workflows.stageFailure.unknown",
 };
+export const STAGE_FAILURE_KIND_TEXT = defaultText(STAGE_FAILURE_KIND_KEYS);
 
-export function stageFailureKindText(kind: unknown): string | null {
-  return typeof kind === "string" && Object.hasOwn(STAGE_FAILURE_KIND_TEXT, kind) ? STAGE_FAILURE_KIND_TEXT[kind]! : null;
+export function stageFailureKindText(kind: unknown, locale: Locale = "zh-CN"): string | null {
+  return typeof kind === "string" && Object.hasOwn(STAGE_FAILURE_KIND_KEYS, kind) ? translate(locale, STAGE_FAILURE_KIND_KEYS[kind]!) : null;
 }
 
 type WorkflowSseEventType = Extract<WorkflowSseEnvelope, { type: "delta" }>["payload"]["event"];
 
 /** 运行日志事件名 → 人话（日志区不上屏内部事件名）。 */
-export const EVENT_TEXT: Record<WorkflowSseEventType, string> = {
-  instance_started: "开始运行",
-  stage_started: "步骤开始",
-  stage_output_written: "写入产出",
-  stage_succeeded: "步骤完成",
-  stage_failed: "步骤失败",
-  stage_retried: "步骤重试",
-  gate_opened: "等待审批",
-  gate_decided: "审批已处理",
-  effect_begun: "开始执行操作",
-  effect_finalized: "操作完成",
-  effect_blocked: "操作因权限暂停",
-  status_changed: "状态变化",
-  cancel_requested: "请求取消",
+const EVENT_KEYS: Record<WorkflowSseEventType, MessageKey> = {
+  instance_started: "workflows.event.instance_started",
+  stage_started: "workflows.event.stage_started",
+  stage_output_written: "workflows.event.stage_output_written",
+  stage_succeeded: "workflows.event.stage_succeeded",
+  stage_failed: "workflows.event.stage_failed",
+  stage_retried: "workflows.event.stage_retried",
+  gate_opened: "workflows.event.gate_opened",
+  gate_decided: "workflows.event.gate_decided",
+  effect_begun: "workflows.event.effect_begun",
+  effect_finalized: "workflows.event.effect_finalized",
+  effect_blocked: "workflows.event.effect_blocked",
+  status_changed: "workflows.event.status_changed",
+  cancel_requested: "workflows.event.cancel_requested",
 };
+export const EVENT_TEXT = defaultText(EVENT_KEYS);
+
+function defaultText<K extends string>(keys: Record<K, MessageKey>): Record<K, string> {
+  const text = {} as Record<K, string>;
+  for (const key of Object.keys(keys) as K[]) text[key] = translate("zh-CN", keys[key]);
+  return text;
+}
+export function workflowInstanceStatusText(status: WorkflowInstanceStatus, locale: Locale = "zh-CN"): string {
+  return translate(locale, INSTANCE_STATUS_KEYS[status]);
+}

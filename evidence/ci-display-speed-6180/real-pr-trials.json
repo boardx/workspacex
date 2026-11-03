@@ -1,0 +1,47 @@
+[
+  {
+    "number": 6175,
+    "base": "dec5223e5e5ff724a9cb6b012b863660d80d3f97",
+    "head": "4e2479ca77f1f98be53e9540b06aa2f5d5a4c2e6",
+    "files": 36,
+    "mode": "full",
+    "reason": "outside-reviewed-input-boundary",
+    "examples": [
+      "apps/api/scripts/fixtures/seed-about-me-i18n.ts",
+      "apps/api/scripts/seed-fullstack-smoke.ts",
+      "apps/web/components/brain/about-me.tsx",
+      "apps/web/components/brain/personal-memory.tsx",
+      "apps/web/components/chat/knowledge/claim-tri-state-badge.tsx"
+    ]
+  },
+  {
+    "number": 6177,
+    "base": "dec5223e5e5ff724a9cb6b012b863660d80d3f97",
+    "head": "4bb122bcdef69950d86e4163e113b21c793a1b10",
+    "files": 33,
+    "mode": "full",
+    "reason": "outside-reviewed-input-boundary",
+    "examples": [
+      "apps/web/app/share/chat/[token]/page.tsx",
+      "apps/web/components/chat/chat-code-fence.tsx",
+      "apps/web/components/chat/chat-share-button.tsx",
+      "apps/web/components/chat/public-chat-share-screen.tsx",
+      "apps/web/components/chat/shared-chat-messages.tsx"
+    ]
+  },
+  {
+    "number": 6178,
+    "base": "dec5223e5e5ff724a9cb6b012b863660d80d3f97",
+    "head": "3b59593ba04618b62ad55c81c839a0ed91839d3e",
+    "files": 15,
+    "mode": "full",
+    "reason": "outside-reviewed-input-boundary",
+    "examples": [
+      "apps/web/components/project/parts.tsx",
+      "apps/web/components/project/project-workbench.tsx",
+      "apps/web/e2e/i18n-project-list.spec.ts",
+      "apps/web/e2e/i18n-project-workbench.spec.ts",
+      "apps/web/e2e/project-create-contract.ts"
+    ]
+  }
+]

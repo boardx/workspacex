@@ -156,3 +156,94 @@ test("an installed organization explicitly updates authored titles without chang
     await member.screenshot({ path: testInfo.outputPath("authored-member-zh.png"),fullPage: true });
   } finally { await memberContext.close(); }
 });
+
+test("organization members and invitations retain source data across locales", async ({ page, browser }, testInfo) => {
+  // Same multi-account invitation/activation budget as core-journey-02.
+  test.setTimeout(120_000);
+  const email = `org-locale-${randomUUID()}@example.test`;
+  const displayName = `邀请原文 {name} ${randomUUID().slice(0, 8)}`;
+  await login(page, true);
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  await page.goto("/org-admin/invites");
+  await expect(page.getByRole("heading", { name: "Invitations", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Invitee email", { exact: true })).toBeVisible();
+  await page.getByTestId("org-admin-invite-email").fill(email);
+  const created = page.waitForResponse((r) => r.request().method() === "POST" && /\/organizations\/[^/]+\/invites$/.test(new URL(r.url()).pathname));
+  await page.getByTestId("org-admin-invite-submit").click();
+  const response = await created;
+  expect(response.status()).toBe(201);
+  const requestBody = response.request().postDataJSON() as Record<string, unknown>;
+  expect(requestBody).toMatchObject({ email, orgRole: "consultant", teamId: "" });
+  await expect(page.getByTestId("org-admin-invite-link-once-note")).toContainText("only once");
+  const activationUrl = await page.getByTestId("org-admin-invite-link-url").inputValue();
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(page.getByRole("heading", { name: "邀请", exact: true })).toBeVisible();
+  await expect(page.getByTestId("org-admin-invite-link-url")).toHaveValue(activationUrl);
+  await expect(page.getByTestId("org-admin-invite-link-once-note")).toContainText("只显示这一次");
+  await page.getByTestId("org-admin-invite-link-dismiss").click();
+  await expect(page.getByTestId("org-admin-invite-link-block")).toHaveCount(0);
+
+  const inviteeContext = await browser.newContext();
+  try {
+    const invitee = await inviteeContext.newPage();
+    await invitee.goto(activationUrl);
+    await invitee.getByTestId("activate-name").fill(displayName);
+    await invitee.getByTestId("activate-pwd").fill(`Org-Locale-${randomUUID()}!`);
+    await invitee.getByTestId("activate-submit").click();
+    await expect(invitee).toHaveURL(/\/projects$/);
+    await invitee.reload();
+    await expect(invitee).toHaveURL(/\/projects$/);
+
+    await page.goto("/org-admin/members");
+    const name = page.getByTestId("org-admin-member-list").getByText(displayName, { exact: true });
+    await expect(name).toBeVisible();
+    const row = page.getByTestId("org-admin-member-list").locator("li").filter({ has: page.getByText(displayName, { exact: true }) });
+    const rowId = await row.getAttribute("data-testid");
+    expect(rowId).toBeTruthy();
+    const userId = rowId!.replace("org-admin-member-", "");
+    await page.getByTestId("language-switcher").first().selectOption("en");
+    const rolePicker = page.getByTestId(`org-admin-member-${userId}-org-role`);
+    await expect(rolePicker).toHaveText(/Consultant/);
+    await rolePicker.click();
+    const changed = page.waitForResponse((r) => r.request().method() === "PATCH" && r.url().includes(`/members/${userId}/role`));
+    await page.getByTestId(`org-admin-member-${userId}-org-role-option-lead`).click();
+    expect((await changed).status()).toBe(200);
+    await expect(rolePicker).toContainText("Project lead");
+    await expect(name).toHaveText(displayName);
+    await page.reload();
+    await expect(page.getByTestId(`org-admin-member-${userId}-org-role`)).toContainText("Project lead");
+    await expect(page.getByTestId(`org-admin-member-${userId}-name`)).toHaveText(displayName);
+    await page.setViewportSize({ width: 375, height: 812 });
+    await expect(page.getByTestId(`org-admin-member-${userId}-org-role`)).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("org-members-en-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1280, height: 900 });
+
+    await invitee.goto("/org-admin/invites");
+    await expect(invitee.getByTestId("denied")).toBeVisible();
+    await expect(invitee.getByTestId("org-admin-invite-form")).toHaveCount(0);
+    await expect(invitee.getByTestId("org-admin-shared-links")).toHaveCount(0);
+
+    await page.goto("/org-admin/invites");
+    const sharedCreated = page.waitForResponse((r) => r.request().method() === "POST" && /\/organizations\/[^/]+\/invite-links$/.test(new URL(r.url()).pathname));
+    await page.getByTestId("org-admin-shared-link-create").click();
+    const sharedResponse = await sharedCreated;
+    expect(sharedResponse.status()).toBe(201);
+    const shared = await sharedResponse.json() as { linkId: string };
+    await expect(page.getByTestId("org-admin-shared-link-block")).toBeVisible();
+    const sharedUrl = await page.getByTestId("org-admin-shared-link-url").inputValue();
+    expect(sharedUrl).toContain("lt=");
+    await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+    await expect(page.getByTestId("org-admin-shared-link-url")).toHaveValue(sharedUrl);
+    await page.getByTestId("language-switcher").first().selectOption("en");
+    await page.getByTestId(`org-admin-shared-link-${shared.linkId}-revoke`).click();
+    const revoked = page.waitForResponse((r) => r.request().method() === "POST" && r.url().includes(`/invite-links/${shared.linkId}/revoke`));
+    await page.getByTestId(`org-admin-shared-link-${shared.linkId}-revoke-confirm-yes`).click();
+    expect((await revoked).status()).toBe(201);
+    await expect(page.getByTestId(`org-admin-shared-link-${shared.linkId}-status`)).toContainText("Revoked");
+    await page.getByTestId("org-admin-shared-link-dismiss").click();
+    await expect(page.getByTestId("org-admin-shared-link-block")).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath("org-invites-en-desktop.png"), fullPage: true });
+  } finally {
+    await inviteeContext.close();
+  }
+});
