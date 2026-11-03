@@ -1,0 +1,1 @@
+lsof -nP -iTCP:30494 -sTCP:LISTEN: exit1, no listener after Playwright teardown. No database stack started.

@@ -60,7 +60,7 @@ export default defineConfig({
    * spec 文件被分到不同 worker 并行——CI 日志逐字 `Running 4 tests using 2 workers`。
    * 「只读」从来不是共用账号的理由，只有专属账号是。
    */
-  testMatch: /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation|profile-org-fidelity)\.spec\.ts$/,
+  testMatch: /(self-service-profile|profile-keyboard-navigation|org-admin-keyboard-navigation|profile-org-fidelity|i18n-mobile-topbar)\.spec\.ts$/,
   fullyParallel: false,
   retries: 0,
   // 本文件一条用例里串了登录/改名/刷新/改密码/退出/两次重新登录/团队增改删五组动作，
@@ -108,6 +108,10 @@ export default defineConfig({
         SSP_E2E_MEMBER_EMAIL: SELF_SERVICE_PROFILE_E2E.memberEmail,
         SSP_E2E_SEED_TEAM_NAME: SELF_SERVICE_PROFILE_E2E.seedTeamName,
         // F05 —— 键盘可达性专属账号，唯一事实源在 `self-service-profile-fixture.ts`。
+        SSP_E2E_TOPBAR_USER_ID: SELF_SERVICE_PROFILE_E2E.topbarUserId,
+        SSP_E2E_TOPBAR_EMAIL: SELF_SERVICE_PROFILE_E2E.topbarEmail,
+        SSP_E2E_TOPBAR_PASSWORD: SELF_SERVICE_PROFILE_E2E.topbarPassword,
+        SSP_E2E_TOPBAR_DISPLAY_NAME: SELF_SERVICE_PROFILE_E2E.topbarDisplayName,
         SSP_E2E_KEYBOARD_USER_ID: SELF_SERVICE_PROFILE_E2E.keyboardUserId,
         SSP_E2E_KEYBOARD_EMAIL: SELF_SERVICE_PROFILE_E2E.keyboardEmail,
         SSP_E2E_KEYBOARD_PASSWORD: SELF_SERVICE_PROFILE_E2E.keyboardPassword,

@@ -153,9 +153,9 @@ export function TopBar({
         </React.Suspense>
       )}
       {/* ── 组织层：全局常驻 ── */}
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex min-w-0 items-center gap-1.5">
         {/* <md 时 IconRail 隐藏，组织菜单（切换 + 组织管理）在这里补一个入口；≥md 由 rail 承担 */}
-        <div className="md:hidden">
+        <div className="shrink-0 md:hidden">
           <OrgMenu
             identity={identity}
             organizations={organizations}
@@ -169,7 +169,7 @@ export function TopBar({
           FB-2 —— <md 时 IconRail 隐藏，反馈入口在这里补一个；≥md 由 rail 承担。
           同 OrgMenu 的处置：小屏不丢入口，但也不在两处同时出现。
         */}
-        <div className="md:hidden">
+        <div className="shrink-0 md:hidden">
           <FeedbackButton
             target={{ kind: "product" }}
             targetLabel={null}
@@ -178,8 +178,8 @@ export function TopBar({
           />
         </div>
         {!isAdminRoute && (local
-          ? <Lock aria-hidden className="h-3.5 w-3.5 text-ai-tint-foreground" data-testid="topbar-local-lock" />
-          : <Building2 aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />)}
+          ? <Lock aria-hidden className="h-3.5 w-3.5 shrink-0 text-ai-tint-foreground" data-testid="topbar-local-lock" />
+          : <Building2 aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />)}
         {!isAdminRoute && (
           <span data-testid="topbar-org-name" className="max-w-[12rem] truncate text-12 font-medium text-card-foreground">
             {currentOrgLabel}
