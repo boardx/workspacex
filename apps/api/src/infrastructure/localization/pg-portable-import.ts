@@ -9,7 +9,7 @@ import type { DatabasePort, TenantSession } from "../../application/ports/databa
 import type { AuthorizedLocalizationRequest } from "../../application/localization/entity-localization";
 import type { OrgId } from "../../domain/org-id";
 import { canonicalJson, legacyEquivalentDigest, sourceDefinitionDigest, starterAgentDisplayDefaults, type PortablePack } from "../../domain/localization/portable-pack";
-import { skillContentDigest } from "../../domain/skill/starter-pack";
+import { skillExecutionRepresentation, skillContentDigest, type SkillStarterPack } from "../../domain/skill/starter-pack";
 import { AGENT_ROLE_COLUMN_OF } from "../agent/agent-version-insert";
 import { localizationSources, LOCALIZATION_TABLES } from "./pg-entity-localization-repository";
 
@@ -151,6 +151,15 @@ export async function persistPortableImport(db: DatabasePort, input: Input, crea
           (prior.source_definition_digest === null && legacyEquivalentDigest(input, prior.pack_version) === prior.pack_digest));
         const ids = await currentIds(s, input, prior);
         await applyMetadata(s, input, ids, false);
+        if (input.kind === "skill") {
+          for (const [index,entry] of input.pack.skills.entries()) {
+            const version = (await s.query<{ id: string }>(`SELECT id FROM skill_versions
+              WHERE org_id=$1 AND skill_id=$2 AND published AND content_digest=$3 AND id=ANY($4::text[])
+              ORDER BY created_at DESC,id DESC LIMIT 1`,[input.orgId,ids[index],skillContentDigest(entry),prior.result_json.versionIds])).rows[0];
+            requireMatch(version);
+            await retainSkillExecutionRepresentation(s,input.orgId,version.id,entry);
+          }
+        }
         const raw = { ...prior.result_json, importId: sameKey?.id ?? `portable-import-${randomUUID()}`, packVersion: input.pack.packVersion,
           packDigest: input.pack.packDigest, importedAt: new Date().toISOString() };
         const outcome: Outcome = input.kind === "skill"
@@ -179,4 +188,13 @@ export async function persistPortableImport(db: DatabasePort, input: Input, crea
     if (error instanceof PortableConflict) return { kind: "name-conflict" };
     throw error;
   }
+}
+
+/** Caller proved this immutable version belongs to the tenant and matches the
+ * definition digest. The database trigger independently verifies that proof. */
+export async function retainSkillExecutionRepresentation(session: TenantSession, orgId: string,
+  versionId: string, skill: SkillStarterPack["skills"][number]) {
+  await session.query(`INSERT INTO skill_execution_representations (org_id,version_id,representation)
+    VALUES ($1,$2,$3) ON CONFLICT (org_id,version_id) DO NOTHING`,
+  [orgId,versionId,skillExecutionRepresentation(skill)]);
 }

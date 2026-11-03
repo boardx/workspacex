@@ -97,9 +97,12 @@ export function importPayloadDigest(input: {
     ...(input.expectedPackDigest === undefined ? {} : { packDigest: input.expectedPackDigest }) }));
 }
 
-export function skillContentDigest(skill: SkillStarterPack["skills"][number]): string {
-  return sha256(JSON.stringify({
+export function skillExecutionRepresentation(skill: Pick<SkillStarterPack["skills"][number], "manifest" | "files">): string {
+  return JSON.stringify({
     manifest: skill.manifest,
     files: skill.files.map(({ path, digest, mediaType }) => ({ path, digest, mediaType })),
-  }));
+  });
+}
+export function skillContentDigest(skill: Pick<SkillStarterPack["skills"][number], "manifest" | "files">): string {
+  return sha256(skillExecutionRepresentation(skill));
 }

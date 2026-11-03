@@ -1,4 +1,4 @@
-import { persistPortableImport } from "../localization/pg-portable-import";
+import { retainSkillExecutionRepresentation, persistPortableImport } from "../localization/pg-portable-import";
 import { randomUUID } from "node:crypto";
 import type { DatabasePort, TenantSession } from "../../application/ports/database.port";
 import type {
@@ -592,6 +592,15 @@ export class PgSkillStarterImportRepository implements SkillStarterImportReposit
           [input.orgId, skillIds[index], versionIds[index], status.subjectVersionDigest, JSON.stringify(status),
             status.decidedAt, IMPORT_GATE_WRITER, importedAt],
         );
+      }
+
+      // Preserve the exact legacy hash preimage. JSONB/file tables cannot retain
+      // manifest key order and file-array order; execution versions stay immutable.
+      const owned = await session.query<{ id: string }>("SELECT id FROM skill_versions WHERE org_id=$1 AND id=ANY($2::text[])", [input.orgId,versionIds]);
+      const ownedIds = new Set(owned.rows.map(row => row.id));
+      for (const [index, skill] of input.pack.skills.entries()) {
+        const versionId = versionIds[index]!;
+        if (ownedIds.has(versionId)) await retainSkillExecutionRepresentation(session,input.orgId,versionId,skill);
       }
 
       const result: SkillStarterImportResult = {
