@@ -262,7 +262,13 @@ export const zhCN = {
   "home.artifacts.one": "{count} 个产出物",
   ...accountEntryZhCN,
   ...invitationEntryZhCN,
+  ...studioResearchZhCN,
+  ...researchZhCN,
 } as const;
 
 import { codeFenceZhCN } from "../namespaces/code-fence";
 import { chatShareZhCN } from "../namespaces/chat-share";
+
+import { studioResearchZhCN } from "../namespaces/studio-research";
+
+import { researchZhCN } from "../namespaces/research";

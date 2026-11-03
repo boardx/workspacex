@@ -263,7 +263,13 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.artifacts.one": "{count} artifact",
   ...accountEntryEn,
   ...invitationEntryEn,
+  ...studioResearchEn,
+  ...researchEn,
 };
 
 import { codeFenceEn } from "../namespaces/code-fence";
 import { chatShareEn } from "../namespaces/chat-share";
+
+import { studioResearchEn } from "../namespaces/studio-research";
+
+import { researchEn } from "../namespaces/research";

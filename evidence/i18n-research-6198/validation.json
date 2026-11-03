@@ -1,0 +1,72 @@
+{
+  "init-final": {
+    "exitCode": 0,
+    "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+    "rawLogLocalPath": "/tmp/6198-init-final.log"
+  },
+  "web-typecheck-final": {
+    "exitCode": 0,
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+    "rawLogLocalPath": "/tmp/6198-web-typecheck-final.log"
+  },
+  "scoped-eslint-final": {
+    "exitCode": 0,
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rawLogLocalPath": "/tmp/6198-scoped-eslint-final.log"
+  },
+  "final-focused-tests": {
+    "exitCode": 0,
+    "rawLogSha256": "e399a97b7654d0f75fef4e381d0b005a22f2fdc9260fc25584a2591a4ac914c7",
+    "rawLogLocalPath": "/tmp/6198-final-focused-tests.log"
+  },
+  "vitest-reachability": {
+    "exitCode": 0,
+    "rawLogSha256": "f4172c2a80a8546be0c9f7afb4fcb30eff664da1fc624a7851feca8c4e7d1fb7",
+    "rawLogLocalPath": "/tmp/6198-vitest-reachability.log"
+  },
+  "playwright-list": {
+    "exitCode": 0,
+    "rawLogSha256": "2ed5f2832977cd13ccc2835690d9a32de2a82fcbd6d2a5253e17f77b7008b5b1",
+    "rawLogLocalPath": "/tmp/6198-playwright-list.log"
+  },
+  "entry-green-workspace-red": {
+    "exitCode": 1,
+    "rawLogSha256": "286bdf6a8ffa54b762feb44b85fffc98ace206d8d954ed6247ed94d3af89eff1",
+    "rawLogLocalPath": "/tmp/6198-entry-green-workspace-red.log"
+  },
+  "workspace-green-first": {
+    "exitCode": 0,
+    "rawLogSha256": "0cb52b6fef24fd9d03be0c01f992b1f2cb04bbd3d9869d9884905d38f73212c1",
+    "rawLogLocalPath": "/tmp/6198-workspace-green-first.log"
+  },
+  "overlays-red": {
+    "exitCode": 1,
+    "rawLogSha256": "554e880ab476c59b1ab0424826c0645446c309bf5957f9d34a5e28bd57f0b219",
+    "rawLogLocalPath": "/tmp/6198-overlays-red.log"
+  },
+  "overlays-green": {
+    "exitCode": 0,
+    "rawLogSha256": "a44f0491456802216769597d0be92d3876941442ce8144019d3a0010c3a44f66",
+    "rawLogLocalPath": "/tmp/6198-overlays-green.log"
+  },
+  "new-title-red": {
+    "exitCode": 1,
+    "rawLogSha256": "39a9ccb55f2a57e6333e5d499d44dade4e19232e7015e258a33488e4305719d8",
+    "rawLogLocalPath": "/tmp/6198-new-title-red.log"
+  },
+  "related-tests-first": {
+    "exitCode": 1,
+    "rawLogSha256": "7ec8231c6bafc3386baa451654f469cf8c24be54dd2d8c87b50f13881419df90",
+    "rawLogLocalPath": "/tmp/6198-related-tests.log"
+  },
+  "focused-green": {
+    "exitCode": 0,
+    "rawLogSha256": "85da383c18e1bcdf66ac0ba3969001c50b97c828c03e952725e33731b7c6ebdd",
+    "rawLogLocalPath": "/tmp/6198-focused-green.log"
+  },
+  "web-typecheck-first": {
+    "exitCode": 2,
+    "rawLogSha256": "c1ec6333f918102a215d738cf3a457f7954f9d831cfa03d54c037bbd08f98850",
+    "rawLogLocalPath": "/tmp/6198-web-typecheck.log"
+  }
+}

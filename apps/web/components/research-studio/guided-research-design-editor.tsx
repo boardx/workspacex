@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { researchDirectionFields as directionFields, researchOutlineFields as outlineFields } from "@/lib/research-design-labels";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,8 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type { GuidedResearchRuntimeDraft as Draft } from "@/lib/guided-research-api";
 type DirectionDraft = Extract<Draft, { node: "directions" }>;
 type OutlineDraft = Extract<Draft, { node: "outline" }>;
-const directionFields = { decisionQuestions: "决策问题", hypotheses: "待验证假设", comparisonDimensions: "比较维度", evidenceNeeds: "证据需求" } as const;
-const outlineFields = { objective: "章节目标", analysisApproach: "分析方法", expectedOutput: "预期产出" } as const;
+
 const lines = (value: string) => value === "" ? [] : value.split("\n");
 function TextField({ label, value, disabled, onChange, list = false }: { label: string; value: string; disabled: boolean; onChange: (value: string) => void; list?: boolean }) {
   const id = React.useId();
@@ -45,5 +46,6 @@ export function ResearchOutlineEditor({ draft, disabled, onChange }: { draft: Ou
   </div>;
 }
 export function ResearchDesignPreview({ draft }: { draft: DirectionDraft | OutlineDraft }) {
-  return <ul className="space-y-3">{draft.value.map((item) => <li key={item.id} className="space-y-2"><strong>{item.title}</strong>{"description" in item ? <><p>{item.description}</p>{(Object.keys(directionFields) as (keyof typeof directionFields)[]).map((field) => item[field]?.length ? <div key={field}><span className="font-medium">{directionFields[field]}：</span><ul className="list-disc pl-4">{item[field]!.map((text, index) => <li key={index}>{text}</li>)}</ul></div> : null)}</> : <><p>{item.questions.join("；")}</p>{(Object.keys(outlineFields) as (keyof typeof outlineFields)[]).map((field) => item[field] ? <p key={field}><span className="font-medium">{outlineFields[field]}：</span>{item[field]}</p> : null)}{item.subsections?.map((section) => <div key={section.id} className="border-l border-border pl-3"><strong>{section.title}</strong><p>{section.questions.join("；")}</p></div>)}</>}</li>)}</ul>;
+  const { t } = useI18n();
+  return <ul className="space-y-3">{draft.value.map((item) => <li key={item.id} className="space-y-2"><strong>{item.title}</strong>{"description" in item ? <><p>{item.description}</p>{(Object.keys(directionFields) as (keyof typeof directionFields)[]).map((field) => item[field]?.length ? <div key={field}><span className="font-medium">{t("research.design.fieldLabel", { field: t(`research.design.${field}`) })}</span><ul className="list-disc pl-4">{item[field]!.map((text, index) => <li key={index}>{text}</li>)}</ul></div> : null)}</> : <><p>{item.questions.join("；")}</p>{(Object.keys(outlineFields) as (keyof typeof outlineFields)[]).map((field) => item[field] ? <p key={field}><span className="font-medium">{t("research.design.fieldLabel", { field: t(`research.design.${field}`) })}</span>{item[field]}</p> : null)}{item.subsections?.map((section) => <div key={section.id} className="border-l border-border pl-3"><strong>{section.title}</strong><p>{section.questions.join("；")}</p></div>)}</>}</li>)}</ul>;
 }

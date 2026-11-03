@@ -1,3 +1,6 @@
+import { useI18n } from "@/lib/i18n/provider";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
 import { AlertTriangle, CheckCircle2, CircleDot, FileCheck2 } from "lucide-react";
 import type { GuidedResearchSession } from "@/lib/guided-research-api";
 import { Badge } from "@/components/ui/badge";
@@ -7,18 +10,19 @@ import { cn } from "@/lib/utils";
 export type GuidedResearchHomeFilter = "active" | "attention" | "completed";
 
 const STAGE_PRESENTATION: Record<GuidedResearchSession["resumeStage"], {
-  label: string;
+  label: MessageKey;
   step: number;
-  action: string;
+  action: MessageKey;
 }> = {
-  brief: { label: "确认研究内容", step: 1, action: "完善研究内容" },
-  directions: { label: "研究计划", step: 2, action: "查看研究计划" },
-  outline: { label: "研究计划", step: 2, action: "查看研究计划" },
-  researching: { label: "生成报告", step: 3, action: "继续生成报告" },
-  report: { label: "生成报告", step: 3, action: "查看研究报告" },
+  brief: { label: "research.stage.brief", step: 1, action: "research.action.brief" },
+  directions: { label: "research.stage.plan", step: 2, action: "research.action.plan" },
+  outline: { label: "research.stage.plan", step: 2, action: "research.action.plan" },
+  researching: { label: "research.stage.report", step: 3, action: "research.action.generate" },
+  report: { label: "research.stage.report", step: 3, action: "research.action.report" },
 };
 
-export function guidedResearchHomePresentation(session: GuidedResearchSession) {
+export function guidedResearchHomePresentation(session: GuidedResearchSession, locale: Locale = DEFAULT_LOCALE) {
+  const t = (key: MessageKey) => translate(locale, key);
   const stage = STAGE_PRESENTATION[session.resumeStage];
   const completed = session.status === "completed";
   const failed = session.status === "failed";
@@ -28,16 +32,17 @@ export function guidedResearchHomePresentation(session: GuidedResearchSession) {
   const missingEvidence = session.resumeStage === "report" && session.sourceCount === 0;
   return {
     ...stage,
+    label: t(stage.label),
     step: completed ? 3 : stage.step,
-    action: completed ? "查看研究报告" : failed ? "恢复研究" : stage.action,
+    action: t(completed ? "research.action.report" : failed ? "research.action.recover" : stage.action),
     attention: failed || missingEvidence,
-    attentionLabel: missingEvidence ? "证据缺口" : failed ? "流程中断" : null,
-    statusLabel: completed ? "已完成" : failed ? "需恢复" : stage.label,
+    attentionLabel: missingEvidence ? t("research.status.gap") : failed ? t("research.status.interrupted") : null,
+    statusLabel: t(completed ? "ui.completed" : failed ? "research.status.failed" : stage.label),
     statusTone: "neutral" as const,
     evidenceLabel: missingEvidence
-      ? "报告阶段尚无可用来源"
-      : evidenceRequired && session.sourceCount === 0 ? "正在收集证据，尚无来源"
-      : evidenceRequired || completed ? `${session.sourceCount} 个来源已进入证据链` : "完成研究设计后开始取证",
+      ? t("research.evidence.missing")
+      : evidenceRequired && session.sourceCount === 0 ? t("research.evidence.collecting")
+      : evidenceRequired || completed ? translate(locale, "research.evidence.count", { count: session.sourceCount }) : t("research.evidence.design"),
   };
 }
 
@@ -53,19 +58,20 @@ export function GuidedResearchHomeSummary({ sessions, selectedFilter, onFilterCh
   selectedFilter?: GuidedResearchHomeFilter;
   onFilterChange: (filter: GuidedResearchHomeFilter | undefined) => void;
 }) {
+  const { t } = useI18n();
   const active = sessions.filter((session) => session.status !== "completed").length;
   const attention = sessions.filter((session) => guidedResearchHomePresentation(session).attention).length;
   const completed = sessions.filter((session) => session.status === "completed").length;
   const items = [
-    { id: "active" as const, label: "进行中", value: active, icon: CircleDot },
-    { id: "attention" as const, label: "需要处理", value: attention, icon: AlertTriangle },
-    { id: "completed" as const, label: "已完成", value: completed, icon: CheckCircle2 },
+    { id: "active" as const, label: t("ui.inProgress"), value: active, icon: CircleDot },
+    { id: "attention" as const, label: t("research.summary.attention"), value: attention, icon: AlertTriangle },
+    { id: "completed" as const, label: t("ui.completed"), value: completed, icon: CheckCircle2 },
   ];
-  return <section data-testid="research-home-summary" aria-label="研究工作概览" className="grid gap-3 sm:grid-cols-3">
+  return <section data-testid="research-home-summary" aria-label={t("research.summary.label")} className="grid gap-3 sm:grid-cols-3">
     {items.map(({ id, label, value, icon: Icon }) => <button
       key={id}
       type="button"
-      aria-label={`${label} ${value} 项研究`}
+      aria-label={t("research.summary.count", { label, count: value })}
       aria-pressed={selectedFilter === id}
       onClick={() => onFilterChange(selectedFilter === id ? undefined : id)}
       className={cn(
@@ -80,16 +86,17 @@ export function GuidedResearchHomeSummary({ sessions, selectedFilter, onFilterCh
 }
 
 export function GuidedResearchCardProgress({ session }: { session: GuidedResearchSession }) {
-  const presentation = guidedResearchHomePresentation(session);
+  const { t, locale } = useI18n();
+  const presentation = guidedResearchHomePresentation(session, locale);
   return <div className="space-y-2" data-testid={`research-stage-${session.sessionId}`}>
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2">
         <FileCheck2 className="size-3.5 text-muted-foreground" aria-hidden />
         <span className="text-12 font-medium">{presentation.label}</span>
       </div>
-      <span className="text-11 text-muted-foreground">第 {presentation.step} / 3 步</span>
+      <span className="text-11 text-muted-foreground">{t("research.step.count", { step: presentation.step })}</span>
     </div>
-    <Progress value={presentation.step} max={3} label={`研究流程：第 ${presentation.step} / 3 步，${presentation.label}`} tone="primary" />
+    <Progress value={presentation.step} max={3} label={t("research.step.progress", { step: presentation.step, label: presentation.label })} tone="primary" />
     {presentation.attention && <div className="flex items-center justify-between gap-3">
       <span className="text-11 text-muted-foreground">{presentation.evidenceLabel}</span>
       {presentation.attentionLabel && <Badge tone="neutral">{presentation.attentionLabel}</Badge>}

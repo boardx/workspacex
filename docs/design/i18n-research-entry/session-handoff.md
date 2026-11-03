@@ -1,0 +1,13 @@
+# Handoff — complete research #6198
+
+Issue: https://github.com/boardx/workspacex/issues/6198. Branch `worker/i18n-research-entry-6198`, base develop `44aeac6e10b688471fe03536fc8490a353824976`, original checkout. Main alone operates merge queue. Fetch main/develop before the next development start; do not create another worktree or mix owner changes.
+
+Entry implementation is uncommitted and not yet GREEN. See progress.md for exact coverage/evidence. Six workspace tests have been written but must execute RED before workspace implementation. Do not claim complete coverage from the nine entry tests. Main explicitly expanded this PR to the entire actual research journey. Continue interview, recording and survey afterward without seeking new authorization.
+
+Shared ownership approved: studio-history-management.tsx, ui/tag-input.tsx. Phase2 confirmed no conflict for extracting the existing ASR error constant, and was informed of shared report-file-actions UI localization ownership. Preserve all user/model/canonical content and IDs; render locale only, never use it as a request/cache/remount identity. Await phase2 explicit short-RED handoff before validation; no tests, browser, typecheck or push until explicit handoff. No local services owned.
+
+Preserved unrelated work: #6193 tests in stash `66bb358d4a941ae294699ff5d232355b300db0f7`; #6182 commit `16b3f95cb9881c4ed606ea7b6a0d91d5f0d39743`. Both remain paused and outside this branch.
+
+Latest state: entry9, workspace6 and overlays8 have all individually passed; first 67-file regression had626pass/1oldContents expectation, then corrected focused32/32. First webtype failed only on invalid redundant TestingLibrary `exact` options, now removed; type has not rerun. Latest small generic-key reuse and expanded browser history contract are unverified. Phase3 owns a fresh ~15s GREEN/lint window now; wait for explicit release before new heavy work. Main approved localized system shortcut prefill and creation-only new plan/chapter/subsection titles. Preserve canonical questions and DEFAULT_RESEARCH_NAME. Phase3 owns forthcoming common.save/common.saving; once integrated, migrate this branch's temporary studio.saving to common.saving and remove the duplicate source.
+
+Pre-browser latest: final type0, scopedESLint0, affected112/112 (18.89s), actualregistration69/12, isolatedPlaywright --list1test/1file (2s/cleanup0), standardinit quick0. Receipts/manifest under evidence/i18n-research-6198. Phase2 explicitly released its short34GREEN window, and this worker has reserved the next fresh-production browser window. No browser has run at this handoff point.

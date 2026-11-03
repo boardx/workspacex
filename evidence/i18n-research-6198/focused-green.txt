@@ -1,0 +1,17 @@
+Observed process exit code: 0
+Raw log SHA-256: 85da383c18e1bcdf66ac0ba3969001c50b97c828c03e952725e33731b7c6ebdd
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/research-entry-i18n.test.tsx (9 tests) 470ms
+ ✓ tests/ui/research-report-document.test.tsx (9 tests) 329ms
+ ✓ tests/ui/research-workspace-i18n.test.tsx (6 tests) 1256ms
+   ✓ displays fixed focus options in English but saves canonical values and raw custom focus once 1016ms
+ ✓ tests/ui/research-overlays-i18n.test.tsx (8 tests) 351ms
+
+ Test Files  4 passed (4)
+      Tests  32 passed (32)
+   Start at  01:29:43
+   Duration  9.09s (transform 1.32s, setup 403ms, collect 3.42s, tests 2.41s, environment 2.14s, prepare 169ms)
