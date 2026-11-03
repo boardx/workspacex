@@ -1,0 +1,53 @@
+Command: WORKSPACEX_WEB_TEST_MAX_WORKERS=1 pnpm --filter web exec vitest run tests/ui/admin-member-quotas-i18n.test.tsx tests/ui/admin-limit-policy-i18n.test.tsx tests/ui/ai-usage-format-i18n.test.ts tests/ui/ai-usage-i18n.test.tsx
+Exit:1 (Task2/3 implementation not started; expected RED)
+ ✓ tests/ui/admin-member-quotas-i18n.test.tsx (14 tests) 412ms
+ ❯ tests/ui/ai-usage-i18n.test.tsx (7 tests | 7 failed) 1402ms
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx (9 tests | 9 failed) 282ms
+ ❯ tests/ui/ai-usage-format-i18n.test.ts (6 tests | 6 failed) 28ms
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > localizes live rule fields and server ratios, preserving authored scope and list selection
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:20:54
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > keeps an unmetered agent rule honest instead of displaying a fabricated zero percentage
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:28:15
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > preserves create fields across languages and sends only canonical scope/window/action IDs
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:34:63
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > retranslates validation while preserving invalid input and withholding API writes
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:52:56
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > explains server degradation-target rejection in the current locale without leaking raw errors
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:62:84
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > retains edit drafts and updates only the original threshold field
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:67:61
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > retains toggle and delete payloads and explains preserved historical events
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:74:18
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > shows safe localized read errors and empty rules without treating locale as a reload
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:81:86
+ FAIL  tests/ui/admin-limit-policy-i18n.test.tsx > translates prototype policy explanations while retaining sample data and truthful no-backend behavior
+ ❯ tests/ui/admin-limit-policy-i18n.test.tsx:87:53
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > distinguishes English missing token data from real zero and preserves arbitrary integer precision
+ ❯ tests/ui/ai-usage-format-i18n.test.ts:6:36
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > localizes unknown, native-only and mixed totals without changing coverage semantics
+ ❯ tests/ui/ai-usage-format-i18n.test.ts:11:79
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > translates native unit/source presentation while preserving exact quantities and Chinese defaults
+ ❯ tests/ui/ai-usage-format-i18n.test.ts:17:96
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > preserves six decimal cost precision and currency instead of interpreting locale as market
+ ❯ tests/ui/ai-usage-format-i18n.test.ts:24:58
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > preserves already rounded credit hundredths including actual zero and huge integers
+ ❯ tests/ui/ai-usage-format-i18n.test.ts:27:35
+ FAIL  tests/ui/ai-usage-format-i18n.test.ts > localizes display dates while keeping Beijing calendar, midnight query boundaries and 24h time
+ ❯ tests/ui/ai-usage-format-i18n.test.ts:31:56
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates overview and cost caveats while retaining chart metric/grain and separate currencies without reads
+ ❯ tests/ui/ai-usage-i18n.test.tsx:29:30
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > preserves custom dates and only sends inclusive Shanghai boundaries when explicitly applied
+ ❯ tests/ui/ai-usage-i18n.test.tsx:39:26
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates ledger/account/financial states while preserving open details and raw organization/model names
+ ❯ tests/ui/ai-usage-i18n.test.tsx:45:121
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > retains forced self scope and the exact microsecond snapshot/cursor across paging and language changes
+ ❯ tests/ui/ai-usage-i18n.test.tsx:51:143
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates unknown/native statuses without replacing missing consumption with zero
+ ❯ tests/ui/ai-usage-i18n.test.tsx:59:128
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > retranslates a safe read error without retrying and reloads only on the explicit action
+ ❯ tests/ui/ai-usage-i18n.test.tsx:64:65
+ FAIL  tests/ui/ai-usage-i18n.test.tsx > translates usage windows/matrix/event outcomes while preserving canonical windows, deleted-rule history and raw data
+ ❯ tests/ui/ai-usage-i18n.test.tsx:69:85
+ Test Files  3 failed | 1 passed (4)
+      Tests  22 failed | 14 passed (36)
+   Duration  7.97s (transform 1.20s, setup 434ms, collect 2.77s, tests 2.12s, environment 1.74s, prepare 174ms)
