@@ -1,7 +1,7 @@
 name: Unified release contracts
 on:
   pull_request:
-    branches: [develop, worker/manual-release-only]
+    branches: [develop]
     paths:
       - scripts/unified-*
       - tests/test_unified_*.py
