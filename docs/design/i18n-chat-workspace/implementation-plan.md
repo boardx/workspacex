@@ -43,7 +43,7 @@
 - [x] PinnewENlabel anddraft/caret/voice/upload/permission/no-remount REDcases.
 - [x] RunactualRED inreservedshortwindow.
 - [x] Extractpresentationtree andlocalizecomposer/pickers/attachment/voice/realtime chrome; preserveallwire values andgates.
-- [ ] Verifycontrollerlinebudgetandexistingcriticalvoice/HITL/runrestoration suites, commit.
+- [x] Verifycontrollerlinebudgetandexistingcriticalvoice/HITL/runrestoration suites, commit.
 
 ### Task 3: Messages, tools, run/queue and actions
 
