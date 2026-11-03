@@ -467,12 +467,27 @@ test("workflow grant management persists canonical permissions and audit across 
   await expect(focused).toContainText("问题定义到 PRD");
   await page.getByTestId("language-switcher").first().selectOption("en");
   expect([reads, writes]).toEqual(countsBeforeLocale);
+  const revealDialogFooter = async () => {
+    const modal = page.getByTestId("workflow-grant-dialog");
+    await modal.hover();
+    await page.mouse.wheel(0, 1200);
+    await expect(modal.getByTestId("workflow-grant-confirm")).toBeInViewport({ ratio: 1 });
+    await expect(modal.getByTestId("workflow-grant-cancel")).toBeInViewport({ ratio: 1 });
+  };
   const capture = async (state: string) => {
     for (const width of [1280, 375]) {
       await page.setViewportSize({ width, height: width === 375 ? 812 : 900 });
       if (state === "workflow") await focused.scrollIntoViewIfNeeded();
       if (state === "capability") await page.getByTestId("workflow-grant-row-artifact.write").scrollIntoViewIfNeeded();
       if (state === "audit") await page.getByTestId("workflow-grants-audit").scrollIntoViewIfNeeded();
+      if (state === "dialog") {
+        const modal = page.getByTestId("workflow-grant-dialog");
+        await modal.hover();
+        await page.mouse.wheel(0, -5000);
+        await expect(modal.getByRole("heading")).toBeInViewport({ ratio: 1 });
+        await page.screenshot({ path: testInfo.outputPath("workflow-grants-dialog-top-" + width + ".png") });
+        await revealDialogFooter();
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath("workflow-grants-" + state + "-" + width + ".png") });
     }
@@ -534,6 +549,7 @@ test("workflow grant management persists canonical permissions and audit across 
   await capture("audit");
   await artifact.getByTestId("workflow-grant-edit").click();
   await page.getByTestId("workflow-grant-level-read").check();
+  await revealDialogFooter();
   const beforeRevokeEventIds = new Set(persisted.audit.map(event => event.eventId));
   const revoked = page.waitForResponse(response => response.request().method() === "DELETE" && new URL(response.url()).pathname === itemPath);
   await page.getByTestId("workflow-grant-confirm").click();

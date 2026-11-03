@@ -43,7 +43,7 @@ export function WorkflowGrantDialog({
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !busy) onCancel(); }}>
-      <DialogContent className="max-w-lg" data-testid="workflow-grant-dialog" closeTestId="workflow-grant-dialog-close">
+      <DialogContent className="max-w-lg overflow-y-auto" data-testid="workflow-grant-dialog" closeTestId="workflow-grant-dialog-close">
         <DialogHeader>
           <DialogTitle className="text-16 font-semibold">{t("workflowGrants.dialogTitle", { label: copy.label })}</DialogTitle>
           <DialogDescription className="text-12 text-muted-foreground">
