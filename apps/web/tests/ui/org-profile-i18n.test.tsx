@@ -44,7 +44,7 @@ afterEach(cleanup);
 it("translates the full profile while keeping raw drafts and all three reads stable", async () => {
   render(<OrgProfileScreen />, { wrapper: Harness });
   const name = await screen.findByTestId("org-admin-name-input");
-  expect(screen.getByRole("heading", { name: "Organization profile", exact: true })).toBeVisible();
+  expect(screen.getByRole("heading", { name: "Organization profile" })).toBeVisible();
   expect(screen.getByLabelText("Organization name")).toBe(name);
   const description = screen.getByLabelText("Organization description");
   fireEvent.change(name, { target: { value: "草稿 {name} 未保存" } });

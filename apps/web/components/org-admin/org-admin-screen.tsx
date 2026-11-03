@@ -1218,7 +1218,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
         setState("denied");
         return;
       }
-      setFailureMessage(() => (currentT) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
+      setFailureMessage(() => (currentT: Translator) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
       setState("dep-failed");
     }
   }, [orgId]);
@@ -1254,7 +1254,7 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       // （同一份 session-provider 机制：`updateDisplayName` 改自己姓名时的先例）。
       updateOrgName(orgId, out.name);
     } catch (err) {
-      setFailureMessage(() => (currentT) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
+      setFailureMessage(() => (currentT: Translator) => describeFailureFor(err, currentT("orgProfile.notFound"), currentT("orgProfile.forbidden"), currentT));
       setState("dep-failed");
     }
   }
@@ -1279,15 +1279,15 @@ function OrgProfileTab({ orgId }: { orgId: string }) {
       window.setTimeout(() => setAvatarSavedNotice(false), 2500);
     } catch (err) {
       if (err instanceof ApiError) {
-        if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError(() => (currentT) => currentT("orgProfile.avatarTooLarge"));
-        else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError(() => (currentT) => currentT("orgProfile.avatarType"));
-        else setAvatarError(() => (currentT) => currentT("orgProfile.avatarApiFailed", { reason: err.reasonCode ?? err.status }));
+        if (err.reasonCode === "FILE_TOO_LARGE") setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarTooLarge"));
+        else if (err.reasonCode === "UNSUPPORTED_CONTENT_TYPE") setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarType"));
+        else setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarApiFailed", { reason: err.reasonCode ?? err.status }));
       } else if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
         // 2026-08-11 devapp 实测：请求可能永远不返回（见 live-org-admin.ts 的硬超时）。
         // 超时必须给出明确反馈，不许停在「上传中…」。
-        setAvatarError(() => (currentT) => currentT("orgProfile.avatarTimeout"));
+        setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarTimeout"));
       } else {
-        setAvatarError(() => (currentT) => currentT("orgProfile.avatarFailed"));
+        setAvatarError(() => (currentT: Translator) => currentT("orgProfile.avatarFailed"));
       }
     } finally {
       setAvatarUploading(false);
