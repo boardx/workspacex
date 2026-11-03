@@ -1,3 +1,4 @@
+import { loopbackInterviewWorkflow } from "../../scripts/loopback-interview-workflow";
 import { readFile } from 'node:fs/promises';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { generateProfessionalInterviewReport } from '../../src/application/interview/generate-professional-interview-report';
@@ -114,4 +115,25 @@ it.each(['建议调整入口名称、固定入口位置，并增加视觉提示�
   const { deps, saveDraft } = setup({ text: report });
   await generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() });
   expect(saveDraft).toHaveBeenCalled();
+});
+
+it('accepts the strictly scoped loopback fixture through the actual professional report guard and source bookkeeping', async () => {
+  for (const step of ['intake', 'analysis', 'experts', 'outline']) {
+    const documentId = 'source-' + step;
+    snapshot.documents.push({ documentId, step, version: 1, evidenceMode: 'simulated', markdown: '原始' + step + '材料 {count}', references: [], contentHash: step });
+    snapshot.states.push({ documentId, status: 'confirmed', failure: null });
+  }
+  const expected = snapshot.documents.filter((document: { step: string }) => document.step !== 'report').map((document: { documentId: string; version: number }, index: number) => ({ anchor: `source-${index + 1}`, documentId: document.documentId, version: document.version }));
+  const { deps, completeStream, saveDraft } = setup();
+  completeStream.mockImplementation(async (request: { system: string; user: string }, delta: (text: string) => Promise<void>) => {
+    const text = loopbackInterviewWorkflow(request.system, request.user);
+    expect(text).not.toBeNull();
+    if (text === null) throw new Error("UNMATCHED_PROFESSIONAL_REPORT_TEST_CONTEXT");
+    expect(text).toMatch(/^# 确定性测试模型的模拟研究报告/);
+    await delta(text); return { text };
+  });
+  const result = await generateProfessionalInterviewReport(deps, { ...input, onProgress: vi.fn() });
+  expect(saveDraft).toHaveBeenCalledTimes(1);
+  expect(saveDraft.mock.calls[0]![0].references).toEqual(expected);
+  expect(result.documents.find(document => document.step === 'report')?.markdown).toMatch(/^# 确定性测试模型的模拟研究报告/);
 });

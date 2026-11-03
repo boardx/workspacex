@@ -298,5 +298,55 @@
     "seconds": 3.53,
     "rawLogLocalPath": "/tmp/6206-visual-testids.log",
     "rawLogSha256": "4f374367280164632e0148a92d121e5a424731d2b263a3d2130270c8a714d381"
+  },
+  "third-init": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-third-init.log",
+    "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d"
+  },
+  "browser-third-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-third-list.log",
+    "rawLogSha256": "a1e4db1fa971e81fc2b4f449741f5dcf2af5d97e63e3bf9d8263a72c47424381"
+  },
+  "browser-third": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-third.log",
+    "rawLogSha256": "45beeb988d3365ac57581dc1ec0354c0a04f896a6f3ed79a87c47878d0292862"
+  },
+  "professional-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-professional-red.log",
+    "rawLogSha256": "a5c81d0bff509256519fba40650c0c2e3b52cf22296850068cf35ea1ec2d42fe"
+  },
+  "professional-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-green.log",
+    "rawLogSha256": "a556ac631522b121be385bbe3c67088b2ae0774a267477b5799b3a3be6dd0320"
+  },
+  "professional-final-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-final-green.log",
+    "rawLogSha256": "79dee2695144262cba4689e2960f4caef705fa83804937b20afecf3719ea3280"
+  },
+  "professional-api-type": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-api-type.log",
+    "rawLogSha256": "c85dd5417e6c07523da56cbe1648802ed8f3a8e14ba018603dd453cb69188f89"
+  },
+  "professional-web-type": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-web-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "professional-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "professional-testids": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-testids.log",
+    "rawLogSha256": "4f374367280164632e0148a92d121e5a424731d2b263a3d2130270c8a714d381"
   }
 }

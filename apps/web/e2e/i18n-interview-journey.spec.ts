@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { interviewMarkdown as C } from "@repo/contracts";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
 
@@ -137,16 +137,25 @@ test("interview locale preserves the real private-profile, canonical six-step an
   const generateReport = page.getByRole("button", { name: "Generate report", exact: true });
   await expect(generateReport).toBeEnabled({ timeout: 60_000 });
   await capture("interview-runs-en", true);
+  const beforeReport = await readSource();
+  const sourceDocuments = beforeReport.documents.filter(document => document.step !== "report" && beforeReport.states.some(state => state.documentId === document.documentId && ["confirmed", "completed"].includes(state.status)));
+  expect(sourceDocuments).toHaveLength(5);
+  const expectedReferences = sourceDocuments.map((document, index) => ({ anchor: `source-${index + 1}`, documentId: document.documentId, version: document.version }));
   await generateReport.click();
   await expect(page).toHaveURL(/\/report$/);
   await expect(page.getByTestId("itv-source-report-markdown")).toContainText("确定性测试模型", { timeout: 60_000 });
   await expect.poll(async () => {
     const current = await readSource(); const report = current.documents.find(document => document.step === "report");
     const state = current.states.find(state => state.documentId === report?.documentId);
-    return Boolean(report && state && ["draft", "confirmed", "completed"].includes(state.status) && !state.failure && report.references.some(reference => reference.locator));
+    return Boolean(report && state && ["draft", "confirmed", "completed"].includes(state.status) && !state.failure && report.references.length === expectedReferences.length);
   }, { timeout: 60_000 }).toBe(true);
   const saved = await readSource(); const report = saved.documents.find(document => document.step === "report")!;
-  expect(report.references.some(reference => reference.locator)).toBe(true);
+  // The active professional stream binds source documents and versions. It does
+  // not provide per-answer locators; the separate grounded-model lane covers those.
+  expect(report.references.map(({ anchor, documentId, version }) => ({ anchor, documentId, version }))).toEqual(expectedReferences);
+  expect(report.markdown).toMatch(/^# 确定性测试模型的模拟研究报告/);
+  expect(report.contentHash).toBe(createHash("sha256").update(report.markdown).digest("hex"));
+  expect(saved.documents.filter(document => document.step !== "report")).toEqual(beforeReport.documents.filter(document => document.step !== "report"));
   const terminalWrites = writes;
   await language("zh-CN"); await expect(page.getByRole("navigation", { name: "报告目录", exact: true })).toBeVisible();
   await language("en"); await expect(page.getByRole("navigation", { name: "Report contents", exact: true })).toBeVisible();

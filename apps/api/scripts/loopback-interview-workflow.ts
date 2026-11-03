@@ -1,3 +1,4 @@
+import { loopbackProfessionalInterviewReport } from "./loopback-professional-interview-report";
 import { loopbackInterviewAnalysis } from "./loopback-interview-analysis";
 
 /** Deterministic HTTP test-model responses only. These never establish research quality.
@@ -5,6 +6,8 @@ import { loopbackInterviewAnalysis } from "./loopback-interview-analysis";
  * Unknown or incomplete inputs return null so ordinary provider behavior remains intact.
  */
 export function loopbackInterviewWorkflow(system: string, user: string): string | null {
+  const professionalReport = loopbackProfessionalInterviewReport(system, user);
+  if (professionalReport !== null) return professionalReport;
   const operation = /^# 访谈模型上下文\n\n操作：([^\r\n]+)\n/u.exec(user)?.[1];
   if (!operation) return null;
   if (operation === "generate_analysis" && system.startsWith("你是专业用户研究员。")) {
