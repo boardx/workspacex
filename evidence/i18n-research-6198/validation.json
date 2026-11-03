@@ -121,5 +121,25 @@
     "exitCode": 0,
     "rawLogSha256": "b1e92fb4b519609491b0eab7febcb878de5920cb9343309673df920f2ae86530",
     "rawLogLocalPath": "/tmp/6198-catalog-continuity.log"
+  },
+  "route-playwright-list": {
+    "exitCode": 0,
+    "rawLogSha256": "bbba8cba54b3aeb617eade7513321e3e8b657646cbeb6b8cef4d0526dd78dda8",
+    "rawLogLocalPath": "/tmp/6198-route-playwright-list.log",
+    "sourceCommit": "74c46f0e05d2fc23e1f1bd9ffc18ddd7acac0832"
+  },
+  "browser-route-final": {
+    "exitCode": 0,
+    "rawLogSha256": "6e68e6c9f072a6220aa38f683417b7a1c75393a3954458c97cc62f3f8ea84b88",
+    "rawLogLocalPath": "/tmp/6198-browser-route-final.log",
+    "sourceCommit": "74c46f0e05d2fc23e1f1bd9ffc18ddd7acac0832",
+    "testCount": 1,
+    "passedCount": 1,
+    "caseDurationDisplay": "1.0m",
+    "wrapperSeconds": 296,
+    "cleanupSeconds": 1,
+    "composeScope": "wsx-024610af26badaf58bb6",
+    "ownContainersObservedAfterCleanup": 0,
+    "screenshotsVisuallyInspected": 10
   }
 }

@@ -39,3 +39,7 @@ Follow-up actual RED:entry10 executed9pass/1fail in3.78s. The original navigatio
 The323c production build passed and all8 workflow geometry captures passed. The case timed out only when the new generic screenshot helper incorrectly waited for step navigation on the final /research list metadata dialog. Actual failure snapshot/callsite confirm this route mismatch. The test-only correction explicitly requires list nav0 and step-route nav1 while retaining every label bound; timeout/retries unchanged. Own scope6ee2b7c7e134ce4db180 was checked0 after cleanup1s (wrapper6m57s).
 
 Current develop c49fee15b has been merged into the working tree. Only two dictionary-tail conflicts needed union resolution, retaining adminNavigation and both research namespaces. All41 owned product blobs match323c byte-for-byte; the route-aware spec is the only own code delta. Integrated type/scopedESLint passed; live catalog check found1532 keys in each language, all432 own namespace entries preserved with0 mismatches. The merge/source commit and fresh one-case browser are next; no final browser pass is claimed yet.
+
+## Final route-aware browser acceptance
+
+Source74c46f0e0: exact discovery1/1; fresh production browser1/1PASS, case display1.0m,total4m56s,cleanup1s,own scope0. All10 final375/1280 screenshots inspected. Route-aware nav0/list versus nav1/workflow preserves all geometry assertions. Evidence/docs commit then normalpush/PR remain; no completion or merge claimed.

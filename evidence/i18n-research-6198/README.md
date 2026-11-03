@@ -1,25 +1,22 @@
 # Complete research UI internationalization — #6198
 
-Branch: `worker/i18n-research-entry-6198`. Base: develop `44aeac6e10b688471fe03536fc8490a353824976`. All commands ran in the original checkout, serially with the other workers. No additional worktree.
-
-The committed `.txt` receipts normalize ANSI formatting and record observed process exits. Failed-run receipts retain the relevant failures and summaries; `validation.json` records the SHA-256 and local path of each original full log. Full local logs are not substituted for a green result.
+Final runtime source: `74c46f0e05d2fc23e1f1bd9ffc18ddd7acac0832`, branch `worker/i18n-research-entry-6198`, develop target. All work used the original checkout, serialized with peer workers.
 
 | Check | Observed result |
 |---|---|
-| Standard `./init.sh` | exit0, quick path; full repository verification was not requested by this command |
-| `pnpm --filter web typecheck` | final exit0; first run caught invalid Testing Library options, which were corrected |
-| ESLint of all changed/new web TS/TSX files, `--max-warnings 0` | final exit0 |
-| Three new i18n suites and seven affected regression suites, one worker | 10 files,112 passed,18.89s |
-| Earlier broad related regression, one worker | 67 files,627 executed,626 passed/1 obsolete Contents assertion; corrected focused reruns are separate receipts |
-| `pnpm run lint:vitest-config-reachability` | exit0;69 configs,12 live specs reachable |
-| Isolated Playwright discovery | exit0;exactly1 test in1 file;2s total,cleanup0s |
+| Standard ./init.sh | exit0 quick path; not full repository verification |
+| Focused regressions after stepper fix | 10 files,113/113 pass,18.82s |
+| Integrated web typecheck and scoped ESLint | exit0 each |
+| Catalog continuity after develop merge | 1532 keys/language,432 own namespace keys,0 mismatch;41 own product blobs unchanged from323c |
+| Vitest reachability | 69 configs,12 live specs reachable |
+| Final exact isolated Playwright discovery | 1 test/1 file,2s,cleanup0 |
+| Final fresh production browser | 1/1 pass,case display1.0m,total4m56s,cleanup1s,own scope0 containers |
+| Final visual QA | All10 final screenshots viewed at375/1280; workflow step and document bounds asserted |
 
-Discovery command (actual execution must use identical arguments with only `--list` removed):
+Final artifacts: browser-final/, browser-route-final.txt, route-playwright-list.txt and validation.json. Receipts normalize ANSI; validation.json retains hashes and local paths of full original logs and observed process exits.
 
-```sh
-pnpm exec tsx .harness/scripts/with-test-isolation.ts -- pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-research-entry.spec.ts --workers=1 --max-failures=1 --list
-```
+Historical failures remain evidence: the first browser passed but visual QA found truncated steps and untranslated completion text. The stepper counterexample then failed1/10 before the fix and focused113/113 passed afterward. The second browser built successfully and passed8 workflow screenshots but timed out at180s because its helper incorrectly expected step nav on the list metadata modal. The final test explicitly checks list nav0 versus workflow nav1, retaining full label bounds. No product or timeout changes addressed that helper bug. See browser-first/ and browser-geometry-323/.
 
-The first browser on e8ece passed1/1 (59.7s,total4m59s,cleanup1s,own containers0), but visual QA found step-label truncation and untranslated completion screen-reader text. The follow-up passed113/113 focused tests (18.82s), typecheck and scoped ESLint. Its fresh production-browser run is pending. First-run images and finding are preserved in browser-first/. It uses standard real login/API/PostgreSQL with the existing deterministic model fixture. The standard lane verifies localized saved-file entry points; actual native Skill conversion bytes retain their existing native lane. ASR tests use controlled stream events and do not claim external-provider acceptance.
+An earlier broad627-case run had626pass/1 obsolete Contents locale expectation; the corrected focused reruns pass. This is not a claim that all627 were rerun. Canonical Markdown/report headings/body, user/model content, API enums and internal prompts remain raw. UI contents controls/actions/status/errors follow locale. Localized shortcuts prefill editable drafts without auto-send or overwriting an edited draft; editable plan/chapter defaults localize only at creation.
 
-Canonical report bytes, source framing and exported Markdown stay in their original language. UI contents controls, actions, errors, status and history labels follow the locale. User-visible shortcut examples prefill localized editable drafts; internal command prompts remain unchanged. New editable plan/chapter titles are localized only when created. Existing content and user edits are not retranslated.
+The real lane uses login/API/PostgreSQL and the existing deterministic model fixture. Report-file wrappers and controlled ASR events have component evidence; actual native Skill conversion bytes and external ASR/model providers retain their separate lanes. Prototype-only topic focus/autosave is supporting component evidence, not actual persisted import-route acceptance.
