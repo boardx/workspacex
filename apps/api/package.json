@@ -35,6 +35,8 @@
     "test:realtime-voice-unit": "vitest run --config vitest.realtime-voice-unit.config.ts",
     "test:research-policy": "vitest run --config vitest.research-policy.config.ts",
     "test:billing-provider": "vitest run --config vitest.billing-provider.config.ts",
+    "test:team-core-unit": "vitest run --config vitest.team-core-unit.config.ts",
+    "test:team-wechat-unit": "vitest run --config vitest.team-wechat-unit.config.ts",
     "test:enterprise-management": "vitest run --config vitest.enterprise-management.config.ts",
     "test:enterprise-management-http": "vitest run --config vitest.enterprise-management-http.config.ts",
     "test:enterprise-management-pg": "vitest run --config vitest.enterprise-management-pg.config.ts",
