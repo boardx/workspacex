@@ -1,14 +1,14 @@
-import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { controlsZhCN } from "../namespaces/controls";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
+import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 export const zhCN = {
-  ...workflowRunsZhCN,
   ...controlsZhCN,
   ...projectListZhCN,
   ...profileZhCN,
   ...stateZhCN,
+  ...workflowRunsZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
