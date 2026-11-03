@@ -1,3 +1,4 @@
+import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { adminNavigationZhCN } from "../namespaces/admin-navigation";
 import { brainViewsZhCN } from "../namespaces/brain-views";
 import { zhTasks } from "./tasks";
@@ -15,6 +16,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...recordingProjectZhCN,
   ...brainViewsZhCN,
   ...zhTasks,
   ...zhFailures,
@@ -265,6 +267,8 @@ export const zhCN = {
   ...studioResearchZhCN,
   ...researchZhCN,
   ...studioHistoryZhCN,
+  ...recordingZhCN,
+  ...audioInputZhCN,
   ...interviewZhCN,
 } as const;
 
@@ -278,3 +282,7 @@ import { researchZhCN } from "../namespaces/research";
 import { interviewZhCN } from "../namespaces/interview";
 
 import { studioHistoryZhCN } from "../namespaces/studio-history";
+
+import { recordingZhCN } from "../namespaces/recording";
+
+import { audioInputZhCN } from "../namespaces/audio-input";

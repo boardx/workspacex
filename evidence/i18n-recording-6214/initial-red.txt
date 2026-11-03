@@ -1,0 +1,39 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/recording-journey-i18n.test.tsx (8 tests | 8 failed) 1423ms
+   × localizes creation and keeps the edited name and uncommitted tag through locale changes 185ms
+[intermediate output omitted; SHA256 in validation.json]
+     → Unable to find an accessible element with the role "heading" and name "New transcription"
+     → Unable to find an accessible element with the role "button" and name "Creating"
+     → Unable to find an accessible element with the role "heading" and name "Live transcript"
+     → Unable to find an accessible element with the role "button" and name "Edit"
+     → Unable to find an element with the text: Transcript could not be saved. Try again later.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+     → Unable to find an accessible element with the role "textbox" and name "Recording name"
+     → Unable to find an accessible element with the role "button" and name "Cancel connection"
+     → Unable to find an accessible element with the role "heading" and name "Live transcription connection error"
+     → Unable to find an accessible element with the role "button" and name "Choose microphone"
+     → Unable to find an accessible element with the role "button" and name "Choose microphone"
+ FAIL  tests/ui/audio-input-i18n.test.tsx > localizes microphone chrome while preserving raw device labels, IDs and open selection
+ FAIL  tests/ui/audio-input-i18n.test.tsx > localizes the empty-device explanation and retains explicit null for the system default
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > localizes creation and keeps the edited name and uncommitted tag through locale changes
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > retains a single pending creation and retranslates its failure after the request rejects
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > localizes workspace controls while preserving saved and interim transcript text without starting capture
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > keeps a transcript editing draft and the same pending save through locale changes
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > retranslates a rejected content save without discarding the edited transcript
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > retains an edited name and a single pending rename across locale changes
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > keeps connecting cancellation available and does not restart capture on locale changes
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > localizes reconnect overlay chrome while preserving the provided diagnostic and explicit reconnect action
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+ Test Files  2 failed (2)
+      Tests  10 failed (10)
+   Start at  06:31:17
+   Duration  5.39s (transform 1.03s, setup 239ms, collect 1.99s, tests 1.56s, environment 1.21s, prepare 89ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/recording-journey-i18n.test.tsx tests/ui/audio-input-i18n.test.tsx --maxWorkers=1 --minWorkers=1

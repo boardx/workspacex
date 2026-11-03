@@ -1,0 +1,23 @@
+# Recording / transcription localization #6214
+
+In progress. Local source is stacked on interview PR #6213 (`ec3d35d3`). Browser acceptance, independent source review, publication and merge are pending. Main coordinator currently prioritizes actual merge of #6147, so recording does not occupy a browser or push window.
+
+Latest change: the UI wiring gate caught the project dictionary importing mock modules through the global provider. Fixed display copy has now been extracted to a module with no mock imports, reused by fixtures and dictionary. Its complete before/after exports + probes + zh/en JSON is byte-identical (96,563 bytes, SHA256 `62b2d12a801c2f48b15a393a5184cbe589c35c546a419491f5833a8dfc78d6ee`). Wiring, withdrawal single-source and extraction-file lint reruns pass; The full post-extraction UI/transport regression rerun passed 15 files /206 cases in32.45s, and the committed comparator reproduces equality. Post-extraction full web typecheck also passes (42.74s). Source is locally validated; actual browser acceptance and source review remain pending. `compare-copy-source.ts` reproduces semantic equality against the frozen `copy-baseline.json`; this baseline is evidence, not fixture authority. No gate exemption was changed.
+
+Previously validated local evidence:
+
+- `affected-regression.txt`: 15 files / 205 PASS in 34.31s, including the original history, workspace, focus, capture, protocol, stop/completed, reconnect and flow regressions.
+- `frozen-ui-green.txt`: latest 36 recording localization cases + 5 dictionary parity cases, all 41 PASS in 11.02s. Covers creation-only defaults, edited/pending drafts, raw values, stable requests, dismissed errors, device selection, project controls, preview statuses and singular forms.
+- `frozen-type.txt`: full web typecheck exit 0, 51.63s.
+- `controller-final.txt`: distinct creation fixture IDs; 5 PASS without the earlier duplicate-key warning. Product behavior unchanged.
+- `corrected-lint.txt`: complete changed scope lint exit 0 after correcting six stable test-array keys. The subsequent plural-only adjustment awaits final lint.
+- `testids.txt`: all 5,463 browser test-ID references have declarations.
+- `core-scope.json`: static diff against parent is empty for API/contracts, low-level recording/ASR/reconnect/flow, mock data and withdrawal policy source. Static scope is not runtime audio proof. The subsequent copy extraction changes only mock source references, so that initial mock-source diff record is superseded pending mechanical export/probe comparison.
+
+All raw receipt SHA256s and actual exit codes are in `validation.json`. Historical failures remain, including the unsafe prototype-key error map, locale-reopened dismissed error dialog, unsupported focus matcher, invalid carrier fixture, missing English namespace spread, duplicate namespace keys, handler inference error, test-array lint failure, four fixed-data caption gaps and singular grammar. No RED or unrun browser result is labeled passing.
+
+The real browser spec is authored and registered in seeded CI. It will verify native fake-device getUserMedia → PCM → WebSocket → controlled ASR received-byte count → final text persisted through the real API/PostgreSQL → stop → rename/edit/save/reload; request/control-frame counts and content hashes constrain locale continuity. A separate case checks the seven reachable `mode=project` previews at 375/1280. All screenshots require individual visual inspection.
+
+Boundaries: authored names/aliases, transcript/source/model text, material names, canonical current consent notice and submitted snapshots stay literal. Fixed choice labels/help and system statuses translate at render time. Canonical enums, IDs, URLs, audio bytes, ASR/provider contracts, stop/reconnect behavior and policy numbers remain unchanged. Withdrawal durations derive from the existing source. Project preview actions do not prove real consent, deletion or audio behavior. `RightRailNav` has no product caller; its translation and selected-tab regression are component-only coverage.
+
+Resources: this task has not started a container or allocated a new scope. After the shared disk/Docker incident, main authorized deleting only this checkout's two ignored Next caches; source, traces, test-results and evidence were retained, and available space rose from 185Mi to 4.0Gi (later shared cleanup raised it further). Own prior interview scope had already been verified clean. One handoff race and one overrun of a 60-second type window are recorded honestly; subsequent owners started only after actual exit.

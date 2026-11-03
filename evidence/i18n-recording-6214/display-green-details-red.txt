@@ -1,0 +1,120 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/recording-journey-i18n.test.tsx (11 tests) 569ms
+ ❯ tests/ui/recording-project-i18n.test.tsx (17 tests | 4 failed) 633ms
+   × translates processing status details while retaining each numeric count 9ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  412 MB · Complete
+Received:
+  Audio upload412 MB · 完成Complete
+   × translates live connection and recording status without changing the raw session title 15ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Connected
+Received:
+  已连接 录音中Latency 1.8s 德→中 · source and translation on separate lines34:12 / 60:00 Sync · last updated 刚刚
+   × translates the voiceprint explanation and preserves the canonical fallback duration 10ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Session voiceprint embeddings
+Received:
+  本场声纹 embedding 属 derived_representations，指派完成即物理删除并写审计；未完成则兜底任务在本场结束第 7 天无条件销毁。存活期远短于材料保留期（180 天）。 Current sessionSome channels remain unassigned → the fallback task destroys embeddings unconditionally 7 days after this session ends。
+   × translates consent choices and their fixed help while retaining submitted snapshots 4ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Recording
+Received:
+  录音只在这场访谈中录，90 天后自动删除。
+stderr | tests/ui/recording-controller-i18n.test.tsx > retranslates a created notice without changing the created name or starting capture
+Warning: Encountered two children with the same key, `rec-raw`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at HistoryState (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:559:3)
+    at div
+    at section
+    at TranscriptionHistory (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:44:33)
+    at I18nProvider (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/provider.tsx:13:25)
+
+stderr | tests/ui/recording-controller-i18n.test.tsx > retranslates a created notice without changing the created name or starting capture
+Warning: Encountered two children with the same key, `rec-raw`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at HistoryState (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:559:3)
+    at div
+    at section
+    at TranscriptionHistory (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:44:33)
+    at I18nProvider (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/provider.tsx:13:25)
+Warning: Encountered two children with the same key, `rec-raw`. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at HistoryState (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:559:3)
+    at div
+    at section
+    at TranscriptionHistory (/Users/shenyangjun/boardx/workspacex/apps/web/components/rec/transcription-history.tsx:44:33)
+    at I18nProvider (/Users/shenyangjun/boardx/workspacex/apps/web/lib/i18n/provider.tsx:13:25)
+
+ ✓ tests/ui/recording-controller-i18n.test.tsx (5 tests) 504ms
+ ✓ tests/ui/audio-input-i18n.test.tsx (2 tests) 184ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates processing status details while retaining each numeric count
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  412 MB · Complete
+Received:
+  Audio upload412 MB · 完成Complete
+ ❯ tests/ui/recording-project-i18n.test.tsx:60:163
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates live connection and recording status without changing the raw session title
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Connected
+Received:
+  已连接 录音中Latency 1.8s 德→中 · source and translation on separate lines34:12 / 60:00 Sync · last updated 刚刚
+ ❯ tests/ui/recording-project-i18n.test.tsx:63:180
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates the voiceprint explanation and preserves the canonical fallback duration
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Session voiceprint embeddings
+Received:
+  本场声纹 embedding 属 derived_representations，指派完成即物理删除并写审计；未完成则兜底任务在本场结束第 7 天无条件销毁。存活期远短于材料保留期（180 天）。 Current sessionSome channels remain unassigned → the fallback task destroys embeddings unconditionally 7 days after this session ends。
+ ❯ tests/ui/recording-project-i18n.test.tsx:66:162
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates consent choices and their fixed help while retaining submitted snapshots
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Recording
+Received:
+  录音只在这场访谈中录，90 天后自动删除。
+ ❯ tests/ui/recording-project-i18n.test.tsx:69:214
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  4 failed | 31 passed (35)
+   Start at  07:16:10
+   Duration  10.17s (transform 1.49s, setup 524ms, collect 3.95s, tests 1.89s, environment 2.92s, prepare 257ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/recording-journey-i18n.test.tsx tests/ui/audio-input-i18n.test.tsx tests/ui/recording-controller-i18n.test.tsx tests/ui/recording-project-i18n.test.tsx --maxWorkers=1 --minWorkers=1

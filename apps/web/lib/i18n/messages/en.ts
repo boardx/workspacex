@@ -1,3 +1,4 @@
+import { recordingProjectEn } from "../namespaces/recording-project";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
 import { enTasks } from "./tasks";
@@ -266,6 +267,9 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...studioResearchEn,
   ...researchEn,
   ...studioHistoryEn,
+  ...recordingEn,
+  ...recordingProjectEn,
+  ...audioInputEn,
   ...interviewEn,
 };
 
@@ -279,3 +283,7 @@ import { researchEn } from "../namespaces/research";
 import { interviewEn } from "../namespaces/interview";
 
 import { studioHistoryEn } from "../namespaces/studio-history";
+
+import { recordingEn } from "../namespaces/recording";
+
+import { audioInputEn } from "../namespaces/audio-input";

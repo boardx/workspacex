@@ -1,0 +1,105 @@
+
+> agentic-harness-template@ lint:ui-wiring /Users/shenyangjun/boardx/workspacex
+> pnpm exec tsx .harness/scripts/lint-ui-wiring.mjs
+
+[ui-wiring] 路由 137 条：已接线 57 / mock 豁免 23（上限 35）/ 无数据面 18 / 原型 39；controller 167 个。
+
+跨层接线门控发现 97 处问题：
+  ✗ [产品路由回退 mock] /（apps/web/app/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /admin（apps/web/app/admin/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /admin/[module] 清单记的 mock 是 [apps/web/lib/generated/identity.mock.ts, apps/web/lib/mock/admin-limits.ts, apps/web/lib/mock/admin.ts, apps/web/lib/mock/asset-governance.ts, apps/web/lib/mock/canvas.ts]，实际够得到 [apps/web/lib/generated/identity.mock.ts, apps/web/lib/mock/admin-limits.ts, apps/web/lib/mock/admin.ts, apps/web/lib/mock/asset-governance.ts, apps/web/lib/mock/canvas.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /admin/agent/[id]（apps/web/app/admin/agent/[id]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /admin/skill/[id]（apps/web/app/admin/skill/[id]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /agent（apps/web/app/agent/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /agent/[id]（apps/web/app/agent/[id]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /asset-governance 清单记的 mock 是 [apps/web/lib/mock/asset-governance.ts]，实际够得到 [apps/web/lib/mock/asset-governance.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /auth/activate（apps/web/app/(entry)/auth/activate/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /auth/register（apps/web/app/(entry)/auth/register/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /auth/reset-password（apps/web/app/(entry)/auth/reset-password/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /auth/verify-email（apps/web/app/(entry)/auth/verify-email/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /billing（apps/web/app/billing/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /brain（apps/web/app/brain/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /canvas（apps/web/app/canvas/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /canvas/[screen] 清单记的 mock 是 [apps/web/lib/mock/canvas.ts, apps/web/lib/mock/projects.ts]，实际够得到 [apps/web/lib/mock/canvas.ts, apps/web/lib/mock/projects.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /chat（apps/web/app/chat/(v2)/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /chat/[threadId]（apps/web/app/chat/(v2)/[threadId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /chat/copilotkit-v2（apps/web/app/chat/copilotkit-v2/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /chat/copilotkit-v2/[threadId]（apps/web/app/chat/copilotkit-v2/[threadId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /chat/landing 清单记的 mock 是 [apps/web/lib/mock/chat.ts]，实际够得到 [apps/web/lib/mock/chat.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /chat/legacy（apps/web/app/chat/legacy/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /chat/live（apps/web/app/chat/live/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /chat/preset 清单记的 mock 是 [apps/web/lib/mock/chat.ts]，实际够得到 [apps/web/lib/mock/chat.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /consent 清单记的 mock 是 [apps/web/lib/mock/entry.ts]，实际够得到 [apps/web/lib/mock/entry.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /d/[token]（apps/web/app/d/[token]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /group 清单记的 mock 是 [apps/web/lib/mock/entry.ts]，实际够得到 [apps/web/lib/mock/entry.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /home（apps/web/app/home/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /itv 清单记的 mock 是 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts]，实际够得到 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /itv/[interviewId]/[stage] 清单记的 mock 是 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts]，实际够得到 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /itv/[interviewId]/setup 清单记的 mock 是 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts]，实际够得到 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /itv/experts/[expertId] 清单记的 mock 是 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts]，实际够得到 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /itv/live（apps/web/app/itv/live/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /itv/new（apps/web/app/itv/new/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /itv/quick/[interviewId] 清单记的 mock 是 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts]，实际够得到 [apps/web/lib/mock/digital-expert-personas.ts, apps/web/lib/mock/digital-interview-drafts.ts, apps/web/lib/mock/quick-digital-interview.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /join 清单记的 mock 是 [apps/web/lib/mock/entry.ts]，实际够得到 [apps/web/lib/mock/entry.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /login 清单记的 mock 是 [apps/web/lib/mock/entry.ts]，实际够得到 [apps/web/lib/mock/entry.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /org-admin（apps/web/app/org-admin/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /org-admin/home-config（apps/web/app/org-admin/home-config/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /org-admin/invites（apps/web/app/org-admin/invites/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /org-admin/members（apps/web/app/org-admin/members/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /org-admin/profile（apps/web/app/org-admin/profile/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /org-admin/workflow-grants（apps/web/app/org-admin/workflow-grants/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /platform-admin（apps/web/app/platform-admin/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /platform-admin/[module]（apps/web/app/platform-admin/[module]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /platform-admin/agent/[id]（apps/web/app/platform-admin/agent/[id]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /platform-admin/design-workbench/[projectId]（apps/web/app/platform-admin/design-workbench/[projectId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /platform-admin/skill/[id]（apps/web/app/platform-admin/skill/[id]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /platform-admin/skill/[id]/bindings（apps/web/app/platform-admin/skill/[id]/bindings/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /profile（apps/web/app/profile/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /project（apps/web/app/project/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /project/live（apps/web/app/project/live/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /project/new 清单记的 mock 是 [apps/web/lib/mock/tpl.ts]，实际够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts, apps/web/lib/mock/tpl.ts]。
+  ✗ [产品路由回退 mock] /projects（apps/web/app/projects/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /projects/[projectId]（apps/web/app/projects/[projectId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /projects/[projectId]/canvas 清单记的 mock 是 [apps/web/lib/mock/projects.ts]，实际够得到 [apps/web/lib/mock/projects.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /projects/[projectId]/files 清单记的 mock 是 [apps/web/lib/mock/files.ts]，实际够得到 [apps/web/lib/mock/files.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [产品路由回退 mock] /projects/join（apps/web/app/projects/join/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /research 清单记的 mock 是 [apps/web/lib/mock/guided-research-demo-state.ts, apps/web/lib/mock/guided-research.ts, apps/web/lib/mock/research-studio.ts]，实际够得到 [apps/web/lib/mock/guided-research-demo-state.ts, apps/web/lib/mock/guided-research.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts, apps/web/lib/mock/research-studio.ts]。
+  ✗ [产品路由回退 mock] /research/[sessionId]/[stage]（apps/web/app/research/[sessionId]/[stage]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /research/new（apps/web/app/research/new/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /session 清单记的 mock 是 [apps/web/lib/mock/entry.ts]，实际够得到 [apps/web/lib/mock/entry.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts]。
+  ✗ [mock 漂移] /skill 清单记的 mock 是 [apps/web/lib/mock/skill.ts]，实际够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts, apps/web/lib/mock/skill.ts]。
+  ✗ [产品路由回退 mock] /studio/board（apps/web/app/studio/board/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/board/[boardId]（apps/web/app/studio/board/[boardId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/board/[boardId]/digital-human（apps/web/app/studio/board/[boardId]/digital-human/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/design-workbench（apps/web/app/studio/design-workbench/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/design-workbench/[projectId]（apps/web/app/studio/design-workbench/[projectId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/feedback-drafts（apps/web/app/studio/feedback-drafts/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/interview（apps/web/app/studio/interview/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/interview/[id]（apps/web/app/studio/interview/[id]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/prototype（apps/web/app/studio/prototype/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/research（apps/web/app/studio/research/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey（apps/web/app/studio/survey/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/[surveyId]（apps/web/app/studio/survey/[surveyId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/[surveyId]/design（apps/web/app/studio/survey/[surveyId]/design/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/[surveyId]/publish（apps/web/app/studio/survey/[surveyId]/publish/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/[surveyId]/report（apps/web/app/studio/survey/[surveyId]/report/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/[surveyId]/responses（apps/web/app/studio/survey/[surveyId]/responses/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/[surveyId]/template（apps/web/app/studio/survey/[surveyId]/template/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/new/import（apps/web/app/studio/survey/new/import/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/question-templates/[templateId]（apps/web/app/studio/survey/question-templates/[templateId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /studio/survey/templates/[templateId]（apps/web/app/studio/survey/templates/[templateId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /surveys/[token]（apps/web/app/surveys/[token]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /tasks（apps/web/app/tasks/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [mock 漂移] /tpl 清单记的 mock 是 [apps/web/lib/mock/tpl.ts]，实际够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts, apps/web/lib/mock/tpl.ts]。
+  ✗ [mock 漂移] /tpl/designer 清单记的 mock 是 [apps/web/lib/mock/admin.ts, apps/web/lib/mock/agent-runtime.ts, apps/web/lib/mock/asset-governance.ts, apps/web/lib/mock/canvas.ts, apps/web/lib/mock/skill.ts]，实际够得到 [apps/web/lib/mock/admin.ts, apps/web/lib/mock/agent-runtime.ts, apps/web/lib/mock/asset-governance.ts, apps/web/lib/mock/canvas.ts, apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts, apps/web/lib/mock/skill.ts]。
+  ✗ [产品路由回退 mock] /tpl/list（apps/web/app/tpl/list/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /usage（apps/web/app/usage/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /workflows（apps/web/app/workflows/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /workflows/approvals（apps/web/app/workflows/approvals/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /workflows/board（apps/web/app/workflows/board/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /workflows/runs（apps/web/app/workflows/runs/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /workflows/runs/[instanceId]（apps/web/app/workflows/runs/[instanceId]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /workflows/runs/[instanceId]/result（apps/web/app/workflows/runs/[instanceId]/result/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /platform-admin/model-tests（apps/web/app/platform-admin/model-tests/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+  ✗ [产品路由回退 mock] /share/chat/[token]（apps/web/app/share/chat/[token]/page.tsx）的渲染路径够得到 [apps/web/lib/mock/rec-v2.ts, apps/web/lib/mock/rec.ts] —— 产品路由不许静默回退 mock。
+ ELIFECYCLE  Command failed with exit code 1.
