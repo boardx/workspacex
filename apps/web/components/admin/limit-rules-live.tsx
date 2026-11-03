@@ -66,7 +66,7 @@ export function LimitRulesLive() {
     try {
       setData(await listLimitRules(orgId));
     } catch (err) {
-      setError(() => (t, locale) => t("adminLimitPolicy.failed", { error: memberFailure(err, locale) }));
+      setError((): MemberFeedback => (t, locale) => t("adminLimitPolicy.failed", { error: memberFailure(err, locale) }));
     }
   }, [orgId]);
 
@@ -82,8 +82,8 @@ export function LimitRulesLive() {
   const submitCreate = async () => {
     if (!orgId) return;
     const cap = Number(threshold);
-    if (!Number.isFinite(cap) || cap <= 0) { setFormError(() => (t) => t("adminLimitPolicy.positive")); return; }
-    if (scopeRef.trim() === "") { setFormError(() => (t) => t("adminLimitPolicy.scopeRequired")); return; }
+    if (!Number.isFinite(cap) || cap <= 0) { setFormError((): MemberFeedback => (t) => t("adminLimitPolicy.positive")); return; }
+    if (scopeRef.trim() === "") { setFormError((): MemberFeedback => (t) => t("adminLimitPolicy.scopeRequired")); return; }
     setFormError(null);
     try {
       await createLimitRule(orgId, {
@@ -93,25 +93,25 @@ export function LimitRulesLive() {
       });
       setCreating(false);
       setScopeRef(""); setThreshold(""); setDegradeTo("");
-      setToast(() => (t) => t("adminLimitPolicy.added"));
+      setToast((): MemberFeedback => (t) => t("adminLimitPolicy.added"));
       await load();
     } catch (err) {
-      setFormError(() => describeError(err));
+      setFormError((): MemberFeedback => describeError(err));
     }
   };
 
   const submitEdit = async () => {
     if (!orgId || !editing) return;
     const cap = Number(draftCap);
-    if (!Number.isFinite(cap) || cap <= 0) { setFormError(() => (t) => t("adminLimitPolicy.positive")); return; }
+    if (!Number.isFinite(cap) || cap <= 0) { setFormError((): MemberFeedback => (t) => t("adminLimitPolicy.positive")); return; }
     setFormError(null);
     try {
       await updateLimitRule(orgId, editing.ruleId, { thresholdTokens: Math.trunc(cap) });
       setEditing(null);
-      setToast(() => (t) => t("adminLimitPolicy.updated"));
+      setToast((): MemberFeedback => (t) => t("adminLimitPolicy.updated"));
       await load();
     } catch (err) {
-      setFormError(() => describeError(err));
+      setFormError((): MemberFeedback => describeError(err));
     }
   };
 
@@ -121,7 +121,7 @@ export function LimitRulesLive() {
       await updateLimitRule(orgId, rule.ruleId, { enabled: !rule.enabled });
       await load();
     } catch (err) {
-      setToast(() => describeError(err));
+      setToast((): MemberFeedback => describeError(err));
     }
   };
 
@@ -130,10 +130,10 @@ export function LimitRulesLive() {
     try {
       await deleteLimitRule(orgId, rule.ruleId);
       // 规则没了，但它触发过的事件留着——「上个月他被降级过三次」不因为配置被改而消失。
-      setToast(() => (t) => t("adminLimitPolicy.deleted"));
+      setToast((): MemberFeedback => (t) => t("adminLimitPolicy.deleted"));
       await load();
     } catch (err) {
-      setToast(() => describeError(err));
+      setToast((): MemberFeedback => describeError(err));
     }
   };
 

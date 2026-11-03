@@ -73,7 +73,7 @@ export function MemberQuotaTab() {
       setData(await getTokenQuotas(orgId));
     } catch (err) {
       // 失败就说失败，不退回 mock 数字——一屏看起来正常但数字是假的，比一条错误消息危险得多。
-      setLoadError(() => (_t, locale) => memberFailure(err, locale));
+      setLoadError((): MemberFeedback => (_t, locale) => memberFailure(err, locale));
     }
   }, [orgId]);
 
@@ -82,20 +82,20 @@ export function MemberQuotaTab() {
   const saveMemberQuota = async () => {
     if (!orgId || !editing) return;
     const parsed = Number(draft);
-    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError(() => (t) => t("adminMemberQuotas.invalid")); return; }
+    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError((): MemberFeedback => (t) => t("adminMemberQuotas.invalid")); return; }
     setSaveError(null);
     try {
       await setMemberTokenQuota(orgId, editing.userId, Math.trunc(parsed));
       setEditing(null);
       const name = editing.displayName;
-      setToast(() => (t, locale) => t("adminMemberQuotas.memberSaved", { name, amount: formatMemberTokens(Math.trunc(parsed), locale) }));
+      setToast((): MemberFeedback => (t, locale) => t("adminMemberQuotas.memberSaved", { name, amount: formatMemberTokens(Math.trunc(parsed), locale) }));
       await load();
     } catch (err) {
       // ⚠ 把「还剩多少可分」原样说出来：只说「超了」等于让管理员靠试
       //   （O-29⑤：阻断必须伴随可执行的下一步）。
       const detail = err instanceof ApiError ? (err.raw as { remainingTokens?: number } | null) : null;
       const code = err instanceof ApiError ? err.reasonCode : null;
-      setSaveError(() => (t, locale) =>
+      setSaveError((): MemberFeedback => (t, locale) =>
         code === "QUOTA_OVERALLOCATED" && typeof detail?.remainingTokens === "number"
           ? t("adminMemberQuotas.remainingError", { amount: formatMemberTokens(detail.remainingTokens, locale) })
           : memberFailure(err, locale),
@@ -106,17 +106,17 @@ export function MemberQuotaTab() {
   const saveOrgBudget = async () => {
     if (!orgId) return;
     const parsed = Number(draft);
-    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError(() => (t) => t("adminMemberQuotas.invalid")); return; }
+    if (!Number.isFinite(parsed) || parsed < 0) { setSaveError((): MemberFeedback => (t) => t("adminMemberQuotas.invalid")); return; }
     setSaveError(null);
     try {
       await setOrgTokenBudget(orgId, Math.trunc(parsed));
       setBudgetOpen(false);
-      setToast(() => (t, locale) => t("adminMemberQuotas.budgetSaved", { amount: formatMemberTokens(Math.trunc(parsed), locale) }));
+      setToast((): MemberFeedback => (t, locale) => t("adminMemberQuotas.budgetSaved", { amount: formatMemberTokens(Math.trunc(parsed), locale) }));
       await load();
     } catch (err) {
       const detail = err instanceof ApiError ? (err.raw as { allocated?: number } | null) : null;
       const code = err instanceof ApiError ? err.reasonCode : null;
-      setSaveError(() => (t, locale) =>
+      setSaveError((): MemberFeedback => (t, locale) =>
         code === "BUDGET_BELOW_ALLOCATED" && typeof detail?.allocated === "number"
           ? t("adminMemberQuotas.allocatedError", { amount: formatMemberTokens(detail.allocated, locale) })
           : memberFailure(err, locale),

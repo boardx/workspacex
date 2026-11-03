@@ -51,7 +51,7 @@ it("retains a rejected custom range and retranslates its validation without a qu
 });
 it("retains a raw member grouping filter and snapshot when language changes in the drilled ledger", async () => {
   render(<AiUsagePanel orgId="org-usage-raw" />, { wrapper: Locale }); await screen.findByRole("heading", { name: "Member ranking" });
-  fireEvent.click(screen.getByRole("button", { name: "成员原文 {name} · 8", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "成员原文 {name} · 8" }));
   await waitFor(() => expect(api.readAiUsage).toHaveBeenLastCalledWith("org-usage-raw", false, expect.objectContaining({ userId: "member-raw", asOf: summary.asOf })));
   await waitFor(() => expect(api.readAiUsageCalls).toHaveBeenLastCalledWith("org-usage-raw", false, expect.objectContaining({ userId: "member-raw", asOf: summary.asOf })));
   const count = [api.readAiUsage.mock.calls.length, api.readAiUsageCalls.mock.calls.length]; language(); language();

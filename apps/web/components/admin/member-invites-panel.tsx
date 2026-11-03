@@ -69,7 +69,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
     } catch (err) {
       if (!current()) return;
       // 失败就说失败，不退回 mock 名单——一屏看起来正常但人是假的，比一条错误消息危险得多。
-      setLoadError(() => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
+      setLoadError((): MemberFeedback => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
       return;
     }
     try {
@@ -84,7 +84,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         setInvites(null);
         return;
       }
-      setLoadError(() => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
+      setLoadError((): MemberFeedback => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
     }
   }, [orgId]);
 
@@ -97,11 +97,11 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
       const out = await resendOrgInvite(orgId, inviteId);
       if (!mounted.current) return;
       setOneTimeLink({ email, url: buildActivationLink(out.activationToken, window.location.origin), kind: "resent" });
-      setToast(() => (t) => t("adminMemberQuotas.resent", { email, seconds: out.cooldownSec }));
+      setToast((): MemberFeedback => (t) => t("adminMemberQuotas.resent", { email, seconds: out.cooldownSec }));
       await load();
     } catch (err) {
       if (!mounted.current) return;
-      setToast(() => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.inviteMissing") : t("adminMemberQuotas.resendFailed", { error: memberFailure(err, locale) }));
+      setToast((): MemberFeedback => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.inviteMissing") : t("adminMemberQuotas.resendFailed", { error: memberFailure(err, locale) }));
     } finally {
       if (mounted.current) setBusyId(null);
     }
@@ -203,7 +203,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
           <InviteMemberForm
             orgId={orgId}
             onSucceeded={() => {}}
-            onNotice={(notice) => { setToast(() => notice.text); if (notice.tone === "success") { setInviteOpen(false); void load(); } }}
+            onNotice={(notice) => { setToast((): MemberFeedback => notice.text); if (notice.tone === "success") { setInviteOpen(false); void load(); } }}
             onFailed={() => {}}
             onLink={(link) => setOneTimeLink(link)}
           />
