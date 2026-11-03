@@ -1,3 +1,5 @@
+import { chatPickerEn } from "../namespaces/chat-picker";
+import { chatComposerEn } from "../namespaces/chat-composer";
 import { chatErrorsEn } from "../namespaces/chat-errors";
 import { chatEntryEn } from "../namespaces/chat-entry";
 import { brainViewsEn } from "../namespaces/brain-views";
@@ -267,6 +269,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...invitationEntryEn,
   ...chatEntryEn,
   ...chatErrorsEn,
+  ...chatComposerEn,
+  ...chatPickerEn,
 };
 
 import { codeFenceEn } from "../namespaces/code-fence";

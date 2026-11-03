@@ -35,7 +35,7 @@ flowchart TD
   class G doing
   class S1 done
   class S2 doing
-  class S3 todo
+  class S3 doing
   class S4 todo
   class S5 todo
   class S6 todo

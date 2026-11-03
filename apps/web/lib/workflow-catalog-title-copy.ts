@@ -4,7 +4,9 @@
  * 键集合由 `tests/lib/display-copy-single-source.test.ts` 与 API `definitions/W*.ts` 的 title 逐条核对。
  * 查不到时原样返回，由调用方继续走 `workflowDisplayName` 的兜底。
  */
-import { findBuiltinWorkflow } from "@/lib/workflow-display-copy";
+import type { Locale } from "./i18n/locale";
+import { translate } from "./i18n/messages";
+import { workflowDisplayName, findBuiltinWorkflow } from "@/lib/workflow-display-copy";
 
 export const CATALOG_TITLE_ZH: Readonly<Record<string, string>> = {
   "knowledge capture loop": "知识捕获闭环",
@@ -38,7 +40,8 @@ export function agentWorkflowLabel(w: { readonly stableId: string; readonly name
 }
 
 /** 严格版显示名：`agentWorkflowLabel` 之上再把「没有任何中文」的名字降为占位（纯英文不上屏）。 */
-export function workflowLabel(w: { readonly stableId: string; readonly name: string }): string {
+export function workflowLabel(w: { readonly stableId: string; readonly name: string }, locale: Locale = "zh-CN"): string {
+  if (locale === "en") return workflowDisplayName(w.stableId, w.name || translate(locale, "chatPicker.unnamedWorkflow"), locale);
   const head = (w.name.split(/[（(]/)[0] ?? "").trim();
   // 目录名本身就是中文（「周报汇总（按团队）」）→ 括号前的中文名，不取括注。
   if (/\p{Script=Han}/u.test(head) && !findBuiltinWorkflow(w.stableId) && catalogWorkflowTitleZh(head) === head) return head;
@@ -47,6 +50,6 @@ export function workflowLabel(w: { readonly stableId: string; readonly name: str
 }
 
 /** 一组 Workflow 的去重显示名（丢掉无中文名的占位）——picker / 目录卡片共用。 */
-export function workflowLabelsOf(card: { readonly workflows: readonly { readonly stableId: string; readonly name: string }[] } | undefined): string[] {
-  return [...new Set((card?.workflows ?? []).map(workflowLabel))].filter((l) => l !== UNNAMED_WORKFLOW_LABEL);
+export function workflowLabelsOf(card: { readonly workflows: readonly { readonly stableId: string; readonly name: string }[] } | undefined, locale: Locale = "zh-CN"): string[] {
+  return [...new Set((card?.workflows ?? []).map((w) => workflowLabel(w, locale)))].filter((l) => l !== (locale === "en" ? translate(locale, "chatPicker.unnamedWorkflow") : UNNAMED_WORKFLOW_LABEL));
 }

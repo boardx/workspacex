@@ -280,7 +280,7 @@ export function ThreadCardButton({
           <Button size="xs" variant="primary" type="submit" data-testid="chat-thread-title-submit" disabled={busy || titleDraft.trim() === ""}>
             {t("chatEntry.confirm")}
           </Button>
-          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("chatEntry.cancel")}</Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("common.cancel")}</Button>
         </div>
         {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">{t("chatEntry.submitting")}</p> : null}
         {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}
@@ -311,7 +311,7 @@ export function ThreadCardButton({
           <Button size="xs" variant="destructive" type="submit" data-testid="chat-thread-delete-submit" disabled={busy || deleteReason.trim() === ""}>
             {t("chatEntry.confirmDelete")}
           </Button>
-          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("chatEntry.cancel")}</Button>
+          <Button size="xs" variant="outline" type="button" onClick={() => setMode("view")}>{t("common.cancel")}</Button>
         </div>
         {busy ? <p className="text-10 text-muted-foreground" data-testid="chat-thread-mutate-pending">{t("chatEntry.submitting")}</p> : null}
         {failure ? <p className="text-11 text-destructive" data-testid="chat-thread-mutate-error">{failure}</p> : null}

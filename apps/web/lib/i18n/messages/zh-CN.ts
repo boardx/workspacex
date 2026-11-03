@@ -1,3 +1,5 @@
+import { chatPickerZhCN } from "../namespaces/chat-picker";
+import { chatComposerZhCN } from "../namespaces/chat-composer";
 import { chatErrorsZhCN } from "../namespaces/chat-errors";
 import { chatEntryZhCN } from "../namespaces/chat-entry";
 import { brainViewsZhCN } from "../namespaces/brain-views";
@@ -266,6 +268,8 @@ export const zhCN = {
   ...invitationEntryZhCN,
   ...chatEntryZhCN,
   ...chatErrorsZhCN,
+  ...chatComposerZhCN,
+  ...chatPickerZhCN,
 } as const;
 
 import { codeFenceZhCN } from "../namespaces/code-fence";

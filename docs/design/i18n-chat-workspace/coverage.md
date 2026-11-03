@@ -1,6 +1,6 @@
 # Potential canonical Chat module inventory
 
-Staticimportupperbound fromv2layout; importedunusedexports/businessinstructions mayexist. Everyrow remainsunclassified until its actualrenderedexport/overlay andprotectedtext havebeen inspected. Counts arenotcoverage.
+Staticimportupperbound fromv2layout; importedunusedexports/businessinstructions mayexist. Rows below record actual classification as it is completed; pending rows have no coverage claim. Counts arenotcoverage.
 
 | Potentialmodule | Hanliteralcandidates | Classification/evidence |
 |---|---|---|
@@ -26,7 +26,7 @@ Staticimportupperbound fromv2layout; importedunusedexports/businessinstructions 
 | `apps/web/components/chat/chat-composer-icon-button.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/chat-composer-pickers.tsx` | 14 | pending actualrender/export classification |
 | `apps/web/components/chat/chat-composer-status-bar.tsx` | 7 | pending actualrender/export classification |
-| `apps/web/components/chat/chat-composer-voice-control.tsx` | 26 | pending actualrender/export classification |
+| `apps/web/components/chat/chat-composer-voice-control.tsx` | 26 | canonical voice/device control; EN provider and original voice suites34green; real ASR/browser pending |
 | `apps/web/components/chat/chat-diagram-board-handoff.tsx` | 17 | pending actualrender/export classification |
 | `apps/web/components/chat/chat-diagram-canvas-modal.tsx` | 51 | pending actualrender/export classification |
 | `apps/web/components/chat/chat-diagram-fabric.tsx` | 22 | pending actualrender/export classification |
@@ -46,17 +46,17 @@ Staticimportupperbound fromv2layout; importedunusedexports/businessinstructions 
 | `apps/web/components/chat/chat-skill-mount-panel.tsx` | 26 | pending actualrender/export classification |
 | `apps/web/components/chat/chat-stream-slots.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/chat-task-inspector.tsx` | 41 | pending actualrender/export classification |
-| `apps/web/components/chat/chat-task-workbench-capability-picker.tsx` | 84 | pending actualrender/export classification |
-| `apps/web/components/chat/chat-task-workbench-empty-state.tsx` | 20 | pending actualrender/export classification |
+| `apps/web/components/chat/chat-task-workbench-capability-picker.tsx` | 84 | canonical composer popup+list/detail; provider RED1/1, display helpers RED5/5; implementation in progress, no fresh GREEN/browser yet |
+| `apps/web/components/chat/chat-task-workbench-empty-state.tsx` | 20 | canonical welcome/templates/context; provider RED→GREEN, raw briefing and explicit prefill covered; browser pending |
 | `apps/web/components/chat/copilotkit-v2-agent-identity.tsx` | 1 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-agent-interrupts.tsx` | 3 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-assistant-message.tsx` | 5 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-message-actions.tsx` | 4 | pending actualrender/export classification |
-| `apps/web/components/chat/copilotkit-v2-panel-body.tsx` | 87 | pending actualrender/export classification |
+| `apps/web/components/chat/copilotkit-v2-panel-body.tsx` | 87 | canonical controller now1891lines;48 effects/callback/memo argument hash identical; actual SDK node/draft/caret and agent-switch tests34green; fresh type/browser pending |
 | `apps/web/components/chat/copilotkit-v2-panel.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-plan-control.tsx` | 19 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-shell-route.tsx` | 0 | pending actualrender/export classification |
-| `apps/web/components/chat/copilotkit-v2-shell.tsx` | 28 | pending actualrender/export classification |
+| `apps/web/components/chat/copilotkit-v2-shell.tsx` | 28 | canonical personal/project shell; locale no-search-refetch provider test green; full route/browser pending |
 | `apps/web/components/chat/copilotkit-v2-tool-renderers.tsx` | 14 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-user-message.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/document-generation-auto-approve-toggle.tsx` | 4 | pending actualrender/export classification |
@@ -99,7 +99,7 @@ Staticimportupperbound fromv2layout; importedunusedexports/businessinstructions 
 | `apps/web/components/chat/shared-chat-messages.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/subtask-run-live-panel.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/subtask-run-panel.tsx` | 17 | pending actualrender/export classification |
-| `apps/web/components/chat/thread-list-shell.tsx` | 32 | pending actualrender/export classification |
+| `apps/web/components/chat/thread-list-shell.tsx` | 32 | canonical sidebar/status/rename/menu; provider and adjacent tests61green, raw title/caret/node preserved; browser pending |
 | `apps/web/components/chat/workbench/agent-artifact-versions-panel.tsx` | 38 | pending actualrender/export classification |
 | `apps/web/components/chat/workbench/child-cancellation-notice.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/workbench/interrupt-decision-dialog.tsx` | 7 | pending actualrender/export classification |

@@ -1,4 +1,8 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { SILENCE_HINT_AFTER_SECONDS, SILENCE_AUTO_PAUSE_AFTER_SECONDS } from "@/lib/use-composer-voice-session";
 
 import * as React from "react";
 import { Check, ChevronDown, Loader2, Mic, Square } from "lucide-react";
@@ -24,12 +28,12 @@ export interface ComposerVoiceDevice {
   readonly label: string;
 }
 
-export function describeVoiceDevice(devices: readonly ComposerVoiceDevice[], selectedDeviceId: string | null): string {
-  if (selectedDeviceId === null) return "系统默认麦克风";
+export function describeVoiceDevice(devices: readonly ComposerVoiceDevice[], selectedDeviceId: string | null, locale: Locale = DEFAULT_LOCALE): string {
+  if (selectedDeviceId === null) return translate(locale, "chatComposer.deviceDefault");
   const index = devices.findIndex((d) => d.deviceId === selectedDeviceId);
-  if (index === -1) return "系统默认麦克风";
+  if (index === -1) return translate(locale, "chatComposer.deviceDefault");
   const label = devices[index]!.label;
-  return label !== "" ? label : `麦克风 ${index + 1}（授权后显示名称）`;
+  return label !== "" ? label : translate(locale, "chatComposer.deviceAnonymous", { index: index + 1 });
 }
 
 export function formatElapsed(totalSeconds: number): string {
@@ -38,14 +42,14 @@ export function formatElapsed(totalSeconds: number): string {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-const LABEL_BY_STATUS: Record<AsrDraftStatus, string> = {
-  idle: "开始语音输入",
-  connecting: "正在连接语音识别…",
-  listening: "停止语音输入",
-  stopping: "正在停止…",
-  denied: "开始语音输入",
-  unsupported: "开始语音输入",
-  error: "开始语音输入",
+const LABEL_BY_STATUS: Record<AsrDraftStatus, MessageKey> = {
+  idle: "chatComposer.voiceStart",
+  connecting: "chatComposer.voiceConnectingAria",
+  listening: "chatComposer.voiceStop",
+  stopping: "chatComposer.voiceStoppingAria",
+  denied: "chatComposer.voiceStart",
+  unsupported: "chatComposer.voiceStart",
+  error: "chatComposer.voiceStart",
 };
 
 /** 5 根音量条：每根按自己的门槛亮起，高度随 level 平滑变化——读的是真实 RMS。 */
@@ -107,6 +111,7 @@ export function ComposerVoiceControl({
   /** 外部（状态栏「换麦克风」）请求打开设备菜单的计数。 */
   readonly deviceMenuRequest?: number;
 }): JSX.Element {
+  const { locale, t } = useI18n();
   const [menuOpen, setMenuOpen] = useChatPopoverSlot("chat-composer-mic-devices");
   const containerRef = React.useRef<HTMLDivElement>(null);
   const lastRequestRef = React.useRef(deviceMenuRequest);
@@ -134,8 +139,8 @@ export function ComposerVoiceControl({
   const listening = phase === "listening";
   const paused = phase === "paused";
   const busy = phase === "connecting" || phase === "stopping";
-  const deviceText = describeVoiceDevice(devices, selectedDeviceId);
-  const ariaLabel = paused ? "继续语音输入" : LABEL_BY_STATUS[status];
+  const deviceText = describeVoiceDevice(devices, selectedDeviceId, locale);
+  const ariaLabel = paused ? t("chatComposer.voiceResume") : t(LABEL_BY_STATUS[status]);
 
   const shell = listening
     ? "border-destructive bg-destructive text-destructive-foreground"
@@ -175,15 +180,15 @@ export function ComposerVoiceControl({
               <Mic aria-hidden className="h-4 w-4" />
             )}
             <span>
-              {phase === "connecting" ? "连接中"
-                : phase === "stopping" ? "停止中"
-                : listening ? "停止"
-                : paused ? "继续"
+              {phase === "connecting" ? t("chatComposer.voiceConnectingShort")
+                : phase === "stopping" ? t("chatComposer.stopping")
+                : listening ? t("chatComposer.stop")
+                : paused ? t("chatComposer.continue")
                 /*
                  * 2026-09-23：出错态这里原来写「重试」——状态栏里已经有一个「重试」，屏上于是并排两个；
                  * 而「这里没开通语音」时两个都是死路。按钮只说它是什么（语音），要不要重试交给状态栏判断。
                  */
-                : "语音输入"}
+                : t("chatComposer.voiceInput")}
             </span>
             {listening ? <LevelBars level={level} /> : null}
             {listening || paused ? (
@@ -194,7 +199,7 @@ export function ComposerVoiceControl({
           </button>
           </TooltipTrigger>
           <TooltipContent data-testid="chat-task-workbench-composer-mic-tooltip">
-            {phase === "idle" ? `语音输入：说话转成文字放进输入框，不会发起通话（${deviceText}）` : ariaLabel}
+            {phase === "idle" ? t("chatComposer.voiceTooltip", { device: deviceText }) : ariaLabel}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -204,8 +209,8 @@ export function ComposerVoiceControl({
         data-testid="chat-task-workbench-composer-mic-devices"
         aria-haspopup="menu"
         aria-expanded={menuOpen}
-        aria-label="输入设备与录音选项"
-        title={`输入设备：${deviceText}`}
+        aria-label={t("chatComposer.deviceMenu")}
+        title={t("chatComposer.deviceTitle", { device: deviceText })}
         disabled={disabled}
         onClick={() => setMenuOpen((v) => !v)}
         className={`flex w-7 items-center justify-center rounded-r-pill transition-colors duration-fast focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:bg-disabled disabled:text-disabled-foreground ${hover}`}
@@ -215,11 +220,11 @@ export function ComposerVoiceControl({
       {menuOpen ? (
         <div
           role="menu"
-          aria-label="输入设备与录音选项"
+          aria-label={t("chatComposer.deviceMenu")}
           data-testid="chat-task-workbench-composer-mic-devices-listbox"
           className="absolute bottom-full right-0 z-20 mb-1.5 w-64 rounded-lg border border-border bg-popover p-1 text-card-foreground shadow-md"
         >
-          <p className="px-2 pb-1 pt-1.5 text-10 text-muted-foreground">输入设备{listening ? "（录音中不可切换）" : ""}</p>
+          <p className="px-2 pb-1 pt-1.5 text-10 text-muted-foreground">{t("chatComposer.inputDevice")}{listening ? t("chatComposer.cannotSwitchRecording") : ""}</p>
           <button
             type="button"
             role="menuitemradio"
@@ -229,7 +234,7 @@ export function ComposerVoiceControl({
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground"
           >
             <Check aria-hidden className={`h-3 w-3 shrink-0 ${selectedDeviceId === null ? "" : "invisible"}`} />
-            <span className="truncate">系统默认麦克风</span>
+            <span className="truncate">{t("chatComposer.deviceDefault")}</span>
           </button>
           {devices.map((device, index) => (
             <button
@@ -242,7 +247,7 @@ export function ComposerVoiceControl({
               className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-fast hover:bg-muted disabled:text-disabled-foreground"
             >
               <Check aria-hidden className={`h-3 w-3 shrink-0 ${device.deviceId === selectedDeviceId ? "" : "invisible"}`} />
-              <span className="truncate">{device.label !== "" ? device.label : `麦克风 ${index + 1}（授权后显示名称）`}</span>
+              <span className="truncate">{device.label !== "" ? device.label : t("chatComposer.deviceAnonymous", { index: index + 1 })}</span>
             </button>
           ))}
           <div aria-hidden className="my-1 h-px bg-border-subtle" />
@@ -255,8 +260,8 @@ export function ComposerVoiceControl({
             className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-12 transition-colors duration-fast hover:bg-muted"
           >
             <Check aria-hidden className={`h-3 w-3 shrink-0 ${autoPause ? "" : "invisible"}`} />
-            <span className="min-w-0 flex-1 truncate">静音自动暂停</span>
-            <span className="text-10 text-muted-foreground">静音 13 秒后</span>
+            <span className="min-w-0 flex-1 truncate">{t("chatComposer.autoPause")}</span>
+            <span className="text-10 text-muted-foreground">{t("chatComposer.autoPauseDelay", { seconds: SILENCE_HINT_AFTER_SECONDS + SILENCE_AUTO_PAUSE_AFTER_SECONDS })}</span>
           </button>
         </div>
       ) : null}

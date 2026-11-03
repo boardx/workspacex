@@ -1,3 +1,4 @@
+import { translate, type MessageKey } from "./i18n/messages";
 import authoredTitles from "../../../skills/localizations/work-stack-v2.json";
 import { applyDisplayUpdate, getDisplayUpdateOffer } from "./authored-display-update";
 /**
@@ -64,6 +65,8 @@ export interface EnableProgress {
   readonly step: number;
   readonly total: number;
   readonly label: string;
+  /** Owned UI provenance; callers with raw labels remain supported. */
+  readonly labelKey?: MessageKey;
 }
 
 /**
@@ -104,7 +107,7 @@ export async function enableOfficialRolePack(
   const skillOp = wave2Runtime.operations.importSkillStarterPack;
   for (const [i, pack] of packs.entries()) {
     checkScope();
-    onProgress?.({ step: i + 1, total, label: "准备数字人需要的技能与流程" });
+    onProgress?.({ step: i + 1, total, label: translate("zh-CN", "chatPicker.prepareSkills"), labelKey: "chatPicker.prepareSkills" });
     try {
       checkScope();
       await apiRequest<unknown>(skillOp.path, {
@@ -118,7 +121,7 @@ export async function enableOfficialRolePack(
     }
   }
   checkScope();
-  onProgress?.({ step: total, total, label: "启用官方数字人" });
+  onProgress?.({ step: total, total, label: translate("zh-CN", "chatPicker.enableOfficials"), labelKey: "chatPicker.enableOfficials" });
   const op = wave2Runtime.operations.importAgentStarterPack;
   checkScope();
   await apiRequest<unknown>(op.path, {

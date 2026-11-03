@@ -1,4 +1,6 @@
 "use client";
+import { DEFAULT_LOCALE, type Locale } from "@/lib/i18n/locale";
+import { translate } from "@/lib/i18n/messages";
 
 import * as React from "react";
 
@@ -76,9 +78,9 @@ export function ComposerStatusBar({
       </span>
       {actions.length > 0 ? (
         <span className="flex shrink-0 items-center gap-2">
-          {actions.map((action) => (
+          {actions.map((action, index) => (
             <button
-              key={action.label}
+              key={action.testId ?? index}
               type="button"
               data-testid={action.testId}
               title={action.title ?? action.label}
@@ -105,6 +107,7 @@ export function ComposerStatusBar({
 export function voiceErrorStatus(
   speech: { readonly status: string; readonly error: string | null; readonly errorReason: string | null },
   opts: { readonly onRetry: () => void; readonly retryTestId: string; readonly helpTestId: string },
+  locale: Locale = DEFAULT_LOCALE,
 ): { readonly title: string; readonly description: string | null; readonly actions: readonly ComposerStatusAction[] } {
   const denied = speech.status === "denied";
   const unsupported = speech.status === "unsupported";
@@ -112,15 +115,15 @@ export function voiceErrorStatus(
   const actions: ComposerStatusAction[] = [];
   if (denied) {
     actions.push({
-      label: "查看如何开启",
+      label: translate(locale, "chatComposer.voicePermissionHelp"),
       onClick: () => window.open("https://support.google.com/chrome/answer/2693767", "_blank", "noopener"),
       testId: opts.helpTestId,
     });
   }
-  if (!unsupported && !notConfigured) actions.push({ label: "重试", onClick: opts.onRetry, variant: "solid", testId: opts.retryTestId });
+  if (!unsupported && !notConfigured) actions.push({ label: translate(locale, "ui.retry"), onClick: opts.onRetry, variant: "solid", testId: opts.retryTestId });
   return {
-    title: denied ? "浏览器未授权麦克风" : unsupported ? "此浏览器不支持语音输入" : notConfigured ? "这里还没开通语音输入" : "语音识别暂时不可用",
-    description: denied ? "在地址栏左侧的站点设置中允许麦克风，然后重试" : speech.error,
+    title: denied ? translate(locale, "chatComposer.voiceDenied") : unsupported ? translate(locale, "chatComposer.voiceUnsupported") : notConfigured ? translate(locale, "chatComposer.voiceNotConfigured") : translate(locale, "chatComposer.voiceUnavailable"),
+    description: denied ? translate(locale, "chatComposer.voiceDeniedHint") : speech.error,
     actions,
   };
 }

@@ -1270,7 +1270,7 @@ export function CopilotKitV2Shell({
                 disabled={loadMorePending}
                 onClick={() => void loadMore()}
               >
-                {loadMorePending ? t("chatEntry.loading") : t("chatEntry.loadMore")}
+                {loadMorePending ? t("ui.loading") : t("chatEntry.loadMore")}
               </Button>
               {loadMoreError ? (
                 <p className="pt-1 text-10 text-destructive" data-testid="chat-thread-list-load-more-error">
