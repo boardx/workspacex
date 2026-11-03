@@ -11,9 +11,7 @@ on:
       - 'SECURITY.md'
       - '.github/workflows/deploy-home.yml'
       - '.nvmrc'
-  push:
-    branches: [main]
-    paths: *home-paths
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -46,7 +44,7 @@ jobs:
 
   deploy:
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

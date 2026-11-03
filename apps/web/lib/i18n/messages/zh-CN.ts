@@ -1,11 +1,12 @@
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
+import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
 import { stateZhCN } from "../namespaces/state";
-import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { accountEntryZhCN } from "../namespaces/account-entry";
 export const zhCN = {
   ...zhTasks,
   ...zhFailures,
@@ -245,5 +246,6 @@ export const zhCN = {
   "common.http.rateLimit": "操作太频繁了，等一下再试",
   "common.http.server": "服务器出错了，稍后再试一次",
   "common.http.failure": "这次请求没成功，稍后再试一次",
-  "home.artifacts.one": "{count} 个产出物"
+  "home.artifacts.one": "{count} 个产出物",
+  ...accountEntryZhCN,
 } as const;
