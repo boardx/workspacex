@@ -312,6 +312,7 @@ describe("#3238 workflow 接线：候选组必须真的跑，部署必须真的�
     expect(workflow("image-release.yml")).not.toMatch(/^  push:/m);
     expect(plan).not.toContain("github.event_name == 'merge_group'");
     expect(plan).not.toContain("startsWith(github.ref, 'refs/tags/v')");
+    expect(plan).toContain("github.ref_type == 'branch'");
   });
 
   it("候选组的 run 不得被 cancel-in-progress 掐掉——掐掉等于这个组合从没被验证过", () => {
