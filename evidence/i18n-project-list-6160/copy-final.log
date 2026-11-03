@@ -1,0 +1,12 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/create-project-dialog.test.tsx (4 tests) 519ms
+   ✓ #4743 列表页 → 新建项目弹窗 > 点「新建项目」打开弹窗（不跳页）；标题、单字段、创建 / 取消、工作坊次要入口都在 329ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 57ms
+
+ Test Files  2 passed (2)
+      Tests  9 passed (9)
+   Start at  05:50:56
+   Duration  7.27s (transform 2.19s, setup 479ms, collect 3.82s, tests 576ms, environment 1.21s, prepare 181ms)

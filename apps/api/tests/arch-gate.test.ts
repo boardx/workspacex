@@ -66,7 +66,7 @@ describe("lint-arch-deps", () => {
     const list = /const COMPOSITION_ROOT = new Set\(\[([^\]]*)\]\)/.exec(src)?.[1] ?? "";
     const entries = JSON.parse(`[${list}]`) as string[];
     expect(entries.sort(), "every composition exemption requires explicit review").toEqual([
-      "billing.module.ts", "enterprise-management.wiring.ts", "kernel.module.ts", "main.ts",
+      "billing.module.ts", "enterprise-management.wiring.ts", "kernel.module.ts", "localization.module.ts", "main.ts",
     ]);
   });
 });

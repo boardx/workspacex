@@ -12,7 +12,7 @@
 | B1 | [#6155 / PR #6157](https://github.com/boardx/workspacex/pull/6157)，`evidence/i18n-account-entry-6155/` | register/verify-email/reset-password + 共享动画；真实公共页与组件 payload，有效邮件/真实注册不在该公共浏览器旅程 |
 | B1 | [#6158 / PR #6159](https://github.com/boardx/workspacex/pull/6159)，`evidence/i18n-invite-entry-6158/` | `/auth/activate` 单人/共享/缺令牌；真实公共页面，未实际提交邀请；会话保护有回归 |
 | B2 | [#6160 / PR #6164](https://github.com/boardx/workspacex/pull/6164)，`evidence/i18n-project-list-6160/` | `/projects` 与创建弹窗/通用创建表单；真实创建/标签/归档/consultant 403 已验。完整创建契约既有 P3 缺口独立 #6163；工作台和工作坊向导另切片 |
-| B2 | [#6167](https://github.com/boardx/workspacex/issues/6167)，`evidence/i18n-live-tasks-6167/` | 生产 `/tasks` 四分区、创建/状态流转/失败/日期；43项相关组件与资源检查、真实 API/PG 创建与前进退回已验；预览不在此片 |
+| B2 | [#6167 / PR #6168](https://github.com/boardx/workspacex/pull/6168)，`evidence/i18n-live-tasks-6167/` | 生产 `/tasks` 四分区、创建/状态流转/失败/日期；43项相关组件与资源检查、真实 API/PG 创建与前进退回已验；预览不在此片 |
 | 共用壳 | [#6165 / PR #6166](https://github.com/boardx/workspacex/pull/6166)，`evidence/i18n-mobile-header-6165/`（独立 PR） | TopBar 语言切换器窄屏裁切修复；320/375/768/1280 双语几何与操作验收 |
 
 当前所有 `preview/*`、实验入口、mock 驱动的 join/group/consent 等未列明真实验收的路径，仍记作**未覆盖**。

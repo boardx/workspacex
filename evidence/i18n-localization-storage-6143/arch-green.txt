@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+[db-isolation] selection is DB-free (tests/support/db-free-tests.ts); skipping database setup
+ ✓ tests/arch-gate.test.ts (7 tests) 468ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  05:40:54
+   Duration  916ms (transform 202ms, setup 7ms, collect 7ms, tests 468ms, environment 0ms, prepare 43ms)
+

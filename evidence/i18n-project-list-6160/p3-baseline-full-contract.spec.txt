@@ -1,0 +1,17 @@
+import { test, expect } from "@playwright/test";
+import { auth, project } from "@repo/contracts";
+import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
+test("latest develop real create HTTP 201 fails the full provenance contract (expected baseline red)", async ({ request }) => {
+  const root = `http://127.0.0.1:${process.env.WORKSPACEX_API_PORT}`;
+  const authenticated = await request.post(root + auth.operations.login.path, { data: { email: F.leadEmail, password: F.leadPassword } });
+  expect(authenticated.ok()).toBe(true);
+  const session = auth.operations.login.out.parse(await authenticated.json());
+  const created = await request.post(root + project.operations.createProject.path, {
+    headers: { Authorization: `Bearer ${session.sessionToken}` },
+    data: project.operations.createProject.in.parse({ orgId: F.orgId, name: "P3 independent baseline", kind: "general", blueprintVersionId: null }),
+  });
+  expect(created.status()).toBe(201);
+  const body = await created.json();
+  console.log("BASELINE_REAL_HTTP_201_KEYS=" + Object.keys(body).sort().join(","));
+  project.operations.createProject.out.parse(body);
+});
