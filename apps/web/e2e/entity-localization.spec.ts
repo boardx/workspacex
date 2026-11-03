@@ -64,9 +64,9 @@ test("organization profile preserves authored data and enforces real grant and m
   const saveResponse = await saved;
   expect(saveResponse.status()).toBe(200);
   expect(saveResponse.request().postDataJSON()).toEqual({ orgId: ENTITY_LOCALIZATION_E2E.orgId, name, description });
-  await expect(page.getByRole("status").filter({ hasText: /^Saved$/ })).toBeVisible();
+  await expect(page.getByTestId("saved")).toHaveText("Saved");
   await page.getByTestId("language-switcher").first().selectOption("zh-CN");
-  await expect(page.getByRole("status").filter({ hasText: /^已保存$/ })).toBeVisible();
+  await expect(page.getByTestId("saved")).toHaveText("已保存");
   await page.getByTestId("language-switcher").first().selectOption("en");
   // Real server byte validation; switching language retranslates the retained error.
   const rejected = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === `${profilePath}/avatar`);
@@ -103,15 +103,15 @@ test("organization profile preserves authored data and enforces real grant and m
     expect((await deniedProfile).status()).toBe(403); expect((await deniedGrants).status()).toBe(403);
     await member.getByTestId("language-switcher").first().selectOption("en");
     await expect(member.getByTestId("org-admin-profile-form")).toHaveCount(0);
-    await expect(member.getByText("Only organization administrators can edit the organization profile. You are not an administrator in this organization.", { exact: true })).toBeVisible();
-    await expect(member.getByText("Only organization administrators can view and revoke standing tool grants.", { exact: true })).toBeVisible();
+    await expect(member.getByTestId("denied").filter({ hasText: "Only organization administrators can edit the organization profile." }).getByTestId("denied-layer")).toHaveText("Organization restriction: Only organization administrators can edit the organization profile. You are not an administrator in this organization.");
+    await expect(member.getByTestId("standing-tool-grants").getByTestId("denied-layer")).toHaveText("Organization restriction: Only organization administrators can view and revoke standing tool grants.");
     await expect(member.getByRole("switch")).toBeDisabled();
     expect((await member.request.get(settingPath, { headers: memberHeaders })).status()).toBe(200);
     expect((await member.request.put(settingPath, { headers: memberHeaders, data: { enabled: !setting.orgEnabled } })).status()).toBe(403);
     expect((await member.request.delete(`${grantsPath}/${grant!.grantId}`, { headers: memberHeaders })).status()).toBe(403);
     await member.screenshot({ path: testInfo.outputPath("org-profile-member-denied-en.png"), fullPage: true });
     await member.getByTestId("language-switcher").first().selectOption("zh-CN");
-    await expect(member.getByText("只有组织管理员可以查看和撤销长期工具授权。", { exact: true })).toBeVisible();
+    await expect(member.getByTestId("standing-tool-grants").getByTestId("denied-layer")).toHaveText("组织层限制：只有组织管理员可以查看和撤销长期工具授权。");
   } finally { await memberContext.close(); }
 
   const toggle = page.getByRole("switch", { name: "Enable memory extraction for this organization", exact: true });
