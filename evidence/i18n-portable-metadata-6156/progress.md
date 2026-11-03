@@ -1,0 +1,3 @@
+# Progress — #6156
+
+- 2026-11-03: Source committed as `e205ab69d4e35b7e165526dfd374501ff4ecc3e6`, based on the #6161 UI source. Added strict v2 portable metadata, immutable-source import/export, current authored bilingual names and independent explicit update for existing organizations. Contracts21/API units33/PG+HTTP21/web33/recovery-scope2 pass; API tsc and init quick pass. Real production browser2/2 passes after catching and fixing missing exact Next proxy paths. All three owned isolated stacks are absent from live Docker inventory after wrapper cleanup. Independent read-only review of exact base..source SHA has no actionable P1/P2. Normal pre-push and GitHub CI remain pending; coordinator controls merging. No feature/signoff state changed.
