@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * AI 消息里的围栏代码块（```lang … ```）——**默认折叠**，用户点「显示代码」再展开。
@@ -59,13 +61,14 @@ function countLines(text: string): number {
 /** 复制按钮的可见状态：区分「真的复制成功」和「API 不可用/被拒绝」，不假装成功。 */
 type CopyState = "idle" | "copied" | "failed";
 
-const COPY_LABEL: Record<CopyState, string> = {
-  idle: "复制",
-  copied: "已复制",
-  failed: "复制失败",
+const COPY_LABEL: Record<CopyState, MessageKey> = {
+  idle: "codeFence.copy",
+  copied: "codeFence.copied",
+  failed: "codeFence.failed",
 };
 
 export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre">) {
+  const { t } = useI18n();
   const { lang, text } = React.useMemo(() => readCodeChild(children), [children]);
   const lines = countLines(text);
   const autoOpen = lines <= COLLAPSE_THRESHOLD_LINES;
@@ -134,7 +137,7 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
     >
       <div className="flex items-center gap-2 px-2.5 py-1.5 text-11 text-muted-foreground">
         <span className="font-mono">{lang ?? "code"}</span>
-        <span>· {lines} 行</span>
+        <span>· {t("codeFence.lines", { count: lines })}</span>
         <span className="flex-1" />
         <button
           type="button"
@@ -143,7 +146,7 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
           className="rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted hover:text-card-foreground"
         >
           {/* aria-live：复制是否成功对屏幕阅读器不是视觉可见的状态变化，需要主动播报。 */}
-          <span aria-live="polite">{COPY_LABEL[copyState]}</span>
+          <span aria-live="polite">{t(COPY_LABEL[copyState])}</span>
         </button>
         <button
           type="button"
@@ -152,7 +155,7 @@ export function ChatCodeFence({ children }: React.ComponentPropsWithoutRef<"pre"
           onClick={() => setUserOpen(!open)}
           className="rounded-sm px-1.5 py-0.5 transition-colors hover:bg-muted hover:text-card-foreground"
         >
-          {open ? "隐藏代码" : "显示代码"}
+          {t(open ? "codeFence.hide" : "codeFence.show")}
         </button>
       </div>
       {open ? (

@@ -1,3 +1,4 @@
+import { translate } from "./i18n/messages";
 import { chatShare as C } from "@repo/contracts";
 import { apiRequest, apiUrl } from "./api-client";
 
@@ -20,11 +21,18 @@ export async function revokeChatShare(threadId: string, bearer: string, shareId:
     method: "DELETE", sessionToken: bearer, signal,
   });
 }
+/** Stable failure code lets mounted readers retranslate without repeating anonymous reads. */
+export class ChatShareReadError extends Error {
+  constructor(readonly kind: "missing" | "unavailable") {
+    super(translate("zh-CN", kind === "missing" ? "chatShare.missing" : "chatShare.unavailable"));
+    this.name = "ChatShareReadError";
+  }
+}
 export async function readChatShare(token: string, signal?: AbortSignal) {
   const response = await fetch(apiUrl(pathFor(C.paths.read, { token })), {
     cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer", signal,
   });
-  if (response.status === 404) throw new Error("分享链接已失效或不存在。");
-  if (!response.ok) throw new Error("暂时无法读取分享，请稍后重试。");
+  if (response.status === 404) throw new ChatShareReadError("missing");
+  if (!response.ok) throw new ChatShareReadError("unavailable");
   return C.PublicSnapshot.parse(await response.json());
 }

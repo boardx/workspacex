@@ -27,6 +27,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...orgMembersPreviewEn,
   ...orgSharedInvitesEn,
   ...stateEn,
+  ...chatShareEn,
+  ...codeFenceEn,
   ...workflowRunsEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
@@ -262,3 +264,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...accountEntryEn,
   ...invitationEntryEn,
 };
+
+import { codeFenceEn } from "../namespaces/code-fence";
+import { chatShareEn } from "../namespaces/chat-share";

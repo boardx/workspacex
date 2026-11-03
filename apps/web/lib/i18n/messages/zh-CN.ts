@@ -26,6 +26,8 @@ export const zhCN = {
   ...orgMembersPreviewZhCN,
   ...orgSharedInvitesZhCN,
   ...stateZhCN,
+  ...chatShareZhCN,
+  ...codeFenceZhCN,
   ...workflowRunsZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
@@ -261,3 +263,6 @@ export const zhCN = {
   ...accountEntryZhCN,
   ...invitationEntryZhCN,
 } as const;
+
+import { codeFenceZhCN } from "../namespaces/code-fence";
+import { chatShareZhCN } from "../namespaces/chat-share";
