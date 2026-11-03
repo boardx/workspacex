@@ -20,7 +20,7 @@ def reconcile(environment,migration_env,migration_user):
   attempt=consumer.trusted(pending['attempt'],directory=True,private=True);host.need(attempt.is_relative_to(root),'ATTEMPT_OUTSIDE_STATE')
   request_file=consumer.trusted(attempt/'schema-request.json',private=True);host.need(engine.sha_file(request_file)==pending['requestSha256'],'REQUEST_CHANGED')
   request=json.loads(request_file.read_bytes());host.need(request['environment']==environment and request['tag']==pending['tag'],'REQUEST_IDENTITY')
-  manifest_file=consumer.trusted(request['manifest']['path'],private=True);engine.trusted_file(str(manifest_file),request['manifest']['sha256']);manifest=json.loads(manifest_file.read_bytes())
+  manifest_file=consumer.trusted(request['manifest']['path']);engine.trusted_file(str(manifest_file),request['manifest']['sha256']);manifest=json.loads(manifest_file.read_bytes())
   host.need(manifest['tag']==request['tag'] and manifest['sourceRevision']==request['sourceRevision'],'MANIFEST_IDENTITY')
   target=manifest['images']['api']['imageId']
   work=attempt/('unified-reconciliation-'+uuid.uuid4().hex);work.mkdir(mode=0o700)
