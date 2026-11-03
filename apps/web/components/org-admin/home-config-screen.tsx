@@ -145,16 +145,16 @@ export function HomeConfigScreen() {
           >
             {form !== null && orgId !== null ? (
               <div className="flex flex-col gap-6">
-                <div hidden={tab !== "edit"} className="flex flex-col gap-6">
+                <div hidden={tab !== "edit"} className={cn("flex-col gap-6", tab === "edit" ? "flex" : "hidden")}>
                 <HomeThemeSection orgId={orgId} form={form} onChange={setForm} />
                 <BasicFieldsSection form={form} onChange={setForm} />
                 <BannerSection orgId={orgId} form={form} onChange={setForm} />
                 </div>
-                <div hidden={tab !== "layout"} className="flex flex-col gap-6">
+                <div hidden={tab !== "layout"} className={cn("flex-col gap-6", tab === "layout" ? "flex" : "hidden")}>
                 <QuickActionsSection form={form} onChange={setForm} />
                 <SectionsSection form={form} onChange={setForm} />
                 </div>
-                <div hidden={tab !== "content"} className="flex flex-col gap-6">
+                <div hidden={tab !== "content"} className={cn("flex-col gap-6", tab === "content" ? "flex" : "hidden")}>
                 <RecommendedAgentsSection form={form} onChange={setForm} />
                 <RecommendedSkillsSection orgId={orgId} form={form} onChange={setForm} />
                 </div>
