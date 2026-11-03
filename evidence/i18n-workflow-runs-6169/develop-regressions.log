@@ -1,0 +1,19 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/workflow-run-panel.test.tsx (39 tests) 514ms
+ ✓ tests/ui/workflow-runs-i18n.test.tsx (5 tests) 201ms
+ ✓ tests/ui/workflow-screen-live.test.tsx (6 tests) 116ms
+ ✓ tests/ui/workflow-nav.test.tsx (6 tests) 150ms
+ ✓ tests/ui/workflow-run-list-blocked.test.tsx (2 tests) 39ms
+ ✓ tests/workflow-display-copy-definitions.test.ts (3 tests) 9ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 30ms
+ ✓ tests/workflow-display-copy-batch2.test.ts (2 tests) 3ms
+ ✓ tests/workflow-stage-failure-copy.test.ts (2 tests) 2ms
+ ✓ tests/ui/workflow-format-date-time.test.ts (2 tests) 2ms
+
+ Test Files  10 passed (10)
+      Tests  72 passed (72)
+   Start at  09:34:33
+   Duration  9.12s (transform 1.24s, setup 920ms, collect 2.81s, tests 1.07s, environment 2.61s, prepare 455ms)

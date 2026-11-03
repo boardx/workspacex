@@ -1,6 +1,7 @@
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
+import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
@@ -15,6 +16,7 @@ export const zhCN = {
   ...profileZhCN,
   ...aboutMemoryZhCN,
   ...stateZhCN,
+  ...workflowRunsZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",

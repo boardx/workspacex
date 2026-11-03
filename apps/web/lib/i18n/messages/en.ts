@@ -5,6 +5,7 @@ import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
 import { aboutMemoryEn } from "../namespaces/about-memory";
 import { stateEn } from "../namespaces/state";
+import { workflowRunsEn } from "../namespaces/workflow-runs";
 import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
@@ -16,6 +17,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...profileEn,
   ...aboutMemoryEn,
   ...stateEn,
+  ...workflowRunsEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",

@@ -1,0 +1,81 @@
+import * as React from "react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { workflowRuntime as W } from "@repo/contracts";
+import { ApiError } from "@/lib/api-client";
+import { I18nProvider } from "@/lib/i18n/provider";
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
+const api = vi.hoisted(() => ({ list: vi.fn(), members: vi.fn() }));
+const identity = vi.hoisted(() => ({ role: "consultant" }));
+const session = { userId: "me", currentOrgId: "org" };
+vi.mock("@/components/session/session-provider", () => ({ useOptionalSession: () => ({ session, identity: { orgRole: identity.role } }) }));
+vi.mock("@/components/shell/app-shell", () => ({ AppShell: ({ left, children }: { left: React.ReactNode; children: React.ReactNode }) => <>{left}{children}</> }));
+vi.mock("@/lib/workflow-runtime-api", async (original) => ({ ...await original<typeof import("@/lib/workflow-runtime-api")>(), listMyWorkflowInstances: api.list }));
+vi.mock("@/lib/live-org-admin", async (original) => ({ ...await original<typeof import("@/lib/live-org-admin")>(), listOrgMembers: api.members }));
+import MyRunsPage from "@/app/workflows/runs/page";
+import { WorkflowRunList } from "@/components/workflow/workflow-lists";
+import { workflowDisplayName } from "@/lib/workflow-display-copy";
+import { memberLabel } from "@/lib/use-org-member-names";
+const when = new Date(2026, 8, 30, 13, 29).toISOString();
+const item = W.WorkflowInstanceSummary.parse({ instanceId: "wi-original", workflowKey: "problem-to-prd", definitionVersion: 2, agentId: "agent", initiatorUserId: "me", goal: "原文 {goal}", status: "blocked_permission", stateVersion: 1, reasonCode: "agent_permission_revoked", createdAt: when, updatedAt: when });
+const output = W.workflowRuntime.listMyInstances.out.parse({ items: [item], nextCursor: null });
+function show(node: React.ReactNode = <MyRunsPage searchParams={{ projectId: "项目 {id}" }} />) { return render(<I18nProvider initialLocale="en"><LanguageSwitcher />{node}</I18nProvider>); }
+function locale(value: "en" | "zh-CN") { fireEvent.change(screen.getByTestId("language-switcher"), { target: { value } }); }
+beforeEach(() => { vi.clearAllMocks(); identity.role = "consultant"; api.list.mockResolvedValue(output); api.members.mockResolvedValue({ members: [{ userId: "me", displayName: "原文 {name}", email: "original@example.test" }] }); });
+afterEach(cleanup);
+it("updates the actual route heading/nav/list while preserving raw values, links and reads", async () => {
+  show(); await screen.findByTestId("workflow-run-list");
+  expect(screen.getByRole("heading", { name: "My runs" })).toBeTruthy();
+  expect(screen.getByTestId("workflow-nav")).toHaveTextContent("Workflows");
+  expect(screen.getByTestId("workflow-run-status")).toHaveTextContent("Permission blocked");
+  expect(screen.getByTestId("workflow-run-list")).toHaveTextContent("Problem to PRD");
+  expect(screen.getByTestId("workflow-run-goal")).toHaveTextContent("Goal: 原文 {goal}");
+  await waitFor(() => expect(screen.getByTestId("workflow-run-initiator")).toHaveTextContent("原文 {name} (me)"));
+  expect(screen.getByTestId("workflow-run-blocked-contact-admin")).toHaveTextContent("Contact an administrator");
+  expect(screen.queryByTestId("workflow-run-blocked-grant-link")).toBeNull();
+  expect(document.querySelector("time")).toHaveTextContent("2026-09-30 13:29");
+  expect(screen.getByTestId("workflow-nav-back-to-project")).toHaveAttribute("href", "/projects/" + encodeURIComponent("项目 {id}"));
+  locale("zh-CN");
+  expect(screen.getByRole("heading", { name: "我的运行" })).toBeTruthy();
+  expect(screen.getByTestId("workflow-run-status")).toHaveTextContent("权限阻断");
+  expect(screen.getByTestId("workflow-run-goal")).toHaveTextContent("目标：原文 {goal}");
+  expect(screen.getByTestId("workflow-run-initiator")).toHaveTextContent("原文 {name}（我）");
+  locale("en");
+  expect(screen.getByTestId("workflow-run-list").querySelector("a")).toHaveAttribute("href", "/workflows/runs/wi-original");
+  expect(api.list).toHaveBeenCalledTimes(1); expect(api.members).toHaveBeenCalledTimes(1);
+});
+it("retains wire status filters and the admin-only grant URL across locale changes", async () => {
+  identity.role = "admin"; const filters = ["running", "blocked_permission"] as const;
+  show(<WorkflowRunList status={filters} />); await screen.findByTestId("workflow-run-list");
+  expect(screen.getByTestId("workflow-run-blocked-grant-link")).toHaveAttribute("href", "/org-admin/workflow-grants?workflow=problem-to-prd");
+  locale("zh-CN"); locale("en");
+  expect(api.list).toHaveBeenCalledTimes(1); expect(api.list).toHaveBeenCalledWith(filters);
+  expect(screen.queryByTestId("workflow-run-blocked-contact-admin")).toBeNull();
+});
+it("retranslates an existing contract failure without replaying the read or showing private details", async () => {
+  api.list.mockRejectedValue(new ApiError(403, "workflow_not_allowed", W.WorkflowErrorBody.parse({ code: "workflow_not_allowed", message: "private details" })));
+  show(); await waitFor(() => expect(screen.getByTestId("workflow-run-list-error")).toHaveTextContent("permission to run"));
+  locale("zh-CN"); expect(screen.getByTestId("workflow-run-list-error")).toHaveTextContent("没有运行");
+  locale("en"); expect(screen.getByTestId("workflow-run-list-error")).not.toHaveTextContent("private details");
+  expect(api.list).toHaveBeenCalledTimes(1);
+});
+it("updates loading and empty calls to action without a second request", async () => {
+  let finish!: (value: ReturnType<typeof W.workflowRuntime.listMyInstances.out.parse>) => void;
+  api.list.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  show(); expect(screen.getByText("Loading…")).toBeTruthy();
+  locale("zh-CN"); expect(screen.getByText("加载中…")).toBeTruthy();
+  await act(async () => { finish({ items: [], nextCursor: null }); });
+  locale("en");
+  expect(screen.getByTestId("workflow-run-list-empty")).toHaveTextContent("No runs yet");
+  expect(screen.getByTestId("workflow-run-list-empty-agents")).toHaveAttribute("href", "/agents");
+  expect(screen.getByTestId("workflow-run-list-empty-chat")).toHaveAttribute("href", "/chat");
+  expect(api.list).toHaveBeenCalledTimes(1);
+});
+it("uses structured built-in keys and preserves unknown names and raw member text", () => {
+  expect(workflowDisplayName("W029", undefined, "en")).toBe("Problem to PRD");
+  expect(workflowDisplayName("W029")).toBe("问题定义到 PRD");
+  expect(workflowDisplayName("custom-key", "原文 {title}", "en")).toBe("原文 {title}");
+  expect(memberLabel("me", "me", new Map([["me", "原文 {name}"]]), "en")).toBe("原文 {name} (me)");
+  expect(memberLabel("former", "me", new Map(), "en")).toBe("Former organization member");
+  expect(memberLabel("former", "me", new Map())).toBe("已离开组织的成员");
+});

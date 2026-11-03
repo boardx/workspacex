@@ -1,3 +1,5 @@
+import type { Locale } from "./i18n/locale";
+import { translate, type MessageKey } from "./i18n/messages";
 /**
  * 内置工作流 —— 面向用户的中文显示名单源（运行详情页 + 工作流权限页共用）。
  *
@@ -12,34 +14,39 @@ interface WorkflowName {
   readonly name: string;
 }
 
-const WORKFLOWS: readonly WorkflowName[] = [
-  { workflowId: "W001", key: "research-to-brief", name: "研究到简报" },
-  { workflowId: "W002", key: "meeting-to-actions", name: "会议纪要转行动项" },
-  { workflowId: "W027", key: "discovery-to-opportunity", name: "探索发现到机会评估" },
-  { workflowId: "W028", key: "research-to-insight", name: "用户研究到洞察" },
-  { workflowId: "W029", key: "problem-to-prd", name: "问题定义到 PRD" },
-  { workflowId: "W030", key: "prd-to-sprint", name: "PRD 到迭代计划" },
-  { workflowId: "W031", key: "experiment-loop", name: "实验闭环" },
-  { workflowId: "W032", key: "roadmap-review", name: "路线图评审" },
+const WORKFLOWS: readonly { workflowId: string; key: string; nameKey: MessageKey }[] = [
+  { workflowId: "W001", key: "research-to-brief", nameKey: "workflows.builtin.research-to-brief" },
+  { workflowId: "W002", key: "meeting-to-actions", nameKey: "workflows.builtin.meeting-to-actions" },
+  { workflowId: "W027", key: "discovery-to-opportunity", nameKey: "workflows.builtin.discovery-to-opportunity" },
+  { workflowId: "W028", key: "research-to-insight", nameKey: "workflows.builtin.research-to-insight" },
+  { workflowId: "W029", key: "problem-to-prd", nameKey: "workflows.builtin.problem-to-prd" },
+  { workflowId: "W030", key: "prd-to-sprint", nameKey: "workflows.builtin.prd-to-sprint" },
+  { workflowId: "W031", key: "experiment-loop", nameKey: "workflows.builtin.experiment-loop" },
+  { workflowId: "W032", key: "roadmap-review", nameKey: "workflows.builtin.roadmap-review" },
   // 批次 2（key 与 `BATCH2_WORKFLOW_SLOTS` 逐项核对；Definition 见 API definitions/{shared,operations}）。
-  { workflowId: "W003", key: "decision-to-execution", name: "决策到执行" },
-  { workflowId: "W004", key: "weekly-executive-digest", name: "高管周报" },
-  { workflowId: "W007", key: "issue-to-resolution", name: "问题到解决" },
-  { workflowId: "W052", key: "request-to-project", name: "请求到项目" },
-  { workflowId: "W053", key: "weekly-pmo-review", name: "PMO 周度复核" },
-  { workflowId: "W055", key: "process-improvement", name: "流程改进" },
-  { workflowId: "W056", key: "incident-to-postmortem", name: "事件到复盘" },
+  { workflowId: "W003", key: "decision-to-execution", nameKey: "workflows.builtin.decision-to-execution" },
+  { workflowId: "W004", key: "weekly-executive-digest", nameKey: "workflows.builtin.weekly-executive-digest" },
+  { workflowId: "W007", key: "issue-to-resolution", nameKey: "workflows.builtin.issue-to-resolution" },
+  { workflowId: "W052", key: "request-to-project", nameKey: "workflows.builtin.request-to-project" },
+  { workflowId: "W053", key: "weekly-pmo-review", nameKey: "workflows.builtin.weekly-pmo-review" },
+  { workflowId: "W055", key: "process-improvement", nameKey: "workflows.builtin.process-improvement" },
+  { workflowId: "W056", key: "incident-to-postmortem", nameKey: "workflows.builtin.incident-to-postmortem" },
 ];
 
 /** 按 workflowKey 或 workflowId（大小写不敏感）找到内置工作流；找不到返回 null。 */
-export function findBuiltinWorkflow(keyOrId: string): WorkflowName | null {
+function builtinRecord(keyOrId: string) {
   const q = keyOrId.trim().toLowerCase();
   return WORKFLOWS.find((w) => w.key === q || w.workflowId.toLowerCase() === q) ?? null;
 }
+export function findBuiltinWorkflow(keyOrId: string): WorkflowName | null {
+  const w = builtinRecord(keyOrId);
+  return w ? { workflowId: w.workflowId, key: w.key, name: translate("zh-CN", w.nameKey) } : null;
+}
 
 /** 工作流显示名：优先中文名，其次目录 title，最后才是 key。 */
-export function workflowDisplayName(keyOrId: string, fallbackTitle?: string): string {
-  return findBuiltinWorkflow(keyOrId)?.name ?? fallbackTitle ?? keyOrId;
+export function workflowDisplayName(keyOrId: string, fallbackTitle?: string, locale: Locale = "zh-CN"): string {
+  const w = builtinRecord(keyOrId);
+  return w ? translate(locale, w.nameKey) : fallbackTitle ?? keyOrId;
 }
 
 const RUN_TITLE_ID = /^\s*(W\d{3})\b\s*([^·:：]*?)\s*(?=[·:：]|$)/i;
