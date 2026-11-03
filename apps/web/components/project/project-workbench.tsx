@@ -550,7 +550,7 @@ export function ProjectWorkbench({
             className="-mx-6 mt-0 flex flex-wrap items-center gap-2.5 border-t border-border bg-panel px-6 py-2"
           >
             <Badge tone={ROLE_BADGE_TONE[view]} data-testid="project-role-badge">{t("projectWorkbench.roleView", { role: t(`projectWorkbench.role.${view}`) })}</Badge>
-            <span className="min-w-0 flex-1 text-11 leading-relaxed text-muted-foreground">{t(`projectWorkbench.note.${view}`)}</span>
+            <span data-testid="project-scope-description" className="order-last min-w-0 basis-full text-11 leading-relaxed text-muted-foreground md:order-none md:basis-0 md:flex-1">{t(`projectWorkbench.note.${view}`)}</span>
             {canWrite
               ? <span className="shrink-0 font-mono text-9 text-success" data-testid="project-scope-can-write">{t("projectWorkbench.canWrite")}</span>
               : <span className="shrink-0 font-mono text-9 text-muted-foreground" data-testid="project-scope-readonly">{t("projectWorkbench.readOnly")}</span>}

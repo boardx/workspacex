@@ -15,7 +15,7 @@ async function pictures(page: Page, name: string) {
   for(const width of [375,1280]){
     await page.setViewportSize({width,height:900});
     for(const id of ["project-title","project-back-to-list","project-tabs"]){const box=await page.getByTestId(id).boundingBox();expect(box,id).not.toBeNull();expect(box!.x,id).toBeGreaterThanOrEqual(0);expect(box!.x+box!.width,id).toBeLessThanOrEqual(width+1);}
-    const role=page.getByTestId("project-role-switcher");if(await role.count()){const box=await role.boundingBox();expect(box!.x+box!.width).toBeLessThanOrEqual(width+1);}
+    const role=page.getByTestId("project-role-switcher");if(await role.count()){const box=await role.boundingBox();expect(box!.x+box!.width).toBeLessThanOrEqual(width+1);const description=await page.getByTestId("project-scope-description").boundingBox();if(width===375){const note=await page.getByTestId("project-role-scope-note").boundingBox();expect(description!.width,"mobile role explanation uses a readable full row").toBeGreaterThanOrEqual(note!.width*0.8);}}
     await page.screenshot({path:`test-results/project-workbench-${name}-${width}-en.png`,fullPage:true});
   }
 }
