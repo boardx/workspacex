@@ -1,7 +1,7 @@
 [stack-admission] load1=3.55 cores=10 perCore=0.35 running=0/2
 [stack-admission] 排到了，等了 0s
 [test-isolation] id=run-mw0zsb4x-9ed34afd-86ed8d2a6ee6 db=wsx_86ed8d2a6ee60195c48d compose=wsx-86ed8d2a6ee60195c48d pg=20114 redis=21114 api=24114 web=25114 sandbox=26114 model=27114 deep-agent=28114 asr=29114 vision=30114 loopback-sandbox=31114 mail=19114
- Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building 
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Building
 #1 [internal] load local bake definitions
 #1 reading from stdin 672B done
 #1 DONE 0.0s
@@ -37,27 +37,27 @@
 
 #8 resolving provenance for metadata file
 #8 DONE 0.0s
- Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built 
- Network wsx-86ed8d2a6ee60195c48d_default Creating 
- Network wsx-86ed8d2a6ee60195c48d_default Created 
- Container wsx-86ed8d2a6ee60195c48d-postgres-1 Creating 
- Container wsx-86ed8d2a6ee60195c48d-minio-1 Creating 
- Container wsx-86ed8d2a6ee60195c48d-redis-1 Creating 
- Container wsx-86ed8d2a6ee60195c48d-minio-1 Created 
- Container wsx-86ed8d2a6ee60195c48d-postgres-1 Created 
- Container wsx-86ed8d2a6ee60195c48d-redis-1 Created 
- Container wsx-86ed8d2a6ee60195c48d-postgres-1 Starting 
- Container wsx-86ed8d2a6ee60195c48d-redis-1 Starting 
- Container wsx-86ed8d2a6ee60195c48d-minio-1 Starting 
- Container wsx-86ed8d2a6ee60195c48d-redis-1 Started 
- Container wsx-86ed8d2a6ee60195c48d-minio-1 Started 
- Container wsx-86ed8d2a6ee60195c48d-postgres-1 Started 
- Container wsx-86ed8d2a6ee60195c48d-postgres-1 Waiting 
- Container wsx-86ed8d2a6ee60195c48d-minio-1 Waiting 
- Container wsx-86ed8d2a6ee60195c48d-redis-1 Waiting 
- Container wsx-86ed8d2a6ee60195c48d-minio-1 Healthy 
- Container wsx-86ed8d2a6ee60195c48d-redis-1 Healthy 
- Container wsx-86ed8d2a6ee60195c48d-postgres-1 Healthy 
+ Image localhost/workspacex-postgres-age:pg16-age1.6.0 Built
+ Network wsx-86ed8d2a6ee60195c48d_default Creating
+ Network wsx-86ed8d2a6ee60195c48d_default Created
+ Container wsx-86ed8d2a6ee60195c48d-postgres-1 Creating
+ Container wsx-86ed8d2a6ee60195c48d-minio-1 Creating
+ Container wsx-86ed8d2a6ee60195c48d-redis-1 Creating
+ Container wsx-86ed8d2a6ee60195c48d-minio-1 Created
+ Container wsx-86ed8d2a6ee60195c48d-postgres-1 Created
+ Container wsx-86ed8d2a6ee60195c48d-redis-1 Created
+ Container wsx-86ed8d2a6ee60195c48d-postgres-1 Starting
+ Container wsx-86ed8d2a6ee60195c48d-redis-1 Starting
+ Container wsx-86ed8d2a6ee60195c48d-minio-1 Starting
+ Container wsx-86ed8d2a6ee60195c48d-redis-1 Started
+ Container wsx-86ed8d2a6ee60195c48d-minio-1 Started
+ Container wsx-86ed8d2a6ee60195c48d-postgres-1 Started
+ Container wsx-86ed8d2a6ee60195c48d-postgres-1 Waiting
+ Container wsx-86ed8d2a6ee60195c48d-minio-1 Waiting
+ Container wsx-86ed8d2a6ee60195c48d-redis-1 Waiting
+ Container wsx-86ed8d2a6ee60195c48d-minio-1 Healthy
+ Container wsx-86ed8d2a6ee60195c48d-redis-1 Healthy
+ Container wsx-86ed8d2a6ee60195c48d-postgres-1 Healthy
 [fullstack-fixture] recording thread=thread-466-4x-9ed34afd-86ed8d2a6ee6 title=FULLSTACK_RECORDING_THREAD_4x-9ed34afd-86ed8d2a6ee6
 [fullstack-fixture] db=wsx_86ed8d2a6ee60195c48d project=project-fullstack-4x-9ed34afd-86ed8d2a6ee6 sentinel=FULLSTACK_SENTINEL_4x-9ed34afd-86ed8d2a6ee6.md
 [workflow-runs-i18n-fixture] org=org-workflow-runs-4x-9ed34afd-86ed8d2a6ee6 persisted=3 actorOwned=2 execution=not-tested
