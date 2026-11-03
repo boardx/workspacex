@@ -16,7 +16,7 @@ All three screenshots were inspected: populated administrator page at 1280, memb
 
 Browser scope `wsx-6e155bc0d29e14734da1` and seed scope `wsx-86ed8d2a6ee60195c48d` each had zero remaining containers after cleanup. The shared heavy window was explicitly released. The local browser uses the existing project's precise `--grep` selection; unconditional CI project selection remains unchanged.
 
-PR publication is pending Nav #6201's actual merge and integration of fresh develop with zero inherited Nav delta. Local green does not replace source CI, native candidate checks or the main coordinator's merge authority.
+Nav #6201 actually merged at `2026-11-03T18:33:10Z` as `c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc` (candidate 57 successful / 15 skipped / zero failed). Fresh main/develop were fetched and develop integrated in `6cd502308ce5b5aed6f16839263889a359e2bd7b`. A byte comparison confirms no web/API source changes from the already-verified tree, and the develop PR diff contains only profile implementation/tests/fixture/evidence, with no inherited Nav delta. Normal push/publication await the shared window; source CI and native-candidate checks remain separate from local proof and the main coordinator retains merge authority.
 
 ```mermaid
 flowchart LR

@@ -39,5 +39,13 @@
     "branchEvidence": "executed conditional assertions and initial-off/final-on screenshots; local list reporter does not persist testInfo JSON attachment"
   },
   "navDependencyPr": 6201,
-  "prPublication": "pending actual Nav merge and merge of fresh develop"
+  "prPublication": "pending coordinated normal push; source CI and native candidate remain separate",
+  "navIntegration": {
+    "actualMergedAt": "2026-11-03T18:33:10Z",
+    "actualMergeCommit": "c49fee15b89f2621d8ceaa582ef6a9c0f6c931cc",
+    "developIntegratedCommit": "6cd502308ce5b5aed6f16839263889a359e2bd7b",
+    "fetchedMainAndDevelop": true,
+    "webApiByteComparisonToVerifiedTreeExit": 0,
+    "inheritedNavFilesInPrDiff": []
+  }
 }

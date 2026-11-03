@@ -10,4 +10,4 @@ Read-only profile empty-patch load and existing save/avatar/name-refresh paths r
 
 Root-owned10 meaningful tests: first8 actualRED7.30s, extra2 actualRED3.12s. Existing declarations/API modules/provider/count queries are preserved. Real browser must prove admin/member boundaries and raw draft/save/reload, including attached controls where the actual isolated capability permits it. A valid seeded standing grant is prerequisite data, not evidence that HITL approval creation was tested. No API/runtime/permission or CI optimization changes.
 
-The source branch explicitly depends on unmerged Nav PR6201 to reuse canonical keys. Do not publish a develop PR containing unmerged Nav source; merge actual develop after its real merge first. Same sole worktree, no worktree creation.
+The source branch initially depended on Nav PR6201 to reuse canonical keys. Do not publish a develop PR containing unmerged Nav source; merge actual develop after its real merge first. That prerequisite was fulfilled by integrating actual merge c49fee15 in 6cd50230, with no inherited Nav delta or web/API source change from the verified tree. Same sole worktree, no worktree creation.
