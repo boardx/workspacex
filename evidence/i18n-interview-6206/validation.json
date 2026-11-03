@@ -348,5 +348,26 @@
     "exitCode": 0,
     "rawLogLocalPath": "/tmp/6206-professional-testids.log",
     "rawLogSha256": "4f374367280164632e0148a92d121e5a424731d2b263a3d2130270c8a714d381"
+  },
+  "outline-green": {
+    "name": "outline-green",
+    "exitCode": 0,
+    "seconds": 15.55,
+    "rawLogLocalPath": "/tmp/6206-outline-green.log",
+    "rawLogSha256": "d10caa993f3feda9547e6856512374a6ad873e79c3f00f4b3d20944165fc5b1d"
+  },
+  "outline-type": {
+    "name": "outline-type",
+    "exitCode": 0,
+    "seconds": 9.79,
+    "rawLogLocalPath": "/tmp/6206-outline-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "outline-eslint": {
+    "name": "outline-eslint",
+    "exitCode": 0,
+    "seconds": 1.84,
+    "rawLogLocalPath": "/tmp/6206-outline-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
   }
 }

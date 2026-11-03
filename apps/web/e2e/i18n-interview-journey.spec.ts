@@ -44,6 +44,22 @@ test("interview locale preserves the real private-profile, canonical six-step an
           })).toBe(true);
         }
       }
+      if (new URL(page.url()).pathname.endsWith("/outline")) {
+        const outline = page.getByTestId("itv-markdown-outline");
+        for (const panel of await outline.locator("aside, article").all()) {
+          const box = await panel.boundingBox(); expect(box).not.toBeNull();
+          expect(box!.x).toBeGreaterThanOrEqual(8); expect(box!.x + box!.width).toBeLessThanOrEqual(width - 8);
+          expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+        }
+        for (const heading of await outline.locator("article h3").all()) {
+          expect(await heading.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+        }
+      }
+      for (const button of await page.getByTestId("itv-step-actions").getByRole("button").all()) {
+        const box = await button.boundingBox(); expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(8); expect(box!.x + box!.width).toBeLessThanOrEqual(width - 8);
+        expect(await button.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      }
       const dialog = page.getByRole("dialog");
       if (await dialog.count()) {
         const box = await dialog.boundingBox(); expect(box).not.toBeNull();
@@ -151,7 +167,7 @@ test("interview locale preserves the real private-profile, canonical six-step an
   }, { timeout: 60_000 }).toBe(true);
   const saved = await readSource(); const report = saved.documents.find(document => document.step === "report")!;
   // The active professional stream binds source documents and versions. It does
-  // not provide per-answer locators; the separate grounded-model lane covers those.
+  // not provide per-answer locators; the separate grounded helper tests cover those.
   expect(report.references.map(({ anchor, documentId, version }) => ({ anchor, documentId, version }))).toEqual(expectedReferences);
   expect(report.markdown).toMatch(/^# 确定性测试模型的模拟研究报告/);
   expect(report.contentHash).toBe(createHash("sha256").update(report.markdown).digest("hex"));
