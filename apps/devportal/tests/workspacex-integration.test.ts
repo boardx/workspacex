@@ -95,7 +95,9 @@ describe("WorkSpaceX DevPortal deployment boundary (#450)", () => {
 
   it("validates pull requests and deploys only WorkSpaceX main to the existing Pages project", () => {
     expect(deployWorkflow).toContain("pull_request:");
-    expect(deployWorkflow).toContain("github.event_name == 'push'");
+    expect(deployWorkflow).toContain("workflow_dispatch:");
+    expect(deployWorkflow).toContain("github.event_name == 'workflow_dispatch'");
+    expect(deployWorkflow).not.toMatch(/^  push:/m);
     expect(cutoverScript).toContain('const PROJECT = "devportal"');
     expect(cutoverScript).toContain('const CUSTOM_ORIGIN = "https://develop.boardx.us"');
     expect(cutoverScript).toContain(
