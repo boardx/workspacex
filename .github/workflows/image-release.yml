@@ -19,8 +19,6 @@ on:
       source_revision:
         type: string
         default: ''
-  push:
-    branches: [develop]
   workflow_dispatch:
     inputs:
       environment:
@@ -54,10 +52,9 @@ permissions:
 
 jobs:
   plan:
-    # develop auto-deploys DevApp; main/CN and main-us/US require manual dispatch.
+    # All image builds and deployments require an explicit manual dispatch.
     # Legacy source deployment is retired in backend-gates in this same commit.
     if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/develop') ||
       (github.event_name == 'workflow_dispatch' &&
        (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main-us' || inputs.build_only ||
         (inputs.environment == 'cn' && github.ref_type == 'branch')))
@@ -218,15 +215,6 @@ jobs:
       cancel-in-progress: false
     steps:
       # No checkout or sudo execution of checkout code on production.
-      - name: Reject an automatic release superseded while its images built
-        if: github.event_name == 'push'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EXPECTED_SOURCE: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          actual=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$GITHUB_REF_NAME" --jq .object.sha)
-          test "$actual" = "$EXPECTED_SOURCE" || { echo 'Automatic release superseded by a newer push'; exit 1; }
       - name: Show requested immutable image tag
         env:
           TARGET_ENVIRONMENT: ${{ needs.plan.outputs.target }}
