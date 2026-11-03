@@ -264,6 +264,7 @@ export const zhCN = {
   ...adminNavigationZhCN,
   ...studioResearchZhCN,
   ...researchZhCN,
+  ...interviewZhCN,
 } as const;
 
 import { codeFenceZhCN } from "../namespaces/code-fence";
@@ -272,3 +273,5 @@ import { chatShareZhCN } from "../namespaces/chat-share";
 import { studioResearchZhCN } from "../namespaces/studio-research";
 
 import { researchZhCN } from "../namespaces/research";
+
+import { interviewZhCN } from "../namespaces/interview";

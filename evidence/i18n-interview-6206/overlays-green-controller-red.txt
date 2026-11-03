@@ -1,0 +1,43 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/interview-controller-i18n.test.tsx (5 tests | 4 failed) 245ms
+   × localizes setup loading and failure without replaying its pending identity read 29ms
+     → Unable to find an element with the text: Recovering interview draft…. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × localizes setup loading and failure without replaying its pending identity read 29ms
+   × retranslates planning failures without retrying initialization until requested 93ms
+   × retains a pending canonical save and exact Markdown payload through language changes 79ms
+   × keeps a cached sync failure semantic so it can retranslate without another request 7ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-controller-i18n.test.tsx > localizes setup loading and failure without replaying its pending identity read
+TestingLibraryElementError: Unable to find an element with the text: Recovering interview draft…. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ FAIL  tests/ui/interview-controller-i18n.test.tsx > retranslates planning failures without retrying initialization until requested
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/interview-controller-i18n.test.tsx > retains a pending canonical save and exact Markdown payload through language changes
+Error: expect(element).toHaveTextContent()
+ FAIL  tests/ui/interview-controller-i18n.test.tsx > keeps a cached sync failure semantic so it can retranslate without another request
+Error: expect(element).toHaveTextContent()
+ Test Files  1 failed | 4 passed (5)
+      Tests  4 failed | 21 passed (25)
+   Duration  10.03s (transform 1.58s, setup 502ms, collect 4.18s, tests 1.77s, environment 2.69s, prepare 213ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+Received:
+  最新访谈数据同步失败，已显示的内容保留。
+ ❯ tests/ui/interview-controller-i18n.test.tsx:48:44
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
+ Test Files  1 failed | 4 passed (5)
+      Tests  4 failed | 21 passed (25)
+   Start at  03:47:59
+   Duration  10.03s (transform 1.58s, setup 502ms, collect 4.18s, tests 1.77s, environment 2.69s, prepare 213ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx tests/ui/interview-overlays-i18n.test.tsx tests/ui/interview-controller-i18n.test.tsx --maxWorkers=1 --minWorkers=1
