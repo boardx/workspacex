@@ -3,6 +3,9 @@ import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
+import { orgMembersEn } from "../namespaces/org-members";
+import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
+import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 export const en: Record<keyof typeof zhCN, string> = {
   ...controlsEn,
   ...projectListEn,
@@ -238,5 +241,8 @@ export const en: Record<keyof typeof zhCN, string> = {
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",
   "common.http.failure": "The request failed. Please try again later.",
-  "home.artifacts.one": "{count} artifact"
+  "home.artifacts.one": "{count} artifact",
+  ...orgMembersEn,
+  ...orgMembersPreviewEn,
+  ...orgSharedInvitesEn,
 };
