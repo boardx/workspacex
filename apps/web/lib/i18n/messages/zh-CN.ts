@@ -1,24 +1,24 @@
 import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
-import { orgMembersZhCN } from "../namespaces/org-members";
-import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
-import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
 import { projectListZhCN } from "../namespaces/project-list";
 import { profileZhCN } from "../namespaces/profile";
 import { aboutMemoryZhCN } from "../namespaces/about-memory";
+import { orgMembersZhCN } from "../namespaces/org-members";
+import { orgMembersPreviewZhCN } from "../namespaces/org-members-preview";
+import { orgSharedInvitesZhCN } from "../namespaces/org-shared-invites";
 import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 export const zhCN = {
   ...zhTasks,
   ...zhFailures,
   ...controlsZhCN,
-  ...orgMembersZhCN,
-  ...orgMembersPreviewZhCN,
-  ...orgSharedInvitesZhCN,
   ...projectListZhCN,
   ...profileZhCN,
   ...aboutMemoryZhCN,
+  ...orgMembersZhCN,
+  ...orgMembersPreviewZhCN,
+  ...orgSharedInvitesZhCN,
   ...stateZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
