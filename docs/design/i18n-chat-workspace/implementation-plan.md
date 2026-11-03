@@ -40,9 +40,9 @@
 
 **Files:** copilotkit-v2-panel-body.tsx, newcopilotkit-v2-panel-view.tsx,chat-task-workbench-capability-picker.tsx,chat-composer-* anddisplayhelpers/namespace; existingvoice/attachment/permission UItests plusnewprovidercontinuitycases.
 **Interfaces:** typedpureviewpropscarryexistingstate/handlers/contextvalues; controllermemoidentityunchanged; useI18n inviewonly, semanticdisplayreasonsinsteadlocale-dependentrequestcallbacks.
-- [ ] PinnewENlabel anddraft/caret/voice/upload/permission/no-remount REDcases.
-- [ ] RunactualRED inreservedshortwindow.
-- [ ] Extractpresentationtree andlocalizecomposer/pickers/attachment/voice/realtime chrome; preserveallwire values andgates.
+- [x] PinnewENlabel anddraft/caret/voice/upload/permission/no-remount REDcases.
+- [x] RunactualRED inreservedshortwindow.
+- [x] Extractpresentationtree andlocalizecomposer/pickers/attachment/voice/realtime chrome; preserveallwire values andgates.
 - [ ] Verifycontrollerlinebudgetandexistingcriticalvoice/HITL/runrestoration suites, commit.
 
 ### Task 3: Messages, tools, run/queue and actions

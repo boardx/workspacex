@@ -12,11 +12,11 @@ const listing: CapabilityListing = {
 it("localizes the real picker search and automatic option without changing the selection payload", () => {
   const select=vi.fn();
   render(<I18nProvider initialLocale="en"><SwitchLanguage/><CapabilityCardList listings={[listing]} selectedAgentId={null} onSelect={select}/></I18nProvider>);
-  const search=screen.getByRole("textbox",{name:"Search digital humans"});
+  const search=screen.getByRole("searchbox",{name:"Search digital humans"});
   expect(screen.getByRole("option",{name:/Automatic matching/}).getAttribute("aria-selected")).toBe("true");
   fireEvent.change(search,{target:{value:"用户"}});
   fireEvent.click(screen.getByRole("button",{name:"switch language"}));
-  expect(screen.getByRole("textbox",{name:"搜索数字人"})).toBe(search);
+  expect(screen.getByRole("searchbox",{name:"搜索数字人"})).toBe(search);
   expect((search as HTMLInputElement).value).toBe("用户");
   expect(select).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("option",{name:/用户数字人 🌍/}));

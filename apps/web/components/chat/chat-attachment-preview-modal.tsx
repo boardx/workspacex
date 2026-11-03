@@ -21,6 +21,7 @@ import { createPortal } from "react-dom";
 import { Download } from "lucide-react";
 import { Modal } from "@/components/files/overlay";
 import { Button } from "@/components/ui/button";
+import { useI18n } from "@/lib/i18n/provider";
 import { formatBytes } from "@/lib/chat-attachment-format";
 import type { ChatAttachment } from "@/lib/live-chat";
 import { ChatAttachmentView, type AttachmentViewHandle } from "./chat-attachment-view";
@@ -38,6 +39,7 @@ export function ChatAttachmentPreviewModal({
   attachment: ChatAttachment;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   // 与 `ChatAttachMaterialModal` 同一处置：Modal 壳是 `absolute inset-0`，贴最近定位祖先——
   // 消息列表本身是 `relative` 容器，直接挂会被困在气泡里，需要 portal 到 body。
   const [mounted, setMounted] = React.useState(false);
@@ -62,7 +64,7 @@ export function ChatAttachmentPreviewModal({
                 按钮，与共享组件 `ChatAttachMaterialModal` 的 `-cancel` 命名同一套约定，
                 避免和 Modal 自带的 close 撞 testid（真实撞过一次，2026-08-19 实测）。 */}
             <Button type="button" size="sm" variant="ghost" data-testid="chat-attachment-preview-dismiss" onClick={onClose}>
-              关闭
+              {t("common.close")}
             </Button>
             <Button
               type="button" size="sm" variant="primary" asChild
@@ -73,7 +75,7 @@ export function ChatAttachmentPreviewModal({
                   失败（src 为 null）时按钮禁用，不给一个点了没反应的死链接。 */}
               <a href={src ?? undefined} download={attachment.filename}>
                 <Download aria-hidden className="h-3.5 w-3.5" />
-                下载
+                {t("chatAttachments.download")}
               </a>
             </Button>
           </>

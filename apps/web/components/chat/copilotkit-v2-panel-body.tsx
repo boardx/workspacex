@@ -54,7 +54,6 @@ import { type AssistantMessageLandingValue } from "@/components/chat/copilotkit-
 import { announceToChat } from "@/components/chat/chat-live-announcer";
 
 import { useAguiFileEvents } from "@/lib/agui-file-events";
-import { type LocalSuggestionChip } from "@/components/chat/copilotkit-v2-assistant-message";
 import { useAguiPlanTodos } from "@/lib/agui-plan-todos";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import { useAsrDraft } from "@/lib/use-asr-draft";
@@ -63,7 +62,6 @@ import { useAudioInputDevices } from "@/lib/use-audio-input-devices";
 
 
 import { useComposerVoiceSession } from "@/lib/use-composer-voice-session";
-import { useAsrDraft } from "@/lib/use-asr-draft";
 
 import { createVoiceThreadLifecycle, mergePersistedVoiceTurns } from "@/components/chat/chat-realtime-voice-entry";
 

@@ -61,3 +61,17 @@ it("localizes a real oversized-file preflight notice and preserves the supplied 
   expect(screen.getByRole("alert")).toBe(alert);expect(alert.textContent).toContain("超过单文件");
   expect(alert.textContent).toContain(name);expect(upload).not.toHaveBeenCalled();
 });
+it("retranslates a persisted removal conflict without repeating cancellation or changing the raw attachment",async()=>{
+  upload.mockResolvedValue(remote);
+  cancel.mockRejectedValue(new ApiError(409,"ATTACHMENT_ALREADY_SENT","private removal diagnostics"));
+  mount();pick(pdf(remote.filename));
+  await waitFor(()=>expect(screen.getByTestId("server-ids").textContent).toBe('["server-row-raw"]'));
+  fireEvent.click(screen.getByRole("button",{name:"Remove attachment 用户附件 🌍.pdf"}));
+  const failure=await screen.findByText("This attachment has already been sent and cannot be removed.");
+  expect(cancel).toHaveBeenCalledWith("thread-raw","server-row-raw","unit-fixture-bearer");
+  fireEvent.click(screen.getByRole("button",{name:"switch language"}));
+  expect(failure.textContent).toBe("附件已随消息发送，无法移除。");
+  expect(screen.getByText(remote.filename)).toBeTruthy();
+  expect(cancel).toHaveBeenCalledTimes(1);expect(upload).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText("private removal diagnostics")).toBeNull();
+});

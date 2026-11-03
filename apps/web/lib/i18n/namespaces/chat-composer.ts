@@ -1,4 +1,7 @@
 export const chatComposerZhCN = {
+  "chatComposer.voiceListeningHint.one": "文字实时写入输入框 · 已 {count} 字 · 说完点「停止」，检查后再发送",
+  "chatComposer.voicePausedHint.one": "已转录 {count} 字 · 继续录音会接在后面",
+  "chatComposer.voiceTranscribed.one": "已转录 {count} 字",
   "chatComposer.skillsUnavailable": "技能（{reason}）",
   "chatComposer.skillsMounted": "技能（已挂 {count} 个，也可在输入框敲 /）",
   "chatComposer.running": "正在执行",
@@ -80,6 +83,9 @@ export const chatComposerZhCN = {
   "chatComposer.autoPauseDelay": "静音 {seconds} 秒后",
 } as const;
 export const chatComposerEn: Record<keyof typeof chatComposerZhCN, string> = {
+  "chatComposer.voiceListeningHint.one": "Text appears in the message field · {count} character · Select Stop when finished, then review before sending",
+  "chatComposer.voicePausedHint.one": "Transcribed {count} character · Further recording will be appended",
+  "chatComposer.voiceTranscribed.one": "Transcribed {count} character",
   "chatComposer.skillsUnavailable": "Skills ({reason})",
   "chatComposer.skillsMounted": "Skills ({count} mounted; or type / in the message field)",
   "chatComposer.running": "Executing",

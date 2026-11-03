@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { agentDisplayName, agentDisplayNameByAvatar } from "@/lib/agent-directory";
-const avatar = { kind:"illustration" as const,key:"dh-03-product-manager",alt:"" };
+const avatar = { kind:"illustration" as const,key:"dh-03-product-manager" as const,alt:"" };
 it("uses the existing authored English name only for a recognized official role", () => {
   const source={ name:"产品经理",catalogSource:"official" as const,avatar };
   expect(agentDisplayName(source,"en")).toBe("Product Manager");

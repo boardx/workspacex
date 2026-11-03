@@ -1,4 +1,8 @@
 export const chatPickerZhCN = {
+  "chatPicker.enabledCount.one": "已启用 {count} 位官方数字人",
+  "chatPicker.enabledFlows.one": "，可发起 {count} 个流程",
+  "chatPicker.unknownFlows.one": "另有 {count} 个流程",
+  "chatPicker.totalFlows.one": "共 {count} 个流程",
   "chatPicker.enableCount": "一键启用 {count} 位",
   "chatPicker.memoryShort": "仅本对话",
   "chatPicker.memoryFull": "记忆范围：仅本对话",
@@ -91,6 +95,10 @@ export const chatPickerZhCN = {
   "chatPicker.enableOfficials": "启用官方数字人",
 } as const;
 export const chatPickerEn: Record<keyof typeof chatPickerZhCN, string> = {
+  "chatPicker.enabledCount.one": "Enabled {count} official digital human",
+  "chatPicker.enabledFlows.one": ", with {count} available workflow",
+  "chatPicker.unknownFlows.one": "{count} other workflow",
+  "chatPicker.totalFlows.one": "{count} workflow",
   "chatPicker.enableCount": "Enable all ({count})",
   "chatPicker.memoryShort": "This conversation only",
   "chatPicker.memoryFull": "Memory: This conversation only",
