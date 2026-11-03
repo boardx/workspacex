@@ -480,12 +480,12 @@ test("workflow grant management persists canonical permissions and audit across 
       if (state === "workflow") await focused.scrollIntoViewIfNeeded();
       if (state === "capability") await page.getByTestId("workflow-grant-row-artifact.write").scrollIntoViewIfNeeded();
       if (state === "audit") await page.getByTestId("workflow-grants-audit").scrollIntoViewIfNeeded();
-      if (state === "dialog") {
+      if (state === "dialog" || state === "revoke") {
         const modal = page.getByTestId("workflow-grant-dialog");
         await modal.hover();
         await page.mouse.wheel(0, -5000);
         await expect(modal.getByRole("heading")).toBeInViewport({ ratio: 1 });
-        await page.screenshot({ path: testInfo.outputPath("workflow-grants-dialog-top-" + width + ".png") });
+        await page.screenshot({ path: testInfo.outputPath("workflow-grants-" + state + "-top-" + width + ".png") });
         await revealDialogFooter();
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -549,7 +549,7 @@ test("workflow grant management persists canonical permissions and audit across 
   await capture("audit");
   await artifact.getByTestId("workflow-grant-edit").click();
   await page.getByTestId("workflow-grant-level-read").check();
-  await revealDialogFooter();
+  await capture("revoke");
   const beforeRevokeEventIds = new Set(persisted.audit.map(event => event.eventId));
   const revoked = page.waitForResponse(response => response.request().method() === "DELETE" && new URL(response.url()).pathname === itemPath);
   await page.getByTestId("workflow-grant-confirm").click();

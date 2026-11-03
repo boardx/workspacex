@@ -104,7 +104,7 @@ export function WorkflowGrantDialog({
 
         {error ? <p role="alert" className="text-12 text-destructive">{error}</p> : null}
 
-        <DialogFooter className="flex justify-end gap-2">
+        <DialogFooter className="flex flex-wrap justify-end gap-2">
           <Button variant="outline" onClick={onCancel} disabled={busy} data-testid="workflow-grant-cancel">{t("workflowGrants.cancel")}</Button>
           <Button
             variant={revoking ? "destructive" : "primary"}
