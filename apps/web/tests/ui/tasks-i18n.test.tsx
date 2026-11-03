@@ -1,0 +1,76 @@
+import * as React from "react";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { ApiError } from "@/lib/api-client";
+import { I18nProvider } from "@/lib/i18n/provider";
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
+import type { GetMyTodayOut, RenderedTaskCard } from "@/lib/live-tasks";
+const api = vi.hoisted(() => ({ projects: vi.fn(), today: vi.fn(), list: vi.fn(), create: vi.fn(), change: vi.fn() }));
+const session = { sessionToken: "test-session", userId: "me", currentOrgId: "org", orgIds: ["org"], expiresAt: "2099-01-01T00:00:00Z" };
+vi.mock("@/components/session/session-provider", () => ({ useSession: () => ({ status: "authenticated", session }) }));
+vi.mock("@/lib/live-projects", () => ({ listProjects: api.projects }));
+vi.mock("@/lib/live-tasks", () => ({ getMyToday: api.today, listTasks: api.list, createTask: api.create, changeTaskStatus: api.change }));
+import { TodayBoardLive } from "@/components/tasks/today-board-live";
+const card: RenderedTaskCard = { id: "task", title: "原文 {title}", status: "in_progress", sourceKind: "手工创建", ownerUserId: "me", executor: { kind: "agent", id: "原文 {Agent}" }, dueAt: "2026-12-31T12:00:00Z", riskLevel: "R2", waitingOn: "原文 {Person}", syncStatus: "out_of_sync", projectId: "project" };
+const today: GetMyTodayOut = { sections: { awaiting_my_judgment: [], my_push_today: [card], ai_running_for_me: [], waiting_on_others: [] }, summary: { sampleSufficient: false, aiCompletedCount: 1, label: "样本不足", waitingAuthzCount: 0, waitingAuthzKnown: false } };
+function show() { return render(<I18nProvider initialLocale="en"><LanguageSwitcher /><TodayBoardLive /></I18nProvider>); }
+function locale(value: "en" | "zh-CN") { fireEvent.change(screen.getByTestId("language-switcher"), { target: { value } }); }
+beforeEach(() => { vi.clearAllMocks(); api.projects.mockResolvedValue([{ id: "project", kind: "workshop" }]); api.today.mockResolvedValue(today); api.list.mockResolvedValue({ cards: [] }); });
+afterEach(cleanup);
+it("retranslates task copy/date and retains raw fields and the unsaved create draft without reloading", async () => {
+  show(); await screen.findByTestId("tasks-live-card-task");
+  expect(screen.getByRole("heading", { name: "My today" })).toBeTruthy();
+  expect(screen.getByTestId("tasks-live-card-task")).toHaveTextContent("12/31/2026");
+  expect(screen.getByTestId("tasks-executor-badge")).toHaveTextContent("原文 {Agent}");
+  expect(screen.getByTestId("tasks-waiting-on")).toHaveTextContent("原文 {Person}");
+  expect(screen.getByTestId("tasks-summary-low-sample-demo")).toHaveTextContent("AI completed 1 task today");
+  fireEvent.click(screen.getByTestId("tasks-new-task-live"));
+  fireEvent.change(screen.getByTestId("tasks-new-task-title"), { target: { value: "  草稿 {count}  " } });
+  fireEvent.change(screen.getByTestId("tasks-new-task-due"), { target: { value: "2026-12-31" } });
+  fireEvent.change(screen.getByTestId("tasks-new-task-risk"), { target: { value: "R3" } });
+  locale("zh-CN");
+  expect(screen.getByRole("heading", { name: "我的今天" })).toBeTruthy();
+  expect(screen.getByTestId("tasks-live-card-task")).toHaveTextContent("原文 {title}");
+  expect(screen.getByTestId("tasks-new-task-title")).toHaveValue("  草稿 {count}  ");
+  expect(screen.getByTestId("tasks-new-task-due")).toHaveValue("2026-12-31");
+  expect(screen.getByTestId("tasks-new-task-risk")).toHaveValue("R3");
+  locale("en");
+  expect(screen.getByTestId("tasks-new-task-title")).toHaveValue("  草稿 {count}  ");
+  expect(api.projects).toHaveBeenCalledTimes(1); expect(api.today).toHaveBeenCalledTimes(1); expect(api.list).toHaveBeenCalledTimes(1);
+  expect(api.create).not.toHaveBeenCalled(); expect(api.change).not.toHaveBeenCalled();
+});
+it("preserves the original create payload and retranslates a stored failure without resubmitting", async () => {
+  api.create.mockRejectedValue(new ApiError(500, "DEPENDENCY_UNAVAILABLE", {}));
+  show(); await screen.findByTestId("tasks-live-card-task");
+  fireEvent.click(screen.getByTestId("tasks-new-task-live"));
+  fireEvent.change(screen.getByTestId("tasks-new-task-title"), { target: { value: "  原文 {task}  " } });
+  fireEvent.change(screen.getByTestId("tasks-new-task-risk"), { target: { value: "R1" } });
+  fireEvent.click(screen.getByTestId("tasks-new-task-submit"));
+  await waitFor(() => expect(screen.getByTestId("tasks-new-task-error")).toHaveTextContent("The service is temporarily unavailable"));
+  locale("zh-CN");
+  expect(screen.getByTestId("tasks-new-task-error")).toHaveTextContent("服务暂时不可用，稍后再试一次");
+  expect(screen.getByTestId("tasks-new-task-title")).toHaveValue("  原文 {task}  ");
+  expect(screen.getByTestId("tasks-new-task-submit")).toBeEnabled();
+  expect(api.create).toHaveBeenCalledTimes(1);
+  expect(api.create).toHaveBeenCalledWith({ projectId: "project", title: "原文 {task}", ownerUserId: "me", dueAt: null, riskLevel: "R1" });
+});
+it("keeps forward/backward enums and the existing audit reason; failure prefixes update live", async () => {
+  api.change.mockRejectedValue(new TypeError("private network details"));
+  show(); await screen.findByTestId("tasks-live-card-task");
+  fireEvent.click(screen.getByTestId("tasks-live-advance-task"));
+  await waitFor(() => expect(screen.getByTestId("tasks-live-error")).toHaveTextContent("Could not advance"));
+  expect(api.change).toHaveBeenLastCalledWith("task", "review");
+  locale("zh-CN"); expect(screen.getByTestId("tasks-live-error")).toHaveTextContent("推进失败");
+  expect(screen.getByTestId("tasks-live-error")).not.toHaveTextContent("private network details");
+  fireEvent.click(screen.getByTestId("tasks-live-block-task"));
+  await waitFor(() => expect(api.change).toHaveBeenLastCalledWith("task", "todo", "退回上一步"));
+  locale("en"); expect(screen.getByTestId("tasks-live-error")).toHaveTextContent("Could not return");
+  expect(api.change).toHaveBeenCalledTimes(2);
+});
+it("retranslates a failed secondary list read without replaying it or losing the today cards", async () => {
+  api.list.mockRejectedValue(new ApiError(429, null, {}));
+  show(); await screen.findByTestId("tasks-live-card-task");
+  await waitFor(() => expect(screen.getByTestId("tasks-live-other-tasks")).toHaveTextContent("Could not load other tasks"));
+  locale("zh-CN"); expect(screen.getByTestId("tasks-live-other-tasks")).toHaveTextContent("未能读取其他任务");
+  expect(api.list).toHaveBeenCalledTimes(1); expect(screen.getByTestId("tasks-live-card-task")).toHaveTextContent("原文 {title}");
+});

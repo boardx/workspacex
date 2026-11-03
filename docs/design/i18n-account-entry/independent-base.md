@@ -9,3 +9,7 @@ On the independent base, 41 auth/resource/provider cases passed. The existing CI
 ## Actual develop integration after queue conflict
 
 Synchronized actual develop dec5223e5 after GitHub reported DIRTY. Only two dictionary aggregator conflicts; retain develop resources plus accountEntry. All four account components, namespace and tests unchanged from reviewed786a815. Merge candidateb2b2f4e9d exact review: no findings. Fresh41 distinct cases (23core +13registration/email +5resources) and public browser2/2 (19.6s, CI=1 no reuse), UI wiring pass. Public proof retains existing bounded invalid-response/no-successful-registration boundary. Next dev added only its generated types include; inspected and restored that generated tsconfig change before normal gates. Port30494 dynamically has no listener. Fresh evidence uses develop-*; new-head CI still required.
+
+## Actual develop bbc63 conflict repair
+
+Merged develop bbc63c39a970b246ea2e1e6a399b828d36a6b793 into dd193193957319879d78a028abc9ecedee3a0ec4. Exactly two dictionary conflicts, resolved from actual base plus accountEntry end import/spread, preserving task/failure resources. Eight owned source/test blobs unchanged. Fresh selected auth/resource regressions and dictionary ESLint exited0; bbc-* logs record exact counts and elapsed time. Previous public-browser results remain historical unchanged-source evidence. No valid registration/email-delivery proof is added. Normal push and new-head CI remain required.

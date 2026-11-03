@@ -1,0 +1,9 @@
+test_actual_web_workspace_next_resolution_without_inherited_bin (test_cn_release_six_next_launch.NextLaunch) ... ok
+test_github_pnpm_in_separate_node_modules_bin_survives_test_path_sanitization (test_cn_release_six_next_launch.NextLaunch) ... ok
+test_production_build_and_runtime_artifact_contract (test_cn_release_six_next_launch.NextLaunch) ... ok
+test_real_server_worker_exit_observations (test_cn_release_six_next_launch.NextLaunch) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.038s
+
+OK

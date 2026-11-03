@@ -1,0 +1,9 @@
+8 own source/test blobs unchanged from dd193193957319879d78a028abc9ecedee3a0ec4. Both dictionaries reconstructed from actual develop bbc63 + accountEntry end import/spread.
+apps/web/components/entry/email-verification.tsx
+apps/web/components/entry/metamorphosis.tsx
+apps/web/components/entry/registration.tsx
+apps/web/components/entry/reset-password.tsx
+apps/web/e2e/i18n-entry.spec.ts
+apps/web/lib/i18n/namespaces/account-entry.ts
+apps/web/tests/ui/account-entry-i18n.test.tsx
+apps/web/tests/ui/reset-password.test.tsx

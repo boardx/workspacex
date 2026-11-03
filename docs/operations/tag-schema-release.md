@@ -4,8 +4,11 @@ Issue: #6079. Incident: #6078, CN run 41260346236 and US run 41260523328.
 
 ## Behavior
 
-Production still consumes the same develop-built immutable tag and digests. It
-never rebuilds images on CN or US. A canonical environment lock covers planning,
+Production can consume the same develop-built immutable tag and digests. A supplied
+tag always skips the build. Since #6150, a manual CN dispatch without a tag can
+also build the selected branch's frozen exact SHA on GitHub-hosted runners, then
+deploy its new run-attempt tag to CN. US still requires an existing tag. No image
+build runs on a production host. A canonical environment lock covers planning,
 any admitted full release, verification and pointer commit.
 
 The consumer resolves/pulls the API image first and compares actual migration

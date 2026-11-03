@@ -1,0 +1,11 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/packages/contracts
+
+ ✓ tests/entity-localization-pack.test.ts (7 tests) 8ms
+ ✓ tests/entity-localization.test.ts (14 tests) 7ms
+
+ Test Files  2 passed (2)
+      Tests  21 passed (21)
+   Start at  08:41:29
+   Duration  1.81s (transform 953ms, setup 0ms, collect 1.45s, tests 16ms, environment 0ms, prepare 97ms)
+
