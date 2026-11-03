@@ -75,7 +75,7 @@ def release(root,tag,adapter):
   atomic(root/'config/versions.json',{'attempt':str(attempt),'current':candidate,'previous':baseline})
   published=True
   atomic(root/'previous/release.json',baseline);atomic(root/'current/release.json',candidate)
-  result={**context,'status':'SUCCEEDED','stage':'complete','database':database}
+  result={**context,'status':'SUCCEEDED','stage':'complete','database':database,'verification':'runtime-readiness'}
   atomic(attempt/'result.json',result);active.unlink();return result
  except Exception as error:
   code=str(error)

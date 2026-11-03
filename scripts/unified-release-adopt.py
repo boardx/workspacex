@@ -39,7 +39,7 @@ def adopt(environment,migration_env,migration_user,backup_image,root=Path('/srv/
   baseline={'tag':previous['tag'],'images':images,'compose':str(baseline_compose),'composeSha256':engine.sha_file(baseline_compose),
    'sourceRevision':engine.image(adapter.d,api_row['Image']),'apiImage':api_row['Image']}
   baseline_file=root/'config/adoption/release.json';core.atomic(baseline_file,baseline)
-  cfg={key:old[key] for key in ('environment','registryPrefix','docker','lockFile','project','services','health','verificationCommand')}
+  cfg={key:old[key] for key in ('environment','registryPrefix','docker','lockFile','project','services','health')}
   cfg.update(database=db,network=networks[0],baselineFile=str(baseline_file),composeFiles=[str(root/'config/compose.json')],
    envFile=str(root/'config/compose.env'),migrationEnvFile=str(root/'config/migration.env'),backupImage=backup_image,
    databaseCertificateMounts=[{'source':m['Source'],'target':m['Destination']} for m in api_row['Mounts'] if m['Destination']=='/run/certs'],

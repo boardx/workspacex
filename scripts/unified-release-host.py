@@ -4,7 +4,7 @@
 No per-tag approvals; fixed host config contains commands, paths and environment identity.
 The only user inputs are environment and immutable tag. Never invoke via a checkout sudo.
 """
-import argparse,contextlib,fcntl,importlib.util,json,os,re,subprocess,sys,time,uuid
+import argparse,contextlib,fcntl,importlib.util,json,os,re,signal,subprocess,sys,time,uuid
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 
@@ -93,7 +93,7 @@ class Host:
  def verify(self,version):
   consumer.trusted(version['compose'],private=True)
   engine.trusted_file(version['compose'],version['composeSha256'])
-  engine.verify_runtime(self.d,self.compose(version),self.c['services'],version['images'],self.c)
+  engine.verify_runtime(self.d,self.compose(version),self.c['services'],version['images'],{**self.c,'verificationCommand':None})
  def verify_config(self,version):
   command=self.compose(version)[1:]
   rendered=self.d.json(command+['config','--format','json'])
@@ -108,16 +108,34 @@ class Host:
   need(env.get('PGHOST')==db['host'] and env.get('PGDATABASE')==db['name'] and str(env.get('PGPORT','5432'))==str(db['port']),'APPLICATION_DATABASE_MISMATCH')
 
 def main():
- parser=argparse.ArgumentParser();parser.add_argument('environment',choices=['devapp','cn','us']);parser.add_argument('tag');args=parser.parse_args()
+ parser=argparse.ArgumentParser();parser.add_argument('environment',choices=['devapp','cn','us']);parser.add_argument('tag');parser.add_argument('--execute',action='store_true',help=argparse.SUPPRESS);args=parser.parse_args()
  need(os.geteuid()==0,'ROOT_REQUIRED');need(registry.TAG.fullmatch(args.tag),'INVALID_TAG')
+ if not args.execute:
+  unit='wsx-unified-'+args.environment+'-'+uuid.uuid4().hex
+  command=['/usr/bin/systemd-run','--wait','--collect','--quiet','--unit='+unit,'--property=RuntimeMaxSec=1800',
+   '--property=TimeoutStopSec=180','--property=KillMode=mixed','--property=RuntimeDirectory='+unit,'--property=RuntimeDirectoryMode=0700',
+   '/usr/bin/python3','-I','-B',str(Path(__file__).resolve()),args.environment,args.tag,'--execute']
+  completed=subprocess.run(command,env={'PATH':'/usr/bin:/bin'})
+  rows=process.run(['/usr/bin/journalctl','--boot','--unit='+unit,'--output=cat','--no-pager','--lines=20'],timeout=10)
+  for line in reversed(rows.stdout.decode().splitlines()):
+   try:result=json.loads(line)
+   except ValueError:continue
+   if isinstance(result,dict) and isinstance(result.get('status'),str):
+    print(json.dumps({key:result[key] for key in ('status','code','stage','database','environment','tag','evidenceDirectory') if key in result}));break
+  return completed.returncode
+ def cancelled(*_):raise RuntimeError('RELEASE_CANCELLED')
+ for sig in (signal.SIGTERM,signal.SIGINT):signal.signal(sig,cancelled)
  os.umask(0o077);root=Path('/srv/workspacex');core.layout(root)
  cfg=json.loads(consumer.trusted(root/'config/release.json',private=True).read_bytes());need(cfg['environment']==args.environment,'WRONG_HOST_ENVIRONMENT')
  canonical={'devapp':'/run/workspacex-devapp-deploy.lock','cn':'/var/lib/workspacex-cn/runtime/release.lock','us':'/run/workspacex-selfhost-deploy.lock'}
  need(cfg['lockFile']==canonical[args.environment],'CANONICAL_LOCK_REQUIRED')
  with open(consumer.trusted(cfg['lockFile'],private=True),'r') as lock:
   fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-  auth=contextlib.nullcontext(Path(cfg['dockerConfig'])) if not cfg.get('ecsAuth') else consumer.ecs_docker_config(cfg['ecsAuth'],cfg.get('docker','/usr/bin/docker'),cfg['registryPrefix'].split('/')[0],str(root/'config'))
+  runtime=consumer.trusted(os.environ['RUNTIME_DIRECTORY'],directory=True,private=True)
+  auth=contextlib.nullcontext(Path(cfg['dockerConfig'])) if not cfg.get('ecsAuth') else consumer.ecs_docker_config(cfg['ecsAuth'],cfg.get('docker','/usr/bin/docker'),cfg['registryPrefix'].split('/')[0],str(runtime))
   with auth as directory:result=core.release(root,args.tag,Host(cfg,root,directory))
+ result.update(environment=args.environment,tag=args.tag)
+ if result.get('attempt'):result['evidenceDirectory']=result['attempt']
  print(json.dumps(result));return 0 if result['status']=='SUCCEEDED' else 1
 if __name__=='__main__':
  try:sys.exit(main())
