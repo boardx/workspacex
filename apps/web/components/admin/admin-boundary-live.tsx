@@ -34,7 +34,7 @@ import {
  * 那需要新的签核，而 F163 的全部价值就是「不新增契约地把已有的真数接上」。
  */
 export function AdminBoundaryLive() {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const orgId = useOptionalSession()?.session?.currentOrgId ?? null;
   const [counts, setCounts] = React.useState<
     { userId: string; displayName: string; itemCount: number }[] | null
@@ -90,7 +90,7 @@ export function AdminBoundaryLive() {
             <span className="text-12 font-medium">{t("adminMemberQuotas.privateLayer")}</span>
             {error && (
               <span className="text-11 text-destructive" data-testid="admin-boundary-counts-failed">
-                {t("adminMemberQuotas.privateFailed", { error: memberFailure(error.cause, t) })}
+                {t("adminMemberQuotas.privateFailed", { error: memberFailure(error.cause, locale) })}
               </span>
             )}
             {!error && counts === null && <span className="text-11 text-muted-foreground">{t("adminMemberQuotas.loading")}</span>}

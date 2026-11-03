@@ -1,4 +1,4 @@
-import { ApiError } from "./api-client";
+import { describeFailure } from "./design-failure";
 import type { Locale } from "./i18n/locale";
 import type { MessageKey, MessageParams } from "./i18n/messages";
 
@@ -12,16 +12,8 @@ export function formatMemberTokens(n: number, locale: Locale): string {
   return n.toLocaleString();
 }
 
-export function memberFailure(error: unknown, t: MemberTranslator): string {
-  if (error instanceof ApiError) {
-    if (error.status === 401 || error.status === 403) return t("common.http.auth");
-    if (error.status === 404) return t("common.http.notFound");
-    if (error.status === 429) return t("common.http.rateLimit");
-    if (error.status >= 500) return t("common.http.server");
-    return t("common.http.failure");
-  }
-  if (error instanceof TypeError) return t("failures.network");
-  return t("failures.unknown");
+export function memberFailure(error: unknown, locale: Locale = "zh-CN"): string {
+  return describeFailure(error, locale);
 }
 
 const roleKeys = {

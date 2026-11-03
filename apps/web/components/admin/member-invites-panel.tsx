@@ -69,7 +69,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
     } catch (err) {
       if (!current()) return;
       // 失败就说失败，不退回 mock 名单——一屏看起来正常但人是假的，比一条错误消息危险得多。
-      setLoadError(() => (t) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, t));
+      setLoadError(() => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
       return;
     }
     try {
@@ -84,7 +84,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
         setInvites(null);
         return;
       }
-      setLoadError(() => (t) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, t));
+      setLoadError(() => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.orgMissing") : memberFailure(err, locale));
     }
   }, [orgId]);
 
@@ -101,7 +101,7 @@ function OrgMemberInvitesPanel({ orgId }: { orgId: string }) {
       await load();
     } catch (err) {
       if (!mounted.current) return;
-      setToast(() => (t) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.inviteMissing") : t("adminMemberQuotas.resendFailed", { error: memberFailure(err, t) }));
+      setToast(() => (t, locale) => err instanceof ApiError && err.status === 404 ? t("adminMemberQuotas.inviteMissing") : t("adminMemberQuotas.resendFailed", { error: memberFailure(err, locale) }));
     } finally {
       if (mounted.current) setBusyId(null);
     }

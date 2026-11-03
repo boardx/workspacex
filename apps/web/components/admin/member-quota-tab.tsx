@@ -73,7 +73,7 @@ export function MemberQuotaTab() {
       setData(await getTokenQuotas(orgId));
     } catch (err) {
       // 失败就说失败，不退回 mock 数字——一屏看起来正常但数字是假的，比一条错误消息危险得多。
-      setLoadError(() => (currentT) => memberFailure(err, currentT));
+      setLoadError(() => (_t, locale) => memberFailure(err, locale));
     }
   }, [orgId]);
 
@@ -98,7 +98,7 @@ export function MemberQuotaTab() {
       setSaveError(() => (t, locale) =>
         code === "QUOTA_OVERALLOCATED" && typeof detail?.remainingTokens === "number"
           ? t("adminMemberQuotas.remainingError", { amount: formatMemberTokens(detail.remainingTokens, locale) })
-          : memberFailure(err, t),
+          : memberFailure(err, locale),
       );
     }
   };
@@ -119,7 +119,7 @@ export function MemberQuotaTab() {
       setSaveError(() => (t, locale) =>
         code === "BUDGET_BELOW_ALLOCATED" && typeof detail?.allocated === "number"
           ? t("adminMemberQuotas.allocatedError", { amount: formatMemberTokens(detail.allocated, locale) })
-          : memberFailure(err, t),
+          : memberFailure(err, locale),
       );
     }
   };

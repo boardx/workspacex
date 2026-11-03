@@ -174,7 +174,7 @@ function AdminHeaderQuota({ orgId }: { orgId: string | null }) {
       )}
       {quota.kind === "error" && (
         <span className="text-11 text-destructive" data-testid="admin-header-quota-error">
-          {t("adminCommon.headerFailed", { error: memberFailure(quota.message, t) })}
+          {t("adminCommon.headerFailed", { error: memberFailure(quota.message, locale) })}
         </span>
       )}
       {quota.kind === "unset" && (

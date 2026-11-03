@@ -141,6 +141,19 @@ it("localizes denied invitation visibility without pretending an unread list is 
   expect(await screen.findByTestId("admin-members-invites-denied")).toHaveTextContent("Only organization administrators can view pending invitations");
   expect(screen.getByTestId("admin-members-roster-count")).not.toHaveTextContent("Pending invitations: 0"); toggle(); expect(api.listOrgInvites).toHaveBeenCalledTimes(1);
 });
+it.each([new ApiError(502, "PRIVATE_INVITE_CODE", { message: "private invitation body" }), new Error("private invitation exception")])("keeps unknown invitation failures safe and translatable without closing the edited form: %s", async failure => {
+  api.inviteOrgMember.mockRejectedValue(failure); render(<MemberInvitesPanel />, { wrapper: Locale });
+  fireEvent.click(await screen.findByTestId("admin-members-invite-open"));
+  const form = screen.getByTestId("admin-members-invite-dialog");
+  fireEvent.change(screen.getByTestId("org-admin-invite-email"), { target: { value: "invite-draft@example.test" } });
+  fireEvent.submit(screen.getByTestId("org-admin-invite-form"));
+  const toast = await screen.findByTestId("admin-members-toast");
+  expect(toast).not.toHaveTextContent(/PRIVATE_INVITE_CODE|private invitation/); expect(toast).toHaveTextContent(/try again|retry|unavailable/i);
+  toggle();
+  expect(toast).not.toHaveTextContent(/PRIVATE_INVITE_CODE|private invitation/); expect(toast).toHaveTextContent(/重试|再试|不可用/);
+  expect(within(form).getByRole("textbox")).toHaveValue("invite-draft@example.test");
+  expect(api.inviteOrgMember).toHaveBeenCalledTimes(1);
+});
 it("preserves private-layer counts and raw access-log references while translating only the boundary explanation", async () => {
   render(<AdminBoundaryLive />, { wrapper: Locale });
   const row = await screen.findByTestId("admin-member-private-user-raw"); expect(row).toHaveTextContent(rawName); expect(row).toHaveTextContent("Private entries: 7"); expect(row).toHaveTextContent("Content hidden");
