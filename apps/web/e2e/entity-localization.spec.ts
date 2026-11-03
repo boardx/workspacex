@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { ENTITY_LOCALIZATION_E2E } from "./entity-localization-fixture";
-import { agentRole } from "@repo/contracts";
+import { agentRole, homeConfig, orgAdmin, skills } from "@repo/contracts";
 import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
 import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
 
@@ -429,4 +429,216 @@ test("shared admin sidebars retain routes, scope and live counts across locale c
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(page.getByTestId("shell-left-panel")).toBeHidden();
   await expect(page.getByTestId("admin-platform-members-forbidden")).toBeVisible();
+});
+
+
+test("organization home configuration preserves drafts, real previews and recommendation snapshots across locales", async ({ page, browser }, testInfo) => {
+  // Same multi-account write/reload budget as the other private-tenant journeys.
+  test.setTimeout(120_000);
+  await login(page, true);
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  const headers = await authorization(page);
+  const orgId = ENTITY_LOCALIZATION_E2E.orgId;
+  const scopedPath = (path: string) => "/__fullstack_api" + path.replace(":orgId", encodeURIComponent(orgId));
+  const homePath = scopedPath(homeConfig.operations.getHomeConfig.path);
+  const bannerPath = scopedPath(homeConfig.operations.uploadHomeBanner.path);
+  const avatarPath = scopedPath(orgAdmin.operations.uploadOrgAvatar.path);
+  const orgPath = scopedPath(orgAdmin.operations.updateOrganization.path);
+  const directoryPath = "/__fullstack_api" + agentRole.operations.listAgentDirectory.path;
+  const skillsPath = "/__fullstack_api" + skills.operations.listSkills.path;
+  const currentResponse = await page.request.get(homePath, { headers });
+  expect(currentResponse.status()).toBe(200);
+  const before = homeConfig.HomeConfig.parse(await currentResponse.json());
+  // Populate recommendations through actual installation APIs, never seeded outcomes.
+  const offerResponse = await page.request.get("/__fullstack_api" + agentRole.operations.getOfficialRolePackOffer.path, { headers });
+  expect(offerResponse.status()).toBe(200);
+  const offer = agentRole.OfficialRolePackOffer.parse(await offerResponse.json());
+  for (const pack of offer.requiredSkillPacks) {
+    const installed = await page.request.post("/__fullstack_api/admin/skills/starter-pack-imports", {
+      headers, data: { ...pack, idempotencyKey: randomUUID() },
+    });
+    expect(installed.status(), await installed.text()).toBe(201);
+  }
+  const installed = await page.request.post("/__fullstack_api/admin/agents/starter-pack-imports", {
+    headers, data: { packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: randomUUID() },
+  });
+  expect(installed.status(), await installed.text()).toBe(201);
+  const directoryResponse = await page.request.get(directoryPath, { headers });
+  expect(directoryResponse.status()).toBe(200);
+  const agent = agentRole.operations.listAgentDirectory.out.parse(await directoryResponse.json()).items[0];
+  expect(agent).toBeDefined();
+  const skillsResponse = await page.request.get(skillsPath, { headers, params: { orgId, entry: "library" } });
+  expect(skillsResponse.status()).toBe(200);
+  // This adapter status is a stable filter value, independent of display locale.
+  const skill = skills.operations.listSkills.out.parse(await skillsResponse.json()).items.find(item => item.status === "已启用");
+  expect(skill).toBeDefined();
+
+  const reads = { config: 0, agents: 0, skills: 0 };
+  let bannerPosts = 0, threadPosts = 0;
+  page.on("request", request => {
+    const url = new URL(request.url());
+    if (request.method() === "GET" && url.pathname === homePath) reads.config++;
+    if (request.method() === "GET" && url.pathname === directoryPath) reads.agents++;
+    if (request.method() === "GET" && url.pathname === skillsPath && url.searchParams.get("entry") === "library") reads.skills++;
+    if (request.method() === "POST" && url.pathname === bannerPath) bannerPosts++;
+    if (request.method() === "POST" && url.pathname.endsWith("/threads")) threadPosts++;
+  });
+  await page.goto("/org-admin/home-config");
+  await expect(page.getByRole("heading", { name: "Home configuration", exact: true })).toBeVisible();
+  await expect(page.getByTestId("home-config-agents")).toBeHidden();
+  await expect(page.getByTestId("home-config-quick-actions")).toBeHidden();
+  const title = "品牌原文 {name} " + randomUUID().slice(0, 6);
+  const headline = "横幅原文 {count}";
+  const tagline = "副标题原文 {description}\nSecond line stays authored.";
+  await page.getByTestId("home-config-title").fill(title);
+  await page.getByTestId("home-config-banner-headline").fill(headline);
+  await page.getByTestId("home-config-banner-tagline").fill(tagline);
+  const png = await page.evaluate(() => {
+    const canvas = document.createElement("canvas"); canvas.width = 32; canvas.height = 32;
+    const ctx = canvas.getContext("2d")!; ctx.fillStyle = "#345678"; ctx.fillRect(0, 0, 32, 32);
+    return canvas.toDataURL("image/png").split(",")[1]!;
+  });
+  const image = Buffer.from(png, "base64");
+  const logoUploaded = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === avatarPath);
+  const logoApplied = page.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === orgPath);
+  await page.getByTestId("home-logo-file").setInputFiles({ name: "Logo原文 {file}.png", mimeType: "image/png", buffer: image });
+  const logoResponse = await logoUploaded; expect(logoResponse.ok()).toBe(true);
+  const logo = orgAdmin.operations.uploadOrgAvatar.out.parse(await logoResponse.json());
+  expect(new URL(logoResponse.request().url()).searchParams.get("filename")).toBe("Logo原文 {file}.png");
+  const appliedResponse = await logoApplied; expect(appliedResponse.status()).toBe(200);
+  expect(appliedResponse.request().postDataJSON()).toEqual({ orgId, avatarArtifactId: logo.orgAvatarArtifactId });
+  const organization = orgAdmin.operations.updateOrganization.out.parse(await appliedResponse.json());
+  expect(organization.avatarUrl).not.toBeNull();
+  const storedLogo = await page.request.get("/__fullstack_api" + organization.avatarUrl!, { headers });
+  expect(storedLogo.status()).toBe(200); expect(await storedLogo.body()).toEqual(image);
+  await expect(page.getByTestId("home-config-theme").locator("img")).toHaveJSProperty("naturalWidth", 32);
+  const primary = "#1a2b3c";
+  await page.getByLabel("Primary color value", { exact: true }).fill(primary);
+  await page.getByTestId("home-config-banner-preset-custom").click();
+  await page.getByTestId("home-config-banner-color-input").fill(primary);
+  const rejected = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === bannerPath);
+  await page.getByTestId("home-config-banner-file-input").setInputFiles({ name: "invalid.png", mimeType: "image/png", buffer: Buffer.from("not an image") });
+  expect((await rejected).ok()).toBe(false);
+  await expect(page.getByTestId("home-config-banner-upload-error")).toContainText("Only PNG, JPEG, and WebP images are supported.");
+  const postsBeforeLocale = bannerPosts;
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(page.getByTestId("home-config-banner-upload-error")).not.toContainText("Only PNG");
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  await expect(page.getByTestId("home-config-banner-upload-error")).toContainText("Only PNG");
+  expect(bannerPosts).toBe(postsBeforeLocale);
+  const uploaded = page.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === bannerPath);
+  await page.getByTestId("home-config-banner-file-input").setInputFiles({ name: "横幅原文 {file}.png", mimeType: "image/png", buffer: image });
+  const uploadResponse = await uploaded; expect(uploadResponse.ok()).toBe(true);
+  const banner = homeConfig.operations.uploadHomeBanner.out.parse(await uploadResponse.json());
+  expect(new URL(uploadResponse.request().url()).searchParams.get("filename")).toBe("横幅原文 {file}.png");
+  const storedBanner = await page.request.get("/__fullstack_api" + banner.bannerImageUrl, { headers });
+  expect(storedBanner.status()).toBe(200); expect(await storedBanner.body()).toEqual(image);
+
+  await page.getByTestId("home-config-tab-content").click();
+  for (const item of before.recommendedAgents) await page.getByTestId("home-config-agent-remove-" + item.agentId).click();
+  for (const item of before.recommendedCapabilities) await page.getByTestId("home-config-remove-" + item.kind + "-" + item.refId).click();
+  await page.getByRole("button", { name: "Add agent", exact: true }).click();
+  const agentChoice = page.getByTestId("home-config-picker-agent-" + agent!.agentId);
+  await expect(agentChoice).toHaveText(agent!.name); await agentChoice.click();
+  const agentNote = "数字人备注原文 {note}";
+  await page.getByTestId("home-config-agent-note-" + agent!.agentId).fill(agentNote);
+  await page.getByRole("button", { name: "Add skill", exact: true }).click();
+  const skillChoice = page.getByTestId("home-config-picker-skill-" + skill!.skillId);
+  await expect(skillChoice).toHaveText(skill!.name); await skillChoice.click();
+  const skillNote = "Skill备注原文 {note}";
+  await page.getByTestId("home-config-recommendation-note-skill-" + skill!.skillId).fill(skillNote);
+  const readsBeforeLocale = { ...reads };
+  expect(Object.values(readsBeforeLocale).every(count => count > 0)).toBe(true);
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  await expect(page.getByTestId("home-config-tab-content")).toHaveAttribute("aria-selected", "true");
+  await expect(agentChoice).toHaveText("Added · " + agent!.name); await expect(agentChoice).toBeDisabled();
+  await expect(skillChoice).toHaveText("Added · " + skill!.name); await expect(skillChoice).toBeDisabled();
+  await expect(page.getByTestId("home-config-agent-note-" + agent!.agentId)).toHaveValue(agentNote);
+  expect(reads).toEqual(readsBeforeLocale);
+
+  const capture = async (label: string, tab: "edit" | "content" | "layout" | "preview", section: string) => {
+    await expect(page).toHaveURL(/\/org-admin\/home-config$/);
+    for (const width of [375, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.getByTestId("home-config-tabs").scrollIntoViewIfNeeded();
+      await expect(page.getByTestId("home-config-tab-" + tab)).toHaveAttribute("aria-selected", "true");
+      expect(await page.getByTestId("home-config-tabs").evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+      for (const button of await page.getByTestId("home-config-tabs").getByRole("tab").all()) {
+        expect(await button.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.getByTestId(section).scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath("home-config-" + label + "-" + width + ".png"), fullPage: true });
+    }
+  };
+  await expect(page.getByTestId("home-config-theme")).toBeHidden();
+  await expect(page.getByTestId("home-config-quick-actions")).toBeHidden();
+  await capture("content", "content", "home-config-agents");
+  await page.getByTestId("home-config-tab-layout").click();
+  await expect(page.getByTestId("home-config-theme")).toBeHidden();
+  await expect(page.getByTestId("home-config-agents")).toBeHidden();
+  await page.getByTestId("home-config-quick-action-chat").uncheck();
+  await capture("layout", "layout", "home-config-quick-actions");
+  await page.getByTestId("home-config-tab-edit").click();
+  await expect(page.getByTestId("home-config-title")).toHaveValue(title);
+  await expect(page.getByTestId("home-config-banner-tagline")).toHaveValue(tagline);
+  await expect(page.getByLabel("Primary color value", { exact: true })).toHaveValue(primary);
+  await capture("theme", "edit", "home-config-theme");
+  await capture("banner", "edit", "home-config-banner-section");
+  await page.getByTestId("home-config-tab-preview").click();
+  const frame = page.getByTestId("home-config-preview-frame");
+  await expect(frame).toHaveAttribute("inert");
+  await expect(frame).toHaveAttribute("aria-label", "Home page preview");
+  await expect(frame).toContainText(title); await expect(frame).toContainText(headline);
+  const requestsBeforePreview = threadPosts;
+  const previewLink = frame.locator("a").first();
+  await expect(previewLink).toBeAttached();
+  expect(await previewLink.evaluate(element => { (element as HTMLElement).focus(); return document.activeElement === element; })).toBe(false);
+  await page.getByTestId("home-config-preview-back").focus(); await page.keyboard.press("Tab");
+  expect(await frame.evaluate(element => element.contains(document.activeElement))).toBe(false);
+  expect(threadPosts).toBe(requestsBeforePreview);
+  await capture("preview", "preview", "home-config-preview");
+  await page.setViewportSize({ width: 820, height: 900 });
+  await page.screenshot({ path: testInfo.outputPath("home-config-preview-820.png"), fullPage: true });
+  const saved = page.waitForResponse(response => response.request().method() === "PUT" && new URL(response.url()).pathname === homePath);
+  await page.getByTestId("home-config-preview-save").click();
+  const saveResponse = await saved; expect(saveResponse.status()).toBe(200);
+  const payload = homeConfig.operations.updateHomeConfig.in.omit({ orgId: true }).parse(saveResponse.request().postDataJSON());
+  expect(payload).toMatchObject({
+    title, bannerHeadline: headline, bannerTagline: tagline, bannerPreset: "custom", bannerColor: primary,
+    bannerImageArtifactId: banner.bannerImageArtifactId, themeColors: { primary },
+    recommendedAgents: [{ agentId: agent!.agentId, name: agent!.name, roleLabel: agent!.roleLabel, avatarKey: agent!.avatar?.key ?? null, note: agentNote }],
+    recommendedCapabilities: [{ kind: "skill", refId: skill!.skillId, name: skill!.name, note: skillNote }],
+  });
+  expect(payload.quickActions.find(item => item.key === "chat")?.enabled).toBe(false);
+  await expect(page.getByTestId("home-config-preview-status")).toHaveText("Saved");
+  await page.getByTestId("language-switcher").first().selectOption("zh-CN");
+  await expect(page.getByTestId("home-config-preview-status")).toHaveText("已保存");
+  await page.getByTestId("language-switcher").first().selectOption("en");
+  await page.reload(); await expect(page.getByTestId("home-config-title")).toHaveValue(title);
+  const persisted = homeConfig.HomeConfig.parse(await (await page.request.get(homePath, { headers })).json());
+  expect(persisted).toMatchObject({ title, bannerHeadline: headline, bannerTagline: tagline, bannerColor: primary, themeColors: { primary } });
+  expect(persisted.recommendedAgents).toEqual(payload.recommendedAgents);
+  expect(persisted.recommendedCapabilities).toEqual(payload.recommendedCapabilities);
+
+  const memberContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  try {
+    const member = await memberContext.newPage(); await login(member, false);
+    const memberHeaders = await authorization(member);
+    const readable = await member.request.get(homePath, { headers: memberHeaders });
+    expect(readable.status()).toBe(200); expect(homeConfig.HomeConfig.parse(await readable.json())).toEqual(persisted);
+    const forbidden = await member.request.put(homePath, { headers: memberHeaders, data: { ...payload, title: "Unauthorized edit" } });
+    expect(forbidden.status()).toBe(403);
+    expect(homeConfig.HomeConfig.parse(await (await page.request.get(homePath, { headers })).json())).toEqual(persisted);
+    await member.goto("/org-admin/home-config"); await member.getByTestId("language-switcher").first().selectOption("en");
+    await expect(member.getByTestId("home-config-screen").getByRole("alert")).toContainText("Only organization administrators can configure the home page.");
+    await expect(member.getByTestId("home-config-form")).toHaveCount(0);
+    await member.screenshot({ path: testInfo.outputPath("home-config-member-denied.png"), fullPage: true });
+    await member.goto("/home");
+    await expect(member.getByTestId("home-screen")).toContainText(title);
+    await expect(member.getByTestId("home-screen")).toContainText(agent!.name);
+    await expect(member.getByTestId("home-screen")).toContainText(skill!.name);
+    await member.screenshot({ path: testInfo.outputPath("home-config-member-home.png"), fullPage: true });
+  } finally { await memberContext.close(); }
 });
