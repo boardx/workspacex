@@ -4,6 +4,8 @@
  * 审计表 / 审批抽屉等要把内部 userId 换成人名的地方共用。读失败时返回空表，调用方走兜底文案。
  */
 import * as React from "react";
+import type { Locale } from "./i18n/locale";
+import { translate } from "./i18n/messages";
 import { listOrgMembers } from "@/lib/live-org-admin";
 
 export function useOrgMemberNames(orgId: string | null | undefined): ReadonlyMap<string, string> {
@@ -21,8 +23,8 @@ export function useOrgMemberNames(orgId: string | null | undefined): ReadonlyMap
 }
 
 /** userId → 人名；自己加「（我）」；不在目录里的人不回退成内部 id。 */
-export function memberLabel(userId: string, me: string | null | undefined, names: ReadonlyMap<string, string>): string {
+export function memberLabel(userId: string, me: string | null | undefined, names: ReadonlyMap<string, string>, locale: Locale = "zh-CN"): string {
   const name = names.get(userId);
-  if (me && userId === me) return name ? `${name}（我）` : "我";
-  return name ?? "已离开组织的成员";
+  if (me && userId === me) return name ? translate(locale, "workflows.member.namedSelf", { name }) : translate(locale, "workflows.member.self");
+  return name ?? translate(locale, "workflows.member.former");
 }

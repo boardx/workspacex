@@ -1,3 +1,4 @@
+import { seedWorkflowRunsI18n } from "./fixtures/seed-workflow-runs-i18n";
 import {seedChatPublicShare} from './fixtures/seed-chat-public-share';
 /** Controlled PG fixture for #387's login -> projects -> overview -> Files browser gate. */
 import { BcryptPasswordHasher } from "../src/infrastructure/auth/bcrypt-password-hasher";
@@ -592,3 +593,10 @@ await asOwner(client=>client.query(`INSERT INTO whiteboard_actor_identities(org_
 await seedChatPublicShare(orgId,userId);
 
 process.stdout.write(`[fullstack-fixture] db=${required("WORKSPACEX_DB")} project=${projectId} sentinel=${sentinelFile}\n`);
+
+await seedWorkflowRunsI18n({
+  orgId: required("FULLSTACK_E2E_WORKFLOW_RUNS_ORG"), projectId: required("FULLSTACK_E2E_WORKFLOW_RUNS_PROJECT"),
+  userId: required("FULLSTACK_E2E_WORKFLOW_RUNS_USER"), email: required("FULLSTACK_E2E_WORKFLOW_RUNS_EMAIL"),
+  password: required("FULLSTACK_E2E_WORKFLOW_RUNS_PASSWORD"), instanceId: required("FULLSTACK_E2E_WORKFLOW_RUNS_INSTANCE"),
+  workflowKey: required("FULLSTACK_E2E_WORKFLOW_RUNS_KEY"), goal: required("FULLSTACK_E2E_WORKFLOW_RUNS_GOAL"),
+});

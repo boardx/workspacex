@@ -1,6 +1,8 @@
+import { workflowRunsZhCN } from "../namespaces/workflow-runs";
 import { profileZhCN } from "../namespaces/profile";
 import { stateZhCN } from "../namespaces/state";
 export const zhCN = {
+  ...workflowRunsZhCN,
   ...profileZhCN,
   ...stateZhCN,
   "common.language": "语言",
