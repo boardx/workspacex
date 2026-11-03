@@ -1,8 +1,9 @@
 import * as React from "react";
+import type { Locale } from "@/lib/i18n/locale";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { Badge } from "@/components/ui/badge";
 import {
   claimTriState,
-  KG_TRI_STATE_LABEL_ZH,
   type KgTriState,
 } from "@repo/contracts/chat-knowledge-graph";
 import type { KgClaim } from "@repo/contracts/chat-knowledge-graph";
@@ -14,12 +15,14 @@ const TONE: Record<KgTriState, React.ComponentProps<typeof Badge>["tone"]> = {
   conflict: "danger",
 };
 
-export function ClaimTriStateBadge({ status }: { status: KgClaim["status"] }) {
+const LABEL_KEYS: Record<KgTriState, MessageKey> = { pending: "aboutMemory.tri.pending", confirmed: "aboutMemory.tri.confirmed", conflict: "aboutMemory.tri.conflict" };
+
+export function ClaimTriStateBadge({ status, locale = "zh-CN" }: { status: KgClaim["status"]; locale?: Locale }) {
   const tri = claimTriState(status);
   if (!tri) return null; // superseded 不渲染（uc-18-3 R7）
   return (
     <Badge tone={TONE[tri]} data-testid={`kg-tri-state-${tri}`}>
-      {KG_TRI_STATE_LABEL_ZH[tri]}
+      {translate(locale, LABEL_KEYS[tri])}
     </Badge>
   );
 }

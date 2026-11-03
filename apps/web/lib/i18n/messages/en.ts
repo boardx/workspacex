@@ -3,6 +3,7 @@ import { enFailures } from "./failures";
 import { controlsEn } from "../namespaces/controls";
 import { projectListEn } from "../namespaces/project-list";
 import { profileEn } from "../namespaces/profile";
+import { aboutMemoryEn } from "../namespaces/about-memory";
 import { stateEn } from "../namespaces/state";
 import type { zhCN } from "./zh-CN";
 export const en: Record<keyof typeof zhCN, string> = {
@@ -11,6 +12,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...controlsEn,
   ...projectListEn,
   ...profileEn,
+  ...aboutMemoryEn,
   ...stateEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
