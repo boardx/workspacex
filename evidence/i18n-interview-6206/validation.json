@@ -245,5 +245,58 @@
     "exitCode": 0,
     "rawLogLocalPath": "/tmp/6206-prototype-eslint.log",
     "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "browser-second-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-second-list.log",
+    "rawLogSha256": "96afb345297eaaaec3598db6f88b0f9511873cf3af149448580940bc5d173020"
+  },
+  "browser-second": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-second.log",
+    "rawLogSha256": "380c900f4db59d61ed5be0a68f4811601cdcb87a0c9bb522a8151c948381f364"
+  },
+  "visual-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-visual-red.log",
+    "rawLogSha256": "8fe197b13aa83f0cf54a7c42f2321ba2145aed195641fcf7ab53d8b1970a7227"
+  },
+  "visual-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-visual-green.log",
+    "rawLogSha256": "47dc1e34f3f5a3a7592ddcd1450416924d461691fc756a03e746ee65d4a0a698"
+  },
+  "visual-type": {
+    "exitCode": 2,
+    "rawLogLocalPath": "/tmp/6206-visual-type.log",
+    "rawLogSha256": "18fd4208c5325f306a8dcb28a83bd29286b0bd3606ba0eb46808545378955b32"
+  },
+  "visual-type-green": {
+    "name": "visual-type-green",
+    "exitCode": 0,
+    "seconds": 7.91,
+    "rawLogLocalPath": "/tmp/6206-visual-type-green.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "visual-eslint": {
+    "name": "visual-eslint",
+    "exitCode": 0,
+    "seconds": 1.96,
+    "rawLogLocalPath": "/tmp/6206-visual-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "visual-wiring": {
+    "name": "visual-wiring",
+    "exitCode": 0,
+    "seconds": 3.41,
+    "rawLogLocalPath": "/tmp/6206-visual-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8"
+  },
+  "visual-testids": {
+    "name": "visual-testids",
+    "exitCode": 0,
+    "seconds": 3.53,
+    "rawLogLocalPath": "/tmp/6206-visual-testids.log",
+    "rawLogSha256": "4f374367280164632e0148a92d121e5a424731d2b263a3d2130270c8a714d381"
   }
 }

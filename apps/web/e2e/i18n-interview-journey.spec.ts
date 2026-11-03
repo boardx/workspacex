@@ -29,7 +29,10 @@ test("interview locale preserves the real private-profile, canonical six-step an
   const capture = async (name: string, workflow = false) => {
     for (const width of [375, 1280]) {
       await page.setViewportSize({ width, height: 900 });
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+        document.querySelectorAll("main, [role=dialog]").forEach(element => { element.scrollTop = 0; element.scrollLeft = 0; });
+      });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const nav = page.getByTestId("itv-workbench-navigation");
       await expect(nav).toHaveCount(workflow ? 1 : 0);
@@ -105,9 +108,25 @@ test("interview locale preserves the real private-profile, canonical six-step an
   await expect.poll(async () => (await readSource()).documents.find(document => document.step === "experts")?.markdown).toContain(`#expert-${custom.expertId}`);
   await capture("interview-experts-en", true);
   await page.getByRole("button", { name: "Confirm experts and generate questions", exact: true }).click();
+  // Expert confirmation also confirms the generated outline and starts execution.
+  // Edit through the real revision action; confirmed source must remain read-only.
+  await expect(page).toHaveURL(/\/runs$/);
+  await expect(page.getByRole("button", { name: "Generate report", exact: true })).toBeEnabled();
+  const beforeRevision = await readSource();
+  expect(beforeRevision.execution?.status).toBe("completed");
+  const confirmedOutline = beforeRevision.documents.find(document => document.step === "outline")!;
+  await page.getByTestId("itv-workbench-step-outline").click();
   await expect(page).toHaveURL(/\/outline$/);
   const question = page.getByRole("textbox", { name: "Edit question 1", exact: true });
-  await expect(question).toBeEnabled(); await question.fill("用户原始修改的问题？");
+  await expect(question).toBeDisabled();
+  page.once("dialog", async dialog => { expect(dialog.message()).toContain("preserves the previous version"); await dialog.accept(); });
+  await page.getByRole("button", { name: "Create revision and edit", exact: true }).click();
+  await expect(question).toBeEnabled();
+  const revised = await readSource();
+  expect(revised.revisionId).not.toBe(beforeRevision.revisionId);
+  expect(revised.version).toBeGreaterThan(beforeRevision.version);
+  expect(revised.documents.find(document => document.step === "outline")?.markdown).toBe(confirmedOutline.markdown);
+  await question.fill("用户原始修改的问题？");
   await language("zh-CN"); await language("en"); await expect(question).toHaveValue("用户原始修改的问题？");
   await page.getByRole("button", { name: "Save question draft", exact: true }).click();
   await expect.poll(async () => (await readSource()).documents.find(document => document.step === "outline")?.markdown).toContain("用户原始修改的问题？");

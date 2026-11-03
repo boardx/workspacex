@@ -171,7 +171,7 @@ export function InterviewStudioHome({
 
         {tab === "history" ? (
           <TabsContent value="history" aria-label={t("itv.history")} className="pt-4">
-            <StudioHistoryFilters business="访谈" prefix="itv-history" tags={availableTags} selectedTags={selectedTags} onTagsChange={setSelectedTags} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
+            <StudioHistoryFilters business={t("itv.history.business")} prefix="itv-history" tags={availableTags} selectedTags={selectedTags} onTagsChange={setSelectedTags} query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
             {notice && <p role="status" data-testid="itv-history-saved" className="mt-4 text-12 text-success">{t("itv.saved")}</p>}
             <div className="mt-4"><HistoryContent state={history.kind === "ready" ? { kind: "ready", items: visibleHistoryItems } : history} onChanged={refreshHistory} onCreate={createInterview} filtered={Boolean(query.trim() || selectedTags.length > 0)} onClearFilters={() => { setQuery(""); setSelectedTags([]); }} onRetry={() => setRevision(value => value + 1)} /></div>
           </TabsContent>

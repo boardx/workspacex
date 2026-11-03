@@ -264,6 +264,7 @@ export const zhCN = {
   ...adminNavigationZhCN,
   ...studioResearchZhCN,
   ...researchZhCN,
+  ...studioHistoryZhCN,
   ...interviewZhCN,
 } as const;
 
@@ -275,3 +276,5 @@ import { studioResearchZhCN } from "../namespaces/studio-research";
 import { researchZhCN } from "../namespaces/research";
 
 import { interviewZhCN } from "../namespaces/interview";
+
+import { studioHistoryZhCN } from "../namespaces/studio-history";

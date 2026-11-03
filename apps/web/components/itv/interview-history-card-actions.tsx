@@ -8,7 +8,7 @@ export function InterviewHistoryCardActions({ item, onChanged }: { item: Digital
   const { t } = useI18n();
   const mock = item.interviewId.startsWith("mock-batch-");
   if (!mock && !item.canManage) return null;
-  return <StudioHistoryManagement tagLimits={tagInputLimits(interview.operations.updateDigitalInterviewMetadata.in.shape.tags)} business="访谈" prefix="itv" id={item.interviewId} name={item.name} tags={item.tags}
+  return <StudioHistoryManagement tagLimits={tagInputLimits(interview.operations.updateDigitalInterviewMetadata.in.shape.tags)} business={t("itv.business")} prefix="itv" id={item.interviewId} name={item.name} tags={item.tags}
     deleteDescription={mock ? t("itv.history.deletePreview") : t("itv.history.deleteSaved")}
     onSave={async draft => { if (mock) updateMockDigitalInterviewMetadata(item.interviewId, { name: draft.name, tags: [...draft.tags] }); else await updateDigitalInterviewMetadata(item.interviewId, { name: draft.name, tags: [...draft.tags] }); onChanged(); }}
     onDelete={async () => { if (mock) deleteMockDigitalInterviewDraft(item.interviewId); else await deleteDigitalInterview(item.interviewId); onChanged(); }} />;
