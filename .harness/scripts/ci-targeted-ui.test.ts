@@ -33,6 +33,18 @@ it('uses real source history and suite hashes; unknown, missing, renamed and non
   const base=commit();put(p.sourceFile,original.replace('Hello','Hi'));const head=commit();
   const inspect=(b:string,h:string)=>planTargeted({baseSha:b,headSha:h,enabled:true,policyInput:p,git});
   const selected=inspect(base,head);expect(selected.mode).toBe('targeted-ui');expect(selected.suites.map(x=>x.id)).toEqual(['web-unit','chat-ui']);
+  put('docs/design/i18n-copy/notes.md','Copy review evidence');const documented=commit();
+  expect(inspect(base,documented).mode).toBe('targeted-ui');
+  put(p.sourceFile,original.replace('Hello','Updated'));git(['mv','docs/design/i18n-copy/notes.md','docs/design/i18n-copy/moved.md']);expect(inspect(documented,commit()).mode).toBe('full');
+  git(['reset','--hard',documented]);rmSync(resolve(dir,'docs/design/i18n-copy/notes.md'));symlinkSync('missing',resolve(dir,'docs/design/i18n-copy/notes.md'));put(p.sourceFile,original.replace('Hello','Updated'));expect(inspect(documented,commit()).mode).toBe('full');
+  git(['reset','--hard',documented]);
+  put('apps/api/src/prompt.ts','export const prompt="change"');expect(inspect(base,commit()).mode).toBe('full');
+  git(['reset','--hard',head]);
+  git(['branch','fixture-ui',head]);git(['checkout','-qb','fixture-api',base]);
+  put('apps/api/src/prompt.ts','export const prompt="different"');commit();
+  git(['checkout','fixture-ui']);git(['merge','--no-ff','-m','candidate-group','fixture-api']);
+  expect(inspect(base,git(['rev-parse','HEAD']).trim()).mode).toBe('full');
+  git(['reset','--hard',head]);
   expect(selected.suites[0].files[0].sha256).toMatch(/^[a-f0-9]{64}$/);expect(selected.planDigest).toMatch(/^[a-f0-9]{64}$/);
   const context={baseSha:base,headSha:head,enabled:true,policyInput:p,git};
   expect(verifyTargetedPlan(selected,context)).toBe(true);
@@ -45,6 +57,19 @@ it('uses real source history and suite hashes; unknown, missing, renamed and non
   git(['reset','--hard',base]);rmSync(resolve(dir,p.sourceFile));symlinkSync('missing',resolve(dir,p.sourceFile));expect(inspect(base,commit()).mode).toBe('full');
   expect(inspect('f'.repeat(40),head).mode).toBe('full');
   expect(inspect(head,base).mode).toBe('full');
+  git(['reset','--hard',base]);
+  expect(planTargeted({baseSha:base,headSha:head,enabled:true,policyInput:{...p,messageFiles:[{...p.messageFiles[0],browserConfig:'unknown.ts'}]},git}).mode).toBe('full');
+  const registration=p.messageFiles[0];
+  put(registration.file,'export const en={"common.language":"Hello {name}"} as const;');
+  for(const file of [...registration.unitTests,...registration.browserTests])put(`apps/web/${file}`,'export {};');
+  put(`apps/web/${registration.browserConfig}`,'export default {};');
+  const dictionaryBase=commit();put(registration.file,'export const en={"common.language":"Welcome {name}"} as const;');
+  const dictionaryHead=commit(),dictionaryPlan=inspect(dictionaryBase,dictionaryHead);
+  expect(dictionaryPlan.mode).toBe('targeted-ui');expect(dictionaryPlan.browserConfig.file).toBe(registration.browserConfig);
+  expect(verifyTargetedPlan(dictionaryPlan,{baseSha:dictionaryBase,headSha:dictionaryHead,enabled:true,policyInput:p,git})).toBe(true);
+  expect(()=>verifyTargetedPlan({...dictionaryPlan,browserConfig:{...dictionaryPlan.browserConfig,sha256:'bad'}},{baseSha:dictionaryBase,headSha:dictionaryHead,enabled:true,policyInput:p,git})).toThrow();
+  put('packages/contracts/src/locale.ts','export const locales=[]');expect(inspect(dictionaryBase,commit()).mode).toBe('full');
+
  }finally{rmSync(dir,{recursive:true,force:true});}
 },30000);
 it('keeps disabled/full preflight dependency-free and never publishes an invalid source identity',()=>{
@@ -70,4 +95,11 @@ it('rejects tagged-template execution and non-presentation edits without executi
  expect(inspectUiBoundary(component,component.replace('"use client"','"use server"'))).toBe(false);
  expect(inspectUiBoundary(component,component.replace('材料 {materialsCount}','材料 {skillsCount}'))).toBe(false);
  expect(inspectUiBoundary(component,component.replace('bg-card px-2','bg-[url(https://example.invalid)] px-2'))).toBe(false);
+});
+it('accepts only literal dictionary value edits with stable keys and interpolation',async()=>{
+ const {inspectMessageBoundary}=await import('./ci-targeted-ui.mjs');
+ const before='export const en = {"ui.name":"Hello {name}"} as const;';
+ expect(inspectMessageBoundary(before,before.replace('Hello','Welcome'))).toBe(true);
+ expect(inspectMessageBoundary(before,before.replace('Hello','Welcome'),['different.key'])).toBe(false);
+ for(const after of [before.replace('{name}','{other}'),before.replace('ui.name','ui.role'),before.replace('"Hello {name}"','fetch("/api")'),before+'\nfetch("/api");',before.replace('Hello','https://evil.invalid/'),before.replace('export const','import {x} from "x"; export const'),before.replace('{"ui.name"','{...x,"ui.name"'),before.replace('export const','// @ts-nocheck\nexport const')])expect(inspectMessageBoundary(before,after)).toBe(false);
 });

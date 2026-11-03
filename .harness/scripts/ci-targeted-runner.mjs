@@ -33,8 +33,9 @@ export function runBrowser(plan,directory,cwd=resolve(root,'apps/web'),context=r
  cwd=realpathSync(cwd);mkdirSync(directory,{recursive:true});for(const file of ['report.json','evidence.json'])rmSync(resolve(directory,file),{force:true});
  const files=plan.suites.find(x=>x.id==='chat-ui')?.files.map(x=>x.file);
  if(!files?.length)throw Error('MISSING_BROWSER_SELECTION');
- const discovery=invoke(null,1,true,{...options,cwd,files,stripTokens:true}).report;
- const result=invoke(null,1,false,{...options,cwd,files,stripTokens:true});
+ const selectedOptions={...options,...(plan.browserConfig?{config:plan.browserConfig.file}:{}),cwd,files,stripTokens:true};
+ const discovery=invoke(null,1,true,selectedOptions).report;
+ const result=invoke(null,1,false,selectedOptions);
  writeFileSync(resolve(directory,'report.json'),JSON.stringify(result.report));
  if(result.status!==0)throw Error('TARGETED_BROWSER_FAILED');
  const evidence=browserEvidence(plan,discovery,result.report,cwd,context,result.status);

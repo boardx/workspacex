@@ -1,0 +1,98 @@
+[
+  {
+    "job": "base-compile",
+    "longestSteps": [
+      {
+        "name": "Require exact queue compile evidence",
+        "minutes": 6.37
+      },
+      {
+        "name": "Run actions/checkout@v5",
+        "minutes": 0.32
+      },
+      {
+        "name": "Prepare queue compile runtime",
+        "minutes": 0.05
+      },
+      {
+        "name": "Set up job",
+        "minutes": 0.03
+      }
+    ]
+  },
+  {
+    "job": "fullstack-smoke",
+    "longestSteps": [
+      {
+        "name": "Execute trusted full-stack smoke",
+        "minutes": 25.18
+      },
+      {
+        "name": "Run actions/checkout@v5",
+        "minutes": 0.48
+      },
+      {
+        "name": "Run actions/setup-node@v5",
+        "minutes": 0.43
+      },
+      {
+        "name": "Run pnpm install --frozen-lockfile",
+        "minutes": 0.27
+      },
+      {
+        "name": "Execute trace disclosure geometry",
+        "minutes": 0.25
+      }
+    ]
+  },
+  {
+    "job": "chat-test-shards (1)",
+    "longestSteps": [
+      {
+        "name": "Execute actual isolated shard",
+        "minutes": 20.48
+      },
+      {
+        "name": "Run actions/checkout@v5",
+        "minutes": 0.3
+      },
+      {
+        "name": "Run pnpm install --frozen-lockfile",
+        "minutes": 0.3
+      },
+      {
+        "name": "Run actions/setup-node@v5",
+        "minutes": 0.28
+      },
+      {
+        "name": "Run pnpm --filter web exec playwright install --with-deps chromium",
+        "minutes": 0.28
+      }
+    ]
+  },
+  {
+    "job": "chat-test-shards (2)",
+    "longestSteps": [
+      {
+        "name": "Execute actual isolated shard",
+        "minutes": 18.75
+      },
+      {
+        "name": "Run pnpm --filter web exec playwright install --with-deps chromium",
+        "minutes": 0.48
+      },
+      {
+        "name": "Run actions/setup-node@v5",
+        "minutes": 0.38
+      },
+      {
+        "name": "Run actions/checkout@v5",
+        "minutes": 0.33
+      },
+      {
+        "name": "Run pnpm install --frozen-lockfile",
+        "minutes": 0.3
+      }
+    ]
+  }
+]
