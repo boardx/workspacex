@@ -10,7 +10,8 @@ flowchart LR
  classDef active fill:#fef3c7,stroke:#d97706
  classDef pending fill:#f3f4f6,stroke:#9ca3af
  class A done
- class B,C tested
+ class B tested
+ class C tested
  class D active
  class E pending
 ```
@@ -27,6 +28,8 @@ The HTTP test-model helper is limited to recognized interview operation/system/c
 
 Passed: 38 affected UI files,327/327 tests (including42 localization counterexamples); API and web types; changed-file ESLint; wiring with18 existing shell routes unchanged; static testid gate; deterministic fixture6/6; dictionary/export/legacy/workspace21/21 after actual dictionary RED. Source comparisons confirm reportFor/analysisMarkdown/buffersFrom/skillContext unchanged. Historical failures and command receipts remain in `evidence/i18n-interview-6206`.
 
-Pending: normal init, commit/source freeze, exact isolated browser discovery, fresh production browser with actual login/API/Postgres and saved private profile→six steps→report citations→history,375/1280 screenshots and bounds, resource cleanup, independent exact-source review, normal push/PR Closes6206, current checks/review to green and main-controlled merge. Subsequent separate journeys remain recording, then B6 survey.
+Passed normal init and source freeze df1de9e87; initial full independent review and final incremental review found no static P1/P2. Two fresh browser failures are preserved: a locale-bound parent dialog selector, then an incorrect assumption that generated confirmed questions were directly editable. The latter now follows the actual revision action, retaining confirmed-source guards. Screenshot QA also exposed shared history copy and singular count gaps;13 actual RED cases preceded fixes and128 relevant tests passed across interview/research/transcription callers and catalog. Final webtype/lint/wiring/testid passed.
+
+Pending: exact isolated discovery and a fresh production browser at df1 with actual login/API/Postgres, saved private profile→six steps→real revision→report citations→history,375/1280 screenshots and bounds, resource cleanup, normal push/PR Closes6206, current checks/review to green and main-controlled merge. Subsequent separate journeys remain recording, then B6 survey.
 
 Heavy windows serialize with phase2/phase3. No browser/completion/merge claim is made before actual evidence.
