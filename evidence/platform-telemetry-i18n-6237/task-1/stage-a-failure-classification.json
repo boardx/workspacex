@@ -1,0 +1,288 @@
+{
+  "source": "b0462b01998689a2e01f8ba60a495d8d0d6383bb",
+  "cases": [
+    {
+      "name": "renders complete English chrome, consequences, four accessible independent flags and interval",
+      "comparison": [
+        "TestingLibraryElementError: Unable to find an accessible element with the role \"heading\" and name `/telemetry settings/i`",
+        "Here are the accessible roles:"
+      ]
+    },
+    {
+      "name": "retranslates reporter state enabled without a new read",
+      "comparison": [
+        "Expected element to have text content:",
+        "/enabled/i",
+        "Received:",
+        "上报已开启按下面四项同意，每个周期发一次。",
+        "Received:",
+        "上报已开启按下面四项同意，每个周期发一次。",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:97:35",
+        "95|     show(); const panel = await screen.findByTestId(`admin-telemetry-s…"
+      ]
+    },
+    {
+      "name": "retranslates reporter state endpoint_unset without a new read",
+      "comparison": [
+        "Expected element to have text content:",
+        "/endpoint|address/i",
+        "Received:",
+        "上报未开启：没有配置上报地址这个实例现在什么都不发——无论下面的同意项开着还是关着。",
+        "Received:",
+        "上报未开启：没有配置上报地址这个实例现在什么都不发——无论下面的同意项开着还是关着。",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:97:35",
+        "95|     show(); const panel = await screen.findByTestId(`admin-telemetry-s…"
+      ]
+    },
+    {
+      "name": "retranslates reporter state kill_switch without a new read",
+      "comparison": [
+        "Expected element to have text content:",
+        "/global|kill switch/i",
+        "Received:",
+        "上报未开启：全局总开关已关闭这个实例现在什么都不发——无论下面的同意项开着还是关着。",
+        "Received:",
+        "上报未开启：全局总开关已关闭这个实例现在什么都不发——无论下面的同意项开着还是关着。",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:97:35",
+        "95|     show(); const panel = await screen.findByTestId(`admin-telemetry-s…"
+      ]
+    },
+    {
+      "name": "retains both deferred reads through both locale directions and translates loading and empty separately",
+      "comparison": [
+        "Expected element to have text content:",
+        "/loading/i",
+        "Received:",
+        "加载中……",
+        "Received:",
+        "加载中……",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:110:59",
+        "108|     show(); expect(screen.getByTestId(\"admin-telemetry-loading\")).toHa…"
+      ]
+    },
+    {
+      "name": "owns deferred health PUT across locale switches, locks all controls and uses authoritative response",
+      "comparison": [
+        "Expected element to have accessible name:",
+        "/health/i",
+        "Received:",
+        "健康信号",
+        "Received:",
+        "健康信号",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:127:26",
+        "125|     for (const other of items) expect(toggle(other)).toBeDisabled();"
+      ]
+    },
+    {
+      "name": "owns deferred usage PUT across locale switches, locks all controls and uses authoritative response",
+      "comparison": [
+        "Expected element to have accessible name:",
+        "/usage/i",
+        "Received:",
+        "用量计数",
+        "Received:",
+        "用量计数",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:127:26",
+        "125|     for (const other of items) expect(toggle(other)).toBeDisabled();"
+      ]
+    },
+    {
+      "name": "owns deferred diagnostics PUT across locale switches, locks all controls and uses authoritative response",
+      "comparison": [
+        "Expected element to have accessible name:",
+        "/diagnostic|error.*fingerprint/i",
+        "Received:",
+        "错误指纹",
+        "Received:",
+        "错误指纹",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:127:26",
+        "125|     for (const other of items) expect(toggle(other)).toBeDisabled();"
+      ]
+    },
+    {
+      "name": "owns deferred benchmark PUT across locale switches, locks all controls and uses authoritative response",
+      "comparison": [
+        "Expected element to have accessible name:",
+        "/benchmark/i",
+        "Received:",
+        "同行对标",
+        "Received:",
+        "同行对标",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:127:26",
+        "125|     for (const other of items) expect(toggle(other)).toBeDisabled();"
+      ]
+    },
+    {
+      "name": "applies four successful one-key writes independently and preserves them across language switches",
+      "comparison": [
+        "Expected element to have accessible name:",
+        "/usage/i",
+        "Received:",
+        "用量计数",
+        "Received:",
+        "用量计数",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:158:45",
+        "156|       expect(apiRequest).toHaveBeenLastCalledWith(U, { method: \"PUT\", …"
+      ]
+    },
+    {
+      "name": "preserves raw report, timestamp and identifiers while translating outcome sent and omitted labels",
+      "comparison": [
+        "Expected element to have text content:",
+        "/sent.*confirm/i",
+        "Received:",
+        "2026/9/24 08:00 · 已发送（对端已确认收到）",
+        "Received:",
+        "2026/9/24 08:00 · 已发送（对端已确认收到）",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:167:20",
+        "165|     const chineseTime = result.textContent!.split(\" · \")[0];"
+      ]
+    },
+    {
+      "name": "preserves raw report, timestamp and identifiers while translating outcome failed and omitted labels",
+      "comparison": [
+        "Expected element to have text content:",
+        "/failed.*discard|failed.*retry/i",
+        "Received:",
+        "2026/9/24 08:00 · 发送失败——已丢弃，不重试",
+        "Received:",
+        "2026/9/24 08:00 · 发送失败——已丢弃，不重试",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:167:20",
+        "165|     const chineseTime = result.textContent!.split(\" · \")[0];"
+      ]
+    },
+    {
+      "name": "preserves raw report, timestamp and identifiers while translating outcome invalid and omitted labels",
+      "comparison": [
+        "Expected element to have text content:",
+        "/validat.*not sent|invalid/i",
+        "Received:",
+        "2026/9/24 08:00 · 报告没通过本地校验——根本没发",
+        "Received:",
+        "2026/9/24 08:00 · 报告没通过本地校验——根本没发",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:167:20",
+        "165|     const chineseTime = result.textContent!.split(\" · \")[0];"
+      ]
+    },
+    {
+      "name": "retranslates permission save failure after entering the real mutation branch, retaining every flag",
+      "comparison": [
+        "Expected element to have text content:",
+        "/platform.*(?:operator|administrator|superuser)/i",
+        "Received:",
+        "没保存成功，仍是关闭：这个页面仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。",
+        "Received:",
+        "没保存成功，仍是关闭：这个页面仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:191:21",
+        "189|     fireEvent.click(toggle(\"usage\")); const failure = await screen.fin…"
+      ]
+    },
+    {
+      "name": "retranslates validation save failure after entering the real mutation branch, retaining every flag",
+      "comparison": [
+        "Expected element to have text content:",
+        "/validat|refresh/i",
+        "Received:",
+        "没保存成功，仍是关闭：这次改动没通过校验，刷新页面后再试一次",
+        "Received:",
+        "没保存成功，仍是关闭：这次改动没通过校验，刷新页面后再试一次",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:191:21",
+        "189|     fireEvent.click(toggle(\"usage\")); const failure = await screen.fin…"
+      ]
+    },
+    {
+      "name": "retranslates network save failure after entering the real mutation branch, retaining every flag",
+      "comparison": [
+        "Expected element to have text content:",
+        "/network|connect/i",
+        "Received:",
+        "没保存成功，仍是关闭：连不上服务器，检查一下网络再试",
+        "Received:",
+        "没保存成功，仍是关闭：连不上服务器，检查一下网络再试",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:191:21",
+        "189|     fireEvent.click(toggle(\"usage\")); const failure = await screen.fin…"
+      ]
+    },
+    {
+      "name": "retranslates unknown save failure after entering the real mutation branch, retaining every flag",
+      "comparison": [
+        "Expected element to have text content:",
+        "/try again|wrong|failed/i",
+        "Received:",
+        "没保存成功，仍是关闭：出了点问题，稍后再试一次",
+        "Received:",
+        "没保存成功，仍是关闭：出了点问题，稍后再试一次",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:191:21",
+        "189|     fireEvent.click(toggle(\"usage\")); const failure = await screen.fin…"
+      ]
+    },
+    {
+      "name": "retranslates server save failure after entering the real mutation branch, retaining every flag",
+      "comparison": [
+        "Expected element to have text content:",
+        "The server encountered an error. Please try again later.",
+        "Received:",
+        "没保存成功，仍是关闭：服务器出错了，稍后再试一次",
+        "Received:",
+        "没保存成功，仍是关闭：服务器出错了，稍后再试一次",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:191:21",
+        "189|     fireEvent.click(toggle(\"usage\")); const failure = await screen.fin…"
+      ]
+    },
+    {
+      "name": "keeps permission read failures distinct from empty and retranslates safe causes",
+      "comparison": [
+        "Expected element to have text content:",
+        "/platform.*(?:operator|administrator|superuser)/i",
+        "Received:",
+        "这个页面仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。",
+        "Received:",
+        "这个页面仅平台运维（平台超管白名单，或被超管指定的平台管理员）可用——你当前的账号不是。",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:206:23",
+        "204|     const original = settingsFailure.textContent; language(\"en\");"
+      ]
+    },
+    {
+      "name": "keeps network read failures distinct from empty and retranslates safe causes",
+      "comparison": [
+        "Expected element to have text content:",
+        "/network|connect/i",
+        "Received:",
+        "连不上服务器，检查一下网络再试",
+        "Received:",
+        "连不上服务器，检查一下网络再试",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:206:23",
+        "204|     const original = settingsFailure.textContent; language(\"en\");"
+      ]
+    },
+    {
+      "name": "keeps unknown read failures distinct from empty and retranslates safe causes",
+      "comparison": [
+        "Expected element to have text content:",
+        "/try again|wrong|failed/i",
+        "Received:",
+        "出了点问题，稍后再试一次",
+        "Received:",
+        "出了点问题，稍后再试一次",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:206:23",
+        "204|     const original = settingsFailure.textContent; language(\"en\");"
+      ]
+    },
+    {
+      "name": "keeps server read failures distinct from empty and retranslates safe causes",
+      "comparison": [
+        "Expected element to have text content:",
+        "The server encountered an error. Please try again later.",
+        "Received:",
+        "服务器出错了，稍后再试一次",
+        "Received:",
+        "服务器出错了，稍后再试一次",
+        "❯ tests/ui/telemetry-settings-i18n.test.tsx:206:23",
+        "204|     const original = settingsFailure.textContent; language(\"en\");"
+      ]
+    }
+  ],
+  "collectionFixtureUnhandledErrors": 0,
+  "existingPositiveControls": 8,
+  "viteCjsDeprecationRetained": true
+}

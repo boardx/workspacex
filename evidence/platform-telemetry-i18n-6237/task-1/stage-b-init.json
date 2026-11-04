@@ -1,0 +1,12 @@
+{
+  "source": "f7f8ca20f0a85777f206f90eb7b603cc4bdd7082",
+  "gate": "init",
+  "command": [
+    "./init.sh"
+  ],
+  "exit": 0,
+  "seconds": 9.899,
+  "rawPrivate": true,
+  "logSha256": "b09d772c2c3891e2b91f1a0dac590d5aaab1ae54766d3029cdb1985e65b39e94",
+  "summary": []
+}
