@@ -45,6 +45,8 @@ describe("run trace disclosure", () => {
     expect(screen.getByTestId("agent-plan-panel")).toHaveAttribute("data-plan-done", "3");
     unmount();
     render(<RunTracePanel runId="run-1" events={[plan, planEnd, { ...done, status: "failed" }]} />);
+    expect(screen.queryByTestId("agent-plan-panel")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("run-trace-toggle"));
     expect(screen.getByTestId("agent-plan-panel")).toHaveAttribute("data-plan-done", "1");
   });
   it("mounts durable subtask projection only when the journal recorded a dispatch", () => {
