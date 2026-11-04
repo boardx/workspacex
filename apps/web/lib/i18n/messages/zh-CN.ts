@@ -1,3 +1,4 @@
+import { modelTestbenchZhCN } from "../namespaces/model-testbench";
 import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
 import { platformMembersZhCN } from "../namespaces/platform-members";
 import { aiUsageZhCN } from "../namespaces/ai-usage";
@@ -27,6 +28,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...modelTestbenchZhCN,
   ...telemetrySettingsZhCN,
   ...platformMembersZhCN,
   ...aiUsageZhCN,

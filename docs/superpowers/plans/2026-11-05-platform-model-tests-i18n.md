@@ -26,9 +26,9 @@
 
 **Own files:** components/admin/platform-model-testbench.tsx; new lib/i18n/namespaces/model-testbench.ts; messages/en.ts and zh-CN.ts; new tests/ui/platform-model-testbench-i18n.test.tsx. Existing tests/ui/platform-model-testbench.test.tsx remains byte-identical. Paths above are under apps/web/.
 
-- [ ] StageA: new English/locale tests only. Exercise all owned states/forms/result types, deferred ownership/call counts, exact raw values and payloads, safe failure semantics and faithful financial warnings. Reuse installed matchers and canonical types; schema/collection mistakes are not intended RED.
-- [ ] Root freezes tests and runs native focused RED with all old tests and resource controls; original implementer makes no production edits before root's explicit semantic-RED release.
-- [ ] StageB: minimum complete page/namespace implementation. Preserve state/effect/call graph and financial helpers; new known reason is display-only. Add bounded stable selectors if needed for native evidence; audit375 label/control wrapping.
+- [x] StageA: new English/locale tests only. Exercise all owned states/forms/result types, deferred ownership/call counts, exact raw values and payloads, safe failure semantics and faithful financial warnings. Reuse installed matchers and canonical types; schema/collection mistakes are not intended RED.
+- [x] Root freezes tests and runs native focused RED with all old tests and resource controls; original implementer makes no production edits before root's explicit semantic-RED release.
+- [x] StageB: minimum complete page/namespace implementation. Preserve state/effect/call graph and financial helpers; new known reason is display-only. Add bounded stable selectors if needed for native evidence; audit375 label/control wrapping.
 - [ ] Root focused GREEN/types/scoped lint/init/raw-error gate, normal commit and independent source/task review. Reuse unchanged evidence rather than repeat unrelated suites.
 
 ### Task 2: Actual-route historical recovery and permission acceptance

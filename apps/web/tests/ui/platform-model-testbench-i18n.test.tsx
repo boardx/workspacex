@@ -151,7 +151,7 @@ describe("complete platform model testbench localization (mocked SDK)", () => {
 
   const reasons = [
     ["native-asr-token-bound-unverified", /(?:ASR|speech.*recog).*token.*(?:bound|limit).*(?:unverified|not.*verified)/i],
-    ["trusted-adapter-price-or-bound-unavailable", /(?:trusted.*adapter|adapter).*(?:price|pricing|bound|limit)/i],
+    ["trusted-adapter-price-or-bound-unavailable", /^(?!.*trusted-adapter-price-or-bound-unavailable).*trusted adapter.*(?:price|pricing|bound|limit)/i],
     ["adapter-unavailable", /(?:not.*adapt|adapter.*unavailable|not.*support)/i],
     ["admission-refused", /member.*(?:admission|budget)/i],
     ["dispatch-cancelled", /(?:execution|dispatch).*cancel/i],
