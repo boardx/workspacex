@@ -1,3 +1,4 @@
+import {registerRuntimeAdmissionBodyParser} from "./interface/middleware/runtime-admission-body-parser";
 import { TOKEN_USAGE_METER } from "./application/agent-run/ports";
 import { registerBillingRawBodyParser } from "./interface/middleware/billing-raw-body-parser";
 import { LOGGER_PORT } from "./application/ports/logger.port";
@@ -94,6 +95,7 @@ export async function createApp(): Promise<NestExpressApplication> {
   app.use(traceMiddleware);
   // issue #3082 —— 紧跟 traceMiddleware 之后：每个请求（含被 guard 拒掉的）都进 debug recorder。
   app.use(app.get<DebugRequestRecorder>(DEBUG_REQUEST_RECORDER).middleware);
+  registerRuntimeAdmissionBodyParser(app.getHttpAdapter().getInstance());
   registerBillingRawBodyParser(app.getHttpAdapter().getInstance());
   registerGuidedResearchBodyParsers(app.getHttpAdapter().getInstance());
   // #3249: one bounded multi-file endpoint needs more than Express's default 100 KiB.

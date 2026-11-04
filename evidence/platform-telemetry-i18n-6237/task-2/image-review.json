@@ -1,0 +1,246 @@
+{
+  "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+  "individualRootViews": 16,
+  "images": [
+    {
+      "name": "platform-telemetry-changed-consent-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "c7663ce562daa279ffc909eb24f697277b3bc4ccca3efe94d42c133da7d11518",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-changed-consent-en-1280.png"
+    },
+    {
+      "name": "platform-telemetry-changed-consent-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "f1f72ac2f0d6f54294e286a56bef9f6ae804a742896c501c6b9c78444462e36c",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-changed-consent-en-375.png"
+    },
+    {
+      "name": "platform-telemetry-initial-consent-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "15655275a20cb19fffe10b9e160f89e7bb5b4d7f4eee14b79ae90658b7523e61",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-initial-consent-en-1280.png"
+    },
+    {
+      "name": "platform-telemetry-initial-consent-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "9b3aa8c71030f35b86c6baf1bd8684f1b8a1e4196d14804a316f00a329e8b15c",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-initial-consent-en-375.png"
+    },
+    {
+      "name": "platform-telemetry-initial-consent-zh-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "cd8ca47536efce33e4abe8033b7985e88a23dc176c40074fb266abadff50ab5f",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-initial-consent-zh-1280.png"
+    },
+    {
+      "name": "platform-telemetry-initial-consent-zh-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "6c29f6bedc1e840e682463a06f1935d2a3900f3964f438ffbe1ef2bea688fae3",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-initial-consent-zh-375.png"
+    },
+    {
+      "name": "platform-telemetry-last-report-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "e9404b147ac771db410d39ac23513c51508cc4f63ff314f9252af8b604368932",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Outcome, timestamp, omission labels and JSON panel visible without global overflow; original raw JSON text compared by native case. Only overflowing internal axes require native reachability checks. This remains a viewport image.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-last-report-en-1280.png"
+    },
+    {
+      "name": "platform-telemetry-last-report-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "1e21340dc30fecfe550ed95c1dbd9ba9efbed0d9e855f4b0482ecb1a9fe44d61",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Outcome, timestamp, omission labels and full JSON panel viewport visible. Original JSON text compared by native case; long mobile lines use the original internal horizontal scroller, whose overflowing axis was natively reached and returned. This viewport image is not a whole-report-text export.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-last-report-en-375.png"
+    },
+    {
+      "name": "platform-telemetry-last-report-zh-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "5ca794eaf37ff2832d9e611f138303cc8b1154368eb6951c43e630ad4b0681f0",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Outcome, timestamp, omission labels and JSON panel visible without global overflow; original raw JSON text compared by native case. Only overflowing internal axes require native reachability checks. This remains a viewport image.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-last-report-zh-1280.png"
+    },
+    {
+      "name": "platform-telemetry-last-report-zh-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "c39b6bd43590c9b09e883c8596b55d40c03873d6362e9fa5507dd3e845b641fc",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Outcome, timestamp, omission labels and full JSON panel viewport visible. Original JSON text compared by native case; long mobile lines use the original internal horizontal scroller, whose overflowing axis was natively reached and returned. This viewport image is not a whole-report-text export.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-last-report-zh-375.png"
+    },
+    {
+      "name": "platform-telemetry-operator-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "8103a45a675f2a79a3a7141c3c9bc6f44de67178cc2c9ebd1cbd1d1181c16b1a",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-operator-en-1280.png"
+    },
+    {
+      "name": "platform-telemetry-operator-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "cc43d4b3a5fb39063fa014828c617791eccd2fae0a0acc8189f90a82e7191f53",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "All four switches, complete consent labels, consequences, state and interval visible without clipping or overlap; expected initial/changed/operator values visible. Other report content below this focus has separate images.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-operator-en-375.png"
+    },
+    {
+      "name": "platform-telemetry-ordinary-denial-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "13b0d21b5d36937901f95909d78c2f75419c6ce17072d4c5ed8be0557af42d2d",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Both localized denial panels fully readable, no switches or raw report shown, no overlap or global horizontal overflow. Controlled fixture actor avatar only.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-ordinary-denial-en-1280.png"
+    },
+    {
+      "name": "platform-telemetry-ordinary-denial-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "2f3e82874368827d74f8269cf16b483e844b9db06c32965f9cf941030ae4487f",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Both localized denial panels fully readable, no switches or raw report shown, no overlap or global horizontal overflow. Controlled fixture actor avatar only.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-ordinary-denial-en-375.png"
+    },
+    {
+      "name": "platform-telemetry-revoked-denial-en-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "f8775ec01483c5d4d192cbe205446ac6ca2f66860ae6a17f028c21a13ab5ad61",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Both localized denial panels fully readable, no switches or raw report shown, no overlap or global horizontal overflow. Controlled fixture actor avatar only.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-revoked-denial-en-1280.png"
+    },
+    {
+      "name": "platform-telemetry-revoked-denial-en-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "18ceddd46f81034ea5916a6bd9441bf4528980145439eb035750dc4d9462ac3d",
+      "chunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ],
+      "qa": "PASS_INDIVIDUALLY_VIEWED_BY_ROOT",
+      "notes": "Both localized denial panels fully readable, no switches or raw report shown, no overlap or global horizontal overflow. Controlled fixture actor avatar only.",
+      "privacy": "Controlled fixture UI; no password, auth token, session cookie, installation secret or trace metadata visible. PNG contains only IHDR/IDAT/IEND chunks.",
+      "file": "images/platform-telemetry-revoked-denial-en-375.png"
+    }
+  ]
+}

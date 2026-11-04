@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
-import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E } from "./entity-localization-fixture";
-import { agentRole, aiUsage, homeConfig, orgAdmin, skills, wave2Runtime, workflowCapabilityGrants as WG, auth as platformLogin, platformMembers as PM } from "@repo/contracts";
+import { expect, test, type Page, type Request } from "@playwright/test";
+import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E, TELEMETRY_HISTORY_E2E } from "./entity-localization-fixture";
+import { agentRole, aiUsage, homeConfig, orgAdmin, skills, wave2Runtime, workflowCapabilityGrants as WG, auth as platformLogin, platformMembers as PM, instanceTelemetry as T } from "@repo/contracts";
 import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
 import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
 
@@ -1235,5 +1235,252 @@ test("platform members preserve locale continuity and real superuser operator bo
     await capture(ordinary, "ordinary-admin-denial", "admin-platform-members-forbidden");
   } finally {
     await helper.close(); await operatorContext.close(); await ordinaryContext.close();
+  }
+});
+
+test("platform telemetry preserves independent consent and original history across locales and real operator boundaries", async ({ page, browser }, testInfo) => {
+  test.setTimeout(120_000);
+  const fixture = PLATFORM_MEMBERS_E2E;
+  const paths = {
+    settings: "/__fullstack_api" + T.operations.getTelemetrySettings.path,
+    consent: "/__fullstack_api" + T.operations.updateTelemetryConsent.path,
+    history: "/__fullstack_api" + T.operations.getLastTelemetryReport.path,
+  };
+  const adminPath = "/__fullstack_api" + PM.operations.grantPlatformAdmin.path.replace(":userId", encodeURIComponent(fixture.targetId));
+  const platformLoginAs = async (actorPage: Page, superuser: boolean) => {
+    await actorPage.goto("/login");
+    await actorPage.getByTestId("login-email").fill(superuser ? fixture.superuserEmail : fixture.targetEmail);
+    await actorPage.getByTestId("login-password").fill(superuser ? ENTITY_LOCALIZATION_E2E.adminPassword : ENTITY_LOCALIZATION_E2E.memberPassword);
+    const loggedIn = actorPage.waitForResponse(response => response.request().method() === platformLogin.operations.login.method && new URL(response.url()).pathname === "/__fullstack_api" + platformLogin.operations.login.path);
+    await actorPage.getByTestId("login-submit").click();
+    const response = await loggedIn; expect(response.status()).toBe(200);
+    const authenticated = platformLogin.operations.login.out.parse(await response.json());
+    expect(authenticated.userId).toBe(superuser ? fixture.superuserId : fixture.targetId);
+    expect([...authenticated.orgs].sort()).toEqual([fixture.orgAId, fixture.orgBId].sort());
+    await expect(actorPage).toHaveURL(/\/home$/);
+  };
+  await platformLoginAs(page, true);
+  const headers = await authorization(page);
+  const readSettings = async (actorPage = page, actorHeaders = headers) => {
+    const response = await actorPage.request.get(paths.settings, { headers: actorHeaders });
+    expect(response.status()).toBe(200);
+    const settings = T.operations.getTelemetrySettings.out.parse(await response.json());
+    expect(settings.state).toBe("kill_switch");
+    expect(settings.intervalSeconds).toBe(T.TELEMETRY_REPORT_INTERVAL_SECONDS);
+    return settings;
+  };
+  const initial = await readSettings();
+  expect(initial.consent).toEqual(T.TELEMETRY_CONSENT_DEFAULTS);
+  const rawHistoryResponse = await page.request.get(paths.history, { headers });
+  expect(rawHistoryResponse.status()).toBe(200);
+  const rawHistory = await rawHistoryResponse.json();
+  const validatedHistory = T.operations.getLastTelemetryReport.out.parse(rawHistory);
+  expect(validatedHistory.last).not.toBeNull();
+  const actualInstanceId = T.InstanceId.parse(validatedHistory.last!.report!.instanceId);
+  expect(actualInstanceId).not.toBe(TELEMETRY_HISTORY_E2E.last.report.instanceId);
+  expect(validatedHistory).toEqual({ last: { ...TELEMETRY_HISTORY_E2E.last,
+    report: { ...TELEMETRY_HISTORY_E2E.last.report, instanceId: actualInstanceId } } });
+  // Preserve actual API property order, including jsonb's wire order. Zod's
+  // reconstructed object is validation evidence, never the JSON byte oracle.
+  const originalJson = JSON.stringify(rawHistory.last.report, null, 2);
+  const originalHistory = JSON.stringify(rawHistory);
+  const assertHistory = async () => {
+    const response = await page.request.get(paths.history, { headers });
+    expect(response.status()).toBe(200);
+    const raw = await response.json(); T.operations.getLastTelemetryReport.out.parse(raw);
+    expect(JSON.stringify(raw)).toBe(originalHistory);
+  };
+  let expected = { ...initial.consent };
+  const assertConsent = async (actorPage: Page) => {
+    await expect(actorPage.getByTestId("admin-telemetry-state-kill_switch")).toBeVisible();
+    for (const item of T.TelemetryConsentItem.options) {
+      await expect(actorPage.getByTestId(`admin-telemetry-toggle-${item}`)).toHaveAttribute("aria-checked", String(expected[item]));
+      await expect(actorPage.getByTestId(`admin-telemetry-toggle-${item}`)).toBeEnabled();
+    }
+    await expect.poll(() => actorPage.getByTestId("admin-telemetry-last-body").textContent()).toBe(originalJson);
+  };
+  const counts = { GET: 0, PUT: 0 };
+  page.on("request", request => {
+    if (!Object.values(paths).includes(new URL(request.url()).pathname)) return;
+    const method = request.method(); if (method === "GET" || method === "PUT") counts[method]++;
+  });
+  const helper = await page.context().newPage(); await helper.goto("/home");
+  const locale = async (value: "en" | "zh-CN") => {
+    const before = { ...counts };
+    const switches = await page.getByRole("switch").elementHandles();
+    expect(switches).toHaveLength(4);
+    await helper.getByTestId("language-switcher").first().selectOption(value);
+    await expect(page.locator("html")).toHaveAttribute("lang", value);
+    await assertConsent(page);
+    for (const control of switches) {
+      expect(await control.evaluate(node => node instanceof Element && node.isConnected && node === document.querySelector(`[data-testid="${node.getAttribute("data-testid")}"]`))).toBe(true);
+      await control.dispose();
+    }
+    expect(counts).toEqual(before);
+  };
+  // Eight states, each mobile first. Bounds include every switch, visible label,
+  // consequence and state text. JSON data stays in its native internal scroller.
+  const capture = async (actorPage: Page, state: string, focusId: string) => {
+    for (const width of [375, 1280]) {
+      await actorPage.setViewportSize({ width, height: 900 });
+      const focus = actorPage.getByTestId(focusId);
+      await focus.scrollIntoViewIfNeeded();
+      await expect(focus).toBeInViewport({ ratio: 1 });
+      for (const element of await focus.locator('button, h3, p').all()) {
+        await expect(element).toBeInViewport({ ratio: 1 });
+        expect(await element.evaluate(node => node.clientWidth > 0 && node.scrollWidth <= node.clientWidth)).toBe(true);
+      }
+      if (focusId === "admin-telemetry-last-report") {
+        const code = actorPage.getByTestId("admin-telemetry-last-body");
+        await expect(code).toBeInViewport({ ratio: 1 });
+        // Viewport PNGs cannot show every report line simultaneously. Prove
+        // native horizontal/vertical reachability separately at EACH width.
+        const geometry = await code.evaluate(node => ({ horizontal: node.scrollWidth > node.clientWidth, vertical: node.scrollHeight > node.clientHeight }));
+        await code.hover();
+        if (geometry.horizontal) {
+          await actorPage.mouse.wheel(2000, 0);
+          await expect.poll(() => code.evaluate(node => node.scrollLeft + node.clientWidth >= node.scrollWidth - 1)).toBe(true);
+          await actorPage.mouse.wheel(-2000, 0);
+          await expect.poll(() => code.evaluate(node => node.scrollLeft)).toBe(0);
+        }
+        if (geometry.vertical) {
+          await actorPage.mouse.wheel(0, 2000);
+          await expect.poll(() => code.evaluate(node => node.scrollTop + node.clientHeight >= node.scrollHeight - 1)).toBe(true);
+          await actorPage.mouse.wheel(0, -2000);
+          await expect.poll(() => code.evaluate(node => node.scrollTop)).toBe(0);
+        }
+        expect(await code.textContent()).toBe(originalJson);
+        await focus.scrollIntoViewIfNeeded();
+        await expect(focus).toBeInViewport({ ratio: 1 });
+      }
+      if (state.includes("denial")) {
+        await expect(actorPage.getByTestId("admin-telemetry-last-failed")).toBeInViewport({ ratio: 1 });
+      }
+      expect(await actorPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await actorPage.screenshot({ path: testInfo.outputPath(`platform-telemetry-${state}-${width}.png`) });
+    }
+  };
+  const toggleOne = async (actorPage: Page, item: T.TelemetryConsentItemValue, actorHeaders = headers) => {
+    const next = !expected[item];
+    const writes: unknown[] = [];
+    const observeWrite = (request: Request) => {
+      if (request.method() === T.operations.updateTelemetryConsent.method && new URL(request.url()).pathname === paths.consent) writes.push(request.postDataJSON());
+    };
+    actorPage.on("request", observeWrite);
+    const responsePromise = actorPage.waitForResponse(response => response.request().method() === T.operations.updateTelemetryConsent.method && new URL(response.url()).pathname === paths.consent);
+    await actorPage.getByTestId(`admin-telemetry-toggle-${item}`).click();
+    const response = await responsePromise; expect(response.status()).toBe(200);
+    const patch = response.request().postDataJSON();
+    T.operations.updateTelemetryConsent.in.parse(patch);
+    expect(patch).toEqual({ [item]: next });
+    const settings = T.operations.updateTelemetryConsent.out.parse(await response.json());
+    expected = { ...expected, [item]: next };
+    expect(settings.consent).toEqual(expected); expect(settings.state).toBe("kill_switch");
+    await assertConsent(actorPage);
+    expect(writes).toEqual([{ [item]: next }]);
+    actorPage.off("request", observeWrite);
+    expect((await readSettings(actorPage, actorHeaders)).consent).toEqual(expected);
+    await assertHistory();
+    await actorPage.reload(); await assertConsent(actorPage);
+  };
+  const assertDenied = async (actorPage: Page, actorHeaders: Awaited<ReturnType<typeof authorization>>) => {
+    const before = (await readSettings()).consent;
+    for (const path of [paths.settings, paths.history]) {
+      const response = await actorPage.request.get(path, { headers: actorHeaders });
+      expect(response.status()).toBe(403);
+      expect(await response.json()).toMatchObject({ reasonCode: "NOT_PLATFORM_SUPERUSER" });
+    }
+    const response = await actorPage.request.put(paths.consent, { headers: actorHeaders, data: T.operations.updateTelemetryConsent.in.parse({ health: !before.health }) });
+    expect(response.status()).toBe(403);
+    expect(await response.json()).toMatchObject({ reasonCode: "NOT_PLATFORM_SUPERUSER" });
+    expect((await readSettings()).consent).toEqual(before); await assertHistory();
+    await actorPage.goto("/platform-admin/telemetry");
+    await actorPage.getByTestId("language-switcher").first().selectOption("en");
+    for (const id of ["admin-telemetry-failed", "admin-telemetry-last-failed"]) {
+      await expect(actorPage.getByTestId(id)).toContainText("Only platform operators");
+      await expect(actorPage.getByTestId(id)).toContainText("Your current account is not a platform operator");
+    }
+    await expect(actorPage.getByRole("switch")).toHaveCount(0);
+    await expect(actorPage.getByTestId("admin-telemetry-last-none")).toHaveCount(0);
+  };
+  const operatorContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  const ordinaryContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  let granted = false;
+  try {
+    await page.goto("/platform-admin/telemetry"); await assertConsent(page);
+    await locale("en");
+    await expect(page.getByTestId("admin-telemetry-state-kill_switch")).toContainText("Reporting disabled by the global kill switch");
+    await capture(page, "initial-consent-en", "admin-telemetry-consent");
+    await locale("zh-CN");
+    for (const item of T.TelemetryConsentItem.options) {
+      await expect(page.getByTestId(`admin-telemetry-consent-${item}`)).toContainText(T.TELEMETRY_CONSENT_COPY[item].label);
+      await expect(page.getByTestId(`admin-telemetry-if-off-${item}`)).toContainText(T.TELEMETRY_CONSENT_COPY[item].ifOff);
+    }
+    await capture(page, "initial-consent-zh", "admin-telemetry-consent");
+    await locale("en");
+    for (const item of T.TelemetryConsentItem.options) {
+      const before = counts.PUT; await toggleOne(page, item); expect(counts.PUT).toBe(before + 1);
+    }
+    await capture(page, "changed-consent-en", "admin-telemetry-consent");
+    await expect(page.getByTestId("admin-telemetry-last-outcome-failed")).toContainText("Sending failed; discarded without retry");
+    const assertLocalizedTime = async (language: "en-US" | "zh-CN") => {
+      const formatted = await page.evaluate(({ iso, language }) => new Date(iso).toLocaleString(language, {
+        year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
+      }), { iso: TELEMETRY_HISTORY_E2E.last.attemptedAt, language });
+      await expect(page.getByTestId("admin-telemetry-last-outcome-failed")).toContainText(formatted);
+    };
+    await assertLocalizedTime("en-US");
+    await expect(page.getByTestId("admin-telemetry-last-omitted")).toContainText("Usage counts, Error fingerprints, Peer benchmarking");
+    await capture(page, "last-report-en", "admin-telemetry-last-report");
+    await locale("zh-CN"); await assertLocalizedTime("zh-CN");
+    await expect(page.getByTestId("admin-telemetry-last-omitted")).toContainText(["usage", "diagnostics", "benchmark"].map(item => T.TELEMETRY_CONSENT_COPY[item as T.TelemetryConsentItemValue].label).join("、"));
+    await capture(page, "last-report-zh", "admin-telemetry-last-report");
+    await locale("en");
+    // Real protected API grants only establish the operator prerequisite; the
+    // allowed consent mutation below must still come from the native switch.
+    const grant = await page.request.post(adminPath, { headers, data: PM.operations.grantPlatformAdmin.in.parse({ userId: fixture.targetId }) });
+    expect(grant.status()).toBe(201);
+    expect(PM.operations.grantPlatformAdmin.out.parse(await grant.json())).toEqual({ userId: fixture.targetId, platformAdmin: true });
+    granted = true;
+    const operator = await operatorContext.newPage(); await platformLoginAs(operator, false);
+    const operatorHeaders = await authorization(operator);
+    expect((await readSettings(operator, operatorHeaders)).consent).toEqual(expected);
+    const operatorHistory = await operator.request.get(paths.history, { headers: operatorHeaders });
+    expect(operatorHistory.status()).toBe(200);
+    const operatorRawHistory = await operatorHistory.json();
+    T.operations.getLastTelemetryReport.out.parse(operatorRawHistory);
+    expect(JSON.stringify(operatorRawHistory)).toBe(originalHistory);
+    await operator.goto("/platform-admin/telemetry");
+    await operator.getByTestId("language-switcher").first().selectOption("en");
+    await assertConsent(operator); await toggleOne(operator, "health", operatorHeaders);
+    await capture(operator, "operator-en", "admin-telemetry-consent");
+    const ordinary = await ordinaryContext.newPage(); await login(ordinary, true);
+    const ordinaryHeaders = await authorization(ordinary);
+    await assertDenied(ordinary, ordinaryHeaders);
+    await capture(ordinary, "ordinary-denial-en", "admin-telemetry-consent");
+    const revoke = await page.request.delete(adminPath, { headers }); expect(revoke.status()).toBe(200);
+    expect(PM.operations.revokePlatformAdmin.out.parse(await revoke.json())).toEqual({ userId: fixture.targetId, platformAdmin: false });
+    granted = false;
+    await assertDenied(operator, operatorHeaders);
+    await operator.reload();
+    await expect(operator.getByTestId("admin-telemetry-failed")).toContainText("Only platform operators");
+    await expect(operator.getByTestId("admin-telemetry-last-failed")).toContainText("Only platform operators");
+    await expect(operator.getByRole("switch")).toHaveCount(0);
+    await capture(operator, "revoked-denial-en", "admin-telemetry-consent");
+    expect((await readSettings()).consent).toEqual(expected); await assertHistory();
+  } finally {
+    // Cleanup is separate from all assertions of observed UI mutation outcomes.
+    try {
+      if (granted) {
+        const revoke = await page.request.delete(adminPath, { headers }); expect(revoke.status()).toBe(200);
+        PM.operations.revokePlatformAdmin.out.parse(await revoke.json());
+      }
+      const restore = await page.request.put(paths.consent, { headers, data: T.operations.updateTelemetryConsent.in.parse(initial.consent) });
+      expect(restore.status()).toBe(200);
+      expect(T.operations.updateTelemetryConsent.out.parse(await restore.json()).consent).toEqual(initial.consent);
+      await assertHistory();
+    } finally {
+      await helper.close(); await operatorContext.close(); await ordinaryContext.close();
+    }
   }
 });

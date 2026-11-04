@@ -1,0 +1,33 @@
+{
+  "base": "f7f8ca20f0a85777f206f90eb7b603cc4bdd7082",
+  "checks": [
+    "apps/web/e2e/entity-localization.spec.ts: original imports/bindings relative order preserved",
+    "apps/web/e2e/entity-localization-fixture.ts: original imports/bindings relative order preserved",
+    "apps/api/scripts/fixtures/seed-entity-localization.ts: original imports/bindings relative order preserved",
+    "apps/web/playwright.fullstack-smoke.config.ts: original imports/bindings relative order preserved",
+    "All 11 original nonimport spec statements unchanged; exactly one appended",
+    "Original fixture bytes retained as exact prefix",
+    "All 2 original seed functions unchanged except additive history invocation",
+    "All 77 original fixtureEnv expressions preserved; one unique additive history field",
+    "Task1 five source/test files byte identical to accepted review baseline"
+  ],
+  "files": [
+    {
+      "path": "apps/web/e2e/entity-localization.spec.ts",
+      "sha256": "b83d72e3b722f32cca56c48514b70338557837c4fd107e8ae2054dfdf864ed4c"
+    },
+    {
+      "path": "apps/web/e2e/entity-localization-fixture.ts",
+      "sha256": "ececb0e468561e902d8647a958a71e759cc51f415e61f106a7f33e0db7ff24d4"
+    },
+    {
+      "path": "apps/api/scripts/fixtures/seed-entity-localization.ts",
+      "sha256": "b2397d8d5c752c4dd042f3a70ceef61dd365f3a403096befe2b6c79c916c577b"
+    },
+    {
+      "path": "apps/web/playwright.fullstack-smoke.config.ts",
+      "sha256": "3edeafac7297ef8d737e9e5fc409b7f6d227e2fef877cd87c47d2ba4095d36b7"
+    }
+  ],
+  "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d"
+}

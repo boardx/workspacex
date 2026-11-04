@@ -1,0 +1,45 @@
+{
+  "source": "3e7e579cea24ab9b1effdabb408c453fd571cc8d",
+  "case": {
+    "title": "platform telemetry preserves independent consent and original history across locales and real operator boundaries",
+    "project": "seeded-github-import",
+    "status": "expected",
+    "results": [
+      {
+        "status": "passed",
+        "durationMs": 24569,
+        "retry": 0,
+        "errors": 0
+      }
+    ]
+  },
+  "stats": {
+    "startTime": "2026-11-04T16:40:24.927Z",
+    "duration": 334130.82,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "globalErrors": 0,
+  "nativeExit": 0,
+  "nativeSeconds": 335.128,
+  "wrapperExit": 0,
+  "wrapperSeconds": 339.475,
+  "cleanup": {
+    "containers": 0,
+    "volumes": 0,
+    "portsChecked": 13,
+    "listeners": {}
+  },
+  "scope": "wsx-14a9f8deb205c814d82a",
+  "logSha256": "35f8cf45441ea2d7ce033daed00db89cbab163bf46f129ffa3970f7883d661f0",
+  "individualImageReview": "16/16 PASS",
+  "reporter": "test API kill_switch throughout; no outbound sending claim",
+  "history": "synthetic persisted failed-attempt display prerequisite; actual UI consent PUT/readback/reload and permissions verified",
+  "observedToolchainWarnings": [
+    "Node warns NO_COLOR is ignored when FORCE_COLOR is also set.",
+    "Node DEP0060: util._extend is deprecated."
+  ],
+  "warningsSuppressed": false
+}

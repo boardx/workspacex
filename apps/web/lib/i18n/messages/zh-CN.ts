@@ -1,3 +1,4 @@
+import { telemetrySettingsZhCN } from "../namespaces/telemetry-settings";
 import { platformMembersZhCN } from "../namespaces/platform-members";
 import { surveyTemplatesZhCN } from "../namespaces/survey-templates";
 import { surveyResultsZhCN } from "../namespaces/survey-results";
@@ -33,6 +34,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...telemetrySettingsZhCN,
   ...platformMembersZhCN,
   ...surveyTemplatesZhCN,
   ...surveyResultsZhCN,
