@@ -1,0 +1,25 @@
+{
+  "name": "red-runtime-display",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-template-runtime-errors-i18n.test.tsx"
+  ],
+  "source": "46a0feb60c4932d0a9ce036ff5f25a2e45bc3888",
+  "exitCode": 1,
+  "seconds": 5.851,
+  "rawLogSha256": "9bf0cc6a1b23f60fcc2bc8e4e45c926355dc26d31efbc3d5ddea85fd525b1cf5",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 1,
+  "failed": 6,
+  "passed": 0,
+  "stderrGroups": 0,
+  "warnings": 0,
+  "classification": "Actual runtime error classes across library/workspace/reuse:3known conflicts+3wrapped403 permission displays; no collection errors or fixture failures."
+}
