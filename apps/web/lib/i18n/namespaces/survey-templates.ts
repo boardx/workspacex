@@ -115,6 +115,12 @@ export const surveyTemplatesZhCN = {
   "survey.templates.wrongBinding": "模板题目与当前问卷题型不一致，请重新选择。",
   "survey.templates.duplicateBinding": "不同模板题目不能映射到同一题目。",
   "survey.templates.requestLimit": "模板请求总大小不能超过 {max}KB（UTF-8，包含题目、报告内容及保存版本）",
+  "survey.templates.shellNew": "新建报告模块",
+  "survey.templates.shellBadge": "报告模块编辑",
+  "survey.templates.shellMetadata": "报告模块 ID {id} · {count} 个报告章节",
+  "survey.templates.preview": "预览模板",
+  "survey.templates.backList": "返回列表",
+  "survey.templates.shellHint": "为每个章节配置管理问题、分析方法、输出方式和具体图表类型。",
 } as const;
 
 export const surveyTemplatesEn: Record<keyof typeof surveyTemplatesZhCN, string> = {
@@ -234,4 +240,10 @@ export const surveyTemplatesEn: Record<keyof typeof surveyTemplatesZhCN, string>
   "survey.templates.wrongBinding": "The template and survey question types differ. Choose again.",
   "survey.templates.duplicateBinding": "Different template questions cannot map to the same question.",
   "survey.templates.requestLimit": "The template request must not exceed {max} KB (UTF-8, including questions, report content, and save version).",
+  "survey.templates.shellNew": "New report module",
+  "survey.templates.shellBadge": "Report module editor",
+  "survey.templates.shellMetadata": "Report module ID {id} · {count} report chapters",
+  "survey.templates.preview": "Preview template",
+  "survey.templates.backList": "Back to list",
+  "survey.templates.shellHint": "Configure management questions, analysis methods, outputs, and chart types for each chapter.",
 };
