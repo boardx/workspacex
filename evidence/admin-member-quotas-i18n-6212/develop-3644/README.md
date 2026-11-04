@@ -1,0 +1,5 @@
+The safe quota branch normally merged actually accepted develop3644 at source9f4e84bd115c945382727d7a144cc27ed3fc8bd2. Fresh fetch still showed develop3644; neither profile f1 nor API6219 was represented as accepted. No unmerged API prerequisite was carried.
+
+Independent bounded merge review CLEAN:214 worker and34 upstream nonoverlap files retain exact Git mode/type/blob. The only overlapping paths are the two dictionary registries, each changed solely by the accepted projectWorkbench import and spread. Removing those added lines restores the previous safe registry bytes. The accepted namespace's80 added keys have no static conflict. Runtime parity of the complete current registries, including49 derived Chinese values, remains pending the existing canonical resource test. This is not a new whole-source audit or browser acceptance.
+
+The prior English-only separator source a493 was preserved; its unchanged18 UI tests passed before this accepted-base merge. Full quota browser17-image acceptance still waits for the independent API prerequisite to actually reach develop and be normally merged.
