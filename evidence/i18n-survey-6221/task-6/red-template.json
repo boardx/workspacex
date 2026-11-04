@@ -1,0 +1,26 @@
+{
+  "name": "red-template",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-template-i18n.test.tsx"
+  ],
+  "source": "e04d6ce36848333e3af329d43be13dd6198c36c0",
+  "exitCode": 1,
+  "seconds": 9.722,
+  "rawLogSha256": "0e62e967179d9f641cf461d7e95c91eecb56b0c1a067a71ec24cf2f3870f0ec4",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "warnings": 0,
+  "stderrGroups": 0,
+  "unhandled": 0,
+  "testFiles": 1,
+  "failed": 18,
+  "passed": 0,
+  "classification": "All18 reached intended missing-English/current-language assertions; initial reservation estimate20 corrected to actual18."
+}

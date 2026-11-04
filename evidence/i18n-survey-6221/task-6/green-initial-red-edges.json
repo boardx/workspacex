@@ -1,0 +1,28 @@
+{
+  "name": "green-initial-red-edges",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-template-i18n.test.tsx",
+    "tests/ui/survey-template-diagnostics-i18n.test.ts",
+    "tests/ui/survey-template-shell-i18n.test.tsx"
+  ],
+  "source": "74d8f345a500695cc0da86480fb8d8acf57820d8",
+  "exitCode": 1,
+  "seconds": 10.92,
+  "rawLogSha256": "4a90137e8c0e6068e8f62315ad57758c24a581afc8d18b62cd60e4f30060fba5",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "warnings": 0,
+  "stderrGroups": 0,
+  "unhandled": 0,
+  "testFiles": 3,
+  "failed": 2,
+  "passed": 21,
+  "classification": "Original18 continuity cases and3unknown controls PASS; schema-limit display and legacy-shell chrome are2valid new semantic RED. Actual contract byte-limit guard passed before mapping."
+}
