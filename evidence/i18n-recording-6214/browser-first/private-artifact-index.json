@@ -1,0 +1,33 @@
+{
+  "rawArtifacts": [
+    {
+      "type": "trace.zip",
+      "privatePath": "/tmp/6214-browser-first-private-e953/trace.zip",
+      "sha256": "ccdc0597ab9fdbcde3d73b2ac9a89752fd93ff218200c61dca23804f887233e5",
+      "bytes": 3498756,
+      "publish": false
+    },
+    {
+      "type": "command.log",
+      "privatePath": "/tmp/6214-browser-first-private-e953/command.log",
+      "sha256": "baae718dcab948346790bad4209873de62158a6fc0cd9f8bb3fef973da4be3fd",
+      "bytes": 33758,
+      "publish": false
+    },
+    {
+      "type": "error-context.md",
+      "privatePath": "/tmp/6214-browser-first-private-e953/error-context.md",
+      "sha256": "878238b33831829e729733f3f3f0c89ca484d5b793b657807abbf14f8184614c",
+      "bytes": 23329,
+      "publish": false
+    }
+  ],
+  "independentPrivateReview": {
+    "authorizationHeaderPresent": true,
+    "bearerValuePresent": true,
+    "credentialShapedValuePresent": true,
+    "sessionStorageReferencePresent": true,
+    "valuesPrinted": false
+  },
+  "policy": "Raw artifacts are private-only; publish only this metadata and sanitized facts."
+}

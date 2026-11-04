@@ -1,0 +1,7 @@
+# Latest develop normal integration after browser1
+
+Normal merge c54c30396e90f5d036028dbacdaf696315556cba has parents e953145fdc228977c09122ba8b985213cd13aadd and develop3644ae2c8213770614866c1c39ac4df2b8920c05 (project workbench6199 actually merged). The first browser and its cleanup completed before any source change.
+
+All466 worker and33 upstream non-overlapping Git entries retain exact blob/mode values. Only the two locale registries and seeded Playwright config overlap. Full dictionary proof passes153effectiveobjects/118modules, equal2767keys, complete2687worker+1180upstream union, every old value/import retained, no duplicate/conflict and placeholder parity. Existing project configuration imports lucide-react icons; the audit first rejected this new external dependency, then explicitly allowed the actual installed lucide-react package only from apps/web/lib/project-workbench.ts after inspecting its pure configuration and identity imports. No module was stubbed, duplicate check weakened or product import changed for the audit. This is an audit adaptation, not a product gate failure.
+
+Config delta against worker is exactly one added project-workbench spec literal; all81distinct spec literal counts equal the union of both parents, preserving research/interview/recording registration exactly once each. No local service or browser was started by this read-only merge proof. Latest integrated webtype/scoped checks and fresh browser acceptance remain pending at this point.
