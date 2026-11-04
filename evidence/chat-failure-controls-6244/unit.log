@@ -2,18 +2,21 @@
 
  RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-devapp-agent-recovery/apps/web
 
- ✓ tests/ui/workbench-trace-acceptance.test.tsx (5 tests) 200ms
+ ✓ tests/ui/workbench-trace-acceptance.test.tsx (5 tests) 117ms
 stderr | tests/ui/workbench-task-timeline.test.tsx
 Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
 
 stderr | tests/ui/run-trace-failed-tool-status.test.tsx
 Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
 
- ✓ tests/ui/run-trace-stopped-status.test.tsx (5 tests) 377ms
- ✓ tests/ui/run-trace-failure-controls.test.tsx (5 tests) 772ms
-   ✓ failure controls #6244 > retains hidden records on remount, isolates scope, and restores them 583ms
- ✓ tests/ui/run-trace-panel.test.tsx (8 tests) 1106ms
-   ✓ run trace disclosure > collapses even one tool by default and retains user expansion as streaming updates arrive 681ms
+ ✓ tests/ui/run-trace-stopped-status.test.tsx (5 tests) 815ms
+   ✓ unfinished tools after a run settles (#3360) > also stops a skill execution fact without inventing its outcome 334ms
+ ✓ tests/ui/run-trace-failure-controls.test.tsx (5 tests) 2521ms
+   ✓ failure controls #6244 > retains hidden records on remount, isolates scope, and restores them 1371ms
+   ✓ failure controls #6244 > can hide a succeeded run with a real failed tool, without offering run retry 499ms
+ ✓ tests/ui/run-trace-panel.test.tsx (8 tests) 3612ms
+   ✓ run trace disclosure > collapses even one tool by default and retains user expansion as streaming updates arrive 2281ms
+   ✓ run trace disclosure > UIUX r5：本轮 succeeded 后消息流计划卡与脚注一致（3/3），失败时保持原样 511ms
 stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具调用失败时，内层卡片不得显示成功态（不得出现绿色对勾）
 Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
 
@@ -23,8 +26,14 @@ Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /ap
 stderr | tests/ui/run-trace-failed-tool-status.test.tsx > issue #3204 ① 轨迹外层状态与内层卡片状态同源 > 工具还在跑时，内层卡片是进行中（反面：没有把未完成态也判成失败）
 Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
 
- ✓ tests/ui/run-trace-failed-tool-status.test.tsx (3 tests) 191ms
+ ✓ tests/ui/run-trace-failed-tool-status.test.tsx (3 tests) 330ms
+stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > hides every failed-run assistant bubble, keeps the user and other runs, and restores after remount
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
 stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > keeps already visible streamed text when a delayed tool boundary classifies it as progress before END
+Agent default not found
 Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
 
 stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > groups multiple assistant messages once, hides progress from answer and reuses registered tool cards
@@ -48,11 +57,13 @@ stderr | tests/ui/workbench-task-timeline.test.tsx > framework task timeline > a
 Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
 Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
 
- ✓ tests/ui/workbench-task-timeline.test.tsx (7 tests) 699ms
-   ✓ framework task timeline > groups multiple assistant messages once, hides progress from answer and reuses registered tool cards 306ms
+ ✓ tests/ui/workbench-task-timeline.test.tsx (8 tests) 4267ms
+   ✓ framework task timeline > hides every failed-run assistant bubble, keeps the user and other runs, and restores after remount 1213ms
+   ✓ framework task timeline > keeps already visible streamed text when a delayed tool boundary classifies it as progress before END 2087ms
+   ✓ framework task timeline > groups multiple assistant messages once, hides progress from answer and reuses registered tool cards 314ms
 
  Test Files  6 passed (6)
-      Tests  33 passed (33)
-   Start at  03:59:53
-   Duration  17.38s (transform 7.58s, setup 6.46s, collect 42.16s, tests 3.34s, environment 19.54s, prepare 2.10s)
+      Tests  34 passed (34)
+   Start at  04:15:01
+   Duration  57.65s (transform 19.16s, setup 14.48s, collect 90.04s, tests 11.66s, environment 64.27s, prepare 8.78s)
 

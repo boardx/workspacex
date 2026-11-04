@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { failureTraceKey, isSettledFailureTrace } from "@/lib/chat-workbench/failure-trace-visibility";
 import { ChevronRight, Loader2, Check, AlertCircle, Circle, Wrench, Sparkles } from "lucide-react";
 import { RunProgressButterfly } from "@/components/chat/run-progress-butterfly";
 import type { ExecutionEvent } from "@repo/contracts/execution-journal";
@@ -119,13 +120,13 @@ function SourceUrlLine({ args }: { readonly args: unknown }): React.JSX.Element 
  */
 const RESULT_PANEL_MIN_CHARS = 200;
 
-export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool, failureScope, onRetryFailure }: {
-  failureScope?: string; onRetryFailure?: () => void; runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
+export function RunTracePanel({ runId, events, running = false, expanded: controlledExpanded, onExpandedChange, renderTool, failureScope, onRetryFailure, hidden: controlledHidden, onHiddenChange }: {
+  hidden?: boolean; onHiddenChange?: (key: string, hidden: boolean) => void; failureScope?: string; onRetryFailure?: () => void; runId: string; events: readonly ExecutionEvent[]; running?: boolean; expanded?: boolean; onExpandedChange?: (expanded: boolean) => void; renderTool?: (entry: TraceEntry) => React.ReactNode;
 }): JSX.Element | null {
   const [localExpanded, setLocalExpanded] = React.useState(false);
   const expanded = controlledExpanded ?? localExpanded;
   const setExpanded = onExpandedChange ?? setLocalExpanded;
-  const storageKey = failureScope ? `chat-hidden-failure:${JSON.stringify([failureScope, runId, [...events].reverse().find((event) => event.attemptId)?.attemptId ?? "legacy"])}` : null;
+  const storageKey = failureTraceKey(failureScope, runId, events);
   const [hiddenKey, setHiddenKey] = React.useState<string | null>(null);
   React.useEffect(() => {
     try { setHiddenKey(storageKey && localStorage.getItem(storageKey) === "1" ? storageKey : null); }
@@ -133,6 +134,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   }, [storageKey]);
   const hideFailure = (hide: boolean) => {
     setHiddenKey(hide ? storageKey : null);
+    if (storageKey) onHiddenChange?.(storageKey, hide);
     if (!storageKey) return;
     try { if (hide) localStorage.setItem(storageKey, "1"); else localStorage.removeItem(storageKey); } catch { /* Storage may be disabled; current view still works. */ }
   };
@@ -172,7 +174,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const label = legacy ? "历史执行记录" : status?.kind === "status" && status.status === "cancelled" ? "已停止" : status?.kind === "status" && status.status === "failed" ? "执行失败" : status?.kind === "status" && status.status === "paused" ? "已暂停" : status?.kind === "status" && status.status === "awaiting_tool_permission" ? "等待确认" : active ? "正在执行" : "执行过程";
   const runFailed = status?.kind === "status" && status.status === "failed";
   const failed = entries.some((entry) => entry.status === "failed");
-  const showFailureControls = runFailed || (!active && status?.kind === "status" && (status.status === "succeeded" || status.status === "cancelled") && failed);
+  const showFailureControls = isSettledFailureTrace(events);
   const tools = entries.filter((entry) => entry.kind === "tool").length;
   const skills = entries.filter((entry) => entry.kind === "skill").length;
   const hasSubtasks = entries.some((entry) => entry.kind === "tool" && entry.text === "spawn_async_task");
@@ -184,7 +186,7 @@ export function RunTracePanel({ runId, events, running = false, expanded: contro
   const head = active ? null : failed ? `${label} · 有失败步骤` : label;
   // 「技能活动」只数技能脚本执行；为 0 时对用户没有信息量（人类反馈 2026-09-17），不显示。
   const tail = `${active && failed ? "有失败步骤 · " : ""}历时 ${elapsed} · 工具 ${String(tools)} 次${skills > 0 ? ` · 技能活动 ${String(skills)} 项` : ""}`;
-  if (showFailureControls && storageKey && hiddenKey === storageKey) return <div data-testid="run-trace-hidden" className="my-1 flex items-center gap-2 text-11 text-muted-foreground">
+  if (showFailureControls && storageKey && (controlledHidden ?? (hiddenKey === storageKey))) return <div data-testid="run-trace-hidden" className="my-1 flex items-center gap-2 text-11 text-muted-foreground">
     <span>已在此浏览器隐藏失败记录</span><button type="button" className="underline" onClick={() => hideFailure(false)}>恢复显示</button>
   </div>;
   return <section data-testid="run-trace-panel" data-run-id={runId} className="my-3 min-w-0 rounded-card bg-card px-1 py-1 text-13 text-muted-foreground shadow-sm">
