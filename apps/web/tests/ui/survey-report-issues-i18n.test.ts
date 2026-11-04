@@ -1,8 +1,11 @@
-import { expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { survey } from "@repo/contracts";
 import { SURVEY_REPORT_SHARE_MIN_SAMPLE, surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
 import { translate } from "@/lib/i18n/messages";
 import { displaySurveyReportIssue } from "@/lib/survey/display-report-issue";
+import { buildSurveyReportWord, printSurveyReport } from "@/components/survey/report/report-export";
+import { displaySurveyRuntimeError } from "@/lib/survey/display-runtime-error";
+
 const number: survey.SurveyWorkflowQuestion = { id: "raw-number", title: "原数值题 {count}", type: "number", chapterId: "raw-chapter", order: 1, required: false, options: [] };
 const open: survey.SurveyWorkflowQuestion = { ...number, id: "raw-open", title: "原开放题 {name}", type: "open" };
 function compile(patch: Partial<survey.SurveyReportBlock>, questions: survey.SurveyWorkflowQuestion[] = [], responses: survey.SurveyResponse[] = []) {
@@ -44,4 +47,41 @@ it.each([
 });
 it.each(["constructor", "__proto__", "原模型说明 {count}"])("keeps an unknown/model diagnostic literal: %s", source => {
   expect(displaySurveyReportIssue(source, (key, params) => translate("en", key, params))).toBe(source);
+});
+
+// Exercise actual exporter rejection paths, then the same display adapter used
+// by LiveSurveyWorkspace. Canonical errors and exported content remain raw.
+afterEach(() => { vi.unstubAllGlobals(); document.querySelectorAll("iframe").forEach(frame => frame.remove()); });
+const exportTitle = "原图片 {count} / {name}";
+function imageReport(imageUrl?: string): survey.CompiledSurveyReport {
+  return { id: "raw-report", title: "原报告 {name}", issues: [],
+    sampleSummary: { total: SURVEY_REPORT_SHARE_MIN_SAMPLE, pendingReview: 0, excluded: 0, included: SURVEY_REPORT_SHARE_MIN_SAMPLE },
+    sections: [{ id: "raw-section", title: "原章节", blocks: [{ id: "raw-image", title: exportTitle, type: "image", questionIds: [], statistic: "responses", samplePolicy: "valid", minGroupSize: 5, rows: [], issues: [], ...(imageUrl ? { imageUrl } : {}) }] }] };
+}
+async function expectExportFailure(operation: Promise<unknown>, source: string, english: string) {
+  const failure: unknown = await operation.then(() => null, error => error);
+  expect(failure).toBeInstanceOf(Error);
+  if (!(failure instanceof Error)) throw new Error("Expected a real exporter rejection");
+  expect(failure.message).toBe(source);
+  expect(displaySurveyRuntimeError(failure, (key, params) => translate("en", key, params), "en")).toBe(english);
+  expect(displaySurveyRuntimeError(failure, (key, params) => translate("zh-CN", key, params), "zh-CN")).toBe(source);
+  expect(failure.message).toBe(source);
+}
+it("translates actual missing-image Word export failure while preserving the raw braced block title", async () => {
+  await expectExportFailure(buildSurveyReportWord(imageReport()), `图片「${exportTitle}」尚未配置，无法完整导出`, `Image “${exportTitle}” is not configured. The complete report cannot be exported.`);
+});
+it("translates the actual failed remote-image Word export rejection", async () => {
+  vi.stubGlobal("Image", class { onerror: (() => void) | null = null; set src(_value: string) { queueMicrotask(() => this.onerror?.()); } });
+  await expectExportFailure(buildSurveyReportWord(imageReport("https://example.com/missing.png")), "图片加载失败，请检查图片地址及跨域访问权限", "The image could not load. Check its URL and cross-origin access permissions.");
+});
+it("translates actual preflight broken-image print rejection without opening a print frame", async () => {
+  const root = document.createElement("article"); root.innerHTML = '<p data-report-image-error>原图片</p>';
+  await expectExportFailure(printSurveyReport(root), "图片加载失败，无法完整打印报告", "An image could not load. The complete report cannot be printed.");
+  expect(document.querySelector("iframe")).toBeNull();
+});
+it("translates actual print image loading failure and cleans the failed print frame", async () => {
+  vi.stubGlobal("Image", class { onerror: (() => void) | null = null; set src(_value: string) { queueMicrotask(() => this.onerror?.()); } });
+  const root = document.createElement("article"); root.innerHTML = '<h1>原报告 {count}</h1><img src="https://example.com/missing.png">';
+  await expectExportFailure(printSurveyReport(root), "图片加载失败，请检查图片地址及跨域访问权限", "The image could not load. Check its URL and cross-origin access permissions.");
+  expect(document.querySelector("iframe")).toBeNull();
 });

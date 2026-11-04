@@ -258,3 +258,27 @@ it("shows the shared permission guidance for a wrapped 403 without exposing diag
   expect(error.message).toBe("请求未完成，请检查网络后重试。"); expect(error.retryable).toBe(true);
   expect(boundary.request).toHaveBeenCalledTimes(1); expect(error.cause).toBe(cause);
 });
+
+it("creates direct-new-route title defaults once in the entry locale and preserves edits across language changes", async () => {
+  await act(async () => { show(<LiveSurveyWorkspace surveyId="new" initialStep="template" />, "en"); });
+  const name = screen.getByRole("textbox", { name: "Survey name" });
+  const report = screen.getByRole("textbox", { name: "Report title" });
+  expect(name).toHaveValue("Untitled survey"); expect(report).toHaveValue("Survey analysis report");
+  fireEvent.change(name, { target: { value: "原新问卷 {count}" } });
+  fireEvent.change(report, { target: { value: "原新报告 {name}" } });
+  report.focus(); (report as HTMLInputElement).setSelectionRange(1, 4);
+  language("zh-CN"); expect(screen.getByRole("textbox", { name: "问卷名称" })).toBe(name); expect(name).toHaveValue("原新问卷 {count}");
+  expect(screen.getByRole("textbox", { name: "报告标题" })).toBe(report); expect(report).toHaveValue("原新报告 {name}"); expect(report).toHaveFocus();
+  expect([(report as HTMLInputElement).selectionStart, (report as HTMLInputElement).selectionEnd]).toEqual([1, 4]);
+  language("en"); expect(boundary.request).not.toHaveBeenCalled();
+});
+it("creates the direct-new import Markdown default in the entry locale without rewriting its raw text on a later switch", async () => {
+  await act(async () => { show(<LiveSurveyWorkspace surveyId="new" initialStep="import" creationMode="ai" />, "en"); });
+  fireEvent.click(screen.getByText("Edit Markdown directly (optional)", { exact: true }));
+  const editor = screen.getByRole("textbox", { name: "Survey Markdown" });
+  expect(editor).toHaveValue("# Untitled survey\n\n## q1 [open]\nPlease share your feedback\n");
+  const raw = "# 原自写问卷 {count}\n\n## raw [open]\n原自写问题 {name}\n";
+  fireEvent.change(editor, { target: { value: raw } }); language("zh-CN");
+  expect(screen.getByRole("textbox", { name: "问卷 Markdown" })).toBe(editor); expect(editor).toHaveValue(raw);
+  language("en"); expect(editor).toHaveValue(raw); expect(boundary.request).not.toHaveBeenCalled();
+});
