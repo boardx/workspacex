@@ -50,3 +50,5 @@ flowchart TD
 ## 2026-11-04 resumed execution
 
 User resumed remaining i18n; main assigned this saved issue first, then complete B2/B3 flows. Merge actualdevelop44aeac6e10b688471fe03536fc8490a353824976, preserving9owned source/helper/spec/test blobs frombccc15f8a. Both aggregators reconstructed from currentbase plus own namespace afterworkflowRuns. Final responsive-source browser remains required; initial3/3 is historical and the cancelled geometry round is not a pass.
+
+2026-11-04: main-authorized normal sync of actual merged developdc9, product-source79d1, protected10nonsharedblobs unchanged; global roots retain both namespaces. New-base34focusedGREEN4.67s+canonicalreachability70/12actual0. Root incremental review clean; normalhooks/newheadCI/candidate/actualmerge still pending. See develop-dc9-sync.md; old9096 cancelled aggregate job is not counted as pass, no blind third retry.
