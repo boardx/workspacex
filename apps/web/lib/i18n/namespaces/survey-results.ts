@@ -1,3 +1,8 @@
+import type { survey } from "@repo/contracts";
+import { BLOCK_LABELS, SURVEY_STATISTIC_LABELS } from "@/lib/survey/report-template";
+import { SURVEY_SAMPLE_NOTICE_COPY, SURVEY_INSIGHT_ACTION_LABELS } from "@/components/survey/report/report-sample-qualification";
+import { SURVEY_CHART_DEFAULT_SERIES } from "@/components/survey/report/report-format";
+
 /** Exact compiler diagnostic identities; unknown/model prose remains literal. */
 export const surveyReportIssueCatalogue = {
   "emptyText": [
@@ -67,10 +72,6 @@ export const surveyReportIssueCatalogue = {
 } as const;
 type IssueMessages = Record<`survey.reportIssue.${keyof typeof surveyReportIssueCatalogue}`, string>;
 function issueMessages(index: 0 | 1): IssueMessages { return Object.fromEntries(Object.entries(surveyReportIssueCatalogue).map(([key, pair]) => [`survey.reportIssue.${key}`, pair[index]])) as IssueMessages; }
-import type { survey } from "@repo/contracts";
-import { BLOCK_LABELS, SURVEY_STATISTIC_LABELS } from "@/lib/survey/report-template";
-import { SURVEY_SAMPLE_NOTICE_COPY, SURVEY_INSIGHT_ACTION_LABELS } from "@/components/survey/report/report-sample-qualification";
-import { SURVEY_CHART_DEFAULT_SERIES } from "@/components/survey/report/report-format";
 const blockEnglish: Record<survey.SurveyReportBlock["type"], string> = { text: "Text note", metric: "Metric card", table: "Data table", bar: "Bar chart", radar: "Radar chart", line: "Time trend", gap: "Gap matrix", image: "Image", "page-break": "Page break" };
 const statisticEnglish: Record<survey.SurveyReportBlock["statistic"], string> = { mean: "Mean", count: "Valid sample count", distribution: "Option count", percentage: "Percentage (%)", nps: "NPS (promoters minus detractors)", mean_rank: "Mean rank", first_choice: "First-choice percentage (%)", sum: "Sum", responses: "Response list" };
 type BlockMessages = Record<`survey.results.block.${survey.SurveyReportBlock["type"]}`, string>;
