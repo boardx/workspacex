@@ -1,0 +1,28 @@
+{
+  "name": "green-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-public-i18n.test.tsx",
+    "tests/ui/survey-answer-message-i18n.test.ts",
+    "tests/ui/survey-public-form.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "1252874221dabe0bceb3a38db8030d31de9d7ae0",
+  "exitCode": 0,
+  "seconds": 34.381,
+  "rawLogSha256": "ac137c55825f779a564e38123704972b5fed95d14c9db3b432ed9458081ae650",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 4,
+  "passed": 41,
+  "failed": 0,
+  "warnings": 0,
+  "unhandled": 0,
+  "nativeSeconds": 30.38
+}

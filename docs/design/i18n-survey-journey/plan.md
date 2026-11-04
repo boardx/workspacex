@@ -34,9 +34,9 @@ flowchart LR
  classDef pending fill:#f3f4f6,stroke:#9ca3af
  class A done
  class B tested
- class C,D tested
- class E active
- class F,G pending
+ class C,D,E tested
+ class F active
+ class G pending
 ```
 
 ### Task 1: Live library, creation and input
@@ -76,10 +76,10 @@ flowchart LR
 **Files:** components/survey/live/public-survey-form.tsx and shared question/material display helpers; pure known validation display mapper; namespace survey-public.ts. Test: survey-public-i18n.test.tsx.
 **Interfaces:** reuse shared LanguageSwitcher. Preserve token-only load effect, submissionId, uploadSession Promise/token, started/locked refs and original validation/focus calculation. Mapper translates fixed templates only after original errors are calculated; authored label interpolation stays raw.
 
-- [ ] Write RED for anonymous switcher/loading/pagination/required/format/error/retry/success UI. Fill raw mixed-language answers, switch mid-upload/pending-submit and assert stable DOM/answers, one upload-session/submit payload and same submissionId; custom success Markdown literal. Assert invalid matrix row focuses original raw target.
-- [ ] Run new suite; Expected: valid missing-English failures. Implement render-only copy and header switcher, preserving all existing lifecycle deps/locks/raw labels.
-- [ ] Run new suite plus survey-public-form, survey-question-types and response download regressions; Expected: all PASS. Include alreadySubmitted/closed/retryable responses without duplicate submit.
-- [ ] Commit and task-done affected suite.
+- [x] Write RED for anonymous switcher/loading/pagination/required/format/error/retry/success UI. Fill raw mixed-language answers, switch mid-upload/pending-submit and assert stable DOM/answers, one upload-session/submit payload and same submissionId; custom success Markdown literal. Assert invalid matrix row focuses original raw target.
+- [x] Run new suite; Expected: valid missing-English failures. Implement render-only copy and header switcher, preserving all existing lifecycle deps/locks/raw labels.
+- [x] Run new suite plus survey-public-form, survey-question-types and response download regressions; Expected: all PASS. Include alreadySubmitted/closed/retryable responses without duplicate submit.
+- [x] Commit and task-done affected suite.
 
 ### Task 5: Responses and report presentation
 

@@ -1,0 +1,15 @@
+{
+  "name": "type-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "5705209a876cdbfa359f4c0e341af2b86b852dfd",
+  "exitCode": 0,
+  "seconds": 185.476,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "environment": {},
+  "realTscCommandObserved": true
+}
