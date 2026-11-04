@@ -1,5 +1,9 @@
 # Recording / transcription localization #6214
 
+Current2026-11-04: reviewed source026d8dcac normally integrates research/interview2dfcf827d and preserves the restored17-file caption follow-up. Full web typecheck,15files208tests, copy-value/init/static gates and exact2-case isolated discovery pass. Complete32-sourcefile independent static review is CLEAN. Current receipts and resource cleanup are indexed in [merged-current](merged-current/README.md). Browser execution/visual QA, push, source CI and develop delivery remain pending. #6147 is actually merged. The original baseline bytes remain unchanged; current comparator preserves all original values and explicitly allows four new caption keys.
+
+## Historical evidence before current integration
+
 In progress. Local source is stacked on interview PR #6213 (`ec3d35d3`). Browser acceptance, independent source review, publication and merge are pending. Main coordinator currently prioritizes actual merge of #6147, so recording does not occupy a browser or push window.
 
 Latest change: the UI wiring gate caught the project dictionary importing mock modules through the global provider. Fixed display copy has now been extracted to a module with no mock imports, reused by fixtures and dictionary. Its complete before/after exports + probes + zh/en JSON is byte-identical (96,563 bytes, SHA256 `62b2d12a801c2f48b15a393a5184cbe589c35c546a419491f5833a8dfc78d6ee`). Wiring, withdrawal single-source and extraction-file lint reruns pass; The full post-extraction UI/transport regression rerun passed 15 files /206 cases in32.45s, and the committed comparator reproduces equality. Post-extraction full web typecheck also passes (42.74s). Source is locally validated; actual browser acceptance and source review remain pending. `compare-copy-source.ts` reproduces semantic equality against the frozen `copy-baseline.json`; this baseline is evidence, not fixture authority. No gate exemption was changed.
