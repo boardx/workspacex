@@ -1,12 +1,15 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, randomBytes } from "node:crypto";
 import { BcryptPasswordHasher } from "../../src/infrastructure/auth/bcrypt-password-hasher";
 import { seedOrg, resetOrgs, addOrgMember, asOwner, asApp } from "../../tests/support/db";
+import { instanceTelemetry as T } from "@repo/contracts";
+import { instanceIdFromSecret } from "../../src/application/telemetry/run-telemetry-cycle";
 /** Scoped identity and pre-existing profile authorization prerequisites.
  * Packages, translations and publication are created by real browser/API flows,
  * never pre-filled as expected outcomes. The profile grant is an existing row to
  * revoke, not evidence that HITL approval creation was exercised. */
 export async function seedEntityLocalizationFixture(env: NodeJS.ProcessEnv = process.env) {
   if (env.FULLSTACK_E2E_FIXTURE !== "1") throw new Error("FULLSTACK_E2E_FIXTURE=1 is required");
+  await seedTelemetryHistoryFixture(env);
   await seedPlatformMembersFixture(env);
   if (!env.FULLSTACK_ENTITY_LOCALIZATION_ORG_ID) return;
   const required = (key: string) => { const value = env[`FULLSTACK_ENTITY_LOCALIZATION_${key}`]; if (!value) throw new Error(`Missing entity localization fixture ${key}`); return value; };
@@ -48,6 +51,32 @@ export async function seedEntityLocalizationFixture(env: NodeJS.ProcessEnv = pro
         VALUES($1,$2,$3,$4,'locale-fixture',$5,$6,$7,$8,$9,'succeeded',now()-($10::int * interval '1 second'),$11,$12,$13,$14,$15,$16)`,
       [randomUUID(), orgId, accounts[1]!.id, projectId, receipt.model, receipt.total, receipt.input, receipt.output, receipt.source, index + 1, receipt.cost, receipt.currency, receipt.cost === null ? null : "locale-fixture-v1", receipt.unit, receipt.quantity, receipt.nativeSource]);
     }
+  });
+}
+
+async function seedTelemetryHistoryFixture(env: NodeJS.ProcessEnv) {
+  const raw = env.FULLSTACK_ENTITY_LOCALIZATION_TELEMETRY_HISTORY;
+  if (raw === undefined) return; // Legacy callers do not touch instance state.
+  // Full strict contract validation precedes every SQL statement owned here.
+  const history = T.operations.getLastTelemetryReport.out.parse(JSON.parse(raw));
+  if (!history.last?.report) throw new Error("Telemetry history fixture requires a past report");
+  const last = history.last;
+  const defaults = T.TELEMETRY_CONSENT_DEFAULTS;
+  await asOwner(async c => {
+    await c.query(`INSERT INTO instance_telemetry_state
+      (singleton, install_secret, consent_health, consent_usage, consent_diagnostics, consent_benchmark)
+      VALUES(true,$1,$2,$3,$4,$5) ON CONFLICT(singleton) DO NOTHING`,
+    [randomBytes(32).toString("hex"), defaults.health, defaults.usage, defaults.diagnostics, defaults.benchmark]);
+    const state = await c.query<{ install_secret: string }>("SELECT install_secret FROM instance_telemetry_state WHERE singleton");
+    const secret = state.rows[0]?.install_secret;
+    if (!secret) throw new Error("Telemetry fixture singleton missing");
+    const report = T.InstanceTelemetryReport.parse({ ...last.report, instanceId: instanceIdFromSecret(secret) });
+    await c.query(`UPDATE instance_telemetry_state SET
+      consent_health=$1, consent_usage=$2, consent_diagnostics=$3, consent_benchmark=$4,
+      last_attempted_at=$5, last_outcome=$6, last_omitted=$7::jsonb, last_report=$8::jsonb,
+      updated_at=now() WHERE singleton`,
+    [defaults.health, defaults.usage, defaults.diagnostics, defaults.benchmark,
+      last.attemptedAt, last.outcome, JSON.stringify(last.omittedForLackOfData), JSON.stringify(report)]);
   });
 }
 

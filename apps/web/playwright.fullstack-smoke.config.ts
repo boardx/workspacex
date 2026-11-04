@@ -1,5 +1,5 @@
 import { ABOUT_ME_E2E } from "./e2e/about-me-fixture";
-import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E } from "./e2e/entity-localization-fixture";
+import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E, TELEMETRY_HISTORY_E2E } from "./e2e/entity-localization-fixture";
 import path from "node:path";
 import {partitionSmokeProjects} from "./smoke-project-partition";
 import {BOARD_UNIFIED_REGRESSION_SPECS} from "./board-unified-regression-registry";
@@ -92,6 +92,7 @@ const compose = `docker compose -f ../api/docker-compose.dev.yml -p "${required(
  */
 const serverStartTimeoutMs = Number(process.env.FULLSTACK_E2E_SERVER_TIMEOUT_MS ?? 600_000);
 const fixtureEnv = {
+  FULLSTACK_ENTITY_LOCALIZATION_TELEMETRY_HISTORY: JSON.stringify(TELEMETRY_HISTORY_E2E),
   FULLSTACK_ABOUT_ME_FIXTURE: JSON.stringify(ABOUT_ME_E2E),
   FULLSTACK_ENTITY_LOCALIZATION_ORG_ID: ENTITY_LOCALIZATION_E2E.orgId,
   FULLSTACK_ENTITY_LOCALIZATION_PROJECT_ID: ENTITY_LOCALIZATION_E2E.projectId,
@@ -862,6 +863,8 @@ export default defineConfig({
       reuseExistingServer: false,
       env: {
         ...process.env, ...fixtureEnv, ...modelProviderEnv, ...mailProviderEnv,
+        // Isolated acceptance API: no telemetry timer or outbound transport.
+        WSX_TELEMETRY_DISABLED: "1",
         WORKSPACEX_DEPLOYMENT_MARKER: process.env.BOARD_ACCEPTANCE_RUNTIME_MARKER,
         // #466 反证 `no-asr-provider`：把 ASR 上游的配置整组撤掉，
         // WS 面必须以 `ASR_NOT_CONFIGURED` 诚实降级，而不是静默失败或换个提供方。

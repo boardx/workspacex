@@ -33,7 +33,7 @@
 - [x] StageA tests only: meaningful English/locale transitions after real mocked branch entry, deferred GET/PUT ownership/exact counts, all reporter/outcome states, one-key PUT/independent flags, known/unknown/network/server failures, omitted labels/date and exact raw JSON. Use installed matcher APIs; no nonexistent namespace import or invalid fixture counts as RED.
 - [x] Stop for root's native intended RED before any production edit.
 - [x] StageB minimum page/namespace implementation; semantic failures translate onrender, locale stays out of effects, contract Chinese is referenced, booleans/raw data/behavior unchanged. Perform consolidated page width/label/truncate audit.
-- [ ] Root runs focused tests + existing three/resources GREEN, scoped lint/type/init and actual raw-error checks; commit and independent task review.
+- [x] Root runs focused tests + existing three/resources GREEN, scoped lint/type/init and actual raw-error checks; commit and independent task review.
 
 ### Task 2: Canonical real consent/history browser acceptance and publication
 

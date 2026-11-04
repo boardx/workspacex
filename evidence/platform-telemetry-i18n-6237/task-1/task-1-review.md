@@ -1,0 +1,18 @@
+# Task 1 independent spec and quality review
+
+Verdict: **PASS — Task 1 spec and quality.** No actionable P1/P2 finding in the supplied change.
+
+Reviewed immutable `review-task1-5f23745..f7f8ca2.diff` once, the spec, verification design, plan Global Constraints/Review Focus, Task 1 report, and the named Stage A/Stage B and accepted-parent receipts. Bounded source inspection resolved implementation/test/copy details. Review range: `5f237452e3ec49faafcc2534a76c798f9610b3b6` → `f7f8ca20f0a85777f206f90eb7b603cc4bdd7082`.
+
+- Both GET effects remain mount-owned with cancellation and empty dependency lists. Locale is consumed at render; it does not restart reads or saves. Semantic failures retain only a safe message key or HTTP status; neither private cause text nor internal reason codes render.
+- Four consent items remain independent and canonically enumerated. Each toggle sends its single-item PUT, all controls lock while a save is pending, successful responses remain authoritative, and failure leaves prior booleans intact. Existing thin wrappers and the original three tests are preserved.
+- Typed exhaustive consent/reporter/outcome/error maps follow canonical types. Chinese consent labels and consequences reference `TELEMETRY_CONSENT_COPY`; English preserves the full consequences and operator authority. The corrected kill-switch and attempted-payload wording avoid the identified English semantic errors.
+- Raw history retains the boundary object through `JSON.stringify(last.report, null, 2)`. No parsing reconstruction, key translation, numeric conversion or timestamp mutation is introduced. Only the human date and surrounding labels localize. The test fixture validates without substituting parsed output and checks exact JSON across locale changes.
+- Page-local wrapping and `min-w-0` changes support narrow layouts while retaining native JSON-panel overflow. Physical 375/1280 geometry is not established by this static review.
+- New component cases exercise meaningful English assertions after branch entry, deferred reads/writes and call counts, server-owned values, all closed reporter/outcome states, independent writes, safe failures, omissions and raw JSON. They use the actual API wrappers with a mocked request boundary and preserve the legacy Chinese tests.
+
+Root execution receipts were reviewed, **not independently rerun**: Stage A records 22 intended localization failures with 8 positive controls passing and zero collection/fixture/unhandled errors; the retained Vite CJS deprecation is not hidden. The same three-file Stage B command records 30/30 passing at the reviewed HEAD. Scoped lint, web typecheck, init and raw-error scanner each record exit 0. The scanner retains its 55-file/70-hit baseline; no telemetry baseline entry or scanner relaxation is introduced.
+
+The accepted-parent binding records normal incorporation of accepted `b992054dd498530092d09a1fa559f0b12a33406b`, with the whole source tree/content/modes equal before and after the ancestry-only merge. This review treats that parent as accepted; it makes no unaccepted-dependency claim or claim of child delivery.
+
+This is only Task 1 acceptance. Mocked component evidence does not prove actual permission enforcement, PostgreSQL persistence, real reload/readback or report transmission. Task 2 real API/PG/history-fixture acceptance, all 16 individually inspected browser PNGs, final whole-branch review, canonical credential scan, normal hooks/push, CI and server merge remain pending. No browser, service, Git, tests or gates were run by this reviewer; no product or test source was edited.
