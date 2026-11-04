@@ -53,6 +53,8 @@ test("recording locale preserves real capture, final persistence, edits and hist
   };
   await page.goto(`/rec?projectId=${F.projectId}`);
   await expect(page.getByRole("heading", { name: "Transcription history", exact: true })).toBeVisible();
+  await expect(page.getByTestId("project-breadcrumb")).toHaveAccessibleName("Back to project");
+  await expect(page.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", `/projects/${F.projectId}?tab=research&sub=transcript`);
   await page.getByTestId("rec-create-open").click();
   const name = `原始录音 {count} ${randomUUID()}`;
   const rawTag = "原始标签 {count}";
@@ -129,7 +131,12 @@ test("recording locale preserves real capture, final persistence, edits and hist
   const deletion = page.waitForResponse(response => response.request().method() === "DELETE" && pathOf(response.url()) === `/recording/realtime-asr/sessions/${sessionId}`);
   await page.getByTestId("rec-delete-confirm").click(); expect((await deletion).ok()).toBe(true);
   await expect(page.getByTestId(`rec-history-card-${sessionId}`)).toHaveCount(0); await expect(page.getByTestId("saved")).toContainText(`Permanently deleted “${renamed}”`);
-  const afterDeletionWrites = writes.length; await language("zh-CN"); await language("en"); expect(writes).toHaveLength(afterDeletionWrites);
+  const afterDeletionWrites = writes.length; await language("zh-CN");
+  await expect(page.getByTestId("project-breadcrumb")).toHaveAccessibleName("返回项目");
+  await language("en");
+  await expect(page.getByTestId("project-breadcrumb-back")).toHaveAccessibleName("Back to project");
+  await expect(page.getByTestId("project-breadcrumb-back")).toHaveAttribute("href", `/projects/${F.projectId}?tab=research&sub=transcript`);
+  expect(writes).toHaveLength(afterDeletionWrites);
   await expect(page.getByTestId("saved")).toContainText(renamed); await capture("deleted-en");
   await page.reload(); await expect(page.getByTestId("rec-history-page")).toBeVisible(); await expect(page.getByTestId(`rec-history-card-${sessionId}`)).toHaveCount(0);
   const deletedRead = await page.request.get(`/__fullstack_api/recording/realtime-asr/sessions/${sessionId}`, { headers }); expect(deletedRead.status()).toBe(404);
@@ -156,6 +163,34 @@ test("recording project previews retain routing and edited controls in both loca
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       const heading = page.getByRole("heading", { level: 1 }); await heading.scrollIntoViewIfNeeded(); const box = await heading.boundingBox(); expect(box).not.toBeNull(); expect(box!.x).toBeGreaterThanOrEqual(0); expect(box!.x + box!.width).toBeLessThanOrEqual(width);
       expect(await heading.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+      if (screen === "assign") {
+        const filter = page.getByTestId("rec-pending-filter");
+        const filterBox = await filter.boundingBox(); expect(filterBox).not.toBeNull();
+        const buttons = filter.getByRole("button"); await expect(buttons).toHaveCount(3);
+        for (const button of await buttons.all()) {
+          const bounds = await button.boundingBox(); expect(bounds).not.toBeNull();
+          expect(bounds!.x).toBeGreaterThanOrEqual(filterBox!.x);
+          expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(Math.min(width, filterBox!.x + filterBox!.width));
+          expect(await button.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+        }
+      }
+      if (screen === "process") {
+        const row = page.getByTestId("rec-process-task-translate");
+        const title = row.getByText("German-to-Chinese translation", { exact: true });
+        const detail = row.getByText("Local model queue timed out (attempt 3)", { exact: true });
+        const retry = page.getByTestId("rec-process-retry-translate");
+        const bounds = await Promise.all([title, detail, retry].map(element => element.boundingBox()));
+        for (let index = 0; index < bounds.length; index++) {
+          const rect = bounds[index]; expect(rect).not.toBeNull(); expect(rect!.x).toBeGreaterThanOrEqual(0); expect(rect!.x + rect!.width).toBeLessThanOrEqual(width);
+          expect(await [title, detail, retry][index]!.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+        }
+        const lineHeight = await title.evaluate(element => Number.parseFloat(getComputedStyle(element).lineHeight));
+        expect(bounds[0]!.height).toBeLessThanOrEqual(lineHeight * 2 + 1);
+        const disjoint = (a: NonNullable<typeof bounds[number]>, b: NonNullable<typeof bounds[number]>) => a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y;
+        expect(disjoint(bounds[0]!, bounds[1]!)).toBe(true);
+        expect(disjoint(bounds[0]!, bounds[2]!)).toBe(true);
+        expect(disjoint(bounds[1]!, bounds[2]!)).toBe(true);
+      }
       await page.screenshot({ path: test.info().outputPath(`project-${screen}-en-${width}.png`), fullPage: true });
       const footerIds = { prep: "rec-prep-footnote", verify: "rec-verify-evidence-note", live: "rec-file-first", assign: "rec-pending-segments", annotate: "rec-aimoment-aim-3", retention: "rec-consent-snapshot" } as const;
       if (screen !== "process") {

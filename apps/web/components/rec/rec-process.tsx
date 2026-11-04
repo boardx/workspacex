@@ -50,26 +50,30 @@ export function RecProcess({ state, view }: { state: UiState; view: RecView }) {
               key={t.id}
               data-testid={`rec-process-task-${t.id}`}
               className={cn(
-                "flex items-center gap-3 px-3.5 py-3",
+                "flex flex-col gap-2 px-3.5 py-3 sm:flex-row sm:items-center sm:gap-3",
                 i < PROCESSING_TASKS.length - 1 && "border-b border-border-subtle",
                 t.state === "failed" && "bg-destructive/5",
               )}
             >
-              <TaskIcon state={t.state} />
-              <div className="min-w-0 flex-1">
-                <p className={cn("text-11 text-background-foreground", t.state === "blocked" && "text-muted-foreground")}>
-                  {recordingDisplay(recT, recordingTaskKeys, t.id, t.label)}
-                </p>
-                {t.failNote && (
-                  <p className="text-9 text-destructive" data-testid={`rec-process-failnote-${t.id}`}>{t.id === "translate" && /\d+/.test(t.failNote) ? recT("rec.project.taskFailNote", { attempt: t.failNote.match(/\d+/)![0] }) : t.failNote}</p>
+              <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
+                <TaskIcon state={t.state} />
+                <div className="min-w-0 flex-1">
+                  <p className={cn("text-11 text-background-foreground", t.state === "blocked" && "text-muted-foreground")}>
+                    {recordingDisplay(recT, recordingTaskKeys, t.id, t.label)}
+                  </p>
+                  {t.failNote && (
+                    <p className="text-9 text-destructive" data-testid={`rec-process-failnote-${t.id}`}>{t.id === "translate" && /\d+/.test(t.failNote) ? recT("rec.project.taskFailNote", { attempt: t.failNote.match(/\d+/)![0] }) : t.failNote}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 sm:justify-end">
+                <span className="min-w-0 break-words font-mono text-9 text-muted-foreground">{recordingTaskDetail(recT, t)}</span>
+                {t.retryable && (
+                  <Button size="xs" variant="primary" disabled={readOnly} onClick={() => setToast(Object.hasOwn(recordingTaskKeys, t.id) ? { key: "rec.project.retryNotice", translatedParams: { label: recordingTaskKeys[t.id]! } } : { key: "rec.project.retryNotice", params: { label: t.label } })} data-testid={`rec-process-retry-${t.id}`}>
+                    <RotateCw aria-hidden className="h-3 w-3" />  {recT("rec.project.retry")}
+                  </Button>
                 )}
               </div>
-              <span className="shrink-0 font-mono text-9 text-muted-foreground">{recordingTaskDetail(recT, t)}</span>
-              {t.retryable && (
-                <Button size="xs" variant="primary" disabled={readOnly} onClick={() => setToast(Object.hasOwn(recordingTaskKeys, t.id) ? { key: "rec.project.retryNotice", translatedParams: { label: recordingTaskKeys[t.id]! } } : { key: "rec.project.retryNotice", params: { label: t.label } })} data-testid={`rec-process-retry-${t.id}`}>
-                  <RotateCw aria-hidden className="h-3 w-3" />  {recT("rec.project.retry")}
-                </Button>
-              )}
               <span className="sr-only">{recT(({ done: "rec.project.state.done", running: "rec.project.state.running", failed: "rec.project.state.failed", blocked: "rec.project.state.blocked" } as const)[t.state])}</span>
             </div>
           ))}

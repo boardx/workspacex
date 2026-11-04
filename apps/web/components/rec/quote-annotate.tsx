@@ -125,7 +125,7 @@ function AiMomentCard({ m, canWrite }: { m: AiMomentCandidate; canWrite: boolean
   return (
     <div data-testid={`rec-aimoment-${m.id}`} className={cn("flex flex-col gap-2 rounded-md border p-2.5", decision === "confirmed" ? "border-success/40 bg-success/5" : decision === "ignored" ? "border-border-subtle bg-muted" : "border-ai/30 bg-ai-tint/40")}>
       <div className="flex flex-wrap items-center gap-1.5">
-        <Badge tone="ai" data-testid={`rec-aimoment-badge-${m.id}`}><Sparkles aria-hidden className="h-2.5 w-2.5" /> {m.agent}  {recT("rec.project.marked.as")}{m.label}</Badge>
+        <Badge tone="ai" data-testid={`rec-aimoment-badge-${m.id}`}><Sparkles aria-hidden className="h-2.5 w-2.5" /> {m.agent}  {recT("rec.project.marked.as")} {m.label}</Badge>
         <span className="font-mono text-10 text-muted-foreground">{m.tc}</span>
         {decision === "none" && <Badge tone="warning">{recT("rec.project.candidate.unconfirmed")}</Badge>}
         {decision === "confirmed" && <Badge tone="primary" data-testid={`rec-aimoment-confirmed-${m.id}`}>{recT("rec.project.confirmed.in.evidence.library")}</Badge>}

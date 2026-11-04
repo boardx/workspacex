@@ -55,7 +55,7 @@ export function SpeakerAssign({ state, view }: { state: UiState; view: RecView }
         <div className="flex items-start gap-2 rounded-md border border-border-subtle bg-panel p-2.5" data-testid="rec-voiceprint-note">
           <Trash2 aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
           <p className="text-10 text-muted-foreground">
-            {recordingVoiceprintNotice(recT)}  {recT("rec.project.current.session")}
+            {recordingVoiceprintNotice(recT)}  {recT("rec.project.current.session")} {" "}
             <strong className="font-medium text-background-foreground">{VOICEPRINT.allAssigned ? recT("rec.project.all.assigned.embeddings.destroyed") : recT("rec.project.voiceprintFallback", { day: VOICEPRINT.fallbackDay })}</strong>。
           </p>
         </div>
@@ -141,17 +141,17 @@ export function SpeakerAssign({ state, view }: { state: UiState; view: RecView }
             <p className="text-9 text-muted-foreground">
 
               {recT("rec.project.candidates.come.only.from.this.sessions.attendance")}{SPEAKERS.filter((s) => s.onsite && s.authComplete).length}  {recT("rec.project.people.present.with.consent")}
-              <strong className="font-medium text-background-foreground">{recT("rec.project.no.voiceprint.matching.across.sessions.is.performed")}</strong>{recT("rec.project.a.person.always.makes.the.assignment")}
+              {" "}<strong className="font-medium text-background-foreground">{recT("rec.project.no.voiceprint.matching.across.sessions.is.performed")}</strong>{" "}{recT("rec.project.a.person.always.makes.the.assignment")}
             </p>
           </section>
 
           {/* 右：两态待处理段落 */}
           <section className="flex flex-col gap-2" data-testid="rec-pending-segments">
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-12 font-semibold text-muted-foreground">{recT("rec.project.segments.requiring.action.cannot.be.quoted.until")}</h2>
-              <div className="flex overflow-hidden rounded-md border border-border" data-testid="rec-pending-filter">
+              <div className="flex max-w-full flex-wrap rounded-md border border-border" data-testid="rec-pending-filter">
                 {([["all", recT("rec.project.all")], ["pending-manual", recT("rec.project.assignment.required")], ["low-confidence", recT("rec.project.review.required")]] as const).map(([k, label]) => (
-                  <Button key={k} size="xs" variant={filter === k ? "primary" : "ghost"} onClick={() => setFilter(k)} data-testid={`rec-filter-${k}`}>{label}</Button>
+                  <Button key={k} size="xs" className="shrink-0" variant={filter === k ? "primary" : "ghost"} onClick={() => setFilter(k)} data-testid={`rec-filter-${k}`}>{label}</Button>
                 ))}
               </div>
             </div>

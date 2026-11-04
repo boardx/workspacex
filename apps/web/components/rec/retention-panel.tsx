@@ -77,7 +77,7 @@ export function RetentionPanel({ state, view }: { state: UiState; view: RecView 
                 </div>
                 <p className="text-9 text-muted-foreground" data-testid="rec-retention-resolution">
 
-                  {recT("rec.project.effective.value")} <strong className="font-medium text-background-foreground">{eff}  {recT("rec.project.days")}</strong>{recT("rec.project.from")}
+                  {recT("rec.project.effective.value")} <strong className="font-medium text-background-foreground">{eff}  {recT("rec.project.days")}</strong> {recT("rec.project.from")} {" "}
                   {RETENTION_PARAM.resolvedFrom === "project-override" ? recT("rec.project.project.override") : recT("rec.project.organization.default")}{recT("rec.project.organization.defaultSuffix")} {RETENTION_PARAM.orgDefaultDays}  {recT("rec.project.days.the.resolved.value.and.its.basis")}
                 </p>
               </div>
@@ -115,7 +115,7 @@ export function RetentionPanel({ state, view }: { state: UiState; view: RecView 
               </div>
               <p className="rounded-md border border-border-subtle bg-muted p-2 text-11" data-testid="rec-consent-snapshot">{CONSENT_RENDER.submittedSnapshot.text}</p>
               <p className="text-9 text-muted-foreground">
-                {CONSENT_RENDER.submittedSnapshot.submittedBy}  {recT("rec.project.on")} {CONSENT_RENDER.submittedSnapshot.submittedAt}  {recT("rec.project.submitted.then")} {CONSENT_RENDER.submittedSnapshot.days}  {recT("rec.project.days.the.project.override.changed.to")} {eff}  {recT("rec.project.days.but.this.snapshot")}<strong className="font-medium text-background-foreground">{recT("rec.project.still.shows")} {CONSENT_RENDER.submittedSnapshot.days}  {recT("rec.project.days")}</strong>{recT("rec.project.the.notice.shown.at.submission.is")}
+                {CONSENT_RENDER.submittedSnapshot.submittedBy}  {recT("rec.project.on")} {CONSENT_RENDER.submittedSnapshot.submittedAt}  {recT("rec.project.submitted.then")} {CONSENT_RENDER.submittedSnapshot.days}  {recT("rec.project.days.the.project.override.changed.to")} {eff}  {recT("rec.project.days.but.this.snapshot")} {" "}<strong className="font-medium text-background-foreground">{recT("rec.project.still.shows")} {CONSENT_RENDER.submittedSnapshot.days}  {recT("rec.project.days")}</strong> {recT("rec.project.the.notice.shown.at.submission.is")}
               </p>
             </div>
           </section>
@@ -165,7 +165,7 @@ function MaterialRowView({ m, canWrite }: { m: MaterialRow; canWrite: boolean })
           <p className="text-10 text-destructive">
 
             {recT("rec.project.expiry.deletion.conflicts.with.preservation.of.finalized")}
-            <strong className="font-medium">{recT("rec.project.a.compliance.and.contract.decision")}</strong>{recT("rec.project.whether.a.legal.retention.exception.applies.or")}
+            <strong className="font-medium">{recT("rec.project.a.compliance.and.contract.decision")}</strong> {recT("rec.project.whether.a.legal.retention.exception.applies.or")}
           </p>
           <Badge tone="outline" className="self-start">{recT("rec.project.decision.required.see.readme.section.2.item")}</Badge>
         </div>

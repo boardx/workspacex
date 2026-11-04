@@ -107,7 +107,7 @@ export function LiveTranscript({ state, carrier, view }: { state: UiState; carri
           <p className="inline-flex items-center gap-1.5 text-11 text-muted-foreground">
             <ShieldAlert aria-hidden className="h-3.5 w-3.5" />
 
-            {recT("rec.project.microphone.access.was.requested.on.entry.for")}<strong className="font-medium text-background-foreground">{recT("rec.project.you.can.turn.it.off.at.any")}</strong>
+            {recT("rec.project.microphone.access.was.requested.on.entry.for")} {" "}<strong className="font-medium text-background-foreground">{recT("rec.project.you.can.turn.it.off.at.any")}</strong>
           </p>
           <Button
             size="sm"
@@ -186,7 +186,7 @@ export function LiveTranscript({ state, carrier, view }: { state: UiState; carri
             <p className="text-10 text-muted-foreground">
 
               {recT("rec.project.after.this.session.ends")} <strong className="font-medium text-background-foreground">音频.wav + transcript.jsonl</strong>
-              {carrier === "interview" && <>{recT("rec.project.interviews.also.include")} <strong className="font-medium text-background-foreground">notes.md</strong>）</>}
+              {carrier === "interview" && <> {recT("rec.project.interviews.also.include")} <strong className="font-medium text-background-foreground">notes.md</strong>）</>}
 
               {recT("rec.project.are.available.in.22files.the.transcript.includes")} <code className="font-mono">derived_from</code>  {recT("rec.project.to.reference.the.original.audio.artifactversion.the")}
             </p>
@@ -252,7 +252,7 @@ function SegmentRow({
             {isPartial && <Badge tone="neutral" data-testid={`rec-partial-${seg.id}`}>{recT("rec.project.recognizing")}</Badge>}
             {seg.original && <Badge tone="neutral"><Languages aria-hidden className="h-2.5 w-2.5" />  {recT("rec.project.foreign.language")}</Badge>}
             {seg.quote && <Badge tone="primary" data-testid={`rec-quote-${seg.id}`}><Quote aria-hidden className="h-2.5 w-2.5" />  {recT("rec.project.quoted")}{seg.quote.rq ? recT("rec.project.quoteSupport", { rq: seg.quote.rq }) : ""}</Badge>}
-            {seg.aiMoment && <Badge tone="ai" data-testid={`rec-aimoment-${seg.id}`}><MapPin aria-hidden className="h-2.5 w-2.5" /> {seg.aiMoment.agent}  {recT("rec.project.marked.")} {seg.aiMoment.label}{recT("rec.project.pending.confirmation")}</Badge>}
+            {seg.aiMoment && <Badge tone="ai" data-testid={`rec-aimoment-${seg.id}`}><MapPin aria-hidden className="h-2.5 w-2.5" /> {seg.aiMoment.agent}  {recT("rec.project.marked.")} {seg.aiMoment.label} {recT("rec.project.pending.confirmation")}</Badge>}
           </div>
 
           {/* 外语两行 */}
@@ -264,7 +264,7 @@ function SegmentRow({
             <p className="inline-flex flex-wrap items-center gap-1 rounded-md border border-border-subtle bg-muted px-2 py-1 text-10 text-muted-foreground" data-testid={`rec-pii-${seg.id}`}>
               <ShieldAlert aria-hidden className="h-3 w-3" />
 
-              {recT("rec.project.automatically.masked")}{seg.pii.map((p) => recT(({ email: "rec.project.pii.email", phone: "rec.project.pii.phone", "id-card": "rec.project.pii.id-card", "bank-card": "rec.project.pii.bank-card", address: "rec.project.pii.address" } as const)[p])).join(recT("rec.project.and"))}  {recT("rec.project.viewing.originals.requires.separate.permission.and")}
+              {recT("rec.project.automatically.masked")} {seg.pii.map((p) => recT(({ email: "rec.project.pii.email", phone: "rec.project.pii.phone", "id-card": "rec.project.pii.id-card", "bank-card": "rec.project.pii.bank-card", address: "rec.project.pii.address" } as const)[p])).join(recT("rec.project.and"))}  {recT("rec.project.viewing.originals.requires.separate.permission.and")}
               <Button size="xs" variant="ghost" disabled={!canWrite} data-testid={`rec-pii-reveal-${seg.id}`}>{recT("rec.project.view.original")}</Button>
             </p>
           )}

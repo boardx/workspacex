@@ -9,7 +9,7 @@ import { LiveTranscript } from "@/components/rec/live-transcript";
 import { SpeakerAssign } from "@/components/rec/speaker-assign";
 import { QuoteAnnotate } from "@/components/rec/quote-annotate";
 import { VERIFY_NAV_SPEAKERS, VERIFY_MARKS, VERIFY_ITEMS, VERIFY_THEMES } from "@/lib/mock/rec-v2";
-import { SPEAKERS } from "@/lib/mock/rec";
+import { CONSENT_RENDER, SPEAKERS } from "@/lib/mock/rec";
 import { RightRailNav } from "@/components/rec/right-rail";
 import { RetentionPanel } from "@/components/rec/retention-panel";
 vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams("mode=project&carrier=interview&as=facilitator&projectId=raw-project") }));
@@ -46,6 +46,8 @@ it("localizes device checks and speaker correction actions while retaining liter
 });
 it("localizes track and masking status without translating the raw transcript", () => {
  render(<I18nProvider initialLocale="en"><LiveTranscript state="default" carrier="interview" view="facilitator" /></I18nProvider>); expect(screen.getByTestId("rec-tracks")).toHaveTextContent("Recording"); expect(screen.getByTestId("rec-tracks")).not.toHaveTextContent("录制中"); expect(screen.getByTestId("itv-transcript")).toHaveTextContent("Email address");
+ expect(screen.getByTestId("rec-pii-seg-03")).toHaveTextContent(/Automatically masked:\s+Email address and Phone number/);
+ expect(screen.getByTestId("rec-file-first")).toHaveTextContent(/transcript\.jsonl\s+\(interviews/);
 });
 it("localizes withdrawal information and keeps submitted consent snapshots literal", () => {
  render(<I18nProvider initialLocale="en"><Language /><RetentionPanel state="default" view="interviewee" /></I18nProvider>); fireEvent.click(screen.getByTestId("rec-interviewee-withdraw-open")); expect(screen.getByTestId("rec-interviewee-withdraw-step-01")).toHaveTextContent("Transcript and audio enter the deletion queue"); expect(screen.getByTestId("rec-interviewee-withdraw-step-02")).toHaveTextContent("≤5 minutes"); fireEvent.click(screen.getByText("ZH test")); fireEvent.click(screen.getByText("EN test")); expect(screen.getByTestId("rec-interviewee-withdraw-step-01")).toBeVisible();
@@ -65,6 +67,15 @@ it("translates live connection and recording status without changing the raw ses
 });
 it("translates the voiceprint explanation and preserves the canonical fallback duration", () => {
  render(<I18nProvider initialLocale="en"><SpeakerAssign state="default" view="facilitator" /></I18nProvider>); expect(screen.getByTestId("rec-voiceprint-note")).toHaveTextContent("Session voiceprint embeddings"); expect(screen.getByTestId("rec-voiceprint-note")).toHaveTextContent("7 days");
+ expect(screen.getByTestId("rec-voiceprint-note")).toHaveTextContent(/Current session\s+Some channels/);
+ expect(screen.getByTestId("rec-anon-channels")).toHaveTextContent(/with consent\)\.\s+No voiceprint/);
+});
+it("separates retention UI phrases without rewriting either canonical consent notice", () => {
+ render(<I18nProvider initialLocale="en"><RetentionPanel state="default" view="facilitator" /></I18nProvider>);
+ expect(screen.getByTestId("rec-retention-resolution")).toHaveTextContent(/90 days\s+\(from\s+project override\)/);
+ expect(screen.getByTestId("rec-consent")).toHaveTextContent(/snapshot\s+still shows 180 days/);
+ expect(screen.getByTestId("rec-consent-live")).toHaveTextContent(CONSENT_RENDER.liveTemplate(90));
+ expect(screen.getByTestId("rec-consent-snapshot")).toHaveTextContent(CONSENT_RENDER.submittedSnapshot.text);
 });
 it("translates consent choices and their fixed help while retaining submitted snapshots", () => {
  render(<I18nProvider initialLocale="en"><RetentionPanel state="default" view="interviewee" /></I18nProvider>); expect((screen.getByTestId("rec-interviewee-consent-check-record") as HTMLInputElement).labels?.[0]).toHaveTextContent("Recording"); expect((screen.getByTestId("rec-interviewee-consent-check-transcript") as HTMLInputElement).labels?.[0]).toHaveTextContent("You can request your own copy.");
