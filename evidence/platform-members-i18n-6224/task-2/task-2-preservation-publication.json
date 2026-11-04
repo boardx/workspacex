@@ -1,0 +1,31 @@
+{
+  "base": "8f161dfd33694030d6f65765265602ef197a0335",
+  "head": "28059050e6315e8ab3384ca10569811e89fdfe67",
+  "originalNonImportStatements": 10,
+  "currentNonImportStatements": 11,
+  "allOriginalStatementBytesAndOrder": true,
+  "allOriginalImportBindingsAndModuleEvaluationOrder": true,
+  "originalFixturePrefixByteExact": true,
+  "originalSeedPrefixByteExactExceptAdditiveCall": true,
+  "oldEnvironmentValuesPreserved": 62,
+  "newEnvironmentValues": 15,
+  "newRequiredFixtureFields": 14,
+  "states": [
+    "superuser-roster",
+    "role-popover",
+    "role-change",
+    "last-admin-error",
+    "grant-result",
+    "operator-roster",
+    "revoked-target-denial",
+    "ordinary-admin-denial"
+  ],
+  "plannedImages": 16,
+  "nativeExecution": "This is source preservation only; separate browser-third receipts bind source6eec/freeze280590 real execution",
+  "files": {
+    "apps/web/e2e/entity-localization.spec.ts": "ae61654485e22744006da5ae9a7992d757e906c7e10b6206e5c0f5385763c414",
+    "apps/web/e2e/entity-localization-fixture.ts": "13c9b9f23d2d0f939712c9d68caa6bdab12ed345871ee854bec444bd582f4370",
+    "apps/web/playwright.fullstack-smoke.config.ts": "749b65e5e43c071044ff58dd9e7a66d4f0b3ca952e8e496bb8890a097b1006cc",
+    "apps/api/scripts/fixtures/seed-entity-localization.ts": "1e9b27920cc1e66100db12c8f53767ac19d1eb6b31a4f3ea767b7d63c94e56e1"
+  }
+}

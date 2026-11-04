@@ -1,0 +1,14 @@
+{
+  "head": "b347ae1caa8c9bd2ffca503ae0bf420feeb73f21",
+  "gate": "green",
+  "exit": 1,
+  "seconds": 10.79,
+  "logSha256": "0c7a248744a564e621707b27d1dc77873d4a06095309b7c42f24f510f700446e",
+  "rawPrivate": true,
+  "summary": [
+    "\u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 3 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
+    "Test Files  1 failed | 2 passed (3)",
+    "Tests  3 failed | 29 passed (32)",
+    "Duration  9.40s (transform 2.53s, setup 416ms, collect 4.89s, tests 1.27s, environment 1.75s, prepare 201ms)"
+  ]
+}

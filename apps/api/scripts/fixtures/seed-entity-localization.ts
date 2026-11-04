@@ -7,6 +7,7 @@ import { seedOrg, resetOrgs, addOrgMember, asOwner, asApp } from "../../tests/su
  * revoke, not evidence that HITL approval creation was exercised. */
 export async function seedEntityLocalizationFixture(env: NodeJS.ProcessEnv = process.env) {
   if (env.FULLSTACK_E2E_FIXTURE !== "1") throw new Error("FULLSTACK_E2E_FIXTURE=1 is required");
+  await seedPlatformMembersFixture(env);
   if (!env.FULLSTACK_ENTITY_LOCALIZATION_ORG_ID) return;
   const required = (key: string) => { const value = env[`FULLSTACK_ENTITY_LOCALIZATION_${key}`]; if (!value) throw new Error(`Missing entity localization fixture ${key}`); return value; };
   const orgId = required("ORG_ID"), projectId = required("PROJECT_ID");
@@ -48,4 +49,41 @@ export async function seedEntityLocalizationFixture(env: NodeJS.ProcessEnv = pro
       [randomUUID(), orgId, accounts[1]!.id, projectId, receipt.model, receipt.total, receipt.input, receipt.output, receipt.source, index + 1, receipt.cost, receipt.currency, receipt.cost === null ? null : "locale-fixture-v1", receipt.unit, receipt.quantity, receipt.nativeSource]);
     }
   });
+}
+
+/** Initial identities and two normal organizations only. Runtime UI/API writes
+ * must produce every role change and platform administrator grant/revoke. */
+async function seedPlatformMembersFixture(env: NodeJS.ProcessEnv) {
+  const prefix = "FULLSTACK_ENTITY_LOCALIZATION_PLATFORM_";
+  // Legacy fixture callers remain valid; partial new wiring fails before SQL.
+  if (!Object.keys(env).some(key => key.startsWith(prefix))) return;
+  const required = (key: string) => {
+    const value = env[prefix + key];
+    if (!value) throw new Error(`Missing platform members fixture ${key}`);
+    return value;
+  };
+  const accounts = [
+    { id: required("SUPERUSER_ID"), email: required("SUPERUSER_EMAIL"), name: required("SUPERUSER_NAME"), password: required("SUPERUSER_PASSWORD"), role: "admin" },
+    { id: required("TARGET_ID"), email: required("TARGET_EMAIL"), name: required("TARGET_NAME"), password: required("TARGET_PASSWORD"), role: "consultant" },
+  ];
+  const orgs = [
+    { id: required("ORG_A_ID"), name: required("ORG_A_NAME"), projectId: required("PROJECT_A_ID") },
+    { id: required("ORG_B_ID"), name: required("ORG_B_NAME"), projectId: required("PROJECT_B_ID") },
+  ];
+  await resetOrgs(orgs.map(org => org.id));
+  // An interrupted prior UI grant may reference either private actor through
+  // platform_admins.user_id/granted_by (both credential FKs have no cascade).
+  // Reset only those prior fixture effects; this run must grant/revoke via UI.
+  await asOwner(c => c.query("DELETE FROM platform_admins WHERE user_id=ANY($1::text[]) OR granted_by=ANY($1::text[])", [accounts.map(account => account.id)]));
+  await asOwner(c => c.query("DELETE FROM credentials WHERE user_id=ANY($1::text[]) OR email=ANY($2::text[])", [accounts.map(account => account.id), accounts.map(account => account.email)]));
+  const hasher = new BcryptPasswordHasher();
+  for (const account of accounts) {
+    const hash = await hasher.hash(account.password);
+    await asOwner(c => c.query("INSERT INTO credentials(user_id,email,display_name,password_hash,email_verified_at) VALUES($1,$2,$3,$4,now())", [account.id, account.email, account.name, hash]));
+  }
+  for (const org of orgs) {
+    await seedOrg({ orgId: org.id, projectId: org.projectId, kind: "organization", teamNames: [], groupNames: [] });
+    await asApp(org.id, c => c.query("UPDATE organizations SET name=$2 WHERE id=$1", [org.id, org.name]));
+    for (const account of accounts) await addOrgMember(org.id, account.id, account.role, null);
+  }
 }

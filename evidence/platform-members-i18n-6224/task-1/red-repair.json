@@ -1,0 +1,14 @@
+{
+  "head": "928d12189337d0f0dc71ddb053e55665b3ac5a23",
+  "gate": "red-repair",
+  "exit": 1,
+  "seconds": 5.049,
+  "logSha256": "5959c8dad6226e708a397c47d6e890f47cf6539947f1b6d2a9065e04f3d8f8a3",
+  "rawPrivate": true,
+  "summary": [
+    "\u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 4 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
+    "Test Files  1 failed (1)",
+    "Tests  4 failed | 14 skipped (18)",
+    "Duration  3.76s (transform 1.52s, setup 164ms, collect 2.43s, tests 136ms, environment 813ms, prepare 52ms)"
+  ]
+}

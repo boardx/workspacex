@@ -1,0 +1,11 @@
+{
+  "head": "7153fd810d1f52752b9050300a6b58f874097b81",
+  "gate": "ratchet-green",
+  "exit": 0,
+  "seconds": 0.487,
+  "logSha256": "458beba2d68ec1238fbf5bee8df850593b34af6ee2e36147a7da4003aa3e6253",
+  "rawPrivate": true,
+  "summary": [
+    "\u2705 [user-facing-error-text] \u65b0\u4ee3\u7801\u6ca1\u6709\u5185\u90e8\u9519\u8bef\u7801\u4e0a\u5c4f\uff1b\u5b58\u91cf\u57fa\u7ebf 55 \u4e2a\u6587\u4ef6 / 70 \u5904\uff08\u53ea\u51c6\u53d8\u5c0f\uff09"
+  ]
+}

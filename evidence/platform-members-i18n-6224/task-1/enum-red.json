@@ -1,0 +1,14 @@
+{
+  "head": "48bd3d774028a8ce3ecd763b9368d5b1202a88aa",
+  "gate": "enum-red",
+  "exit": 1,
+  "seconds": 5.247,
+  "logSha256": "3b960bfe974fc23a72e182124e9b146e7fa298601e5c3d24f1b32cd04ddddc83",
+  "rawPrivate": true,
+  "summary": [
+    "\u23af\u23af\u23af\u23af\u23af\u23af\u23af Failed Tests 1 \u23af\u23af\u23af\u23af\u23af\u23af\u23af",
+    "Test Files  1 failed (1)",
+    "Tests  1 failed | 17 skipped (18)",
+    "Duration  3.82s (transform 1.63s, setup 183ms, collect 2.56s, tests 61ms, environment 812ms, prepare 51ms)"
+  ]
+}
