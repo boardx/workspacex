@@ -115,7 +115,7 @@ describe("complete platform model testbench localization (mocked SDK)", () => {
     language("zh-CN"); expect(signal.aborted).toBe(false);
     await act(async () => { candidatesRead.resolve([]); }); language("en");
     expect(englishOrgLoading).toMatch(/loading.*organi/i); expect(englishModelLoading).toMatch(/verif|check|loading.*model/i);
-    expect(screen.getByText(/no.*(?:testable|test).*model/i)).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: /prepare.*test/i })).getByTestId("empty")).toHaveTextContent(/no.*(?:testable|test).*model/i);
     expect(mocks.orgs).toHaveBeenCalledTimes(1); expect(mocks.candidates).toHaveBeenCalledTimes(1); noMutations();
   });
 

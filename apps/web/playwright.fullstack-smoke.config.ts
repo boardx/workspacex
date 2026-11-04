@@ -539,6 +539,7 @@ export default defineConfig({
       testMatch: [
         // Display authoring imports Work Skills; keep it after catalog-empty assertions.
         "entity-localization.spec.ts",
+        "i18n-platform-model-tests.spec.ts",
         "skill-agent-import-usecase-audit.spec.ts",
         "core-journey-03-skill-lifecycle-chat.spec.ts",
         "core-journey-04-canvas-template-lifecycle-chat.spec.ts",
