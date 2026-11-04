@@ -1,0 +1,29 @@
+{
+  "name": "red-omissions",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-report-issues-i18n.test.ts",
+    "tests/ui/survey-workspace-i18n.test.tsx",
+    "--testNamePattern",
+    "translates.*actual|direct-new"
+  ],
+  "source": "c2f8bd40bbf10f570ed9f66236fcc8ae45cb8c1c",
+  "exitCode": 1,
+  "seconds": 40.224,
+  "rawLogSha256": "7508e2d9cf14d0ff33d05f0620067d0815587cee2c4841ce8020035b56a52ca3",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "classification": "MIXED: four semantic failures (two real Word paths, two direct-new defaults); two print cases failed before assertions because this formerly pure .test.ts used Node rather than jsdom; four extra cleanup errors have the same missing-document cause. Not six valid semantic RED cases.",
+  "failed": 6,
+  "filtered": 42,
+  "semanticFailed": 4,
+  "invalidPrintCases": 2,
+  "cleanupErrors": 4,
+  "nativeSeconds": 37.08
+}

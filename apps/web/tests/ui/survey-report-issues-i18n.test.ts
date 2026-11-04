@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
 import { survey } from "@repo/contracts";
 import { SURVEY_REPORT_SHARE_MIN_SAMPLE, surveyReportShareBlockedReason } from "@repo/contracts/survey-report";
@@ -52,7 +53,7 @@ it.each(["constructor", "__proto__", "原模型说明 {count}"])("keeps an unkno
 // Exercise actual exporter rejection paths, then the same display adapter used
 // by LiveSurveyWorkspace. Canonical errors and exported content remain raw.
 afterEach(() => { vi.unstubAllGlobals(); document.querySelectorAll("iframe").forEach(frame => frame.remove()); });
-const exportTitle = "原图片 {count} / {name}";
+const exportTitle = "原图片 {count} / {name} $& $$";
 function imageReport(imageUrl?: string): survey.CompiledSurveyReport {
   return { id: "raw-report", title: "原报告 {name}", issues: [],
     sampleSummary: { total: SURVEY_REPORT_SHARE_MIN_SAMPLE, pendingReview: 0, excluded: 0, included: SURVEY_REPORT_SHARE_MIN_SAMPLE },
