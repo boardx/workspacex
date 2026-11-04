@@ -14,6 +14,7 @@ import { orgMembersPreviewEn } from "../namespaces/org-members-preview";
 import { orgSharedInvitesEn } from "../namespaces/org-shared-invites";
 import { stateEn } from "../namespaces/state";
 import { workflowRunsEn } from "../namespaces/workflow-runs";
+import { projectWorkbenchEn } from "../namespaces/project-workbench";
 import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
@@ -35,6 +36,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...chatShareEn,
   ...codeFenceEn,
   ...workflowRunsEn,
+  ...projectWorkbenchEn,
   "common.language": "Language",
   "home.greeting": "Hello, {name}",
   "ui.viewAll": "View all",

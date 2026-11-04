@@ -1,0 +1,59 @@
+{
+  "base": "dc9bc31b5658aacd4376ffa3f66e6794293ac953",
+  "previous": "90964cd8e81cd3fc5990b02798aee1353fd7a4de",
+  "synced_product": "79d1c7e2f8d46a2f9e3b59aeb140a2a098d3f7bf",
+  "paths": {
+    "apps/web/components/project/parts.tsx": {
+      "old9096": "a8b75bf6f74fd8d9f8657a3ff82348e8331816d3",
+      "synced79d1": "a8b75bf6f74fd8d9f8657a3ff82348e8331816d3"
+    },
+    "apps/web/components/project/project-workbench.tsx": {
+      "old9096": "31e43c736cb092f1e2639d1d2ce6c7d3111a6562",
+      "synced79d1": "31e43c736cb092f1e2639d1d2ce6c7d3111a6562"
+    },
+    "apps/web/e2e/i18n-project-list.spec.ts": {
+      "old9096": "92212e227492a2311b0da9a8604c5f4acd103577",
+      "synced79d1": "92212e227492a2311b0da9a8604c5f4acd103577"
+    },
+    "apps/web/e2e/i18n-project-workbench.spec.ts": {
+      "old9096": "4c236779ab4af9a9cb21a14f53c4bd13d467c43c",
+      "synced79d1": "4c236779ab4af9a9cb21a14f53c4bd13d467c43c"
+    },
+    "apps/web/e2e/project-create-contract.ts": {
+      "old9096": "5760d52e2faffbcd6213b8813cabd14f4be29fca",
+      "synced79d1": "5760d52e2faffbcd6213b8813cabd14f4be29fca"
+    },
+    "apps/web/lib/i18n/messages/en.ts": {
+      "old9096": "7b215cd125e2055d61f9248a19f05d49d51aab6a",
+      "synced79d1": "586c11595866eaf09965d13280726651210e66dc"
+    },
+    "apps/web/lib/i18n/messages/zh-CN.ts": {
+      "old9096": "c243662f9cd9537072f7ff7bdc2eccdda7bd34b1",
+      "synced79d1": "cf8f7da9f50a25e53e06908425e2dd611e912ccb"
+    },
+    "apps/web/lib/i18n/namespaces/project-workbench.ts": {
+      "old9096": "777275974ef705f5a2cb5ecb7539cfc6d8e4d06f",
+      "synced79d1": "777275974ef705f5a2cb5ecb7539cfc6d8e4d06f"
+    },
+    "apps/web/lib/i18n/project-workbench-copy.ts": {
+      "old9096": "d0cb438f64206fdaac30dd3732dd4bd30d090039",
+      "synced79d1": "d0cb438f64206fdaac30dd3732dd4bd30d090039"
+    },
+    "apps/web/playwright.fullstack-smoke.config.ts": {
+      "old9096": "d1241cc40314ee27fc49c12ac44b0b020ba1feb1",
+      "synced79d1": "d1241cc40314ee27fc49c12ac44b0b020ba1feb1"
+    },
+    "apps/web/tests/lib/project-workbench-i18n.test.ts": {
+      "old9096": "3363c0fc51b9783231203e62882d73a6674fb474",
+      "synced79d1": "3363c0fc51b9783231203e62882d73a6674fb474"
+    },
+    "apps/web/tests/ui/project-workbench-non-workshop.test.tsx": {
+      "old9096": "905bde10e524c187f789cd705905d44293bea917",
+      "synced79d1": "905bde10e524c187f789cd705905d44293bea917"
+    }
+  },
+  "unchanged_nonshared_paths": 10,
+  "shared_root_dictionaries": "Compared to dc9, only the existing projectWorkbench import and spread are added in each locale; all upstream admin-navigation/activity namespaces retained.",
+  "current_validation": "34/34 focusedPASS4.67s; actual canonical scanner70configs/12live exit0; normalhooks/newsourceCI pending",
+  "browser_evidence": "Original three-case proof belongs to0bf8/9096 unchanged own product; not a fresh runtime proof of this new integrated head."
+}
