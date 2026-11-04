@@ -210,6 +210,7 @@ def build_chat_model(model_id_override: str | None = None) -> ChatOpenAI:
         base_url=base_url,
         api_key=api_key,
         model=model_id,
+        stream_usage=True,
         request_timeout=_model_request_timeout_seconds(),
         **model_http_clients(),
         **admission_options,

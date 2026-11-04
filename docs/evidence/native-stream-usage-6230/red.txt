@@ -1,0 +1,138 @@
+..FF                                                                     [100%]
+=================================== FAILURES ===================================
+____ test_model_requests_reported_usage_and_preserves_real_receipt[stream] _____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112ba5130>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-4/test_model_requests_reported_u2')
+mode = 'stream'
+
+    @pytest.mark.parametrize("mode", ["invoke", "ainvoke", "stream", "astream"])
+    def test_model_requests_reported_usage_and_preserves_real_receipt(monkeypatch, tmp_path, mode):
+        monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        monkeypatch.setenv("KERNEL_MODEL_API_KEY", "fixture")
+        monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS", "4096")
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(accounting, "_durability_fault", False)
+        owner = {"base_url":"http://api.example.test", "key":"fixture", "org_id":"org-A", "run_id":"run-A", "attempt_id":"run-A:1", "lease_epoch":1}
+        monkeypatch.setattr(accounting, "ownership", lambda: dict(owner))
+        callbacks, requests = [], []
+        def callback(_owner, _subject, phase, payload):
+            callbacks.append((phase, payload))
+        async def callback_async(*args):
+            callback(*args)
+        monkeypatch.setattr(accounting, "post", callback)
+        monkeypatch.setattr(accounting, "apost", callback_async)
+        usage = {"total_tokens":9, "prompt_tokens":6, "completion_tokens":3}
+        def vendor(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            common = {"id":"fixture", "created":1, "model":"qwen3.8-max"}
+            if not body.get("stream"):
+                payload = {**common, "object":"chat.completion", "choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}], "usage":usage}
+                return httpx.Response(200, headers={"content-type":"application/json"}, stream=httpx.ByteStream(json.dumps(payload).encode()))
+            chunks = [
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{"role":"assistant","content":"hello"},"finish_reason":None}]},
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{},"finish_reason":"stop"}]},
+            ]
+            # Qwen's documented protocol returns streamed totals only when requested.
+            if body.get("stream_options", {}).get("include_usage") is True:
+                chunks.append({**common,"object":"chat.completion.chunk","choices":[],"usage":usage})
+            data = "".join("data: " + json.dumps(chunk) + "\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+            # Unbuffered: the real accounting stream must observe every byte.
+            return httpx.Response(200, headers={"content-type":"text/event-stream"}, stream=httpx.ByteStream(data.encode()))
+        sync = httpx.Client(transport=accounting.AccountingTransport(httpx.MockTransport(vendor)))
+        asynchronous = httpx.AsyncClient(transport=accounting.AsyncAccountingTransport(httpx.MockTransport(vendor)))
+        monkeypatch.setattr(models, "model_http_clients", lambda: {"http_client":sync, "http_async_client":asynchronous})
+        model = models.build_chat_model("qwen3.8-max")
+        async def invoke_async():
+            if mode == "ainvoke":
+                return (await model.ainvoke("hello")).content
+            return "".join([chunk.content async for chunk in model.astream("hello")])
+        try:
+            if mode == "invoke":
+                content = model.invoke("hello").content
+            elif mode == "stream":
+                content = "".join(chunk.content for chunk in model.stream("hello"))
+            else:
+                content = asyncio.run(invoke_async())
+            assert content == "hello"
+            assert len(requests) == 1
+            if mode in ("stream", "astream"):
+>               assert requests[0].get("stream_options", {}).get("include_usage") is True
+E               AssertionError: assert None is True
+E                +  where None = <built-in method get of dict object at 0x112ba0d00>('include_usage')
+E                +    where <built-in method get of dict object at 0x112ba0d00> = {}.get
+E                +      where {} = <built-in method get of dict object at 0x112bf04c0>('stream_options', {})
+E                +        where <built-in method get of dict object at 0x112bf04c0> = {'messages': [{'content': 'hello', 'role': 'user'}], 'model': 'qwen3.8-max', 'max_completion_tokens': 4096, 'stream': True, ...}.get
+
+tests/test_model_stream_usage.py:62: AssertionError
+____ test_model_requests_reported_usage_and_preserves_real_receipt[astream] ____
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x112b81370>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-4/test_model_requests_reported_u3')
+mode = 'astream'
+
+    @pytest.mark.parametrize("mode", ["invoke", "ainvoke", "stream", "astream"])
+    def test_model_requests_reported_usage_and_preserves_real_receipt(monkeypatch, tmp_path, mode):
+        monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+        monkeypatch.setenv("KERNEL_MODEL_API_KEY", "fixture")
+        monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS", "4096")
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(accounting, "_durability_fault", False)
+        owner = {"base_url":"http://api.example.test", "key":"fixture", "org_id":"org-A", "run_id":"run-A", "attempt_id":"run-A:1", "lease_epoch":1}
+        monkeypatch.setattr(accounting, "ownership", lambda: dict(owner))
+        callbacks, requests = [], []
+        def callback(_owner, _subject, phase, payload):
+            callbacks.append((phase, payload))
+        async def callback_async(*args):
+            callback(*args)
+        monkeypatch.setattr(accounting, "post", callback)
+        monkeypatch.setattr(accounting, "apost", callback_async)
+        usage = {"total_tokens":9, "prompt_tokens":6, "completion_tokens":3}
+        def vendor(request):
+            body = json.loads(request.content)
+            requests.append(body)
+            common = {"id":"fixture", "created":1, "model":"qwen3.8-max"}
+            if not body.get("stream"):
+                payload = {**common, "object":"chat.completion", "choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}], "usage":usage}
+                return httpx.Response(200, headers={"content-type":"application/json"}, stream=httpx.ByteStream(json.dumps(payload).encode()))
+            chunks = [
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{"role":"assistant","content":"hello"},"finish_reason":None}]},
+                {**common, "object":"chat.completion.chunk", "choices":[{"index":0,"delta":{},"finish_reason":"stop"}]},
+            ]
+            # Qwen's documented protocol returns streamed totals only when requested.
+            if body.get("stream_options", {}).get("include_usage") is True:
+                chunks.append({**common,"object":"chat.completion.chunk","choices":[],"usage":usage})
+            data = "".join("data: " + json.dumps(chunk) + "\n\n" for chunk in chunks) + "data: [DONE]\n\n"
+            # Unbuffered: the real accounting stream must observe every byte.
+            return httpx.Response(200, headers={"content-type":"text/event-stream"}, stream=httpx.ByteStream(data.encode()))
+        sync = httpx.Client(transport=accounting.AccountingTransport(httpx.MockTransport(vendor)))
+        asynchronous = httpx.AsyncClient(transport=accounting.AsyncAccountingTransport(httpx.MockTransport(vendor)))
+        monkeypatch.setattr(models, "model_http_clients", lambda: {"http_client":sync, "http_async_client":asynchronous})
+        model = models.build_chat_model("qwen3.8-max")
+        async def invoke_async():
+            if mode == "ainvoke":
+                return (await model.ainvoke("hello")).content
+            return "".join([chunk.content async for chunk in model.astream("hello")])
+        try:
+            if mode == "invoke":
+                content = model.invoke("hello").content
+            elif mode == "stream":
+                content = "".join(chunk.content for chunk in model.stream("hello"))
+            else:
+                content = asyncio.run(invoke_async())
+            assert content == "hello"
+            assert len(requests) == 1
+            if mode in ("stream", "astream"):
+>               assert requests[0].get("stream_options", {}).get("include_usage") is True
+E               AssertionError: assert None is True
+E                +  where None = <built-in method get of dict object at 0x112ca2580>('include_usage')
+E                +    where <built-in method get of dict object at 0x112ca2580> = {}.get
+E                +      where {} = <built-in method get of dict object at 0x112ca3480>('stream_options', {})
+E                +        where <built-in method get of dict object at 0x112ca3480> = {'messages': [{'content': 'hello', 'role': 'user'}], 'model': 'qwen3.8-max', 'max_completion_tokens': 4096, 'stream': True, ...}.get
+
+tests/test_model_stream_usage.py:62: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_model_stream_usage.py::test_model_requests_reported_usage_and_preserves_real_receipt[stream]
+FAILED tests/test_model_stream_usage.py::test_model_requests_reported_usage_and_preserves_real_receipt[astream]
+2 failed, 2 passed in 1.24s
