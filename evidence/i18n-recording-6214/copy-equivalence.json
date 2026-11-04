@@ -1,0 +1,14 @@
+{
+  "equal": true,
+  "sections": [
+    "rec",
+    "v2",
+    "probes",
+    "zh",
+    "en"
+  ],
+  "beforeSha256": "62b2d12a801c2f48b15a393a5184cbe589c35c546a419491f5833a8dfc78d6ee",
+  "afterSha256": "62b2d12a801c2f48b15a393a5184cbe589c35c546a419491f5833a8dfc78d6ee",
+  "bytes": 96563,
+  "note": "Captured before/after constant-source extraction; compares all non-function rec/rec-v2 exports, consent function probes at 0/1/90/180 days and entire zh/en project dictionaries."
+}

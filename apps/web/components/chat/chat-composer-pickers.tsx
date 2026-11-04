@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Check, Mic } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -162,14 +163,15 @@ export function MicDevicePicker({
   side?: "up" | "down";
   iconOnly?: boolean;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   React.useEffect(() => { if (disabled) setOpen(false); }, [disabled]);
   const labelFor = (deviceId: string, label: string, index: number): string =>
-    label !== "" ? label : `麦克风 ${index + 1}（授权后显示名称）`;
+    label !== "" ? label : t("audioInput.anonymous", { count: index + 1 });
   const selected = devices.find((device) => device.deviceId === selectedDeviceId) ?? null;
   const triggerText = selectedDeviceId === null
-    ? "系统默认麦克风"
-    : (selected ? labelFor(selected.deviceId, selected.label, devices.indexOf(selected)) : "系统默认麦克风");
+    ? t("audioInput.default")
+    : (selected ? labelFor(selected.deviceId, selected.label, devices.indexOf(selected)) : t("audioInput.default"));
 
   return (
     <div className="relative flex items-center">
@@ -183,8 +185,8 @@ export function MicDevicePicker({
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="选择麦克风"
-        title={`麦克风：${triggerText}`}
+        aria-label={t("audioInput.choose")}
+        title={t("audioInput.title", { name: triggerText })}
         onClick={() => setOpen((value) => !value)}
       >
         <Mic aria-hidden className="h-3 w-3 text-muted-foreground" />
@@ -194,7 +196,7 @@ export function MicDevicePicker({
       {open ? (
         <div
           role="listbox"
-          aria-label="选择麦克风"
+          aria-label={t("audioInput.choose")}
           data-testid={testIdPrefix === "chat" ? "chat-mic-device-listbox" : `${testIdPrefix}-mic-device-listbox`}
           className={`absolute left-0 z-10 w-56 rounded-lg border border-border bg-popover p-1 shadow-md ${side === "down" ? "top-8" : "bottom-8"}`}
         >
@@ -211,11 +213,11 @@ export function MicDevicePicker({
             ].join(" ")}
           >
             <Check aria-hidden className={["h-3 w-3 shrink-0", selectedDeviceId === null ? "opacity-100" : "opacity-0"].join(" ")} />
-            <span className="truncate">系统默认麦克风</span>
+            <span className="truncate">{t("audioInput.default")}</span>
           </button>
           {devices.length === 0 ? (
             <p className="px-2 py-1.5 text-11 text-muted-foreground" data-testid={`${testIdPrefix}-mic-device-empty`}>
-              未检测到其它输入设备。授权麦克风后会显示设备名。
+              {t("audioInput.empty")}
             </p>
           ) : null}
           {devices.map((device, index) => {

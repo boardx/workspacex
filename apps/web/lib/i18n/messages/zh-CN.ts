@@ -2,6 +2,7 @@ import { aiUsageZhCN } from "../namespaces/ai-usage";
 import { adminLimitPolicyZhCN } from "../namespaces/admin-limit-policy";
 import { adminMemberQuotasZhCN } from "../namespaces/admin-member-quotas";
 import { adminCommonZhCN } from "../namespaces/admin-common";
+import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { workflowGrantsZhCN } from "../namespaces/workflow-grants";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
@@ -28,6 +29,7 @@ export const zhCN = {
   ...adminLimitPolicyZhCN,
   ...adminMemberQuotasZhCN,
   ...adminCommonZhCN,
+  ...recordingProjectZhCN,
   ...workflowGrantsZhCN,
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,
@@ -264,6 +266,8 @@ export const zhCN = {
   ...studioResearchZhCN,
   ...researchZhCN,
   ...studioHistoryZhCN,
+  ...recordingZhCN,
+  ...audioInputZhCN,
   ...interviewZhCN,
 } as const;
 
@@ -277,3 +281,7 @@ import { researchZhCN } from "../namespaces/research";
 import { interviewZhCN } from "../namespaces/interview";
 
 import { studioHistoryZhCN } from "../namespaces/studio-history";
+
+import { recordingZhCN } from "../namespaces/recording";
+
+import { audioInputZhCN } from "../namespaces/audio-input";

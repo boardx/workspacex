@@ -1,0 +1,16 @@
+{
+  "name": "copy-values",
+  "command": [
+    "env",
+    "TSX_TSCONFIG_PATH=apps/web/tsconfig.json",
+    "pnpm",
+    "exec",
+    "tsx",
+    "evidence/i18n-recording-6214/compare-copy-source.ts"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 1.214,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/copy-values.log",
+  "rawLogSha256": "16d19bb518cc37122bee15c51c5bc9685768e39e1556e08bafc7d6663f3a678c"
+}

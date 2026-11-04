@@ -1,0 +1,35 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/recording-project-i18n.test.tsx (18 tests | 1 failed | 17 skipped) 46ms
+   × uses singular English for one incomplete participant and one second without changing counts 45ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  1 person has incomplete consent
+Received:
+  1 people have incomplete consent · recording cannot start
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > uses singular English for one incomplete participant and one second without changing counts
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  1 person has incomplete consent
+Received:
+  1 people have incomplete consent · recording cannot start
+ ❯ tests/ui/recording-project-i18n.test.tsx:72:174
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 17 skipped (18)
+   Start at  07:26:20
+   Duration  3.34s (transform 1.14s, setup 107ms, collect 1.75s, tests 46ms, environment 685ms, prepare 79ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/recording-project-i18n.test.tsx -t uses singular English --maxWorkers=1 --minWorkers=1

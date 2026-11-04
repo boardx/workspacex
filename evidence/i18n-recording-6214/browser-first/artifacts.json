@@ -1,0 +1,38 @@
+[
+  {
+    "file": "test-failed-2.png",
+    "sha256": "f70ae1bf55b8cde06baee89d12a1bec0b8b0c76c3bf975d5b3dbac236c9912d5",
+    "viewed": true,
+    "finding": "Historical failed run; creation and empty workspace UI fit 375/1280; native default collision visible in failure screenshot. No capture/stop/persistence acceptance."
+  },
+  {
+    "file": "test-failed-1.png",
+    "sha256": "5f92b07dfe27da659d86dad8371b9cf2ec7cfebc56724870e1953dc39401f29b",
+    "viewed": true,
+    "finding": "Historical failed run; creation and empty workspace UI fit 375/1280; native default collision visible in failure screenshot. No capture/stop/persistence acceptance."
+  },
+  {
+    "file": "create-en-1280.png",
+    "sha256": "d3a969d24057851e59377be0b66a0f574597d2408182635e90a4c2c8ecb56d8c",
+    "viewed": true,
+    "finding": "Historical failed run; creation and empty workspace UI fit 375/1280; native default collision visible in failure screenshot. No capture/stop/persistence acceptance."
+  },
+  {
+    "file": "workspace-empty-en-375.png",
+    "sha256": "ff8954331f60ada32f6e6d71617ebe69e2337b52e8b57375f9ef37f2101daf00",
+    "viewed": true,
+    "finding": "Historical failed run; creation and empty workspace UI fit 375/1280; native default collision visible in failure screenshot. No capture/stop/persistence acceptance."
+  },
+  {
+    "file": "create-en-375.png",
+    "sha256": "e2f0e59a07e35d5fc3dad1cc7447c69f9d2f7ba242f3d3a46b9a3e8771615a58",
+    "viewed": true,
+    "finding": "Historical failed run; creation and empty workspace UI fit 375/1280; native default collision visible in failure screenshot. No capture/stop/persistence acceptance."
+  },
+  {
+    "file": "workspace-empty-en-1280.png",
+    "sha256": "fce48d66ea614414ba43c024dd65b47cc33ae6d28e37eee655f30743850f3ac5",
+    "viewed": true,
+    "finding": "Historical failed run; creation and empty workspace UI fit 375/1280; native default collision visible in failure screenshot. No capture/stop/persistence acceptance."
+  }
+]

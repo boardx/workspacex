@@ -1,0 +1,39 @@
+{
+  "name": "focused",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/e2e/personal-realtime-transcription-smoke.test.ts",
+    "tests/lib/boardx-realtime-asr-client.test.ts",
+    "tests/lib/i18n-resources.test.ts",
+    "tests/lib/live-personal-transcriptions.test.ts",
+    "tests/lib/realtime-asr-flow.test.ts",
+    "tests/lib/realtime-reconnect.test.ts",
+    "tests/recording/live-recording-capture.test.ts",
+    "tests/ui/audio-input-i18n.test.tsx",
+    "tests/ui/create-transcription-focus.test.tsx",
+    "tests/ui/personal-transcription-history.test.tsx",
+    "tests/ui/realtime-transcription-history.test.tsx",
+    "tests/ui/realtime-transcription-workspace.test.tsx",
+    "tests/ui/recording-controller-i18n.test.tsx",
+    "tests/ui/recording-journey-i18n.test.tsx",
+    "tests/ui/recording-project-i18n.test.tsx"
+  ],
+  "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+  "exitCode": 0,
+  "seconds": 32.359,
+  "rawLogLocalPath": "/tmp/6214-current-focused.log",
+  "rawLogSha256": "2f9115d8be0ae08a2e8b5164f86ca72229286fb2809b446c510c8121beab19bd",
+  "receiptPath": "focused.txt",
+  "receiptSha256": "798ba6d2ac968418679bd925414d6f6bf4e7519acc112538647c60312c347243",
+  "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 15,
+  "testsPassed": 208
+}

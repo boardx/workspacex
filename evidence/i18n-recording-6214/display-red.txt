@@ -1,0 +1,940 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/recording-journey-i18n.test.tsx (11 tests | 1 failed | 10 skipped) 312ms
+   × updates only an untouched creation default when switching locale 310ms
+     → expect(element).toHaveValue(未命名转录)
+
+Expected the element to have value:
+  未命名转录
+Received:
+  Untitled transcription
+ ❯ tests/ui/recording-project-i18n.test.tsx (13 tests | 6 failed | 7 skipped) 622ms
+   × translates processing task captions and keeps an explicit retry notice current across locales 87ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Audio upload
+Received:
+  音频上传412 MB · 完成Complete
+   × localizes device checks and speaker correction actions while retaining literal transcript content 18ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Microphone · input ready
+Received:
+  ✓麦克风 · 输入正常
+   × localizes track and masking status without translating the raw transcript 48ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Recording
+Received:
+  受访者 P-10录制中实时 · 不串台研究员 林可录制中实时 · 不串台受访者 Weber已关麦（录制已暂停）已关闭麦克风 · 录制已暂停，缺口保留不拼接
+   × localizes withdrawal information and keeps submitted consent snapshots literal 35ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Transcript and audio enter the deletion queue
+Received:
+  01文字稿与音频进入待删除队列即时
+   × localizes side-panel tabs and retains the selected tab across locales 377ms
+     → Unable to find an accessible element with the role "tab" and name "Materials 12"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "ZH test":
+  [36m<button />[39m
+
+  Name "EN test":
+  [36m<button />[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "Conversation side panel tabs":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Conversation side panel tabs"[39m
+    [33mclass[39m=[32m"flex border-b border-border"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "转录":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-transcript"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "执行2":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-execution"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "洞察6":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-insight"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物3":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-artifact"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "材料12":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-material"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-9 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mZH test[0m
+    [36m</button>[39m
+    [36m<button>[39m
+      [0mEN test[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full flex-col"[39m
+      [33mdata-testid[39m=[32m"rec-right-rail"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Conversation side panel tabs"[39m
+        [33mclass[39m=[32m"flex border-b border-border"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"true"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-transcript"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-file-audio h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M17.5 22h.5a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 19a2 2 0 1 1 4 0v1a2 2 0 1 1-4 0v-4a6 6 0 0 1 12 0v4a2 2 0 1 1-4 0v-1a2 2 0 1 1 4 0"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m转录[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-execution"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-list-checks h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3 17 2 2 4-4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3 7 2 2 4-4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 6h8"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 12h8"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 18h8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m执行[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-execution"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-insight"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-lightbulb h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M9 18h6"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M10 22h4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m洞察[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-insight"[39m
+            [36m>[39m
+              [0m6[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-artifact"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m产物[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-artifact"[39m
+            [36m>[39m
+              [0m3[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-material"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m材料[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-material"[39m
+            [36m>[39m
+              [0m12[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto p-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"rec-tab-panel-transcript"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 font-medium"[39m
+          [36m>[39m
+            [0mSession transcription status[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2.5 text-11"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mStatus count[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                [36m>[39m
+                  [0mTranscript review[0m
+                  [0m [0m
+                  [0m2[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mRecognizing[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [0mThe latest sentence cannot be quoted until finalized[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mAuto-follow[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [0mScroll with the latest sentence (optional)[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mPersistent timecodes[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [0mEach sentence has a timecode; select it to seek audio[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-9 text-muted-foreground"[39m
+          [36m>[39m
+            [0mFour controls appear in the transcript: search, auto-follow, interim recognition and timecodes.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+   × translates observer role labels without revealing real speaker names 56ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Interviewee
+Received:
+  ·引导师 29:30我们先把欧洲三个候选市场的进入门槛过一遍，德国的补贴细则去年改过。 Quote Mark this moment·受访者 29:42 Quoted · 支持 RQ2从我们上个项目的经验看，德国的并网审批周期是最长的，差不多要 14 个月。 Quoted Mark this moment·受访者 29:59如果要联系当地并网负责人，可以发到 已自动遮盖 或打 已自动遮盖。Automatically masked:邮箱地址and手机号 · viewing originals requires separate permission and an audit recordView original… Quote Mark this moment·说话人 C 30:20Unassigned · anonymous channel Foreign languageDer polnische Zuschuss ist aggressiver, aber die Kontinuität ist fraglich.波兰的补贴反而更激进，但政策连续性存疑，我个人不太看好三年以上的稳定性。 Quote Mark this moment·受访者 30:36 Ava marked · 决策点(pending confirmation)决定了，第一步先进德国，波兰放到第二阶段观察。 Quote Mark this moment·出处待补 32:05Low recognition confidence · review required Foreign languageDas Netzentgelt … [混写，低置信]这个 Netzentgelt 的算法……（识别置信度低，可能识别错，需人工校对）Recognition may be incorrect. Review the text before quoting it.Review →·Overlapping speech 32:30Overlapping speakers · awaiting assignment（两位受访者同时开口，系统不自动归属，待人工指派）No automatic attribution is applied. Split this segment before assigning one speaker or quoting it.Review →·引导师 33:10Recognizing…那我们接下来看一下融资结构……（正在识别） Quote Mark this moment(Interim text cannot be quoted or searched until finalized.)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/recording-journey-i18n.test.tsx > updates only an untouched creation default when switching locale
+Error: expect(element).toHaveValue(未命名转录)
+
+Expected the element to have value:
+  未命名转录
+Received:
+  Untitled transcription
+ ❯ tests/ui/recording-journey-i18n.test.tsx:74:179
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates processing task captions and keeps an explicit retry notice current across locales
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Audio upload
+Received:
+  音频上传412 MB · 完成Complete
+ ❯ tests/ui/recording-project-i18n.test.tsx:39:56
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > localizes device checks and speaker correction actions while retaining literal transcript content
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Microphone · input ready
+Received:
+  ✓麦克风 · 输入正常
+ ❯ tests/ui/recording-project-i18n.test.tsx:43:170
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > localizes track and masking status without translating the raw transcript
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Recording
+Received:
+  受访者 P-10录制中实时 · 不串台研究员 林可录制中实时 · 不串台受访者 Weber已关麦（录制已暂停）已关闭麦克风 · 录制已暂停，缺口保留不拼接
+ ❯ tests/ui/recording-project-i18n.test.tsx:47:174
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > localizes withdrawal information and keeps submitted consent snapshots literal
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Transcript and audio enter the deletion queue
+Received:
+  01文字稿与音频进入待删除队列即时
+ ❯ tests/ui/recording-project-i18n.test.tsx:50:258
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > localizes side-panel tabs and retains the selected tab across locales
+TestingLibraryElementError: Unable to find an accessible element with the role "tab" and name "Materials 12"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "ZH test":
+  [36m<button />[39m
+
+  Name "EN test":
+  [36m<button />[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "Conversation side panel tabs":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Conversation side panel tabs"[39m
+    [33mclass[39m=[32m"flex border-b border-border"[39m
+    [33mrole[39m=[32m"tablist"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "转录":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-transcript"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "执行2":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-execution"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "洞察6":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-insight"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "产物3":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-artifact"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "材料12":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+    [33mdata-testid[39m=[32m"rec-tab-material"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-11 font-medium"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"text-9 text-muted-foreground"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<button>[39m
+      [0mZH test[0m
+    [36m</button>[39m
+    [36m<button>[39m
+      [0mEN test[0m
+    [36m</button>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"flex h-full flex-col"[39m
+      [33mdata-testid[39m=[32m"rec-right-rail"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33maria-label[39m=[32m"Conversation side panel tabs"[39m
+        [33mclass[39m=[32m"flex border-b border-border"[39m
+        [33mrole[39m=[32m"tablist"[39m
+      [36m>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"true"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-primary text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-transcript"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-file-audio h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M17.5 22h.5a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v3"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M14 2v4a2 2 0 0 0 2 2h4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M2 19a2 2 0 1 1 4 0v1a2 2 0 1 1-4 0v-4a6 6 0 0 1 12 0v4a2 2 0 1 1-4 0v-1a2 2 0 1 1 4 0"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m转录[0m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-execution"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-list-checks h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3 17 2 2 4-4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3 7 2 2 4-4"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 6h8"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 12h8"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M13 18h8"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m执行[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-execution"[39m
+            [36m>[39m
+              [0m2[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-insight"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-lightbulb h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M9 18h6"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M10 22h4"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m洞察[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-insight"[39m
+            [36m>[39m
+              [0m6[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-artifact"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-package h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"M12 22V12"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m7.5 4.27 9 5.15"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m产物[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-artifact"[39m
+            [36m>[39m
+              [0m3[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+        [36m<button[39m
+          [33maria-selected[39m=[32m"false"[39m
+          [33mclass[39m=[32m"flex flex-1 flex-col items-center gap-0.5 border-b-2 px-1 py-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring border-transparent text-muted-foreground hover:text-background-foreground"[39m
+          [33mdata-testid[39m=[32m"rec-tab-material"[39m
+          [33mrole[39m=[32m"tab"[39m
+          [33mtype[39m=[32m"button"[39m
+        [36m>[39m
+          [36m<svg[39m
+            [33maria-hidden[39m=[32m"true"[39m
+            [33mclass[39m=[32m"lucide lucide-folder-open h-4 w-4"[39m
+            [33mfill[39m=[32m"none"[39m
+            [33mheight[39m=[32m"24"[39m
+            [33mstroke[39m=[32m"currentColor"[39m
+            [33mstroke-linecap[39m=[32m"round"[39m
+            [33mstroke-linejoin[39m=[32m"round"[39m
+            [33mstroke-width[39m=[32m"2"[39m
+            [33mviewBox[39m=[32m"0 0 24 24"[39m
+            [33mwidth[39m=[32m"24"[39m
+            [33mxmlns[39m=[32m"http://www.w3.org/2000/svg"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33md[39m=[32m"m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"[39m
+            [36m/>[39m
+          [36m</svg>[39m
+          [36m<span[39m
+            [33mclass[39m=[32m"flex items-center gap-1 text-10 font-medium"[39m
+          [36m>[39m
+            [0m材料[0m
+            [36m<span[39m
+              [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"[39m
+              [33mdata-testid[39m=[32m"rec-tab-count-material"[39m
+            [36m>[39m
+              [0m12[0m
+            [36m</span>[39m
+          [36m</span>[39m
+        [36m</button>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"min-h-0 flex-1 overflow-y-auto p-3"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"flex flex-col gap-2"[39m
+          [33mdata-testid[39m=[32m"rec-tab-panel-transcript"[39m
+        [36m>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-11 font-medium"[39m
+          [36m>[39m
+            [0mSession transcription status[0m
+          [36m</p>[39m
+          [36m<div[39m
+            [33mclass[39m=[32m"flex flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2.5 text-11"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mStatus count[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [36m<span[39m
+                  [33mclass[39m=[32m"inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"[39m
+                [36m>[39m
+                  [0mTranscript review[0m
+                  [0m [0m
+                  [0m2[0m
+                [36m</span>[39m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mRecognizing[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [0mThe latest sentence cannot be quoted until finalized[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mAuto-follow[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [0mScroll with the latest sentence (optional)[0m
+              [36m</span>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"flex items-center justify-between gap-2"[39m
+            [36m>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-muted-foreground"[39m
+              [36m>[39m
+                [0mPersistent timecodes[0m
+              [36m</span>[39m
+              [36m<span[39m
+                [33mclass[39m=[32m"text-right"[39m
+              [36m>[39m
+                [0mEach sentence has a timecode; select it to seek audio[0m
+              [36m</span>[39m
+            [36m</div>[39m
+          [36m</div>[39m
+          [36m<p[39m
+            [33mclass[39m=[32m"text-9 text-muted-foreground"[39m
+          [36m>[39m
+            [0mFour controls appear in the transcript: search, auto-follow, interim recognition and timecodes.[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/recording-project-i18n.test.tsx:54:111
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/ui/recording-project-i18n.test.tsx > translates observer role labels without revealing real speaker names
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Interviewee
+Received:
+  ·引导师 29:30我们先把欧洲三个候选市场的进入门槛过一遍，德国的补贴细则去年改过。 Quote Mark this moment·受访者 29:42 Quoted · 支持 RQ2从我们上个项目的经验看，德国的并网审批周期是最长的，差不多要 14 个月。 Quoted Mark this moment·受访者 29:59如果要联系当地并网负责人，可以发到 已自动遮盖 或打 已自动遮盖。Automatically masked:邮箱地址and手机号 · viewing originals requires separate permission and an audit recordView original… Quote Mark this moment·说话人 C 30:20Unassigned · anonymous channel Foreign languageDer polnische Zuschuss ist aggressiver, aber die Kontinuität ist fraglich.波兰的补贴反而更激进，但政策连续性存疑，我个人不太看好三年以上的稳定性。 Quote Mark this moment·受访者 30:36 Ava marked · 决策点(pending confirmation)决定了，第一步先进德国，波兰放到第二阶段观察。 Quote Mark this moment·出处待补 32:05Low recognition confidence · review required Foreign languageDas Netzentgelt … [混写，低置信]这个 Netzentgelt 的算法……（识别置信度低，可能识别错，需人工校对）Recognition may be incorrect. Review the text before quoting it.Review →·Overlapping speech 32:30Overlapping speakers · awaiting assignment（两位受访者同时开口，系统不自动归属，待人工指派）No automatic attribution is applied. Split this segment before assigning one speaker or quoting it.Review →·引导师 33:10Recognizing…那我们接下来看一下融资结构……（正在识别） Quote Mark this moment(Interim text cannot be quoted or searched until finalized.)
+ ❯ tests/ui/recording-project-i18n.test.tsx:57:175
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 17 skipped (24)
+   Start at  07:04:51
+   Duration  7.83s (transform 1.90s, setup 422ms, collect 3.84s, tests 933ms, environment 1.92s, prepare 147ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/recording-journey-i18n.test.tsx tests/ui/recording-project-i18n.test.tsx -t updates only an untouched|translates processing task|localizes device checks|localizes track and masking|localizes withdrawal|localizes side-panel tabs|translates observer --maxWorkers=1 --minWorkers=1

@@ -1,0 +1,87 @@
+[
+  {
+    "path": "apps/web/components/rec/rec-verify.tsx",
+    "sha256": "f8cc52f62f6186a40381ec32a4bf23bc5bbdff8178e4021a354629967c91069a",
+    "mode": 420
+  },
+  {
+    "path": "apps/web/components/rec/recording-project-display.ts",
+    "sha256": "690e63fa55c53a2da6e371f7775e3d1aa4e17537a75922e918102f233c6c6873",
+    "mode": 420
+  },
+  {
+    "path": "apps/web/lib/i18n/namespaces/recording-project.ts",
+    "sha256": "d658d6e44a251f462bae4583ea9db16d0fba504ca143a48af93eb65c12686181",
+    "mode": 420
+  },
+  {
+    "path": "apps/web/lib/mock/rec-v2.ts",
+    "sha256": "f76674d9f6c9a22d67ce027a20ca9275fd287de1da4f4be42d8c17a404f658ed",
+    "mode": 420
+  },
+  {
+    "path": "apps/web/lib/recording-display-copy.ts",
+    "sha256": "301749365d1db117afab9fd158ca03bdcda7d31addf6fcf2d6f65119305c250a",
+    "mode": 420
+  },
+  {
+    "path": "apps/web/tests/ui/recording-project-i18n.test.tsx",
+    "sha256": "d59e77873c275377db4fc126ff82d2407e9de936524f862412b3f658fd4153f9",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/compare-copy-source.ts",
+    "sha256": "7ef36f921d1a87b1d8283d12cee2b77fc83c26f481880d4f5369076ae84c0645",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/validation.json",
+    "sha256": "ed66800e389e72809314adbfa1a35bfac4a4df15cf324b02f2cfab12d74fab39",
+    "mode": 420
+  },
+  {
+    "path": "docs/design/i18n-recording-journey/caption-followup.md",
+    "sha256": "124da3a9a7b23efd8bf945637e3e137b2c803eb888ce4ba174a2fb1808ce63c9",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/caption-copy-values.txt",
+    "sha256": "16d19bb518cc37122bee15c51c5bc9685768e39e1556e08bafc7d6663f3a678c",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/caption-lint.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/caption-wiring.txt",
+    "sha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/caption-withdrawal.txt",
+    "sha256": "664bad759228cadabfbe3d406308f181b45d4d1b105b0f3b285083bdcc4a74ea",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/independent-scoped-review-c9ad.md",
+    "sha256": "90d28e33c1d8c6b29931fe7019131f09cd9387302d8dc5c0a6d2bd6847cd0c0b",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/verification-caption-fixed.txt",
+    "sha256": "a210fb292b4057393b6a260c0900564f38d3326dd0044594083d91d625a14f53",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/verification-caption-green.txt",
+    "sha256": "a24536cc2088a27b4f961ce5b93e40d44a7d20cebbb0f1284a3dbc732a3922c8",
+    "mode": 420
+  },
+  {
+    "path": "evidence/i18n-recording-6214/verification-caption-red.txt",
+    "sha256": "dfd39d299f3b87db2cf5556106c5b1c27726cfaad8a9683811b8c32f383b04c1",
+    "mode": 420
+  }
+]

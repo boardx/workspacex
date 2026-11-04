@@ -1,0 +1,27 @@
+{
+  "worker": "024ff128c",
+  "upstream": "b0f94fea1",
+  "candidate": "c87a575fc4290ac1dc046170a2fa56d3ba2569c1",
+  "locales": {
+    "zh": {
+      "workerKeys": 3021,
+      "upstreamKeys": 2569,
+      "mergedKeys": 3022,
+      "sourceValueConflicts": 0
+    },
+    "en": {
+      "workerKeys": 3021,
+      "upstreamKeys": 2569,
+      "mergedKeys": 3022,
+      "sourceValueConflicts": 0
+    }
+  },
+  "allEffectiveObjectsUnique": true,
+  "objectsChecked": 181,
+  "modulesEvaluated": 142,
+  "externalDependencies": [
+    "zod",
+    "lucide-react"
+  ],
+  "candidateValueSha256": "501516880fc0df7fe0fbffaa40d4a29439288abd221a780e16ef5dc7e9d148c7"
+}

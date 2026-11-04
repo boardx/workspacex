@@ -15,11 +15,12 @@ export type HistorySort = "recent" | "oldest";
 export function StudioHistoryHeader({ business, title, count, createTestId, countTestId, onCreate }: {
   business: string; title?: string; description: string; count?: number; createTestId: string; countTestId?: string; onCreate: React.MouseEventHandler<HTMLButtonElement>;
 }) {
+  const { t } = useI18n();
   return <header className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
     <div className="min-w-0 space-y-2">
-      <div className="flex items-center gap-2"><h1 className="text-30 font-semibold tracking-tight">{title ?? `历史${business}`}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
+      <div className="flex items-center gap-2"><h1 className="text-30 font-semibold tracking-tight">{title ?? t("studio.history.title", { business })}</h1>{count !== undefined && <span data-testid={countTestId} className="text-18 text-muted-foreground">· {count}</span>}</div>
     </div>
-    <WorkflowActionButton type="button" variant="primary" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />新建{business}</WorkflowActionButton>
+    <WorkflowActionButton type="button" variant="primary" data-testid={createTestId} onClick={onCreate}><Plus className="size-4" aria-hidden />{t("studio.history.create", { business })}</WorkflowActionButton>
   </header>;
 }
 
@@ -57,5 +58,6 @@ export function StudioHistoryCard({ testId, title, status, description, tags, me
 }
 
 export function StudioHistoryCreateCard({ business, testId, onCreate }: { business: string; testId: string; onCreate: () => void }) {
-  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">新建{business}</span></Button>;
+  const { t } = useI18n();
+  return <Button type="button" variant="outline" data-testid={testId} onClick={onCreate} className="h-auto min-h-64 flex-col gap-3 border-dashed p-6"><Plus aria-hidden className="size-6 text-muted-foreground" /><span className="text-13 font-semibold">{t("studio.history.create", { business })}</span></Button>;
 }
