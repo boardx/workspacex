@@ -4,6 +4,7 @@ import { zhTasks } from "./tasks";
 import { zhFailures } from "./failures";
 import { controlsZhCN } from "../namespaces/controls";
 import { workflowRunsZhCN } from "../namespaces/workflow-runs";
+import { projectWorkbenchZhCN } from "../namespaces/project-workbench";
 import { projectListZhCN } from "../namespaces/project-list";
 import { activityZhCN } from "../namespaces/activity";
 import { profileZhCN } from "../namespaces/profile";
@@ -32,6 +33,7 @@ export const zhCN = {
   ...chatShareZhCN,
   ...codeFenceZhCN,
   ...workflowRunsZhCN,
+  ...projectWorkbenchZhCN,
   "common.language": "语言",
   "home.greeting": "你好，{name}",
   "ui.viewAll": "查看全部",
