@@ -1,0 +1,31 @@
+{
+  "name": "green-omissions-affected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-report-issues-i18n.test.ts",
+    "tests/ui/survey-workspace-i18n.test.tsx"
+  ],
+  "source": "28b4d40ff8682b92ac1edbccbd48f5a823e4a7ca",
+  "exitCode": 0,
+  "seconds": 9.93,
+  "rawLogSha256": "c52b88be23c526a1fe9f8069723dc3669b48777c1373ad9bad572dbfa6bdd79c",
+  "sourceAfter": "28b4d40ff8682b92ac1edbccbd48f5a823e4a7ca",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 2,
+  "passed": 48,
+  "failed": 0,
+  "nativeSeconds": 8.45,
+  "skipped": 0,
+  "stderrGroups": 0,
+  "unhandled": 0,
+  "scope": "All42 inherited cases and six actual exporter/direct-new omission cases; no browser/CI/delivery verdict.",
+  "viteCjsDeprecationNotices": 1
+}

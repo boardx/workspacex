@@ -1,3 +1,4 @@
+import { evaluateSurveyForPublish } from "@repo/contracts/survey-publish-readiness";
 import { expect, test, type Page, type Locator, type Route, type TestInfo } from "@playwright/test";
 import { createHash, randomUUID } from "node:crypto";
 import { inflateRawSync } from "node:zlib";
@@ -153,6 +154,23 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await capture(page, info, "designer-raw-en", nameInput);
         await page.reload();
         await expect(page.getByRole("textbox", { name: "Survey name", exact: true })).toHaveValue(rawTitle);
+        // The existing publish gate requires every added answerable question to
+        // have a report binding. Use the real editor; do not bypass the gate.
+        const beforeBinding = await runtime(page, id);
+        const fileBeforePublish = beforeBinding.questions.find(question => question.type === "file")!;
+        const answerBlock = beforeBinding.template.sections.flatMap(section => section.blocks).find(block => block.statistic === "responses" && block.questionIds.includes(beforeBinding.questions[0]!.id));
+        expect(answerBlock).toBeDefined();
+        await page.getByRole("button", { name: "More actions", exact: true }).click();
+        await page.getByRole("button", { name: "Design report template (optional)", exact: true }).click();
+        const bindingBlock = page.getByTestId(`template-block-${answerBlock!.id}`);
+        await bindingBlock.getByRole("checkbox", { name: `${fileBeforePublish.order}. ${rawFile}`, exact: true }).check();
+        const boundSource = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/source` && response.request().method() === "PUT");
+        await page.getByRole("button", { name: "Save changes", exact: true }).click();
+        expect((await boundSource).ok()).toBe(true);
+        const bound = await runtime(page, id);
+        expect(bound.template.sections.flatMap(section => section.blocks).find(block => block.id === answerBlock!.id)?.questionIds).toEqual([...answerBlock!.questionIds, fileBeforePublish.id]);
+        expect(evaluateSurveyForPublish(bound)).toEqual([]);
+        await capture(page, info, "report-file-binding-en", bindingBlock.getByRole("checkbox", { name: `${fileBeforePublish.order}. ${rawFile}`, exact: true }));
         await page.getByRole("button", { name: "2. Publish and collect", exact: true }).click();
         await capture(page, info, "publication-en", page.getByRole("button", { name: "Start collection", exact: true }));
         const published = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/start-collection` && response.request().method() === "POST");
@@ -322,7 +340,7 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await expect(report.locator("[data-chart] svg").first()).toBeVisible();
         await capture(page, info, "report-chart-en", report.locator("[data-chart]").first());
         expect(errors).toEqual([]);
-        await writeFile(info.outputPath("survey-mutation-receipt.json"), JSON.stringify({ surveyId: id, responseId, batchId: final.activeCollectionBatchId, publicationVersion: final.publication!.version, sourceHash: final.publication!.sourceSnapshot!.contentHash, fileSha256: sha(bytes), fileSize: bytes.length, answerSha256: sha(JSON.stringify(submission.answers)), responseCount: final.responses.length, uiSubmissions: 1, supplementalApiSubmissions: supplementalCount, canonicalMarkdownSha256: sha(englishMarkdown), wordBytesSha256: sha(wordBytes), wordDocumentXmlSha256: sha(documentXml), governanceEvents: finalDb.responses[0]!.analysisHistory!.length, uploadSessions: database.uploadSessions.length, attachments: database.attachments.length, apiAndPgAgree: true }, null, 2));
+        await writeFile(info.outputPath("survey-mutation-receipt.json"), JSON.stringify({ testRetry: info.retry, testTimeoutMs: info.timeout, surveyId: id, responseId, batchId: final.activeCollectionBatchId, publicationVersion: final.publication!.version, sourceHash: final.publication!.sourceSnapshot!.contentHash, fileSha256: sha(bytes), fileSize: bytes.length, answerSha256: sha(JSON.stringify(submission.answers)), responseCount: final.responses.length, uiSubmissions: 1, supplementalApiSubmissions: supplementalCount, canonicalMarkdownSha256: sha(englishMarkdown), wordBytesSha256: sha(wordBytes), wordDocumentXmlSha256: sha(documentXml), governanceEvents: finalDb.responses[0]!.analysisHistory!.length, uploadSessions: database.uploadSessions.length, attachments: database.attachments.length, apiAndPgAgree: true }, null, 2));
     }
     finally {
         await held?.dispose();
@@ -520,7 +538,7 @@ test("survey template locale preserves real CAS saves, independent copies, repor
         expect(database.templates.find(row => row.id === copy.id)).toEqual(copySaved);
         expect(database.templates.find(row => row.id === reportSource.id)).toEqual(reportSource);
         expect(errors).toEqual([]);
-        await writeFile(info.outputPath("template-mutation-receipt.json"), JSON.stringify({ surveyId: survey.id, sourceTemplateId: original.id, copyTemplateId: copy.id, reportTemplateId: reportSource.id, sourceVersion: updatedOriginal.version, copyVersion: copySaved.version, independentQuestionSha256: sha(JSON.stringify(copySaved.questions)), rawTemplateJsonSha256: sha(exportedJson), reportSourceSha256: sha(JSON.stringify(reportSource.template)), restoredTemplateSha256: sha(JSON.stringify(restored.template)), controlledPermissionFailure: true, explicitRetrySameBody: true, apiAndPgAgree: true }, null, 2));
+        await writeFile(info.outputPath("template-mutation-receipt.json"), JSON.stringify({ testRetry: info.retry, testTimeoutMs: info.timeout, surveyId: survey.id, sourceTemplateId: original.id, copyTemplateId: copy.id, reportTemplateId: reportSource.id, sourceVersion: updatedOriginal.version, copyVersion: copySaved.version, independentQuestionSha256: sha(JSON.stringify(copySaved.questions)), rawTemplateJsonSha256: sha(exportedJson), reportSourceSha256: sha(JSON.stringify(reportSource.template)), restoredTemplateSha256: sha(JSON.stringify(restored.template)), controlledPermissionFailure: true, explicitRetrySameBody: true, apiAndPgAgree: true }, null, 2));
     }
     finally {
         await held?.dispose();
@@ -660,7 +678,7 @@ test("survey intake locale preserves real file bytes, one configured proposal, c
         expect(writes.filter(call => call.path === "/surveys" && call.method === "POST")).toHaveLength(1);
         expect(writes.filter(call => call.path === `/surveys/${id}/source` && call.method === "PUT")).toHaveLength(2);
         expect(errors).toEqual([]);
-        await writeFile(info.outputPath("intake-mutation-receipt.json"), JSON.stringify({ surveyId: id, fileSha256: sha(fileBytes), fileSize: fileBytes.length, proposalSourceKind: proposal.source.kind, proposalSourceSha256: proposal.source.sha256, provider: proposal.execution.provider, modelId: proposal.execution.modelId, correctedMarkdownSha256: sha(edited), persistedDesignSha256: sha(saved.source!.documents.design.markdown), sourceHash: saved.source!.contentHash, proposalRequests: 1, createAttempts: 1, sourceSaveAttempts: 2, originalReportIdentityRetained: true, controlledPermissionFailure: true, configuredModelExecution: true, vendorQualityClaim: false }, null, 2));
+        await writeFile(info.outputPath("intake-mutation-receipt.json"), JSON.stringify({ testRetry: info.retry, testTimeoutMs: info.timeout, surveyId: id, fileSha256: sha(fileBytes), fileSize: fileBytes.length, proposalSourceKind: proposal.source.kind, proposalSourceSha256: proposal.source.sha256, provider: proposal.execution.provider, modelId: proposal.execution.modelId, correctedMarkdownSha256: sha(edited), persistedDesignSha256: sha(saved.source!.documents.design.markdown), sourceHash: saved.source!.contentHash, proposalRequests: 1, createAttempts: 1, sourceSaveAttempts: 2, originalReportIdentityRetained: true, controlledPermissionFailure: true, configuredModelExecution: true, vendorQualityClaim: false }, null, 2));
     }
     finally {
         await held?.dispose();
