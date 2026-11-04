@@ -1,0 +1,12 @@
+{
+  "worker": "746efabbfa50a8c4ae1a5b53c0fdc65dda4361f0",
+  "upstream": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "candidate": "WORKTREE",
+  "workerSpecCount": 82,
+  "upstreamSpecCount": 81,
+  "candidateSpecCount": 82,
+  "completeSpecMultisetUnion": true,
+  "candidateConfigByteIdenticalToWorker": true,
+  "recordingResearchInterviewRegisteredOnce": true,
+  "auditCorrection": "Initial filename assertion used nonexistent research-journey; actual existing registry uses i18n-research-entry. Union itself passed in both attempts, no product/config change."
+}
