@@ -1,0 +1,14 @@
+Safety-selected original registered-spec log; full raw trace stays private/ignored.
+[test-isolation] id=run-mw0wlcqz-c1bcaec2-977229b00eaa db=wsx_977229b00eaa38690344 compose=wsx-977229b00eaa38690344 pg=20392 redis=21392 api=24392 web=25392 sandbox=26392 model=27392 deep-agent=28392 asr=29392 vision=30392 loopback-sandbox=31392 mail=19392
+KNOWN_P3_FULL_CREATE_CONTRACT_STILL_FAILS=#6163
+  ✓  1 [seeded] › e2e/i18n-project-workbench.spec.ts:22:5 › general project keeps raw title and tab links through locale and real navigation (7.1s)
+  ✓  2 [seeded] › e2e/i18n-project-workbench.spec.ts:34:5 › workshop retains canonical research navigation and facilitator controls (4.4s)
+  ✓  3 [seeded] › e2e/i18n-project-workbench.spec.ts:40:5 › nonmember keeps actual 403 and translates invitation guidance without rereading (4.7s)
+  3 passed (7.8m)
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded --no-deps e2e/i18n-project-workbench.spec.ts --max-failures=1 --workers=1 --retries=0
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：7m48s
+  清理：2s
+  总计：7m51s
