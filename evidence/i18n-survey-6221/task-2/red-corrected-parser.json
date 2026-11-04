@@ -1,0 +1,27 @@
+{
+  "name": "red-corrected-parser",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-designer-i18n.test.tsx",
+    "-t",
+    "canonical parser diagnostic"
+  ],
+  "source": "b38377391f24373735ea99a19c03a98a9edc3802",
+  "exitCode": 1,
+  "seconds": 22.916,
+  "rawLogSha256": "0e2761d3d2133e31dc1832e46baede232d3fc781a6278225d32a642339e82a4f",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testsExecuted": 2,
+  "validMissingEnglishFailures": 2,
+  "filteredOut": 41,
+  "canonicalChineseGuardsPassed": 2,
+  "collectionErrors": 0,
+  "unhandledErrors": 0
+}

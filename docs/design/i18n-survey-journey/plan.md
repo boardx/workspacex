@@ -51,7 +51,7 @@ flowchart LR
 
 ### Task 2: Question editing, all question types and trial fill
 
-**Files:** components/survey/live/{question-editor,question-settings,question-renderer,question-material,inline-question-text,markdown-survey-editor,responsive-designer-panel}.tsx; namespace survey-design.ts. Test: survey-designer-i18n.test.tsx.
+**Files:** components/survey/live/{question-editor,question-settings,question-renderer,question-material,inline-question-text,markdown-survey-editor,responsive-designer-panel}.tsx; namespace survey-design.ts with pure metadata/diagnostic projections and creation-only question-display helper. Tests: survey-designer-i18n.test.tsx and survey-question-controls-i18n.test.tsx.
 **Interfaces:** existing canonical question/option/row/field IDs and config APIs unchanged; consumes Task1 resource registration only. Produces fixed type/config/preview/validation chrome, raw question/answer state.
 
 - [ ] Write RED tables for actual supported question types and advanced/logic/attachment controls, inline edit, Markdown view, trial fill. Assert literal question/options/row labels with braces, unchanged canonical enum/IDs and onChange body, same field DOM/selection across locales; trial fill never saves/submits.
