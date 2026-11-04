@@ -1,0 +1,29 @@
+{
+  "runner": {
+    "head": "28059050e6315e8ab3384ca10569811e89fdfe67",
+    "source": "6eec6508908617d54a168241ada9a35fb6f4bbc5",
+    "exit": 0,
+    "seconds": 445.258
+  },
+  "stats": {
+    "startTime": "2026-11-04T13:04:27.144Z",
+    "duration": 440692.632,
+    "expected": 1,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "tests": [
+    {
+      "title": "platform members preserve locale continuity and real superuser operator boundaries across organizations",
+      "project": "entity-localization",
+      "status": "passed",
+      "durationMs": 17903,
+      "retry": 0
+    }
+  ],
+  "pngCount": 16,
+  "rawOnlyPrivate": true,
+  "rawLogSha256": "5d86f4814400ed5d292b4f7506ffb3586e145cd6f6f21e9765d4d0f08b0d6fcb",
+  "rawReportSha256": "aedb3b5b68621f5a781382164e2134c68a29b2d094b0aceefc8f4a0bf80ac0dc"
+}

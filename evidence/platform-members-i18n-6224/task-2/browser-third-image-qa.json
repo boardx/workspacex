@@ -1,0 +1,248 @@
+{
+  "source": "6eec6508908617d54a168241ada9a35fb6f4bbc5",
+  "freeze": "28059050e6315e8ab3384ca10569811e89fdfe67",
+  "native": "browser-third ACTUAL1PASS17.903s/runner445.258s/retry0/skip0/flaky0",
+  "visual": "16 individually viewed PASS",
+  "images": [
+    {
+      "file": "final-images/platform-members-grant-result-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "e8f05ac5e45c5d135b91665f7a778d71aed1b4855dd135e3713b4c53928fdd2a",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Target platform administrator badge and revoke action visible with both memberships; authored names/braces preserved.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-grant-result-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "27be6b866603db980f6e17dfb1a132023e35ee5fb368c1c624e6424a013e0b0c",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Target platform administrator badge and revoke action visible with both memberships; authored names/braces preserved.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-last-admin-error-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "6eeb61130910d03fd543cc875c8cf7130cee6021c585ec66594c91e33a1a3658",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Administrator remains selected; complete next-step error visible, including final word above mobile navigation.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-last-admin-error-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "48e3a1f6ee790a74c53c7c63dfc28ed0d289ddb10d266a72ad2315804715bdf9",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Administrator remains selected; complete next-step error visible, including final word above mobile navigation.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-operator-roster-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "9a8c0685c666eca44ab613d7f2aedff5d44c13792ff9ac0710ddfb2a304eea81",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Complete Compliance lead selected label visible at both widths; target name/email and both memberships readable; no grant/revoke controls for operator.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-operator-roster-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "0d11f79c0f505a857498648fd1a568cede65cfb9053a47c91e58eda558dd7bcb",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Complete Compliance lead selected label visible at both widths; target name/email and both memberships readable; no grant/revoke controls for operator.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-ordinary-admin-denial-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "6bf51155aa94031a873ac059a0527df684144ea028ca99420dd64422ee689ae0",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Dedicated translated platform permission message fully readable; neither stale roster nor empty/error state.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-ordinary-admin-denial-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "7af3ecf4aa5152f2a429824f8622edfbfaef7196bd645f1a543fe19959a64df4",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Dedicated translated platform permission message fully readable; neither stale roster nor empty/error state.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-revoked-target-denial-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "b5ac44f1be26cc0af94cf117e627c4b19bd6e973eaf217d7541714e02006549f",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Revoked target sees complete translated permission denial with no roster.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-revoked-target-denial-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "c56e359b179d07222ecdd2851f8b1de58cc6099f94729b03088e7bd1513f20ab",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Revoked target sees complete translated permission denial with no roster.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-role-change-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "291a2d2207f79fc2bda28019f1f404e8dd7a27fd1ca1fdadd338819f8125ad1b",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Success banner fully readable with original authored names/braces and Consultant to Project lead transition.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-role-change-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "5cf85a7c65a41f141dfa5e4ecdfa9faebe517febe6fab9d06ec264177b947826",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Success banner fully readable with original authored names/braces and Consultant to Project lead transition.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-role-popover-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "528333b235eda80b09967996fbb5238e438cd8710fdd87b3f975ea5a73d28fcb",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "All four canonical role options fully readable and reachable, with complete target identity.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-role-popover-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "bfa24a239cd9e3947331569fd6621cb0c4c96d98be36b79bcac349e02212cc5b",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "All four canonical role options fully readable and reachable, with complete target identity.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-superuser-roster-1280.png",
+      "width": 1280,
+      "height": 900,
+      "sha256": "f0a7c9e48e0669e2dcc2fcef9e4f9a3cc5aad3553a7643edf5e8a2d83366f993",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Member identity, both organization names, role pickers and platform grant action fully visible.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    },
+    {
+      "file": "final-images/platform-members-superuser-roster-375.png",
+      "width": 375,
+      "height": 900,
+      "sha256": "a117899cf0cab8cc4a0dbb2db1012c0a6c20239214317a05a0762f5253a2032e",
+      "individuallyViewedByRoot": true,
+      "verdict": "PASS",
+      "note": "Member identity, both organization names, role pickers and platform grant action fully visible.",
+      "privacy": "Only synthetic fixture identities/emails and product UI; no bearer, cookie, internal exception or secret visible.",
+      "pngChunks": [
+        "IDAT",
+        "IEND",
+        "IHDR"
+      ]
+    }
+  ]
+}
