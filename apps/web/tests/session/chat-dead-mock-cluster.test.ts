@@ -157,16 +157,17 @@ describe("#462 /chat 路由闭包禁 mock + chat 死 mock 簇台账", () => {
     expect(importersOf("composer")).toEqual(["components/chat/chat-main.tsx"]);
     expect(importersOf("chat-main")).toEqual([]);
     // 正样本对照：同一台匹配器对活着的屏必须报出真实引用者，否则它对谁都返回空。
-    // ⚠ #467 起有**两个**引用者：新加的 skill 挂载面板复用了本文件导出的
-    //   `describeMessageFailure`（同一套失败文案，不另写第二份）。#594 起
-    //   有**三个**：`PersonalChatScreen`（个人对话，无项目）复用同一个消息面板，
-    //   不另起第二套发消息/看回复实现。台账双向咬合，所以这里如实列三个而不是
-    //   放宽成 `toContain`——再多一个引用者仍然要有人来改这行。
+    // skill 挂载面板现在直接复用 lib/live-chat 的同一个 describeMessageFailure；
+    // 消息面板仍再导出该函数，两个真实屏仍复用消息面板，不另起发送/回复实现。
+    // 精确台账保持双向咬合；下面另外钉住 helper 的真实来源，不能退化成包含检查。
     expect(importersOf("chat-live-message-panel")).toEqual([
       "components/chat/chat-read-screen.tsx",
-      "components/chat/chat-skill-mount-panel.tsx",
       "components/chat/personal-chat-screen.tsx",
     ]);
+    const skillMount = readFileSync(resolve(ROOT, "components/chat/chat-skill-mount-panel.tsx"), "utf8");
+    const messagePanel = readFileSync(resolve(ROOT, "components/chat/chat-live-message-panel.tsx"), "utf8");
+    expect(skillMount).toContain('import { describeMessageFailure } from "@/lib/live-chat";');
+    expect(messagePanel).toContain('export { describeMessageFailure } from "@/lib/live-chat";');
   });
 
   /**
