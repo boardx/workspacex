@@ -47,12 +47,12 @@ export function SurveyTemplateActions({
   disabled = false,
   saveOnly = false,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const label = t(kind === "question" ? "survey.templates.questionOne" : "survey.templates.reportOne");
   const [mode, setMode] = React.useState<"save" | "use" | null>(null);
   const [name, setName] = React.useState("");
-  const [error, setError] = React.useState("");
-  const [loadError, setLoadError] = React.useState("");
+  const [error, setError] = React.useState<Error | string>("");
+  const [loadError, setLoadError] = React.useState<Error | string>("");
   const [notice, setNotice] = React.useState<MessageKey | null>(null);
   const [busy, setBusy] = React.useState(false);
   const saveLock = React.useRef(false);
@@ -88,7 +88,7 @@ export function SurveyTemplateActions({
         if (active) setRows(parsed.data);
       })
       .catch((e) => {
-        if (active) setLoadError((e as Error).message);
+        if (active) setLoadError(e instanceof Error ? e : String(e));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -136,7 +136,7 @@ export function SurveyTemplateActions({
       setNotice("survey.templates.savedLibrary");
       setMode(null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e : String(e));
     } finally {
       saveLock.current = false;
       setBusy(false);
@@ -175,7 +175,7 @@ export function SurveyTemplateActions({
       setMode(null);
       setNotice("survey.templates.applied");
     } catch (e) {
-      setError((e as Error).message);
+      setError(e instanceof Error ? e : String(e));
     }
   };
   return (
@@ -252,12 +252,12 @@ export function SurveyTemplateActions({
           </DialogHeader>
           {error && (
             <p role="alert" className="text-12 text-destructive">
-              {displaySurveyTemplateMessage(error, t)}
+              {displaySurveyTemplateMessage(error, t, locale)}
             </p>
           )}
           {mode === "use" && loadError && (
             <p role="alert" className="text-12 text-destructive">
-              {displaySurveyTemplateMessage(loadError, t)}
+              {displaySurveyTemplateMessage(loadError, t, locale)}
             </p>
           )}
           {mode === "save" ? (

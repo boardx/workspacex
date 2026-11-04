@@ -68,7 +68,7 @@ export function SurveyTemplateWorkspace({
     React.useState<SurveyTemplateInput | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState("");
+  const [error, setError] = React.useState<Error | string>("");
   const [notice, setNotice] = React.useState<MessageKey | null>(null);
   const [tab, setTab] = React.useState<"questions" | "report">(
     kind === "question" ? "questions" : "report",
@@ -128,7 +128,7 @@ export function SurveyTemplateWorkspace({
       if (current === generation.current) accept(value);
     } catch (e) {
       if (current === generation.current)
-        setError(e instanceof Error ? e.message : "模板加载失败，请重试。");
+        setError(e instanceof Error ? e : "模板加载失败，请重试。");
     } finally {
       if (current === generation.current) setLoading(false);
     }
@@ -183,7 +183,7 @@ export function SurveyTemplateWorkspace({
     } catch (e) {
       if (current === generation.current)
         setError(
-          e instanceof Error ? e.message : "保存失败，修改仍保留，请重试。",
+          e instanceof Error ? e : "保存失败，修改仍保留，请重试。",
         );
     } finally {
       lock.current = false;
@@ -288,7 +288,7 @@ export function SurveyTemplateWorkspace({
       {error && (
         <div className="m-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 p-4">
           <p role="alert" className="text-13 text-destructive">
-            {displaySurveyTemplateMessage(error, t)}
+            {displaySurveyTemplateMessage(error, t, locale)}
           </p>
           {!draft && (
             <Button

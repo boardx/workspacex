@@ -33,8 +33,8 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
   const [query, setQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState("");
-  const [loadError, setLoadError] = React.useState("");
+  const [error, setError] = React.useState<Error | string>("");
+  const [loadError, setLoadError] = React.useState<Error | string>("");
   const [notice, setNotice] = React.useState<MessageKey | null>(null);
   const generation = React.useRef(0);
   const createdDuringLoad = React.useRef<SurveyLibraryTemplate[]>([]);
@@ -70,7 +70,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       }
     } catch (e) {
       if (current === generation.current)
-        setLoadError(e instanceof Error ? e.message : "模板加载失败，请重试。");
+        setLoadError(e instanceof Error ? e : "模板加载失败，请重试。");
     } finally {
       if (current === generation.current) setLoading(false);
     }
@@ -93,7 +93,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       await action(current);
     } catch (e) {
       if (current === generation.current)
-        setError(e instanceof Error ? e.message : "操作未完成，请重试。");
+        setError(e instanceof Error ? e : "操作未完成，请重试。");
     } finally {
       locked.current = false;
       setBusy(false);
@@ -197,7 +197,7 @@ export function SurveyTemplateLibrary({ kind }: { kind: Kind }) {
       {(error || loadError) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-card p-4">
           <p role="alert" className="text-13 text-destructive">
-            {[loadError,error].filter(Boolean).map(message => displaySurveyTemplateMessage(message, t)).join(locale === "en" ? "; " : "；")}
+            {[loadError,error].filter(Boolean).map(message => displaySurveyTemplateMessage(message, t, locale)).join(locale === "en" ? "; " : "；")}
           </p>
           <Button
             variant="outline"
