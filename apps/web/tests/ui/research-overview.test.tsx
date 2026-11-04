@@ -179,10 +179,10 @@ describe("B2-S3 研究总览三块", () => {
     render(<ResearchOverview view="member" projectId="p1" />);
     fireEvent.click(await screen.findByTestId("project-research-task-h-weak"));
     const err = await screen.findByTestId("project-research-action-error-h-weak");
-    expect(err).toHaveTextContent("登录状态过期了");
+    expect(err).toHaveTextContent("你没有权限执行此操作，如需访问请联系管理员");
     expect(err).not.toHaveTextContent("NO_PROJECT_ROLE");
     fireEvent.click(screen.getByTestId("project-research-verify-h-mid"));
-    expect(await screen.findByTestId("project-research-action-error-h-mid")).toHaveTextContent("登录状态过期了");
+    expect(await screen.findByTestId("project-research-action-error-h-mid")).toHaveTextContent("你没有权限执行此操作，如需访问请联系管理员");
     expect(push).not.toHaveBeenCalled();
     expect(screen.getByTestId("project-research-unverified-list")).toBeInTheDocument();
   });

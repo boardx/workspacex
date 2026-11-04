@@ -1,0 +1,16 @@
+{
+  "name": "vitest-reachability",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:vitest-config-reachability"
+  ],
+  "source": "8e865198778985cb53965f6b72d2d36e0c4538fe",
+  "exitCode": 0,
+  "seconds": 3.442,
+  "rawLogLocalPath": "/tmp/6205-integration-vitest-reachability.log",
+  "rawLogSha256": "81e4cc456301c57df79f7dd2e5e5859c7aa8d9f2e64b11355570bd874082d671",
+  "receiptPath": "vitest-reachability.txt",
+  "receiptSha256": "81e4cc456301c57df79f7dd2e5e5859c7aa8d9f2e64b11355570bd874082d671",
+  "receiptNormalization": "trailing blank EOF normalized; original raw log hash retained"
+}

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import Link from "next/link";
 import { Plus, Sparkles, Bot, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
@@ -40,10 +41,11 @@ function useCatalog<T>(open: boolean, load: () => Promise<readonly T[]>): Catalo
 function PickerShell<T>({
   catalog, emptyHint, render,
 }: { catalog: Catalog<T>; emptyHint: string; render: (items: readonly T[]) => React.ReactNode }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col gap-2 rounded-card border border-border-subtle bg-card p-3" data-testid="home-config-picker">
-      {catalog.status === "loading" ? <p className="text-11 text-muted-foreground">加载目录…</p> : null}
-      {catalog.status === "error" ? <p className="text-11 text-destructive">目录加载失败，请稍后重试。</p> : null}
+      {catalog.status === "loading" ? <p className="text-11 text-muted-foreground">{t("homeConfig.catalogLoading")}</p> : null}
+      {catalog.status === "error" ? <p className="text-11 text-destructive">{t("homeConfig.catalogFailed")}</p> : null}
       {catalog.status === "ready" && catalog.items.length === 0 ? <p className="text-11 text-muted-foreground">{emptyHint}</p> : null}
       {catalog.status === "ready" && catalog.items.length > 0 ? render(catalog.items) : null}
     </div>
@@ -55,6 +57,7 @@ const CHIP =
 
 /** 推荐数字人（最多 6 个，带头像）。候选来自成员可读的 Agent 目录（只含已发布、对你可见的）。 */
 export function RecommendedAgentsSection({ form, onChange }: Props) {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const catalog = useCatalog<AgentDirectoryCard>(open, () => listAgentDirectory());
   const picked = new Set(form.recommendedAgents.map((a) => a.agentId));
@@ -71,22 +74,22 @@ export function RecommendedAgentsSection({ form, onChange }: Props) {
 
   return (
     <section className={SECTION} data-testid="home-config-agents">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-13 font-semibold text-card-foreground">推荐数字人（最多 {MAX_RECOMMENDED} 个）</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-13 font-semibold text-card-foreground">{t("homeConfig.agentsTitle", { max: MAX_RECOMMENDED })}</h2>
         <Button type="button" size="sm" variant="outline" disabled={atMax} onClick={() => setOpen((v) => !v)} data-testid="home-config-add-agent">
-          <Plus aria-hidden className="h-3.5 w-3.5" />添加数字人
+          <Plus aria-hidden className="h-3.5 w-3.5" />{t("homeConfig.addAgent")}
         </Button>
       </div>
-      {form.recommendedAgents.length === 0 ? <p className="text-11 text-muted-foreground">还没有推荐数字人。</p> : (
+      {form.recommendedAgents.length === 0 ? <p className="text-11 text-muted-foreground">{t("homeConfig.agentsEmpty")}</p> : (
         <ul className="flex flex-col gap-2">
           {form.recommendedAgents.map((a) => (
             <li key={a.agentId} className="flex items-start gap-2 rounded-card border border-border-subtle bg-card p-2.5" data-testid={`home-config-agent-${a.agentId}`}>
               <Avatar initials={initialsOf(a.name)} avatarKey={a.avatarKey} tone="ai" size="lg" />
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-12 font-medium text-card-foreground">{a.name}{a.roleLabel ? <span className="ml-1.5 text-11 font-normal text-muted-foreground">{a.roleLabel}</span> : null}</span>
-                <Input value={a.note ?? ""} placeholder="一句话介绍（可选，最多 80 字）" maxLength={80} onChange={(e) => setNote(a.agentId, e.target.value)} data-testid={`home-config-agent-note-${a.agentId}`} />
+                <Input value={a.note ?? ""} placeholder={t("homeConfig.agentNote")} maxLength={80} onChange={(e) => setNote(a.agentId, e.target.value)} data-testid={`home-config-agent-note-${a.agentId}`} />
               </div>
-              <Button type="button" size="icon" variant="ghost" aria-label={`移除 ${a.name}`} onClick={() => remove(a.agentId)} data-testid={`home-config-agent-remove-${a.agentId}`}>
+              <Button type="button" size="icon" variant="ghost" aria-label={t("homeConfig.removeName", { name: a.name })} onClick={() => remove(a.agentId)} data-testid={`home-config-agent-remove-${a.agentId}`}>
                 <X aria-hidden className="h-3.5 w-3.5" />
               </Button>
             </li>
@@ -95,15 +98,15 @@ export function RecommendedAgentsSection({ form, onChange }: Props) {
       )}
       {open ? (
         <>
-        <Link href="/platform-admin/agent" className="text-12 underline text-muted-foreground">找不到官方数字人？前往 Agent 目录启用</Link>
+        <Link href="/platform-admin/agent" className="text-12 underline text-muted-foreground">{t("homeConfig.agentDirectory")}</Link>
         <PickerShell
           catalog={catalog}
-          emptyHint="本组织还没有已发布的数字人。"
+          emptyHint={t("homeConfig.agentsCatalogEmpty")}
           render={(items) => (
             <div className="flex flex-wrap gap-1.5">
               {items.map((c) => (
                 <button key={c.agentId} type="button" disabled={picked.has(c.agentId) || atMax} onClick={() => add(c)} data-testid={`home-config-picker-agent-${c.agentId}`} className={CHIP}>
-                  {picked.has(c.agentId) ? `已添加 · ${c.name}` : c.name}
+                  {picked.has(c.agentId) ? t("homeConfig.addedName", { name: c.name }) : c.name}
                 </button>
               ))}
             </div>
@@ -117,6 +120,7 @@ export function RecommendedAgentsSection({ form, onChange }: Props) {
 
 /** 组织推荐 Skill（最多 6 个）。首页点击会新建对话并自动加载该 Skill。 */
 export function RecommendedSkillsSection({ orgId, form, onChange }: Props & { orgId: string }) {
+  const { t } = useI18n();
   const [open, setOpen] = React.useState(false);
   const catalog = useCatalog<SkillListItem>(open, async () => (await listSkills(orgId)).filter((s) => s.status === "已启用"));
   const key = (c: RecommendedCapability) => `${c.kind}-${c.refId}`;
@@ -133,14 +137,14 @@ export function RecommendedSkillsSection({ orgId, form, onChange }: Props & { or
 
   return (
     <section className={SECTION} data-testid="home-config-skills">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-13 font-semibold text-card-foreground">推荐 Skill（最多 {MAX_RECOMMENDED} 个）</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-13 font-semibold text-card-foreground">{t("homeConfig.skillsTitle", { max: MAX_RECOMMENDED })}</h2>
         <Button type="button" size="sm" variant="outline" disabled={atMax} onClick={() => setOpen((v) => !v)} data-testid="home-config-add-recommendation">
-          <Plus aria-hidden className="h-3.5 w-3.5" />添加 Skill
+          <Plus aria-hidden className="h-3.5 w-3.5" />{t("homeConfig.addSkill")}
         </Button>
       </div>
-      <p className="text-11 text-muted-foreground">成员在首页点击后，会新建一个对话并自动加载这个 Skill。</p>
-      {form.recommendedCapabilities.length === 0 ? <p className="text-11 text-muted-foreground">还没有推荐 Skill。</p> : (
+      <p className="text-11 text-muted-foreground">{t("homeConfig.skillsHelp")}</p>
+      {form.recommendedCapabilities.length === 0 ? <p className="text-11 text-muted-foreground">{t("homeConfig.skillsEmpty")}</p> : (
         <ul className="flex flex-col gap-2">
           {form.recommendedCapabilities.map((c) => (
             <li key={key(c)} className="flex items-start gap-2 rounded-card border border-border-subtle bg-card p-2.5" data-testid={`home-config-recommendation-${c.kind}-${c.refId}`}>
@@ -149,9 +153,9 @@ export function RecommendedSkillsSection({ orgId, form, onChange }: Props & { or
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="text-12 font-medium text-card-foreground">{c.name}</span>
-                <Input value={c.note ?? ""} placeholder="备注（可选，最多 80 字）" maxLength={80} onChange={(e) => setNote(c, e.target.value)} data-testid={`home-config-recommendation-note-${c.kind}-${c.refId}`} />
+                <Input value={c.note ?? ""} placeholder={t("homeConfig.skillNote")} maxLength={80} onChange={(e) => setNote(c, e.target.value)} data-testid={`home-config-recommendation-note-${c.kind}-${c.refId}`} />
               </div>
-              <Button type="button" size="icon" variant="ghost" aria-label={`移除 ${c.name}`} onClick={() => remove(c)} data-testid={`home-config-remove-${c.kind}-${c.refId}`}>
+              <Button type="button" size="icon" variant="ghost" aria-label={t("homeConfig.removeName", { name: c.name })} onClick={() => remove(c)} data-testid={`home-config-remove-${c.kind}-${c.refId}`}>
                 <X aria-hidden className="h-3.5 w-3.5" />
               </Button>
             </li>
@@ -161,12 +165,12 @@ export function RecommendedSkillsSection({ orgId, form, onChange }: Props & { or
       {open ? (
         <PickerShell
           catalog={catalog}
-          emptyHint="本组织还没有已启用的 Skill。"
+          emptyHint={t("homeConfig.skillsCatalogEmpty")}
           render={(items) => (
             <div className="flex flex-wrap gap-1.5">
               {items.map((s) => (
                 <button key={s.skillId} type="button" disabled={picked.has(`skill-${s.skillId}`) || atMax} onClick={() => add(s)} data-testid={`home-config-picker-skill-${s.skillId}`} className={CHIP}>
-                  {picked.has(`skill-${s.skillId}`) ? `已添加 · ${s.name}` : s.name}
+                  {picked.has(`skill-${s.skillId}`) ? t("homeConfig.addedName", { name: s.name }) : s.name}
                 </button>
               ))}
             </div>

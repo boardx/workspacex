@@ -1,0 +1,14 @@
+
+/Users/shenyangjun/boardx/workspacex/apps/web/tests/ui/recording-project-i18n.test.tsx
+  18:18  error  Missing "key" prop for element in array  react/jsx-key
+  19:17  error  Missing "key" prop for element in array  react/jsx-key
+  20:19  error  Missing "key" prop for element in array  react/jsx-key
+  21:15  error  Missing "key" prop for element in array  react/jsx-key
+  22:17  error  Missing "key" prop for element in array  react/jsx-key
+  23:16  error  Missing "key" prop for element in array  react/jsx-key
+
+✖ 6 problems (6 errors, 0 warnings)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: eslint components/chat/chat-composer-pickers.tsx components/rec components/studio/studio-history.tsx lib/i18n/namespaces/recording.ts lib/i18n/namespaces/recording-project.ts lib/i18n/namespaces/audio-input.ts lib/i18n/namespaces/studio-history.ts lib/i18n/messages/en.ts lib/i18n/messages/zh-CN.ts tests/ui/recording-journey-i18n.test.tsx tests/ui/audio-input-i18n.test.tsx tests/ui/recording-controller-i18n.test.tsx tests/ui/recording-project-i18n.test.tsx e2e/i18n-recording-journey.spec.ts --max-warnings 0

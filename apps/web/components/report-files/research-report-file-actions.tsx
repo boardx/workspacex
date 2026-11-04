@@ -1,8 +1,10 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 import { useEffect, useState } from 'react';
 import { getReportFileSource, type ReportFileSource } from '@/lib/report-files-api';
 import { ReportFileActions } from './report-file-actions';
 export function ResearchReportFileActions({ sessionId, reportVersion, disabled = false }: { sessionId: string; reportVersion: number; disabled?: boolean }) {
+  const { t } = useI18n();
   const [binding, setBinding] = useState<ReportFileSource | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -16,6 +18,6 @@ export function ResearchReportFileActions({ sessionId, reportVersion, disabled =
     return () => controller.abort();
   }, [sessionId, reportVersion, disabled]);
   if (disabled) return null;
-  if (!binding || binding.id !== sessionId || binding.reportVersion !== reportVersion) return <p role={error ? 'alert' : 'status'} className="text-12 text-muted-foreground">{error ? '当前报告文件生成暂不可用，请刷新报告后重试。' : '正在同步报告文件版本…'}</p>;
+  if (!binding || binding.id !== sessionId || binding.reportVersion !== reportVersion) return <p role={error ? 'alert' : 'status'} className="text-12 text-muted-foreground">{t(error ? 'reportFiles.bindingUnavailable' : 'reportFiles.syncing')}</p>;
   return <ReportFileActions key={`${binding.id}:${binding.reportVersion}:${binding.reportHash}`} source={binding} />;
 }

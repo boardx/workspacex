@@ -1,0 +1,28 @@
+{
+  "gate": "red",
+  "head": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "exit": 1,
+  "seconds": 11.155,
+  "logSha256": "f46c0d67049b3d1ba6516098152dbedd5a0edac195dd8552b9d2f77b5dccf84d",
+  "rawPrivate": true,
+  "summary": [
+    " ❯ tests/ui/research-overview.test.tsx (10 tests | 1 failed) 687ms",
+    " ❯ tests/lib/http-failure-text.test.ts (15 tests | 3 failed) 15ms",
+    " ✓ tests/lib/artifact-failure.test.ts (4 tests) 5ms",
+    " ✓ tests/ui/failure-i18n.test.ts (3 tests) 8ms",
+    " ✓ tests/lib/i18n-resources.test.ts (5 tests) 104ms",
+    "⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯",
+    " FAIL  tests/lib/http-failure-text.test.ts > httpFailureText > explains permission denial in both locales and defaults to Chinese",
+    "AssertionError: expected 'Your session has expired. Refresh the…' to be 'You do not have permission to perform…' // Object.is equality",
+    " ❯ tests/lib/http-failure-text.test.ts:15:40",
+    " FAIL  tests/lib/http-failure-text.test.ts > permission fallback through callers > masks diagnostics without mutating ApiError (UNKNOWN_PRIVATE_REASON)",
+    " FAIL  tests/lib/http-failure-text.test.ts > permission fallback through callers > masks diagnostics without mutating ApiError (null)",
+    "AssertionError: expected [ …(5) ] to deeply equal [ …(5) ]",
+    " ❯ tests/lib/http-failure-text.test.ts:56:21",
+    " FAIL  tests/ui/research-overview.test.tsx > B2-S3 研究总览三块 > 按钮 403：如实上屏一句人话，不崩、不显示错误码",
+    " ❯ tests/ui/research-overview.test.tsx:182:17",
+    " Test Files  2 failed | 3 passed (5)",
+    "      Tests  4 failed | 33 passed (37)",
+    "   Duration  8.48s (transform 2.62s, setup 860ms, collect 4.67s, tests 819ms, environment 942ms, prepare 331ms)"
+  ]
+}

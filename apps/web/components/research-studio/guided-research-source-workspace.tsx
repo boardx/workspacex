@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 import type { GuidedResearchRuntime } from "@/lib/guided-research-api";
@@ -7,6 +8,7 @@ export function GuidedResearchSourceWorkspace({ state, actions }: {
   state: GuidedResearchRuntime;
   actions: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const urls = state.sources.filter((source) => source.decision !== "excluded"
     && source.addedByUser !== true
     && !source.url.startsWith("https://internal.workspacex.local/"));
@@ -14,8 +16,8 @@ export function GuidedResearchSourceWorkspace({ state, actions }: {
   return <section className="space-y-4" data-testid="guided-research-source-workspace" data-reference-layout="research-sources">
     <div className={urls.length > 0 ? "min-w-0" : "sr-only"}>
       <section className="min-w-0 rounded-xl border border-border bg-card p-5" {...(urls.length > 0 ? { "data-testid": "guided-research-source-evidence" } : {})}>
-        <h2 className="text-lg font-bold">研究资料</h2>
-        <ol aria-label="已获取的研究资料" aria-live="polite" aria-relevant="additions" className="mt-4 space-y-3">
+        <h2 className="text-lg font-bold">{t("research.sources.heading")}</h2>
+        <ol aria-label={t("research.sources.acquired")} aria-live="polite" aria-relevant="additions" className="mt-4 space-y-3">
           {urls.map((source, index) => <li key={source.id} className="flex min-w-0 gap-3 text-sm">
             <span className="shrink-0 text-muted-foreground">{index + 1}.</span>
             <a href={source.url} title={source.document?.summary ?? source.presentation?.summary ?? source.content} target="_blank" rel="noopener noreferrer"

@@ -1,0 +1,10 @@
+{
+  "baseline": "ca3f9e4482ae84adea3124ef497b2b2da78b0933",
+  "sourceFileSha256": "d7532231f01ac7b12290965617d9ab52950d074930c93f4859eefdbf4767d366",
+  "allPriorCasesAndHelpersUnchanged": true,
+  "laterHomeAssertionsFromReadsMarkerUnchanged": true,
+  "onlyExtraImport": "wave2Runtime",
+  "verification": "Pending fresh standalone + actual preceding authoring sequence",
+  "revisedSourceFileSha256": "e375608a30bf02d26ac7589522350892a25505df121e5f314be514612057907a",
+  "reviewDelta": "Explicit stable identity/version/name/authored display projections; excludes mutable derived fields. Original HOME suffix/all prior cases remain byte-equal."
+}

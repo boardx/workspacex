@@ -1,0 +1,1811 @@
+{
+  "rec": {
+    "AI_MOMENTS": [
+      {
+        "id": "aim-1",
+        "agent": "Ava",
+        "label": "决策点",
+        "segId": "seg-05",
+        "tc": "30:36",
+        "snippet": "决定了，第一步先进德国，波兰放到第二阶段观察。",
+        "basis": "含明确阶段决策措辞，且与 RQ1 进入次序相关。"
+      },
+      {
+        "id": "aim-2",
+        "agent": "Ava",
+        "label": "痛点",
+        "segId": "seg-02",
+        "tc": "29:42",
+        "snippet": "德国的并网审批周期是最长的，差不多要 14 个月。",
+        "basis": "受访者主动指出审批周期长，情绪与量化并存，疑似关键痛点。"
+      },
+      {
+        "id": "aim-3",
+        "agent": "Scout",
+        "label": "机会",
+        "segId": "seg-04",
+        "tc": "30:20",
+        "snippet": "波兰的补贴反而更激进……",
+        "basis": "外部补贴政策变化，可能构成进入窗口。",
+        "invalidated": true
+      }
+    ],
+    "ANCHOR_KINDS": [
+      "page",
+      "bbox",
+      "timecode",
+      "message-id",
+      "question-no",
+      "image-region"
+    ],
+    "ANON_CHANNELS": [
+      {
+        "channel": "A",
+        "durationPct": 41,
+        "firstTc": "29:30",
+        "sampleClips": [
+          "29:30",
+          "33:10",
+          "41:52"
+        ],
+        "assignedTo": "sp-zhouning"
+      },
+      {
+        "channel": "B",
+        "durationPct": 38,
+        "firstTc": "29:42",
+        "sampleClips": [
+          "29:42",
+          "30:36",
+          "38:04"
+        ],
+        "assignedTo": "sp-p10"
+      },
+      {
+        "channel": "C",
+        "durationPct": 21,
+        "firstTc": "30:20",
+        "sampleClips": [
+          "30:20",
+          "35:11"
+        ],
+        "assignedTo": null
+      }
+    ],
+    "ARTIFACT_SOURCES": [
+      "survey",
+      "conversation",
+      "interview",
+      "prototype-run",
+      "research-run",
+      "upload",
+      "ai-generated"
+    ],
+    "ASSIGN_CANDIDATES": [
+      {
+        "id": "sp-p10",
+        "initials": "P10",
+        "realName": "陈涛",
+        "alias": "P-10",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": true
+      },
+      {
+        "id": "sp-p11",
+        "initials": "P11",
+        "realName": "Kraus",
+        "alias": "P-11",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": true,
+        "consentRefusedRealname": true
+      },
+      {
+        "id": "sp-weber",
+        "initials": "W",
+        "realName": "Weber",
+        "alias": "P-13",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": true,
+        "consentRefusedRealname": true
+      },
+      {
+        "id": "sp-p12",
+        "initials": "P12",
+        "realName": "（未授权）",
+        "alias": "P-12",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": false
+      }
+    ],
+    "CARRIERS": [
+      "workshop",
+      "interview",
+      "thread"
+    ],
+    "CARRIER_LABEL": {
+      "workshop": "项目现场（四组并行）",
+      "interview": "访谈现场",
+      "thread": "对话线程"
+    },
+    "CONSENT_RENDER": {
+      "submittedSnapshot": {
+        "submittedBy": "P-10 陈涛",
+        "submittedAt": "2026-04-20",
+        "days": 180,
+        "text": "录音——只在这场访谈中录，存于远洋咨询的服务器，180 天后自动删除；禁止用于训练。"
+      },
+      "requiredVars": [
+        "材料保留期",
+        "数据控制方",
+        "联系人",
+        "合规邮箱"
+      ]
+    },
+    "EVIDENCE_NATURE_LABEL": {
+      "personal": "个人经历",
+      "secondhand": "二手转述",
+      "opinion": "观点"
+    },
+    "INGESTION_STATES": [
+      "RECEIVED",
+      "QUARANTINED",
+      "SCANNED",
+      "STORED",
+      "EXTRACTED",
+      "SEGMENTED",
+      "ENRICHED",
+      "INDEXED",
+      "REVIEW_PENDING",
+      "READY"
+    ],
+    "MATERIALS": [
+      {
+        "id": "mat-01",
+        "name": "第 3 组访谈.wav",
+        "source": "interview",
+        "segment": "深访",
+        "sizeBytes": 88402100,
+        "storedAt": "2026-05-02",
+        "deleteBy": "2026-07-31",
+        "retentionDays": 90,
+        "resolvedFrom": "project-override",
+        "status": "active"
+      },
+      {
+        "id": "mat-02",
+        "name": "第 3 组访谈.transcript.jsonl",
+        "source": "interview",
+        "segment": "深访",
+        "sizeBytes": 204882,
+        "storedAt": "2026-05-02",
+        "deleteBy": "2026-07-31",
+        "retentionDays": 90,
+        "resolvedFrom": "project-override",
+        "status": "active"
+      },
+      {
+        "id": "mat-03",
+        "name": "第 3 组访谈.notes.md",
+        "source": "interview",
+        "segment": "深访",
+        "sizeBytes": 8204,
+        "storedAt": "2026-05-02",
+        "deleteBy": "2026-07-31",
+        "retentionDays": 90,
+        "resolvedFrom": "project-override",
+        "status": "active"
+      },
+      {
+        "id": "mat-04",
+        "name": "工作坊录音 · 第 2 组.wav",
+        "source": "workshop",
+        "segment": "机会发散",
+        "sizeBytes": 132004882,
+        "storedAt": "2026-04-11",
+        "deleteBy": "2026-07-10",
+        "retentionDays": 90,
+        "resolvedFrom": "project-override",
+        "status": "expiring"
+      },
+      {
+        "id": "mat-05",
+        "name": "工作坊录音 · 第 2 组.transcript.jsonl",
+        "source": "workshop",
+        "segment": "机会发散",
+        "sizeBytes": 312004,
+        "storedAt": "2026-04-11",
+        "deleteBy": "2026-07-10",
+        "retentionDays": 90,
+        "resolvedFrom": "project-override",
+        "status": "delete-blocked",
+        "pinnedByFinalReport": "欧洲市场进入 · 终版报告 v3（2026-06-20 定版）"
+      },
+      {
+        "id": "mat-06",
+        "name": "线程音频 · 假设梳理.wav",
+        "source": "conversation",
+        "segment": "对话线程",
+        "sizeBytes": 41200004,
+        "storedAt": "2026-06-01",
+        "deleteBy": "2026-08-30",
+        "retentionDays": 90,
+        "resolvedFrom": "project-override",
+        "status": "active"
+      }
+    ],
+    "PII_LABEL": {
+      "email": "邮箱地址",
+      "phone": "手机号",
+      "id-card": "身份证号",
+      "bank-card": "银行卡号",
+      "address": "详细住址"
+    },
+    "PII_TYPES": [
+      "email",
+      "phone",
+      "id-card",
+      "bank-card",
+      "address"
+    ],
+    "REC_SCREENS": [
+      "prep",
+      "live",
+      "process",
+      "verify",
+      "assign",
+      "annotate",
+      "retention"
+    ],
+    "REC_SCREEN_LABEL": {
+      "prep": "准备室 · 逐人授权",
+      "live": "实时转录",
+      "process": "处理状态",
+      "verify": "逐字稿校对",
+      "assign": "指派说话人",
+      "annotate": "引述与打点",
+      "retention": "回流与保留期"
+    },
+    "REC_SCREEN_UC": {
+      "prep": "UC-5.1 R8 · 授权矩阵",
+      "live": "UC-5.1 · F69–F73",
+      "process": "UC-5.1 · 处理状态",
+      "verify": "UC-5.3 · 逐字稿校对",
+      "assign": "UC-5.2 · F74–F75",
+      "annotate": "UC-5.3 · F76–F77",
+      "retention": "UC-5.4 · F78–F79"
+    },
+    "REC_VIEWS_BY_CARRIER": {
+      "workshop": [
+        {
+          "id": "facilitator",
+          "label": "引导师",
+          "note": "可发起、指派、标引述、确认 AI 打点"
+        },
+        {
+          "id": "groupLead",
+          "label": "组长",
+          "note": "被授权范围内参与，看与自身角色相关结果"
+        },
+        {
+          "id": "member",
+          "label": "组员",
+          "note": "参与本组，看本组转录；跨组不可见"
+        },
+        {
+          "id": "observer",
+          "label": "观察者",
+          "note": "仅已发布且授权允许时只读脱敏结果"
+        }
+      ],
+      "interview": [
+        {
+          "id": "facilitator",
+          "label": "主持人",
+          "note": "可发起、指派、标引述、确认 AI 打点"
+        },
+        {
+          "id": "groupLead",
+          "label": "联合主持",
+          "note": "被授权范围内参与，协助主持人推进访谈"
+        },
+        {
+          "id": "observer",
+          "label": "观察员",
+          "note": "仅已发布且授权允许时只读脱敏结果"
+        },
+        {
+          "id": "interviewee",
+          "label": "受访者",
+          "note": "只看自己的授权与撤回，看不到项目内部材料"
+        }
+      ],
+      "thread": [
+        {
+          "id": "facilitator",
+          "label": "引导师",
+          "note": "可发起、指派、标引述、确认 AI 打点"
+        },
+        {
+          "id": "groupLead",
+          "label": "组长",
+          "note": "被授权范围内参与，看与自身角色相关结果"
+        },
+        {
+          "id": "member",
+          "label": "组员",
+          "note": "参与本组，看本组转录；跨组不可见"
+        },
+        {
+          "id": "observer",
+          "label": "观察者",
+          "note": "仅已发布且授权允许时只读脱敏结果"
+        }
+      ]
+    },
+    "RESEARCH_QUESTIONS": [
+      {
+        "id": "RQ1",
+        "label": "RQ1 · 三个候选市场的进入次序应如何排？"
+      },
+      {
+        "id": "RQ2",
+        "label": "RQ2 · 各市场的并网/审批周期与合规门槛？"
+      },
+      {
+        "id": "RQ3",
+        "label": "RQ3 · 补贴政策的连续性风险如何评估？"
+      }
+    ],
+    "RETENTION_PARAM": {
+      "orgDefaultDays": 180,
+      "projectOverrideDays": 90,
+      "effectiveDays": 90,
+      "resolvedFrom": "project-override",
+      "noTraining": true,
+      "dataController": "远洋咨询",
+      "contact": "林可",
+      "complianceEmail": "compliance@yuanyang-consulting.cn"
+    },
+    "RIGHT_TABS": [
+      {
+        "id": "transcript",
+        "label": "转录",
+        "count": null
+      },
+      {
+        "id": "execution",
+        "label": "执行",
+        "count": 2
+      },
+      {
+        "id": "insight",
+        "label": "洞察",
+        "count": 6
+      },
+      {
+        "id": "artifact",
+        "label": "产物",
+        "count": 3
+      },
+      {
+        "id": "material",
+        "label": "材料",
+        "count": 12
+      }
+    ],
+    "SEGMENT_KINDS": [
+      "text",
+      "message",
+      "answer",
+      "audio-span"
+    ],
+    "SESSION": {
+      "workshop": {
+        "title": "远洋 · 欧洲市场进入 · 现场推演",
+        "project": "欧洲市场进入",
+        "segment": "议程环节：机会发散",
+        "connection": "已连接",
+        "recording": "四组并行录音中",
+        "elapsed": "28:14",
+        "planned": "60:00",
+        "latencySec": "1.2s",
+        "langDir": null,
+        "lastSync": "3 秒前"
+      },
+      "interview": {
+        "title": "第 3 组访谈 · 储能采购决策",
+        "project": "欧洲市场进入",
+        "segment": "议程环节：深访",
+        "connection": "已连接",
+        "recording": "录音中",
+        "elapsed": "34:12",
+        "planned": "60:00",
+        "latencySec": "1.8s",
+        "langDir": "德→中",
+        "lastSync": "刚刚"
+      },
+      "thread": {
+        "title": "欧洲储能进入策略 · 假设梳理",
+        "project": "欧洲市场进入",
+        "segment": "对话线程",
+        "connection": "已连接",
+        "recording": "会议转录中",
+        "elapsed": "28:14",
+        "planned": "—",
+        "latencySec": "1.5s",
+        "langDir": null,
+        "lastSync": "1 秒前"
+      }
+    },
+    "SPEAKERS": [
+      {
+        "id": "sp-linke",
+        "initials": "林",
+        "realName": "林可",
+        "role": "researcher",
+        "onsite": true,
+        "authComplete": true
+      },
+      {
+        "id": "sp-zhouning",
+        "initials": "周",
+        "realName": "周宁",
+        "role": "facilitator",
+        "onsite": true,
+        "authComplete": true
+      },
+      {
+        "id": "sp-p10",
+        "initials": "P10",
+        "realName": "陈涛",
+        "alias": "P-10",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": true
+      },
+      {
+        "id": "sp-p11",
+        "initials": "P11",
+        "realName": "Kraus",
+        "alias": "P-11",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": true,
+        "consentRefusedRealname": true
+      },
+      {
+        "id": "sp-weber",
+        "initials": "W",
+        "realName": "Weber",
+        "alias": "P-13",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": true,
+        "consentRefusedRealname": true
+      },
+      {
+        "id": "sp-p12",
+        "initials": "P12",
+        "realName": "（未授权）",
+        "alias": "P-12",
+        "role": "interviewee",
+        "onsite": true,
+        "authComplete": false
+      }
+    ],
+    "TRACKS": {
+      "workshop": [
+        {
+          "id": "g1",
+          "label": "第 1 组",
+          "status": "live",
+          "note": "实时 · 不串台"
+        },
+        {
+          "id": "g2",
+          "label": "第 2 组",
+          "status": "live",
+          "note": "实时 · 不串台"
+        },
+        {
+          "id": "g3",
+          "label": "第 3 组",
+          "status": "buffering",
+          "note": "断网 · 本地缓存中，恢复后补传并标缺口"
+        },
+        {
+          "id": "g4",
+          "label": "第 4 组",
+          "status": "declined",
+          "note": "拒绝麦克风 · 本路未录制，不产生转写段"
+        }
+      ],
+      "interview": [
+        {
+          "id": "itv",
+          "label": "受访者 P-10",
+          "status": "live",
+          "note": "实时 · 不串台"
+        },
+        {
+          "id": "itr",
+          "label": "研究员 林可",
+          "status": "live",
+          "note": "实时 · 不串台"
+        },
+        {
+          "id": "w",
+          "label": "受访者 Weber",
+          "status": "muted",
+          "note": "已关闭麦克风 · 录制已暂停，缺口保留不拼接"
+        }
+      ],
+      "thread": [
+        {
+          "id": "th",
+          "label": "会议音频",
+          "status": "live",
+          "note": "实时 · 不串台"
+        }
+      ]
+    },
+    "TRACK_STATUS_LABEL": {
+      "live": "录制中",
+      "buffering": "断网缓存",
+      "paused": "已暂停",
+      "declined": "未录制（拒绝麦克风）",
+      "muted": "已关麦（录制已暂停）"
+    },
+    "TRANSCRIPT": [
+      {
+        "id": "seg-01",
+        "anonChannel": "A",
+        "assignedTo": "sp-zhouning",
+        "status": "final",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1770000,
+          "endMs": 1782000,
+          "tc": "29:30"
+        },
+        "maskedText": "我们先把欧洲三个候选市场的进入门槛过一遍，德国的补贴细则去年改过。"
+      },
+      {
+        "id": "seg-02",
+        "anonChannel": "B",
+        "assignedTo": "sp-p10",
+        "status": "final",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1782000,
+          "endMs": 1799000,
+          "tc": "29:42"
+        },
+        "maskedText": "从我们上个项目的经验看，德国的并网审批周期是最长的，差不多要 14 个月。",
+        "quote": {
+          "rq": "RQ2",
+          "nature": "personal"
+        }
+      },
+      {
+        "id": "seg-03",
+        "anonChannel": "B",
+        "assignedTo": "sp-p10",
+        "status": "final",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1799000,
+          "endMs": 1820000,
+          "tc": "29:59"
+        },
+        "maskedText": "如果要联系当地并网负责人，可以发到 已自动遮盖 或打 已自动遮盖。",
+        "pii": [
+          "email",
+          "phone"
+        ]
+      },
+      {
+        "id": "seg-04",
+        "anonChannel": "C",
+        "assignedTo": null,
+        "status": "final",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1820000,
+          "endMs": 1836000,
+          "tc": "30:20"
+        },
+        "maskedText": "波兰的补贴反而更激进，但政策连续性存疑，我个人不太看好三年以上的稳定性。",
+        "original": "Der polnische Zuschuss ist aggressiver, aber die Kontinuität ist fraglich."
+      },
+      {
+        "id": "seg-05",
+        "anonChannel": "B",
+        "assignedTo": "sp-p10",
+        "status": "final",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1836000,
+          "endMs": 1851000,
+          "tc": "30:36"
+        },
+        "maskedText": "决定了，第一步先进德国，波兰放到第二阶段观察。",
+        "aiMoment": {
+          "agent": "Ava",
+          "label": "决策点",
+          "basis": "「决定了，第一步先进德国」含明确的阶段决策措辞，且与 RQ1 进入次序相关。"
+        }
+      },
+      {
+        "id": "seg-06",
+        "anonChannel": null,
+        "assignedTo": null,
+        "status": "low-confidence",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1925000,
+          "endMs": 1940000,
+          "tc": "32:05"
+        },
+        "maskedText": "这个 Netzentgelt 的算法……（识别置信度低，可能识别错，需人工校对）",
+        "original": "Das Netzentgelt … [混写，低置信]"
+      },
+      {
+        "id": "seg-07",
+        "anonChannel": null,
+        "assignedTo": null,
+        "status": "pending-manual",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1950000,
+          "endMs": 1968000,
+          "tc": "32:30"
+        },
+        "maskedText": "（两位受访者同时开口，系统不自动归属，待人工指派）",
+        "overlapCandidates": [
+          "sp-p10",
+          "sp-p11"
+        ]
+      },
+      {
+        "id": "seg-08",
+        "anonChannel": "A",
+        "assignedTo": "sp-zhouning",
+        "status": "partial",
+        "anchor": {
+          "kind": "timecode",
+          "startMs": 1990000,
+          "endMs": 1996000,
+          "tc": "33:10"
+        },
+        "maskedText": "那我们接下来看一下融资结构……（正在识别）"
+      }
+    ],
+    "UNQUOTABLE_STATUSES": [
+      "partial",
+      "low-confidence",
+      "pending-manual"
+    ],
+    "VOICEPRINT": {
+      "allAssigned": false,
+      "fallbackDay": 7,
+      "note": "本场声纹 embedding 属 derived_representations，指派完成即物理删除并写审计；未完成则兜底任务在本场结束第 7 天无条件销毁。存活期远短于材料保留期（180 天）。"
+    }
+  },
+  "v2": {
+    "AUTHZ_COLS": [
+      "record",
+      "transcribe",
+      "aiAnalysis"
+    ],
+    "AUTHZ_COL_LABEL": {
+      "record": "录音",
+      "transcribe": "转录",
+      "aiAnalysis": "AI 分析"
+    },
+    "AUTHZ_LABEL": {
+      "allow": "允许",
+      "deny": "拒绝",
+      "pending": "待签"
+    },
+    "PREP_CAN_START": false,
+    "PREP_CHECKS": [
+      {
+        "id": "mic",
+        "label": "麦克风 · 输入正常",
+        "state": "ok"
+      },
+      {
+        "id": "storage",
+        "label": "本地存储 · 可录 6.5 小时",
+        "state": "ok"
+      },
+      {
+        "id": "lang",
+        "label": "转录语言 · 德语→中文",
+        "state": "ok"
+      },
+      {
+        "id": "voiceprint",
+        "label": "声纹校准 · P-12 未采样",
+        "state": "warn"
+      }
+    ],
+    "PREP_INCOMPLETE": [
+      {
+        "id": "p-12",
+        "name": "P-12 匿名",
+        "authz": {
+          "record": "pending",
+          "transcribe": "pending",
+          "aiAnalysis": "pending"
+        },
+        "note": "P-12 未签前，开始按钮不可用。"
+      }
+    ],
+    "PREP_MATERIALS": [
+      "责任归属清单原型 v3",
+      "三条路径对比一页纸"
+    ],
+    "PREP_META": {
+      "title": "准备室 · 访谈 11",
+      "startDisabledLabel": "开始访谈 · 待 P-12 授权",
+      "startEnabledLabel": "开始访谈",
+      "footnote": "未完成授权前，系统不会开启录音、转录与任何 AI 分析。"
+    },
+    "PREP_PARTICIPANTS": [
+      {
+        "id": "p-10",
+        "name": "P-10 Weber",
+        "authz": {
+          "record": "allow",
+          "transcribe": "allow",
+          "aiAnalysis": "deny"
+        },
+        "note": "Weber 同意录音与转录，但拒绝 AI 分析：他的发言只进逐字稿，不参与主题归纳与证据强度计算，报告里只能作为直接引述出现。"
+      },
+      {
+        "id": "p-11",
+        "name": "P-11 Kraus",
+        "authz": {
+          "record": "allow",
+          "transcribe": "allow",
+          "aiAnalysis": "allow"
+        }
+      },
+      {
+        "id": "p-12",
+        "name": "P-12 匿名",
+        "authz": {
+          "record": "pending",
+          "transcribe": "pending",
+          "aiAnalysis": "pending"
+        },
+        "note": "P-12 未签前，开始按钮不可用。"
+      }
+    ],
+    "PREP_SPEAKER_LABELS": [
+      {
+        "id": "host",
+        "name": "主持人 林可",
+        "calibrated": true
+      },
+      {
+        "id": "p-10",
+        "name": "P-10 Weber",
+        "calibrated": true
+      },
+      {
+        "id": "p-11",
+        "name": "P-11 Kraus",
+        "calibrated": true
+      },
+      {
+        "id": "p-12",
+        "name": "P-12 匿名",
+        "calibrated": false
+      }
+    ],
+    "PROCESSING_TASKS": [
+      {
+        "id": "upload",
+        "label": "音频上传",
+        "state": "done",
+        "detail": "412 MB · 完成"
+      },
+      {
+        "id": "transcribe",
+        "label": "转录",
+        "state": "done",
+        "detail": "1,284 句 · 完成"
+      },
+      {
+        "id": "diarize",
+        "label": "发言人识别",
+        "state": "running",
+        "detail": "92% · 14 句待人工指派"
+      },
+      {
+        "id": "mask",
+        "label": "敏感信息遮盖",
+        "state": "done",
+        "detail": "3 处 · 完成"
+      },
+      {
+        "id": "translate",
+        "label": "德语→中文对照翻译",
+        "state": "failed",
+        "detail": "本地模型队列超时（第 3 次）",
+        "failNote": "本地模型队列超时（第 3 次）· 音频与原文不受影响",
+        "retryable": true
+      },
+      {
+        "id": "summary",
+        "label": "AI 摘要与证据提取",
+        "state": "blocked",
+        "detail": "等翻译完成"
+      }
+    ],
+    "PROCESS_META": {
+      "title": "处理状态 · 访谈 10（68 分钟）",
+      "failedBadge": "1 个任务失败",
+      "principle": "每个任务单独报状态，不用一个「处理中」盖住全部。失败任务不阻塞已完成的部分——你现在就可以去校对逐字稿。"
+    },
+    "TASK_STATE_LABEL": {
+      "done": "完成",
+      "running": "进行中",
+      "failed": "失败",
+      "blocked": "等待前序"
+    },
+    "VERIFY_CHAPTERS": [
+      {
+        "id": "bg",
+        "name": "背景与现状",
+        "active": false
+      },
+      {
+        "id": "decision",
+        "name": "采购决策过程",
+        "active": true
+      },
+      {
+        "id": "vendor",
+        "name": "供应商比选",
+        "active": false
+      }
+    ],
+    "VERIFY_ITEMS": [
+      {
+        "id": "v-1",
+        "tc": "00:31:04",
+        "speaker": "P-10 Weber",
+        "kind": "plain",
+        "text": "采购委员会最后卡的不是价格，是没人愿意为「万一出问题谁负责」签字。"
+      },
+      {
+        "id": "v-2",
+        "tc": "00:32:05",
+        "kind": "low-confidence",
+        "text": "我们法务只认 Vertragswerk。",
+        "lowConf": {
+          "term": "Vertragswerk",
+          "score": "0.42",
+          "actions": [
+            "听这一段",
+            "改为「合同文本」",
+            "保留原词"
+          ]
+        }
+      },
+      {
+        "id": "v-3",
+        "tc": "00:32:30",
+        "kind": "speaker-uncertain",
+        "text": "…那次其实我们也试过，但权限一直对不上。",
+        "speakerUncertain": {
+          "note": "发言人不确定 · 两人重叠",
+          "actions": [
+            "指派 Weber",
+            "指派 Kraus",
+            "拆成两段"
+          ]
+        }
+      }
+    ],
+    "VERIFY_MARKS": [
+      {
+        "id": "quote",
+        "label": "引述",
+        "count": 11
+      },
+      {
+        "id": "pain",
+        "label": "痛点",
+        "count": 6
+      }
+    ],
+    "VERIFY_META": {
+      "title": "逐字稿校对 · 访谈 10",
+      "pendingBadge": "14 处待确认",
+      "commitLabel": "确认并入证据库",
+      "duration": "31:04 / 68:12",
+      "progressPct": 47,
+      "evidenceNote": "确认后逐字稿才进正式证据库；未确认的内容不会被其他 Studio 检索到。"
+    },
+    "VERIFY_NAV_SPEAKERS": [
+      {
+        "id": "p-10",
+        "name": "P-10 Weber",
+        "pct": 61,
+        "tone": "person"
+      },
+      {
+        "id": "host",
+        "name": "林可",
+        "pct": 27,
+        "tone": "host"
+      },
+      {
+        "id": "uncertain",
+        "name": "不确定",
+        "pct": 0,
+        "tone": "uncertain",
+        "count": 14
+      }
+    ],
+    "VERIFY_THEMES": [
+      {
+        "id": "t-1",
+        "name": "责任无人承担",
+        "meta": "3 条引述 · 1 个具体流程 · 强度：中",
+        "strength": "中",
+        "kind": "theme",
+        "actions": [
+          "确认",
+          "改名"
+        ]
+      },
+      {
+        "id": "t-2",
+        "name": "法务是隐形门槛",
+        "meta": "1 条引述 · 待追问 · 强度：弱",
+        "strength": "弱",
+        "kind": "theme"
+      },
+      {
+        "id": "t-3",
+        "name": "待你判断",
+        "meta": "",
+        "strength": "弱",
+        "kind": "judge",
+        "note": "Kraus 的「对，我们也是这样」算不算独立证据？默认按附和处理，不计入强度。"
+      }
+    ]
+  },
+  "probes": [
+    {
+      "days": 0,
+      "items": [
+        {
+          "id": "record",
+          "label": "录音",
+          "desc": "只在这场访谈中录，0 天后自动删除。",
+          "granted": true
+        },
+        {
+          "id": "transcript",
+          "label": "转成文字稿",
+          "desc": "你可以要一份自己的副本。",
+          "granted": true
+        },
+        {
+          "id": "aiAnalysis",
+          "label": "交给 AI 做分析",
+          "desc": "参与主题归纳与证据强度计算；拒绝后你的发言只进逐字稿，报告里只能作为直接引述出现。",
+          "granted": false
+        },
+        {
+          "id": "realname",
+          "label": "在报告中署我的姓名与职务",
+          "desc": "未勾选时，报告里一律写成「某物流园区运营总监」，不出现你的名字。",
+          "granted": false
+        }
+      ],
+      "notice": "录音——只在这场访谈中录，存于远洋咨询的服务器，0 天后自动删除；禁止用于训练。"
+    },
+    {
+      "days": 1,
+      "items": [
+        {
+          "id": "record",
+          "label": "录音",
+          "desc": "只在这场访谈中录，1 天后自动删除。",
+          "granted": true
+        },
+        {
+          "id": "transcript",
+          "label": "转成文字稿",
+          "desc": "你可以要一份自己的副本。",
+          "granted": true
+        },
+        {
+          "id": "aiAnalysis",
+          "label": "交给 AI 做分析",
+          "desc": "参与主题归纳与证据强度计算；拒绝后你的发言只进逐字稿，报告里只能作为直接引述出现。",
+          "granted": false
+        },
+        {
+          "id": "realname",
+          "label": "在报告中署我的姓名与职务",
+          "desc": "未勾选时，报告里一律写成「某物流园区运营总监」，不出现你的名字。",
+          "granted": false
+        }
+      ],
+      "notice": "录音——只在这场访谈中录，存于远洋咨询的服务器，1 天后自动删除；禁止用于训练。"
+    },
+    {
+      "days": 90,
+      "items": [
+        {
+          "id": "record",
+          "label": "录音",
+          "desc": "只在这场访谈中录，90 天后自动删除。",
+          "granted": true
+        },
+        {
+          "id": "transcript",
+          "label": "转成文字稿",
+          "desc": "你可以要一份自己的副本。",
+          "granted": true
+        },
+        {
+          "id": "aiAnalysis",
+          "label": "交给 AI 做分析",
+          "desc": "参与主题归纳与证据强度计算；拒绝后你的发言只进逐字稿，报告里只能作为直接引述出现。",
+          "granted": false
+        },
+        {
+          "id": "realname",
+          "label": "在报告中署我的姓名与职务",
+          "desc": "未勾选时，报告里一律写成「某物流园区运营总监」，不出现你的名字。",
+          "granted": false
+        }
+      ],
+      "notice": "录音——只在这场访谈中录，存于远洋咨询的服务器，90 天后自动删除；禁止用于训练。"
+    },
+    {
+      "days": 180,
+      "items": [
+        {
+          "id": "record",
+          "label": "录音",
+          "desc": "只在这场访谈中录，180 天后自动删除。",
+          "granted": true
+        },
+        {
+          "id": "transcript",
+          "label": "转成文字稿",
+          "desc": "你可以要一份自己的副本。",
+          "granted": true
+        },
+        {
+          "id": "aiAnalysis",
+          "label": "交给 AI 做分析",
+          "desc": "参与主题归纳与证据强度计算；拒绝后你的发言只进逐字稿，报告里只能作为直接引述出现。",
+          "granted": false
+        },
+        {
+          "id": "realname",
+          "label": "在报告中署我的姓名与职务",
+          "desc": "未勾选时，报告里一律写成「某物流园区运营总监」，不出现你的名字。",
+          "granted": false
+        }
+      ],
+      "notice": "录音——只在这场访谈中录，存于远洋咨询的服务器，180 天后自动删除；禁止用于训练。"
+    }
+  ],
+  "zh": {
+    "rec.project.prep.incomplete": "{count} 人未完成授权 · 不能开始录制",
+    "rec.project.prep.incomplete.one": "{count} 人未完成授权 · 不能开始录制",
+    "rec.project.syncSecondsAgo.one": "{count} 秒前",
+    "rec.project.taskDetail.upload": "{amount} · 完成",
+    "rec.project.taskDetail.transcribe": "{count} 句 · 完成",
+    "rec.project.taskDetail.diarize": "{percent}% · {count} 句待人工指派",
+    "rec.project.taskDetail.mask": "{count} 处 · 完成",
+    "rec.project.taskDetail.translate": "本地模型队列超时（第 {attempt} 次）",
+    "rec.project.taskDetail.summary": "等翻译完成",
+    "rec.project.taskFailNote": "本地模型队列超时（第 {attempt} 次）· 音频与原文不受影响",
+    "rec.project.sessionRecording.workshop": "四组并行录音中",
+    "rec.project.sessionRecording.interview": "录音中",
+    "rec.project.sessionRecording.thread": "会议转录中",
+    "rec.project.sessionConnected": "已连接",
+    "rec.project.syncJustNow": "刚刚",
+    "rec.project.syncSecondsAgo": "{count} 秒前",
+    "rec.project.sessionLang": "德→中",
+    "rec.project.trackNote.live": "实时 · 不串台",
+    "rec.project.trackNote.buffering": "断网 · 本地缓存中，恢复后补传并标缺口",
+    "rec.project.trackNote.declined": "拒绝麦克风 · 本路未录制，不产生转写段",
+    "rec.project.trackNote.muted": "已关闭麦克风 · 录制已暂停，缺口保留不拼接",
+    "rec.project.trackLabel.group": "第 {count} 组",
+    "rec.project.trackLabel.interviewee": "受访者 {name}",
+    "rec.project.trackLabel.researcher": "研究员 {name}",
+    "rec.project.trackLabel.meeting": "会议音频",
+    "rec.project.voiceprint": "本场声纹 embedding 属 derived_representations，指派完成即物理删除并写审计；未完成则兜底任务在本场结束第 {fallback} 天无条件销毁。存活期远短于材料保留期（{comparison} 天）。",
+    "rec.project.consentLabel.record": "录音",
+    "rec.project.consentLabel.transcript": "转成文字稿",
+    "rec.project.consentLabel.aiAnalysis": "交给 AI 做分析",
+    "rec.project.consentLabel.realname": "在报告中署我的姓名与职务",
+    "rec.project.consentHelp.record": "只在这场访谈中录，{days} 天后自动删除。",
+    "rec.project.consentHelp.transcript": "你可以要一份自己的副本。",
+    "rec.project.consentHelp.aiAnalysis": "参与主题归纳与证据强度计算；拒绝后你的发言只进逐字稿，报告里只能作为直接引述出现。",
+    "rec.project.consentHelp.realname": "未勾选时，报告里一律写成「某物流园区运营总监」，不出现你的名字。",
+    "rec.project.tasks.upload": "音频上传",
+    "rec.project.tasks.transcribe": "转录",
+    "rec.project.tasks.diarize": "发言人识别",
+    "rec.project.tasks.mask": "敏感信息遮盖",
+    "rec.project.tasks.translate": "德语→中文对照翻译",
+    "rec.project.tasks.summary": "AI 摘要与证据提取",
+    "rec.project.checks.mic": "麦克风 · 输入正常",
+    "rec.project.checks.storage": "本地存储 · 可录 6.5 小时",
+    "rec.project.checks.lang": "转录语言 · 德语→中文",
+    "rec.project.checks.voiceprint": "声纹校准 · P-12 未采样",
+    "rec.project.pii.email": "邮箱地址",
+    "rec.project.pii.phone": "手机号",
+    "rec.project.pii.id-card": "身份证号",
+    "rec.project.pii.bank-card": "银行卡号",
+    "rec.project.pii.address": "详细住址",
+    "rec.project.track.live": "录制中",
+    "rec.project.track.buffering": "断网缓存",
+    "rec.project.track.paused": "已暂停",
+    "rec.project.track.declined": "未录制（拒绝麦克风）",
+    "rec.project.track.muted": "已关麦（录制已暂停）",
+    "rec.project.evidenceNature.personal": "个人经历",
+    "rec.project.evidenceNature.secondhand": "二手转述",
+    "rec.project.evidenceNature.opinion": "观点",
+    "rec.project.tabs.transcript": "转录",
+    "rec.project.tabs.execution": "执行",
+    "rec.project.tabs.insight": "洞察",
+    "rec.project.tabs.artifact": "产物",
+    "rec.project.tabs.material": "材料",
+    "rec.project.correction.listen": "听这一段",
+    "rec.project.correction.replace": "改为「合同文本」",
+    "rec.project.correction.keep": "保留原词",
+    "rec.project.correction.weber": "指派 Weber",
+    "rec.project.correction.kraus": "指派 Kraus",
+    "rec.project.correction.split": "拆成两段",
+    "rec.project.correction.confirm": "确认",
+    "rec.project.correction.rename": "改名",
+    "rec.project.withdrawal.01": "文字稿与音频进入待删除队列",
+    "rec.project.withdrawal.02": "来自该场的引述退出检索，主题矩阵重算强度",
+    "rec.project.withdrawal.03": "引用过它的报告段落标为「证据已撤回」，不静默删除",
+    "rec.project.withdrawal.04": "若已支撑过已签字决策，通知拍板人复核，而不是自动改结论",
+    "rec.project.withdrawal.05": "物理删除并回执给受访者",
+    "rec.project.withdrawal.summary": "逻辑失效 {logical}；物理删除 {physical}并出回执（裁决 D-15）",
+    "rec.project.unit.minutes": "分钟",
+    "rec.project.unit.days": "天",
+    "rec.project.unit.immediate": "即时",
+    "rec.project.unit.human": "需人工",
+    "rec.project.voiceprintFallback": "尚未全部指派 → 兜底任务将于本场结束第 {day} 天无条件销毁",
+    "rec.project.anonymousSpeaker": "说话人 {channel}",
+    "rec.project.quoteSupport": " · 支持 {rq}",
+    "rec.project.role.interviewee": "受访者",
+    "rec.project.role.facilitator": "引导师",
+    "rec.project.role.researcher": "研究员",
+    "rec.project.role.member": "参与者",
+    "rec.project.source.interview": "访谈",
+    "rec.project.source.workshop": "工作坊",
+    "rec.project.source.conversation": "对话线程",
+    "rec.project.prep.title": "准备室 · 访谈 11",
+    "rec.project.prep.startDisabled": "开始访谈 · 待 P-12 授权",
+    "rec.project.prep.start": "开始访谈",
+    "rec.project.prep.footnote": "未完成授权前，系统不会开启录音、转录与任何 AI 分析。",
+    "rec.project.process.title": "处理状态 · 访谈 10（68 分钟）",
+    "rec.project.process.failed": "1 个任务失败",
+    "rec.project.process.principle": "每个任务单独报状态，不用一个「处理中」盖住全部。失败任务不阻塞已完成的部分——你现在就可以去校对逐字稿。",
+    "rec.project.verify.title": "逐字稿校对 · 访谈 10",
+    "rec.project.verify.pending": "14 处待确认",
+    "rec.project.verify.commit": "确认并入证据库",
+    "rec.project.verify.evidence": "确认后逐字稿才进正式证据库；未确认的内容不会被其他 Studio 检索到。",
+    "rec.project.auth.allow": "允许",
+    "rec.project.auth.deny": "拒绝",
+    "rec.project.auth.pending": "待签",
+    "rec.project.auth.record": "录音",
+    "rec.project.auth.transcribe": "转录",
+    "rec.project.auth.aiAnalysis": "AI 分析",
+    "rec.project.state.done": "完成",
+    "rec.project.state.running": "进行中",
+    "rec.project.state.failed": "失败",
+    "rec.project.state.blocked": "等待前序",
+    "rec.project.retryNotice": "重试「{label}」（mock）：不阻塞其它任务",
+    "rec.project.correctionNotice": "「{term}」· {action}（mock）",
+    "rec.project.actionNotice": "{action}（mock）",
+    "rec.project.themeNotice": "{name} · {action}（mock）",
+    "rec.project.consent": "授权",
+    "rec.project.no.participants.have.entered.this.sessions.preparation": "本场还没有参与者进入准备室——授权矩阵为空；名单从项目在场表载入。",
+    "rec.project.p12s.consent.link.is.missing.the.material": "P-12 的同意书链接渲染变量缺失（缺「材料保留期」），系统不发出授权链接、也不把 P-12 计入可录制名单（E6）。",
+    "rec.project.consent.template.rendering.is.temporarily.unavailable.saved": "同意书模板渲染服务暂不可用；已保存的逐人授权不受影响，可安全重试。手动核对不依赖它。",
+    "rec.project.only.facilitators.and.researchers.can.configure.individual": "只有引导师/研究员可配置逐人授权；你可查看授权状态但不能修改。",
+    "rec.project.p12.completed.all.three.consent.choices.start": "P-12 已完成三项授权 → 授权 3/3，「开始访谈」已可用；录音/转录/AI 分析仅对已授权项开启。",
+    "rec.project.individual.consent.each.person.chooses.separately": "逐人授权 · 按个人配置，不强制全场统一",
+    "rec.project.participant": "参与者",
+    "rec.project.device.and.transcription.checks": "设备与转录检查",
+    "rec.project.speaker.labels": "发言人标签",
+    "rec.project.calibrated": "已校准",
+    "rec.project.awaiting.sample": "待采样",
+    "rec.project.materials.and.prototypes": "材料与原型",
+    "rec.project.start.interview.preview.recording.transcription.and.ai": "开始访谈（mock）：录音/转录/AI 分析仅对已授权项开启",
+    "rec.project.complete.consent.before.starting": "未完成授权前不可开始",
+    "rec.project.this.session.has.no.processing.tasks.yet": "本场还没有产生任何处理任务——录制未结束或音频未上传。",
+    "rec.project.germantochinese.translation.timed.out.for.the.third": "德语→中文对照翻译连续第 3 次超时；系统不静默跳过、也不用一个「处理失败」盖住其它任务，失败项单独标红并保留可重试。",
+    "rec.project.the.local.translation.queue.is.unavailable.audio": "本地翻译模型队列不可用；音频与原文不受影响，其它任务照常推进。",
+    "rec.project.only.facilitators.and.researchers.can.view.and": "只有引导师/研究员可查看与重试处理任务；你可见结果但不能触发重试。",
+    "rec.project.germantochinese.translation.succeeded.on.retry.ai.summaries": "德语→中文对照翻译重试成功 → AI 摘要与证据提取已解除阻塞，开始运行。",
+    "rec.project.retry": "重试",
+    "rec.project.14.items.confirmed.the.transcript.is.added": "14 处已确认 → 逐字稿并入正式证据库（mock）",
+    "rec.project.no.segments.need.review.all.transcript.segments": "本场没有待校对的段落——转写全部定稿，或本场未产生逐字稿。",
+    "rec.project.a.correction.at.003205.conflicts.with.another": "第 00:32:05 段的改词与另一名研究员冲突（乐观并发）：你选「改为合同文本」，他选「保留原词」。系统不静默覆盖，保留争议待裁定。",
+    "rec.project.audio.playback.is.temporarily.unavailable.transcript.text": "音频回放服务暂不可用；逐字稿文本与改词出口不受影响，可先做文本校对。",
+    "rec.project.only.facilitators.and.researchers.can.review.and": "只有引导师/研究员可校对并入证据库；你可查看逐字稿但不能改词或确认。",
+    "rec.project.14.items.confirmed.the.transcript.is.added.27": "14 处已确认 → 逐字稿并入正式证据库；未确认前的内容不会被其他 Studio 检索到。",
+    "rec.project.speakers": "发言人",
+    "rec.project.chapters": "章节",
+    "rec.project.markers": "标记",
+    "rec.project.play": "播放",
+    "rec.project.play.3104.6812.preview.no.audio.playback": "播放 31:04 / 68:12（mock，不真放音）",
+    "rec.project.low.confidence.proper.noun": "低置信度 · 专有名词",
+    "rec.project.aiidentified.themes.and.evidence": "AI 识别的主题与证据",
+    "rec.project.consent.34": "授权 3/4",
+    "rec.project.weber.opted.out.of.ai.analysis": "Weber 不参与 AI 分析",
+    "rec.project.latency": "延迟",
+    "rec.project.source.and.translation.on.separate.lines": "· 原文/译文两行",
+    "rec.project.sync.last.updated": "同步 · 最后更新",
+    "rec.project.microphone.access.was.requested.on.entry.for": "进入本组时已申请麦克风权限，用于本组讨论的实时转录。",
+    "rec.project.you.can.turn.it.off.at.any": "可以随时关掉。",
+    "rec.project.microphone.on": "麦克风开启中",
+    "rec.project.microphone.off.not.recording": "本路已关麦 · 未录制",
+    "rec.project.capture.for.this.track.has.stopped.with": "本路已停止采集并在转写流留「录制已暂停」标记；已产生的转写段不回收，重开后时间轴留缺口不拼接成连续假象。",
+    "rec.project.search.this.sessions.transcript.matches.highlighted": "搜索逐字稿（本场全文，命中高亮）",
+    "rec.project.autofollow": "自动跟随",
+    "rec.project.follow.the.latest.sentence": "自动跟随最新一句",
+    "rec.project.back.to.latest": "回到最新",
+    "rec.project.transcript.review": "逐字稿校对",
+    "rec.project.this.session.has.no.transcript.yet.start": "这场还没有转录内容——点「开始录音」后逐字稿会带时间码实时滚动出现，不生成示例数据。",
+    "rec.project.one.person.in.group.4.denied.microphone": "第 4 组有 1 人拒绝麦克风权限，本路显式标「未录制」且不产生转写段；未授权的人不被录也不进转写。",
+    "rec.project.two.people.speak.at.seg07.3230.split": "seg-07（32:30）两人同时说话，未拆分前不能指派给单一说话人、不能抽为引述，请到「指派说话人」处理。",
+    "rec.project.live.transcription.asr.whisperlargev3zh.is.temporarily.unavailable": "实时转录服务（ASR · whisper-large-v3-zh）暂时不可用。已降级为「非实时」轮询，最后一次成功的逐字稿仍在，可安全重试。",
+    "rec.project.group.members.can.view.only.their.groups": "组员只能看本组转录，跨组现场逐字稿不进入你的结果集；已发布的脱敏洞察可在「洞察与报告」查看。",
+    "rec.project.your.project.role.cannot.view.unpublished.live": "你在本项目中的角色不能查看现场未发布逐字稿；已发布的脱敏结果可在「洞察与报告」查看。",
+    "rec.project.recording.ended.audio.and.transcriptjsonl.are.registered": "本场录制已结束：音频 + transcript.jsonl 已物化并登记到 22-files，可在项目文件浏览器查看下载。",
+    "rec.project.interviewee.view.only.your.consent.and.withdrawal": "受访者视角：你只能看到自己的授权与撤回，看不到项目内部逐字稿；转到「回流与保留期」看你的授权告知。",
+    "rec.project.observer.view.unpublished.content.is.shown.as": "观察者视角：现场为未发布内容，此处仅脱敏只读预览，说话人一律以角色显示、写操作全部隐藏。",
+    "rec.project.after.this.session.ends": "file-first：本场结束后",
+    "rec.project.interviews.also.include": "（访谈另有",
+    "rec.project.are.available.in.22files.the.transcript.includes": "在 22-files 可见可下载；转写稿带",
+    "rec.project.to.reference.the.original.audio.artifactversion.the": "指回原音频 artifact_version，原音频 SHA-256 不变。",
+    "rec.project.overlapping.speech": "重叠语音",
+    "rec.project.jump.to.this.position.in.the.audio": "点时间码跳回音频位置（AC2）",
+    "rec.project.unassigned.anonymous.channel": "未指派 · 匿名声道",
+    "rec.project.overlapping.speakers.awaiting.assignment": "两人同时说话 · 待人工指派",
+    "rec.project.low.recognition.confidence.review.required": "识别置信度低 · 待校对",
+    "rec.project.recognizing": "正在识别…",
+    "rec.project.foreign.language": "外语",
+    "rec.project.quoted": "已标为引述",
+    "rec.project.marked.": "标记 ·",
+    "rec.project.pending.confirmation": "（待确认）",
+    "rec.project.automatically.masked": "已自动遮盖：",
+    "rec.project.and": "与",
+    "rec.project.viewing.originals.requires.separate.permission.and": "· 查看原文需权限（独立授权 + 写审计）",
+    "rec.project.view.original": "查看原文…",
+    "rec.project.no.automatic.attribution.is.applied.split.this": "系统不自动归属，未拆分前不可指派给单一说话人、不可抽为引述。",
+    "rec.project.recognition.may.be.incorrect.review.the.text": "文字可能识别错，校对前不可抽为引述。",
+    "rec.project.review.": "去校对 →",
+    "rec.project.quote": "标为引述",
+    "rec.project.mark.this.moment": "标记此刻",
+    "rec.project.interim.text.cannot.be.quoted.or.searched": "（正在识别的句子定稿前不可引述、不进检索）",
+    "rec.project.transcript.review.assign.speakers": "逐字稿校对 · 指派说话人",
+    "rec.project.group.3.interview.energy.storage.procurement.candidates": "第 3 组访谈 · 储能采购决策 · 候选人只来自本场在场名单",
+    "rec.project.assigned": "已指派",
+    "rec.project.channels": "声道",
+    "rec.project.review.required": "待校对",
+    "rec.project.current.session": "当前本场",
+    "rec.project.all.assigned.embeddings.destroyed": "已全部指派 → embedding 已销毁",
+    "rec.project.no.anonymous.channels.need.assignment.all.segments": "本场没有需要指派的匿名声道——所有段落已带真人出处，或本场未产生 diarization 结果。",
+    "rec.project.another.researcher.changed.this.sessions.assignments.refresh": "另一名研究员刚修改了本场声道指派，你的版本已过期（乐观并发），请刷新后再提交，系统不静默覆盖。",
+    "rec.project.both.p10.and.p11.claimed.seg07.3230": "seg-07（32:30）被 P-10 与 P-11 同时认领，保留争议标记，需人工裁定后才回填，不静默归属。",
+    "rec.project.candidate.ranking.through.the.context.api.is": "指派候选排序服务（经 Context API 取本场在场名单）暂不可用；已保留你已做的指派，可安全重试。手动指派不依赖它。",
+    "rec.project.only.facilitators.and.researchers.can.assign.speakers": "只有引导师/研究员可执行说话人指派；你可查看结果但不能修改本场映射。",
+    "rec.project.channel.c.was.assigned.to.p10.quote": "声道 C → 已指派给 陈涛（P-10）：引述出处 / 洞察来源 / 报告 / 图谱一处更新处处更新，此操作已记入审计、可撤销。",
+    "rec.project.anonymous.channels.speakers.a.b.c": "匿名声道（说话人 A / B / C）",
+    "rec.project.speaker": "说话人",
+    "rec.project.speaking.time": "发言时长",
+    "rec.project.first.heard": "% · 首现",
+    "rec.project.source.needed": "出处待补",
+    "rec.project.representative.segment": "代表片段：",
+    "rec.project.assign.entire.channel": "指派整条声道",
+    "rec.project.consent.is.incomplete.this.person.is.excluded": "授权未完成，不会被录音或转写，不能作为候选",
+    "rec.project.no.consent": "· 未授权",
+    "rec.project.undo.assignment": "撤销指派",
+    "rec.project.the.whole.channel.is.assigned.quotes.insights": "整条声道已指派：全量回填到引述/洞察/报告/图谱（指向同一条映射记录，非复制副本）；撤销后同步退回「出处待补」，不留脏数据。",
+    "rec.project.candidates.come.only.from.this.sessions.attendance": "候选只来自本场在场名单（",
+    "rec.project.people.present.with.consent": "人在场且已授权），",
+    "rec.project.no.voiceprint.matching.across.sessions.is.performed": "无任何跨场次声纹比对",
+    "rec.project.a.person.always.makes.the.assignment": "；绑定动作永远由人做，系统没有「自动指派」开关。",
+    "rec.project.segments.requiring.action.cannot.be.quoted.until": "待处理段落（各有出口，处理前不可引述）",
+    "rec.project.all": "全部",
+    "rec.project.assignment.required": "待人工指派",
+    "rec.project.no.segments.need.action.for.this.filter": "此筛选下没有待处理段落。",
+    "rec.project.assign.each.sentence.to.its.speaker.or": "系统不自动归属，请把每一句指派给对应说话人，或先拆分。",
+    "rec.project.assign.to": "指派给",
+    "rec.project.split.into.two.segments": "拆分为两段",
+    "rec.project.leave.unassigned": "保持待指派",
+    "rec.project.correct.text.manually": "人工修正文本…",
+    "rec.project.the.preview.adds.a.textcorrection.control.review": "（原型行内操作条无「编辑文本」，此出口为 [设计] 补齐；校对前不可抽为引述）",
+    "rec.project.quotes.and.markers": "引述与打点",
+    "rec.project.quotes.reference.an.anchor.in.transcriptjsonl.without": "引述是指向 transcript.jsonl 某个 anchor 的引用，不复制正文；AI 打点默认候选态，人工确认前不进证据库。",
+    "rec.project.no.quotes.or.ai.marker.candidates.yet": "还没有引述或 AI 打点候选——在实时转录选中文字标为引述，或等 AI 识别关键时刻落候选。",
+    "rec.project.seg06.3205.review.required.and.seg07.3230": "seg-06（32:05·待校对）与 seg-07（32:30·待人工指派）不可被标为引述，请先到「指派说话人」处理，不得先入库再说。",
+    "rec.project.seg08.3310.is.interim.recognition.it.cannot": "seg-08（33:10）正在识别中，定稿前不可被标为引述、不进检索与 AI 归纳。",
+    "rec.project.ai.marker.generation.through.the.context.api": "AI 打点候选生成（经 Context API 取 Context Pack）暂不可用；已确认的引述与打点不受影响，可安全重试。",
+    "rec.project.only.facilitators.and.researchers.can.quote.text": "只有引导师/研究员可标引述与确认 AI 打点；你可查看已发布的引述，但不能新增或确认。",
+    "rec.project.avas.decisionpoint.marker.was.confirmed.with.timecode": "已确认 Ava 的「决策点」打点：补齐时间码 30:36 + 来源 + RQ1 绑定后入证据库，origin:ai 与人工打点分开计数。",
+    "rec.project.quotes.linked.to.rqs.evidence.type.recorded": "已标引述（绑定 RQ · 记录证据性质）",
+    "rec.project.quote.130": "引述",
+    "rec.project.supports": "支持",
+    "rec.project.change.rq.link": "改绑 RQ：",
+    "rec.project.this.link.is.used.directly.by.uc64": "该绑定被 UC-6.4 目标覆盖度与 UC-6.5 证据矩阵直接消费。",
+    "rec.project.segments.unavailable.for.quoting.interim.review.assignment": "不可引述的段落（正在识别 / 待校对 / 待人工指派）",
+    "rec.project.recognizing.135": "正在识别",
+    "rec.project.quoting.rejected.uncertain.text.cannot.become.evidence": "标记时被拒绝：不确定的文本不可成为证据。",
+    "rec.project.ai.marker.candidates.excluded.from.evidence.reports": "AI 自动打点候选（未确认前不进证据库/报告/决策链）",
+    "rec.project.candidate.invalidated": "候选已失效",
+    "rec.project.the.source.segment.was.withdrawn.or.rewritten": "依据片段被撤回/改写，此候选自动失效并从队列移除（已确认的会按撤回流程标「证据已撤回」，不静默删除）。",
+    "rec.project.marked.as": "标记为",
+    "rec.project.candidate.unconfirmed": "候选 · 未确认",
+    "rec.project.confirmed.in.evidence.library": "已确认 · 入证据库",
+    "rec.project.ignored.retained.for.improvement": "已忽略 · 留痕供改进",
+    "rec.project.view.supporting.insight": "看洞察（依据）",
+    "rec.project.confirm": "确认",
+    "rec.project.edit.and.confirm": "编辑后确认",
+    "rec.project.ignore": "忽略",
+    "rec.project.undo.this.decision": "撤销此决定",
+    "rec.project.basis.traceable.to.source.segment": "依据（可追溯至原文片段",
+    "rec.project.transcript.return.and.retention": "转写回流与保留期",
+    "rec.project.material.retention.is.one.of.five.retention": "材料保留期是五个留存参数之一，有组织默认值、项目级可覆盖；代码中不写死天数（数值来自参数解析）。",
+    "rec.project.this.project.has.no.archived.transcripts.yet": "本项目还没有归档的转写材料——一场录制结束、物化为文件后，逐字稿会按议程环节归入这里。",
+    "rec.project.neither.an.organization.retention.default.nor.a": "组织默认「材料保留期」缺失、项目也未设覆盖值——拒绝开始录制并指向配置入口，不用隐含常量兜底（E5）。",
+    "rec.project.the.consent.template.is.missing.a.compliance": "同意书渲染变量缺失（未配置合规邮箱），不得发出授权链接：发一份告知不完整的同意书比不发更糟（E6）。",
+    "rec.project.the.retention.policy.service.00core.17gov.is": "留存策略内核（五参数读取接口，由 00-core / 17-gov 提供）暂不可用；已解析并固化的到期时间不受影响，可安全重试。",
+    "rec.project.only.facilitators.and.compliance.staff.can.edit": "只有引导师/合规可编辑保留期参数与执行到期删除；你可查看每份材料的保留至日期，但不能修改。",
+    "rec.project.the.project.retention.override.is.now.90": "项目级「材料保留期」覆盖值已更新为 90 天：新发出的同意书文案随之变化；已提交的同意书快照与已落库材料的到期时间不变。",
+    "rec.project.research.plan.parameters.data.retention": "研究计划参数 · 数据保留",
+    "rec.project.material.retention.project.override": "材料保留期（项目级覆盖值）",
+    "rec.project.days": "天",
+    "rec.project.effective.value": "生效值",
+    "rec.project.from": "（取自",
+    "rec.project.project.override": "项目覆盖值",
+    "rec.project.organization.default": "组织默认值",
+    "rec.project.organization.defaultSuffix": "）· 组织默认",
+    "rec.project.days.the.resolved.value.and.its.basis": "天。\n                  解析结果与依据一并写入每份材料元数据。",
+    "rec.project.do.not.use.for.training": "禁止用于训练",
+    "rec.project.an.independent.setting.that.applies.throughout.the": "独立开关，与保留期并列，全生命周期恒成立",
+    "rec.project.compliance.has.yet.to.narrow.the.range": "数值区间仍待合规收窄（O-01 默认已给：材料 180 天）；实现按参数读取，不写常量。",
+    "rec.project.material.library.retention.and.deletion.dates.by": "材料库 · 逐份保留期与删除时间（按议程环节归档）",
+    "rec.project.consent.notice.rendered.for.this.project": "同意书文案（按项目动态渲染）",
+    "rec.project.the.research.plan.material.retention.dates.and": "三处同源：研究计划参数面板 / 材料库「保留至」/ 授权页告知，读同一解析结果，任一处对不上即缺陷。",
+    "rec.project.submitted.consent.snapshot.cannot.be.rewritten": "已提交的同意书快照（不可回溯改写）",
+    "rec.project.on": "于",
+    "rec.project.submitted.then": "提交（当时",
+    "rec.project.days.the.project.override.changed.to": "天）；\n                项目覆盖值改为",
+    "rec.project.days.but.this.snapshot": "天后此快照",
+    "rec.project.still.shows": "仍显示",
+    "rec.project.the.notice.shown.at.submission.is": "——当时告知了什么，就是证据。",
+    "rec.project.within.retention.period": "在保留期内",
+    "rec.project.expiring.soon": "即将到期",
+    "rec.project.deletion.queue": "待删除队列",
+    "rec.project.expired.but.blocked.from.deletion": "到期但删不掉",
+    "rec.project.stored": "· 落库",
+    "rec.project.retain.until": "保留至",
+    "rec.project.days.": "天 ·",
+    "rec.project.project.override.187": "项目覆盖",
+    "rec.project.organization.default.188": "组织默认",
+    "rec.project.the.retention.period.has.ended.but.deletion": "保留期已到，本应删除——但删不掉。",
+    "rec.project.this.transcript.is.referenced.by": "这份逐字稿已被",
+    "rec.project.as.a.finalized.fixed.snapshot": "定版引用（固定快照）。",
+    "rec.project.fixed.snapshots.cannot.be.deleted.modified": "：固定快照不可删、不可改、不可降级。",
+    "rec.project.consistency.review": "一致性复核",
+    "rec.project.withdrawal.deletion.is.the.sole.exception": "：撤回删除是不可变原则的唯一豁口。",
+    "rec.project.expiry.deletion.conflicts.with.preservation.of.finalized": "「材料保留期到期要删」与「被定版引用不可删」直接相撞。这不是实现能自己定的——",
+    "rec.project.a.compliance.and.contract.decision": "应由合规 + 契约裁决",
+    "rec.project.whether.a.legal.retention.exception.applies.or": "（是否算法定留存豁免？还是走撤回豁口物理删除并让定版报告标「证据已撤回」？）。界面只把冲突显式暴露，不糊过去。",
+    "rec.project.decision.required.see.readme.section.2.item": "待裁决 · 见 README 第二节 #1",
+    "rec.project.keep.for.now": "先不删",
+    "rec.project.scope.of.expiry.deletion": "到期删除的影响范围",
+    "rec.project.invalidate.first.remove.from.search.and.context": "先逻辑失效（退出检索、Context Pack 不再召回该 Segment）再物理删除。",
+    "rec.project.delete.session.audio.transcriptjsonl.notesmd.and.whiteboard": "删到文件层：22-files 中该场次音频 / transcript.jsonl / notes.md / 白板照片真的消失、不可下载。",
+    "rec.project.invalidate.related.ocr.embeddings.graph.edges.summaries": "级联失效 OCR / embedding / 图边 / 摘要 / 缓存；产出可检索的删除证明。",
+    "rec.project.exempt.immutable.snapshots.bindings.and.audit.records": "不可删对象（快照 / 绑定关系 / 审计留痕）豁免保留，不被误删。",
+    "rec.project.i.understand.the.scope.and.confirm.deletion": "我已了解上述影响范围，确认执行到期删除",
+    "rec.project.confirm.deletion.and.generate.receipt": "确认删除并出删除证明",
+    "rec.project.cancel": "取消",
+    "rec.project.delete.expired.materials": "执行到期删除…",
+    "rec.project.your.consent.notice": "你的授权告知",
+    "rec.project.view.your.own.consent.choices.and.notices": "被记录的人，自己也要有一块屏。你只能看到自己的授权与告知文案，看不到项目内部材料或其他受访者的数据。",
+    "rec.project.your.consented.items.each.choice.is.independent": "你已授权的项目（按项分别决定，不强制全场统一）",
+    "rec.project.you.declined": "你已拒绝",
+    "rec.project.recording.consent.current.project.notice": "录音授权（当前项目文案）",
+    "rec.project.your.submitted.consent.snapshot": "你已提交的同意书（快照）",
+    "rec.project.submitted.on": "提交于",
+    "rec.project.later.retention.changes.do.not.alter": "；即便项目后来改了保留期，你当时看到的告知不变。",
+    "rec.project.what.happens.after.withdrawal": "撤回之后会发生什么",
+    "rec.project.view.the.effects.of.withdrawal": "查看撤回会发生什么",
+    "rec.project.mark.as.retained": "标记不删除",
+    "rec.project.notify.the.decision.maker.for.review": "通知拍板人复核",
+    "rec.project.data.controller": "数据控制方：",
+    "rec.project.contact": "· 联系人",
+    "rec.project.compliance.email": "· 合规邮箱",
+    "rec.project.conversation.side.panel.tabs": "对话右栏五标签",
+    "rec.project.session.transcription.status": "本场转录状态",
+    "rec.project.status.count": "状态条计数",
+    "rec.project.the.latest.sentence.cannot.be.quoted.until": "最新一句定稿前不可引述",
+    "rec.project.scroll.with.the.latest.sentence.optional": "随最新一句滚动（可关）",
+    "rec.project.persistent.timecodes": "常驻时间码",
+    "rec.project.each.sentence.has.a.timecode.select.it": "每句前绝对时间码，点击跳回音频",
+    "rec.project.four.controls.appear.in.the.transcript.search": "转录标签内四个常驻控件在中栏逐字稿区呈现（搜索逐字稿 / 自动跟随 / 正在识别 / 常驻时间码）。",
+    "rec.project.belongs.to.another.feature.area.06itv": "」标签属其他能力域（06-itv / 07-canvas / 10-report）。",
+    "rec.project.these.tabs.show.counts.from.their.feature": "此处只作五标签外壳占位，计数来自各域，rec 只负责「转录」。"
+  },
+  "en": {
+    "rec.project.prep.incomplete": "{count} people have incomplete consent · recording cannot start",
+    "rec.project.prep.incomplete.one": "{count} person has incomplete consent · recording cannot start",
+    "rec.project.syncSecondsAgo.one": "{count} second ago",
+    "rec.project.taskDetail.upload": "{amount} · Complete",
+    "rec.project.taskDetail.transcribe": "{count} sentences · Complete",
+    "rec.project.taskDetail.diarize": "{percent}% · {count} sentences need assignment",
+    "rec.project.taskDetail.mask": "{count} items · Complete",
+    "rec.project.taskDetail.translate": "Local model queue timed out (attempt {attempt})",
+    "rec.project.taskDetail.summary": "Waiting for translation",
+    "rec.project.taskFailNote": "Local model queue timed out (attempt {attempt}); audio and source text are unaffected",
+    "rec.project.sessionRecording.workshop": "Recording four groups in parallel",
+    "rec.project.sessionRecording.interview": "Recording",
+    "rec.project.sessionRecording.thread": "Transcribing meeting",
+    "rec.project.sessionConnected": "Connected",
+    "rec.project.syncJustNow": "just now",
+    "rec.project.syncSecondsAgo": "{count} seconds ago",
+    "rec.project.sessionLang": "German → Chinese",
+    "rec.project.trackNote.live": "Live · separate audio tracks",
+    "rec.project.trackNote.buffering": "Offline · buffering locally; upload on recovery with a visible gap",
+    "rec.project.trackNote.declined": "Microphone declined · this track is not recorded or transcribed",
+    "rec.project.trackNote.muted": "Microphone off · recording paused; the timeline gap is retained",
+    "rec.project.trackLabel.group": "Group {count}",
+    "rec.project.trackLabel.interviewee": "Interviewee {name}",
+    "rec.project.trackLabel.researcher": "Researcher {name}",
+    "rec.project.trackLabel.meeting": "Meeting audio",
+    "rec.project.voiceprint": "Session voiceprint embeddings are derived_representations. Assignment completion physically deletes them and records an audit entry. Otherwise a fallback destroys them {fallback} days after the session ends, much sooner than material retention ({comparison} days).",
+    "rec.project.consentLabel.record": "Recording",
+    "rec.project.consentLabel.transcript": "Transcribe to text",
+    "rec.project.consentLabel.aiAnalysis": "Allow AI analysis",
+    "rec.project.consentLabel.realname": "Use my name and role in reports",
+    "rec.project.consentHelp.record": "Record only this interview; automatically delete after {days} days.",
+    "rec.project.consentHelp.transcript": "You can request your own copy.",
+    "rec.project.consentHelp.aiAnalysis": "Used for themes and evidence strength. If declined, your speech remains in the transcript and can appear in reports only as direct quotes.",
+    "rec.project.consentHelp.realname": "If unchecked, reports use “某物流园区运营总监” and omit your name.",
+    "rec.project.tasks.upload": "Audio upload",
+    "rec.project.tasks.transcribe": "Transcription",
+    "rec.project.tasks.diarize": "Speaker identification",
+    "rec.project.tasks.mask": "Sensitive information masking",
+    "rec.project.tasks.translate": "German-to-Chinese translation",
+    "rec.project.tasks.summary": "AI summary and evidence extraction",
+    "rec.project.checks.mic": "Microphone · input ready",
+    "rec.project.checks.storage": "Local storage · 6.5 hours available",
+    "rec.project.checks.lang": "Transcription language · German to Chinese",
+    "rec.project.checks.voiceprint": "Voiceprint calibration · P-12 has no sample",
+    "rec.project.pii.email": "Email address",
+    "rec.project.pii.phone": "Phone number",
+    "rec.project.pii.id-card": "ID number",
+    "rec.project.pii.bank-card": "Bank card number",
+    "rec.project.pii.address": "Street address",
+    "rec.project.track.live": "Recording",
+    "rec.project.track.buffering": "Offline buffer",
+    "rec.project.track.paused": "Paused",
+    "rec.project.track.declined": "Not recording (microphone declined)",
+    "rec.project.track.muted": "Microphone off (recording paused)",
+    "rec.project.evidenceNature.personal": "Personal experience",
+    "rec.project.evidenceNature.secondhand": "Secondhand account",
+    "rec.project.evidenceNature.opinion": "Opinion",
+    "rec.project.tabs.transcript": "Transcription",
+    "rec.project.tabs.execution": "Execution",
+    "rec.project.tabs.insight": "Insights",
+    "rec.project.tabs.artifact": "Artifacts",
+    "rec.project.tabs.material": "Materials",
+    "rec.project.correction.listen": "Listen to segment",
+    "rec.project.correction.replace": "Replace with “合同文本”",
+    "rec.project.correction.keep": "Keep original word",
+    "rec.project.correction.weber": "Assign Weber",
+    "rec.project.correction.kraus": "Assign Kraus",
+    "rec.project.correction.split": "Split into two segments",
+    "rec.project.correction.confirm": "Confirm",
+    "rec.project.correction.rename": "Rename",
+    "rec.project.withdrawal.01": "Transcript and audio enter the deletion queue",
+    "rec.project.withdrawal.02": "Quotes from this session leave search; theme matrix strength is recalculated",
+    "rec.project.withdrawal.03": "Reports that cite this evidence are marked as evidence withdrawn, without silently deleting text",
+    "rec.project.withdrawal.04": "If it supported a signed decision, notify the decision maker for review rather than changing the conclusion automatically",
+    "rec.project.withdrawal.05": "Physically delete and send the interviewee a receipt",
+    "rec.project.withdrawal.summary": "Logical invalidation {logical}; physical deletion {physical} with a receipt (ruling D-15)",
+    "rec.project.unit.minutes": "minutes",
+    "rec.project.unit.days": "days",
+    "rec.project.unit.immediate": "Immediate",
+    "rec.project.unit.human": "Human review required",
+    "rec.project.voiceprintFallback": "Some channels remain unassigned → the fallback task destroys embeddings unconditionally {day} days after this session ends",
+    "rec.project.anonymousSpeaker": "Speaker {channel}",
+    "rec.project.quoteSupport": " · supports {rq}",
+    "rec.project.role.interviewee": "Interviewee",
+    "rec.project.role.facilitator": "Facilitator",
+    "rec.project.role.researcher": "Researcher",
+    "rec.project.role.member": "Participant",
+    "rec.project.source.interview": "Interview",
+    "rec.project.source.workshop": "Workshop",
+    "rec.project.source.conversation": "Conversation thread",
+    "rec.project.prep.title": "Recording preparation · interview 11",
+    "rec.project.prep.startDisabled": "Start interview · awaiting P-12 consent",
+    "rec.project.prep.start": "Start interview",
+    "rec.project.prep.footnote": "Recording, transcription and AI analysis stay off until consent is complete.",
+    "rec.project.process.title": "Recording processing · interview 10 (68 minutes)",
+    "rec.project.process.failed": "1 task failed",
+    "rec.project.process.principle": "Each task reports its own status. Failed tasks do not block completed results; you can review the transcript now.",
+    "rec.project.verify.title": "Verify transcript · interview 10",
+    "rec.project.verify.pending": "14 items need confirmation",
+    "rec.project.verify.commit": "Confirm and add to evidence library",
+    "rec.project.verify.evidence": "The transcript enters the evidence library only after confirmation. Other Studios cannot search unconfirmed content.",
+    "rec.project.auth.allow": "Allowed",
+    "rec.project.auth.deny": "Declined",
+    "rec.project.auth.pending": "Awaiting signature",
+    "rec.project.auth.record": "Recording",
+    "rec.project.auth.transcribe": "Transcription",
+    "rec.project.auth.aiAnalysis": "AI analysis",
+    "rec.project.state.done": "Complete",
+    "rec.project.state.running": "Running",
+    "rec.project.state.failed": "Failed",
+    "rec.project.state.blocked": "Awaiting preceding task",
+    "rec.project.retryNotice": "Retry “{label}” (preview): other tasks are not blocked",
+    "rec.project.correctionNotice": "“{term}” · {action} (preview)",
+    "rec.project.actionNotice": "{action} (preview)",
+    "rec.project.themeNotice": "{name} · {action} (preview)",
+    "rec.project.consent": "Consent",
+    "rec.project.no.participants.have.entered.this.sessions.preparation": "No participants have entered this session's preparation room. The consent matrix uses the project's attendance list.",
+    "rec.project.p12s.consent.link.is.missing.the.material": "P-12's consent link is missing the material retention period. No consent link is issued, and P-12 is excluded from recording (E6).",
+    "rec.project.consent.template.rendering.is.temporarily.unavailable.saved": "Consent template rendering is temporarily unavailable. Saved individual consent is retained; retry safely or check it manually.",
+    "rec.project.only.facilitators.and.researchers.can.configure.individual": "Only facilitators and researchers can configure individual consent. You can view consent status but cannot change it.",
+    "rec.project.p12.completed.all.three.consent.choices.start": "P-12 completed all three consent choices. Start interview is available; recording, transcription and AI analysis apply only to consented items.",
+    "rec.project.individual.consent.each.person.chooses.separately": "Individual consent · each person chooses separately",
+    "rec.project.participant": "Participant",
+    "rec.project.device.and.transcription.checks": "Device and transcription checks",
+    "rec.project.speaker.labels": "Speaker labels",
+    "rec.project.calibrated": "Calibrated",
+    "rec.project.awaiting.sample": "Awaiting sample",
+    "rec.project.materials.and.prototypes": "Materials and prototypes",
+    "rec.project.start.interview.preview.recording.transcription.and.ai": "Start interview (preview): recording, transcription and AI analysis apply only to consented items",
+    "rec.project.complete.consent.before.starting": "Complete consent before starting",
+    "rec.project.this.session.has.no.processing.tasks.yet": "This session has no processing tasks yet. Recording has not finished or audio has not been uploaded.",
+    "rec.project.germantochinese.translation.timed.out.for.the.third": "German-to-Chinese translation timed out for the third consecutive time. This task is marked as failed and can be retried; other tasks continue independently.",
+    "rec.project.the.local.translation.queue.is.unavailable.audio": "The local translation queue is unavailable. Audio and source text are retained; other tasks continue.",
+    "rec.project.only.facilitators.and.researchers.can.view.and": "Only facilitators and researchers can view and retry processing tasks. You can view results but cannot retry tasks.",
+    "rec.project.germantochinese.translation.succeeded.on.retry.ai.summaries": "German-to-Chinese translation succeeded on retry. AI summaries and evidence extraction are now running.",
+    "rec.project.retry": "Retry",
+    "rec.project.14.items.confirmed.the.transcript.is.added": "14 items confirmed. The transcript is added to the evidence library (preview).",
+    "rec.project.no.segments.need.review.all.transcript.segments": "No segments need review. All transcript segments are final, or this session has no transcript.",
+    "rec.project.a.correction.at.003205.conflicts.with.another": "A correction at 00:32:05 conflicts with another researcher's edit. Your replacement and their original-word choice are retained for resolution; neither silently overwrites the other.",
+    "rec.project.audio.playback.is.temporarily.unavailable.transcript.text": "Audio playback is temporarily unavailable. Transcript text and correction controls remain available for review.",
+    "rec.project.only.facilitators.and.researchers.can.review.and": "Only facilitators and researchers can review and add transcripts to the evidence library. You can view the transcript but cannot edit or confirm it.",
+    "rec.project.14.items.confirmed.the.transcript.is.added.27": "14 items confirmed. The transcript is added to the evidence library; unconfirmed content is excluded from other Studio searches.",
+    "rec.project.speakers": "Speakers",
+    "rec.project.chapters": "Chapters",
+    "rec.project.markers": "Markers",
+    "rec.project.play": "Play",
+    "rec.project.play.3104.6812.preview.no.audio.playback": "Play 31:04 / 68:12 (preview; no audio playback)",
+    "rec.project.low.confidence.proper.noun": "Low confidence · proper noun",
+    "rec.project.aiidentified.themes.and.evidence": "AI-identified themes and evidence",
+    "rec.project.consent.34": "Consent 3/4",
+    "rec.project.weber.opted.out.of.ai.analysis": "Weber opted out of AI analysis",
+    "rec.project.latency": "Latency",
+    "rec.project.source.and.translation.on.separate.lines": "· source and translation on separate lines",
+    "rec.project.sync.last.updated": "Sync · last updated",
+    "rec.project.microphone.access.was.requested.on.entry.for": "Microphone access was requested on entry for live transcription of this group's discussion.",
+    "rec.project.you.can.turn.it.off.at.any": "You can turn it off at any time.",
+    "rec.project.microphone.on": "Microphone on",
+    "rec.project.microphone.off.not.recording": "Microphone off · not recording",
+    "rec.project.capture.for.this.track.has.stopped.with": "Capture for this track has stopped, with a recording-paused marker. Existing segments are retained; resuming leaves a visible gap in the timeline.",
+    "rec.project.search.this.sessions.transcript.matches.highlighted": "Search this session's transcript (matches highlighted)",
+    "rec.project.autofollow": "Auto-follow",
+    "rec.project.follow.the.latest.sentence": "Follow the latest sentence",
+    "rec.project.back.to.latest": "Back to latest",
+    "rec.project.transcript.review": "Transcript review",
+    "rec.project.this.session.has.no.transcript.yet.start": "This session has no transcript yet. Start recording to see live timestamped text; no sample content is generated.",
+    "rec.project.one.person.in.group.4.denied.microphone": "One person in group 4 denied microphone access. Their track is marked as not recording and produces no transcript segments.",
+    "rec.project.two.people.speak.at.seg07.3230.split": "Two people speak at seg-07 (32:30). Split it before assigning one speaker or quoting it; open speaker assignment to resolve it.",
+    "rec.project.live.transcription.asr.whisperlargev3zh.is.temporarily.unavailable": "Live transcription (ASR · whisper-large-v3-zh) is temporarily unavailable. Non-live polling is active; the last successful transcript is retained and you can safely retry.",
+    "rec.project.group.members.can.view.only.their.groups": "Group members can view only their group's transcript. Published, redacted insights are available in Insights and reports.",
+    "rec.project.your.project.role.cannot.view.unpublished.live": "Your project role cannot view unpublished live transcripts. Published, redacted results are available in Insights and reports.",
+    "rec.project.recording.ended.audio.and.transcriptjsonl.are.registered": "Recording ended. Audio and transcript.jsonl are registered in 22-files and can be viewed or downloaded in project files.",
+    "rec.project.interviewee.view.only.your.consent.and.withdrawal": "Interviewee view: only your consent and withdrawal information is visible. Open return and retention to view your consent notice.",
+    "rec.project.observer.view.unpublished.content.is.shown.as": "Observer view: unpublished content is shown as a redacted, read-only preview. Speakers use role labels and editing controls are hidden.",
+    "rec.project.after.this.session.ends": "After this session ends,",
+    "rec.project.interviews.also.include": "(interviews also include",
+    "rec.project.are.available.in.22files.the.transcript.includes": "are available in 22-files. The transcript includes",
+    "rec.project.to.reference.the.original.audio.artifactversion.the": "to reference the original audio artifact_version; the audio SHA-256 stays unchanged.",
+    "rec.project.overlapping.speech": "Overlapping speech",
+    "rec.project.jump.to.this.position.in.the.audio": "Jump to this position in the audio (AC2)",
+    "rec.project.unassigned.anonymous.channel": "Unassigned · anonymous channel",
+    "rec.project.overlapping.speakers.awaiting.assignment": "Overlapping speakers · awaiting assignment",
+    "rec.project.low.recognition.confidence.review.required": "Low recognition confidence · review required",
+    "rec.project.recognizing": "Recognizing…",
+    "rec.project.foreign.language": "Foreign language",
+    "rec.project.quoted": "Quoted",
+    "rec.project.marked.": "marked ·",
+    "rec.project.pending.confirmation": "(pending confirmation)",
+    "rec.project.automatically.masked": "Automatically masked:",
+    "rec.project.and": " and ",
+    "rec.project.viewing.originals.requires.separate.permission.and": "· viewing originals requires separate permission and an audit record",
+    "rec.project.view.original": "View original…",
+    "rec.project.no.automatic.attribution.is.applied.split.this": "No automatic attribution is applied. Split this segment before assigning one speaker or quoting it.",
+    "rec.project.recognition.may.be.incorrect.review.the.text": "Recognition may be incorrect. Review the text before quoting it.",
+    "rec.project.review.": "Review →",
+    "rec.project.quote": "Quote",
+    "rec.project.mark.this.moment": "Mark this moment",
+    "rec.project.interim.text.cannot.be.quoted.or.searched": "(Interim text cannot be quoted or searched until finalized.)",
+    "rec.project.transcript.review.assign.speakers": "Transcript review · assign speakers",
+    "rec.project.group.3.interview.energy.storage.procurement.candidates": "Group 3 interview · energy storage procurement · candidates come only from this session's attendance list",
+    "rec.project.assigned": "Assigned",
+    "rec.project.channels": "channels",
+    "rec.project.review.required": "Review required",
+    "rec.project.current.session": "Current session",
+    "rec.project.all.assigned.embeddings.destroyed": "All assigned → embeddings destroyed",
+    "rec.project.no.anonymous.channels.need.assignment.all.segments": "No anonymous channels need assignment. All segments have a person as their source, or no diarization results exist.",
+    "rec.project.another.researcher.changed.this.sessions.assignments.refresh": "Another researcher changed this session's assignments. Refresh before submitting; your outdated version will not silently overwrite theirs.",
+    "rec.project.both.p10.and.p11.claimed.seg07.3230": "Both P-10 and P-11 claimed seg-07 (32:30). The dispute is retained until a person resolves it; no silent attribution is applied.",
+    "rec.project.candidate.ranking.through.the.context.api.is": "Candidate ranking through the Context API is unavailable. Your assignments are retained; retry safely or assign manually.",
+    "rec.project.only.facilitators.and.researchers.can.assign.speakers": "Only facilitators and researchers can assign speakers. You can view the results but cannot change this session's mappings.",
+    "rec.project.channel.c.was.assigned.to.p10.quote": "Channel C was assigned to 陈涛 (P-10). Quote, insight, report and graph sources reference the same updated mapping. This action is audited and can be undone.",
+    "rec.project.anonymous.channels.speakers.a.b.c": "Anonymous channels (speakers A / B / C)",
+    "rec.project.speaker": "Speaker",
+    "rec.project.speaking.time": "Speaking time",
+    "rec.project.first.heard": "% · first heard",
+    "rec.project.source.needed": "Source needed",
+    "rec.project.representative.segment": "Representative segment:",
+    "rec.project.assign.entire.channel": "Assign entire channel",
+    "rec.project.consent.is.incomplete.this.person.is.excluded": "Consent is incomplete. This person is excluded from recording, transcription and assignment candidates.",
+    "rec.project.no.consent": "· no consent",
+    "rec.project.undo.assignment": "Undo assignment",
+    "rec.project.the.whole.channel.is.assigned.quotes.insights": "The whole channel is assigned. Quotes, insights, reports and graphs reference the same mapping. Undoing it restores the source-needed state everywhere.",
+    "rec.project.candidates.come.only.from.this.sessions.attendance": "Candidates come only from this session's attendance list (",
+    "rec.project.people.present.with.consent": "people present with consent).",
+    "rec.project.no.voiceprint.matching.across.sessions.is.performed": "No voiceprint matching across sessions is performed",
+    "rec.project.a.person.always.makes.the.assignment": "; a person always makes the assignment. There is no automatic-assignment switch.",
+    "rec.project.segments.requiring.action.cannot.be.quoted.until": "Segments requiring action (cannot be quoted until resolved)",
+    "rec.project.all": "All",
+    "rec.project.assignment.required": "Assignment required",
+    "rec.project.no.segments.need.action.for.this.filter": "No segments need action for this filter.",
+    "rec.project.assign.each.sentence.to.its.speaker.or": "Assign each sentence to its speaker, or split it first. Attribution is never automatic.",
+    "rec.project.assign.to": "Assign to",
+    "rec.project.split.into.two.segments": "Split into two segments",
+    "rec.project.leave.unassigned": "Leave unassigned",
+    "rec.project.correct.text.manually": "Correct text manually…",
+    "rec.project.the.preview.adds.a.textcorrection.control.review": "(The preview adds a text-correction control. Review is required before quoting.)",
+    "rec.project.quotes.and.markers": "Quotes and markers",
+    "rec.project.quotes.reference.an.anchor.in.transcriptjsonl.without": "Quotes reference an anchor in transcript.jsonl without copying text. AI markers remain candidates until a person confirms them for the evidence library.",
+    "rec.project.no.quotes.or.ai.marker.candidates.yet": "No quotes or AI marker candidates yet. Select transcript text to quote, or wait for AI to identify candidate moments.",
+    "rec.project.seg06.3205.review.required.and.seg07.3230": "seg-06 (32:05, review required) and seg-07 (32:30, assignment required) cannot be quoted. Resolve them in speaker assignment before adding evidence.",
+    "rec.project.seg08.3310.is.interim.recognition.it.cannot": "seg-08 (33:10) is interim recognition. It cannot be quoted, searched or summarized by AI until finalized.",
+    "rec.project.ai.marker.generation.through.the.context.api": "AI marker generation through the Context API is unavailable. Confirmed quotes and markers are retained; retry safely.",
+    "rec.project.only.facilitators.and.researchers.can.quote.text": "Only facilitators and researchers can quote text or confirm AI markers. You can view published quotes but cannot add or confirm them.",
+    "rec.project.avas.decisionpoint.marker.was.confirmed.with.timecode": "Ava's decision-point marker was confirmed with timecode 30:36, a source and an RQ1 link. It enters the evidence library; origin:ai and manual markers are counted separately.",
+    "rec.project.quotes.linked.to.rqs.evidence.type.recorded": "Quotes (linked to RQs · evidence type recorded)",
+    "rec.project.quote.130": "Quote",
+    "rec.project.supports": "supports",
+    "rec.project.change.rq.link": "Change RQ link:",
+    "rec.project.this.link.is.used.directly.by.uc64": "This link is used directly by UC-6.4 objective coverage and the UC-6.5 evidence matrix.",
+    "rec.project.segments.unavailable.for.quoting.interim.review.assignment": "Segments unavailable for quoting (interim / review / assignment required)",
+    "rec.project.recognizing.135": "Recognizing",
+    "rec.project.quoting.rejected.uncertain.text.cannot.become.evidence": "Quoting rejected: uncertain text cannot become evidence.",
+    "rec.project.ai.marker.candidates.excluded.from.evidence.reports": "AI marker candidates (excluded from evidence, reports and decisions until confirmed)",
+    "rec.project.candidate.invalidated": "Candidate invalidated",
+    "rec.project.the.source.segment.was.withdrawn.or.rewritten": "The source segment was withdrawn or rewritten. This candidate is invalidated and removed from the queue. Confirmed evidence follows the withdrawal process rather than being silently deleted.",
+    "rec.project.marked.as": "marked as",
+    "rec.project.candidate.unconfirmed": "Candidate · unconfirmed",
+    "rec.project.confirmed.in.evidence.library": "Confirmed · in evidence library",
+    "rec.project.ignored.retained.for.improvement": "Ignored · retained for improvement",
+    "rec.project.view.supporting.insight": "View supporting insight",
+    "rec.project.confirm": "Confirm",
+    "rec.project.edit.and.confirm": "Edit and confirm",
+    "rec.project.ignore": "Ignore",
+    "rec.project.undo.this.decision": "Undo this decision",
+    "rec.project.basis.traceable.to.source.segment": "Basis (traceable to source segment",
+    "rec.project.transcript.return.and.retention": "Transcript return and retention",
+    "rec.project.material.retention.is.one.of.five.retention": "Material retention is one of five retention parameters. It uses the organization default or a project override, with no hardcoded duration.",
+    "rec.project.this.project.has.no.archived.transcripts.yet": "This project has no archived transcripts yet. Once a recording is saved as files, its transcript appears here under the agenda segment.",
+    "rec.project.neither.an.organization.retention.default.nor.a": "Neither an organization retention default nor a project override is configured. Recording is blocked with a configuration link; no implicit duration is used (E5).",
+    "rec.project.the.consent.template.is.missing.a.compliance": "The consent template is missing a compliance email address. No consent link may be issued with an incomplete notice (E6).",
+    "rec.project.the.retention.policy.service.00core.17gov.is": "The retention policy service (00-core / 17-gov) is temporarily unavailable. Previously resolved expiry dates are retained; retry safely.",
+    "rec.project.only.facilitators.and.compliance.staff.can.edit": "Only facilitators and compliance staff can edit retention or delete expired materials. You can view retention dates but cannot change them.",
+    "rec.project.the.project.retention.override.is.now.90": "The project retention override is now 90 days. New consent notices use this duration; submitted consent snapshots and stored material expiry dates remain unchanged.",
+    "rec.project.research.plan.parameters.data.retention": "Research plan parameters · data retention",
+    "rec.project.material.retention.project.override": "Material retention (project override)",
+    "rec.project.days": "days",
+    "rec.project.effective.value": "Effective value",
+    "rec.project.from": "(from",
+    "rec.project.project.override": "project override",
+    "rec.project.organization.default": "organization default",
+    "rec.project.organization.defaultSuffix": ") · organization default",
+    "rec.project.days.the.resolved.value.and.its.basis": "days. The resolved value and its basis are stored in each material's metadata.",
+    "rec.project.do.not.use.for.training": "Do not use for training",
+    "rec.project.an.independent.setting.that.applies.throughout.the": "An independent setting that applies throughout the entire lifecycle",
+    "rec.project.compliance.has.yet.to.narrow.the.range": "Compliance has yet to narrow the range (O-01 default: 180 days for materials). Durations are read from parameters.",
+    "rec.project.material.library.retention.and.deletion.dates.by": "Material library · retention and deletion dates (by agenda segment)",
+    "rec.project.consent.notice.rendered.for.this.project": "Consent notice (rendered for this project)",
+    "rec.project.the.research.plan.material.retention.dates.and": "The research plan, material retention dates and consent notice use the same resolved value. Any mismatch is a defect.",
+    "rec.project.submitted.consent.snapshot.cannot.be.rewritten": "Submitted consent snapshot (cannot be rewritten)",
+    "rec.project.on": "on",
+    "rec.project.submitted.then": "submitted (then",
+    "rec.project.days.the.project.override.changed.to": "days); the project override changed to",
+    "rec.project.days.but.this.snapshot": "days, but this snapshot",
+    "rec.project.still.shows": "still shows",
+    "rec.project.the.notice.shown.at.submission.is": "— the notice shown at submission is the evidence.",
+    "rec.project.within.retention.period": "Within retention period",
+    "rec.project.expiring.soon": "Expiring soon",
+    "rec.project.deletion.queue": "Deletion queue",
+    "rec.project.expired.but.blocked.from.deletion": "Expired but blocked from deletion",
+    "rec.project.stored": "· stored",
+    "rec.project.retain.until": "Retain until",
+    "rec.project.days.": "days ·",
+    "rec.project.project.override.187": "project override",
+    "rec.project.organization.default.188": "organization default",
+    "rec.project.the.retention.period.has.ended.but.deletion": "The retention period has ended, but deletion is blocked.",
+    "rec.project.this.transcript.is.referenced.by": "This transcript is referenced by",
+    "rec.project.as.a.finalized.fixed.snapshot": "as a finalized, fixed snapshot.",
+    "rec.project.fixed.snapshots.cannot.be.deleted.modified": ": fixed snapshots cannot be deleted, modified or downgraded.",
+    "rec.project.consistency.review": "Consistency review",
+    "rec.project.withdrawal.deletion.is.the.sole.exception": ": withdrawal deletion is the sole exception to immutability.",
+    "rec.project.expiry.deletion.conflicts.with.preservation.of.finalized": "Expiry deletion conflicts with preservation of finalized references. This requires",
+    "rec.project.a.compliance.and.contract.decision": "a compliance and contract decision",
+    "rec.project.whether.a.legal.retention.exception.applies.or": "(whether a legal retention exception applies, or withdrawal deletion should mark the finalized report's evidence as withdrawn). This screen exposes the unresolved conflict.",
+    "rec.project.decision.required.see.readme.section.2.item": "Decision required · see README section 2, item 1",
+    "rec.project.keep.for.now": "Keep for now",
+    "rec.project.scope.of.expiry.deletion": "Scope of expiry deletion",
+    "rec.project.invalidate.first.remove.from.search.and.context": "Invalidate first (remove from search and Context Pack retrieval), then physically delete.",
+    "rec.project.delete.session.audio.transcriptjsonl.notesmd.and.whiteboard": "Delete session audio, transcript.jsonl, notes.md and whiteboard photos from 22-files so they can no longer be downloaded.",
+    "rec.project.invalidate.related.ocr.embeddings.graph.edges.summaries": "Invalidate related OCR, embeddings, graph edges, summaries and caches; generate a searchable deletion receipt.",
+    "rec.project.exempt.immutable.snapshots.bindings.and.audit.records": "Exempt immutable snapshots, bindings and audit records from deletion.",
+    "rec.project.i.understand.the.scope.and.confirm.deletion": "I understand the scope and confirm deletion of expired materials",
+    "rec.project.confirm.deletion.and.generate.receipt": "Confirm deletion and generate receipt",
+    "rec.project.cancel": "Cancel",
+    "rec.project.delete.expired.materials": "Delete expired materials…",
+    "rec.project.your.consent.notice": "Your consent notice",
+    "rec.project.view.your.own.consent.choices.and.notices": "View your own consent choices and notices here. Internal project materials and other interviewees' data are not visible.",
+    "rec.project.your.consented.items.each.choice.is.independent": "Your consented items (each choice is independent)",
+    "rec.project.you.declined": "You declined",
+    "rec.project.recording.consent.current.project.notice": "Recording consent (current project notice)",
+    "rec.project.your.submitted.consent.snapshot": "Your submitted consent (snapshot)",
+    "rec.project.submitted.on": "Submitted on",
+    "rec.project.later.retention.changes.do.not.alter": "; later retention changes do not alter the notice you saw at submission.",
+    "rec.project.what.happens.after.withdrawal": "What happens after withdrawal",
+    "rec.project.view.the.effects.of.withdrawal": "View the effects of withdrawal",
+    "rec.project.mark.as.retained": "Mark as retained",
+    "rec.project.notify.the.decision.maker.for.review": "Notify the decision maker for review",
+    "rec.project.data.controller": "Data controller:",
+    "rec.project.contact": "· contact",
+    "rec.project.compliance.email": "· compliance email",
+    "rec.project.conversation.side.panel.tabs": "Conversation side panel tabs",
+    "rec.project.session.transcription.status": "Session transcription status",
+    "rec.project.status.count": "Status count",
+    "rec.project.the.latest.sentence.cannot.be.quoted.until": "The latest sentence cannot be quoted until finalized",
+    "rec.project.scroll.with.the.latest.sentence.optional": "Scroll with the latest sentence (optional)",
+    "rec.project.persistent.timecodes": "Persistent timecodes",
+    "rec.project.each.sentence.has.a.timecode.select.it": "Each sentence has a timecode; select it to seek audio",
+    "rec.project.four.controls.appear.in.the.transcript.search": "Four controls appear in the transcript: search, auto-follow, interim recognition and timecodes.",
+    "rec.project.belongs.to.another.feature.area.06itv": "” belongs to another feature area (06-itv / 07-canvas / 10-report).",
+    "rec.project.these.tabs.show.counts.from.their.feature": "These tabs show counts from their feature areas. Recording provides the transcription panel."
+  }
+}

@@ -1,3 +1,4 @@
+import { RESEARCH_MARKDOWN_ERROR_TEXT } from "./research-markdown-error-text";
 import type {
   GuidedResearchBrief,
   GuidedResearchDirection,
@@ -155,10 +156,10 @@ export function serializeGuidedResearchMarkdown(input: GuidedResearchMarkdownInp
 export function parseGuidedResearchMarkdown(input: GuidedResearchMarkdownParseInput): GuidedResearchMarkdownParseResult {
   const { document, markdown } = input;
   if (document.node === "research" && !sameIds(sourceIds(markdown), document.provenance.sourceIds)) {
-    return { ok: false, markdown, errors: [{ code: "immutable_provenance", message: "来源标识由已验证证据管理，不能在 Markdown 中修改。" }] };
+    return { ok: false, markdown, errors: [{ code: "immutable_provenance", message: RESEARCH_MARKDOWN_ERROR_TEXT.immutable_provenance }] };
   }
   if (document.node === "report" && !sameIds(citationIds(markdown), document.provenance.citationIds)) {
-    return { ok: false, markdown, errors: [{ code: "immutable_citation", message: "报告引用必须保留已验证的来源标识。" }] };
+    return { ok: false, markdown, errors: [{ code: "immutable_citation", message: RESEARCH_MARKDOWN_ERROR_TEXT.immutable_citation }] };
   }
   if (document.node === "directions" && document.draft.node === "directions") {
     const entries = [...markdown.matchAll(/^## \d+\. (.*?)(（未纳入）)?\n([\s\S]*?)(?=^## \d+\.|(?![\s\S]))/gm)];

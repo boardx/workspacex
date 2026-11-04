@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ export function StudioMetadataDialog({ business, prefix, open, initialName, init
   business: string; prefix: string; open: boolean; initialName: string; initialTags: readonly string[]; knownTags?: ReadonlyMap<string, number>; tagLimits: TagInputLimits;
   onOpenChange: (open: boolean) => void; onSave: (draft: HistoryMetadata) => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [name, setName] = React.useState(initialName);
   const [tags, setTags] = React.useState<readonly string[]>([...initialTags]);
   const [draft, setDraft] = React.useState("");
@@ -34,12 +36,12 @@ export function StudioMetadataDialog({ business, prefix, open, initialName, init
     finally { busy.current = false; setSaving(false); }
   }
   return <Dialog open={open} onOpenChange={value => { if (!busy.current) onOpenChange(value); }}><DialogContent data-testid={`${prefix}-edit-dialog`} className="w-[calc(100%-2rem)] max-w-md overflow-y-auto p-6">
-    <DialogTitle>修改{business}</DialogTitle><DialogDescription>修改名称和标签，方便查找和整理。</DialogDescription>
+    <DialogTitle>{t("studio.editTitle", { business })}</DialogTitle><DialogDescription>{t("studio.editDescription")}</DialogDescription>
     <form onSubmit={save} className="mt-4 space-y-5">
-      <div className="space-y-2"><Label htmlFor={`${prefix}-edit-name`}>{business}名称</Label><Input autoFocus id={`${prefix}-edit-name`} data-testid={`${prefix}-edit-name`} maxLength={100} disabled={saving} value={name} onChange={event => setName(event.target.value)} /></div>
+      <div className="space-y-2"><Label htmlFor={`${prefix}-edit-name`}>{t("studio.name", { business })}</Label><Input autoFocus id={`${prefix}-edit-name`} data-testid={`${prefix}-edit-name`} maxLength={100} disabled={saving} value={name} onChange={event => setName(event.target.value)} /></div>
       <TagField value={tags} onChange={setTags} draft={draft} onDraftChange={setDraft} knownTags={knownTags} disabled={saving} {...tagLimits} testIdPrefix={`${prefix}-edit-tag`} />
-      {failed && <p role="alert" data-testid={`${prefix}-edit-error`} className="text-12 text-destructive">保存失败，请确认有修改权限再重试。</p>}
-      <div className="flex justify-end gap-3"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>取消</Button><Button type="submit" variant="primary" data-testid={`${prefix}-edit-submit`} disabled={saving || !name.trim()}>{saving ? "保存中…" : "保存修改"}</Button></div>
+      {failed && <p role="alert" data-testid={`${prefix}-edit-error`} className="text-12 text-destructive">{t("studio.saveFailed")}</p>}
+      <div className="flex justify-end gap-3"><Button type="button" variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button><Button type="submit" variant="primary" data-testid={`${prefix}-edit-submit`} disabled={saving || !name.trim()}>{t(saving ? "studio.saving" : "studio.save")}</Button></div>
     </form>
   </DialogContent></Dialog>;
 }
@@ -48,6 +50,7 @@ export function StudioDeleteDialog({ business, prefix, name, description, open, 
   business: string; prefix: string; name: string; description: string; open: boolean;
   onOpenChange: (open: boolean) => void; onConfirm: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [deleting, setDeleting] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
   const busy = React.useRef(false);
@@ -59,9 +62,9 @@ export function StudioDeleteDialog({ business, prefix, name, description, open, 
     finally { busy.current = false; setDeleting(false); }
   }
   return <Dialog open={open} onOpenChange={value => { if (!busy.current) onOpenChange(value); }}><DialogContent data-testid={`${prefix}-delete-dialog`} className="w-[calc(100%-2rem)] max-w-md overflow-y-auto p-6">
-    <DialogTitle>删除{business}？</DialogTitle><DialogDescription className="break-words">“{name}”{description}</DialogDescription>
-    {failed && <p role="alert" data-testid={`${prefix}-delete-error`} className="text-12 text-destructive">删除失败，请确认有删除权限再重试。</p>}
-    <div className="mt-4 flex justify-end gap-3"><Button variant="outline" disabled={deleting} onClick={() => onOpenChange(false)}>取消</Button><Button variant="destructive" disabled={deleting} data-testid={`${prefix}-delete-confirm`} onClick={() => void remove()}>{deleting ? "删除中…" : "确认删除"}</Button></div>
+    <DialogTitle>{t("studio.deleteTitle", { business })}</DialogTitle><DialogDescription className="break-words">“{name}”{description}</DialogDescription>
+    {failed && <p role="alert" data-testid={`${prefix}-delete-error`} className="text-12 text-destructive">{t("studio.deleteFailed")}</p>}
+    <div className="mt-4 flex justify-end gap-3"><Button variant="outline" disabled={deleting} onClick={() => onOpenChange(false)}>{t("common.cancel")}</Button><Button variant="destructive" disabled={deleting} data-testid={`${prefix}-delete-confirm`} onClick={() => void remove()}>{t(deleting ? "studio.deleting" : "studio.confirmDelete")}</Button></div>
   </DialogContent></Dialog>;
 }
 
@@ -69,10 +72,11 @@ export function StudioHistoryManagement({ business, prefix, id, name, tags, know
   business: string; prefix: string; id: string; name: string; tags: readonly string[]; knownTags?: ReadonlyMap<string, number>; tagLimits: TagInputLimits; deleteDescription: string;
   onSave: (draft: HistoryMetadata) => void | Promise<void>; onDelete: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [mode, setMode] = React.useState<"edit" | "delete" | null>(null);
-  return <><DropdownMenu.Root><DropdownMenu.Trigger asChild><Button variant="ghost" size="icon" aria-label={`${name} 更多操作`} data-testid={`${prefix}-history-actions-${id}`}><MoreHorizontal className="size-4" aria-hidden /></Button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
-    <DropdownMenu.Item data-testid={`${prefix}-history-edit-${id}`} onSelect={() => setMode("edit")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="size-4" aria-hidden />修改</DropdownMenu.Item>
-    <DropdownMenu.Item data-testid={`${prefix}-history-delete-${id}`} onSelect={() => setMode("delete")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="size-4" aria-hidden />删除</DropdownMenu.Item>
+  return <><DropdownMenu.Root><DropdownMenu.Trigger asChild><Button variant="ghost" size="icon" aria-label={t("studio.moreActions", { name })} data-testid={`${prefix}-history-actions-${id}`}><MoreHorizontal className="size-4" aria-hidden /></Button></DropdownMenu.Trigger><DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md">
+    <DropdownMenu.Item data-testid={`${prefix}-history-edit-${id}`} onSelect={() => setMode("edit")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Pencil className="size-4" aria-hidden />{t("studio.edit")}</DropdownMenu.Item>
+    <DropdownMenu.Item data-testid={`${prefix}-history-delete-${id}`} onSelect={() => setMode("delete")} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="size-4" aria-hidden />{t("studio.delete")}</DropdownMenu.Item>
   </DropdownMenu.Content></DropdownMenu.Portal></DropdownMenu.Root>
     <StudioMetadataDialog business={business} prefix={prefix} open={mode === "edit"} initialName={name} initialTags={tags} knownTags={knownTags} tagLimits={tagLimits} onOpenChange={open => { if (!open) setMode(null); }} onSave={onSave} />
     <StudioDeleteDialog business={business} prefix={prefix} name={name} description={deleteDescription} open={mode === "delete"} onOpenChange={open => { if (!open) setMode(null); }} onConfirm={onDelete} />

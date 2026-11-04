@@ -1,3 +1,4 @@
+import { interviewZhCN } from "./i18n/namespaces/interview";
 import type { DigitalInterviewWorkflowView } from "./interview-api";
 
 type Report = Pick<NonNullable<DigitalInterviewWorkflowView["report"]>, "title" | "executiveSummary" | "markdown">;
@@ -11,7 +12,7 @@ type ReportBoundary = {
 
 /** Same label mapping the report UI shows — single source so an export can't drift from the screen. */
 export function evidenceModeLabel(mode: EvidenceMode): string {
-  return mode === "simulated" ? "模拟探索" : mode === "mixed" ? "混合证据" : "真实访谈";
+  return interviewZhCN[mode === "simulated" ? "itv.legacy.evidence.simulated" : mode === "mixed" ? "itv.legacy.evidence.mixed" : "itv.legacy.evidence.participant"];
 }
 
 function download(blob: Blob, filename: string): void {

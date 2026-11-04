@@ -1,0 +1,11 @@
+{
+  "parentMerge": "eb88c40a5c74440a8b44dcd34e83de18774919e8",
+  "recordingProtectedHead": "74023575940ff3b654fe2a7ffbdfd0edaaae8c36",
+  "newParent": "2dfcf827d84bc8992c830a615643b4aacb548064",
+  "stash": "98653ef0837ce6f2977ba41b39a800703d7ab5d2",
+  "restoreFiles": 17,
+  "hashesMatch": true,
+  "modesMatch": true,
+  "exactPathSet": true,
+  "stashRetained": true
+}

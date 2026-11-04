@@ -1,0 +1,26 @@
+Observed process exit code: 0
+Raw log SHA-256: c384622368dedc000dc86d1f1e09e2d33ae8202629766091229a7ce65c13c0eb
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+stderr | tests/ui/guided-research-home-live.test.tsx > F168 guided research home live data > renders server history and resumes from the server-authored stage
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/guided-research-home-live.test.tsx (29 tests) 1011ms
+ ✓ tests/ui/guided-research-execution-timeline.test.tsx (22 tests) 204ms
+ ✓ tests/ui/research-entry-i18n.test.tsx (10 tests) 491ms
+ ✓ tests/ui/research-report-document.test.tsx (9 tests) 328ms
+ ✓ tests/ui/research-workspace-i18n.test.tsx (6 tests) 1265ms
+   ✓ displays fixed focus options in English but saves canonical values and raw custom focus once 1021ms
+ ✓ tests/ui/guided-research-conversation-live.test.tsx (11 tests) 784ms
+ ✓ tests/ui/research-overlays-i18n.test.tsx (8 tests) 350ms
+ ✓ tests/ui/guided-research-plan-editor.test.tsx (6 tests) 407ms
+ ✓ tests/ui/guided-research-design-editor.test.tsx (6 tests) 362ms
+ ✓ tests/ui/guided-research-markdown-workspace.test.tsx (6 tests) 245ms
+
+ Test Files  10 passed (10)
+      Tests  113 passed (113)
+   Start at  02:18:38
+   Duration  18.82s (transform 1.41s, setup 913ms, collect 5.74s, tests 5.45s, environment 5.01s, prepare 415ms)

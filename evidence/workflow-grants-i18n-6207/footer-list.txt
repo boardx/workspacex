@@ -1,0 +1,14 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=1.98 cores=10 perCore=0.20 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw17yuu3-b6f90d92-62db993d2a9d db=wsx_62db993d2a9d5bfda36f compose=wsx-62db993d2a9d5bfda36f pg=20781 redis=21781 api=24781 web=25781 sandbox=26781 model=27781 deep-agent=28781 asr=29781 vision=30781 loopback-sandbox=31781 mail=19781
+Listing tests:
+  [seeded-github-import] › entity-localization.spec.ts:434:5 › workflow grant management persists canonical permissions and audit across locales with real member denial
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config=playwright.fullstack-smoke.config.ts --project=seeded-github-import --no-deps entity-localization.spec.ts --grep=workflow grant management persists canonical permissions --max-failures=1 --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

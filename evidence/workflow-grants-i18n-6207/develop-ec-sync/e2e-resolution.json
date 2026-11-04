@@ -1,0 +1,17 @@
+{
+  "left": "4b4cb362cd599b11329e95960910869789b74c98",
+  "right": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+  "extraWorkerStatements": [
+    "test:workflow grant management persists canonical permissions and audit across locales with real member denial"
+  ],
+  "acceptedSourceBaselinePreserved": true,
+  "allSharedStatementsByteEqual": true,
+  "contractImportUnion": [
+    "agentRole",
+    "homeConfig",
+    "orgAdmin",
+    "skills",
+    "wave2Runtime",
+    "workflowCapabilityGrants as WG"
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "init",
+  "command": [
+    "./init.sh"
+  ],
+  "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+  "exitCode": 0,
+  "seconds": 3.029,
+  "rawLogLocalPath": "/tmp/6214-current-init.log",
+  "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+  "receiptPath": "init.txt",
+  "receiptSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+  "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+}

@@ -1,3 +1,4 @@
+// @global-scope-fixture table:credit_wallets: unique personal wallet owners, their periods and transactions are cleaned in afterAll.
 import {randomUUID} from "node:crypto";
 import {beforeAll,afterAll,expect,it} from "vitest";
 import {ensureDatabase,migrateOnce,seedOrg,addOrgMember,asOwner} from "../support/db";
@@ -31,14 +32,15 @@ beforeAll(async()=>{
 });
 afterAll(async()=>{await asOwner(async c=>{
  await c.query("DELETE FROM credit_consumption_requests WHERE org_id IN ($1,$2)",[org,local]);
- await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[localUser]);await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=$1)",[localUser]);await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=$1",[localUser]);
+ await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1))",[[localUser,user]]);await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1))",[[localUser,user]]);await c.query("DELETE FROM credit_wallets WHERE owner_type='user' AND owner_id=ANY($1)",[[localUser,user]]);
  await c.query("DELETE FROM credit_transactions WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='team' AND owner_id=$1)",[org]);await c.query("DELETE FROM credit_subscription_periods WHERE wallet_id IN (SELECT wallet_id FROM credit_wallets WHERE owner_type='team' AND owner_id=$1)",[org]);await c.query("DELETE FROM credit_wallets WHERE owner_type='team' AND owner_id=$1",[org]);
  for(const t of ["billing_team_receipts","billing_team_terms","billing_team_purchases","billing_team_quotes","org_commercial_licenses"])await c.query(`DELETE FROM ${t} WHERE org_id=$1`,[org]);
  await c.query("UPDATE billing_pricing_epoch SET generation=NULL,activated_at=NULL WHERE singleton=true");
 });await db.close();});
-it("blocks new Team AI at paid expiry despite permanent cash; already admitted replay and receipt still finish",async()=>{
+it("uses personal fallback at Team expiry and refuses personal debt; admitted Team replay and receipt still finish",async()=>{
  const id=`ai-${randomUUID()}`;await reserve(id);at=expired;
- await expect(reserve(`expired-${randomUUID()}`)).rejects.toMatchObject({code:"credit_required",ownerType:"team",ownerId:org});
+ await asOwner(c=>c.query("INSERT INTO credit_wallets(owner_type,owner_id,balance) VALUES('user',$1,-1) ON CONFLICT(owner_type,owner_id) DO UPDATE SET balance=-1",[user]));
+ await expect(reserve(`expired-${randomUUID()}`)).rejects.toMatchObject({code:"credit_required",ownerType:"user",ownerId:user});
  await expect(reserve(id)).resolves.toBeUndefined();
  const usage:TokenUsageRecord={eventId:id,userId:user,runId:null,modelProvider:"test",modelId:"test-model",tokensTotal:11,promptTokens:11,completionTokens:0,totalSource:"reported",outcome:"succeeded",requestEndedAt:new Date(expired.getTime()+1000).toISOString()};
  await db.withTenant(org,s=>accounting.settleInSession(s,org,usage));

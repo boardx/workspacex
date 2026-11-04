@@ -1,0 +1,14 @@
+{
+  "sourceHead": "4e45d2d9c72a6eb4643b62a98eb27010d6a6501a",
+  "workflowRun": 41764609085,
+  "job": 126359934633,
+  "failedStep": "Scan tracked source for new credential patterns",
+  "rule": "assigned-secret",
+  "path": "apps/api/tests/billing/global-error-boundary.test.ts",
+  "privateLogSha256": "f585b8132d4827cc1398882fe34d6eaad782e6b91f13e3f718d086e7232aea08",
+  "otherCancelledJobsAreNotPassed": true,
+  "syntheticFixtureValueReplacements": 3,
+  "allAssertionsUnchanged": true,
+  "productionFilterUnchanged": true,
+  "scannerAndBaselineUnchanged": true
+}

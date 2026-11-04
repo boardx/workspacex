@@ -1,0 +1,44 @@
+{
+  "name": "browser-third",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-recording-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--reporter=list,json"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 237.83,
+  "rawLogLocalPath": "/tmp/6214-browser-third-private-f8/browser-third.log",
+  "rawLogSha256": "788b96a609746c1ac4b855db59a926228591061d747ab3947ba1a972b18a0401",
+  "cases": [
+    {
+      "name": "personal recording persistence/edit/reload/delete",
+      "result": "PASS",
+      "durationMs": 8166
+    },
+    {
+      "name": "project previews and interviewee view",
+      "result": "PASS",
+      "durationMs": 6217
+    }
+  ],
+  "pngCount": 48,
+  "authorViewedCount": 48,
+  "visualAcceptance": "PASS for captured 375/1280 states; authored/model/legal raw data intentionally retained"
+}

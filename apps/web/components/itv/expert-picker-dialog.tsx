@@ -1,4 +1,6 @@
 "use client";
+import { interviewCategoryText } from "@/lib/interview-category-text";
+import { useI18n } from "@/lib/i18n/provider";
 
 import * as React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -25,7 +27,7 @@ export function ExpertPickerDialog({
   onOpenChange,
   onConfirm,
   experts = MOCK_DIGITAL_EXPERTS,
-  description = "从专家目录中多选，本次选择会追加到当前访谈。",
+  description,
 }: {
   open: boolean;
   selectedExpertIds: readonly string[];
@@ -34,6 +36,7 @@ export function ExpertPickerDialog({
   experts?: readonly ExpertPickerItem[];
   description?: string;
 }) {
+ const { t, locale } = useI18n();
   const [query, setQuery] = React.useState("");
   const [category, setCategory] = React.useState<string | null>(null);
   const [pendingIds, setPendingIds] = React.useState<readonly string[]>(selectedExpertIds);
@@ -77,20 +80,20 @@ export function ExpertPickerDialog({
         >
           <header className="flex items-start justify-between gap-4 border-b border-border p-6">
             <div>
-              <Dialog.Title className="text-2xl font-semibold">添加访谈专家</Dialog.Title>
-              <Dialog.Description className="mt-2 text-sm text-muted-foreground">{description}</Dialog.Description>
+              <Dialog.Title className="text-2xl font-semibold">{t("itv.picker.title")}</Dialog.Title>
+              <Dialog.Description className="mt-2 text-sm text-muted-foreground">{description ?? t("itv.picker.description")}</Dialog.Description>
             </div>
-            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label="关闭专家选择"><X className="size-4" aria-hidden /></Button></Dialog.Close>
+            <Dialog.Close asChild><Button type="button" variant="ghost" size="icon" aria-label={t("itv.picker.close")}><X className="size-4" aria-hidden /></Button></Dialog.Close>
           </header>
 
           <div className="grid min-h-0 flex-1 grid-rows-[auto_auto_1fr] gap-4 p-6">
             <label className="relative block">
               <Search aria-hidden className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input aria-label="搜索访谈专家" data-testid="itv-expert-picker-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索专家姓名、角色或简介" className="h-10 pl-9" />
+              <Input aria-label={t("itv.picker.search")} data-testid="itv-expert-picker-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("itv.picker.placeholder")} className="h-10 pl-9" />
             </label>
             <div className="flex gap-2 overflow-x-auto pb-1">
-              <CategoryButton active={category === null} onClick={() => setCategory(null)}>全部</CategoryButton>
-              {categories.map((value) => <CategoryButton key={value} active={category === value} onClick={() => setCategory(value)}>{value}</CategoryButton>)}
+              <CategoryButton active={category === null} onClick={() => setCategory(null)}>{t("itv.picker.all")}</CategoryButton>
+              {categories.map((value) => <CategoryButton key={value} active={category === value} onClick={() => setCategory(value)}>{interviewCategoryText(value, locale)}</CategoryButton>)}
             </div>
             <div className="min-h-0 overflow-y-auto rounded-xl border border-border">
               {filteredExperts.length ? <ul className="divide-y divide-border">{filteredExperts.map((expert) => {
@@ -98,25 +101,25 @@ export function ExpertPickerDialog({
                 const isChecked = selected.has(expert.expertId);
                 return <li key={expert.expertId} className="flex items-start gap-3 p-4 transition-colors hover:bg-muted/40">
                   <Checkbox
-                    aria-label={`选择专家 ${expert.displayName}`}
+                    aria-label={t("itv.picker.select", { name: expert.displayName })}
                     checked={isChecked}
                     disabled={isOriginal}
                     onChange={(event) => toggle(expert.expertId, event.currentTarget.checked)}
                   />
                   <ExpertAvatarEditor expertId={expert.expertId} displayName={expert.displayName} compact />
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2"><strong>{expert.displayName}</strong><span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{expert.category}</span>{isOriginal && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" aria-hidden />已添加</span>}</div>
+                    <div className="flex flex-wrap items-center gap-2"><strong>{expert.displayName}</strong><span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary">{expert.category}</span>{isOriginal && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" aria-hidden />{t("itv.picker.added")}</span>}</div>
                     <p className="mt-1 text-xs text-muted-foreground">{expert.role}</p>
                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted-foreground">{expert.bio}</p>
                   </div>
                 </li>;
-              })}</ul> : <div className="grid min-h-48 place-items-center p-8 text-sm text-muted-foreground">没有匹配的专家，请调整搜索或类型。</div>}
+              })}</ul> : <div className="grid min-h-48 place-items-center p-8 text-sm text-muted-foreground">{t("itv.picker.empty")}</div>}
             </div>
           </div>
 
           <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-6 py-4">
-            <p className="text-xs text-muted-foreground">当前 {selectedExpertIds.length} 位，本次新增 {addedCount} 位</p>
-            <div className="flex gap-3"><Button type="button" variant="outline" onClick={close}>取消</Button><Button data-testid="itv-expert-picker-confirm" type="button" variant="primary" disabled={!addedCount} onClick={() => { onConfirm(pendingIds); close(); }}>添加所选专家</Button></div>
+            <p className="text-xs text-muted-foreground">{t("itv.picker.count", { current: selectedExpertIds.length, added: addedCount })}</p>
+            <div className="flex gap-3"><Button type="button" variant="outline" onClick={close}>{t("itv.cancel")}</Button><Button data-testid="itv-expert-picker-confirm" type="button" variant="primary" disabled={!addedCount} onClick={() => { onConfirm(pendingIds); close(); }}>{t("itv.picker.confirm")}</Button></div>
           </footer>
         </Dialog.Content>
       </Dialog.Portal>

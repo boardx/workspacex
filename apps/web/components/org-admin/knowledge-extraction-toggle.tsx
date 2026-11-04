@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { BrainCircuit } from "lucide-react";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { Toggle } from "@/components/ui/toggle";
@@ -35,10 +36,11 @@ import {
  * 至少让非 admin 看得到「现在开着还是关着」。
  */
 export function KnowledgeExtractionToggleSection({ isAdmin }: { isAdmin: boolean }): JSX.Element {
+  const { t } = useI18n();
   const [state, setState] = React.useState<UiState>("loading");
   const [setting, setSetting] = React.useState<KnowledgeExtractionSettingOut | null>(null);
   const [busy, setBusy] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const [error, setError] = React.useState<"denied" | "failed" | null>(null);
 
   const load = React.useCallback(async () => {
     setState("loading");
@@ -60,8 +62,7 @@ export function KnowledgeExtractionToggleSection({ isAdmin }: { isAdmin: boolean
       setSetting(await setKnowledgeExtractionSetting(next));
     } catch (cause) {
       setError(cause instanceof ApiError && cause.status === 403
-        ? "只有组织管理员可以修改这项设置。"
-        : "保存失败，请重试。");
+        ? "denied" : "failed");
       await load();
     } finally {
       setBusy(false);
@@ -72,44 +73,43 @@ export function KnowledgeExtractionToggleSection({ isAdmin }: { isAdmin: boolean
     <section className="flex flex-col gap-3" data-testid="knowledge-extraction-toggle">
       <div className="flex items-center gap-2">
         <BrainCircuit aria-hidden className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-14 font-semibold">对话记忆</h2>
+        <h2 className="text-14 font-semibold">{t("orgProfile.extractionTitle")}</h2>
       </div>
       <p className="text-12 text-muted-foreground">
-        打开后，本组织的对话内容会被整理成可在会话内召回的记忆；关闭后不再抽取新的对话内容，
-        已经记下的仍可查看。默认开启，组织管理员可以随时关闭。
+        {t("orgProfile.extractionHelp")}
       </p>
       <StateShell
         state={state}
-        denial={{ layer: "organization", reason: "只有组织管理员可以查看和修改记忆抽取设置。" }}
-        depFailure={{ what: "记忆抽取设置", retry: () => void load() }}
+        denial={{ layer: "organization", reason: t("orgProfile.extractionDenied") }}
+        depFailure={{ what: t("orgProfile.extractionSetting"), retry: () => void load() }}
       >
         {setting ? (
           <div
             className={`flex items-center justify-between gap-3 rounded-control border p-3 ${setting.deploymentCapable ? "border-border" : "border-warning bg-warning-tint"}`}
           >
             <div className="flex flex-col gap-0.5">
-              <span className="text-13 font-medium">为本组织开启记忆抽取</span>
+              <span className="text-13 font-medium">{t("orgProfile.extractionLabel")}</span>
               {!setting.deploymentCapable ? (
                 <span className="text-11 text-warning-tint-foreground" data-testid="knowledge-extraction-not-capable">
-                  未生效：这个部署没有开启记忆抽取（平台管理员关闭了部署级开关，或没有配置抽取用的模型），
-                  本组织的开关暂时不起作用，也无法修改。
+                  {t("orgProfile.extractionInactive")}
                 </span>
               ) : !isAdmin ? (
                 <span className="text-11 text-muted-foreground">
-                  只有组织管理员可以修改这项设置。
+                  {t("orgProfile.extractionReadOnly")}
                 </span>
               ) : null}
             </div>
             <Toggle
               id="knowledge-extraction-toggle-switch"
-              label="为本组织开启记忆抽取"
+              label={t("orgProfile.extractionLabel")}
               checked={setting.orgEnabled}
               disabled={!setting.deploymentCapable || !isAdmin || busy}
               onCheckedChange={(v) => void toggle(v)}
             />
           </div>
         ) : null}
-        {error ? <p role="alert" className="text-12 text-destructive">{error}</p> : null}
+        {busy ? <p role="status" className="text-12 text-muted-foreground">{t("common.saving")}</p> : null}
+        {error ? <p role="alert" className="text-12 text-destructive">{t(error === "denied" ? "orgProfile.extractionReadOnly" : "orgProfile.extractionSaveFailed")}</p> : null}
       </StateShell>
     </section>
   );

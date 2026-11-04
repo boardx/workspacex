@@ -1,0 +1,14 @@
+[stack-admission] load1=2.98 cores=10 perCore=0.30 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1gasam-dbf7e9e5-ab0242c0d107 db=wsx_ab0242c0d1078744ac9a compose=wsx-ab0242c0d1078744ac9a pg=20096 redis=21096 api=24096 web=25096 sandbox=26096 model=27096 deep-agent=28096 asr=29096 vision=30096 loopback-sandbox=31096 mail=19096
+Listing tests:
+  [seeded] › i18n-recording-journey.spec.ts:8:5 › recording locale preserves real capture, final persistence, edits and history
+  [seeded] › i18n-recording-journey.spec.ts:133:5 › recording project previews retain routing and edited controls in both locales
+Total: 2 tests in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-recording-journey.spec.ts --workers=1 --retries=0 --max-failures=1 --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s

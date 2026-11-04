@@ -1,0 +1,81 @@
+{
+  "sourcePrior": "f998aadc66a08090302533ed629afdf9a039a47f",
+  "runs": [
+    {
+      "candidate": "f7fd3a9d2367ac3a1b26848733d7b5fde9b1147c",
+      "parents": [
+        "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+        "f998aadc66a08090302533ed629afdf9a039a47f"
+      ],
+      "enqueuedAt": "2026-11-04T05:16:43Z",
+      "enqueueActor": "usersyj",
+      "performedViaGitHubApp": null,
+      "removedAt": "2026-11-04T05:22:49Z",
+      "removalActor": "github-merge-queue",
+      "removalReason": "failed_checks",
+      "acceptanceRun": 41778302547,
+      "completeJobCount": 34,
+      "jobConclusions": {
+        "cancelled": 25,
+        "success": 4,
+        "skipped": 4,
+        "failure": 1
+      },
+      "firstFailedJob": {
+        "id": 126403872112,
+        "name": "base-package-tests",
+        "finishedAt": "2026-11-04T05:20:51Z",
+        "stepNumber": 10,
+        "stepName": "Execute uncached trusted base gate",
+        "package": "@repo/contracts",
+        "testFile": "tests/pending-thresholds.test.ts",
+        "testCase": "retentionMaterial",
+        "assertionLine": 139,
+        "hit": "apps/web/lib/recording-display-copy.ts:293",
+        "jobUrl": "https://github.com/boardx/workspacex/actions/runs/41778302547/job/126403872112"
+      },
+      "checkoutHeadVerifiedFromActualJobLog": true,
+      "scopeBaseSha": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+      "rawJobLogSha256": "670dc9f61900c01c115cf0eae7a56d02a86dc75d841cc9043e353d7e5fc332f7"
+    },
+    {
+      "candidate": "6f5dbb2984caea3196da2c70615efdf1d71201e7",
+      "parents": [
+        "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+        "f998aadc66a08090302533ed629afdf9a039a47f"
+      ],
+      "enqueuedAt": "2026-11-04T05:39:18Z",
+      "enqueueActor": "usersyj",
+      "performedViaGitHubApp": null,
+      "removedAt": "2026-11-04T05:46:59Z",
+      "removalActor": "github-merge-queue",
+      "removalReason": "failed_checks",
+      "acceptanceRun": 41780596129,
+      "completeJobCount": 34,
+      "jobConclusions": {
+        "success": 7,
+        "cancelled": 22,
+        "skipped": 4,
+        "failure": 1
+      },
+      "firstFailedJob": {
+        "id": 126411160037,
+        "name": "base-package-tests",
+        "finishedAt": "2026-11-04T05:45:29Z",
+        "stepNumber": 10,
+        "stepName": "Execute uncached trusted base gate",
+        "package": "@repo/contracts",
+        "testFile": "tests/pending-thresholds.test.ts",
+        "testCase": "retentionMaterial",
+        "assertionLine": 139,
+        "hit": "apps/web/lib/recording-display-copy.ts:293",
+        "jobUrl": "https://github.com/boardx/workspacex/actions/runs/41780596129/job/126411160037"
+      },
+      "checkoutHeadVerifiedFromActualJobLog": true,
+      "scopeBaseSha": "ec1695d8fd646e004ca40dafbfa8e03bf01f20ef",
+      "rawJobLogSha256": "e6644fec3eb0b6c8e54dba4fe49f2b1bd0c591049731499a3b4cd2db5a01a72c"
+    }
+  ],
+  "actorBoundary": "GitHub identity only; these events do not identify which client or chat enqueued. No further attribution inferred.",
+  "workerQueueOrRerunActions": 0
+}

@@ -12,7 +12,8 @@ import type { Locale } from "./i18n/locale";
 import { translate } from "./i18n/messages";
 
 export function httpFailureText(status: number, locale: Locale = "zh-CN"): string {
-  if (status === 401 || status === 403) return translate(locale, "common.http.auth");
+  if (status === 401) return translate(locale, "common.http.auth");
+  if (status === 403) return translate(locale, "common.http.forbidden");
   if (status === 404) return translate(locale, "common.http.notFound");
   if (status === 429) return translate(locale, "common.http.rateLimit");
   if (status >= 500) return translate(locale, "common.http.server");

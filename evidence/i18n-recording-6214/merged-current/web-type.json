@@ -1,0 +1,17 @@
+{
+  "name": "web-type",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+  "exitCode": 0,
+  "seconds": 38.849,
+  "rawLogLocalPath": "/tmp/6214-current-web-type.log",
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "receiptPath": "web-type.txt",
+  "receiptSha256": "a33cb97200ea3996660a3c0e4d08a349cf90f9a92df56e97f369dbc90851fac3",
+  "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+}

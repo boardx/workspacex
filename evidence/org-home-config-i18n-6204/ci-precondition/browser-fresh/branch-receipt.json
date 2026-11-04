@@ -1,0 +1,40 @@
+{
+  "branch": "install-fresh",
+  "agent": {
+    "agentId": "agent-1588d507-51c6-44d8-8786-611abec72e39",
+    "versionId": "agent-version-f0cd8895-96a8-4aa1-be9a-4ae8416ecccd",
+    "name": "\u5ba2\u6237\u6210\u529f\u4e13\u5458"
+  },
+  "skill": {
+    "skillId": "skill-021bcd7c-b57a-438c-b494-d5ed2c79e78f",
+    "versionId": "skill-version-eeb0624e-047f-49c2-af88-2c96bccb1172",
+    "name": "S075"
+  },
+  "preservedDirectoryIds": [],
+  "preservedSkillIds": [
+    "skill-1ab25b53-07f8-4ab6-a75f-e1f7ffcc058a",
+    "skill-1f881dce-37a6-4ddc-9faa-ed0c44176ffd",
+    "skill-27cd7788-6d74-45e8-b89c-a73671a12657",
+    "skill-33ab9615-21bd-41b5-952d-8e4eb6a3ef25",
+    "skill-3410077e-a136-42f8-836a-db76a230b125",
+    "skill-393ec324-d0ef-4e81-881a-705a0e639037",
+    "skill-3e4c2af7-78f1-4a7c-99ca-e2fa8a176c7c",
+    "skill-492e704b-cf00-4004-bc2c-5a81dbc57bac",
+    "skill-4bc96b62-6431-4d4f-b40b-55cb51ac1797",
+    "skill-4e32b597-7133-4744-af79-3758d7c63fff",
+    "skill-5d935acc-b952-47e9-bfb7-dc24d75c583e",
+    "skill-6211a9e7-3ee2-4c15-973c-81b95f2e31f2",
+    "skill-9378708d-744a-4574-abe0-045d1d570835",
+    "skill-a3b91e59-6566-4f12-bd3e-3f9e005de97a",
+    "skill-a9a67b1b-8129-4d72-8ba5-37650a36d6db",
+    "skill-c0925906-a3c1-4c70-a05d-738f0dbbc9f5",
+    "skill-c453e50d-0080-4475-aed3-481b2a4a6bb5",
+    "skill-fbc602f5-4e6b-42dd-a7ce-39376919e323",
+    "skill-fe6bcab3-7522-44e5-b737-ecf3820d6e28",
+    "skill-platform-docx-create",
+    "skill-platform-pdf-create",
+    "skill-platform-pptx-create",
+    "skill-platform-xlsx-create"
+  ],
+  "existingSnapshotsPreserved": true
+}

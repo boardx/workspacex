@@ -1,3 +1,4 @@
+import { orgHomeConfigZhCN } from "./i18n/namespaces/org-home-config";
 /**
  * 首页配置的「目录」——入口与横幅预设的**单一事实源**，首页
  * （`components/home/*`）与后台配置屏（`components/org-admin/home-config-*`）共用。
@@ -19,16 +20,16 @@ export interface QuickActionMeta {
 
 /** href 与 `lib/navigation.ts` 的一级入口逐个对应（`lint-nav-reachability` 守着导航侧）。 */
 export const QUICK_ACTION_CATALOG: Record<QuickActionKey, QuickActionMeta> = {
-  chat: { href: "/chat", icon: MessagesSquare, label: "聊天", desc: "开始一次新的对话" },
-  projects: { href: "/projects", icon: FolderKanban, label: "项目", desc: "按项目组织的工作台" },
-  research: { href: "/research", icon: Search, label: "深度研究", desc: "多来源调研与报告" },
-  interview: { href: "/itv", icon: Mic, label: "用户访谈", desc: "访谈设计、执行与洞察" },
-  survey: { href: "/studio/survey", icon: ClipboardList, label: "问卷", desc: "设计、发布与回收问卷" },
-  recording: { href: "/rec", icon: AudioLines, label: "录音", desc: "实时转写与会议记录" },
-  design: { href: "/studio/design-workbench", icon: PencilRuler, label: "设计", desc: "设计方案与原型" },
-  brain: { href: "/brain", icon: Brain, label: "大脑", desc: "你的组织记忆" },
-  board: { href: "/studio/board", icon: Shapes, label: "Board", desc: "白板与协作" },
-  tasks: { href: "/tasks", icon: ListTodo, label: "任务", desc: "我的任务与待办" },
+  chat: { href: "/chat", icon: MessagesSquare, label: orgHomeConfigZhCN["action.chat.label"], desc: orgHomeConfigZhCN["action.chat.description"] },
+  projects: { href: "/projects", icon: FolderKanban, label: orgHomeConfigZhCN["action.projects.label"], desc: orgHomeConfigZhCN["action.projects.description"] },
+  research: { href: "/research", icon: Search, label: orgHomeConfigZhCN["action.research.label"], desc: orgHomeConfigZhCN["action.research.description"] },
+  interview: { href: "/itv", icon: Mic, label: orgHomeConfigZhCN["action.interview.label"], desc: orgHomeConfigZhCN["action.interview.description"] },
+  survey: { href: "/studio/survey", icon: ClipboardList, label: orgHomeConfigZhCN["action.survey.label"], desc: orgHomeConfigZhCN["action.survey.description"] },
+  recording: { href: "/rec", icon: AudioLines, label: orgHomeConfigZhCN["action.recording.label"], desc: orgHomeConfigZhCN["action.recording.description"] },
+  design: { href: "/studio/design-workbench", icon: PencilRuler, label: orgHomeConfigZhCN["action.design.label"], desc: orgHomeConfigZhCN["action.design.description"] },
+  brain: { href: "/brain", icon: Brain, label: orgHomeConfigZhCN["action.brain.label"], desc: orgHomeConfigZhCN["action.brain.description"] },
+  board: { href: "/studio/board", icon: Shapes, label: orgHomeConfigZhCN["action.board.label"], desc: orgHomeConfigZhCN["action.board.description"] },
+  tasks: { href: "/tasks", icon: ListTodo, label: orgHomeConfigZhCN["action.tasks.label"], desc: orgHomeConfigZhCN["action.tasks.description"] },
 };
 
 /** 后台展示顺序（也是新建配置时入口 `order` 的依据）。 */
@@ -43,14 +44,14 @@ export interface BannerPresetMeta {
 }
 
 export const BANNER_PRESET_CATALOG: Record<Exclude<BannerPreset, "custom">, BannerPresetMeta> = {
-  ocean: { label: "海洋", className: "bg-inverse" },
-  forest: { label: "森林", className: "bg-gradient-to-br from-success to-ai" },
-  sunset: { label: "日落", className: "bg-gradient-to-br from-warning to-destructive" },
-  midnight: { label: "午夜", className: "bg-gradient-to-br from-inverse to-ai" },
-  rose: { label: "玫瑰", className: "bg-gradient-to-br from-destructive to-ai" },
-  slate: { label: "石板", className: "bg-gradient-to-br from-inverse to-muted-foreground" },
-  amber: { label: "琥珀", className: "bg-gradient-to-br from-warning to-brand-warm" },
-  violet: { label: "紫罗兰", className: "bg-gradient-to-br from-ai to-primary" },
+  ocean: { label: orgHomeConfigZhCN["homeConfig.preset.ocean"], className: "bg-inverse" },
+  forest: { label: orgHomeConfigZhCN["homeConfig.preset.forest"], className: "bg-gradient-to-br from-success to-ai" },
+  sunset: { label: orgHomeConfigZhCN["homeConfig.preset.sunset"], className: "bg-gradient-to-br from-warning to-destructive" },
+  midnight: { label: orgHomeConfigZhCN["homeConfig.preset.midnight"], className: "bg-gradient-to-br from-inverse to-ai" },
+  rose: { label: orgHomeConfigZhCN["homeConfig.preset.rose"], className: "bg-gradient-to-br from-destructive to-ai" },
+  slate: { label: orgHomeConfigZhCN["homeConfig.preset.slate"], className: "bg-gradient-to-br from-inverse to-muted-foreground" },
+  amber: { label: orgHomeConfigZhCN["homeConfig.preset.amber"], className: "bg-gradient-to-br from-warning to-brand-warm" },
+  violet: { label: orgHomeConfigZhCN["homeConfig.preset.violet"], className: "bg-gradient-to-br from-ai to-primary" },
 };
 
 export const BANNER_PRESET_ORDER: readonly Exclude<BannerPreset, "custom">[] = [

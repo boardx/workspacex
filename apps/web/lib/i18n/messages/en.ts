@@ -1,3 +1,7 @@
+import { recordingProjectEn } from "../namespaces/recording-project";
+import { workflowGrantsEn } from "../namespaces/workflow-grants";
+import { orgHomeConfigEn } from "../namespaces/org-home-config";
+import { orgProfileEn } from "../namespaces/org-profile";
 import { adminNavigationEn } from "../namespaces/admin-navigation";
 import { brainViewsEn } from "../namespaces/brain-views";
 import { chatEn } from "../namespaces/chat";
@@ -19,6 +23,9 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...workflowGrantsEn,
+  ...orgHomeConfigEn,
+  ...orgProfileEn,
   ...brainViewsEn,
   ...chatEn,
   ...enTasks,
@@ -182,26 +189,6 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.configFailed": "Could not load your home page. Please try again later.",
   "auth.resetDescription": "Enter your work email to receive a one-time reset link (valid for {hours} hours).",
   "auth.invited": "Invited to an organization? Open the activation link from your administrator to set your password. Contact them for a new link if it has expired.",
-  "action.chat.label": "Chat",
-  "action.chat.description": "Start a new conversation",
-  "action.projects.label": "Projects",
-  "action.projects.description": "Organize your work by project",
-  "action.research.label": "Deep research",
-  "action.research.description": "Research and reports from multiple sources",
-  "action.interview.label": "User interviews",
-  "action.interview.description": "Design interviews, conduct them, and find insights",
-  "action.survey.label": "Surveys",
-  "action.survey.description": "Design, publish, and collect surveys",
-  "action.recording.label": "Recording",
-  "action.recording.description": "Live transcription and meeting notes",
-  "action.design.label": "Design",
-  "action.design.description": "Designs and prototypes",
-  "action.brain.label": "Brain",
-  "action.brain.description": "Your organization memory",
-  "action.board.label": "Board",
-  "action.board.description": "Whiteboard and collaboration",
-  "action.tasks.label": "Tasks",
-  "action.tasks.description": "My tasks and to-dos",
   "navigation.home": "Home",
   "navigation.chat": "Chats",
   "navigation.projects": "Projects",
@@ -261,6 +248,7 @@ export const en: Record<keyof typeof zhCN, string> = {
   "home.error.UNSUPPORTED_CONTENT_TYPE": "Only PNG, JPEG, and WebP images are supported.",
   "common.error.network": "Could not connect to the server. Check your connection and try again.",
   "common.http.auth": "Your session has expired. Refresh the page and sign in again.",
+  "common.http.forbidden": "You do not have permission to perform this action. Contact your administrator if you need access.",
   "common.http.notFound": "The requested item is no longer available.",
   "common.http.rateLimit": "Too many requests. Wait a moment and try again.",
   "common.http.server": "The server encountered an error. Please try again later.",
@@ -269,7 +257,26 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...accountEntryEn,
   ...invitationEntryEn,
   ...adminNavigationEn,
+  ...studioResearchEn,
+  ...researchEn,
+  ...studioHistoryEn,
+  ...recordingEn,
+  ...recordingProjectEn,
+  ...audioInputEn,
+  ...interviewEn,
 };
 
 import { codeFenceEn } from "../namespaces/code-fence";
 import { chatShareEn } from "../namespaces/chat-share";
+
+import { studioResearchEn } from "../namespaces/studio-research";
+
+import { researchEn } from "../namespaces/research";
+
+import { interviewEn } from "../namespaces/interview";
+
+import { studioHistoryEn } from "../namespaces/studio-history";
+
+import { recordingEn } from "../namespaces/recording";
+
+import { audioInputEn } from "../namespaces/audio-input";

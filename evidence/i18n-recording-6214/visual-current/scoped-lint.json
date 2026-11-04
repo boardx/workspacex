@@ -1,0 +1,24 @@
+{
+  "name": "scoped-lint",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "eslint",
+    "components/project/project-breadcrumb.tsx",
+    "components/rec/live-transcript.tsx",
+    "components/rec/quote-annotate.tsx",
+    "components/rec/rec-process.tsx",
+    "components/rec/retention-panel.tsx",
+    "components/rec/speaker-assign.tsx",
+    "e2e/i18n-recording-journey.spec.ts",
+    "tests/ui/recording-project-i18n.test.tsx",
+    "tests/ui/project-studio-breadcrumb-i18n.test.tsx"
+  ],
+  "source": "f8dfac7112e4140ebb001cf9823f8756c6053d61",
+  "exitCode": 0,
+  "seconds": 2.066,
+  "rawLogLocalPath": "/tmp/6214-visual-private-f8/scoped-lint.log",
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

@@ -139,7 +139,7 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
  * no matter what an exception carries. Adding a third enum here should be a deliberate act;
  * adding a free string must never be one.
  */
-function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string; detail?: unknown } {
+function permissionReasonOf(exception: HttpException): { reasonCode?: string; currentVersionId?: string; detail?: unknown; remainingTokens?: number; allocated?: number } {
   const body = exception.getResponse();
   if (typeof body !== "object" || body === null) return {};
   const raw = (body as { reasonCode?: unknown }).reasonCode;
@@ -263,7 +263,25 @@ function permissionReasonOf(exception: HttpException): { reasonCode?: string; cu
    * outcome, not a collision to be broken.
    */
   const orgAdminReason = orgAdmin.OrgAdminError.safeParse(raw);
-  if (orgAdminReason.success) return { reasonCode: orgAdminReason.data };
+  if (orgAdminReason.success) {
+    // Only these reviewed 409 fields carry quota guidance. Reuse canonical numeric
+    // contracts and project explicitly so private and cross-reason fields stay closed.
+    if (exception.getStatus() === HttpStatus.CONFLICT) {
+      if (orgAdminReason.data === "QUOTA_OVERALLOCATED") {
+        const remaining = orgAdmin.operations.setMemberTokenQuota.in.shape.monthlyLimit.safeParse(
+          (body as { remainingTokens?: unknown }).remainingTokens,
+        );
+        if (remaining.success) return { reasonCode: orgAdminReason.data, remainingTokens: remaining.data };
+      }
+      if (orgAdminReason.data === "BUDGET_BELOW_ALLOCATED") {
+        const allocated = orgAdmin.operations.setOrgTokenBudget.in.shape.monthlyBudget.safeParse(
+          (body as { allocated?: unknown }).allocated,
+        );
+        if (allocated.success) return { reasonCode: orgAdminReason.data, allocated: allocated.data };
+      }
+    }
+    return { reasonCode: orgAdminReason.data };
+  }
 
   /**
    * 组织首页配置（`homeConfig.HomeConfigError`，Refs #4698）：闭集枚举，同上面各条的限制。

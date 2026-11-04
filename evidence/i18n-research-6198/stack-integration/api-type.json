@@ -1,0 +1,17 @@
+{
+  "name": "api-type",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "typecheck"
+  ],
+  "source": "8e865198778985cb53965f6b72d2d36e0c4538fe",
+  "exitCode": 0,
+  "seconds": 45.457,
+  "rawLogLocalPath": "/tmp/6205-integration-api-type.log",
+  "rawLogSha256": "c85dd5417e6c07523da56cbe1648802ed8f3a8e14ba018603dd453cb69188f89",
+  "receiptPath": "api-type.txt",
+  "receiptSha256": "a36f2178672d11b8e020b4580ca7939be2f48f564b3c2a8b88d062fd97302205",
+  "receiptNormalization": "trailing blank EOF normalized; original raw log hash retained"
+}

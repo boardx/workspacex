@@ -1,0 +1,71 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ❯ tests/ui/interview-history-i18n.test.tsx (2 tests | 2 failed) 1253ms
+   × localizes actual history filters and retains a raw query and chosen sort across locale changes 1126ms
+     → Unable to find role="textbox" and name "Search interviews"
+
+Ignored nodes: comments, script, style
+<body>
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × localizes actual history filters and retains a raw query and chosen sort across locale changes 1126ms
+   × localizes the management business label while retaining an edited interview name 127ms
+                ×
+   × uses natural English counts for itv.characters 5ms
+   × uses natural English counts for itv.history.count 1ms
+   × uses natural English counts for itv.experts.count 0ms
+   × uses natural English counts for itv.outline.generating 0ms
+   × uses natural English counts for itv.runs.expertCount 0ms
+   × uses natural English counts for itv.experts.profileCount 0ms
+   × uses natural English counts for itv.skill.expertCount 0ms
+   × uses natural English counts for itv.legacy.questionCount 0ms
+   × uses natural English counts for itv.legacy.mockCount 1ms
+   × uses natural English counts for itv.legacy.years 0ms
+   × keeps completed-expert progress independent of the total noun form 1ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.characters
+AssertionError: expected '1 characters' to be '1 character' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.history.count
+AssertionError: expected '1 interviews' to be '1 interview' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.experts.count
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.runs.expertCount
+AssertionError: expected '1 experts' to be '1 expert' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.outline.generating
+AssertionError: expected 'Generating questions for 1 experts' to be 'Generating questions for 1 expert' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.experts.profileCount
+AssertionError: expected '1 simulated profiles' to be '1 simulated profile' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.skill.expertCount
+AssertionError: expected 'Recommended experts · 1 experts' to be 'Recommended experts · 1 expert' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.legacy.questionCount
+AssertionError: expected '1 questions' to be '1 question' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.legacy.mockCount
+AssertionError: expected 'Generate exploratory answers for 1 di…' to be 'Generate exploratory answers for 1 di…' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > uses natural English counts for itv.legacy.years
+AssertionError: expected '1 years old' to be '1 year old' // Object.is equality
+ FAIL  tests/lib/interview-ui-text.test.ts > keeps completed-expert progress independent of the total noun form
+AssertionError: expected '1 / 1 experts completed' to be 'Experts completed: 1 / 1' // Object.is equality
+ FAIL  tests/ui/interview-history-i18n.test.tsx > localizes actual history filters and retains a raw query and chosen sort across locale changes
+TestingLibraryElementError: Unable to find role="textbox" and name "Search interviews"
+ FAIL  tests/ui/interview-history-i18n.test.tsx > localizes the management business label while retaining an edited interview name
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Edit interview"
+                ×
+ Test Files  2 failed (2)
+      Tests  13 failed | 6 passed (19)
+   Duration  4.63s (transform 1.24s, setup 254ms, collect 1.97s, tests 1.27s, environment 744ms, prepare 91ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/lib/interview-ui-text.test.ts tests/ui/interview-history-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+     32|   expect(screen.getByRole("heading", { name: "Edit interview", exact: …
+       |                 ^
+     33|   fireEvent.change(screen.getByTestId("itv-edit-name"), { target: { va…
+     34|   expect(screen.getByRole("heading", { name: "Edit interview", exact: …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/13]⎯
+
+ Test Files  2 failed (2)
+      Tests  13 failed | 6 passed (19)
+   Start at  05:27:32
+   Duration  4.63s (transform 1.24s, setup 254ms, collect 1.97s, tests 1.27s, environment 744ms, prepare 91ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/lib/interview-ui-text.test.ts tests/ui/interview-history-i18n.test.tsx --maxWorkers=1 --minWorkers=1

@@ -1,0 +1,16 @@
+{
+  "name": "spec-gate",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:spec-gate-coverage"
+  ],
+  "source": "026d8dcac5c044fcafa8b5c33a5d633b346223b6",
+  "exitCode": 0,
+  "seconds": 32.774,
+  "rawLogLocalPath": "/tmp/6214-current-spec-gate.log",
+  "rawLogSha256": "5609ec931e8c47fa5c17c2fc1584841dbb586fa2179223398c9b4813fde5a3a3",
+  "receiptPath": "spec-gate.txt",
+  "receiptSha256": "5609ec931e8c47fa5c17c2fc1584841dbb586fa2179223398c9b4813fde5a3a3",
+  "receiptNormalization": "trailing blank EOF only; original rawLogSha256 retained"
+}

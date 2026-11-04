@@ -50,6 +50,8 @@ description: >
 3. 交付：`verify --sprint` 门控；PR 描述里写清对鉴权/权限面的影响面。
 
 ## 踩坑与经验（append-only，最新在上）
+- 2026-11-04：组织工作流授权的长文案会同时造成纵向按钮不可达和撤销页横向裁剪；保留共享弹窗边界，在页面所属容器提供滚动、footer 允许换行，并用真实 wheel + Confirm/Cancel 完整入屏断言验收。控制值、API 与权限不随显示修复变化（issue #6207；`evidence/workflow-grants-i18n-6207/browser-first/`、`browser-second/`、`final-run/`）。
+- 2026-11-04：首页配置采用保留挂载状态的标签页时，原生 `hidden` 与无条件 Tailwind `flex` 会发生样式覆盖；应按当前页切换 `flex` / `hidden` 并真实断言非活动面板不可见。只跑完成主链的浏览器绿灯不能替代逐屏截图检查（issue #6204；`evidence/org-home-config-i18n-6204/visibility-red/`）。
 - 2026-11-03：契约 mock 再生成的字节同步不能证明样例有效；新增 schema 类型时需以真实响应 safeParse 校验生成样例，判别联合缺生成支持会默默产出 null（issue #6145）。
 - 2026-11-03：strict 事件响应新增展示元数据需显式版本协商并保留旧摘要回退；query 校验复用 ZodBodyPipe，裸 schema.parse 的 ZodError 不会自动成为400。白名单投影与真实新旧HTTP证据见 issue #6145 / evidence/i18n-activity-6145。
 - 2026-11-03：成员/邀请的真实路由在 `org-admin-screen.tsx`，同名 `members-screen.tsx`/`roster-screen.tsx` 是预览；国际化不能只改预览。角色标签复用共享 `role.*` 字典，错误/反馈保留原始载荷并在渲染时翻译，locale 不进入读取 effect 依赖，避免语言切换重发请求（issue #6179）。

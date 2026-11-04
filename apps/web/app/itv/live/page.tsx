@@ -1,4 +1,6 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 /**
  * #356 —— `/itv/live`：访谈列表的第一条真正端到端路径，接的是
@@ -36,6 +38,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ApiError, clearStoredSessionToken, getStoredSessionToken, storeSessionToken } from "@/lib/api-client";
 import { getInterview, listInterviews, login, type GetInterviewOut, type InterviewRow } from "@/lib/live-interviews";
 
+const statusKeys: Record<string, MessageKey> = {"draft": "itv.status.draft", "proposed": "itv.live.status.proposed", "confirmed": "itv.live.status.confirmed", "completed": "itv.status.completed", "failed": "itv.status.failed", "running": "itv.status.running"};
+
 function InterviewItem({
   item,
   onOpen,
@@ -43,6 +47,7 @@ function InterviewItem({
   item: InterviewRow;
   onOpen: (id: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <li
       data-testid={`live-itv-item-${item.interviewId}`}
@@ -58,11 +63,11 @@ function InterviewItem({
       </button>
       <span className="flex items-center gap-2 text-12 text-muted-foreground">
         <span data-testid={`live-itv-source-${item.interviewId}`}>
-          {item.sourceKind === "human" ? "真人" : "虚拟"}
+          {item.sourceKind === "human" ? t("itv.live.human") : t("itv.live.virtual")}
         </span>
         {item.archived ? (
           <span data-testid={`live-itv-archived-${item.interviewId}`} className="rounded bg-muted px-1.5 py-0.5">
-            已归档
+            {t("itv.live.archived")}
           </span>
         ) : null}
       </span>
@@ -71,6 +76,7 @@ function InterviewItem({
 }
 
 export default function ItvLivePage() {
+  const { t } = useI18n();
   const [sessionToken, setSessionToken] = React.useState<string | null>(null);
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
@@ -153,34 +159,36 @@ export default function ItvLivePage() {
 
   return (
     <div data-testid="itv-live-page" className="mx-auto flex max-w-2xl flex-col gap-4 p-6">
-      <h1 className="text-16 font-semibold">访谈列表（真实数据，#356）</h1>
+      <h1 className="text-16 font-semibold">{t("itv.live.title")}</h1>
 
       {sessionToken === null ? (
         <Card data-testid="live-itv-login-card">
           <CardHeader>
-            <CardTitle>登录</CardTitle>
+            <CardTitle>{t("itv.live.signIn")}</CardTitle>
           </CardHeader>
           <CardContent>
             <form className="flex flex-col gap-2" onSubmit={handleLogin}>
               <Input
                 data-testid="live-itv-login-email"
-                placeholder="邮箱"
+                aria-label={t("itv.live.email")}
+                placeholder={t("itv.live.email")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
               <Input
                 data-testid="live-itv-login-password"
-                placeholder="密码"
+                aria-label={t("itv.live.password")}
+                placeholder={t("itv.live.password")}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
               <Button data-testid="live-itv-login-submit" type="submit" disabled={loginBusy}>
-                {loginBusy ? "登录中…" : "登录"}
+                {loginBusy ? t("itv.live.signingIn") : t("itv.live.signIn")}
               </Button>
               {loginError !== null ? (
                 <p data-testid="live-itv-login-error" className="text-12 text-destructive">
-                  {loginError}
+                  {loginError === "UNKNOWN_ERROR" ? t("itv.live.unknownError") : loginError}
                 </p>
               ) : null}
             </form>
@@ -191,10 +199,11 @@ export default function ItvLivePage() {
           <div className="flex flex-wrap items-center gap-2">
             <Select
               data-testid="live-itv-scope-kind"
+              aria-label={t("itv.live.scope")}
               options={[
-                { value: "none", label: "不属于任何项目" },
-                { value: "project", label: "项目" },
-                { value: "research", label: "研究项目" },
+                { value: "none", label: t("itv.live.noneScope") },
+                { value: "project", label: t("itv.live.project") },
+                { value: "research", label: t("itv.live.researchProject") },
               ]}
               value={scopeKind}
               onValueChange={(v) => setScopeKind(v as typeof scopeKind)}
@@ -202,7 +211,7 @@ export default function ItvLivePage() {
             {scopeKind === "project" ? (
               <Input
                 data-testid="live-itv-project-id"
-                placeholder="项目 id"
+                placeholder={t("itv.live.projectId")}
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
                 className="max-w-xs"
@@ -211,36 +220,36 @@ export default function ItvLivePage() {
             {scopeKind === "research" ? (
               <Input
                 data-testid="live-itv-research-id"
-                placeholder="研究项目 id"
+                placeholder={t("itv.live.researchId")}
                 value={researchProjectId}
                 onChange={(e) => setResearchProjectId(e.target.value)}
                 className="max-w-xs"
               />
             ) : null}
             <Button data-testid="live-itv-refresh" onClick={refresh} disabled={listBusy}>
-              {listBusy ? "加载中…" : "刷新列表"}
+              {listBusy ? t("itv.live.loading") : t("itv.live.refresh")}
             </Button>
             <Button data-testid="live-itv-logout" variant="ghost" onClick={handleLogout}>
-              退出登录
+              {t("itv.live.signOut")}
             </Button>
           </div>
 
           {listError !== null ? (
             <p data-testid="live-itv-list-error" className="text-12 text-destructive">
-              {listError}
+              {listError === "UNKNOWN_ERROR" ? t("itv.live.unknownError") : listError}
             </p>
           ) : null}
 
           {counts !== null ? (
             <p data-testid="live-itv-counts" className="text-12 text-muted-foreground">
-              真人 {counts.human} · 虚拟 {counts.virtual}
+              {t("itv.live.counts", { human: counts.human, virtual: counts.virtual })}
             </p>
           ) : null}
 
           {items !== null ? (
             items.length === 0 ? (
               <p data-testid="live-itv-empty-state" className="text-12 text-muted-foreground">
-                本范围暂无访谈。
+                {t("itv.live.empty")}
               </p>
             ) : (
               <ul data-testid="live-itv-list" className="flex flex-col gap-1">
@@ -251,13 +260,13 @@ export default function ItvLivePage() {
             )
           ) : (
             <p data-testid="live-itv-list-empty-state" className="text-12 text-muted-foreground">
-              还没有加载列表——选范围后点「刷新列表」。
+              {t("itv.live.notLoaded")}
             </p>
           )}
 
           {detailError !== null ? (
             <p data-testid="live-itv-detail-error" className="text-12 text-destructive">
-              {detailError}
+              {detailError === "UNKNOWN_ERROR" ? t("itv.live.unknownError") : detailError}
             </p>
           ) : null}
 
@@ -268,13 +277,13 @@ export default function ItvLivePage() {
               </CardHeader>
               <CardContent className="flex flex-col gap-1 text-13">
                 <span data-testid="live-itv-detail-source">
-                  来源：{detail.sourceKind === "human" ? "真人" : "虚拟"}
+                  {t("itv.live.source", { kind: detail.sourceKind === "human" ? t("itv.live.human") : t("itv.live.virtual") })}
                 </span>
                 <span data-testid="live-itv-detail-outline-status">
-                  提纲状态：{detail.outlineStatus ?? "（尚未生成）"}
+                  {t("itv.live.outlineStatus", { status: detail.outlineStatus ? statusKeys[detail.outlineStatus] ? t(statusKeys[detail.outlineStatus]!) : detail.outlineStatus : t("itv.live.noOutline") })}
                 </span>
                 <span data-testid="live-itv-detail-started-at">
-                  开始时间：{detail.startedAt ?? "（尚未开始）"}
+                  {t("itv.live.startedAt", { time: detail.startedAt ?? t("itv.live.notStarted") })}
                 </span>
               </CardContent>
             </Card>
@@ -288,5 +297,5 @@ export default function ItvLivePage() {
 function describeError(e: unknown): string {
   if (e instanceof ApiError) return e.reasonCode ?? `HTTP ${e.status}`;
   if (e instanceof Error) return e.message;
-  return "未知错误";
+  return "UNKNOWN_ERROR";
 }

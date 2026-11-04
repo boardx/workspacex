@@ -1,0 +1,22 @@
+{
+  "stats": {
+    "expected": 1,
+    "unexpected": 0,
+    "flaky": 0,
+    "skipped": 0,
+    "duration": 242469.394
+  },
+  "tests": [
+    {
+      "title": "organization home configuration preserves drafts, real previews and recommendation snapshots across locales",
+      "project": "entity-localization",
+      "status": "passed",
+      "durationMs": 13918,
+      "retry": 0
+    }
+  ],
+  "head": "70e987b7ef8672cf262c9f99fc3849d81c093fc8",
+  "rawLogSha256": "869a480644e0b8ee644b82b10b4438ad6f1a5d7e35f634c6bed714d3edcc0960",
+  "rawReportSha256": "35227193455847428d0e7c6ada3d1f844683a86b7c6bdcdc9cbb18adc8b5bff6",
+  "rawOnlyPrivate": true
+}

@@ -1,3 +1,5 @@
+import { translate } from "./i18n/messages";
+import { DEFAULT_LOCALE, type Locale } from "./i18n/locale";
 import type { GuidedResearchRuntime as Runtime } from './guided-research-api';
 export type ExecutionStatus = 'pending' | 'running' | 'completed' | 'failed' | 'warning' | 'paused' | 'interrupted';
 export interface ExecutionRow { id: string; title: string; status: ExecutionStatus; detail?: string }
@@ -8,7 +10,7 @@ const aggregate = (statuses: string[]): ExecutionStatus => {
   if (statuses.includes('warning')) return 'warning';
   return statuses.every(status => status === 'completed') ? 'completed' : 'pending';
 };
-export function researchExecutionTimeline(state: Runtime, interrupted = false) {
+export function researchExecutionTimeline(state: Runtime, interrupted = false, locale: Locale = DEFAULT_LOCALE) {
   const timeline = state.reportTimeline ?? [];
   const tasks = state.tasks;
   const accepted = state.sources.filter(source => source.decision === 'accepted');
@@ -37,18 +39,18 @@ export function researchExecutionTimeline(state: Runtime, interrupted = false) {
   // persisted, quality-passed current publication proves execution completion.
   const finished = Boolean(state.report && state.completed && validation === 'completed' && !state.reportDraft && !state.reportQualityWarnings?.length && !state.busy && !state.errorCode && !interrupted && state.controlStatus !== 'paused');
   const rows: ExecutionRow[] = [
-    { id: 'search', title: '检索资料', status: active(search) },
-    { id: 'documents', title: '读取并整理真实来源', status: active(document), ...(accepted.length ? { detail: `已读取 ${accepted.filter(source => source.document).length}/${accepted.length} 个来源` } : {}) },
-    { id: 'chapters', title: '章节撰写与检查', status: active(aggregate(chapterStatuses)),
+    { id: 'search', title: translate(locale, "research.timeline.search"), status: active(search) },
+    { id: 'documents', title: translate(locale, "research.timeline.documents"), status: active(document), ...(accepted.length ? { detail: translate(locale, "research.timeline.readSources", { read: accepted.filter(source => source.document).length, count: accepted.length }) } : {}) },
+    { id: 'chapters', title: translate(locale, "research.timeline.chapters"), status: active(aggregate(chapterStatuses)),
       detail: timeline.filter(step => (step.stage === 'chapter' || step.stage === 'review') && ['running', 'retrying'].includes(step.status))
         .map(step => state.outline.find(section => section.id === step.sectionId)?.title).filter((title, index, titles) => title && titles.indexOf(title) === index).join('、') || undefined },
-    { id: 'synthesis', title: '综合结论', status: active(aggregate(timeline.filter(step => step.stage === 'synthesis').map(step => step.status))) },
-    { id: 'validation', title: '质量检查与保存', status: active(warnings ? 'warning' : validation === 'completed' && !state.report ? 'pending' : validation) },
+    { id: 'synthesis', title: translate(locale, "research.timeline.synthesis"), status: active(aggregate(timeline.filter(step => step.stage === 'synthesis').map(step => step.status))) },
+    { id: 'validation', title: translate(locale, "research.timeline.validation"), status: active(warnings ? 'warning' : validation === 'completed' && !state.report ? 'pending' : validation) },
   ];
   if (finished) for (const row of rows) {
     row.status = 'completed';
   }
   const runningGoal = leasedWork && state.executionGoal === 'report';
-  const summary = interrupted ? '执行已中断' : state.controlStatus === 'paused' ? '执行已暂停' : state.busy && !leasedWork ? '执行状态待确认' : runningGoal || searching ? '正在执行研究计划' : finished ? '执行完成' : state.errorCode || tasks.some(task => task.status === 'failed') ? '执行失败' : warnings ? '部分步骤未完成' : leasedWork ? '正在执行研究计划' : state.report ? '已有报告，请查看质量与保存状态' : '将按以下计划执行';
+  const summary = interrupted ? translate(locale, "research.timeline.interrupted") : state.controlStatus === 'paused' ? translate(locale, "research.timeline.paused") : state.busy && !leasedWork ? translate(locale, "research.timeline.unconfirmed") : runningGoal || searching ? translate(locale, "research.timeline.running") : finished ? translate(locale, "research.timeline.completed") : state.errorCode || tasks.some(task => task.status === 'failed') ? translate(locale, "research.timeline.failed") : warnings ? translate(locale, "research.timeline.incomplete") : leasedWork ? translate(locale, "research.timeline.running") : state.report ? translate(locale, "research.timeline.reportExists") : translate(locale, "research.timeline.planned");
   return { rows, summary, finished };
 }

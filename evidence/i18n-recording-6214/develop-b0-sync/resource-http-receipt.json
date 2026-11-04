@@ -1,0 +1,21 @@
+{
+  "name": "resource-http",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/lib/i18n-resources.test.ts",
+    "tests/lib/http-failure-text.test.ts"
+  ],
+  "source": "c87a575fc4290ac1dc046170a2fa56d3ba2569c1",
+  "exitCode": 0,
+  "seconds": 3.215,
+  "rawLogSha256": "68e494bbb87c21955a6b2b418f6aefbc464c11a271b8dc30c63ff8485da17dfd",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "passed": 20
+}

@@ -1,0 +1,134 @@
+Observed process exit code: 1
+Raw log SHA-256: 286bdf6a8ffa54b762feb44b85fffc98ace206d8d954ed6247ed94d3af89eff1
+
+
+ ✓ tests/ui/research-entry-i18n.test.tsx (9 tests) 521ms
+ ❯ tests/ui/research-workspace-i18n.test.tsx (6 tests | 6 failed) 434ms
+   × displays fixed focus options in English but saves canonical values and raw custom focus once 214ms
+     → Unable to find an accessible element with the role "checkbox" and name "User needs"
+
+Here are the accessible roles:
+</body>
+   × keeps plan draft and confirmation open across locales, and never translates saved plan text 35ms
+     → Unable to find an accessible element with the role "button" and name `/^Edit plan 1/`
+
+Here are the accessible roles:
+</body>
+   × translates saved report chrome and history without rewriting the report or replaying execution 155ms
+     → Unable to find an accessible element with the role "navigation" and name "Report contents"
+
+Here are the accessible roles:
+</article>
+   × retains the exact report-file request while pending and retranslates its error after completion 8ms
+     → Unable to find an accessible element with the role "button" and name "Generate PDF"
+
+Here are the accessible roles:
+</body>
+   × retranslates a saved-session authorization failure without retrying until explicit input 10ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  You do not have access to this research
+Received:
+  你暂时没有访问此研究的权限，请联系研究负责人。重试加载
+   × translates source workspace chrome while retaining source titles, summaries and links 11ms
+     → Unable to find an accessible element with the role "heading" and name "Research material"
+
+Here are the accessible roles:
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/research-workspace-i18n.test.tsx > displays fixed focus options in English but saves canonical values and raw custom focus once
+TestingLibraryElementError: Unable to find an accessible element with the role "checkbox" and name "User needs"
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-workspace-i18n.test.tsx:28:26
+     26|   const save = vi.fn((_value: typeof brief) => new Promise<boolean>(re…
+     27|   show(<ResearchTopicInformation brief={brief} disabled={false} onSave…
+     28|   fireEvent.click(screen.getByRole("checkbox", { name: "User needs", e…
+
+ FAIL  tests/ui/research-workspace-i18n.test.tsx > keeps plan draft and confirmation open across locales, and never translates saved plan text
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name `/^Edit plan 1/`
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-workspace-i18n.test.tsx:41:26
+     39|   const save = vi.fn().mockResolvedValue(true);
+     40|   show(<GuidedResearchPlanEditor value={outline} disabled={false} onSa…
+     41|   fireEvent.click(screen.getByRole("button", { name: /^Edit plan 1/ })…
+
+ FAIL  tests/ui/research-workspace-i18n.test.tsx > translates saved report chrome and history without rewriting the report or replaying execution
+TestingLibraryElementError: Unable to find an accessible element with the role "navigation" and name "Report contents"
+
+Here are the accessible roles:
+
+</article>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-workspace-i18n.test.tsx:64:25
+     62|   expect(report).toHaveTextContent(base.report!.title);
+     63|   expect(report).toHaveTextContent("执行摘要");
+     64|   expect(within(report).getByRole("navigation", { name: "Report conten…
+
+ FAIL  tests/ui/research-workspace-i18n.test.tsx > retains the exact report-file request while pending and retranslates its error after completion
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Generate PDF"
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-workspace-i18n.test.tsx:81:26
+     79|   api.file.mockImplementation(() => new Promise<ReportFileJobState>(re…
+     80|   show(<ReportFileActions source={source} />);
+     81|   fireEvent.click(screen.getByRole("button", { name: "Generate PDF", e…
+
+ FAIL  tests/ui/research-workspace-i18n.test.tsx > retranslates a saved-session authorization failure without retrying until explicit input
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  You do not have access to this research
+Received:
+  你暂时没有访问此研究的权限，请联系研究负责人。重试加载
+ ❯ tests/ui/research-workspace-i18n.test.tsx:96:45
+     94|   api.read.mockRejectedValue(new ApiError(403, "FORBIDDEN", { privateD…
+     95|   show(<GuidedResearchLive sessionId="research-locale-denied" onBack={…
+     96|   expect(await screen.findByRole("status")).toHaveTextContent("You do …
+
+ FAIL  tests/ui/research-workspace-i18n.test.tsx > translates source workspace chrome while retaining source titles, summaries and links
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Research material"
+
+Here are the accessible roles:
+
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/research-workspace-i18n.test.tsx:110:17
+    108|   const source = { ...base.sources[0]!, id: "raw-source", title: "中文…
+    109|   show(<GuidedResearchSourceWorkspace state={{ ...base, sources: [sour…
+    110|   expect(screen.getByRole("heading", { name: "Research material", exac…
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  6 failed | 9 passed (15)
+   Start at  01:09:17
+   Duration  5.56s (transform 1.33s, setup 257ms, collect 2.63s, tests 955ms, environment 1.30s, prepare 100ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:

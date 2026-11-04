@@ -1,0 +1,18 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=2.24 cores=10 perCore=0.22 running=0/2
+[test-isolation] id=run-mw166zm8-9a8776f4-56aa34d4d963 db=wsx_56aa34d4d963cda57ebc compose=wsx-56aa34d4d963cda57ebc pg=20220 redis=21220 api=24220 web=25220 sandbox=26220 model=27220 deep-agent=28220 asr=29220 vision=30220 loopback-sandbox=31220 mail=19220
+Error: Project(s) "e2e/i18n-interview-journey.spec.ts" not found. Available projects: "seeded", "official-digital-human", "realtime-voice", "official-role-workflow", "board-image-ingress", "seeded-github-import", "research-ux-r4", "board-unified-desktop", "board-unified-mobile", "board-collaboration-regressions", "project-results-shots", "core-loop-seeded", "core-loop-reset", "core-loop-empty-db", "overlay-primitives-keyboard", "axe-image-alt", "axe-keyboard-focus", "design-loop-responsive", "design-prototype-loop", "design-share"
+    at Object.filterProjects (/Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/playwright@1.62.0/node_modules/playwright/lib/runner/index.js:2142:11)
+    at runTests (/Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/playwright@1.62.0/node_modules/playwright/lib/cli/testActions.js:61:30)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at _Command.<anonymous> (/Users/shenyangjun/boardx/workspacex/node_modules/.pnpm/playwright@1.62.0/node_modules/playwright/lib/program.js:55:7)
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project seeded e2e/i18n-interview-journey.spec.ts --list
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project seeded e2e/i18n-interview-journey.spec.ts --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：1s
+  清理：0s
+  总计：1s

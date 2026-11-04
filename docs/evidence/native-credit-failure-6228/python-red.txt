@@ -1,0 +1,133 @@
+FFFFFFFF                                                                 [100%]
+=================================== FAILURES ===================================
+_ test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[invoke-credit_required] _
+
+_owner = {'base_url': 'http://api.example.test', 'key': 'fixture', 'org_id': 'org-A', 'run_id': 'run-A', ...}
+_subject = 'run-A', phase = 'admit'
+_payload = {'orgId': 'org-A', 'attemptId': 'run-A:1', 'leaseEpoch': 1, 'requestId': 'c5ffb77c-53b0-48b2-91ab-fbc4eae230c3', ...}
+
+    def denied(_owner, _subject, phase, _payload):
+        callbacks.append(phase)
+>       raise accounting.CreditRuntimeUsageError({"code":code,"ownerType":"user","ownerId":"initiator"})
+E       deep_agent_service.model_request_accounting.CreditRuntimeUsageError: credit_required
+
+tests/test_model_credit_failure.py:22: CreditRuntimeUsageError
+
+The above exception was the direct cause of the following exception:
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10bdb10f0>
+tmp_path = PosixPath('/private/var/folders/l8/7z3_dshd7799phy86_sry5k40000gn/T/pytest-of-shenyangjun/pytest-0/test_typed_credit_refusal_surv0')
+code = 'credit_required', mode = 'invoke'
+
+    @pytest.mark.parametrize("code", ["credit_required", "credit_accounting_unavailable"])
+    @pytest.mark.parametrize("mode", ["invoke", "stream", "ainvoke", "astream"])
+    def test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch(monkeypatch, tmp_path, code, mode):
+        monkeypatch.setenv("KERNEL_MODEL_BASE_URL", "http://vendor.example.test/v1")
+        monkeypatch.setenv("KERNEL_MODEL_API_KEY", "fixture")
+        monkeypatch.setenv("KERNEL_MODEL_MAX_OUTPUT_TOKENS", "4096")
+        monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+        monkeypatch.setattr(accounting, "_durability_fault", False)
+        owner = {"base_url":"http://api.example.test", "key":"fixture", "org_id":"org-A", "run_id":"run-A", "attempt_id":"run-A:1", "lease_epoch":1}
+        monkeypatch.setattr(accounting, "ownership", lambda: dict(owner))
+        callbacks, dispatches = [], []
+        def denied(_owner, _subject, phase, _payload):
+            callbacks.append(phase)
+            raise accounting.CreditRuntimeUsageError({"code":code,"ownerType":"user","ownerId":"initiator"})
+        async def denied_async(*args):
+            return denied(*args)
+        monkeypatch.setattr(accounting, "post", denied)
+        monkeypatch.setattr(accounting, "apost", denied_async)
+        def vendor(request):
+            dispatches.append(request)
+            raise AssertionError("credit refusal must stop vendor dispatch")
+        sync = httpx.Client(transport=accounting.AccountingTransport(httpx.MockTransport(vendor)))
+        asynchronous = httpx.AsyncClient(transport=accounting.AsyncAccountingTransport(httpx.MockTransport(vendor)))
+        monkeypatch.setattr(models, "model_http_clients", lambda: {"http_client":sync,"http_async_client":asynchronous})
+        model = models.build_chat_model()
+        async def call_async():
+            if mode == "ainvoke":
+                await model.ainvoke("hello")
+            else:
+                async for _ in model.astream("hello"):
+                    pass
+        try:
+            with pytest.raises(accounting.CreditRuntimeUsageError) as error:
+                if mode == "invoke":
+>                   model.invoke("hello")
+
+tests/test_model_credit_failure.py:43: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/langchain_core/language_models/chat_models.py:476: in invoke
+    self.generate_prompt(
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/langchain_core/language_models/chat_models.py:1865: in generate_prompt
+    return self.generate(prompt_messages, stop=stop, callbacks=callbacks, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/langchain_core/language_models/chat_models.py:1672: in generate
+    self._generate_with_cache(
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/langchain_core/language_models/chat_models.py:2010: in _generate_with_cache
+    result = self._generate(
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/langchain_openai/chat_models/base.py:1752: in _generate
+    _handle_openai_api_error(e)
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/langchain_openai/chat_models/base.py:1747: in _generate
+    raw_response = self.client.with_raw_response.create(**payload)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/openai/_legacy_response.py:369: in wrapped
+    return cast(LegacyAPIResponse[R], func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/openai/_utils/_utils.py:298: in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/openai/resources/chat/completions/completions.py:1296: in create
+    return self._post(
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/openai/_base_client.py:1382: in post
+    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <openai.OpenAI object at 0x10bd9e900>
+cast_to = <class 'openai.types.chat.chat_completion.ChatCompletion'>
+options = FinalRequestOptions(method='post', url='/chat/completions', params={}, headers={'X-Stainless-Raw-Response': 'true'}, m...nt': 'hello', 'role': 'user'}], 'model': 'qwen-plus', 'max_completion_tokens': 4096, 'stream': False}, extra_json=None)
+stream = False
+stream_cls = openai.Stream[openai.types.chat.chat_completion_chunk.ChatCompletionChunk]
+
+    def request(
+        self,
+        cast_to: Type[ResponseT],
+
+[Repeated SDK stack traces omitted; final summary follows.]
+
+                    )
+                    continue
+    
+                log.debug("Raising timeout error")
+                raise APITimeoutError(request=request) from err
+            except OpenAIError as err:
+                # Propagate OpenAIErrors as-is, without retrying or wrapping in APIConnectionError
+                raise err
+            except Exception as err:
+                log.debug("Encountered Exception", exc_info=True)
+    
+                if remaining_retries > 0:
+                    await self._sleep_for_retry(
+                        retries_taken=retries_taken,
+                        max_retries=max_retries,
+                        options=input_options,
+                        response=None,
+                    )
+                    continue
+    
+                log.debug("Raising connection error")
+>               raise APIConnectionError(request=request) from err
+E               openai.APIConnectionError: Connection error.
+
+../../../../apps/deep-agent-service/.venv/lib/python3.13/site-packages/openai/_base_client.py:1748: APIConnectionError
+=========================== short test summary info ============================
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[invoke-credit_required]
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[invoke-credit_accounting_unavailable]
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[stream-credit_required]
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[stream-credit_accounting_unavailable]
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[ainvoke-credit_required]
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[ainvoke-credit_accounting_unavailable]
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[astream-credit_required]
+FAILED tests/test_model_credit_failure.py::test_typed_credit_refusal_survives_real_sdk_without_vendor_dispatch[astream-credit_accounting_unavailable]
+8 failed in 2.95s

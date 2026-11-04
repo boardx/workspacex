@@ -1,0 +1,48 @@
+[stack-admission] load1=4.34 cores=10 perCore=0.43 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1xf6b9-26a75885-e3bd366c46d8 db=wsx_e3bd366c46d8c1c23196 compose=wsx-e3bd366c46d8c1c23196 pg=20268 redis=21268 api=24268 web=25268 sandbox=26268 model=27268 deep-agent=28268 asr=29268 vision=30268 loopback-sandbox=31268 mail=19268
+
+ RUN  v2.1.9 <checkout>/apps/api
+
+[db-isolation] db=wsx_e3bd366c46d8c1c23196 capacity=100 current=6 required=32
+ ❯ tests/billing/personal-fallback-metering-lock-order-pg.test.ts (1 test | 1 failed) 19540ms
+   × finishes a real personal-fallback usage receipt while another model request waits, without an org/wallet deadlock 1087ms
+     → expected [ { code: '40P01', …(1) } ] to deeply equal []
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/personal-fallback-metering-lock-order-pg.test.ts > finishes a real personal-fallback usage receipt while another model request waits, without an org/wallet deadlock
+AssertionError: expected [ { code: '40P01', …(1) } ] to deeply equal []
+
+- Expected
++ Received
+
+- Array []
++ Array [
++   Object {
++     "code": "40P01",
++     "message": "deadlock detected",
++   },
++ ]
+
+ ❯ tests/billing/personal-fallback-metering-lock-order-pg.test.ts:58:105
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  17:40:47
+   Duration  27.38s (transform 1.59s, setup 23ms, collect 2.53s, tests 19.54s, environment 0ms, prepare 126ms)
+
+[db-isolation] db=wsx_e3bd366c46d8c1c23196 peak_connections=4
+undefined
+<checkout>/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/billing/personal-fallback-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/personal-fallback-metering-lock-order-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：29s
+  清理：1s
+  总计：29s

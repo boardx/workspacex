@@ -35,6 +35,9 @@ import { RealtimeTranscriptionWorkspace } from "./realtime-transcription-workspa
 import { ProjectBreadcrumb } from "@/components/project/project-breadcrumb";
 import { linkProjectResource } from "@/lib/live-project-resources";
 
+import { useI18n } from "@/lib/i18n/provider";
+import type { MessageKey } from "@/lib/i18n/messages";
+
 type ActiveTag = string | undefined;
 
 /**
@@ -48,6 +51,7 @@ type ActiveTag = string | undefined;
 export function TranscriptionHistory({ uiState, projectId = null, initialCreateOpen = false, initialSessionId = null }: {
   uiState: UiState; projectId?: string | null; initialCreateOpen?: boolean; initialSessionId?: string | null;
 }) {
+  const { t } = useI18n();
   const sessionContext = useOptionalSession();
   /**
    * #1057 —— bearer 只有一条来源：真实 SessionProvider 的会话。
@@ -82,15 +86,15 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   };
   const [editItem, setEditItem] = React.useState<TranscriptionHistoryItem | null>(null);
   const [deleteItem, setDeleteItem] = React.useState<TranscriptionHistoryItem | null>(null);
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<{ key: MessageKey; name: string } | null>(null);
   const [activeSession, setActiveSession] = React.useState<PersonalTranscriptionDetail | null>(null);
   const [streamState, setStreamState] = React.useState<RealtimeAsrStreamState>("idle");
   const [flowState, setFlowState] = React.useState<RealtimeAsrFlowState>("normal");
   const [interimSegment, setInterimSegment] = React.useState("");
-  const [streamError, setStreamError] = React.useState<string | null>(null);
+  const [streamError, setStreamError] = React.useState<MessageKey | null>(null);
   const [reconnectableError, setReconnectableError] = React.useState(false);
   const [reconnecting, setReconnecting] = React.useState(false);
-  const [connectionNotice, setConnectionNotice] = React.useState<string | null>(null);
+  const [connectionNotice, setConnectionNotice] = React.useState<MessageKey | null>(null);
   const [inputLevel, setInputLevel] = React.useState(0);
   const micDevices = useAudioInputDevices();
   const streamRef = React.useRef<BoardxRealtimeAsrHandle | null>(null);
@@ -155,14 +159,14 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
         setOperationError("PROJECT_LINK_FAILED");
       }
     }
-    setNotice(`已创建“${draft.name}”`);
+    setNotice({ key: "rec.notice.created", name: draft.name });
     setActiveSession({ ...summary, content: "" });
     await refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
   async function saveMetadata(item: TranscriptionHistoryItem, draft: NewTranscriptionDraft) {
     const updated = await updatePersonalTranscriptionMetadata(item.id, { name: draft.name, tags: [...draft.tags] }, sessionToken);
-    setNotice(`已更新“${updated.name}”`);
+    setNotice({ key: "rec.notice.updated", name: updated.name });
     setListRevision((current) => current + 1);
     void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
@@ -170,7 +174,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
   async function removeTranscription(item: TranscriptionHistoryItem) {
     await deletePersonalTranscription(item.id, sessionToken);
     setItems((current) => current.filter((entry) => entry.id !== item.id));
-    setNotice(`已永久删除“${item.title}”`);
+    setNotice({ key: "rec.notice.deleted", name: item.title });
     void refreshTags().catch(() => setOperationError("TRANSCRIPTION_TAGS_FAILED"));
   }
 
@@ -179,7 +183,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     try {
       const updated = await stopPersonalTranscription(item.id, sessionToken);
       setItems((current) => current.map((entry) => entry.id === item.id ? toHistoryItem(updated) : entry));
-      setNotice(`已结束“${item.title}”的遗留转录状态`);
+      setNotice({ key: "rec.notice.stopped", name: item.title });
     } catch (error) {
       setOperationError(error instanceof Error ? error.message : "TRANSCRIPTION_STOP_FAILED");
     }
@@ -205,7 +209,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     openingRef.current = true;
     let failed = false;
     let retryableFailure = false;
-    const reportFailure = (reason: string, message = streamErrorText(reason)) => {
+    const reportFailure = (reason: string, message = streamErrorKey(reason)) => {
       if (!current() || failed || stoppingRef.current) return;
       failed = true;
       setInputLevel(0);
@@ -215,7 +219,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       retryableFailure = retryable;
       setStreamError(message);
       setReconnecting(retryable);
-      if (retryable) setConnectionNotice("连接中断，断线期间的音频未转录；请在恢复后补充。");
+      if (retryable) setConnectionNotice("rec.error.interrupted");
       if (!openingRef.current) retryRef.current!.failed(retryable);
     };
     setStreamError(null);
@@ -258,7 +262,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       streamRef.current = handle;
     } catch (error) {
       const reason = transcriptionFailureReason(error);
-      reportFailure(reason, error instanceof LiveRecordingError ? error.message : streamErrorText(reason));
+      reportFailure(reason, streamErrorKey(error instanceof LiveRecordingError ? error.kind : reason));
     } finally {
       openingRef.current = false;
       if (current()) {
@@ -295,7 +299,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
         setStreamState("idle");
       } catch {
         setStreamState("error");
-        setStreamError("无法结束遗留转录状态，请稍后重试。");
+        setStreamError("rec.error.legacyStop");
       }
       return;
     }
@@ -314,8 +318,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     } catch (error) {
       setStreamState("error");
       setStreamError(error instanceof Error && error.message === "FINISH_TIMEOUT"
-        ? "实时转录服务未及时确认最后一段，已保存文字仍保留，请检查末尾内容后继续转录。"
-        : "转录连接中断，已保存文字仍保留，最后一段尚未确认，请检查后继续转录。");
+        ? "rec.error.finishTimeout"
+        : "rec.error.stopInterrupted");
       streamRef.current = null;
       stoppingRef.current = false;
       return;
@@ -339,7 +343,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       setStreamError(null);
       setListRevision((current) => current + 1);
     } catch {
-      setStreamError("转录已停止，已保存文字仍保留；暂时无法刷新最新正文，请稍后重新打开。");
+      setStreamError("rec.error.refresh");
     } finally {
       setStreamState("idle");
       streamRef.current = null;
@@ -354,7 +358,7 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
       setActiveSession(await updatePersonalTranscriptionContent(activeSession.sessionId, content, sessionToken));
       setListRevision((current) => current + 1);
     } catch {
-      setStreamError("正文保存失败，请稍后重试。");
+      setStreamError("rec.workspace.saveFailed");
       throw new Error("TRANSCRIPTION_CONTENT_SAVE_FAILED");
     }
   }
@@ -387,8 +391,8 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
 
   if (activeSession) {
     return <RealtimeTranscriptionWorkspace session={activeSession} streamState={streamState}
-      interimSegment={interimSegment} flowState={flowState} errorMessage={streamError} reconnectableError={reconnectableError}
-      reconnecting={reconnecting} connectionNotice={connectionNotice}
+      interimSegment={interimSegment} flowState={flowState} errorMessage={streamError ? t(streamError) : null} errorIdentity={streamError} reconnectableError={reconnectableError}
+      reconnecting={reconnecting} connectionNotice={connectionNotice ? t(connectionNotice) : null}
       inputLevel={inputLevel} devices={micDevices.devices} selectedDeviceId={micDevices.selectedDeviceId}
       onSelectDevice={micDevices.select}
       onStart={() => void startRealtimeTranscription()} onStop={() => void stopRealtimeTranscription()}
@@ -417,11 +421,11 @@ export function TranscriptionHistory({ uiState, projectId = null, initialCreateO
     <section ref={historyRef} data-testid="rec-history-page" className="min-h-full bg-background px-4 py-4 md:px-6">
       <div className="mx-auto flex w-full max-w-screen-xl flex-col gap-4 md:gap-6">
         <ProjectBreadcrumb projectId={projectId} sub="transcript" className="" />
-        <StudioHistoryHeader business="转录" description="跨项目的全部历史转录。打开任意一条以查看内容、总结与洞察。" count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={openCreate} />
-        <StudioHistoryFilters business="转录" prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
+        <StudioHistoryHeader business={t("rec.business")} title={t("rec.history.title")} description={t("rec.history.description")} count={items.length} countTestId="rec-history-count" createTestId="rec-create-open" onCreate={openCreate} />
+        <StudioHistoryFilters business={t("rec.businessPlural")} prefix="rec-history" tags={tags} selectedTags={activeTag === undefined ? [] : [activeTag]} onTagsChange={(next) => setActiveTag(next[0])} tagMode="single" query={query} onQueryChange={setQuery} sort={sort} onSortChange={setSort} />
 
-        {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{notice}</p>}
-        {operationError && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">操作失败，请重试。已加载的转录仍可继续使用。</p>}
+        {notice && <p data-testid="saved" className="rounded-md bg-success px-3 py-2 text-12 text-success-foreground">{t(notice.key, { name: notice.name })}</p>}
+        {operationError && <p role="alert" data-testid="rec-history-api-error" className="rounded-md border border-destructive px-3 py-2 text-12 text-destructive">{t("rec.history.operationFailed")}</p>}
         <HistoryState
           uiState={loadError ? "dep-failed" : loading && uiState === "default" ? "loading" : uiState}
           items={sort === "recent" ? items : [...items].reverse()}
@@ -455,19 +459,22 @@ function appendFinalEvent(
   return { ...current, content: [current.content, event.text].filter(Boolean).join(" ") };
 }
 
-function streamErrorText(reason: string): string {
-  const messages: Record<string, string> = {
-    CREDIT_REQUIRED: "可用额度不足，请确认计费账户并充值后手动继续转录。",
-    CREDIT_ACCOUNTING_UNAVAILABLE: "计费服务暂时不可用，请稍后重试或联系管理员。",
-    ASR_NOT_CONFIGURED: "当前环境尚未配置阿里云实时转录，请联系管理员配置服务后重试。",
-    QUOTA_EXCEEDED: "当前实时转录额度不足。",
-    AUDIO_FORMAT_REJECTED: "麦克风音频格式不受支持，请刷新页面后重试。",
-    CAPTURE_ALREADY_ACTIVE: "这条转录已有正在进行的录音，请重新打开后继续。",
-    TICKET_EXPIRED: "连接凭证已过期，请重新点击开始转录。",
-    ASR_PROVIDER_UNAVAILABLE: "阿里云实时转录暂时不可用，请稍后重试。",
-    CONNECTION_FAILED: "无法连接实时转录服务，请检查网络后重试。",
+function streamErrorKey(reason: string): MessageKey {
+  const messages: Readonly<Record<string, MessageKey>> = {
+    "CREDIT_REQUIRED": "rec.error.CREDIT_REQUIRED",
+    "CREDIT_ACCOUNTING_UNAVAILABLE": "rec.error.CREDIT_ACCOUNTING_UNAVAILABLE",
+    "ASR_NOT_CONFIGURED": "rec.error.ASR_NOT_CONFIGURED",
+    "QUOTA_EXCEEDED": "rec.error.QUOTA_EXCEEDED",
+    "AUDIO_FORMAT_REJECTED": "rec.error.AUDIO_FORMAT_REJECTED",
+    "CAPTURE_ALREADY_ACTIVE": "rec.error.CAPTURE_ALREADY_ACTIVE",
+    "TICKET_EXPIRED": "rec.error.TICKET_EXPIRED",
+    "ASR_PROVIDER_UNAVAILABLE": "rec.error.ASR_PROVIDER_UNAVAILABLE",
+    "CONNECTION_FAILED": "rec.error.CONNECTION_FAILED",
+    "permission-denied": "rec.error.permission-denied",
+    "no-microphone": "rec.error.no-microphone",
+    "capture-failed": "rec.error.capture-failed",
   };
-  return messages[reason] ?? "无法启动实时转录，请稍后重试。";
+  return Object.hasOwn(messages, reason) ? messages[reason]! : "rec.error.default";
 }
 
 function HistoryState({
@@ -484,6 +491,7 @@ function HistoryState({
   onStop: (item: TranscriptionHistoryItem) => void;
   onDelete: (item: TranscriptionHistoryItem) => void;
 }) {
+  const { t } = useI18n();
   if (uiState === "loading") {
     return (
       <div data-testid="loading" className="grid animate-pulse grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -494,8 +502,8 @@ function HistoryState({
   const errorState = uiState === "dep-failed" || uiState === "denied" || uiState === "invalid";
   const errorPanel = errorState ? (
     <div role="alert" data-testid="rec-history-error" className="flex flex-col items-start gap-3 rounded-lg border border-destructive bg-card p-4 text-13 text-destructive sm:flex-row sm:items-center sm:justify-between">
-      <p>历史转录暂时无法读取，请重新加载。</p>
-      {uiState === "dep-failed" && <WorkflowActionButton variant="outline" onClick={onRetry}>重新加载</WorkflowActionButton>}
+      <p>{t("rec.history.loadFailed")}</p>
+      {uiState === "dep-failed" && <WorkflowActionButton variant="outline" onClick={onRetry}>{t("rec.history.reload")}</WorkflowActionButton>}
     </div>
   ) : null;
   if (errorState) return errorPanel;
@@ -503,8 +511,8 @@ function HistoryState({
     return (
       <div data-testid="rec-history-empty" className="flex min-h-48 flex-col items-center justify-center gap-3 rounded-lg bg-card p-4 text-center">
         <Clock3 aria-hidden className="h-8 w-8 text-muted-foreground" />
-        <div><p className="text-14 font-medium">{filtered ? "没有符合条件的转录" : "还没有转录"}</p><p className="mt-1 text-12 text-muted-foreground">{filtered ? "请调整标签或搜索条件。" : "新建转录即可开始记录。"}</p></div>
-        {filtered ? <WorkflowActionButton variant="outline" onClick={onClearFilters}>清除筛选</WorkflowActionButton> : <WorkflowActionButton variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />新建转录</WorkflowActionButton>}
+        <div><p className="text-14 font-medium">{filtered ? t("rec.history.noMatch") : t("rec.history.empty")}</p><p className="mt-1 text-12 text-muted-foreground">{filtered ? t("rec.history.adjust") : t("rec.history.begin")}</p></div>
+        {filtered ? <WorkflowActionButton variant="outline" onClick={onClearFilters}>{t("rec.history.clear")}</WorkflowActionButton> : <WorkflowActionButton variant="primary" onClick={onCreate}><Plus aria-hidden className="h-4 w-4" />{t("rec.create.title")}</WorkflowActionButton>}
       </div>
     );
   }
@@ -525,19 +533,20 @@ function HistoryCard({
   onStop: (item: TranscriptionHistoryItem) => void;
   onDelete: (item: TranscriptionHistoryItem) => void;
 }) {
+  const { t, locale } = useI18n();
   return (
     <StudioHistoryCard testId={`rec-history-card-${item.id}`} title={item.title}
-      status={<Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>{item.status === "recording" ? "转录中" : item.status === "failed" ? "失败" : item.duration === "00:00" ? "待开始" : "可续录"}</Badge>}
-      description={item.project} tags={item.tags}
-      metadata={<><span>{item.duration}</span><time>{item.updatedAt}</time></>}
-      primaryAction={<WorkflowActionButton data-testid={`rec-history-open-${item.id}`} variant="outline" onClick={() => onOpen(item)}>进入转录</WorkflowActionButton>}
+      status={<Badge tone={item.status === "recording" ? "warning" : item.status === "failed" ? "danger" : "neutral"}>{item.status === "recording" ? t("rec.history.recording") : item.status === "failed" ? t("rec.history.failed") : item.duration === "00:00" ? t("rec.history.pending") : t("rec.history.resume")}</Badge>}
+      description={t("rec.history.personal")} tags={item.tags}
+      metadata={<><span>{item.duration}</span><time dateTime={item.updatedAt}>{new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.updatedAt))}</time></>}
+      primaryAction={<WorkflowActionButton data-testid={`rec-history-open-${item.id}`} variant="outline" onClick={() => onOpen(item)}>{t("rec.history.open")}</WorkflowActionButton>}
       management={
         <DropdownMenu.Root>
-          <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={`${item.title} 更多操作`}><MoreHorizontal aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
+          <DropdownMenu.Trigger asChild><Button data-testid={`rec-history-more-${item.id}`} size="icon" variant="ghost" aria-label={t("rec.history.more", { name: item.title })}><MoreHorizontal aria-hidden className="h-4 w-4" /></Button></DropdownMenu.Trigger>
           <DropdownMenu.Portal><DropdownMenu.Content align="end" className="z-50 min-w-32 rounded-md border border-border bg-card p-1 shadow-md">
-            {item.status === "recording" && <DropdownMenu.Item data-testid={`rec-history-stop-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onStop(item)}><Square className="h-4 w-4" aria-hidden />结束转录</DropdownMenu.Item>}
-            <DropdownMenu.Item data-testid={`rec-history-edit-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onEdit(item)}><Pencil className="h-4 w-4" aria-hidden />修改</DropdownMenu.Item>
-            <DropdownMenu.Item data-testid={`rec-history-delete-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onDelete(item)}><Trash2 className="h-4 w-4" aria-hidden />删除</DropdownMenu.Item>
+            {item.status === "recording" && <DropdownMenu.Item data-testid={`rec-history-stop-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onStop(item)}><Square className="h-4 w-4" aria-hidden />{t("rec.history.stop")}</DropdownMenu.Item>}
+            <DropdownMenu.Item data-testid={`rec-history-edit-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onEdit(item)}><Pencil className="h-4 w-4" aria-hidden />{t("rec.history.edit")}</DropdownMenu.Item>
+            <DropdownMenu.Item data-testid={`rec-history-delete-${item.id}`} className="flex cursor-pointer items-center gap-2 rounded px-3 py-2 text-12 text-destructive transition-colors hover:bg-muted focus:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onSelect={() => onDelete(item)}><Trash2 className="h-4 w-4" aria-hidden />{t("rec.history.delete")}</DropdownMenu.Item>
           </DropdownMenu.Content></DropdownMenu.Portal>
         </DropdownMenu.Root>
       }
@@ -558,7 +567,7 @@ function toHistoryItem(item: PersonalTranscriptionSummary): TranscriptionHistory
     summary: item.durationMs > 0 ? "内容已保存，可随时进入并继续追加转录。" : "等待麦克风音频输入。",
     tags: item.tags,
     duration: `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
-    updatedAt: new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(item.updatedAt)),
+    updatedAt: item.updatedAt,
     status: item.status,
   };
 }

@@ -1,0 +1,44 @@
+{
+  "name": "browser-second",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-recording-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1"
+  ],
+  "source": "36ef68760fe8cbbcc2e634c417a39195a6578288",
+  "exitCode": 0,
+  "seconds": 240.973,
+  "rawLogLocalPath": "/tmp/6214-browser-second-private-36ef/browser-second.log",
+  "rawLogSha256": "39c8bef68baecc533e8daaaf6c7d34c58b2289795d9d6e8e04fc3191dd250eed",
+  "cases": [
+    {
+      "name": "personal recording persistence/edit/reload/delete",
+      "result": "PASS",
+      "seconds": 8.2
+    },
+    {
+      "name": "project previews and interviewee view",
+      "result": "PASS",
+      "seconds": 6.2
+    }
+  ],
+  "pngCount": 48,
+  "authorViewedCount": 48,
+  "visualAcceptance": "FINDINGS; follow-up source fix pending verification",
+  "receiptPersistence": "Local list reporter did not retain successful attachment body; no exact session/hash/duration values fabricated. Existing JSON observer to be enabled during next necessary visual rerun."
+}
