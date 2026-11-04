@@ -1110,6 +1110,14 @@ test("platform members preserve locale continuity and real superuser operator bo
       for (const control of await focus.getByRole("button").all()) {
         await expect(control).toBeInViewport({ ratio: 1 });
       }
+      // Selected role text must be readable, not merely present behind an ellipsis.
+      for (const picker of await focus.locator('button[data-testid^="admin-platform-member-"][data-testid$="-role"]').all()) {
+        const selectedLabel = picker.locator(":scope > span").first();
+        await expect(selectedLabel).toBeInViewport({ ratio: 1 });
+        await expect.poll(async () => selectedLabel.evaluate(label => label.clientWidth > 0 && label.clientWidth >= label.scrollWidth), {
+          message: `Selected organization role must fit: ${await selectedLabel.textContent()}`,
+        }).toBe(true);
+      }
       for (const option of await focus.getByRole("option").all()) {
         await expect(option).toBeInViewport({ ratio: 1 });
       }

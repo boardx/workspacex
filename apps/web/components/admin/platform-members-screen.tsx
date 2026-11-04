@@ -343,7 +343,7 @@ function MembershipRow({
     <li className="flex flex-wrap items-center gap-2" data-testid={testid}>
       <span className="max-w-full break-words text-12" data-testid={`${testid}-name`}>{membership.orgName}</span>
       <span className="text-10 text-muted-foreground">{t("platformMembers.joined", { date: new Date(membership.joinedAt).toLocaleDateString(locale === "en" ? "en-US" : "zh-CN") })}</span>
-      <div className="ml-auto w-32">
+      <div className="ml-auto w-40 max-w-full">
         <PopoverSelect
           value={membership.orgRole}
           options={(["consultant", "lead", "compliance", "admin"] as const).map((id) => ({ id, label: t(`role.${id}`) }))}
