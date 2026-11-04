@@ -1,7 +1,7 @@
 import {expect,it} from "vitest";
 import {PgCreditConsumption} from "../../src/infrastructure/billing/pg-credit-consumption";
 import {BILLING_ACCOUNTING_GENERATION as generation} from "../../src/domain/billing/billing-generation";
-it("refuses a new expired Team request even with positive permanent money, before writing a request",async()=>{
+it("refuses expired Team and indebted personal fallback before writing a request",async()=>{
  const writes:string[]=[];
  const term={purchaseAnchor:"2026-01-31T10:00:00Z",paidPeriodStart:"2026-01-31T10:00:00Z",paidPeriodEnd:"2027-01-31T10:00:00Z",billingCycle:"year",purchasedSeats:5,monthlyCredits:100000};
  const session={async query(sql:string){writes.push(sql);
@@ -10,11 +10,11 @@ it("refuses a new expired Team request even with positive permanent money, befor
   if(sql.includes("billing_pricing_epoch"))return {rows:[{generation,active:true}]};
   if(sql.includes("FROM organization_plans"))return {rows:[{plan:"ordinary",billing_generation:generation}]};
   if(sql.includes("FROM billing_team_terms"))return {rows:[{purchase_ref:"paid-original",paid_term:term,quote:{sku:"team-year"}}]};
-  if(sql.includes("FROM credit_wallets")&&sql.includes("FOR UPDATE"))return {rows:[{wallet_id:"wallet",balance:"1000.00",held_hundredths:"0",unbounded_requests:"0"}]};
-  if(sql.startsWith("SELECT balance"))return {rows:[{balance:"1000.00"}]};
+  if(sql.includes("FROM credit_wallets")&&sql.includes("FOR UPDATE"))return {rows:[{wallet_id:"wallet",balance:"-1.00",held_hundredths:"0",unbounded_requests:"0"}]};
+  if(sql.startsWith("SELECT balance"))return {rows:[{balance:"-1.00"}]};
   return {rows:[]};
  }};
  const core=new PgCreditConsumption({} as never,()=>new Date(term.paidPeriodEnd));
- await expect(core.reserveInSession(session as never,"org-a" as never,{requestId:"new",userId:"admin",runId:null,modelProvider:"test",modelId:"test-model",startedAt:"2027-01-31T10:00:00Z",executionAttemptId:null,projectId:null,maximumTokens:100})).rejects.toMatchObject({code:"credit_required",ownerType:"team"});
+ await expect(core.reserveInSession(session as never,"org-a" as never,{requestId:"new",userId:"admin",runId:null,modelProvider:"test",modelId:"test-model",startedAt:"2027-01-31T10:00:00Z",executionAttemptId:null,projectId:null,maximumTokens:100})).rejects.toMatchObject({code:"credit_required",ownerType:"user"});
  expect(writes.some(sql=>sql.startsWith("INSERT INTO credit_consumption_requests"))).toBe(false);
 });
