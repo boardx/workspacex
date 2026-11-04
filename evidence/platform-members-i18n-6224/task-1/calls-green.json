@@ -1,0 +1,13 @@
+{
+  "head": "93aa9cffad212208ef2b461db455b8ef059377ee",
+  "gate": "calls-green",
+  "exit": 0,
+  "seconds": 7.807,
+  "logSha256": "5e75abba92b9994bbb46fe022af9aeaee8a3a33dc4624c6f6dd88a3f4fc52af1",
+  "rawPrivate": true,
+  "summary": [
+    "Test Files  1 passed (1)",
+    "Tests  2 passed | 16 skipped (18)",
+    "Duration  6.09s (transform 1.68s, setup 211ms, collect 2.61s, tests 157ms, environment 1.65s, prepare 188ms)"
+  ]
+}

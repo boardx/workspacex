@@ -1,0 +1,7 @@
+{
+  "base": "7153fd810d1f52752b9050300a6b58f874097b81",
+  "file": "apps/web/tests/ui/platform-members-i18n.test.tsx",
+  "emittedJavaScriptByteIdentical": true,
+  "sha256": "200f3ebf54c216457451dadf79d9fc1f6f6bc516acdd89219c6e48b81dc35071",
+  "method": "TypeScript transpileModule samefile/JSX/options/removeComments; compares full emitted runtime bytes"
+}

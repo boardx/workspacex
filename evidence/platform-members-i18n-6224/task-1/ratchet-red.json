@@ -1,0 +1,12 @@
+{
+  "head": "74a9e1e28eda80f84725cf1c0330f021797918d9",
+  "gate": "ratchet-red",
+  "exit": 1,
+  "seconds": 0.749,
+  "logSha256": "0cc3bc2d5276c1282a7f5c158a6df24019b4c4a0116b8d939b20931c8bb7169c",
+  "rawPrivate": true,
+  "summary": [
+    "\u274c [user-facing-error-text] \u5b58\u91cf\u57fa\u7ebf\u5bf9\u4e0d\u4e0a\uff1a",
+    "apps/web/components/admin/platform-members-screen.tsx: 0 \u5904\uff08\u57fa\u7ebf 3\uff09\u2014\u2014\u4fee\u597d\u4e86\uff0c\u8bf7\u628a\u57fa\u7ebf\u6539\u6210 0"
+  ]
+}
