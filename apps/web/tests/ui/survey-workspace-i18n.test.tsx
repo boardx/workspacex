@@ -282,3 +282,15 @@ it("creates the direct-new import Markdown default in the entry locale without r
   expect(screen.getByRole("textbox", { name: "问卷 Markdown" })).toBe(editor); expect(editor).toHaveValue(raw);
   language("en"); expect(editor).toHaveValue(raw); expect(boundary.request).not.toHaveBeenCalled();
 });
+
+it("separates sharing instructions from the real publication dates without changing publication or refetching on locale", async () => {
+  const initial = published({ publication: { ...published().publication!, startsAt: "2026-11-04T05:00:00.000Z" } });
+  const before = structuredClone(initial); boundary.request.mockResolvedValueOnce(initial);
+  await act(async () => { show(<LiveSurveyWorkspace surveyId="raw-survey" initialStep="publish" />, "en"); });
+  const instructions = screen.getByText("Invite respondents using the link or QR code.", { exact: false });
+  expect(instructions).toHaveTextContent(/QR code\. Starts /);
+  expect(instructions).toHaveTextContent(new Date(initial.publication!.startsAt!).toLocaleString("en"));
+  language("zh-CN"); language("en");
+  expect(instructions).toHaveTextContent(/QR code\. Starts /);
+  expect(boundary.request).toHaveBeenCalledTimes(1); expect(initial).toEqual(before);
+});

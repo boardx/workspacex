@@ -173,7 +173,9 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await capture(page, info, "report-file-binding-en", bindingBlock.getByRole("checkbox", { name: `${fileBeforePublish.order}. ${rawFile}`, exact: true }));
         await page.getByRole("button", { name: "2. Publish and collect", exact: true }).click();
         await capture(page, info, "publication-en", page.getByRole("button", { name: "Start collection", exact: true }));
-        const published = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/start-collection` && response.request().method() === "POST");
+        await capture(page, info, "publication-settings-en", page.getByRole("textbox", { name: "Success-page Markdown", exact: true }));
+        expect(bound.status).toBe("draft");
+        const published = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/publish` && response.request().method() === "POST");
         await page.getByRole("button", { name: "Start collection", exact: true }).click();
         expect((await published).ok()).toBe(true);
         const publicUrl = await page.getByRole("textbox", { name: "Response link", exact: true }).inputValue(), initialPublication = await runtime(page, id);
