@@ -665,7 +665,7 @@ function useCopilotKitV2PanelController({
    */
   const [sentMessageIds, setSentMessageIds] = React.useState<ReadonlySet<string>>(() => new Set());
 
-  const [historyError, setHistoryError] = React.useState<string | null>(null);
+  const [historyError, setHistoryError] = React.useState<{ cause: unknown } | null>(null);
   const hydratedRef = React.useRef(false);
   const [historyLoading, setHistoryLoading] = React.useState(initialChatThreadId !== null);
   const historyScope = draftSession ? JSON.stringify([draftSession.sessionToken, draftSession.userId, draftSession.currentOrgId, projectId]) : null;
@@ -845,7 +845,7 @@ function useCopilotKitV2PanelController({
         if (cancelled) return;
         setHistoryLoading(false);
         discardHistory();
-        setHistoryError(e instanceof Error ? e.message : "历史消息读取失败");
+        setHistoryError({ cause: e });
       }
     })();
     return () => {

@@ -65,9 +65,9 @@ export function ToolPermissionCard({
   };
 
   return (
-    <Card data-testid="tool-permission-card" className="max-w-lg border-warning/40 shadow-lg">
+    <Card data-testid="tool-permission-card" className="w-full min-w-0 max-w-lg border-warning/40 shadow-lg">
       <CardHeader className="gap-1">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <ShieldAlert aria-hidden className="h-4 w-4 text-warning" />
           <CardTitle className="text-14">{t("chatPermissions.title")}</CardTitle>
           <RiskBadge risk={req.risk} />
@@ -76,7 +76,7 @@ export function ToolPermissionCard({
           {t("chatPermissions.description")}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-col gap-1">
           <span className="text-11 font-medium text-muted-foreground">{t("chatPermissions.intent")}</span>
           <p data-testid="perm-intent" className="text-13 text-background-foreground">{req.intent}</p>
@@ -87,7 +87,7 @@ export function ToolPermissionCard({
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-11 font-medium text-muted-foreground">{t("chatPermissions.command")}</span>
-          <pre data-testid="perm-command" className="overflow-x-auto rounded-control bg-muted p-2 text-11">
+          <pre data-testid="perm-command" className="w-full min-w-0 max-w-full overflow-x-auto rounded-control bg-muted p-2 text-11">
             <code className="font-mono">{req.command}</code>
           </pre>
         </div>

@@ -577,13 +577,13 @@ export function ChatSkillMountPanel({
     <div
       className={
         headless
-          ? "absolute bottom-full left-0 z-20 mb-1.5 flex w-64 items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2 shadow-md"
+          ? "flex w-full min-w-0 basis-full items-start justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
           : "flex items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-2"
       }
       data-testid="chat-skill-mount-failure"
     >
-      <p className="text-11 text-destructive">{describeMessageFailure(failure.cause, t(failure.action), locale)}</p>
-      <Button size="xs" variant="outline" data-testid="chat-skill-mount-retry" onClick={() => { cleanupAttempts.current.clear(); void reload(); void loadPool(); }}>
+      <p className="min-w-0 flex-1 break-words text-11 text-destructive">{describeMessageFailure(failure.cause, t(failure.action), locale)}</p>
+      <Button size="xs" variant="outline" className="shrink-0" data-testid="chat-skill-mount-retry" onClick={() => { cleanupAttempts.current.clear(); void reload(); void loadPool(); }}>
         <RefreshCw aria-hidden className="h-3 w-3" />{t("ui.retry")}
       </Button>
     </div>
@@ -595,7 +595,7 @@ export function ChatSkillMountPanel({
     return (
       <div
         ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
-        className="flex min-w-0 flex-wrap items-center gap-1"
+        className={failure ? "flex w-full min-w-0 flex-wrap items-center gap-1" : "flex min-w-0 flex-wrap items-center gap-1"}
         data-testid="chat-skill-mount-panel"
         data-mounted-count={scopedMounts.length}
       >

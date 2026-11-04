@@ -1,5 +1,7 @@
 "use client";
 import { useI18n } from "@/lib/i18n/provider";
+import { ApiError } from "@/lib/api-client";
+import { describeMessageFailure } from "@/lib/live-chat";
 import { ChatComposerCurrentStatus } from "./chat-composer-current-status";
 import { RestoredRunApproval } from "@/components/chat/workbench/restored-run-approval";
 import { QueuedMessagesPanel } from "@/components/chat/workbench/queued-messages-panel";
@@ -144,7 +146,7 @@ export function CopilotKitV2PanelView({
   voice,
   voiceThread,
 }: CopilotKitV2PanelViewProps): JSX.Element {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   return (
     <div className="flex h-full min-h-0 w-full gap-3">
       {/* DA-13 -- 左栏：流式对话与决策过程，不变；右栏（下方，条件渲染）是新增的活动
@@ -463,7 +465,10 @@ export function CopilotKitV2PanelView({
             className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-12 text-destructive"
           >
             <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 flex-1">{t("chatComposer.historyPrefix")}{historyError}</span>
+            <span className="min-w-0 flex-1">{historyError.cause instanceof ApiError
+              ? describeMessageFailure(historyError.cause, t("chatComposer.readHistory"), locale)
+              : t("chatComposer.historyPrefix") + (historyError.cause instanceof Error
+                ? historyError.cause.message : t("chatComposer.historyGeneric"))}</span>
           </div>
         ) : null}
         {/* issue #2053（CK-P8）—— 归档线程不给追问建议：每一条 chip 点下去都是一次

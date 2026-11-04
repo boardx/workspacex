@@ -79,7 +79,8 @@ vi.mock("@/components/chat/chat-skill-mount-panel", () => ({
 
 import * as React from "react";
 import { CopilotKit, useCopilotKit } from "@copilotkit/react-core/v2";
-import { SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import { ApiError, SESSION_TOKEN_STORAGE_KEY } from "@/lib/api-client";
+import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import { CopilotKitV2AgentSelectionProvider } from "@/lib/copilotkit-v2-agent-selection";
 import { CopilotKitV2Panel } from "@/components/chat/copilotkit-v2-panel";
 import { describeAgentRunError, describeAgentRunFailure } from "@/lib/agent-run";
@@ -380,4 +381,46 @@ describe("issue #3387 ① —— 有产出 + run 成功 ⇒ 不得显示失败�
       .toContain(describeAgentRunFailure("MODEL_CALL_FAILED", "executor_defect")));
     expect(screen.queryByTestId("copilotkit-v2-notice")).toBeNull();
   });
+});
+
+function HistoryLocaleControl() {
+  const { locale, setLocale } = useI18n();
+  return <button onClick={() => setLocale(locale === "en" ? "zh-CN" : "en")}>Change history test locale</button>;
+}
+function mountHistoryLocale() {
+  return render(<I18nProvider initialLocale="en"><HistoryLocaleControl />
+    <CopilotKit runtimeUrl="/api/copilotkit" useSingleEndpoint={false}>
+      <CopilotKitV2AgentSelectionProvider><CoreProbe />
+        <CopilotKitV2Panel chatThreadId={THREAD_ID} archived={false} canGeneratePersona={false} />
+      </CopilotKitV2AgentSelectionProvider>
+    </CopilotKit>
+  </I18nProvider>);
+}
+
+it("history owned HTTP404 is rendered in the current locale without refetch or raw-code leakage", async () => {
+  listMessages.mockRejectedValue(new ApiError(404, null, null));
+  mountHistoryLocale();
+  const banner = await screen.findByTestId("copilotkit-v2-history-error");
+  await waitFor(() => expect(banner).toHaveTextContent("HTTP 404"));
+  expect(banner).not.toHaveTextContent("http_404");
+  expect(banner).toHaveTextContent("message history");
+  const reads = listMessages.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Change history test locale" }));
+  expect(screen.getByTestId("copilotkit-v2-history-error")).toBe(banner);
+  expect(banner).toHaveTextContent("HTTP 404");
+  expect(banner).not.toHaveTextContent("message history");
+  expect(listMessages).toHaveBeenCalledTimes(reads);
+});
+
+it("history unknown caller text remains verbatim across locale changes without another read", async () => {
+  const original = "Caller detail {opaque} raw text";
+  listMessages.mockRejectedValue(new Error(original));
+  mountHistoryLocale();
+  const banner = await screen.findByTestId("copilotkit-v2-history-error");
+  await waitFor(() => expect(banner).toHaveTextContent(original));
+  const reads = listMessages.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Change history test locale" }));
+  expect(screen.getByTestId("copilotkit-v2-history-error")).toBe(banner);
+  expect(banner).toHaveTextContent(original);
+  expect(listMessages).toHaveBeenCalledTimes(reads);
 });

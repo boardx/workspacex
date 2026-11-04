@@ -258,6 +258,16 @@ test("permission dialog locale switch and Escape submit no decision; explicit on
     for (const width of [1280, 375]) {
       await page.setViewportSize({ width, height: 900 });
       await picture(page, info, `permission-zh-${width}`);
+      for (const id of ["chat-tool-permission-dialog", "tool-permission-card", "perm-once", "perm-run", "perm-always", "perm-deny"]) {
+        const element = page.getByTestId(id);
+        await expect(element).toBeVisible();
+        const box = await element.boundingBox();
+        expect(box, `${id} has actual browser geometry`).not.toBeNull();
+        expect(box!.x, `${id} left edge`).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width, `${id} right edge`).toBeLessThanOrEqual(width);
+        expect(box!.y, `${id} top edge`).toBeGreaterThanOrEqual(0);
+        expect(box!.y + box!.height, `${id} bottom edge`).toBeLessThanOrEqual(900);
+      }
     }
     await page.keyboard.press("Escape");
     await expect(dialog).not.toBeVisible();
@@ -345,6 +355,19 @@ test("different seeded principal receives real private-thread 404 and locale cha
     expect(await send.evaluate((current, previous) => current === previous, original)).toBe(true);
     await denied.setViewportSize({ width: 375, height: 900 });
     await picture(denied, info, "private-thread-denied-zh-375");
+    const skillFailure = denied.getByTestId("chat-skill-mount-failure");
+    await expect(skillFailure).toBeVisible();
+    const failureBox = await skillFailure.boundingBox();
+    const inputBox = await denied.getByTestId("copilotkit-v2-input").boundingBox();
+    expect(failureBox).not.toBeNull();
+    expect(inputBox).not.toBeNull();
+    expect(failureBox!.x).toBeGreaterThanOrEqual(0);
+    expect(failureBox!.x + failureBox!.width).toBeLessThanOrEqual(375);
+    expect(
+      failureBox!.y >= inputBox!.y + inputBox!.height || failureBox!.y + failureBox!.height <= inputBox!.y ||
+      failureBox!.x >= inputBox!.x + inputBox!.width || failureBox!.x + failureBox!.width <= inputBox!.x,
+      "the persistent skill failure must not obscure the actual draft input",
+    ).toBe(true);
     await locale(denied, control, "en");
     await expect(send).toBeDisabled();
     expect(writes).toBe(0);

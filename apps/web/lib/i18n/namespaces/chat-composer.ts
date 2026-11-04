@@ -1,3 +1,7 @@
+const readHistoryZh = "历史消息读取";
+const historyFailureZh = `${readHistoryZh}失败`;
+const historyFailureEn = "Could not load message history";
+
 export const chatComposerZhCN = {
   "chatComposer.documentAutoApprove": "自动批准文档生成所需权限",
   "chatComposer.documentAutoApproveCompact": "自动批准文档权限",
@@ -10,7 +14,9 @@ export const chatComposerZhCN = {
   "chatComposer.running": "正在执行",
   "chatComposer.latestTitle": "回到最新消息（Ctrl/Cmd+End）",
   "chatComposer.latest": "回到最新消息",
-  "chatComposer.historyPrefix": "历史消息读取失败：",
+  "chatComposer.historyPrefix": `${historyFailureZh}：`,
+  "chatComposer.readHistory": readHistoryZh,
+  "chatComposer.historyGeneric": historyFailureZh,
   "chatComposer.noAttachments": "这条对话还没有可引用的附件。",
   "chatComposer.noMatchingAttachments": "没有文件名含「{query}」的附件。",
   "chatComposer.archivedReadOnly": "该对话已归档，只能读取，不能创建消息或运行。",
@@ -97,7 +103,9 @@ export const chatComposerEn: Record<keyof typeof chatComposerZhCN, string> = {
   "chatComposer.running": "Executing",
   "chatComposer.latestTitle": "Jump to the latest message (Ctrl/Cmd+End)",
   "chatComposer.latest": "Jump to the latest message",
-  "chatComposer.historyPrefix": "Could not load message history: ",
+  "chatComposer.historyPrefix": `${historyFailureEn}: `,
+  "chatComposer.readHistory": "Load message history",
+  "chatComposer.historyGeneric": historyFailureEn,
   "chatComposer.noAttachments": "There are no attachments to reference in this conversation.",
   "chatComposer.noMatchingAttachments": "No attachment filename contains \u201c{query}\u201d.",
   "chatComposer.archivedReadOnly": "This conversation is archived. You can read it but cannot create messages or runs.",
