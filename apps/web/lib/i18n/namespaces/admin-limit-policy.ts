@@ -109,7 +109,7 @@ export const adminLimitPolicyEn: Record<keyof typeof adminLimitPolicyZhCN, strin
   "adminLimitPolicy.failed": "Could not load limit rules: {error}",
   "adminLimitPolicy.retry": "Retry",
   "adminLimitPolicy.loading": "Loading limit rules…",
-  "adminLimitPolicy.count": "{count} rules",
+  "adminLimitPolicy.count": "Rules: {count}",
   "adminLimitPolicy.new": "Add rule",
   "adminLimitPolicy.empty": "No limit rules have been configured.",
   "adminLimitPolicy.enabled": "{name} rule enabled",
