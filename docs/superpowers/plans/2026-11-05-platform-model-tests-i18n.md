@@ -40,3 +40,9 @@
 - [ ] Source gates and exact isolated discovery; one native run, actual exit/owned cleanup and immediate release before report classification/image QA. Fix only real i18n/driver issues; record unrelated business defects separately.
 - [ ] Independently inspect every final PNG and safe evidence, task/runtime review and strongest final whole-branch review. Bind metadata-only publication to actual product source.
 - [ ] Canonical credential scan, normal hooks/push, automatic PRCloses6246 targetingdevelop. Main checks CI/queue and actual merge; first actual relevant failure remains this worker's responsibility. Update6133 route/owner/issue/status without claiming uncovered pages complete.
+
+## 2026-11-05 Draft publication checkpoint
+
+Source production394283d and test/config b8005f are frozen. Focused88/88 passed at58f602; only the required cancellation ApiError raw fixture argument changed later, with its affected case and scoped lint passing. Web type/init/raw-error/testid/wiring and20 static configuration tests passed; exact product-partition discovery selects1 native case. Source reviews are clear after the grant-cleanup ordering correction. Existing CI selects the spec without workflow changes.
+
+Native execution and all20 planned images remain pending. Task2 runtime and final acceptance checkboxes above intentionally remain open. Coordinator approved a normal-hook explicit Draft PR and cloud acceptance, with no additional local Next build. Public receipts and handoff: evidence/platform-model-tests-i18n-6246/ and docs/design/platform-model-tests-i18n/.
