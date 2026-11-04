@@ -155,3 +155,5 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-10-28：sandbox 的 Session 数量不能替代执行准入；普通 `/run` 与 Native 必须各自在服务入口限流。排队取消需要贯通持久化 run 检查点、HTTP AbortSignal 与服务等待项，仅测试 Socket 断开会漏掉 Chat 队列取消。额度按服务进程计算，重启不恢复，不得据此宣称全局调度或自动扩容（issue #5966；边界与验证见 docs/design/sandbox-capacity/README.md）。
 
 - 2026-11-03：真实 GitHub 导入的502与额度耗尽须用安全上游status/quota区分；只读GET恢复共享有限attempt与deadline，取消要同时停socket/backoff，重定向后不得恢复凭据。单测恢复通过不代表公网导入通过；同URL基线/新实现都超时时保留真实红并在标准CI验收（issue #6194）。
+
+- 2026-11-04：OpenAI SDK 会把 HTTP transport 的专用额度拒绝包装成 APIConnectionError；模型边界须沿真实异常 cause 恢复 CreditRuntimeUsageError，不能按供应商错误文本识别。四种同步/异步 invoke/stream 应通过已安装 SDK 反证无 vendor dispatch；数据库付款方回退与发布后真实模型到账需分别验证（issue #6228）。

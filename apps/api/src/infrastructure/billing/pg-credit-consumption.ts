@@ -24,21 +24,45 @@ export class PgCreditConsumption {
  }
  private error(p:Payer,message:string,code:"credit_required"|"credit_accounting_unavailable"="credit_accounting_unavailable"){return new CreditConsumptionError(code,p.ownerType,p.ownerId,message);}
  async reserveInSession(s:TenantSession,orgId:OrgId,input:Start):Promise<void>{
-  const p=await this.payer(s,orgId,input.userId),at=this.clock();
-  let teamLicense:"allowed"|"subscription_required"|"unavailable"="allowed";
-  if(p.ownerType==="team"){
-   try{teamLicense=await prepareTeamCreditAdmission(s,orgId,at);}catch{throw this.error(p,"team_license_accounting_unavailable");}
-  }
-  if(p.ownerType === "user") await grantDuePersonalTerms(s,p.ownerId);
-  await s.query(`INSERT INTO credit_wallets(owner_type,owner_id) VALUES($1,$2) ON CONFLICT(owner_type,owner_id) DO NOTHING`,[p.ownerType,p.ownerId]);
-  const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[p.ownerType,p.ownerId])).rows[0]!;
-  await normalizeCreditPeriods(s,wallet.wallet_id,at);
-  wallet.balance=(await s.query<{balance:string}>("SELECT balance::text FROM credit_wallets WHERE wallet_id=$1",[wallet.wallet_id])).rows[0]!.balance;
+  let p=await this.payer(s,orgId,input.userId);const at=this.clock();
+  // Every financial path takes the organization before wallets, including personal fallback.
+  await lockTeamFinancialOwner(s,orgId);
   const immutable={orgId,userId:input.userId,runId:input.runId,modelProvider:input.modelProvider,modelId:input.modelId,executionAttemptId:input.executionAttemptId,projectId:input.projectId,threadId:input.threadId??null,agentId:input.agentId??null,callPurpose:input.callPurpose??null};
   const old=(await s.query<Request>("SELECT * FROM credit_consumption_requests WHERE request_id=$1",[input.requestId])).rows[0];
-  if(old){const prior=old.start_facts as Record<string,unknown>;const {maximumTokenBound,nativeMaximumBound,tokenBoundRequired,...identity}=prior;const boundInput=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};if(facts(identity)!==facts(immutable)||old.wallet_id!==wallet.wallet_id||(boundInput.maximumTokens!==undefined&&maximumTokenBound!==boundInput.maximumTokens)||(boundInput.nativeMaximum!==undefined&&facts(nativeMaximumBound)!==facts(boundInput.nativeMaximum))||(boundInput.tokenBoundRequired!==undefined&&tokenBoundRequired!==boundInput.tokenBoundRequired))throw this.error(p,"credit_start_replay_mismatch");return;}
-  if(p.ownerType==="team"&&teamLicense!=="allowed")throw this.error(p,teamLicense==="subscription_required"?"team_subscription_required":"team_license_accounting_unavailable",teamLicense==="subscription_required"?"credit_required":"credit_accounting_unavailable");
-  if(p.ownerType==="user"&&creditHundredths(wallet.balance)<0n)throw this.error(p,"insufficient_credit","credit_required");
+  if(old){
+   const prior=old.start_facts as Record<string,unknown>;
+   const {maximumTokenBound,nativeMaximumBound,tokenBoundRequired,...identity}=prior;
+   const boundInput=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};
+   if(facts(identity)!==facts(immutable)||(boundInput.maximumTokens!==undefined&&maximumTokenBound!==boundInput.maximumTokens)||(boundInput.nativeMaximum!==undefined&&facts(nativeMaximumBound)!==facts(boundInput.nativeMaximum))||(boundInput.tokenBoundRequired!==undefined&&tokenBoundRequired!==boundInput.tokenBoundRequired))throw this.error(p,"credit_start_replay_mismatch");
+   // The persisted request owns its payer; current balance or license cannot select it again.
+   const fixed=(await s.query<{owner_type:string;owner_id:string}>("SELECT owner_type,owner_id FROM credit_wallets WHERE wallet_id=$1",[old.wallet_id])).rows[0];
+   if(!fixed||!((fixed.owner_type==="team"&&fixed.owner_id===orgId)||(fixed.owner_type==="user"&&fixed.owner_id===input.userId)))throw this.error(p,"credit_start_replay_mismatch");
+   return;
+  }
+  const loadWallet=async (payer:Payer)=>{
+   await s.query(`INSERT INTO credit_wallets(owner_type,owner_id) VALUES($1,$2) ON CONFLICT(owner_type,owner_id) DO NOTHING`,[payer.ownerType,payer.ownerId]);
+   const wallet=(await s.query<{wallet_id:string;balance:string;held_hundredths:string;unbounded_requests:string}>(`SELECT wallet_id,balance::text,held_hundredths::text,unbounded_requests::text FROM credit_wallets WHERE owner_type=$1 AND owner_id=$2 FOR UPDATE`,[payer.ownerType,payer.ownerId])).rows[0]!;
+   await normalizeCreditPeriods(s,wallet.wallet_id,at);
+   wallet.balance=(await s.query<{balance:string}>("SELECT balance::text FROM credit_wallets WHERE wallet_id=$1",[wallet.wallet_id])).rows[0]!.balance;
+   return wallet;
+  };
+  let wallet:Awaited<ReturnType<typeof loadWallet>>|undefined;
+  if(p.ownerType==="team"){
+   let eligibility:Awaited<ReturnType<typeof prepareTeamCreditAdmission>>;
+   try{eligibility=await prepareTeamCreditAdmission(s,orgId,at);}catch{throw this.error(p,"team_license_accounting_unavailable");}
+   if(eligibility.decision==="unavailable")throw this.error(p,"team_license_accounting_unavailable");
+   if(eligibility.decision==="allowed")wallet=await loadWallet(p);
+   if(eligibility.decision==="subscription_required"||(!eligibility.allowOverdraft&&wallet&&creditHundredths(wallet.balance)<=0n)){
+    p={ownerType:"user",ownerId:input.userId};wallet=undefined;
+   }
+  }
+  if(p.ownerType==="user"){
+   // Personal monthly grants take their advisory lock before the personal wallet.
+   await grantDuePersonalTerms(s,p.ownerId);
+   wallet=await loadWallet(p);
+   if(creditHundredths(wallet.balance)<0n)throw this.error(p,"insufficient_credit","credit_required");
+  }
+  if(!wallet)throw this.error(p,"credit_wallet_unavailable");
   const admission=(await s.query<{maximum_tokens:string;billing_kind:string;native_unit:string|null;max_native_quantity:string|null}>("SELECT maximum_tokens::text,billing_kind,native_unit,max_native_quantity::text FROM ai_request_reservations WHERE id=$1 AND org_id=$2 AND user_id=$3",[input.requestId,orgId,input.userId])).rows[0];
   const extended=input as Start & {maximumTokens?:number|null;nativeMaximum?:{unit:string;quantity:bigint};tokenBoundRequired?:boolean};
   const native=extended.nativeMaximum??(admission?.billing_kind==="native"&&admission.native_unit&&admission.max_native_quantity?{unit:admission.native_unit,quantity:BigInt(admission.max_native_quantity)}:undefined);
@@ -54,13 +78,14 @@ export class PgCreditConsumption {
    if(input.callPurpose==="native-image"||input.callPurpose==="native-asr")throw this.error(p,"credit_native_bound_missing");
   }
   if(reserved>limit)throw this.error(p,"credit_request_bound_unrepresentable");
-  await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13)`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
+  const inserted=await s.query(`INSERT INTO credit_consumption_requests(request_id,org_id,user_id,wallet_id,model_provider,model_id,run_id,start_facts,reserved_hundredths,tariff_version,native_unit,native_quantum,native_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12,$13) ON CONFLICT(request_id) DO NOTHING RETURNING request_id`,[input.requestId,orgId,input.userId,wallet.wallet_id,input.modelProvider,input.modelId,input.runId,facts({...immutable,maximumTokenBound:extended.maximumTokens??null,nativeMaximumBound:extended.nativeMaximum??null,tokenBoundRequired:extended.tokenBoundRequired??false}),reserved.toString(),version,native?.unit??null,quantum?.toString()??null,rate?.toString()??null]);
+  if(!inserted.rows.length)throw this.error(p,"credit_start_replay_mismatch");
   await s.query("UPDATE credit_wallets SET held_hundredths=held_hundredths+$2,unbounded_requests=unbounded_requests+$3 WHERE wallet_id=$1",[wallet.wallet_id,reserved.toString(),reserved===0n?1:0]);
  }
  async settleInSession(s:TenantSession,orgId:OrgId,usage:TokenUsageRecord):Promise<void>{
   // Replay/settlement uses the immutable admitted payer, without rechecking membership or licensing.
   const owner=(await s.query<{owner_type:"user"|"team"}>("SELECT w.owner_type FROM credit_consumption_requests r JOIN credit_wallets w ON w.wallet_id=r.wallet_id WHERE r.request_id=$1 AND r.org_id=$2",[usage.eventId??null,orgId])).rows[0];
-  if(owner?.owner_type==="team")await lockTeamFinancialOwner(s,orgId);
+  if(owner)await lockTeamFinancialOwner(s,orgId);
   await settleCreditReceipt(s,orgId,usage);
  }
  /** Reconcile only authoritative receipts; never expire uncertain holds on a timer. */

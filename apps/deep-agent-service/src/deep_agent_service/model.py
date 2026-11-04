@@ -69,6 +69,7 @@ import os
 from urllib.parse import urlsplit
 
 from langchain_openai import ChatOpenAI
+from deep_agent_service.credit_aware_chat_model import CreditAwareChatOpenAI
 from deep_agent_service.model_request_accounting import model_http_clients, admission_enabled
 
 DEFAULT_MODEL_ID = "qwen-plus"
@@ -205,7 +206,7 @@ def build_chat_model(model_id_override: str | None = None) -> ChatOpenAI:
         # The existing deployment bound is never guessed; API policy can impose a smaller limit.
         admission_options = {"max_retries": 0, "max_tokens": int(raw_bound)}
 
-    return ChatOpenAI(
+    return CreditAwareChatOpenAI(
         base_url=base_url,
         api_key=api_key,
         model=model_id,

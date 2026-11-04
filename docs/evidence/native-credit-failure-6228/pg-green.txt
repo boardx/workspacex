@@ -1,0 +1,28 @@
+[stack-admission] load1=4.63 cores=10 perCore=0.46 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw1xg12h-f4463da7-dfdb4902d514 db=wsx_dfdb4902d51439b5c94e compose=wsx-dfdb4902d51439b5c94e pg=20242 redis=21242 api=24242 web=25242 sandbox=26242 model=27242 deep-agent=28242 asr=29242 vision=30242 loopback-sandbox=31242 mail=19242
+
+ RUN  v2.1.9 <checkout>/apps/api
+
+[db-isolation] db=wsx_dfdb4902d51439b5c94e capacity=100 current=6 required=32
+ ✓ tests/billing/credit-consumption-pg.test.ts (16 tests) 33987ms
+ ✓ tests/billing/credit-payer-fallback-pg.test.ts (10 tests) 1962ms
+ ✓ tests/billing/team-ai-admission-pg.test.ts (3 tests) 856ms
+ ✓ tests/billing/private-auxiliary-credit-pg.test.ts (5 tests) 943ms
+ ✓ tests/billing/credit-admission-policy-pg.test.ts (6 tests) 1059ms
+ ✓ tests/billing/personal-fallback-metering-lock-order-pg.test.ts (1 test) 744ms
+ ✓ tests/billing/team-credit-admission-core.test.ts (1 test) 7ms
+
+ Test Files  7 passed (7)
+      Tests  42 passed (42)
+   Start at  17:41:28
+   Duration  53.57s (transform 2.27s, setup 66ms, collect 5.94s, tests 39.56s, environment 1ms, prepare 604ms)
+
+[db-isolation] db=wsx_dfdb4902d51439b5c94e peak_connections=4
+[timing] pnpm --filter @repo/api exec vitest run tests/billing/credit-payer-fallback-pg.test.ts tests/billing/personal-fallback-metering-lock-order-pg.test.ts tests/billing/team-ai-admission-pg.test.ts tests/billing/team-credit-admission-core.test.ts tests/billing/credit-consumption-pg.test.ts tests/billing/credit-admission-policy-pg.test.ts tests/billing/private-auxiliary-credit-pg.test.ts --maxWorkers=1 --minWorkers=1
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：55s
+  清理：1s
+  总计：56s
