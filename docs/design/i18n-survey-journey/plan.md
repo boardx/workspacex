@@ -86,10 +86,10 @@ flowchart LR
 **Files:** components/survey/live/response-list.tsx; components/survey/report/{report-document,report-chart,template-editor}.tsx and report-format.ts; only reachable workflow response/analysis views; namespace survey-results.ts. Test: survey-results-i18n.test.tsx.
 **Interfaces:** preserve filter enum all/normal/review/excluded and raw exclusion reasons. Optional locale argument for rendered number formatting retains default zh for canonical serializers; report/response Markdown exports unchanged.
 
-- [ ] Write RED for fixed table/filter/pagination/audit/download/analysis/empty/error/report-editor/chart labels. Assert raw answers/model/template text and edit selection unchanged; excluded sample math exactly unchanged; late responses do not overwrite another selection; canonical exported Markdown bytes stable.
-- [ ] Run new suite; Expected: valid missing-English failures. Implement rendered resources and locale formatting only, keep report generation/publish/download payloads and content raw.
-- [ ] Run new suite plus response-review/download, report-document/chart/markdown, workflow-model and flexible-template; Expected: all PASS.
-- [ ] Commit and task-done affected suite.
+- [x] Write RED for fixed table/filter/pagination/audit/download/analysis/empty/error/report-editor/chart labels. Assert raw answers/model/template text and edit selection unchanged; excluded sample math exactly unchanged; late responses do not overwrite another selection; canonical exported Markdown bytes stable.
+- [x] Run new suite; Expected: valid missing-English failures. Implement rendered resources and locale formatting only, keep report generation/publish/download payloads and content raw.
+- [x] Run new suite plus response-review/download, report-document/chart/markdown, workflow-model and flexible-template; Expected: all PASS.
+- [x] Commit and task-done affected suite.
 
 ### Task 6: Question/report template libraries and reuse
 

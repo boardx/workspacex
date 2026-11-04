@@ -1,0 +1,52 @@
+{
+  "name": "green-affected",
+  "command": [
+    "/Users/shenyangjun/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/executing-plans/scripts/task-done",
+    "docs/design/i18n-survey-journey/plan.md",
+    "5",
+    "012ea5e8e99be56ee0b07fb10bfa69756d0d1c7e",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-results-i18n.test.tsx",
+    "tests/ui/survey-report-editor-i18n.test.tsx",
+    "tests/ui/survey-report-issues-i18n.test.ts",
+    "tests/ui/survey-response-review.test.tsx",
+    "tests/ui/survey-response-download.test.tsx",
+    "tests/ui/survey-report-document.test.tsx",
+    "tests/ui/survey-report-chart.test.ts",
+    "tests/ui/survey-report-markdown.test.ts",
+    "tests/ui/survey-workflow-model.test.ts",
+    "tests/ui/survey-flexible-template.test.tsx",
+    "tests/ui/survey-runtime-client.test.ts",
+    "tests/ui/survey-live-workspace.test.tsx",
+    "tests/ui/survey-live-publishing.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "33916f5fe58e9f60cacf7a1dba796a33a34a717a",
+  "exitCode": 0,
+  "seconds": 54.223,
+  "rawLogSha256": "b73ae6aa07920536c5dd522ac57d33b7e991a02541b7416f970bd7bc2edfed7c",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 14,
+  "passed": 172,
+  "failed": 0,
+  "newCases": 52,
+  "inheritedCases": 120,
+  "stderrGroups": 6,
+  "echartsDiagnostics": 24,
+  "diagnosticKinds": [
+    "zero DOM dimensions in jsdom",
+    "aligned tick readability"
+  ],
+  "unhandled": 0,
+  "skipped": 0,
+  "nativeSeconds": 53.05,
+  "innerLogSha256": "5a38523f11bc929bca4acddcd43d8541decfb2dbfdc78829ca47f9dd597ab1ca"
+}

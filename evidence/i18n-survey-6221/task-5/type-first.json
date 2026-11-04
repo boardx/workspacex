@@ -1,0 +1,14 @@
+{
+  "name": "type-first",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "33916f5fe58e9f60cacf7a1dba796a33a34a717a",
+  "exitCode": 0,
+  "seconds": 46.087,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "environment": {}
+}
