@@ -157,3 +157,5 @@ MCP 接线、模型路由、context-pack、provenance；不含对话 UI 本身�
 - 2026-11-03：真实 GitHub 导入的502与额度耗尽须用安全上游status/quota区分；只读GET恢复共享有限attempt与deadline，取消要同时停socket/backoff，重定向后不得恢复凭据。单测恢复通过不代表公网导入通过；同URL基线/新实现都超时时保留真实红并在标准CI验收（issue #6194）。
 
 - 2026-11-04：OpenAI SDK 会把 HTTP transport 的专用额度拒绝包装成 APIConnectionError；模型边界须沿真实异常 cause 恢复 CreditRuntimeUsageError，不能按供应商错误文本识别。四种同步/异步 invoke/stream 应通过已安装 SDK 反证无 vendor dispatch；数据库付款方回退与发布后真实模型到账需分别验证（issue #6228）。
+
+- 2026-11-04：custom HTTP clients/base URL 会关闭已安装 LangChain SDK 的流式用量默认值；用真实 SDK 与未预读的 HTTP 字节流验证 provider 请求选项及同一物理请求的终端 receipt，不能只把带 usage 的 fixture 喂给 parser。同步/异步流式与非流式四条 wire 回归见 tests/test_model_stream_usage.py（issue #6230）。
