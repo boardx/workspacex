@@ -6,6 +6,7 @@ import { SURVEY_REPORT_SHARE_MIN_SAMPLE } from "@repo/contracts/survey-report";
 import { readFile, writeFile } from "node:fs/promises";
 import { SurveyRuntimeSchema, type SurveyRuntime } from "@repo/contracts/survey-runtime";
 import { SurveyLibraryTemplateSchema } from "@repo/contracts/survey-template-library";
+import { parseSurveyPublicationMarkdown } from "@repo/contracts/survey-source";
 import { surveyAccountFixture } from "./support/survey-owned-organization";
 import { surveyI18nDatabaseEvidence } from "./support/survey-i18n-evidence";
 import { FULLSTACK_E2E as F } from "./fullstack-smoke-fixture";
@@ -99,9 +100,18 @@ const meeting = "会议反馈调查";
 async function fillMeeting(page: Page, firstTitle: string) {
     await page.getByRole("textbox", { name: firstTitle, exact: true }).fill("原会议回答 {count}");
     await page.getByLabel("会议日期", { exact: true }).fill("2026-11-04");
-    for (const title of ["会议目标和议程清晰。", "会议内容与我的工作相关。", "参会者有足够机会表达意见。", "会后行动项、负责人和时间明确。"])
-        await page.getByRole("group", { name: title, exact: true }).getByRole("radio").nth(3).check();
-    await page.getByRole("group", { name: "会议时长是否合适？", exact: true }).getByLabel("合适", { exact: true }).check();
+    // The fieldset's accessible name includes the required marker in its legend.
+    for (const title of ["会议目标和议程清晰。", "会议内容与我的工作相关。", "参会者有足够机会表达意见。", "会后行动项、负责人和时间明确。"]) {
+        const question = page.getByRole("group", { name: `${title} *`, exact: true });
+        await expect(question).toHaveCount(1);
+        await expect(question.getByRole("radio")).toHaveCount(5);
+        await question.getByRole("radio").nth(3).check();
+        await expect(question.getByRole("radio").nth(3)).toBeChecked();
+    }
+    const duration = page.getByRole("group", { name: "会议时长是否合适？ *", exact: true });
+    await expect(duration).toHaveCount(1);
+    await duration.getByLabel("合适", { exact: true }).check();
+    await expect(duration.getByLabel("合适", { exact: true })).toBeChecked();
     await page.getByRole("textbox", { name: "下次会议最值得改进的地方是什么？", exact: true }).fill("原建议 {name}\nKeep the original answer.");
 }
 test("survey locale preserves real author publishing, anonymous file submission, review, report and PostgreSQL identities", async ({ page, browser }, info) => {
@@ -238,7 +248,18 @@ test("survey locale preserves real author publishing, anonymous file submission,
         const { responseId } = await receipt.json() as {
             responseId: string;
         };
-        await expect(respondent.getByRole("status")).toContainText("Thank you");
+        // Success-page Markdown is frozen authored data, even when its text is Chinese.
+        const frozenSettings = parseSurveyPublicationMarkdown(initialPublication.publication!.sourceSnapshot!.documents.publication.markdown);
+        expect(frozenSettings.ok).toBe(true);
+        if (!frozenSettings.ok) throw Error("Published collection settings must parse");
+        const rawSuccess = frozenSettings.settings.successMessageMarkdown;
+        await expect(respondent.getByRole("status")).toHaveText(rawSuccess);
+        const beforeSuccessLocale = publicRequests.length;
+        await respondent.getByTestId("language-switcher").selectOption("zh-CN");
+        await expect(respondent.getByRole("status")).toHaveText(rawSuccess);
+        await respondent.getByTestId("language-switcher").selectOption("en");
+        await expect(respondent.getByRole("status")).toHaveText(rawSuccess);
+        expect(publicRequests).toHaveLength(beforeSuccessLocale);
         await capture(respondent, info, "public-success-en", respondent.getByRole("status"));
         expect(publicRequests.filter(request => request.method === "POST" && request.path.endsWith("/upload-sessions"))).toHaveLength(1);
         expect(publicRequests.filter(request => request.method === "POST" && request.path.endsWith("/responses"))).toHaveLength(1);

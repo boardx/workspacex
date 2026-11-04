@@ -1,0 +1,39 @@
+{
+  "name": "browser-second",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1"
+  ],
+  "source": "b8b7ed4655a44bd7c70bc3409c87dba6ec8fe3f2",
+  "exitCode": 1,
+  "seconds": 432.046,
+  "rawLogSha256": "d3c306d5dd72d04d78b1268dd494e7add5da63f42a95d9b4c6773de8c57cc206",
+  "sourceAfter": "b8b7ed4655a44bd7c70bc3409c87dba6ec8fe3f2",
+  "sourceStable": true,
+  "environment": {},
+  "result": {
+    "passed": 0,
+    "failed": 1,
+    "maxFailureUnrun": 2,
+    "retries": 0,
+    "firstCaseTimeoutMs": 180000,
+    "cleanupErrorSecondary": true
+  },
+  "classification": "Driver exact required-fieldset name omits the visible required marker; not product or flaky classification."
+}
