@@ -1028,7 +1028,7 @@ export function FeedbackDialog({
             )}
             {draftSaved && (
               <p className="text-11 text-primary" data-testid="feedback-draft-saved">
-                已存为草稿。在「反馈草稿」里继续完善，想清楚了再提交到收件箱。
+                {t("feedbackOverlay.draft.savedReceipt")}
               </p>
             )}
 

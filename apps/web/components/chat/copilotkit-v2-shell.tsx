@@ -1078,6 +1078,7 @@ export function CopilotKitV2Shell({
   const [runState, setRunState] = React.useState<{
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
+    readonly phaseLabelOwned?: boolean;
     readonly startedAt: number | null; readonly recoveryDiagnostic?: string | null;
   }>({ isRunning: false, phaseLabel: null, startedAt: null });
   const [pendingMaterialsCount, setPendingMaterialsCount] = React.useState(0);
@@ -1417,6 +1418,7 @@ export function CopilotKitV2Shell({
         planTodos={planTodos}
         isRunning={runState.isRunning}
         runPhaseLabel={runState.phaseLabel}
+        runPhaseLabelOwned={runState.phaseLabelOwned}
         runStartedAt={runState.startedAt}
         recoveryDiagnostic={runState.recoveryDiagnostic}
         /* phase-18 F09 —— 右栏「记忆」页签（会话知识面板）。与编制同一条规则：选中了线程才开。 */

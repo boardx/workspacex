@@ -78,7 +78,8 @@ export const feedbackOverlayZhCN = {
   "feedbackOverlay.open": "打开已保存的反馈",
   "feedbackOverlay.tail": "，或从「提反馈」的「我提过的」回看，无需重新提交。",
   "feedbackOverlay.dismiss": "关闭保存回执",
-  "feedbackOverlay.close": "关闭"
+  "feedbackOverlay.close": "关闭",
+  "feedbackOverlay.draft.savedReceipt": "已存为草稿。在「反馈草稿」里继续完善，想清楚了再提交到收件箱。",
 } as const;
 
 export const feedbackOverlayEn: Record<keyof typeof feedbackOverlayZhCN, string> = {
@@ -160,5 +161,6 @@ export const feedbackOverlayEn: Record<keyof typeof feedbackOverlayZhCN, string>
   "feedbackOverlay.open": "Open saved feedback",
   "feedbackOverlay.tail": " or find it under My feedback. You do not need to submit it again.",
   "feedbackOverlay.dismiss": "Dismiss saved receipt",
-  "feedbackOverlay.close": "Close"
+  "feedbackOverlay.close": "Close",
+  "feedbackOverlay.draft.savedReceipt": "Saved as a draft. Continue editing in Feedback drafts and submit it to the inbox when ready.",
 };

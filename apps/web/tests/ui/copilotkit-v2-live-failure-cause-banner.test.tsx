@@ -397,6 +397,21 @@ function mountHistoryLocale() {
   </I18nProvider>);
 }
 
+it("owned live run error and cause follow locale without another authority read", async () => {
+  mountHistoryLocale();
+  await waitFor(() => expect(errorBus).not.toBeNull());
+  await waitFor(() => expect(Object.keys(agents).length).toBeGreaterThan(0));
+  await act(async () => { emitRunAccepted(RUN_ID); });
+  await errorBus!.emitError({ error: new Error("MODEL_CALL_FAILED"), code: "agent_run_error_event", context: { source: "onRunErrorEvent", runtimeErrorCode: "MODEL_CALL_FAILED", event: { type: "RUN_ERROR", message: "MODEL_CALL_FAILED", code: "MODEL_CALL_FAILED" } } });
+  const banner = await screen.findByTestId("copilotkit-v2-error");
+  await waitFor(() => expect(banner).toHaveTextContent("A server defect occurred"));
+  const reads = getAgentRun.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Change history test locale" }));
+  expect(screen.getByTestId("copilotkit-v2-error")).toBe(banner);
+  expect(banner).toHaveTextContent(describeAgentRunFailure("MODEL_CALL_FAILED", "executor_defect"));
+  expect(getAgentRun).toHaveBeenCalledTimes(reads);
+});
+
 it("history owned HTTP404 is rendered in the current locale without refetch or raw-code leakage", async () => {
   listMessages.mockRejectedValue(new ApiError(404, null, null));
   mountHistoryLocale();

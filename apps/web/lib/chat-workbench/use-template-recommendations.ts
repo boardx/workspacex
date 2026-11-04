@@ -1,4 +1,5 @@
 "use client";
+import type { ChatDisplayText } from "../chat-runtime-display";
 import * as React from "react";
 import type { AbstractAgent } from "@ag-ui/client";
 import { ApiError, getStoredSessionToken } from "@/lib/api-client";
@@ -113,7 +114,7 @@ export function useTemplateRecommendations({ agent, initialChatThreadId, project
    * NOT_VISIBLE / NO_WRITE_ROLE / STORAGE_UNAVAILABLE，用户对它们的处置完全不同）。
    */
   const [personaRunning, setPersonaRunning] = React.useState(false);
-  const [personaFailure, setPersonaFailure] = React.useState<string | null>(null);
+  const [personaFailure, setPersonaFailure] = React.useState<ChatDisplayText | null>(null);
   /**
    * 2026-08-30 重设计：「生成用户画像」从恒定不变的独立按钮，改成建议行里按上下文
    * 出现/消失的一条（人类原话「他应该是动态的建议的行为，不能是固定的」）。
@@ -149,7 +150,7 @@ export function useTemplateRecommendations({ agent, initialChatThreadId, project
       const { messages: persisted } = await readAllPersistedMessages(initialChatThreadId, bearer);
       const anchor = persisted[persisted.length - 1];
       if (anchor === undefined) {
-        setPersonaFailure("这条对话还没有已落库的消息，无法生成画像。");
+        setPersonaFailure({ key: "chatComposer.runtime.personaNoMessages" });
         return;
       }
       const out = await summarizePersonaFromThread(initialChatThreadId, anchor.id, bearer);
@@ -157,7 +158,7 @@ export function useTemplateRecommendations({ agent, initialChatThreadId, project
       const result = after.find((m) => m.id === out.resultMessageId);
       if (result === undefined) {
         // 服务端说写了、读回却没有——不假装成功，也不假装失败：如实说清楚现状与出路。
-        setPersonaFailure("画像已生成，但没能立刻读回那条消息。刷新页面即可看到。");
+        setPersonaFailure({ key: "chatComposer.runtime.personaUnreadable" });
         return;
       }
       if (!agent.messages.some((m) => m.id === result.id)) {
@@ -177,10 +178,10 @@ export function useTemplateRecommendations({ agent, initialChatThreadId, project
     } catch (failure) {
       setPersonaFailure(
         failure instanceof ApiError
-          ? `生成用户画像失败：${failure.reasonCode ?? `HTTP ${failure.status}`}`
+          ? { key: "chatComposer.runtime.personaFailure", params: { reason: failure.reasonCode ?? `HTTP ${failure.status}` } }
           : failure instanceof Error
-            ? `生成用户画像失败：${failure.message}`
-            : "生成用户画像失败。",
+            ? { key: "chatComposer.runtime.personaFailure", params: { reason: failure.message } }
+            : { key: "chatComposer.runtime.personaUnknown" },
       );
     } finally {
       setPersonaRunning(false);

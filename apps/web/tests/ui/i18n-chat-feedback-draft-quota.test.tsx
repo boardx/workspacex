@@ -1,6 +1,6 @@
 import * as React from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 const ports = vi.hoisted(() => ({ request: vi.fn(), upload: vi.fn() }));
 vi.mock("@/lib/api-client", async load => ({ ...(await load<typeof import("@/lib/api-client")>()), apiRequest: ports.request }));
 vi.mock("@/lib/live-feedback", async load => ({ ...(await load<typeof import("@/lib/live-feedback")>()), uploadFeedbackAttachment: ports.upload }));
@@ -17,6 +17,23 @@ function app(onDraftSaved = vi.fn()) { return <I18nProvider initialLocale="en"><
 async function review() { fireEvent.change(screen.getByTestId("feedback-detail-input"), { target: { value: raw } }); fireEvent.click(screen.getByTestId("feedback-proceed-review")); await screen.findByTestId("feedback-submit"); }
 beforeEach(() => { vi.stubEnv("NEXT_PUBLIC_APP_VERSION", "raw-build/{version}"); ports.request.mockReset(); ports.upload.mockReset(); ports.request.mockImplementation((path: string) => path === "/feedback/structure-draft" ? Promise.resolve({ kind: "需求", title: "模型标题 {title}", detail: raw, structured: null }) : Promise.resolve({ items: [] })); });
 afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
+
+it("owned saved-draft receipt translates without a second draft write", async () => {
+  ports.request.mockImplementation((path: string) => path === "/feedback/structure-draft" ? Promise.resolve({ kind: "需求", title: "模型标题", detail: raw, structured: null }) : Promise.resolve({ draftId: "raw-draft" }));
+  const saved = vi.fn(); render(app(saved)); await review();
+  fireEvent.click(screen.getByTestId("feedback-save-draft"));
+  await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+  // Existing save resets to compose; the retained receipt is rendered on review.
+  // Keep that behavior rather than altering the save workflow for an i18n test.
+  await review();
+  const receipt = await screen.findByTestId("feedback-draft-saved");
+  expect(receipt).toHaveTextContent("Saved as a draft");
+  act(() => changeLocale());
+  expect(screen.getByTestId("feedback-draft-saved")).toBe(receipt);
+  expect(receipt).toHaveTextContent("已存为草稿");
+  expect(saved).toHaveBeenCalledTimes(1); expect(saved).toHaveBeenCalledWith("raw-draft");
+  expect(ports.request.mock.calls.filter(([path]) => path === "/feedback/drafts")).toHaveLength(1);
+});
 
 it("keeps a persistent draft-save failure and the raw editable body without locale retries", async () => {
   ports.request.mockImplementation((path: string) => path === "/feedback/structure-draft" ? Promise.resolve({ kind: "需求", title: "模型标题", detail: raw, structured: null }) : Promise.reject(new ApiError(503, "DEPENDENCY_UNAVAILABLE", "internal")));

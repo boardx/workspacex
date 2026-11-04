@@ -2,7 +2,7 @@ import * as React from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
-import { ChatAttachmentButton, ChatAttachmentList, ChatSidebarUploadButton, useChatAttachments } from "@/components/chat/chat-composer-attachments";
+import { ChatAttachmentButton, ChatAttachmentList, ChatSidebarUploadButton, MessageAttachments, useChatAttachments } from "@/components/chat/chat-composer-attachments";
 import { AttachmentExtractionNotice } from "@/components/chat/attachment-extraction-notice";
 import type { ChatAttachment } from "@/lib/live-chat";
 const { upload, cancel } = vi.hoisted(() => ({ upload: vi.fn(), cancel: vi.fn() }));
@@ -16,6 +16,21 @@ function Harness() {
   return <><ChatAttachmentButton ctl={ctl} showLabel /><ChatAttachmentList ctl={ctl} /></>;
 }
 beforeEach(() => { upload.mockReset(); cancel.mockReset(); cancel.mockResolvedValue(undefined); });
+it("owned skill draft badge follows locale without rewriting the persisted filename", () => {
+  const file = { ...row, filename: "用户原名 {x}.skill.json", mime: "application/json" };
+  function MessageDriver() {
+    const { setLocale } = useI18n();
+    return <><button onClick={() => setLocale("zh-CN")}>Change message locale</button><MessageAttachments attachments={[file]} threadId="raw-thread" /></>;
+  }
+  render(<I18nProvider initialLocale="en"><MessageDriver /></I18nProvider>);
+  const badge = screen.getByTestId(`chat-skill-draft-${file.id}`);
+  expect(badge).toHaveTextContent("Skill draft");
+  fireEvent.click(screen.getByRole("button", { name: "Change message locale" }));
+  expect(screen.getByTestId(`chat-skill-draft-${file.id}`)).toBe(badge);
+  expect(badge).toHaveTextContent("技能草稿");
+  expect(screen.getByText(file.filename)).toHaveAttribute("title", file.filename);
+  expect(upload).not.toHaveBeenCalled(); expect(cancel).not.toHaveBeenCalled();
+});
 it("localizes the material dialog without remounting its pending upload or rewriting the filename", async () => {
   upload.mockImplementation(() => new Promise<ChatAttachment>(() => {}));
   render(<I18nProvider initialLocale="en"><Harness /></I18nProvider>);

@@ -1,0 +1,65 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx (9 tests | 1 failed | 8 skipped) 109ms
+   × owned existing resume and failed-action chrome translate without locale resuming a run 108ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Resume execution
+Received:
+  继续执行
+ ❯ tests/ui/i18n-chat-feedback-draft-quota.test.tsx (5 tests | 1 failed | 4 skipped) 216ms
+   × owned saved-draft receipt translates without a second draft write 216ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Saved as a draft
+Received:
+  已存为草稿。在「反馈草稿」里继续完善，想清楚了再提交到收件箱。
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-canonical-chrome.test.tsx > owned existing resume and failed-action chrome translate without locale resuming a run
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Resume execution
+Received:
+  继续执行
+ ❯ tests/ui/i18n-chat-canonical-chrome.test.tsx:146:18
+    144|   host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null}…
+    145|   const button = await screen.findByTestId("chat-task-workbench-run-re…
+    146|   expect(button).toHaveTextContent("Resume execution");
+       |                  ^
+    147|   expect(ports.resumePlanRun).not.toHaveBeenCalled();
+    148|   fireEvent.click(button);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/ui/i18n-chat-feedback-draft-quota.test.tsx > owned saved-draft receipt translates without a second draft write
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Saved as a draft
+Received:
+  已存为草稿。在「反馈草稿」里继续完善，想清楚了再提交到收件箱。
+ ❯ tests/ui/i18n-chat-feedback-draft-quota.test.tsx:30:19
+     28|   await review();
+     29|   const receipt = await screen.findByTestId("feedback-draft-saved");
+     30|   expect(receipt).toHaveTextContent("Saved as a draft");
+       |                   ^
+     31|   act(() => changeLocale());
+     32|   expect(screen.getByTestId("feedback-draft-saved")).toBe(receipt);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 12 skipped (14)
+   Start at  03:25:52
+   Duration  8.16s (transform 2.02s, setup 324ms, collect 4.06s, tests 326ms, environment 2.40s, prepare 201ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-canonical-chrome.test.tsx tests/ui/i18n-chat-feedback-draft-quota.test.tsx -t ^owned (existing resume|saved-draft)

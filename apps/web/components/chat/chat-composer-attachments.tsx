@@ -794,6 +794,7 @@ function ImageAttachmentThumb({
 export function MessageAttachments({
   attachments, threadId,
 }: { attachments: readonly ChatAttachment[]; threadId: string }) {
+  const { t } = useI18n();
   const [previewing, setPreviewing] = React.useState<ChatAttachment | null>(null);
   if (attachments.length === 0) return null;
   return (
@@ -814,7 +815,7 @@ export function MessageAttachments({
                   <Icon className="h-3.5 w-3.5" />
                 </span>
                 <span className="min-w-0 truncate text-11 text-card-foreground" title={att.filename}>{att.filename}</span>
-                {isSkillDraft ? <Badge tone="outline" data-testid={`chat-skill-draft-${att.id}`}>技能草稿</Badge> : null}
+                {isSkillDraft ? <Badge tone="outline" data-testid={`chat-skill-draft-${att.id}`}>{t("chatInspector.file.skill")}</Badge> : null}
                 <span className="ml-auto shrink-0 text-10 text-muted-foreground">{formatBytes(att.bytes)}</span>
               </button>
           );

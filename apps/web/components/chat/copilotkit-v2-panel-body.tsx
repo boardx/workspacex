@@ -1,4 +1,6 @@
 "use client";
+import { ownedRunError, restoredRunPhaseLabel, renderChatDisplayText, type ChatDisplayText, type ChatOwnedMessage } from "@/lib/chat-runtime-display";
+import { useI18n } from "@/lib/i18n/provider";
 import { CopilotKitV2PanelView } from "./copilotkit-v2-panel-view";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { notifyCreditFailure } from "@/lib/credit-guidance";
@@ -41,7 +43,7 @@ import { useChatMessageIdentity } from "@/lib/copilotkit-v2-message-identity";
 import { useCopilotKitV2RunProgress, type RunStage } from "@/lib/copilotkit-v2-run-progress";
 import { onRememberStatement } from "@/lib/knowledge-graph-events";
 
-import { useCopilotKitV2RunRestore, RUN_RESTORE_PHASE_LABEL, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
+import { useCopilotKitV2RunRestore, type RunRestoreOutcome } from "@/lib/copilotkit-v2-run-restore";
 import { useChatHostInterjectionRun } from "@/lib/chat-host-interjection-run";
 
 import { lastRespondingAgentId, readAllPersistedMessages } from "@/lib/copilotkit-v2-persisted-messages";
@@ -166,6 +168,7 @@ function useCopilotKitV2PanelController({
   onRunStateChange?: (state: {
     readonly isRunning: boolean;
     readonly phaseLabel: string | null;
+    readonly phaseLabelOwned?: boolean;
     /** `RUN_STARTED` 到达的时刻（epoch ms）；**每轮只变一次**。
      *  ⚠ 刻意不上报 `elapsedSeconds`：那个每秒变一次，上抛给外壳等于每秒
      *  `setState` 一次外壳 → 外壳重渲染 → 整棵消息树（含画布）跟着重渲染一次。
@@ -234,7 +237,10 @@ function useCopilotKitV2PanelController({
   const composerDraft = useComposerDraft({ orgId: draftSession?.currentOrgId ?? orgId, userId: draftSession?.userId ?? null, projectId, threadId: initialChatThreadId });
   const { text: inputDraft, setText: setInputDraft, clear: clearComposerDraft } = composerDraft;
   const sendFailedRef = React.useRef(false);
-  const [error, setError] = React.useState<string | { key: MessageKey } | null>(null);
+  const { locale: displayLocale } = useI18n();
+  const displayLocaleRef = React.useRef(displayLocale);
+  displayLocaleRef.current = displayLocale;
+  const [error, setError] = React.useState<ChatDisplayText | null>(null);
   /**
    * issue #3387 ① —— 「部分步骤失败但整体成功」这一态自己的位置。
    *
@@ -243,7 +249,7 @@ function useCopilotKitV2PanelController({
    * 也正是人类那句「点了会不会把已有结果冲掉」）。文案的唯一来源是
    * `RUN_RECOVERED_NOTICE`，与判据同一个模块。
    */
-  const [notice, setNotice] = React.useState<string | null>(null);
+  const [notice, setNotice] = React.useState<ChatDisplayText | null>(null);
   const [recoveryDiagnostic, setRecoveryDiagnostic] = React.useState<string | null>(null);
   /**
    * issue #3261 —— 当前横幅说的是**哪一轮 run** 的失败。失败当场那条路径要异步补一次
@@ -411,7 +417,7 @@ function useCopilotKitV2PanelController({
         // 兜底文案出现时，浏览器控制台能看到真实 code_，不用再靠截图猜。
         console.error("[copilotkit-v2] agent run failed", { code: code_, context: errorContext });
         sendFailedRef.current = true;
-        setError(describeCopilotkitV2RunError(code_));
+        setError(ownedRunError(describeCopilotkitV2RunError(code_)));
         /*
          * issue #3261 —— 上面这句只按 wire 上那个枚举码说话，说不出**为什么**失败：
          * `RUN_ERROR` 事件里没有成因的位置。成因的单一事实源是 `agent_runs.failure_reason`
@@ -453,10 +459,10 @@ function useCopilotKitV2PanelController({
            */
           if (outcome.kind === "recovered") {
             setError(null);
-            setNotice(outcome.text);
+            setNotice({ key: "chatComposer.runtime.recovered" });
             return;
           }
-          setError(outcome.text);
+          setError(ownedRunError(outcome.text));
         });
         // issue #2797 -- 结构化上报到后端（`system-error-logs` 契约束),供巡检按
         // runId/时间范围查询,不必再等用户手动截图 DevTools。fire-and-forget,失败
@@ -721,7 +727,7 @@ function useCopilotKitV2PanelController({
         // 只有一份写法），不在这里复制第二遍循环。
         const { messages: collected, pendingRunId: detectedPendingRunId } =
           await readAllPersistedMessages(initialChatThreadId, bearer);
-        void hydrateRunTrace(collected, bearer).catch(() => { if (!cancelled) setError((current) => current ?? "执行过程暂时无法恢复，请刷新重试。"); });
+        void hydrateRunTrace(collected, bearer).catch(() => { if (!cancelled) setError((current) => current ?? { key: "chatComposer.runtime.traceRestore" }); });
         // CK-P3（#2054）—— 「可评分」比「消息真实存在」多一道门：还要求它由 agent
         // 写回且带 `agentRunId`（服务端第三道归因门，见
         // `lib/copilotkit-v2-message-identity.ts`）。这两个判据由
@@ -858,11 +864,11 @@ function useCopilotKitV2PanelController({
     if (outcome.kind === "gave-up") {
       setError(
         outcome.reason === "auth-expired"
-          ? "登录状态可能已过期，无法核实上一条任务的执行状态，请重新登录后刷新页面。"
+          ? { key: "chatComposer.runtime.restoreAuth" }
           : outcome.reason === "stalled"
             // issue #2860：服务端超过回收窗口仍非终态——如实说"没进展"，不冒充失败。
-            ? "上一条任务已超过 3 分钟没有任何进展（可能因服务重启中断），请重新发送一次。"
-            : "长时间未能确认上一条任务是否已经完成，它可能仍在后台运行，请稍后刷新页面查看。",
+            ? { key: "chatComposer.runtime.restoreStalled" }
+            : { key: "chatComposer.runtime.restoreUnconfirmed" },
       );
       setPendingRunId(null);
       return;
@@ -873,7 +879,7 @@ function useCopilotKitV2PanelController({
       // issue #3261：这句话的算法搬进 `describeFailedRunBanner`——失败当场那条路径
       // 补完权威读之后用的是**同一个**函数，两条路径不再各算一遍。
       bannerRunRef.current = outcome.view.runId ?? null;
-      setError(describeFailedRunBanner(outcome.view));
+      setError(ownedRunError(describeFailedRunBanner(outcome.view)));
     }
     let cancelled = false;
     (async () => {
@@ -1116,9 +1122,9 @@ function useCopilotKitV2PanelController({
         onThreadResolved?.(tid);
         return;
       }
-      void mergePersistedVoiceTurns(agent, tid, messageIds, getStoredSessionToken() ?? undefined).catch(() => setError("语音对话已保存，刷新页面即可看到。"));
+      void mergePersistedVoiceTurns(agent, tid, messageIds, getStoredSessionToken() ?? undefined).catch(() => setError({ key: "chatComposer.runtime.voiceSaved" }));
     },
-    onNothingSaved: () => setNotice("这次实时对话没有识别到说话内容，所以没有保存记录。"),
+    onNothingSaved: () => setNotice({ key: "chatComposer.runtime.voiceEmpty" }),
   }));
   const attach = useChatAttachments({
     threadId: attachmentThreadId ?? "",
@@ -1340,19 +1346,14 @@ function useCopilotKitV2PanelController({
   });
   const cancellation = useRunCancellation(interjectionRun.runId ?? activeTrace?.[0] ?? latestCancelledRun(runTrace.events), sessionToken);
   React.useEffect(() => { if (cancellation.failure) setError(cancellation.failure); }, [cancellation.failure]);
-  const restoredPhaseLabel = runRestore.isRestoring ? RUN_RESTORE_PHASE_LABEL
-    : runRestore.status === "running" ? "正在执行"
-    : runRestore.status === "queued" ? "等待执行"
-    : runRestore.status === "awaiting_plan_confirmation" ? "等待确认计划"
-    : runRestore.status === "writeback_pending" ? "正在保存结果"
-    : runRestore.status === "paused" ? "任务已暂停"
-    : runRestore.status === "awaiting_tool_permission" ? "等待确认" : null;
+  const restoredPhaseLabel = restoredRunPhaseLabel(runRestore.status, runRestore.isRestoring);
   const runPhaseLabel = runProgress.phaseLabel ?? restoredPhaseLabel;
   const runStartedAt = runProgress.startedAt;
   React.useEffect(() => {
     onRunStateChange?.({
       isRunning: runIsRunning,
       phaseLabel: runPhaseLabel,
+      phaseLabelOwned: true,
       startedAt: runStartedAt, recoveryDiagnostic,
     });
   }, [runIsRunning, runPhaseLabel, runStartedAt, onRunStateChange, recoveryDiagnostic]);
@@ -1403,8 +1404,8 @@ function useCopilotKitV2PanelController({
    */
   const wasRunningRef = React.useRef(false);
   React.useEffect(() => {
-    if (agent.isRunning && !wasRunningRef.current) announceToChat("正在处理你的请求……");
-    if (!agent.isRunning && wasRunningRef.current) announceToChat(error ? "这次任务执行失败，请查看错误说明。" : "本次处理已结束，请查看任务结果。");
+    if (agent.isRunning && !wasRunningRef.current) announceToChat(renderChatDisplayText({ key: "chatComposer.runtime.announceStart" }, displayLocaleRef.current));
+    if (!agent.isRunning && wasRunningRef.current) announceToChat(renderChatDisplayText({ key: error ? "chatComposer.runtime.announceFailure" : "chatComposer.runtime.announceDone" }, displayLocaleRef.current));
     wasRunningRef.current = agent.isRunning;
   }, [agent.isRunning, error]);
 
@@ -1529,7 +1530,7 @@ function useCopilotKitV2PanelController({
         // 是什么都看不到。
         console.error("[copilotkit-v2] runAgent() threw", e);
         const thrownCode = e instanceof Error ? e.message : "COPILOTKIT_RUNTIME_RUN_FAILED";
-        setError(describeCopilotkitV2RunError(thrownCode));
+        setError(ownedRunError(describeCopilotkitV2RunError(thrownCode)));
         /*
          * issue #3387 ① —— 这条分支此前是**第二处**「要不要报失败」的判断：它只看
          * `runAgent()` 抛没抛异常，从不问 `agent_runs` 这一轮到底成没成。而
@@ -1544,9 +1545,9 @@ function useCopilotKitV2PanelController({
           runId: thrownRunId, code: thrownCode, bearer: getStoredSessionToken() ?? undefined,
         }).then((outcome) => {
           if (bannerRunRef.current !== thrownRunId) return;
-          if (outcome.kind === "recovered") { setError(null); setNotice(outcome.text); return; }
+          if (outcome.kind === "recovered") { setError(null); setNotice({ key: "chatComposer.runtime.recovered" }); return; }
           if (outcome.kind === "reattach_approval") { setError(null); setReattachApproval({ runId: outcome.runId }); return; }
-          setError(outcome.text);
+          setError(ownedRunError(outcome.text));
         });
         // issue #2797 -- 同上面 `onError` 订阅那条注释：结构化上报,fire-and-forget。
         reportClientError(e, { errorType: "runAgent_exception", ...runReportContextRef.current });
@@ -1757,9 +1758,13 @@ function useCopilotKitV2PanelController({
     .map((t) => {
       const isPersona = t.key === "persona";
       const running = isPersona && personaRunning;
+      const labelMessage: ChatOwnedMessage = running
+        ? { key: "chatComposer.runtime.personaRunning" }
+        : { key: "chatComposer.runtime.generate", params: { name: t.displayName } };
       return {
         id: isPersona ? "chat-persona-summary-trigger" : `chat-template-suggestion-${t.key}`,
-        label: running ? "生成画像中…" : `生成${t.displayName}`,
+        label: renderChatDisplayText(labelMessage, "zh-CN"),
+        labelMessage,
         disabled: running,
         onSelect: isPersona
           ? () => void runPersonaSummary()
@@ -1846,6 +1851,7 @@ function useCopilotKitV2PanelController({
     retryQueuedReply,
     runIsRunning,
     runPhaseLabel,
+    runPhaseLabelOwned: true,
     runTrace,
     runningReplyAck,
     scrollMessagesToBottom,

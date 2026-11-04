@@ -1,4 +1,5 @@
 "use client";
+import type { ChatOwnedMessage } from "@/lib/chat-runtime-display";
 
 import { AgentIdentityRow, AssistantIdentityDrawnContext, shouldShowAssistantIdentity } from "./copilotkit-v2-agent-identity";
 import * as React from "react";
@@ -507,6 +508,7 @@ export interface LocalSuggestionChip {
   /** 同时也是渲染出来的 `data-testid`，逐字不加前缀。 */
   readonly id: string;
   readonly label: string;
+  readonly labelMessage?: ChatOwnedMessage;
   readonly onSelect: () => void;
   readonly disabled?: boolean;
   /**
@@ -574,7 +576,7 @@ export function FollowUpSuggestions({
             className="px-3 py-1 text-12 text-background-foreground transition-colors duration-fast hover:bg-muted active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground"
             onClick={chip.onSelect}
           >
-            {chip.label}
+            {chip.labelMessage ? t(chip.labelMessage.key, chip.labelMessage.params) : chip.label}
           </button>
           {chip.onDismiss ? (
             <button

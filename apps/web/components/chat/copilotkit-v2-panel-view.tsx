@@ -1,4 +1,5 @@
 "use client";
+import { renderChatDisplayText, renderChatPhase } from "@/lib/chat-runtime-display";
 import { useI18n } from "@/lib/i18n/provider";
 import { ApiError } from "@/lib/api-client";
 import { describeMessageFailure } from "@/lib/live-chat";
@@ -111,6 +112,7 @@ export function CopilotKitV2PanelView({
   retryQueuedReply,
   runIsRunning,
   runPhaseLabel,
+  runPhaseLabelOwned,
   runTrace,
   runningReplyAck,
   scrollMessagesToBottom,
@@ -352,7 +354,7 @@ export function CopilotKitV2PanelView({
               The subscriptions above still supply run controls, restore and inspector state. */}
           {!historyLoading && runIsRunning ? (
             <span className="sr-only" role="status" data-testid="copilotkit-v2-running-indicator" data-run-id={interjectionRun.runId ?? undefined}>
-              <span data-testid="copilotkit-v2-thinking-phase">{runPhaseLabel ?? t("chatComposer.running")}</span>
+              <span data-testid="copilotkit-v2-thinking-phase">{renderChatPhase(runPhaseLabel, runPhaseLabelOwned, locale) ?? t("chatComposer.running")}</span>
             </span>
           ) : null}
         </div>
@@ -411,7 +413,7 @@ export function CopilotKitV2PanelView({
             className="flex items-start gap-2 rounded-md border border-border-subtle bg-muted px-3 py-2 text-12 text-muted-foreground"
           >
             <Info aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 flex-1">{notice}</span>
+            <span className="min-w-0 flex-1">{renderChatDisplayText(notice, locale)}</span>
           </div>
         ) : null}
         {error !== null ? (
@@ -421,7 +423,7 @@ export function CopilotKitV2PanelView({
             className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-12 text-destructive"
           >
             <AlertTriangle aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-            <span className="min-w-0 flex-1">{typeof error === "string" ? error : t(error.key)}</span>
+            <span className="min-w-0 flex-1">{renderChatDisplayText(error, locale)}</span>
             {/* CK-P4（issue #2054）—— 失败重试入口。旧轨道有（`retryFailedRun`），v2
                 此前只有一条横幅，用户唯一的出路是自己把刚才那句话重新打一遍。
                 ⚠ 重发的是「已发出的那一句」（`lastSentRef`），不是 composer 里的当前
@@ -486,7 +488,7 @@ export function CopilotKitV2PanelView({
         )}
         {personaFailure !== null ? (
           <span className="text-11 text-destructive" data-testid="chat-persona-summary-error">
-            {personaFailure}
+            {renderChatDisplayText(personaFailure, locale)}
           </span>
         ) : null}
         {/* chat-parity-attachments (issue #2022) -- composer 附件区：就地报错横幅 + 预览条，

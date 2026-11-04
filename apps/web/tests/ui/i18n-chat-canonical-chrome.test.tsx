@@ -125,3 +125,77 @@ it("localizes the owned unknown-project fallback without inventing a project nam
   expect(screen.getByTestId("project-chat-name")).toHaveTextContent("项目对话");
   expect(ports.overview).toHaveBeenCalledTimes(1);
 });
+
+function planLedger(overrides: Partial<PlanLedgerView> = {}): PlanLedgerView {
+  return {
+    cancelRequestedAt: null, pausedAt: null, pauseRequestedAt: null,
+    revision: 3, engineEpoch: 1, origin: "engine", stepsAreProposal: false,
+    pendingPermissionRequestId: null, steps: [{ planStepId: "raw-step", content: "模型步骤 {raw}", status: "pending", constraints: [] }],
+    orphanedConstraints: [], phase: "done", gate: { required: false, reason: "no-plan" },
+    progress: { completed: 0, total: 1, elapsedMs: 12000 }, pendingApplyAtNextRun: false,
+    runStatus: "idle", activeRunId: null, errorCode: null, failedStepId: null, ...overrides,
+  };
+}
+
+it("owned existing resume and failed-action chrome translate without locale resuming a run", async () => {
+  ports.fetchPlanLedger.mockResolvedValue(planLedger({ phase: "executing", runStatus: "interrupted", pausedAt: "2026-11-04T00:00:00Z", steps: [] }));
+  ports.resumePlanRun.mockRejectedValue(new Error("raw-resume-failure"));
+  ports.planControlErrorCode.mockReturnValue("RAW_CODE");
+  host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null} canWrite />);
+  const button = await screen.findByTestId("chat-task-workbench-run-resume");
+  expect(button).toHaveTextContent("Resume execution");
+  expect(ports.resumePlanRun).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  await screen.findByText("Operation not completed (RAW_CODE)");
+  fireEvent.click(screen.getByRole("button", { name: "Change test locale" }));
+  expect(screen.getByTestId("chat-task-workbench-run-resume")).toBe(button);
+  expect(ports.resumePlanRun).toHaveBeenCalledTimes(1);
+});
+
+it("translates actual expanded done-incomplete notice without changing the ledger or GET session", async () => {
+  ports.fetchPlanLedger.mockResolvedValue(planLedger());
+  host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null} canWrite />);
+  fireEvent.click(await screen.findByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID));
+  const notice = screen.getByTestId("chat-task-workbench-plan-done-incomplete-notice");
+  expect(notice).toHaveTextContent("1 step remains unmarked");
+  const raw = screen.getByText("模型步骤 {raw}");
+  fireEvent.click(screen.getByRole("button", { name: "Change test locale" }));
+  expect(screen.getByTestId("chat-task-workbench-plan-done-incomplete-notice")).toBe(notice);
+  expect(screen.getByText("模型步骤 {raw}")).toBe(raw);
+  expect(ports.fetchPlanLedger).toHaveBeenCalledTimes(1);
+});
+
+it("translates actual proposal and edit controls while keeping the draft action explicit", async () => {
+  ports.fetchPlanLedger.mockResolvedValue(planLedger({ phase: "planning", stepsAreProposal: true, gate: { required: true, reason: "user-forced" } }));
+  host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null} canWrite />);
+  // The actual parent automatically expands a newly required confirmation.
+  await waitFor(() => expect(screen.getByTestId(PLAN_CONTROL_COLLAPSE_TOGGLE_TESTID)).toHaveAttribute("aria-expanded", "true"));
+  expect(screen.getByTestId("chat-task-workbench-plan-proposal-badge")).toHaveTextContent("Proposed plan");
+  const edit = screen.getByRole("button", { name: "Edit plan" });
+  fireEvent.click(edit);
+  expect(edit).toHaveTextContent("Finish editing");
+  fireEvent.click(screen.getByRole("button", { name: "Change test locale" }));
+  expect(screen.getByRole("button", { name: "完成编辑" })).toBe(edit);
+  expect(ports.fetchPlanLedger).toHaveBeenCalledTimes(1);
+  expect(ports.confirmPlan).not.toHaveBeenCalled();
+  expect(ports.confirmProposedPlan).not.toHaveBeenCalled();
+});
+
+it("translates actual owned failed reason and model-completed note at render without reloading", async () => {
+  ports.fetchPlanLedger.mockResolvedValue(planLedger({
+    phase: "failed", runStatus: "failed", errorCode: "MODEL_CALL_FAILED", failureReason: "provider_timeout",
+    steps: [{ planStepId: "raw-step", content: "模型步骤 {raw}", status: "completed", constraints: [] }],
+    progress: { completed: 1, total: 1, elapsedMs: 12000 },
+  }));
+  host(<CopilotKitV2PlanControl threadId="raw-thread" projectId={null} canWrite />);
+  const retry = await screen.findByTestId("chat-task-workbench-failure-retry-step");
+  expect(retry).toHaveTextContent("Retry task");
+  expect(screen.getByText(/provider did not finish within/i)).toBeTruthy();
+  const note = screen.getByTestId("chat-task-workbench-failure-note");
+  expect(note).toHaveTextContent("marked by the model");
+  fireEvent.click(screen.getByRole("button", { name: "Change test locale" }));
+  expect(screen.getByTestId("chat-task-workbench-failure-note")).toBe(note);
+  expect(note).toHaveTextContent("那些勾是模型自己打的");
+  expect(ports.fetchPlanLedger).toHaveBeenCalledTimes(1);
+  expect(ports.retryPlanStep).not.toHaveBeenCalled();
+});

@@ -508,16 +508,16 @@ function PlanControlSession(
     {/* issue #3365 —— 这一行此前自己拼三元文案，是「run 现在什么状态」的第二处推导。改读同一个 view。 */}
     <span role="status">{displayStateLabel}</span>
     {runControls.canResume ? (
-      <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>继续执行</Button>
+      <Button size="sm" variant="primary" data-testid={PLAN_RUN_RESUME_TESTID} disabled={!canWrite || busy} onClick={handleResume}>{t("chatPlanControl.resumeExecution")}</Button>
     ) : CHAT_RUN_PAUSE_ENTRY_ENABLED ? (
       <Button
         size="sm" variant="outline" data-testid={PLAN_RUN_PAUSE_TESTID}
         // #3365 —— 停滞与否同样只从 `statusView` 读，不裸读 `hasRecentError` 再判一次。
         disabled={!canWrite || busy || statusView.activity === "stalled" || Boolean(ledger.pauseRequestedAt)}
         onClick={handlePause}
-      >{ledger.pauseRequestedAt ? "暂停中…" : "暂停"}</Button>
+      >{t(ledger.pauseRequestedAt ? "chatPlanControl.pausing" : "chatPlanControl.pause")}</Button>
     ) : null}
-    {actionErrorCode !== null && <span role="status" className="text-11 text-destructive">操作未完成（{actionErrorCode}）</span>}
+    {actionErrorCode !== null && <span role="status" className="text-11 text-destructive">{t("chatPlanControl.actionFailed", { code: actionErrorCode })}</span>}
   </div></>;
 
   /*
@@ -605,7 +605,7 @@ function PlanControlSession(
             onClick={() => setEditing((v) => !v)}
           >
             <Pencil aria-hidden className="h-3 w-3" />
-            {editing ? "完成编辑" : "编辑计划"}
+            {t(editing ? "chatPlanControl.finishEditing" : "chatPlanControl.editPlan")}
           </Button>
         )}
       </div>
@@ -613,8 +613,8 @@ function PlanControlSession(
       {actionErrorCode !== null && (
         <p role="status" className="text-11 text-destructive" data-testid="chat-task-workbench-plan-action-error">
           {actionErrorCode === "PLAN_REVISION_CHANGED"
-            ? "计划刚被更新，已刷新到最新版本——请基于当前状态重试这次修改。"
-            : `操作未完成（${actionErrorCode}）`}
+            ? t("chatPlanControl.revisionChanged")
+            : t("chatPlanControl.actionFailed", { code: actionErrorCode })}
         </p>
       )}
 
@@ -631,11 +631,11 @@ function PlanControlSession(
           // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
           // 透传），不再是写死的占位句。`errorCode` 为 null 或不在枚举内时，
           // `describePlanFailureReason` 自己退回同一句诚实兜底，不在这里再判一次。
-          reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason, edition)}
+          reason={describePlanFailureReason(ledger.errorCode, ledger.failureReason, edition, locale)}
           // 2026-09-22 —— 「3/3 步已标记完成」与「这次任务执行失败」同屏那一幕的解释。
           // 这个渲染门（`offersStepRecovery`）已经要求 `phase === "failed"`，但**不写死 true**：
           // 判据原样传给那个纯函数，它的头注才不会变成一句会说谎的注释。
-          note={planAllDoneButFailedNote(ledger.steps, ledger.phase === "failed")}
+          note={planAllDoneButFailedNote(ledger.steps, ledger.phase === "failed", locale)}
           onRetryStep={() => handleRetryStep(failedStep?.planStepId ?? null)}
           onEditInput={handleEditInput}
         />
@@ -683,7 +683,7 @@ function PlanControlSession(
           data-testid="chat-task-workbench-plan-done-incomplete-notice"
           className="text-11 text-muted-foreground"
         >
-          本轮执行已结束，计划账本仍有 {ledger.progress.total - ledger.progress.completed} 步未标记完成，请核对下方步骤。
+          {t("chatPlanControl.doneIncomplete", { count: ledger.progress.total - ledger.progress.completed })}
         </p>
       )}
 
@@ -741,7 +741,7 @@ function PlanControlSession(
           */}
         {ledger.stepsAreProposal && (
           <p data-testid="chat-task-workbench-plan-proposal-badge" className="mb-2 text-xs text-muted-foreground">
-            以下是待确认的<strong>提案计划</strong>，确认后才会开始执行。
+            {t("chatPlanControl.proposalBefore")}<strong>{t("chatPlanControl.proposalStrong")}</strong>{t("chatPlanControl.proposalAfter")}
           </p>
         )}
         <PlanConfirmGate
@@ -752,7 +752,7 @@ function PlanControlSession(
         </fieldset>
       )}
 
-      {busy && <span className="sr-only" role="status">计划操作处理中…</span>}
+      {busy && <span className="sr-only" role="status">{t("chatPlanControl.busy")}</span>}
     </div>
   );
 }

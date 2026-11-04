@@ -1,4 +1,5 @@
 "use client";
+import { renderChatPhase } from "@/lib/chat-runtime-display";
 import * as React from "react";
 import { useI18n } from "@/lib/i18n/provider";
 import type { chatInspectorZhCN } from "@/lib/i18n/namespaces/chat-inspector";
@@ -140,6 +141,7 @@ export interface ChatTaskInspectorProps {
   readonly isRunning: boolean;
   /** 当前阶段文案（`copilotkit-v2-run-progress.ts`），无可翻译事件时为 null。 */
   readonly runPhaseLabel: string | null;
+  readonly runPhaseLabelOwned?: boolean;
   readonly recoveryDiagnostic?: string | null;
   /** `RUN_STARTED` 时刻（epoch ms）；秒数在本组件内派生——见 panel 侧同名 prop 的注释：
    *  每秒变一次的值不上抛，重渲染只落在这棵子树上。 */
@@ -175,7 +177,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
     hasSelection, threadId, artifacts, materials, loading,
     artifactsError, materialsError, onRetry, onOpenArtifact, pendingMaterialsCount,
     uploadingMaterialsCount = 0,
-    planTodos, isRunning, runPhaseLabel, runStartedAt, roster,
+    planTodos, isRunning, runPhaseLabel, runPhaseLabelOwned, runStartedAt, roster,
     attachUploadPort = null, uploadDisabledReason = null, showKnowledge = false,
   } = props;
 
@@ -607,6 +609,7 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
               threadId={threadId}
               isRunning={isRunning}
               runPhaseLabel={runPhaseLabel}
+              runPhaseLabelOwned={runPhaseLabelOwned}
               runElapsedSeconds={runElapsedSeconds}
               recoveryDiagnostic={props.recoveryDiagnostic}
             />
@@ -662,19 +665,20 @@ export function ChatTaskInspector(props: ChatTaskInspectorProps): JSX.Element {
  * 固定文案——同本组件其余行"没有真实数据就不放"的纪律。
  */
 function RunDetailsTab({
-  threadId, isRunning, runPhaseLabel, runElapsedSeconds, recoveryDiagnostic,
+  threadId, isRunning, runPhaseLabel, runPhaseLabelOwned, runElapsedSeconds, recoveryDiagnostic,
 }: {
   threadId: string | null;
   isRunning: boolean;
   runPhaseLabel: string | null;
+  runPhaseLabelOwned?: boolean;
   runElapsedSeconds: number | null;
   recoveryDiagnostic?: string | null;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const rows: readonly (readonly [string, string, string])[] = [
     ["thread", t("chatInspector.threadId"), threadId ?? t("chatInspector.notCreated")],
     ["status", t("chatInspector.status"), t(isRunning ? "chatInspector.running" : "chatInspector.idle")],
-    ["phase", t("chatInspector.phase"), runPhaseLabel ?? "—"],
+    ["phase", t("chatInspector.phase"), renderChatPhase(runPhaseLabel, runPhaseLabelOwned, locale) ?? "—"],
     ["elapsed", t("chatInspector.elapsed"), runElapsedSeconds !== null
       ? t(runElapsedSeconds === 1 ? "chatInspector.seconds.one" : "chatInspector.seconds", { count: runElapsedSeconds }) : "—"],
     ...(recoveryDiagnostic ? [["recovery", t("chatInspector.recovery"), recoveryDiagnostic] as const] : []),
