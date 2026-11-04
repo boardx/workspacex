@@ -21,12 +21,12 @@ import { SurveyQuestionEditor } from "../live/question-editor";
 import { FlexibleReportEditor } from "../report/template-editor";
 
 type Kind = SurveyTemplateInput["kind"];
-const newDraft = (kind: Kind): SurveyTemplateInput => ({
+const newDraft = (kind: Kind, title: string, reportTitle: string): SurveyTemplateInput => ({
   kind,
-  title: kind === "question" ? "未命名问卷模板" : "未命名报告模板",
+  title,
   description: "",
   questions: [],
-  template: { id: crypto.randomUUID(), title: "问卷分析报告", sections: [] },
+  template: { id: crypto.randomUUID(), title: reportTitle, sections: [] },
 });
 const readTemplate = (value: unknown, kind: Kind): SurveyLibraryTemplate => {
   const result = SurveyLibraryTemplateSchema.safeParse(value);
@@ -101,10 +101,10 @@ export function SurveyTemplateWorkspace({
     setNotice(null);
     if (templateId === "new") {
       setSaved(null);
-      const created = newDraft(kind);
-      created.title = currentTranslator.current(kind === "question" ? "survey.templates.newQuestion" : "survey.templates.newReport");
-      created.template.title = currentTranslator.current("survey.templates.analysisReport");
-      setDraft(created);
+      setDraft(newDraft(kind,
+        currentTranslator.current(kind === "question" ? "survey.templates.newQuestion" : "survey.templates.newReport"),
+        currentTranslator.current("survey.templates.analysisReport"),
+      ));
       setLoading(false);
       return;
     }
