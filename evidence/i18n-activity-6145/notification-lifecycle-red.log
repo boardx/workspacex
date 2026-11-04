@@ -1,0 +1,4 @@
+candidate930331a3a44b382bee6b66f301d8f962851716e3 run41682815784 attempt1 job126084666955
+self-service-profile	Execute self-service profile journey (own isolation scope)	2026-11-03T17:32:53.6222998Z     Error: response.json: Protocol error (Network.getResponseBody): No resource with given identifier found
+self-service-profile	Execute self-service profile journey (own isolation scope)	2026-11-03T17:32:53.6224180Z     Response body is not available for a response that was navigated away from. Read response.body() before triggering any navigation.
+self-service-profile	Execute self-service profile journey (own isolation scope)	2026-11-03T17:32:53.6230622Z         at /home/runner/work/workspacex/workspacex/apps/web/e2e/self-service-profile.spec.ts:76:69
