@@ -1,4 +1,5 @@
 "use client";
+import { displaySurveyReportIssue } from "@/lib/survey/display-report-issue";
 import { surveyRuntimeMessages } from "@/lib/survey/runtime-error-copy";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { displaySurveyRuntimeError, SurveyDesignDiagnosticsError } from "@/lib/survey/display-runtime-error";
@@ -781,7 +782,7 @@ export function LiveSurveyWorkspace({
                   data-testid="survey-report-share-privacy-warning"
                   role="status"
                 >
-                  {reportShareBlockedReason}
+                  {displaySurveyReportIssue(reportShareBlockedReason, t)}
                 </p>
               )}
               {runtime?.reportGeneratedAt && (
@@ -796,7 +797,7 @@ export function LiveSurveyWorkspace({
                   <p className="font-medium">{t("survey.workspace.checkBeforeGenerating")}</p>
                   <ul className="mt-2 list-inside list-disc">
                     {[...new Set(compiled.issues)].map((issue) => (
-                      <li key={issue}>{issue}</li>
+                      <li key={issue}>{displaySurveyReportIssue(issue, t)}</li>
                     ))}
                   </ul>
                 </div>

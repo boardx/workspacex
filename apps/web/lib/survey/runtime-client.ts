@@ -78,15 +78,15 @@ export function surveySourceRequest(
 /** Fetch protected bytes before creating a local download; never expose a public object URL. */
 export async function downloadSurveyAttachment(surveyId: string, responseId: string, attachmentId: string): Promise<void> {
   const token = getStoredSessionToken();
-  if (!token) throw new Error("请先登录后再下载附件。");
+  if (!token) throw new Error(surveyRuntimeMessages.attachmentLogin);
   let response: Response;
   try {
     const path = `/surveys/${encodeURIComponent(surveyId)}/responses/${encodeURIComponent(responseId)}/attachments/${encodeURIComponent(attachmentId)}/content`;
     response = await fetch(apiUrl(path), { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-  } catch { throw new Error("附件下载失败，请检查网络后重试。"); }
-  if (response.status === 401) throw new Error("登录已过期，请重新登录后下载。");
-  if (response.status === 403 || response.status === 404) throw new Error("附件不存在或没有访问权限。");
-  if (!response.ok) throw new Error("附件下载失败，请稍后重试。");
+  } catch { throw new Error(surveyRuntimeMessages.attachmentNetwork); }
+  if (response.status === 401) throw new Error(surveyRuntimeMessages.attachmentExpired);
+  if (response.status === 403 || response.status === 404) throw new Error(surveyRuntimeMessages.attachmentAccess);
+  if (!response.ok) throw new Error(surveyRuntimeMessages.attachmentServer);
   let filename = "问卷附件";
   const encoded = response.headers.get("content-disposition")?.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
   if (encoded) { try { filename = decodeURIComponent(encoded).replace(/[\\/\r\n\x00]/g, "_"); } catch { /* Keep the safe fallback. */ } }

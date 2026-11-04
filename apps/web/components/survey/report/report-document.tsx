@@ -1,10 +1,12 @@
 "use client";
+import { displaySurveyReportIssue } from "@/lib/survey/display-report-issue";
+import { useI18n } from "@/lib/i18n/provider";
 
 import { useState } from "react";
 import { SurveyReportChart } from "./report-chart";
 export { SurveyReportChart } from "./report-chart";
 import type { survey } from "@repo/contracts";
-import { surveyInsightAction, surveySampleNotice } from "./report-sample-qualification";
+import { SURVEY_INSIGHT_ACTION_LABELS, surveyInsightAction, surveySampleNotice } from "./report-sample-qualification";
 
 import { reportNumber, REPORT_COLORS } from "./report-format";
 export { reportNumber } from "./report-format";
@@ -12,6 +14,7 @@ const rowLabel = (row: survey.SurveyReportRow) =>
   [row.label, row.group].filter(Boolean).join(" · ");
 
 function ReportImage({ block }: { block: survey.CompiledSurveyBlock }) {
+  const { t } = useI18n();
   const [failed, setFailed] = useState(false);
   // Report images retain their original URLs for isolated print and Word export.
   return (
@@ -27,7 +30,7 @@ function ReportImage({ block }: { block: survey.CompiledSurveyBlock }) {
         />
       ) : (
         <p role="status" data-report-image-error="true">
-          {failed ? "图片加载失败，请检查图片地址后重试" : "尚未配置图片"}
+          {failed ? t("survey.results.imageFailed") : t("survey.results.imageMissing")}
         </p>
       )}
       {block.caption && (
@@ -43,15 +46,16 @@ export function SurveyReportDataTable({
 }: {
   block: survey.CompiledSurveyBlock;
 }) {
+  const { t, locale } = useI18n();
   return (
     <table className="w-full border-collapse text-13">
       <thead>
         <tr>
           {[
-            "指标",
-            "数值",
-            "有效样本",
-            ...(block.type === "gap" ? ["目标", "差距"] : []),
+            t("survey.results.metric"),
+            t("survey.results.value"),
+            t("survey.results.validSample"),
+            ...(block.type === "gap" ? [t("survey.results.target"), t("survey.results.gap")] : []),
           ].map((text) => (
             <th
               key={text}
@@ -69,18 +73,18 @@ export function SurveyReportDataTable({
               {rowLabel(row)}
             </td>
             <td className="border-b border-border px-3 py-2">
-              {reportNumber(row.value)}
+              {reportNumber(row.value, locale)}
             </td>
             <td className="border-b border-border px-3 py-2">{row.count}</td>
             {block.type === "gap" && (
               <>
                 <td className="border-b border-border px-3 py-2">
                   {row.target === undefined
-                    ? "未设置"
-                    : reportNumber(row.target)}
+                    ? t("survey.results.notSet")
+                    : reportNumber(row.target, locale)}
                 </td>
                 <td className="border-b border-border px-3 py-2">
-                  {row.gap === undefined ? "无法计算" : reportNumber(row.gap)}
+                  {row.gap === undefined ? t("survey.results.cannotCalculate") : reportNumber(row.gap, locale)}
                 </td>
               </>
             )}
@@ -95,6 +99,7 @@ export function SurveyReportDocument({
 }: {
   report: survey.CompiledSurveyReport;
 }) {
+  const { t, locale } = useI18n();
   const sampleNotice = surveySampleNotice(report.sampleSummary?.included);
   return (
     <article
@@ -103,15 +108,15 @@ export function SurveyReportDocument({
     >
       <h1 className="mb-10 border-b border-border pb-6 text-24 font-bold leading-relaxed">{report.title}</h1>
       {report.sampleSummary && <p className="mb-6 text-12 text-muted-foreground" data-testid="survey-report-sample-summary">
-        样本口径：总答卷 {report.sampleSummary.total} · 待复核 {report.sampleSummary.pendingReview} · 已排除 {report.sampleSummary.excluded} · 纳入分析 {report.sampleSummary.included}
+        {t("survey.results.sampleSummary", { total: report.sampleSummary.total, review: report.sampleSummary.pendingReview, excluded: report.sampleSummary.excluded, included: report.sampleSummary.included })}
       </p>}
-      {sampleNotice && (
-        <p role="status" aria-label={sampleNotice.label} className="mb-6 rounded-lg border border-warning/40 bg-warning/5 p-4 text-13 leading-6">
-          {sampleNotice.text}
+      {sampleNotice && report.sampleSummary && (
+        <p role="status" aria-label={t(sampleNotice.tier === "descriptive" ? "survey.results.sampleLowLabel" : "survey.results.sampleExploreLabel")} className="mb-6 rounded-lg border border-warning/40 bg-warning/5 p-4 text-13 leading-6">
+          {t(sampleNotice.tier === "descriptive" ? "survey.results.sampleLowText" : "survey.results.sampleExploreText", { count: report.sampleSummary.included })}
         </p>
       )}
       {!report.sections.length && (
-        <p className="text-muted-foreground">尚无报告章节</p>
+        <p className="text-muted-foreground">{t("survey.results.noChapters")}</p>
       )}
       {report.sections.map((section, sectionIndex) => (
         <section
@@ -128,13 +133,13 @@ export function SurveyReportDocument({
                 return <div key={index} className="rounded-lg border border-border bg-muted/30 p-5">
                   <h3 className="mb-2 text-16 font-semibold text-primary">{insight.title}</h3>
                   <p className="text-14 leading-7">{insight.evidence}</p>
-                  {action && <p className="mt-3 text-14 leading-7"><strong>{action.label}</strong>{action.text}</p>}
+                  {action && <p className="mt-3 text-14 leading-7"><strong>{t(action.label === SURVEY_INSIGHT_ACTION_LABELS.exploratory ? "survey.results.actionExplore" : "survey.results.actionSufficient")}</strong>{action.text}</p>}
                 </div>;
               })}
             </div>
           )}
           {!section.blocks.length && (
-            <p className="text-muted-foreground">本章尚无内容</p>
+            <p className="text-muted-foreground">{t("survey.results.noChapterContent")}</p>
           )}
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {section.blocks.map((block) =>
@@ -149,7 +154,7 @@ export function SurveyReportDocument({
                 <h3 className="mb-3 text-16 font-semibold">{block.title}</h3>
                 {!["text", "image", "page-break"].includes(block.type) && (
                   <p className="mb-3 text-12 text-muted-foreground" data-testid={`survey-report-block-sample-${block.id}`}>
-                    样本策略：{block.samplePolicy === "all" ? "全部已纳入答卷" : "仅正常质量答卷"} · 实际样本量 {block.sampleSize ?? "未记录"}
+                    {t("survey.results.samplePolicy", { policy: t(block.samplePolicy === "all" ? "survey.results.allIncluded" : "survey.results.normalOnly"), count: block.sampleSize ?? t("survey.results.notRecorded") })}
                   </p>
                 )}
                 {block.text && (
@@ -176,9 +181,7 @@ export function SurveyReportDocument({
                           ))}
                         </dl>
                       ) : !block.rows.length ? (
-                        <p className="text-13 text-muted-foreground">
-                          暂无可展示数据
-                        </p>
+                        <p className="text-13 text-muted-foreground">{t("survey.results.noData")}</p>
                       ) : (
                         <>
                           {block.type === "metric" && (
@@ -192,10 +195,9 @@ export function SurveyReportDocument({
                                     {rowLabel(row) !== block.title ? rowLabel(row) : null}
                                   </dt>
                                   <dd style={{ color: REPORT_COLORS[sectionIndex % REPORT_COLORS.length] }} className="text-24 font-semibold">
-                                    {reportNumber(row.value)}
+                                    {reportNumber(row.value, locale)}
                                   </dd>
-                                  <dd className="text-12 text-muted-foreground">
-                                    有效样本 {row.count}
+                                  <dd className="text-12 text-muted-foreground">{t("survey.results.validSample")}{" "}{row.count}
                                   </dd>
                                 </div>
                               ))}
@@ -218,11 +220,11 @@ export function SurveyReportDocument({
                 {[...block.issues, ...(block.warnings ?? [])].length > 0 && (
                   <ul
                     className="mt-3 text-13 text-muted-foreground"
-                    aria-label="数据说明"
+                    aria-label={t("survey.results.notes")}
                   >
                     {[...block.issues, ...(block.warnings ?? [])].map(
                       (issue, i) => (
-                        <li key={i}>{issue}</li>
+                        <li key={i}>{displaySurveyReportIssue(issue, t)}</li>
                       ),
                     )}
                   </ul>

@@ -23,6 +23,16 @@ export const surveyRuntimeErrorCatalogue = {
   endAfterStart: ["截止时间必须晚于开始时间。", "End time must be after start time."],
   endFuture: ["截止时间必须晚于当前时间。", "End time must be in the future."],
   create: ["创建失败，请重试", "Creation failed. Try again."],
+  attachmentLogin: ["请先登录后再下载附件。", "Sign in before downloading attachments."],
+  attachmentExpired: ["登录已过期，请重新登录后下载。", "Your session has expired. Sign in again to download."],
+  attachmentAccess: ["附件不存在或没有访问权限。", "The attachment does not exist or you do not have access."],
+  attachmentNetwork: ["附件下载失败，请检查网络后重试。", "The attachment download failed. Check your connection and try again."],
+  attachmentServer: ["附件下载失败，请稍后重试。", "The attachment download failed. Try again later."],
+  attachmentFallback: ["附件下载失败，请重试。", "The attachment download failed. Try again."],
+  reportConfig: ["请完善章节标题、图片地址和内容块配置", "Complete chapter titles, image URLs, and content block configuration."],
+  templateTooLarge: ["模板文件不能超过 1 MB", "Template files must be 1 MB or smaller."],
+  templateInvalid: ["模板格式不正确，请检查章节、内容块和数据配置", "Invalid template format. Check the chapters, blocks, and data configuration."],
+  templateImport: ["模板导入失败", "Template import failed."],
 } as const;
 export type SurveyRuntimeErrorId = keyof typeof surveyRuntimeErrorCatalogue;
 /** Keep Error.message stable for callers; translate only when rendering it. */
