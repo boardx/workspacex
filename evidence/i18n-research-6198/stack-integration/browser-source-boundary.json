@@ -1,0 +1,22 @@
+{
+  "interviewBrowserSource": "02bc3e0de123e8ab31f54da7a20a81b46ab62075",
+  "featureStack": "baf5eb97bcf776f507c1deeced9ff1f93dc9fdf9",
+  "integrationSource": "902da4b5a9d4faaac425b41d4d58c6cdca169939",
+  "appsPackagesDiffInterviewBrowserToFeatureStack": [],
+  "researchBrowserSource": "74c46f0e05d2fc23e1f1bd9ffc18ddd7acac0832",
+  "researchSourceAfterCiCorrections": "4aa2a1e08443d9cfa1bec718a15e282126098899",
+  "researchCiCorrectionPaths": [
+    "apps/web/e2e/i18n-research-entry.spec.ts",
+    "apps/web/lib/asr-draft-error-text.ts"
+  ],
+  "integrationOverlap": [
+    "apps/web/lib/i18n/messages/en.ts",
+    "apps/web/lib/i18n/messages/zh-CN.ts"
+  ],
+  "priorBrowserImagesViewed": {
+    "research": 10,
+    "interview": 22
+  },
+  "newIntegrationBrowserRun": false,
+  "boundary": "Prior screenshots attest their recorded sources. No apps/packages delta from final interview browser to stack; integration adds upstream activity/profile/identity and fixture changes, with only two locale registries overlapping worker paths. Current integration regression/type/static gates remain required. No claim of new visual QA or external-provider quality."
+}

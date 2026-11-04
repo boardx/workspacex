@@ -1,0 +1,12 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages
+
+ ✓ .harness/scripts/ci-api-shards.test.ts (15 tests) 883ms
+   ✓ API isolated shard coverage > verifies actual complete Vitest discovery using the installed sequencer 536ms
+   ✓ preserves two real workspace projects sharing the same module through disjoint shards 339ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  07:36:25
+   Duration  1.28s (transform 36ms, setup 0ms, collect 99ms, tests 883ms, environment 0ms, prepare 46ms)
