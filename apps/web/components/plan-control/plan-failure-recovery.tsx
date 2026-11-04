@@ -54,7 +54,7 @@ export function PlanFailureRecovery(
             </span>
             <span className="whitespace-pre-line text-12 text-muted-foreground">{reason}</span>
             {failedStepIndex !== undefined && (
-              <span className="text-12 text-muted-foreground">已完成的步骤会保留，重试将从未完成处继续。</span>
+              <span className="text-12 text-muted-foreground">{t("chatPlanControl.retainedSteps")}</span>
             )}
             {note !== null && (
               <span data-testid={PLAN_FAILURE_NOTE_TESTID} className="mt-1 text-12 text-muted-foreground">
@@ -66,7 +66,7 @@ export function PlanFailureRecovery(
         <div className="flex flex-wrap items-center gap-2">
           <Button size="sm" variant="primary" data-testid={PLAN_FAILURE_RETRY_STEP_TESTID} onClick={onRetryStep} disabled={busy}>
             <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-            {busy ? "正在重试…" : failedStepIndex !== undefined ? t("chatPlanControl.retryStep") : t("chatPlanControl.retryTask")}
+            {busy ? t("chatPlanControl.retrying") : failedStepIndex !== undefined ? t("chatPlanControl.retryStep") : t("chatPlanControl.retryTask")}
           </Button>
           <Button size="sm" variant="outline" data-testid={PLAN_FAILURE_EDIT_INPUT_TESTID} onClick={onEditInput} disabled={busy}>
             <Pencil aria-hidden className="h-3.5 w-3.5" /> {t("chatPlanControl.editInput")}

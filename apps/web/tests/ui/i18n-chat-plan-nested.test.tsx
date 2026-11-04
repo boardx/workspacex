@@ -132,6 +132,22 @@ it("translates recovery chrome but never interprets raw caller reason/note", () 
   expect(screen.getByRole("button", { name: "重试该步" })).toBe(button);
 });
 
+it.each([false, true])("accepted retry guard copy follows locale without changing busy=%s or retaining less raw content", busy => {
+  const retry = vi.fn(), edit = vi.fn();
+  host(<PlanFailureRecovery failedStepIndex={2} failedStepLabel={raw} reason="raw cause 原文" busy={busy} onRetryStep={retry} onEditInput={edit} />);
+  expect(screen.getByText("Completed steps are retained. Retrying continues from unfinished work.")).toBeTruthy();
+  const button = screen.getByTestId("chat-task-workbench-failure-retry-step");
+  expect(button).toHaveTextContent(busy ? "Retrying…" : "Retry this step");
+  expect(button).toHaveProperty("disabled", busy);
+  expect(screen.getByTestId("chat-task-workbench-failure-edit-input")).toHaveProperty("disabled", busy);
+  flip();
+  expect(screen.getByTestId("chat-task-workbench-failure-retry-step")).toBe(button);
+  expect(button).toHaveProperty("disabled", busy);
+  expect(screen.getByText("raw cause 原文")).toBeTruthy();
+  expect(screen.getByText(`第 2 步「${raw}」失败`)).toBeTruthy();
+  expect(retry).not.toHaveBeenCalled(); expect(edit).not.toHaveBeenCalled();
+});
+
 it.each<[PlanPhase, string]>([["preparing", "Preparing"], ["planning", "Planning"], ["executing", "Executing"], ["approving", "Approval"], ["done", "Completed"], ["failed", "Failed"], ["cancelled", "Stopped"]])("translates canonical phase %s with stable machine identity", (phase, english) => {
   host(<PlanPhaseIndicator phase={phase} />);
   const root = screen.getByTestId("chat-task-workbench-phase-indicator");

@@ -152,6 +152,8 @@ export const chatPlanControlZhCN = {
   "chatPlanControl.nextError.KERNEL_UNAVAILABLE": failureNextStep("local", null, "KERNEL_UNAVAILABLE") ?? "",
   "chatPlanControl.nextError.RUN_INTERRUPTED": failureNextStep("local", null, "RUN_INTERRUPTED") ?? "",
   "chatPlanControl.resumeExecution": "继续执行",
+  "chatPlanControl.retainedSteps": "已完成的步骤会保留，重试将从未完成处继续。",
+  "chatPlanControl.retrying": "正在重试…",
 } as const;
 export const chatPlanControlEn: Record<keyof typeof chatPlanControlZhCN, string> = {
   "chatPlanControl.summary": "Execution plan · {state}",
@@ -272,7 +274,7 @@ export const chatPlanControlEn: Record<keyof typeof chatPlanControlZhCN, string>
   "chatPlanControl.error.KERNEL_UNAVAILABLE": "The service is temporarily unavailable. Try again later.",
   "chatPlanControl.error.RUN_INTERRUPTED": "The previous task was interrupted by a service restart. Send it again.",
   "chatPlanControl.cause.provider_returned_empty": "The model returned neither text nor a next action",
-  "chatPlanControl.cause.provider_rejected": "The agent provider exited with an error",
+  "chatPlanControl.cause.provider_rejected": "The task execution service could not complete this request. Try again later; if it persists, send feedback about this conversation",
   "chatPlanControl.cause.provider_timeout": "The provider did not finish within its time budget",
   "chatPlanControl.cause.provider_transport_failed": "The connection to the agent provider failed",
   "chatPlanControl.cause.runtime_unavailable": "A required execution service is unconfigured or unavailable; the call was not sent",
@@ -301,4 +303,6 @@ export const chatPlanControlEn: Record<keyof typeof chatPlanControlZhCN, string>
   "chatPlanControl.nextError.KERNEL_UNAVAILABLE": "Wait for the local runtime to start; if it persists, inspect logs/deep-agent.log.",
   "chatPlanControl.nextError.RUN_INTERRUPTED": "The local execution service restarted. Send the same task again.",
   "chatPlanControl.resumeExecution": "Resume execution",
+  "chatPlanControl.retainedSteps": "Completed steps are retained. Retrying continues from unfinished work.",
+  "chatPlanControl.retrying": "Retrying…",
 };
