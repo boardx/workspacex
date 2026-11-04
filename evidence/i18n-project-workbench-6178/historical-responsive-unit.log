@@ -1,0 +1,14 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/project-workbench-non-workshop.test.tsx (22 tests) 1759ms
+   ✓ #4615 通用项目的工作台 > 内容：「新建 ▾ · 设计」就地建设计稿并挂到本项目；「关联已有 ▾ · 设计」切到设计并展开候选 462ms
+ ✓ tests/ui/project-workbench-invite-only.test.tsx (5 tests) 291ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 55ms
+ ✓ tests/lib/project-workbench-i18n.test.ts (2 tests) 6ms
+
+ Test Files  4 passed (4)
+      Tests  34 passed (34)
+   Start at  12:56:02
+   Duration  15.21s (transform 3.41s, setup 997ms, collect 7.25s, tests 2.11s, environment 2.92s, prepare 399ms)

@@ -1,0 +1,74 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/project-workbench-non-workshop.test.tsx (21 tests | 3 failed) 1625ms
+   ✓ #4615 通用项目的工作台 > 内容：「新建 ▾ · 设计」就地建设计稿并挂到本项目；「关联已有 ▾ · 设计」切到设计并展开候选 520ms
+   × #4615 通用项目的工作台 > i18n: keeps general navigation URLs and raw project title without refetching 44ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Content
+Received:
+  内容
+   × #4615 通用项目的工作台 > i18n: retains workshop observer scope while translating labels 17ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Observer
+Received:
+  观察者 视角
+   × #4615 通用项目的工作台 > i18n: retranslates real access failure without retrying or rendering project data 24ms
+     → expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  not in this project
+Received:
+  你还不在这个项目里项目是受邀才能进入的空间：只有被项目负责人加入后，才能看到项目内的对话、材料与产出。请向负责人索取邀请。项目 p-rp · NO_PROJECT_ROLE回到我的项目
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/project-workbench-non-workshop.test.tsx > #4615 通用项目的工作台 > i18n: keeps general navigation URLs and raw project title without refetching
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Content
+Received:
+  内容
+ ❯ tests/ui/project-workbench-non-workshop.test.tsx:417:55
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  tests/ui/project-workbench-non-workshop.test.tsx > #4615 通用项目的工作台 > i18n: retains workshop observer scope while translating labels
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  Observer
+Received:
+  观察者 视角
+ ❯ tests/ui/project-workbench-non-workshop.test.tsx:425:107
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  tests/ui/project-workbench-non-workshop.test.tsx > #4615 通用项目的工作台 > i18n: retranslates real access failure without retrying or rendering project data
+Error: expect(element).toHaveTextContent()
+
+Expected element to have text content:
+  not in this project
+Received:
+  你还不在这个项目里项目是受邀才能进入的空间：只有被项目负责人加入后，才能看到项目内的对话、材料与产出。请向负责人索取邀请。项目 p-rp · NO_PROJECT_ROLE回到我的项目
+ ❯ tests/ui/project-workbench-non-workshop.test.tsx:431:84
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 18 passed (21)
+   Start at  12:23:22
+   Duration  8.25s (transform 2.58s, setup 260ms, collect 4.24s, tests 1.62s, environment 1.37s, prepare 115ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/project-workbench-non-workshop.test.tsx --minWorkers=1 --maxWorkers=1
