@@ -196,8 +196,10 @@ describe("platform members complete localization", () => {
     else fetchMock.mockResolvedValue(json({ reasonCode: kind === "unknown" ? privateDetail : "DEPENDENCY_UNAVAILABLE", message: privateDetail }, 503));
     show(); const failed = await screen.findByTestId("admin-platform-members-failed");
     expect(failed).toHaveTextContent(/could not (?:load|read|retrieve).*?(?:roster|member|account)|(?:roster|member list|account list).*?(?:unavailable|failed)/i); expect(document.body).not.toHaveTextContent(privateDetail);
+    if (kind === "server") expect(failed).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
     expect(screen.queryByTestId("admin-platform-members-empty")).toBeNull(); expect(screen.queryByTestId("admin-platform-members-forbidden")).toBeNull();
     switchTo("zh-CN"); expect(failed).toHaveTextContent(/失败|没能|不可用/); expect(fetchMock).toHaveBeenCalledTimes(1);
+    if (kind === "server") expect(failed).not.toHaveTextContent("DEPENDENCY_UNAVAILABLE");
     fetchMock.mockResolvedValue(json({ members: [] })); fireEvent.click(within(failed).getByRole("button"));
     expect(await screen.findByTestId("admin-platform-members-empty")).toHaveTextContent(/没有.*账号/);
     expect(fetchMock).toHaveBeenCalledTimes(2);
