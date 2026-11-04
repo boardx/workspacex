@@ -89,7 +89,7 @@ const invalidConfigurations: [Partial<SurveyWorkflowQuestion>, string, string][]
   [{ config: { optionIds: ["same", "same"] } }, "选项 ID 必须唯一且不能使用保留 ID", "Option IDs must be unique and cannot use reserved IDs."],
   [{ config: { optionIds: ["one"] } }, "选项 ID 与选项数量不一致", "Option IDs must match the number of options."],
   [{ options: ["原选项", "原选项"] }, "选项文字不能重复", "Option text must be unique."],
-  [{ options: ["", "原选项"] }, "选项不能为空", "Options cannot be empty."],
+  [{ options: [" ", "原选项"] }, "选项不能为空", "Options cannot be empty."],
   [{ type: "number", options: [], config: { min: 2, max: 1 } }, "数值下限不能超过上限", "Number minimum cannot exceed its maximum."],
   [{ type: "short", options: [], config: { minLength: 3, maxLength: 2 } }, "文字长度下限不能超过上限", "Text length minimum cannot exceed its maximum."],
   [{ type: "multi", config: { optionIds: ["raw-a", "raw-b"], minSelections: 2, maxSelections: 1 } }, "选择数量下限不能超过上限", "Minimum selections cannot exceed maximum selections."],
