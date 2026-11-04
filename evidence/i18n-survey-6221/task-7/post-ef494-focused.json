@@ -1,0 +1,27 @@
+{
+  "name": "post-ef494-focused",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-report-editor-i18n.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "232421f2a9ff9bdfaaf020b3c3f943c08eabff0a",
+  "exitCode": 0,
+  "seconds": 8.36,
+  "rawLogSha256": "c42de9f25b4363b01071ec7a8235bd0fc65e0fdbd9fd8a4ce1156fc712e65afa",
+  "sourceAfter": "232421f2a9ff9bdfaaf020b3c3f943c08eabff0a",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 2,
+  "passed": 24,
+  "skipped": 0,
+  "nativeSeconds": 7.29,
+  "interpretation": "Existing report-editor19 and resource5 subset; not additional cases appended to669, no pixel QA claim."
+}

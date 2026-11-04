@@ -24,8 +24,11 @@ Every case retains180000ms, worker1/retry0/maxfail1 and original600000ms service
 | Independent template+AI /e6dc452 |0PASS/1FAIL(template)/1maxfail-unrun(AI);344.226s wrapper|Driver incorrectly expected raw Markdown stripping. Corrected expectation is exact rawBody. AI not executed in this invocation.|`independent-*`|
 | Independent AI intake /62c7637 |1PASS/0skip/0unexpected/0flaky/global0;case6.556s/wrapper322.187s|Real file bytes, one configured proposal, corrected raw Markdown, controlled source-save403 and explicit retry with original report identity/persisted design. Configured loopback model, no external-vendor quality claim and no independent PG claim for this case.|`intake-*`|
 | Independent template /62c7637 |0PASS/1timeout/0skip/0flaky/global1;case180.422s/wrapper595.538s|Real save/reload, controlled403 same-body retry/version+1 and independent copy edit reached. Stale Export JSON locator blocked export; actual JSX/name is Export template. Report binding/unlink/undo/PG remainder unexecuted.|`template-browser-1*`, `template-list-1*`|
+| Independent author /232421f | Infrastructure startup timeout;0executed/0PNG, global1, wrapper686.721s |Original config.webServer600000ms expired before any spec. No business PASS/FAIL. Necessary merged-source webtype,2file24existing tests and5filelint actually passed first. Incomplete output has no BUILD_ID.|`author-browser-1*`, `post-ef494-*`|
 
-These results are never stitched into native3PASS. The author/public/report and corrected template cases remain pending.
+These results are never stitched into native3PASS. The author/public/report and corrected template cases remain pending. Coordinator now authorizes one exact two-case original canonical invocation (author then template) after capacity recovery, preserving original budgets/assertions; no new prebuild framework and no reuse of incomplete output.
+
+Capacity incident: actual startup timeout and other checkout load observations are recorded in `author-browser-1-infrastructure.md`. Owned cleanup remains0. Source/code/raw/evidence/stashes stay protected. Coordinator-authorized removal of only this failed build's inactive cache found0 allocated bytes and released no meaningful disk space (`author-failed-cache-cleanup.json`); worker does not attribute global disk changes to its cleanup. Coordinator subsequently restored about7.8Gi available and explicitly authorized exactly one original canonical two-case build. Start requires fresh peer noheavy/sole handoff and roughly7.5Gi available; ordinary tool polling checks disk, approaching2Gi requires own-scope infrastructure shutdown. No new watchdog, source-gate repetition or budget change.
 
 ## Actual screenshot QA
 
@@ -33,7 +36,7 @@ All actual PNGs have been individually viewed, not inferred from pass counts or 
 
 ## Remaining completion gates
 
-1. Exact independent author→publish→anonymous supported-name upload/submit→review→32responses/report/MD/Word/API+PG case. Downloaded Word ZIP/XML is independently inspected; browser printing is not a generated PDF-file claim.
+1. Actual author→publish→anonymous supported-name upload/submit→review→32responses/report/MD/Word/API+PG case. Downloaded Word ZIP/XML is independently inspected; browser printing is not a generated PDF-file claim.
 2. Corrected original template case through report binding/unlink/undo/rawJSON/API+PG; fresh375/1280 images must confirm the heading correction.
 3. Final safe evidence review, necessary current-source integration checks, normal hook-enabled explicit branch push and one PR Closes#6221 to develop. SourceCI/review must be green and coordinator must perform actual merge; local source-only green is not delivery.
 4. Final plan/issue/matrix updates and owned resource cleanup. No manual feature passing and no declaration of an unfinished journey as complete.
