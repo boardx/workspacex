@@ -2,6 +2,7 @@ import * as React from "react";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { SurveyRuntimeSchema } from "@repo/contracts/survey-runtime";
+import { SurveyLibraryTemplateSchema } from "@repo/contracts/survey-template-library";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import type { Locale } from "@/lib/i18n/locale";
 import { LiveSurveyLibrary } from "@/components/survey/live/survey-library";
@@ -143,6 +144,33 @@ it("retranslates an existing local template validation error without clearing in
   expect(screen.getByRole("textbox", { name: "Survey name" })).toHaveValue(rawName);
   expect(screen.getByRole("combobox", { name: "Select survey template" })).toHaveValue("");
   expect(request).toHaveBeenCalledTimes(1);
+});
+
+it("retains a selected authored template and copies its report instead of applying a new default", async () => {
+  const template = SurveyLibraryTemplateSchema.parse({
+    id: "template-raw", kind: "question", title: "原模板 {count}", description: "原说明", version: 2,
+    updatedAt: "2026-11-04T00:00:00.000Z", questions: [question],
+    template: { id: "template-report", title: "原报告 {count}", sections: [] },
+  });
+  request.mockResolvedValueOnce([template]).mockResolvedValueOnce(survey());
+  const created = vi.fn(); show(<CreateSurveyDialog open onOpenChange={vi.fn()} onCreated={created} />);
+  fireEvent.change(screen.getByRole("textbox", { name: "问卷名称" }), { target: { value: rawName } });
+  fireEvent.click(screen.getByRole("radio", { name: /从模板创建/ }));
+  await screen.findByRole("option", { name: "原模板 {count}" });
+  const select = screen.getByRole("combobox", { name: "选择问卷模板" });
+  fireEvent.change(select, { target: { value: "template-raw" } }); language("en");
+  expect(screen.getByRole("combobox", { name: "Select survey template" })).toBe(select);
+  expect(select).toHaveValue("template-raw");
+  expect(screen.getByRole("option", { name: "原模板 {count}" })).toBeInTheDocument();
+  expect(request).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button", { name: "Next" }));
+  await waitFor(() => expect(created).toHaveBeenCalledWith("survey-raw", "template"));
+  expect(request.mock.calls[1][1].body).toMatchObject({
+    title: rawName,
+    questions: [{ id: "q1", title: rawQuestion, provenance: { source: "template", sourceId: "template-raw" } }],
+    template: { id: "template-report", title: "原报告 {count}", sections: [] },
+  });
+  expect(request).toHaveBeenCalledTimes(2);
 });
 
 it("translates the explicit delete confirmation without adding an implicit delete", async () => {
