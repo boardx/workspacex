@@ -187,7 +187,7 @@ export function PublicSurveyForm({ token }: { token: string }) {
         <h1 className="text-24 font-semibold">{data?.title ?? t("survey.public.title")}</h1>
         {error && (
           <p role="alert" className="mt-4 text-12 text-destructive">
-            {error instanceof Error ? displaySurveyRuntimeError(error, t, locale) : displaySurveyMessage(error, t)}
+            {error instanceof Error ? displaySurveyRuntimeError(error, t, locale) : displaySurveyMessage(error, t, locale)}
           </p>
         )}
         {done ? (

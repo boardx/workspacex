@@ -15,7 +15,7 @@ export function MarkdownSurveyEditor({ value, locked, onChange, onPreview }: {
   onChange: (value: string) => void;
   onPreview: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [reviewing, setReviewing] = React.useState(false);
   const [fileError, setFileError] = React.useState<SurveyDisplayMessage | null>(null);
   const fileRead = React.useRef(0);
@@ -48,7 +48,7 @@ export function MarkdownSurveyEditor({ value, locked, onChange, onPreview }: {
             reader.readAsText(file, "UTF-8");
           }} />
         </label>}
-        {fileError && <p role="alert" className="text-12 text-destructive">{displaySurveyMessage(fileError, t)}</p>}
+        {fileError && <p role="alert" className="text-12 text-destructive">{displaySurveyMessage(fileError, t, locale)}</p>}
         <Button variant="outline" onClick={() => setReviewing(true)}>{t("survey.design.reviewQuestions")}</Button>
         <Dialog open={reviewing} onOpenChange={setReviewing}>
           <DialogContent className="max-h-[85vh] max-w-5xl overflow-auto">

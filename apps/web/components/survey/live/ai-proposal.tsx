@@ -93,7 +93,7 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
         {recordings&&<section aria-label={t("survey.import.recordings")} className="flex flex-wrap gap-2 border-t border-border p-3">{recordings.length?recordings.map(item=><Button key={item.sessionId} variant="outline" disabled={busy||voiceBusy||reading} onClick={()=>{setTranscriptionId(item.sessionId);setRecordingName(item.name);setFile(null);fileRevision.current++;setRecordings(null);}}>{item.name}</Button>):<p className="text-13 text-muted-foreground">{t("survey.import.noRecordings")}</p>}</section>}
       </div>
       {overLimit&&<p role="alert" className="mt-3 text-13 text-destructive">{t("survey.import.tooLong",{max:SURVEY_PROPOSAL_TEXT_MAX_CHARS,count:text.trim().length})}</p>}
-      {error&&<p role="alert" className="mt-3 text-13 text-destructive">{displaySurveyMessage(error,t)}</p>}
+      {error&&<p role="alert" className="mt-3 text-13 text-destructive">{displaySurveyMessage(error,t,locale)}</p>}
     </div>
     <WorkflowActionBar placement="footer">{busy?<WorkflowActionButton variant="outline" onClick={cancel}>{t("survey.import.cancel")}</WorkflowActionButton>:null}<WorkflowActionButton variant="primary" disabled={busy||reading||voiceBusy||overLimit||(!text.trim()&&!transcriptionId&&!file)} onClick={()=>void generate()}>{t(busy?'survey.import.generating':'survey.import.generate')}</WorkflowActionButton></WorkflowActionBar>
     <Dialog open={!!proposal} onOpenChange={open=>{if(!open)setProposal(null);}}><DialogContent className="max-h-[85vh] max-w-5xl overflow-auto">
@@ -102,7 +102,7 @@ export function SurveyAiProposal({locked,onApply,storageKey}:{locked:boolean;onA
       <div className="grid gap-4 md:grid-cols-2"><textarea aria-label={t("survey.import.markdown")} value={markdown} onChange={event=>setMarkdown(event.target.value)} className="min-h-80 rounded-md border border-border bg-background p-3 font-mono text-13"/>
         <section aria-label={t("survey.import.questionPreview")}>{parsed.ok?<><h2 className="text-18 font-semibold">{parsed.draft.title}</h2>{parsed.draft.questions.map((question,index)=><article key={question.id} className="space-y-2 border-b border-border py-3"><h3>{index+1}. {question.title}</h3>{question.options?.map(option=><p key={option} className="text-13 text-muted-foreground">○ {option}</p>)}</article>)}</>:<p role="alert"> {t("survey.import.fixMarkdown",{details:parsed.diagnostics.map(d=>displaySurveyDiagnostic(d.message,t)).join(locale==='zh-CN'?'；':'; ' )})}</p>}</section></div>
       <div className="flex justify-end gap-2"><Button variant="outline" disabled={applying} onClick={()=>setProposal(null)}>{t("survey.import.backInput")}</Button><Button disabled={!parsed.ok||applying} onClick={()=>{setApplying(true);setError(null);void Promise.resolve(onApply(markdown)).then(()=>setProposal(null)).catch(cause=>setError(surveyErrorMessage(cause,'survey.import.applyFailed'))).finally(()=>setApplying(false));}}>{t(applying?'survey.import.applying':'survey.import.apply')}</Button></div>
-      {error&&<p role="alert" className="text-destructive">{displaySurveyMessage(error,t)}</p>}
+      {error&&<p role="alert" className="text-destructive">{displaySurveyMessage(error,t,locale)}</p>}
     </DialogContent></Dialog>
   </section>;
 }

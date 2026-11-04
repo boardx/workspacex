@@ -206,7 +206,7 @@ export function LiveSurveyLibrary({ projectId = null }: { projectId?: string | n
           </div>
 
           {error && <div role="alert" data-testid="err-survey-library" className="flex flex-col items-start gap-3 rounded-lg border border-destructive bg-card p-4 text-13 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0 break-words"><p className="font-medium">{t("survey.library.loadFailed")}</p><p className="mt-1 text-muted-foreground">{displaySurveyMessage(error, t)}</p></div>
+            <div className="min-w-0 break-words"><p className="font-medium">{t("survey.library.loadFailed")}</p><p className="mt-1 text-muted-foreground">{displaySurveyMessage(error, t, locale)}</p></div>
             <Button variant="outline" className="shrink-0" disabled={busy} onClick={() => void refresh(true)}>{t(busy ? "survey.library.reloading" : "survey.library.reload")}</Button>
           </div>}
           {busy && <LibraryLoading />}

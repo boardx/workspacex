@@ -33,7 +33,7 @@ export function QuestionMaterial({
   maxFiles?: number;
   maxBytes?: number;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<SurveyDisplayMessage | null>(null);
   const [pending, setPending] = React.useState<File>();
@@ -197,7 +197,7 @@ export function QuestionMaterial({
       )}
       {error && (
         <div role="alert" className="text-12 text-destructive">
-          {displaySurveyMessage(error, t)}
+          {displaySurveyMessage(error, t, locale)}
           {pending && (
             <Button
               type="button"

@@ -23,7 +23,7 @@ const steps = [
 ] as const;
 
 export function SurveyImportWorkspace({ draft, projectId }: { draft: SurveyCreationDraft | null; projectId: string | null }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [error, setError] = React.useState<SurveyDisplayMessage | null>(null);
   const [busy, setBusy] = React.useState(false);
@@ -68,6 +68,6 @@ export function SurveyImportWorkspace({ draft, projectId }: { draft: SurveyCreat
     <header className="space-y-3"><Button variant="ghost" className="-ml-3 text-muted-foreground" onClick={() => router.replace(withProjectId("/studio/survey", projectId))}><ArrowLeft className="mr-2 size-4" aria-hidden/>{t("survey.import.backSurveys")}</Button><div><h1 className="text-24 font-semibold">{t("survey.import.title")}</h1><p className="mt-1 text-14 text-muted-foreground">{draft.name}</p></div></header>
     <nav aria-label={t("survey.import.steps")} className="grid grid-cols-2 gap-2 text-13 sm:grid-cols-4 sm:gap-3">{steps.map(([id,label],index)=><span key={id} aria-current={index===0?"step":undefined} className={`flex items-center gap-2 ${index===0?'font-semibold':'text-muted-foreground'}`}><span className={`flex size-7 shrink-0 items-center justify-center rounded-full ${index===0?'bg-primary text-primary-foreground':'border border-border'}`}>{index+1}</span>{t(label)}</span>)}</nav>
     <SurveyAiProposal locked={false} storageKey={sessionKey} onApply={apply} />
-    {error && <p role="alert" className="text-destructive">{displaySurveyMessage(error, t)}</p>}
+    {error && <p role="alert" className="text-destructive">{displaySurveyMessage(error, t, locale)}</p>}
   </main>;
 }

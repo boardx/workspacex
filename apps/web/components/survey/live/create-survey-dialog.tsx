@@ -21,7 +21,7 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags,onRetu
   onReturnFocus?:()=>void;
   open:boolean;onOpenChange:(open:boolean)=>void;onCreated:(id:string|null,mode:"blank"|"ai"|"template",draft?:SurveyCreationDraft)=>void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [name,setName]=React.useState("");
   const [tags,setTags]=React.useState<readonly string[]>([]);
   const [pendingTag,setPendingTag]=React.useState("");
@@ -75,7 +75,7 @@ export function CreateSurveyDialog({open,onOpenChange,onCreated,knownTags,onRetu
         {([ ["blank","survey.create.blank","survey.create.blankHint"],["ai","survey.create.ai","survey.create.aiHint"],["template","survey.create.template","survey.create.templateHint"] ] as const).map(([value,title,description])=><label key={value} className={`rounded-lg border p-4 ${mode===value?"border-primary bg-accent":"border-border"}`}><input type="radio" name="survey-create-mode" value={value} checked={mode===value} onChange={()=>{setMode(value);setError(null);}} /><span className="ml-2 font-medium">{t(title)}</span><p className="mt-2 text-12 text-muted-foreground">{t(description)}</p></label>)}
       </div></fieldset>
       {mode==="template"&&<label className="block text-13">{t("survey.create.templateLabel")}<select aria-label={t("survey.create.selectTemplate")} disabled={busy||loading} value={selected} onChange={event=>setSelected(event.target.value)} className="mt-2 w-full rounded-md border border-border bg-card p-2"><option value="">{t(loading?"survey.create.loadingTemplates":"survey.create.templatePlaceholder")}</option>{[...builtins,...templates].map(row=><option key={row.id} value={row.id}>{row.title}</option>)}</select></label>}
-      {error&&<p role="alert" className="text-13 text-destructive">{displaySurveyMessage(error,t)}</p>}
+      {error&&<p role="alert" className="text-13 text-destructive">{displaySurveyMessage(error,t,locale)}</p>}
       <WorkflowActionBar><WorkflowActionButton type="button" variant="outline" disabled={busy} onClick={()=>onOpenChange(false)}>{t("common.cancel")}</WorkflowActionButton><WorkflowActionButton type="submit" variant="primary" disabled={busy||!name.trim()||loading}>{t(busy?"survey.create.creating":"survey.create.next")}</WorkflowActionButton></WorkflowActionBar>
     </form>
   </DialogContent></Dialog>;
