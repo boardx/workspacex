@@ -29,10 +29,11 @@
 flowchart LR
  A[Audit and baseline] --> B[Library creation import] --> C[Question design] --> D[Workspace publish] --> E[Anonymous form] --> F[Responses reports templates] --> G[Whole proof PR CI merge]
  classDef active fill:#fef3c7,stroke:#d97706
+ classDef tested fill:#ddd6fe,stroke:#7c3aed
  classDef done fill:#dcfce7,stroke:#16a34a
  classDef pending fill:#f3f4f6,stroke:#9ca3af
  class A done
- class B active
+ class B tested
  class C,D,E,F,G pending
 ```
 
@@ -41,11 +42,11 @@ flowchart LR
 **Files:** components/survey/live/{survey-library,create-survey-dialog,survey-import-workspace,ai-proposal}.tsx; components/survey/library/survey-library-nav.tsx; lib/i18n/namespaces/survey-library.ts; both resource registries. Test: tests/ui/survey-library-i18n.test.tsx and survey-import-i18n.test.tsx (all paths below apps/web/).
 **Interfaces:** consume useI18n/current raw API data and neutral InterviewVoiceInput. Produce registered survey.* library/create/import keys; preserve existing component props and create/navigation payloads. Any shared pure message descriptor has `{key: MessageKey, params?: MessageParams} | {raw: string}` shape and renders via current t.
 
-- [ ] Write RED tests for English/Chinese accessible library/search/status/menu/create/mode/template/input/error controls, literal raw `{count}` titles/tags; same row/input DOM, search/tag/mode/template/pending draft after switch; no extra GET/POST/project link; literal encoded route and exact persisted raw title/tags. Creation report default uses locale only on explicit create.
-- [ ] Run `pnpm --filter web exec vitest run tests/ui/survey-library-i18n.test.tsx tests/ui/survey-import-i18n.test.tsx`; Expected: missing-English assertions fail, no collection errors.
-- [ ] Implement render-only resources/labels/messages with original IDs/handlers/effect deps; input text, selected recording/file and proposal contents remain raw.
-- [ ] Run new tests plus survey-live-library, survey-import-page, survey-ai-proposal, survey-inline-voice and i18n-resources suites; Expected: all PASS, original Chinese behavior retained.
-- [ ] Commit exact scope and record actual command/source/results in ledger; task-done runs the same affected suite.
+- [x] Write RED tests for English/Chinese accessible library/search/status/menu/create/mode/template/input/error controls, literal raw `{count}` titles/tags; same row/input DOM, search/tag/mode/template/pending draft after switch; no extra GET/POST/project link; literal encoded route and exact persisted raw title/tags. Creation report default uses locale only on explicit create.
+- [x] Run `pnpm --filter web exec vitest run tests/ui/survey-library-i18n.test.tsx tests/ui/survey-import-i18n.test.tsx`; Expected: missing-English assertions fail, no collection errors.
+- [x] Implement render-only resources/labels/messages with original IDs/handlers/effect deps; input text, selected recording/file and proposal contents remain raw.
+- [x] Run new tests plus survey-live-library, survey-import-page, survey-ai-proposal, survey-inline-voice and i18n-resources suites; Expected: all PASS, original Chinese behavior retained.
+- [x] Commit exact scope and record actual command/source/results in ledger; task-done runs the same affected suite.
 
 ### Task 2: Question editing, all question types and trial fill
 

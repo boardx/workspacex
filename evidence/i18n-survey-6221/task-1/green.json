@@ -1,0 +1,38 @@
+{
+  "name": "green",
+  "command": [
+    "/Users/shenyangjun/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/executing-plans/scripts/task-done",
+    "docs/design/i18n-survey-journey/plan.md",
+    "1",
+    "b1f96fb1edcdb2fe8bb4e51c0cb10d1f9b61ff8e",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-library-i18n.test.tsx",
+    "tests/ui/survey-import-i18n.test.tsx",
+    "tests/ui/survey-live-library.test.tsx",
+    "tests/ui/survey-import-page.test.tsx",
+    "tests/ui/survey-ai-proposal.test.tsx",
+    "tests/ui/survey-inline-voice.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "39f32e37941c1ee6d6b043b377c63e7b634167c1",
+  "exitCode": 0,
+  "seconds": 13.714,
+  "rawLogLocalPath": "/tmp/6221-task1-private/green.log",
+  "rawLogSha256": "c3d83367f95d7bfd49bccd782f5c8515424da48c259cfc3ea8016851392b6ac5",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 7,
+  "passed": 65,
+  "failed": 0,
+  "newLocaleCases": 18,
+  "originalRegressionCases": 47,
+  "fullTestLogLocalPath": "/Users/shenyangjun/boardx/workspacex/.superpowers/sdd/plan/task-1-tests.log",
+  "fullTestLogSha256": "b0bb91db2d07af0d708c6641d8a10605e70bfd3163e6cb74d9730b4dc8935850"
+}
