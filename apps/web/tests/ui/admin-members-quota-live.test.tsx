@@ -125,8 +125,26 @@ describe("F160 成员配额 tab —— 只投影真实响应", () => {
 
     await waitFor(() => expect(screen.getByTestId("admin-quota-load-failed")).toBeTruthy());
     expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("配额数据读取失败");
-    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("刷新页面重新登录");
+    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("你没有权限执行此操作");
+    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("联系管理员");
+    expect(screen.getByTestId("admin-quota-load-failed")).not.toHaveTextContent("登录状态过期");
+    expect(screen.getByTestId("admin-quota-load-failed")).not.toHaveTextContent("刷新页面重新登录");
     expect(screen.getByTestId("admin-quota-load-failed")).not.toHaveTextContent("FORBIDDEN");
+    expect(screen.queryByTestId("admin-quota-live")).toBeNull();
+  });
+
+  it("401 登录过期仍提示重新登录，不误报为权限不足", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ reasonCode: "UNAUTHORIZED" }, 401));
+
+    render(<MemberQuotaTab />);
+
+    await waitFor(() => expect(screen.getByTestId("admin-quota-load-failed")).toBeTruthy());
+    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("配额数据读取失败");
+    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("登录状态过期");
+    expect(screen.getByTestId("admin-quota-load-failed")).toHaveTextContent("刷新页面重新登录");
+    expect(screen.getByTestId("admin-quota-load-failed")).not.toHaveTextContent("你没有权限执行此操作");
+    expect(screen.getByTestId("admin-quota-load-failed")).not.toHaveTextContent("联系管理员");
+    expect(screen.getByTestId("admin-quota-load-failed")).not.toHaveTextContent("UNAUTHORIZED");
     expect(screen.queryByTestId("admin-quota-live")).toBeNull();
   });
 
