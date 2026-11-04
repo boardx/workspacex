@@ -1,0 +1,27 @@
+{
+  "name": "signature-caption-red-1",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-question-controls-i18n.test.tsx",
+    "-t",
+    "keeps the same signature canvas and typed raw draft across locale changes"
+  ],
+  "source": "c8f9861c6ad1754e0c9ab13b16e8e31d7ce7cf26",
+  "exitCode": 1,
+  "seconds": 4.981,
+  "rawLogSha256": "01c999128bb21504a6aa932709da6956fe738c90fc1437142b4570563f768a8c",
+  "sourceAfter": "c8f9861c6ad1754e0c9ab13b16e8e31d7ce7cf26",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "semanticFailures": 1,
+  "deliberatelyFiltered": 40,
+  "nativeSeconds": 3.3,
+  "interpretation": "Existing signature draft/DOM case fails only the new English caption query; Chinese caption and typed input retained before assertion."
+}

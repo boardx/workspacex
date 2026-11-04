@@ -102,7 +102,7 @@ export function QuestionMaterial({
       {signature ? (
         <>
           <p className="text-12 text-muted-foreground">
-            可以手写或键入签名。签名不代表电子合同认证。
+            {t("survey.design.signatureHint")}
           </p>
           <canvas
             ref={canvas}
