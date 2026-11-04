@@ -143,7 +143,15 @@ it("retains canonical report Markdown bytes independently of displayed locale", 
 it("localizes only the missing chart series name and keeps default export options and raw groups unchanged", () => {
   const original = reportBlock({ type: "line", rows: [{ label: "原横轴 {count}", value: 3.25, count: 8 }] }), before = structuredClone(original);
   expect(reportChartOptions(original)).toMatchObject({ series: [{ name: "数据", data: [3.25] }] });
-  expect(reportChartOptions(original, "en")).toMatchObject({ series: [{ name: "Data", data: [3.25] }] });
-  expect(reportChartOptions({ ...original, rows: [{ ...original.rows[0]!, group: "数据" }] }, "en")).toMatchObject({ series: [{ name: "数据", data: [3.25] }] });
+  const english = reportChartOptions(original, "en");
+  expect(english).toMatchObject({ series: [{ name: "数据", data: [3.25] }] });
+  const formatter = (english.legend as { formatter?: unknown }).formatter;
+  expect(formatter).toBeTypeOf("function");
+  if (typeof formatter !== "function") throw new Error("Expected an English legend display formatter");
+  expect(formatter("数据")).toBe("Data");
+  const raw = reportChartOptions({ ...original, rows: [{ ...original.rows[0]!, group: "数据" }] }, "en");
+  const rawFormatter = (raw.legend as { formatter?: unknown }).formatter;
+  expect(raw).toMatchObject({ series: [{ name: "数据", data: [3.25] }] });
+  expect(typeof rawFormatter === "function" ? rawFormatter("数据") : "数据").toBe("数据");
   expect(original).toEqual(before); expect(reportChartOptions(original)).toMatchObject({ series: [{ name: "数据", data: [3.25] }] });
 });
