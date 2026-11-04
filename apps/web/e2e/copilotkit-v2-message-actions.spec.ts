@@ -162,8 +162,31 @@ test("CK-P4 有计划的失败重试——唯一恢复入口真的创建新 run 
   await expect(page.getByTestId("copilotkit-v2-retry")).toHaveCount(0);
   const retried = page.waitForResponse(response => response.request().method() === "POST"
     && new URL(response.url()).pathname.endsWith("/steps/retry"));
-  await retry.click();
+  await expect(page.getByText("已完成的步骤会保留，重试将从未完成处继续。", { exact: true })).toBeVisible();
+  // Hold this one real request before dispatch so the in-flight state is observable.
+  let releaseRetry!: () => void;
+  const retryGate = new Promise<void>(resolve => { releaseRetry = resolve; });
+  let retryRequests = 0;
+  const retryPattern = "**/plan-control/threads/*/steps/retry";
+  const retryHandler = async (route: import("@playwright/test").Route) => {
+    retryRequests++;
+    await retryGate;
+    await route.continue();
+  };
+  await page.route(retryPattern, retryHandler);
+  try {
+    await retry.click();
+    await expect(retry).toBeDisabled();
+    await expect(retry).toHaveText("正在重试…");
+    await expect(page.getByTestId("chat-task-workbench-failure-edit-input")).toBeDisabled();
+    await expect.poll(() => retryRequests).toBe(1);
+    await retry.press("Enter");
+    expect(retryRequests).toBe(1);
+  } finally {
+    releaseRetry();
+  }
   const response = await retried;
+  await page.unroute(retryPattern, retryHandler);
   expect(response.status()).toBe(201);
   expect(response.request().postDataJSON()).toEqual({ planStepId: before.failedStepId });
   const created = planControl.retryPlanStep.out.parse(await response.json());

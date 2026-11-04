@@ -160,3 +160,14 @@ describe("S6 失败态：只渲染两个恢复动作，第三个「恢复检查�
     expect(onEdit).toHaveBeenCalled();
   });
 });
+
+it("recovery explains preserved progress and blocks duplicate actions while retrying", () => {
+ const retry=vi.fn();
+ render(<PlanFailureRecovery failedStepIndex={3} failedStepLabel="生成画布" reason="服务暂时不可用" busy onRetryStep={retry} />);
+ expect(screen.getByText("已完成的步骤会保留，重试将从未完成处继续。")).toBeTruthy();
+ const button=screen.getByTestId(PLAN_FAILURE_RETRY_STEP_TESTID) as HTMLButtonElement;
+ expect(button.disabled).toBe(true);
+ expect(button.textContent).toContain("正在重试");
+ expect((screen.getByTestId(PLAN_FAILURE_EDIT_INPUT_TESTID) as HTMLButtonElement).disabled).toBe(true);
+ fireEvent.click(button); expect(retry).not.toHaveBeenCalled();
+});

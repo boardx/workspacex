@@ -617,6 +617,7 @@ function PlanControlSession(
         */}
       {offersStepRecovery && (
         <PlanFailureRecovery
+          busy={busy}
           failedStepIndex={failedStep ? failedStepDisplayIndex : undefined}
           failedStepLabel={failedStep?.content}
           // issue #2451 —— 真实失败原因（`agent_runs.error_code` 经 `getPlanLedger.errorCode`
