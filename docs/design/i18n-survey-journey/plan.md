@@ -65,8 +65,8 @@ flowchart LR
 **Files:** components/survey/live/{survey-workspace,collection-settings,collection-schedule,collection-overview,share-code,workflow-timeline,survey-draft-copy}.tsx; lib/survey/use-unsaved-navigation.ts; pure survey display-copy/message helpers; namespace survey-workspace.ts. Keep runtime-client Error.message/class semantics if copy source is shared. Test: survey-workspace-i18n.test.tsx and survey-unsaved-navigation.test.tsx.
 **Interfaces:** consumes existing question props/Task2 rendered labels. Shared semantic error/notice descriptors render without locale-dependent requests. No locale in autosave identity/accept/load/collection effect dependencies.
 
-- [ ] Write RED for fixed workflow/publish/blocker/loading/empty/error/recovery copy and current-language async notices; same draft/step/template/schedule/selection and no re-fetch/write on locale. Assert immutable publication/source version/batch/anonymity values and old token routing unchanged.
-- [ ] Add unsaved navigation RED: change locale with pending approval/expiry; original listeners and approval survive, next confirmation uses new fixed copy; explicit custom message remains raw.
+- [x] Write RED for fixed workflow/publish/blocker/loading/empty/error/recovery copy and current-language async notices; same draft/step/template/schedule/selection and no re-fetch/write on locale. Assert immutable publication/source version/batch/anonymity values and old token routing unchanged.
+- [x] Add unsaved navigation RED: change locale with pending approval/expiry; original listeners and approval survive, next confirmation uses new fixed copy; explicit custom message remains raw.
 - [ ] Run new tests; Expected: meaningful missing English/continuity failures. Implement semantic rendered keys, locale-only date display and latest-message ref preserving lifecycle. Do not translate exported/canonical Markdown.
 - [ ] Run new suites plus survey-live-workspace, survey-live-publishing, survey-collection-settings, survey-share-code, survey-draft-copy, survey-unsaved-navigation and runtime-client; Expected: all PASS.
 - [ ] Commit and task-done affected suite.
