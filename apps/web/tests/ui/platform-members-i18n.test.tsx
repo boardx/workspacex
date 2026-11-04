@@ -98,8 +98,9 @@ describe("platform members complete localization", () => {
 
   it("preserves a pending PATCH and only updates its returned membership without restarting the 4000ms notice", async () => {
     const pending = deferred(); route(() => pending.promise); show();
-    await screen.findByTestId(roleId()); vi.useFakeTimers();
+    await screen.findByTestId(roleId());
     await choose("lead");
+    vi.useFakeTimers();
     expect(screen.getByTestId(roleId())).toHaveAttribute("aria-disabled", "true");
     switchTo("zh-CN"); fireEvent.click(screen.getByTestId(roleId()));
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -193,7 +194,7 @@ describe("platform members complete localization", () => {
     if (kind === "network") fetchMock.mockRejectedValue(new Error(privateDetail));
     else fetchMock.mockResolvedValue(json({ reasonCode: kind === "unknown" ? privateDetail : "DEPENDENCY_UNAVAILABLE", message: privateDetail }, 503));
     show(); const failed = await screen.findByTestId("admin-platform-members-failed");
-    expect(failed).toHaveTextContent(/could not|unavailable|failed/i); expect(document.body).not.toHaveTextContent(privateDetail);
+    expect(failed).toHaveTextContent(/could not (?:load|read|retrieve).*?(?:roster|member|account)|(?:roster|member list|account list).*?(?:unavailable|failed)/i); expect(document.body).not.toHaveTextContent(privateDetail);
     expect(screen.queryByTestId("admin-platform-members-empty")).toBeNull(); expect(screen.queryByTestId("admin-platform-members-forbidden")).toBeNull();
     switchTo("zh-CN"); expect(failed).toHaveTextContent(/失败|没能|不可用/); expect(fetchMock).toHaveBeenCalledTimes(1);
     fetchMock.mockResolvedValue(json({ members: [] })); fireEvent.click(within(failed).getByRole("button"));
