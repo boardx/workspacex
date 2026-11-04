@@ -1,0 +1,14 @@
+{
+  "name": "init",
+  "command": [
+    "./init.sh"
+  ],
+  "source": "8e865198778985cb53965f6b72d2d36e0c4538fe",
+  "exitCode": 0,
+  "seconds": 3.155,
+  "rawLogLocalPath": "/tmp/6205-integration-init.log",
+  "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+  "receiptPath": "init.txt",
+  "receiptSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d",
+  "receiptNormalization": "trailing blank EOF normalized; original raw log hash retained"
+}

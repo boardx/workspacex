@@ -1,0 +1,194 @@
+{
+  "traceSha256": "61bbaf00e349ad08a0a5ca85f4d47503827a6f3ec368214f75346371144cc512",
+  "postResponses": [
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/initialize",
+      "status": 201,
+      "version": 1,
+      "states": [],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/intake",
+      "status": 201,
+      "version": 2,
+      "states": [
+        {
+          "step": "intake",
+          "status": "draft"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/intake/confirm",
+      "status": 201,
+      "version": 3,
+      "states": [
+        {
+          "step": "intake",
+          "status": "confirmed"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/analysis/generate",
+      "status": 201,
+      "version": 4,
+      "states": [
+        {
+          "step": "analysis",
+          "status": "draft"
+        },
+        {
+          "step": "intake",
+          "status": "confirmed"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/analysis/confirm",
+      "status": 201,
+      "version": 5,
+      "states": [
+        {
+          "step": "analysis",
+          "status": "confirmed"
+        },
+        {
+          "step": "intake",
+          "status": "confirmed"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/experts",
+      "status": 201,
+      "version": 6,
+      "states": [
+        {
+          "step": "analysis",
+          "status": "confirmed"
+        },
+        {
+          "step": "experts",
+          "status": "draft"
+        },
+        {
+          "step": "intake",
+          "status": "confirmed"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/experts/confirm",
+      "status": 201,
+      "version": 7,
+      "states": [
+        {
+          "step": "analysis",
+          "status": "confirmed"
+        },
+        {
+          "step": "experts",
+          "status": "confirmed"
+        },
+        {
+          "step": "intake",
+          "status": "confirmed"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/outline/generate",
+      "status": 201,
+      "version": 8,
+      "states": [
+        {
+          "step": "analysis",
+          "status": "confirmed"
+        },
+        {
+          "step": "experts",
+          "status": "confirmed"
+        },
+        {
+          "step": "intake",
+          "status": "confirmed"
+        },
+        {
+          "step": "outline",
+          "status": "draft"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/outline/confirm",
+      "status": 201,
+      "version": 9,
+      "states": [
+        {
+          "step": "analysis",
+          "status": "confirmed"
+        },
+        {
+          "step": "experts",
+          "status": "confirmed"
+        },
+        {
+          "step": "intake",
+          "status": "confirmed"
+        },
+        {
+          "step": "outline",
+          "status": "confirmed"
+        }
+      ],
+      "execution": null
+    },
+    {
+      "method": "POST",
+      "path": "/__fullstack_api/interviews/digital/itv-aef3d158-8a71-448a-b7a9-90df0836ffa8/markdown/execution",
+      "status": 201,
+      "version": 12,
+      "states": [
+        {
+          "step": "analysis",
+          "status": "confirmed"
+        },
+        {
+          "step": "experts",
+          "status": "confirmed"
+        },
+        {
+          "step": "intake",
+          "status": "confirmed"
+        },
+        {
+          "step": "outline",
+          "status": "confirmed"
+        },
+        {
+          "step": "runs",
+          "status": "completed"
+        }
+      ],
+      "execution": "completed"
+    }
+  ]
+}

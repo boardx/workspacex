@@ -1,0 +1,13 @@
+# Complete research journey localization — #6198
+
+User instruction (2026-11-04): complete remaining internationalization. This issue covers the actual research list → intake → persisted plan → source/chapter → report/export/history journey and its overlays. Interview, recording and B6 survey follow as independent complete-journey PRs. Main owns merges.
+
+Use the established I18nProvider/useI18n and typed message resources. Rendering responds to locale changes without remounting the workflow, refetching history, resubmitting create/assistant commands or resetting drafts. Translate interface copy, status/date/count presentation, errors, loading, aria and discard recovery. Preserve runtime enums, route IDs, request/default canonical names, user titles/tags/requirements, proposals/replies and generated/private documents.
+
+Report boundary confirmed by main: summary/introduction/conclusion/reference and chapter headings are part of the canonical report/framing and stay in its original language. The contents control name/aria, expansion actions, history notices, file actions and surrounding UI follow the interface locale. Contents entries retain the report's canonical headings. A locale switch must preserve serialized runtime/report bytes and exported Markdown.
+
+Ownership: actual research-studio descendants, research namespaces, tests, report-file UI wrappers and shared studio-history-management.tsx / ui/tag-input.tsx UI copy. Shared ownership was coordinated with phase2. The five ASR reason descriptions have one pure Chinese constant shared with the existing hook; voice UI translates by reason. Capture, reconnect, append and recovery behavior stay intact.
+
+Reuse common buttons and tag keys. Pure presentation helpers accept locale with a Chinese default. Notices/errors store semantic keys or facts, translated during rendering. Preserve IME, keyboard handling, tag limits and uncommitted drafts. Locale does not enter command effects, cache/source epochs, request payloads or component keys. Add no dependency, framework, API or model-policy change.
+
+Acceptance starts with nine actual entry RED cases, followed by six workspace counterexamples for autosave/canonical focus values, plan draft/confirmation, report/history/export identity, pending file generation, authorization/explicit retry and raw source links. Existing research/history/tag/voice/file suites must pass. The new seeded browser spec exercises real login/API/PostgreSQL, original content across reload, cross-tab locale switches and 375/1280 layouts. Standard production build and isolated stack; explicitly distinguish the deterministic model fixture and controlled ASR tests from external provider acceptance.

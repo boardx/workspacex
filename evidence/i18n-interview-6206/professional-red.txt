@@ -1,0 +1,50 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/api
+
+ ❯ tests/itv/professional-report-skill.test.ts (31 tests | 1 failed) 142ms
+   × accepts the strictly scoped loopback fixture through the actual professional report guard and source bookkeeping 10ms
+     → expected null not to be null
+ ❯ tests/itv/loopback-professional-interview-report.test.ts (6 tests | 1 failed) 6ms
+   × recognizes the actual complete simulated professional-report protocol without inventing answer locators 4ms
+     → .toMatch() expects to receive a string, but got object
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/itv/loopback-professional-interview-report.test.ts > recognizes the actual complete simulated professional-report protocol without inventing answer locators
+TypeError: .toMatch() expects to receive a string, but got object
+ ❯ tests/itv/loopback-professional-interview-report.test.ts:8:17
+      6| it("recognizes the actual complete simulated professional-report proto…
+      7|   const reply = loopbackInterviewWorkflow(system, context());
+      8|   expect(reply).toMatch(/^# 确定性测试模型的模拟研究报告/);
+       |                 ^
+      9|   expect(reply).toContain("模拟"); expect(reply).not.toMatch(/#answer-…
+     10| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  tests/itv/professional-report-skill.test.ts > accepts the strictly scoped loopback fixture through the actual professional report guard and source bookkeeping
+AssertionError: expected null not to be null
+ ❯ Object.<anonymous> tests/itv/professional-report-skill.test.ts:130:22
+    128|   completeStream.mockImplementation(async (request: { system: string; …
+    129|     const text = loopbackInterviewWorkflow(request.system, request.use…
+    130|     expect(text).not.toBeNull();
+       |                      ^
+    131|     if (text === null) throw new Error("UNMATCHED_PROFESSIONAL_REPORT_…
+    132|     expect(text).toMatch(/^# 确定性测试模型的模拟研究报告/);
+ ❯ src/application/interview/generate-professional-interview-report.ts:53:22
+ ❯ InterviewReportDiagnostics.measure src/application/interview/workflow/interview-report-diagnostics.ts:24:32
+ ❯ measure src/application/interview/generate-professional-interview-report.ts:26:24
+ ❯ src/application/interview/generate-professional-interview-report.ts:52:16
+ ❯ InterviewReportDiagnostics.run src/application/interview/workflow/interview-report-diagnostics.ts:47:22
+ ❯ tests/itv/professional-report-skill.test.ts:135:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+ Test Files  2 failed (2)
+      Tests  2 failed | 35 passed (37)
+   Start at  05:56:25
+   Duration  2.31s (transform 946ms, setup 0ms, collect 1.80s, tests 147ms, environment 0ms, prepare 89ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/api:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run --config vitest.interview-markdown-unit.config.ts tests/itv/loopback-professional-interview-report.test.ts tests/itv/professional-report-skill.test.ts --maxWorkers=1 --minWorkers=1

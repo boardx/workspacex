@@ -1,0 +1,26 @@
+{
+  "name": "api-focused",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "exec",
+    "vitest",
+    "run",
+    "--config",
+    "vitest.interview-markdown-unit.config.ts",
+    "tests/itv/professional-report-skill.test.ts",
+    "tests/itv/loopback-interview-workflow.test.ts",
+    "tests/itv/loopback-professional-interview-report.test.ts"
+  ],
+  "source": "8e865198778985cb53965f6b72d2d36e0c4538fe",
+  "exitCode": 0,
+  "seconds": 3.736,
+  "rawLogLocalPath": "/tmp/6205-integration-api-focused.log",
+  "rawLogSha256": "1ae060b012640f4a5d4d9fde6dc698d977526b32d901f0019d632cd6528be315",
+  "receiptPath": "api-focused.txt",
+  "receiptSha256": "ac8c9ee84fe8816358890fd06f611c07e09563dd240a835e79f49a619058d86b",
+  "receiptNormalization": "trailing blank EOF normalized; original raw log hash retained",
+  "testFiles": 3,
+  "testsPassed": 43
+}

@@ -1,0 +1,388 @@
+{
+  "init": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-init.log",
+    "rawLogSha256": "9d4f95572f21acdeaec7e3a846a34f7ad464e52372bf30124ef5a31eade9d433"
+  },
+  "initial-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-initial-red.log",
+    "rawLogSha256": "601d368a7110820932bb16f99d0b15d62a9cb9b8c9a20082b8b47c7425d911e8"
+  },
+  "initial-green-workspace-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-initial-green-workspace-red.log",
+    "rawLogSha256": "90da992d15e214a4912ea513a26e2288caf017460a83ed3fb7ff18c7ed323680"
+  },
+  "initial-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-initial-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "workspace-green-overlays-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-workspace-green-overlays-red.log",
+    "rawLogSha256": "3c140ce40df7baff598ade5541a742c002f4cd9fc24c77f85bdaec27d07ddf61"
+  },
+  "model-fixture-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-model-fixture-red.log",
+    "rawLogSha256": "b7ca0bdd34471af2122cd03d6676da6ba96045c577b2a0a2dcea30f67473691f"
+  },
+  "workspace-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-workspace-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "overlays-green-controller-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-overlays-green-controller-red.log",
+    "rawLogSha256": "bc9102f14dc6664fbb1ea257b9d30c33e74d37ffaf4c8a3354edebbe6630ff7f"
+  },
+  "model-fixture-first-green": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-model-fixture-first-green.log",
+    "rawLogSha256": "efbdce156d1ca4b980a58c27783dcc38912695e839d5a5d81733ef17e3d132ef"
+  },
+  "model-fixture-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-model-fixture-green.log",
+    "rawLogSha256": "ffc28ee4b9203f30d3fd97490c21f4c8736e5eb39349aec718aa26d988ebcaf4"
+  },
+  "overlays-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-overlays-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "controller-green-secondary-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-controller-green-secondary-red.log",
+    "rawLogSha256": "231db7e0da65018d1bae64a628eefbcfa21c672fe495d29f0a7fede529bbc524"
+  },
+  "first-typecheck": {
+    "exitCode": 2,
+    "rawLogLocalPath": "/tmp/6206-first-typecheck.log",
+    "rawLogSha256": "1e3998271b1be0f3b313aaa2aceb796acc6cd68eda516b9d34e6932011ca786d"
+  },
+  "second-typecheck": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-second-typecheck.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "model-fixture-claims-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-model-fixture-claims-green.log",
+    "rawLogSha256": "57d7912d4a69674f57eba6a183b28338e253225d413bac224e916ec3675edf61"
+  },
+  "current-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-current-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "wiring-first": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-wiring-first.log",
+    "rawLogSha256": "f99296c7a1d11104c8b0d9526949f989ec0a90db97b8007bb9f03a1366df540e"
+  },
+  "testid-first": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-testid-first.log",
+    "rawLogSha256": "4671ec3695229a7cd9f36d71a263093f23f87592a5558d9869755919721b4ddd"
+  },
+  "secondary-green-source-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-secondary-green-source-red.log",
+    "rawLogSha256": "e985aaae3a1532de892e4dfdb46016d448b680ecb0b950c0e92e16363e433c76"
+  },
+  "secondary-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-secondary-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "source-green-legacy-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-source-green-legacy-red.log",
+    "rawLogSha256": "37ad06b7f9f41ed6914fb08eb46b55e6a6fe5b43985ff6be63d3acb24cb70f40"
+  },
+  "source-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-source-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "legacy-green-quality-category-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-legacy-green-quality-category-red.log",
+    "rawLogSha256": "97c182e0eec4037d6ae618bbfa30f186536ac262fe6f8c54d112ea1fc6869a7f"
+  },
+  "legacy-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-legacy-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "controlled-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-controlled-green.log",
+    "rawLogSha256": "c662d50815ddad3bce4e48bbf15756710b18a480a02bf506c0515c76ee8acf98"
+  },
+  "broad-ui": {
+    "name": "broad-ui",
+    "exitCode": 0,
+    "seconds": 69.3,
+    "rawLogLocalPath": "/tmp/6206-broad-ui.log",
+    "rawLogSha256": "dcd8f89f40e5b646278c7a19db2f96fd309ffeb68e806517a5b4f521851a6ca9"
+  },
+  "final-web-type": {
+    "name": "final-web-type",
+    "exitCode": 2,
+    "seconds": 37.08,
+    "rawLogLocalPath": "/tmp/6206-final-web-type.log",
+    "rawLogSha256": "e457305082662a28041ab279c9bc0a6d4df9af39404f67c61e7bafba1d091243"
+  },
+  "final-api-type": {
+    "name": "final-api-type",
+    "exitCode": 0,
+    "seconds": 44.39,
+    "rawLogLocalPath": "/tmp/6206-final-api-type.log",
+    "rawLogSha256": "c85dd5417e6c07523da56cbe1648802ed8f3a8e14ba018603dd453cb69188f89"
+  },
+  "final-eslint": {
+    "name": "final-eslint",
+    "exitCode": 0,
+    "seconds": 2.67,
+    "rawLogLocalPath": "/tmp/6206-final-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "final-wiring": {
+    "name": "final-wiring",
+    "exitCode": 0,
+    "seconds": 3.7,
+    "rawLogLocalPath": "/tmp/6206-final-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8"
+  },
+  "final-testids": {
+    "name": "final-testids",
+    "exitCode": 0,
+    "seconds": 3.54,
+    "rawLogLocalPath": "/tmp/6206-final-testids.log",
+    "rawLogSha256": "bb5ce595338036f99862d09f105a33efbd269dd4a083a2ca65989ee700ae3fe3"
+  },
+  "final-fixture": {
+    "name": "final-fixture",
+    "exitCode": 0,
+    "seconds": 2.37,
+    "rawLogLocalPath": "/tmp/6206-final-fixture.log",
+    "rawLogSha256": "4123105716ad11cf680f3d3bcc07d744f3419e273bb1ea75cd1effa31be99f21"
+  },
+  "catalog-red": {
+    "name": "catalog-red",
+    "exitCode": 1,
+    "seconds": 1.8,
+    "rawLogLocalPath": "/tmp/6206-catalog-red.log",
+    "rawLogSha256": "2b05c97d3ba5aed608d2a88929f572b218e05d9597e749c952927aea163553a9"
+  },
+  "catalog-export-legacy-green": {
+    "name": "catalog-export-legacy-green",
+    "exitCode": 0,
+    "seconds": 7.93,
+    "rawLogLocalPath": "/tmp/6206-catalog-export-legacy-green.log",
+    "rawLogSha256": "aea959a6eea4aeae6b3222f9ec73a8a519c8848d5de202239e4c80cef83cae66"
+  },
+  "web-type-green": {
+    "name": "web-type-green",
+    "exitCode": 0,
+    "seconds": 38.43,
+    "rawLogLocalPath": "/tmp/6206-web-type-green.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "parity-eslint": {
+    "name": "parity-eslint",
+    "exitCode": 0,
+    "seconds": 1.99,
+    "rawLogLocalPath": "/tmp/6206-parity-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "final-init": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-final-init.log",
+    "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d"
+  },
+  "browser-list-argv-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-list-argv-red.log",
+    "rawLogSha256": "e1421188dc39df0fa21c2cf16c080013fd46dc3bbc845e4acfb0748c4051752b"
+  },
+  "browser-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-list.log",
+    "rawLogSha256": "5b21325f8062146225e85a0e37e573f011cbbdcf9384bcb192c8423b9f05c749"
+  },
+  "browser-first": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-first.log",
+    "rawLogSha256": "6343c9b7952f05ff4983e1deb4debbc8a7227d33b828e3c72d9b498ede1f7b56"
+  },
+  "post-parity-wiring": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-post-parity-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8"
+  },
+  "prototype-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-prototype-red.log",
+    "rawLogSha256": "672e7c098fafa9145585dc01fc6f14bb47bc13fc705b9491aa6be9eccd2fd030"
+  },
+  "prototype-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-prototype-green.log",
+    "rawLogSha256": "cb07c05c00a0a09eac54700c83ddae921d66e01e0965b3b69d439b3243e3597f"
+  },
+  "prototype-type": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-prototype-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "prototype-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-prototype-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "browser-second-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-second-list.log",
+    "rawLogSha256": "96afb345297eaaaec3598db6f88b0f9511873cf3af149448580940bc5d173020"
+  },
+  "browser-second": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-second.log",
+    "rawLogSha256": "380c900f4db59d61ed5be0a68f4811601cdcb87a0c9bb522a8151c948381f364"
+  },
+  "visual-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-visual-red.log",
+    "rawLogSha256": "8fe197b13aa83f0cf54a7c42f2321ba2145aed195641fcf7ab53d8b1970a7227"
+  },
+  "visual-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-visual-green.log",
+    "rawLogSha256": "47dc1e34f3f5a3a7592ddcd1450416924d461691fc756a03e746ee65d4a0a698"
+  },
+  "visual-type": {
+    "exitCode": 2,
+    "rawLogLocalPath": "/tmp/6206-visual-type.log",
+    "rawLogSha256": "18fd4208c5325f306a8dcb28a83bd29286b0bd3606ba0eb46808545378955b32"
+  },
+  "visual-type-green": {
+    "name": "visual-type-green",
+    "exitCode": 0,
+    "seconds": 7.91,
+    "rawLogLocalPath": "/tmp/6206-visual-type-green.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "visual-eslint": {
+    "name": "visual-eslint",
+    "exitCode": 0,
+    "seconds": 1.96,
+    "rawLogLocalPath": "/tmp/6206-visual-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "visual-wiring": {
+    "name": "visual-wiring",
+    "exitCode": 0,
+    "seconds": 3.41,
+    "rawLogLocalPath": "/tmp/6206-visual-wiring.log",
+    "rawLogSha256": "91143fee075e07c8c5577e08efa1fd2dd6d135cbb61bcd82a8e9e8c189b533e8"
+  },
+  "visual-testids": {
+    "name": "visual-testids",
+    "exitCode": 0,
+    "seconds": 3.53,
+    "rawLogLocalPath": "/tmp/6206-visual-testids.log",
+    "rawLogSha256": "4f374367280164632e0148a92d121e5a424731d2b263a3d2130270c8a714d381"
+  },
+  "third-init": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-third-init.log",
+    "rawLogSha256": "b9454ea9b0cef337e754f5577a3ea517168d367f1dafc79e9a75b55ad28d998d"
+  },
+  "browser-third-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-third-list.log",
+    "rawLogSha256": "a1e4db1fa971e81fc2b4f449741f5dcf2af5d97e63e3bf9d8263a72c47424381"
+  },
+  "browser-third": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-browser-third.log",
+    "rawLogSha256": "45beeb988d3365ac57581dc1ec0354c0a04f896a6f3ed79a87c47878d0292862"
+  },
+  "professional-red": {
+    "exitCode": 1,
+    "rawLogLocalPath": "/tmp/6206-professional-red.log",
+    "rawLogSha256": "a5c81d0bff509256519fba40650c0c2e3b52cf22296850068cf35ea1ec2d42fe"
+  },
+  "professional-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-green.log",
+    "rawLogSha256": "a556ac631522b121be385bbe3c67088b2ae0774a267477b5799b3a3be6dd0320"
+  },
+  "professional-final-green": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-final-green.log",
+    "rawLogSha256": "79dee2695144262cba4689e2960f4caef705fa83804937b20afecf3719ea3280"
+  },
+  "professional-api-type": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-api-type.log",
+    "rawLogSha256": "c85dd5417e6c07523da56cbe1648802ed8f3a8e14ba018603dd453cb69188f89"
+  },
+  "professional-web-type": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-web-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "professional-eslint": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "professional-testids": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-professional-testids.log",
+    "rawLogSha256": "4f374367280164632e0148a92d121e5a424731d2b263a3d2130270c8a714d381"
+  },
+  "outline-green": {
+    "name": "outline-green",
+    "exitCode": 0,
+    "seconds": 15.55,
+    "rawLogLocalPath": "/tmp/6206-outline-green.log",
+    "rawLogSha256": "d10caa993f3feda9547e6856512374a6ad873e79c3f00f4b3d20944165fc5b1d"
+  },
+  "outline-type": {
+    "name": "outline-type",
+    "exitCode": 0,
+    "seconds": 9.79,
+    "rawLogLocalPath": "/tmp/6206-outline-type.log",
+    "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4"
+  },
+  "outline-eslint": {
+    "name": "outline-eslint",
+    "exitCode": 0,
+    "seconds": 1.84,
+    "rawLogLocalPath": "/tmp/6206-outline-eslint.log",
+    "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "browser-fourth-list": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-fourth-list.log",
+    "rawLogSha256": "69389edae19c4a50420a85343b2cdcde8a5be460bb2bb4c025803df835d4de5e"
+  },
+  "browser-fourth": {
+    "exitCode": 0,
+    "rawLogLocalPath": "/tmp/6206-browser-fourth.log",
+    "rawLogSha256": "cc931f9d5244bbb24f000ea7e832347f1bb3d8bfee58cf53c9686d1bf144569c",
+    "runtimeCommit": "02bc3e0de123e8ab31f54da7a20a81b46ab62075",
+    "caseSeconds": 9.7,
+    "totalSeconds": 244,
+    "cleanupSeconds": 1,
+    "cleanupEvidence": "browser-final/cleanup.json"
+  }
+}

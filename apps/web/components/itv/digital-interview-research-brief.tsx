@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/lib/i18n/provider";
 
 import { Button } from "@/components/ui/button";
 import type { DigitalInterviewResearchBrief } from "@/lib/interview-api";
@@ -6,17 +7,18 @@ import type { DigitalInterviewResearchBrief } from "@/lib/interview-api";
 export function DigitalInterviewResearchBriefEditor({ topic, brief, onTopicChange, onChange, onConfirm }:
   { readonly topic: string; readonly brief: DigitalInterviewResearchBrief; readonly onTopicChange: (value: string) => void;
     readonly onChange: (value: DigitalInterviewResearchBrief) => void; readonly onConfirm: () => void }) {
+ const { t } = useI18n();
   const list = (value: string) => value.split("\n").map((item) => item.trim()).filter(Boolean);
-  return <div data-testid="itv-research-brief"><h2 className="text-xl font-semibold">定义研究简报</h2>
-    <p className="mt-2 text-sm text-muted-foreground">先说明这项研究要支持的决策，再定义学习目标、对象边界和成功标准。</p>
+  return <div data-testid="itv-research-brief"><h2 className="text-xl font-semibold">{t("itv.brief.title")}</h2>
+    <p className="mt-2 text-sm text-muted-foreground">{t("itv.brief.hint")}</p>
     <div className="mt-5 grid gap-4 md:grid-cols-2">
-      <Field label="访谈主题"><textarea data-testid="itv-topic-input" value={topic} onChange={(e) => onTopicChange(e.target.value)} rows={3} /></Field>
-      <Field label="要支持的决策"><textarea data-testid="itv-brief-decision" value={brief.decision} onChange={(e) => onChange({ ...brief, decision: e.target.value })} rows={3} /></Field>
-      <Field label="学习目标（每行一项）"><textarea data-testid="itv-brief-goals" value={brief.learningGoals.map((goal) => goal.statement).join("\n")} onChange={(e) => onChange({ ...brief, learningGoals: list(e.target.value).slice(0, 5).map((statement, index) => ({ goalId: brief.learningGoals[index]?.goalId ?? `goal-${index + 1}`, statement })) })} rows={5} /></Field>
-      <Field label="目标角色（每行一项）"><textarea value={brief.targetRoles.join("\n")} onChange={(e) => onChange({ ...brief, targetRoles: list(e.target.value) })} rows={5} /></Field>
-      <Field label="不在范围内（每行一项）"><textarea value={brief.outOfScope.join("\n")} onChange={(e) => onChange({ ...brief, outOfScope: list(e.target.value) })} rows={4} /></Field>
-      <Field label="成功标准（每行一项）"><textarea value={brief.successCriteria.join("\n")} onChange={(e) => onChange({ ...brief, successCriteria: list(e.target.value) })} rows={4} /></Field>
-    </div><Button data-testid="itv-confirm-topic" className="mt-5" variant="primary" disabled={!topic.trim() || !brief.decision.trim() || !brief.learningGoals.length || !brief.targetRoles.length || !brief.successCriteria.length} onClick={onConfirm}>确认研究简报并选择专家</Button>
+      <Field label={t("itv.brief.topic")}><textarea data-testid="itv-topic-input" value={topic} onChange={(e) => onTopicChange(e.target.value)} rows={3} /></Field>
+      <Field label={t("itv.brief.decision")}><textarea data-testid="itv-brief-decision" value={brief.decision} onChange={(e) => onChange({ ...brief, decision: e.target.value })} rows={3} /></Field>
+      <Field label={t("itv.brief.goals")}><textarea data-testid="itv-brief-goals" value={brief.learningGoals.map((goal) => goal.statement).join("\n")} onChange={(e) => onChange({ ...brief, learningGoals: list(e.target.value).slice(0, 5).map((statement, index) => ({ goalId: brief.learningGoals[index]?.goalId ?? `goal-${index + 1}`, statement })) })} rows={5} /></Field>
+      <Field label={t("itv.brief.roles")}><textarea value={brief.targetRoles.join("\n")} onChange={(e) => onChange({ ...brief, targetRoles: list(e.target.value) })} rows={5} /></Field>
+      <Field label={t("itv.brief.outOfScope")}><textarea value={brief.outOfScope.join("\n")} onChange={(e) => onChange({ ...brief, outOfScope: list(e.target.value) })} rows={4} /></Field>
+      <Field label={t("itv.brief.criteria")}><textarea value={brief.successCriteria.join("\n")} onChange={(e) => onChange({ ...brief, successCriteria: list(e.target.value) })} rows={4} /></Field>
+    </div><Button data-testid="itv-confirm-topic" className="mt-5" variant="primary" disabled={!topic.trim() || !brief.decision.trim() || !brief.learningGoals.length || !brief.targetRoles.length || !brief.successCriteria.length} onClick={onConfirm}>{t("itv.brief.confirm")}</Button>
   </div>;
 }
 

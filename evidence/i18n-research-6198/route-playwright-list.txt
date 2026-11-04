@@ -1,0 +1,12 @@
+[stack-admission] load1=2.03 cores=10 perCore=0.20 running=0/2
+[test-isolation] id=run-mw11xlhp-0f0b43fe-cb51718c2bfa db=wsx_cb51718c2bfa062eddb8 compose=wsx-cb51718c2bfa062eddb8 pg=20332 redis=21332 api=24332 web=25332 sandbox=26332 model=27332 deep-agent=28332 asr=29332 vision=30332 loopback-sandbox=31332 mail=19332
+Listing tests:
+  [seeded] › i18n-research-entry.spec.ts:8:5 › research locale preserves the real intake, plan, saved report and history management journey
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-research-entry.spec.ts --workers=1 --max-failures=1 --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s
