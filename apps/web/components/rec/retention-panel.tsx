@@ -87,7 +87,7 @@ export function RetentionPanel({ state, view }: { state: UiState; view: RecView 
                   <Toggle checked={RETENTION_PARAM.noTraining} onCheckedChange={() => {}} label={recT("rec.project.do.not.use.for.training")} data-testid="rec-no-training" />
                   <span className="text-11 text-muted-foreground">{recT("rec.project.an.independent.setting.that.applies.throughout.the")}</span>
                 </div>
-                <p className="inline-flex items-center gap-1 text-9 text-muted-foreground"><Info aria-hidden className="h-3 w-3" />  {recT("rec.project.compliance.has.yet.to.narrow.the.range")}</p> {/* [threshold-ok:retentionMaterial] 文案本身说的就是「按参数读取，不写常量」 */}
+                <p className="inline-flex items-center gap-1 text-9 text-muted-foreground"><Info aria-hidden className="h-3 w-3" />  {recT("rec.project.compliance.has.yet.to.narrow.the.range")}</p>{" "}
               </div>
             </div>
           </section>

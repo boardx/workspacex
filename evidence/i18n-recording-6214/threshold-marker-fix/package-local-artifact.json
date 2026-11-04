@@ -1,0 +1,24 @@
+{
+  "name": "green-package-corrected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/contracts",
+    "run",
+    "test",
+    "--bail=1",
+    "--maxWorkers=1",
+    "--minWorkers=1"
+  ],
+  "source": "89745fd03525e4422b8d6c638b018488eacaddc0",
+  "exitCode": 1,
+  "seconds": 53.996,
+  "rawLogSha256": "72d0d9e397a7b6cea18cde04134c3f4dfa7be9dc6a00a5469988294c28b0cf7d",
+  "environment": {},
+  "passedFiles": 61,
+  "discoveredFiles": 143,
+  "passedTests": 1065,
+  "failedTests": 1,
+  "originalThresholdTestsPassed": 7,
+  "classification": "ENOTDIR from one local ignored/untracked skills/starter-packs/.DS_Store; complete package did not pass."
+}

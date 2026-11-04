@@ -290,7 +290,7 @@ export const RECORDING_DISPLAY_ZH = {
   "rec.project.days.the.resolved.value.and.its.basis": "天。\n                  解析结果与依据一并写入每份材料元数据。",
   "rec.project.do.not.use.for.training": "禁止用于训练",
   "rec.project.an.independent.setting.that.applies.throughout.the": "独立开关，与保留期并列，全生命周期恒成立",
-  "rec.project.compliance.has.yet.to.narrow.the.range": "数值区间仍待合规收窄（O-01 默认已给：材料 180 天）；实现按参数读取，不写常量。",
+  "rec.project.compliance.has.yet.to.narrow.the.range": "数值区间仍待合规收窄（O-01 默认已给：材料 180 天）；实现按参数读取，不写常量。", // [threshold-ok:retentionMaterial] 文案本身说的就是「按参数读取，不写常量」
   "rec.project.material.library.retention.and.deletion.dates.by": "材料库 · 逐份保留期与删除时间（按议程环节归档）",
   "rec.project.consent.notice.rendered.for.this.project": "同意书文案（按项目动态渲染）",
   "rec.project.the.research.plan.material.retention.dates.and": "三处同源：研究计划参数面板 / 材料库「保留至」/ 授权页告知，读同一解析结果，任一处对不上即缺陷。",
