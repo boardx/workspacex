@@ -9,3 +9,5 @@ Operational work, separate from this code: two explicitly confirmed existing CN 
 The CN live credit refusal is not yet proven resolved end-to-end by this presentation change. The runtime must emit the typed CREDIT_REQUIRED error; MODEL_CALL_FAILED must never be reclassified from arbitrary provider text.
 
 init.sh quick path passed; full validation not claimed. harness readiness ran; tick failed because COORD_GATEWAY_URL is not configured in this local environment.
+
+Final web typecheck exited 0; scoped Next lint exited 0. Independent read-only reviewer found no actionable issues (did not rerun tests). Browser verified the logged-in platform operator can list all six CN users, both requested accounts display platform-admin badges, and role controls for other organizations are visible. Organization listing remains blocked: both PLATFORM_ORG_CATALOG_DB_USER and PLATFORM_ORG_CATALOG_DB_PASSWORD are MISSING in the CN API environment. Must provision a separately restricted metadata-only catalog connection and deploy it; do not substitute app_rw or a database owner.

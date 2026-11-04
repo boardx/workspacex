@@ -1,0 +1,16 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /private/tmp/workspacex-cn-credit-6225/apps/web
+
+ ✓ tests/ui/credit-recharge-entry.test.tsx (2 tests) 520ms
+   ✓ terminal insufficient credit without payer metadata opens account review without assuming a payer 496ms
+ ✓ tests/ui/attachment-credit-guidance.test.tsx (2 tests) 716ms
+   ✓ a persisted attachment credit failure remains visible with the uploaded file and ownerless admin guidance 687ms
+ ✓ tests/ui/credit-consumption.test.tsx (15 tests) 1858ms
+   ✓ HTTP credit rejection preserves draft and offers scoped recharge without retry 499ms
+
+ Test Files  3 passed (3)
+      Tests  19 passed (19)
+   Start at  04:24:58
+   Duration  11.25s (transform 3.94s, setup 1.86s, collect 11.58s, tests 3.09s, environment 5.81s, prepare 804ms)
+
