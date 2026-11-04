@@ -1,0 +1,17 @@
+Observed process exit code: 0
+Raw log SHA-256: 2ed5f2832977cd13ccc2835690d9a32de2a82fcbd6d2a5253e17f77b7008b5b1
+
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=2.35 cores=10 perCore=0.24 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw0z3xau-331e4334-f249d3bcf6c9 db=wsx_f249d3bcf6c9e9934544 compose=wsx-f249d3bcf6c9e9934544 pg=20604 redis=21604 api=24604 web=25604 sandbox=26604 model=27604 deep-agent=28604 asr=29604 vision=30604 loopback-sandbox=31604 mail=19604
+Listing tests:
+  [seeded] › i18n-research-entry.spec.ts:8:5 › research locale preserves the real intake, plan, saved report and history management journey
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-research-entry.spec.ts --workers=1 --max-failures=1 --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

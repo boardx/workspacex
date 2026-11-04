@@ -1,0 +1,26 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-studio-home.test.tsx (28 tests) 1982ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > renders saved account SVG avatars and edit controls in the expert directory 302ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (33 tests) 5646ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1232ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1037ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1236ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 799ms
+ ✓ tests/ui/research-entry-i18n.test.tsx (10 tests) 487ms
+ ✓ tests/ui/interview-history-i18n.test.tsx (2 tests) 284ms
+ ✓ tests/ui/personal-transcription-history.test.tsx (33 tests) 5651ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1238ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1043ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1236ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 803ms
+ ✓ tests/lib/interview-ui-text.test.ts (17 tests) 4ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 67ms
+
+ Test Files  7 passed (7)
+      Tests  128 passed (128)
+   Start at  05:28:11
+   Duration  23.42s (transform 2.19s, setup 623ms, collect 5.07s, tests 14.12s, environment 2.40s, prepare 285ms)
+

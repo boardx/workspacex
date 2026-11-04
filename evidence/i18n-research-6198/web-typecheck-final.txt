@@ -1,0 +1,6 @@
+Observed process exit code: 0
+Raw log SHA-256: cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4
+
+
+> web@0.1.0 typecheck /Users/shenyangjun/boardx/workspacex/apps/web
+> tsc --noEmit

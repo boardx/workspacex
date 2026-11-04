@@ -1,0 +1,85 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-markdown-editing.test.tsx (49 tests) 4693ms
+   ✓ refreshes conflicted expert versions but requires explicit re-review before retry 507ms
+   ✓ preserves dirty expert selection when virtual persistence conflicts with a newer source 310ms
+   ✓ blocks expert dialog saves opened after a dirty selection receives remote changes 317ms
+ ✓ tests/ui/interview-setup-workflow.test.tsx (27 tests) 2303ms
+   ✓ F04 可点击 Mock 访谈流程 > 从专家目录弹窗搜索并多选添加专家 324ms
+   ✓ F04 正式 setup 的显式确认与双层持久化验收门 > 添加专家展示静态专家列表，并把勾选快照随确认命令提交 352ms
+ ✓ tests/ui/interview-studio-home.test.tsx (28 tests) 2020ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > renders saved account SVG avatars and edit controls in the expert directory 300ms
+ ✓ tests/ui/realtime-transcription-history.test.tsx (33 tests) 5666ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1236ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1041ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1236ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 794ms
+ ✓ tests/ui/interview-markdown-execution.test.tsx (26 tests) 889ms
+stderr | tests/ui/guided-research-home-live.test.tsx > F168 guided research home live data > renders server history and resumes from the server-authored stage
+Not implemented: navigation to another Document
+
+ ✓ tests/ui/guided-research-home-live.test.tsx (29 tests) 968ms
+ ✓ tests/ui/interview-detail-report.test.tsx (10 tests) 729ms
+ ✓ tests/ui/interview-source-runs.test.tsx (24 tests) 579ms
+ ✓ tests/ui/guided-research-execution-timeline.test.tsx (22 tests) 199ms
+ ✓ tests/ui/research-entry-i18n.test.tsx (10 tests) 520ms
+ ✓ tests/ui/interview-voice-input.test.tsx (11 tests) 430ms
+ ✓ tests/ui/interview-markdown-intake.test.tsx (9 tests) 331ms
+ ✓ tests/ui/research-report-document.test.tsx (9 tests) 323ms
+ ✓ tests/ui/interview-markdown-workbench.test.tsx (9 tests) 450ms
+ ✓ tests/ui/expert-avatar.test.tsx (8 tests) 706ms
+ ✓ tests/ui/research-workspace-i18n.test.tsx (6 tests) 1259ms
+   ✓ displays fixed focus options in English but saves canonical values and raw custom focus once 1020ms
+ ✓ tests/ui/guided-research-conversation-live.test.tsx (11 tests) 778ms
+ ✓ tests/ui/interview-expert-library.test.tsx (10 tests) 2596ms
+   ✓ saves a custom expert from the current list and immediately displays its durable identity 600ms
+   ✓ preserves unsafe heading input and refuses persistence with actionable feedback 532ms
+   ✓ shows real pending state only during a save and preserves the editable profile after failure 614ms
+ ✓ tests/ui/research-overlays-i18n.test.tsx (8 tests) 345ms
+ ✓ tests/ui/interview-journey-i18n.test.tsx (10 tests) 376ms
+ ✓ tests/ui/interview-session-provider.test.tsx (10 tests) 516ms
+ ✓ tests/ui/guided-research-plan-editor.test.tsx (6 tests) 413ms
+ ✓ tests/ui/interview-legacy-i18n.test.tsx (6 tests) 336ms
+ ✓ tests/ui/interview-markdown-create.test.tsx (4 tests) 377ms
+ ✓ tests/ui/interview-workspace-i18n.test.tsx (8 tests) 640ms
+ ✓ tests/ui/interview-secondary-i18n.test.tsx (7 tests) 247ms
+ ✓ tests/ui/interview-controller-i18n.test.tsx (5 tests) 244ms
+ ✓ tests/ui/interview-workflow-actions.test.tsx (6 tests) 356ms
+ ✓ tests/ui/interview-source-report.test.tsx (8 tests) 230ms
+ ✓ tests/ui/guided-research-design-editor.test.tsx (6 tests) 360ms
+ ✓ tests/ui/interview-overlays-i18n.test.tsx (5 tests) 376ms
+ ✓ tests/ui/guided-research-markdown-workspace.test.tsx (6 tests) 249ms
+ ✓ tests/ui/interview-create-project-scope.test.tsx (3 tests) 321ms
+ ✓ tests/ui/interview-workbench-header.test.tsx (6 tests) 200ms
+ ✓ tests/ui/studio-history-management.test.tsx (5 tests) 252ms
+ ✓ tests/ui/interview-expert-roles.test.tsx (3 tests) 402ms
+ ✓ tests/ui/interview-create-i18n.test.tsx (4 tests) 293ms
+ ✓ tests/ui/interview-ui-polish.test.tsx (4 tests) 280ms
+ ✓ tests/ui/interview-report-skill-files.test.tsx (8 tests) 318ms
+ ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 226ms
+ ✓ tests/ui/interview-history-i18n.test.tsx (2 tests) 283ms
+ ✓ tests/ui/interview-report-sources.test.tsx (3 tests) 156ms
+ ✓ tests/ui/interview-source-review.test.tsx (2 tests) 154ms
+ ✓ tests/ui/interview-runs.test.tsx (1 test) 75ms
+ ✓ tests/ui/interview-source-analysis.test.tsx (2 tests) 169ms
+ ✓ tests/ui/interview-immersive-shell.test.tsx (3 tests) 72ms
+ ✓ tests/ui/interview-create-feedback.test.tsx (2 tests) 212ms
+ ✓ tests/ui/interview-research-quality.test.tsx (2 tests) 435ms
+   ✓ digital interview research quality > requires a documented rationale before accepting warnings 312ms
+ ✓ tests/ui/interview-question-answers.test.tsx (2 tests) 201ms
+ ✓ tests/ui/research-interview-style.test.tsx (1 test) 146ms
+ ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 67ms
+ ✓ tests/ui/personal-transcription-history.test.tsx (33 tests) 5703ms
+   ✓ 实时转录历史工作台 > does not reconnect after leaving the workspace 1232ms
+   ✓ 实时转录历史工作台 > automatically reconnects a dropped stream and retains saved text without stale events 1034ms
+   ✓ 实时转录历史工作台 > cancels scheduled reconnect when the user stops 1231ms
+   ✓ 实时转录历史工作台 > keeps saved text and distinguishes persistent refresh failure from stopping failure 793ms
+ ✓ tests/lib/interview-ui-text.test.ts (17 tests) 4ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 66ms
+
+ Test Files  54 passed (54)
+      Tests  538 passed (538)
+   Start at  09:11:31
+   Duration  105.38s (transform 3.04s, setup 4.59s, collect 25.40s, tests 40.54s, environment 25.56s, prepare 2.25s)

@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Mic, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAsrDraft, appendTranscript } from "@/lib/use-asr-draft";
@@ -15,6 +16,7 @@ export function InterviewVoiceInput({ sessionToken, onAppend, onPreview, onBusyC
   readonly readOnly?: boolean;
   readonly compact?: boolean;
 }) {
+  const { t, locale } = useI18n();
   const [draft, setDraft] = React.useState("");
   const [recovered, setRecovered] = React.useState(false);
   const draftRef = React.useRef(draft); draftRef.current = draft;
@@ -40,14 +42,14 @@ export function InterviewVoiceInput({ sessionToken, onAppend, onPreview, onBusyC
   }, [voice.phase, speech.status, finalText, onAppend, voice]);
   return <div data-testid="itv-voice-input" className={compact ? "flex min-w-0 flex-wrap items-center gap-2" : "space-y-3"}>
     <div className="flex flex-wrap items-center gap-2">
-      {!active && <Button variant="outline" disabled={disabled || readOnly || !sessionToken || recoverable} onClick={() => { intent.current = null; draftRef.current = ""; setDraft(""); setRecovered(false); voice.dismiss(); voice.start(); }}><Mic className="size-4" aria-hidden />语音输入</Button>}
-      {(voice.phase === "listening" || voice.phase === "paused" || speech.reconnecting) && <Button variant="outline" onClick={() => { intent.current = "finish"; voice.finish(); }}><Square className="size-4" aria-hidden />停止并追加文字</Button>}
-      {active && <Button variant="ghost" disabled={voice.phase === "stopping"} onClick={() => { intent.current = "cancel"; voice.discard(); }}><X className="size-4" aria-hidden />取消语音输入</Button>}
-      {active && <span role="status" className="text-xs text-muted-foreground">{speech.reconnecting ? "连接暂时中断，正在尝试重连…已识别文字保留。" : voice.phase === "connecting" ? "正在连接…" : voice.phase === "listening" ? `正在录音 · ${voice.totalSeconds} 秒` : voice.phase === "stopping" ? "正在处理转写…" : "已暂停"}</span>}
+      {!active && <Button variant="outline" disabled={disabled || readOnly || !sessionToken || recoverable} onClick={() => { intent.current = null; draftRef.current = ""; setDraft(""); setRecovered(false); voice.dismiss(); voice.start(); }}><Mic className="size-4" aria-hidden />{t("voice.input")}</Button>}
+      {(voice.phase === "listening" || voice.phase === "paused" || speech.reconnecting) && <Button variant="outline" onClick={() => { intent.current = "finish"; voice.finish(); }}><Square className="size-4" aria-hidden />{t("voice.finish")}</Button>}
+      {active && <Button variant="ghost" disabled={voice.phase === "stopping"} onClick={() => { intent.current = "cancel"; voice.discard(); }}><X className="size-4" aria-hidden />{t("voice.cancel")}</Button>}
+      {active && <span role="status" className="text-xs text-muted-foreground">{speech.reconnecting ? t("voice.reconnecting") : voice.phase === "connecting" ? t("voice.connecting") : voice.phase === "listening" ? t("voice.listening", { seconds: voice.totalSeconds }) : voice.phase === "stopping" ? t("voice.stopping") : t("voice.paused")}</span>}
     </div>
-    {speech.error && <p role="alert" className={compact ? "basis-full text-xs text-destructive" : "text-sm text-destructive"}>{speech.error}{!compact && " 当前研究原文保留。"}</p>}
-    {speech.connectionInterrupted && <p className={compact ? "basis-full text-xs text-muted-foreground" : "text-xs text-muted-foreground"}>断线期间的音频可能未识别，请补充遗漏内容。</p>}
-    {speech.status === "error" && speech.errorReason === "ASR_PROVIDER_UNAVAILABLE" && !recovered && <Button variant="outline" disabled={disabled || readOnly || !sessionToken} onClick={() => { intent.current = null; voice.dismiss(); speech.retry?.(); }}>重新连接</Button>}
-    {recoverable && <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={readOnly || disabled} onClick={() => { intent.current = null; previewCallback.current?.(""); setRecovered(true); onAppend(finalText); setDraft(""); voice.dismiss(); }}>保留已确认转录</Button><Button variant="ghost" onClick={() => { previewCallback.current?.(""); setRecovered(true); setDraft(""); voice.dismiss(); }}>丢弃转录</Button></div>}
+    {speech.error && <p role="alert" className={compact ? "basis-full text-xs text-destructive" : "text-sm text-destructive"}>{speech.errorReason ? t(`voice.error.${speech.errorReason}`) : locale === "zh-CN" ? speech.error : t("voice.error.generic")}{!compact && t("voice.originalPreserved")}</p>}
+    {speech.connectionInterrupted && <p className={compact ? "basis-full text-xs text-muted-foreground" : "text-xs text-muted-foreground"}>{t("voice.audioGap")}</p>}
+    {speech.status === "error" && speech.errorReason === "ASR_PROVIDER_UNAVAILABLE" && !recovered && <Button variant="outline" disabled={disabled || readOnly || !sessionToken} onClick={() => { intent.current = null; voice.dismiss(); speech.retry?.(); }}>{t("voice.reconnect")}</Button>}
+    {recoverable && <div className="flex flex-wrap gap-2"><Button variant="outline" disabled={readOnly || disabled} onClick={() => { intent.current = null; previewCallback.current?.(""); setRecovered(true); onAppend(finalText); setDraft(""); voice.dismiss(); }}>{t("voice.keep")}</Button><Button variant="ghost" onClick={() => { previewCallback.current?.(""); setRecovered(true); setDraft(""); voice.dismiss(); }}>{t("voice.discard")}</Button></div>}
   </div>;
 }

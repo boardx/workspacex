@@ -1,0 +1,58 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-markdown-editing.test.tsx (49 tests) 4514ms
+   ✓ refreshes conflicted expert versions but requires explicit re-review before retry 457ms
+   ✓ preserves dirty expert selection when virtual persistence conflicts with a newer source 309ms
+   ✓ blocks expert dialog saves opened after a dirty selection receives remote changes 327ms
+ ✓ tests/ui/interview-setup-workflow.test.tsx (27 tests) 2291ms
+   ✓ F04 可点击 Mock 访谈流程 > 从专家目录弹窗搜索并多选添加专家 314ms
+   ✓ F04 正式 setup 的显式确认与双层持久化验收门 > 添加专家展示静态专家列表，并把勾选快照随确认命令提交 344ms
+ ✓ tests/ui/interview-studio-home.test.tsx (28 tests) 1980ms
+   ✓ F02 第 3 组 UI：访谈 Studio 首屏 > renders saved account SVG avatars and edit controls in the expert directory 301ms
+ ✓ tests/ui/interview-markdown-execution.test.tsx (26 tests) 891ms
+   ✓ pause remains callable while an advance request is still pending 306ms
+ ✓ tests/ui/interview-detail-report.test.tsx (10 tests) 723ms
+ ✓ tests/ui/interview-source-runs.test.tsx (24 tests) 583ms
+ ✓ tests/ui/interview-voice-input.test.tsx (11 tests) 428ms
+ ✓ tests/ui/interview-markdown-intake.test.tsx (9 tests) 325ms
+ ✓ tests/ui/interview-markdown-workbench.test.tsx (9 tests) 449ms
+ ✓ tests/ui/expert-avatar.test.tsx (8 tests) 689ms
+ ✓ tests/ui/interview-expert-library.test.tsx (10 tests) 2551ms
+   ✓ saves a custom expert from the current list and immediately displays its durable identity 590ms
+   ✓ preserves unsafe heading input and refuses persistence with actionable feedback 523ms
+   ✓ shows real pending state only during a save and preserves the editable profile after failure 594ms
+ ✓ tests/ui/interview-session-provider.test.tsx (10 tests) 506ms
+ ✓ tests/ui/interview-legacy-i18n.test.tsx (6 tests) 341ms
+ ✓ tests/ui/interview-markdown-create.test.tsx (4 tests) 380ms
+ ✓ tests/ui/interview-journey-i18n.test.tsx (7 tests) 332ms
+ ✓ tests/ui/interview-workspace-i18n.test.tsx (8 tests) 631ms
+ ✓ tests/ui/interview-secondary-i18n.test.tsx (7 tests) 250ms
+ ✓ tests/ui/interview-controller-i18n.test.tsx (5 tests) 248ms
+ ✓ tests/ui/interview-workflow-actions.test.tsx (6 tests) 350ms
+ ✓ tests/ui/interview-source-report.test.tsx (8 tests) 234ms
+ ✓ tests/ui/interview-overlays-i18n.test.tsx (5 tests) 368ms
+ ✓ tests/ui/interview-create-project-scope.test.tsx (3 tests) 264ms
+ ✓ tests/ui/interview-workbench-header.test.tsx (6 tests) 178ms
+ ✓ tests/ui/interview-expert-roles.test.tsx (3 tests) 404ms
+ ✓ tests/ui/interview-create-i18n.test.tsx (4 tests) 294ms
+ ✓ tests/ui/interview-ui-polish.test.tsx (4 tests) 282ms
+ ✓ tests/ui/interview-report-skill-files.test.tsx (8 tests) 307ms
+ ✓ tests/ui/quick-digital-interview.test.tsx (3 tests) 226ms
+ ✓ tests/ui/interview-report-sources.test.tsx (3 tests) 160ms
+ ✓ tests/ui/interview-source-review.test.tsx (2 tests) 155ms
+ ✓ tests/ui/interview-runs.test.tsx (1 test) 75ms
+ ✓ tests/ui/interview-source-analysis.test.tsx (2 tests) 170ms
+ ✓ tests/ui/interview-immersive-shell.test.tsx (3 tests) 74ms
+ ✓ tests/ui/interview-create-feedback.test.tsx (2 tests) 206ms
+ ✓ tests/ui/interview-research-quality.test.tsx (2 tests) 115ms
+ ✓ tests/ui/interview-question-answers.test.tsx (2 tests) 169ms
+ ✓ tests/ui/research-interview-style.test.tsx (1 test) 119ms
+ ✓ tests/ui/interview-skill-assistant.test.tsx (1 test) 70ms
+
+ Test Files  38 passed (38)
+      Tests  327 passed (327)
+   Start at  04:49:30
+   Duration  68.16s (transform 2.40s, setup 3.20s, collect 17.88s, tests 22.33s, environment 18.24s, prepare 1.55s)
+

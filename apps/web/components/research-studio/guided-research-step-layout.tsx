@@ -1,3 +1,4 @@
+import { useI18n } from "@/lib/i18n/provider";
 import * as React from "react";
 import { ResearchFloatingAssistant } from "./research-floating-assistant";
 
@@ -18,6 +19,7 @@ export function GuidedResearchStepLayout({
   onAssistantOpenChange?: (open: boolean) => void;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const [internalAssistantOpen, setInternalAssistantOpen] = React.useState(false);
   const reportAssistantOpen = assistantOpen ?? internalAssistantOpen;
   const setReportAssistantOpen = onAssistantOpenChange ?? setInternalAssistantOpen;
@@ -40,7 +42,7 @@ export function GuidedResearchStepLayout({
       data-layout="skill-workspace-thirds"
     >
       <details open className="min-w-0 rounded-lg border border-border bg-card lg:contents lg:rounded-none lg:border-0 lg:bg-transparent">
-        <summary className="cursor-pointer px-4 py-3 font-medium lg:hidden">研究 Skill 助手</summary>
+        <summary className="cursor-pointer px-4 py-3 font-medium lg:hidden">{t("research.assistant.skill")}</summary>
         <aside className="min-w-0 border-t border-border p-3 lg:sticky lg:top-4 lg:h-[calc(100vh-9rem)] lg:border-0 lg:p-0">{assistant}</aside>
       </details>
       <main className="min-w-0" data-testid="research-step-main">{children}</main>

@@ -1,0 +1,14 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=2.66 cores=10 perCore=0.27 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw17pt3a-dd14f952-70628d767b30 db=wsx_70628d767b30efa31ec1 compose=wsx-70628d767b30efa31ec1 pg=20934 redis=21934 api=24934 web=25934 sandbox=26934 model=27934 deep-agent=28934 asr=29934 vision=30934 loopback-sandbox=31934 mail=19934
+Listing tests:
+  [seeded] › i18n-interview-journey.spec.ts:8:5 › interview locale preserves the real private-profile, canonical six-step and history journey
+Total: 1 test in 1 file
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts --list
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：2s
+  清理：0s
+  总计：2s

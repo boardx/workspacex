@@ -1,0 +1,11 @@
+{
+  "exit": 0,
+  "seconds": 3.667,
+  "head": "caa95ea43c693e2248a42955d97af10b34f5913a",
+  "logSha256": "2d3af89203e1c9a112c17acbc18c0ce351e4b191c58180b44104a674f4ac5316",
+  "summary": [
+    "Test Files  1 passed (1)",
+    "Tests  18 passed (18)",
+    "Duration  1.93s (transform 826ms, setup 0ms, collect 1.55s, tests 211ms, environment 0ms, prepare 50ms)"
+  ]
+}

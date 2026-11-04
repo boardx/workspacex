@@ -1,0 +1,29 @@
+[heavy-e2e-lock] 排到了，等了 0s
+[stack-admission] load1=3.30 cores=10 perCore=0.33 running=0/2
+[stack-admission] 排到了，等了 0s
+[test-isolation] id=run-mw16o4tc-66ee3f24-97099cb3e2ba db=wsx_97099cb3e2ba96ec243f compose=wsx-97099cb3e2ba96ec243f pg=20555 redis=21555 api=24555 web=25555 sandbox=26555 model=27555 deep-agent=28555 asr=29555 vision=30555 loopback-sandbox=31555 mail=19555
+[WebServer] (node:28824) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:28825) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:28831) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[intermediate output omitted; full log SHA-256 in validation.json]
+    Error: expect(locator).toBeEnabled() failed
+    Error: element(s) not found
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [seeded] › e2e/i18n-interview-journey.spec.ts:8:5 › interview locale preserves the real private-profile, canonical six-step and history journey 
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts
+[timing] pnpm --filter web exec playwright test --config playwright.fullstack-smoke.config.ts --project=seeded e2e/i18n-interview-journey.spec.ts
+  等待重e2e互斥锁：0s
+  环境预留：0s
+  等待资源：0s
+  命令执行：4m7s
+  清理：1s
+  总计：4m7s

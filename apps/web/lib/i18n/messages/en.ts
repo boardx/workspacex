@@ -259,7 +259,19 @@ export const en: Record<keyof typeof zhCN, string> = {
   ...accountEntryEn,
   ...invitationEntryEn,
   ...adminNavigationEn,
+  ...studioResearchEn,
+  ...researchEn,
+  ...studioHistoryEn,
+  ...interviewEn,
 };
 
 import { codeFenceEn } from "../namespaces/code-fence";
 import { chatShareEn } from "../namespaces/chat-share";
+
+import { studioResearchEn } from "../namespaces/studio-research";
+
+import { researchEn } from "../namespaces/research";
+
+import { interviewEn } from "../namespaces/interview";
+
+import { studioHistoryEn } from "../namespaces/studio-history";

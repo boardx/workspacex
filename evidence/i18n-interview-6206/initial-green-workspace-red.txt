@@ -1,0 +1,61 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex/apps/web
+
+ ✓ tests/ui/interview-journey-i18n.test.tsx (6 tests) 334ms
+ ❯ tests/ui/interview-workspace-i18n.test.tsx (7 tests | 7 failed) 2631ms
+   × keeps expert search and selected canonical content while directory controls retranslate 320ms
+     → Unable to find an accessible element with the role "textbox" and name "Search experts"
+
+Here are the accessible roles:
+[intermediate output omitted; full log SHA-256 in validation.json]
+   × keeps expert search and selected canonical content while directory controls retranslate 320ms
+   × preserves the virtual expert description draft and opens localized field labels 161ms
+   × keeps question text and focus identity through locale changes without saving 58ms
+   × localizes a newly inserted editable question without rewriting existing content 48ms
+   × localizes running interview controls without changing durable progress or replaying generation 26ms
+   × localizes the private expert create dialog and retains raw edited fields 1008ms
+   × retranslates the expert detail unavailable state without another directory read 1008ms
+   × keeps the exact pending create request and edited name/tag across locale changes 184ms
+   × localizes the new editable default only at creation and preserves it after language changes 46ms
+   × retranslates the failed create notice and retains input for an explicit retry 36ms
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  tests/ui/interview-create-i18n.test.tsx > keeps the exact pending create request and edited name/tag across locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "New interview"
+ FAIL  tests/ui/interview-create-i18n.test.tsx > localizes the new editable default only at creation and preserves it after language changes
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Interview name"
+ FAIL  tests/ui/interview-create-i18n.test.tsx > retranslates the failed create notice and retains input for an explicit retry
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Interview name"
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > keeps expert search and selected canonical content while directory controls retranslate
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Search experts"
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > preserves the virtual expert description draft and opens localized field labels
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Add virtual expert"
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > keeps question text and focus identity through locale changes without saving
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Edit question 1"
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > localizes a newly inserted editable question without rewriting existing content
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Add question"
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > localizes running interview controls without changing durable progress or replaying generation
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "Interview execution"
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > localizes the private expert create dialog and retains raw edited fields
+TestingLibraryElementError: Unable to find role="button" and name "Add expert"
+ FAIL  tests/ui/interview-workspace-i18n.test.tsx > retranslates the expert detail unavailable state without another directory read
+TestingLibraryElementError: Unable to find an element with the text: This expert is unavailable or you do not have access.. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+ Test Files  2 failed | 1 passed (3)
+      Tests  10 failed | 6 passed (16)
+   Duration  9.12s (transform 1.43s, setup 321ms, collect 3.09s, tests 3.23s, environment 1.67s, prepare 128ms)
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx --maxWorkers=1 --minWorkers=1
+ ❯ waitForWrapper ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:163:27
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:86:33
+ ❯ tests/ui/interview-workspace-i18n.test.tsx:47:89
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+ Test Files  2 failed | 1 passed (3)
+      Tests  10 failed | 6 passed (16)
+   Start at  03:22:20
+   Duration  9.12s (transform 1.43s, setup 321ms, collect 3.09s, tests 3.23s, environment 1.67s, prepare 128ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/interview-journey-i18n.test.tsx tests/ui/interview-create-i18n.test.tsx tests/ui/interview-workspace-i18n.test.tsx --maxWorkers=1 --minWorkers=1
