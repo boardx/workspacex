@@ -41,8 +41,8 @@
 
 **Interfaces:** consume Task1 IDs/copy and parent PLATFORM_MEMBERS_E2E accounts; canonical settings/PUT/last-report schemas and real login. One synthetic history authority plus optional validated seed, test-only disabled reporter.
 
-- [ ] Finalize actual history shape and seed/reset support; no expected mutation outcomes or raw installation secret output. Preserve all existing actors/cases/environment values and evaluate canonical raw JSON order correctly.
-- [ ] Append real UI/API/PG journey per verification-design, exact statuses/methods/schemas/readback/reloads and operator/ordinary/revoked roles; plan16 viewport images and strong label/control bounds.
-- [ ] Root runs source/API/web/static/discovery/init gates then one native canonical case, records actual exit/cleanup and releases peers before QA.
-- [ ] Individually inspect all16 images, privacy/dimensions/chunks/hashes; retain every real failure/finding separately and fix boundedly without weakening budgets/assertions.
+- [x] Finalize actual history shape and seed/reset support; no expected mutation outcomes or raw installation secret output. Preserve all existing actors/cases/environment values and evaluate canonical raw JSON order correctly.
+- [x] Append real UI/API/PG journey per verification-design, exact statuses/methods/schemas/readback/reloads and operator/ordinary/revoked roles; plan16 viewport images and strong label/control bounds.
+- [x] Root runs source/API/web/static/discovery/init gates then one native canonical case, records actual exit/cleanup and releases peers before QA.
+- [x] Individually inspect all16 images, privacy/dimensions/chunks/hashes; retain every real failure/finding separately and fix boundedly without weakening budgets/assertions.
 - [ ] Independent runtime and most-capable final whole-branch review, product-byte binding, canonical credential scan, normal hooks/push and automatic PR. Main owns CI/queue/actual merge; do not mark delivery before actual green integration.
