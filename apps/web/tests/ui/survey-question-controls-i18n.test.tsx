@@ -214,8 +214,10 @@ it("retranslates an existing failed upload and retries the exact same File only 
 
 it("keeps the same signature canvas and typed raw draft across locale changes", () => {
   const upload = vi.fn(), changed = vi.fn(); show(<Material signature upload={upload} changed={changed} />);
+  expect(screen.getByText("可以手写或键入签名。签名不代表电子合同认证。", { exact: true })).toBeVisible();
   const canvas = screen.getByLabelText("手写签名画布，也可以使用下方键入签名");
   const field = screen.getByRole("textbox", { name: "键入签名" }); fireEvent.change(field, { target: { value: "原签名 {count}" } }); language("en");
+  expect(screen.getByText("Draw or type a signature. A signature does not certify an electronic contract.", { exact: true })).toBeVisible();
   expect(screen.getByLabelText("Draw a signature, or type it below")).toBe(canvas);
   expect(screen.getByRole("textbox", { name: "Type signature" })).toBe(field); expect(field).toHaveValue("原签名 {count}");
   expect(screen.getByRole("button", { name: "Save signature" })).toBeEnabled();
