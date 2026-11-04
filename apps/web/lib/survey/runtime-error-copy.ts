@@ -33,7 +33,18 @@ export const surveyRuntimeErrorCatalogue = {
   templateTooLarge: ["模板文件不能超过 1 MB", "Template files must be 1 MB or smaller."],
   templateInvalid: ["模板格式不正确，请检查章节、内容块和数据配置", "Invalid template format. Check the chapters, blocks, and data configuration."],
   templateImport: ["模板导入失败", "Template import failed."],
+  reportImageTimeout: ["图片加载超时，请检查图片地址后重试", "The image took too long to load. Check its URL and try again."],
+  reportImageLoad: ["图片加载失败，请检查图片地址及跨域访问权限", "The image could not load. Check its URL and cross-origin access permissions."],
+  reportCanvasUnavailable: ["图片转换不可用，请使用支持 Canvas 的浏览器", "Image conversion is unavailable. Use a browser that supports Canvas."],
+  reportImageConversion: ["图片转换失败，请检查图片跨域访问权限", "The image could not be converted. Check its cross-origin access permissions."],
+  reportImageMissing: ["图片「{title}」尚未配置，无法完整导出", "Image “{title}” is not configured. The complete report cannot be exported."],
+  reportPrintIncomplete: ["图片加载失败，无法完整打印报告", "An image could not load. The complete report cannot be printed."],
+  reportPrintUnavailable: ["浏览器不支持打印报告", "This browser does not support printing reports."],
+  reportPrintImageLoad: ["图片加载失败，无法打印", "An image could not load. The report cannot be printed."],
 } as const;
 export type SurveyRuntimeErrorId = keyof typeof surveyRuntimeErrorCatalogue;
 /** Keep Error.message stable for callers; translate only when rendering it. */
 export const surveyRuntimeMessages = Object.fromEntries(Object.entries(surveyRuntimeErrorCatalogue).map(([key, pair]) => [key, pair[0]])) as Record<SurveyRuntimeErrorId, string>;
+
+/** Preserve the canonical error identity and interpolate authored text exactly once. */
+export const surveyReportImageMissingMessage = (title: string): string => surveyRuntimeMessages.reportImageMissing.replace("{title}", () => title);

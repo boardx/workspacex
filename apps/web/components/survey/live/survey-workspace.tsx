@@ -72,11 +72,11 @@ function collectionStatusKey(publication: SurveyRuntime["publication"], now: num
   const state = publication ? surveyCollectionAccessError(publication, now) : null;
   return state === "closed" ? "survey.workspace.closed" : state === "expired" ? "survey.workspace.expired" : state === "not_started" ? "survey.workspace.pending" : "survey.workspace.collecting";
 }
-function emptyDraft(): SurveyDraftInput {
+function emptyDraft(title: string, reportTitle: string): SurveyDraftInput {
   return {
-    title: "未命名问卷",
+    title,
     questions: [],
-    template: { id: crypto.randomUUID(), title: "问卷分析报告", sections: [] },
+    template: { id: crypto.randomUUID(), title: reportTitle, sections: [] },
   };
 }
 export function LiveSurveyWorkspace({
@@ -95,6 +95,8 @@ export function LiveSurveyWorkspace({
   projectId?: string | null;
 }) {
   const { t, locale } = useI18n();
+  const creationText = React.useRef(t);
+  creationText.current = t;
   const displayRecommendation = (code: SurveyPublishBlocker["code"]) => t(({
     QUESTIONS_EMPTY: "survey.workspace.recommendEmpty",
     QUESTION_CONFIG_INVALID: "survey.workspace.recommendConfig",
@@ -160,8 +162,9 @@ export function LiveSurveyWorkspace({
     setRuntime(null);
     setDraft(null);
     if (surveyId === "new") {
-      setDraft(emptyDraft());
-      setMarkdown("# 未命名问卷\n\n## q1 [open]\n请填写您的意见\n");
+      const title = creationText.current("survey.design.untitledSurvey");
+      setDraft(emptyDraft(title, creationText.current("survey.workspace.newReportDefault")));
+      setMarkdown(`# ${title}\n\n## q1 [open]\n${creationText.current("survey.workspace.newFeedbackDefault")}\n`);
       return;
     }
     void surveyRequest(`/surveys/${encodeURIComponent(surveyId)}`, {}, SurveyRuntimeSchema)

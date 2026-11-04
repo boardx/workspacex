@@ -1,5 +1,7 @@
 import { SURVEY_PUBLISH_RECOMMENDATIONS } from "@/lib/survey/publish-readiness";
 export const surveyWorkspaceZhCN = {
+  "survey.workspace.newReportDefault": "问卷分析报告",
+  "survey.workspace.newFeedbackDefault": "请填写您的意见",
   "survey.workspace.backProject": "← 返回项目",
   "survey.workspace.backList": "← 返回列表",
   "survey.workspace.name": "问卷名称",
@@ -175,6 +177,8 @@ export const surveyWorkspaceZhCN = {
 } as const;
 
 export const surveyWorkspaceEn: Record<keyof typeof surveyWorkspaceZhCN, string> = {
+  "survey.workspace.newReportDefault": "Survey analysis report",
+  "survey.workspace.newFeedbackDefault": "Please share your feedback",
   "survey.workspace.backProject": "← Back to project",
   "survey.workspace.backList": "← Back to list",
   "survey.workspace.name": "Survey name",

@@ -1,0 +1,30 @@
+{
+  "name": "red-omissions-corrected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-report-issues-i18n.test.ts",
+    "tests/ui/survey-workspace-i18n.test.tsx",
+    "--testNamePattern",
+    "translates.*actual|direct-new"
+  ],
+  "source": "044f5e51696f55c540adbd7da53445f3f4f8917e",
+  "exitCode": 1,
+  "seconds": 33.027,
+  "rawLogSha256": "ee46288b7a9cad314183afd99e04cc55d527d9575ec55cc44be34db8475eddf1",
+  "sourceAfter": "044f5e51696f55c540adbd7da53445f3f4f8917e",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "classification": "VALID RED: six semantic failures after correcting the per-file DOM environment. No collection/cleanup failures.",
+  "failed": 6,
+  "filtered": 42,
+  "stderrGroups": 0,
+  "unhandled": 0,
+  "nativeSeconds": 27.4
+}
