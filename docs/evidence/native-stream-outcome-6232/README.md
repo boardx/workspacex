@@ -17,3 +17,16 @@ Whole bare pytest initially found four explicit missing-Postgres-prerequisite fa
 ## Boundaries
 
 This fix has not yet been released or verified dynamically. Long text run `7808302c-78d5-4fbf-8b2e-86097c4bd6f8` failed after a partial response; reported523output tokens and maximumTokenBound72811 do not identify its cause. That logical run failure must not be called repaired merely because physical completion classification is corrected. Image tool/plan failure is separately tracked in #6233. Exact-SHA independent review, normal develop CI/queue and post-release long-text verification remain required.
+
+## Independent review correction
+
+Review of 7666a3117 found per-line DONE matching differed from the installed
+SDK's full-event SSE framing. Added real SDK sync/async cases for reverse
+multiline data, extra leading space/tab, and valid multiline JSON usage.
+`review-red.txt`: 8 failed / 26 passed before correction.
+Parser now joins all data lines per complete event, removes only one ASCII
+space after the colon, and bounds cumulative event bytes at 262144.
+`review-green.txt`: 121 passed. `review-full-suite-pg.txt`: 910 passed,
+45 skipped, 2 existing deprecation warnings, with isolated real Postgres.
+The owned test stack was released by the standard script. This does not
+claim the distinct long-chat database deadlock (#6235) is fixed.

@@ -457,7 +457,8 @@ class UsageParser:
         self.overflow = False
         self.usage = {}
         self.completed = False
-        self._done_event = False
+        self._event_data = []
+        self._event_size = 0
         self._invalid_event = False
 
     def read(self, value):
@@ -489,34 +490,42 @@ class UsageParser:
                 self.buffer = b""; self.overflow = True
             return
         for piece in chunk.splitlines(keepends=True):
-            if not self.overflow and len(self.buffer) + len(piece) <= 262_144:
+            self._event_size += len(piece)
+            if not self.overflow and self._event_size <= 262_144:
                 self.buffer += piece
             else:
                 self.buffer = b""; self.overflow = True
+                self._event_data = []
                 self._invalid_event = True
                 self.completed = False
             if piece.endswith(b"\n"):
                 line = self.buffer.rstrip(b"\r\n")
                 if not line:
-                    # The SDK stops at [DONE] and closes without draining HTTP EOF.
-                    # Only a complete SSE event proves that close was normal.
-                    self.completed = self.completed or (self._done_event and not self._invalid_event)
-                    self._done_event = False
-                elif not self.overflow and line.startswith(b"data:"):
-                    data = line[5:].strip()
-                    self._done_event = data == b"[DONE]"
-                    if self._done_event:
-                        self.buffer = b""; self.overflow = False
-                        continue
-                    try:
-                        self.read(json.loads(data))
-                    except (ValueError, TypeError, AttributeError):
+                    # SSE data belongs to the complete event, including embedded
+                    # newlines. The SDK closes at DONE without draining HTTP EOF.
+                    if not self.overflow and self._event_data:
+                        data = b"\n".join(self._event_data)
+                        if data == b"[DONE]":
+                            self.completed = not self._invalid_event
+                        else:
+                            try:
+                                self.read(json.loads(data))
+                            except (ValueError, TypeError, AttributeError):
+                                self._invalid_event = True
+                                self.completed = False
+                    self._event_data = []
+                    self._event_size = 0
+                    self.overflow = False
+                elif not self.overflow:
+                    field, separator, value = line.partition(b":")
+                    if separator and value.startswith(b" "):
+                        value = value[1:]
+                    if field == b"data":
+                        self._event_data.append(value)
+                    elif field == b"event" and value == b"error":
                         self._invalid_event = True
                         self.completed = False
-                elif line.startswith(b"event:") and line[6:].strip() == b"error":
-                    self._invalid_event = True
-                    self.completed = False
-                self.buffer = b""; self.overflow = False
+                self.buffer = b""
 
     def finish(self):
         if not self.sse and not self.overflow:

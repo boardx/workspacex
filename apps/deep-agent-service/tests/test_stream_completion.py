@@ -96,3 +96,44 @@ def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tm
     assert terminal["outcome"] == want
     assert terminal["usage"] == ({} if case == "unknown-usage" else {"total":9,"prompt":6,"completion":3})
     assert a.Journal(str(tmp_path)).pending(OWNER) == []
+
+@pytest.mark.parametrize("asynchronous", [False, True])
+@pytest.mark.parametrize("payload,failed", [
+    (b'data: {}\ndata: [DONE]\n\n', True),
+    (b'data:  [DONE]\n\n', True),
+    (b'data:\t[DONE]\n\n', True),
+    (b'data: {"usage":\ndata: {"total_tokens":9}}\n\ndata: [DONE]\n\n', False),
+])
+def test_real_sdk_event_framing(monkeypatch, tmp_path, asynchronous, payload, failed):
+    import openai
+    import json
+    monkeypatch.setenv("DEEP_AGENT_USAGE_SPOOL_DIR", str(tmp_path))
+    monkeypatch.setattr(a, "_durability_fault", False)
+    monkeypatch.setattr(a, "ownership", lambda: dict(OWNER))
+    callbacks = []
+    def post(_owner, _subject, phase, body):
+        callbacks.append((phase, body))
+    async def apost(*args):
+        post(*args)
+    monkeypatch.setattr(a, "post", post)
+    monkeypatch.setattr(a, "apost", apost)
+    def vendor(_request):
+        return httpx.Response(200, headers={"content-type":"text/event-stream"}, stream=httpx.ByteStream(payload))
+    async def run_async():
+        async with openai.AsyncOpenAI(api_key="fixture", max_retries=0, http_client=httpx.AsyncClient(transport=a.AsyncAccountingTransport(httpx.MockTransport(vendor)))) as client:
+            stream = await client.chat.completions.create(model="fixture", messages=[], max_tokens=10, stream=True)
+            async with stream:
+                return [chunk async for chunk in stream]
+    def run_sync():
+        with openai.OpenAI(api_key="fixture", max_retries=0, http_client=httpx.Client(transport=a.AccountingTransport(httpx.MockTransport(vendor)))) as client:
+            with client.chat.completions.create(model="fixture", messages=[], max_tokens=10, stream=True) as stream:
+                return list(stream)
+    if failed:
+        with pytest.raises(json.JSONDecodeError):
+            asyncio.run(run_async()) if asynchronous else run_sync()
+    else:
+        asyncio.run(run_async()) if asynchronous else run_sync()
+    assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
+    assert callbacks[-1][1]["outcome"] == ("failed" if failed else "succeeded")
+    if not failed:
+        assert callbacks[-1][1]["usage"] == {"total":9}

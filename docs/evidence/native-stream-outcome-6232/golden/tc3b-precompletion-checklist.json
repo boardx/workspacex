@@ -1,6 +1,6 @@
 {
   "tc": "tc3b-precompletion-checklist",
-  "collected_at_utc": "2026-11-04T13:25:16.902547+00:00",
+  "collected_at_utc": "2026-11-04T13:43:45.580781+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "退出前对照清单自检（RubricMiddleware，官方等价件）",
   "dimensions": [

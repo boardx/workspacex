@@ -1,6 +1,6 @@
 {
   "tc": "tc4-long-context-recall",
-  "collected_at_utc": "2026-11-04T13:25:18.505703+00:00",
+  "collected_at_utc": "2026-11-04T13:43:45.942150+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "30 轮超长上下文，第 30 轮追问第 2 轮细节",
   "dimensions": [

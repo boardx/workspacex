@@ -1,6 +1,6 @@
 {
   "tc": "tc3-fault-injection-and-budget",
-  "collected_at_utc": "2026-11-04T13:25:16.801409+00:00",
+  "collected_at_utc": "2026-11-04T13:43:45.526778+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "连续故障注入 + 会循环的任务",
   "dimensions": [
