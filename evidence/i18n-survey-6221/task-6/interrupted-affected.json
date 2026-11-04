@@ -1,0 +1,39 @@
+{
+  "name": "green-affected",
+  "command": [
+    "/Users/shenyangjun/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/executing-plans/scripts/task-done",
+    "docs/design/i18n-survey-journey/plan.md",
+    "6",
+    "8a42d8a7d2c6bfa42a99c65a657911886f7ea764",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-template-i18n.test.tsx",
+    "tests/ui/survey-template-diagnostics-i18n.test.ts",
+    "tests/ui/survey-template-shell-i18n.test.tsx",
+    "tests/ui/survey-template-runtime-errors-i18n.test.tsx",
+    "tests/ui/survey-template-library-live.test.tsx",
+    "tests/ui/survey-template-workspace-live.test.tsx",
+    "tests/ui/survey-template-actions.test.tsx",
+    "tests/ui/survey-template-reuse.test.ts",
+    "tests/ui/survey-builtin-template-integration.test.tsx",
+    "tests/ui/survey-builtin-templates.test.ts",
+    "tests/ui/survey-template-editor-shell.test.tsx",
+    "tests/ui/survey-resource-library.test.tsx",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "91324b8574115ef1e240f5e3dcd2d6c0ae559296",
+  "exitCode": -2,
+  "seconds": 47.595,
+  "rawLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "classification": "INTERRUPTED: simultaneous cross-chat heavy starts, own children SIGINT; neither test failure nor pass; no test verdict.",
+  "ownedProcessesRemaining": 0,
+  "innerLogSha256": "f6187e5c977857a75f82e95ec3da3dc6e7e7cafb7e128f173e60f24ca71800e8"
+}

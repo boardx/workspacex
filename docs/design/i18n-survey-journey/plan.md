@@ -35,8 +35,9 @@ flowchart LR
  class A done
  class B tested
  class C,D,E tested
- class F active
- class G pending
+ %% evidence F: evidence/i18n-survey-6221/task-5/green-affected.json and task-6/green-affected-final.json
+ class F tested
+ class G active
 ```
 
 ### Task 1: Live library, creation and input
@@ -96,10 +97,10 @@ flowchart LR
 **Files:** components/survey/library/{template-library,builtin-template-cards,template-actions,template-workspace}.tsx; templates/survey-template-editor-shell.tsx; actual reachable resource-library components only; namespace survey-templates.ts. Test: survey-template-i18n.test.tsx.
 **Interfaces:** preserve kind values question/report, template IDs/provenance and structuredClone independence. Built-in and custom template contents/titles/descriptions remain authored data; only fixed controls/metadata/status/defaults translate.
 
-- [ ] Write RED for actual library/workspace tabs/search/create/edit/copy/delete/preview/error, preserving raw selected template and unsaved fields/focus across locale. New defaults translate once; copied/existing template data never rewritten; source template remains independent after editing reuse.
-- [ ] Run new suite; Expected: missing-English failures. Implement fixed rendered copy on actual route graph without translating stale mock contents.
-- [ ] Run new suite plus template-library-live/workspace-live/actions/reuse/builtin-template-integration/template-editor-shell/resource-library; Expected: all PASS.
-- [ ] Commit and task-done affected suite.
+- [x] Write RED for actual library/workspace tabs/search/create/edit/copy/delete/preview/error, preserving raw selected template and unsaved fields/focus across locale. New defaults translate once; copied/existing template data never rewritten; source template remains independent after editing reuse.
+- [x] Run new suite; Expected: missing-English failures. Implement fixed rendered copy on actual route graph without translating stale mock contents.
+- [x] Run new suite plus template-library-live/workspace-live/actions/reuse/builtin-template-integration/template-editor-shell/resource-library; Expected: all PASS.
+- [x] Commit and task-done affected suite.
 
 ### Task 7: Whole scope and real journey acceptance
 
