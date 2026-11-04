@@ -58,7 +58,8 @@ describe("platform members complete localization", () => {
     route(); show();
     const list = await screen.findByTestId("admin-platform-members-list");
     expect(screen.getByRole("heading", { name: "Platform members" })).toBeTruthy();
-    expect(screen.getByTestId("admin-platform-members-count")).toHaveTextContent(/2.*accounts/i);
+    expect(screen.getByTestId("admin-platform-members-count")).toHaveTextContent(/\b2\b/);
+    expect(screen.getByTestId("admin-platform-members-count")).toHaveTextContent(/accounts/i);
     expect(screen.getByTestId("admin-platform-member-ops-superuser")).toHaveTextContent(/platform superuser/i);
     expect(screen.getByTestId("admin-platform-member-ops-no-org")).toHaveTextContent(/not.*joined|no.*organization/i);
     expect(within(list).getByText(/email.*unverified|unverified.*email/i)).toBeTruthy();

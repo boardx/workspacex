@@ -1,3 +1,4 @@
+import { platformMembersEn } from "../namespaces/platform-members";
 import { recordingProjectEn } from "../namespaces/recording-project";
 import { workflowGrantsEn } from "../namespaces/workflow-grants";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
@@ -22,6 +23,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...platformMembersEn,
   ...workflowGrantsEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
