@@ -282,7 +282,11 @@ test("real member denial remains readable and public snapshot preserves canonica
     await verifyRaw();
     await roundTrip(page, helper, counts, async () => { await expect(detail).toContainText("尚未核验，不能用于报价或费用预留"); await verifyRaw(); },
       async () => { await verifyRaw(); await expect(detail).toContainText(EN.publicPrice); });
-    await shots(page, info, "public-detail", detail, detail.getByRole("heading").first(), detail.locator("a").last());
+    // The drawer header is outside its scrolling body. Use the first real metadata
+    // row so shots' native scroll and ratio-1 assertion reset/check body content.
+    const detailTopRow = detail.getByText("Model ID", { exact: true }).locator("..");
+    await expect(detailTopRow).toContainText(model.modelId);
+    await shots(page, info, "public-detail", detail, detailTopRow, detail.locator("a").last());
     await page.getByTestId("bailian-model-detail-close").click();
     await expect(query).toHaveValue(model.modelId);
     await expect(page.getByTestId("bailian-capability-filter")).toContainText(EN.capability);
