@@ -27,3 +27,8 @@ flowchart LR
  classDef done fill:#bbf7d0,stroke:#16a34a,color:#111827
  classDef tested fill:#ddd6fe,stroke:#7c3aed,color:#111827
 ```
+
+
+## Accepted recording sync after PR creation
+
+PR #6227 first observed a real conflict after develop advanced through #6220. Normal merge `ce8e561d461cf29d467e8cbc1c1a8e1177b6e559` preserves both locale registries and every protected path. Bounded independent review is CLEAN; each catalog has3,331 unique keys, exact parent union and unchanged retained expressions. Fresh impacted resources/count13/13, registrylint andinit pass. Quota source/test/E2E/config retain measured bytes; original browser/88-case results keep their original source attribution. See `accepted-recording/` for proof, review and curated gates. Normal update hooks and remote delivery remain separate required gates.
