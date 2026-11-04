@@ -1,0 +1,23 @@
+{
+  "name": "resource-b992",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/lib/i18n-resources.test.ts"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 4.945,
+  "rawLogSha256": "76f76a303c7df880e87fe65df329c96fe3905d605f24ba9ac80aa18f02034f20",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "testFiles": 1,
+  "passed": 5
+}

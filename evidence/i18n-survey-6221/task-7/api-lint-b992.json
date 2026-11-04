@@ -1,0 +1,16 @@
+{
+  "name": "api-lint-b992",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/api",
+    "lint"
+  ],
+  "source": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "exitCode": 0,
+  "seconds": 12.583,
+  "rawLogSha256": "5bbe04a38dd614569d15e7f817baee5e0d44fd829f5f62fd2a6b0c84321bfab4",
+  "sourceAfter": "080bbba0ee858525f57fedefe42fa68ea938d91b",
+  "sourceStable": true,
+  "environment": {}
+}
