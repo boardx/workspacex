@@ -30,3 +30,9 @@ space after the colon, and bounds cumulative event bytes at 262144.
 45 skipped, 2 existing deprecation warnings, with isolated real Postgres.
 The owned test stack was released by the standard script. This does not
 claim the distinct long-chat database deadlock (#6235) is fixed.
+
+A second review found CR-only SSE line endings could hide an error event in
+one HTTP byte chunk. Added actual SDK sync/async counterexamples:
+`review-cr-red.txt` has 2 failed / 34 passed. CR, LF and fragmented CRLF now
+share event boundaries; `review-cr-green.txt` has 123 passed and
+`review-cr-full-suite-pg.txt` has 912 passed / 45 skipped / 2 existing warnings.

@@ -1,6 +1,6 @@
 {
   "tc": "tc2-sensitive-skill-hitl",
-  "collected_at_utc": "2026-11-04T13:43:42.063536+00:00",
+  "collected_at_utc": "2026-11-04T13:50:53.703116+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "敏感技能中断 → 修改参数后放行",
   "dimensions": [
@@ -16,6 +16,6 @@
   "skill_executions_observed": [
     "风险复核"
   ],
-  "interrupt_payload_excerpt": "[Interrupt(value={'action_requests': [{'name': 'call_skill', 'args': {'skill_stable_name': 'market-scan', 'task': '对本季度方案做一次评估'}, 'description': \"Tool execution requires approval\\n\\nTool: call_skill\\nArgs: {'skill_stable_name': 'market-scan', 'task': '对本季度方案做一次评估'}\"}], 'review_configs': [{'action_name': 'call_skill', 'allowed_decisions': ['approve', 'edit', 'reject', 'respond']}]}, id='a4c16ca09850fd5442985d087b16a5c0')]",
+  "interrupt_payload_excerpt": "[Interrupt(value={'action_requests': [{'name': 'call_skill', 'args': {'skill_stable_name': 'market-scan', 'task': '对本季度方案做一次评估'}, 'description': \"Tool execution requires approval\\n\\nTool: call_skill\\nArgs: {'skill_stable_name': 'market-scan', 'task': '对本季度方案做一次评估'}\"}], 'review_configs': [{'action_name': 'call_skill', 'allowed_decisions': ['approve', 'edit', 'reject', 'respond']}]}, id='79fa93f8213123914150bd3905408516')]",
   "final_answer": "技能已执行，结论已汇总。"
 }

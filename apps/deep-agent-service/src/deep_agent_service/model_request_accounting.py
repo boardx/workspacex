@@ -459,6 +459,7 @@ class UsageParser:
         self.completed = False
         self._event_data = []
         self._event_size = 0
+        self._skip_lf = False
         self._invalid_event = False
 
     def read(self, value):
@@ -489,7 +490,14 @@ class UsageParser:
             else:
                 self.buffer = b""; self.overflow = True
             return
+        # SSE accepts CR, LF, and CRLF, including CRLF split across reads.
+        if self._skip_lf and chunk.startswith(b"\n"):
+            chunk = chunk[1:]
+        if not chunk:
+            return
+        self._skip_lf = False
         for piece in chunk.splitlines(keepends=True):
+            self._skip_lf = piece.endswith(b"\r")
             self._event_size += len(piece)
             if not self.overflow and self._event_size <= 262_144:
                 self.buffer += piece
@@ -498,7 +506,7 @@ class UsageParser:
                 self._event_data = []
                 self._invalid_event = True
                 self.completed = False
-            if piece.endswith(b"\n"):
+            if piece.endswith((b"\n", b"\r")):
                 line = self.buffer.rstrip(b"\r\n")
                 if not line:
                     # SSE data belongs to the complete event, including embedded

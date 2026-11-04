@@ -100,6 +100,7 @@ def test_completion_protocol_preserves_failures_and_one_terminal(monkeypatch, tm
 @pytest.mark.parametrize("asynchronous", [False, True])
 @pytest.mark.parametrize("payload,failed", [
     (b'data: {}\ndata: [DONE]\n\n', True),
+    (b': keepalive\rdata: {"error":{"message":"fixture"}}\r\r\n\ndata: [DONE]\n\n', True),
     (b'data:  [DONE]\n\n', True),
     (b'data:\t[DONE]\n\n', True),
     (b'data: {"usage":\ndata: {"total_tokens":9}}\n\ndata: [DONE]\n\n', False),
@@ -129,7 +130,7 @@ def test_real_sdk_event_framing(monkeypatch, tmp_path, asynchronous, payload, fa
             with client.chat.completions.create(model="fixture", messages=[], max_tokens=10, stream=True) as stream:
                 return list(stream)
     if failed:
-        with pytest.raises(json.JSONDecodeError):
+        with pytest.raises(openai.APIError if b'"error"' in payload else json.JSONDecodeError):
             asyncio.run(run_async()) if asynchronous else run_sync()
     else:
         asyncio.run(run_async()) if asynchronous else run_sync()

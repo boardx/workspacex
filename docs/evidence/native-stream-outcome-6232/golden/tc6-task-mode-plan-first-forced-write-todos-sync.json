@@ -1,6 +1,6 @@
 {
   "tc": "tc6-task-mode-plan-first-forced-write-todos-sync",
-  "collected_at_utc": "2026-11-04T13:43:48.902211+00:00",
+  "collected_at_utc": "2026-11-04T13:51:04.651880+00:00",
   "harness": "in-process pytest, ScriptedChatModel（假模型，非真模型质量证据）",
   "scenario": "任务模式标记 + 不合作假模型 → 确定性强制 write_todos（同步 graph.invoke()）",
   "dimensions": [
