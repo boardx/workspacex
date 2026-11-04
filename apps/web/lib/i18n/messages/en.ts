@@ -1,3 +1,4 @@
+import { platformMembersEn } from "../namespaces/platform-members";
 import { surveyTemplatesEn } from "../namespaces/survey-templates";
 import { surveyResultsEn } from "../namespaces/survey-results";
 import { surveyPublicEn } from "../namespaces/survey-public";
@@ -33,6 +34,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...platformMembersEn,
   ...surveyTemplatesEn,
   ...surveyResultsEn,
   ...surveyPublicEn,

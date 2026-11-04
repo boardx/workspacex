@@ -1,0 +1,14 @@
+{
+  "worker": "92a71e79905244487dd84261bbd031367c3505f9",
+  "accepted": "4b3263aa8649b8130e427bc34a9b4bade4f2e70d",
+  "merge": "9bc96f6325c3279d0067ec83bedbcd44f0cc19f7",
+  "base": "73d5c5bfb20cd544e23303789a5afb8eab7b7744",
+  "protected": {
+    "common": 23937,
+    "workerOnly": 31,
+    "acceptedOnly": 25
+  },
+  "overlaps": [],
+  "protectedFailures": [],
+  "method": "all union paths; exact Git mode/type/object identity including deletions; divergent overlaps require separate review"
+}

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
-import { ENTITY_LOCALIZATION_E2E } from "./entity-localization-fixture";
-import { agentRole, aiUsage, homeConfig, orgAdmin, skills, wave2Runtime, workflowCapabilityGrants as WG } from "@repo/contracts";
+import { ENTITY_LOCALIZATION_E2E, PLATFORM_MEMBERS_E2E } from "./entity-localization-fixture";
+import { agentRole, aiUsage, homeConfig, orgAdmin, skills, wave2Runtime, workflowCapabilityGrants as WG, auth as platformLogin, platformMembers as PM } from "@repo/contracts";
 import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
 import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
 
@@ -1040,4 +1040,200 @@ test("workflow grant management persists canonical permissions and audit across 
     expect(afterDenied.grants).toEqual(restored.grants);
     expect(afterDenied.audit).toEqual(restored.audit);
   } finally { await memberContext.close(); }
+});
+
+test("platform members preserve locale continuity and real superuser operator boundaries across organizations", async ({ page, browser }, testInfo) => {
+  const fixture = PLATFORM_MEMBERS_E2E;
+  const listPath = "/__fullstack_api" + PM.operations.listPlatformMembers.path;
+  const rolePath = (userId: string, orgId: string) => `${listPath}/${encodeURIComponent(userId)}/organizations/${encodeURIComponent(orgId)}/role`;
+  const adminPath = `${listPath}/${encodeURIComponent(fixture.targetId)}/platform-admin`;
+  const memberId = (userId: string) => `admin-platform-member-${userId}`;
+  const roleId = (userId: string, orgId: string) => `${memberId(userId)}-org-${orgId}-role`;
+  // LoginForm/startSession choose the first real returned organization and hydrate
+  // identity. Both new accounts have two orgs; do not synthesize current-org/auth.
+  const platformLoginAs = async (actorPage: Page, superuser: boolean) => {
+    await actorPage.goto("/login");
+    await actorPage.getByTestId("login-email").fill(superuser ? fixture.superuserEmail : fixture.targetEmail);
+    await actorPage.getByTestId("login-password").fill(superuser ? ENTITY_LOCALIZATION_E2E.adminPassword : ENTITY_LOCALIZATION_E2E.memberPassword);
+    const loggedIn = actorPage.waitForResponse(response => response.request().method() === "POST" && new URL(response.url()).pathname === "/__fullstack_api" + platformLogin.operations.login.path);
+    await actorPage.getByTestId("login-submit").click();
+    const response = await loggedIn; expect(response.status()).toBe(200);
+    // Only assert non-secret fields; bearer/cookie values never enter evidence.
+    const authenticated = platformLogin.operations.login.out.parse(await response.json());
+    expect(authenticated.userId).toBe(superuser ? fixture.superuserId : fixture.targetId);
+    expect([...authenticated.orgs].sort()).toEqual([fixture.orgAId, fixture.orgBId].sort());
+    await expect(actorPage).toHaveURL(/\/home$/);
+  };
+  await platformLoginAs(page, true);
+  const headers = await authorization(page);
+  const read = async () => {
+    const response = await page.request.get(listPath, { headers }); expect(response.status()).toBe(200);
+    return PM.operations.listPlatformMembers.out.parse(await response.json());
+  };
+  const targetFrom = (roster: Awaited<ReturnType<typeof read>>) => {
+    const target = roster.members.find(member => member.userId === fixture.targetId);
+    expect(target).toBeDefined(); return target!;
+  };
+  const roleFrom = (roster: Awaited<ReturnType<typeof read>>, userId: string, orgId: string) => {
+    const membership = roster.members.find(member => member.userId === userId)?.memberships.find(item => item.orgId === orgId);
+    expect(membership).toBeDefined(); return membership!;
+  };
+  const initial = await read();
+  expect(targetFrom(initial)).toMatchObject({ displayName: fixture.targetName, email: fixture.targetEmail, platformAdmin: false, platformSuperuser: false });
+  expect(targetFrom(initial).memberships).toHaveLength(2);
+  expect(roleFrom(initial, fixture.targetId, fixture.orgAId)).toMatchObject({ orgName: fixture.orgAName, orgRole: "consultant" });
+  const untouchedB = roleFrom(initial, fixture.targetId, fixture.orgBId);
+  expect(untouchedB).toMatchObject({ orgName: fixture.orgBName, orgRole: "consultant" });
+  expect(initial.members.find(member => member.userId === fixture.superuserId)).toMatchObject({ displayName: fixture.superuserName, platformSuperuser: true });
+  for (const orgId of [fixture.orgAId, fixture.orgBId]) {
+    expect(initial.members.filter(member => member.memberships.some(item => item.orgId === orgId && item.orgRole === "admin")).map(member => member.userId)).toEqual([fixture.superuserId]);
+  }
+  const counts = { GET: 0, PATCH: 0, POST: 0, DELETE: 0 };
+  page.on("request", request => {
+    if (!new URL(request.url()).pathname.startsWith(listPath)) return;
+    const method = request.method(); if (method in counts) counts[method as keyof typeof counts]++;
+  });
+  const responseFor = (method: string, path: string) => page.waitForResponse(response => response.request().method() === method && new URL(response.url()).pathname === path);
+  const helper = await page.context().newPage(); await helper.goto("/home");
+  const locale = async (value: "en" | "zh-CN") => {
+    await helper.getByTestId("language-switcher").first().selectOption(value);
+    await expect(page.locator("html")).toHaveAttribute("lang", value);
+  };
+  // Sixteen viewport PNGs: exactly eight semantic states at mobile and desktop.
+  // Notice screenshots are mobile-first, immediately after the actual response;
+  // no timer changes or full-page captures hide physical control reachability.
+  const capture = async (actorPage: Page, state: string, focusId: string) => {
+    for (const width of [375, 1280]) {
+      await actorPage.setViewportSize({ width, height: 900 });
+      const focus = actorPage.getByTestId(focusId);
+      await focus.scrollIntoViewIfNeeded(); await expect(focus).toBeInViewport({ ratio: 1 });
+      for (const control of await focus.getByRole("button").all()) {
+        await expect(control).toBeInViewport({ ratio: 1 });
+      }
+      // Selected role text must be readable, not merely present behind an ellipsis.
+      for (const picker of await focus.locator('button[data-testid^="admin-platform-member-"][data-testid$="-role"]').all()) {
+        const selectedLabel = picker.locator(":scope > span").first();
+        await expect(selectedLabel).toBeInViewport({ ratio: 1 });
+        await expect.poll(async () => selectedLabel.evaluate(label => label.clientWidth > 0 && label.clientWidth >= label.scrollWidth), {
+          message: `Selected organization role must fit: ${await selectedLabel.textContent()}`,
+        }).toBe(true);
+      }
+      for (const option of await focus.getByRole("option").all()) {
+        await expect(option).toBeInViewport({ ratio: 1 });
+      }
+      expect(await actorPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await actorPage.screenshot({ path: testInfo.outputPath(`platform-members-${state}-${width}.png`) });
+    }
+  };
+  const targetRow = page.getByTestId(memberId(fixture.targetId));
+  const targetRole = page.getByTestId(roleId(fixture.targetId, fixture.orgAId));
+  const lastAdminRole = page.getByTestId(roleId(fixture.superuserId, fixture.orgBId));
+  const banner = page.getByTestId("admin-platform-members-banner");
+  const operatorContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  const ordinaryContext = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  try {
+    await page.goto("/platform-admin/members"); await locale("en");
+    await expect(targetRow).toContainText(fixture.targetName);
+    await expect(targetRow).toContainText(fixture.orgAName); await expect(targetRow).toContainText(fixture.orgBName);
+    await expect(targetRole).toHaveText("Consultant");
+    await expect(targetRow).toContainText("Registered"); await expect(targetRow).toContainText("Joined");
+    await capture(page, "superuser-roster", memberId(fixture.targetId));
+    await targetRole.click();
+    const listbox = page.getByTestId(roleId(fixture.targetId, fixture.orgAId) + "-listbox");
+    const selected = page.getByTestId(roleId(fixture.targetId, fixture.orgAId) + "-option-consultant");
+    const beforeLocale = { ...counts };
+    await locale("zh-CN"); await expect(listbox).toContainText("项目负责人");
+    await expect(selected).toHaveAttribute("aria-selected", "true");
+    await expect(targetRow).toContainText(fixture.targetName); await expect(targetRow).toContainText(fixture.orgAName);
+    await locale("en"); await expect(listbox).toContainText("Project lead");
+    await expect(selected).toHaveAttribute("aria-selected", "true"); expect(counts).toEqual(beforeLocale);
+    await capture(page, "role-popover", roleId(fixture.targetId, fixture.orgAId) + "-listbox");
+    const changed = responseFor("PATCH", rolePath(fixture.targetId, fixture.orgAId));
+    await page.getByTestId(roleId(fixture.targetId, fixture.orgAId) + "-option-lead").click();
+    const roleResponse = await changed; expect(roleResponse.status()).toBe(200);
+    expect(PM.operations.setPlatformMemberOrgRole.in.parse(roleResponse.request().postDataJSON())).toEqual({ userId: fixture.targetId, orgId: fixture.orgAId, orgRole: "lead" });
+    expect(PM.operations.setPlatformMemberOrgRole.out.parse(await roleResponse.json())).toEqual({ userId: fixture.targetId, orgId: fixture.orgAId, orgRole: "lead", previousOrgRole: "consultant" });
+    await expect(banner).toContainText("Consultant → Project lead"); await expect(banner).toContainText(fixture.targetName);
+    expect(counts.GET).toBe(beforeLocale.GET); expect(counts.PATCH).toBe(beforeLocale.PATCH + 1);
+    await capture(page, "role-change", "admin-platform-members-banner");
+    const changedRoster = await read();
+    expect(roleFrom(changedRoster, fixture.targetId, fixture.orgAId).orgRole).toBe("lead");
+    expect(roleFrom(changedRoster, fixture.targetId, fixture.orgBId)).toEqual(untouchedB);
+    await page.reload(); await expect(targetRole).toHaveText("Project lead");
+    await expect(page.getByTestId(roleId(fixture.targetId, fixture.orgBId))).toHaveText("Consultant");
+
+    await lastAdminRole.click();
+    const rejected = responseFor("PATCH", rolePath(fixture.superuserId, fixture.orgBId));
+    await page.getByTestId(roleId(fixture.superuserId, fixture.orgBId) + "-option-consultant").click();
+    const rejection = await rejected; expect(rejection.status()).toBe(409);
+    expect(PM.operations.setPlatformMemberOrgRole.in.parse(rejection.request().postDataJSON())).toEqual({ userId: fixture.superuserId, orgId: fixture.orgBId, orgRole: "consultant" });
+    expect(PM.PlatformMembersError.parse((await rejection.json()).reasonCode)).toBe("LAST_ADMIN");
+    const errorId = roleId(fixture.superuserId, fixture.orgBId) + "-error";
+    await expect(page.getByTestId(errorId)).toContainText("Assign another member as administrator first");
+    await locale("zh-CN"); await expect(page.getByTestId(errorId)).toContainText("先把该组织的另一位成员设为管理员"); await locale("en");
+    await expect(lastAdminRole).toHaveText("Administrator");
+    expect(await read()).toEqual(changedRoster);
+    await capture(page, "last-admin-error", `${memberId(fixture.superuserId)}-org-${fixture.orgBId}`);
+    await page.reload(); await expect(lastAdminRole).toHaveText("Administrator");
+
+    const granted = responseFor("POST", adminPath);
+    await targetRow.getByTestId(memberId(fixture.targetId) + "-admin-toggle").click();
+    const grantResponse = await granted; expect(grantResponse.status()).toBe(201);
+    expect(PM.operations.grantPlatformAdmin.in.parse(grantResponse.request().postDataJSON())).toEqual({ userId: fixture.targetId });
+    expect(PM.operations.grantPlatformAdmin.out.parse(await grantResponse.json())).toEqual({ userId: fixture.targetId, platformAdmin: true });
+    await expect(banner).toContainText("granted platform administrator");
+    await expect(targetRow.getByTestId(memberId(fixture.targetId) + "-admin-badge")).toHaveText("Platform administrator");
+    await capture(page, "grant-result", memberId(fixture.targetId));
+    expect(targetFrom(await read()).platformAdmin).toBe(true);
+    await page.reload(); await expect(targetRow.getByTestId(memberId(fixture.targetId) + "-admin-toggle")).toHaveText("Revoke platform administrator");
+
+    const operator = await operatorContext.newPage(); await platformLoginAs(operator, false);
+    const operatorHeaders = await authorization(operator);
+    const operatorRead = await operator.request.get(listPath, { headers: operatorHeaders }); expect(operatorRead.status()).toBe(200);
+    expect(targetFrom(PM.operations.listPlatformMembers.out.parse(await operatorRead.json())).platformAdmin).toBe(true);
+    await operator.goto("/platform-admin/members"); await operator.getByTestId("language-switcher").first().selectOption("en");
+    await expect(operator.getByTestId(memberId(fixture.targetId))).toContainText("Platform administrator");
+    await expect(operator.locator('[data-testid$="-admin-toggle"]')).toHaveCount(0);
+    const operatorChanged = operator.waitForResponse(response => response.request().method() === "PATCH" && new URL(response.url()).pathname === rolePath(fixture.targetId, fixture.orgAId));
+    await operator.getByTestId(roleId(fixture.targetId, fixture.orgAId)).click();
+    await operator.getByTestId(roleId(fixture.targetId, fixture.orgAId) + "-option-compliance").click();
+    const operatorResponse = await operatorChanged; expect(operatorResponse.status()).toBe(200);
+    expect(PM.operations.setPlatformMemberOrgRole.in.parse(operatorResponse.request().postDataJSON())).toEqual({ userId: fixture.targetId, orgId: fixture.orgAId, orgRole: "compliance" });
+    expect(PM.operations.setPlatformMemberOrgRole.out.parse(await operatorResponse.json())).toEqual({ userId: fixture.targetId, orgId: fixture.orgAId, previousOrgRole: "lead", orgRole: "compliance" });
+    const afterOperator = await read();
+    expect(roleFrom(afterOperator, fixture.targetId, fixture.orgAId).orgRole).toBe("compliance");
+    expect(roleFrom(afterOperator, fixture.targetId, fixture.orgBId)).toEqual(untouchedB);
+    await operator.reload(); await expect(operator.getByTestId(roleId(fixture.targetId, fixture.orgAId))).toHaveText("Compliance lead");
+    await capture(operator, "operator-roster", memberId(fixture.targetId));
+    for (const method of ["POST", "DELETE"]) {
+      const denied = await operator.request.fetch(adminPath, { method, headers: operatorHeaders, data: { userId: fixture.targetId } });
+      expect(denied.status()).toBe(403); expect(PM.PlatformMembersError.parse((await denied.json()).reasonCode)).toBe("NOT_PLATFORM_SUPERUSER");
+      expect(await read()).toEqual(afterOperator);
+    }
+    const revoked = responseFor("DELETE", adminPath);
+    await targetRow.getByTestId(memberId(fixture.targetId) + "-admin-toggle").click();
+    const revokeResponse = await revoked; expect(revokeResponse.status()).toBe(200);
+    expect(PM.operations.revokePlatformAdmin.in.parse(revokeResponse.request().postDataJSON())).toEqual({ userId: fixture.targetId });
+    expect(PM.operations.revokePlatformAdmin.out.parse(await revokeResponse.json())).toEqual({ userId: fixture.targetId, platformAdmin: false });
+    expect(targetFrom(await read()).platformAdmin).toBe(false);
+    await page.reload(); await expect(targetRow.getByTestId(memberId(fixture.targetId) + "-admin-toggle")).toHaveText("Grant platform administrator");
+    const deniedRead = await operator.request.get(listPath, { headers: operatorHeaders }); expect(deniedRead.status()).toBe(403);
+    expect(PM.PlatformMembersError.parse((await deniedRead.json()).reasonCode)).toBe("NOT_PLATFORM_SUPERUSER");
+    await operator.reload();
+    await expect(operator.getByTestId("admin-platform-members-forbidden")).toContainText("Only platform operators");
+    await expect(operator.getByTestId("admin-platform-members-list")).toHaveCount(0);
+    await capture(operator, "revoked-target-denial", "admin-platform-members-forbidden");
+
+    const ordinary = await ordinaryContext.newPage(); await login(ordinary, true);
+    const ordinaryHeaders = await authorization(ordinary);
+    const ordinaryRead = await ordinary.request.get(listPath, { headers: ordinaryHeaders }); expect(ordinaryRead.status()).toBe(403);
+    expect(PM.PlatformMembersError.parse((await ordinaryRead.json()).reasonCode)).toBe("NOT_PLATFORM_SUPERUSER");
+    await ordinary.goto("/platform-admin/members"); await ordinary.getByTestId("language-switcher").first().selectOption("en");
+    await expect(ordinary.getByTestId("admin-platform-members-forbidden")).toContainText("this does not mean data is missing");
+    await expect(ordinary.getByTestId("admin-platform-members-empty")).toHaveCount(0);
+    await expect(ordinary.getByTestId("admin-platform-members-failed")).toHaveCount(0);
+    await capture(ordinary, "ordinary-admin-denial", "admin-platform-members-forbidden");
+  } finally {
+    await helper.close(); await operatorContext.close(); await ordinaryContext.close();
+  }
 });

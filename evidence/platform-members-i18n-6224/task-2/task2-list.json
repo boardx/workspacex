@@ -1,0 +1,29 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "list",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.entity-localization.config.ts",
+    "--list",
+    "-g",
+    "platform members preserve locale continuity and real superuser operator boundaries across organizations"
+  ],
+  "exit": 0,
+  "seconds": 2.574,
+  "rawPrivate": true,
+  "logSha256": "d403043705740793b4c60256378ec012ddd92d1fec8209324b196b304377ed21",
+  "summary": [
+    "Total: 1 test in 1 file"
+  ]
+}

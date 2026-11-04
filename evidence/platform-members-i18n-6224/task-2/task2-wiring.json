@@ -1,0 +1,14 @@
+{
+  "source": "cb933851f59127646052ec0ad67ed099d65152ec",
+  "gate": "wiring",
+  "command": [
+    "pnpm",
+    "run",
+    "lint:ui-wiring"
+  ],
+  "exit": 0,
+  "seconds": 4.153,
+  "rawPrivate": true,
+  "logSha256": "aa2b48236a0e4e0dc9efb47f91a1c0b5181e4933c4b7ade256d6ea1c721987e9",
+  "summary": []
+}

@@ -1,3 +1,4 @@
+import { platformMembersZhCN } from "../namespaces/platform-members";
 import { surveyTemplatesZhCN } from "../namespaces/survey-templates";
 import { surveyResultsZhCN } from "../namespaces/survey-results";
 import { surveyPublicZhCN } from "../namespaces/survey-public";
@@ -32,6 +33,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...platformMembersZhCN,
   ...surveyTemplatesZhCN,
   ...surveyResultsZhCN,
   ...surveyPublicZhCN,

@@ -1,0 +1,9 @@
+{
+  "head": "93aa9cffad212208ef2b461db455b8ef059377ee",
+  "gate": "eslint-type-fix",
+  "exit": 0,
+  "seconds": 3.745,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "rawPrivate": true,
+  "summary": []
+}

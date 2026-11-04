@@ -1,0 +1,13 @@
+{
+  "head": "74a9e1e28eda80f84725cf1c0330f021797918d9",
+  "gate": "green-v2",
+  "exit": 0,
+  "seconds": 30.911,
+  "logSha256": "46ebf778cbe5929303182843f4386f01a3fb1cb6faa880444ec7bdcf0d9701ee",
+  "rawPrivate": true,
+  "summary": [
+    "Test Files  3 passed (3)",
+    "Tests  32 passed (32)",
+    "Duration  27.41s (transform 7.02s, setup 1.37s, collect 14.74s, tests 4.16s, environment 4.64s, prepare 474ms)"
+  ]
+}
