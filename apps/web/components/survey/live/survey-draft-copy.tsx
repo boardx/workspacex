@@ -17,8 +17,11 @@ export function SurveyDraftCopy({ runtime, onCreated, disabled }: { runtime: Sur
     if (lock.current) return;
     lock.current = true; setBusy(true); setError("");
     try {
+      const suffix = t("survey.workspace.newDraftSuffix");
+      const titleLimit = SurveyCreateCommandSchema.shape.draft.shape.title.maxLength ?? Number.POSITIVE_INFINITY;
+      const prefixLength = locale === "zh-CN" ? 194 : Math.max(0, titleLimit - suffix.length);
       const command = SurveyCreateCommandSchema.parse({ anonymity: runtime.anonymity, draft: {
-        title: `${runtime.title.slice(0, locale === "zh-CN" ? 194 : 200 - t("survey.workspace.newDraftSuffix").length)}${t("survey.workspace.newDraftSuffix")}`, tags: runtime.tags,
+        title: `${runtime.title.slice(0, prefixLength)}${suffix}`, tags: runtime.tags,
         questions: structuredClone(runtime.publication?.questions ?? runtime.questions),
         template: structuredClone(runtime.template),
       } });
