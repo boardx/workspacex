@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { PlatformMembersScreen } from "@/components/admin/platform-members-screen";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
 import { translate } from "@/lib/i18n/messages";
+import type { PlatformMemberRow, PlatformMembershipRow } from "@/lib/live-platform-members";
 
 const viewer = vi.hoisted(() => ({ id: "ops" }));
 vi.mock("@/components/session/session-provider", () => ({
@@ -12,7 +13,12 @@ vi.mock("@/components/session/session-provider", () => ({
 }));
 const rawName = "林可 {previous} {next}";
 const rawOrg = "远洋 {name}";
-const roster = { members: [
+type RosterFixture = {
+  members: [PlatformMemberRow, Omit<PlatformMemberRow, "memberships"> & {
+    memberships: [PlatformMembershipRow, PlatformMembershipRow];
+  }];
+};
+const roster: RosterFixture = { members: [
   { userId: "ops", displayName: "Ops", email: "ops@example.test", emailVerified: true, createdAt: "2026-01-01T00:00:00Z", platformSuperuser: true, platformAdmin: false, memberships: [] },
   { userId: "target", displayName: rawName, email: "raw+{name}@example.test", emailVerified: false, createdAt: "2026-02-01T00:00:00Z", platformSuperuser: false, platformAdmin: false, memberships: [
     { orgId: "a", orgName: rawOrg, orgRole: "consultant", teamId: null, joinedAt: "2026-02-02T00:00:00Z" },
