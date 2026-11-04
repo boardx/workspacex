@@ -1,0 +1,46 @@
+{
+  "source": "746efabbfa50a8c4ae1a5b53c0fdc65dda4361f0",
+  "boundary": "read-only pre-implementation identity baseline, not functional verification",
+  "files": [
+    {
+      "path": "apps/web/lib/survey/builtin-templates.ts",
+      "sha256": "e9db43844cdeb2a6517ad800bcc857145a3c8a72f1ac8d922afbfcb26bfd4db3"
+    },
+    {
+      "path": "apps/web/lib/survey/scenario-templates.ts",
+      "sha256": "df1660199b4b37bc11afbeec2a87ec9040f88682f190d4775e010ada9730fe6d"
+    },
+    {
+      "path": "apps/web/lib/survey/template-content.ts",
+      "sha256": "a9328a307c14e924f1b322e83770ddb8fd616f042695a919909d71d612dc2d3e"
+    },
+    {
+      "path": "apps/web/lib/survey/creation-draft.ts",
+      "sha256": "0d4a75055f3fa70cf4e142cea4467118553af75c5aa963f56585e3d636957097"
+    },
+    {
+      "path": "apps/web/lib/survey/pending-ai-import.ts",
+      "sha256": "e29fd29e99f700f8f858953895c5327984955954ce39955b13f2888a17333480"
+    },
+    {
+      "path": "apps/web/lib/survey/paths.ts",
+      "sha256": "6c5586498651c68b5ba1024dce1fa5bb52b01b997ee215a918910309de1ae19c"
+    },
+    {
+      "path": "packages/contracts/src/survey-question-types.ts",
+      "sha256": "d1905340f587a9ef0c14064e3d26c6ee45d0846654abd7aeaa91e270f15e5b51"
+    },
+    {
+      "path": "packages/contracts/src/survey-source.ts",
+      "sha256": "a97ae3bc41545cc5bec57f01510bf05814a1edf73e58c6c60cb49eb61656475e"
+    },
+    {
+      "path": "packages/contracts/src/survey-runtime.ts",
+      "sha256": "1cb009a3c68039d4d67b704f0c5cf0b00dafad2ab9ff28ef6283b7a222d1b5d2"
+    },
+    {
+      "path": "packages/contracts/src/survey-collection-window.ts",
+      "sha256": "45a65d090fcaf30f110b14062a484c19b5f7c8c0b6f9946ad96dff2a13d3bcc6"
+    }
+  ]
+}
