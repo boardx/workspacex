@@ -1,5 +1,5 @@
 import * as React from "react";
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { createSurveyQuestion, type SurveyWorkflowQuestion, type SurveyAnswerValue } from "@repo/contracts/survey-question-types";
 import { I18nProvider, useI18n } from "@/lib/i18n/provider";
@@ -220,4 +220,21 @@ it("keeps the same signature canvas and typed raw draft across locale changes", 
   expect(screen.getByRole("textbox", { name: "Type signature" })).toBe(field); expect(field).toHaveValue("原签名 {count}");
   expect(screen.getByRole("button", { name: "Save signature" })).toBeEnabled();
   expect(upload).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
+});
+
+it.each(["image_single", "description"] as const)("keeps an incomplete %s image out of preview and renders repeated diagnostics without React errors", type => {
+  const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+  const changed = vi.fn();
+  const initial = type === "image_single" ? question({ type, config: { optionIds: ["raw-a", "raw-b"], images: {
+    "raw-a": { url: "", alt: "空图一 {count}" }, "raw-b": { url: "", alt: "空图二 {name}" },
+  } } }) : question({ type, required: false, options: [], config: { images: { description: { url: "", alt: "空图说明 {count}" } } } });
+  show(<SurveyQuestionEditor studioLayout questions={[initial]} onChange={changed} />);
+  expect.soft(screen.queryAllByRole("img", { name: /空图/ })).toHaveLength(0);
+  const list = screen.getByRole("list", { name: "配置检查" });
+  const rows = within(list).getAllByRole("listitem");
+  expect(within(list).getAllByText("图片需有效选项、HTTPS/站内地址和替代文字")).toHaveLength(type === "image_single" ? 2 : 1);
+  language("en");
+  expect(within(list).getAllByText("Images need a valid option, an HTTPS or same-site URL, and alternative text.")).toHaveLength(type === "image_single" ? 2 : 1);
+  expect(within(list).getAllByRole("listitem")).toEqual(rows);
+  expect.soft(errors).not.toHaveBeenCalled(); expect(changed).not.toHaveBeenCalled();
 });

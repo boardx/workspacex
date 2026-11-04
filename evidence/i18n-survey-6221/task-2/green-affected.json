@@ -1,0 +1,40 @@
+{
+  "name": "green-affected",
+  "command": [
+    "bash",
+    "/Users/shenyangjun/.codex/plugins/cache/openai-curated-remote/superpowers/7.0.1/skills/executing-plans/scripts/task-done",
+    "docs/design/i18n-survey-journey/plan.md",
+    "2",
+    "0471e8a4ee7fb944d562595fdfbc3dd8df9d11a8",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-designer-i18n.test.tsx",
+    "tests/ui/survey-question-controls-i18n.test.tsx",
+    "tests/ui/survey-question-types.test.tsx",
+    "tests/ui/survey-inline-question-text.test.tsx",
+    "tests/ui/survey-markdown-editor.test.tsx",
+    "tests/ui/survey-responsive-designer.test.tsx",
+    "tests/ui/survey-ai-proposal.test.tsx",
+    "tests/lib/i18n-resources.test.ts",
+    "tests/ui/survey-library-i18n.test.tsx",
+    "tests/ui/survey-import-i18n.test.tsx"
+  ],
+  "source": "3fabcad91633ad2517344e99e5c12f20c797f94b",
+  "exitCode": 0,
+  "seconds": 33.149,
+  "rawLogSha256": "c74a6d9edb9b6ff6d133b9988df068dcf9b99823af0018f5605b2c6785e6f021",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "files": 10,
+  "tests": 212,
+  "passed": 212,
+  "newCases": 82,
+  "innerLogSha256": "53ce3f23e417bd83afe93a2a95506a689c609354c4a9ad7853b98d4c0a26d1c6",
+  "warningBoundary": "Adjacent responsive-designer case emits missing image src errors and duplicate diagnostic-key warnings. These are unresolved; Task2 final acceptance retained pending a focused regression and render guard, despite native task-done recording unit exit0."
+}

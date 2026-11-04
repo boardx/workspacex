@@ -1,0 +1,16 @@
+{
+  "name": "type-corrected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "typecheck"
+  ],
+  "source": "3fabcad91633ad2517344e99e5c12f20c797f94b",
+  "exitCode": 0,
+  "seconds": 10.978,
+  "rawLogSha256": "cd5788cc155241ad0932956ca7dd287ae173e2f213993b615bdafdcb93bc7ce4",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}
