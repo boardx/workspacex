@@ -1,0 +1,26 @@
+{
+  "name": "green-package-after-local-artifact",
+  "command": [
+    "pnpm",
+    "--filter",
+    "@repo/contracts",
+    "run",
+    "test",
+    "--bail=1",
+    "--maxWorkers=1",
+    "--minWorkers=1"
+  ],
+  "source": "89745fd03525e4422b8d6c638b018488eacaddc0",
+  "exitCode": 0,
+  "seconds": 127.105,
+  "rawLogSha256": "2dc9494100b1beb765388d391a1107e680af7314752cd1684d55a09e8088a8b0",
+  "environment": {},
+  "files": 143,
+  "tests": 1443,
+  "passed": 1443,
+  "failed": 0,
+  "nativeDurationSeconds": 121.07,
+  "originalThresholdTestsPassed": 7,
+  "collectionErrors": 0,
+  "unhandledErrors": 0
+}
