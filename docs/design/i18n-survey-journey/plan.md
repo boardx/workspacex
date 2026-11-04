@@ -34,8 +34,9 @@ flowchart LR
  classDef pending fill:#f3f4f6,stroke:#9ca3af
  class A done
  class B tested
- class C active
- class D,E,F,G pending
+ class C tested
+ class D active
+ class E,F,G pending
 ```
 
 ### Task 1: Live library, creation and input
@@ -54,10 +55,10 @@ flowchart LR
 **Files:** components/survey/live/{question-editor,question-settings,question-renderer,question-material,inline-question-text,markdown-survey-editor,responsive-designer-panel}.tsx; namespace survey-design.ts with pure metadata/diagnostic projections and creation-only question-display helper. Tests: survey-designer-i18n.test.tsx and survey-question-controls-i18n.test.tsx.
 **Interfaces:** existing canonical question/option/row/field IDs and config APIs unchanged; consumes Task1 resource registration only. Produces fixed type/config/preview/validation chrome, raw question/answer state.
 
-- [ ] Write RED tables for actual supported question types and advanced/logic/attachment controls, inline edit, Markdown view, trial fill. Assert literal question/options/row labels with braces, unchanged canonical enum/IDs and onChange body, same field DOM/selection across locales; trial fill never saves/submits.
-- [ ] Run new suite; Expected: valid missing-English failures. Then implement only fixed rendered copy and creation-only labels; existing drafts and canonical source headings remain raw.
-- [ ] Run new suite plus survey-question-types, survey-inline-question-text, survey-markdown-editor and survey-responsive-designer; Expected: all PASS.
-- [ ] Commit scope and task-done actual affected suite.
+- [x] Write RED tables for actual supported question types and advanced/logic/attachment controls, inline edit, Markdown view, trial fill. Assert literal question/options/row labels with braces, unchanged canonical enum/IDs and onChange body, same field DOM/selection across locales; trial fill never saves/submits.
+- [x] Run new suite; Expected: valid missing-English failures. Then implement only fixed rendered copy and creation-only labels; existing drafts and canonical source headings remain raw.
+- [x] Run new suite plus survey-question-types, survey-inline-question-text, survey-markdown-editor and survey-responsive-designer; Expected: all PASS.
+- [x] Commit scope and task-done actual affected suite.
 
 ### Task 3: Workspace, publishing and recovery
 
