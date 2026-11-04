@@ -72,7 +72,7 @@ describe("organization quota guidance through the production HTTP boundary", () 
     { reasonCode: "BUDGET_BELOW_ALLOCATED", allocated: 12500 },
     { reasonCode: "BUDGET_BELOW_ALLOCATED", allocated: 0 },
   ])("preserves numeric guidance including zero: %j", async (guidance) => {
-    thrown = new HttpException({ ...guidance, message: "private-sql", secret: "private-secret" }, 409);
+    thrown = new HttpException({ ...guidance, message: "private-sql", secret: "fake-private-secret" }, 409);
     const response = await fetch(`${base}/quota-conflict`);
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "conflict", traceId: "quota-conflict-trace", ...guidance });
@@ -83,7 +83,7 @@ describe("organization quota guidance through the production HTTP boundary", () 
     ["BUDGET_BELOW_ALLOCATED", "allocated"],
   ] as const)("omits malformed %s guidance", async (reasonCode, field) => {
     for (const value of [NaN, Infinity, -Infinity, "12500", -1, 0.5, null, undefined, {}, []]) {
-      thrown = new HttpException({ reasonCode, [field]: value, secret: "private-secret" }, 409);
+      thrown = new HttpException({ reasonCode, [field]: value, secret: "fake-private-secret" }, 409);
       const response = await fetch(`${base}/quota-conflict`);
       expect(response.status).toBe(409);
       expect(await response.json()).toEqual({ error: "conflict", traceId: "quota-conflict-trace", reasonCode });
@@ -103,7 +103,7 @@ describe("organization quota guidance through the production HTTP boundary", () 
 
   it("drops numeric and private fields with an unknown reason", async () => {
     thrown = new HttpException({ reasonCode: "PRIVATE_UNKNOWN_REASON", remainingTokens: 500000,
-      allocated: 12500, message: "private-sql", secret: "private-secret" }, 409);
+      allocated: 12500, message: "private-sql", secret: "fake-private-secret" }, 409);
     const response = await fetch(`${base}/quota-conflict`);
     expect(response.status).toBe(409);
     expect(await response.json()).toEqual({ error: "conflict", traceId: "quota-conflict-trace" });
