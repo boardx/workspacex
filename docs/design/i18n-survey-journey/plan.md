@@ -9,7 +9,7 @@
 
 ## Global Constraints
 
-- Original checkout only; baseline recording746 normally merged latestdevelopd5 as40a438262. Recording6220 remains a separate Draft stack.
+- Original checkout only; Task1 initial baseline recording746+developd5 was40a438262. Current protected parent sync is a864d04fc (recordingf998 includes accepteddevelopec169); baseline receipts pin the exact trees. Recording6220 delivery is tracked separately in GitHub.
 - No API/contracts/schema/permission/currency/sample-math changes. All authored/model/template/question/answer/raw legal/file content and canonical serialization stay literal.
 - Locale never changes autosave/CAS/collection batch/public token/submissionId/upload session/timer/lock identity, or causes a load/write/retry.
 - New defaults only on explicit creation; edited, existing and copied content survives language changes.
@@ -34,7 +34,8 @@ flowchart LR
  classDef pending fill:#f3f4f6,stroke:#9ca3af
  class A done
  class B tested
- class C,D,E,F,G pending
+ class C active
+ class D,E,F,G pending
 ```
 
 ### Task 1: Live library, creation and input

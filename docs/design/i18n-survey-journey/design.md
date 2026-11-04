@@ -1,6 +1,6 @@
 # Survey journey localization design — #6221
 
-Spec authority: user-authorized B6 scope in issue6133 and issue6221. Native continuous execution in the original checkout is already authorized; no additional worktree/chat/agent or approval round. Recording Draft PR6220 and research6205 remain owned until actual delivery.
+Spec authority: user-authorized B6 scope in issue6133 and issue6221. Native continuous execution in the original checkout is already authorized; no additional worktree/chat/agent or approval round. Recording PR6220 is tracked alongside B6; current delivery state comes from GitHub while historical proof remains frozen.
 
 Localize fixed author and anonymous-user controls across actual /studio/survey/** and /surveys/[token], including nested dialogs/settings/previews/errors. Reuse existing provider and typed namespace registration. The actual live components, not legacy mocks, are the delivery surface.
 
