@@ -24,16 +24,17 @@ These costs are not product credit tariffs. 用户已授权供应商成本×10�
 
 ```sh
 # Load these from an existing devapp operator session without placing them in shell history:
-# QWEN_ACTIVATION_COOKIE (or COOKIE_FILE), QWEN_ACTIVATION_ORG_ID
+# QWEN_ACTIVATION_TOKEN_FILE=/secure/devapp-operator-token, QWEN_ACTIVATION_ORG_ID
+# Optional QWEN_ACTIVATION_COOKIE_FILE is only for a trusted proxy/access cookie.
 # QWEN_ACTIVATION_REGION=cn-beijing only after checking the actual deployment account/host
-QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us pnpm exec tsx apps/api/scripts/activate-qwen-image.ts
+QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us/api pnpm exec tsx apps/api/scripts/activate-qwen-image.ts
 # Fetch current live catalog, select its minimum CNY topup, show exact10x proposed tariffs (no writes):
-QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us pnpm exec tsx apps/api/scripts/activate-qwen-image.ts --markup10
+QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us/api pnpm exec tsx apps/api/scripts/activate-qwen-image.ts --markup10
 # Apply only these three models in the specified org using the existing audited operator API:
-QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us pnpm exec tsx apps/api/scripts/activate-qwen-image.ts --markup10 --apply
+QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us/api pnpm exec tsx apps/api/scripts/activate-qwen-image.ts --markup10 --apply
 ```
 
-For --markup10, QWEN_ACTIVATION_REGION must explicitly equal cn-beijing after the operator verifies deployment account/host region; it does not default to Beijing. QWEN_ACTIVATION_COOKIE_FILE may point to a protected file containing the current devapp Cookie header value; secrets are never printed. QWEN_ACTIVATION_CATALOG_SNAPSHOT may hold an existing operator image-pricing-basis response for offline dryrun, labelled not live verified; application requires an authenticated live re-read and equality check immediately before writes. Dryrun prints selected SKU/catalog version/amountMinor/credits, Beijing supplier costs and10x customer micros. Formula: ceil(supplierMicros ×10 × selectedCreditQuantity ×100 / (selectedAmountFen ×10000)), entirely BigInt. Tariff version includes region/markup and a hash of the exact quote and cost metadata. Save the displayed proposal as the configuration evidence; server credit_native_tariff_changes captures actor/old/new/version. The existing API audits each row independently, not one atomic three-row transaction.
+For --markup10, QWEN_ACTIVATION_REGION must explicitly equal cn-beijing after the operator verifies deployment account/host region; it does not default to Beijing. QWEN_ACTIVATION_TOKEN_FILE must point to the protected raw API session token (or use QWEN_ACTIVATION_TOKEN). The API resolver consumes Authorization: Bearer, not Cookie. QWEN_ACTIVATION_COOKIE_FILE may optionally carry a trusted proxy/access Cookie; Cookie alone is never treated as API authentication. Secrets are never printed. QWEN_ACTIVATION_CATALOG_SNAPSHOT may hold an existing operator image-pricing-basis response for offline dryrun, labelled not live verified; application requires an authenticated live re-read and equality check immediately before writes. Dryrun prints selected SKU/catalog version/amountMinor/credits, Beijing supplier costs and10x customer micros. Formula: ceil(supplierMicros ×10 × selectedCreditQuantity ×100 / (selectedAmountFen ×10000)), entirely BigInt. Tariff version includes region/markup and a hash of the exact quote and cost metadata. Save the displayed proposal as the configuration evidence; server credit_native_tariff_changes captures actor/old/new/version. The existing API audits each row independently, not one atomic three-row transaction.
 
 Application requires --markup10 --apply; arbitrary tariff JSON files are not accepted by this activation helper. All three calculated rows are validated before PUT, restricted to the chosen org and three fixed models. Every PUT is audited by the existing API and no authentication data is logged. PUTs are individually audited; if a later PUT fails, rerun the read-only check to review partial state before continuing.
 
@@ -44,3 +45,19 @@ Application requires --markup10 --apply; arbitrary tariff JSON files are not acc
 Missing tariff fails credit_native_tariff_missing before supplier dispatch. Missing product native binding/policy fails AI_IMAGE_POLICY_UNCONFIGURED. A key alone is insufficient activation evidence.
 
 The new GET /platform/billing/consumption/image-pricing-basis?orgId=... is platform-operator-only and always reads the live cn credit_packages through the existing readProductConfiguration('cn') MVCC query and fingerprint. It is independent of the devapp storefront's US/CN market selection. It returns the existing PricingCatalog shape with market=cn and no payment providers (read-only basis, not a checkout offer). Missing CN rows or equal minimum prices return bounded503 diagnostics, and nonoperators cannot query another tenant or reach the repository. The CLI uses this endpoint, never a guessed market query parameter.
+
+## CLI request wiring verified without network writes
+
+The deployed nginx `/api/` proxy strips that prefix before forwarding to API:3200. The helper therefore requires the known `https://devapp.boardx.us/api` base, preserves it, rejects credentialed/foreign/root-only bases and disables redirects. It does not call a Next/BFF path at the site root.
+
+Dryrun command (credentials are read only from protected operator input; this command was tested with mocked HTTP, not against the live site):
+
+```sh
+QWEN_ACTIVATION_BASE_URL=https://devapp.boardx.us/api \
+QWEN_ACTIVATION_TOKEN_FILE=/secure/devapp-operator-token \
+QWEN_ACTIVATION_ORG_ID=selected-devapp-org \
+QWEN_ACTIVATION_REGION=cn-beijing \
+pnpm exec tsx apps/api/scripts/activate-qwen-image.ts --markup10
+```
+
+Expected sole dryrun request: `GET https://devapp.boardx.us/api/platform/billing/consumption/image-pricing-basis?orgId=selected-devapp-org`, no body. It sends the explicit Bearer token and, only if supplied, the auxiliary Cookie. It logs quote/prices, never either secret. The mocked apply path (no online writes) verifies two basis GETs, one tariff GET with encoded target-org query, and exactly three PUT bodies validated by the existing NativeCreditTariff contract to `/api/platform/billing/consumption/native-tariffs`. A changed quote blocks all PUTs. Unknown HTTP bodies are redacted; known missing/ambiguous CN basis diagnostics remain bounded and explicit.

@@ -9,7 +9,7 @@ Code connects the existing native image skill/tool/artifact path to Qwen3 standa
 - API TypeScript checks resolve the current checkout's contracts. This worktree had dependency directory symlinks into the original checkout; local package dependency directories now retain shared vendor links but @repo/contracts resolves here. No original-checkout dependency was modified.
 - Native Python tool/schema tests:9 passed, including all three profiles and bounded missing-tariff diagnosis.
 - Contracts tests and generated Python schema agree; standard-visual1.0.2 package builder/check and actual FileSkillStarterPackSource verification pass. Existing1.0.0 and1.0.1 files remain unchanged.
-- Activation CLI without devapp credentials exits DEVAPP_OPERATOR_ORG_AND_COOKIE_REQUIRED before any HTTP call.
+- Activation CLI without devapp credentials exits DEVAPP_OPERATOR_ORG_AND_TOKEN_REQUIRED before any HTTP call.
 
 Commands:
 
@@ -39,3 +39,5 @@ Skill instructions require wx_image_generate and actual artifact publication, an
 Reviewed2026-11-05. Same-region account/host/key is mandatory. The separately configured platform model-test image client still supports only Wanx; it is not used as Qwen/Z evidence. Default credit-only native chat path does not depend on that client.
 
 Image controller/native tool now preserve a contract allowlist of configuration failure codes (including missing native tariff and policy); unknown vendor exceptions remain a fixed generic failure. They still never return a generated receipt on failure.
+
+CLI wiring is covered by mocked HTTP: actual /api prefix, Bearer authentication from a protected token file (Cookie is auxiliary only), encoded org query, no dryrun body/writes, quote recheck, exactly three contract PUT bodies, secret-free output and bounded HTTP failure codes. These mocks do not claim a live authenticated devapp request.
