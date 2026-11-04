@@ -1,0 +1,91 @@
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ✓ tests/ui/feedback-dialog.test.tsx (36 tests) 1839ms
+   ✓ FB-2 反馈弹层（采集侧） > 自动整理失败时保留原文，并准确说明可手动提交 306ms
+ ✓ tests/knowledge/knowledge-panel-list-graph.test.tsx (27 tests) 1335ms
+ ✓ tests/knowledge/claim-edit-menu-actions.test.tsx (24 tests) 2571ms
+   ✓ 编辑界面文案不含 R5 禁用词 > 菜单、六种对话框、行内对/不对、失败提示 627ms
+ ✓ tests/ui/kg-memory-card.test.tsx (29 tests) 279ms
+ ✓ tests/knowledge/answer-memory-citations.test.tsx (19 tests) 252ms
+ ✓ tests/ui/chat-roster-mutate.test.tsx (11 tests) 618ms
+ ✓ tests/ui/kg-extraction-feedback-chip.test.tsx (26 tests) 247ms
+ ✓ tests/knowledge/citation-correction.test.tsx (14 tests) 263ms
+ ✓ tests/ui/org-switch-feedback.test.tsx (19 tests) 810ms
+ ✓ tests/knowledge/promote-to-personal-panel.test.tsx (12 tests) 1053ms
+   ✓ 入口：只在所有者的个人对话里出现 > canPromote=false（不是个人对话）：多选入口、菜单项、提名都不画，也不去取提名 305ms
+ ✓ tests/ui/i18n-chat-artifact-version-surfaces.test.tsx (13 tests) 563ms
+ ✓ tests/ui/chat-task-inspector-artifact-in-panel.test.tsx (12 tests) 417ms
+ ✓ tests/ui/memory-ops-panels.test.tsx (7 tests) 192ms
+ ✓ tests/ui/kg-memory-manage.test.tsx (8 tests) 666ms
+   ✓ MemoryCard：「你记得我什么」清单 > 按种类分组（决定 → 事实 → 待办），每条带来源对话链接，没有来源的写「长期记忆」；没有任何按钮 358ms
+ ✓ tests/knowledge/session-briefing.test.tsx (7 tests) 243ms
+ ✓ tests/ui/i18n-chat-feedback-dialog.test.tsx (5 tests) 817ms
+ ✓ tests/ui/i18n-chat-knowledge-graph.test.tsx (3 tests) 881ms
+   ✓ renders real knowledge nodes and focused relation labels while preserving raw content and focus on locale 328ms
+   ✓ uses the canonical oversize limit and keeps explicit expansion state across locale 335ms
+ ✓ tests/knowledge/promotion-result-list.test.tsx (7 tests) 270ms
+ ✓ tests/ui/i18n-chat-feedback-final-chrome.test.tsx (5 tests) 412ms
+ ✓ tests/ui/artifact-acceptance-anchors.test.tsx (6 tests) 375ms
+ ✓ tests/ui/i18n-chat-memory-cards.test.tsx (12 tests) 338ms
+ ✓ tests/ui/i18n-chat-citation-detail.test.tsx (7 tests) 134ms
+ ✓ tests/knowledge/nomination-card-promote.test.tsx (6 tests) 144ms
+ ✓ tests/ui/kg-supersede-notice.test.tsx (7 tests) 123ms
+ ✓ tests/ui/i18n-chat-feedback-draft-quota.test.tsx (4 tests) 373ms
+ ✓ tests/ui/i18n-chat-artifact-versions.test.tsx (3 tests) 322ms
+ ✓ tests/ui/i18n-chat-memory-notices.test.tsx (4 tests) 149ms
+ ✓ tests/ui/thread-knowledge-reindex.test.tsx (6 tests) 151ms
+ ✓ tests/ui/i18n-chat-feedback-chrome.test.tsx (4 tests) 310ms
+ ✓ tests/ui/i18n-chat-answer-memory-line.test.tsx (5 tests) 157ms
+ ✓ tests/ui/chat-artifact-preview-dialog.test.tsx (3 tests) 218ms
+ ✓ tests/ui/thread-knowledge-polling.test.tsx (5 tests) 44ms
+ ✓ tests/ui/chat-task-inspector-resize.test.tsx (5 tests) 97ms
+ ✓ tests/knowledge/kg-manual-remember-panel.test.tsx (4 tests) 106ms
+ ✓ tests/ui/i18n-chat-feedback-voice-host.test.tsx (7 tests) 200ms
+ ✓ tests/ui/i18n-chat-memory-parent-errors.test.tsx (5 tests) 112ms
+ ✓ tests/ui/i18n-chat-knowledge-panel-actions.test.tsx (3 tests) 233ms
+ ✓ tests/ui/agent-artifact-versions-panel.test.tsx (5 tests) 220ms
+ ✓ tests/ui/i18n-chat-feedback-attachments.test.tsx (4 tests) 308ms
+ ✓ tests/ui/i18n-chat-artifact-detail.test.tsx (2 tests) 242ms
+ ✓ tests/ui/i18n-chat-feedback-history-preview.test.tsx (3 tests) 265ms
+ ✓ tests/ui/artifacts-tab-unified.test.tsx (4 tests) 206ms
+ ✓ tests/ui/chat-task-inspector-collapse.test.tsx (4 tests) 218ms
+ ✓ tests/ui/i18n-chat-knowledge-conflict.test.tsx (4 tests) 208ms
+ ✓ tests/ui/i18n-chat-answer-knowledge-footer.test.tsx (3 tests) 78ms
+ ✓ tests/ui/i18n-chat-knowledge-source.test.tsx (2 tests) 200ms
+ ✓ tests/ui/i18n-chat-artifact-version-progress.test.tsx (6 tests) 215ms
+ ✓ tests/ui/i18n-chat-knowledge-actions.test.tsx (6 tests) 290ms
+ ✓ tests/ui/i18n-chat-session-briefing.test.tsx (3 tests) 228ms
+ ✓ tests/ui/i18n-chat-supersede-parent-errors.test.tsx (3 tests) 82ms
+ ✓ tests/ui/i18n-chat-inspector-lists.test.tsx (3 tests) 240ms
+ ✓ tests/ui/i18n-chat-knowledge-promotion.test.tsx (2 tests) 187ms
+ ✓ tests/ui/i18n-chat-knowledge-list.test.tsx (3 tests) 200ms
+ ✓ tests/knowledge/kg-promote-to-project.test.tsx (3 tests) 122ms
+ ✓ tests/ui/i18n-chat-memory-api-failure.test.tsx (2 tests) 70ms
+ ✓ tests/ui/i18n-chat-produced-file.test.tsx (2 tests) 213ms
+ ✓ tests/ui/i18n-chat-inspector.test.tsx (2 tests) 218ms
+ ✓ tests/ui/persisted-agent-feedback.test.tsx (5 tests) 53ms
+ ✓ tests/ui/i18n-chat-knowledge-menu-time.test.tsx (4 tests) 203ms
+ ✓ tests/ui/i18n-chat-roster.test.tsx (2 tests) 188ms
+ ✓ tests/ui/i18n-chat-artifact-source.test.tsx (2 tests) 149ms
+ ✓ tests/ui/i18n-chat-knowledge-panel.test.tsx (2 tests) 183ms
+ ✓ tests/ui/i18n-chat-materials-notice.test.tsx (2 tests) 173ms
+ ✓ tests/ui/knowledge-extraction-toggle.test.tsx (2 tests) 156ms
+ ✓ tests/ui/i18n-chat-capability-edition.test.tsx (2 tests) 157ms
+ ✓ tests/ui/i18n-chat-feedback-receipt.test.tsx (1 test) 169ms
+ ✓ tests/ui/capability-edition-note.test.tsx (4 tests) 37ms
+ ✓ tests/ui/chat-task-inspector-tabs.test.ts (19 tests) 4ms
+ ✓ tests/knowledge/knowledge-graph-layout.test.ts (5 tests) 17ms
+ ✓ tests/lib/artifact-tabs.test.ts (11 tests) 5ms
+ ✓ tests/lib/artifact-failure.test.ts (4 tests) 7ms
+ ✓ tests/chat-picker-copy-i18n.test.ts (5 tests) 5ms
+ ✓ tests/lib/i18n-resources.test.ts (5 tests) 124ms
+ ✓ tests/lib/artifact-download.test.ts (5 tests) 2ms
+ ✓ tests/lib/chat-workbench/artifact-diff.test.ts (3 tests) 5ms
+ ✓ tests/chat-recall-legacy-name-i18n.test.ts (3 tests) 5ms
+
+ Test Files  76 passed (76)
+      Tests  532 passed (532)
+   Start at  19:58:31
+   Duration  150.15s (transform 6.27s, setup 9.51s, collect 59.63s, tests 22.97s, environment 42.15s, prepare 4.04s)

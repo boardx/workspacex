@@ -57,9 +57,11 @@
 
 **Files:** chat-task-inspector,roster/material/artifact/attachmentpreview/dialog,knowledge/*actualrenderedexports andsharedownedchrome; chat-knowledge/detail namespace.
 - [x] Finalizeactualexport/renderreachabilityrows beforecopyedits; inheritedlocalizedSharingnotduplicated. See task4-entry-audit.md; canonical shell, nested previews, feedback and gated edition ownership confirmed. This check records source reachability, not runtime acceptance.
-- [ ] Writeoverlayopen/close/reject/late-response/locale/rawpayload REDcases.
-- [ ] Implementdisplay-only allreachableoverlaystates; coordinateanysharedB4/B7underlyingwidgetfirst.
-- [ ] Runfocusedandadjacentsuites; updateinventoryonlywithactualevidence.
+- [x] Writeoverlayopen/close/reject/late-response/locale/rawpayload REDcases.
+- [x] Implementdisplay-only allreachableoverlaystates; coordinateanysharedB4/B7underlyingwidgetfirst.
+- [x] Runfocusedandadjacentsuites; updateinventoryonlywithactualevidence.
+
+Task4 mechanical completion: BASE23db2c19460fde90709600669259349ad213f6ec→7fcd35346c933889b760b327bfdae8905567e2f5, exact76files532/532PASS150.15s; post-fix type90 0/16.415s and90lint0/5.796s. Original75 firstfailed514PASS13FAIL remains, no stitchedgreen. Task5 browser/CI/merge still pending.
 
 ### Task 5: Complete userjourney acceptance anddelivery
 
