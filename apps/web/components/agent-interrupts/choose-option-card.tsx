@@ -1,10 +1,12 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StateShell, type UiState } from "@/components/state/state-shell";
 import { InterruptCardShell } from "@/components/agent-interrupts/interrupt-card-shell";
 import type { OptionCard as OptionCardT } from "@/lib/agent-interrupts-types";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 
 /**
@@ -19,11 +21,17 @@ import { cn } from "@/lib/utils";
 const TID = "agent-interrupt-choose-option";
 
 /** 固定三项对照，顺序即 domain.md 值对象字段序 */
-const COMPARISON_ROWS: readonly { key: keyof OptionCardT; label: string }[] = [
-  { key: "timeToValue", label: "见效" },
-  { key: "effort", label: "投入" },
-  { key: "expectedReturn", label: "预计收益" },
+const COMPARISON_ROWS: readonly { key: keyof OptionCardT; label: MessageKey }[] = [
+  { key: "timeToValue", label: "chatInterrupts.chooseTime" },
+  { key: "effort", label: "chatInterrupts.chooseEffort" },
+  { key: "expectedReturn", label: "chatInterrupts.chooseReturn" },
 ];
+
+const EFFORT_LABEL: Record<OptionCardT["effort"], MessageKey> = {
+  "低": "chatInterrupts.effortLow",
+  "中": "chatInterrupts.effortMedium",
+  "高": "chatInterrupts.effortHigh",
+};
 
 export function ChooseOptionCard({
   options,
@@ -45,6 +53,7 @@ export function ChooseOptionCard({
   /** 逃生口「都不要」= UC-3 的 reject 分支。 */
   onDecline?: () => void;
 }) {
+  const { t } = useI18n();
   const [selected, setSelected] = React.useState<string | undefined>(initialSelectedId);
 
   const effectiveState: UiState = !canWrite && state === "default" ? "denied" : state;
@@ -52,17 +61,17 @@ export function ChooseOptionCard({
   return (
     <InterruptCardShell
       testid={TID}
-      title="有几条推进路线，选一条我就接着做"
-      subtitle="点选一张卡即确认；也可以选择都不要。"
+      title={t("chatInterrupts.chooseTitle")}
+      subtitle={t("chatInterrupts.chooseSubtitle")}
     >
       <StateShell
         state={effectiveState}
         skeletonRows={3}
-        emptyHint="当前没有待选择的方案——AI 还没有发起这次中断。"
-        errors={{ option: "刚才那组方案已过期（可能在另一个标签页里被选过），请刷新后重新选择。" }}
-        denial={{ layer: "project", reason: "观察者可以看到这些方案，但不能替团队做选择。" }}
-        depFailure={{ what: "决策写不进审计（AUDIT_SINK_UNAVAILABLE），本次选择已被安全拦下。" }}
-        successMessage="已按所选方案继续，我这就展开对应的执行步骤"
+        emptyHint={t("chatInterrupts.chooseEmpty")}
+        errors={{ option: t("chatInterrupts.chooseExpired") }}
+        denial={{ layer: "project", reason: t("chatInterrupts.chooseDenied") }}
+        depFailure={{ what: t("chatInterrupts.chooseDep") }}
+        successMessage={t("chatInterrupts.chooseSuccess")}
       >
         <div className="flex flex-col gap-3" data-testid={`${TID}-card`}>
           <div
@@ -107,8 +116,8 @@ export function ChooseOptionCard({
                   <dl className="flex flex-col gap-1">
                     {COMPARISON_ROWS.map((row) => (
                       <div key={row.key} className="flex flex-col gap-0.5">
-                        <dt className="text-10 uppercase tracking-wide text-muted-foreground">{row.label}</dt>
-                        <dd className="text-11 leading-snug text-card-foreground">{String(o[row.key])}</dd>
+                        <dt className="text-10 uppercase tracking-wide text-muted-foreground">{t(row.label)}</dt>
+                        <dd className="text-11 leading-snug text-card-foreground">{row.key === "effort" ? t(EFFORT_LABEL[o.effort]) : String(o[row.key])}</dd>
                       </div>
                     ))}
                   </dl>
@@ -121,7 +130,7 @@ export function ChooseOptionCard({
           {showDecline ? (
             <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2">
               <span className="text-11 text-muted-foreground">
-                {selected ? "已选中一条，点选其它卡可改选。" : "点选任意一张卡即确认。"}
+                {selected ? t("chatInterrupts.chooseSelected") : t("chatInterrupts.chooseHint")}
               </span>
               <Button
                 size="sm"
@@ -131,7 +140,7 @@ export function ChooseOptionCard({
                 onClick={() => onDecline?.()}
                 className="border-destructive/40 text-destructive transition-colors duration-fast hover:bg-destructive/10 hover:text-destructive"
               >
-                都不要
+                {t("chatInterrupts.decline")}
               </Button>
             </div>
           ) : null}

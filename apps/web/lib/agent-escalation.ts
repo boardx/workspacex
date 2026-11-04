@@ -6,6 +6,8 @@
  * 只由服务端从持久化状态解析（`decide-escalation.ts`），前端只把选择原样送过去、把失败
  * 翻成人话带回来。
  */
+import { translate, type MessageKey } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 import { agentRole } from "@repo/contracts";
 import type { z } from "zod";
 import { ApiError, apiRequest } from "./api-client";
@@ -19,10 +21,15 @@ export type EscalationTarget = z.infer<typeof agentRole.EscalationTarget>;
 export const ESCALATE_TOOL_NAME: string = agentRole.ESCALATE_TOOL_NAME;
 
 /** 升级对象 → 成员能读懂的称呼（契约 `EscalationTarget` 闭集，漏配编译失败）。 */
+const ESCALATION_TARGET_KEYS: Record<EscalationTarget, MessageKey> = {
+  requester: "chatEscalation.requester", project_owner: "chatEscalation.projectOwner", org_admin: "chatEscalation.orgAdmin",
+};
+export function escalationTargetLabel(target: EscalationTarget, locale: Locale = "zh-CN"): string {
+  return translate(locale, ESCALATION_TARGET_KEYS[target]);
+}
 export const ESCALATION_TARGET_LABEL: Record<EscalationTarget, string> = {
-  requester: "任务发起人",
-  project_owner: "项目负责人",
-  org_admin: "组织管理员",
+  requester: escalationTargetLabel("requester"), project_owner: escalationTargetLabel("project_owner"),
+  org_admin: escalationTargetLabel("org_admin"),
 };
 
 /** `argsSummary` 是服务端写下的 `EscalatePayload` JSON；读不出就返回 null（卡片走兜底文案，绝不放行）。 */
@@ -37,19 +44,20 @@ export function parseEscalatePayload(argsSummary: string | null | undefined): Es
 }
 
 /** 契约 `decideEscalation.err` 的码 → 人话。不在表里的码按 HTTP 状态兜底，码本身从不上屏。 */
-const ESCALATION_ERROR_TEXT: Partial<Record<string, string>> = {
-  ESCALATION_DECIDER_FORBIDDEN: "这件事升级给了其他人，你没有权限替他做决定",
-  INTERRUPT_KIND_MISMATCH: "这条请求已经变了，刷新后再看一眼",
-  AGENT_NOT_FOUND: "这条升级请求已经不在了，可能已被他人处理",
-  VALIDATION_FAILED: "提交的内容不完整，请检查后再试",
-  UNAUTHENTICATED: "登录状态过期了，刷新页面重新登录",
+const ESCALATION_ERROR_TEXT: Partial<Record<string, MessageKey>> = {
+  ESCALATION_DECIDER_FORBIDDEN: "chatEscalation.forbidden",
+  INTERRUPT_KIND_MISMATCH: "chatEscalation.changed",
+  AGENT_NOT_FOUND: "chatEscalation.gone",
+  VALIDATION_FAILED: "chatEscalation.invalid",
+  UNAUTHENTICATED: "chatEscalation.auth",
 };
 
-export function escalationFailureText(error: unknown): string {
+export function escalationFailureText(error: unknown, locale: Locale = "zh-CN"): string {
   if (error instanceof ApiError) {
-    return (error.reasonCode && ESCALATION_ERROR_TEXT[error.reasonCode]) || httpFailureText(error.status);
+    const key = error.reasonCode && Object.hasOwn(ESCALATION_ERROR_TEXT, error.reasonCode) ? ESCALATION_ERROR_TEXT[error.reasonCode] : undefined;
+    return key ? translate(locale, key) : httpFailureText(error.status, locale);
   }
-  return "网络连接出了问题，稍后再试一次";
+  return translate(locale, "chatEscalation.network");
 }
 
 export async function decideEscalation(

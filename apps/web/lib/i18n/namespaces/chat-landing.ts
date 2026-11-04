@@ -1,0 +1,33 @@
+export const chatLandingZhCN = {
+  "chatLanding.action": "落地为产物",
+  "chatLanding.open": "落地为产物（草稿）",
+  "chatLanding.untitled": "未命名产物",
+  "chatLanding.title": "产物标题（草稿，落地后仍可在右栏「产物」看到）",
+  "chatLanding.saving": "落地中…",
+  "chatLanding.confirm": "确认落地",
+  "chatLanding.saved": "已落地为产物（草稿）",
+  "chatLanding.expand": "展开",
+  "chatLanding.collapse": "收起",
+  "chatLanding.page": "第 {page} 页",
+  "chatLanding.kindPage": "文档页码",
+  "chatLanding.kindTranscript": "转录时间码",
+  "chatLanding.kindMessage": "消息锚点",
+  "chatLanding.locate": "定位到 {anchor}（{kind}）· 不跳出线程",
+} as const;
+
+export const chatLandingEn: Record<keyof typeof chatLandingZhCN, string> = {
+  "chatLanding.action": "Save as artifact",
+  "chatLanding.open": "Save as artifact (draft)",
+  "chatLanding.untitled": "Untitled artifact",
+  "chatLanding.title": "Artifact title (draft; available under Artifacts in the side panel)",
+  "chatLanding.saving": "Saving…",
+  "chatLanding.confirm": "Confirm save",
+  "chatLanding.saved": "Saved as artifact (draft)",
+  "chatLanding.expand": "Expand",
+  "chatLanding.collapse": "Collapse",
+  "chatLanding.page": "Page {page}",
+  "chatLanding.kindPage": "Document page",
+  "chatLanding.kindTranscript": "Transcript timecode",
+  "chatLanding.kindMessage": "Message anchor",
+  "chatLanding.locate": "Locate {anchor} ({kind}) · Stay in this thread",
+};

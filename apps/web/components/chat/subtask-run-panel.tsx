@@ -1,13 +1,14 @@
 "use client";
 import { scrollToAnchor } from "@/lib/chat-workbench/scroll-to-anchor";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import {
   AlertTriangle, Ban, CheckCircle2, ChevronRight, Loader2, RotateCcw,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
-  isSubtaskRunActive, SUBTASK_RUN_STATUS_LABEL, SUBTASK_RUN_STATUS_TONE,
+  isSubtaskRunActive, subtaskRunStatusLabel, SUBTASK_RUN_STATUS_TONE,
   type SubtaskRunStatus, type SubtaskRunView,
 } from "@/lib/chat/subtask-run";
 
@@ -54,6 +55,7 @@ export interface SubtaskRunPanelProps {
 export function SubtaskRunPanel({
   parentRunId, runs, onRetry, retryingId, defaultOpen = false,
 }: SubtaskRunPanelProps) {
+  const { locale, t } = useI18n();
   const [open, setOpen] = React.useState(defaultOpen);
   const [focusId, setFocusId] = React.useState<string | null>(null);
 
@@ -111,14 +113,14 @@ export function SubtaskRunPanel({
       {open ? (
         <div className="space-y-2 border-t border-border-subtle p-2 text-11 text-muted-foreground">
           <div data-testid="chat-task-workbench-subagent-detail-input">
-            <span className="font-medium text-card-foreground">输入</span>
+            <span className="font-medium text-card-foreground">{t("chatRuns.input")}</span>
             <ul className="mt-1 list-disc space-y-1 pl-4">{runs.map((run) => <li key={run.id}>{run.description}{run.context ? ` · ${run.context}` : ""}</li>)}</ul>
           </div>
           <SubtaskToolDetail runs={runs} />
-          <p data-testid="chat-task-workbench-subagent-detail-duration"><span className="font-medium text-card-foreground">耗时</span> · {durationSeconds} 秒</p>
+          <p data-testid="chat-task-workbench-subagent-detail-duration"><span className="font-medium text-card-foreground">{t("chatRuns.elapsed")}</span> · {t("chatRuns.seconds", { count: durationSeconds })}</p>
           <div data-testid="chat-task-workbench-subagent-detail-result">
-            <span className="font-medium text-card-foreground">结果</span>
-            <ul className="mt-1 list-disc space-y-1 pl-4">{runs.map((run) => <li key={run.id}>{run.result ?? run.error ?? SUBTASK_RUN_STATUS_LABEL[run.status]}</li>)}</ul>
+            <span className="font-medium text-card-foreground">{t("chatRuns.result")}</span>
+            <ul className="mt-1 list-disc space-y-1 pl-4">{runs.map((run) => <li key={run.id}>{run.result ?? run.error ?? subtaskRunStatusLabel(run.status, locale)}</li>)}</ul>
           </div>
         </div>
       ) : null}
@@ -130,7 +132,7 @@ export function SubtaskRunPanel({
           className="flex w-full items-center gap-1.5 border-t border-border-subtle bg-ai-tint/40 px-2.5 py-1.5 text-11 text-ai-tint-foreground transition-colors duration-base hover:bg-ai-tint/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <CheckCircle2 aria-hidden className="h-3.5 w-3.5 shrink-0" />
-          {justCompletedIds.length} 个任务刚完成 · 点击查看
+          {t("chatRuns.justCompleted", { count: justCompletedIds.length })}
         </button>
       )}
       {open && (
@@ -156,12 +158,13 @@ export function SubtaskRunPanel({
  * 此时渲染一条明确的缺失说明，而不是编一个工具名或用 0 秒冒充耗时。
  */
 function SubtaskToolDetail({ runs }: { runs: SubtaskRunView[] }) {
+  const { t } = useI18n();
   const calls = runs.flatMap((run) => (run.toolCalls ?? []).map((call) => ({ run, call })));
   return (
     <div data-testid="chat-task-workbench-subagent-detail-tools">
-      <span className="font-medium text-card-foreground">工具明细</span>
+      <span className="font-medium text-card-foreground">{t("chatRuns.toolDetails")}</span>
       {calls.length === 0 ? (
-        <p className="mt-1" data-testid="chat-subtask-tools-empty">引擎尚未上报工具调用</p>
+        <p className="mt-1" data-testid="chat-subtask-tools-empty">{t("chatRuns.missingTools")}</p>
       ) : (
         <ul className="mt-1 list-disc space-y-1 pl-4">
           {calls.map(({ run, call }) => (
@@ -169,8 +172,8 @@ function SubtaskToolDetail({ runs }: { runs: SubtaskRunView[] }) {
               <span className="text-card-foreground">{call.toolName}</span>
               {call.argsSummary ? ` · ${call.argsSummary}` : ""}
               {" · "}
-              {call.durationMs === null ? "进行中" : `${(call.durationMs / 1000).toFixed(1)} 秒`}
-              {call.ok === null ? "" : call.ok ? " · 成功" : " · 失败"}
+              {call.durationMs === null ? t("chatRuns.running") : t("chatRuns.seconds", { count: (call.durationMs / 1000).toFixed(1) })}
+              {call.ok === null ? "" : call.ok ? ` · ${t("chatRuns.success")}` : ` · ${t("chatRuns.failure")}`}
               {call.resultSummary ? ` · ${call.resultSummary}` : ""}
             </li>
           ))}
@@ -189,6 +192,7 @@ function SubtaskRunBadge({
   total: number;
   onToggle: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -202,10 +206,10 @@ function SubtaskRunBadge({
         className={cn("h-3.5 w-3.5 shrink-0 transition-transform duration-fast", open && "rotate-90")}
       />
       <span className="font-medium" data-testid="chat-subtask-badge">
-        {activeCount > 0 ? `有 ${activeCount} 个任务在后台运行` : `后台任务 · ${total}`}
+        {activeCount > 0 ? t("chatRuns.backgroundRunning", { count: activeCount }) : t("chatRuns.backgroundTotal", { count: total })}
       </span>
       {failedCount > 0 && (
-        <Badge tone="danger" data-testid="chat-subtask-failed-count">{failedCount} 个出错</Badge>
+        <Badge tone="danger" data-testid="chat-subtask-failed-count">{t("chatRuns.failedCount", { count: failedCount })}</Badge>
       )}
     </button>
   );
@@ -227,6 +231,7 @@ function SubtaskRunCard({
   onRetry?: () => void;
   retrying?: boolean;
 }) {
+  const { locale, t } = useI18n();
   const Icon = STATUS_ICON[run.status];
   return (
     <li
@@ -251,7 +256,7 @@ function SubtaskRunCard({
             run.status === "failed" ? "text-destructive" : "text-muted-foreground",
           )}
         >
-          {SUBTASK_RUN_STATUS_LABEL[run.status]}
+          {subtaskRunStatusLabel(run.status, locale)}
         </span>
       </div>
       {run.status === "completed" && run.result && (
@@ -262,7 +267,7 @@ function SubtaskRunCard({
       {run.status === "failed" && (
         <div className="ml-5 flex flex-col gap-1">
           <p className="text-10 text-destructive" data-testid="chat-subtask-error">
-            {run.error ?? "未知原因，未能完成这个子任务。"}
+            {run.error ?? t("chatRuns.unknownFailure")}
           </p>
           {onRetry && (
             <button
@@ -273,7 +278,7 @@ function SubtaskRunCard({
               className="inline-flex w-fit items-center gap-1 rounded-control border border-border px-1.5 py-0.5 text-10 font-medium text-card-foreground transition-colors duration-base hover:bg-muted disabled:bg-disabled disabled:text-disabled-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <RotateCcw aria-hidden className={cn("h-3 w-3", retrying && "animate-spin")} />
-              {retrying ? "重试中…" : "重试这一个"}
+              {retrying ? t("chatRuns.retrying") : t("chatRuns.retry")}
             </button>
           )}
         </div>

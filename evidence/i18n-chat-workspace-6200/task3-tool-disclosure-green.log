@@ -1,0 +1,59 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/i18n-chat-tool-disclosure.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 0 次工具调用：不渲染任何分组容器，也不崩溃
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 1 次工具调用：默认折叠，保留这张卡片
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 普通工具与计划写入同轮出现时，只把普通工具收进分组
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 点击折叠按钮（鼠标）：内容区加 hidden，但节点仍在 DOM 里，aria-expanded 翻假
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 再次点击（键盘可达的原生 <button>）：折叠后可以再展开回去
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 流式过程中工具调用数量增加：分组容器的计数与内容跟着更新，用户手动收起的状态不会被这次更新重置
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 一轮消息里的 write_todos 不再重复渲染为工具卡
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 单次 write_todos 也由权威计划账本展示，不生成消息工具卡
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/copilotkit-v2-tool-calls-group.test.tsx > copilotkit-v2 工具调用记录收进一个可折叠容器（issue #2408） > 跨消息的 write_todos 也不产生重复计划卡
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/copilotkit-v2-tool-calls-group.test.tsx (9 tests) 172ms
+stderr | tests/ui/i18n-chat-tool-disclosure.test.tsx > localizes the canonical legacy-tool disclosure and keeps its raw message/card and stable accessible region
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/i18n-chat-tool-disclosure.test.tsx > keeps collapsed state and canonical count while another raw tool call is projected
+Agent default not found
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ✓ tests/ui/i18n-chat-tool-disclosure.test.tsx (2 tests) 212ms
+
+ Test Files  2 passed (2)
+      Tests  11 passed (11)
+   Start at  07:29:24
+   Duration  6.48s (transform 2.28s, setup 280ms, collect 9.80s, tests 384ms, environment 1.24s, prepare 197ms)

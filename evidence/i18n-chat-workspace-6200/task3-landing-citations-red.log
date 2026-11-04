@@ -1,0 +1,494 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-landing.test.tsx (3 tests | 3 failed) 135ms
+   × initializes only the authored empty-first-line title at explicit open and preserves edits, persisted ID and raw body 112ms
+     → Unable to find an accessible element with the role "button" and name "Save as artifact (draft)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "落地为产物（草稿）":
+  <button
+    aria-label="落地为产物（草稿）"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="chat-land-artifact-open-stored-message"
+    title="落地为产物（草稿）"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="落地为产物（草稿）"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="chat-land-artifact-open-stored-message"
+      title="落地为产物（草稿）"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-file-output h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M14 2v4a2 2 0 0 0 2 2h4"
+        />
+        <path
+          d="M4 7V4a2 2 0 0 1 2-2 2 2 0 0 0-2 2"
+        />
+        <path
+          d="M4.063 20.999a2 2 0 0 0 2 1L18 22a2 2 0 0 0 2-2V7l-5-5H6"
+        />
+        <path
+          d="m5 11-3 3"
+        />
+        <path
+          d="m5 17-3-3h10"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+   × localizes a persisted known landing failure at render without changing the title or resubmitting 12ms
+     → Unable to find an accessible element with the role "button" and name "Save as artifact (draft)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "落地为产物（草稿）":
+  <button
+    aria-label="落地为产物（草稿）"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="chat-land-artifact-open-stored-message"
+    title="落地为产物（草稿）"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="落地为产物（草稿）"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="chat-land-artifact-open-stored-message"
+      title="落地为产物（草稿）"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-file-output h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M14 2v4a2 2 0 0 0 2 2h4"
+        />
+        <path
+          d="M4 7V4a2 2 0 0 1 2-2 2 2 0 0 0-2 2"
+        />
+        <path
+          d="M4.063 20.999a2 2 0 0 0 2 1L18 22a2 2 0 0 0 2-2V7l-5-5H6"
+        />
+        <path
+          d="m5 11-3 3"
+        />
+        <path
+          d="m5 17-3-3h10"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+   × keeps expanded saved source text and original title through locale changes 10ms
+     → Unable to find an element with the text: Saved as artifact (draft). This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="flex w-full max-w-xs flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2"
+      data-testid="chat-land-artifact-done-stored-message"
+    >
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-file-text h-3.5 w-3.5 shrink-0 text-muted-foreground"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+          />
+          <path
+            d="M14 2v4a2 2 0 0 0 2 2h4"
+          />
+          <path
+            d="M10 9H8"
+          />
+          <path
+            d="M16 13H8"
+          />
+          <path
+            d="M16 17H8"
+          />
+        </svg>
+        <p
+          class="min-w-0 flex-1 truncate text-11 font-medium"
+        >
+          用户产物名{count}
+        </p>
+        <span
+          class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"
+        >
+          AI
+        </span>
+      </div>
+      <div
+        class="flex items-center justify-between"
+      >
+        <span
+          class="text-10 text-muted-foreground"
+        >
+          已落地为产物（草稿）
+        </span>
+        <button
+          aria-expanded="false"
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-5 px-1.5 text-10"
+          data-testid="chat-land-artifact-expand-stored-message"
+        >
+          展开
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ tests/ui/i18n-chat-citations.test.tsx (2 tests | 2 failed) 51ms
+   × localizes a structured page anchor without replacing raw source/code or reporting another open 41ms
+     → expected '1用户来源全称{count}🌍 · 第 9 页' to contain 'Page 9'
+   × preserves a transcript's original range while translating only its location chrome 9ms
+     → expected '定位到 00:01–00:05 {count}（转录时间码）· 不跳出线程' to contain 'Transcript timecode'
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-citations.test.tsx > localizes a structured page anchor without replacing raw source/code or reporting another open
+AssertionError: expected '1用户来源全称{count}🌍 · 第 9 页' to contain 'Page 9'
+
+Expected: "Page 9"
+Received: "1用户来源全称{count}🌍 · 第 9 页"
+
+ ❯ tests/ui/i18n-chat-citations.test.tsx:14:80
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  tests/ui/i18n-chat-citations.test.tsx > preserves a transcript's original range while translating only its location chrome
+AssertionError: expected '定位到 00:01–00:05 {count}（转录时间码）· 不跳出线程' to contain 'Transcript timecode'
+
+Expected: "Transcript timecode"
+Received: "定位到 00:01–00:05 {count}（转录时间码）· 不跳出线程"
+
+ ❯ tests/ui/i18n-chat-citations.test.tsx:25:147
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  tests/ui/i18n-chat-landing.test.tsx > initializes only the authored empty-first-line title at explicit open and preserves edits, persisted ID and raw body
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Save as artifact (draft)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "落地为产物（草稿）":
+  <button
+    aria-label="落地为产物（草稿）"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="chat-land-artifact-open-stored-message"
+    title="落地为产物（草稿）"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="落地为产物（草稿）"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="chat-land-artifact-open-stored-message"
+      title="落地为产物（草稿）"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-file-output h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M14 2v4a2 2 0 0 0 2 2h4"
+        />
+        <path
+          d="M4 7V4a2 2 0 0 1 2-2 2 2 0 0 0-2 2"
+        />
+        <path
+          d="M4.063 20.999a2 2 0 0 0 2 1L18 22a2 2 0 0 0 2-2V7l-5-5H6"
+        />
+        <path
+          d="m5 11-3 3"
+        />
+        <path
+          d="m5 17-3-3h10"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-landing.test.tsx:23:26
+     21|   const body = "\n模型原文{count}🌍\n```json\n{\"status\":\"pending\"}\…
+     22|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><Canonical…
+     23|   fireEvent.click(screen.getByRole("button", { name: "Save as artifact…
+       |                          ^
+     24|   const input = screen.getByRole("textbox"); expect((input as HTMLInpu…
+     25|   const title = " 用户标题{count}🌍 "; fireEvent.change(input, { target…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  tests/ui/i18n-chat-landing.test.tsx > localizes a persisted known landing failure at render without changing the title or resubmitting
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Save as artifact (draft)"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "落地为产物（草稿）":
+  <button
+    aria-label="落地为产物（草稿）"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="chat-land-artifact-open-stored-message"
+    title="落地为产物（草稿）"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="落地为产物（草稿）"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="chat-land-artifact-open-stored-message"
+      title="落地为产物（草稿）"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-file-output h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M14 2v4a2 2 0 0 0 2 2h4"
+        />
+        <path
+          d="M4 7V4a2 2 0 0 1 2-2 2 2 0 0 0-2 2"
+        />
+        <path
+          d="M4.063 20.999a2 2 0 0 0 2 1L18 22a2 2 0 0 0 2-2V7l-5-5H6"
+        />
+        <path
+          d="m5 11-3 3"
+        />
+        <path
+          d="m5 17-3-3h10"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-landing.test.tsx:34:26
+     32|   calls.land.mockRejectedValue(new ApiError(403, "FORBIDDEN", {}));
+     33|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><Canonical…
+     34|   fireEvent.click(screen.getByRole("button", { name: "Save as artifact…
+       |                          ^
+     35|   fireEvent.click(screen.getByRole("button", { name: "Confirm save" })…
+     36|   const error = await screen.findByTestId("chat-land-artifact-error-st…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  tests/ui/i18n-chat-landing.test.tsx > keeps expanded saved source text and original title through locale changes
+TestingLibraryElementError: Unable to find an element with the text: Saved as artifact (draft). This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="flex w-full max-w-xs flex-col gap-1.5 rounded-md border border-border-subtle bg-card p-2"
+      data-testid="chat-land-artifact-done-stored-message"
+    >
+      <div
+        class="flex items-center gap-1.5"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-file-text h-3.5 w-3.5 shrink-0 text-muted-foreground"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"
+          />
+          <path
+            d="M14 2v4a2 2 0 0 0 2 2h4"
+          />
+          <path
+            d="M10 9H8"
+          />
+          <path
+            d="M16 13H8"
+          />
+          <path
+            d="M16 17H8"
+          />
+        </svg>
+        <p
+          class="min-w-0 flex-1 truncate text-11 font-medium"
+        >
+          用户产物名{count}
+        </p>
+        <span
+          class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground"
+        >
+          AI
+        </span>
+      </div>
+      <div
+        class="flex items-center justify-between"
+      >
+        <span
+          class="text-10 text-muted-foreground"
+        >
+          已落地为产物（草稿）
+        </span>
+        <button
+          aria-expanded="false"
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-5 px-1.5 text-10"
+          data-testid="chat-land-artifact-expand-stored-message"
+        >
+          展开
+        </button>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-landing.test.tsx:42:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+ Test Files  2 failed (2)
+      Tests  5 failed (5)
+   Start at  06:33:33
+   Duration  3.67s (transform 1.63s, setup 227ms, collect 4.27s, tests 186ms, environment 1.14s, prepare 168ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-landing.test.tsx tests/ui/i18n-chat-citations.test.tsx

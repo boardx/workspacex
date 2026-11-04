@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { CheckCircle2, Circle, CircleDot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AgentRunView } from "@/lib/agent-run";
@@ -105,6 +106,7 @@ export function AgentPlanPanel({
    *  不传时每一项的 DOM 与此前逐字相同。 */
   renderStepDetail?: (todo: PlanTodo, index: number) => React.ReactNode;
 }) {
+  const { t } = useI18n();
   const todos = stateSnapshotTodos ?? derivePlanTodos(steps);
   if (todos === null) return null;
   const done = todos.filter((t) => t.status === "completed").length;
@@ -116,7 +118,7 @@ export function AgentPlanPanel({
       data-plan-done={done}
     >
       <div className="mb-1 text-11 font-medium text-muted-foreground">
-        计划 {done}/{todos.length}
+        {t("chatRuns.plan", { done, total: todos.length })}
       </div>
       <ol className="space-y-0.5">
         {todos.map((todo, i) => (

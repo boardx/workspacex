@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import { useHumanInTheLoop } from "@copilotkit/react-core/v2";
 import { agentInterrupts } from "@repo/contracts";
 import { MessageRunContext } from "@/lib/chat-workbench/trace-context";
@@ -8,10 +9,11 @@ import { RestoredRunApproval } from "./workbench/restored-run-approval";
 import { RestoredInterruptForm } from "./workbench/restored-interrupt-form";
 
 function InterruptView({ toolName, args, status }: { toolName: string; args: unknown; status: string }): React.ReactNode {
+  const { t } = useI18n();
   const runId = React.useContext(MessageRunContext);
   const host = React.useContext(InterruptRenderContext);
   const parsed = agentInterrupts.RestorableInterrupt.safeParse({ toolName, args });
-  if (!parsed.success) return runId && host.pendingRunId === runId ? null : <p role="status">正在接收确认内容…</p>;
+  if (!parsed.success) return runId && host.pendingRunId === runId ? null : <p role="status">{t("chatPermissions.receiving")}</p>;
   /**
    * issue #3310 ③ —— 此前这里在 `host.pendingRunId === runId` 时**无条件** `return null`。
    *
@@ -27,7 +29,7 @@ function InterruptView({ toolName, args, status }: { toolName: string; args: unk
    */
   if (runId && status !== "complete") return <RestoredRunApproval runId={runId} bearer={host.bearer} canWrite={host.canWrite} fallbackInterrupt={parsed.data} hostRendersPending={host.pendingRunId === runId} />;
   if (host.pendingRunId === runId && runId) return null;
-  return <fieldset disabled aria-label={status === "complete" ? "已结束的确认记录" : "等待确认请求持久化"}>
+  return <fieldset disabled aria-label={status === "complete" ? t("chatRestoredApproval.decided") : t("chatPermissions.awaitingPersistence")}>
     <RestoredInterruptForm interrupt={parsed.data} pending={false} decide={async () => {}} />
   </fieldset>;
 }

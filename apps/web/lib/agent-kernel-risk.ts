@@ -15,11 +15,25 @@
  * 两处必然漂移。
  */
 import { planPermissions as C } from "@repo/contracts";
+import { translate, type MessageKey } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 
 export type ToolRiskLevel = C.ToolRiskLevel;
 
+const RISK_COPY: Record<ToolRiskLevel, { readonly text: MessageKey; readonly hint: MessageKey }> = {
+  L0: { text: "chatPermissions.riskL0", hint: "chatPermissions.hintL0" },
+  L1: { text: "chatPermissions.riskL1", hint: "chatPermissions.hintL1" },
+  L2: { text: "chatPermissions.riskL2", hint: "chatPermissions.hintL2" },
+};
+
+export function riskLabelFor(risk: ToolRiskLevel, locale: Locale = "zh-CN"): { readonly text: string; readonly hint: string } {
+  const copy = RISK_COPY[risk];
+  return { text: translate(locale, copy.text), hint: translate(locale, copy.hint) };
+}
+
+/** Default-Chinese compatibility for existing consumers outside localized renderers. */
 export const RISK_LABEL: Record<ToolRiskLevel, { readonly text: string; readonly hint: string }> = {
-  L0: { text: "只读", hint: "无副作用，自动执行" },
-  L1: { text: "可撤销", hint: "写/改文件，有版本历史可回滚，自动执行但带 diff" },
-  L2: { text: "高风险", hint: "不可逆或外发，执行前需你确认" },
+  L0: riskLabelFor("L0"),
+  L1: riskLabelFor("L1"),
+  L2: riskLabelFor("L2"),
 };

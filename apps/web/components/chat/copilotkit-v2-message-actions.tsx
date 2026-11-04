@@ -1,5 +1,7 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import type { Locale } from "@/lib/i18n/locale";
 import { Copy, Check, Sparkles } from "lucide-react";
 import { MessageRating } from "@/components/chat/message-rating";
 import { PersistedAgentFeedback } from "@/components/chat/workbench/persisted-agent-feedback";
@@ -61,7 +63,7 @@ import { requestRememberStatement } from "@/lib/knowledge-graph-events";
  */
 export interface AssistantMessageLandingValue {
   readonly stateFor: (chatMessageId: string) => MessageLandingState | undefined;
-  readonly open: (message: { readonly id: string; readonly text: string }) => void;
+  readonly open: (message: { readonly id: string; readonly text: string }, locale?: Locale) => void;
   readonly updateTitle: (chatMessageId: string, title: string) => void;
   readonly cancel: (chatMessageId: string) => void;
   readonly submit: (message: { readonly id: string; readonly text: string }) => void;
@@ -113,6 +115,7 @@ export function CopilotKitV2CopyButton({
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => unknown;
   messageId?: string;
 }): JSX.Element {
+  const { t } = useI18n();
   const [copied, setCopied] = React.useState(false);
   const timerRef = React.useRef<number | null>(null);
   React.useEffect(
@@ -127,8 +130,8 @@ export function CopilotKitV2CopyButton({
       type="button"
       data-testid="chat-message-copy"
       data-message-id={messageId}
-      aria-label="复制消息"
-      title="复制消息"
+      aria-label={t("chatInteractions.copyMessage")}
+      title={t("chatInteractions.copyMessage")}
       onClick={(event) => {
         void (async () => {
           const ok = await onClick?.(event);
@@ -222,6 +225,7 @@ export function CopilotKitV2MessageLandingTrigger({
   messageId: string;
   text: string;
 }): JSX.Element | null {
+  const { locale } = useI18n();
   const ctx = useCopilotKitV2MessageActions();
   if (ctx === null) return null;
   const resolved = resolveLandableMessage(ctx, messageId, text);
@@ -232,7 +236,7 @@ export function CopilotKitV2MessageLandingTrigger({
     <MessageLandingTrigger
       message={message}
       state={landing.stateFor(chatMessageId)}
-      onOpen={() => landing.open(message)}
+      onOpen={() => landing.open(message, locale)}
     />
   );
 }
@@ -259,14 +263,15 @@ export function CopilotKitV2MessageLandingTrigger({
  * 这里不新开一条能绕过确认卡的路）。
  */
 export function CopilotKitV2RememberMessageButton({ text }: { text: string }): JSX.Element | null {
+  const { t } = useI18n();
   const trimmed = text.trim();
   if (trimmed === "") return null;
   return (
     <button
       type="button"
       data-testid="chat-message-remember"
-      aria-label="记住这句"
-      title="记住这句"
+      aria-label={t("chatInteractions.remember")}
+      title={t("chatInteractions.remember")}
       onClick={() => requestRememberStatement(trimmed)}
       className="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >

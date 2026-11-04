@@ -1,5 +1,6 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
 import type { PlanTodo } from "@/components/chat/agent-plan-panel";
 import type { PlanStepAction } from "@/lib/chat-workbench/trace-plan";
 import { toolLabel, toolObject } from "@/lib/chat-workbench/tool-label";
@@ -18,20 +19,21 @@ export function PlanStepActionList({ todo, actions, openWhenActive = true }: {
   /** 进行中的那一步默认展开。消息流里传 false：计划卡保持紧凑，点开才看细节。 */
   openWhenActive?: boolean;
 }): JSX.Element | null {
+  const { locale, t } = useI18n();
   if (actions.length === 0) return null;
   return (
     <details className="pl-5 text-11 text-muted-foreground" data-testid="chat-task-workbench-plan-step-actions" open={openWhenActive && todo.status === "in_progress"}>
       <summary className="cursor-pointer rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        {actions.length} 个动作
+        {t("chatRuns.actions", { count: actions.length })}
       </summary>
       <ul className="mt-1 space-y-0.5">
         {actions.map((action) => {
           const object = action.kind === "tool" ? toolObject(action.tool, action.args) : null;
           return (
             <li key={action.id} className="truncate" data-testid="chat-task-workbench-plan-step-action" data-status={action.status}>
-              {action.kind === "skill" ? `技能 · ${action.tool}` : toolLabel(action.tool)}
+              {action.kind === "skill" ? t("chatTools.skillWhat", { name: action.tool }) : toolLabel(action.tool, locale)}
               {object ? ` · ${object}` : ""}
-              {action.status === "failed" ? " · 失败" : action.status === "running" ? " · 进行中" : ""}
+              {action.status === "failed" ? ` · ${t("chatRuns.failure")}` : action.status === "running" ? ` · ${t("chatRuns.running")}` : ""}
             </li>
           );
         })}

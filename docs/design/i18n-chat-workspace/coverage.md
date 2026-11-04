@@ -48,10 +48,10 @@ Staticimportupperbound fromv2layout; importedunusedexports/businessinstructions 
 | `apps/web/components/chat/chat-task-inspector.tsx` | 41 | pending actualrender/export classification |
 | `apps/web/components/chat/chat-task-workbench-capability-picker.tsx` | 84 | canonical composer popup+list/detail; provider RED1/1, display helpers RED5/5; implementation in progress, no fresh GREEN/browser yet |
 | `apps/web/components/chat/chat-task-workbench-empty-state.tsx` | 20 | canonical welcome/templates/context; provider RED→GREEN, raw briefing and explicit prefill covered; browser pending |
-| `apps/web/components/chat/copilotkit-v2-agent-identity.tsx` | 1 | pending actualrender/export classification |
+| `apps/web/components/chat/copilotkit-v2-agent-identity.tsx` | 1 | canonical author identity: explicit-locale official provenance and raw org name; provider tests green, final Task3 type/browser pending |
 | `apps/web/components/chat/copilotkit-v2-agent-interrupts.tsx` | 3 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-assistant-message.tsx` | 5 | pending actualrender/export classification |
-| `apps/web/components/chat/copilotkit-v2-message-actions.tsx` | 4 | pending actualrender/export classification |
+| `apps/web/components/chat/copilotkit-v2-message-actions.tsx` | 4 | canonical copy/remember owned controls tested; SDK callback/raw text retained; landing/rating/details still pending |
 | `apps/web/components/chat/copilotkit-v2-panel-body.tsx` | 87 | canonical controller now1891lines;48 effects/callback/memo argument hash identical; actual SDK node/draft/caret and agent-switch tests34green; fresh type/browser pending |
 | `apps/web/components/chat/copilotkit-v2-panel.tsx` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/copilotkit-v2-plan-control.tsx` | 19 | pending actualrender/export classification |
@@ -101,18 +101,18 @@ Staticimportupperbound fromv2layout; importedunusedexports/businessinstructions 
 | `apps/web/components/chat/subtask-run-panel.tsx` | 17 | pending actualrender/export classification |
 | `apps/web/components/chat/thread-list-shell.tsx` | 32 | canonical sidebar/status/rename/menu; provider and adjacent tests61green, raw title/caret/node preserved; browser pending |
 | `apps/web/components/chat/workbench/agent-artifact-versions-panel.tsx` | 38 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/child-cancellation-notice.tsx` | 0 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/interrupt-decision-dialog.tsx` | 7 | pending actualrender/export classification |
+| `apps/web/components/chat/workbench/child-cancellation-notice.tsx` | 0 | canonical raw notice projection only; this file has no owned display literals; upstream reason classification remains in audit |
+| `apps/web/components/chat/workbench/interrupt-decision-dialog.tsx` | 7 | canonical restored form dialog: title/description/reopen, locale/Escape non-decision tested; real browser pending |
 | `apps/web/components/chat/workbench/interrupt-render-context.ts` | 0 | pending actualrender/export classification |
 | `apps/web/components/chat/workbench/persisted-agent-feedback.tsx` | 0 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/queue-next-turn-action.tsx` | 1 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/queued-messages-panel.tsx` | 12 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/restored-interrupt-form.tsx` | 0 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/restored-run-approval.tsx` | 22 | pending actualrender/export classification |
+| `apps/web/components/chat/workbench/queue-next-turn-action.tsx` | 1 | canonical explicit next-turn control tested; no send on locale change; full queue browser proof pending |
+| `apps/web/components/chat/workbench/queued-messages-panel.tsx` | 12 | canonical server queue editor tested: row ID, pending raw draft and read-only guards; dispatch completion browser pending |
+| `apps/web/components/chat/workbench/restored-interrupt-form.tsx` | 0 | canonical dispatch to confirm/fill/choose cards by canonical tool enum; no owned fixed display literals; form provider tests green, browser pending |
+| `apps/web/components/chat/workbench/restored-run-approval.tsx` | 22 | canonical durable approval provider tests green: request ID/once POST/history/observer guard; old regression/type/browser pending |
 | `apps/web/components/chat/workbench/run-interjections.tsx` | 7 | pending actualrender/export classification |
 | `apps/web/components/chat/workbench/run-trace-live-preview.tsx` | 5 | pending actualrender/export classification |
 | `apps/web/components/chat/workbench/run-trace-live-strip.tsx` | 14 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/run-trace-panel.tsx` | 49 | pending actualrender/export classification |
+| `apps/web/components/chat/workbench/run-trace-panel.tsx` | 49 | canonical trace wrapper tests green: raw arguments/results, stable expanded DOM and journal cancellation; child renderers/live strips still in progress |
 | `apps/web/components/chat/workbench/task-notifications.tsx` | 0 | pending actualrender/export classification |
-| `apps/web/components/chat/workbench/task-timeline.tsx` | 0 | pending actualrender/export classification |
+| `apps/web/components/chat/workbench/task-timeline.tsx` | 0 | canonical trace anchor/renderer wiring: identity/status transformations protected, no owned fixed display literals; integration acceptance pending |
 | `apps/web/components/chat/workbench/use-dialog-return-focus.ts` | 0 | pending actualrender/export classification |

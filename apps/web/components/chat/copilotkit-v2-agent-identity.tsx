@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
 import { Avatar } from "@/components/ui/avatar";
 import { agentDisplayName, type AgentDirectoryCard } from "@/lib/agent-directory";
 import { useAgentDirectoryMap } from "@/lib/use-agent-directory-map";
@@ -14,7 +16,7 @@ import { InterruptRenderContext } from "./workbench/interrupt-render-context";
  * （uiux-r2 #5：普通线程也要有作者身份）。只在有正文的助手回合、且是连续助手回合的第一条上
  * 画——见 `shouldShowAssistantIdentity`。
  */
-export const GENERIC_ASSISTANT_NAME = "AI 助手";
+export const GENERIC_ASSISTANT_NAME = translate("zh-CN", "chatInteractions.aiAssistant");
 
 /**
  * 这条助手回合自己是否已经画了身份行。回合内的行内提示（如「没有转交」）在回合没画身份行时
@@ -39,6 +41,7 @@ export function AgentIdentityRow({
   fetchDirectory?: () => Promise<readonly AgentDirectoryCard[]>;
   fetchRun?: Parameters<typeof useAgentRunView>[2];
 }): JSX.Element | null {
+  const { t, locale } = useI18n();
   const host = React.useContext(InterruptRenderContext);
   const run = useAgentRunView(runId, host.bearer, fetchRun);
   const agentId = run?.agentId ?? selectedAgentId;
@@ -49,7 +52,7 @@ export function AgentIdentityRow({
   // 目录还没读回来时先不画，避免「通用助手 → 数字人」闪一下。
   if (agentId && !card && map.size === 0) return null;
   // uiux-r2 #5：普通线程（没选数字人 / 数字人没有插画头像）也要有作者身份，用通用助手身份。
-  const name = card ? agentDisplayName(card) : GENERIC_ASSISTANT_NAME;
+  const name = card ? agentDisplayName(card, locale) : t("chatInteractions.aiAssistant");
   const initials = card?.initials ?? "AI";
   const avatarKey = card?.avatar?.key ?? null;
   return (

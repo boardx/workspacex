@@ -1,5 +1,8 @@
 "use client";
 import * as React from "react";
+import { useI18n } from "@/lib/i18n/provider";
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
 import type { z } from "zod";
 import type * as C from "@repo/contracts/chat";
 import { openCitation } from "@/lib/live-chat";
@@ -24,10 +27,10 @@ import type { CitationView } from "@/lib/chat-citation-view";
 type ContractCitation = z.infer<typeof C.Citation>;
 
 /** 契约线上引用 → 展示视图（锚点三形态按 kind 取对应字段）。 */
-export function toCitationView(c: ContractCitation): CitationView {
+export function toCitationView(c: ContractCitation, locale: Locale = "zh-CN"): CitationView {
   const a = c.anchor;
   const anchor =
-    a.kind === "page" ? (a.page !== null ? `第 ${a.page} 页` : "")
+    a.kind === "page" ? (a.page !== null ? translate(locale, "chatLanding.page", { page: a.page }) : "")
       : a.kind === "transcript" ? (a.range ?? "")
         : (a.messageId ?? "");
   return { citationId: c.citationId, index: c.index, sourceFullName: c.sourceFullName, anchor, anchorKind: a.kind };
@@ -42,13 +45,14 @@ export function ThreadCitationsProvider({
   messages: readonly { id: string; citations: readonly ContractCitation[] }[] | null | undefined;
   children: React.ReactNode;
 }) {
+  const { locale } = useI18n();
   const map = React.useMemo(() => {
     const m = new Map<string, readonly CitationView[]>();
     for (const msg of messages ?? []) {
-      if (msg.citations.length > 0) m.set(msg.id, msg.citations.map(toCitationView));
+      if (msg.citations.length > 0) m.set(msg.id, msg.citations.map((citation) => toCitationView(citation, locale)));
     }
     return m;
-  }, [messages]);
+  }, [messages, locale]);
   return <ThreadCitationsContext.Provider value={map}>{children}</ThreadCitationsContext.Provider>;
 }
 
@@ -104,6 +108,7 @@ export function CitationScope({
 /** 引用列表：编号 + 出处全称 + 页码/时间段，点开定位（UC-8.2 R7 引用层，三段缺一不可）。
  *  须在 `CitationScope` 内渲染；作用域外（或无引用）什么都不画。 */
 export function CitationList() {
+  const { t } = useI18n();
   const scope = useCitationScope();
   if (!scope || scope.citations.length === 0) return null;
   const { citations, openIdx, toggle } = scope;
@@ -126,7 +131,7 @@ export function CitationList() {
           </button>
           {openIdx === c.index && (
             <p className="ml-5 mt-0.5 rounded-sm bg-muted px-2 py-1 text-10 text-muted-foreground" data-testid="chat-citation-anchor">
-              定位到 {c.anchor}（{c.anchorKind === "page" ? "文档页码" : c.anchorKind === "transcript" ? "转录时间码" : "消息锚点"}）· 不跳出线程
+              {t("chatLanding.locate", { anchor: c.anchor, kind: t(c.anchorKind === "page" ? "chatLanding.kindPage" : c.anchorKind === "transcript" ? "chatLanding.kindTranscript" : "chatLanding.kindMessage") })}
             </p>
           )}
         </li>

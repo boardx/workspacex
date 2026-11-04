@@ -1,0 +1,930 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-escalation.test.tsx (4 tests | 4 failed) 163ms
+   × keeps the user's decision and exact pending request while localizing escalation chrome 148ms
+     → Unable to find an accessible element with the role "textbox" and name "Your decision or feedback"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "不同意":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+    data-testid="agent-escalation-reject"
+    disabled=""
+    type="button"
+  />
+
+  Name "提交决定":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+    data-testid="agent-escalation-resolve"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "组织原名{count} 升级了一件事，需要你拍板":
+  <section
+    aria-label="组织原名{count} 升级了一件事，需要你拍板"
+    class="overflow-hidden rounded-card border border-border bg-card shadow-sm"
+    data-escalation-target="project_owner"
+    data-testid="agent-escalation-card"
+  />
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  <header
+    class="flex items-start gap-2.5"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="flex flex-wrap items-center gap-1.5 text-13 font-medium text-card-foreground"
+  />
+
+  Name "":
+  <p
+    class="mt-0.5 text-11 text-muted-foreground"
+  />
+
+  Name "":
+  <p
+    class="px-0.5 text-11 text-muted-foreground"
+    data-testid="agent-escalation-refs"
+  />
+
+  Name "":
+  <p
+    class="mt-1 text-10 text-muted-foreground"
+    id=":r1:"
+  />
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  <dt
+    class="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
+  />
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  <dd
+    class="mt-0.5 whitespace-pre-wrap font-medium text-card-foreground"
+    data-testid="agent-escalation-reason"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "你的决定或意见":
+  <textarea
+    aria-describedby=":r1:"
+    class="mt-1 h-20 w-full resize-y rounded-control border border-input bg-background px-2.5 py-1.5 text-12 text-background-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="agent-escalation-text"
+    id=":r0:"
+    maxlength="2000"
+    placeholder="写下你的决定；选「不同意」时写明理由。"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <section
+      aria-label="组织原名{count} 升级了一件事，需要你拍板"
+      class="overflow-hidden rounded-card border border-border bg-card shadow-sm"
+      data-escalation-target="project_owner"
+      data-testid="agent-escalation-card"
+    >
+      <div
+        class="flex items-center gap-1.5 bg-warning-tint px-3 py-1.5 text-11 font-medium text-warning-tint-foreground"
+        data-testid="agent-escalation-banner"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-arrow-up-right h-3.5 w-3.5 shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M7 7h10v10"
+          />
+          <path
+            d="M7 17 17 7"
+          />
+        </svg>
+        等你拍板 · 任务暂停中
+      </div>
+      <div
+        class="p-3"
+      >
+        <header
+          class="flex items-start gap-2.5"
+        >
+          <span
+            aria-hidden="true"
+            class="inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-9 w-9 text-13 overflow-hidden p-0"
+            data-testid="agent-escalation-avatar"
+          >
+            组
+          </span>
+          <div
+            class="min-w-0 flex-1"
+          >
+            <p
+              class="flex flex-wrap items-center gap-1.5 text-13 font-medium text-card-foreground"
+            >
+              <span
+                data-testid="agent-escalation-who"
+              >
+                组织原名{count}
+              </span>
+              <span
+                class="text-muted-foreground"
+              >
+                把一件事升级给了
+              </span>
+              <span
+                class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+                data-testid="agent-escalation-target"
+              >
+                项目负责人
+              </span>
+            </p>
+            <p
+              class="mt-0.5 text-11 text-muted-foreground"
+            >
+              这件事超出了它自己能做主的范围，任务会停在这里，等你给出决定后继续。
+            </p>
+          </div>
+        </header>
+        <dl
+          class="mt-3 grid gap-2 text-12"
+        >
+          <div
+            class="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2"
+          >
+            <dt
+              class="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
+            >
+              需要你决定
+              <span
+                class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"
+                data-testid="agent-escalation-matter"
+              >
+                模型事项 {count}
+              </span>
+            </dt>
+            <dd
+              class="mt-0.5 whitespace-pre-wrap font-medium text-card-foreground"
+              data-testid="agent-escalation-reason"
+            >
+              模型原因🌍
+            </dd>
+          </div>
+          <p
+            class="px-0.5 text-11 text-muted-foreground"
+            data-testid="agent-escalation-refs"
+          >
+            附带
+            1
+             条相关材料，可在任务过程区查看。
+          </p>
+        </dl>
+        <div
+          class="mt-3"
+        >
+          <label
+            class="text-11 font-medium text-card-foreground"
+            for=":r0:"
+          >
+            你的决定或意见
+          </label>
+          <textarea
+            aria-describedby=":r1:"
+            class="mt-1 h-20 w-full resize-y rounded-control border border-input bg-background px-2.5 py-1.5 text-12 text-background-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="agent-escalation-text"
+            id=":r0:"
+            maxlength="2000"
+            placeholder="写下你的决定；选「不同意」时写明理由。"
+          />
+          <p
+            class="mt-1 text-10 text-muted-foreground"
+            id=":r1:"
+          >
+            它会按你写的内容继续；选「不同意」时，这段话会作为理由告诉它。Ctrl/⌘ + Enter 快速提交决定。
+          </p>
+          <div
+            class="mt-2 flex flex-wrap justify-end gap-2"
+          >
+            <button
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+              data-testid="agent-escalation-reject"
+              disabled=""
+              type="button"
+            >
+              不同意
+            </button>
+            <button
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+              data-testid="agent-escalation-resolve"
+              disabled=""
+              type="button"
+            >
+              提交决定
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+   × keeps observer escalation read-only across locale changes 8ms
+     → expected '你当前只能查看这条对话，决定需要由项目负责人给出。' to be 'You can only view this conversation. …' // Object.is equality
+   × localizes known escalation denial without exposing reason codes and preserves default compatibility 1ms
+     → expected '这件事升级给了其他人，你没有权限替他做决定' to be 'This matter was escalated to someone …' // Object.is equality
+   × localizes decided-record chrome without changing the decider, decision text or persisted timestamp 5ms
+     → expected '驳回' to be 'Rejected' // Object.is equality
+ ❯ tests/ui/i18n-chat-subtasks.test.tsx (2 tests | 2 failed) 48ms
+   × keeps expanded subtask facts and original immutable retry input through locale changes 40ms
+     → expected '出错' to be 'Failed' // Object.is equality
+   × keeps confirmed cancellation distinct from failure and cannot invent a retry action 8ms
+     → expected '已取消' to be 'Cancelled' // Object.is equality
+ ❯ tests/ui/i18n-chat-plan-display.test.tsx (2 tests | 2 failed) 44ms
+   × localizes the plan summary without replacing raw plan entries or their canonical status 39ms
+     → Unable to find an element with the text: Plan 1/2. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-md border border-border-subtle bg-card px-2.5 py-1.5"
+      data-plan-done="1"
+      data-plan-total="2"
+      data-testid="agent-plan-panel"
+    >
+      <div
+        class="mb-1 text-11 font-medium text-muted-foreground"
+      >
+        计划
+        1
+        /
+        2
+      </div>
+      <ol
+        class="space-y-0.5"
+      >
+        <li
+          class="flex items-center gap-2 text-11"
+          data-plan-index="0"
+          data-plan-status="completed"
+          data-testid="agent-plan-item-0"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-circle-check h-3.5 w-3.5 shrink-0 text-success"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+            />
+            <path
+              d="m9 12 2 2 4-4"
+            />
+          </svg>
+          <span
+            class="min-w-0 flex-1 truncate text-muted-foreground line-through"
+          >
+            模型计划原文 {count}
+          </span>
+        </li>
+        <li
+          class="flex items-center gap-2 text-11"
+          data-plan-index="1"
+          data-plan-status="pending"
+          data-testid="agent-plan-item-1"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-circle h-3.5 w-3.5 shrink-0 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+            />
+          </svg>
+          <span
+            class="min-w-0 flex-1 truncate"
+          >
+            尚未执行的原文🌍
+          </span>
+        </li>
+      </ol>
+    </div>
+  </div>
+</body>
+   × keeps action disclosure and original file projection while translating count and status 4ms
+     → Unable to find an element with the text: 1 action. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <details
+      class="pl-5 text-11 text-muted-foreground"
+      data-testid="chat-task-workbench-plan-step-actions"
+      open=""
+    >
+      <summary
+        class="cursor-pointer rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        1
+         个动作
+      </summary>
+      <ul
+        class="mt-1 space-y-0.5"
+      >
+        <li
+          class="truncate"
+          data-status="failed"
+          data-testid="chat-task-workbench-plan-step-action"
+        >
+          读取文件
+           · 用户文件{count}.txt
+           · 失败
+        </li>
+      </ul>
+    </details>
+  </div>
+</body>
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-escalation.test.tsx > keeps the user's decision and exact pending request while localizing escalation chrome
+TestingLibraryElementError: Unable to find an accessible element with the role "textbox" and name "Your decision or feedback"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "不同意":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+    data-testid="agent-escalation-reject"
+    disabled=""
+    type="button"
+  />
+
+  Name "提交决定":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+    data-testid="agent-escalation-resolve"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "组织原名{count} 升级了一件事，需要你拍板":
+  <section
+    aria-label="组织原名{count} 升级了一件事，需要你拍板"
+    class="overflow-hidden rounded-card border border-border bg-card shadow-sm"
+    data-escalation-target="project_owner"
+    data-testid="agent-escalation-card"
+  />
+
+  --------------------------------------------------
+  banner:
+
+  Name "":
+  <header
+    class="flex items-start gap-2.5"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="flex flex-wrap items-center gap-1.5 text-13 font-medium text-card-foreground"
+  />
+
+  Name "":
+  <p
+    class="mt-0.5 text-11 text-muted-foreground"
+  />
+
+  Name "":
+  <p
+    class="px-0.5 text-11 text-muted-foreground"
+    data-testid="agent-escalation-refs"
+  />
+
+  Name "":
+  <p
+    class="mt-1 text-10 text-muted-foreground"
+    id=":r1:"
+  />
+
+  --------------------------------------------------
+  term:
+
+  Name "":
+  <dt
+    class="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
+  />
+
+  --------------------------------------------------
+  definition:
+
+  Name "":
+  <dd
+    class="mt-0.5 whitespace-pre-wrap font-medium text-card-foreground"
+    data-testid="agent-escalation-reason"
+  />
+
+  --------------------------------------------------
+  textbox:
+
+  Name "你的决定或意见":
+  <textarea
+    aria-describedby=":r1:"
+    class="mt-1 h-20 w-full resize-y rounded-control border border-input bg-background px-2.5 py-1.5 text-12 text-background-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="agent-escalation-text"
+    id=":r0:"
+    maxlength="2000"
+    placeholder="写下你的决定；选「不同意」时写明理由。"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <section
+      aria-label="组织原名{count} 升级了一件事，需要你拍板"
+      class="overflow-hidden rounded-card border border-border bg-card shadow-sm"
+      data-escalation-target="project_owner"
+      data-testid="agent-escalation-card"
+    >
+      <div
+        class="flex items-center gap-1.5 bg-warning-tint px-3 py-1.5 text-11 font-medium text-warning-tint-foreground"
+        data-testid="agent-escalation-banner"
+      >
+        <svg
+          aria-hidden="true"
+          class="lucide lucide-arrow-up-right h-3.5 w-3.5 shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M7 7h10v10"
+          />
+          <path
+            d="M7 17 17 7"
+          />
+        </svg>
+        等你拍板 · 任务暂停中
+      </div>
+      <div
+        class="p-3"
+      >
+        <header
+          class="flex items-start gap-2.5"
+        >
+          <span
+            aria-hidden="true"
+            class="inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-9 w-9 text-13 overflow-hidden p-0"
+            data-testid="agent-escalation-avatar"
+          >
+            组
+          </span>
+          <div
+            class="min-w-0 flex-1"
+          >
+            <p
+              class="flex flex-wrap items-center gap-1.5 text-13 font-medium text-card-foreground"
+            >
+              <span
+                data-testid="agent-escalation-who"
+              >
+                组织原名{count}
+              </span>
+              <span
+                class="text-muted-foreground"
+              >
+                把一件事升级给了
+              </span>
+              <span
+                class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+                data-testid="agent-escalation-target"
+              >
+                项目负责人
+              </span>
+            </p>
+            <p
+              class="mt-0.5 text-11 text-muted-foreground"
+            >
+              这件事超出了它自己能做主的范围，任务会停在这里，等你给出决定后继续。
+            </p>
+          </div>
+        </header>
+        <dl
+          class="mt-3 grid gap-2 text-12"
+        >
+          <div
+            class="rounded-control border-l-2 border-warning bg-muted px-2.5 py-2"
+          >
+            <dt
+              class="flex flex-wrap items-center gap-1.5 text-11 text-muted-foreground"
+            >
+              需要你决定
+              <span
+                class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"
+                data-testid="agent-escalation-matter"
+              >
+                模型事项 {count}
+              </span>
+            </dt>
+            <dd
+              class="mt-0.5 whitespace-pre-wrap font-medium text-card-foreground"
+              data-testid="agent-escalation-reason"
+            >
+              模型原因🌍
+            </dd>
+          </div>
+          <p
+            class="px-0.5 text-11 text-muted-foreground"
+            data-testid="agent-escalation-refs"
+          >
+            附带
+            1
+             条相关材料，可在任务过程区查看。
+          </p>
+        </dl>
+        <div
+          class="mt-3"
+        >
+          <label
+            class="text-11 font-medium text-card-foreground"
+            for=":r0:"
+          >
+            你的决定或意见
+          </label>
+          <textarea
+            aria-describedby=":r1:"
+            class="mt-1 h-20 w-full resize-y rounded-control border border-input bg-background px-2.5 py-1.5 text-12 text-background-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            data-testid="agent-escalation-text"
+            id=":r0:"
+            maxlength="2000"
+            placeholder="写下你的决定；选「不同意」时写明理由。"
+          />
+          <p
+            class="mt-1 text-10 text-muted-foreground"
+            id=":r1:"
+          >
+            它会按你写的内容继续；选「不同意」时，这段话会作为理由告诉它。Ctrl/⌘ + Enter 快速提交决定。
+          </p>
+          <div
+            class="mt-2 flex flex-wrap justify-end gap-2"
+          >
+            <button
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+              data-testid="agent-escalation-reject"
+              disabled=""
+              type="button"
+            >
+              不同意
+            </button>
+            <button
+              class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm h-7 px-2.5 text-12"
+              data-testid="agent-escalation-resolve"
+              disabled=""
+              type="button"
+            >
+              提交决定
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-escalation.test.tsx:15:24
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  tests/ui/i18n-chat-escalation.test.tsx > keeps observer escalation read-only across locale changes
+AssertionError: expected '你当前只能查看这条对话，决定需要由项目负责人给出。' to be 'You can only view this conversation. …' // Object.is equality
+
+Expected: "You can only view this conversation. The project owner must decide."
+Received: "你当前只能查看这条对话，决定需要由项目负责人给出。"
+
+ ❯ tests/ui/i18n-chat-escalation.test.tsx:29:94
+     27|   const submit = vi.fn();
+     28|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><AgentEsca…
+     29|   const notice = screen.getByTestId("agent-escalation-readonly"); expe…
+       |                                                                                              ^
+     30|   expect(screen.queryByTestId("agent-escalation-resolve")).toBeNull();
+     31|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  tests/ui/i18n-chat-escalation.test.tsx > localizes known escalation denial without exposing reason codes and preserves default compatibility
+AssertionError: expected '这件事升级给了其他人，你没有权限替他做决定' to be 'This matter was escalated to someone …' // Object.is equality
+
+Expected: "This matter was escalated to someone else. You cannot decide on their behalf."
+Received: "这件事升级给了其他人，你没有权限替他做决定"
+
+ ❯ tests/ui/i18n-chat-escalation.test.tsx:35:46
+     33| it("localizes known escalation denial without exposing reason codes an…
+     34|   const error = new ApiError(403, "ESCALATION_DECIDER_FORBIDDEN", {});
+     35|   expect(escalationFailureText(error, "en")).toBe("This matter was esc…
+       |                                              ^
+     36|   expect(escalationFailureText(error)).toBe("这件事升级给了其他人，你…
+     37| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  tests/ui/i18n-chat-escalation.test.tsx > localizes decided-record chrome without changing the decider, decision text or persisted timestamp
+AssertionError: expected '驳回' to be 'Rejected' // Object.is equality
+
+Expected: "Rejected"
+Received: "驳回"
+
+ ❯ tests/ui/i18n-chat-escalation.test.tsx:42:142
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-display.test.tsx > localizes the plan summary without replacing raw plan entries or their canonical status
+TestingLibraryElementError: Unable to find an element with the text: Plan 1/2. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-md border border-border-subtle bg-card px-2.5 py-1.5"
+      data-plan-done="1"
+      data-plan-total="2"
+      data-testid="agent-plan-panel"
+    >
+      <div
+        class="mb-1 text-11 font-medium text-muted-foreground"
+      >
+        计划
+        1
+        /
+        2
+      </div>
+      <ol
+        class="space-y-0.5"
+      >
+        <li
+          class="flex items-center gap-2 text-11"
+          data-plan-index="0"
+          data-plan-status="completed"
+          data-testid="agent-plan-item-0"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-circle-check h-3.5 w-3.5 shrink-0 text-success"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+            />
+            <path
+              d="m9 12 2 2 4-4"
+            />
+          </svg>
+          <span
+            class="min-w-0 flex-1 truncate text-muted-foreground line-through"
+          >
+            模型计划原文 {count}
+          </span>
+        </li>
+        <li
+          class="flex items-center gap-2 text-11"
+          data-plan-index="1"
+          data-plan-status="pending"
+          data-testid="agent-plan-item-1"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-circle h-3.5 w-3.5 shrink-0 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+            />
+          </svg>
+          <span
+            class="min-w-0 flex-1 truncate"
+          >
+            尚未执行的原文🌍
+          </span>
+        </li>
+      </ol>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-plan-display.test.tsx:12:71
+     10|   const todos: PlanTodo[] = [{ content: "模型计划原文 {count}", status…
+     11|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><AgentPlan…
+     12|   const panel = screen.getByTestId("agent-plan-panel"); expect(screen.…
+       |                                                                       ^
+     13|   const raw = screen.getByText(todos[0]!.content); expect(panel.getAtt…
+     14|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  tests/ui/i18n-chat-plan-display.test.tsx > keeps action disclosure and original file projection while translating count and status
+TestingLibraryElementError: Unable to find an element with the text: 1 action. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <details
+      class="pl-5 text-11 text-muted-foreground"
+      data-testid="chat-task-workbench-plan-step-actions"
+      open=""
+    >
+      <summary
+        class="cursor-pointer rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        1
+         个动作
+      </summary>
+      <ul
+        class="mt-1 space-y-0.5"
+      >
+        <li
+          class="truncate"
+          data-status="failed"
+          data-testid="chat-task-workbench-plan-step-action"
+        >
+          读取文件
+           · 用户文件{count}.txt
+           · 失败
+        </li>
+      </ul>
+    </details>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-plan-display.test.tsx:22:17
+     20|   const actions: PlanStepAction[] = [{ id: "raw-action", kind: "tool",…
+     21|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><PlanStepA…
+     22|   expect(screen.getByText("1 action")).toBeTruthy(); const disclosure …
+       |                 ^
+     23|   const row = screen.getByTestId("chat-task-workbench-plan-step-action…
+     24|   expect(disclosure.hasAttribute("open")).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  tests/ui/i18n-chat-subtasks.test.tsx > keeps expanded subtask facts and original immutable retry input through locale changes
+AssertionError: expected '出错' to be 'Failed' // Object.is equality
+
+Expected: "Failed"
+Received: "出错"
+
+ ❯ tests/ui/i18n-chat-subtasks.test.tsx:17:131
+     15|   const retry = vi.fn();
+     16|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><SubtaskRu…
+     17|   const card = screen.getByTestId("chat-subtask-card"); expect(within(…
+       |                                                                                                                                   ^
+     18|   const button = within(card).getByRole("button", { name: "Retry this …
+     19|   expect(rawError.textContent).toBe(failed.error); expect(screen.getBy…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  tests/ui/i18n-chat-subtasks.test.tsx > keeps confirmed cancellation distinct from failure and cannot invent a retry action
+AssertionError: expected '已取消' to be 'Cancelled' // Object.is equality
+
+Expected: "Cancelled"
+Received: "已取消"
+
+ ❯ tests/ui/i18n-chat-subtasks.test.tsx:28:131
+     26|   const cancelled = subtaskRun.SubtaskRun.parse({ ...failed, status: "…
+     27|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><SubtaskRu…
+     28|   const card = screen.getByTestId("chat-subtask-card"); expect(within(…
+       |                                                                                                                                   ^
+     29|   expect(card.getAttribute("data-status")).toBe("cancelled"); expect(s…
+     30|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+
+ Test Files  3 failed (3)
+      Tests  8 failed (8)
+   Start at  05:49:57
+   Duration  4.77s (transform 978ms, setup 290ms, collect 2.06s, tests 255ms, environment 1.51s, prepare 127ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-plan-display.test.tsx tests/ui/i18n-chat-escalation.test.tsx tests/ui/i18n-chat-subtasks.test.tsx

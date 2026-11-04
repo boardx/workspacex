@@ -1,0 +1,2697 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+ ❯ tests/ui/i18n-chat-message-queue.test.tsx (3 tests | 3 failed) 143ms
+   × keeps a queued edit and in-flight save bound to its real row across locale changes 115ms
+     → Unable to find an accessible element with the role "button" and name "Edit"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "编辑":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    type="button"
+  />
+
+  Name "撤回":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "待发送消息":
+  <section
+    aria-label="待发送消息"
+    class="my-2 space-y-2 text-13"
+    data-testid="workbench-server-queue"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <section
+      aria-label="待发送消息"
+      class="my-2 space-y-2 text-13"
+      data-testid="workbench-server-queue"
+    >
+      <div
+        class="flex items-center gap-2 rounded-container border p-2"
+        data-testid="workbench-queued-message"
+      >
+        <span
+          class="min-w-0 flex-1 whitespace-pre-wrap"
+        >
+          用户排队原文 {count} 🌍
+          <span
+            class="ml-2 text-11 text-muted-foreground"
+          >
+            已排队，当前任务结束后发送
+          </span>
+        </span>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          type="button"
+        >
+          编辑
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          type="button"
+        >
+          撤回
+        </button>
+      </div>
+    </section>
+  </div>
+</body>
+   × preserves read-only controls, raw failure text and dispatched filtering 18ms
+     → Unable to find an accessible element with the role "button" and name "Withdraw"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "编辑":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    disabled=""
+    type="button"
+  />
+
+  Name "撤回":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "待发送消息":
+  <section
+    aria-label="待发送消息"
+    class="my-2 space-y-2 text-13"
+    data-testid="workbench-server-queue"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <section
+      aria-label="待发送消息"
+      class="my-2 space-y-2 text-13"
+      data-testid="workbench-server-queue"
+    >
+      <div
+        class="flex items-center gap-2 rounded-container border p-2"
+        data-testid="workbench-queued-message"
+      >
+        <span
+          class="min-w-0 flex-1 whitespace-pre-wrap"
+        >
+          用户排队原文 {count} 🌍
+          <span
+            class="ml-2 text-11 text-muted-foreground"
+          >
+            已排队，当前任务结束后发送
+          </span>
+        </span>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          disabled=""
+          type="button"
+        >
+          编辑
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          disabled=""
+          type="button"
+        >
+          撤回
+        </button>
+      </div>
+      <div
+        class="flex items-center gap-2 rounded-container border p-2"
+        data-testid="workbench-queued-message"
+      >
+        <span
+          class="min-w-0 flex-1 whitespace-pre-wrap"
+        >
+          失败原文 🌍
+          <span
+            class="ml-2 text-11 text-muted-foreground"
+          >
+            未能发送：raw upstream {count}
+          </span>
+        </span>
+      </div>
+    </section>
+  </div>
+</body>
+   × localizes the next-turn action without dispatching anything on locale change 9ms
+     → Unable to find an accessible element with the role "button" and name "Queue for next turn"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "排到下一轮":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-11"
+    data-testid="workbench-queue-next-turn"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-11"
+      data-testid="workbench-queue-next-turn"
+      type="button"
+    >
+      排到下一轮
+    </button>
+  </div>
+</body>
+ ❯ tests/ui/i18n-chat-permission-display.test.tsx (3 tests | 3 failed) 250ms
+   × localizes permission chrome while preserving raw command and the controlled decision enum 153ms
+     → Unable to find an accessible element with the role "button" and name "Allow once"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "仅本次允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-once"
+  />
+
+  Name "本 run 内都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-run"
+  />
+
+  Name "以后都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-always"
+  />
+
+  Name "拒绝":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-deny"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "agent 请求执行一个高风险操作":
+  <h3
+    class="font-semibold tracking-tight text-14"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-muted-foreground text-12"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-intent"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-rationale"
+  />
+
+  --------------------------------------------------
+  code:
+
+  Name "":
+  <code
+    class="font-mono"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+      data-testid="tool-permission-card"
+    >
+      <div
+        class="flex flex-col p-4 pb-2 gap-1"
+      >
+        <div
+          class="flex items-center gap-2"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-alert h-4 w-4 text-warning"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="M12 8v4"
+            />
+            <path
+              d="M12 16h.01"
+            />
+          </svg>
+          <h3
+            class="font-semibold tracking-tight text-14"
+          >
+            agent 请求执行一个高风险操作
+          </h3>
+          <span
+            class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+            data-testid="risk-L2"
+            title="不可逆或外发，执行前需你确认"
+          >
+            L2
+             ·
+            高风险
+          </span>
+        </div>
+        <p
+          class="text-muted-foreground text-12"
+        >
+          这类操作不可逆或会外发，未经你同意不会执行。
+        </p>
+      </div>
+      <div
+        class="p-4 pt-2 flex flex-col gap-3"
+      >
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            想做什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-intent"
+          >
+            用户原始意图 {count}
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            为什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-rationale"
+          >
+            原始原因 🌍
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            具体命令（完整，未截断）
+          </span>
+          <pre
+            class="overflow-x-auto rounded-control bg-muted p-2 text-11"
+            data-testid="perm-command"
+          >
+            <code
+              class="font-mono"
+            >
+              {"task":"用户原文","status":"pending"}
+            </code>
+          </pre>
+        </div>
+        <div
+          class="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-check mt-0.5 h-3.5 w-3.5 shrink-0"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="m9 12 2 2 4-4"
+            />
+          </svg>
+          <span
+            data-testid="perm-affects"
+          >
+            影响范围：
+            用户指定对象
+          </span>
+        </div>
+        <div
+          class="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap"
+        >
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-once"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-check h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 6 9 17l-5-5"
+              />
+            </svg>
+             仅本次允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-run"
+          >
+            本 run 内都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-always"
+          >
+            以后都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-deny"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-x h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+             拒绝
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+   × retranslates an existing local denial record without creating another decision 34ms
+     → Unable to find an accessible element with the role "button" and name "Deny"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "仅本次允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-once"
+  />
+
+  Name "本 run 内都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-run"
+  />
+
+  Name "以后都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-always"
+  />
+
+  Name "拒绝":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-deny"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "agent 请求执行一个高风险操作":
+  <h3
+    class="font-semibold tracking-tight text-14"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-muted-foreground text-12"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-intent"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-rationale"
+  />
+
+  --------------------------------------------------
+  code:
+
+  Name "":
+  <code
+    class="font-mono"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+      data-testid="tool-permission-card"
+    >
+      <div
+        class="flex flex-col p-4 pb-2 gap-1"
+      >
+        <div
+          class="flex items-center gap-2"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-alert h-4 w-4 text-warning"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="M12 8v4"
+            />
+            <path
+              d="M12 16h.01"
+            />
+          </svg>
+          <h3
+            class="font-semibold tracking-tight text-14"
+          >
+            agent 请求执行一个高风险操作
+          </h3>
+          <span
+            class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+            data-testid="risk-L2"
+            title="不可逆或外发，执行前需你确认"
+          >
+            L2
+             ·
+            高风险
+          </span>
+        </div>
+        <p
+          class="text-muted-foreground text-12"
+        >
+          这类操作不可逆或会外发，未经你同意不会执行。
+        </p>
+      </div>
+      <div
+        class="p-4 pt-2 flex flex-col gap-3"
+      >
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            想做什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-intent"
+          >
+            用户原始意图 {count}
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            为什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-rationale"
+          >
+            原始原因 🌍
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            具体命令（完整，未截断）
+          </span>
+          <pre
+            class="overflow-x-auto rounded-control bg-muted p-2 text-11"
+            data-testid="perm-command"
+          >
+            <code
+              class="font-mono"
+            >
+              {"task":"用户原文","status":"pending"}
+            </code>
+          </pre>
+        </div>
+        <div
+          class="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-check mt-0.5 h-3.5 w-3.5 shrink-0"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="m9 12 2 2 4-4"
+            />
+          </svg>
+          <span
+            data-testid="perm-affects"
+          >
+            影响范围：
+            用户指定对象
+          </span>
+        </div>
+        <div
+          class="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap"
+        >
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-once"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-check h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 6 9 17l-5-5"
+              />
+            </svg>
+             仅本次允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-run"
+          >
+            本 run 内都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-always"
+          >
+            以后都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-deny"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-x h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+             拒绝
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+   × keeps a restored intent dialog open across locale changes and Escape remains a non-decision 63ms
+     → Unable to find an accessible element with the role "dialog" and name "Confirm task intent"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "确认任务意图":
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring overflow-y-auto overscroll-contain"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "确认任务意图":
+  <h2
+    class="text-16 font-bold tracking-tight"
+    id="radix-:r1:"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-13 text-muted-foreground"
+    id="radix-:r2:"
+  />
+
+  Name "":
+  <p
+    class="text-13 leading-relaxed text-card-foreground"
+    data-testid="agent-interrupt-confirm-intent-understanding"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="flex flex-col gap-1.5"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "改假设":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+    data-testid="agent-interrupt-confirm-intent-edit-toggle"
+  />
+
+  Name "继续":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+    data-testid="agent-interrupt-confirm-intent-continue"
+  />
+
+  Name "Close":
+  <button
+    aria-label="Close"
+    class="absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="dialog-close"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body
+  data-scroll-locked="1"
+  style="pointer-events: none;"
+>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+  <div
+    aria-hidden="true"
+    data-aria-hidden="true"
+  >
+    <button>
+      switch language
+    </button>
+    <button
+      class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    >
+      打开待确认请求
+    </button>
+  </div>
+  <div
+    aria-hidden="true"
+    class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring overflow-y-auto overscroll-contain"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  >
+    <h2
+      class="text-16 font-bold tracking-tight"
+      id="radix-:r1:"
+    >
+      确认任务意图
+    </h2>
+    <p
+      class="text-13 text-muted-foreground"
+      id="radix-:r2:"
+    >
+      可以暂时关闭并继续补充要求；关闭不会提交或拒绝此次请求。
+    </p>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-confirm-intent-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            确认一下我的理解，再开始
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            未确认前，我不会执行任何后续动作。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-confirm-intent-card"
+          >
+            <div
+              class="flex flex-col gap-1"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我的理解
+              </span>
+              <p
+                class="text-13 leading-relaxed text-card-foreground"
+                data-testid="agent-interrupt-confirm-intent-understanding"
+              >
+                用户原始任务 {count}
+              </p>
+            </div>
+            <div
+              class="flex flex-col gap-2"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我做了这些假设（
+                0
+                 条）
+              </span>
+              <ul
+                class="flex flex-col gap-1.5"
+              />
+            </div>
+            <div
+              class="flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5"
+              data-testid="agent-interrupt-confirm-intent-gated-notice"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-sparkles h-3.5 w-3.5 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+                />
+                <path
+                  d="M20 3v4"
+                />
+                <path
+                  d="M22 5h-4"
+                />
+                <path
+                  d="M4 17v2"
+                />
+                <path
+                  d="M5 18H3"
+                />
+              </svg>
+              <span
+                class="text-11 text-muted-foreground"
+              >
+                后续步骤（拉取数据、生成报告…）在你确认前不会开始。
+              </span>
+            </div>
+            <div
+              class="flex items-center justify-end gap-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+                data-testid="agent-interrupt-confirm-intent-edit-toggle"
+              >
+                改假设
+              </button>
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+                data-testid="agent-interrupt-confirm-intent-continue"
+              >
+                继续
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button
+      aria-label="Close"
+      class="absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="dialog-close"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-x h-4 w-4"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M18 6 6 18"
+        />
+        <path
+          d="m6 6 12 12"
+        />
+      </svg>
+    </button>
+  </div>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+</body>
+ ❯ tests/ui/i18n-chat-message-identity.test.tsx (3 tests | 2 failed) 1121ms
+   × uses an approved official author name in the current locale while preserving the source identity 1027ms
+     → expected '销售代表' to be 'Sales Representative' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html
+  lang="en"
+>
+  <head />
+  <body>
+    <div>
+      <button>
+        switch language
+      </button>
+      <div
+        class="mb-0.5 flex items-center gap-2"
+        data-testid="chat-v2-agent-identity"
+      >
+        <span
+          aria-hidden="true"
+          aria-label="头像 dh-05-sales-representative"
+          class="inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-7 w-7 text-11 overflow-hidden p-0"
+          data-avatar-key="dh-05-sales-representative"
+          data-testid="chat-v2-agent-portrait"
+          role="img"
+        >
+          <img
+            alt=""
+            aria-hidden="true"
+            class="size-full object-cover"
+            decoding="async"
+            loading="lazy"
+            src="/avatars/digital-humans/dh-05-sales-representative.webp"
+          />
+        </span>
+        <span
+          class="text-12 font-medium text-background-foreground"
+        >
+          销售代表
+        </span>
+      </div>
+    </div>
+  </body>
+</html>
+   × localizes the generic author label in place without loading an agent catalog 4ms
+     → expected 'AIAI 助手' to be 'AI assistant' // Object.is equality
+ ❯ tests/ui/i18n-chat-message-actions.test.tsx (2 tests | 2 failed) 120ms
+   × keeps the framework copy action and raw message identity across locale changes 104ms
+     → Unable to find an accessible element with the role "button" and name "Copy message"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "复制消息":
+  <button
+    aria-label="复制消息"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-message-id="raw-message"
+    data-testid="chat-message-copy"
+    title="复制消息"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="复制消息"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-message-id="raw-message"
+      data-testid="chat-message-copy"
+      title="复制消息"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-copy h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect
+          height="14"
+          rx="2"
+          ry="2"
+          width="14"
+          x="8"
+          y="8"
+        />
+        <path
+          d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+   × localizes remember without changing the raw statement or bypassing the existing request action 15ms
+     → Unable to find an accessible element with the role "button" and name "Remember this statement"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "记住这句":
+  <button
+    aria-label="记住这句"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="chat-message-remember"
+    title="记住这句"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="记住这句"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="chat-message-remember"
+      title="记住这句"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-sparkles h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+        />
+        <path
+          d="M20 3v4"
+        />
+        <path
+          d="M22 5h-4"
+        />
+        <path
+          d="M4 17v2"
+        />
+        <path
+          d="M5 18H3"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 10 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/ui/i18n-chat-message-actions.test.tsx > keeps the framework copy action and raw message identity across locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Copy message"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "复制消息":
+  <button
+    aria-label="复制消息"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-message-id="raw-message"
+    data-testid="chat-message-copy"
+    title="复制消息"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="复制消息"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-message-id="raw-message"
+      data-testid="chat-message-copy"
+      title="复制消息"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-copy h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <rect
+          height="14"
+          rx="2"
+          ry="2"
+          width="14"
+          x="8"
+          y="8"
+        />
+        <path
+          d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-message-actions.test.tsx:13:25
+     11|   const copy = vi.fn(async (_text: string) => true);
+     12|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><CopilotKi…
+     13|   const action = screen.getByRole("button", { name: "Copy message" });
+       |                         ^
+     14|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     15|   expect(screen.getByRole("button", { name: "复制消息" })).toBe(action…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/10]⎯
+
+ FAIL  tests/ui/i18n-chat-message-actions.test.tsx > localizes remember without changing the raw statement or bypassing the existing request action
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Remember this statement"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "记住这句":
+  <button
+    aria-label="记住这句"
+    class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="chat-message-remember"
+    title="记住这句"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      aria-label="记住这句"
+      class="inline-grid h-5 w-5 place-items-center rounded text-muted-foreground transition-colors duration-fast hover:bg-muted hover:text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="chat-message-remember"
+      title="记住这句"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-sparkles h-3 w-3"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+        />
+        <path
+          d="M20 3v4"
+        />
+        <path
+          d="M22 5h-4"
+        />
+        <path
+          d="M4 17v2"
+        />
+        <path
+          d="M5 18H3"
+        />
+      </svg>
+    </button>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-message-actions.test.tsx:22:25
+     20|   remember.mockReset();
+     21|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><CopilotKi…
+     22|   const action = screen.getByRole("button", { name: "Remember this sta…
+       |                         ^
+     23|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     24|   expect(screen.getByRole("button", { name: "记住这句" })).toBe(action…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/10]⎯
+
+ FAIL  tests/ui/i18n-chat-message-identity.test.tsx > uses an approved official author name in the current locale while preserving the source identity
+AssertionError: expected '销售代表' to be 'Sales Representative' // Object.is equality
+
+Ignored nodes: comments, script, style
+<html
+  lang="en"
+>
+  <head />
+  <body>
+    <div>
+      <button>
+        switch language
+      </button>
+      <div
+        class="mb-0.5 flex items-center gap-2"
+        data-testid="chat-v2-agent-identity"
+      >
+        <span
+          aria-hidden="true"
+          aria-label="头像 dh-05-sales-representative"
+          class="inline-flex shrink-0 items-center justify-center rounded-full font-medium transition-colors duration-200 bg-ai-tint text-ai-tint-foreground h-7 w-7 text-11 overflow-hidden p-0"
+          data-avatar-key="dh-05-sales-representative"
+          data-testid="chat-v2-agent-portrait"
+          role="img"
+        >
+          <img
+            alt=""
+            aria-hidden="true"
+            class="size-full object-cover"
+            decoding="async"
+            loading="lazy"
+            src="/avatars/digital-humans/dh-05-sales-representative.webp"
+          />
+        </span>
+        <span
+          class="text-12 font-medium text-background-foreground"
+        >
+          销售代表
+        </span>
+      </div>
+    </div>
+  </body>
+</html>
+
+Expected: "Sales Representative"
+Received: "销售代表"
+
+ ❯ tests/ui/i18n-chat-message-identity.test.tsx:22:88
+     20|   const directory = vi.fn(async () => [official]);
+     21|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><AgentIden…
+     22|   await waitFor(() => expect(screen.getByTestId("chat-v2-agent-identit…
+       |                                                                                        ^
+     23|   expect(screen.getByTestId("chat-v2-agent-portrait").getAttribute("da…
+     24|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+ ❯ runWithExpensiveErrorDiagnosticsDisabled ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:47:12
+ ❯ checkCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:124:77
+ ❯ Timeout.checkRealTimersCallback ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/wait-for.js:118:16
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/10]⎯
+
+ FAIL  tests/ui/i18n-chat-message-identity.test.tsx > localizes the generic author label in place without loading an agent catalog
+AssertionError: expected 'AIAI 助手' to be 'AI assistant' // Object.is equality
+
+Expected: "AI assistant"
+Received: "AIAI 助手"
+
+ ❯ tests/ui/i18n-chat-message-identity.test.tsx:43:32
+     41|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><AgentIden…
+     42|   const identity = screen.getByTestId("chat-v2-agent-identity");
+     43|   expect(identity.textContent).toBe("AI assistant");
+       |                                ^
+     44|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     45|   expect(screen.getByTestId("chat-v2-agent-identity")).toBe(identity);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/10]⎯
+
+ FAIL  tests/ui/i18n-chat-message-queue.test.tsx > keeps a queued edit and in-flight save bound to its real row across locale changes
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Edit"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "编辑":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    type="button"
+  />
+
+  Name "撤回":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "待发送消息":
+  <section
+    aria-label="待发送消息"
+    class="my-2 space-y-2 text-13"
+    data-testid="workbench-server-queue"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <section
+      aria-label="待发送消息"
+      class="my-2 space-y-2 text-13"
+      data-testid="workbench-server-queue"
+    >
+      <div
+        class="flex items-center gap-2 rounded-container border p-2"
+        data-testid="workbench-queued-message"
+      >
+        <span
+          class="min-w-0 flex-1 whitespace-pre-wrap"
+        >
+          用户排队原文 {count} 🌍
+          <span
+            class="ml-2 text-11 text-muted-foreground"
+          >
+            已排队，当前任务结束后发送
+          </span>
+        </span>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          type="button"
+        >
+          编辑
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          type="button"
+        >
+          撤回
+        </button>
+      </div>
+    </section>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-message-queue.test.tsx:17:26
+     15|   const edit = vi.fn(() => new Promise<boolean>(resolve => { resolveSa…
+     16|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><QueuedMes…
+     17|   fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+       |                          ^
+     18|   const field = screen.getByRole("textbox", { name: "Edit queued messa…
+     19|   const draft = " 新草稿 {status} / English 🌍 "; fireEvent.change(fiel…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/10]⎯
+
+ FAIL  tests/ui/i18n-chat-message-queue.test.tsx > preserves read-only controls, raw failure text and dispatched filtering
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Withdraw"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "编辑":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    disabled=""
+    type="button"
+  />
+
+  Name "撤回":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+    disabled=""
+    type="button"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "待发送消息":
+  <section
+    aria-label="待发送消息"
+    class="my-2 space-y-2 text-13"
+    data-testid="workbench-server-queue"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <section
+      aria-label="待发送消息"
+      class="my-2 space-y-2 text-13"
+      data-testid="workbench-server-queue"
+    >
+      <div
+        class="flex items-center gap-2 rounded-container border p-2"
+        data-testid="workbench-queued-message"
+      >
+        <span
+          class="min-w-0 flex-1 whitespace-pre-wrap"
+        >
+          用户排队原文 {count} 🌍
+          <span
+            class="ml-2 text-11 text-muted-foreground"
+          >
+            已排队，当前任务结束后发送
+          </span>
+        </span>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          disabled=""
+          type="button"
+        >
+          编辑
+        </button>
+        <button
+          class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-12 shrink-0 underline"
+          disabled=""
+          type="button"
+        >
+          撤回
+        </button>
+      </div>
+      <div
+        class="flex items-center gap-2 rounded-container border p-2"
+        data-testid="workbench-queued-message"
+      >
+        <span
+          class="min-w-0 flex-1 whitespace-pre-wrap"
+        >
+          失败原文 🌍
+          <span
+            class="ml-2 text-11 text-muted-foreground"
+          >
+            未能发送：raw upstream {count}
+          </span>
+        </span>
+      </div>
+    </section>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-message-queue.test.tsx:35:27
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/10]⎯
+
+ FAIL  tests/ui/i18n-chat-message-queue.test.tsx > localizes the next-turn action without dispatching anything on locale change
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Queue for next turn"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "排到下一轮":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-11"
+    data-testid="workbench-queue-next-turn"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <button
+      class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent text-muted-foreground hover:bg-muted hover:text-background-foreground h-7 px-2.5 text-11"
+      data-testid="workbench-queue-next-turn"
+      type="button"
+    >
+      排到下一轮
+    </button>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-message-queue.test.tsx:45:25
+     43|   const queue = vi.fn();
+     44|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><QueueNext…
+     45|   const action = screen.getByRole("button", { name: "Queue for next tu…
+       |                         ^
+     46|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+     47|   expect(screen.getByRole("button", { name: "排到下一轮" })).toBe(acti…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/10]⎯
+
+ FAIL  tests/ui/i18n-chat-permission-display.test.tsx > localizes permission chrome while preserving raw command and the controlled decision enum
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Allow once"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "仅本次允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-once"
+  />
+
+  Name "本 run 内都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-run"
+  />
+
+  Name "以后都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-always"
+  />
+
+  Name "拒绝":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-deny"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "agent 请求执行一个高风险操作":
+  <h3
+    class="font-semibold tracking-tight text-14"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-muted-foreground text-12"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-intent"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-rationale"
+  />
+
+  --------------------------------------------------
+  code:
+
+  Name "":
+  <code
+    class="font-mono"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+      data-testid="tool-permission-card"
+    >
+      <div
+        class="flex flex-col p-4 pb-2 gap-1"
+      >
+        <div
+          class="flex items-center gap-2"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-alert h-4 w-4 text-warning"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="M12 8v4"
+            />
+            <path
+              d="M12 16h.01"
+            />
+          </svg>
+          <h3
+            class="font-semibold tracking-tight text-14"
+          >
+            agent 请求执行一个高风险操作
+          </h3>
+          <span
+            class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+            data-testid="risk-L2"
+            title="不可逆或外发，执行前需你确认"
+          >
+            L2
+             ·
+            高风险
+          </span>
+        </div>
+        <p
+          class="text-muted-foreground text-12"
+        >
+          这类操作不可逆或会外发，未经你同意不会执行。
+        </p>
+      </div>
+      <div
+        class="p-4 pt-2 flex flex-col gap-3"
+      >
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            想做什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-intent"
+          >
+            用户原始意图 {count}
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            为什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-rationale"
+          >
+            原始原因 🌍
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            具体命令（完整，未截断）
+          </span>
+          <pre
+            class="overflow-x-auto rounded-control bg-muted p-2 text-11"
+            data-testid="perm-command"
+          >
+            <code
+              class="font-mono"
+            >
+              {"task":"用户原文","status":"pending"}
+            </code>
+          </pre>
+        </div>
+        <div
+          class="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-check mt-0.5 h-3.5 w-3.5 shrink-0"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="m9 12 2 2 4-4"
+            />
+          </svg>
+          <span
+            data-testid="perm-affects"
+          >
+            影响范围：
+            用户指定对象
+          </span>
+        </div>
+        <div
+          class="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap"
+        >
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-once"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-check h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 6 9 17l-5-5"
+              />
+            </svg>
+             仅本次允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-run"
+          >
+            本 run 内都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-always"
+          >
+            以后都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-deny"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-x h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+             拒绝
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-permission-display.test.tsx:14:23
+     12|   const decide = vi.fn();
+     13|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><ToolPermi…
+     14|   const once = screen.getByRole("button", { name: "Allow once" });
+       |                       ^
+     15|   expect(screen.getByRole("button", { name: "Allow for this run" })).t…
+     16|   expect(screen.getByRole("button", { name: "Always allow" })).toBeTru…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/10]⎯
+
+ FAIL  tests/ui/i18n-chat-permission-display.test.tsx > retranslates an existing local denial record without creating another decision
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Deny"
+
+Here are the accessible roles:
+
+  button:
+
+  Name "switch language":
+  <button />
+
+  Name "仅本次允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-once"
+  />
+
+  Name "本 run 内都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-run"
+  />
+
+  Name "以后都允许":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-always"
+  />
+
+  Name "拒绝":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+    data-testid="perm-deny"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "agent 请求执行一个高风险操作":
+  <h3
+    class="font-semibold tracking-tight text-14"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-muted-foreground text-12"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-intent"
+  />
+
+  Name "":
+  <p
+    class="text-13 text-background-foreground"
+    data-testid="perm-rationale"
+  />
+
+  --------------------------------------------------
+  code:
+
+  Name "":
+  <code
+    class="font-mono"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <div
+      class="rounded-card border bg-card text-card-foreground max-w-lg border-warning/40 shadow-lg"
+      data-testid="tool-permission-card"
+    >
+      <div
+        class="flex flex-col p-4 pb-2 gap-1"
+      >
+        <div
+          class="flex items-center gap-2"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-alert h-4 w-4 text-warning"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="M12 8v4"
+            />
+            <path
+              d="M12 16h.01"
+            />
+          </svg>
+          <h3
+            class="font-semibold tracking-tight text-14"
+          >
+            agent 请求执行一个高风险操作
+          </h3>
+          <span
+            class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-warning-tint text-warning-tint-foreground"
+            data-testid="risk-L2"
+            title="不可逆或外发，执行前需你确认"
+          >
+            L2
+             ·
+            高风险
+          </span>
+        </div>
+        <p
+          class="text-muted-foreground text-12"
+        >
+          这类操作不可逆或会外发，未经你同意不会执行。
+        </p>
+      </div>
+      <div
+        class="p-4 pt-2 flex flex-col gap-3"
+      >
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            想做什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-intent"
+          >
+            用户原始意图 {count}
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            为什么
+          </span>
+          <p
+            class="text-13 text-background-foreground"
+            data-testid="perm-rationale"
+          >
+            原始原因 🌍
+          </p>
+        </div>
+        <div
+          class="flex flex-col gap-1"
+        >
+          <span
+            class="text-11 font-medium text-muted-foreground"
+          >
+            具体命令（完整，未截断）
+          </span>
+          <pre
+            class="overflow-x-auto rounded-control bg-muted p-2 text-11"
+            data-testid="perm-command"
+          >
+            <code
+              class="font-mono"
+            >
+              {"task":"用户原文","status":"pending"}
+            </code>
+          </pre>
+        </div>
+        <div
+          class="flex items-start gap-1.5 rounded-control bg-muted p-2 text-11 text-muted-foreground"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-shield-check mt-0.5 h-3.5 w-3.5 shrink-0"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"
+            />
+            <path
+              d="m9 12 2 2 4-4"
+            />
+          </svg>
+          <span
+            data-testid="perm-affects"
+          >
+            影响范围：
+            用户指定对象
+          </span>
+        </div>
+        <div
+          class="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:justify-end sm:flex-wrap"
+        >
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-once"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-check h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M20 6 9 17l-5-5"
+              />
+            </svg>
+             仅本次允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-run"
+          >
+            本 run 内都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-always"
+          >
+            以后都允许
+          </button>
+          <button
+            class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent bg-destructive text-destructive-foreground hover:bg-destructive-hover active:scale-[0.98] h-9 px-3.5 text-13"
+            data-testid="perm-deny"
+          >
+            <svg
+              aria-hidden="true"
+              class="lucide lucide-x h-4 w-4"
+              fill="none"
+              height="24"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              viewBox="0 0 24 24"
+              width="24"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M18 6 6 18"
+              />
+              <path
+                d="m6 6 12 12"
+              />
+            </svg>
+             拒绝
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-permission-display.test.tsx:28:26
+     26| it("retranslates an existing local denial record without creating anot…
+     27|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><ToolPermi…
+     28|   fireEvent.click(screen.getByRole("button", { name: "Deny" }));
+       |                          ^
+     29|   const record = screen.getByRole("status");
+     30|   expect(record.textContent).toBe("Denied. The agent will adjust its n…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/10]⎯
+
+ FAIL  tests/ui/i18n-chat-permission-display.test.tsx > keeps a restored intent dialog open across locale changes and Escape remains a non-decision
+TestingLibraryElementError: Unable to find an accessible element with the role "dialog" and name "Confirm task intent"
+
+Here are the accessible roles:
+
+  dialog:
+
+  Name "确认任务意图":
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring overflow-y-auto overscroll-contain"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  />
+
+  --------------------------------------------------
+  heading:
+
+  Name "确认任务意图":
+  <h2
+    class="text-16 font-bold tracking-tight"
+    id="radix-:r1:"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p
+    class="text-13 text-muted-foreground"
+    id="radix-:r2:"
+  />
+
+  Name "":
+  <p
+    class="text-13 leading-relaxed text-card-foreground"
+    data-testid="agent-interrupt-confirm-intent-understanding"
+  />
+
+  --------------------------------------------------
+  list:
+
+  Name "":
+  <ul
+    class="flex flex-col gap-1.5"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "改假设":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+    data-testid="agent-interrupt-confirm-intent-edit-toggle"
+  />
+
+  Name "继续":
+  <button
+    class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+    data-testid="agent-interrupt-confirm-intent-continue"
+  />
+
+  Name "Close":
+  <button
+    aria-label="Close"
+    class="absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    data-testid="dialog-close"
+    type="button"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body
+  data-scroll-locked="1"
+  style="pointer-events: none;"
+>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+  <div
+    aria-hidden="true"
+    data-aria-hidden="true"
+  >
+    <button>
+      switch language
+    </button>
+    <button
+      class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-9 px-3.5 text-13"
+    >
+      打开待确认请求
+    </button>
+  </div>
+  <div
+    aria-hidden="true"
+    class="fixed inset-0 z-50 bg-inverse/40 backdrop-blur-sm transition-opacity duration-base"
+    data-aria-hidden="true"
+    data-state="open"
+    style="pointer-events: auto;"
+  />
+  <div
+    aria-describedby="radix-:r2:"
+    aria-labelledby="radix-:r1:"
+    class="fixed left-1/2 top-1/2 z-50 flex max-h-[85vh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-container border border-border bg-popover p-6 text-popover-foreground shadow-lg transition-all duration-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring overflow-y-auto overscroll-contain"
+    data-state="open"
+    data-testid="chat-tool-permission-dialog"
+    id="radix-:r0:"
+    role="dialog"
+    style="pointer-events: auto;"
+    tabindex="-1"
+  >
+    <h2
+      class="text-16 font-bold tracking-tight"
+      id="radix-:r1:"
+    >
+      确认任务意图
+    </h2>
+    <p
+      class="text-13 text-muted-foreground"
+      id="radix-:r2:"
+    >
+      可以暂时关闭并继续补充要求；关闭不会提交或拒绝此次请求。
+    </p>
+    <div
+      class="rounded-card border border-border bg-card text-card-foreground w-full max-w-[34rem]"
+      data-testid="agent-interrupt-confirm-intent-shell"
+    >
+      <div
+        class="flex items-start gap-2.5 border-b border-border-subtle p-3"
+      >
+        <span
+          class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-muted"
+        >
+          <svg
+            aria-hidden="true"
+            class="lucide lucide-bot h-4 w-4 text-muted-foreground"
+            fill="none"
+            height="24"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            viewBox="0 0 24 24"
+            width="24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M12 8V4H8"
+            />
+            <rect
+              height="12"
+              rx="2"
+              width="16"
+              x="4"
+              y="8"
+            />
+            <path
+              d="M2 14h2"
+            />
+            <path
+              d="M20 14h2"
+            />
+            <path
+              d="M15 13v2"
+            />
+            <path
+              d="M9 13v2"
+            />
+          </svg>
+        </span>
+        <div
+          class="flex flex-col gap-0.5"
+        >
+          <span
+            class="text-13 font-bold tracking-tight text-card-foreground"
+          >
+            确认一下我的理解，再开始
+          </span>
+          <span
+            class="text-11 text-muted-foreground"
+          >
+            未确认前，我不会执行任何后续动作。
+          </span>
+        </div>
+      </div>
+      <div
+        class="p-3"
+      >
+        <div>
+          <div
+            class="flex flex-col gap-3"
+            data-testid="agent-interrupt-confirm-intent-card"
+          >
+            <div
+              class="flex flex-col gap-1"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我的理解
+              </span>
+              <p
+                class="text-13 leading-relaxed text-card-foreground"
+                data-testid="agent-interrupt-confirm-intent-understanding"
+              >
+                用户原始任务 {count}
+              </p>
+            </div>
+            <div
+              class="flex flex-col gap-2"
+            >
+              <span
+                class="text-11 font-medium text-muted-foreground"
+              >
+                我做了这些假设（
+                0
+                 条）
+              </span>
+              <ul
+                class="flex flex-col gap-1.5"
+              />
+            </div>
+            <div
+              class="flex items-center gap-2 rounded-md border border-dashed border-border px-2.5 py-1.5"
+              data-testid="agent-interrupt-confirm-intent-gated-notice"
+            >
+              <svg
+                aria-hidden="true"
+                class="lucide lucide-sparkles h-3.5 w-3.5 text-muted-foreground"
+                fill="none"
+                height="24"
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                viewBox="0 0 24 24"
+                width="24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"
+                />
+                <path
+                  d="M20 3v4"
+                />
+                <path
+                  d="M22 5h-4"
+                />
+                <path
+                  d="M4 17v2"
+                />
+                <path
+                  d="M5 18H3"
+                />
+              </svg>
+              <span
+                class="text-11 text-muted-foreground"
+              >
+                后续步骤（拉取数据、生成报告…）在你确认前不会开始。
+              </span>
+            </div>
+            <div
+              class="flex items-center justify-end gap-2"
+            >
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium transition-colors duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent border border-border bg-card text-card-foreground hover:bg-muted active:scale-[0.98] h-7 px-2.5 text-12"
+                data-testid="agent-interrupt-confirm-intent-edit-toggle"
+              >
+                改假设
+              </button>
+              <button
+                class="inline-flex min-h-6 items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-medium duration-base ease-base motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:bg-disabled disabled:text-disabled-foreground disabled:border-transparent active:scale-[0.98] h-7 px-2.5 text-12 bg-background-foreground text-background transition-colors duration-fast hover:bg-background-foreground/90"
+                data-testid="agent-interrupt-confirm-intent-continue"
+              >
+                继续
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button
+      aria-label="Close"
+      class="absolute right-3 top-3 rounded-control p-2 text-muted-foreground transition-all duration-base hover:bg-muted hover:text-background-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      data-testid="dialog-close"
+      type="button"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-x h-4 w-4"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M18 6 6 18"
+        />
+        <path
+          d="m6 6 12 12"
+        />
+      </svg>
+    </button>
+  </div>
+  <span
+    aria-hidden="true"
+    data-aria-hidden="true"
+    data-radix-focus-guard=""
+    style="outline: none; opacity: 0; position: fixed; pointer-events: none;"
+    tabindex="0"
+  />
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-permission-display.test.tsx:39:25
+     37|   const decide = vi.fn(async () => {});
+     38|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><Interrupt…
+     39|   const dialog = screen.getByRole("dialog", { name: "Confirm task inte…
+       |                         ^
+     40|   act(() => changeLanguage());
+     41|   expect(screen.getByRole("dialog", { name: "确认任务意图" })).toBe(di…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/10]⎯
+
+ Test Files  4 failed (4)
+      Tests  10 failed | 1 passed (11)
+   Start at  04:56:05
+   Duration  7.47s (transform 1.22s, setup 438ms, collect 2.49s, tests 1.63s, environment 2.24s, prepare 175ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-message-identity.test.tsx tests/ui/i18n-chat-message-queue.test.tsx tests/ui/i18n-chat-message-actions.test.tsx tests/ui/i18n-chat-permission-display.test.tsx

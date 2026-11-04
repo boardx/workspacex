@@ -48,9 +48,9 @@
 ### Task 3: Messages, tools, run/queue and actions
 
 **Files:** assistant/user-message renderers,message-actions,toolrenderers,workbench/*,error/status displayhelpers,typedchat-interactions namespace.
-- [ ] AddsemanticEN/zhcontinuity plusrawmessage/code/toolargument/APIpayloadnegativecases.
-- [ ] RunRED beforeminimaldisplayimplementation.
-- [ ] Keepreason/enums stable, localizesemanticUIat render, neverregex usermessages or translatedexecutioninstructions.
+- [x] AddsemanticEN/zhcontinuity plusrawmessage/code/toolargument/APIpayloadnegativecases.
+- [x] RunRED beforeminimaldisplayimplementation.
+- [x] Keepreason/enums stable, localizesemanticUIat render, neverregex usermessages or translatedexecutioninstructions.
 - [ ] Runadjacentapproval/queue/stream/reload tests, commit.
 
 ### Task 4: Inspector, settings, details, knowledge andpreviewoverlays

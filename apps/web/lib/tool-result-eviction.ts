@@ -1,3 +1,6 @@
+import { translate } from "@/lib/i18n/messages";
+import type { Locale } from "@/lib/i18n/locale";
+
 /**
  * deep-agent 内核（`deepagents` `FilesystemMiddleware`，配置见
  * `apps/deep-agent-service/src/deep_agent_service/harness.py` 的 `TOOL_RESULT_EVICT_TOKENS`）
@@ -42,6 +45,6 @@ export function parseEvictedToolResult(text: string | null | undefined): Evicted
 }
 
 /** 给用户看的那一句——单一来源，工具卡与测试都引用它而不是各写一遍。 */
-export function evictedToolResultNotice(path: string): string {
-  return `结果较长，已存为文件 ${path}，agent 会按需读取`;
+export function evictedToolResultNotice(path: string, locale: Locale = "zh-CN"): string {
+  return translate(locale, "chatTools.evicted", { path });
 }

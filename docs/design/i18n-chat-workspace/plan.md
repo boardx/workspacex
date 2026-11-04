@@ -36,7 +36,7 @@ flowchart TD
   class S1 done
   class S2 doing
   class S3 doing
-  class S4 todo
+  class S4 doing
   class S5 todo
   class S6 todo
 ```
@@ -45,3 +45,4 @@ flowchart TD
 | 时间 | 节点 | 状态变化 | 依据（命令 / 证据 / 堵塞原因） |
 |---|---|---|---|
 | 2026-11-04 | G, S1 | todo → doing | 接到目标，开始理解 |
+| 2026-11-04 | S4 | todo → doing | Task3 current-source provider27/27 GREEN17.24s; next8 actualRED before display implementation. Original approval/trace regressions, cumulative latest type/lint and browser acceptance still pending. |

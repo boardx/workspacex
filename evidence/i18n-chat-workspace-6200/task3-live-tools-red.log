@@ -1,0 +1,569 @@
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web
+
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx
+Lit is in dev mode. Not recommended for production! See https://lit.dev/msg/dev-mode for more information.
+
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx > uses the actual SDK renderer with translated chrome and unchanged raw file identity
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+stderr | tests/ui/i18n-chat-tool-renderers.test.tsx > preserves authoritative failure and raw server result in the actual SDK renderer
+Failed to load runtime info (/api/copilotkit/info): Failed to parse URL from /api/copilotkit/info
+
+ ❯ tests/ui/i18n-chat-tool-renderers.test.tsx (2 tests | 2 failed) 76ms
+   × uses the actual SDK renderer with translated chrome and unchanged raw file identity 61ms
+     → Unable to find an element with the text: Read file. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<div
+  class="rounded-card border border-border bg-card text-card-foreground"
+  data-testid="copilotkit-v2-tool-generic"
+  data-tool-name="read_file"
+  data-tool-status="executing"
+>
+  <div
+    class="flex flex-col gap-1.5 p-2.5 text-11"
+  >
+    <div
+      class="flex items-center gap-1.5 font-medium text-card-foreground"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-loader-circle h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M21 12a9 9 0 1 1-6.219-8.56"
+        />
+      </svg>
+      <span
+        class=""
+        title="read_file"
+      >
+        读取文件
+      </span>
+      <span
+        class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"
+      >
+        进行中
+      </span>
+    </div>
+    <p
+      class="truncate font-mono text-10 text-muted-foreground"
+    >
+      用户文件{count}.txt
+    </p>
+  </div>
+</div>
+   × preserves authoritative failure and raw server result in the actual SDK renderer 15ms
+     → Unable to find a label with the text of: Failed
+
+Ignored nodes: comments, script, style
+<div
+  class="rounded-card border border-border bg-card text-card-foreground"
+  data-testid="copilotkit-v2-tool-generic"
+  data-tool-name="custom_raw_tool"
+  data-tool-status="failed"
+>
+  <div
+    class="flex flex-col gap-1.5 p-2.5 text-11"
+  >
+    <div
+      class="flex items-center gap-1.5 font-medium text-card-foreground"
+    >
+      <svg
+        aria-label="失败"
+        class="lucide lucide-circle-alert h-3.5 w-3.5 shrink-0 text-destructive"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+        />
+        <line
+          x1="12"
+          x2="12"
+          y1="8"
+          y2="12"
+        />
+        <line
+          x1="12"
+          x2="12.01"
+          y1="16"
+          y2="16"
+        />
+      </svg>
+      <span
+        class="font-mono"
+        title="custom_raw_tool"
+      >
+        custom_raw_tool
+      </span>
+    </div>
+    <p
+      class="truncate font-mono text-10 text-muted-foreground"
+    >
+      {"unknown":"原始参数{count}"}
+    </p>
+    <p
+      class="whitespace-pre-wrap break-words text-10 text-card-foreground"
+      data-testid="copilotkit-v2-tool-generic-result"
+    >
+      服务端原始错误 {count} 🌍
+    </p>
+  </div>
+</div>
+ ❯ tests/ui/i18n-chat-trace-live.test.tsx (2 tests | 2 failed) 43ms
+   × preserves elapsed time and completed facts when changing locale between tool calls 28ms
+     → expected '刚失败：执行工具操作 · 已完成 1 个动作' to contain 'Just failed'
+   × localizes recent-step status without changing raw filenames, selected rows or preview limit 14ms
+     → Unable to find an element with the text: Expand to see all 4 actions. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <ul
+      class="ml-3 space-y-1 border-l border-border-subtle pl-4 text-12 text-muted-foreground"
+      data-count="3"
+      data-testid="run-trace-live-preview"
+      data-total="4"
+    >
+      <li
+        class="flex min-w-0 items-center gap-2"
+        data-status="succeeded"
+        data-testid="run-trace-live-preview-row"
+      >
+        <svg
+          aria-label="已完成"
+          class="lucide lucide-check h-3 w-3 shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        <span
+          class="min-w-0 truncate"
+        >
+          原始文件1{count}.txt
+        </span>
+      </li>
+      <li
+        class="flex min-w-0 items-center gap-2"
+        data-status="running"
+        data-testid="run-trace-live-preview-row"
+      >
+        <span
+          aria-label="进行中"
+          class="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+        />
+        <span
+          class="min-w-0 truncate"
+        >
+          原始文件2{count}.txt
+        </span>
+      </li>
+      <li
+        class="flex min-w-0 items-center gap-2"
+        data-status="succeeded"
+        data-testid="run-trace-live-preview-row"
+      >
+        <svg
+          aria-label="已完成"
+          class="lucide lucide-check h-3 w-3 shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        <span
+          class="min-w-0 truncate"
+        >
+          原始文件3{count}.txt
+        </span>
+      </li>
+      <li
+        class="text-11 opacity-70"
+        data-testid="run-trace-live-preview-more"
+      >
+        展开可看全部
+        4
+         个动作
+      </li>
+    </ul>
+  </div>
+</body>
+ ❯ tests/ui/i18n-chat-interjection.test.tsx (2 tests | 2 failed) 32ms
+   × keeps unapplied content and explicit resend separate from a language change 27ms
+     → expected '插话「用户插话 {count} 🌍」 · 本轮未被采纳，助手没有收到这句…' to contain 'Not applied in this run; the assistan…'
+   × describes carried-over input as a durable handoff without offering another resend 4ms
+     → expected '插话「下一轮原文 {status}」 · 本轮没来得及采纳，已作为下一条消…' to contain 'Carried over as the next message'
+ ❯ tests/chat-tool-label-i18n.test.ts (2 tests | 1 failed) 6ms
+   × renders known tool names in the requested locale with legacy Chinese compatibility 5ms
+     → expected '读取文件' to be 'Read file' // Object.is equality
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/chat-tool-label-i18n.test.ts > renders known tool names in the requested locale with legacy Chinese compatibility
+AssertionError: expected '读取文件' to be 'Read file' // Object.is equality
+
+Expected: "Read file"
+Received: "读取文件"
+
+ ❯ tests/chat-tool-label-i18n.test.ts:4:40
+      2| import { toolLabel, toolObject } from "@/lib/chat-workbench/tool-label…
+      3| it("renders known tool names in the requested locale with legacy Chine…
+      4|   expect(toolLabel("read_file", "en")).toBe("Read file");
+       |                                        ^
+      5|   expect(toolLabel("start_workflow", "en")).toBe("Start workflow");
+      6|   expect(toolLabel("wx_remember", "en")).toBe("Suggest remembering (co…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  tests/ui/i18n-chat-interjection.test.tsx > keeps unapplied content and explicit resend separate from a language change
+AssertionError: expected '插话「用户插话 {count} 🌍」 · 本轮未被采纳，助手没有收到这句…' to contain 'Not applied in this run; the assistan…'
+
+Expected: "Not applied in this run; the assistant did not receive this message"
+Received: "插话「用户插话 {count} 🌍」 · 本轮未被采纳，助手没有收到这句话 重新发送"
+
+ ❯ tests/ui/i18n-chat-interjection.test.tsx:15:30
+     13|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><RunInterj…
+     14|   const status = screen.getByTestId("workbench-interjection-status");
+     15|   expect(status.textContent).toContain("Not applied in this run; the a…
+       |                              ^
+     16|   expect(status.textContent).toContain(text); expect(within(status).ge…
+     17|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  tests/ui/i18n-chat-interjection.test.tsx > describes carried-over input as a durable handoff without offering another resend
+AssertionError: expected '插话「下一轮原文 {status}」 · 本轮没来得及采纳，已作为下一条消…' to contain 'Carried over as the next message'
+
+Expected: "Carried over as the next message"
+Received: "插话「下一轮原文 {status}」 · 本轮没来得及采纳，已作为下一条消息带入下一轮"
+
+ ❯ tests/ui/i18n-chat-interjection.test.tsx:26:30
+     24|   render(<I18nProvider initialLocale="en"><RunInterjections events={ev…
+     25|   const status = screen.getByTestId("workbench-interjection-status"); …
+     26|   expect(status.textContent).toContain("Carried over as the next messa…
+       |                              ^
+     27|   expect(screen.queryByTestId("workbench-interjection-resend")).toBeNu…
+     28| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  tests/ui/i18n-chat-tool-renderers.test.tsx > uses the actual SDK renderer with translated chrome and unchanged raw file identity
+TestingLibraryElementError: Unable to find an element with the text: Read file. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<div
+  class="rounded-card border border-border bg-card text-card-foreground"
+  data-testid="copilotkit-v2-tool-generic"
+  data-tool-name="read_file"
+  data-tool-status="executing"
+>
+  <div
+    class="flex flex-col gap-1.5 p-2.5 text-11"
+  >
+    <div
+      class="flex items-center gap-1.5 font-medium text-card-foreground"
+    >
+      <svg
+        aria-hidden="true"
+        class="lucide lucide-loader-circle h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <path
+          d="M21 12a9 9 0 1 1-6.219-8.56"
+        />
+      </svg>
+      <span
+        class=""
+        title="read_file"
+      >
+        读取文件
+      </span>
+      <span
+        class="inline-flex items-center gap-1 rounded-control px-1.5 py-0.5 text-10 font-medium transition-colors duration-200 bg-muted text-muted-foreground"
+      >
+        进行中
+      </span>
+    </div>
+    <p
+      class="truncate font-mono text-10 text-muted-foreground"
+    >
+      用户文件{count}.txt
+    </p>
+  </div>
+</div>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-tool-renderers.test.tsx:22:23
+     20|   show([{ ...base, seq: 1, kind: "tool_start", toolCallId: "raw-call",…
+     21|   const card = screen.getByTestId("copilotkit-v2-tool-generic");
+     22|   expect(within(card).getByText("Read file")).toBeTruthy(); expect(wit…
+       |                       ^
+     23|   expect(within(card).getByText("用户文件{count}.txt")).toBeTruthy();
+     24|   const status = card.getAttribute("data-tool-status");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  tests/ui/i18n-chat-tool-renderers.test.tsx > preserves authoritative failure and raw server result in the actual SDK renderer
+TestingLibraryElementError: Unable to find a label with the text of: Failed
+
+Ignored nodes: comments, script, style
+<div
+  class="rounded-card border border-border bg-card text-card-foreground"
+  data-testid="copilotkit-v2-tool-generic"
+  data-tool-name="custom_raw_tool"
+  data-tool-status="failed"
+>
+  <div
+    class="flex flex-col gap-1.5 p-2.5 text-11"
+  >
+    <div
+      class="flex items-center gap-1.5 font-medium text-card-foreground"
+    >
+      <svg
+        aria-label="失败"
+        class="lucide lucide-circle-alert h-3.5 w-3.5 shrink-0 text-destructive"
+        fill="none"
+        height="24"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        viewBox="0 0 24 24"
+        width="24"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+        />
+        <line
+          x1="12"
+          x2="12"
+          y1="8"
+          y2="12"
+        />
+        <line
+          x1="12"
+          x2="12.01"
+          y1="16"
+          y2="16"
+        />
+      </svg>
+      <span
+        class="font-mono"
+        title="custom_raw_tool"
+      >
+        custom_raw_tool
+      </span>
+    </div>
+    <p
+      class="truncate font-mono text-10 text-muted-foreground"
+    >
+      {"unknown":"原始参数{count}"}
+    </p>
+    <p
+      class="whitespace-pre-wrap break-words text-10 text-card-foreground"
+      data-testid="copilotkit-v2-tool-generic-result"
+    >
+      服务端原始错误 {count} 🌍
+    </p>
+  </div>
+</div>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ getAllByLabelText ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/queries/label-text.js:111:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-tool-renderers.test.tsx:37:23
+     35|   ]);
+     36|   const card = screen.getByTestId("copilotkit-v2-tool-generic"); expec…
+     37|   expect(within(card).getByLabelText("Failed")).toBeTruthy(); expect(w…
+       |                       ^
+     38|   const raw = screen.getByTestId("copilotkit-v2-tool-generic-result");…
+     39|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+
+ FAIL  tests/ui/i18n-chat-trace-live.test.tsx > preserves elapsed time and completed facts when changing locale between tool calls
+AssertionError: expected '刚失败：执行工具操作 · 已完成 1 个动作' to contain 'Just failed'
+
+Expected: "Just failed"
+Received: "刚失败：执行工具操作 · 已完成 1 个动作"
+
+ ❯ tests/ui/i18n-chat-trace-live.test.tsx:15:29
+     13|   render(<I18nProvider initialLocale="en"><SwitchLanguage /><RunTraceL…
+     14|   const strip = screen.getByTestId("run-trace-live-strip"); const labe…
+     15|   expect(label.textContent).toContain("Just failed"); expect(strip.get…
+       |                             ^
+     16|   act(() => vi.advanceTimersByTime(4000)); expect(label.textContent).t…
+     17|   fireEvent.click(screen.getByRole("button", { name: "switch language"…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/7]⎯
+
+ FAIL  tests/ui/i18n-chat-trace-live.test.tsx > localizes recent-step status without changing raw filenames, selected rows or preview limit
+TestingLibraryElementError: Unable to find an element with the text: Expand to see all 4 actions. This could be because the text is broken up by multiple elements. In this case, you can provide a function for your text matcher to make your matcher more flexible.
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <button>
+      switch language
+    </button>
+    <ul
+      class="ml-3 space-y-1 border-l border-border-subtle pl-4 text-12 text-muted-foreground"
+      data-count="3"
+      data-testid="run-trace-live-preview"
+      data-total="4"
+    >
+      <li
+        class="flex min-w-0 items-center gap-2"
+        data-status="succeeded"
+        data-testid="run-trace-live-preview-row"
+      >
+        <svg
+          aria-label="已完成"
+          class="lucide lucide-check h-3 w-3 shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        <span
+          class="min-w-0 truncate"
+        >
+          原始文件1{count}.txt
+        </span>
+      </li>
+      <li
+        class="flex min-w-0 items-center gap-2"
+        data-status="running"
+        data-testid="run-trace-live-preview-row"
+      >
+        <span
+          aria-label="进行中"
+          class="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-primary"
+        />
+        <span
+          class="min-w-0 truncate"
+        >
+          原始文件2{count}.txt
+        </span>
+      </li>
+      <li
+        class="flex min-w-0 items-center gap-2"
+        data-status="succeeded"
+        data-testid="run-trace-live-preview-row"
+      >
+        <svg
+          aria-label="已完成"
+          class="lucide lucide-check h-3 w-3 shrink-0"
+          fill="none"
+          height="24"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          viewBox="0 0 24 24"
+          width="24"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path
+            d="M20 6 9 17l-5-5"
+          />
+        </svg>
+        <span
+          class="min-w-0 truncate"
+        >
+          原始文件3{count}.txt
+        </span>
+      </li>
+      <li
+        class="text-11 opacity-70"
+        data-testid="run-trace-live-preview-more"
+      >
+        展开可看全部
+        4
+         个动作
+      </li>
+    </ul>
+  </div>
+</body>
+ ❯ Object.getElementError ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ ../../node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/ui/i18n-chat-trace-live.test.tsx:26:17
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/7]⎯
+
+ Test Files  4 failed (4)
+      Tests  7 failed | 1 passed (8)
+   Start at  05:34:04
+   Duration  8.35s (transform 2.02s, setup 433ms, collect 5.10s, tests 157ms, environment 1.73s, prepare 176ms)
+
+undefined
+/Users/shenyangjun/boardx/workspacex-i18n-subpages/apps/web:
+ ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL  Command failed with exit code 1: vitest run tests/ui/i18n-chat-trace-live.test.tsx tests/chat-tool-label-i18n.test.ts tests/ui/i18n-chat-tool-renderers.test.tsx tests/ui/i18n-chat-interjection.test.tsx
