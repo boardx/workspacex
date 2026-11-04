@@ -629,8 +629,8 @@ export function SurveyQuestionEditor({
               />
               {issues.length > 0 && (
                 <ul className="text-12 text-destructive" aria-label={t("survey.design.configCheck")}>
-                  {issues.map((message) => (
-                    <li key={message}>{displaySurveyDiagnostic(message, t)}</li>
+                  {issues.map((message, issueIndex) => (
+                    <li key={`${issueIndex}:${message}`}>{displaySurveyDiagnostic(message, t)}</li>
                   ))}
                 </ul>
               )}

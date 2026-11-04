@@ -113,7 +113,7 @@ export function SurveyQuestionRenderer({
         className="space-y-2 border-b border-border py-3"
       >
         <h2 className={showTitle ? "text-18 font-semibold" : "sr-only"}>{label}</h2>
-        {config.images?.description && (
+        {config.images?.description?.url.trim() && (
           <Image
             unoptimized
             width={600}
@@ -149,7 +149,7 @@ export function SurveyQuestionRenderer({
               onChange={() => select(choice.id, multi)}
             />
             <span className="min-w-0 break-words">
-              {config.images?.[choice.id] && (
+              {config.images?.[choice.id]?.url.trim() && (
                 <Image
                   unoptimized
                   width={600}
