@@ -1,3 +1,4 @@
+import { surveyLibraryEn } from "../namespaces/survey-library";
 import { recordingProjectEn } from "../namespaces/recording-project";
 import { orgHomeConfigEn } from "../namespaces/org-home-config";
 import { orgProfileEn } from "../namespaces/org-profile";
@@ -21,6 +22,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...surveyLibraryEn,
   ...orgHomeConfigEn,
   ...orgProfileEn,
   ...brainViewsEn,

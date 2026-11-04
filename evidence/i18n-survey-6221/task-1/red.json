@@ -1,0 +1,19 @@
+{
+  "name": "red",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-library-i18n.test.tsx",
+    "tests/ui/survey-import-i18n.test.tsx",
+    "--maxWorkers=1"
+  ],
+  "source": "3e57422708690acae1e31bc2dab8b080913211ec",
+  "exitCode": 1,
+  "seconds": 1.297,
+  "rawLogLocalPath": "/tmp/6221-task1-private/red.log",
+  "rawLogSha256": "a61c84c75539566e6654efdb4e054dfa442787f82cbc728b41e7ca303b4ee11e"
+}

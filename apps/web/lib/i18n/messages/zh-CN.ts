@@ -1,3 +1,4 @@
+import { surveyLibraryZhCN } from "../namespaces/survey-library";
 import { recordingProjectZhCN } from "../namespaces/recording-project";
 import { orgHomeConfigZhCN } from "../namespaces/org-home-config";
 import { orgProfileZhCN } from "../namespaces/org-profile";
@@ -20,6 +21,7 @@ import { stateZhCN } from "../namespaces/state";
 import { accountEntryZhCN } from "../namespaces/account-entry";
 import { invitationEntryZhCN } from "../namespaces/invitation-entry";
 export const zhCN = {
+  ...surveyLibraryZhCN,
   ...recordingProjectZhCN,
   ...orgHomeConfigZhCN,
   ...orgProfileZhCN,

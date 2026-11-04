@@ -1,0 +1,21 @@
+{
+  "name": "red-corrected",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-library-i18n.test.tsx",
+    "tests/ui/survey-import-i18n.test.tsx"
+  ],
+  "source": "e9b01902f43ef0c3c44a590b4834afb15431ef6d",
+  "exitCode": 1,
+  "seconds": 6.741,
+  "rawLogLocalPath": "/tmp/6221-task1-private/red-corrected.log",
+  "rawLogSha256": "2a24a70bcfe2273d351365024d7f1076ccd0e6f2595eff1764bae0a472131bb5",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  }
+}
