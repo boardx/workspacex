@@ -1,0 +1,80 @@
+{
+  "verifiedSource": "2a02aa518e689752bc3c650c77115cbd19dc384a",
+  "review": "CLEAN complete actual scope; see review-report.md",
+  "browser": "Prior source-specific individual receipts only; no combined rerun",
+  "freshChecks": {
+    "typeunit-exits.json": {
+      "sourceSha": "2a02aa518e689752bc3c650c77115cbd19dc384a",
+      "mode": "typeunit",
+      "web-type": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 58.77
+      },
+      "api-type": {
+        "exit": 124,
+        "status": "timed-out-budget",
+        "seconds": 29.37,
+        "log": "api-type-first-budget.txt"
+      },
+      "unit": {
+        "status": "not-run-budget"
+      },
+      "totalSeconds": 88.16
+    },
+    "api-exits.json": {
+      "sourceSha": "2a02aa518e689752bc3c650c77115cbd19dc384a",
+      "mode": "api",
+      "api-type-final": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 44.34
+      },
+      "totalSeconds": 44.37
+    },
+    "unit-exits.json": {
+      "sourceSha": "2a02aa518e689752bc3c650c77115cbd19dc384a",
+      "mode": "unit",
+      "unit-final": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 10.6
+      },
+      "totalSeconds": 10.63
+    },
+    "static-exits.json": {
+      "sourceSha": "2a02aa518e689752bc3c650c77115cbd19dc384a",
+      "mode": "static",
+      "eslint": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 2.39
+      },
+      "init": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 9.09
+      },
+      "testid": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 3.7
+      },
+      "wiring": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 3.29
+      },
+      "spec-gate": {
+        "exit": 0,
+        "status": "finished",
+        "seconds": 35.5
+      },
+      "totalSeconds": 54.0
+    }
+  },
+  "unitFiles": 13,
+  "unitPassed": 111,
+  "initMode": "quick; RUN_INFRA=0/RUN_START_COMMAND=0; no containers/services started",
+  "earlierApiBudgetAttempt": "Preserved124; superseded only by actual canonical APItype0/44.34s"
+}
