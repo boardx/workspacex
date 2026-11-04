@@ -1,0 +1,25 @@
+{
+  "name": "red-chart-display",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-results-i18n.test.tsx",
+    "-t",
+    "localizes only"
+  ],
+  "source": "19b673daf23073fd955268555b82b39c787d8fc1",
+  "exitCode": 1,
+  "seconds": 5.273,
+  "rawLogSha256": "fc43237eea0212c8319f7ffeeab90fb44a35c0888d55c3f5f29623c12ec83e4c",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "failed": 1,
+  "filtered": 17,
+  "passed": 0,
+  "classification": "Corrected chart semantic RED at missing legend formatter; own independent four-file WIP protected and restored exact hashes/modes around the exact-source run."
+}

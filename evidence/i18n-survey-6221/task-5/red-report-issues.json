@@ -1,0 +1,24 @@
+{
+  "name": "red-report-issues",
+  "command": [
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "vitest",
+    "run",
+    "tests/ui/survey-report-issues-i18n.test.ts"
+  ],
+  "source": "2b8f120c982d33f7023e1d640e75ccd0efb648d2",
+  "exitCode": 1,
+  "seconds": 3.778,
+  "rawLogSha256": "d440124b630896825f968dad128aaffc8fb0541778926eaef3d7c15f96820cd0",
+  "environment": {
+    "WORKSPACEX_WEB_TEST_MAX_WORKERS": "1"
+  },
+  "failed": 12,
+  "passed": 3,
+  "validSemanticFailures": 10,
+  "fixtureGuardFailures": 2,
+  "classification": "Two sharing minimum fixtures assumed5 while actual contract was8; not counted as semantic RED. Corrected to exported authoritative constant before implementing those two branches."
+}
