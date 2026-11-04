@@ -46,6 +46,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { AdminDrawer } from "./panel";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n/provider";
 
 /** 一个可筛选的标签。`key` 进 testid，用英文 slug；`label` 是人看的。 */
 export interface CatalogTag {
@@ -118,7 +119,7 @@ export function EntityCatalog<T>({
   cardTestId,
   onRefresh,
   emptyState,
-  searchPlaceholder = "按名字或标识搜索…",
+  searchPlaceholder,
   selectedKey,
   onSelect,
   detailTitle,
@@ -130,6 +131,7 @@ export function EntityCatalog<T>({
   children,
   className,
 }: EntityCatalogProps<T>) {
+  const { t } = useI18n();
   const [query, setQuery] = React.useState("");
   const [activeTags, setActiveTags] = React.useState<ReadonlySet<string>>(() => new Set());
 
@@ -184,7 +186,7 @@ export function EntityCatalog<T>({
             <h1 className="text-20 font-semibold tracking-tight">{title}</h1>
             {status.kind === "ready" && (
               <span className="text-12 text-muted-foreground" data-testid={`${prefix}-count`}>
-                {filterActive ? `共 ${rows.length} 个 · 筛选后 ${filtered.length} 个` : `共 ${rows.length} 个`}
+                {filterActive ? t("catalog.filteredCount", { count: rows.length, filtered: filtered.length }) : t("catalog.count", { count: rows.length })}
               </span>
             )}
           </div>
@@ -200,7 +202,7 @@ export function EntityCatalog<T>({
             data-testid={`${prefix}-refresh`}
           >
             <RefreshCw aria-hidden className="h-3.5 w-3.5" />
-            {loading ? "加载中…" : "刷新"}
+            {loading ? t("catalog.loading") : t("catalog.refresh")}
           </Button>
         </div>
       </header>
@@ -213,10 +215,10 @@ export function EntityCatalog<T>({
           <Input
             type="search"
             className="pl-8"
-            placeholder={searchPlaceholder}
+            placeholder={searchPlaceholder ?? t("catalog.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label={`搜索${title}`}
+            aria-label={t("catalog.search", { title })}
             data-testid={`${prefix}-search`}
           />
         </label>
@@ -239,7 +241,7 @@ export function EntityCatalog<T>({
           data-testid={`${prefix}-loading`}
           className="rounded-card border border-dashed border-border py-10 text-center text-12 text-muted-foreground"
         >
-          正在读取当前组织的{title}…
+          {t("catalog.reading", { title })}
         </div>
       )}
 
@@ -249,10 +251,10 @@ export function EntityCatalog<T>({
           role="alert"
         >
           <p data-testid={`${prefix}-error`} className="text-12 text-destructive">
-            {title}读取失败：{status.message}
+            {t("catalog.failed", { title, message: status.message })}
           </p>
           <Button size="sm" variant="outline" onClick={onRefresh} data-testid={`${prefix}-retry`}>
-            重试
+            {t("catalog.retry")}
           </Button>
         </div>
       )}
@@ -272,8 +274,8 @@ export function EntityCatalog<T>({
           data-testid={`${prefix}-no-match`}
           className="flex flex-col gap-1 rounded-card border border-dashed border-border p-6"
         >
-          <p className="text-13 font-medium">没有匹配当前搜索 / 标签的{title}</p>
-          <p className="text-11 text-muted-foreground">共 {rows.length} 个，清空搜索框或标签就能看到全部。</p>
+          <p className="text-13 font-medium">{t("catalog.noMatch", { title })}</p>
+          <p className="text-11 text-muted-foreground">{t("catalog.clearHint", { count: rows.length })}</p>
         </div>
       )}
 

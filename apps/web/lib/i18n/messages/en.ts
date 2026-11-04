@@ -1,3 +1,4 @@
+import { platformModelCatalogEn } from "../namespaces/platform-model-catalog";
 import { telemetrySettingsEn } from "../namespaces/telemetry-settings";
 import { platformMembersEn } from "../namespaces/platform-members";
 import { aiUsageEn } from "../namespaces/ai-usage";
@@ -28,6 +29,7 @@ import type { zhCN } from "./zh-CN";
 import { accountEntryEn } from "../namespaces/account-entry";
 import { invitationEntryEn } from "../namespaces/invitation-entry";
 export const en: Record<keyof typeof zhCN, string> = {
+  ...platformModelCatalogEn,
   ...telemetrySettingsEn,
   ...platformMembersEn,
   ...aiUsageEn,

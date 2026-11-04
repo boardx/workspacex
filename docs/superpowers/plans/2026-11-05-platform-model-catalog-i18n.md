@@ -11,9 +11,9 @@ Global constraints: root owns normal Git/gates/resource handoff/evidence; worker
 
 Own production: apps/web/components/admin/model-screen.tsx, org-core-model-panel.tsx, bailian-model-catalog.tsx, entity-catalog.tsx, disable-dialog.tsx; typed namespace entries and en/zh-CN dictionary wiring. No filtering/helper/SDK/contracts/API/provider/accounting changes. Existing shared labels must remain single-source; preserve tag keys independently of translated display labels. Preserve all old tests.
 
-- [ ] StageA new tests only: apps/web/tests/ui/platform-model-catalog-i18n.test.tsx. Full English and locale-switch ownership/draft/filter/validation/call/payload/financial-display assertions with faithful SDK fixtures; no production changes.
-- [ ] Root freeze + focused semantic RED with legacy/resource controls. Schema/driver/type/collection mistakes are not valid RED.
-- [ ] StageB minimum complete display implementation only after root release.
+- [x] StageA new tests only: apps/web/tests/ui/platform-model-catalog-i18n.test.tsx. Full English and locale-switch ownership/draft/filter/validation/call/payload/financial-display assertions with faithful SDK fixtures; no production changes.
+- [x] Root freeze + focused semantic RED with legacy/resource controls. Schema/driver/type/collection mistakes are not valid RED.
+- [x] StageB minimum complete display implementation only after root release.
 - [ ] Root related GREEN/lint/types/init/raw/testid/wiring/static and independent task review.
 
 ### Task 2: Native route and cloud acceptance
