@@ -1,0 +1,46 @@
+
+ RUN  v2.1.9 /Users/shenyangjun/boardx/workspacex-i18n-agent-skill/apps/api
+
+ ❯ tests/billing/global-error-boundary.test.ts (18 tests | 4 failed) 216ms
+   × organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"QUOTA_OVERALLOCATED","remainingTokens":500000} 28ms
+     → expected { error: 'conflict', …(2) } to deeply equal { error: 'conflict', …(3) }
+   × organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"QUOTA_OVERALLOCATED","remainingTokens":0} 4ms
+     → expected { error: 'conflict', …(2) } to deeply equal { error: 'conflict', …(3) }
+   × organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"BUDGET_BELOW_ALLOCATED","allocated":12500} 2ms
+     → expected { error: 'conflict', …(2) } to deeply equal { error: 'conflict', …(3) }
+   × organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"BUDGET_BELOW_ALLOCATED","allocated":0} 2ms
+     → expected { error: 'conflict', …(2) } to deeply equal { error: 'conflict', …(3) }
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/billing/global-error-boundary.test.ts > organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"QUOTA_OVERALLOCATED","remainingTokens":500000}
+ FAIL  tests/billing/global-error-boundary.test.ts > organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"QUOTA_OVERALLOCATED","remainingTokens":0}
+ FAIL  tests/billing/global-error-boundary.test.ts > organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"BUDGET_BELOW_ALLOCATED","allocated":12500}
+ FAIL  tests/billing/global-error-boundary.test.ts > organization quota guidance through the production HTTP boundary > preserves numeric guidance including zero: {"reasonCode":"BUDGET_BELOW_ALLOCATED","allocated":0}
+AssertionError: expected { error: 'conflict', …(2) } to deeply equal { error: 'conflict', …(3) }
+
+- Expected
++ Received
+
+  Object {
+    "error": "conflict",
+    "reasonCode": "QUOTA_OVERALLOCATED",
+-   "remainingTokens": 500000,
+    "traceId": "quota-conflict-trace",
+  }
+
+ ❯ tests/billing/global-error-boundary.test.ts:78:35
+     76|     const response = await fetch(`${base}/quota-conflict`);
+     77|     expect(response.status).toBe(409);
+     78|     expect(await response.json()).toEqual({ error: "conflict", traceId…
+       |                                   ^
+     79|   });
+     80| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 14 passed (18)
+   Start at  09:44:04
+   Duration  1.90s (transform 822ms, setup 0ms, collect 1.50s, tests 216ms, environment 0ms, prepare 49ms)
+

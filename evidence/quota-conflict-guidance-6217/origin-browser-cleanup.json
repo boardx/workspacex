@@ -1,0 +1,34 @@
+{
+  "checkedAt": "2026-11-04T01:33:21.347638+00:00",
+  "scope": "wsx-0edd8dfeb7093fc6d3ed",
+  "ports": [
+    "20830",
+    "21830",
+    "24830",
+    "25830",
+    "26830",
+    "27830",
+    "28830",
+    "29830",
+    "30830",
+    "31830",
+    "19830"
+  ],
+  "checks": {
+    "containers": {
+      "exit": 0,
+      "output": "",
+      "stderr": ""
+    },
+    "volumes": {
+      "exit": 0,
+      "output": "",
+      "stderr": ""
+    },
+    "listeners": {
+      "exit": 1,
+      "output": "",
+      "stderr": ""
+    }
+  }
+}
