@@ -1,0 +1,33 @@
+{
+  "name": "browser-list-second",
+  "command": [
+    "pnpm",
+    "exec",
+    "tsx",
+    ".harness/scripts/with-test-isolation.ts",
+    "--",
+    "pnpm",
+    "--filter",
+    "web",
+    "exec",
+    "playwright",
+    "test",
+    "--config",
+    "playwright.fullstack-smoke.config.ts",
+    "--project=seeded",
+    "e2e/i18n-survey-journey.spec.ts",
+    "--workers=1",
+    "--retries=0",
+    "--max-failures=1",
+    "--list"
+  ],
+  "source": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "exitCode": 0,
+  "seconds": 2.668,
+  "rawLogSha256": "2474f0c7af4fe1e772f056212c770e61eebbd389c41bbffc5c253672ab58b1a8",
+  "sourceAfter": "ee9b845a1090082251563c48a2791d1034ff7cb7",
+  "sourceStable": true,
+  "environment": {},
+  "discovered": 3,
+  "browserExecuted": false
+}

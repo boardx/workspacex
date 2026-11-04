@@ -92,6 +92,9 @@ function zipText(bytes: Buffer, entry: string): string {
     }
     throw Error(`Downloaded archive entry missing: ${entry}`);
 }
+// Scope product diagnostics to the actual surface. Next's separate route
+// announcer is also role=alert; it is not a survey error or a permission notice.
+const surveySurface = (page: Page) => page.getByRole("main", { includeHidden: true }).last();
 const meeting = "会议反馈调查";
 async function fillMeeting(page: Page, firstTitle: string) {
     await page.getByRole("textbox", { name: firstTitle, exact: true }).fill("原会议回答 {count}");
@@ -177,7 +180,9 @@ test("survey locale preserves real author publishing, anonymous file submission,
         expect(bound.status).toBe("draft");
         const published = page.waitForResponse(response => pathOf(response.url()) === `/surveys/${id}/publish` && response.request().method() === "POST");
         await page.getByRole("button", { name: "Start collection", exact: true }).click();
-        expect((await published).ok()).toBe(true);
+        const publicationResponse = await published;
+        expect(publicationResponse.status()).toBe(201);
+        expect(publicationResponse.ok()).toBe(true);
         const publicUrl = await page.getByRole("textbox", { name: "Response link", exact: true }).inputValue(), initialPublication = await runtime(page, id);
         expect(initialPublication.publication?.sourceSnapshot).toBeDefined();
         expect(initialPublication.activeCollectionBatchId).toBeTruthy();
@@ -194,8 +199,11 @@ test("survey locale preserves real author publishing, anonymous file submission,
         await respondent.getByTestId("language-switcher").selectOption("en");
         await expect(respondent.getByRole("heading", { name: rawTitle, exact: true })).toBeVisible();
         await respondent.getByRole("button", { name: "Submit response", exact: true }).click();
-        await expect(respondent.getByRole("alert")).toContainText("Your answers are retained.");
-        await capture(respondent, info, "public-validation-en", respondent.getByRole("alert"));
+        const validationError = surveySurface(respondent).getByRole("alert");
+        await expect(validationError).toHaveCount(1);
+        await expect(validationError).toBeVisible();
+        await expect(validationError).toContainText("Your answers are retained.");
+        await capture(respondent, info, "public-validation-en", validationError);
         await fillMeeting(respondent, rawFirst);
         const token = initialPublication.publication!.token, fileQuestion = initialPublication.questions.find(question => question.type === "file")!;
         held = await holdResponse(respondent, `/public/surveys/${token}/upload-sessions`);
@@ -436,16 +444,19 @@ test("survey template locale preserves real CAS saves, independent copies, repor
             await route.continue(); };
         await page.route(`**/__fullstack_api/surveys/templates/${savedRow.id}`, failOnce);
         await page.getByRole("button", { name: "Save template", exact: true }).click();
-        await expect(page.getByRole("alert")).toContainText("You do not have permission to perform this action.");
-        await expect(page.getByRole("alert")).not.toContainText("Sign in");
+        const permissionError = surveySurface(page).getByRole("alert");
+        await expect(permissionError).toHaveCount(1);
+        await expect(permissionError).toBeVisible();
+        await expect(permissionError).toContainText("You do not have permission to perform this action.");
+        await expect(permissionError).not.toContainText("Sign in");
         await expect(page.getByRole("textbox", { name: "Template description", exact: true })).toHaveValue(changedDescription);
         const beforeFailureLocale = calls.length;
         await languages.language("zh-CN");
-        await expect(page.getByRole("alert")).not.toContainText("CONTROLLED_TEMPLATE_PERMISSION");
+        await expect(permissionError).not.toContainText("CONTROLLED_TEMPLATE_PERMISSION");
         await languages.language("en");
         expect(calls).toHaveLength(beforeFailureLocale);
         expect((await api(page, `/surveys/templates/${savedRow.id}`)).version).toBe(original.version);
-        await capture(page, info, "template-controlled-permission-en", page.getByRole("alert"));
+        await capture(page, info, "template-controlled-permission-en", permissionError);
         await page.unroute(`**/__fullstack_api/surveys/templates/${savedRow.id}`, failOnce);
         const retried = page.waitForResponse(response => pathOf(response.url()) === `/surveys/templates/${savedRow.id}` && response.request().method() === "PUT");
         await page.getByRole("button", { name: "Save template", exact: true }).click();
@@ -621,7 +632,9 @@ test("survey intake locale preserves real file bytes, one configured proposal, c
         expect(proposal.execution.provider).toBeTruthy();
         expect(proposal.execution.modelId).toBeTruthy();
         expect(proposal.source.kind).toBe("file");
-        const dialog = page.getByRole("dialog", { name: "Markdown preview and review", exact: true }), markdown = dialog.getByRole("textbox", { name: "AI proposal Markdown", exact: true });
+        const dialog = page.getByRole("dialog"), markdown = dialog.getByRole("textbox", { name: "AI proposal Markdown", exact: true });
+        await expect(dialog).toHaveCount(1);
+        await expect(dialog).toHaveAccessibleName("Markdown preview and review");
         await expect(markdown).toHaveValue(proposal.markdown);
         const rawQuestion = "原始开放题 {name}", edited = `# 原模型标题 {count}\n\n## feedback [open]\n${rawQuestion}\n`;
         await markdown.fill(edited);
@@ -630,9 +643,11 @@ test("survey intake locale preserves real file bytes, one configured proposal, c
         await markdown.evaluate(element => (element as HTMLTextAreaElement).setSelectionRange(2, 8));
         const beforeModalLocale = writes.length;
         await languages.language("zh-CN");
+        await expect(dialog).toHaveAccessibleName("Markdown 预览与校对");
         await expect(page.getByRole("textbox", { name: "AI 提案 Markdown", exact: true })).toHaveValue(edited);
         expect(await editorHandle!.evaluate(element => element === document.activeElement)).toBe(true);
         await languages.language("en");
+        await expect(dialog).toHaveAccessibleName("Markdown preview and review");
         expect(writes).toHaveLength(beforeModalLocale);
         await capture(page, info, "proposal-corrected-raw-en", markdown);
         let refused = false;
@@ -648,13 +663,20 @@ test("survey intake locale preserves real file bytes, one configured proposal, c
         const firstCreatedResponse = await firstCreated;
         expect(firstCreatedResponse.ok()).toBe(true);
         const partial = SurveyRuntimeSchema.parse(await firstCreatedResponse.json());
+        await expect(dialog.getByRole("alert")).toHaveCount(1);
+        await expect(dialog.getByRole("alert")).toBeVisible();
         await expect(dialog.getByRole("alert")).toContainText("You do not have permission to perform this action.");
         expect(refused).toBe(true);
-        for (const alert of await page.getByRole("alert").all())
+        // Radix hides the underlying main while review is open. Check both
+        // retained inline states as well as the visible dialog error above.
+        const retainedErrors = surveySurface(page).getByRole("alert", { includeHidden: true });
+        await expect(retainedErrors).toHaveCount(2);
+        for (const alert of await retainedErrors.all())
             await expect(alert).toContainText("You do not have permission to perform this action.");
         await expect(dialog.getByRole("textbox", { name: "AI proposal Markdown", exact: true })).toHaveValue(edited);
         const failedWrites = writes.length;
         await languages.language("zh-CN");
+        await expect(dialog).toHaveAccessibleName("Markdown 预览与校对");
         expect(writes).toHaveLength(failedWrites);
         await expect(page.getByRole("textbox", { name: "AI 提案 Markdown", exact: true })).toHaveValue(edited);
         await capture(page, info, "proposal-controlled-permission-zh", dialog.getByRole("button", { name: "应用到问卷", exact: true }));
