@@ -26,9 +26,13 @@ Every case retains180000ms, worker1/retry0/maxfail1 and original600000ms service
 | Independent template /62c7637 |0PASS/1timeout/0skip/0flaky/global1;case180.422s/wrapper595.538s|Real save/reload, controlled403 same-body retry/version+1 and independent copy edit reached. Stale Export JSON locator blocked export; actual JSX/name is Export template. Report binding/unlink/undo/PG remainder unexecuted.|`template-browser-1*`, `template-list-1*`|
 | Independent author /232421f | Infrastructure startup timeout;0executed/0PNG, global1, wrapper686.721s |Original config.webServer600000ms expired before any spec. No business PASS/FAIL. Necessary merged-source webtype,2file24existing tests and5filelint actually passed first. Incomplete output has no BUILD_ID.|`author-browser-1*`, `post-ef494-*`|
 
-These results are never stitched into native3PASS. The author/public/report and corrected template cases remain pending. Coordinator now authorizes one exact two-case original canonical invocation (author then template) after capacity recovery, preserving original budgets/assertions; no new prebuild framework and no reuse of incomplete output.
+| Exact remaining author+template /d83f8bf | Second infrastructure startup timeout;0executed/0PNG, global1, wrapper673.728s |Both exact cases discovered. Webpack compiled; build lint/type exceeded original600s startup. No successful BUILD_ID, no test body, no business PASS/FAIL.|`remaining-browser-1*`, `remaining-list-1*`|
 
-Capacity incident: actual startup timeout and other checkout load observations are recorded in `author-browser-1-infrastructure.md`. Owned cleanup remains0. Source/code/raw/evidence/stashes stay protected. Coordinator-authorized removal of only this failed build's inactive cache found0 allocated bytes and released no meaningful disk space (`author-failed-cache-cleanup.json`); worker does not attribute global disk changes to its cleanup. Coordinator subsequently restored about7.8Gi available and explicitly authorized exactly one original canonical two-case build. Start requires fresh peer noheavy/sole handoff and roughly7.5Gi available; ordinary tool polling checks disk, approaching2Gi requires own-scope infrastructure shutdown. No new watchdog, source-gate repetition or budget change.
+These results are never stitched into native3PASS. After two infrastructure startup failures coordinator explicitly directs no third local Next build. An explicit Draft PR to develop will normally run existing CI, while source/driver stay frozen and6239 remains deferred. The source is not READY until actual runtime and sourceCI both pass.
+
+`existing-ci-survey-selection.json` traces the existing PR-to-develop fullstack-smoke job through verify:fullstack-product, the product partition and seeded-github-import dependency closure to seeded and all3 original survey cases. No workflow/config selection/trigger/budget was changed. Draft opened/synchronize/reopened use the existing PR event. This is read-only selection proof, not runtime acceptance. The existing job is advisory/continue-on-error and has CI default retry1/runner-default concurrency: its green check alone is not evidence that these cases ran or passed first try. Inspect actual native case/skip/flaky/error counts and per-case attempts, then view every actual PNG before READY.
+
+Both failed build outputs lacked BUILD_ID. Only the latter build's own inactive regenerable compiler cache was removed after cleanup0; allocation and observed global-free measurements are retained in remaining-failed-cache-cleanup.json without attributing all disk movement to this cleanup. Source/raw/evidence/stashes/other owners' paths were preserved. No local build restarts are planned.
 
 ## Actual screenshot QA
 
@@ -36,9 +40,9 @@ All actual PNGs have been individually viewed, not inferred from pass counts or 
 
 ## Remaining completion gates
 
-1. Actual author→publish→anonymous supported-name upload/submit→review→32responses/report/MD/Word/API+PG case. Downloaded Word ZIP/XML is independently inspected; browser printing is not a generated PDF-file claim.
+1. Actual CI execution of all3 original cases, including author→publish→anonymous supported-name upload/submit→review→32responses/report/MD/Word/API+PG case. Downloaded Word ZIP/XML is independently inspected; browser printing is not a generated PDF-file claim.
 2. Corrected original template case through report binding/unlink/undo/rawJSON/API+PG; fresh375/1280 images must confirm the heading correction.
-3. Final safe evidence review, necessary current-source integration checks, normal hook-enabled explicit branch push and one PR Closes#6221 to develop. SourceCI/review must be green and coordinator must perform actual merge; local source-only green is not delivery.
+3. Final review-chain binding and safe evidence review, normal hook-enabled explicit branch push and one Draft PR Closes#6221 to develop; no repeated unchanged source gates or local Next build. SourceCI/review must be green and coordinator must perform actual merge; local source-only green is not delivery.
 4. Final plan/issue/matrix updates and owned resource cleanup. No manual feature passing and no declaration of an unfinished journey as complete.
 
 All preceding invalid collections, semantic REDs, source-gate failures and raw receipt hashes are retained as separate files. They are historical evidence, not extra current cases or silently relabeled passes.
