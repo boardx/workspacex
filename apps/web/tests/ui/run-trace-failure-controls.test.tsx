@@ -27,6 +27,17 @@ describe("failure controls #6244", () => {
     view.rerender(<RunTracePanel runId="failed" events={events.map((event) => ({ ...event, attemptId: "second" }))} failureScope="org/thread" />);
     expect(screen.getByTestId("run-trace-panel")).toBeVisible();
   });
+  it("can hide a succeeded run with a real failed tool, without offering run retry", () => {
+    const trace: ExecutionEvent[] = [
+      { ...events[0]!, kind: "tool_start", toolCallId: "t", toolName: "execute", args: {} },
+      { ...events[0]!, seq: 2, kind: "tool_end", toolCallId: "t", toolName: "execute", ok: false, result: "failed" },
+      { ...events[0]!, seq: 3, kind: "status", status: "succeeded" },
+    ];
+    render(<RunTracePanel runId="failed" events={trace} failureScope="org/thread" onRetryFailure={vi.fn()} />);
+    expect(screen.queryByText("重试")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("隐藏失败记录"));
+    expect(screen.getByTestId("run-trace-hidden")).toBeVisible();
+  });
   it("offers retry only when the host supplies an eligible recovery action", () => {
     const retry = vi.fn();
     const view = render(<RunTracePanel runId="failed" events={events} onRetryFailure={retry} />);
