@@ -246,6 +246,7 @@ export const zhCN = {
   "home.error.UNSUPPORTED_CONTENT_TYPE": "只支持 PNG / JPEG / WebP 图片",
   "common.error.network": "连不上服务器，检查一下网络再试",
   "common.http.auth": "登录状态过期了，刷新页面重新登录",
+  "common.http.forbidden": "你没有权限执行此操作，如需访问请联系管理员",
   "common.http.notFound": "要找的东西不在了",
   "common.http.rateLimit": "操作太频繁了，等一下再试",
   "common.http.server": "服务器出错了，稍后再试一次",
