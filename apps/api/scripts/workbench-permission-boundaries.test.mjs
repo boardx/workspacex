@@ -19,3 +19,11 @@ for(const [path,rule] of workbenchBoundaries){
     });
   }
 }
+
+for(const replacement of ['FOR SHARE','FOR KEY SHARE','']){
+ test('lease fencing rejects weaker lock '+replacement,()=>{
+  const path='src/infrastructure/db/pg-database.ts';
+  const altered=read(path).replace('FOR NO KEY UPDATE',replacement);
+  assert.ok(verifyWorkbenchBoundaries(file=>file===path?altered:read(file),tables).some(v=>v.startsWith(path+':')));
+ });
+}

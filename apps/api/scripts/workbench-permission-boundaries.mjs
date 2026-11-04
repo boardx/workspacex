@@ -1,3 +1,4 @@
+import {RUN_LEASE_FENCE_SQL} from "./lib/workbench-permission-boundary.mjs";
 import {modelMetadataPermissionBoundaries} from "./model-metadata-permission-boundaries.mjs";
 /** Narrow control-plane exceptions. Each admitted file is checked again on every lint
  * invocation; disclosure stays at the existing authenticated application boundary. */
@@ -73,7 +74,7 @@ export const workbenchBoundaries = new Map([
   ['src/infrastructure/db/pg-database.ts', {
     tables:['agent_runs'],
     reason:'Lease fencing reads only the current run identity inside the transaction and never returns the row. This is infrastructure for enforcing ownership, not a content read API.',
-    checks:[[null,/SELECT id FROM agent_runs WHERE org_id=\$1 AND id=\$2\s+AND lease_epoch=\$3 AND lease_expires_at>now\(\) FOR UPDATE/],
+    checks:[[null,RUN_LEASE_FENCE_SQL],
       [null,/if\(!ownership\.rows\.length\)throw new RunLeaseLostError\(\)/],
       [null,/set_config\('app.current_org', \$1, true\)/]],
   }],

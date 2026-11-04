@@ -64,6 +64,7 @@ def test_model_requests_reported_usage_and_preserves_real_receipt(monkeypatch, t
             assert "stream_options" not in requests[0]
         assert [phase for phase, _ in callbacks] == ["admit", "terminal"]
         assert callbacks[-1][1]["usage"] == {"total":9, "prompt":6, "completion":3}
+        assert callbacks[-1][1]["outcome"] == "succeeded"
         assert callbacks[0][1]["requestId"] == callbacks[-1][1]["requestId"]
     finally:
         sync.close()
