@@ -486,14 +486,28 @@ test("organization home configuration preserves drafts, real previews and recomm
     importedVersionIds = result.versionIds;
     expect(importedIds.length).toBeGreaterThan(0);
   }
-  // Read back both branches to prove setup preserved every pre-existing authored row.
+  const agentSnapshot = (item: typeof initialDirectory[number]) => ({
+    agentId: item.agentId, versionId: item.versionId, name: item.name, display: item.display,
+  });
+  const skillSnapshot = (item: typeof initialLibrary[number]) => ({
+    skillId: item.skillId, currentVersionId: item.currentVersionId, name: item.name, display: item.display,
+  });
+  // Preserve authored identity; readiness, usage and other derived fields may change.
   const directory = await readDirectory();
   const library = await readLibrary();
-  for (const original of initialDirectory) expect(directory.find(item => item.agentId === original.agentId)).toEqual(original);
-  for (const original of initialLibrary) expect(library.find(item => item.skillId === original.skillId)).toEqual(original);
+  for (const original of initialDirectory) {
+    const retained = directory.find(item => item.agentId === original.agentId);
+    expect(retained).toBeDefined();
+    expect(agentSnapshot(retained!)).toEqual(agentSnapshot(original));
+  }
+  for (const original of initialLibrary) {
+    const retained = library.find(item => item.skillId === original.skillId);
+    expect(retained).toBeDefined();
+    expect(skillSnapshot(retained!)).toEqual(skillSnapshot(original));
+  }
   if (existingAgent) {
-    expect(directory).toEqual(initialDirectory);
-    expect(library).toEqual(initialLibrary);
+    expect(directory.map(agentSnapshot)).toEqual(initialDirectory.map(agentSnapshot));
+    expect(library.map(skillSnapshot)).toEqual(initialLibrary.map(skillSnapshot));
   }
   const agent = existingAgent
     ? directory.find(item => item.agentId === existingAgent.agentId)
@@ -502,14 +516,18 @@ test("organization home configuration preserves drafts, real previews and recomm
   expect(agent!.agentId).not.toBe("");
   expect(agent!.versionId).not.toBe("");
   expect(agent!.name).not.toBe("");
-  if (existingAgent) expect(agent).toEqual(existingAgent);
+  if (existingAgent) expect(agentSnapshot(agent!)).toEqual(agentSnapshot(existingAgent));
   // Canonical adapter status and stable IDs are independent of display locale.
   const skill = library.find(item => item.status === "已启用" && item.skillId && item.currentVersionId);
   expect(skill, "Existing official agents require an enabled published skill; setup must not reinstall authored packs").toBeDefined();
   expect(skill!.skillId).not.toBe("");
   expect(skill!.currentVersionId).toBeTruthy();
   expect(skill!.name).not.toBe("");
-  if (existingAgent) expect(skill).toEqual(initialLibrary.find(item => item.skillId === skill!.skillId));
+  if (existingAgent) {
+    const originalSkill = initialLibrary.find(item => item.skillId === skill!.skillId);
+    expect(originalSkill).toBeDefined();
+    expect(skillSnapshot(skill!)).toEqual(skillSnapshot(originalSkill!));
+  }
   await testInfo.attach("home-recommendation-preparation", {
     contentType: "application/json",
     body: JSON.stringify({
