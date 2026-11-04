@@ -32,3 +32,8 @@ flowchart LR
 ## Accepted recording sync after PR creation
 
 PR #6227 first observed a real conflict after develop advanced through #6220. Normal merge `ce8e561d461cf29d467e8cbc1c1a8e1177b6e559` preserves both locale registries and every protected path. Bounded independent review is CLEAN; each catalog has3,331 unique keys, exact parent union and unchanged retained expressions. Fresh impacted resources/count13/13, registrylint andinit pass. Quota source/test/E2E/config retain measured bytes; original browser/88-case results keep their original source attribution. See `accepted-recording/` for proof, review and curated gates. Normal update hooks and remote delivery remain separate required gates.
+
+
+## First CI failure repaired in tests
+
+Publishedc6a verify-affected exposed a legacy quota-live403 assertion still expecting relogin. Actual local original8 RED is1FAIL7PASS; test-only sourceb776 corrects403 and adds401 control, with other production/E2E/config bytes unchanged. Expanded bounded97/97 plus scopedlint pass, independent incrementreview CLEAN. See `ci-fix/` for exact source/run/receipts and the corrected adjacency-selection gap. RemoteCI and actual merge remain required; no browser rerun or new full-project completion is claimed.
