@@ -308,7 +308,7 @@ export const surveyWorkspaceEn: Record<keyof typeof surveyWorkspaceZhCN, string>
   "survey.workspace.createdLinked": "Survey created and linked to the project",
   "survey.workspace.createdNotLinked": "Survey created, but linking failed. Use “Link an existing survey” on the project page to link it.",
   "survey.workspace.operationDone": "Operation completed",
-  "survey.workspace.localKept": "Local design and report template retained. Review and save them; remote content has not been overwritten.",
+  "survey.workspace.localKept": "Local design and report template kept. Review and save them; remote content has not been overwritten.",
   "survey.workspace.linkCopied": "Link copied",
   "survey.workspace.reportRegenerated": "Report regenerated using the latest responses and report template",
   "survey.workspace.newDraftSuffix": " (new draft)",
