@@ -51,7 +51,7 @@
 - [x] AddsemanticEN/zhcontinuity plusrawmessage/code/toolargument/APIpayloadnegativecases.
 - [x] RunRED beforeminimaldisplayimplementation.
 - [x] Keepreason/enums stable, localizesemanticUIat render, neverregex usermessages or translatedexecutioninstructions.
-- [ ] Runadjacentapproval/queue/stream/reload tests, commit.
+- [x] Runadjacentapproval/queue/stream/reload tests, commit.
 
 ### Task 4: Inspector, settings, details, knowledge andpreviewoverlays
 
