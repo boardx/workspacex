@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { ENTITY_LOCALIZATION_E2E } from "./entity-localization-fixture";
-import { agentRole, homeConfig, orgAdmin, skills } from "@repo/contracts";
+import { agentRole, homeConfig, orgAdmin, skills, wave2Runtime } from "@repo/contracts";
 import { EntityLocalizationAdminView } from "@repo/contracts/entity-localization";
 import { SkillFileSnapshot, operations as fileOperations } from "@repo/contracts/skill-file-edit";
 
@@ -449,29 +449,78 @@ test("organization home configuration preserves drafts, real previews and recomm
   const currentResponse = await page.request.get(homePath, { headers });
   expect(currentResponse.status()).toBe(200);
   const before = homeConfig.HomeConfig.parse(await currentResponse.json());
-  // Populate recommendations through actual installation APIs, never seeded outcomes.
-  const offerResponse = await page.request.get("/__fullstack_api" + agentRole.operations.getOfficialRolePackOffer.path, { headers });
-  expect(offerResponse.status()).toBe(200);
-  const offer = agentRole.OfficialRolePackOffer.parse(await offerResponse.json());
-  for (const pack of offer.requiredSkillPacks) {
-    const installed = await page.request.post("/__fullstack_api/admin/skills/starter-pack-imports", {
-      headers, data: { ...pack, idempotencyKey: randomUUID() },
+  const readDirectory = async () => {
+    const response = await page.request.get(directoryPath, { headers });
+    expect(response.status()).toBe(200);
+    return agentRole.operations.listAgentDirectory.out.parse(await response.json()).items
+      .sort((left, right) => left.agentId.localeCompare(right.agentId));
+  };
+  const readLibrary = async () => {
+    const response = await page.request.get(skillsPath, { headers, params: { orgId, entry: "library" } });
+    expect(response.status()).toBe(200);
+    return skills.operations.listSkills.out.parse(await response.json()).items
+      .sort((left, right) => left.skillId.localeCompare(right.skillId));
+  };
+  const initialDirectory = await readDirectory();
+  const initialLibrary = await readLibrary();
+  const existingAgent = initialDirectory.find(item => item.catalogSource === "official" && item.agentId && item.versionId);
+  let importedIds: string[] = [];
+  let importedVersionIds: string[] = [];
+  if (!existingAgent) {
+    // A fresh tenant still installs real dependencies and roles; conflicts remain failures.
+    const offerResponse = await page.request.get("/__fullstack_api" + agentRole.operations.getOfficialRolePackOffer.path, { headers });
+    expect(offerResponse.status()).toBe(200);
+    const offer = agentRole.OfficialRolePackOffer.parse(await offerResponse.json());
+    for (const pack of offer.requiredSkillPacks) {
+      const installed = await page.request.post("/__fullstack_api/admin/skills/starter-pack-imports", {
+        headers, data: { ...pack, idempotencyKey: randomUUID() },
+      });
+      expect(installed.status(), await installed.text()).toBe(201);
+    }
+    const installed = await page.request.post("/__fullstack_api" + wave2Runtime.operations.importAgentStarterPack.path, {
+      headers, data: { packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: randomUUID() },
     });
     expect(installed.status(), await installed.text()).toBe(201);
+    const result = wave2Runtime.operations.importAgentStarterPack.out.parse(await installed.json());
+    importedIds = result.agentIds;
+    importedVersionIds = result.versionIds;
+    expect(importedIds.length).toBeGreaterThan(0);
   }
-  const installed = await page.request.post("/__fullstack_api/admin/agents/starter-pack-imports", {
-    headers, data: { packId: offer.packId, packVersion: offer.packVersion, idempotencyKey: randomUUID() },
+  // Read back both branches to prove setup preserved every pre-existing authored row.
+  const directory = await readDirectory();
+  const library = await readLibrary();
+  for (const original of initialDirectory) expect(directory.find(item => item.agentId === original.agentId)).toEqual(original);
+  for (const original of initialLibrary) expect(library.find(item => item.skillId === original.skillId)).toEqual(original);
+  if (existingAgent) {
+    expect(directory).toEqual(initialDirectory);
+    expect(library).toEqual(initialLibrary);
+  }
+  const agent = existingAgent
+    ? directory.find(item => item.agentId === existingAgent.agentId)
+    : directory.find(item => item.catalogSource === "official" && importedIds.includes(item.agentId) && importedVersionIds.includes(item.versionId));
+  expect(agent, "Setup must provide a published official agent from existing or actual imported IDs").toBeDefined();
+  expect(agent!.agentId).not.toBe("");
+  expect(agent!.versionId).not.toBe("");
+  expect(agent!.name).not.toBe("");
+  if (existingAgent) expect(agent).toEqual(existingAgent);
+  // Canonical adapter status and stable IDs are independent of display locale.
+  const skill = library.find(item => item.status === "已启用" && item.skillId && item.currentVersionId);
+  expect(skill, "Existing official agents require an enabled published skill; setup must not reinstall authored packs").toBeDefined();
+  expect(skill!.skillId).not.toBe("");
+  expect(skill!.currentVersionId).toBeTruthy();
+  expect(skill!.name).not.toBe("");
+  if (existingAgent) expect(skill).toEqual(initialLibrary.find(item => item.skillId === skill!.skillId));
+  await testInfo.attach("home-recommendation-preparation", {
+    contentType: "application/json",
+    body: JSON.stringify({
+      branch: existingAgent ? "reuse-existing" : "install-fresh",
+      agent: { agentId: agent!.agentId, versionId: agent!.versionId, name: agent!.name },
+      skill: { skillId: skill!.skillId, versionId: skill!.currentVersionId, name: skill!.name },
+      preservedDirectoryIds: initialDirectory.map(item => item.agentId),
+      preservedSkillIds: initialLibrary.map(item => item.skillId),
+      existingSnapshotsPreserved: true,
+    }),
   });
-  expect(installed.status(), await installed.text()).toBe(201);
-  const directoryResponse = await page.request.get(directoryPath, { headers });
-  expect(directoryResponse.status()).toBe(200);
-  const agent = agentRole.operations.listAgentDirectory.out.parse(await directoryResponse.json()).items[0];
-  expect(agent).toBeDefined();
-  const skillsResponse = await page.request.get(skillsPath, { headers, params: { orgId, entry: "library" } });
-  expect(skillsResponse.status()).toBe(200);
-  // This adapter status is a stable filter value, independent of display locale.
-  const skill = skills.operations.listSkills.out.parse(await skillsResponse.json()).items.find(item => item.status === "已启用");
-  expect(skill).toBeDefined();
 
   const reads = { config: 0, agents: 0, skills: 0 };
   let bannerPosts = 0, threadPosts = 0;
