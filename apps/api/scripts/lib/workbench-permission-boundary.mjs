@@ -1,5 +1,8 @@
 import ts from 'typescript';
 
+// One exact authority premise shared by the source and AST guards.
+export const RUN_LEASE_FENCE_SQL = /SELECT id FROM agent_runs WHERE org_id=\$1 AND id=\$2\s+AND lease_epoch=\$3 AND lease_expires_at>now\(\) FOR NO KEY UPDATE/;
+
 /** Recognize two specific existing boundaries, not arbitrary guard imports. */
 export const WORKBENCH_BOUNDARIES = new Set([
   'src/infrastructure/chat-queue/thread-message-queue.ts',
@@ -21,7 +24,7 @@ export function checkWorkbenchPermissionBoundary(path, source) {
   }; visit(ast);
   if (path.endsWith('pg-database.ts')) {
     const ownership = queries.filter(q => /\bFROM\s+agent_runs\b/i.test(q));
-    if (ownership.length !== 1 || !/^SELECT id FROM agent_runs WHERE org_id=\$1 AND id=\$2\s+AND lease_epoch=\$3 AND lease_expires_at>now\(\) FOR UPDATE$/.test(ownership[0])) errors.push('lease query must disclose only id under exact tenant/epoch/expiry fencing');
+    if (ownership.length !== 1 || !new RegExp('^'+RUN_LEASE_FENCE_SQL.source+'$').test(ownership[0])) errors.push('lease query must disclose only id under exact tenant/epoch/expiry fencing');
     if (!/if\(orgId!==lease.orgId\)throw new RunLeaseLostError\(\)/.test(source)
       || !/if\(!ownership.rows.length\)throw new RunLeaseLostError\(\)/.test(source)) errors.push('lease rejection missing');
     const tenantSql = queries.filter(q => /\b(?:FROM|JOIN)\s+(?!(?:agent_runs|_kernel_migrations|pg_class|pg_namespace)\b)\w+/i.test(q));

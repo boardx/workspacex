@@ -6,7 +6,7 @@ for (const path of WORKBENCH_BOUNDARIES) {
   const source = readFileSync(new URL('../../'+path, import.meta.url),'utf8');
   test(path+' existing boundary recognized',()=>assert.deepEqual(check(path,source),[]));
   if(path.endsWith('pg-database.ts')) {
-    for(const [from,to] of [['SELECT id FROM agent_runs','SELECT * FROM agent_runs'],['orgId!==lease.orgId','false'],['lease_expires_at>now()','true']])
+    for(const [from,to] of [['SELECT id FROM agent_runs','SELECT * FROM agent_runs'],['orgId!==lease.orgId','false'],['lease_expires_at>now()','true'],['lease_epoch=$3','true'],['org_id=$1 AND id=$2','id=$2'],['FOR NO KEY UPDATE','FOR KEY SHARE'],['FOR NO KEY UPDATE','FOR SHARE'],['FOR NO KEY UPDATE',''],['FOR NO KEY UPDATE','FOR NO KEY UPDATE SKIP LOCKED']])
       test('reject lease '+from,()=>assert.ok(check(path,source.replace(from,to)).length));
   } else {
     for(const from of ['await this.authorize(orgId,userId,threadId);','await this.authorize(orgId,userId,threadId,true);','access.kind!=="allow"','userId:row.actor_id'])

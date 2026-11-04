@@ -67,8 +67,9 @@ export class PgDatabase implements DatabasePort {
       const lease=currentRunLease();
       if(lease){
         if(orgId!==lease.orgId)throw new RunLeaseLostError();
+        // Exclude lease/epoch changes through commit while allowing usage FK checks.
         const ownership=await session.query(`SELECT id FROM agent_runs WHERE org_id=$1 AND id=$2
-          AND lease_epoch=$3 AND lease_expires_at>now() FOR UPDATE`,[orgId,lease.runId,lease.epoch]);
+          AND lease_epoch=$3 AND lease_expires_at>now() FOR NO KEY UPDATE`,[orgId,lease.runId,lease.epoch]);
         if(!ownership.rows.length)throw new RunLeaseLostError();
       }
       const out = await this.activeSession.run({orgId,session},()=>fn(session));
